@@ -1,0 +1,9 @@
+pymupdf==1.23.7
+pillow==10.1.0
+pix2tex==0.1.2
+torch==2.1.1
+torchvision==0.16.1
+transformers==4.36.0
+numpy==1.26.2
+requests==2.31.0
+easyocr==1.7.0

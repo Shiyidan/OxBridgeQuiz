@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>在线答题系统</title>
+    <link rel="stylesheet" href="/tikzjax/fonts.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <script src="/tikzjax/tikzjax.js"></script>
+
+    <!-- 预热：用隐藏标签触发 WASM + TeX 初始化 -->
+    <div style="position:fixed;left:-9999px;top:0;visibility:hidden;width:0;height:0;overflow:hidden;">
+      <script type="text/tikz">
+        \begin{tikzpicture} \draw (0,0) -- (1,0); \end{tikzpicture}
+      </script>
+    </div>
+
+    <script>
+      // 监听预热完成，通知 Vue
+      window.__tikzjaxReady = false
+      document.addEventListener('tikzjax-load-finished', function onReady() {
+        if (!window.__tikzjaxReady) {
+          window.__tikzjaxReady = true
+          document.dispatchEvent(new CustomEvent('tikzjax-engine-ready'))
+          console.log('TikZJax engine ready (preheated)')
+        }
+      }, { once: false })
+    </script>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

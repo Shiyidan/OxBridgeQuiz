@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Paper {
+  id             String   @id @default(uuid())
+  title          String
+  code           String?
+  year           Int
+  duration       Int
+  totalQuestions Int      @default(0)
+  pdfUrl         String
+  status         String   @default("draft")
+  questions      String   @default("[]")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  parseTasks ParseTask[]
+}
+
+model ParseTask {
+  id        String   @id @default(uuid())
+  paperId   String
+  status    String   @default("pending")
+  progress  Int      @default(0)
+  error     String?
+  result    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  paper Paper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+}

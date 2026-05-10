@@ -1,5 +1,9 @@
 <template>
-  <span class="formula-block" v-html="renderedFormula"></span>
+  <span
+    class="formula-block"
+    :class="{ 'formula-block--display': displayMode }"
+    v-html="renderedFormula"
+  ></span>
 </template>
 
 <script setup lang="ts">
@@ -13,16 +17,29 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  displayMode: false
+  displayMode: false,
 })
 
-const renderedFormula = computed(() => {
+/**
+ * 模块级缓存：跨组件实例复用 KaTeX 渲染结果。
+ * Why: 切题时同一公式（如 $x$、$R$）会出现在多道题里；缓存命中可避免重复 katex.renderToString。
+ * How to apply: key = displayMode|latex；纯字符串 in/out，无副作用。
+ */
+const renderCache = new Map<string, string>()
+
+const renderedFormula = computed<string>(() => {
+  const key = `${props.displayMode ? 'D' : 'I'}|${props.latex}`
+  const cached = renderCache.get(key)
+  if (cached !== undefined) return cached
+
   try {
-    return katex.renderToString(props.latex, {
+    const html = katex.renderToString(props.latex, {
       throwOnError: false,
       displayMode: props.displayMode,
-      strict: false
+      strict: false,
     })
+    renderCache.set(key, html)
+    return html
   } catch (e) {
     console.error('KaTeX render error:', e)
     return `<span class="formula-error">${props.latex}</span>`
@@ -36,14 +53,24 @@ const renderedFormula = computed(() => {
   align-items: center;
 }
 
+.formula-block--display {
+  display: block;
+  margin: 0.75em 0;
+  text-align: center;
+}
+
 .formula-block :deep(.katex) {
-  font-size: 1.1em;
+  font-size: 1.05em;
+}
+
+.formula-block--display :deep(.katex-display) {
+  margin: 0;
 }
 
 .formula-error {
-  color: #ff4d4f;
-  background: #fff2f0;
-  padding: 2px 4px;
+  color: #ef4444;
+  background: #fef2f2;
+  padding: 2px 6px;
   border-radius: 4px;
   font-family: monospace;
 }

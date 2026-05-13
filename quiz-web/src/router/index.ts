@@ -1,8 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
-import LoginView from '../views/LoginView.vue'
-import QuestionBankView from '../views/QuestionBankView.vue'
-import PracticeView from '../views/PracticeView.vue'
+import HomeView from '../views/home/HomeView.vue'
+import LoginView from '../views/auth/LoginView.vue'
+import QuestionBankView from '../views/student/QuestionBankView.vue'
+import PracticeView from '../views/student/PracticeView.vue'
 import AdminLayout from '../views/admin/AdminLayout.vue'
 
 const router = createRouter({
@@ -12,6 +12,8 @@ const router = createRouter({
     { path: '/', name: 'home', component: HomeView },
     // 登录页
     { path: '/login', name: 'login', component: LoginView },
+    // 个人中心
+    { path: '/profile', name: 'profile', component: () => import('../views/profile/ProfileView.vue') },
     // 试题库
     { path: '/question-bank', name: 'question-bank', component: QuestionBankView },
     // 在线答题

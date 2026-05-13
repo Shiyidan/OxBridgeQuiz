@@ -1,37 +1,43 @@
 <template>
-  <div class="admin-layout">
-    <!-- 左侧导航栏 -->
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <h1 class="sidebar-title">超级管理控制台</h1>
-        <p class="sidebar-subtitle">欢迎，{{ userName }}。您可以在此管理平台核心资产与用户数据。</p>
+  <div class="admin-page">
+    <NavBar />
+    <div class="admin-wrapper">
+      <div class="admin-layout">
+        <!-- 左侧导航栏 -->
+        <aside class="sidebar">
+          <div class="sidebar-header">
+            <h1 class="sidebar-title">超级管理控制台</h1>
+            <p class="sidebar-subtitle">欢迎，{{ userName }}。您可以在此管理平台核心资产与用户数据。</p>
+          </div>
+
+          <nav class="sidebar-nav">
+            <router-link
+              v-for="item in navItems"
+              :key="item.path"
+              :to="item.path"
+              class="nav-item"
+              active-class="nav-item--active"
+            >
+              <span class="nav-icon" v-html="item.icon"></span>
+              <span class="nav-label">{{ item.label }}</span>
+            </router-link>
+          </nav>
+        </aside>
+
+        <!-- 右侧内容区 -->
+        <main class="main-content">
+          <RouterView />
+        </main>
       </div>
-
-      <nav class="sidebar-nav">
-        <router-link
-          v-for="item in navItems"
-          :key="item.path"
-          :to="item.path"
-          class="nav-item"
-          active-class="nav-item--active"
-        >
-          <span class="nav-icon" v-html="item.icon"></span>
-          <span class="nav-label">{{ item.label }}</span>
-        </router-link>
-      </nav>
-    </aside>
-
-    <!-- 右侧内容区 -->
-    <main class="main-content">
-      <RouterView />
-    </main>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-// 管理后台整体布局（左侧导航栏 + 右侧 RouterView）
+// 管理后台整体布局（NavBar + 左侧导航栏 + 右侧 RouterView）
 import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import NavBar from '@/components/NavBar.vue'
 
 const auth = useAuthStore()
 const userName = computed(() => auth.user?.name || '管理员')
@@ -72,10 +78,21 @@ const navItems: NavItem[] = [
 </script>
 
 <style scoped lang="scss">
-.admin-layout {
-  display: flex;
+.admin-page {
   min-height: 100vh;
   background: #f8fafc;
+}
+
+/* 与 NavBar 内边距对齐 */
+.admin-wrapper {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.admin-layout {
+  display: flex;
+  min-height: calc(100vh - 64px);
 }
 
 /* ========== 左侧导航栏 ========== */

@@ -85,6 +85,7 @@
 </template>
 
 <script setup lang="ts">
+// 首页（落地页：Hero + 定价 + 功能介绍）
 import NavBar from '@/components/NavBar.vue'
 import PricingSection from '@/components/PricingSection.vue'
 </script>

@@ -1,6 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
-import ExamView from '../views/ExamView.vue'
 import LoginView from '../views/LoginView.vue'
 import QuestionBankView from '../views/QuestionBankView.vue'
 import PracticeView from '../views/PracticeView.vue'
@@ -9,20 +8,60 @@ import AdminLayout from '../views/admin/AdminLayout.vue'
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
+    // 首页
     { path: '/', name: 'home', component: HomeView },
-    { path: '/exam', name: 'exam', component: ExamView },
+    // 登录页
     { path: '/login', name: 'login', component: LoginView },
+    // 试题库
     { path: '/question-bank', name: 'question-bank', component: QuestionBankView },
+    // 在线答题
     { path: '/practice', name: 'practice', component: PracticeView },
+
+    // 管理后台
     {
       path: '/admin',
+      redirect: '/admin/core-library',
       component: AdminLayout,
       children: [
-        { path: 'papers', name: 'paper-list', component: () => import('../views/admin/PaperList.vue') },
-        { path: 'papers/upload', name: 'paper-upload', component: () => import('../views/admin/PaperUpload.vue') },
-        { path: 'papers/:id', name: 'paper-preview', component: () => import('../views/admin/PaperPreview.vue') },
-        { path: 'papers/:id/edit', name: 'paper-edit', component: () => import('../views/admin/PaperEdit.vue') },
-      ]
+        // 营收与数据
+        { path: 'revenue', name: 'admin-revenue', component: () => import('../views/admin/RevenueView.vue') },
+        // 员工管理
+        { path: 'staff', name: 'admin-staff', component: () => import('../views/admin/StaffView.vue') },
+        // 用户管理
+        { path: 'users', name: 'admin-users', component: () => import('../views/admin/UserManageView.vue') },
+        // 付费策略与订阅
+        { path: 'payment', name: 'admin-payment', component: () => import('../views/admin/PaymentView.vue') },
+
+        // 核心资料库
+        {
+          path: 'core-library',
+          component: () => import('../views/admin/CoreLibraryLayout.vue'),
+          children: [
+            // 首页
+            { path: '', name: 'admin-core-library', component: () => import('../views/admin/CoreLibraryView.vue') },
+            // 试题库
+            { path: 'questions', name: 'admin-questions', component: () => import('../views/admin/QuestionBankAdmin.vue') },
+            // 教材库
+            { path: 'textbooks', name: 'admin-textbooks', component: () => import('../views/admin/TextbookAdmin.vue') },
+            // 大纲库
+            { path: 'syllabus', name: 'admin-syllabus', component: () => import('../views/admin/SyllabusAdmin.vue') },
+
+            // 真题库
+            {
+              path: 'exams',
+              component: () => import('../views/admin/ExamBankLayout.vue'),
+              children: [
+                // 列表
+                { path: '', name: 'admin-exams', component: () => import('../views/admin/ExamBankAdmin.vue') },
+                // 上传解析
+                { path: 'upload', name: 'admin-exams-upload', component: () => import('../views/admin/PaperUpload.vue') },
+                // 试卷预览
+                { path: ':id', name: 'admin-exams-detail', component: () => import('../views/admin/PaperPreview.vue') },
+              ],
+            },
+          ],
+        },
+      ],
     },
   ],
 })

@@ -55,6 +55,7 @@
 </template>
 
 <script setup lang="ts">
+// 题目渲染卡片（试题库、练习页、试卷预览共用）
 import LatexText from './LatexText.vue'
 import type { Question } from '@/types'
 

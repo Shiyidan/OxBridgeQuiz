@@ -7,6 +7,7 @@
 </template>
 
 <script setup lang="ts">
+// KaTeX 公式渲染块（行内/居中模式，模块级缓存）
 import { computed } from 'vue'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'

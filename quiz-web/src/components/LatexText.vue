@@ -16,6 +16,7 @@
 </template>
 
 <script setup lang="ts">
+// LaTeX 文本混合渲染器（切分 $...$ / $$...$$ 后用 FormulaBlock 渲染，QuestionCard 内部使用）
 import { computed } from 'vue'
 import FormulaBlock from './FormulaBlock.vue'
 

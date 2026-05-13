@@ -1,59 +1,171 @@
 <template>
   <div class="admin-layout">
+    <!-- 左侧导航栏 -->
     <aside class="sidebar">
-      <div class="logo">试卷管理系统</div>
-      <nav class="nav-menu">
-        <router-link to="/admin/papers" class="nav-item" active-class="active">
-          <span class="nav-icon">📋</span> 试卷列表
-        </router-link>
-        <router-link to="/admin/papers/upload" class="nav-item" active-class="active">
-          <span class="nav-icon">📤</span> 上传试卷
-        </router-link>
-        <div class="nav-divider"></div>
-        <router-link to="/" class="nav-item">
-          <span class="nav-icon">🏠</span> 返回首页
+      <div class="sidebar-header">
+        <h1 class="sidebar-title">超级管理控制台</h1>
+        <p class="sidebar-subtitle">欢迎，{{ userName }}。您可以在此管理平台核心资产与用户数据。</p>
+      </div>
+
+      <nav class="sidebar-nav">
+        <router-link
+          v-for="item in navItems"
+          :key="item.path"
+          :to="item.path"
+          class="nav-item"
+          active-class="nav-item--active"
+        >
+          <span class="nav-icon" v-html="item.icon"></span>
+          <span class="nav-label">{{ item.label }}</span>
         </router-link>
       </nav>
     </aside>
+
+    <!-- 右侧内容区 -->
     <main class="main-content">
-      <div class="breadcrumb">
-        <router-link to="/admin/papers">试卷管理</router-link>
-        <template v-if="$route.path.includes('/upload')">
-          <span class="sep">/</span><span>上传试卷</span>
-        </template>
-        <template v-if="$route.params.id && !$route.path.includes('/edit')">
-          <span class="sep">/</span><span>试卷预览</span>
-        </template>
-        <template v-if="$route.path.includes('/edit')">
-          <span class="sep">/</span>
-          <router-link :to="`/admin/papers/${$route.params.id}`">试卷详情</router-link>
-          <span class="sep">/</span><span>编辑</span>
-        </template>
-      </div>
       <RouterView />
     </main>
   </div>
 </template>
 
-<style scoped>
-.admin-layout { display: flex; min-height: 100vh; background: #f0f2f5; }
+<script setup lang="ts">
+// 管理后台整体布局（左侧导航栏 + 右侧 RouterView）
+import { computed } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
+const userName = computed(() => auth.user?.name || '管理员')
+
+interface NavItem {
+  path: string
+  label: string
+  icon: string
+}
+
+const navItems: NavItem[] = [
+  {
+    path: '/admin/revenue',
+    label: '营收与数据',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+  },
+  {
+    path: '/admin/staff',
+    label: '员工管理',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  },
+  {
+    path: '/admin/users',
+    label: '用户管理',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+  },
+  {
+    path: '/admin/core-library',
+    label: '核心资料库',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+  },
+  {
+    path: '/admin/payment',
+    label: '付费策略与订阅',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>',
+  },
+]
+</script>
+
+<style scoped lang="scss">
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #f8fafc;
+}
+
+/* ========== 左侧导航栏 ========== */
 .sidebar {
-  width: 200px; background: #001529; color: white; flex-shrink: 0;
-  display: flex; flex-direction: column; min-height: 100vh;
+  width: 260px;
+  flex-shrink: 0;
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  padding: 32px 0;
+  overflow-y: auto;
 }
-.logo { padding: 20px 24px; font-size: 16px; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,.1); }
-.nav-menu { padding: 12px 0; flex: 1; }
+
+.sidebar-header {
+  padding: 0 28px 28px;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 8px;
+}
+
+.sidebar-title {
+  font-size: 1.375rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+}
+
+.sidebar-subtitle {
+  font-size: 0.8125rem;
+  color: #94a3b8;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  gap: 2px;
+}
+
 .nav-item {
-  display: flex; align-items: center; gap: 10px; padding: 12px 24px;
-  color: rgba(255,255,255,.65); text-decoration: none; font-size: 14px;
-  transition: all .2s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #475569;
+  text-decoration: none;
+  transition: all 0.15s ease;
+
+  .nav-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    opacity: 0.7;
+
+    :deep(svg) {
+      width: 100%;
+      height: 100%;
+    }
+  }
+
+  &:hover {
+    color: #0f172a;
+    background: #f8fafc;
+
+    .nav-icon {
+      opacity: 1;
+    }
+  }
+
+  &--active {
+    color: #4f46e5;
+    background: #eef2ff;
+    font-weight: 600;
+
+    .nav-icon {
+      opacity: 1;
+    }
+  }
 }
-.nav-item:hover { color: white; background: rgba(255,255,255,.08); }
-.nav-item.active { color: white; background: #1890ff; }
-.nav-icon { font-size: 16px; }
-.nav-divider { height: 1px; background: rgba(255,255,255,.1); margin: 8px 16px; }
-.main-content { flex: 1; display: flex; flex-direction: column; min-height: 100vh; overflow: auto; }
-.breadcrumb { padding: 16px 24px; font-size: 14px; color: #595959; background: white; border-bottom: 1px solid #e8e8e8; }
-.breadcrumb a { color: #1890ff; text-decoration: none; }
-.breadcrumb .sep { margin: 0 8px; color: #ccc; }
+
+/* ========== 右侧内容区 ========== */
+.main-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
 </style>

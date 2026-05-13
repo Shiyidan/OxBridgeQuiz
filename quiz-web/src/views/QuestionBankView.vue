@@ -105,6 +105,7 @@
 </template>
 
 <script setup lang="ts">
+// 试题库浏览页（知识点筛选 + 难度选择 + 进入练习）
 import { ref, computed, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'

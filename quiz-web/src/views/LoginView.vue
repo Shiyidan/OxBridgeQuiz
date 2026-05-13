@@ -59,6 +59,7 @@
 </template>
 
 <script setup lang="ts">
+// 登录页（静态 mock，点击登录写入 auth store 并跳转首页）
 import { reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'

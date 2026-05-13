@@ -1,111 +1,158 @@
 <template>
-  <div class="page-content">
-    <div class="page-header">
-      <div>
-        <h2>{{ paper?.title || '加载中...' }}</h2>
-        <div class="meta" v-if="paper">
-          <span>年份：{{ paper.year }}</span>
-          <span class="meta-sep">|</span>
-          <span>时长：{{ paper.duration }} 分钟</span>
-          <span class="meta-sep">|</span>
-          <span>共 {{ paper.totalQuestions }} 题</span>
-          <span class="meta-sep">|</span>
-          <span :class="`tag tag-${paper.status}`">{{ statusLabel(paper.status) }}</span>
-        </div>
-      </div>
-      <div class="header-actions">
-        <a :href="`http://localhost:3001/api/papers/${paper?.id}/pdf`" download class="btn-outline">下载PDF</a>
-        <router-link v-if="paper?.status === 'draft'" :to="`/admin/papers/${paper?.id}/edit`" class="btn-primary">编辑校对</router-link>
-      </div>
+  <div class="preview-page">
+    <!-- 顶部返回 -->
+    <div class="page-top-bar">
+      <button class="back-btn" @click="$router.push('/admin/core-library/exams')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        返回真题库列表
+      </button>
     </div>
 
-    <div v-if="loading" class="loading">加载中...</div>
+    <div class="page-body">
+      <!-- 加载态 -->
+      <div v-if="loading" class="empty-card">加载中...</div>
 
-    <div v-else-if="questions.length" class="questions-area">
-      <div v-for="(q, i) in questions" :key="i" class="q-card">
-        <div class="q-header">
-          <span class="q-num">第 {{ q.number || q.order || i+1 }} 题</span>
-          <span v-if="q.answer?.length" class="q-answer-label">答案：{{ q.answer.join(', ') }}</span>
-        </div>
-        <div class="q-body">
-          <LatexText :text="q.title || ''" />
-        </div>
-        <!-- 图形 -->
-        <div v-if="q.images?.length" class="q-images">
-          <div v-for="(img, j) in q.images" :key="j" class="q-image-wrap">
-            <div v-if="img.type === 'svg'" v-html="img.code" class="svg-box" />
-            <img v-else-if="img.src" :src="img.src" class="img-box" :alt="img.alt" />
+      <!-- 试卷信息头部 -->
+      <template v-else-if="paper">
+        <div class="paper-header">
+          <div class="paper-header__left">
+            <h2 class="paper-title">{{ paper.title }}</h2>
+            <div class="paper-meta">
+              <span>年份：{{ paper.year }}</span>
+              <span class="meta-sep">·</span>
+              <span>时长：{{ paper.duration }} 分钟</span>
+              <span class="meta-sep">·</span>
+              <span>共 {{ questions.length }} 题</span>
+              <span class="meta-sep">·</span>
+              <span :class="`status-tag status-tag--${paper.status}`">{{ statusLabel(paper.status) }}</span>
+            </div>
+          </div>
+          <div class="paper-header__right">
+            <a :href="`${API_BASE}/api/papers/${paper.id}/pdf`" download class="btn-ghost-action">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              下载 PDF
+            </a>
           </div>
         </div>
-        <!-- 选项 -->
-        <div class="q-options">
-          <div v-for="opt in q.options || []" :key="opt.label"
-            class="q-opt" :class="{ correct: q.answer?.includes(opt.label) }">
-            <span class="opt-letter">{{ opt.label }}</span>
-            <LatexText :text="opt.text || ''" />
-            <span v-if="q.answer?.includes(opt.label)" class="opt-check">✓ 正确答案</span>
-          </div>
+
+        <!-- 题目列表 -->
+        <div v-if="questions.length" class="questions-list">
+          <QuestionCard
+            v-for="(q, i) in questions"
+            :key="q.id || i"
+            :question="q"
+            :index="i"
+          />
         </div>
-      </div>
+        <div v-else class="empty-card">暂无题目数据</div>
+      </template>
+
+      <div v-else class="empty-card">试卷不存在</div>
     </div>
-
-    <div v-else class="empty-card">暂无题目数据</div>
   </div>
 </template>
 
 <script setup lang="ts">
+// 试卷详情预览（逐题渲染解析结果，复用 QuestionCard 组件）
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import LatexText from '@/components/LatexText.vue'
+import QuestionCard from '@/components/QuestionCard.vue'
+import type { Question } from '@/types'
+
+const API_BASE = 'http://localhost:3001'
 
 const route = useRoute()
 const paper = ref<any>(null)
-const questions = ref<any[]>([])
+const questions = ref<Question[]>([])
 const loading = ref(true)
 
 onMounted(async () => {
-  const res = await fetch(`http://localhost:3001/api/papers/${route.params.id}`)
-  const data = await res.json()
-  paper.value = data
-  questions.value = data.questions || []
-  loading.value = false
+  try {
+    const res = await fetch(`${API_BASE}/api/papers/${route.params.id}`)
+    const data = await res.json()
+    paper.value = data
+
+    // 将 API 返回的 question 映射到 Question 类型
+    const raw = data.questions || []
+    questions.value = raw.map((q: any, idx: number) => ({
+      id: q.id || `q-${idx}`,
+      number: q.number,
+      order: q.order || q.number,
+      title: q.title || '',
+      options: q.options || [],
+      answer: q.answer || [],
+      images: q.images || [],
+    }))
+  } catch {
+    paper.value = null
+    questions.value = []
+  } finally {
+    loading.value = false
+  }
 })
 
 function statusLabel(s: string) {
-  return { draft: '草稿', published: '已发布', archived: '已归档' }[s] || s
+  return { draft: '草稿', review: '审核中', published: '已上线', archived: '已归档' }[s] || s
 }
 </script>
 
-<style scoped>
-.page-content { padding: 24px; }
-.page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
-.page-header h2 { margin: 0 0 8px; font-size: 1.25rem; }
-.meta { font-size: 13px; color: #8c8c8c; display: flex; align-items: center; gap: 4px; }
-.meta-sep { color: #e8e8e8; margin: 0 4px; }
-.tag { display: inline-block; padding: 1px 8px; border-radius: 8px; font-size: 12px; }
-.tag-draft { background: #fff7e6; color: #fa8c16; }
-.tag-published { background: #f6ffed; color: #52c41a; }
-.header-actions { display: flex; gap: 12px; }
-.btn-primary { padding: 8px 20px; background: #1890ff; color: white; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 500; }
-.btn-primary:hover { background: #40a9ff; }
-.btn-outline { display: inline-block; padding: 8px 20px; border: 1px solid #d9d9d9; color: #595959; border-radius: 6px; text-decoration: none; font-size: 14px; background: white; }
-.btn-outline:hover { border-color: #1890ff; color: #1890ff; }
-.loading { text-align: center; padding: 60px; color: #999; }
+<style scoped lang="scss">
+.preview-page { min-height: 100%; }
 
-.questions-area { display: flex; flex-direction: column; gap: 16px; }
-.q-card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,.04); border: 1px solid #f0f0f0; }
-.q-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #f5f5f5; }
-.q-num { font-weight: 600; font-size: 15px; color: #262626; }
-.q-answer-label { font-size: 13px; color: #52c41a; font-weight: 500; background: #f6ffed; padding: 2px 10px; border-radius: 10px; }
-.q-body { line-height: 1.8; font-size: 14px; color: #333; margin-bottom: 16px; }
-.q-images { margin: 16px 0; text-align: center; }
-.q-image-wrap { margin: 12px 0; }
-.svg-box :deep(svg) { max-width: 100%; height: auto; }
-.img-box { max-width: 100%; height: auto; border-radius: 4px; }
-.q-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
-.q-opt { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border: 1px solid #f0f0f0; border-radius: 8px; background: #fafafa; }
-.q-opt.correct { border-color: #b7eb8f; background: #f6ffed; }
-.opt-letter { font-weight: 700; color: #595959; width: 20px; }
-.opt-check { margin-left: auto; font-size: 12px; color: #52c41a; font-weight: 500; }
-.empty-card { text-align: center; padding: 80px 0; color: #999; background: white; border-radius: 12px; }
+.page-top-bar { padding: 28px 40px 0; }
+.back-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border: none; background: transparent;
+  font-size: 0.875rem; font-weight: 500; color: #64748b;
+  cursor: pointer; border-radius: 8px; transition: all 0.15s ease;
+  svg { width: 16px; height: 16px; }
+  &:hover { color: #0f172a; background: #f1f5f9; }
+}
+
+.page-body { padding: 24px 40px 48px; }
+
+/* 试卷信息头部 */
+.paper-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 28px; gap: 16px;
+}
+.paper-header__left { min-width: 0; }
+.paper-title { font-size: 1.5rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em; margin: 0 0 10px; }
+.paper-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; font-size: 0.85rem; color: #64748b; }
+.meta-sep { color: #cbd5e1; }
+
+.status-tag {
+  display: inline-block; padding: 2px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 600; margin-left: 4px;
+  &--draft { background: #fffbeb; color: #d97706; }
+  &--review { background: #eff6ff; color: #2563eb; }
+  &--published { background: #ecfdf5; color: #059669; }
+  &--archived { background: #f1f5f9; color: #94a3b8; }
+}
+
+.btn-ghost-action {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 10px 20px; background: #ffffff; color: #475569;
+  border: 1px solid #e2e8f0; border-radius: 10px;
+  font-size: 0.875rem; font-weight: 600; cursor: pointer;
+  transition: all 0.2s ease; text-decoration: none;
+  svg { width: 16px; height: 16px; }
+  &:hover { background: #f8fafc; border-color: #cbd5e1; }
+}
+
+/* 题目列表 */
+.questions-list {
+  display: flex; flex-direction: column; gap: 28px;
+  max-width: 820px;
+}
+
+.empty-card {
+  background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px;
+  padding: 80px 40px; text-align: center; color: #94a3b8; font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .page-body { padding: 20px 20px 36px; }
+  .page-top-bar { padding: 20px 20px 0; }
+  .paper-header { flex-direction: column; }
+}
 </style>

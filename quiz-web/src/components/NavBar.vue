@@ -29,7 +29,12 @@
       <div class="nav-right">
         <slot name="actions">
           <template v-if="auth.isLoggedIn && auth.user">
-            <div class="user-chip" @click="handleAvatarClick">
+            <div
+              class="user-chip"
+              @mouseenter="showDropdown = true"
+              @mouseleave="showDropdown = false"
+              @click="showDropdown = !showDropdown"
+            >
               <div class="user-info">
                 <span class="user-name">{{ auth.user.name }}</span>
                 <span class="user-meta">{{ auth.user.major }}</span>
@@ -37,6 +42,51 @@
               <div class="user-avatar" :title="auth.user.name">
                 {{ auth.user.name.charAt(0) }}
               </div>
+
+              <!-- 用户下拉卡片 -->
+              <Transition name="dropdown">
+                <div v-if="showDropdown" class="user-dropdown" @mouseenter="showDropdown = true" @mouseleave="showDropdown = false">
+                  <!-- 卡片头部：用户信息 -->
+                  <div class="dropdown-header">
+                    <div class="dropdown-user-info">
+                      <span class="dropdown-name">{{ auth.user.name }} (Super Admin)</span>
+                      <span class="dropdown-role">系统管理</span>
+                    </div>
+                    <div class="dropdown-avatar">{{ auth.user.name.charAt(0) }}</div>
+                  </div>
+
+                  <!-- 切换角色 -->
+                  <div class="dropdown-section-label">切换角色</div>
+                  <div class="dropdown-menu">
+                    <button
+                      v-for="role in roles"
+                      :key="role.id"
+                      class="dropdown-item"
+                      :class="{ 'dropdown-item--active': role.active }"
+                      @click="switchRole(role.id)"
+                    >
+                      {{ role.label }}
+                    </button>
+
+                    <div class="dropdown-divider"></div>
+
+                    <button class="dropdown-item" @click="goToAdmin">
+                      管理面板
+                    </button>
+
+                    <div class="dropdown-divider"></div>
+
+                    <button class="dropdown-item dropdown-item--danger" @click="handleLogout">
+                      退出登录
+                      <svg class="logout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </Transition>
             </div>
           </template>
           <template v-else>
@@ -50,12 +100,40 @@
 </template>
 
 <script setup lang="ts">
+// 全局导航栏（所有前台页面共用）
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
+const router = useRouter()
 const auth = useAuthStore()
+const showDropdown = ref(false)
 
-const handleAvatarClick = (): void => {
-  console.log('[NavBar] avatar clicked')
+interface RoleOption {
+  id: string
+  label: string
+  active: boolean
+}
+
+const roles = ref<RoleOption[]>([
+  { id: 'student', label: '张同学 (学生端)', active: false },
+  { id: 'admin', label: '李老师 (管理端)', active: true },
+])
+
+function switchRole(id: string): void {
+  roles.value.forEach(r => { r.active = r.id === id })
+  showDropdown.value = false
+}
+
+function goToAdmin(): void {
+  showDropdown.value = false
+  router.push('/admin/core-library')
+}
+
+function handleLogout(): void {
+  auth.logout()
+  showDropdown.value = false
+  router.push('/')
 }
 </script>
 
@@ -178,6 +256,7 @@ const handleAvatarClick = (): void => {
 
 /* ========== 已登录态：用户信息条 ========== */
 .user-chip {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -224,6 +303,142 @@ const handleAvatarClick = (): void => {
   box-shadow: 0 2px 6px rgba(79, 70, 229, 0.25);
 }
 
+/* ========== 用户下拉卡片（新增） ========== */
+.user-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 260px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  padding: 12px 0;
+  z-index: 1100;
+}
+
+.dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  gap: 12px;
+}
+
+.dropdown-user-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dropdown-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.dropdown-role {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.dropdown-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #4338ca 100%);
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dropdown-section-label {
+  padding: 8px 16px 4px;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.dropdown-menu {
+  display: flex;
+  flex-direction: column;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+  }
+
+  &--active {
+    color: #4f46e5;
+    background: #eef2ff;
+    font-weight: 600;
+
+    &:hover {
+      background: #eef2ff;
+    }
+  }
+
+  &--danger {
+    color: #ef4444;
+
+    &:hover {
+      background: #fef2f2;
+      color: #ef4444;
+    }
+  }
+}
+
+.logout-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: #f1f5f9;
+  margin: 4px 16px;
+}
+
+/* ========== 下拉动画 ========== */
+.dropdown-enter-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.dropdown-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.dropdown-enter-from {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
 @media (max-width: 768px) {
   .nav-links {
     display: none;
@@ -231,6 +446,11 @@ const handleAvatarClick = (): void => {
 
   .user-info {
     display: none;
+  }
+
+  .user-dropdown {
+    right: -60px;
+    width: 240px;
   }
 }
 </style>

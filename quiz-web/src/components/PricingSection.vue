@@ -100,6 +100,7 @@
 </template>
 
 <script setup lang="ts">
+// 定价方案卡片区（首页 HomeView 使用，Free / Pro 双卡对比）
 import { reactive } from 'vue'
 
 interface PlanFeature {

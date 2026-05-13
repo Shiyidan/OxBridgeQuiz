@@ -89,6 +89,7 @@
 </template>
 
 <script setup lang="ts">
+// 在线答题页（题目切换 + 选项选择 + 提交，复用 QuestionCard）
 import { ref, computed, shallowRef, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import QuestionCard from '@/components/QuestionCard.vue'

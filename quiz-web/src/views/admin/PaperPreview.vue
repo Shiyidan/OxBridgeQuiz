@@ -145,6 +145,12 @@ function statusLabel(s: string) {
   max-width: 820px;
 }
 
+/* SVG 兜底：Qwen 偶发忘记输出 width/height，用 CSS 补位 */
+.questions-list :deep(.question-card__svg svg) {
+  width: 100%;
+  height: auto;
+}
+
 .empty-card {
   background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px;
   padding: 80px 40px; text-align: center; color: #94a3b8; font-size: 0.9rem;

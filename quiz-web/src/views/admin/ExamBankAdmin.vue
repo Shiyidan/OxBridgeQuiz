@@ -92,10 +92,11 @@
 
 <script setup lang="ts">
 // 真题库列表（套卷管理 + 状态下拉 + 上传/预览入口）
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 const API_BASE = 'http://localhost:3001'
+const route = useRoute()
 const router = useRouter()
 
 interface PaperItem {
@@ -106,20 +107,27 @@ interface PaperItem {
   duration: number
   totalQuestions: number
   status: string
+  createdAt: string
 }
 
 const loading = ref(true)
 const activeStatusMenu = ref<string | null>(null)
 const paperList = ref<PaperItem[]>([])
 
-onMounted(() => { fetchPapers() })
+// 每次路由进入此列表页时重新获取数据
+watch(() => route.path, (path) => {
+  if (path === '/admin/core-library/exams') fetchPapers()
+}, { immediate: true })
 
 async function fetchPapers(): Promise<void> {
   loading.value = true
   try {
     const res = await fetch(`${API_BASE}/api/papers?limit=100`)
     const data = await res.json()
-    paperList.value = data.papers || []
+    // 前端兜底按创建时间降序排列（后端 orderBy 偶发不生效）
+    paperList.value = (data.papers || []).sort((a: PaperItem, b: PaperItem) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
   } catch {
     paperList.value = []
   } finally {

@@ -43,6 +43,16 @@ export async function startParseTask(taskId: string, paperId: string, pdfPath: s
       .sort((a, b) => a.number - b.number)
       .slice(0, 10)
       .map((q, i) => ({ ...q, number: i + 1 }))
+      .map(q => ({
+        ...q,
+        images: q.images?.map(img => {
+          // Qwen 偶发忘记输出 width/height，自动补全避免前端坍塌
+          if (img.type === 'svg' && img.code && !img.code.includes('width=')) {
+            return { ...img, code: img.code.replace('<svg', '<svg width="100%" height="auto"') }
+          }
+          return img
+        })
+      }))
 
     await prisma.paper.update({
       where: { id: paperId },

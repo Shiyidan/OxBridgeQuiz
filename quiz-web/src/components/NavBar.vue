@@ -15,7 +15,7 @@
           >
             首页
           </router-link>
-          <a href="/#features" class="nav-link">诊断测试</a>
+          <router-link to="/diagnostic" class="nav-link" active-class="nav-link--active">诊断测试</router-link>
           <router-link
             to="/question-bank"
             class="nav-link"
@@ -37,7 +37,7 @@
             >
               <div class="user-info">
                 <span class="user-name">{{ auth.user.name }}</span>
-                <span class="user-meta">{{ auth.user.major }}</span>
+                <span class="user-meta">{{ auth.user.role === 'admin' ? '管理员' : '学生' }}</span>
               </div>
               <div class="user-avatar" :title="auth.user.name">
                 {{ auth.user.name.charAt(0) }}
@@ -49,29 +49,17 @@
                   <!-- 卡片头部：用户信息 -->
                   <div class="dropdown-header">
                     <div class="dropdown-user-info">
-                      <span class="dropdown-name">{{ auth.user.name }} (Super Admin)</span>
-                      <span class="dropdown-role">系统管理</span>
+                      <span class="dropdown-name">{{ auth.user.name }}</span>
+                      <span class="dropdown-role">{{ auth.user.role === 'admin' ? '管理员' : '学生' }}</span>
                     </div>
                     <div class="dropdown-avatar">{{ auth.user.name.charAt(0) }}</div>
                   </div>
 
-                  <!-- 切换角色 -->
-                  <div class="dropdown-section-label">切换角色</div>
                   <div class="dropdown-menu">
-                    <button
-                      v-for="role in roles"
-                      :key="role.id"
-                      class="dropdown-item"
-                      :class="{ 'dropdown-item--active': role.active }"
-                      @click="switchRole(role.id)"
-                    >
-                      {{ role.label }}
-                    </button>
-
-                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-section-label">当前角色：{{ currentRoleLabel }}</div>
 
                     <button class="dropdown-item" @click="goToAdmin">
-                      管理面板
+                      后台管理
                     </button>
 
                     <div class="dropdown-divider"></div>
@@ -91,7 +79,7 @@
           </template>
           <template v-else>
             <router-link to="/login" class="btn-ghost">登录</router-link>
-            <router-link to="/login" class="btn-primary-sm">立即注册</router-link>
+            <router-link to="/register" class="btn-primary-sm">立即注册</router-link>
           </template>
         </slot>
       </div>
@@ -101,7 +89,7 @@
 
 <script setup lang="ts">
 // 全局导航栏（所有前台页面共用）
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
@@ -109,21 +97,9 @@ const router = useRouter()
 const auth = useAuthStore()
 const showDropdown = ref(false)
 
-interface RoleOption {
-  id: string
-  label: string
-  active: boolean
-}
-
-const roles = ref<RoleOption[]>([
-  { id: 'student', label: '张同学 (学生端)', active: false },
-  { id: 'admin', label: '李老师 (管理端)', active: true },
-])
-
-function switchRole(id: string): void {
-  roles.value.forEach(r => { r.active = r.id === id })
-  showDropdown.value = false
-}
+const currentRoleLabel = computed(() =>
+  auth.user?.role === 'admin' ? '管理员' : '学生',
+)
 
 function goToAdmin(): void {
   showDropdown.value = false

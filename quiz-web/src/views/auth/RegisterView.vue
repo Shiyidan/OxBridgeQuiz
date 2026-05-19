@@ -1,28 +1,43 @@
 <template>
-  <div class="login-page">
+  <div class="register-page">
     <NavBar />
 
-    <main class="login-main">
-      <section class="login-card">
-        <div class="login-brand">
+    <main class="register-main">
+      <section class="register-card">
+        <div class="register-brand">
           <span class="brand-mark">G5</span>
         </div>
 
-        <h1 class="login-title">欢迎来到 Oxbridge AI</h1>
-        <p class="login-subtitle">使用您的账号登录以继续</p>
+        <h1 class="register-title">创建账号</h1>
+        <p class="register-subtitle">注册后即可查看完整诊断报告</p>
 
-        <form class="login-form" @submit.prevent="handleSubmit" novalidate>
+        <form class="register-form" @submit.prevent="handleSubmit" novalidate>
           <div v-if="auth.error" class="form-error">{{ auth.error }}</div>
 
           <div class="form-field">
-            <label for="login-email" class="form-label">电子邮箱</label>
+            <label for="reg-name" class="form-label">姓名</label>
             <input
-              id="login-email"
+              id="reg-name"
+              v-model="form.name"
+              type="text"
+              class="form-input"
+              :class="{ 'input-error': errors.name }"
+              placeholder="您的姓名"
+              autocomplete="name"
+              @input="clearError('name')"
+            />
+            <span v-if="errors.name" class="field-error">{{ errors.name }}</span>
+          </div>
+
+          <div class="form-field">
+            <label for="reg-email" class="form-label">电子邮箱</label>
+            <input
+              id="reg-email"
               v-model="form.email"
               type="text"
               class="form-input"
               :class="{ 'input-error': errors.email }"
-              placeholder="demo@student.com"
+              placeholder="example@mail.com"
               autocomplete="email"
               @input="clearError('email')"
             />
@@ -30,37 +45,45 @@
           </div>
 
           <div class="form-field">
-            <div class="form-label-row">
-              <label for="login-password" class="form-label">密码</label>
-              <a href="#" class="form-link" @click.prevent="handleForgotPassword">
-                忘记密码?
-              </a>
-            </div>
+            <label for="reg-password" class="form-label">密码</label>
             <input
-              id="login-password"
+              id="reg-password"
               v-model="form.password"
               type="password"
               class="form-input"
               :class="{ 'input-error': errors.password }"
               placeholder="••••••••"
-              autocomplete="current-password"
+              autocomplete="new-password"
               @input="clearError('password')"
             />
+            <span class="field-hint">8-32 位，需包含字母和数字</span>
             <span v-if="errors.password" class="field-error">{{ errors.password }}</span>
           </div>
 
-          <button type="submit" class="login-submit" :disabled="auth.loading">
-            <span v-if="auth.loading">登录中...</span>
-            <template v-else>
-              <span>登录</span>
-              <span class="submit-arrow" aria-hidden="true">→</span>
-            </template>
+          <div class="form-field">
+            <label for="reg-confirm" class="form-label">确认密码</label>
+            <input
+              id="reg-confirm"
+              v-model="form.confirmPassword"
+              type="password"
+              class="form-input"
+              :class="{ 'input-error': errors.confirmPassword }"
+              placeholder="再次输入密码"
+              autocomplete="new-password"
+              @input="clearError('confirmPassword')"
+            />
+            <span v-if="errors.confirmPassword" class="field-error">{{ errors.confirmPassword }}</span>
+          </div>
+
+          <button type="submit" class="register-submit" :disabled="!isFormValid || auth.loading">
+            <span v-if="auth.loading">注册中...</span>
+            <span v-else>注册</span>
           </button>
         </form>
 
-        <p class="login-footnote">
-          还没有账号？
-          <router-link to="/register" class="form-link">立即注册</router-link>
+        <p class="register-footnote">
+          已有账号？
+          <router-link to="/login" class="form-link">去登录</router-link>
         </p>
       </section>
     </main>
@@ -68,79 +91,91 @@
 </template>
 
 <script setup lang="ts">
-// 登录页
-import { reactive } from 'vue'
+import { reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
 import { useAuthStore } from '@/stores/auth'
-import { validateEmail, validatePasswordRequired } from '@/utils/validation'
+import {
+  validateEmail,
+  validatePassword,
+  validateConfirmPassword,
+  validateName,
+  isPasswordValid,
+} from '@/utils/validation'
 
 const router = useRouter()
 const auth = useAuthStore()
 
 const form = reactive({
+  name: '',
   email: '',
   password: '',
+  confirmPassword: '',
 })
 
 const errors = reactive({
+  name: '',
   email: '',
   password: '',
+  confirmPassword: '',
 })
 
-function clearError(field: 'email' | 'password'): void {
+function clearError(field: keyof typeof errors): void {
   errors[field] = ''
 }
 
 function validate(): boolean {
+  errors.name = ''
   errors.email = ''
   errors.password = ''
+  errors.confirmPassword = ''
+
   let valid = true
 
-  const emailResult = validateEmail(form.email)
-  if (!emailResult.valid) {
-    errors.email = emailResult.message
-    valid = false
-  }
+  const nameResult = validateName(form.name)
+  if (!nameResult.valid) { errors.name = nameResult.message; valid = false }
 
-  const passwordResult = validatePasswordRequired(form.password)
-  if (!passwordResult.valid) {
-    errors.password = passwordResult.message
-    valid = false
-  }
+  const emailResult = validateEmail(form.email)
+  if (!emailResult.valid) { errors.email = emailResult.message; valid = false }
+
+  const passwordResult = validatePassword(form.password)
+  if (!passwordResult.valid) { errors.password = passwordResult.message; valid = false }
+
+  const confirmResult = validateConfirmPassword(form.password, form.confirmPassword)
+  if (!confirmResult.valid) { errors.confirmPassword = confirmResult.message; valid = false }
 
   return valid
 }
+
+const isFormValid = computed(() => {
+  return (
+    form.name.trim().length > 0 &&
+    form.email.trim().length > 0 &&
+    isPasswordValid(form.password) &&
+    form.confirmPassword === form.password
+  )
+})
 
 const handleSubmit = async (): Promise<void> => {
   if (!validate()) return
 
   try {
-    await auth.login(form.email, form.password)
+    await auth.register(form.name, form.email, form.password, form.confirmPassword)
     router.push('/')
   } catch {
-    // 后端错误已在 auth.error 中
+    // 错误已在 auth.error 中
   }
-}
-
-// 忘记密码
-const handleForgotPassword = (): void => {
-  // 暂未实现
 }
 </script>
 
 <style scoped lang="scss">
-.login-page {
+.register-page {
   --color-primary: #4f46e5;
   --color-primary-light: #6366f1;
-  --color-primary-dark: #4338ca;
-  --color-primary-bg: #eef2ff;
-
   --color-bg: #f8fafc;
   --color-surface: #ffffff;
   --color-surface-muted: #f1f5f9;
   --color-border: #e2e8f0;
-
   --color-text: #0f172a;
   --color-text-secondary: #475569;
   --color-text-muted: #94a3b8;
@@ -156,12 +191,10 @@ const handleForgotPassword = (): void => {
   --space-10: 2.5rem;
   --space-12: 3rem;
 
-  --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
   --radius-2xl: 1.5rem;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-card: 0 4px 24px -4px rgba(15, 23, 42, 0.06),
     0 1px 3px rgba(15, 23, 42, 0.04);
 
@@ -175,7 +208,7 @@ const handleForgotPassword = (): void => {
     Roboto, sans-serif;
 }
 
-.login-main {
+.register-main {
   flex: 1;
   display: flex;
   align-items: center;
@@ -183,7 +216,7 @@ const handleForgotPassword = (): void => {
   padding: var(--space-12) var(--space-4);
 }
 
-.login-card {
+.register-card {
   width: 100%;
   max-width: 460px;
   background: var(--color-surface);
@@ -194,7 +227,7 @@ const handleForgotPassword = (): void => {
   text-align: center;
 }
 
-.login-brand {
+.register-brand {
   display: flex;
   justify-content: center;
   margin-bottom: var(--space-6);
@@ -214,21 +247,20 @@ const handleForgotPassword = (): void => {
   }
 }
 
-.login-title {
+.register-title {
   margin: 0 0 var(--space-2);
   font-size: 1.5rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: var(--color-text);
 }
 
-.login-subtitle {
+.register-subtitle {
   margin: 0 0 var(--space-8);
   font-size: 0.938rem;
   color: var(--color-text-muted);
 }
 
-.login-form {
+.register-form {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
@@ -250,29 +282,10 @@ const handleForgotPassword = (): void => {
   gap: var(--space-2);
 }
 
-.form-label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
 .form-label {
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--color-text);
-}
-
-.form-link {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-primary);
-  text-decoration: none;
-  transition: color 0.2s ease;
-
-  &:hover {
-    color: var(--color-primary-light);
-    text-decoration: underline;
-  }
 }
 
 .form-input {
@@ -310,16 +323,32 @@ const handleForgotPassword = (): void => {
   }
 }
 
+.field-hint {
+  font-size: 0.813rem;
+  color: var(--color-text-muted);
+}
+
 .field-error {
   font-size: 0.813rem;
   color: var(--color-error);
 }
 
-.login-submit {
+.form-link {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-primary);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--color-primary-light);
+    text-decoration: underline;
+  }
+}
+
+.register-submit {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
   width: 100%;
   margin-top: var(--space-3);
   padding: 14px 24px;
@@ -333,18 +362,12 @@ const handleForgotPassword = (): void => {
   cursor: pointer;
   transition:
     background-color 0.2s ease,
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+    transform 0.2s ease;
 
   &:hover:not(:disabled) {
     background: #1e293b;
     transform: translateY(-1px);
     box-shadow: 0 6px 18px rgba(15, 23, 42, 0.22);
-  }
-
-  &:active:not(:disabled) {
-    transform: translateY(0);
-    box-shadow: none;
   }
 
   &:disabled {
@@ -353,30 +376,19 @@ const handleForgotPassword = (): void => {
   }
 }
 
-.submit-arrow {
-  font-size: 1.125rem;
-  line-height: 1;
-}
-
-.login-footnote {
+.register-footnote {
   margin: var(--space-8) 0 0;
   font-size: 0.875rem;
   color: var(--color-text-secondary);
 }
 
 @media (max-width: 640px) {
-  .login-card {
+  .register-card {
     padding: var(--space-10) var(--space-6);
     border-radius: var(--radius-xl);
   }
 
-  .login-title {
-    font-size: 1.25rem;
-  }
-
-  .login-brand .brand-mark {
-    width: 56px;
-    height: 56px;
+  .register-title {
     font-size: 1.25rem;
   }
 }

@@ -124,7 +124,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-const API_BASE = 'http://localhost:3001'
+import { API_URL } from '@/config'
 
 const router = useRouter()
 
@@ -195,7 +195,7 @@ async function startUpload(): Promise<void> {
   form.append('duration', String(duration.value))
 
   try {
-    const res = await fetch(`${API_BASE}/api/upload/paper`, { method: 'POST', body: form })
+    const res = await fetch(`${API_URL}/upload/paper`, { method: 'POST', body: form })
     const data = await res.json()
     taskId = data.taskId
     paperId.value = data.paperId
@@ -209,7 +209,7 @@ async function startUpload(): Promise<void> {
 function pollTask(): void {
   pollTimer = setInterval(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/parse-tasks/${taskId}`)
+      const res = await fetch(`${API_URL}/parse-tasks/${taskId}`)
       const data = await res.json()
       progress.value = data.progress || 0
 
@@ -235,7 +235,7 @@ async function retryParse(): Promise<void> {
   progress.value = 0
 
   try {
-    await fetch(`${API_BASE}/api/parse-tasks/${taskId}/retry`, { method: 'POST' })
+    await fetch(`${API_URL}/parse-tasks/${taskId}/retry`, { method: 'POST' })
     pollTask()
   } catch {
     parsingFailed.value = true

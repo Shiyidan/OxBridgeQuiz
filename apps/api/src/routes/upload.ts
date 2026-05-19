@@ -5,6 +5,8 @@ import { v4 as uuidv4 } from 'uuid'
 import { fileURLToPath } from 'url'
 import { prisma } from '../services/prisma.js'
 import { startParseTask } from '../services/parseService.js'
+import { requireAuth } from '../middleware/auth.js'
+import { requireAdmin } from '../middleware/admin.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const uploadDir = path.join(__dirname, '../../../uploads')
@@ -31,7 +33,7 @@ const upload = multer({
 
 export const uploadRouter = Router()
 
-uploadRouter.post('/paper', upload.single('file'), async (req, res) => {
+uploadRouter.post('/paper', requireAuth, requireAdmin, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       res.status(400).json({ error: '请上传PDF文件' })

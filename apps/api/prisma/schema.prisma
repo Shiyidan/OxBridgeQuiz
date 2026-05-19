@@ -20,7 +20,8 @@ model Paper {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  parseTasks ParseTask[]
+  parseTasks  ParseTask[]
+  examRecords ExamRecord[]
 }
 
 model ParseTask {
@@ -34,4 +35,60 @@ model ParseTask {
   updatedAt DateTime @updatedAt
 
   paper Paper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id             String   @id @default(uuid())
+  name           String
+  email          String   @unique
+  password       String
+  role           String   @default("student")
+  paymentStatus  String   @default("free")
+  diagnosticUsed Boolean  @default(false)
+  avatar         String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  examRecords      ExamRecord[]
+  diagnosticSession DiagnosticSession[]
+}
+
+model DiagnosticSession {
+  id             String   @id @default(uuid())
+  userId         String?
+  answers        String
+  totalQuestions Int
+  correctCount   Int
+  status         String   @default("anonymous")
+  createdAt      DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model ExamRecord {
+  id             String    @id @default(uuid())
+  userId         String
+  paperId        String
+  totalQuestions Int       @default(0)
+  correctCount   Int       @default(0)
+  startedAt      DateTime
+  submittedAt    DateTime?
+  status         String    @default("in_progress")
+
+  user    User           @relation(fields: [userId], references: [id])
+  paper   Paper          @relation(fields: [paperId], references: [id])
+  answers AnswerRecord[]
+}
+
+model AnswerRecord {
+  id             String   @id @default(uuid())
+  examRecordId   String
+  questionId     String
+  selectedAnswer String?
+  isCorrect      Boolean  @default(false)
+  answeredAt     DateTime?
+
+  examRecord ExamRecord @relation(fields: [examRecordId], references: [id], onDelete: Cascade)
 }

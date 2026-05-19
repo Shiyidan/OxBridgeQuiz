@@ -28,7 +28,7 @@
             </div>
           </div>
           <div class="paper-header__right">
-            <a :href="`${API_BASE}/api/papers/${paper.id}/pdf`" download class="btn-ghost-action">
+            <a :href="`${API_URL}/papers/${paper.id}/pdf`" download class="btn-ghost-action">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               下载 PDF
             </a>
@@ -59,7 +59,7 @@ import { useRoute } from 'vue-router'
 import QuestionCard from '@/components/QuestionCard.vue'
 import type { Question } from '@/types'
 
-const API_BASE = 'http://localhost:3001'
+import { API_URL } from '@/config'
 
 const route = useRoute()
 const paper = ref<any>(null)
@@ -68,7 +68,7 @@ const loading = ref(true)
 
 onMounted(async () => {
   try {
-    const res = await fetch(`${API_BASE}/api/papers/${route.params.id}`)
+    const res = await fetch(`${API_URL}/papers/${route.params.id}`)
     const data = await res.json()
     paper.value = data
 

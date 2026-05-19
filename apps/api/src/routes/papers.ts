@@ -3,6 +3,8 @@ import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { prisma } from '../services/prisma.js'
+import { requireAuth } from '../middleware/auth.js'
+import { requireAdmin } from '../middleware/admin.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -44,7 +46,7 @@ papersRouter.get('/:id', async (req, res) => {
 })
 
 // 更新试卷（人工校对）
-papersRouter.put('/:id', async (req, res) => {
+papersRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   const { title, code, year, duration, questions, status } = req.body
   const paper = await prisma.paper.update({
     where: { id: req.params.id },
@@ -61,7 +63,7 @@ papersRouter.put('/:id', async (req, res) => {
 })
 
 // 删除试卷
-papersRouter.delete('/:id', async (req, res) => {
+papersRouter.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   const paper = await prisma.paper.findUnique({ where: { id: req.params.id } })
   if (paper?.pdfUrl) {
     const pdfPath = path.join(__dirname, '../../', paper.pdfUrl)
@@ -72,7 +74,7 @@ papersRouter.delete('/:id', async (req, res) => {
 })
 
 // 发布试卷
-papersRouter.put('/:id/publish', async (req, res) => {
+papersRouter.put('/:id/publish', requireAuth, requireAdmin, async (req, res) => {
   const paper = await prisma.paper.update({
     where: { id: req.params.id },
     data: { status: 'published' }
@@ -81,7 +83,7 @@ papersRouter.put('/:id/publish', async (req, res) => {
 })
 
 // 下载原始PDF
-papersRouter.get('/:id/pdf', async (req, res) => {
+papersRouter.get('/:id/pdf', requireAuth, async (req, res) => {
   const paper = await prisma.paper.findUnique({ where: { id: req.params.id } })
   if (!paper?.pdfUrl) {
     res.status(404).json({ error: 'PDF不存在' })

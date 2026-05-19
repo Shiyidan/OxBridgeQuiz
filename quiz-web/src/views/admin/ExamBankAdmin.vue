@@ -95,7 +95,8 @@
 import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-const API_BASE = 'http://localhost:3001'
+import { API_URL } from '@/config'
+
 const route = useRoute()
 const router = useRouter()
 
@@ -122,7 +123,7 @@ watch(() => route.path, (path) => {
 async function fetchPapers(): Promise<void> {
   loading.value = true
   try {
-    const res = await fetch(`${API_BASE}/api/papers?limit=100`)
+    const res = await fetch(`${API_URL}/papers?limit=100`)
     const data = await res.json()
     // 前端兜底按创建时间降序排列（后端 orderBy 偶发不生效）
     paperList.value = (data.papers || []).sort((a: PaperItem, b: PaperItem) =>
@@ -172,7 +173,7 @@ function toggleStatusMenu(id: string): void {
 
 async function changeStatus(id: string, newStatus: string): Promise<void> {
   try {
-    await fetch(`${API_BASE}/api/papers/${id}`, {
+    await fetch(`${API_URL}/papers/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus }),

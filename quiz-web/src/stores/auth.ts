@@ -1,26 +1,97 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
+import request from '../utils/request'
 
-export interface UserInfo {
+export interface User {
+  id: string
   name: string
-  major: string
+  email: string
+  role: string
+  avatar?: string
 }
 
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref<UserInfo | null>(null)
+  const user = ref<User | null>(null)
+  const token = ref<string | null>(null)
+  const loading = ref(false)
+  const error = ref<string | null>(null)
 
-  const isLoggedIn = computed(() => user.value !== null)
+  const isLoggedIn = computed(() => !!token.value && !!user.value)
+  const isAdmin = computed(() => user.value?.role === 'admin')
 
-  function login(): void {
-    user.value = {
-      name: '张同学',
-      major: '帝国理工工程',
+  // 从 localStorage 恢复登录态
+  function initFromStorage(): void {
+    const saved = localStorage.getItem('token')
+    const savedUser = localStorage.getItem('user')
+    if (saved && savedUser) {
+      token.value = saved
+      user.value = JSON.parse(savedUser)
     }
   }
 
-  function logout(): void {
-    user.value = null
+  // 登录
+  async function login(
+    email: string,
+    password: string,
+    diagnosticSessionId?: string,
+  ): Promise<void> {
+    loading.value = true
+    error.value = null
+    try {
+      const res = await request.post('/auth/login', { email, password, diagnosticSessionId })
+      token.value = res.data.token
+      user.value = res.data.user
+      localStorage.setItem('token', res.data.token)
+      localStorage.setItem('user', JSON.stringify(res.data.user))
+      // 如果携带了诊断报告，返回给调用方
+      return res.data
+    } catch (e: any) {
+      error.value = e.response?.data?.message || '登录失败'
+      throw e
+    } finally {
+      loading.value = false
+    }
   }
 
-  return { user, isLoggedIn, login, logout }
+  // 注册
+  async function register(
+    name: string,
+    email: string,
+    password: string,
+    confirmPassword: string,
+    diagnosticSessionId?: string,
+  ): Promise<void> {
+    loading.value = true
+    error.value = null
+    try {
+      const res = await request.post('/auth/register', {
+        name,
+        email,
+        password,
+        confirmPassword,
+        diagnosticSessionId,
+      })
+      token.value = res.data.token
+      user.value = res.data.user
+      localStorage.setItem('token', res.data.token)
+      localStorage.setItem('user', JSON.stringify(res.data.user))
+      return res.data
+    } catch (e: any) {
+      error.value = e.response?.data?.message || '注册失败'
+      throw e
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 退出
+  function logout(): void {
+    token.value = null
+    user.value = null
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    error.value = null
+  }
+
+  return { user, token, loading, error, isLoggedIn, isAdmin, initFromStorage, login, register, logout }
 })

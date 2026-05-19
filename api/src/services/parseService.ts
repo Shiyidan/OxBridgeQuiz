@@ -25,16 +25,21 @@ export async function startParseTask(taskId: string, paperId: string, pdfPath: s
 
     const allQuestions: ParsedQuestion[] = []
 
-    for (let i = 0; i < Math.min(pages.length, 10); i++) {
+    const pageCount = Math.min(pages.length, 10)
+    for (let i = 0; i < pageCount; i++) {
       const { base64 } = pages[i]
-      console.log(`Page ${i + 1}/${Math.min(pages.length, 10)}: ${Math.round(base64.length / 1024)}KB`)
+      console.log(`Page ${i + 1}/${pageCount}: ${Math.round(base64.length / 1024)}KB`)
 
-      const questions = await analyzePageWithQwen(base64, i + 1)
-      allQuestions.push(...questions)
+      try {
+        const questions = await analyzePageWithQwen(base64, i + 1)
+        allQuestions.push(...questions)
+      } catch (pageErr: any) {
+        console.error(`Page ${i + 1} failed:`, pageErr.message)
+      }
 
       await prisma.parseTask.update({
         where: { id: taskId },
-        data: { progress: 10 + Math.round(((i + 1) / Math.min(pages.length, 10)) * 70) }
+        data: { progress: 10 + Math.round(((i + 1) / pageCount) * 70) }
       })
     }
 

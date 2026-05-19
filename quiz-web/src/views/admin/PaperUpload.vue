@@ -121,10 +121,10 @@
 
 <script setup lang="ts">
 // 试卷解析录入（PDF 拖拽上传 → Qwen 自动识别 → 存入数据库）
-import { ref } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { API_URL } from '@/config'
+import request from '@/utils/request'
 
 const router = useRouter()
 
@@ -143,6 +143,13 @@ const progress = ref(0)
 const paperId = ref('')
 let taskId = ''
 let pollTimer: ReturnType<typeof setInterval> | null = null
+let abortController: AbortController | null = null
+
+// 组件卸载时清理定时器和请求
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer)
+  if (abortController) abortController.abort()
+})
 
 function triggerFileInput(): void {
   if (!parsing.value) fileInput.value?.click()
@@ -181,46 +188,54 @@ function resetUpload(): void {
   progress.value = 0
   paperId.value = ''
   taskId = ''
-  if (pollTimer) clearInterval(pollTimer)
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+  if (abortController) { abortController.abort(); abortController = null }
 }
 
 async function startUpload(): Promise<void> {
   if (!file.value) return
 
   parsing.value = true
+  parsingFailed.value = false
+  parseError.value = ''
   const form = new FormData()
   form.append('file', file.value)
   form.append('title', title.value)
   form.append('year', String(year.value))
   form.append('duration', String(duration.value))
 
+  abortController = new AbortController()
+
   try {
-    const res = await fetch(`${API_URL}/upload/paper`, { method: 'POST', body: form })
-    const data = await res.json()
-    taskId = data.taskId
-    paperId.value = data.paperId
+    const res = await request.post('/upload/paper', form, {
+      signal: abortController.signal,
+    })
+    taskId = res.data.taskId
+    paperId.value = res.data.paperId
     pollTask()
-  } catch {
-    parsingFailed.value = true
-    parseError.value = '上传失败，请检查网络连接'
+  } catch (e: any) {
+    if (e?.code !== 'ERR_CANCELED') {
+      parsingFailed.value = true
+      parseError.value = e.response?.data?.message || e.message || '上传失败'
+    }
   }
 }
 
 function pollTask(): void {
+  if (pollTimer) clearInterval(pollTimer)
   pollTimer = setInterval(async () => {
     try {
-      const res = await fetch(`${API_URL}/parse-tasks/${taskId}`)
-      const data = await res.json()
-      progress.value = data.progress || 0
+      const res = await request.get(`/parse-tasks/${taskId}`)
+      progress.value = res.data.progress || 0
 
-      if (data.status === 'completed') {
-        if (pollTimer) clearInterval(pollTimer)
+      if (res.data.status === 'completed') {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
         parsingDone.value = true
       }
-      if (data.status === 'failed') {
-        if (pollTimer) clearInterval(pollTimer)
+      if (res.data.status === 'failed') {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
         parsingFailed.value = true
-        parseError.value = data.error || '解析失败，请重试'
+        parseError.value = res.data.error || '解析失败，请重试'
       }
     } catch {
       // 轮询错误静默处理
@@ -235,11 +250,11 @@ async function retryParse(): Promise<void> {
   progress.value = 0
 
   try {
-    await fetch(`${API_URL}/parse-tasks/${taskId}/retry`, { method: 'POST' })
+    await request.post(`/parse-tasks/${taskId}/retry`)
     pollTask()
-  } catch {
+  } catch (e: any) {
     parsingFailed.value = true
-    parseError.value = '重试失败'
+    parseError.value = e.response?.data?.message || '重试失败'
   }
 }
 

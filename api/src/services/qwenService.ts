@@ -69,29 +69,37 @@ export async function analyzePageWithQwen(
   imageBase64: string,
   _pageNum: number
 ): Promise<ParsedQuestion[]> {
-  const response = await fetch(
-    `${DASHSCOPE_BASE}/services/aigc/multimodal-generation/generation`,
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'qwen-vl-max',
-        input: {
-          messages: [{
-            role: 'user',
-            content: [
-              { image: `data:image/png;base64,${imageBase64}` },
-              { text: SYSTEM_PROMPT }
-            ]
-          }]
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 120_000)
+
+  try {
+    const response = await fetch(
+      `${DASHSCOPE_BASE}/services/aigc/multimodal-generation/generation`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
+          'Content-Type': 'application/json'
         },
-        parameters: { result_format: 'message' }
-      })
-    }
-  )
+        body: JSON.stringify({
+          model: 'qwen-vl-max',
+          input: {
+            messages: [{
+              role: 'user',
+              content: [
+                { image: `data:image/png;base64,${imageBase64}` },
+                { text: SYSTEM_PROMPT }
+              ]
+            }]
+          },
+          parameters: { result_format: 'message' }
+        }),
+        signal: controller.signal
+      }
+    )
+  } finally {
+    clearTimeout(timeout)
+  }
 
   if (!response.ok) {
     const err = await response.text()

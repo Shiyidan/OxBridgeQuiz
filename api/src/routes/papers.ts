@@ -1,12 +1,7 @@
 import { Router } from 'express'
-import path from 'path'
-import fs from 'fs'
-import { fileURLToPath } from 'url'
 import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export const papersRouter = Router()
 
@@ -64,11 +59,7 @@ papersRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
 
 // 删除试卷
 papersRouter.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
-  const paper = await prisma.paper.findUnique({ where: { id: req.params.id } })
-  if (paper?.pdfUrl) {
-    const pdfPath = path.join(__dirname, '../../', paper.pdfUrl)
-    if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath)
-  }
+  // TODO: 迁移至 OSS 后同步删除 OSS 文件
   await prisma.paper.delete({ where: { id: req.params.id } })
   res.json({ success: true })
 })
@@ -86,13 +77,12 @@ papersRouter.put('/:id/publish', requireAuth, requireAdmin, async (req, res) => 
 papersRouter.get('/:id/pdf', requireAuth, async (req, res) => {
   const paper = await prisma.paper.findUnique({ where: { id: req.params.id } })
   if (!paper?.pdfUrl) {
-    res.status(404).json({ error: 'PDF不存在' })
+    res.status(404).json({ error: 'PDF暂不可用，OSS 尚未接入' })
     return
   }
-  const pdfPath = path.join(__dirname, '../../', paper.pdfUrl)
-  if (!fs.existsSync(pdfPath)) {
-    res.status(404).json({ error: '文件不存在' })
-    return
+  if (paper.pdfUrl.startsWith('http')) {
+    res.redirect(paper.pdfUrl)
+  } else {
+    res.status(404).json({ error: 'PDF暂不可用，OSS 尚未接入' })
   }
-  res.download(pdfPath, `${paper.title}.pdf`)
 })

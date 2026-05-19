@@ -1,10 +1,9 @@
 // 内容块类型
 export interface ContentBlock {
-  type: 'text' | 'formula' | 'image' | 'svg' | 'tikz' | 'break';
+  type: 'text' | 'formula' | 'image' | 'svg' | 'break';
   value?: string;
   latex?: string;
   src?: string;
-  code?: string;  // TikZ 代码
   metadata?: {
     width?: number;
     height?: number;
@@ -19,9 +18,9 @@ export interface Option {
   text?: string;             // 新格式：LaTeX文本（如 "$x = 5r$")
 }
 
-// 图片/SVG/TikZ
+// 图片/SVG
 export interface QuestionImage {
-  type: 'tikz' | 'svg' | 'image';
+  type: 'svg' | 'image';
   src?: string;
   code?: string;
   alt?: string;
@@ -40,7 +39,7 @@ export interface Question {
   explanation?: string;
   marks?: number;
   tags?: string[];
-  images?: QuestionImage[]; // 新格式：图片/TikZ
+  images?: QuestionImage[]; // 新格式：图片/SVG
 }
 
 // 试卷

@@ -14,7 +14,7 @@ model Paper {
   year           Int
   duration       Int
   totalQuestions Int      @default(0)
-  pdfUrl         String
+  pdfUrl         String?
   status         String   @default("draft")
   questions      String   @default("[]")
   createdAt      DateTime @default(now())

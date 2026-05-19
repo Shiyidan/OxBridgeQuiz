@@ -1,16 +1,5 @@
-# 根目录下的包文件（实际项目在 quiz-web/ 中）
-/package.json
-/package-lock.json
-
 # 依赖
 node_modules/
-
-# TikZJax 大型资源（通过 npm install @drgrice1/tikzjax 后复制到 public/tikzjax）
-quiz-web/public/tikzjax/bakoma/
-quiz-web/public/tikzjax/fonts/
-quiz-web/public/tikzjax/tex_files/
-quiz-web/public/tikzjax/core.dump.gz
-quiz-web/public/tikzjax/tex.wasm.gz
 
 # 试卷数据
 quiz-web/public/data/paper.json

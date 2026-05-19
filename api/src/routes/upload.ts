@@ -1,15 +1,16 @@
 import { Router } from 'express'
 import multer from 'multer'
 import path from 'path'
+import os from 'os'
 import { v4 as uuidv4 } from 'uuid'
-import { fileURLToPath } from 'url'
 import { prisma } from '../services/prisma.js'
 import { startParseTask } from '../services/parseService.js'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const uploadDir = path.join(__dirname, '../../../uploads')
+// PDF 上传暂存到系统临时目录，解析完成后可清理
+// TODO: 迁移至阿里云 OSS
+const uploadDir = os.tmpdir()
 
 const storage = multer.diskStorage({
   destination: uploadDir,
@@ -47,7 +48,7 @@ uploadRouter.post('/paper', requireAuth, requireAdmin, upload.single('file'), as
         title: title || req.file.originalname.replace('.pdf', ''),
         year: parseInt(year) || new Date().getFullYear(),
         duration: parseInt(duration) || 60,
-        pdfUrl: `/uploads/${req.file.filename}`,
+        pdfUrl: null, // TODO: 迁移至 OSS 后填入 OSS URL
         questions: '[]'
       }
     })

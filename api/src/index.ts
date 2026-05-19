@@ -16,7 +16,13 @@ const app = express()
 
 app.use(cors({ origin: config.corsOrigins }))
 app.use(express.json())
-app.use('/uploads', express.static(config.uploadDir))
+
+// 禁用 ETag，避免浏览器缓存 API 返回 304
+app.set('etag', false)
+app.use('/api', (_req, res, next) => {
+  res.set('Cache-Control', 'no-store')
+  next()
+})
 
 app.use('/api/auth', authRouter)
 app.use('/api/diagnostic', diagnosticRouter)

@@ -113,7 +113,7 @@ async function handleRoleChange(userId: string, newRole: string): Promise<void> 
     const user = users.value.find((u) => u.id === userId)
     if (user) user.role = newRole
   } catch (e: any) {
-    alert(e.response?.data?.message || '操作失败')
+    alert(e.response?.data?.errMsg || '操作失败')
   }
 }
 

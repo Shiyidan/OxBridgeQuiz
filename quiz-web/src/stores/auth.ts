@@ -46,7 +46,7 @@ export const useAuthStore = defineStore('auth', () => {
       // 如果携带了诊断报告，返回给调用方
       return res.data
     } catch (e: any) {
-      error.value = e.response?.data?.message || '登录失败'
+      error.value = e.response?.data?.errMsg || e.message || '登录失败'
       throw e
     } finally {
       loading.value = false
@@ -77,7 +77,7 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.setItem('user', JSON.stringify(res.data.user))
       return res.data
     } catch (e: any) {
-      error.value = e.response?.data?.message || '注册失败'
+      error.value = e.response?.data?.errMsg || e.message || '注册失败'
       throw e
     } finally {
       loading.value = false
@@ -85,7 +85,12 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // 退出
-  function logout(): void {
+  async function logout(): Promise<void> {
+    try {
+      await request.post('/auth/logout')
+    } catch {
+      // 网络异常等情况下也继续清除本地状态
+    }
     token.value = null
     user.value = null
     localStorage.removeItem('token')

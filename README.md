@@ -2,66 +2,101 @@
 
 ## 项目概述
 
-这是一个支持PDF试卷自动解析和在线答题的Web应用Demo。
+面向 G5 入学考试的在线试卷解析与答题 Web 应用。支持 PDF 试卷自动解析（Qwen 大模型识别题目、公式、图形）、在线答题、诊断测评和后台管理。
 
 **核心功能**：
-1. **PDF解析器**（Python）- 自动提取PDF中的题目、选项、公式，转换为结构化JSON
-2. **在线答题**（Vue 3）- 加载JSON试卷，渲染题目（支持公式、图片），支持答题和评分
+
+1. **PDF 解析** — 上传 PDF 试卷，自动识别题目、选项、公式，结构化入库
+2. **在线答题** — 加载结构化试卷，渲染公式/图片，支持答题和评分
+3. **诊断测评** — 随机出题 → 提交 → 智能批改 → 生成知识分析报告
+4. **用户系统** — 注册/登录（JWT），角色管理（学生/管理员）
+5. **管理后台** — 试卷管理、用户管理、解析任务监控
 
 ## 技术栈
 
-- **PDF解析**：Python + PyMuPDF + pix2tex（公式OCR）
-- **前端框架**：Vue 3 + TypeScript + Pinia
-- **公式渲染**：KaTeX
-- **样式**：原生CSS
+| 层级 | 技术 |
+|------|------|
+| 后端框架 | Express（Node.js + TypeScript） |
+| 数据库 ORM | Prisma（SQLite） |
+| 认证 | JWT（bcryptjs 密码加密） |
+| AI 识别 | Qwen-VL-Max（阿里云 DashScope） |
+| PDF 处理 | PyMuPDF（Python 脚本） |
+| 前端框架 | Vue 3（Composition API + TypeScript） |
+| 状态管理 | Pinia |
+| HTTP 客户端 | Axios |
+| 公式渲染 | KaTeX |
+| 样式 | SCSS |
 
 ## 项目结构
 
-```
-quiz-demo/
-├── parser/                     # PDF解析器
-│   ├── pdf_to_json.py         # 主解析脚本
-│   └── requirements.txt       # Python依赖
-│
-├── quiz-web/                   # Vue 3前端
+```text
+QuizTestDemo/
+├── api/                          # 后端 API
 │   ├── src/
-│   │   ├── components/        # 组件
-│   │   │   ├── FormulaBlock.vue      # 公式渲染
-│   │   │   ├── ContentBlock.vue      # 内容块
-│   │   │   ├── OptionList.vue        # 选项列表
-│   │   │   └── QuestionRenderer.vue  # 题目渲染
-│   │   ├── views/
-│   │   │   └── ExamView.vue          # 答题页面
-│   │   ├── stores/
-│   │   │   └── exam.ts               # Pinia状态管理
-│   │   └── types/
-│   │       └── index.ts              # TypeScript类型定义
-│   └── public/data/
-│       └── paper.json         # 示例试卷数据
+│   │   ├── index.ts              # 服务入口（Express, 端口 3001）
+│   │   ├── config.ts             # 环境变量读取
+│   │   ├── routes/               # 路由（auth / papers / upload / parse / diagnostic / admin）
+│   │   ├── middleware/           # 中间件（JWT 认证 / 管理员权限）
+│   │   ├── services/             # 业务层（Prisma / JWT / Qwen / 诊断评分）
+│   │   └── utils/response.ts     # 统一响应格式工具
+│   ├── prisma/schema.prisma      # 数据模型（Paper / User / DiagnosticSession 等 6 表）
+│   ├── scripts/                  # Python 辅助脚本（PDF→PNG base64）
+│   └── package.json
 │
-└── ENGAA_2023_S1_QuestionPaper.pdf  # 示例PDF
+├── quiz-web/                     # 前端
+│   ├── src/
+│   │   ├── router/index.ts       # 路由配置 + 导航守卫
+│   │   ├── stores/               # Pinia 状态（auth / exam）
+│   │   ├── utils/                # Axios 实例 + 表单校验
+│   │   ├── components/           # 共享组件（NavBar / QuestionCard / FormulaBlock 等）
+│   │   └── views/                # 页面（home / auth / student / profile / admin）
+│   ├── public/data/              # 静态数据
+│   └── package.json
+│
+├── 开发规范.md                    # 注释 / 数据库 / API 响应规范
+├── 样式规范.md                    # 设计 token 与组件样式规范
+├── 技术方案.md                    # PDF→Qwen 解析方案
+├── 数据库构建.md                  # 数据模型详细文档
+├── 登录模块技术方案.md             # 登录注册技术方案
+├── 部署方案.md                    # 部署说明
+├── 项目架构.md                    # 项目架构总览
+└── README.md                     # 本文件
 ```
 
 ## 快速开始
 
-### 1. PDF解析器
+### 环境要求
+
+- Node.js >= 18
+- Python >= 3.9（PDF 解析脚本依赖）
+- npm
+
+### 1. 后端 API
 
 ```bash
-cd parser
+cd api
 
 # 安装依赖
-pip install -r requirements.txt
+npm install
 
-# 解析PDF
-python pdf_to_json.py ../ENGAA_2023_S1_QuestionPaper.pdf -o output
+# 初始化数据库（生成 Prisma Client + 执行迁移）
+npx prisma migrate dev
 
-# 启用公式OCR识别（需要GPU，首次运行会下载模型）
-python pdf_to_json.py ../ENGAA_2023_S1_QuestionPaper.pdf -o output --formula-ocr
+# 配置环境变量（复制 .env 并根据需要修改）
+# JWT_SECRET、API_PORT、DATABASE_URL 等
+
+# 启动开发服务器（http://localhost:3001）
+npm run dev
 ```
 
-解析完成后，会在 `output/paper.json` 生成结构化数据，`output/images/` 存放提取的图片。
+可选：安装 Python 依赖用于 PDF 解析
 
-### 2. 前端答题
+```bash
+cd api/scripts
+pip install -r requirements.txt
+```
+
+### 2. 前端
 
 ```bash
 cd quiz-web
@@ -69,101 +104,16 @@ cd quiz-web
 # 安装依赖
 npm install
 
-# 运行开发服务器
+# 启动开发服务器（http://localhost:5173）
 npm run dev
 ```
 
-访问 `http://localhost:5173` 即可答题。
+## 文档索引
 
-## PDF解析器说明
-
-### 功能特性
-
-1. **文本提取**：保留字体信息，识别数学公式
-2. **图片提取**：保存页面中的图片
-3. **题目分割**：按题号自动分割题目
-4. **选项解析**：识别选择题选项（A-F）
-5. **公式识别**：
-   - 基于字体特征检测公式
-   - 支持pix2tex自动OCR识别（可选）
-   - 希腊字母、根号、分数等转换
-
-### 使用方法
-
-```python
-from pdf_to_json import PDFParser
-
-parser = PDFParser("input.pdf", "output")
-result = parser.parse()
-parser.save_json(result)
-parser.close()
-```
-
-### 输出格式
-
-```json
-{
-  "title": "试卷标题",
-  "year": 2023,
-  "duration": 60,
-  "totalQuestions": 40,
-  "questions": [
-    {
-      "id": "q1",
-      "number": 1,
-      "content": [
-        {"type": "text", "value": "题目文本..."},
-        {"type": "break"},
-        {"type": "formula", "value": "R = √(...)", "latex": "R = \\sqrt{...}"}
-      ],
-      "options": [
-        {"label": "A", "content": [{"type": "formula", "latex": "..."}]},
-        ...
-      ],
-      "correctAnswer": "C",
-      "tags": ["geometry"]
-    }
-  ]
-}
-```
-
-## 前端组件说明
-
-### 组件列表
-
-1. **FormulaBlock** - KaTeX公式渲染
-2. **ContentBlock** - 内容块渲染（文本/公式/图片/换行）
-3. **OptionList** - 选项列表，支持选择反馈
-4. **QuestionRenderer** - 完整题目渲染
-
-### 答题功能
-
-- 单选题答题
-- 进度显示
-- 交卷评分
-- 正确答案提示
-- 成绩统计
-
-## 数据流
-
-```
-PDF → Python解析器 → paper.json → Vue前端 → 答题界面
-```
-
-## 注意事项
-
-1. **公式识别**：pix2tex需要PyTorch，首次运行会自动下载模型（约几百MB）
-2. **图片路径**：解析器输出的图片路径是相对于输出目录的，需要确保前端能正确访问
-3. **正确答案**：解析器无法自动识别正确答案，需要在JSON中手动设置
-
-## 后续优化方向
-
-1. 提高公式识别准确率
-2. 支持更多题型（填空、解答）
-3. 添加用户系统和答题记录
-4. 添加试卷编辑器，支持人工校对
-5. 优化复杂图形的渲染
-
-## 许可证
-
-MIT
+- [项目架构.md](项目架构.md) — 完整架构说明（目录、路由层级、数据模型、解析流程）
+- [开发规范.md](开发规范.md) — 注释规范、数据库规范、API 响应规范
+- [样式规范.md](样式规范.md) — CSS 变量、组件样式规范
+- [技术方案.md](技术方案.md) — PDF 解析技术方案详解
+- [数据库构建.md](数据库构建.md) — 数据模型字段说明
+- [登录模块技术方案.md](登录模块技术方案.md) — 认证模块详细设计
+- [部署方案.md](部署方案.md) — 部署流程与配置

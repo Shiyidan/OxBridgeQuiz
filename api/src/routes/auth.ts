@@ -4,13 +4,14 @@ import rateLimit from 'express-rate-limit'
 import { prisma } from '../services/prisma.js'
 import { signToken } from '../services/jwt.js'
 import { requireAuth } from '../middleware/auth.js'
+import { success, fail } from '../utils/response.js'
 
 export const authRouter = Router()
 
 const authLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 5,
-  message: { code: 'RATE_LIMITED', message: '请求过于频繁，请稍后再试' },
+  message: { success: false, code: 1, errMsg: '请求过于频繁，请稍后再试', data: null },
 })
 
 authRouter.use(authLimiter)
@@ -22,26 +23,26 @@ authRouter.post('/register', async (req: Request, res: Response) => {
 
     // 校验
     if (!email || !password || !name) {
-      res.status(422).json({ code: 'VALIDATION_ERROR', message: '邮箱、密码和姓名为必填项' })
+      res.status(422).json(fail('邮箱、密码和姓名为必填项'))
       return
     }
     if (password !== confirmPassword) {
-      res.status(422).json({ code: 'VALIDATION_ERROR', message: '两次输入的密码不一致' })
+      res.status(422).json(fail('两次输入的密码不一致'))
       return
     }
     if (password.length < 8 || password.length > 32) {
-      res.status(422).json({ code: 'VALIDATION_ERROR', message: '密码长度需为 8-32 位' })
+      res.status(422).json(fail('密码长度需为 8-32 位'))
       return
     }
     if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
-      res.status(422).json({ code: 'VALIDATION_ERROR', message: '密码需同时包含字母和数字' })
+      res.status(422).json(fail('密码需同时包含字母和数字'))
       return
     }
 
     // 查邮箱是否已注册
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
-      res.status(409).json({ code: 'EMAIL_EXISTS', message: '该邮箱已注册' })
+      res.status(409).json(fail('该邮箱已注册'))
       return
     }
 
@@ -72,14 +73,14 @@ authRouter.post('/register', async (req: Request, res: Response) => {
       }
     }
 
-    res.json({
+    res.json(success({
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
       token,
       ...(fullReport ? { fullReport } : {}),
-    })
+    }))
   } catch (err) {
     console.error('[auth] register error:', err)
-    res.status(500).json({ code: 'SERVER_ERROR', message: '服务器错误' })
+    res.status(500).json(fail('服务器错误'))
   }
 })
 
@@ -89,19 +90,19 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     const { email, password, diagnosticSessionId } = req.body
 
     if (!email || !password) {
-      res.status(422).json({ code: 'VALIDATION_ERROR', message: '邮箱和密码为必填项' })
+      res.status(422).json(fail('邮箱和密码为必填项'))
       return
     }
 
     const user = await prisma.user.findUnique({ where: { email } })
     if (!user) {
-      res.status(401).json({ code: 'INVALID_CREDENTIALS', message: '邮箱或密码错误' })
+      res.status(401).json(fail('邮箱或密码错误'))
       return
     }
 
     const valid = await bcrypt.compare(password, user.password)
     if (!valid) {
-      res.status(401).json({ code: 'INVALID_CREDENTIALS', message: '邮箱或密码错误' })
+      res.status(401).json(fail('邮箱或密码错误'))
       return
     }
 
@@ -125,14 +126,14 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       }
     }
 
-    res.json({
+    res.json(success({
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
       token,
       ...(fullReport ? { fullReport } : {}),
-    })
+    }))
   } catch (err) {
     console.error('[auth] login error:', err)
-    res.status(500).json({ code: 'SERVER_ERROR', message: '服务器错误' })
+    res.status(500).json(fail('服务器错误'))
   }
 })
 
@@ -144,17 +145,17 @@ authRouter.get('/me', requireAuth, async (req: Request, res: Response) => {
       select: { id: true, name: true, email: true, role: true, avatar: true },
     })
     if (!user) {
-      res.status(404).json({ code: 'USER_NOT_FOUND', message: '用户不存在' })
+      res.status(404).json(fail('用户不存在'))
       return
     }
-    res.json(user)
+    res.json(success(user))
   } catch (err) {
     console.error('[auth] me error:', err)
-    res.status(500).json({ code: 'SERVER_ERROR', message: '服务器错误' })
+    res.status(500).json(fail('服务器错误'))
   }
 })
 
 // 登出
 authRouter.post('/logout', requireAuth, (_req: Request, res: Response) => {
-  res.json({ success: true })
+  res.json(success(null))
 })

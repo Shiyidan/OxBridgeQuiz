@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express'
 import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
+import { success, fail } from '../utils/response.js'
 
 export const adminRouter = Router()
 
@@ -22,10 +23,10 @@ adminRouter.get('/users', async (_req: Request, res: Response) => {
       },
       orderBy: { createdAt: 'desc' },
     })
-    res.json({ users })
+    res.json(success({ users }))
   } catch (err) {
     console.error('[admin] users error:', err)
-    res.status(500).json({ code: 'SERVER_ERROR', message: '服务器错误' })
+    res.status(500).json(fail('服务器错误'))
   }
 })
 
@@ -34,7 +35,7 @@ adminRouter.put('/users/:id/role', async (req: Request, res: Response) => {
   try {
     const { role } = req.body
     if (!role || !['student', 'admin'].includes(role)) {
-      res.status(422).json({ code: 'VALIDATION_ERROR', message: '无效的角色' })
+      res.status(422).json(fail('无效的角色'))
       return
     }
 
@@ -43,9 +44,9 @@ adminRouter.put('/users/:id/role', async (req: Request, res: Response) => {
       data: { role },
       select: { id: true, name: true, email: true, role: true, paymentStatus: true },
     })
-    res.json({ user })
+    res.json(success({ user }))
   } catch (err) {
     console.error('[admin] update role error:', err)
-    res.status(500).json({ code: 'SERVER_ERROR', message: '服务器错误' })
+    res.status(500).json(fail('服务器错误'))
   }
 })

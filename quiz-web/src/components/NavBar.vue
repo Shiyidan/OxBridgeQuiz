@@ -106,8 +106,8 @@ function goToAdmin(): void {
   router.push('/admin/core-library')
 }
 
-function handleLogout(): void {
-  auth.logout()
+async function handleLogout(): Promise<void> {
+  await auth.logout()
   showDropdown.value = false
   router.push('/')
 }

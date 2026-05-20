@@ -69,11 +69,12 @@ const loading = ref(true)
 onMounted(async () => {
   try {
     const res = await fetch(`${API_URL}/papers/${route.params.id}`)
-    const data = await res.json()
+    const json = await res.json()
+    const data = json.success ? json.data : null
     paper.value = data
 
     // 将 API 返回的 question 映射到 Question 类型
-    const raw = data.questions || []
+    const raw = data?.questions || []
     questions.value = raw.map((q: any, idx: number) => ({
       id: q.id || `q-${idx}`,
       number: q.number,

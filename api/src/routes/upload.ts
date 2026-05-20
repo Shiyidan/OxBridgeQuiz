@@ -7,6 +7,7 @@ import { prisma } from '../services/prisma.js'
 import { startParseTask } from '../services/parseService.js'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
+import { success, fail } from '../utils/response.js'
 
 // PDF 上传暂存到系统临时目录，解析完成后可清理
 // TODO: 迁移至阿里云 OSS
@@ -37,7 +38,7 @@ export const uploadRouter = Router()
 uploadRouter.post('/paper', requireAuth, requireAdmin, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
-      res.status(400).json({ error: '请上传PDF文件' })
+      res.status(400).json(fail('请上传PDF文件'))
       return
     }
 
@@ -65,13 +66,13 @@ uploadRouter.post('/paper', requireAuth, requireAdmin, upload.single('file'), as
     startParseTask(task.id, paper.id, path.join(uploadDir, req.file.filename))
       .catch(err => console.error('Parse task failed:', err))
 
-    res.json({
+    res.json(success({
       paperId: paper.id,
       taskId: task.id,
       status: 'processing'
-    })
+    }))
   } catch (e: any) {
     console.error('Upload error:', e)
-    res.status(500).json({ error: e.message || '上传失败' })
+    res.status(500).json(fail(e.message || '上传失败'))
   }
 })

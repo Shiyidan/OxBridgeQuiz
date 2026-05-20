@@ -31,8 +31,10 @@ app.use('/api/papers', papersRouter)
 app.use('/api/parse-tasks', parseRouter)
 app.use('/api/upload', uploadRouter)
 
+import { success } from './utils/response.js'
+
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok' })
+  res.json(success({ status: 'ok' }))
 })
 
 app.listen(config.port, () => {

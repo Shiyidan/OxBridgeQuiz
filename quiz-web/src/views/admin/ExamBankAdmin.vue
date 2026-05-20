@@ -124,9 +124,10 @@ async function fetchPapers(): Promise<void> {
   loading.value = true
   try {
     const res = await fetch(`${API_URL}/papers?limit=100`)
-    const data = await res.json()
+    const json = await res.json()
     // 前端兜底按创建时间降序排列（后端 orderBy 偶发不生效）
-    paperList.value = (data.papers || []).sort((a: PaperItem, b: PaperItem) =>
+    const papers = json.success ? json.data.papers : []
+    paperList.value = (papers || []).sort((a: PaperItem, b: PaperItem) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     )
   } catch {

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import { verifyToken, JwtPayload } from '../services/jwt.js'
+import { fail } from '../utils/response.js'
 
 declare global {
   namespace Express {
@@ -12,7 +13,7 @@ declare global {
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const header = req.headers.authorization
   if (!header || !header.startsWith('Bearer ')) {
-    res.status(401).json({ code: 'UNAUTHORIZED', message: '请先登录' })
+    res.status(401).json(fail('请先登录'))
     return
   }
 
@@ -21,7 +22,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     req.user = verifyToken(token)
     next()
   } catch {
-    res.status(401).json({ code: 'TOKEN_EXPIRED', message: '登录已过期，请重新登录' })
+    res.status(401).json(fail('登录已过期，请重新登录'))
   }
 }
 

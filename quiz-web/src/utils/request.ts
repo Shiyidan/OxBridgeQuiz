@@ -15,9 +15,19 @@ request.interceptors.request.use((config) => {
   return config
 })
 
-// 响应拦截器：处理 401
+// 响应拦截器：解包统一响应格式 + 处理 401
 request.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const body = response.data
+    if (body && typeof body === 'object' && 'success' in body) {
+      if (body.success) {
+        response.data = body.data
+      } else {
+        return Promise.reject(new Error(body.errMsg || '请求失败'))
+      }
+    }
+    return response
+  },
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token')

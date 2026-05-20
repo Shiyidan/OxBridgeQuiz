@@ -216,7 +216,7 @@ async function startUpload(): Promise<void> {
   } catch (e: any) {
     if (e?.code !== 'ERR_CANCELED') {
       parsingFailed.value = true
-      parseError.value = e.response?.data?.message || e.message || '上传失败'
+      parseError.value = e.response?.data?.errMsg || e.message || '上传失败'
     }
   }
 }
@@ -254,7 +254,7 @@ async function retryParse(): Promise<void> {
     pollTask()
   } catch (e: any) {
     parsingFailed.value = true
-    parseError.value = e.response?.data?.message || '重试失败'
+    parseError.value = e.response?.data?.errMsg || '重试失败'
   }
 }
 

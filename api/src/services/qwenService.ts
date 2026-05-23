@@ -67,13 +67,15 @@ const SYSTEM_PROMPT = `你是一个专业的试卷解析助手。请分析这份
 
 export async function analyzePageWithQwen(
   imageBase64: string,
-  _pageNum: number
+  _pageNum: number,
+  mimeType: string = 'image/png'
 ): Promise<ParsedQuestion[]> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 120_000)
 
+  let response: Response
   try {
-    const response = await fetch(
+    response = await fetch(
       `${DASHSCOPE_BASE}/services/aigc/multimodal-generation/generation`,
       {
         method: 'POST',
@@ -87,7 +89,7 @@ export async function analyzePageWithQwen(
             messages: [{
               role: 'user',
               content: [
-                { image: `data:image/png;base64,${imageBase64}` },
+                { image: `data:${mimeType};base64,${imageBase64}` },
                 { text: SYSTEM_PROMPT }
               ]
             }]

@@ -15,7 +15,7 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env') })
 const app = express()
 
 app.use(cors({ origin: config.corsOrigins }))
-app.use(express.json())
+app.use(express.json({ limit: '50mb' }))
 
 // 禁用 ETag，避免浏览器缓存 API 返回 304
 app.set('etag', false)

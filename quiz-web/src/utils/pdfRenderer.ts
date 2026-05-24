@@ -11,6 +11,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl
 export interface RenderedPage {
   page: number
   base64: string
+  /** 可选；省略则后端按 image/jpeg 处理（PDF 渲染始终为 JPEG，无需设置） */
+  mimeType?: string
 }
 
 export interface RenderOptions {
@@ -39,7 +41,8 @@ export async function renderPdfToBase64Pages(
   const totalPages = pdf.numPages
   const pages: RenderedPage[] = []
 
-  for (let i = 1; i <= totalPages; i++) {
+  const maxPages = Math.min(totalPages, 13)
+  for (let i = 1; i <= maxPages; i++) {
     const page = await pdf.getPage(i)
 
     // 前 2 页封面/目录检测：文本不足阈值则跳过

@@ -25,13 +25,13 @@ parseRouter.post('/:id/pages', requireAuth, requireAdmin, async (req, res) => {
     return
   }
 
-  const { page, base64, totalPages } = req.body
+  const { page, base64, mimeType, totalPages } = req.body
   if (!base64 || page == null) {
     res.status(400).json(fail('缺少页面数据'))
     return
   }
 
-  addPageToTask(task.id, task.paperId, { page, base64 }, totalPages).catch((err) =>
+  addPageToTask(task.id, task.paperId, { page, base64, mimeType }, totalPages).catch((err) =>
     console.error(`Page ${page} add failed:`, err),
   )
 

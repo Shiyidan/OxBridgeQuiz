@@ -20,7 +20,7 @@
 | 数据库 ORM | Prisma（SQLite） |
 | 认证 | JWT（bcryptjs 密码加密） |
 | AI 识别 | Qwen-VL-Max（阿里云 DashScope） |
-| PDF 处理 | PyMuPDF（Python 脚本） |
+| PDF 处理 | pdf.js（浏览器端渲染） |
 | 前端框架 | Vue 3（Composition API + TypeScript） |
 | 状态管理 | Pinia |
 | HTTP 客户端 | Axios |
@@ -40,7 +40,6 @@ QuizTestDemo/
 │   │   ├── services/             # 业务层（Prisma / JWT / Qwen / 诊断评分）
 │   │   └── utils/response.ts     # 统一响应格式工具
 │   ├── prisma/schema.prisma      # 数据模型（Paper / User / DiagnosticSession 等 6 表）
-│   ├── scripts/                  # Python 辅助脚本（PDF→PNG base64）
 │   └── package.json
 │
 ├── quiz-web/                     # 前端
@@ -68,7 +67,6 @@ QuizTestDemo/
 ### 环境要求
 
 - Node.js >= 18
-- Python >= 3.9（PDF 解析脚本依赖）
 - npm
 
 ### 1. 后端 API
@@ -87,13 +85,6 @@ npx prisma migrate dev
 
 # 启动开发服务器（http://localhost:3001）
 npm run dev
-```
-
-可选：安装 Python 依赖用于 PDF 解析
-
-```bash
-cd api/scripts
-pip install -r requirements.txt
 ```
 
 ### 2. 前端

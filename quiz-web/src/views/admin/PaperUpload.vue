@@ -12,7 +12,7 @@
       <div class="section-header">
         <div class="header-text">
           <h2 class="section-title">试卷解析录入</h2>
-          <p class="section-desc">上传 PDF 试卷，由 Qwen 大模型自动识别题目、公式与图形。</p>
+          <p class="section-desc">上传 PDF 试卷或单题图片，由 Qwen 大模型自动识别题目、公式与图形。</p>
         </div>
       </div>
 
@@ -30,18 +30,24 @@
             <div class="drop-icon-wrap">
               <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
             </div>
-            <p class="drop-title">拖拽 PDF 文件到此处</p>
+            <p class="drop-title">拖拽 PDF 或题目图片到此处</p>
             <p class="drop-hint">或点击此区域选择文件</p>
-            <p class="drop-limit">最大 50MB，仅支持 PDF 格式</p>
+            <p class="drop-limit">支持 PDF（最大 50MB） / PNG / JPG（最大 10MB，单题测试）</p>
           </template>
 
           <template v-else-if="file && !parsing && !rendering">
             <div class="file-preview">
-              <div class="file-icon-wrap">
+              <div v-if="fileKind === 'image' && imagePreviewUrl" class="image-thumb-wrap">
+                <img :src="imagePreviewUrl" class="image-thumb" alt="题目图片预览" />
+              </div>
+              <div v-else class="file-icon-wrap">
                 <svg viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               </div>
               <p class="file-name-text">{{ file.name }}</p>
-              <p class="file-size-text">{{ (file.size / 1024 / 1024).toFixed(1) }} MB</p>
+              <p class="file-size-text">
+                <span class="file-kind-badge" :class="`kind-${fileKind}`">{{ fileKind === 'image' ? '单题图片' : 'PDF' }}</span>
+                {{ (file.size / 1024 / 1024).toFixed(2) }} MB
+              </p>
               <button class="btn-change" @click.stop="clearFile">重新选择</button>
             </div>
           </template>
@@ -109,6 +115,28 @@
           </div>
         </div>
 
+        <!-- 渲染页面预览（调试：只渲染选中页，避免内存溢出） -->
+        <div v-if="debugPageCount > 0" class="debug-preview">
+          <button class="debug-toggle" @click="showDebugPreview = !showDebugPreview">
+            {{ showDebugPreview ? '收起' : '展开' }}页面渲染预览（{{ debugPageCount }} 页）
+          </button>
+          <div v-if="showDebugPreview" class="debug-body">
+            <p class="debug-hint">点击页码查看该页渲染效果</p>
+            <div class="debug-page-list">
+              <button
+                v-for="n in debugPageCount" :key="n"
+                class="debug-page-btn"
+                :class="{ active: debugSelectedPage === n }"
+                @click="selectDebugPage(n)"
+              >{{ n }}</button>
+            </div>
+            <div v-if="debugSelectedImage" class="debug-thumb-wrap">
+              <span class="debug-thumb-label">第 {{ debugSelectedPage }} 页</span>
+              <img :src="debugSelectedImage" class="debug-thumb-img" />
+            </div>
+          </div>
+        </div>
+
         <!-- 结果 -->
         <div v-if="!rendering" class="result-actions" :class="{ 'mt-20': parsing }">
           <template v-if="parsingDone && paperId">
@@ -127,7 +155,7 @@
       </div>
     </div>
 
-    <input ref="fileInput" type="file" accept=".pdf" class="hidden-input" @change="handleFileSelect" />
+    <input ref="fileInput" type="file" accept=".pdf,image/png,image/jpeg" class="hidden-input" @change="handleFileSelect" />
   </div>
 </template>
 
@@ -142,10 +170,21 @@ const router = useRouter()
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const file = ref<File | null>(null)
+const fileKind = ref<'pdf' | 'image'>('pdf')
+const imagePreviewUrl = ref('')
 const dragOver = ref(false)
 const title = ref('')
 const year = ref(new Date().getFullYear())
 const duration = ref(75)
+
+const PDF_MAX_BYTES = 50 * 1024 * 1024
+const IMG_MAX_BYTES = 10 * 1024 * 1024
+
+function detectKind(f: File): 'pdf' | 'image' | null {
+  if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) return 'pdf'
+  if (/^image\/(png|jpe?g)$/i.test(f.type) || /\.(png|jpe?g)$/i.test(f.name)) return 'image'
+  return null
+}
 
 const rendering = ref(false)
 const renderCurrent = ref(0)
@@ -163,12 +202,30 @@ let taskId = ''
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let abortController: AbortController | null = null
 
-// 缓存渲染后的页面，供重试使用
+// 缓存渲染后的页面，供重试使用（不声明为 reactive，避免 Vue 追踪 base64 大字符串导致 OOM）
 let cachedPages: RenderedPage[] = []
+const showDebugPreview = ref(false)
+const debugPageCount = ref(0)
+const debugSelectedPage = ref(1)
+const debugSelectedImage = ref('')
+
+function updateDebugPreview(pages: RenderedPage[]): void {
+  debugPageCount.value = pages.length
+  if (debugSelectedPage.value > pages.length) {
+    debugSelectedPage.value = 1
+  }
+}
+
+function selectDebugPage(n: number): void {
+  debugSelectedPage.value = n
+  const p = cachedPages.find((x) => x.page === n)
+  debugSelectedImage.value = p ? 'data:image/jpeg;base64,' + p.base64 : ''
+}
 
 onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
   if (abortController) abortController.abort()
+  if (imagePreviewUrl.value) URL.revokeObjectURL(imagePreviewUrl.value)
 })
 
 function triggerFileInput(): void {
@@ -183,22 +240,50 @@ function handleFileSelect(e: Event): void {
 function handleDrop(e: DragEvent): void {
   dragOver.value = false
   const f = e.dataTransfer?.files?.[0]
-  if (f?.type === 'application/pdf') selectFile(f)
+  if (f) selectFile(f)
 }
 
 function selectFile(f: File): void {
+  const kind = detectKind(f)
+  if (!kind) {
+    alert('仅支持 PDF / PNG / JPG 文件')
+    return
+  }
+  const limit = kind === 'pdf' ? PDF_MAX_BYTES : IMG_MAX_BYTES
+  if (f.size > limit) {
+    alert(`文件超过大小限制（${kind === 'pdf' ? '50MB' : '10MB'}）`)
+    return
+  }
+  if (imagePreviewUrl.value) {
+    URL.revokeObjectURL(imagePreviewUrl.value)
+    imagePreviewUrl.value = ''
+  }
   file.value = f
-  title.value = f.name.replace(/\.pdf$/i, '')
+  fileKind.value = kind
+  title.value = f.name.replace(/\.(pdf|png|jpe?g)$/i, '')
+  if (kind === 'image') {
+    imagePreviewUrl.value = URL.createObjectURL(f)
+  }
 }
 
 function clearFile(): void {
   file.value = null
+  fileKind.value = 'pdf'
   title.value = ''
+  if (imagePreviewUrl.value) {
+    URL.revokeObjectURL(imagePreviewUrl.value)
+    imagePreviewUrl.value = ''
+  }
   cachedPages = []
 }
 
 function resetUpload(): void {
   file.value = null
+  fileKind.value = 'pdf'
+  if (imagePreviewUrl.value) {
+    URL.revokeObjectURL(imagePreviewUrl.value)
+    imagePreviewUrl.value = ''
+  }
   title.value = ''
   rendering.value = false
   parsing.value = false
@@ -214,6 +299,21 @@ function resetUpload(): void {
   if (abortController) { abortController.abort(); abortController = null }
 }
 
+// 单题图片直接读原始字节为 base64，不做 Canvas 重编码。
+// 之前对 PNG 做 0.9 JPEG 重编码会压糊电路图细线，导致 Qwen 识别失败返回空数组。
+async function imageFileToBase64(f: File): Promise<{ base64: string; mimeType: string }> {
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(f)
+  })
+  const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
+  if (!m || !m[1] || !m[2]) throw new Error('无法读取图片 base64')
+  const mimeType = /png/i.test(m[1]) ? 'image/png' : 'image/jpeg'
+  return { base64: m[2], mimeType }
+}
+
 async function startUpload(): Promise<void> {
   if (!file.value) return
 
@@ -221,31 +321,43 @@ async function startUpload(): Promise<void> {
   parsingFailed.value = false
   parseError.value = ''
 
-  // 阶段 1：先渲染全部页面（收集 base64）
+  // 阶段 1：收集页面 base64（PDF 走 pdf.js 渲染；单题图片直接读原始 bytes，不重编码）
   let pages: RenderedPage[]
   try {
-    pages = await renderPdfToBase64Pages(file.value, {
-      scale: 1.5,
-      quality: 0.85,
-      onProgress: (current, total) => {
-        renderCurrent.value = current
-        renderTotal.value = total
-        renderProgress.value = Math.round((current / total) * 50) // 渲染占前 50%
-      },
-    })
+    if (fileKind.value === 'image') {
+      renderTotal.value = 1
+      renderCurrent.value = 0
+      renderProgress.value = 10
+      const { base64, mimeType } = await imageFileToBase64(file.value)
+      pages = [{ page: 1, base64, mimeType }]
+      renderCurrent.value = 1
+      renderProgress.value = 50
+    } else {
+      pages = await renderPdfToBase64Pages(file.value, {
+        scale: 1.5,
+        quality: 0.85,
+        onProgress: (current, total) => {
+          renderCurrent.value = current
+          renderTotal.value = total
+          renderProgress.value = Math.round((current / total) * 50)
+        },
+      })
+    }
 
     if (pages.length === 0) {
       parsingFailed.value = true
-      parseError.value = 'PDF 无可识别的内容页面'
+      parseError.value = fileKind.value === 'image' ? '图片处理失败' : 'PDF 无可识别的内容页面'
       rendering.value = false
       return
     }
 
     cachedPages = pages
+    updateDebugPreview(pages)
   } catch (e: any) {
     rendering.value = false
     parsingFailed.value = true
-    parseError.value = 'PDF 渲染失败：' + (e.message || '未知错误')
+    const prefix = fileKind.value === 'image' ? '图片处理失败：' : 'PDF 渲染失败：'
+    parseError.value = prefix + (e.message || '未知错误')
     return
   }
 
@@ -278,7 +390,7 @@ async function startUpload(): Promise<void> {
     try {
       await request.post(
         `/parse-tasks/${taskId}/pages`,
-        { page: p.page, base64: p.base64, totalPages: pages.length },
+        { page: p.page, base64: p.base64, mimeType: p.mimeType, totalPages: pages.length },
         { signal: abortController.signal },
       )
     } catch (e: any) {
@@ -354,7 +466,7 @@ async function retryParse(): Promise<void> {
       try {
         await request.post(
           `/parse-tasks/${taskId}/pages`,
-          { page: p.page, base64: p.base64, totalPages: cachedPages.length },
+          { page: p.page, base64: p.base64, mimeType: p.mimeType, totalPages: cachedPages.length },
           { signal: abortController.signal },
         )
       } catch (e: any) {
@@ -445,7 +557,22 @@ function goToPreview(): void {
   svg { width: 28px; height: 28px; }
 }
 .file-name-text { font-size: 1rem; font-weight: 600; color: #0f172a; margin: 0 0 4px; word-break: break-all; }
-.file-size-text { font-size: 0.8125rem; color: #94a3b8; margin: 0 0 12px; }
+.file-size-text {
+  font-size: 0.8125rem; color: #94a3b8; margin: 0 0 12px;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.file-kind-badge {
+  padding: 2px 8px; border-radius: 6px; font-size: 0.6875rem; font-weight: 600;
+  &.kind-pdf { background: #eef2ff; color: #4f46e5; }
+  &.kind-image { background: #ecfeff; color: #0891b2; }
+}
+.image-thumb-wrap {
+  margin: 0 auto 12px; max-width: 320px;
+}
+.image-thumb {
+  max-width: 100%; max-height: 240px; border-radius: 12px;
+  border: 1px solid #e2e8f0; display: block; margin: 0 auto;
+}
 .btn-change {
   background: none; border: none; color: #4f46e5; font-size: 0.8125rem;
   font-weight: 500; cursor: pointer; padding: 4px 12px; border-radius: 6px;
@@ -517,4 +644,68 @@ function goToPreview(): void {
 .mt-20 { margin-top: 20px; }
 
 .hidden-input { display: none; }
+
+/* 调试：渲染页面预览 */
+.debug-preview {
+  margin-top: 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.debug-toggle {
+  width: 100%;
+  padding: 10px 16px;
+  background: #f8fafc;
+  border: none;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  &:hover { background: #f1f5f9; }
+}
+.debug-body {
+  padding: 12px 16px 16px;
+  background: #fafafa;
+}
+.debug-hint {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin: 0 0 8px;
+}
+.debug-page-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.debug-page-btn {
+  width: 36px;
+  height: 32px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 0.75rem;
+  color: #64748b;
+  cursor: pointer;
+  font-family: inherit;
+  &:hover { border-color: #4f46e5; color: #4f46e5; }
+  &.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+}
+.debug-thumb-wrap {
+  text-align: center;
+}
+.debug-thumb-img {
+  max-width: 100%;
+  max-height: 500px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+.debug-thumb-label {
+  display: block;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
 </style>

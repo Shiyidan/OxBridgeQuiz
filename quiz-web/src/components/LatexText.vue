@@ -45,7 +45,7 @@ const parts = computed<TextPart[]>(() => {
     if (match.index > lastIndex) {
       result.push({
         type: 'text',
-        content: text.slice(lastIndex, match.index),
+        content: text.slice(lastIndex, match.index).replace(/\\n/g, '\n'),
       })
     }
 
@@ -61,7 +61,7 @@ const parts = computed<TextPart[]>(() => {
   }
 
   if (lastIndex < text.length) {
-    result.push({ type: 'text', content: text.slice(lastIndex) })
+    result.push({ type: 'text', content: text.slice(lastIndex).replace(/\\n/g, '\n') })
   }
 
   return result

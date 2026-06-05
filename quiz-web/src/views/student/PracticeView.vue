@@ -92,6 +92,7 @@
 // 在线答题页（题目切换 + 选项选择 + 提交，复用 QuestionCard）
 import { ref, computed, shallowRef, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import QuestionCard from '@/components/QuestionCard.vue'
 import type { Question } from '@/types'
 
@@ -196,11 +197,7 @@ function handleNext(): void {
 
 function handleSubmit(): void {
   console.log('[Practice] submit', { ...answers.value })
-  const answeredCount = Object.keys(answers.value).length
-  alert(
-    `已交卷。共完成 ${answeredCount} / ${totalCount.value} 题。\n` +
-      `答案：${JSON.stringify(answers.value)}`
-  )
+  ElMessage.success('交卷成功')
 }
 
 function handleExit(): void {

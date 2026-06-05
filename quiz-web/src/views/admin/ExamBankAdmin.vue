@@ -95,7 +95,7 @@
 import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { API_URL } from '@/config'
+import request from '@/utils/request'
 
 const route = useRoute()
 const router = useRouter()
@@ -123,11 +123,9 @@ watch(() => route.path, (path) => {
 async function fetchPapers(): Promise<void> {
   loading.value = true
   try {
-    const res = await fetch(`${API_URL}/papers?limit=100`)
-    const json = await res.json()
-    // 前端兜底按创建时间降序排列（后端 orderBy 偶发不生效）
-    const papers = json.success ? json.data.papers : []
-    paperList.value = (papers || []).sort((a: PaperItem, b: PaperItem) =>
+    const res = await request.get<{ papers: PaperItem[] }>('/papers', { params: { limit: 100 } })
+    const papers = res.data.papers || []
+    paperList.value = papers.sort((a, b) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     )
   } catch {
@@ -174,15 +172,17 @@ function toggleStatusMenu(id: string): void {
 
 async function changeStatus(id: string, newStatus: string): Promise<void> {
   try {
-    await fetch(`${API_URL}/papers/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus }),
-    })
+    await request.put(`/papers/${id}`, { status: newStatus })
+    // 接口成功后前端状态才更新
     const item = paperList.value.find(p => p.id === id)
     if (item) item.status = newStatus
-  } catch {
-    // ignore
+  } catch (e: any) {
+    // 401 由 request 拦截器统一处理（alert + 跳转首页）
+    if (e?.response?.status === 401) {
+      activeStatusMenu.value = null
+      return
+    }
+    // 其他错误：静默忽略，状态不回滚（未变更）
   }
   activeStatusMenu.value = null
 }

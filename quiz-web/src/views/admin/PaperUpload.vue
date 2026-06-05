@@ -115,28 +115,6 @@
           </div>
         </div>
 
-        <!-- 渲染页面预览（调试：只渲染选中页，避免内存溢出） -->
-        <div v-if="debugPageCount > 0" class="debug-preview">
-          <button class="debug-toggle" @click="showDebugPreview = !showDebugPreview">
-            {{ showDebugPreview ? '收起' : '展开' }}页面渲染预览（{{ debugPageCount }} 页）
-          </button>
-          <div v-if="showDebugPreview" class="debug-body">
-            <p class="debug-hint">点击页码查看该页渲染效果</p>
-            <div class="debug-page-list">
-              <button
-                v-for="n in debugPageCount" :key="n"
-                class="debug-page-btn"
-                :class="{ active: debugSelectedPage === n }"
-                @click="selectDebugPage(n)"
-              >{{ n }}</button>
-            </div>
-            <div v-if="debugSelectedImage" class="debug-thumb-wrap">
-              <span class="debug-thumb-label">第 {{ debugSelectedPage }} 页</span>
-              <img :src="debugSelectedImage" class="debug-thumb-img" />
-            </div>
-          </div>
-        </div>
-
         <!-- 结果 -->
         <div v-if="!rendering" class="result-actions" :class="{ 'mt-20': parsing }">
           <template v-if="parsingDone && paperId">
@@ -164,6 +142,7 @@ import { ref, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 import request from '@/utils/request'
+import { ElMessage } from 'element-plus'
 import { renderPdfToBase64Pages, type RenderedPage } from '@/utils/pdfRenderer'
 
 const router = useRouter()
@@ -202,25 +181,8 @@ let taskId = ''
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let abortController: AbortController | null = null
 
-// 缓存渲染后的页面，供重试使用（不声明为 reactive，避免 Vue 追踪 base64 大字符串导致 OOM）
+// 缓存渲染后的页面，供重试使用
 let cachedPages: RenderedPage[] = []
-const showDebugPreview = ref(false)
-const debugPageCount = ref(0)
-const debugSelectedPage = ref(1)
-const debugSelectedImage = ref('')
-
-function updateDebugPreview(pages: RenderedPage[]): void {
-  debugPageCount.value = pages.length
-  if (debugSelectedPage.value > pages.length) {
-    debugSelectedPage.value = 1
-  }
-}
-
-function selectDebugPage(n: number): void {
-  debugSelectedPage.value = n
-  const p = cachedPages.find((x) => x.page === n)
-  debugSelectedImage.value = p ? 'data:image/jpeg;base64,' + p.base64 : ''
-}
 
 onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
@@ -246,12 +208,12 @@ function handleDrop(e: DragEvent): void {
 function selectFile(f: File): void {
   const kind = detectKind(f)
   if (!kind) {
-    alert('仅支持 PDF / PNG / JPG 文件')
+    ElMessage.warning('仅支持 PDF / PNG / JPG 文件')
     return
   }
   const limit = kind === 'pdf' ? PDF_MAX_BYTES : IMG_MAX_BYTES
   if (f.size > limit) {
-    alert(`文件超过大小限制（${kind === 'pdf' ? '50MB' : '10MB'}）`)
+    ElMessage.warning(`文件超过大小限制（${kind === 'pdf' ? '50MB' : '10MB'}）`)
     return
   }
   if (imagePreviewUrl.value) {
@@ -352,7 +314,6 @@ async function startUpload(): Promise<void> {
     }
 
     cachedPages = pages
-    updateDebugPreview(pages)
   } catch (e: any) {
     rendering.value = false
     parsingFailed.value = true
@@ -366,7 +327,7 @@ async function startUpload(): Promise<void> {
   abortController = new AbortController()
 
   try {
-    const createRes = await request.post('/upload/paper-pages/create', {
+    const createRes = await request.post<{ paperId: string; taskId: string }>('/upload/paper-pages/create', {
       title: title.value,
       year: year.value,
       duration: duration.value,
@@ -407,11 +368,17 @@ async function startUpload(): Promise<void> {
   pollTask()
 }
 
+interface ParseTaskStatus {
+  progress: number
+  status: string
+  error?: string
+}
+
 function pollTask(): void {
   if (pollTimer) clearInterval(pollTimer)
   pollTimer = setInterval(async () => {
     try {
-      const res = await request.get(`/parse-tasks/${taskId}`)
+      const res = await request.get<ParseTaskStatus>(`/parse-tasks/${taskId}`)
       progress.value = res.data.progress || 0
 
       if (res.data.status === 'completed') {
@@ -442,7 +409,7 @@ async function retryParse(): Promise<void> {
 
     // 重新创建任务
     try {
-      const createRes = await request.post('/upload/paper-pages/create', {
+      const createRes = await request.post<{ paperId: string; taskId: string }>('/upload/paper-pages/create', {
         title: title.value,
         year: year.value,
         duration: duration.value,
@@ -645,67 +612,4 @@ function goToPreview(): void {
 
 .hidden-input { display: none; }
 
-/* 调试：渲染页面预览 */
-.debug-preview {
-  margin-top: 20px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  overflow: hidden;
-}
-.debug-toggle {
-  width: 100%;
-  padding: 10px 16px;
-  background: #f8fafc;
-  border: none;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: #64748b;
-  cursor: pointer;
-  text-align: left;
-  font-family: inherit;
-  &:hover { background: #f1f5f9; }
-}
-.debug-body {
-  padding: 12px 16px 16px;
-  background: #fafafa;
-}
-.debug-hint {
-  font-size: 0.75rem;
-  color: #94a3b8;
-  margin: 0 0 8px;
-}
-.debug-page-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-.debug-page-btn {
-  width: 36px;
-  height: 32px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: #fff;
-  font-size: 0.75rem;
-  color: #64748b;
-  cursor: pointer;
-  font-family: inherit;
-  &:hover { border-color: #4f46e5; color: #4f46e5; }
-  &.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
-}
-.debug-thumb-wrap {
-  text-align: center;
-}
-.debug-thumb-img {
-  max-width: 100%;
-  max-height: 500px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-}
-.debug-thumb-label {
-  display: block;
-  font-size: 0.75rem;
-  color: #94a3b8;
-  margin-bottom: 8px;
-}
 </style>

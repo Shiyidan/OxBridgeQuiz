@@ -68,6 +68,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import request from '@/utils/request'
+import { ElMessage } from 'element-plus'
 
 interface UserItem {
   id: string
@@ -98,7 +99,7 @@ function formatDate(d: string): string {
 async function fetchUsers(): Promise<void> {
   loading.value = true
   try {
-    const res = await request.get('/admin/users')
+    const res = await request.get<{ users: UserItem[] }>('/admin/users')
     users.value = res.data.users
   } catch {
     // 401/403 handled by interceptor
@@ -113,7 +114,7 @@ async function handleRoleChange(userId: string, newRole: string): Promise<void> 
     const user = users.value.find((u) => u.id === userId)
     if (user) user.role = newRole
   } catch (e: any) {
-    alert(e.response?.data?.errMsg || '操作失败')
+    ElMessage.error(e.response?.data?.errMsg || '操作失败')
   }
 }
 

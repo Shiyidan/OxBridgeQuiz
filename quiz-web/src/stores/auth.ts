@@ -10,6 +10,11 @@ export interface User {
   avatar?: string
 }
 
+interface LoginResponse {
+  token: string
+  user: User
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const token = ref<string | null>(null)
@@ -38,7 +43,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await request.post('/auth/login', { email, password, diagnosticSessionId })
+      const res = await request.post<LoginResponse>('/auth/login', { email, password, diagnosticSessionId })
       token.value = res.data.token
       user.value = res.data.user
       localStorage.setItem('token', res.data.token)
@@ -64,7 +69,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await request.post('/auth/register', {
+      const res = await request.post<LoginResponse>('/auth/register', {
         name,
         email,
         password,

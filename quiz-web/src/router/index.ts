@@ -21,6 +21,8 @@ const router = createRouter({
     { path: '/question-bank', name: 'question-bank', component: () => import('../views/student/QuestionBankView.vue') },
     // 在线答题
     { path: '/practice', name: 'practice', component: () => import('../views/student/PracticeView.vue') },
+    // 错题本
+    { path: '/error-book', name: 'error-book', component: () => import('../views/student/ErrorBookView.vue') },
 
     // 管理后台
     {
@@ -80,10 +82,13 @@ router.beforeEach((to, _from, next) => {
 
   // 需要登录的页面
   const requiresAuth =
-    to.path.startsWith('/profile') || to.path.startsWith('/practice')
+    to.path.startsWith('/profile') || to.path.startsWith('/practice') || to.path.startsWith('/error-book')
 
   // 仅管理员可访问
   const requiresAdmin = to.path.startsWith('/admin')
+
+  // 需要付费用户
+  const requiresPaid = to.path.startsWith('/error-book')
 
   if (requiresAuth && !isLoggedIn) {
     return next('/login')
@@ -92,6 +97,10 @@ router.beforeEach((to, _from, next) => {
   if (requiresAdmin) {
     if (!isLoggedIn) return next('/login')
     if (user.role !== 'admin') return next('/')
+  }
+
+  if (requiresPaid && user.paymentStatus !== 'paid') {
+    return next('/')
   }
 
   // 已登录用户访问 /login 或 /register → 重定向首页

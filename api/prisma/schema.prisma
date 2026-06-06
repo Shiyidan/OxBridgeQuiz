@@ -92,3 +92,17 @@ model AnswerRecord {
 
   examRecord ExamRecord @relation(fields: [examRecordId], references: [id], onDelete: Cascade)
 }
+
+model RevenueCost {
+  id                  String   @id @default(uuid())
+  rechargeItem        String
+  amount              Float
+  operator            String
+  occurredAt          DateTime
+  reimbursementStatus String   @default("unreimbursed")
+  remark              String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([occurredAt])
+}

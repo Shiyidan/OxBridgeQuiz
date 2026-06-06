@@ -1,154 +1,140 @@
 <template>
   <div class="practice-page">
-    <!-- ========== 顶部 ========== -->
-    <header class="practice-header">
-      <div class="practice-header__inner">
-        <div class="practice-header__left">
+    <main class="practice-shell">
+      <aside class="question-nav" aria-label="题目导航">
+        <h2 class="question-nav__title">题目导航</h2>
+        <div class="question-nav__grid">
           <button
+            v-for="(q, idx) in questions"
+            :key="q.id || idx"
             type="button"
-            class="practice-back"
-            aria-label="返回试题库"
-            @click="handleExit"
+            class="question-nav__item"
+            :class="navItemClass(q, idx)"
+            :aria-label="`第 ${idx + 1} 题`"
+            @click="goToQuestion(idx)"
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
+            {{ idx + 1 }}
           </button>
-          <div class="practice-header__lead">
-            <h1 class="practice-title">
-              <span class="practice-title__prefix">知识点攻克：</span>
-              <span class="practice-title__topic">{{ topicTitle }}</span>
-            </h1>
-            <p class="practice-meta">
-              练习
-              <strong class="practice-meta__progress">
-                {{ currentIndex + 1 }} / {{ totalCount || '–' }}
-              </strong>
-              <span class="practice-meta__sep">•</span>
-              <span :class="['practice-meta__diff', `diff--${difficultyId}`]">
-                {{ difficultyLabel }}
-              </span>
-              <span class="practice-meta__sep">•</span>
-              <span class="practice-meta__source">ESAT 历年真题</span>
-            </p>
+        </div>
+
+        <div class="question-nav__stats">
+          <div class="question-nav__stat">
+            <span class="question-nav__dot question-nav__dot--answered" />
+            <span>已答 {{ answeredCount }}</span>
+          </div>
+          <div class="question-nav__stat">
+            <span class="question-nav__dot question-nav__dot--skipped" />
+            <span>跳过 {{ skippedCount }}</span>
+          </div>
+          <div class="question-nav__stat">
+            <span class="question-nav__dot question-nav__dot--pending" />
+            <span>未答 {{ pendingCount }}</span>
           </div>
         </div>
-        <button type="button" class="practice-exit" @click="handleExit">
-          退出练习
-        </button>
-      </div>
-    </header>
+      </aside>
 
-    <!-- ========== 题目主体 ========== -->
-    <main class="practice-main">
-      <div class="practice-main__inner">
-        <p v-if="loading" class="practice-status">加载中...</p>
-        <p v-else-if="!currentQuestion" class="practice-status">暂无题目数据</p>
-        <QuestionCard
-          v-else
-          :question="currentQuestion"
-          :index="currentIndex"
-          :selected-answer="currentAnswer"
-          @select="handleSelectAnswer"
-        />
-      </div>
+      <section class="exam-panel" aria-live="polite">
+        <template v-if="loading">
+          <p class="practice-status">加载中...</p>
+        </template>
+        <template v-else-if="!currentQuestion">
+          <p class="practice-status">暂无题目数据</p>
+        </template>
+        <template v-else>
+          <header class="exam-panel__header">
+            <div class="exam-panel__title">
+              <strong>{{ paperTitle || 'ENGAA 2023 S1' }}</strong>
+              <span>第{{ currentIndex + 1 }}/{{ totalCount }}题</span>
+            </div>
+            <div class="exam-panel__timer" aria-label="剩余时间">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="13" r="8" />
+                <path d="M12 9v4l3 2" />
+                <path d="M9 2h6" />
+              </svg>
+              <span>{{ timerText }}</span>
+            </div>
+          </header>
+
+          <div class="exam-progress" aria-hidden="true">
+            <span :style="{ width: progressPercent }" />
+          </div>
+
+          <div class="exam-panel__body">
+            <div class="exam-tags">
+              <span>第{{ currentIndex + 1 }}题</span>
+              <span>{{ topicTitle }}</span>
+            </div>
+
+            <QuestionCard
+              :key="currentQuestion.id"
+              :question="currentQuestion"
+              :index="currentIndex"
+              :selected-answer="currentAnswer"
+              variant="exam"
+              @select="handleSelectAnswer"
+            />
+          </div>
+
+          <footer class="exam-actions">
+            <button
+              type="button"
+              class="exam-action exam-action--ghost"
+              :disabled="currentIndex === 0"
+              @click="handlePrev"
+            >
+              上一题
+            </button>
+            <div class="exam-actions__right">
+              <button
+                v-if="!isLastQuestion"
+                type="button"
+                class="exam-action exam-action--ghost"
+                @click="handleNext"
+              >
+                下一题
+              </button>
+              <button
+                type="button"
+                class="exam-action exam-action--dark"
+                @click="handleSubmit"
+              >
+                提前交卷
+              </button>
+            </div>
+          </footer>
+        </template>
+      </section>
     </main>
-
-    <!-- ========== 底部操作 ========== -->
-    <footer class="practice-footer">
-      <div class="practice-footer__inner">
-        <button
-          type="button"
-          class="practice-btn practice-btn--secondary"
-          :disabled="currentIndex === 0"
-          @click="handlePrev"
-        >
-          上一题
-        </button>
-        <div class="practice-footer__right">
-          <button
-            v-if="!isLastQuestion"
-            type="button"
-            class="practice-btn practice-btn--primary"
-            @click="handleNext"
-          >
-            下一题
-          </button>
-          <button
-            type="button"
-            class="practice-btn practice-btn--dark"
-            @click="handleSubmit"
-          >
-            提前交卷
-          </button>
-        </div>
-      </div>
-    </footer>
   </div>
 </template>
 
 <script setup lang="ts">
-// 在线答题页（题目切换 + 选项选择 + 提交，复用 QuestionCard）
-import { ref, computed, shallowRef, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+// 在线答题页（考试面板 + 题目导航 + 选项选择，复用 QuestionCard）
+import { ref, computed, shallowRef, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import QuestionCard from '@/components/QuestionCard.vue'
 import type { Question } from '@/types'
 
 interface PaperPayload {
+  title?: string
+  code?: string
+  year?: number
   questions: Question[]
 }
 
-/** 当前练习渲染第 1-4 题（对应 PDF 第 4-6 页：preview_page4/5/6.png） */
-const TARGET_ORDERS: number[] = [1, 2, 3, 4]
+const EXAM_SECONDS = 60 * 60
 
-const TOPIC_NAMES: Record<string, string> = {
-  all: '综合训练 (All Topics)',
-  algebra: 'Algebra and functions',
-  sequences: 'Sequences and series',
-  coordinate: 'Coordinate geometry',
-  trigonometry: 'Trigonometry',
-  exponentials: 'Exponentials and logarithms',
-  differentiation: 'Differentiation',
-  integration: 'Integration',
-  graphs: 'Graphs of functions',
-}
-
-const DIFFICULTY_LABELS: Record<string, string> = {
-  easy: '简单难度 (Easy)',
-  medium: '中等难度 (Medium)',
-  hard: '困难难度 (Hard)',
-  composite: '复合难度 (Composite)',
-}
-
-const route = useRoute()
-const router = useRouter()
-
-const topicId = computed<string>(
-  () => (route.query.topic as string) || 'all'
-)
-const difficultyId = computed<string>(
-  () => (route.query.difficulty as string) || 'easy'
-)
-
-const topicTitle = computed<string>(
-  () => TOPIC_NAMES[topicId.value] || topicId.value
-)
-const difficultyLabel = computed<string>(
-  () => DIFFICULTY_LABELS[difficultyId.value] || difficultyId.value
-)
-
-/**
- * shallowRef：题目数据是只读的，不需要深响应；
- * 切题时仅 currentIndex 变化，QuestionCard 通过 prop diff 高效更新。
- */
 const questions = shallowRef<Question[]>([])
+const paperTitle = ref<string>('')
 const loading = ref<boolean>(true)
 const currentIndex = ref<number>(0)
-
-/** answers: 题目 id → 选项 label，用 ref + 整体替换保证响应式 */
+const remainingSeconds = ref<number>(EXAM_SECONDS)
+const visitedIndexes = ref<Set<number>>(new Set([0]))
 const answers = ref<Record<string, string>>({})
+
+let timerId: number | undefined
 
 const totalCount = computed<number>(() => questions.value.length)
 const currentQuestion = computed<Question | undefined>(
@@ -160,22 +146,61 @@ const isLastQuestion = computed<boolean>(
 const currentAnswer = computed<string | undefined>(() =>
   currentQuestion.value ? answers.value[currentQuestion.value.id] : undefined
 )
+const answeredCount = computed<number>(() => Object.keys(answers.value).length)
+const skippedCount = computed<number>(() => {
+  let count = 0
+  visitedIndexes.value.forEach((idx) => {
+    const question = questions.value[idx]
+    if (idx !== currentIndex.value && question && !answers.value[question.id]) count++
+  })
+  return count
+})
+const pendingCount = computed<number>(() =>
+  Math.max(totalCount.value - answeredCount.value - skippedCount.value, 0)
+)
+const progressPercent = computed<string>(() => {
+  if (!totalCount.value) return '0%'
+  return `${((currentIndex.value + 1) / totalCount.value) * 100}%`
+})
+const timerText = computed<string>(() => {
+  const minutes = Math.floor(remainingSeconds.value / 60)
+  const seconds = remainingSeconds.value % 60
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+})
+const topicTitle = computed<string>(() => currentQuestion.value?.tags?.[0] || '三角方程')
 
 async function loadQuestions(): Promise<void> {
   loading.value = true
   try {
-    const res = await fetch('/data/paper.json')
+    const res = await fetch(`/data/paper.json?t=${Date.now()}`, { cache: 'no-store' })
     if (!res.ok) throw new Error('paper.json 请求失败')
     const data: PaperPayload = await res.json()
-    questions.value = data.questions
-      .filter((q) => typeof q.order === 'number' && TARGET_ORDERS.includes(q.order))
-      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    paperTitle.value = data.title || data.code || ''
+    questions.value = [...data.questions].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
     console.log('[Practice] 加载题目', questions.value.length, '道')
   } catch (e) {
     console.error('[Practice] 加载失败', e)
     questions.value = []
   } finally {
     loading.value = false
+  }
+}
+
+function markVisited(index: number): void {
+  visitedIndexes.value = new Set([...visitedIndexes.value, index])
+}
+
+function goToQuestion(index: number): void {
+  currentIndex.value = index
+  markVisited(index)
+}
+
+function navItemClass(question: Question, index: number): Record<string, boolean> {
+  return {
+    'question-nav__item--current': currentIndex.value === index,
+    'question-nav__item--answered': Boolean(answers.value[question.id]),
+    'question-nav__item--skipped':
+      visitedIndexes.value.has(index) && !answers.value[question.id] && currentIndex.value !== index,
   }
 }
 
@@ -188,11 +213,11 @@ function handleSelectAnswer(label: string): void {
 }
 
 function handlePrev(): void {
-  if (currentIndex.value > 0) currentIndex.value--
+  if (currentIndex.value > 0) goToQuestion(currentIndex.value - 1)
 }
 
 function handleNext(): void {
-  if (currentIndex.value < totalCount.value - 1) currentIndex.value++
+  if (currentIndex.value < totalCount.value - 1) goToQuestion(currentIndex.value + 1)
 }
 
 function handleSubmit(): void {
@@ -200,306 +225,379 @@ function handleSubmit(): void {
   ElMessage.success('交卷成功')
 }
 
-function handleExit(): void {
-  if (Object.keys(answers.value).length > 0) {
-    if (!window.confirm('确定要退出练习吗？当前作答将丢失。')) return
-  }
-  router.push('/question-bank')
+function startTimer(): void {
+  timerId = window.setInterval(() => {
+    if (remainingSeconds.value > 0) remainingSeconds.value--
+  }, 1000)
 }
 
-onMounted(loadQuestions)
+onMounted(() => {
+  loadQuestions()
+  startTimer()
+})
+
+onUnmounted(() => {
+  if (timerId) window.clearInterval(timerId)
+})
 </script>
 
 <style scoped lang="scss">
 .practice-page {
-  --color-primary: #4f46e5;
-  --color-primary-light: #6366f1;
-  --color-primary-dark: #4338ca;
-  --color-primary-bg: #eef2ff;
-
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
-  --color-error: #ef4444;
-  --color-composite: #9333ea;
-
-  --color-bg: #f8fafc;
-  --color-surface: #ffffff;
-  --color-surface-muted: #f1f5f9;
-  --color-border: #e2e8f0;
-  --color-border-light: #f1f5f9;
-
-  --color-text: #0f172a;
-  --color-text-secondary: #475569;
-  --color-text-muted: #94a3b8;
-  --color-text-inverse: #ffffff;
-
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
-  --radius-2xl: 1.5rem;
-  --radius-pill: 999px;
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --exam-bg: #fafafa;
+  --exam-surface: #ffffff;
+  --exam-ink: #1d1d1f;
+  --exam-muted: #9b9b9b;
+  --exam-border: #e9e9e9;
+  --exam-soft: #f4f4f4;
 
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--color-bg);
-  color: var(--color-text);
+  padding: 12px 24px;
+  background: #ffffff;
+  color: var(--exam-ink);
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei',
     Roboto, sans-serif;
 }
 
-/* ========== 顶部 ========== */
-.practice-header {
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
+.practice-shell {
+  min-height: calc(100vh - 24px);
+  padding: clamp(44px, 7vh, 72px) clamp(24px, 7vw, 126px);
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 44px;
+  align-items: start;
+  background: var(--exam-bg);
+  border: 1px solid var(--exam-border);
+  border-radius: 28px;
 }
 
-.practice-header__inner {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 1.25rem 2rem;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1.5rem;
+.question-nav,
+.exam-panel {
+  background: var(--exam-surface);
+  border: 1px solid var(--exam-border);
+  border-radius: 18px;
 }
 
-.practice-header__left {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.875rem;
-  flex: 1;
-  min-width: 0;
+.question-nav {
+  position: sticky;
+  top: 28px;
+  align-self: start;
+  max-height: calc(100vh - 56px);
+  overflow: auto;
+  padding: 32px 30px;
 }
 
-.practice-back {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.question-nav__title {
+  margin: 0 0 24px;
+  color: #9a9a9a;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.question-nav__grid {
+  display: grid;
+  grid-template-columns: repeat(5, 44px);
+  gap: 11px;
+}
+
+.question-nav__item {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 9px;
+  background: #f2f2f2;
+  color: #9a9a9a;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
   cursor: pointer;
   transition:
-    background 0.2s,
-    border-color 0.2s;
-
-  svg {
-    width: 18px;
-    height: 18px;
-  }
+    background 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
 
   &:hover {
-    background: var(--color-surface-muted);
-    border-color: var(--color-text-muted);
+    transform: translateY(-1px);
+    background: #e8e8e8;
+    color: #232323;
+  }
+
+  &--answered {
+    background: #171717;
+    color: #ffffff;
+  }
+
+  &--current:not(&--answered) {
+    color: #171717;
+    box-shadow: inset 0 0 0 2px #d8d8d8;
+  }
+
+  &--skipped {
+    background: #e8e8e8;
   }
 }
 
-.practice-header__lead {
+.question-nav__stats {
+  margin-top: 30px;
+  padding-top: 28px;
+  border-top: 1px solid #eeeeee;
+  display: grid;
+  gap: 18px;
+}
+
+.question-nav__stat {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  align-items: center;
+  gap: 11px;
+  color: #777777;
+  font-size: 1rem;
+}
+
+.question-nav__dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: #f3f3f3;
+
+  &--answered {
+    background: #171717;
+  }
+
+  &--skipped {
+    background: #e6e6e6;
+  }
+}
+
+.exam-panel {
   min-width: 0;
+  padding: 52px 56px 34px;
 }
 
-.practice-title {
-  margin: 0;
+.exam-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.exam-panel__title {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  min-width: 0;
   font-size: 1.25rem;
-  font-weight: 700;
-  line-height: 1.4;
-  color: var(--color-text);
-  letter-spacing: -0.01em;
+
+  strong {
+    font-size: 1.28rem;
+    font-weight: 800;
+  }
+
+  span {
+    color: var(--exam-muted);
+    white-space: nowrap;
+  }
 }
 
-.practice-title__prefix {
-  margin-right: 4px;
+.exam-panel__timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: #171717;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0;
+
+  svg {
+    width: 22px;
+    height: 22px;
+  }
 }
 
-.practice-meta {
-  margin: 0;
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
+.exam-progress {
+  height: 5px;
+  margin-top: 24px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #eeeeee;
+
+  span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: #171717;
+    transition: width 0.2s ease;
+  }
+}
+
+.exam-panel__body {
+  margin-top: 26px;
+}
+
+.exam-tags {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem;
-}
+  gap: 12px;
+  margin-bottom: 18px;
 
-.practice-meta__progress {
-  font-weight: 700;
-  color: var(--color-text-secondary);
-}
-
-.practice-meta__sep {
-  color: var(--color-border);
-}
-
-.practice-meta__diff {
-  font-weight: 600;
-
-  &.diff--easy {
-    color: var(--color-success);
-  }
-  &.diff--medium {
-    color: var(--color-warning);
-  }
-  &.diff--hard {
-    color: var(--color-error);
-  }
-  &.diff--composite {
-    color: var(--color-composite);
+  span {
+    padding: 10px 16px;
+    border-radius: 7px;
+    background: var(--exam-soft);
+    color: #9b9b9b;
+    font-size: 1rem;
+    font-weight: 700;
   }
 }
 
-.practice-exit {
-  flex-shrink: 0;
-  background: none;
-  border: none;
-  font-family: inherit;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 0.5rem 0.25rem;
-  transition: color 0.2s;
-
-  &:hover {
-    color: var(--color-text);
-  }
-}
-
-/* ========== 主体 ========== */
-.practice-main {
-  flex: 1;
-}
-
-.practice-main__inner {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 2rem 2rem 6rem;
-}
-
-.practice-status {
-  text-align: center;
-  color: var(--color-text-muted);
-  font-size: 0.95rem;
-  padding: 4rem 0;
-}
-
-/* ========== 底部 ========== */
-.practice-footer {
-  position: sticky;
-  bottom: 0;
-  background: var(--color-bg);
-  border-top: 1px solid var(--color-border);
-}
-
-.practice-footer__inner {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 1rem 2rem;
+.exam-actions {
+  margin-top: 22px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 16px;
 }
 
-.practice-footer__right {
+.exam-actions__right {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 12px;
 }
 
-.practice-btn {
-  padding: 0.75rem 1.75rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  font-family: inherit;
-  border: 1px solid transparent;
-  border-radius: var(--radius-lg);
+.exam-action {
+  min-width: 96px;
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: 9px;
+  border: 1px solid var(--exam-border);
+  font: inherit;
+  font-weight: 700;
   cursor: pointer;
   transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+    background 0.16s ease,
+    color 0.16s ease,
+    border-color 0.16s ease;
 
   &:disabled {
     cursor: not-allowed;
-    opacity: 1;
+    color: #c6c6c6;
+    background: #f5f5f5;
   }
 
-  &:hover:not(:disabled) {
-    transform: translateY(-1px);
-  }
-
-  &--secondary {
-    background: var(--color-surface);
-    border-color: var(--color-border);
-    color: var(--color-text-secondary);
+  &--ghost {
+    background: #ffffff;
+    color: #4a4a4a;
 
     &:hover:not(:disabled) {
-      background: var(--color-surface-muted);
-      border-color: var(--color-text-muted);
-      color: var(--color-text);
-    }
-
-    &:disabled {
-      background: var(--color-surface-muted);
-      color: var(--color-text-muted);
-      border-color: var(--color-border-light);
-      transform: none;
-    }
-  }
-
-  &--primary {
-    background: var(--color-primary);
-    color: var(--color-text-inverse);
-
-    &:hover:not(:disabled) {
-      background: var(--color-primary-light);
-      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+      background: #f6f6f6;
+      border-color: #d8d8d8;
     }
   }
 
   &--dark {
-    background: var(--color-text);
-    color: var(--color-text-inverse);
-
-    &:hover:not(:disabled) {
-      background: #1e293b;
-      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.22);
-    }
+    border-color: #171717;
+    background: #171717;
+    color: #ffffff;
   }
 }
 
-/* ========== 响应式 ========== */
-@media (max-width: 768px) {
-  .practice-header__inner,
-  .practice-main__inner,
-  .practice-footer__inner {
-    padding-left: 1rem;
-    padding-right: 1rem;
+.practice-status {
+  margin: 0;
+  padding: 72px 0;
+  text-align: center;
+  color: var(--exam-muted);
+  font-size: 1rem;
+}
+
+@media (max-width: 1100px) {
+  .practice-shell {
+    grid-template-columns: 250px minmax(0, 1fr);
+    gap: 24px;
+    padding: 32px 24px;
   }
 
-  .practice-title {
-    font-size: 1.05rem;
+  .question-nav {
+    top: 24px;
+    max-height: calc(100vh - 48px);
+    padding: 26px 22px;
   }
 
-  .practice-meta {
-    font-size: 0.8rem;
+  .question-nav__grid {
+    grid-template-columns: repeat(4, 42px);
   }
 
-  .practice-btn {
-    padding: 0.625rem 1.25rem;
-    font-size: 0.875rem;
+  .exam-panel {
+    padding: 44px 36px 30px;
+  }
+}
+
+@media (max-width: 820px) {
+  .practice-page {
+    padding: 0;
+  }
+
+  .practice-shell {
+    min-height: 100vh;
+    grid-template-columns: 1fr;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+
+  .question-nav {
+    position: static;
+    max-height: none;
+    align-self: auto;
+  }
+
+  .question-nav__grid {
+    grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+  }
+
+  .question-nav__item {
+    width: 100%;
+  }
+
+  .exam-panel__header,
+  .exam-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .exam-actions__right {
+    width: 100%;
+  }
+
+  .exam-action {
+    flex: 1;
+  }
+}
+
+@media (max-width: 560px) {
+  .practice-shell {
+    padding: 18px 14px;
+  }
+
+  .exam-panel,
+  .question-nav {
+    border-radius: 14px;
+  }
+
+  .exam-panel {
+    padding: 28px 18px 22px;
+  }
+
+  .exam-panel__title {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .exam-progress {
+    margin-top: 18px;
+  }
+
+  .exam-panel__body {
+    margin-top: 22px;
   }
 }
 </style>

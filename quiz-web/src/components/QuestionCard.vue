@@ -1,5 +1,5 @@
 <template>
-  <article class="question-card">
+  <article :class="['question-card', `question-card--${variant}`]">
     <!-- 题号小标 -->
     <div class="question-card__label">Question {{ index + 1 }}</div>
 
@@ -10,22 +10,22 @@
 
     <!-- 题目配图：svg / png 等 -->
     <div
-      v-if="question.images && question.images.length"
+      v-if="renderImages.length"
       class="question-card__media"
     >
       <div
-        v-for="(img, idx) in question.images"
+        v-for="(img, idx) in renderImages"
         :key="idx"
         class="question-card__media-item"
       >
         <div
-          v-if="img.type === 'svg' && img.code"
+          v-if="img.code"
           class="question-card__svg"
           :aria-label="img.alt || ''"
           v-html="img.code"
         />
         <img
-          v-else-if="img.type === 'image' && img.src"
+          v-else-if="img.src"
           :src="img.src"
           :alt="img.alt || ''"
           class="question-card__img"
@@ -40,7 +40,7 @@
         :key="opt.label"
         type="button"
         class="opt-card"
-        :class="{ 'opt-card--selected': selectedAnswer === opt.label }"
+        :class="optionClass(opt.text, opt.label)"
         :aria-pressed="selectedAnswer === opt.label"
         @click="handleSelect(opt.label)"
       >
@@ -56,23 +56,62 @@
 
 <script setup lang="ts">
 // 题目渲染卡片（试题库、练习页、试卷预览共用）
+import { computed } from 'vue'
 import LatexText from './LatexText.vue'
-import type { Question } from '@/types'
+import type { Question, QuestionImage } from '@/types'
 
 interface Props {
   question: Question
   index: number
   selectedAnswer?: string
+  variant?: 'default' | 'exam'
 }
 
-defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  variant: 'default',
+})
 
 const emit = defineEmits<{
   (e: 'select', label: string): void
 }>()
 
+const renderImages = computed<QuestionImage[]>(() => {
+  const directImages = props.question.images || []
+  const contentImages = (props.question.content || [])
+    .filter((block) => (block.type === 'image' || block.type === 'svg') && (block.src || block.value))
+    .map<QuestionImage>((block) => ({
+      type: block.type === 'svg' && !block.src ? 'svg' : 'image',
+      src: block.src ? normalizeImageSrc(block.src) : undefined,
+      code: block.type === 'svg' && block.value ? block.value : undefined,
+      alt: block.metadata?.alt || '',
+    }))
+
+  return [...directImages, ...contentImages].map(normalizeRenderImage)
+})
+
 const handleSelect = (label: string): void => {
   emit('select', label)
+}
+
+function normalizeImageSrc(src: string): string {
+  if (/^(https?:|data:|blob:|\/)/i.test(src)) return src
+  return `/${src.replace(/^\.?\//, '')}`
+}
+
+function normalizeRenderImage(img: QuestionImage): QuestionImage {
+  return {
+    ...img,
+    type: img.code ? 'svg' : 'image',
+    src: img.src ? normalizeImageSrc(img.src) : undefined,
+  }
+}
+
+function optionClass(text: string | undefined, label: string): Record<string, boolean> {
+  const normalizedText = (text || '').replace(/\$+/g, '').replace(/\s+/g, ' ').trim()
+  return {
+    'opt-card--selected': props.selectedAnswer === label,
+    'opt-card--wide': props.variant === 'exam' && normalizedText.length > 42,
+  }
 }
 </script>
 
@@ -102,6 +141,83 @@ const handleSelect = (label: string): void => {
   --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.06);
 
   width: 100%;
+}
+
+.question-card--exam {
+  .question-card__label {
+    display: none;
+  }
+
+  .question-card__stem {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+    font-size: 1.2rem;
+    line-height: 1.5;
+    background: transparent;
+  }
+
+  .question-card__stem :deep(.latex-text) {
+    line-height: 1.5;
+  }
+
+  .question-card__media-item {
+    border-color: #eeeeee;
+    border-radius: 14px;
+    box-shadow: none;
+  }
+
+  .question-card__options {
+    margin-top: 1.25rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem 1rem;
+  }
+
+  .opt-card {
+    min-height: 68px;
+    gap: 1rem;
+    padding: 0.85rem 1.35rem;
+    border: 1px solid #ececec;
+    border-radius: 14px;
+    box-shadow: none;
+    font-size: 1.1rem;
+
+    &:hover {
+      border-color: #d6d6d6;
+      background: #fafafa;
+    }
+
+    &--selected {
+      border-color: #171717;
+      background: #ffffff;
+      box-shadow: 0 0 0 2px rgba(23, 23, 23, 0.08);
+
+      .opt-card__bullet {
+        border-color: #171717;
+        background: #171717;
+        color: #ffffff;
+      }
+    }
+
+    &--wide {
+      grid-column: 1 / -1;
+    }
+  }
+
+  .opt-card__bullet {
+    width: 36px;
+    height: 36px;
+    border: 1.5px solid #d4d4d4;
+    background: #ffffff;
+    color: #a0a0a0;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .opt-card__text {
+    color: #2a2a2a;
+  }
 }
 
 /* ========== 题干卡 ========== */
@@ -149,12 +265,14 @@ const handleSelect = (label: string): void => {
 
 .question-card__svg {
   max-width: 100%;
+  width: 100%;
   display: flex;
   justify-content: center;
 }
 
 .question-card__svg :deep(svg) {
   max-width: 100%;
+  width: min(100%, 360px);
   height: auto;
   display: block;
 }

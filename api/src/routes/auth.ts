@@ -74,7 +74,7 @@ authRouter.post('/register', async (req: Request, res: Response) => {
     }
 
     res.json(success({
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, paymentStatus: user.paymentStatus },
       token,
       ...(fullReport ? { fullReport } : {}),
     }))
@@ -127,7 +127,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     }
 
     res.json(success({
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, paymentStatus: user.paymentStatus },
       token,
       ...(fullReport ? { fullReport } : {}),
     }))
@@ -142,7 +142,7 @@ authRouter.get('/me', requireAuth, async (req: Request, res: Response) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user!.userId },
-      select: { id: true, name: true, email: true, role: true, avatar: true },
+      select: { id: true, name: true, email: true, role: true, avatar: true, paymentStatus: true },
     })
     if (!user) {
       res.status(404).json(fail('用户不存在'))

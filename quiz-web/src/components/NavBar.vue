@@ -23,7 +23,7 @@
           >
             试题库
           </router-link>
-          <a href="/#about" class="nav-link">错题本</a>
+          <router-link to="/error-book" class="nav-link" active-class="nav-link--active">错题本</router-link>
         </nav>
       </div>
       <div class="nav-right">

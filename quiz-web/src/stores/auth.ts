@@ -8,6 +8,7 @@ export interface User {
   email: string
   role: string
   avatar?: string
+  paymentStatus?: string
 }
 
 interface LoginResponse {
@@ -23,6 +24,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isLoggedIn = computed(() => !!token.value && !!user.value)
   const isAdmin = computed(() => user.value?.role === 'admin')
+  const isPaid = computed(() => user.value?.paymentStatus === 'paid')
 
   // 从 localStorage 恢复登录态
   function initFromStorage(): void {
@@ -103,5 +105,5 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
   }
 
-  return { user, token, loading, error, isLoggedIn, isAdmin, initFromStorage, login, register, logout }
+  return { user, token, loading, error, isLoggedIn, isAdmin, isPaid, initFromStorage, login, register, logout }
 })

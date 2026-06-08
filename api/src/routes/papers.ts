@@ -3,6 +3,7 @@ import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 import { success, fail } from '../utils/response.js'
+import { processMarkdownImport } from '../services/markdownValidator.js'
 
 export const papersRouter = Router()
 
@@ -26,6 +27,109 @@ papersRouter.get('/', async (req, res) => {
   ])
 
   res.json(success({ papers, total, page, totalPages: Math.ceil(total / limit) }))
+})
+
+// JSON 导入试卷
+papersRouter.post('/import-json', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { title, year, duration, code, questions } = req.body
+
+    // 校验必填字段
+    if (!title || !year) {
+      res.status(400).json(fail('标题和年份为必填项'))
+      return
+    }
+    if (!Array.isArray(questions) || questions.length === 0) {
+      res.status(400).json(fail('题目列表不能为空'))
+      return
+    }
+
+    // 校验每道题目的必填字段
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i]
+      if (q.number == null) {
+        res.status(400).json(fail(`第 ${i + 1} 题缺少题号 (number)`))
+        return
+      }
+      if (!q.title) {
+        res.status(400).json(fail(`第 ${i + 1} 题缺少题干 (title)`))
+        return
+      }
+      if (!Array.isArray(q.options) || q.options.length === 0) {
+        res.status(400).json(fail(`第 ${i + 1} 题缺少选项 (options)`))
+        return
+      }
+    }
+
+    const paper = await prisma.paper.create({
+      data: {
+        title,
+        year: parseInt(String(year)),
+        duration: parseInt(String(duration)) || 60,
+        code: code || undefined,
+        questions: JSON.stringify(questions),
+        totalQuestions: questions.length,
+        status: 'draft',
+      },
+    })
+
+    res.json(success({
+      ...paper,
+      questions: JSON.parse(paper.questions),
+    }))
+  } catch (e: any) {
+    console.error('Import JSON error:', e)
+    res.status(500).json(fail(e.message || '导入失败'))
+  }
+})
+
+// Markdown 导入试卷
+papersRouter.post('/import-markdown', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { markdown, title, year, duration, code } = req.body
+
+    if (!title || !year) {
+      res.status(400).json(fail('标题和年份为必填项'))
+      return
+    }
+    if (!markdown || typeof markdown !== 'string') {
+      res.status(400).json(fail('请提供 Markdown 内容'))
+      return
+    }
+
+    const result = processMarkdownImport(markdown)
+
+    if (result.errors.length > 0) {
+      res.status(400).json(fail(`校验失败：${result.errors.map(e => e.message).join('；')}`))
+      return
+    }
+
+    if (result.questions.length === 0) {
+      res.status(400).json(fail('未能从 Markdown 中提取到有效的题目数据'))
+      return
+    }
+
+    const paper = await prisma.paper.create({
+      data: {
+        title,
+        year: parseInt(String(year)),
+        duration: parseInt(String(duration)) || 60,
+        code: code || undefined,
+        questions: JSON.stringify(result.questions),
+        totalQuestions: result.questions.length,
+        status: 'draft',
+      },
+    })
+
+    res.json(success({
+      ...paper,
+      questions: JSON.parse(paper.questions),
+      warnings: result.warnings,
+    }))
+  } catch (e: any) {
+    console.error('Import markdown error:', e)
+    res.status(500).json(fail(e.message || '导入失败'))
+  }
 })
 
 // 试卷详情

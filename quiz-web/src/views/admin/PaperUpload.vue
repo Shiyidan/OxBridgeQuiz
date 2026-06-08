@@ -16,7 +16,26 @@
         </div>
       </div>
 
-      <div class="upload-area" :class="{ 'has-file': file }">
+      <!-- 模式切换 -->
+      <div class="mode-tabs">
+        <button
+          class="mode-tab"
+          :class="{ 'mode-tab--active': mode === 'markdown' }"
+          @click="mode = 'markdown'"
+        >Markdown 上传</button>
+        <button
+          class="mode-tab"
+          :class="{ 'mode-tab--active': mode === 'file' }"
+          @click="mode = 'file'"
+        >文件上传</button>
+        <button
+          class="mode-tab"
+          :class="{ 'mode-tab--active': mode === 'json' }"
+          @click="mode = 'json'"
+        >JSON 导入</button>
+      </div>
+
+      <div class="upload-area" v-if="mode === 'file'" :class="{ 'has-file': file }">
         <!-- 上传区 -->
         <div
           class="drop-zone"
@@ -131,9 +150,213 @@
           </template>
         </div>
       </div>
+
+      <!-- Markdown 导入模式 -->
+      <div class="json-import-area" v-if="mode === 'markdown'">
+        <!-- 未选择文件时：上传区 -->
+        <div
+          v-if="!mdFile && !mdImporting && !mdDone"
+          class="drop-zone"
+          :class="{ 'drop-zone--active': mdDragOver }"
+          @dragover.prevent="mdDragOver = true"
+          @dragleave.prevent="mdDragOver = false"
+          @drop.prevent="handleMdDrop"
+          @click="triggerMdFileInput"
+        >
+          <div class="drop-icon-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="12" y1="17" x2="12" y2="9"/></svg>
+          </div>
+          <p class="drop-title">拖拽 Markdown 文件到此处</p>
+          <p class="drop-hint">或点击此区域选择 .md 文件</p>
+          <p class="drop-limit">文件需包含 ```json 代码块，内含题目数据</p>
+        </div>
+
+        <!-- MD 文件已选择，编辑元数据 -->
+        <div v-if="mdFile && !mdImporting && !mdDone && !mdError" class="json-edit-area">
+          <div class="file-preview" style="text-align:center;margin-bottom:20px;">
+            <div class="file-icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <p class="file-name-text">{{ mdFile.name }}</p>
+            <p style="font-size:0.8125rem;color:#94a3b8;margin:0;">
+              找到 <b>{{ mdJsonBlockCount }}</b> 个 JSON 块，共 <b>{{ mdQuestions.length }}</b> 道题目
+            </p>
+            <button class="btn-change" @click="clearMdFile">重新选择</button>
+          </div>
+
+          <label class="field-label">试卷名称</label>
+          <input v-model="mdTitle" class="field-input" placeholder="输入试卷名称..." />
+
+          <div class="meta-row">
+            <div class="meta-field">
+              <label class="field-label">年份</label>
+              <input v-model.number="mdYear" type="number" class="field-input field-input--sm" />
+            </div>
+            <div class="meta-field">
+              <label class="field-label">考试时长（分钟）</label>
+              <input v-model.number="mdDuration" type="number" class="field-input field-input--sm" />
+            </div>
+          </div>
+
+          <div class="meta-row" style="margin-top:12px;">
+            <div class="meta-field">
+              <label class="field-label">学科代码（可选）</label>
+              <input v-model="mdCode" class="field-input field-input--sm" placeholder="如 M1, P2..." />
+            </div>
+            <div class="meta-field" style="display:flex;align-items:flex-end;">
+              <span style="font-size:0.875rem;color:#475569;">共 <b>{{ mdQuestions.length }}</b> 道题目</span>
+            </div>
+          </div>
+
+          <!-- 题目预览列表 -->
+          <div class="json-preview-list" v-if="mdQuestions.length">
+            <p class="field-label" style="margin-top:16px;">题目预览</p>
+            <div class="json-preview-item" v-for="q in mdQuestions" :key="q.number">
+              <span class="json-preview-num">{{ q.number }}</span>
+              <span class="json-preview-title">{{ truncateText(q.title, 60) }}</span>
+              <span class="json-preview-opts">{{ q.options?.length || 0 }} 个选项</span>
+            </div>
+          </div>
+
+          <div class="action-bar">
+            <button class="btn-secondary-action" @click="clearMdFile">取消</button>
+            <button class="btn-primary-action" @click="importMarkdown" :disabled="!mdTitle || !mdYear || !mdQuestions.length">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 4 20 4 20 8"/><line x1="14" y1="10" x2="20" y2="4"/><path d="M22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>
+              导入到真题库
+            </button>
+          </div>
+        </div>
+
+        <!-- 导入中 -->
+        <div v-if="mdImporting" class="parsing-status">
+          <div class="parsing-spinner"></div>
+          <p class="parsing-title">正在导入...</p>
+        </div>
+
+        <!-- 导入失败 -->
+        <div v-if="mdError" class="parsing-status">
+          <p class="parsing-title">导入失败</p>
+          <p class="parsing-detail error-text">{{ mdError }}</p>
+          <div style="margin-top:16px;">
+            <button class="btn-secondary-action" @click="clearMdFile">重新选择</button>
+          </div>
+        </div>
+
+        <!-- 导入成功 -->
+        <div v-if="mdDone && mdPaperId" class="result-actions">
+          <p v-if="mdWarnings.length" style="font-size:0.8125rem;color:#f59e0b;margin:0 0 8px;">
+            注意：{{ mdWarnings.join('；') }}
+          </p>
+          <button class="btn-primary-action" @click="goToMdPreview">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            查看导入结果
+          </button>
+          <button class="btn-secondary-action" @click="resetMdImport">导入新试卷</button>
+        </div>
+      </div>
+
+      <!-- JSON 导入模式 -->
+      <div class="json-import-area" v-if="mode === 'json'">
+        <!-- 未选择文件时：上传区 -->
+        <div
+          v-if="!jsonFile && !jsonImporting && !jsonDone"
+          class="drop-zone"
+          :class="{ 'drop-zone--active': jsonDragOver }"
+          @dragover.prevent="jsonDragOver = true"
+          @dragleave.prevent="jsonDragOver = false"
+          @drop.prevent="handleJsonDrop"
+          @click="triggerJsonFileInput"
+        >
+          <div class="drop-icon-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <p class="drop-title">拖拽 JSON 文件到此处</p>
+          <p class="drop-hint">或点击此区域选择 .json 文件</p>
+          <p class="drop-limit">支持符合题目数据格式的 JSON 文件</p>
+        </div>
+
+        <!-- JSON 文件已选择，编辑元数据 -->
+        <div v-if="jsonFile && !jsonImporting && !jsonDone && !jsonError" class="json-edit-area">
+          <div class="file-preview" style="text-align:center;margin-bottom:20px;">
+            <div class="file-icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <p class="file-name-text">{{ jsonFile.name }}</p>
+            <button class="btn-change" @click="clearJsonFile">重新选择</button>
+          </div>
+
+          <label class="field-label">试卷名称</label>
+          <input v-model="jsonTitle" class="field-input" placeholder="输入试卷名称..." />
+
+          <div class="meta-row">
+            <div class="meta-field">
+              <label class="field-label">年份</label>
+              <input v-model.number="jsonYear" type="number" class="field-input field-input--sm" />
+            </div>
+            <div class="meta-field">
+              <label class="field-label">考试时长（分钟）</label>
+              <input v-model.number="jsonDuration" type="number" class="field-input field-input--sm" />
+            </div>
+          </div>
+
+          <div class="meta-row" style="margin-top:12px;">
+            <div class="meta-field">
+              <label class="field-label">学科代码（可选）</label>
+              <input v-model="jsonCode" class="field-input field-input--sm" placeholder="如 M1, P2..." />
+            </div>
+            <div class="meta-field" style="display:flex;align-items:flex-end;">
+              <span style="font-size:0.875rem;color:#475569;">共 <b>{{ jsonQuestions.length }}</b> 道题目</span>
+            </div>
+          </div>
+
+          <!-- 题目预览列表 -->
+          <div class="json-preview-list" v-if="jsonQuestions.length">
+            <p class="field-label" style="margin-top:16px;">题目预览</p>
+            <div class="json-preview-item" v-for="q in jsonQuestions" :key="q.number">
+              <span class="json-preview-num">{{ q.number }}</span>
+              <span class="json-preview-title">{{ truncateText(q.title, 60) }}</span>
+              <span class="json-preview-opts">{{ q.options.length }} 个选项</span>
+            </div>
+          </div>
+
+          <div class="action-bar">
+            <button class="btn-secondary-action" @click="clearJsonFile">取消</button>
+            <button class="btn-primary-action" @click="importJson" :disabled="!jsonTitle || !jsonYear">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 4 20 4 20 8"/><line x1="14" y1="10" x2="20" y2="4"/><path d="M22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>
+              导入到真题库
+            </button>
+          </div>
+        </div>
+
+        <!-- 导入中 -->
+        <div v-if="jsonImporting" class="parsing-status">
+          <div class="parsing-spinner"></div>
+          <p class="parsing-title">正在导入...</p>
+        </div>
+
+        <!-- 导入失败 -->
+        <div v-if="jsonError" class="parsing-status">
+          <p class="parsing-title">导入失败</p>
+          <p class="parsing-detail error-text">{{ jsonError }}</p>
+          <div style="margin-top:16px;">
+            <button class="btn-secondary-action" @click="clearJsonFile">重新选择</button>
+          </div>
+        </div>
+
+        <!-- 导入成功 -->
+        <div v-if="jsonDone && jsonPaperId" class="result-actions">
+          <button class="btn-primary-action" @click="goToJsonPreview">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            查看导入结果
+          </button>
+          <button class="btn-secondary-action" @click="resetJsonImport">导入新试卷</button>
+        </div>
+      </div>
     </div>
 
     <input ref="fileInput" type="file" accept=".pdf,image/png,image/jpeg" class="hidden-input" @change="handleFileSelect" />
+    <input ref="jsonFileInput" type="file" accept=".json,application/json" class="hidden-input" @change="handleJsonFileSelect" />
+    <input ref="mdFileInput" type="file" accept=".md,text/markdown" class="hidden-input" @change="handleMdFileSelect" />
   </div>
 </template>
 
@@ -147,7 +370,12 @@ import { renderPdfToBase64Pages, type RenderedPage } from '@/utils/pdfRenderer'
 
 const router = useRouter()
 
+// 模式切换
+const mode = ref<'markdown' | 'file' | 'json'>('markdown')
+
 const fileInput = ref<HTMLInputElement | null>(null)
+const jsonFileInput = ref<HTMLInputElement | null>(null)
+const mdFileInput = ref<HTMLInputElement | null>(null)
 const file = ref<File | null>(null)
 const fileKind = ref<'pdf' | 'image'>('pdf')
 const imagePreviewUrl = ref('')
@@ -183,6 +411,41 @@ let abortController: AbortController | null = null
 
 // 缓存渲染后的页面，供重试使用
 let cachedPages: RenderedPage[] = []
+
+// JSON 导入状态
+const jsonDragOver = ref(false)
+const jsonFile = ref<File | null>(null)
+const jsonTitle = ref('')
+const jsonYear = ref(new Date().getFullYear())
+const jsonDuration = ref(75)
+const jsonCode = ref('')
+const jsonQuestions = ref<any[]>([])
+const jsonImporting = ref(false)
+const jsonDone = ref(false)
+const jsonError = ref('')
+const jsonPaperId = ref('')
+
+// Markdown 导入状态
+const mdDragOver = ref(false)
+const mdFile = ref<File | null>(null)
+const mdTitle = ref('')
+const mdYear = ref(new Date().getFullYear())
+const mdDuration = ref(75)
+const mdCode = ref('')
+const mdRawText = ref('')
+const mdQuestions = ref<any[]>([])
+const mdJsonBlockCount = ref(0)
+const mdImporting = ref(false)
+const mdDone = ref(false)
+const mdError = ref('')
+const mdWarnings = ref<string[]>([])
+const mdPaperId = ref('')
+
+function truncateText(text: string, maxLen: number): string {
+  if (!text) return ''
+  const cleaned = text.replace(/\[\[(BS|NL|PARA|FIG)\]\]/g, ' ')
+  return cleaned.length > maxLen ? cleaned.slice(0, maxLen) + '...' : cleaned
+}
 
 onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
@@ -468,6 +731,235 @@ async function retryParse(): Promise<void> {
 function goToPreview(): void {
   router.push(`/admin/core-library/exams/${paperId.value}`)
 }
+
+// ---- JSON 导入逻辑 ----
+
+function triggerJsonFileInput(): void {
+  jsonFileInput.value?.click()
+}
+
+function handleJsonDrop(e: DragEvent): void {
+  jsonDragOver.value = false
+  const f = e.dataTransfer?.files?.[0]
+  if (f) processJsonFile(f)
+}
+
+function handleJsonFileSelect(e: Event): void {
+  const f = (e.target as HTMLInputElement).files?.[0]
+  if (f) processJsonFile(f)
+}
+
+function processJsonFile(f: File): void {
+  if (!f.name.endsWith('.json') && f.type !== 'application/json') {
+    ElMessage.warning('仅支持 .json 文件')
+    return
+  }
+  const reader = new FileReader()
+  reader.onload = () => {
+    try {
+      const raw = JSON.parse(reader.result as string)
+      // 兼容两种格式：完整对象 或 纯题目数组
+      if (Array.isArray(raw)) {
+        jsonQuestions.value = raw
+        jsonTitle.value = ''
+        jsonYear.value = new Date().getFullYear()
+        jsonDuration.value = 75
+        jsonCode.value = ''
+      } else {
+        jsonQuestions.value = raw.questions || []
+        jsonTitle.value = raw.title || ''
+        jsonYear.value = raw.year || new Date().getFullYear()
+        jsonDuration.value = raw.duration || 75
+        jsonCode.value = raw.code || ''
+      }
+
+      if (!jsonQuestions.value.length) {
+        ElMessage.warning('JSON 中没有找到题目数据')
+        return
+      }
+
+      jsonFile.value = f
+      jsonError.value = ''
+    } catch {
+      ElMessage.error('JSON 格式解析失败，请检查文件内容')
+    }
+  }
+  reader.readAsText(f)
+}
+
+function clearJsonFile(): void {
+  jsonFile.value = null
+  jsonTitle.value = ''
+  jsonYear.value = new Date().getFullYear()
+  jsonDuration.value = 75
+  jsonCode.value = ''
+  jsonQuestions.value = []
+  jsonError.value = ''
+  jsonDone.value = false
+  jsonPaperId.value = ''
+}
+
+function resetJsonImport(): void {
+  clearJsonFile()
+  jsonImporting.value = false
+}
+
+async function importJson(): Promise<void> {
+  if (!jsonTitle.value || !jsonYear.value) {
+    ElMessage.warning('请填写试卷名称和年份')
+    return
+  }
+  if (!jsonQuestions.value.length) {
+    ElMessage.warning('没有可导入的题目')
+    return
+  }
+
+  jsonImporting.value = true
+  jsonError.value = ''
+
+  try {
+    const res = await request.post<{ id: string }>('/papers/import-json', {
+      title: jsonTitle.value,
+      year: jsonYear.value,
+      duration: jsonDuration.value,
+      code: jsonCode.value || undefined,
+      questions: jsonQuestions.value,
+    })
+    jsonPaperId.value = res.data.id
+    jsonDone.value = true
+  } catch (e: any) {
+    jsonError.value = e.response?.data?.errMsg || e.message || '导入失败'
+  } finally {
+    jsonImporting.value = false
+  }
+}
+
+function goToJsonPreview(): void {
+  router.push(`/admin/core-library/exams/${jsonPaperId.value}`)
+}
+
+// ---- Markdown 导入逻辑 ----
+
+function triggerMdFileInput(): void {
+  mdFileInput.value?.click()
+}
+
+function handleMdDrop(e: DragEvent): void {
+  mdDragOver.value = false
+  const f = e.dataTransfer?.files?.[0]
+  if (f) processMdFile(f)
+}
+
+function handleMdFileSelect(e: Event): void {
+  const f = (e.target as HTMLInputElement).files?.[0]
+  if (f) processMdFile(f)
+}
+
+function processMdFile(f: File): void {
+  if (!f.name.endsWith('.md') && f.type !== 'text/markdown') {
+    ElMessage.warning('仅支持 .md 文件')
+    return
+  }
+  const reader = new FileReader()
+  reader.onload = () => {
+    try {
+      const rawMd = reader.result as string
+      mdRawText.value = rawMd
+
+      // 前端提取 JSON 代码块做预览
+      const jsonBlockRe = /```json\s*\n([\s\S]*?)\n\s*```/g
+      const allQuestions: any[] = []
+      let blockCount = 0
+      let match: RegExpExecArray | null
+
+      while ((match = jsonBlockRe.exec(rawMd)) !== null) {
+        blockCount++
+        try {
+          const parsed = JSON.parse(match![1].trim())
+          const qs = Array.isArray(parsed) ? parsed : parsed.questions
+          if (Array.isArray(qs)) allQuestions.push(...qs)
+        } catch {
+          // 某个块解析失败，跳过
+        }
+      }
+
+      if (blockCount === 0) {
+        ElMessage.warning('未找到 JSON 代码块（需要 ```json ... ``` 格式）')
+        return
+      }
+      if (allQuestions.length === 0) {
+        ElMessage.warning('JSON 块中未找到有效的题目数据')
+        return
+      }
+
+      mdJsonBlockCount.value = blockCount
+      mdQuestions.value = allQuestions
+      mdTitle.value = f.name.replace(/\.md$/i, '')
+      mdFile.value = f
+      mdError.value = ''
+      mdWarnings.value = []
+    } catch {
+      ElMessage.error('文件读取失败')
+    }
+  }
+  reader.readAsText(f)
+}
+
+function clearMdFile(): void {
+  mdFile.value = null
+  mdTitle.value = ''
+  mdYear.value = new Date().getFullYear()
+  mdDuration.value = 75
+  mdCode.value = ''
+  mdRawText.value = ''
+  mdQuestions.value = []
+  mdJsonBlockCount.value = 0
+  mdError.value = ''
+  mdWarnings.value = []
+  mdDone.value = false
+  mdPaperId.value = ''
+}
+
+function resetMdImport(): void {
+  clearMdFile()
+  mdImporting.value = false
+}
+
+async function importMarkdown(): Promise<void> {
+  if (!mdTitle.value || !mdYear.value) {
+    ElMessage.warning('请填写试卷名称和年份')
+    return
+  }
+  if (!mdRawText.value) {
+    ElMessage.warning('没有可导入的内容')
+    return
+  }
+
+  mdImporting.value = true
+  mdError.value = ''
+  mdWarnings.value = []
+
+  try {
+    const res = await request.post<{ id: string; warnings?: string[] }>('/papers/import-markdown', {
+      markdown: mdRawText.value,
+      title: mdTitle.value,
+      year: mdYear.value,
+      duration: mdDuration.value,
+      code: mdCode.value || undefined,
+    })
+    mdPaperId.value = res.data.id
+    mdWarnings.value = (res.data as any).warnings || []
+    mdDone.value = true
+  } catch (e: any) {
+    mdError.value = e.response?.data?.errMsg || e.message || '导入失败'
+  } finally {
+    mdImporting.value = false
+  }
+}
+
+function goToMdPreview(): void {
+  router.push(`/admin/core-library/exams/${mdPaperId.value}`)
+}
 </script>
 
 <style scoped lang="scss">
@@ -611,5 +1103,54 @@ function goToPreview(): void {
 .mt-20 { margin-top: 20px; }
 
 .hidden-input { display: none; }
+
+// 模式切换标签
+.mode-tabs {
+  display: flex; gap: 4px; margin-bottom: 24px;
+  background: #f1f5f9; border-radius: 10px; padding: 4px;
+  width: fit-content;
+}
+.mode-tab {
+  padding: 8px 20px; border: none; background: transparent;
+  font-size: 0.875rem; font-weight: 500; color: #64748b;
+  border-radius: 8px; cursor: pointer; transition: all 0.15s ease;
+  font-family: inherit;
+  &:hover { color: #0f172a; }
+  &--active {
+    background: #ffffff; color: #4f46e5; font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+}
+
+// JSON 导入区域
+.json-import-area {
+  max-width: 620px;
+}
+.json-edit-area {
+  background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px;
+  padding: 24px;
+}
+.json-preview-list {
+  max-height: 280px; overflow-y: auto; margin-top: 8px;
+  border: 1px solid #e2e8f0; border-radius: 10px;
+}
+.json-preview-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; border-bottom: 1px solid #f1f5f9;
+  font-size: 0.8125rem;
+  &:last-child { border-bottom: none; }
+}
+.json-preview-num {
+  min-width: 28px; height: 24px; border-radius: 6px;
+  background: #eef2ff; color: #4f46e5; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem;
+}
+.json-preview-title {
+  flex: 1; color: #334155; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.json-preview-opts {
+  color: #94a3b8; font-size: 0.75rem; white-space: nowrap;
+}
 
 </style>

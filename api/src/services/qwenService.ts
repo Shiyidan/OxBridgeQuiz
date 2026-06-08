@@ -1,5 +1,8 @@
-import { writeFileSync, mkdirSync, existsSync } from 'fs'
-import { join } from 'path'
+import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs'
+import { join, dirname } from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY || ''
 const DASHSCOPE_BASE = 'https://dashscope.aliyuncs.com/api/v1'
@@ -15,160 +18,146 @@ export interface ParsedQuestion {
 // 关键设计：让模型完全不输出反斜杠 \ 和真实换行符，全部用 ASCII 占位符代替。
 // 这样 JSON 字符串中没有任何需要转义的字符，从根上消除 JSON.parse 失败。
 // 后端解析完 JSON 后，再把占位符替换回真实字符。
-const SYSTEM_PROMPT = `你是一个专业的试卷解析助手。分析这份试卷页面，识别页上所有题目并输出 JSON。
 
-============【数学分隔符与正文的混排规则】============
-title 和 options.text 是"纯文本 + 嵌入的数学公式"混排，遵守以下铁律：
+// 内联后备提示词（文件加载失败时使用）
+const FALLBACK_SYSTEM_PROMPT = `你是一个专业的试卷解析助手。分析整份试卷页面，识别页上所有题目并输出完整 JSON。
 
-【铁律 1】数学公式分隔符**只允许** $...$（行内）和 $$...$$（独占一行居中显示）。
-  **如何选择 — 严格看原图布局：**
-  · 公式与正文同一行（紧贴文字流） → 用 $...$ 行内
-  · **公式在原图中独占一行**（居中显示、上下与正文有明显空白）→ **必须用 $$...$$**，不要塞回 $...$
+==================================================
+【文字解析规则】
+==================================================
 
-  ✅ 行内例：The radius is $r = 5[[BS]],[[BS]]mathrm{cm}$ in this case.
-  ✅ 独占例（原图三段式布局）：
-     原图：
-       Which of the following is a correct rearrangement of
-                     y = p - (q-r)/(s-x)
-       to make x the subject?
-     ✅ 正确 title：
-       "Which of the following is a correct rearrangement of $$y = p - [[BS]]frac{q-r}{s-x}$$ to make $x$ the subject?"
-     ❌ 错误 title（强行塞回一行）：
-       "Which of the following is a correct rearrangement of $y = p - [[BS]]frac{q-r}{s-x}$ to make $x$ the subject?"
-     原因：前端把 $$...$$ 渲染为居中块级元素，自然形成"上文 → 居中公式 → 下文"三行视觉布局；
-     若强用 $...$ 行内，会把分式硬塞进段落里，破坏原题排版。
+1. title 和 options.text 必须保留原文完整。
+2. 段落分隔符 [[PARA]] 表示原图中两段空行。
+3. 段内强制换行 [[NL]] 表示原图中的强制换行。
+4. 所有反斜杠 \\ 必须写为 [[BS]]。
+   - JSON 字符串中禁止出现任何单个反斜杠。
+   - LaTeX 示例：\\sqrt 必须写为 [[BS]]sqrt；\\frac 必须写为 [[BS]]frac；\\, 必须写为 [[BS]],；\\mathrm 必须写为 [[BS]]mathrm。
+5. 数学公式只允许：
+   - 行内 $...$
+   - 独占 $...$
+6. 散文不得包在 \\text{} 内。
+7. 单位带上下标必须使用 \\mathrm{}。
 
-  ❌ 严禁：[[BS]](...[[BS]])  ← 模型偶尔会写 \\(...\\) 这种 LaTeX 分隔符，绝对禁止
-  ❌ 严禁：[[BS]][...[[BS]]]  ← \\[...\\] 显示数学分隔符也禁止
-  原因：前端 KaTeX 渲染器只认 $ 和 $$。
+==================================================
+【JSON结构规则】
+==================================================
 
-【铁律 2】**整句中文/英文散文不要包进 \\text{} 里**。散文就放在 $...$ 外面，按普通文本输出。
-  ✅ 正确：The surface area of a sphere of radius $R$ is $4[[BS]]pi R^2$.
-  ❌ 严禁：$[[BS]]text{The surface area of a sphere of radius } R [[BS]]text{ is } 4[[BS]]pi R^2.$
-  原因：把整段散文包进 \\text{} 容易让你纠结编码、把占位符写错；散文留在外面自然朴素。
-
-【铁律 3】**带上下标的单位用 \\mathrm{}，绝对不要用 \\text{}**。
-  ✅ 正确：$2.0[[BS]],[[BS]]mathrm{m[[BS]],s^{-1}}$
-  ✅ 正确：$4[[BS]]pi r^2[[BS]],[[BS]]mathrm{kg}$
-  ❌ 严禁：$2.0[[BS]],[[BS]]text{m s^{-1}}$  ← \\text{} 内部禁止出现 ^ 和 _，KaTeX 会报错红字
-  原因：[[BS]]text{} 是文本模式，里面禁止上下标 ^ 和 _；[[BS]]mathrm{} 是数学模式 + 直立体，可以带上下标且渲染为正体单位。
-  规则简化记忆：单位里若含 ^ 或 _，一律用 [[BS]]mathrm{}；纯字母单位（如 kg、N、J）可以用 [[BS]]text{} 也可以用 [[BS]]mathrm{}。
-
-============【title / options.text 中的 LaTeX 占位符规则】============
-为避免 JSON 转义错误，**仅在 title 和 options.text 字段中**，所有反斜杠和换行使用 ASCII 占位符：
-
-【1】**任何**反斜杠 \\ → 必须写为 [[BS]]。**没有例外**。
-    \\sin x          → [[BS]]sin x
-    \\frac{a}{b}     → [[BS]]frac{a}{b}
-    \\sqrt{2}        → [[BS]]sqrt{2}
-    \\pi             → [[BS]]pi
-    \\text{kg}       → [[BS]]text{kg}
-    \\,              → [[BS]],
-    适用于 $...$ 和 $$...$$ 内的所有 LaTeX 命令，**一个反斜杠都不能漏**。
-    ⚠️ 严禁出现这些变体写法：[[(BS)]、[BS]、[(BS)]、((BS))。只能是规范的 [[BS]]，两个左方括号 + BS + 两个右方括号。
-
-【2】段落分隔（原图两段之间有空行） → 写为 [[PARA]]
-【3】段内强制换行 → 写为 [[NL]]
-    title / options.text 中不允许真实换行符。
-    ⚠️ [[PARA]] 和 [[NL]] 也必须是规范形式：两个左方括号 + 关键字 + 两个右方括号，中间没有冒号、空格或其他字符。
-    严禁变体：[[:PARA]]、[[ PARA]]、[(PARA)]、[[PARA：]] 等。
-
-⚠️ 占位符规则仅适用于 title / options.text。images.code（SVG）保持标准 SVG 语法，**不要用占位符**。
-
-============【images：图表 → SVG / 复杂图占位 二选一】============
-**最高优先级：题目文字和选项必须完整。图形是次要的，宁可放弃图形也要保住题目正文。**
-
-如果题目含图表/几何图/电路图等，按以下两步处理：
-
-【步骤 1 — 复杂度评估】先判断该图能否用 ≤25 个 SVG 元素准确还原：
-  ✅ 简单图（→ 走步骤 2A 生成 SVG）：
-     · 单条直线/曲线的坐标系图
-     · 单个三角形/矩形/圆等基本几何图形
-     · ≤3 个元件的简单串/并联电路
-     · 仅含 2-3 个箭头或受力分析图
-
-  ❌ 复杂图（→ 走步骤 2B 占位，不生成 SVG）：
-     · 多元件复杂电路（含电阻、电容、电感、开关等组合）
-     · 含表格、数据矩阵的混合图
-     · 多曲线叠加 / 密集刻度的坐标图
-     · 立体几何透视图、3D 视图
-     · 任何你判断会超过 25 元素或 1500 字符上限的图
-
-⚠️ 如果不确定，**默认按复杂图处理**（步骤 2B）。题目残缺无法挽回，图形可以人工补绘。
-
-【步骤 2A — 简单图：生成 SVG】放入 images 数组：
-{
-  "type": "svg",
-  "alt": "图表内容简述（中文，≤30字）",
-  "code": "<svg viewBox='0 0 300 200' xmlns='http://www.w3.org/2000/svg'>...</svg>"
-}
-
-SVG 硬性约束：
-- 整段 SVG 代码总长度 **≤ 1500 字符**
-- 元素总数 **≤ 25 个**（line / rect / path / text / circle 总和）
-- **只画核心要素**：坐标轴 + 数据线/曲线 + 关键标签数字 + 标题文字。省略装饰性元素。
-- **严禁重复输出相同元素**。同一条线只画一次。
-- 一律使用 viewBox，不要写固定 width/height。
-- **SVG 内所有属性值用单引号 ' 包裹**（不要用双引号）：
-  正确：<line x1='50' y1='150' x2='250' y2='50' stroke='black' stroke-width='2'/>
-  错误：<line x1="50" y1="150" ...
-
-【步骤 2B — 复杂图：占位（不生成 SVG）】
-  · images 字段设为空数组 []
-  · 在 title 中原图应出现的位置插入占位符 [[FIG]]（前端会显示"图形占位"提示）
-  · 示例：
-    title: "如图所示电路中...[[PARA]][[FIG]][[PARA]]当开关 S 闭合后，求电流 $I$ 的大小。"
-    images: []
-
-如果题目是纯文字（无图表），images 为空数组 []，title 中也不要写 [[FIG]]。
-
-============【字段结构】============
 {
   "questions": [
     {
-      "number": 6,
-      "title": "题干文本（公式用 $...$，反斜杠用 [[BS]]，段落用 [[PARA]]）",
+      "number": 题号,
+      "title": "题干文本（公式 $...$ / $...$，反斜杠 [[BS]]，段落 [[PARA]]，换行 [[NL]])",
       "options": [
-        {"label": "A", "text": "选项内容，规则同 title"}
+        {"label":"A","text":"选项内容"},
+        {"label":"B","text":"选项内容"}
       ],
-      "answer": ["A"],
+      "answer": ["正确答案标签，例如 A"],
       "images": [
         {
-          "type": "svg",
-          "alt": "图表描述",
-          "code": "<svg viewBox='0 0 300 200' xmlns='http://www.w3.org/2000/svg'><line x1='40' y1='180' x2='280' y2='180' stroke='black'/></svg>"
+          "type":"svg",
+          "diagram_type":"geometry / coordinate_graph / circuit / force_diagram / statistical_chart / table / other",
+          "alt":"图形描述",
+          "semantic":{},
+          "graph_schema":{},
+          "code":"<svg ...></svg>"
         }
       ]
     }
   ]
 }
 
-============【其他规则】============
-- 段落数量必须忠于原图，不要合并多段为一段。
-- 数学符号一律使用 LaTeX 标准命令，反斜杠写成 [[BS]]。
-- 整个回复只输出一个完整 JSON 对象，前后不要任何说明或代码块标记。
-- 所有 { } [ ] 必须正确闭合。
+JSON 强制要求：
+- 所有字符串必须是合法 JSON 字符串。
+- 不得在任何字符串中输出真实换行；换行只能使用 [[NL]] 或 [[PARA]]。
+- 不得输出未加引号的符号变量，例如 T₁、T_1、a、2a、T_intermediate。需要表达符号时必须写成字符串。
+- graph_schema 中的坐标数组只能包含 JSON 数字或字符串；禁止 2/3、3/4 这类算式。若可计算，写小数，例如 0.6667。
 
-============【正确示例 — 含坐标图的物理题】============
-{"questions":[{"number":6,"title":"A spring is stretched by force $F$.[[PARA]]The graph shows how energy $E$ varies with $x^2$.[[PARA]]What is $F$ when energy is $0.015[[BS]],[[BS]]text{J}$?","options":[{"label":"A","text":"$0.30[[BS]],[[BS]]text{N}$"}],"answer":["C"],"images":[{"type":"svg","alt":"E 与 x² 关系图，原点到(25, 0.015)的直线","code":"<svg viewBox='0 0 320 220' xmlns='http://www.w3.org/2000/svg'><line x1='50' y1='190' x2='50' y2='20' stroke='black' stroke-width='1.5'/><line x1='50' y1='190' x2='300' y2='190' stroke='black' stroke-width='1.5'/><line x1='50' y1='190' x2='290' y2='30' stroke='black' stroke-width='2'/><text x='15' y='35' font-size='12'>E/J</text><text x='5' y='35' font-size='11'>0.015</text><text x='285' y='210' font-size='11'>25</text><text x='40' y='210' font-size='11'>0</text><text x='240' y='215' font-size='12'>x²/cm²</text></svg>"}]}]}
+==================================================
+【图形解析增强规则】
+==================================================
 
-============【输出前自检】============
-- 数学公式分隔符是否只用了 $...$ 和 $$...$$？（**绝对不能出现 [[BS]]( 或 [[BS]][** —— 那是错误的 \\( 与 \\[ 残留）
-- **原图中独占一行/居中显示的公式是否用了 $$...$$？**（不能塞成 $...$ 行内，否则破坏原题三行布局）
-- 整段散文是否留在 $...$ 外面（没被错误地包进 [[BS]]text{} 里）？
-- 带上下标的单位是否用了 [[BS]]mathrm{} 而不是 [[BS]]text{}？（[[BS]]text{} 内禁止出现 ^ 和 _）
-- title / options.text 里有没有出现裸反斜杠 \\？（不应有，全部用规范的 [[BS]]）
-- 所有占位符是否都是规范的双方括号形式（[[BS]] / [[PARA]] / [[NL]] / [[FIG]]）？严禁 [[:PARA]]、[[(BS)]、[BS]、[(NL)] 等变体。
-- 复杂图是否已改用 [[FIG]] 占位（images=[]）而不是硬撑生成超长 SVG？
-- 简单图的 SVG 是否使用单引号、长度 ≤1500 字符、元素数 ≤25 个、无重复元素
-- 所有题目（包括图形复杂的）的 title 和 options 是否完整？
-- JSON { } [ ] 全部闭合`
+1. geometry 类型图形必须优先恢复几何约束，而非视觉估计。
+   - 根据题目给出的长度、比例、坐标、平行、垂直、中点、切点、圆心恢复坐标。
+   - 所有几何图必须生成 graph_schema.coordinate_system。
+   - 允许误差 ≤ 2%。
+
+2. semantic:
+   - geometry: 保存顶点、形状、比例关系
+   - coordinate_graph: 保存 x_axis, y_axis, graph_kind
+   - circuit: 保存电路元件
+   - force_diagram: 保存力学对象
+   - statistical_chart: 保存统计数据描述
+
+3. graph_schema:
+   - geometry:
+     {
+       "coordinate_system": {点名:[x,y]},
+       "constraints": ["AB:BC=1:2", ...],
+       "derived_points": {计算出的点:[x,y]}
+     }
+   - coordinate_graph:
+     {
+       "x_label":"x轴描述",
+       "y_label":"y轴描述",
+       "points":[[x1,y1],[x2,y2],...],
+       "curve":"line/curve/bar/other"
+     }
+
+4. SVG 规则:
+   - 默认线宽 stroke-width='1'，除非原图明显加粗。
+   - 顶点标签必须位于图形外侧，距离边界 4~8px，不得压线。
+   - geometry viewBox='0 0 150 150'；coordinate_graph viewBox='0 0 180 140'。
+   - 元素总数 ≤25，总长度 ≤1500 字符。
+   - SVG code 必须是单行字符串，不得包含真实换行。
+   - SVG 属性统一使用单引号，避免 JSON 字符串内双引号转义。
+   - 禁止阴影、渐变、装饰。
+   - 如果图中包含多个子图、表格、五个以上选项图、或 SVG 可能超过 1500 字符：不要生成 SVG，images 返回 []，并在 title 合适位置加入 [[FIG]]。
+
+==================================================
+【输出前自检】
+==================================================
+
+- 数学公式只用 $...$ 或 $...$。
+- 散文未包 \\text{}。
+- 单位使用 \\mathrm{}。
+- title/options.text 使用 [[BS]]。
+- JSON 字符串中不存在真实反斜杠和真实换行。
+- graph_schema 坐标数组中不存在 2/3、a、T₁ 等非法 JSON 值。
+- 占位符 [[PARA]], [[NL]], [[FIG]] 规范。
+- geometry 类型必须生成 graph_schema.coordinate_system。
+- 顶点标签在外侧，线宽正确。
+- SVG 尺寸正确，元素不超标。
+- complex 图使用 [[FIG]] 占位。
+- semantic 与 graph_schema 完整。
+- JSON 闭合。
+- 输出只生成 JSON 对象，不输出任何解释文字或 Markdown。`
+
+// 从文件加载当前提示词，文件缺失时回退到内联版本
+// 通过环境变量 PROMPT_VERSION 控制使用哪个版本（如 v1-base、v1-zh、v1-en）
+export function loadSystemPrompt(version?: string): string {
+  const v = version || process.env.PROMPT_VERSION || 'v1-base'
+  const promptPath = join(__dirname, '..', '..', 'prompts', 'versions', v, 'system.txt')
+  try {
+    const content = readFileSync(promptPath, 'utf-8').trim()
+    if (content) {
+      console.log(`[Prompt] Loaded from ${promptPath}`)
+      return content
+    }
+  } catch {
+    // 文件不存在或读取失败
+  }
+  console.warn(`[Prompt] ${promptPath} not found, using fallback inline prompt`)
+  return FALLBACK_SYSTEM_PROMPT
+}
+
+// 运行时加载
+const SYSTEM_PROMPT = loadSystemPrompt()
 
 // ============================================================
 // 占位符解码：把模型输出的 [[BS]]/[[NL]]/[[PARA]] 还原为真实字符
 // ============================================================
 
-function decodePlaceholders(s: unknown): string {
+export function decodePlaceholders(s: unknown): string {
   if (typeof s !== 'string') return ''
   let r = s
 
@@ -192,20 +181,20 @@ function decodePlaceholders(s: unknown): string {
   return r
 }
 
-function normalizeImage(img: any): ParsedQuestion['images'][number] | null {
+export function normalizeImage(img: any): ParsedQuestion['images'][number] | null {
   if (typeof img === 'string') {
     return { type: 'svg', alt: '', code: img }
   }
   if (!img || typeof img !== 'object') return null
-  const type = typeof img.type === 'string' && img.type ? img.type : 'svg'
   const alt = typeof img.alt === 'string' ? img.alt : ''
   const code = typeof img.code === 'string' ? img.code : ''
   const src = typeof img.src === 'string' ? img.src : undefined
   if (!code && !src) return null
+  const type = code ? 'svg' : 'image'
   return src ? { type, alt, code, src } : { type, alt, code }
 }
 
-function normalizeQuestion(q: any): ParsedQuestion {
+export function normalizeQuestion(q: any): ParsedQuestion {
   const images = Array.isArray(q.images)
     ? (q.images.map(normalizeImage).filter(Boolean) as ParsedQuestion['images'])
     : []
@@ -227,7 +216,7 @@ function normalizeQuestion(q: any): ParsedQuestion {
 // JSON 截断修复（保留作为兜底）
 // ============================================================
 
-function tryRepairTruncated(jsonStr: string): string | null {
+export function tryRepairTruncated(jsonStr: string): string | null {
   let repaired = jsonStr
   const lastNewline = repaired.lastIndexOf('\n')
   if (lastNewline > 0) {
@@ -253,8 +242,10 @@ function tryRepairTruncated(jsonStr: string): string | null {
 export async function analyzePageWithQwen(
   imageBase64: string,
   pageNum: number,
-  mimeType: string = 'image/png'
+  mimeType: string = 'image/png',
+  customPrompt?: string,
 ): Promise<ParsedQuestion[]> {
+  const prompt = customPrompt || SYSTEM_PROMPT
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 120_000)
 
@@ -275,7 +266,7 @@ export async function analyzePageWithQwen(
               role: 'user',
               content: [
                 { image: `data:${mimeType};base64,${imageBase64}` },
-                { text: SYSTEM_PROMPT }
+                { text: prompt }
               ]
             }]
           },
@@ -321,7 +312,7 @@ export async function analyzePageWithQwen(
 
   for (const candidate of candidates) {
     const result = tryParse(candidate, pageNum)
-    if (result.length > 0) return result
+    if (result) return result
   }
 
   console.warn(`[Qwen p${pageNum}] All parse attempts failed, returning 0 questions`)
@@ -333,25 +324,31 @@ export async function analyzePageWithQwen(
 // JSON 解析
 // ============================================================
 
-function tryParse(rawText: string, pageNum: number): ParsedQuestion[] {
+function tryParse(rawText: string, pageNum: number): ParsedQuestion[] | null {
   let parsed: any
 
-  try {
-    parsed = JSON.parse(rawText)
-  } catch {
-    const repaired = tryRepairTruncated(rawText)
-    if (repaired) {
-      try {
-        parsed = JSON.parse(repaired)
-        console.log(`[Qwen p${pageNum}] JSON repaired (truncated)`)
-      } catch {
-        console.error(`[Qwen p${pageNum}] JSON parse failed after repair, head:`, rawText.substring(0, 200))
-        return []
+  for (const candidate of buildJsonCandidates(rawText)) {
+    try {
+      parsed = JSON.parse(candidate)
+      if (candidate !== rawText) console.log(`[Qwen p${pageNum}] JSON repaired before parse`)
+      break
+    } catch {
+      const repaired = tryRepairTruncated(candidate)
+      if (repaired) {
+        try {
+          parsed = JSON.parse(repaired)
+          console.log(`[Qwen p${pageNum}] JSON repaired (truncated)`)
+          break
+        } catch {
+          // try next candidate
+        }
       }
-    } else {
-      console.error(`[Qwen p${pageNum}] JSON parse failed, head:`, rawText.substring(0, 200))
-      return []
     }
+  }
+
+  if (!parsed) {
+    console.error(`[Qwen p${pageNum}] JSON parse failed, head:`, rawText.substring(0, 200))
+    return null
   }
 
   let rawQuestions: any[] = []
@@ -365,18 +362,122 @@ function tryParse(rawText: string, pageNum: number): ParsedQuestion[] {
   const qs: ParsedQuestion[] = rawQuestions.map(normalizeQuestion)
 
   if (qs.length === 0) {
-    console.warn(`[Qwen p${pageNum}] 0 questions (keys: ${Object.keys(parsed).join(', ')})`)
+    console.log(`[Qwen p${pageNum}] 0 questions (keys: ${Object.keys(parsed).join(', ')})`)
   } else {
     console.log(`[Qwen p${pageNum}] ${qs.length} questions: [${qs.map((q) => `Q${q.number}`).join(', ')}]`)
   }
   return qs
 }
 
+function buildJsonCandidates(rawText: string): string[] {
+  const trimmed = rawText.trim()
+  const extracted = extractJsonObject(trimmed)
+  const bases = extracted ? [trimmed, extracted] : [trimmed]
+  const candidates = bases.flatMap((base) => {
+    const repairedEscapes = repairInvalidJsonEscapes(base)
+    const repairedNumbers = repairNumericExpressions(repairedEscapes)
+    const repairedSymbols = quoteUnquotedSymbolValues(repairedNumbers)
+    const strippedBrokenImages = stripBrokenTrailingImages(repairedSymbols)
+    return [base, repairedEscapes, repairedNumbers, repairedSymbols, strippedBrokenImages].filter(
+      (candidate): candidate is string => typeof candidate === 'string',
+    )
+  })
+  return Array.from(new Set(candidates))
+}
+
+function extractJsonObject(text: string): string | null {
+  const start = text.indexOf('{')
+  if (start < 0) return null
+  const end = text.lastIndexOf('}')
+  return end > start ? text.slice(start, end + 1).trim() : text.slice(start).trim()
+}
+
+function repairInvalidJsonEscapes(json: string): string {
+  // Qwen sometimes ignores [[BS]] and emits LaTeX like \sqrt or \, inside JSON strings.
+  return json.replace(/(?<!\\)\\(?!["\\/bfnrtu])/g, '\\\\')
+}
+
+function repairNumericExpressions(json: string): string {
+  return json.replace(
+    /([\[:,]\s*)(-?\d+(?:\.\d+)?)\s*\/\s*(-?\d+(?:\.\d+)?)(?=\s*[\],])/g,
+    (match: string, prefix: string, a: string, b: string) => {
+      const denominator = Number(b)
+      if (!denominator) return match
+      return `${prefix}${Number((Number(a) / denominator).toFixed(6))}`
+    },
+  )
+}
+
+function quoteUnquotedSymbolValues(json: string): string {
+  let result = ''
+  let inString = false
+  let escaped = false
+
+  for (let i = 0; i < json.length; i++) {
+    const ch = json[i]
+    result += ch
+
+    if (inString) {
+      if (escaped) {
+        escaped = false
+      } else if (ch === '\\') {
+        escaped = true
+      } else if (ch === '"') {
+        inString = false
+      }
+      continue
+    }
+
+    if (ch === '"') {
+      inString = true
+      continue
+    }
+
+    if (ch !== '[' && ch !== ',') continue
+
+    let cursor = i + 1
+    while (/\s/.test(json[cursor] || '')) cursor++
+
+    const tokenMatch = json
+      .slice(cursor)
+      .match(/^([A-Za-z_₀-₉][A-Za-z0-9_₀-₉]*|\d+[A-Za-z_₀-₉][A-Za-z0-9_₀-₉]*)/)
+    if (!tokenMatch) continue
+
+    const token = tokenMatch[1]
+    let afterToken = cursor + token.length
+    while (/\s/.test(json[afterToken] || '')) afterToken++
+    if (![',', ']'].includes(json[afterToken])) continue
+    if (['true', 'false', 'null'].includes(token)) continue
+
+    result += json.slice(i + 1, cursor)
+    result += `"${token}"`
+    i = cursor + token.length - 1
+  }
+
+  return result
+}
+
+function stripBrokenTrailingImages(json: string): string | null {
+  const marker = json.lastIndexOf('"images"')
+  if (marker < 0) return null
+  const suffix = json.slice(marker)
+  if (!suffix.includes('"code"') && !suffix.includes('<svg')) return null
+  return `${ensureFigPlaceholderInPrefix(json.slice(0, marker))}"images": []\n    }\n  ]\n}`
+}
+
+function ensureFigPlaceholderInPrefix(prefix: string): string {
+  if (prefix.includes('[[FIG]]') || prefix.includes('图形占位')) return prefix
+  return prefix.replace(
+    /"title"\s*:\s*"((?:\\.|[^"\\])*)"/,
+    (_match: string, title: string) => `"title": "${title}[[PARA]][[FIG]]"`,
+  )
+}
+
 // ============================================================
 // 调试辅助
 // ============================================================
 
-function saveDebugFile(content: string, pageNum: number, tag: string): void {
+export function saveDebugFile(content: string, pageNum: number, tag: string): void {
   const debugDir = join(process.cwd(), 'debug-qwen-raw')
   if (!existsSync(debugDir)) mkdirSync(debugDir, { recursive: true })
   const debugPath = join(debugDir, `page-${String(pageNum).padStart(2, '0')}-${tag}.json`)

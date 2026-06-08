@@ -3,35 +3,64 @@
     <!-- 题号小标 -->
     <div class="question-card__label">Question {{ index + 1 }}</div>
 
-    <!-- 题干（含 LaTeX） -->
-    <div class="question-card__stem">
-      <LatexText v-if="question.title" :text="question.title" />
-    </div>
+    <!-- 内容区：优先 content_blocks（图文混排），fallback 到 title + images -->
+    <template v-if="hasContentBlocks">
+      <template v-for="(block, idx) in question.content_blocks" :key="idx">
+        <div v-if="block.type === 'paragraph' && block.text" class="question-card__stem">
+          <LatexText :text="block.text" />
+        </div>
+        <div
+          v-else-if="block.type === 'image_ref' && getImageById(block.image_id)"
+          class="question-card__media"
+        >
+          <div class="question-card__media-item">
+            <div
+              v-if="getImageById(block.image_id)!.code"
+              class="question-card__svg"
+              :aria-label="getImageById(block.image_id)!.alt || block.alt || ''"
+              v-html="getImageById(block.image_id)!.code"
+            />
+            <img
+              v-else-if="getImageById(block.image_id)!.src"
+              :src="normalizeImageSrc(getImageById(block.image_id)!.src!)"
+              :alt="getImageById(block.image_id)!.alt || block.alt || ''"
+              class="question-card__img"
+            />
+          </div>
+        </div>
+      </template>
+    </template>
 
-    <!-- 题目配图：svg / png 等 -->
-    <div
-      v-if="renderImages.length"
-      class="question-card__media"
-    >
+    <!-- Fallback：旧格式 title + images -->
+    <template v-else>
+      <div class="question-card__stem">
+        <LatexText v-if="question.title" :text="question.title" />
+      </div>
+
       <div
-        v-for="(img, idx) in renderImages"
-        :key="idx"
-        class="question-card__media-item"
+        v-if="renderImages.length"
+        class="question-card__media"
       >
         <div
-          v-if="img.code"
-          class="question-card__svg"
-          :aria-label="img.alt || ''"
-          v-html="img.code"
-        />
-        <img
-          v-else-if="img.src"
-          :src="img.src"
-          :alt="img.alt || ''"
-          class="question-card__img"
-        />
+          v-for="(img, idx) in renderImages"
+          :key="idx"
+          class="question-card__media-item"
+        >
+          <div
+            v-if="img.code"
+            class="question-card__svg"
+            :aria-label="img.alt || ''"
+            v-html="img.code"
+          />
+          <img
+            v-else-if="img.src"
+            :src="img.src"
+            :alt="img.alt || ''"
+            class="question-card__img"
+          />
+        </div>
       </div>
-    </div>
+    </template>
 
     <!-- 选项 2 栏栅格 -->
     <div class="question-card__options">
@@ -74,6 +103,28 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   (e: 'select', label: string): void
 }>()
+
+// 是否使用新版 content_blocks 渲染（至少有 paragraph 或 image_ref 块）
+const hasContentBlocks = computed<boolean>(() => {
+  const blocks = props.question.content_blocks
+  return Array.isArray(blocks) && blocks.some(b => b.type === 'paragraph' || b.type === 'image_ref')
+})
+
+// 根据 image_ref 的 image_id 匹配 images 数组中的图片
+function getImageById(imageId: string | undefined): QuestionImage | null {
+  if (!imageId) return null
+  const images = props.question.images
+  if (!Array.isArray(images)) return null
+  const img = images.find(i => i.id === imageId)
+  if (!img) return null
+  return {
+    id: img.id,
+    type: img.code ? 'svg' : 'image',
+    src: img.src ? normalizeImageSrc(img.src) : undefined,
+    code: img.code,
+    alt: img.alt || '',
+  }
+}
 
 const renderImages = computed<QuestionImage[]>(() => {
   const directImages = props.question.images || []

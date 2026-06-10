@@ -42,6 +42,7 @@
             :key="q.id || i"
             :question="q"
             :index="i"
+            :show-answer="true"
           />
         </div>
         <div v-else class="empty-card">暂无题目数据</div>

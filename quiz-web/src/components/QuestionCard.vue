@@ -93,11 +93,13 @@ interface Props {
   question: Question
   index: number
   selectedAnswer?: string
+  showAnswer?: boolean
   variant?: 'default' | 'exam'
 }
 
 const props = withDefaults(defineProps<Props>(), {
   variant: 'default',
+  showAnswer: false,
 })
 
 const emit = defineEmits<{
@@ -157,10 +159,15 @@ function normalizeRenderImage(img: QuestionImage): QuestionImage {
   }
 }
 
+const correctAnswers = computed<Set<string>>(() =>
+  new Set(props.question.answer || [])
+)
+
 function optionClass(text: string | undefined, label: string): Record<string, boolean> {
   const normalizedText = (text || '').replace(/\$+/g, '').replace(/\s+/g, ' ').trim()
   return {
     'opt-card--selected': props.selectedAnswer === label,
+    'opt-card--correct': props.showAnswer && correctAnswers.value.has(label),
     'opt-card--wide': props.variant === 'exam' && normalizedText.length > 42,
   }
 }
@@ -379,6 +386,19 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
     .opt-card__bullet {
       background: var(--color-text);
       color: var(--color-text-inverse);
+    }
+  }
+
+  &--correct {
+    border-color: #10b981;
+    background: #ecfdf5;
+    .opt-card__bullet {
+      background: #10b981;
+      color: #ffffff;
+    }
+    &.opt-card--selected {
+      border-color: #10b981;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
     }
   }
 }

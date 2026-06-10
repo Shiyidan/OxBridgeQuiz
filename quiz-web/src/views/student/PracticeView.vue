@@ -1,5 +1,6 @@
 <template>
   <div class="practice-page">
+    <NavBar />
     <main class="practice-shell">
       <aside class="question-nav" aria-label="题目导航">
         <h2 class="question-nav__title">题目导航</h2>
@@ -111,20 +112,19 @@
 </template>
 
 <script setup lang="ts">
-// 在线答题页（考试面板 + 题目导航 + 选项选择，复用 QuestionCard）
+// 在线答题页（从试题库加载真实题目，支持 topic + difficulty 筛选）
 import { ref, computed, shallowRef, onMounted, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import NavBar from '@/components/NavBar.vue'
 import QuestionCard from '@/components/QuestionCard.vue'
+import request from '@/utils/request'
 import type { Question } from '@/types'
 
-interface PaperPayload {
-  title?: string
-  code?: string
-  year?: number
-  questions: Question[]
-}
-
 const EXAM_SECONDS = 60 * 60
+
+const route = useRoute()
+const router = useRouter()
 
 const questions = shallowRef<Question[]>([])
 const paperTitle = ref<string>('')
@@ -133,6 +133,8 @@ const currentIndex = ref<number>(0)
 const remainingSeconds = ref<number>(EXAM_SECONDS)
 const visitedIndexes = ref<Set<number>>(new Set([0]))
 const answers = ref<Record<string, string>>({})
+const startedAt = Date.now()
+const submitting = ref(false)
 
 let timerId: number | undefined
 
@@ -167,17 +169,30 @@ const timerText = computed<string>(() => {
   const seconds = remainingSeconds.value % 60
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 })
-const topicTitle = computed<string>(() => currentQuestion.value?.tags?.[0] || '三角方程')
+const topicTitle = computed<string>(() => (currentQuestion.value as any)?.subject || '')
 
 async function loadQuestions(): Promise<void> {
   loading.value = true
   try {
-    const res = await fetch(`/data/paper.json?t=${Date.now()}`, { cache: 'no-store' })
-    if (!res.ok) throw new Error('paper.json 请求失败')
-    const data: PaperPayload = await res.json()
-    paperTitle.value = data.title || data.code || ''
-    questions.value = [...data.questions].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-    console.log('[Practice] 加载题目', questions.value.length, '道')
+    const topic = route.query.topic as string | undefined
+    const difficulty = route.query.difficulty as string | undefined
+
+    // 试题库 API，传知识点（学科）和难度
+    const params = new URLSearchParams()
+    if (topic && topic !== 'all') params.set('subject', topic)
+    if (difficulty) params.set('difficulty', difficulty)
+
+    const res = await request.get<{ questions: Question[] }>(
+      `/papers/question-bank?${params.toString()}`
+    )
+    const qs = res.data.questions || []
+    questions.value = qs.map((q: any) => ({
+      ...q,
+      id: q.id || String(q.number),
+      order: q.number,
+    }))
+    paperTitle.value = '试题库练习'
+    console.log('[Practice] 从试题库加载', questions.value.length, '道题, topic:', topic, 'difficulty:', difficulty)
   } catch (e) {
     console.error('[Practice] 加载失败', e)
     questions.value = []
@@ -220,9 +235,38 @@ function handleNext(): void {
   if (currentIndex.value < totalCount.value - 1) goToQuestion(currentIndex.value + 1)
 }
 
-function handleSubmit(): void {
-  console.log('[Practice] submit', { ...answers.value })
-  ElMessage.success('交卷成功')
+async function handleSubmit(): Promise<void> {
+  if (submitting.value) return
+  submitting.value = true
+  try {
+    const res = await request.post<{
+      examRecordId: string
+      totalQuestions: number
+      correctCount: number
+      wrongCount: number
+    }>('/exams/submit', {
+      questions: questions.value,
+      answers: { ...answers.value },
+      startedAt: new Date(startedAt).toISOString(),
+      difficulty: route.query.difficulty,
+      subject: route.query.topic !== 'all' ? route.query.topic : undefined,
+    })
+    const data = res.data
+    router.push({
+      path: '/exam-result',
+      query: {
+        id: data.examRecordId,
+        total: String(data.totalQuestions),
+        correct: String(data.correctCount),
+        wrong: String(data.wrongCount),
+        time: String(Math.round((Date.now() - startedAt) / 1000)),
+      },
+    })
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.errMsg || '交卷失败，请重试')
+  } finally {
+    submitting.value = false
+  }
 }
 
 function startTimer(): void {

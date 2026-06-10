@@ -7,7 +7,13 @@
         <p>记录你在练习和考试中答错的题目，方便针对性复习</p>
       </header>
 
-      <div class="error-book-empty">
+      <!-- 加载中 -->
+      <div v-if="loading" class="error-book-empty">
+        <p>加载中...</p>
+      </div>
+
+      <!-- 空状态 -->
+      <div v-else-if="wrongList.length === 0" class="error-book-empty">
         <div class="empty-icon">
           <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="12" y="8" width="40" height="50" rx="4" stroke="#cbd5e1" stroke-width="2" fill="none"/>
@@ -24,13 +30,71 @@
           去练习
         </router-link>
       </div>
+
+      <!-- 错题列表 -->
+      <div v-else class="error-book-list">
+        <p class="list-summary">共 {{ wrongList.length }} 道错题</p>
+        <div
+          v-for="(item, idx) in wrongList"
+          :key="item.id"
+          class="error-item"
+        >
+          <div class="error-item__header">
+            <span class="error-item__num">#{{ idx + 1 }}</span>
+            <span class="error-item__qid">{{ item.questionId }}</span>
+            <span v-if="item.selectedAnswer" class="error-item__answer">
+              选了 {{ item.selectedAnswer }}
+            </span>
+            <span v-else class="error-item__answer error-item__answer--skip">未作答</span>
+            <span class="error-item__date">{{ formatDate(item.examRecord?.submittedAt) }}</span>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-// 错题本页面 — 已付费用户专属
+// 错题本页面 — 从 API 获取当前用户的错题记录
+import { ref, onMounted } from 'vue'
 import NavBar from '@/components/NavBar.vue'
+import request from '@/utils/request'
+
+interface WrongAnswer {
+  id: string
+  questionId: string
+  selectedAnswer: string | null
+  isCorrect: boolean
+  examRecord?: {
+    id: string
+    submittedAt: string
+  }
+}
+
+interface ErrorBookData {
+  wrongAnswers: WrongAnswer[]
+  total: number
+}
+
+const wrongList = ref<WrongAnswer[]>([])
+const loading = ref(true)
+
+onMounted(async () => {
+  try {
+    const res = await request.get<ErrorBookData>('/exams/error-book')
+    wrongList.value = res.data.wrongAnswers || []
+  } catch {
+    wrongList.value = []
+  } finally {
+    loading.value = false
+  }
+})
+
+function formatDate(dateStr?: string): string {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
+}
 </script>
 
 <style scoped lang="scss">
@@ -112,5 +176,57 @@ import NavBar from '@/components/NavBar.vue'
   &:hover {
     background: #6366f1;
   }
+}
+
+/* 错题列表 */
+.error-book-list {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1.5rem;
+}
+
+.list-summary {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0 0 1rem;
+}
+
+.error-item {
+  padding: 12px 16px;
+  background: #fef2f2;
+  border-radius: 10px;
+  margin-bottom: 8px;
+
+  &:last-child { margin-bottom: 0; }
+}
+
+.error-item__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.875rem;
+}
+
+.error-item__num {
+  font-weight: 600;
+  color: #0f172a;
+  min-width: 28px;
+}
+
+.error-item__qid {
+  flex: 1;
+  color: #475569;
+}
+
+.error-item__answer {
+  font-weight: 500;
+  color: #ef4444;
+  &--skip { color: #94a3b8; font-style: italic; }
+}
+
+.error-item__date {
+  color: #94a3b8;
+  font-size: 0.8125rem;
 }
 </style>

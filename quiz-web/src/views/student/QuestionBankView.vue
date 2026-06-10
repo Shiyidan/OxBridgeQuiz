@@ -79,11 +79,13 @@
             >
               <h3 class="qb-difficulty-card__title">
                 {{ diff.label }} ({{ diff.englishLabel }})
+                <span class="qb-difficulty-card__count">{{ diff.count }} 题</span>
               </h3>
               <p class="qb-difficulty-card__desc">{{ diff.description }}</p>
               <button
                 type="button"
                 class="qb-difficulty-card__cta"
+                :disabled="diff.count === 0"
                 @click="handleStartPractice(diff)"
               >
                 <svg
@@ -105,10 +107,11 @@
 </template>
 
 <script setup lang="ts">
-// 试题库浏览页（知识点筛选 + 难度选择 + 进入练习）
-import { ref, computed, reactive } from 'vue'
+// 试题库浏览页（从已发布试卷汇总真实题目，按难度/学科筛选后进入练习）
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
+import request from '@/utils/request'
 
 const router = useRouter()
 
@@ -124,6 +127,7 @@ interface DifficultyOption {
   label: string
   englishLabel: string
   description: string
+  count: number
 }
 
 interface QbTab {
@@ -131,72 +135,70 @@ interface QbTab {
   label: string
 }
 
-const tabs = reactive<QbTab[]>([
+interface QuestionBankData {
+  questions: any[]
+  total: number
+  difficultyCount: Record<string, number>
+  subjects: string[]
+}
+
+const tabs: QbTab[] = [
   { id: 'practice', label: '试题练习' },
   { id: 'mock', label: '模拟考试' },
-])
+]
 const activeTabId = ref<QbTab['id']>('practice')
 
-const topics = reactive<Topic[]>([
-  { id: 'all', name: 'All Topics' },
-  { id: 'algebra', name: 'Algebra and functions' },
-  { id: 'sequences', name: 'Sequences and series' },
-  { id: 'coordinate', name: 'Coordinate geometry' },
-  { id: 'trigonometry', name: 'Trigonometry' },
-  { id: 'exponentials', name: 'Exponentials and logarithms' },
-  { id: 'differentiation', name: 'Differentiation' },
-  { id: 'integration', name: 'Integration' },
-  { id: 'graphs', name: 'Graphs of functions' },
-])
+const topics = ref<Topic[]>([{ id: 'all', name: 'All Topics' }])
 const activeTopicId = ref<string>('all')
+const totalQuestionCount = ref<number>(0)
 
-const totalQuestionCount = ref<number>(20)
+const difficultyCount = ref<Record<string, number>>({ easy: 0, medium: 0, hard: 0, composite: 0 })
 
-const difficulties = reactive<DifficultyOption[]>([
-  {
-    id: 'easy',
-    label: '简单',
-    englishLabel: 'Easy',
-    description: '适合巩固基础知识，掌握基本公式的直接应用。在遇到更难的题目之前建立解题自信。',
-  },
-  {
-    id: 'medium',
-    label: '中等',
-    englishLabel: 'Medium',
-    description: '要求多步推导与综合理解，贴近真实考试标准难度。考察对基础公式的灵活变形应用。',
-  },
-  {
-    id: 'hard',
-    label: '困难',
-    englishLabel: 'Hard',
-    description: '包含生僻考点、复杂场景变换与严谨证明。冲刺 G5 最高分段必备挑战。',
-  },
-  {
-    id: 'composite',
-    label: '复合',
-    englishLabel: 'Composite',
-    description: '跨章节综合题型，如代数与几何结合，考察知识点串联能力以及应对高认知负荷状态。',
-  },
+const difficulties = ref<DifficultyOption[]>([
+  { id: 'easy', label: '简单', englishLabel: 'Easy', count: 0, description: '适合巩固基础知识，掌握基本公式的直接应用。在遇到更难的题目之前建立解题自信。' },
+  { id: 'medium', label: '中等', englishLabel: 'Medium', count: 0, description: '要求多步推导与综合理解，贴近真实考试标准难度。考察对基础公式的灵活变形应用。' },
+  { id: 'hard', label: '困难', englishLabel: 'Hard', count: 0, description: '包含生僻考点、复杂场景变换与严谨证明。冲刺 G5 最高分段必备挑战。' },
+  { id: 'composite', label: '复合', englishLabel: 'Composite', count: 0, description: '跨章节综合题型，如代数与几何结合，考察知识点串联能力以及应对高认知负荷状态。' },
 ])
 
 const searchKeyword = ref<string>('')
 
+onMounted(async () => {
+  try {
+    const res = await request.get<QuestionBankData>('/papers/question-bank')
+    const data = res.data
+
+    totalQuestionCount.value = data.total
+    difficultyCount.value = data.difficultyCount
+
+    // 更新难度卡片计数
+    difficulties.value = difficulties.value.map(d => ({
+      ...d,
+      count: data.difficultyCount[d.id] || 0,
+    }))
+
+    // 用真实学科构建 topics
+    const allTopics: Topic[] = [{ id: 'all', name: 'All Topics' }]
+    for (const s of data.subjects) {
+      allTopics.push({ id: s, name: s })
+    }
+    topics.value = allTopics
+  } catch {
+    // 获取失败保持默认空数据
+  }
+})
+
 const activeTopicTitle = computed<string>(() => {
-  const topic = topics.find((t) => t.id === activeTopicId.value)
+  const topic = topics.value.find((t) => t.id === activeTopicId.value)
   if (!topic) return ''
   return topic.id === 'all' ? `综合考点 (${topic.name})` : topic.name
 })
 
 const handleSelectTopic = (topic: Topic): void => {
   activeTopicId.value = topic.id
-  console.log('[QuestionBank] select topic:', topic.id)
 }
 
 const handleStartPractice = (diff: DifficultyOption): void => {
-  console.log('[QuestionBank] start practice:', {
-    topic: activeTopicId.value,
-    difficulty: diff.id,
-  })
   router.push({
     path: '/practice',
     query: {

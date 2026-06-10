@@ -6,6 +6,7 @@ import { config } from './config.js'
 import { papersRouter } from './routes/papers.js'
 import { parseRouter } from './routes/parse.js'
 import { uploadRouter } from './routes/upload.js'
+import { examRouter } from './routes/exam.js'
 import { authRouter } from './routes/auth.js'
 import { diagnosticRouter } from './routes/diagnostic.js'
 import { adminRouter } from './routes/admin.js'
@@ -25,6 +26,7 @@ app.use('/api', (_req, res, next) => {
 })
 
 app.use('/api/auth', authRouter)
+app.use('/api/exams', examRouter)
 app.use('/api/diagnostic', diagnosticRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/papers', papersRouter)

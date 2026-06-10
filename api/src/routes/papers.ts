@@ -132,6 +132,58 @@ papersRouter.post('/import-markdown', requireAuth, requireAdmin, async (req, res
   }
 })
 
+// 试题库 — 获取已发布考卷的全部题目（支持按难度/学科筛选）
+papersRouter.get('/question-bank', async (req, res) => {
+  try {
+    const difficulty = req.query.difficulty as string | undefined
+    const subject = req.query.subject as string | undefined
+
+    // 试题库只取已上线的试卷
+    const papers = await prisma.paper.findMany({
+      where: { status: 'published' },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    const isFiltered = !!(difficulty || subject)
+    const allQuestions: any[] = []
+    const difficultyCount: Record<string, number> = { easy: 0, medium: 0, hard: 0, composite: 0 }
+    const subjects = new Set<string>()
+
+    for (const paper of papers) {
+      const qs = JSON.parse(paper.questions)
+      for (const q of qs) {
+        const level = q.difficulty?.level
+        if (!level || !['easy', 'medium', 'hard', 'composite'].includes(level)) continue
+
+        // 无筛选时统计全局元数据（试题库首页用）
+        if (!isFiltered) {
+          difficultyCount[level] = (difficultyCount[level] || 0) + 1
+          if (q.subject) subjects.add(q.subject)
+        }
+
+        if (difficulty && level !== difficulty) continue
+        if (subject && q.subject !== subject) continue
+
+        allQuestions.push({
+          ...q,
+          _paperId: paper.id,
+          _paperTitle: paper.title,
+          _paperYear: paper.year,
+        })
+      }
+    }
+
+    res.json(success({
+      questions: allQuestions,
+      total: allQuestions.length,
+      ...(isFiltered ? {} : { difficultyCount, subjects: [...subjects] }),
+    }))
+  } catch (e: any) {
+    console.error('Question bank error:', e)
+    res.status(500).json(fail(e.message || '获取试题库失败'))
+  }
+})
+
 // 试卷详情
 papersRouter.get('/:id', async (req, res) => {
   const paper = await prisma.paper.findUnique({ where: { id: req.params.id } })

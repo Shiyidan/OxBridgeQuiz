@@ -23,6 +23,9 @@ const router = createRouter({
     { path: '/practice', name: 'practice', component: () => import('../views/student/PracticeView.vue') },
     // 错题本
     { path: '/error-book', name: 'error-book', component: () => import('../views/student/ErrorBookView.vue') },
+    // 答题结果
+    { path: '/exam-result', name: 'exam-result', component: () => import('../views/student/ExamResultView.vue') },
+    { path: '/exam-result/:id', name: 'exam-result-detail', component: () => import('../views/student/ExamResultDetail.vue') },
 
     // 管理后台
     {

@@ -1,0 +1,178 @@
+import { Router } from 'express'
+import { prisma } from '../services/prisma.js'
+import { requireAuth } from '../middleware/auth.js'
+import { success, fail } from '../utils/response.js'
+
+export const examRouter = Router()
+
+// 交卷 — 保存答题记录和逐题答案
+examRouter.post('/submit', requireAuth, async (req, res) => {
+  try {
+    const { questions, answers, startedAt, difficulty, subject } = req.body
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+      res.status(400).json(fail('题目列表不能为空'))
+      return
+    }
+
+    const answerMap: Record<string, string> = answers || {}
+    let correctCount = 0
+
+    // 逐题比对答案
+    for (const q of questions) {
+      const selected = answerMap[q.id || q.number?.toString()]
+      const correct = Array.isArray(q.answer) ? q.answer : []
+      if (selected && correct.includes(selected)) correctCount++
+    }
+
+    // 确保试题库虚拟试卷存在
+    await prisma.paper.upsert({
+      where: { id: 'question-bank' },
+      update: {},
+      create: {
+        id: 'question-bank',
+        title: '试题库练习',
+        year: new Date().getFullYear(),
+        duration: 60,
+        questions: '[]',
+        status: 'published',
+      },
+    })
+
+    const examRecord = await prisma.examRecord.create({
+      data: {
+        userId: req.user!.userId,
+        paperId: 'question-bank',
+        totalQuestions: questions.length,
+        correctCount,
+        startedAt: startedAt ? new Date(startedAt) : new Date(),
+        submittedAt: new Date(),
+        status: 'submitted',
+      },
+    })
+
+    // 逐题保存答题明细
+    const answerRecords = questions.map((q) => {
+      const selected = answerMap[q.id || q.number?.toString()]
+      const correct = Array.isArray(q.answer) ? q.answer : []
+      const isCorrect = !!(selected && correct.includes(selected))
+      return {
+        examRecordId: examRecord.id,
+        questionId: q.id || `q-${q.number}`,
+        selectedAnswer: selected || null,
+        isCorrect,
+        answeredAt: new Date(),
+      }
+    })
+
+    await prisma.answerRecord.createMany({ data: answerRecords })
+
+    res.json(success({
+      examRecordId: examRecord.id,
+      totalQuestions: questions.length,
+      correctCount,
+      wrongCount: questions.length - correctCount,
+    }))
+  } catch (e: any) {
+    console.error('Exam submit error:', e)
+    res.status(500).json(fail(e.message || '交卷失败'))
+  }
+})
+
+// 答题结果详情 — 获取一次考试的完整结果（含题目详情）
+examRouter.get('/:id/result', requireAuth, async (req, res) => {
+  try {
+    const examRecord = await prisma.examRecord.findUnique({
+      where: { id: req.params.id },
+    })
+
+    if (!examRecord) {
+      res.status(404).json(fail('考试记录不存在'))
+      return
+    }
+
+    const answers = await prisma.answerRecord.findMany({
+      where: { examRecordId: examRecord.id },
+      orderBy: { answeredAt: 'asc' },
+    })
+
+    // 从已发布试卷中匹配完整题目数据（双向索引：id + number）
+    const papers = await prisma.paper.findMany({
+      where: { status: 'published' },
+    })
+    const questionMap = new Map<string, any>()
+    for (const paper of papers) {
+      const qs = JSON.parse(paper.questions)
+      for (const q of qs) {
+        // 多键索引：id / number / q-${number}（兼容旧数据）
+        if (q.id) questionMap.set(q.id, q)
+        if (q.number != null) {
+          questionMap.set(String(q.number), q)
+          questionMap.set(`q-${q.number}`, q)
+        }
+      }
+    }
+
+    // 组装：每题附带完整数据 + 作答结果
+    const answeredQuestions = answers.map((a) => {
+      const q = questionMap.get(a.questionId)
+      if (q) {
+        return {
+          ...q,
+          questionId: a.questionId,
+          selectedAnswer: a.selectedAnswer,
+          isCorrect: a.isCorrect,
+        }
+      }
+      // fallback：匹配不到时返回空壳
+      return {
+        questionId: a.questionId,
+        selectedAnswer: a.selectedAnswer,
+        isCorrect: a.isCorrect,
+        number: undefined,
+        title: '',
+        options: [],
+        answer: [],
+        images: [],
+      }
+    })
+
+    res.json(success({
+      examRecord: {
+        id: examRecord.id,
+        totalQuestions: examRecord.totalQuestions,
+        correctCount: examRecord.correctCount,
+        startedAt: examRecord.startedAt,
+        submittedAt: examRecord.submittedAt,
+        status: examRecord.status,
+      },
+      questions: answeredQuestions,
+    }))
+  } catch (e: any) {
+    console.error('Exam result error:', e)
+    res.status(500).json(fail(e.message || '获取结果失败'))
+  }
+})
+
+// 错题本 — 获取当前用户的全部错题
+examRouter.get('/error-book', requireAuth, async (req, res) => {
+  try {
+    const wrongAnswers = await prisma.answerRecord.findMany({
+      where: {
+        examRecord: { userId: req.user!.userId },
+        isCorrect: false,
+      },
+      include: {
+        examRecord: {
+          select: { id: true, submittedAt: true },
+        },
+      },
+      orderBy: { answeredAt: 'desc' },
+    })
+
+    res.json(success({ wrongAnswers, total: wrongAnswers.length }))
+  } catch (e: any) {
+    console.error('Error book error:', e)
+    res.status(500).json(fail(e.message || '获取错题本失败'))
+  }
+})

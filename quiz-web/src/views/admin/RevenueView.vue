@@ -100,7 +100,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import request from '@/utils/request'
+import { getRevenueListData, updateRevenue, createRevenue } from '@/api/admin'
 
 type ReimbursementStatus = 'unreimbursed' | 'reimbursing' | 'reimbursed' | 'non_reimbursable'
 
@@ -234,8 +234,8 @@ function buildPayload() {
 async function getList(): Promise<void> {
   loading.value = true
   try {
-    const res = await request.get<{ costs: RevenueCost[] }>('/admin/revenue-costs/getList')
-    costs.value = res.data.costs
+    const data = await getRevenueListData()
+    costs.value = data as any
   } catch (e: any) {
     ElMessage.error(e.response?.data?.errMsg || '成本数据加载失败')
   } finally {
@@ -250,9 +250,9 @@ async function submitCost(): Promise<void> {
   submitting.value = true
   try {
     if (editingCostId.value) {
-      await request.put(`/admin/revenue-costs/${editingCostId.value}`, buildPayload())
+      await updateRevenue(editingCostId.value, buildPayload())
     } else {
-      await request.post('/admin/revenue-costs', buildPayload())
+      await createRevenue(buildPayload())
     }
     await getList()
     dialogVisible.value = false

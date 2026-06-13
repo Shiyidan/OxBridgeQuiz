@@ -144,7 +144,7 @@
 // 答题结果详情 — 从 API 加载真实考试数据
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import request from '@/utils/request'
+import { getExamResultData, type ExamResult, type ExamQuestion } from '@/api/exam'
 
 type QuestionStatus = 'correct' | 'wrong' | 'skipped' | 'unanswered'
 
@@ -188,17 +188,6 @@ interface QuestionItem {
   skills?: string[]
   selectedAnswer?: string | null
   isCorrect?: boolean
-}
-
-interface ExamResult {
-  examRecord: {
-    id: string
-    totalQuestions: number
-    correctCount: number
-    startedAt: string
-    submittedAt: string
-  }
-  questions: QuestionItem[]
 }
 
 const route = useRoute()
@@ -274,8 +263,7 @@ function goToQuestion(index: number): void {
 
 onMounted(async () => {
   try {
-    const res = await request.get<ExamResult>(`/exams/${examId.value}/result`)
-    const data = res.data
+    const data = await getExamResultData(examId.value)
     totalCount.value = data.examRecord.totalQuestions
     questions.value = (data.questions || []).map((q, i) => ({
       ...q,

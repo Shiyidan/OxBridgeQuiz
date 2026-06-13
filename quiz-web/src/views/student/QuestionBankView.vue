@@ -107,15 +107,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
-import request from '@/utils/request'
+import type { SyllabusNode } from '@/api/questionBank'
+import { getSyllabusData, getQuestionSummaryData } from '@/api/questionBank'
 
 const router = useRouter()
 
-interface TreeNode {
-  code: string
-  label: string
-  children?: TreeNode[]
-}
+interface TreeNode extends SyllabusNode {}
 
 type DifficultyId = 'easy' | 'medium' | 'hard' | 'composite'
 
@@ -132,13 +129,6 @@ interface QbTab {
   label: string
 }
 
-interface QuestionBankData {
-  questions: any[]
-  total: number
-  difficultyCount: Record<string, number>
-  subjects: string[]
-}
-
 const tabs: QbTab[] = [
   { id: 'esat', label: 'ESAT' },
   { id: 'tmua', label: 'TMUA' },
@@ -152,8 +142,6 @@ const selectedNodeCode = ref<string>('')
 const selectedNodeLabel = ref<string>('综合考点')
 
 const totalQuestionCount = ref<number>(0)
-
-const difficultyCount = ref<Record<string, number>>({ easy: 0, medium: 0, hard: 0, composite: 0 })
 
 const difficulties = ref<DifficultyOption[]>([
   { id: 'easy', label: '简单', englishLabel: 'Easy', count: 0, description: '适合巩固基础知识，掌握基本公式的直接应用。在遇到更难的题目之前建立解题自信。' },
@@ -177,8 +165,8 @@ function findFirstLeaf(nodes: TreeNode[]): TreeNode | null {
 onMounted(async () => {
   // 加载考纲树（去掉根节点，只展示子学科）
   try {
-    const res = await request.get<any[]>('/papers/syllabus')
-    treeData.value = res.data[0]?.children || []
+    const nodes = await getSyllabusData()
+    treeData.value = nodes[0]?.children || []
 
     // 默认选中第一个叶子节点
     const first = findFirstLeaf(treeData.value)
@@ -195,10 +183,7 @@ onMounted(async () => {
 // 调轻量接口更新当前考纲节点下的题数 + 各难度分布
 async function loadQuestionSummary() {
   try {
-    const params = new URLSearchParams()
-    if (selectedNodeCode.value) params.set('code', selectedNodeCode.value)
-    const res = await request.get<QuestionBankData>(`/papers/question-bank/summary?${params.toString()}`)
-    const data = res.data
+    const data = await getQuestionSummaryData(selectedNodeCode.value)
     totalQuestionCount.value = data.total
     if (data.difficultyCount) {
       difficulties.value = difficulties.value.map(d => ({

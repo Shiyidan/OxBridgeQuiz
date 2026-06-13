@@ -70,4 +70,43 @@ const request = {
   },
 }
 
+// ---- 通用 API 封装 ----
+
+export interface ApiConfig<T = unknown> {
+  url: string
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE'
+  isAllData: boolean                             // true=完整res / false=拦截器解包后的data
+  params?: Record<string, string | undefined>    // query 参数
+  body?: unknown                                 // POST/PUT 请求体
+}
+
+function buildUrl(path: string, params?: Record<string, string | undefined>): string {
+  if (!params) return path
+  const qs = new URLSearchParams()
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== '') qs.set(k, v)
+  }
+  const suffix = qs.toString()
+  return suffix ? `${path}?${suffix}` : path
+}
+
+export async function callApi<T>(config: ApiConfig<T>): Promise<T> {
+  const url = buildUrl(config.url, config.params)
+  let res: AxiosResponse<T>
+  switch (config.method) {
+    case 'POST':
+      res = await request.post<T>(url, config.body)
+      break
+    case 'PUT':
+      res = await request.put<T>(url, config.body)
+      break
+    case 'DELETE':
+      res = await request.delete<T>(url)
+      break
+    default:
+      res = await request.get<T>(url)
+  }
+  return config.isAllData ? (res as any) : res.data
+}
+
 export default request

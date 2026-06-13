@@ -95,7 +95,7 @@
 import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import request from '@/utils/request'
+import { getPaperListData, updatePaperStatus } from '@/api/papers'
 
 const route = useRoute()
 const router = useRouter()
@@ -123,8 +123,7 @@ watch(() => route.path, (path) => {
 async function fetchPapers(): Promise<void> {
   loading.value = true
   try {
-    const res = await request.get<{ papers: PaperItem[] }>('/papers', { params: { limit: 100 } })
-    const papers = res.data.papers || []
+    const papers = (await getPaperListData()).papers || []
     paperList.value = papers.sort((a, b) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     )
@@ -172,7 +171,7 @@ function toggleStatusMenu(id: string): void {
 
 async function changeStatus(id: string, newStatus: string): Promise<void> {
   try {
-    await request.put(`/papers/${id}`, { status: newStatus })
+    await updatePaperStatus(id, newStatus)
     // 接口成功后前端状态才更新
     const item = paperList.value.find(p => p.id === id)
     if (item) item.status = newStatus

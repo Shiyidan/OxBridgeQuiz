@@ -364,7 +364,7 @@
 import { ref, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 
-import request from '@/utils/request'
+import { createUploadTask, uploadPage, getParseTaskStatusData, retryParseTask, importJson as apiImportJson, importMarkdown as apiImportMarkdown } from '@/api/upload'
 import { ElMessage } from 'element-plus'
 import { renderPdfToBase64Pages, type RenderedPage } from '@/utils/pdfRenderer'
 
@@ -590,16 +590,14 @@ async function startUpload(): Promise<void> {
   abortController = new AbortController()
 
   try {
-    const createRes = await request.post<{ paperId: string; taskId: string }>('/upload/paper-pages/create', {
+    const createRes = await createUploadTask({
       title: title.value,
       year: year.value,
       duration: duration.value,
       totalPages: pages.length,
-    }, {
-      signal: abortController.signal,
     })
-    taskId = createRes.data.taskId
-    paperId.value = createRes.data.paperId
+    taskId = createRes.taskId
+    paperId.value = createRes.paperId
   } catch (e: any) {
     rendering.value = false
     if (e?.code !== 'ERR_CANCELED') {
@@ -612,11 +610,9 @@ async function startUpload(): Promise<void> {
   // 阶段 3：逐页上传（渲染完成一页立刻 POST，不等全部渲染完）
   for (const p of pages) {
     try {
-      await request.post(
-        `/parse-tasks/${taskId}/pages`,
-        { page: p.page, base64: p.base64, mimeType: p.mimeType, totalPages: pages.length },
-        { signal: abortController.signal },
-      )
+      await uploadPage(taskId!, {
+        page: p.page!, base64: p.base64!, mimeType: p.mimeType!, totalPages: pages.length,
+      })
     } catch (e: any) {
       if (e?.code === 'ERR_CANCELED') return
       console.error(`Page ${p.page} upload failed:`, e.message)
@@ -641,17 +637,17 @@ function pollTask(): void {
   if (pollTimer) clearInterval(pollTimer)
   pollTimer = setInterval(async () => {
     try {
-      const res = await request.get<ParseTaskStatus>(`/parse-tasks/${taskId}`)
-      progress.value = res.data.progress || 0
+      const res = await getParseTaskStatusData(taskId)
+      progress.value = res.progress || 0
 
-      if (res.data.status === 'completed') {
+      if (res.status === 'completed') {
         if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
         parsingDone.value = true
       }
-      if (res.data.status === 'failed') {
+      if (res.status === 'failed') {
         if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
         parsingFailed.value = true
-        parseError.value = res.data.error || '解析失败，请重试'
+        parseError.value = res.error || '解析失败，请重试'
       }
     } catch {
       // 轮询错误静默处理
@@ -672,16 +668,14 @@ async function retryParse(): Promise<void> {
 
     // 重新创建任务
     try {
-      const createRes = await request.post<{ paperId: string; taskId: string }>('/upload/paper-pages/create', {
+      const createRes = await createUploadTask({
         title: title.value,
         year: year.value,
         duration: duration.value,
         totalPages: cachedPages.length,
-      }, {
-        signal: abortController.signal,
       })
-      taskId = createRes.data.taskId
-      paperId.value = createRes.data.paperId
+      taskId = createRes.taskId
+      paperId.value = createRes.paperId
     } catch (e: any) {
       rendering.value = false
       if (e?.code !== 'ERR_CANCELED') {
@@ -694,11 +688,9 @@ async function retryParse(): Promise<void> {
     // 逐页重新上传
     for (const p of cachedPages) {
       try {
-        await request.post(
-          `/parse-tasks/${taskId}/pages`,
-          { page: p.page, base64: p.base64, mimeType: p.mimeType, totalPages: cachedPages.length },
-          { signal: abortController.signal },
-        )
+        await uploadPage(taskId!, {
+          page: p.page!, base64: p.base64!, mimeType: p.mimeType!, totalPages: cachedPages.length,
+        })
       } catch (e: any) {
         if (e?.code === 'ERR_CANCELED') return
         console.error(`Retry page ${p.page} upload failed:`, e.message)
@@ -720,7 +712,7 @@ async function retryParse(): Promise<void> {
   progress.value = 0
 
   try {
-    await request.post(`/parse-tasks/${taskId}/retry`)
+    await retryParseTask(taskId)
     pollTask()
   } catch (e: any) {
     parsingFailed.value = true
@@ -818,14 +810,14 @@ async function importJson(): Promise<void> {
   jsonError.value = ''
 
   try {
-    const res = await request.post<{ id: string }>('/papers/import-json', {
+    const res = await apiImportJson({
       title: jsonTitle.value,
       year: jsonYear.value,
       duration: jsonDuration.value,
       code: jsonCode.value || undefined,
       questions: jsonQuestions.value,
     })
-    jsonPaperId.value = res.data.id
+    jsonPaperId.value = res.id
     jsonDone.value = true
   } catch (e: any) {
     jsonError.value = e.response?.data?.errMsg || e.message || '导入失败'
@@ -875,7 +867,7 @@ function processMdFile(f: File): void {
       while ((match = jsonBlockRe.exec(rawMd)) !== null) {
         blockCount++
         try {
-          const parsed = JSON.parse(match![1].trim())
+          const parsed = JSON.parse(match![1]!.trim())
           const qs = Array.isArray(parsed) ? parsed : parsed.questions
           if (Array.isArray(qs)) allQuestions.push(...qs)
         } catch {
@@ -940,15 +932,15 @@ async function importMarkdown(): Promise<void> {
   mdWarnings.value = []
 
   try {
-    const res = await request.post<{ id: string; warnings?: string[] }>('/papers/import-markdown', {
+    const res = await apiImportMarkdown({
       markdown: mdRawText.value,
       title: mdTitle.value,
       year: mdYear.value,
       duration: mdDuration.value,
       code: mdCode.value || undefined,
     })
-    mdPaperId.value = res.data.id
-    mdWarnings.value = (res.data as any).warnings || []
+    mdPaperId.value = res.id
+    mdWarnings.value = (res as any).warnings || []
     mdDone.value = true
   } catch (e: any) {
     mdError.value = e.response?.data?.errMsg || e.message || '导入失败'

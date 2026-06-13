@@ -67,7 +67,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import request from '@/utils/request'
+import { getUserListData, updateUserRole } from '@/api/admin'
 import { ElMessage } from 'element-plus'
 
 interface UserItem {
@@ -99,8 +99,8 @@ function formatDate(d: string): string {
 async function fetchUsers(): Promise<void> {
   loading.value = true
   try {
-    const res = await request.get<{ users: UserItem[] }>('/admin/users')
-    users.value = res.data.users
+    const data = await getUserListData()
+    users.value = data as any
   } catch {
     // 401/403 handled by interceptor
   } finally {
@@ -110,7 +110,7 @@ async function fetchUsers(): Promise<void> {
 
 async function handleRoleChange(userId: string, newRole: string): Promise<void> {
   try {
-    await request.put(`/admin/users/${userId}/role`, { role: newRole })
+    await updateUserRole(userId, newRole)
     const user = users.value.find((u) => u.id === userId)
     if (user) user.role = newRole
   } catch (e: any) {

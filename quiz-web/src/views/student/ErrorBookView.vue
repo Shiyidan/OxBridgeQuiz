@@ -58,31 +58,15 @@
 // 错题本页面 — 从 API 获取当前用户的错题记录
 import { ref, onMounted } from 'vue'
 import NavBar from '@/components/NavBar.vue'
-import request from '@/utils/request'
-
-interface WrongAnswer {
-  id: string
-  questionId: string
-  selectedAnswer: string | null
-  isCorrect: boolean
-  examRecord?: {
-    id: string
-    submittedAt: string
-  }
-}
-
-interface ErrorBookData {
-  wrongAnswers: WrongAnswer[]
-  total: number
-}
+import { getErrorBookData, type WrongAnswer } from '@/api/exam'
 
 const wrongList = ref<WrongAnswer[]>([])
 const loading = ref(true)
 
 onMounted(async () => {
   try {
-    const res = await request.get<ErrorBookData>('/exams/error-book')
-    wrongList.value = res.data.wrongAnswers || []
+    const data = await getErrorBookData()
+    wrongList.value = data.wrongAnswers || []
   } catch {
     wrongList.value = []
   } finally {

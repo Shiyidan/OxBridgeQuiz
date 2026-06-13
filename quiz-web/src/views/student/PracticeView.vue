@@ -120,7 +120,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import QuestionCard from '@/components/QuestionCard.vue'
-import request from '@/utils/request'
+import { getQuestionsData } from '@/api/questionBank'
+import { submitExam } from '@/api/exam'
 import type { Question } from '@/types'
 
 const EXAM_SECONDS = 60 * 60
@@ -180,14 +181,7 @@ async function loadQuestions(): Promise<void> {
     const code = route.query.code as string | undefined
     const difficulty = route.query.difficulty as string | undefined
 
-    const params = new URLSearchParams()
-    if (code) params.set('code', code)
-    if (difficulty) params.set('difficulty', difficulty)
-
-    const res = await request.get<{ questions: Question[] }>(
-      `/papers/question-bank?${params.toString()}`
-    )
-    const qs = res.data.questions || []
+    const qs = await getQuestionsData({ code, difficulty }) || []
     questions.value = qs.map((q: any) => ({
       ...q,
       id: q.id || String(q.number),
@@ -242,19 +236,13 @@ async function handleSubmit(): Promise<void> {
   if (submitting.value) return
   submitting.value = true
   try {
-    const res = await request.post<{
-      examRecordId: string
-      totalQuestions: number
-      correctCount: number
-      wrongCount: number
-    }>('/exams/submit', {
+    const data = await submitExam({
       questions: questions.value,
       answers: { ...answers.value },
       startedAt: new Date(startedAt).toISOString(),
-      difficulty: route.query.difficulty,
-      code: route.query.code,
+      difficulty: route.query.difficulty as string,
+      code: route.query.code as string,
     })
-    const data = res.data
     router.push({
       path: '/exam-result',
       query: {

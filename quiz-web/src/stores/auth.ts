@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import request from '../utils/request'
+import { login as apiLogin, register as apiRegister, logout as apiLogout } from '../api/auth'
 
 export interface User {
   id: string
@@ -9,11 +9,6 @@ export interface User {
   role: string
   avatar?: string
   paymentStatus?: string
-}
-
-interface LoginResponse {
-  token: string
-  user: User
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -45,13 +40,12 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await request.post<LoginResponse>('/auth/login', { email, password, diagnosticSessionId })
-      token.value = res.data.token
-      user.value = res.data.user
-      localStorage.setItem('token', res.data.token)
-      localStorage.setItem('user', JSON.stringify(res.data.user))
-      // 如果携带了诊断报告，返回给调用方
-      return res.data
+      const data = await apiLogin({ email, password, diagnosticSessionId } as any)
+      token.value = data.token
+      user.value = data.user
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('user', JSON.stringify(data.user))
+      return data as any
     } catch (e: any) {
       error.value = e.response?.data?.errMsg || e.message || '登录失败'
       throw e
@@ -71,18 +65,12 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await request.post<LoginResponse>('/auth/register', {
-        name,
-        email,
-        password,
-        confirmPassword,
-        diagnosticSessionId,
-      })
-      token.value = res.data.token
-      user.value = res.data.user
-      localStorage.setItem('token', res.data.token)
-      localStorage.setItem('user', JSON.stringify(res.data.user))
-      return res.data
+      const data = await apiRegister({ name, email, password, confirmPassword, diagnosticSessionId } as any)
+      token.value = data.token
+      user.value = data.user
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('user', JSON.stringify(data.user))
+      return data as any
     } catch (e: any) {
       error.value = e.response?.data?.errMsg || e.message || '注册失败'
       throw e
@@ -94,7 +82,7 @@ export const useAuthStore = defineStore('auth', () => {
   // 退出
   async function logout(): Promise<void> {
     try {
-      await request.post('/auth/logout')
+      await apiLogout()
     } catch {
       // 网络异常等情况下也继续清除本地状态
     }

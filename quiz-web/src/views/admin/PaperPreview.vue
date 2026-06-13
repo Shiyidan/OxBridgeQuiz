@@ -60,21 +60,8 @@ import { useRoute } from 'vue-router'
 import QuestionCard from '@/components/QuestionCard.vue'
 import type { Question } from '@/types'
 
-import request from '@/utils/request'
+import { getPaperDetailData, type PaperDetail } from '@/api/papers'
 import { API_URL } from '@/config'
-
-interface PaperDetail {
-  id: string
-  title: string
-  code: string | null
-  year: number
-  duration: number
-  totalQuestions: number
-  status: string
-  createdAt: string
-  updatedAt: string
-  questions: Question[]
-}
 
 const route = useRoute()
 const paper = ref<PaperDetail | null>(null)
@@ -83,11 +70,11 @@ const loading = ref(true)
 
 onMounted(async () => {
   try {
-    const res = await request.get<PaperDetail>(`/papers/${route.params.id}`)
-    paper.value = res.data
+    const data = await getPaperDetailData(route.params.id as string)
+    paper.value = data
 
     // 将 API 返回的 question 映射到 Question 类型
-    const raw = res.data.questions || []
+    const raw = data.questions || []
     questions.value = raw.map((q: any, idx: number) => ({
       id: q.id || `q-${idx}`,
       number: q.number,

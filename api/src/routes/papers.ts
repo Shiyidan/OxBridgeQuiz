@@ -132,11 +132,98 @@ papersRouter.post('/import-markdown', requireAuth, requireAdmin, async (req, res
   }
 })
 
+// 考纲树 — 按考试类型返回平铺节点，前端组装树结构
+papersRouter.get('/syllabus', async (req, res) => {
+  try {
+    const examType = (req.query.examType as string) || 'ESAT'
+    const nodes = await prisma.syllabusNode.findMany({
+      where: { examType },
+      orderBy: { order: 'asc' },
+    })
+    // 组装为树结构
+    const nodeMap = new Map<string, any>()
+    const roots: any[] = []
+    for (const n of nodes) {
+      nodeMap.set(n.code, { code: n.code, label: n.label, children: [] })
+    }
+    for (const n of nodes) {
+      const treeNode = nodeMap.get(n.code)!
+      if (n.parentCode && nodeMap.has(n.parentCode)) {
+        nodeMap.get(n.parentCode)!.children.push(treeNode)
+      } else {
+        roots.push(treeNode)
+      }
+    }
+    // 清理空 children 数组
+    const cleanEmptyChildren = (list: any[]) => {
+      for (const item of list) {
+        if (item.children.length === 0) delete item.children
+        else cleanEmptyChildren(item.children)
+      }
+    }
+    cleanEmptyChildren(roots)
+
+    res.json(success(roots))
+  } catch (e: any) {
+    res.status(500).json(fail(e.message || '获取考纲失败'))
+  }
+})
+
+// 试题库轻量摘要 — 仅返回考纲节点下的题数和难度分布，不返回题目详情
+papersRouter.get('/question-bank/summary', async (req, res) => {
+  try {
+    const code = req.query.code as string | undefined
+
+    const papers = await prisma.paper.findMany({
+      where: { status: 'published' },
+    })
+
+    // 收集考纲节点及其子孙 code
+    let filterCodes: string[] = []
+    if (code) {
+      const allNodes = await prisma.syllabusNode.findMany({ where: { examType: 'ESAT' } })
+      const childCodes = new Set<string>([code])
+      let prevSize = 0
+      while (childCodes.size > prevSize) {
+        prevSize = childCodes.size
+        for (const n of allNodes) {
+          if (n.parentCode && childCodes.has(n.parentCode)) childCodes.add(n.code)
+        }
+      }
+      filterCodes = [...childCodes]
+    }
+
+    const diffCount: Record<string, number> = { easy: 0, medium: 0, hard: 0, composite: 0 }
+    let total = 0
+
+    for (const paper of papers) {
+      const qs = JSON.parse(paper.questions)
+      for (const q of qs) {
+        const level = q.difficulty?.level
+        if (!level || !['easy', 'medium', 'hard', 'composite'].includes(level)) continue
+
+        if (filterCodes.length) {
+          const kpCodes = new Set((q.knowledge_points || []).map((kp: any) => kp.code))
+          if (!filterCodes.some(c => kpCodes.has(c))) continue
+        }
+
+        diffCount[level]++
+        total++
+      }
+    }
+
+    res.json(success({ total, difficultyCount: diffCount }))
+  } catch (e: any) {
+    res.status(500).json(fail(e.message || '获取摘要失败'))
+  }
+})
+
 // 试题库 — 获取已发布考卷的全部题目（支持按难度/学科筛选）
 papersRouter.get('/question-bank', async (req, res) => {
   try {
     const difficulty = req.query.difficulty as string | undefined
     const subject = req.query.subject as string | undefined
+    const code = req.query.code as string | undefined
 
     // 试题库只取已上线的试卷
     const papers = await prisma.paper.findMany({
@@ -144,9 +231,28 @@ papersRouter.get('/question-bank', async (req, res) => {
       orderBy: { createdAt: 'desc' },
     })
 
-    const isFiltered = !!(difficulty || subject)
+    // 考纲筛选：收集当前节点及其所有子孙的 code
+    let filterCodes: string[] = []
+    if (code) {
+      const allNodes = await prisma.syllabusNode.findMany({
+        where: { examType: 'ESAT' },
+      })
+      const childCodes = new Set<string>([code])
+      let prevSize = 0
+      while (childCodes.size > prevSize) {
+        prevSize = childCodes.size
+        for (const n of allNodes) {
+          if (n.parentCode && childCodes.has(n.parentCode)) {
+            childCodes.add(n.code)
+          }
+        }
+      }
+      filterCodes = [...childCodes]
+    }
+
+    const isFiltered = !!(difficulty || subject || code)
     const allQuestions: any[] = []
-    const difficultyCount: Record<string, number> = { easy: 0, medium: 0, hard: 0, composite: 0 }
+    const diffCount: Record<string, number> = { easy: 0, medium: 0, hard: 0, composite: 0 }
     const subjects = new Set<string>()
 
     for (const paper of papers) {
@@ -155,14 +261,17 @@ papersRouter.get('/question-bank', async (req, res) => {
         const level = q.difficulty?.level
         if (!level || !['easy', 'medium', 'hard', 'composite'].includes(level)) continue
 
-        // 无筛选时统计全局元数据（试题库首页用）
-        if (!isFiltered) {
-          difficultyCount[level] = (difficultyCount[level] || 0) + 1
-          if (q.subject) subjects.add(q.subject)
-        }
-
         if (difficulty && level !== difficulty) continue
         if (subject && q.subject !== subject) continue
+
+        if (filterCodes.length) {
+          const kpCodes = new Set((q.knowledge_points || []).map((kp: any) => kp.code))
+          if (!filterCodes.some(c => kpCodes.has(c))) continue
+        }
+
+        // 始终统计筛选后的难度分布
+        diffCount[level] = (diffCount[level] || 0) + 1
+        if (!isFiltered && q.subject) subjects.add(q.subject)
 
         allQuestions.push({
           ...q,
@@ -176,7 +285,8 @@ papersRouter.get('/question-bank', async (req, res) => {
     res.json(success({
       questions: allQuestions,
       total: allQuestions.length,
-      ...(isFiltered ? {} : { difficultyCount, subjects: [...subjects] }),
+      difficultyCount: diffCount,
+      ...(isFiltered ? {} : { subjects: [...subjects] }),
     }))
   } catch (e: any) {
     console.error('Question bank error:', e)

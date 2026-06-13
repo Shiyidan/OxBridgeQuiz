@@ -1,3 +1,5 @@
+<!-- 试题库进入的在线答题页 -->
+ //应该使用在线答题组件
 <template>
   <div class="practice-page">
     <NavBar />
@@ -171,15 +173,15 @@ const timerText = computed<string>(() => {
 })
 const topicTitle = computed<string>(() => (currentQuestion.value as any)?.subject || '')
 
+// 读取路由参数(code/difficulty)，从试题库加载匹配的题目
 async function loadQuestions(): Promise<void> {
   loading.value = true
   try {
-    const topic = route.query.topic as string | undefined
+    const code = route.query.code as string | undefined
     const difficulty = route.query.difficulty as string | undefined
 
-    // 试题库 API，传知识点（学科）和难度
     const params = new URLSearchParams()
-    if (topic && topic !== 'all') params.set('subject', topic)
+    if (code) params.set('code', code)
     if (difficulty) params.set('difficulty', difficulty)
 
     const res = await request.get<{ questions: Question[] }>(
@@ -192,7 +194,7 @@ async function loadQuestions(): Promise<void> {
       order: q.number,
     }))
     paperTitle.value = '试题库练习'
-    console.log('[Practice] 从试题库加载', questions.value.length, '道题, topic:', topic, 'difficulty:', difficulty)
+    console.log('[Practice] 从试题库加载', questions.value.length, '道题, code:', code, 'difficulty:', difficulty)
   } catch (e) {
     console.error('[Practice] 加载失败', e)
     questions.value = []
@@ -235,6 +237,7 @@ function handleNext(): void {
   if (currentIndex.value < totalCount.value - 1) goToQuestion(currentIndex.value + 1)
 }
 
+// 提交答卷 → 逐题比对答案保存记录，跳转结果页
 async function handleSubmit(): Promise<void> {
   if (submitting.value) return
   submitting.value = true
@@ -249,7 +252,7 @@ async function handleSubmit(): Promise<void> {
       answers: { ...answers.value },
       startedAt: new Date(startedAt).toISOString(),
       difficulty: route.query.difficulty,
-      subject: route.query.topic !== 'all' ? route.query.topic : undefined,
+      code: route.query.code,
     })
     const data = res.data
     router.push({

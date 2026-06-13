@@ -47,18 +47,14 @@
         <!-- 左侧：考点大纲 -->
         <aside class="qb-sidebar">
           <h3 class="qb-sidebar__title">考点大纲 (SYLLABUS)</h3>
-          <ul class="qb-topics">
-            <li v-for="topic in topics" :key="topic.id">
-              <button
-                type="button"
-                class="qb-topic"
-                :class="{ 'qb-topic--active': activeTopicId === topic.id }"
-                @click="handleSelectTopic(topic)"
-              >
-                {{ topic.name }}
-              </button>
-            </li>
-          </ul>
+          <el-tree
+            :data="treeData"
+            :props="treeProps"
+            node-key="code"
+            :default-expanded-keys="defaultExpanded"
+            highlight-current
+            @node-click="handleTreeNodeClick"
+          />
         </aside>
 
         <!-- 右侧：选择难度 -->
@@ -115,9 +111,10 @@ import request from '@/utils/request'
 
 const router = useRouter()
 
-interface Topic {
-  id: string
-  name: string
+interface TreeNode {
+  code: string
+  label: string
+  children?: TreeNode[]
 }
 
 type DifficultyId = 'easy' | 'medium' | 'hard' | 'composite'
@@ -131,7 +128,7 @@ interface DifficultyOption {
 }
 
 interface QbTab {
-  id: 'practice' | 'mock'
+  id: 'esat' | 'tmua'
   label: string
 }
 
@@ -143,13 +140,17 @@ interface QuestionBankData {
 }
 
 const tabs: QbTab[] = [
-  { id: 'practice', label: '试题练习' },
-  { id: 'mock', label: '模拟考试' },
+  { id: 'esat', label: 'ESAT' },
+  { id: 'tmua', label: 'TMUA' },
 ]
-const activeTabId = ref<QbTab['id']>('practice')
+const activeTabId = ref<QbTab['id']>('esat')
 
-const topics = ref<Topic[]>([{ id: 'all', name: 'All Topics' }])
-const activeTopicId = ref<string>('all')
+const treeData = ref<TreeNode[]>([])
+const treeProps = { children: 'children', label: 'label' }
+const defaultExpanded = ref<string[]>(['110000'])
+const selectedNodeCode = ref<string>('')
+const selectedNodeLabel = ref<string>('综合考点')
+
 const totalQuestionCount = ref<number>(0)
 
 const difficultyCount = ref<Record<string, number>>({ easy: 0, medium: 0, hard: 0, composite: 0 })
@@ -163,46 +164,66 @@ const difficulties = ref<DifficultyOption[]>([
 
 const searchKeyword = ref<string>('')
 
-onMounted(async () => {
-  try {
-    const res = await request.get<QuestionBankData>('/papers/question-bank')
-    const data = res.data
-
-    totalQuestionCount.value = data.total
-    difficultyCount.value = data.difficultyCount
-
-    // 更新难度卡片计数
-    difficulties.value = difficulties.value.map(d => ({
-      ...d,
-      count: data.difficultyCount[d.id] || 0,
-    }))
-
-    // 用真实学科构建 topics
-    const allTopics: Topic[] = [{ id: 'all', name: 'All Topics' }]
-    for (const s of data.subjects) {
-      allTopics.push({ id: s, name: s })
-    }
-    topics.value = allTopics
-  } catch {
-    // 获取失败保持默认空数据
+// 找到树中第一个叶子节点
+function findFirstLeaf(nodes: TreeNode[]): TreeNode | null {
+  for (const n of nodes) {
+    if (!n.children || n.children.length === 0) return n
+    const found = findFirstLeaf(n.children)
+    if (found) return found
   }
-})
-
-const activeTopicTitle = computed<string>(() => {
-  const topic = topics.value.find((t) => t.id === activeTopicId.value)
-  if (!topic) return ''
-  return topic.id === 'all' ? `综合考点 (${topic.name})` : topic.name
-})
-
-const handleSelectTopic = (topic: Topic): void => {
-  activeTopicId.value = topic.id
+  return null
 }
 
+onMounted(async () => {
+  // 加载考纲树（去掉根节点，只展示子学科）
+  try {
+    const res = await request.get<any[]>('/papers/syllabus')
+    treeData.value = res.data[0]?.children || []
+
+    // 默认选中第一个叶子节点
+    const first = findFirstLeaf(treeData.value)
+    if (first) {
+      selectedNodeCode.value = first.code
+      selectedNodeLabel.value = first.label
+    }
+  } catch { /* 忽略 */ }
+
+  // 首次加载默认节点的试题数据
+  await loadQuestionSummary()
+})
+
+// 调轻量接口更新当前考纲节点下的题数 + 各难度分布
+async function loadQuestionSummary() {
+  try {
+    const params = new URLSearchParams()
+    if (selectedNodeCode.value) params.set('code', selectedNodeCode.value)
+    const res = await request.get<QuestionBankData>(`/papers/question-bank/summary?${params.toString()}`)
+    const data = res.data
+    totalQuestionCount.value = data.total
+    if (data.difficultyCount) {
+      difficulties.value = difficulties.value.map(d => ({
+        ...d,
+        count: data.difficultyCount[d.id] || 0,
+      }))
+    }
+  } catch { /* 忽略 */ }
+}
+
+const activeTopicTitle = computed<string>(() => selectedNodeLabel.value + ' · 试题')
+
+// 点击考纲树节点 → 更新选中状态 + 刷新难度卡片数量
+const handleTreeNodeClick = async (node: TreeNode): Promise<void> => {
+  selectedNodeCode.value = node.code
+  selectedNodeLabel.value = node.label
+  await loadQuestionSummary()
+}
+
+// 点击难度卡片 → 跳转在线答题，携带考纲编码 + 难度参数
 const handleStartPractice = (diff: DifficultyOption): void => {
   router.push({
     path: '/practice',
     query: {
-      topic: activeTopicId.value,
+      code: selectedNodeCode.value || '',
       difficulty: diff.id,
     },
   })
@@ -413,13 +434,25 @@ const handleStartPractice = (diff: DifficultyOption): void => {
   letter-spacing: 0.01em;
 }
 
-.qb-topics {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+/* el-tree 定制 */
+.qb-sidebar :deep(.el-tree) {
+  background: transparent;
+  border: none;
+  font-size: 0.875rem;
+}
+
+.qb-sidebar :deep(.el-tree-node__content) {
+  height: 32px;
+  padding-left: 4px;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+  &:hover { background: var(--color-surface-muted); }
+}
+
+.qb-sidebar :deep(.el-tree-node.is-current > .el-tree-node__content) {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+  font-weight: 600;
 }
 
 .qb-topic {

@@ -29,7 +29,7 @@ export interface UserItem {
 
 /** 成本列表 */
 export function getRevenueListData() {
-  return callApi<RevenueItem[]>({
+  return callApi<{ costs: RevenueItem[] }>({
     url: '/admin/revenue-costs/getList',
     method: 'GET',
     isAllData: false,
@@ -60,7 +60,7 @@ export function createRevenue(data: Partial<RevenueItem>) {
 
 /** 用户列表 */
 export function getUserListData() {
-  return callApi<UserItem[]>({
+  return callApi<{ users: UserItem[] }>({
     url: '/admin/users',
     method: 'GET',
     isAllData: false,

@@ -1,11 +1,7 @@
-<!-- 营收与数据页面，用于管理员查看、导入和编辑成本记录 -->
-<template>
+﻿<template>
   <div class="revenue-page">
     <div class="page-top-bar">
-      <button class="back-btn" @click="$router.push('/admin')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        返回类别列表
-      </button>
+      <button class="back-btn" type="button" @click="$router.push('/admin')">← 返回类别列表</button>
     </div>
 
     <div class="page-body">
@@ -22,14 +18,10 @@
           <el-table-column type="index" label="序号" width="80" />
           <el-table-column prop="rechargeItem" label="充值项" min-width="140" />
           <el-table-column label="金额" min-width="120">
-            <template #default="{ row }">
-              {{ formatAmount(row.amount) }}
-            </template>
+            <template #default="{ row }">{{ formatAmount(row.amount) }}</template>
           </el-table-column>
           <el-table-column label="时间" min-width="160">
-            <template #default="{ row }">
-              {{ formatDate(row.occurredAt) }}
-            </template>
+            <template #default="{ row }">{{ formatDate(row.occurredAt) }}</template>
           </el-table-column>
           <el-table-column prop="operator" label="操作人" min-width="120" />
           <el-table-column label="报销情况" min-width="140">
@@ -57,7 +49,13 @@
           </el-select>
         </el-form-item>
         <el-form-item label="金额" prop="amount">
-          <el-input-number v-model="form.amount" :min="0" :precision="2" :step="100" controls-position="right" />
+          <el-input-number
+            v-model="form.amount"
+            :min="0"
+            :precision="2"
+            :step="100"
+            controls-position="right"
+          />
         </el-form-item>
         <el-form-item label="操作人" prop="operator">
           <el-select v-model="form.operator" placeholder="请选择操作人">
@@ -98,23 +96,13 @@
 </template>
 
 <script setup lang="ts">
+// 营收与数据页面：用于管理员查看、导入和编辑成本记录。
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import { getRevenueListData, updateRevenue, createRevenue } from '@/api/admin'
+import { getRevenueListData, updateRevenue, createRevenue, type RevenueItem } from '@/api/admin'
 
 type ReimbursementStatus = 'unreimbursed' | 'reimbursing' | 'reimbursed' | 'non_reimbursable'
-
-interface RevenueCost {
-  id: string
-  rechargeItem: string
-  amount: number
-  operator: string
-  occurredAt: string
-  reimbursementStatus: ReimbursementStatus
-  remark: string | null
-  createdAt: string
-  updatedAt: string
-}
+type RevenueCost = RevenueItem & { reimbursementStatus: ReimbursementStatus }
 
 interface CostForm {
   rechargeItem: string
@@ -161,10 +149,12 @@ const rules: FormRules<CostForm> = {
 const isEditing = computed(() => Boolean(editingCostId.value))
 const dialogTitle = computed(() => (isEditing.value ? '编辑成本' : '成本导入'))
 
+// 弹窗打开后等待表单挂载完成，再清理旧校验状态。
 function clearValidate(): void {
   void nextTick(() => formRef.value?.clearValidate())
 }
 
+// 导入新成本时重置表单，避免沿用上一条编辑记录。
 function resetForm(): void {
   form.rechargeItem = ''
   form.amount = undefined
@@ -175,12 +165,14 @@ function resetForm(): void {
   clearValidate()
 }
 
+// 成本导入入口必须清空编辑 id，提交时才会走新增接口。
 function openImportDialog(): void {
   editingCostId.value = null
   resetForm()
   dialogVisible.value = true
 }
 
+// 编辑时把行数据回填到表单，提交时走更新接口。
 function openEditDialog(row: RevenueCost): void {
   editingCostId.value = row.id
   form.rechargeItem = row.rechargeItem
@@ -193,10 +185,12 @@ function openEditDialog(row: RevenueCost): void {
   clearValidate()
 }
 
+// 金额统一按人民币展示，避免表格里裸数字缺少语义。
 function formatAmount(amount: number): string {
   return `¥${Number(amount).toFixed(2)}`
 }
 
+// 成本表格只展示日期，和导入表单的日期粒度保持一致。
 function formatDate(date: string): string {
   if (!date) return '-'
   return new Date(date).toLocaleDateString('zh-CN', {
@@ -206,11 +200,15 @@ function formatDate(date: string): string {
   })
 }
 
+// 报销状态枚举统一由前端映射为中文标签。
 function reimbursementLabel(status: ReimbursementStatus): string {
   return reimbursementOptions.find((item) => item.value === status)?.label || status
 }
 
-function reimbursementTagType(status: ReimbursementStatus): 'primary' | 'success' | 'info' | 'warning' {
+// 报销状态映射到 Element Plus 标签类型，保持表格状态可扫描。
+function reimbursementTagType(
+  status: ReimbursementStatus,
+): 'primary' | 'success' | 'info' | 'warning' {
   const map: Record<ReimbursementStatus, 'primary' | 'success' | 'info' | 'warning'> = {
     unreimbursed: 'warning',
     reimbursing: 'primary',
@@ -220,6 +218,7 @@ function reimbursementTagType(status: ReimbursementStatus): 'primary' | 'success
   return map[status]
 }
 
+// 表单提交前统一清洗字段，和后端成本 payload 保持一致。
 function buildPayload() {
   return {
     rechargeItem: form.rechargeItem,
@@ -231,18 +230,21 @@ function buildPayload() {
   }
 }
 
+// 成本接口返回 { costs }，页面只消费内部数组。
 async function getList(): Promise<void> {
   loading.value = true
   try {
     const data = await getRevenueListData()
-    costs.value = data as any
+    costs.value = (data.costs || []) as RevenueCost[]
   } catch (e: any) {
+    costs.value = []
     ElMessage.error(e.response?.data?.errMsg || '成本数据加载失败')
   } finally {
     loading.value = false
   }
 }
 
+// 根据是否存在编辑 id 选择新增或更新接口，成功后刷新表格。
 async function submitCost(): Promise<void> {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid || !form.occurredAt) return
@@ -258,7 +260,9 @@ async function submitCost(): Promise<void> {
     dialogVisible.value = false
     ElMessage.success(isEditing.value ? '成本记录更新成功' : '成本导入成功')
   } catch (e: any) {
-    ElMessage.error(e.response?.data?.errMsg || (isEditing.value ? '成本记录更新失败' : '成本导入失败'))
+    ElMessage.error(
+      e.response?.data?.errMsg || (isEditing.value ? '成本记录更新失败' : '成本导入失败'),
+    )
   } finally {
     submitting.value = false
   }
@@ -268,25 +272,63 @@ onMounted(getList)
 </script>
 
 <style scoped lang="scss">
-.revenue-page { min-height: 100%; }
-.page-top-bar { padding: 28px 40px 0; }
-.back-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 16px; border: none; background: transparent;
-  font-size: 0.875rem; font-weight: 500; color: #64748b;
-  cursor: pointer; border-radius: 8px; transition: all 0.15s ease;
-  svg { width: 16px; height: 16px; }
-  &:hover { color: #0f172a; background: #f1f5f9; }
+.revenue-page {
+  min-height: 100%;
 }
-.page-body { padding: 24px 40px 48px; }
+
+.page-top-bar {
+  padding: 28px 40px 0;
+}
+
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: #0f172a;
+    background: #f1f5f9;
+  }
+}
+
+.page-body {
+  padding: 24px 40px 48px;
+}
+
 .page-heading {
-  display: flex; align-items: flex-start; justify-content: space-between; gap: 20px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
   margin-bottom: 24px;
 }
-.page-title { font-size: 1.5rem; font-weight: 800; color: #0f172a; margin: 0 0 8px; }
-.page-desc { font-size: 0.9rem; color: #64748b; margin: 0; }
+
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 8px;
+}
+
+.page-desc {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin: 0;
+}
+
 .table-wrap {
-  background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -297,8 +339,16 @@ onMounted(getList)
 }
 
 @media (max-width: 640px) {
-  .page-top-bar { padding: 20px 20px 0; }
-  .page-body { padding: 20px; }
-  .page-heading { flex-direction: column; }
+  .page-top-bar {
+    padding: 20px 20px 0;
+  }
+
+  .page-body {
+    padding: 20px;
+  }
+
+  .page-heading {
+    flex-direction: column;
+  }
 }
 </style>

@@ -1,13 +1,14 @@
-<template>
+﻿<template>
   <div class="admin-page">
     <NavBar />
     <div class="admin-wrapper">
       <div class="admin-layout">
-        <!-- 左侧导航栏 -->
         <aside class="sidebar">
           <div class="sidebar-header">
             <h1 class="sidebar-title">超级管理控制台</h1>
-            <p class="sidebar-subtitle">欢迎，{{ userName }}。您可以在此管理平台核心资产与用户数据。</p>
+            <p class="sidebar-subtitle">
+              欢迎，{{ userName }}。您可以在此管理平台核心资产与用户数据。
+            </p>
           </div>
 
           <nav class="sidebar-nav">
@@ -24,7 +25,6 @@
           </nav>
         </aside>
 
-        <!-- 右侧内容区 -->
         <main class="main-content">
           <RouterView />
         </main>
@@ -34,7 +34,7 @@
 </template>
 
 <script setup lang="ts">
-// 管理后台整体布局（NavBar + 左侧导航栏 + 右侧 RouterView）
+// 管理后台整体布局：NavBar、左侧导航栏和右侧 RouterView。
 import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import NavBar from '@/components/NavBar.vue'
@@ -83,7 +83,6 @@ const navItems: NavItem[] = [
   background: #f8fafc;
 }
 
-/* 与 NavBar 内边距对齐 */
 .admin-wrapper {
   max-width: 1280px;
   margin: 0 auto;
@@ -95,7 +94,6 @@ const navItems: NavItem[] = [
   min-height: calc(100vh - 64px);
 }
 
-/* ========== 左侧导航栏 ========== */
 .sidebar {
   width: 260px;
   flex-shrink: 0;
@@ -117,7 +115,7 @@ const navItems: NavItem[] = [
   font-size: 1.375rem;
   font-weight: 800;
   color: #0f172a;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   margin: 0 0 8px;
 }
 
@@ -140,7 +138,7 @@ const navItems: NavItem[] = [
   align-items: center;
   gap: 12px;
   padding: 11px 16px;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 0.9rem;
   font-weight: 500;
   color: #475569;
@@ -179,7 +177,6 @@ const navItems: NavItem[] = [
   }
 }
 
-/* ========== 右侧内容区 ========== */
 .main-content {
   flex: 1;
   min-width: 0;

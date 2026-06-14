@@ -9,7 +9,7 @@ export const uploadRouter = Router()
 // 前端 pdf.js 流式上传：先创建试卷和任务，再由 parse-tasks/:id/pages 逐页提交
 uploadRouter.post('/paper-pages/create', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { title, year, duration, totalPages } = req.body
+    const { title, year, duration, totalPages, paperType } = req.body
 
     if (!totalPages || totalPages <= 0) {
       res.status(400).json(fail('请提供总页数'))
@@ -21,6 +21,7 @@ uploadRouter.post('/paper-pages/create', requireAuth, requireAdmin, async (req, 
         title: title || '未命名试卷',
         year: parseInt(year) || new Date().getFullYear(),
         duration: parseInt(duration) || 60,
+        paperType: paperType || 'past',
         pdfUrl: null,
         questions: '[]',
       },

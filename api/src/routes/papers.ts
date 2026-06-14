@@ -11,19 +11,22 @@ export const papersRouter = Router()
 papersRouter.get('/', async (req, res) => {
   const page = parseInt(req.query.page as string) || 1
   const limit = parseInt(req.query.limit as string) || 20
+  const paperType = req.query.paperType as string | undefined
   const skip = (page - 1) * limit
+  const where = paperType ? { paperType } : {}
 
   const [papers, total] = await Promise.all([
     prisma.paper.findMany({
+      where,
       select: {
         id: true, title: true, code: true, year: true,
-        duration: true, totalQuestions: true, status: true,
+        duration: true, totalQuestions: true, paperType: true, status: true,
         createdAt: true
       },
       orderBy: { createdAt: 'desc' },
       skip, take: limit
     }),
-    prisma.paper.count()
+    prisma.paper.count({ where })
   ])
 
   res.json(success({ papers, total, page, totalPages: Math.ceil(total / limit) }))
@@ -32,7 +35,7 @@ papersRouter.get('/', async (req, res) => {
 // JSON 导入试卷
 papersRouter.post('/import-json', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { title, year, duration, code, questions } = req.body
+    const { title, year, duration, code, questions, paperType } = req.body
 
     // 校验必填字段
     if (!title || !year) {
@@ -67,6 +70,7 @@ papersRouter.post('/import-json', requireAuth, requireAdmin, async (req, res) =>
         year: parseInt(String(year)),
         duration: parseInt(String(duration)) || 60,
         code: code || undefined,
+        paperType: paperType || 'past',
         questions: JSON.stringify(questions),
         totalQuestions: questions.length,
         status: 'draft',
@@ -86,7 +90,7 @@ papersRouter.post('/import-json', requireAuth, requireAdmin, async (req, res) =>
 // Markdown 导入试卷
 papersRouter.post('/import-markdown', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { markdown, title, year, duration, code } = req.body
+    const { markdown, title, year, duration, code, paperType } = req.body
 
     if (!title || !year) {
       res.status(400).json(fail('标题和年份为必填项'))
@@ -115,6 +119,7 @@ papersRouter.post('/import-markdown', requireAuth, requireAdmin, async (req, res
         year: parseInt(String(year)),
         duration: parseInt(String(duration)) || 60,
         code: code || undefined,
+        paperType: paperType || 'past',
         questions: JSON.stringify(result.questions),
         totalQuestions: result.questions.length,
         status: 'draft',
@@ -295,6 +300,54 @@ papersRouter.get('/question-bank', async (req, res) => {
 })
 
 // 试卷详情
+papersRouter.get('/assessment/papers', requireAuth, async (req, res) => {
+  try {
+    const papers = await prisma.paper.findMany({
+      where: { status: 'published', paperType: 'past' },
+      select: {
+        id: true,
+        title: true,
+        code: true,
+        year: true,
+        duration: true,
+        totalQuestions: true,
+        paperType: true,
+        createdAt: true,
+      },
+      orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
+    })
+
+    const records = await prisma.examRecord.findMany({
+      where: { userId: req.user!.userId, status: 'submitted' },
+      include: {
+        paper: { select: { title: true, paperType: true } },
+      },
+      orderBy: { submittedAt: 'desc' },
+      take: 12,
+    })
+
+    res.json(success({
+      papers,
+      records: records
+        .filter((record) => record.paper.paperType === 'past')
+        .map((record) => ({
+          id: record.id,
+          paperTitle: record.paper.title,
+          totalQuestions: record.totalQuestions,
+          correctCount: record.correctCount,
+          startedAt: record.startedAt,
+          submittedAt: record.submittedAt,
+          durationSeconds: record.submittedAt
+            ? Math.max(0, Math.round((record.submittedAt.getTime() - record.startedAt.getTime()) / 1000))
+            : null,
+        })),
+    }))
+  } catch (e: any) {
+    console.error('Assessment papers error:', e)
+    res.status(500).json(fail(e.message || '获取诊断测试套卷失败'))
+  }
+})
+
 papersRouter.get('/:id', async (req, res) => {
   const paper = await prisma.paper.findUnique({ where: { id: req.params.id } })
   if (!paper) {
@@ -309,7 +362,7 @@ papersRouter.get('/:id', async (req, res) => {
 
 // 更新试卷（人工校对）
 papersRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
-  const { title, code, year, duration, questions, status } = req.body
+  const { title, code, year, duration, questions, status, paperType } = req.body
   const paper = await prisma.paper.update({
     where: { id: req.params.id },
     data: {
@@ -318,7 +371,8 @@ papersRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
       ...(year && { year }),
       ...(duration && { duration }),
       ...(questions && { questions: JSON.stringify(questions), totalQuestions: questions.length }),
-      ...(status && { status })
+      ...(status && { status }),
+      ...(paperType && { paperType })
     }
   })
   res.json(success(paper))

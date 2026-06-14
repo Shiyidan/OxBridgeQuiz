@@ -11,6 +11,7 @@ export interface SubmitParams {
   startedAt: string
   difficulty?: string
   code?: string
+  paperId?: string
 }
 
 export interface SubmitResult {
@@ -43,6 +44,11 @@ export interface ExamResult {
     startedAt: string
     submittedAt: string
     status: string
+    paper?: {
+      id: string
+      title: string
+      paperType: string
+    } | null
   }
   questions: ExamQuestion[]
 }

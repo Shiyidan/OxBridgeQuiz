@@ -14,6 +14,7 @@ model Paper {
   year           Int
   duration       Int
   totalQuestions Int      @default(0)
+  paperType      String   @default("past")
   pdfUrl         String?
   status         String   @default("draft")
   questions      String   @default("[]")

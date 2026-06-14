@@ -595,6 +595,7 @@ async function startUpload(): Promise<void> {
       year: year.value,
       duration: duration.value,
       totalPages: pages.length,
+      paperType: 'past',
     })
     taskId = createRes.taskId
     paperId.value = createRes.paperId
@@ -673,6 +674,7 @@ async function retryParse(): Promise<void> {
         year: year.value,
         duration: duration.value,
         totalPages: cachedPages.length,
+        paperType: 'past',
       })
       taskId = createRes.taskId
       paperId.value = createRes.paperId
@@ -815,6 +817,7 @@ async function importJson(): Promise<void> {
       year: jsonYear.value,
       duration: jsonDuration.value,
       code: jsonCode.value || undefined,
+      paperType: 'past',
       questions: jsonQuestions.value,
     })
     jsonPaperId.value = res.id
@@ -938,6 +941,7 @@ async function importMarkdown(): Promise<void> {
       year: mdYear.value,
       duration: mdDuration.value,
       code: mdCode.value || undefined,
+      paperType: 'past',
     })
     mdPaperId.value = res.id
     mdWarnings.value = (res as any).warnings || []

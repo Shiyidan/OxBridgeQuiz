@@ -10,6 +10,7 @@ export interface PaperItem {
   year: number
   duration: number
   totalQuestions: number
+  paperType?: string
   status: string
   createdAt: string
 }
@@ -27,7 +28,7 @@ export interface PaperDetail extends PaperItem {
 }
 
 /** 试卷列表 */
-export function getPaperListData(params: { page?: number; limit?: number } = {}) {
+export function getPaperListData(params: { page?: number; limit?: number; paperType?: string } = {}) {
   return callApi<PaperListResult>({
     url: '/papers',
     method: 'GET',
@@ -35,6 +36,7 @@ export function getPaperListData(params: { page?: number; limit?: number } = {})
     params: {
       page: String(params.page || 1),
       limit: String(params.limit || 100),
+      ...(params.paperType ? { paperType: params.paperType } : {}),
     },
   })
 }
@@ -55,5 +57,50 @@ export function updatePaperStatus(id: string, status: string) {
     method: 'PUT',
     isAllData: false,
     body: { status },
+  })
+}
+
+/** 更新试卷类型 */
+export function updatePaperType(id: string, paperType: string) {
+  return callApi<PaperItem>({
+    url: `/papers/${id}`,
+    method: 'PUT',
+    isAllData: false,
+    body: { paperType },
+  })
+}
+
+export interface AssessmentPaperItem {
+  id: string
+  title: string
+  code: string | null
+  year: number
+  duration: number
+  totalQuestions: number
+  paperType: string
+  createdAt: string
+}
+
+export interface AssessmentRecordItem {
+  id: string
+  paperTitle: string
+  totalQuestions: number
+  correctCount: number
+  startedAt: string
+  submittedAt: string | null
+  durationSeconds: number | null
+}
+
+export interface AssessmentPaperResult {
+  papers: AssessmentPaperItem[]
+  records: AssessmentRecordItem[]
+}
+
+/** 诊断测试套卷与参与记录 */
+export function getAssessmentPapersData() {
+  return callApi<AssessmentPaperResult>({
+    url: '/papers/assessment/papers',
+    method: 'GET',
+    isAllData: false,
   })
 }

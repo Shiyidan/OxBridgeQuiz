@@ -19,6 +19,8 @@ const router = createRouter({
     { path: '/profile', name: 'profile', component: () => import('../views/profile/ProfileView.vue') },
     // 试题库
     { path: '/question-bank', name: 'question-bank', component: () => import('../views/student/QuestionBankView.vue') },
+    // 诊断测试
+    { path: '/assessment', name: 'assessment', component: () => import('../views/assessment/AssessmentHomeView.vue') },
     // 在线答题
     { path: '/practice', name: 'practice', component: () => import('../views/student/PracticeView.vue') },
     // 错题本
@@ -76,21 +78,19 @@ const router = createRouter({
   ],
 })
 
-// 路由守卫
 router.beforeEach((to, _from, next) => {
   const token = localStorage.getItem('token')
   const userStr = localStorage.getItem('user')
   const user = userStr ? JSON.parse(userStr) : null
   const isLoggedIn = !!token && !!user
 
-  // 需要登录的页面
   const requiresAuth =
-    to.path.startsWith('/profile') || to.path.startsWith('/practice') || to.path.startsWith('/error-book')
+    to.path.startsWith('/profile') ||
+    to.path.startsWith('/practice') ||
+    to.path.startsWith('/assessment') ||
+    to.path.startsWith('/error-book')
 
-  // 仅管理员可访问
   const requiresAdmin = to.path.startsWith('/admin')
-
-  // 需要付费用户
   const requiresPaid = to.path.startsWith('/error-book')
 
   if (requiresAuth && !isLoggedIn) {
@@ -106,7 +106,6 @@ router.beforeEach((to, _from, next) => {
     return next('/')
   }
 
-  // 已登录用户访问 /login 或 /register → 重定向首页
   if ((to.path === '/login' || to.path === '/register') && isLoggedIn) {
     return next('/')
   }

@@ -89,6 +89,7 @@ model AnswerRecord {
   questionId     String
   selectedAnswer String?
   isCorrect      Boolean  @default(false)
+  durationSeconds Int     @default(0)
   answeredAt     DateTime?
 
   examRecord ExamRecord @relation(fields: [examRecordId], references: [id], onDelete: Cascade)

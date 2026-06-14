@@ -8,6 +8,7 @@ import { callApi } from '@/utils/request'
 export interface SubmitParams {
   questions: any[]
   answers: Record<string, string>
+  questionDurations?: Record<string, number>
   startedAt: string
   difficulty?: string
   code?: string
@@ -33,6 +34,7 @@ export interface ExamQuestion {
   learning_analysis?: any
   selectedAnswer?: string | null
   isCorrect?: boolean
+  durationSeconds?: number
   [key: string]: any
 }
 
@@ -48,6 +50,9 @@ export interface ExamResult {
       id: string
       title: string
       paperType: string
+      year?: number
+      duration?: number
+      code?: string | null
     } | null
   }
   questions: ExamQuestion[]

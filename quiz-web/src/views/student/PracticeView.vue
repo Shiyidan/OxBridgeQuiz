@@ -114,9 +114,11 @@ const currentIndex = ref(0)
 const remainingSeconds = ref(EXAM_SECONDS)
 const visitedIndexes = ref<Set<number>>(new Set([0]))
 const answers = ref<Record<string, string>>({})
+const questionDurations = ref<Record<string, number>>({})
 const startedAt = Date.now()
 const submitting = ref(false)
 let timerId: number | undefined
+let questionEnteredAt = Date.now()
 
 const totalCount = computed(() => questions.value.length)
 const currentQuestion = computed(() => questions.value[currentIndex.value])
@@ -180,6 +182,7 @@ async function loadQuestions(): Promise<void> {
     questions.value = []
   } finally {
     loading.value = false
+    questionEnteredAt = Date.now()
   }
 }
 
@@ -188,10 +191,24 @@ function markVisited(index: number): void {
   visitedIndexes.value = new Set([...visitedIndexes.value, index])
 }
 
+// 切题前把当前题停留时长累加，保证来回切换时每段时间都被统计。
+function recordCurrentQuestionDuration(): void {
+  const question = currentQuestion.value
+  if (!question) return
+  const elapsedSeconds = Math.max(0, Math.round((Date.now() - questionEnteredAt) / 1000))
+  questionDurations.value = {
+    ...questionDurations.value,
+    [question.id]: (questionDurations.value[question.id] || 0) + elapsedSeconds,
+  }
+  questionEnteredAt = Date.now()
+}
+
 // 题号导航和上下题共用该方法，切题时同步访问状态。
 function goToQuestion(index: number): void {
+  recordCurrentQuestionDuration()
   currentIndex.value = index
   markVisited(index)
+  questionEnteredAt = Date.now()
 }
 
 // 根据当前题、已答题、已访问状态计算左侧题号样式。
@@ -227,9 +244,11 @@ async function handleSubmit(): Promise<void> {
   if (submitting.value) return
   submitting.value = true
   try {
+    recordCurrentQuestionDuration()
     const data = await submitExam({
       questions: questions.value,
       answers: { ...answers.value },
+      questionDurations: { ...questionDurations.value },
       startedAt: new Date(startedAt).toISOString(),
       difficulty: route.query.difficulty as string,
       code: route.query.code as string,

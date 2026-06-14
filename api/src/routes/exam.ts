@@ -8,7 +8,7 @@ export const examRouter = Router()
 // 交卷 — 保存答题记录和逐题答案
 examRouter.post('/submit', requireAuth, async (req, res) => {
   try {
-    const { questions, answers, startedAt, difficulty, subject, paperId } = req.body
+    const { questions, answers, questionDurations, startedAt, difficulty, subject, paperId } = req.body
 
     if (!Array.isArray(questions) || questions.length === 0) {
       res.status(400).json(fail('题目列表不能为空'))
@@ -16,6 +16,7 @@ examRouter.post('/submit', requireAuth, async (req, res) => {
     }
 
     const answerMap: Record<string, string> = answers || {}
+    const durationMap: Record<string, number> = questionDurations || {}
     let correctCount = 0
 
     // 逐题比对答案
@@ -64,14 +65,16 @@ examRouter.post('/submit', requireAuth, async (req, res) => {
 
     // 逐题保存答题明细
     const answerRecords = questions.map((q) => {
-      const selected = answerMap[q.id || q.number?.toString()]
+      const questionKey = q.id || q.number?.toString() || `q-${q.number}`
+      const selected = answerMap[questionKey]
       const correct = Array.isArray(q.answer) ? q.answer : []
       const isCorrect = !!(selected && correct.includes(selected))
       return {
         examRecordId: examRecord.id,
-        questionId: q.id || `q-${q.number}`,
+        questionId: questionKey,
         selectedAnswer: selected || null,
         isCorrect,
+        durationSeconds: Math.max(0, Math.round(Number(durationMap[questionKey]) || 0)),
         answeredAt: new Date(),
       }
     })
@@ -139,6 +142,7 @@ examRouter.get('/:id/result', requireAuth, async (req, res) => {
           questionId: a.questionId,
           selectedAnswer: a.selectedAnswer,
           isCorrect: a.isCorrect,
+          durationSeconds: a.durationSeconds,
         }
       }
       // fallback：匹配不到时返回空壳
@@ -146,6 +150,7 @@ examRouter.get('/:id/result', requireAuth, async (req, res) => {
         questionId: a.questionId,
         selectedAnswer: a.selectedAnswer,
         isCorrect: a.isCorrect,
+        durationSeconds: a.durationSeconds,
         number: undefined,
         title: '',
         options: [],
@@ -167,12 +172,18 @@ examRouter.get('/:id/result', requireAuth, async (req, res) => {
               id: 'question-bank',
               title: '题库练习',
               paperType: 'practice',
+              year: new Date().getFullYear(),
+              duration: 60,
+              code: null,
             }
           : papers[0]
           ? {
               id: papers[0].id,
               title: papers[0].title,
               paperType: papers[0].paperType,
+              year: papers[0].year,
+              duration: papers[0].duration,
+              code: papers[0].code,
             }
           : null,
       },

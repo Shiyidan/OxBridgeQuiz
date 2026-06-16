@@ -208,8 +208,9 @@ papersRouter.get('/question-bank/summary', async (req, res) => {
         if (!level || !['easy', 'medium', 'hard', 'composite'].includes(level)) continue
 
         if (filterCodes.length) {
+          const spCodes = new Set((q.syllabus_points || []).map((sp: any) => sp.code))
           const kpCodes = new Set((q.knowledge_points || []).map((kp: any) => kp.code))
-          if (!filterCodes.some(c => kpCodes.has(c))) continue
+          if (!filterCodes.some(c => spCodes.has(c) || kpCodes.has(c))) continue
         }
 
         diffCount[level]++
@@ -270,8 +271,9 @@ papersRouter.get('/question-bank', async (req, res) => {
         if (subject && q.subject !== subject) continue
 
         if (filterCodes.length) {
+          const spCodes = new Set((q.syllabus_points || []).map((sp: any) => sp.code))
           const kpCodes = new Set((q.knowledge_points || []).map((kp: any) => kp.code))
-          if (!filterCodes.some(c => kpCodes.has(c))) continue
+          if (!filterCodes.some(c => spCodes.has(c) || kpCodes.has(c))) continue
         }
 
         // 始终统计筛选后的难度分布

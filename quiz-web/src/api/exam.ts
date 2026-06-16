@@ -31,6 +31,7 @@ export interface ExamQuestion {
   subject?: string
   difficulty?: { level: string; score: number }
   knowledge_points?: any[]
+  syllabus_points?: any[]
   learning_analysis?: any
   selectedAnswer?: string | null
   isCorrect?: boolean

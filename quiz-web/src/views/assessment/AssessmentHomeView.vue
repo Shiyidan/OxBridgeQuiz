@@ -169,6 +169,7 @@ function formatDuration(seconds: number | null): string {
   min-height: 100vh;
   background: #f7f6f4;
   color: #273437;
+  overflow-x: hidden;
 }
 .assessment-shell {
   width: min(1116px, calc(100% - 40px));
@@ -257,6 +258,7 @@ function formatDuration(seconds: number | null): string {
 }
 .paper-card,
 .record-card {
+  min-width: 0;
   padding: 24px;
   border: 1px solid #e0e4e5;
   border-radius: 8px;
@@ -273,6 +275,7 @@ function formatDuration(seconds: number | null): string {
 .record-card h3 {
   margin: 0 0 8px;
   font-size: 18px;
+  overflow-wrap: anywhere;
 }
 .paper-card__main p,
 .record-card p {
@@ -346,6 +349,10 @@ function formatDuration(seconds: number | null): string {
   margin-top: 16px;
 }
 @media (max-width: 860px) {
+  .assessment-shell {
+    width: min(100% - 24px, 560px);
+    padding: 24px 0 56px;
+  }
   .mode-panel,
   .paper-grid,
   .record-grid {
@@ -356,6 +363,41 @@ function formatDuration(seconds: number | null): string {
   }
   .mode-button {
     width: 100%;
+  }
+  .record-card__head,
+  .record-card__footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .record-card__footer {
+    gap: 18px;
+  }
+  .record-card button {
+    align-self: stretch;
+    text-align: left;
+    white-space: normal;
+  }
+  .record-status {
+    align-self: flex-start;
+  }
+}
+@media (max-width: 520px) {
+  .assessment-shell {
+    width: calc(100% - 24px);
+  }
+  .page-header h1 {
+    font-size: 30px;
+  }
+  .mode-panel {
+    margin-top: 32px;
+    padding: 24px;
+  }
+  .paper-card,
+  .record-card {
+    padding: 22px;
+  }
+  .paper-card__meta {
+    gap: 28px;
   }
 }
 </style>

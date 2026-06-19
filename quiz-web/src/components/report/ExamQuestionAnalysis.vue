@@ -48,7 +48,7 @@
         </div>
         <div class="question-tags">
           <span>第 {{ currentIndex + 1 }} 题</span>
-          <span v-if="currentQuestion.difficulty">{{ currentQuestion.difficulty.level }}</span>
+          <span v-if="currentQuestion.difficulty">{{ difficultyDisplay }}</span>
           <span :class="currentQuestion.isCorrect ? 'tag-success' : 'tag-error'">
             {{
               currentQuestion.isCorrect ? '正确' : currentQuestion.selectedAnswer ? '错误' : '未答'
@@ -158,16 +158,60 @@ const questionNav = computed(() =>
     status: (q.selectedAnswer ? (q.isCorrect ? 'correct' : 'wrong') : 'skipped') as QuestionStatus,
   })),
 )
+// difficulty 兼容对象 { level } 和纯字符串两种格式
+const difficultyDisplay = computed(() => {
+  const d = currentQuestion.value?.difficulty
+  if (!d) return ''
+  if (typeof d === 'string') return d
+  return d.level || ''
+})
+
 const la = computed(() => currentQuestion.value?.learning_analysis)
-const examFocusList = computed(() => la.value?.exam_focus || [])
-const solutionSummary = computed(() => la.value?.solution?.summary || '')
-const analysisSteps = computed(() => la.value?.solution?.steps || [])
-const finalAnswer = computed(() => la.value?.solution?.final_answer || '')
-const wrongReasons = computed(() => la.value?.solution?.distractor_analysis || [])
-const reviewSummary = computed(() => la.value?.review_guidance?.summary || '')
-const recommendedTopics = computed(() => la.value?.review_guidance?.recommended_topics || [])
-const practiceSuggestions = computed(() => la.value?.review_guidance?.practice_suggestions || [])
-const commonMistakes = computed(() => la.value?.review_guidance?.common_mistakes || [])
+// learning_analysis 兼容新旧两种结构：
+// 旧：{ exam_focus: [{title,description}], solution: {summary,steps,...}, review_guidance: {summary,...} }
+// 新：{ exam_focus: "string", solution: "string", review_guidance: "string" }
+const examFocusList = computed(() => {
+  const ef = la.value?.exam_focus
+  if (!ef) return []
+  if (typeof ef === 'string') return [{ title: ef, description: ef }]
+  return Array.isArray(ef) ? ef : []
+})
+const solutionSummary = computed(() => {
+  const sol = la.value?.solution
+  if (!sol) return ''
+  if (typeof sol === 'string') return sol
+  return sol.summary || ''
+})
+const analysisSteps = computed(() => {
+  const sol = la.value?.solution
+  return (sol && typeof sol !== 'string' && sol.steps) ? sol.steps : []
+})
+const finalAnswer = computed(() => {
+  const sol = la.value?.solution
+  return (sol && typeof sol !== 'string' && sol.final_answer) ? sol.final_answer : ''
+})
+const wrongReasons = computed(() => {
+  const sol = la.value?.solution
+  return (sol && typeof sol !== 'string' && sol.distractor_analysis) ? sol.distractor_analysis : []
+})
+const reviewSummary = computed(() => {
+  const rg = la.value?.review_guidance
+  if (!rg) return ''
+  if (typeof rg === 'string') return rg
+  return rg.summary || ''
+})
+const recommendedTopics = computed(() => {
+  const rg = la.value?.review_guidance
+  return (rg && typeof rg !== 'string' && rg.recommended_topics) ? rg.recommended_topics : []
+})
+const practiceSuggestions = computed(() => {
+  const rg = la.value?.review_guidance
+  return (rg && typeof rg !== 'string' && rg.practice_suggestions) ? rg.practice_suggestions : []
+})
+const commonMistakes = computed(() => {
+  const rg = la.value?.review_guidance
+  return (rg && typeof rg !== 'string' && rg.common_mistakes) ? rg.common_mistakes : []
+})
 const hasSolution = computed(() =>
   Boolean(
     solutionSummary.value ||

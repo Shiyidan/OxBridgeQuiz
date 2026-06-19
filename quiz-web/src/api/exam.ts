@@ -29,7 +29,7 @@ export interface ExamQuestion {
   answer: string[]
   images: any[]
   subject?: string
-  difficulty?: { level: string; score: number }
+  difficulty?: string | { level: string; score: number; label_zh?: string; label?: string }
   knowledge_points?: any[]
   syllabus_points?: any[]
   learning_analysis?: any

@@ -376,6 +376,11 @@ onUnmounted(() => {
   align-items: center;
   gap: 16px;
 }
+.exam-actions {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid #edf0f1;
+}
 .exam-panel__title {
   display: flex;
   flex-direction: column;
@@ -432,6 +437,9 @@ onUnmounted(() => {
   }
   .question-nav {
     position: static;
+  }
+  .exam-actions {
+    margin-top: 34px;
   }
 }
 </style>

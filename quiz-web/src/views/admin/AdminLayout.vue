@@ -3,7 +3,16 @@
     <NavBar />
     <div class="admin-wrapper">
       <div class="admin-layout">
-        <aside class="sidebar">
+        <aside class="sidebar" :class="{ 'sidebar--collapsed': sidebarCollapsed }">
+          <button
+            class="sidebar-toggle"
+            type="button"
+            :aria-label="sidebarCollapsed ? '展开后台导航' : '收起后台导航'"
+            @click="sidebarCollapsed = !sidebarCollapsed"
+          >
+            {{ sidebarCollapsed ? '›' : '‹' }}
+          </button>
+
           <div class="sidebar-header">
             <h1 class="sidebar-title">超级管理控制台</h1>
             <p class="sidebar-subtitle">
@@ -18,6 +27,8 @@
               :to="item.path"
               class="nav-item"
               active-class="nav-item--active"
+              :title="item.label"
+              @click="handleNavClick"
             >
               <span class="nav-icon" v-html="item.icon"></span>
               <span class="nav-label">{{ item.label }}</span>
@@ -35,12 +46,13 @@
 
 <script setup lang="ts">
 // 管理后台整体布局：NavBar、左侧导航栏和右侧 RouterView。
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import NavBar from '@/components/NavBar.vue'
 
 const auth = useAuthStore()
 const userName = computed(() => auth.user?.name || '管理员')
+const sidebarCollapsed = ref(true)
 
 interface NavItem {
   path: string
@@ -75,6 +87,13 @@ const navItems: NavItem[] = [
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>',
   },
 ]
+
+// 手机端点击导航后自动收起侧栏，给内容区留出更多横向空间。
+function handleNavClick(): void {
+  if (window.matchMedia('(max-width: 768px)').matches) {
+    sidebarCollapsed.value = true
+  }
+}
 </script>
 
 <style scoped lang="scss">
@@ -95,6 +114,7 @@ const navItems: NavItem[] = [
 }
 
 .sidebar {
+  position: relative;
   width: 260px;
   flex-shrink: 0;
   background: #ffffff;
@@ -103,6 +123,10 @@ const navItems: NavItem[] = [
   flex-direction: column;
   padding: 32px 0;
   overflow-y: auto;
+}
+
+.sidebar-toggle {
+  display: none;
 }
 
 .sidebar-header {
@@ -180,6 +204,103 @@ const navItems: NavItem[] = [
 .main-content {
   flex: 1;
   min-width: 0;
-  overflow-y: auto;
+  overflow: auto;
+}
+
+@media (max-width: 768px) {
+  .admin-wrapper {
+    padding: 0;
+    max-width: none;
+  }
+
+  .admin-layout {
+    min-height: calc(100vh - 58px);
+    width: 100%;
+  }
+
+  .sidebar {
+    width: 236px;
+    padding: 18px 0;
+    transition: width 0.2s ease;
+    overflow-x: hidden;
+  }
+
+  .sidebar--collapsed {
+    width: 64px;
+
+    .sidebar-header {
+      padding: 0 10px 12px;
+      border-bottom-color: transparent;
+    }
+
+    .sidebar-title,
+    .sidebar-subtitle,
+    .nav-label {
+      display: none;
+    }
+
+    .sidebar-nav {
+      padding: 8px 8px;
+    }
+
+    .nav-item {
+      justify-content: center;
+      padding: 12px 0;
+      gap: 0;
+    }
+  }
+
+  .sidebar-toggle {
+    display: grid;
+    place-items: center;
+    position: absolute;
+    top: 10px;
+    right: -15px;
+    z-index: 2;
+    width: 30px;
+    height: 30px;
+    border: 1px solid #e2e8f0;
+    border-radius: 50%;
+    background: #ffffff;
+    color: #475569;
+    font-size: 20px;
+    font-weight: 800;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+    cursor: pointer;
+  }
+
+  .sidebar-header {
+    padding: 0 20px 20px;
+  }
+
+  .sidebar-title {
+    font-size: 1.1rem;
+  }
+
+  .sidebar-nav {
+    padding: 8px 10px;
+  }
+
+  .nav-item {
+    padding: 11px 12px;
+    white-space: nowrap;
+  }
+
+  .main-content {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .main-content :deep(.data-card) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .main-content :deep(.data-table) {
+    min-width: 680px;
+  }
 }
 </style>

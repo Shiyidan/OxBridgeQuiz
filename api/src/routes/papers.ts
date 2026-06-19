@@ -7,6 +7,14 @@ import { processMarkdownImport } from '../services/markdownValidator.js'
 
 export const papersRouter = Router()
 
+/** 兼容 difficulty 的两种格式：对象 { level } 或纯字符串 */
+function levelOf(q: any): string | null {
+  const d = q?.difficulty
+  if (!d) return null
+  if (typeof d === 'string') return d
+  return d.level || null
+}
+
 // 试卷列表
 papersRouter.get('/', async (req, res) => {
   const page = parseInt(req.query.page as string) || 1
@@ -204,7 +212,7 @@ papersRouter.get('/question-bank/summary', async (req, res) => {
     for (const paper of papers) {
       const qs = JSON.parse(paper.questions)
       for (const q of qs) {
-        const level = q.difficulty?.level
+        const level = levelOf(q)
         if (!level || !['easy', 'medium', 'hard', 'composite'].includes(level)) continue
 
         if (filterCodes.length) {
@@ -264,7 +272,7 @@ papersRouter.get('/question-bank', async (req, res) => {
     for (const paper of papers) {
       const qs = JSON.parse(paper.questions)
       for (const q of qs) {
-        const level = q.difficulty?.level
+        const level = levelOf(q)
         if (!level || !['easy', 'medium', 'hard', 'composite'].includes(level)) continue
 
         if (difficulty && level !== difficulty) continue

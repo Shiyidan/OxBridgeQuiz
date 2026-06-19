@@ -16,6 +16,26 @@ const authLimiter = rateLimit({
 
 authRouter.use(authLimiter)
 
+// 将匿名诊断 session 关联到已注册用户，生成完整报告
+async function linkDiagnosticSession(diagnosticSessionId: string | undefined, userId: string): Promise<object | null> {
+  if (!diagnosticSessionId) return null
+
+  const session = await prisma.diagnosticSession.findUnique({ where: { id: diagnosticSessionId } })
+  if (!session || session.userId) return null
+
+  await prisma.diagnosticSession.update({
+    where: { id: diagnosticSessionId },
+    data: { userId, status: 'linked' },
+  })
+  await prisma.user.update({
+    where: { id: userId },
+    data: { diagnosticUsed: true },
+  })
+
+  const { buildFullReportFromSession } = await import('../services/diagnostic.js')
+  return buildFullReportFromSession(session)
+}
+
 // 注册
 authRouter.post('/register', async (req: Request, res: Response) => {
   try {
@@ -54,24 +74,7 @@ authRouter.post('/register', async (req: Request, res: Response) => {
 
     const token = signToken({ id: user.id, email: user.email, role: user.role })
 
-    // 如果传了 diagnosticSessionId，关联诊断报告
-    let fullReport = null
-    if (diagnosticSessionId) {
-      const session = await prisma.diagnosticSession.findUnique({ where: { id: diagnosticSessionId } })
-      if (session && !session.userId) {
-        await prisma.diagnosticSession.update({
-          where: { id: diagnosticSessionId },
-          data: { userId: user.id, status: 'linked' },
-        })
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { diagnosticUsed: true },
-        })
-        // 生成完整报告
-        const { buildFullReportFromSession } = await import('../services/diagnostic.js')
-        fullReport = buildFullReportFromSession(session)
-      }
-    }
+    const fullReport = await linkDiagnosticSession(diagnosticSessionId, user.id)
 
     res.json(success({
       user: { id: user.id, name: user.name, email: user.email, role: user.role, paymentStatus: user.paymentStatus },
@@ -108,23 +111,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
     const token = signToken({ id: user.id, email: user.email, role: user.role })
 
-    // 如果传了 diagnosticSessionId，关联诊断报告
-    let fullReport = null
-    if (diagnosticSessionId) {
-      const session = await prisma.diagnosticSession.findUnique({ where: { id: diagnosticSessionId } })
-      if (session && !session.userId) {
-        await prisma.diagnosticSession.update({
-          where: { id: diagnosticSessionId },
-          data: { userId: user.id, status: 'linked' },
-        })
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { diagnosticUsed: true },
-        })
-        const { buildFullReportFromSession } = await import('../services/diagnostic.js')
-        fullReport = buildFullReportFromSession(session)
-      }
-    }
+    const fullReport = await linkDiagnosticSession(diagnosticSessionId, user.id)
 
     res.json(success({
       user: { id: user.id, name: user.name, email: user.email, role: user.role, paymentStatus: user.paymentStatus },

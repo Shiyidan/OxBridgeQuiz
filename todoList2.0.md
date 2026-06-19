@@ -21,10 +21,10 @@ P1 业务逻辑 Bug
 
 P2 代码重复 & 规范不一致
 
-- [ ] P2-1 诊断 session 链接逻辑在 register 和 login 中重复
+- [x] P2-1 诊断 session 链接逻辑在 register 和 login 中重复
 - [ ] P2-2 大纲后代编码收集逻辑重复
-- [ ] P2-3 requireAdmin 中间件响应格式不统一
-- [ ] P2-4 多处 JSON.parse(paper.questions) 未做异常防护
+- [x] P2-3 requireAdmin 中间件响应格式不统一
+- [x] P2-4 多处 JSON.parse(paper.questions) 未做异常防护
 
 P3 性能 & 可扩展性
 

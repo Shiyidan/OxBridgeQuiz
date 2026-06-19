@@ -3,6 +3,7 @@ import { prisma } from '../services/prisma.js'
 import { optionalAuth, requireAuth } from '../middleware/auth.js'
 import { scoreAnswers, buildPartialReport, buildFullReportFromSession } from '../services/diagnostic.js'
 import { success, fail } from '../utils/response.js'
+import { safeParseQuestions } from '../utils/safeParse.js'
 
 export const diagnosticRouter = Router()
 
@@ -35,21 +36,15 @@ diagnosticRouter.get('/questions', optionalAuth, async (req: Request, res: Respo
     }> = []
 
     for (const paper of papers) {
-      try {
-        const qs = JSON.parse(paper.questions)
-        if (Array.isArray(qs)) {
-          for (const q of qs) {
-            allQuestions.push({
-              id: q.id || `q-${allQuestions.length}`,
-              title: q.title || '',
-              options: q.options || [],
-              answer: q.answer || [],
-              subject: q.subject,
-            })
-          }
-        }
-      } catch {
-        // skip malformed questions
+      const qs = safeParseQuestions(paper)
+      for (const q of qs) {
+        allQuestions.push({
+          id: q.id || `q-${allQuestions.length}`,
+          title: q.title || '',
+          options: q.options || [],
+          answer: q.answer || [],
+          subject: q.subject,
+        })
       }
     }
 

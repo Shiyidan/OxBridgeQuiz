@@ -3,6 +3,7 @@ import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 import { success, fail } from '../utils/response.js'
+import { safeParseQuestions } from '../utils/safeParse.js'
 import { processMarkdownImport } from '../services/markdownValidator.js'
 
 export const papersRouter = Router()
@@ -87,7 +88,7 @@ papersRouter.post('/import-json', requireAuth, requireAdmin, async (req, res) =>
 
     res.json(success({
       ...paper,
-      questions: JSON.parse(paper.questions),
+      questions: safeParseQuestions(paper),
     }))
   } catch (e: any) {
     console.error('Import JSON error:', e)
@@ -136,7 +137,7 @@ papersRouter.post('/import-markdown', requireAuth, requireAdmin, async (req, res
 
     res.json(success({
       ...paper,
-      questions: JSON.parse(paper.questions),
+      questions: safeParseQuestions(paper),
       warnings: result.warnings,
     }))
   } catch (e: any) {
@@ -210,7 +211,7 @@ papersRouter.get('/question-bank/summary', async (req, res) => {
     let total = 0
 
     for (const paper of papers) {
-      const qs = JSON.parse(paper.questions)
+      const qs = safeParseQuestions(paper)
       for (const q of qs) {
         const level = levelOf(q)
         if (!level || !['easy', 'medium', 'hard', 'composite'].includes(level)) continue
@@ -270,7 +271,7 @@ papersRouter.get('/question-bank', async (req, res) => {
     const subjects = new Set<string>()
 
     for (const paper of papers) {
-      const qs = JSON.parse(paper.questions)
+      const qs = safeParseQuestions(paper)
       for (const q of qs) {
         const level = levelOf(q)
         if (!level || !['easy', 'medium', 'hard', 'composite'].includes(level)) continue
@@ -366,7 +367,7 @@ papersRouter.get('/:id', async (req, res) => {
   }
   res.json(success({
     ...paper,
-    questions: JSON.parse(paper.questions)
+    questions: safeParseQuestions(paper)
   }))
 })
 

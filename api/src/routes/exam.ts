@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
+import { safeParseQuestions } from '../utils/safeParse.js'
 
 export const examRouter = Router()
 
@@ -118,7 +119,7 @@ examRouter.get('/:id/result', requireAuth, async (req, res) => {
     })
     const questionMap = new Map<string, any>()
     for (const paper of papers) {
-      const qs = JSON.parse(paper.questions)
+      const qs = safeParseQuestions(paper)
       for (const q of qs) {
         // 多键索引：id / number / q-${number}（兼容旧数据）
         if (q.id) questionMap.set(q.id, q)

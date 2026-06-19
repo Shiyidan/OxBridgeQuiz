@@ -244,14 +244,22 @@ function noop(): void {}
   grid-template-columns: 280px minmax(0, 1fr);
   gap: 24px;
   align-items: start;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .question-nav,
 .report-card {
+  min-width: 0;
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 24px;
+}
+
+.report-card {
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .question-nav {
@@ -334,11 +342,14 @@ function noop(): void {}
   display: flex;
   justify-content: space-between;
   gap: 16px;
+  min-width: 0;
 }
 
 .question-header h2 {
   margin: 0;
   font-size: 22px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .question-progress {
@@ -391,6 +402,34 @@ function noop(): void {}
   border-radius: 8px;
   padding: 18px;
   background: #fff;
+  overflow-wrap: anywhere;
+}
+
+.report-card :deep(.question-card) {
+  min-width: 0;
+}
+
+.report-card :deep(.question-card__stem),
+.report-card :deep(.opt-card__text) {
+  overflow-wrap: anywhere;
+}
+
+.report-card :deep(.question-card__media-item),
+.report-card :deep(.question-card__svg) {
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.report-card :deep(.katex-display) {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.report-card :deep(svg) {
+  max-width: 100%;
 }
 
 .analysis-box h3 {
@@ -414,6 +453,15 @@ function noop(): void {}
 
   .question-nav {
     position: static;
+  }
+
+  .question-nav,
+  .report-card {
+    padding: 20px 16px;
+  }
+
+  .question-header__row {
+    flex-direction: column;
   }
 }
 </style>

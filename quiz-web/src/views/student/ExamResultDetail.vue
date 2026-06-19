@@ -499,15 +499,24 @@ function normalizeKnowledgePoints(question: ReportQuestion): string[] {
 
 <style scoped lang="scss">
 .practice-report {
+  width: 100%;
+  max-width: 100%;
   min-height: 100vh;
+  overflow-x: hidden;
   background: #f8fafc;
   color: #273437;
 }
 
 .report-main {
+  width: 100%;
   max-width: 1180px;
   margin: 0 auto;
   padding: 40px 24px 72px;
+}
+
+.report-shell {
+  max-width: 100%;
+  min-width: 0;
 }
 
 .back-link {
@@ -571,6 +580,7 @@ function normalizeKnowledgePoints(question: ReportQuestion): string[] {
 }
 
 .report-section {
+  min-width: 0;
   margin-top: 44px;
 }
 
@@ -589,9 +599,11 @@ function normalizeKnowledgePoints(question: ReportQuestion): string[] {
   display: grid;
   grid-template-columns: 360px minmax(0, 1fr);
   gap: 24px;
+  min-width: 0;
 }
 
 .report-panel {
+  min-width: 0;
   padding: 28px 32px;
 }
 
@@ -810,6 +822,7 @@ function normalizeKnowledgePoints(question: ReportQuestion): string[] {
 .knowledge-panel {
   border-color: #abc8d6;
   overflow: hidden;
+  max-width: 100%;
 }
 
 .knowledge-panel > .section-mark {
@@ -892,6 +905,7 @@ function normalizeKnowledgePoints(question: ReportQuestion): string[] {
   border-radius: 8px;
   background: #fff;
   overflow: hidden;
+  max-width: 100%;
 }
 
 .improvement-panel > .section-mark {
@@ -1061,17 +1075,33 @@ function normalizeKnowledgePoints(question: ReportQuestion): string[] {
 }
 
 @media (max-width: 960px) {
+  .report-main {
+    padding: 28px 16px 56px;
+  }
+
+  .report-title {
+    font-size: 26px;
+    line-height: 1.45;
+  }
+
+  .evaluation-card,
+  .report-panel {
+    padding: 22px 20px;
+  }
+
   .overview-grid,
   .time-card__body {
     grid-template-columns: 1fr;
   }
 
   .improvement-panel {
+    max-width: 100%;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .improvement-table {
-    min-width: 860px;
+    min-width: 720px;
   }
 
   .learning-path-panel {
@@ -1081,6 +1111,7 @@ function normalizeKnowledgePoints(question: ReportQuestion): string[] {
   .knowledge-group,
   .knowledge-row {
     grid-template-columns: 32px minmax(0, 1fr);
+    padding: 14px 18px;
   }
 
   .knowledge-row span,

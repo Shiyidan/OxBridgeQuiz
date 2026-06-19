@@ -16,7 +16,7 @@
           <router-link to="/question-bank" class="nav-link" active-class="nav-link--active"
             >试题库</router-link
           >
-          <router-link to="/error-book" class="nav-link" active-class="nav-link--active"
+          <router-link to="/mistake-notebook" class="nav-link" active-class="nav-link--active"
             >错题本</router-link
           >
         </nav>

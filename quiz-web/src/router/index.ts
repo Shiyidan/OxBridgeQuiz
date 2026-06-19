@@ -18,16 +18,16 @@ const router = createRouter({
     // 个人中心
     { path: '/profile', name: 'profile', component: () => import('../views/profile/ProfileView.vue') },
     // 试题库
-    { path: '/question-bank', name: 'question-bank', component: () => import('../views/student/QuestionBankView.vue') },
+    { path: '/question-bank', name: 'question-bank', component: () => import('../views/questionBank/QuestionBankView.vue') },
     // 诊断测试
     { path: '/assessment', name: 'assessment', component: () => import('../views/assessment/AssessmentHomeView.vue') },
     // 在线答题
-    { path: '/practice', name: 'practice', component: () => import('../views/student/PracticeView.vue') },
+    { path: '/practice', name: 'practice', component: () => import('../views/questionBank/PracticeView.vue') },
     // 错题本
-    { path: '/error-book', name: 'error-book', component: () => import('../views/student/ErrorBookView.vue') },
+    { path: '/mistake-notebook', name: 'mistake-notebook', component: () => import('../views/mistakeNotebook/MistakeNotebookView.vue') },
     // 答题结果
-    { path: '/exam-result', name: 'exam-result', component: () => import('../views/student/ExamResultView.vue') },
-    { path: '/exam-result/:id', name: 'exam-result-detail', component: () => import('../views/student/ExamResultDetail.vue') },
+    { path: '/exam-result', name: 'exam-result', component: () => import('../views/questionBank/ExamResultView.vue') },
+    { path: '/exam-result/:id', name: 'exam-result-detail', component: () => import('../views/assessment/ExamResultDetail.vue') },
 
     // 管理后台
     {
@@ -78,7 +78,7 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach((to, _from) => {
   const token = localStorage.getItem('token')
   const userStr = localStorage.getItem('user')
   const user = userStr ? JSON.parse(userStr) : null
@@ -88,29 +88,22 @@ router.beforeEach((to, _from, next) => {
     to.path.startsWith('/profile') ||
     to.path.startsWith('/practice') ||
     to.path.startsWith('/assessment') ||
-    to.path.startsWith('/error-book')
+    to.path.startsWith('/mistake-notebook')
 
   const requiresAdmin = to.path.startsWith('/admin')
-  const requiresPaid = to.path.startsWith('/error-book')
 
   if (requiresAuth && !isLoggedIn) {
-    return next('/login')
+    return '/login'
   }
 
   if (requiresAdmin) {
-    if (!isLoggedIn) return next('/login')
-    if (user.role !== 'admin') return next('/')
-  }
-
-  if (requiresPaid && user.paymentStatus !== 'paid') {
-    return next('/')
+    if (!isLoggedIn) return '/login'
+    if (user?.role !== 'admin') return '/'
   }
 
   if ((to.path === '/login' || to.path === '/register') && isLoggedIn) {
-    return next('/')
+    return '/'
   }
-
-  next()
 })
 
 export default router

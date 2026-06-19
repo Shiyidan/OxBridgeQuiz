@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QuizTestDemo 前端上线报告 - 2026-06-19 15:56</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      color: #243434;
+      background: #f6f8f8;
+      line-height: 1.65;
+    }
+
+    main {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+      color: #122022;
+    }
+
+    h2 {
+      margin: 32px 0 14px;
+      font-size: 20px;
+      color: #213233;
+    }
+
+    .meta,
+    section {
+      margin-top: 18px;
+      padding: 20px;
+      border: 1px solid #dfe7e7;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e8eeee;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f0f5f5;
+    }
+
+    code {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: #eef4f4;
+    }
+
+    pre {
+      overflow: auto;
+      padding: 14px;
+      border-radius: 6px;
+      background: #122022;
+      color: #d8eeee;
+      font-size: 13px;
+    }
+
+    .ok {
+      color: #07825d;
+      font-weight: 700;
+    }
+
+    .warn {
+      color: #9a6200;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>QuizTestDemo 前端上线报告</h1>
+    <p>生成时间：2026-06-19 15:56:02 Asia/Shanghai</p>
+
+    <div class="meta">
+      <p><strong>结果：</strong><span class="ok">成功</span></p>
+      <p><strong>范围：</strong>frontend</p>
+      <p><strong>分支：</strong><code>20260519-feature-projectDeployment</code></p>
+      <p><strong>Commit：</strong><code>4522524</code> - 修复试卷分析报告移动端宽度问题</p>
+      <p><strong>公网地址：</strong><code>http://8.149.140.115/</code></p>
+    </div>
+
+    <section>
+      <h2>一、本次上线内容</h2>
+      <ul>
+        <li>拉取 GitHub 分支 <code>20260519-feature-projectDeployment</code> 最新代码。</li>
+        <li>仅部署前端：执行 <code>npm ci</code> 和 <code>VITE_API_BASE=http://8.149.140.115 npm run build-only</code>。</li>
+        <li>同步前端构建产物到 <code>/opt/quiz/web/dist</code>。</li>
+        <li>本次核心变更：修复试卷分析报告在 iPhone Safari 真机上的横向溢出和右侧空白问题。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>二、服务器目录结构</h2>
+      <table>
+        <thead>
+          <tr><th>目录</th><th>用途</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>/opt/quiz/repo</code></td><td>Git 源码仓库</td></tr>
+          <tr><td><code>/opt/quiz/api</code></td><td>后端运行目录，本次未部署</td></tr>
+          <tr><td><code>/opt/quiz/web/dist</code></td><td>前端生产静态资源目录，本次已更新</td></tr>
+          <tr><td><code>/opt/quiz/data/prod.db</code></td><td>SQLite 生产数据库，本次未修改</td></tr>
+          <tr><td><code>/opt/quiz/backups</code></td><td>数据库备份目录，本次前端部署未新增备份</td></tr>
+          <tr><td><code>/opt/quiz/uploads</code></td><td>上传文件目录</td></tr>
+          <tr><td><code>/opt/quiz/scripts</code></td><td>运维脚本目录</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>三、更新时间</h2>
+      <table>
+        <thead>
+          <tr><th>项目</th><th>时间</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>源码仓库</td><td>2026-06-19 15:21:16 +0800</td></tr>
+          <tr><td>后端构建产物</td><td>2026-06-19 15:21:26 +0800，本次未更新</td></tr>
+          <tr><td>前端构建产物</td><td>2026-06-19 15:37:48 +0800</td></tr>
+          <tr><td>生产数据库</td><td>2026-06-19 15:23:07 +0800，本次未修改，大小 240K</td></tr>
+          <tr><td>PM2 配置</td><td>2026-06-15 14:42:04 +0800</td></tr>
+          <tr><td>Nginx 配置</td><td>2026-06-15 14:42:05 +0800</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>四、验证结果</h2>
+      <table>
+        <thead>
+          <tr><th>检查项</th><th>结果</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>公网首页</td><td><span class="ok">200 OK</span>，Last-Modified: Fri, 19 Jun 2026 07:37:48 GMT</td></tr>
+          <tr><td>公网 API Health</td><td><span class="ok">通过</span>：<code>{"success":true,"code":0,"errMsg":"","data":{"status":"ok"}}</code></td></tr>
+          <tr><td>服务器内网 API Health</td><td><span class="ok">通过</span>：127.0.0.1/api/health 正常</td></tr>
+          <tr><td>PM2</td><td><span class="ok">quiz-api online</span>，PID 39658，内存约 76.8MB，本次未重载</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>五、服务器资源</h2>
+      <table>
+        <thead>
+          <tr><th>资源</th><th>当前状态</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>磁盘 /</td><td>40G 总量，已用 4.4G，可用 33G，使用率 12%</td></tr>
+          <tr><td><code>/opt/quiz</code></td><td>约 702M</td></tr>
+          <tr><td>内存</td><td>3.4Gi 总量，330Mi 已用，621Mi 空闲，2.8Gi 可用</td></tr>
+          <tr><td>Swap</td><td>未配置 Swap</td></tr>
+          <tr><td>CPU / 负载</td><td>2 核，load average 0.08 / 0.02 / 0.01</td></tr>
+          <tr><td>运行时间</td><td>已运行 4 天 2 小时 27 分钟</td></tr>
+          <tr><td>监听端口</td><td>80、3001 正在监听；443 未监听</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>六、备份记录</h2>
+      <p>本次为前端静态资源部署，没有修改数据库，因此没有新增数据库备份。</p>
+      <p>已有历史备份仍保留在 <code>/opt/quiz/backups</code>。</p>
+    </section>
+
+    <section>
+      <h2>七、风险与后续</h2>
+      <ul>
+        <li><span class="warn">依赖风险：</span>前端 <code>npm audit</code> 提示 5 个漏洞，其中包含 high/critical，建议单独安排依赖升级和回归测试。</li>
+        <li><span class="warn">包版本提示：</span>构建期间仍有 Vite peer dependency warning，当前未阻断构建。</li>
+        <li><span class="warn">缓存提示：</span>iPhone Safari 可能缓存旧静态资源；若仍看到旧样式，建议刷新页面或清理 Safari 网站数据后复测。</li>
+        <li><span class="warn">HTTPS：</span>当前仅监听 80，443 未启用；正式对外发布前建议配置域名与 HTTPS。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>八、原始快照</h2>
+      <pre>branch: 20260519-feature-projectDeployment
+commit: 4522524
+frontend dist: /opt/quiz/web/dist/index.html 2026-06-19 15:37:48 +0800
+pm2: quiz-api online, pid 39658
+disk: /dev/vda3 40G used 4.4G avail 33G use 12%
+memory: total 3.4Gi used 330Mi available 2.8Gi
+ports: 80, 3001
+database: /opt/quiz/data/prod.db 240K, not changed by this deployment
+public homepage: HTTP/1.1 200 OK
+public health: {"success":true,"code":0,"errMsg":"","data":{"status":"ok"}}</pre>
+    </section>
+  </main>
+</body>
+</html>

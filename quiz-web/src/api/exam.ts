@@ -70,6 +70,15 @@ export interface WrongAnswer {
   }
 }
 
+export interface PracticeRecord {
+  id: string
+  totalQuestions: number
+  correctCount: number
+  startedAt: string
+  submittedAt: string | null
+  durationSeconds: number | null
+}
+
 // ---- API ----
 
 /** 交卷 */
@@ -92,9 +101,18 @@ export function getExamResultData(examId: string) {
 }
 
 /** 获取错题本 */
-export function getErrorBookData() {
+export function getMistakeNotebookData() {
   return callApi<{ wrongAnswers: WrongAnswer[]; total: number }>({
     url: '/exams/error-book',
+    method: 'GET',
+    isAllData: false,
+  })
+}
+
+/** 获取试题库练习记录 */
+export function getPracticeRecords() {
+  return callApi<{ records: PracticeRecord[] }>({
+    url: '/exams/practice-records',
     method: 'GET',
     isAllData: false,
   })

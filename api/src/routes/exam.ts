@@ -217,3 +217,34 @@ examRouter.get('/error-book', requireAuth, async (req, res) => {
     res.status(500).json(fail(e.message || '获取错题本失败'))
   }
 })
+
+// 练习记录 — 获取当前用户的试题库练习记录
+examRouter.get('/practice-records', requireAuth, async (req, res) => {
+  try {
+    const records = await prisma.examRecord.findMany({
+      where: {
+        userId: req.user!.userId,
+        status: 'submitted',
+        paper: { paperType: 'practice' },
+      },
+      orderBy: { submittedAt: 'desc' },
+      take: 20,
+    })
+
+    res.json(success({
+      records: records.map((record) => ({
+        id: record.id,
+        totalQuestions: record.totalQuestions,
+        correctCount: record.correctCount,
+        startedAt: record.startedAt,
+        submittedAt: record.submittedAt,
+        durationSeconds: record.submittedAt
+          ? Math.max(0, Math.round((record.submittedAt.getTime() - record.startedAt.getTime()) / 1000))
+          : null,
+      })),
+    }))
+  } catch (e: any) {
+    console.error('Practice records error:', e)
+    res.status(500).json(fail(e.message || '获取练习记录失败'))
+  }
+})

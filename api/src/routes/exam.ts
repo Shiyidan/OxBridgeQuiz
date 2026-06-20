@@ -2,14 +2,14 @@ import { Router } from 'express'
 import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
-import { safeParseQuestions } from '../utils/safeParse.js'
+import { formatQuestionRow } from '../utils/questionSync.js'
 
 export const examRouter = Router()
 
 // 交卷 — 保存答题记录和逐题答案
 examRouter.post('/submit', requireAuth, async (req, res) => {
   try {
-    const { questions, answers, questionDurations, startedAt, difficulty, subject, paperId } = req.body
+    const { questions, answers, questionDurations, startedAt, paperId } = req.body
 
     if (!Array.isArray(questions) || questions.length === 0) {
       res.status(400).json(fail('题目列表不能为空'))
@@ -20,9 +20,9 @@ examRouter.post('/submit', requireAuth, async (req, res) => {
     const durationMap: Record<string, number> = questionDurations || {}
     let correctCount = 0
 
-    // 逐题比对答案
     for (const q of questions) {
-      const selected = answerMap[q.id || q.number?.toString()]
+      const key = q.id || q.number?.toString()
+      const selected = answerMap[key]
       const correct = Array.isArray(q.answer) ? q.answer : []
       if (selected && correct.includes(selected)) correctCount++
     }
@@ -45,7 +45,6 @@ examRouter.post('/submit', requireAuth, async (req, res) => {
           title: '试题库练习',
           year: new Date().getFullYear(),
           duration: 60,
-          questions: '[]',
           paperType: 'practice',
           status: 'published',
         },
@@ -64,18 +63,18 @@ examRouter.post('/submit', requireAuth, async (req, res) => {
       },
     })
 
-    // 逐题保存答题明细
+    // 逐题保存答题明细：questionId 现在是 Question 表的 UUID 外键
     const answerRecords = questions.map((q) => {
-      const questionKey = q.id || q.number?.toString() || `q-${q.number}`
-      const selected = answerMap[questionKey]
+      const key = q.id || q.number?.toString()
+      const selected = answerMap[key]
       const correct = Array.isArray(q.answer) ? q.answer : []
       const isCorrect = !!(selected && correct.includes(selected))
       return {
         examRecordId: examRecord.id,
-        questionId: questionKey,
+        questionId: key,
         selectedAnswer: selected || null,
         isCorrect,
-        durationSeconds: Math.max(0, Math.round(Number(durationMap[questionKey]) || 0)),
+        durationSeconds: Math.max(0, Math.round(Number(durationMap[key]) || 0)),
         answeredAt: new Date(),
       }
     })
@@ -94,7 +93,7 @@ examRouter.post('/submit', requireAuth, async (req, res) => {
   }
 })
 
-// 答题结果详情 — 获取一次考试的完整结果（含题目详情）
+// 答题结果详情 — 通过 AnswerRecord → Question FK 直接拿到完整题目
 examRouter.get('/:id/result', requireAuth, async (req, res) => {
   try {
     const examRecord = await prisma.examRecord.findUnique({
@@ -108,45 +107,28 @@ examRouter.get('/:id/result', requireAuth, async (req, res) => {
 
     const answers = await prisma.answerRecord.findMany({
       where: { examRecordId: examRecord.id },
+      include: { question: true },
       orderBy: { answeredAt: 'asc' },
     })
 
-    // 从已发布试卷中匹配完整题目数据（双向索引：id + number）
-    const papers = await prisma.paper.findMany({
-      where: examRecord.paperId === 'question-bank'
-        ? { status: 'published' }
-        : { id: examRecord.paperId },
-    })
-    const questionMap = new Map<string, any>()
-    for (const paper of papers) {
-      const qs = safeParseQuestions(paper)
-      for (const q of qs) {
-        // 多键索引：id / number / q-${number}（兼容旧数据）
-        if (q.id) questionMap.set(q.id, q)
-        if (q.number != null) {
-          if (examRecord.paperId !== 'question-bank') {
-            questionMap.set(String(q.number), q)
-            questionMap.set(`q-${q.number}`, q)
-          }
-          questionMap.set(`${paper.id}-${q.number}`, q)
-          questionMap.set(`paper-${paper.id}-${q.number}`, q)
-        }
-      }
-    }
+    const needPaperMeta = examRecord.paperId !== 'question-bank'
+    const paper = needPaperMeta
+      ? await prisma.paper.findUnique({
+          where: { id: examRecord.paperId },
+          select: { id: true, title: true, paperType: true, year: true, duration: true, code: true },
+        })
+      : null
 
-    // 组装：每题附带完整数据 + 作答结果
     const answeredQuestions = answers.map((a) => {
-      const q = questionMap.get(a.questionId)
-      if (q) {
+      if (a.question) {
         return {
-          ...q,
+          ...formatQuestionRow(a.question),
           questionId: a.questionId,
           selectedAnswer: a.selectedAnswer,
           isCorrect: a.isCorrect,
           durationSeconds: a.durationSeconds,
         }
       }
-      // fallback：匹配不到时返回空壳
       return {
         questionId: a.questionId,
         selectedAnswer: a.selectedAnswer,
@@ -177,14 +159,14 @@ examRouter.get('/:id/result', requireAuth, async (req, res) => {
               duration: 60,
               code: null,
             }
-          : papers[0]
+          : paper
           ? {
-              id: papers[0].id,
-              title: papers[0].title,
-              paperType: papers[0].paperType,
-              year: papers[0].year,
-              duration: papers[0].duration,
-              code: papers[0].code,
+              id: paper.id,
+              title: paper.title,
+              paperType: paper.paperType,
+              year: paper.year,
+              duration: paper.duration,
+              code: paper.code,
             }
           : null,
       },
@@ -205,9 +187,7 @@ examRouter.get('/error-book', requireAuth, async (req, res) => {
         isCorrect: false,
       },
       include: {
-        examRecord: {
-          select: { id: true, submittedAt: true },
-        },
+        examRecord: { select: { id: true, submittedAt: true } },
       },
       orderBy: { answeredAt: 'desc' },
     })

@@ -23,6 +23,33 @@ model Paper {
 
   parseTasks  ParseTask[]
   examRecords ExamRecord[]
+  questionsRel Question[]
+}
+
+model Question {
+  id              String   @id @default(uuid())
+  paperId         String
+  number          Int
+  title           String
+  options         String   @default("[]")
+  answer          String   @default("[]")
+  subject         String?
+  subjectCode     String?
+  questionType    String?
+  difficulty      String?
+  topic           String?
+  topicCode       String?
+  knowledgePoints String   @default("[]")
+  syllabusPoints  String   @default("[]")
+  meta            String   @default("{}")
+  createdAt       DateTime @default(now())
+
+  paper         Paper          @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  answerRecords AnswerRecord[]
+
+  @@index([paperId])
+  @@index([subjectCode])
+  @@index([number])
 }
 
 model ParseTask {
@@ -84,15 +111,16 @@ model ExamRecord {
 }
 
 model AnswerRecord {
-  id             String   @id @default(uuid())
-  examRecordId   String
-  questionId     String
-  selectedAnswer String?
-  isCorrect      Boolean  @default(false)
-  durationSeconds Int     @default(0)
-  answeredAt     DateTime?
+  id              String   @id @default(uuid())
+  examRecordId    String
+  questionId      String
+  selectedAnswer  String?
+  isCorrect       Boolean  @default(false)
+  durationSeconds Int      @default(0)
+  answeredAt      DateTime?
 
   examRecord ExamRecord @relation(fields: [examRecordId], references: [id], onDelete: Cascade)
+  question   Question  @relation(fields: [questionId], references: [id])
 }
 
 model SyllabusNode {

@@ -9,8 +9,14 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-in-production',
   databaseUrl: process.env.DATABASE_URL || 'file:./dev.db',
 
-  // CORS 白名单，开发期匹配所有 localhost 端口，生产环境配具体域名
+  // CORS 白名单：开发期匹配 localhost / 127.0.0.1 / 局域网 IP，生产环境配具体域名
   corsOrigins: process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',')
-    : [/^http:\/\/localhost:\d+$/],
+    : [
+        /^http:\/\/localhost:\d+$/,
+        /^http:\/\/127\.0\.0\.1:\d+$/,
+        /^http:\/\/192\.168\.\d+\.\d+:\d+$/,
+        /^http:\/\/172\.\d+\.\d+\.\d+:\d+$/,
+        /^http:\/\/10\.\d+\.\d+\.\d+:\d+$/,
+      ],
 }

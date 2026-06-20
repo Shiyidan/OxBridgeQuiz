@@ -1,263 +1,125 @@
 # 待实现方案
 
-## 待办清单
+> 讨论中确定的技术方案，按模块分组。已完成项用 √ 标记。
 
-- [√] SVG 缺失宽高自动补齐（parseService + PaperPreview CSS 兜底）— 2026-05-14 已完成
-- [√] PDF 渲染前端化（pdf.js 替代 Python）— 2026-05-23 已完成
-- [ ] 移除 10 页/10 题硬限制
-- [√] Qwen API 并行解析（3-5 并发）— 2026-05-23 已完成
-- [ ] PDF 原文件 OSS 存储
-- [ ] Qwen 提示词优化（提高 SVG 完整率 + 段落换行准确率）
-- [ ] 封面检测改用 Qwen 语义判断（去掉 pdfRenderer 硬规则：前 2 页文字 < 100 字符则跳过）
+---
+
+## 总览清单
+
+解析系统
+
+- [ ] 移除 10 页 / 10 题硬限制
+- [√] Qwen 提示词优化（提高 SVG 完整率 + 段落换行准确率）
+- [√] 封面检测改用 Qwen 语义判断
 - [ ] 增量解析与断点续传
-- [ ] 数据库重构：JSON 列拆分为 Question / PaperQuestion 关联表
+- [√] Qwen API 并行解析（3-5 并发信号量控制）
+- [√] PDF 渲染前端化（pdf.js 替代 Python）
+
+基础设施
+
+- [ ] PDF 原文件 OSS 存储（替代本地磁盘）
+- [ ] 生产环境 API Key 安全管理（环境变量注入 + 日志脱敏）
+
+数据库
+
+- [√] 数据库重构：JSON 列拆分为 Question / PaperQuestion 关联表
+
+功能开发
+
 - [ ] 错题本功能（ExamRecord + AnswerRecord 表 + 前端页面）
 - [ ] 自由组卷功能（多条件筛选 + 动态拼题 + 生成试卷）
-- [ ] 生产环境 API Key 安全管理（环境变量注入 + 日志脱敏 + 旧 Key 废弃）
+- [√] SVG 缺失宽高自动补齐（parseService + PaperPreview CSS 兜底）
+
+
 
 ---
 
-> 讨论中确定的技术方案，待后续实施。每条需标注提出时间和状态。
+## 解析系统
+
+### 移除 10 页 / 10 题硬限制
+
+- **位置**：[`api/src/services/parseService.ts`](api/src/services/parseService.ts)
+- **问题**：`Math.min(pages.length, 10)` 和 `.slice(0, 10)` 硬编码，40 页试卷只解析前 10 页，题目也只保留前 10 道
+- **方案**：移除或改为可配置上限；配合已有的 5 并发信号量，完整解析 40 页约 2-3 分钟
+
+### Qwen 提示词优化
+
+- **位置**：[`api/src/services/qwenService.ts`](api/src/services/qwenService.ts) `SYSTEM_PROMPT`
+- **问题**：Qwen-VL-Max 偶发忽略 SVG width/height 指令，多段题干有时被合并为单段丢失 `\n\n` 分隔
+- **方案**：在 prompt 中加入反面示例（错误 vs 正确 SVG 对比）、Few-shot 完整 JSON 范例、降低 temperature 提高输出一致性
+
+### 封面检测改用 Qwen 语义判断
+
+- **位置**：[`quiz-web/src/utils/pdfRenderer.ts`](quiz-web/src/utils/pdfRenderer.ts)
+- **问题**：硬编码 `coverTextThreshold`（文字 < 100 字符即跳过），封面有表格时误判为试题页，纯图表题被误判为封面
+- **方案**：删除前端硬规则，所有页发给 Qwen，封面/目录页 Qwen 自然返回 0 题自动过滤，多余调用极少（一份试卷仅 1-2 封面页）
+
+### 增量解析与断点续传
+
+- **位置**：[`api/src/services/parseService.ts`](api/src/services/parseService.ts)
+- **问题**：解析中途服务重启后，已完成的页全部白费，需从头重跑；且前端无法感知逐页进度
+- **方案**：每页完成时立刻追加写入 `Paper.questions`，`ParseTask.result` 记录已完成页码；重试时跳过已完成页，40 页挂了 30 页只需补跑 10 页
 
 ---
 
-## 一、PDF 渲染前端化（移除 Python 依赖）
+## 基础设施
 
-**提出时间**：2026-05-14
-**状态**：方案已确定，待实施
+### PDF 原文件 OSS 存储
 
-### 现状
+- **位置**：[`api/src/routes/upload.ts`](api/src/routes/upload.ts) + [`api/src/routes/papers.ts`](api/src/routes/papers.ts) `/pdf` 路由
+- **问题**：PDF 存服务器本地磁盘，容器重启丢失、多实例不共享、磁盘容量有限
+- **方案**：改用阿里云 OSS SDK 上传，`Paper.pdfUrl` 存储 OSS key；下载时生成临时签名 URL（5 分钟有效）返回前端
 
-后端 `parseService.ts` 通过 `execFileSync` 调用 Python 脚本 `pdf_pages_to_base64.py`（PyMuPDF），在服务端将 PDF 逐页渲染为 PNG 并 Base64 编码。
+### 生产环境 API Key 安全管理
 
-### 问题
-
-- 后端依赖 Python 运行环境（PyMuPDF + Pillow + torch 等），部署复杂
-- PDF 渲染是 CPU 密集操作，消耗服务器资源，水平扩展困难
-- `requirements.txt` 包含重型依赖（torch 2.1.1、transformers 4.36.0），安装慢且体积大
-
-### 方案
-
-用 **pdf.js**（Mozilla 的 JS PDF 渲染库）替代 Python 脚本，在浏览器端完成 PDF → 图片的转换：
-
-```
-用户选择 PDF
-  → 前端 pdf.js 逐页渲染到 Canvas → JPEG Base64（Web Worker）
-  → 逐页 POST 给后端（或一次打包传）
-  → 后端调 Qwen → 入库
-  → 前端实时显示解析进度
-```
-
-### 关键点
-
-| 项目 | 说明 |
-|------|------|
-| **pdfjs-dist** | 包体积约 2-3MB，gzipped ~400KB，按需加载 |
-| **Web Worker** | 渲染跑在 Worker 里，不阻塞 UI 主线程 |
-| **传输格式** | JPEG 比 PNG 更小（Base64 体积问题），也可传 Blob |
-| **封面跳过** | 当前用文本长度 <100 判断封面，前端可保留或去掉 |
-| **并发上传** | 渲染完一页立刻上传，不等全部完成 |
-
-### 收益
-
-- 后端变成纯 Node.js，零 Python 依赖
-- 服务器压力降低，水平扩展更简单
-- 用户可看到逐页渲染和解析的实时进度
+- **位置**：[`api/src/config.ts`](api/src/config.ts) + [`api/src/services/qwenService.ts`](api/src/services/qwenService.ts)
+- **问题**：DashScope API Key 可能硬编码或通过不安全方式传递，日志中可能泄露
+- **方案**：API Key 统一走环境变量注入，日志输出前做脱敏处理，定期轮换旧 Key
 
 ---
 
-## 二、解析页数限制解除
+## 数据库
 
-**提出时间**：2026-05-14
-**状态**：方案已确定，待实施
+### JSON 列拆分为 Question / PaperQuestion 关联表
 
-### 现状
-
-[parseService.ts](apps/api/src/services/parseService.ts) 中存在两个硬编码限制：
-
-- 第 28 行：`Math.min(pages.length, 10)` — 最多解析 10 页
-- 第 44 行：`.slice(0, 10)` — 最多保留 10 道题
-
-### 问题
-
-40 页试卷只有前 10 页被解析，题目数也被截断到 10 道，无法完整覆盖整卷。
-
-### 方案
-
-移除或可配置化这两个限制。配合下面的「并行解析」方案，避免串行 40 页耗时过长。
+- **位置**：[`api/prisma/schema.prisma`](api/prisma/schema.prisma) `Paper.questions`
+- **问题**：题目以 JSON blob 存储，无法对单题建索引、无法与大纲节点建外键、更新一题需读写整卷
+- **方案**：新建 `Question` 表（paperId / number / title / options / answer / subject 等）和 `PaperQuestion` 关联表（paperId / questionId / order）；`AnswerRecord.questionId` 改为外键指向 `Question.id`
 
 ---
 
-## 三、Qwen 并行解析
+## 功能开发
 
-**提出时间**：2026-05-14
-**状态**：方案已确定，待实施
+### 错题本功能
 
-### 现状
+- **位置**：前端 [`quiz-web/src/views/mistakeNotebook/`](quiz-web/src/views/mistakeNotebook/) + 后端 [`api/src/routes/exam.ts`](api/src/routes/exam.ts)
+- **问题**：现有错题本仅展示错题列表和练习记录，缺少逐题重做、错题举一反三、知识点关联等功能
+- **方案**：基于 `AnswerRecord.isCorrect === false` 查询，前端补全逐题解析视图、按知识点分组、错题重做入口
 
-`parseService.ts` 逐页串行调用 `analyzePageWithQwen()`，40 页需等待 40 次 API 完成（约 5-7 分钟）。
+### 自由组卷功能
 
-### 方案
-
-对 Qwen API 做并发控制（如 3-5 个并发），大幅缩短总耗时：
-
-- 40 页串行：5-7 分钟
-- 40 页并发 4：约 2-3 分钟
-
-### 关键点
-
-- 需要控制并发数，避免触发 API 频率限制
-- 并发完成的题目需按页码重新排序
-- 前端可先展示已完成页的题目（增量反馈）
+- **位置**：前端试卷组装页 + 后端组卷接口
+- **问题**：当前只能使用预设真题套卷或随机诊断出题，无法根据知识点、难度、题型自由搭配
+- **方案**：前端多条件筛选（知识点 / 难度 / 题型 / 数量）→ 后端按条件从试题库动态拼题 → 生成临时试卷 → 进入答题
 
 ---
 
-## 四、增量解析与断点续传
+## 已完成
 
-**提出时间**：2026-05-14
-**状态**：方案已确定，待实施
+### SVG 缺失宽高自动补齐
 
-### 方案
+- **位置**：[`api/src/services/parseService.ts`](api/src/services/parseService.ts) + [`quiz-web/src/components/`](quiz-web/src/components/)
+- **问题**：Qwen 输出的 SVG 偶发缺少 `width` / `height` 属性，导致渲染尺寸异常
+- **方案**：parseService 中正则补齐缺失的宽高属性；PaperPreview 中 CSS 兜底 `max-width: 100%`（2026-05-14 完成）
 
-每页 Qwen 解析完成立刻写入 `Paper.questions` 追加题目，并将已完成页码记入 `ParseTask.result`。
+### PDF 渲染前端化
 
-### 断点续传流程
+- **位置**：[`quiz-web/src/utils/pdfRenderer.ts`](quiz-web/src/utils/pdfRenderer.ts)
+- **问题**：后端依赖 Python（PyMuPDF + torch 重型依赖）渲染 PDF，部署复杂、服务器压力大
+- **方案**：用 pdf.js 在浏览器端通过 Web Worker 逐页渲染 Canvas → JPEG Base64 上传；后端变为纯 Node.js，零 Python 依赖（2026-05-23 完成）
 
-```
-页面到达 → 检查 ParseTask.result.completedPageNumbers
-  → 已在集合中 → 跳过 Qwen，直接 return
-  → 不在集合中 → 调 Qwen → 解析结果追加写库 → 标记该页完成
-```
+### Qwen API 并行解析
 
-### 恢复场景
-
-```
-40 页跑了 30 页 → 服务挂了 → 重启
-前端重试 → 发送 40 页 → 后端跳过前 30 页已完成的 → 只跑剩余 10 页 Qwen
-```
-
-节省 75% 重复 API 调用。
-
-### 关键点
-
-- 每页完成时 `prisma.paper.update` 追加 questions JSON（写入 <1ms，无延迟感知）
-- 协调器锁已串行化写入，无并发冲突
-- `ParseTask.result` 存储 `{ "completedPageNumbers": [...], "questionsFound": N }` 用于跳过判断
-
----
-
-## 五、PDF 原文件对象存储（OSS 替代本地硬盘）
-
-**提出时间**：2026-05-14
-**状态**：方案已确定，待实施（需先申请 OSS bucket）
-
-### 现状
-
-上传的 PDF 通过 multer 存到 `apps/api/uploads/`（服务器本地磁盘），下载时直接读本地文件返回。
-
-### 问题
-
-| 问题 | 后果 |
-|------|------|
-| 容器/实例重启 | 所有已上传 PDF 丢失 |
-| 水平扩缩容（多台机器） | A 机器存的 PDF，B 机器读不到 |
-| 磁盘上限 | 云服务器系统盘通常 40-80GB，PDF 积累容易写满 |
-| 备份 | 需要单独做文件级备份，运维成本高 |
-
-### 方案
-
-用**阿里云 OSS** 存储 PDF 原文件（与 DashScope Qwen 接口同属阿里云，统一账号管理）：
-
-```
-上传：用户 PDF → multer 接收 → OSS SDK put() → 删本地临时文件 → 存 OSS key 到数据库
-
-下载：前端请求 GET /api/papers/:id/pdf → 后端生成 OSS 临时签名 URL（5 分钟有效） → 返回给前端（302 重定向或直接返回 URL）
-```
-
-### 改动点
-
-| 层 | 改动 |
-|------|------|
-| **上传接口** | `upload.ts` 不再写本地磁盘，改用 OSS SDK 上传，完成后存 OSS key |
-| **下载接口** | `papers.ts` 不再 `res.download()` 本地文件，改为生成签名 URL 返回 |
-| **数据库** | `Paper.pdfUrl` 值从 `uploads/xxx.pdf` 本地路径 → `papers/2025/xxx.pdf` OSS key |
-| **前端** | 下载按钮无需改动，仍调同一个 API |
-
-### 所需信息（待申请后填入）
-
-- OSS Bucket 名称：`（待申请）`
-- OSS Region：`（待申请，如 oss-cn-shanghai）`
-- OSS 访问域名：`（待申请，如 https://xxx.oss-cn-shanghai.aliyuncs.com）`
-
-### 成本参考（阿里云 OSS 国内）
-
-| 项目 | 单价 |
-|------|------|
-| 存储 | 约 0.12 元/GB/月 |
-| 流量（外网下载） | 约 0.5 元/GB |
-| 请求次数 | 约 0.01 元/万次 |
-
-2MB PDF 存一年约 0.0003 元，下载一次约 0.001 元。
-
----
-
-## 六、Qwen 解析提示词优化
-
-**提出时间**：2026-05-14
-**状态**：方案已确定，待实施
-
-### 现状
-
-当前 `qwenService.ts` 的 SYSTEM_PROMPT 已包含 SVG 规范（第 48 行「必须显式包含 width 和 height 属性」）和段落规范（第 37 行「必须用 \\n\\n 表示段落分隔」），但实际解析结果仍出现两个高频问题：
-
-1. **SVG 缺少 width/height**：Qwen-VL-Max 偶发忽略指令，只输出 `viewBox` 没有 `width` 和 `height`
-2. **多段题干合并为一行**：部分多段落题目被 Qwen 合并为单段，丢失 `\n\n` 分隔
-
-虽然后端和后端已做 CSS / JS 兜底修复，但提示词优化能从根本上降低问题发生率。
-
-### 方案
-
-1. **强化 SVG 指令**：在 prompt 中加入反面示例（错误 SVG vs 正确 SVG 对比），让模型看到不加 width 的后果
-2. **段落自检清单强化**：当前 prompt 已有自检步骤，但可以加入「每道题输出前强制数段落数」的硬约束
-3. **Few-shot 示例**：在 prompt 中嵌入 1-2 个完整的正确 JSON 范例，让模型模仿格式
-4. **温度与模型选择**：尝试调整 Qwen 参数（temperature 降低以提高输出一致性），或测试 qwen-vl-plus / qwen-vl-max 新版本
-
-### 关键点
-
-- Qwen 是多模态模型，prompt 调整效果受图片质量影响——模糊的 PDF 截图天然不利于识别
-- 未来切换到 pdf.js 前端渲染后，图片质量可控，提示词效果会更好
-
----
-
-## 七、封面检测改用 Qwen 语义判断
-
-**提出时间**：2026-05-23
-**状态**：方案已确定，待实施
-
-### 现状
-
-[pdfRenderer.ts](quiz-web/src/utils/pdfRenderer.ts) 中硬编码了封面跳过逻辑：仅检查前 2 页，提取文字长度 < 100 字符则跳过。
-
-### 问题
-
-- 封面有表格/大纲信息时文字可能 > 100 字符，被误判为试题页送入 Qwen
-- 某些试题页只有简短图形（如纯图表题），文字 < 100 字符，被误判为封面跳过
-
-### 方案
-
-去掉前端硬规则，把所有页都发给 Qwen。封面/目录页 Qwen 自然返回 0 道题，自动过滤。多余 API 调用极少（一份试卷通常仅 1-2 个封面页），换来 100% 准确。
-
-### 改动点
-
-- [pdfRenderer.ts](quiz-web/src/utils/pdfRenderer.ts)：删除 `coverTextThreshold` 参数及相关跳过逻辑
-- [3.4 试卷上传解析技术方案.md](3.4%20试卷上传解析技术方案.md)：更新封面跳过说明
-
----
-
----
-
-## 附：未归类待办
-
-> 以下为日常讨论中提及但未形成完整方案的事项，方便后续整理。
-
-_（待补充）_
+- **位置**：[`api/src/services/parseService.ts`](api/src/services/parseService.ts)
+- **问题**：逐页串行调用 Qwen，40 页耗时 5-7 分钟
+- **方案**：实现 Semaphore 信号量并发控制（5 并发），协调器串行汇合结果；40 页缩短至 2-3 分钟（2026-05-23 完成）

@@ -35,8 +35,8 @@ P3 性能 & 可扩展性
 
 P4 架构性债务
 
-- [ ] P4-1 Paper.questions 作为 JSON blob 存储
-- [ ] P4-2 AnswerRecord.questionId 格式不统一
+- [x] P4-1 Paper.questions 作为 JSON blob 存储
+- [x] P4-2 AnswerRecord.questionId 格式不统一
 - [ ] P4-3 JWT 登出是空操作
 - [ ] P4-4 无全局错误处理中间件
 - [ ] P4-5 JWT 密钥有硬编码回退值

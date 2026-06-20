@@ -3,7 +3,7 @@ import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 import { success, fail } from '../utils/response.js'
-import { safeParseQuestions } from '../utils/safeParse.js'
+import { syncPaperQuestions, getPaperQuestions, formatQuestionRow } from '../utils/questionSync.js'
 import { processMarkdownImport } from '../services/markdownValidator.js'
 
 export const papersRouter = Router()
@@ -46,7 +46,6 @@ papersRouter.post('/import-json', requireAuth, requireAdmin, async (req, res) =>
   try {
     const { title, year, duration, code, questions, paperType } = req.body
 
-    // 校验必填字段
     if (!title || !year) {
       res.status(400).json(fail('标题和年份为必填项'))
       return
@@ -56,7 +55,6 @@ papersRouter.post('/import-json', requireAuth, requireAdmin, async (req, res) =>
       return
     }
 
-    // 校验每道题目的必填字段
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i]
       if (q.number == null) {
@@ -80,15 +78,17 @@ papersRouter.post('/import-json', requireAuth, requireAdmin, async (req, res) =>
         duration: parseInt(String(duration)) || 60,
         code: code || undefined,
         paperType: paperType || 'past',
-        questions: JSON.stringify(questions),
         totalQuestions: questions.length,
         status: 'draft',
       },
     })
 
+    await syncPaperQuestions(paper.id, questions)
+    const savedQuestions = await getPaperQuestions(paper.id)
+
     res.json(success({
       ...paper,
-      questions: safeParseQuestions(paper),
+      questions: savedQuestions.map(formatQuestionRow),
     }))
   } catch (e: any) {
     console.error('Import JSON error:', e)
@@ -129,15 +129,17 @@ papersRouter.post('/import-markdown', requireAuth, requireAdmin, async (req, res
         duration: parseInt(String(duration)) || 60,
         code: code || undefined,
         paperType: paperType || 'past',
-        questions: JSON.stringify(result.questions),
         totalQuestions: result.questions.length,
         status: 'draft',
       },
     })
 
+    await syncPaperQuestions(paper.id, result.questions)
+    const savedQuestions = await getPaperQuestions(paper.id)
+
     res.json(success({
       ...paper,
-      questions: safeParseQuestions(paper),
+      questions: savedQuestions.map(formatQuestionRow),
       warnings: result.warnings,
     }))
   } catch (e: any) {
@@ -146,7 +148,7 @@ papersRouter.post('/import-markdown', requireAuth, requireAdmin, async (req, res
   }
 })
 
-// 考纲树 — 按考试类型返回平铺节点，前端组装树结构
+// 考纲树
 papersRouter.get('/syllabus', async (req, res) => {
   try {
     const examType = (req.query.examType as string) || 'ESAT'
@@ -154,7 +156,6 @@ papersRouter.get('/syllabus', async (req, res) => {
       where: { examType },
       orderBy: { order: 'asc' },
     })
-    // 组装为树结构
     const nodeMap = new Map<string, any>()
     const roots: any[] = []
     for (const n of nodes) {
@@ -168,7 +169,6 @@ papersRouter.get('/syllabus', async (req, res) => {
         roots.push(treeNode)
       }
     }
-    // 清理空 children 数组
     const cleanEmptyChildren = (list: any[]) => {
       for (const item of list) {
         if (item.children.length === 0) delete item.children
@@ -183,48 +183,42 @@ papersRouter.get('/syllabus', async (req, res) => {
   }
 })
 
-// 试题库轻量摘要 — 仅返回考纲节点下的题数和难度分布，不返回题目详情
+// 收集考纲节点及其所有子孙 code
+async function collectDescendantCodes(code: string): Promise<string[]> {
+  const allNodes = await prisma.syllabusNode.findMany({ where: { examType: 'ESAT' } })
+  const childCodes = new Set<string>([code])
+  let prevSize = 0
+  while (childCodes.size > prevSize) {
+    prevSize = childCodes.size
+    for (const n of allNodes) {
+      if (n.parentCode && childCodes.has(n.parentCode)) childCodes.add(n.code)
+    }
+  }
+  return [...childCodes]
+}
+
+// 试题库轻量摘要
 papersRouter.get('/question-bank/summary', async (req, res) => {
   try {
     const code = req.query.code as string | undefined
+    const filterCodes = code ? await collectDescendantCodes(code) : []
 
-    const papers = await prisma.paper.findMany({
-      where: { status: 'published' },
+    const questions = await prisma.question.findMany({
+      where: { paper: { status: 'published' } },
+      select: { difficulty: true, syllabusPoints: true },
     })
-
-    // 收集考纲节点及其子孙 code
-    let filterCodes: string[] = []
-    if (code) {
-      const allNodes = await prisma.syllabusNode.findMany({ where: { examType: 'ESAT' } })
-      const childCodes = new Set<string>([code])
-      let prevSize = 0
-      while (childCodes.size > prevSize) {
-        prevSize = childCodes.size
-        for (const n of allNodes) {
-          if (n.parentCode && childCodes.has(n.parentCode)) childCodes.add(n.code)
-        }
-      }
-      filterCodes = [...childCodes]
-    }
 
     const diffCount: Record<string, number> = { easy: 0, medium: 0, hard: 0, composite: 0 }
     let total = 0
 
-    for (const paper of papers) {
-      const qs = safeParseQuestions(paper)
-      for (const q of qs) {
-        const level = levelOf(q)
-        if (!level || !['easy', 'medium', 'hard', 'composite'].includes(level)) continue
+    for (const q of questions) {
+      const level = levelOf({ difficulty: safeParseDifficulty(q.difficulty) })
+      if (!level || !['easy', 'medium', 'hard', 'composite'].includes(level)) continue
 
-        if (filterCodes.length) {
-          const spCodes = new Set((q.syllabus_points || []).map((sp: any) => sp.code))
-          const kpCodes = new Set((q.knowledge_points || []).map((kp: any) => kp.code))
-          if (!filterCodes.some(c => spCodes.has(c) || kpCodes.has(c))) continue
-        }
+      if (filterCodes.length && !matchSyllabusFilter(q, filterCodes)) continue
 
-        diffCount[level]++
-        total++
-      }
+      diffCount[level]++
+      total++
     }
 
     res.json(success({ total, difficultyCount: diffCount }))
@@ -233,69 +227,55 @@ papersRouter.get('/question-bank/summary', async (req, res) => {
   }
 })
 
-// 试题库 — 获取已发布考卷的全部题目（支持按难度/学科筛选）
+function safeParseDifficulty(d: string | null): any {
+  if (!d) return null
+  try { return JSON.parse(d) } catch { return d }
+}
+
+/** 检查题目的 syllabus_points 中是否有匹配的考纲 code */
+function matchSyllabusFilter(q: { syllabusPoints: string }, filterCodes: string[]): boolean {
+  const sps: any[] = JSON.parse(q.syllabusPoints)
+  return sps.some((sp: any) => sp.code && filterCodes.includes(sp.code))
+}
+
+// 试题库 — 获取已发布考卷的全部题目
 papersRouter.get('/question-bank', async (req, res) => {
   try {
     const difficulty = req.query.difficulty as string | undefined
     const subject = req.query.subject as string | undefined
     const code = req.query.code as string | undefined
 
-    // 试题库只取已上线的试卷
-    const papers = await prisma.paper.findMany({
-      where: { status: 'published' },
-      orderBy: { createdAt: 'desc' },
+    const where: any = { paper: { status: 'published' } }
+    if (subject) where.subject = subject
+
+    const questions = await prisma.question.findMany({
+      where,
+      orderBy: [{ paperId: 'asc' }, { number: 'asc' }],
+      include: { paper: { select: { id: true, title: true, year: true } } },
     })
 
-    // 考纲筛选：收集当前节点及其所有子孙的 code
-    let filterCodes: string[] = []
-    if (code) {
-      const allNodes = await prisma.syllabusNode.findMany({
-        where: { examType: 'ESAT' },
-      })
-      const childCodes = new Set<string>([code])
-      let prevSize = 0
-      while (childCodes.size > prevSize) {
-        prevSize = childCodes.size
-        for (const n of allNodes) {
-          if (n.parentCode && childCodes.has(n.parentCode)) {
-            childCodes.add(n.code)
-          }
-        }
-      }
-      filterCodes = [...childCodes]
-    }
-
+    const filterCodes = code ? await collectDescendantCodes(code) : []
     const isFiltered = !!(difficulty || subject || code)
-    const allQuestions: any[] = []
     const diffCount: Record<string, number> = { easy: 0, medium: 0, hard: 0, composite: 0 }
     const subjects = new Set<string>()
+    const allQuestions: any[] = []
 
-    for (const paper of papers) {
-      const qs = safeParseQuestions(paper)
-      for (const q of qs) {
-        const level = levelOf(q)
-        if (!level || !['easy', 'medium', 'hard', 'composite'].includes(level)) continue
+    for (const q of questions) {
+      const level = levelOf({ difficulty: safeParseDifficulty(q.difficulty) })
+      if (!level || !['easy', 'medium', 'hard', 'composite'].includes(level)) continue
+      if (difficulty && level !== difficulty) continue
 
-        if (difficulty && level !== difficulty) continue
-        if (subject && q.subject !== subject) continue
+      if (filterCodes.length && !matchSyllabusFilter(q, filterCodes)) continue
 
-        if (filterCodes.length) {
-          const spCodes = new Set((q.syllabus_points || []).map((sp: any) => sp.code))
-          const kpCodes = new Set((q.knowledge_points || []).map((kp: any) => kp.code))
-          if (!filterCodes.some(c => spCodes.has(c) || kpCodes.has(c))) continue
-        }
+      diffCount[level] = (diffCount[level] || 0) + 1
+      if (!isFiltered && q.subject) subjects.add(q.subject)
 
-        // 始终统计筛选后的难度分布
-        diffCount[level] = (diffCount[level] || 0) + 1
-        if (!isFiltered && q.subject) subjects.add(q.subject)
-
-        allQuestions.push({
-          ...q,
-          _paperId: paper.id,
-          _paperTitle: paper.title,
-          _paperYear: paper.year,
-        })
-      }
+      allQuestions.push({
+        ...formatQuestionRow(q),
+        _paperId: q.paper.id,
+        _paperTitle: q.paper.title,
+        _paperYear: q.paper.year,
+      })
     }
 
     res.json(success({
@@ -310,29 +290,21 @@ papersRouter.get('/question-bank', async (req, res) => {
   }
 })
 
-// 试卷详情
+// 诊断测试套卷与参与记录
 papersRouter.get('/assessment/papers', requireAuth, async (req, res) => {
   try {
     const papers = await prisma.paper.findMany({
       where: { status: 'published', paperType: 'past' },
       select: {
-        id: true,
-        title: true,
-        code: true,
-        year: true,
-        duration: true,
-        totalQuestions: true,
-        paperType: true,
-        createdAt: true,
+        id: true, title: true, code: true, year: true,
+        duration: true, totalQuestions: true, paperType: true, createdAt: true,
       },
       orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
     })
 
     const records = await prisma.examRecord.findMany({
       where: { userId: req.user!.userId, status: 'submitted' },
-      include: {
-        paper: { select: { title: true, paperType: true } },
-      },
+      include: { paper: { select: { title: true, paperType: true } } },
       orderBy: { submittedAt: 'desc' },
       take: 12,
     })
@@ -359,21 +331,24 @@ papersRouter.get('/assessment/papers', requireAuth, async (req, res) => {
   }
 })
 
+// 试卷详情
 papersRouter.get('/:id', async (req, res) => {
   const paper = await prisma.paper.findUnique({ where: { id: req.params.id } })
   if (!paper) {
     res.status(404).json(fail('试卷不存在'))
     return
   }
+  const questions = await getPaperQuestions(paper.id)
   res.json(success({
     ...paper,
-    questions: safeParseQuestions(paper)
+    questions: questions.map(formatQuestionRow),
   }))
 })
 
-// 更新试卷（人工校对）
+// 更新试卷
 papersRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   const { title, code, year, duration, questions, status, paperType } = req.body
+
   const paper = await prisma.paper.update({
     where: { id: req.params.id },
     data: {
@@ -381,17 +356,21 @@ papersRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
       ...(code !== undefined && { code }),
       ...(year && { year }),
       ...(duration && { duration }),
-      ...(questions && { questions: JSON.stringify(questions), totalQuestions: questions.length }),
+      ...(questions && { totalQuestions: questions.length }),
       ...(status && { status }),
-      ...(paperType && { paperType })
-    }
+      ...(paperType && { paperType }),
+    },
   })
+
+  if (questions) {
+    await syncPaperQuestions(paper.id, questions)
+  }
+
   res.json(success(paper))
 })
 
 // 删除试卷
 papersRouter.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
-  // TODO: 迁移至 OSS 后同步删除 OSS 文件
   await prisma.paper.delete({ where: { id: req.params.id } })
   res.json(success(null))
 })
@@ -400,7 +379,7 @@ papersRouter.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
 papersRouter.put('/:id/publish', requireAuth, requireAdmin, async (req, res) => {
   const paper = await prisma.paper.update({
     where: { id: req.params.id },
-    data: { status: 'published' }
+    data: { status: 'published' },
   })
   res.json(success(paper))
 })

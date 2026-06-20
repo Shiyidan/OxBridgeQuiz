@@ -3,14 +3,13 @@ import { prisma } from '../services/prisma.js'
 import { optionalAuth, requireAuth } from '../middleware/auth.js'
 import { scoreAnswers, buildPartialReport, buildFullReportFromSession } from '../services/diagnostic.js'
 import { success, fail } from '../utils/response.js'
-import { safeParseQuestions } from '../utils/safeParse.js'
+import { formatQuestionRow } from '../utils/questionSync.js'
 
 export const diagnosticRouter = Router()
 
 // 获取诊断题目
 diagnosticRouter.get('/questions', optionalAuth, async (req: Request, res: Response) => {
   try {
-    // 如果已登录，检查配额
     if (req.user) {
       const user = await prisma.user.findUnique({ where: { id: req.user.userId } })
       if (user && user.diagnosticUsed && user.paymentStatus === 'free') {
@@ -19,39 +18,25 @@ diagnosticRouter.get('/questions', optionalAuth, async (req: Request, res: Respo
       }
     }
 
-    // 从题库随机取 20 题作为诊断试题
-    const papers = await prisma.paper.findMany({
-      where: { status: 'published' },
-      take: 5,
-      orderBy: { createdAt: 'desc' },
+    // 从 Question 表直接查询已发布试卷的题目
+    const dbQuestions = await prisma.question.findMany({
+      where: { paper: { status: 'published' } },
+      take: 100,
     })
 
-    // 聚合试题
-    const allQuestions: Array<{
-      id: string
-      title: string
-      options: { label: string; text: string }[]
-      answer: string[]
-      subject?: string
-    }> = []
-
-    for (const paper of papers) {
-      const qs = safeParseQuestions(paper)
-      for (const q of qs) {
-        allQuestions.push({
-          id: q.id || `q-${allQuestions.length}`,
-          title: q.title || '',
-          options: q.options || [],
-          answer: q.answer || [],
-          subject: q.subject,
-        })
+    const allQuestions = dbQuestions.map((q) => {
+      const formatted = formatQuestionRow(q)
+      return {
+        id: formatted.id,
+        title: formatted.title,
+        options: formatted.options,
+        answer: formatted.answer,
+        subject: formatted.subject,
       }
-    }
+    })
 
-    // 随机选取 20 题（不足则全部返回）
     const shuffled = allQuestions.sort(() => Math.random() - 0.5)
     const selected = shuffled.slice(0, Math.min(20, shuffled.length))
-
     const questions = selected.map(({ answer, ...rest }) => rest)
 
     res.json(success({ questions, answers: selected.map((q) => ({ id: q.id, answer: q.answer })) }))

@@ -1,5 +1,6 @@
 import { prisma } from './prisma.js'
 import { analyzePageWithQwen, type ParsedQuestion } from './qwenService.js'
+import { syncPaperQuestions } from '../utils/questionSync.js'
 
 interface PageData {
   page: number
@@ -204,12 +205,11 @@ async function finalizeTask(
       }),
     }))
 
+  await syncPaperQuestions(paperId, questions)
+
   await prisma.paper.update({
     where: { id: paperId },
-    data: {
-      totalQuestions: questions.length,
-      questions: JSON.stringify(questions),
-    },
+    data: { totalQuestions: questions.length },
   })
 
   await prisma.parseTask.update({

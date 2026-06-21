@@ -25,7 +25,7 @@ export interface QuestionBankItem {
   answer: string[]
   images: any[]
   subject?: string
-  difficulty?: string | { level: string; score: number; label_zh?: string; label?: string }
+  difficulty?: string
   knowledge_points?: { code: string; label: string; role?: string }[]
   syllabus_points?: { code: string; label: string; role?: string }[]
   question_type?: string

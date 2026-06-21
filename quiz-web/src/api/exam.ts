@@ -29,7 +29,7 @@ export interface ExamQuestion {
   answer: string[]
   images: any[]
   subject?: string
-  difficulty?: string | { level: string; score: number; label_zh?: string; label?: string }
+  difficulty?: string
   knowledge_points?: any[]
   syllabus_points?: any[]
   learning_analysis?: any
@@ -62,12 +62,31 @@ export interface ExamResult {
 export interface WrongAnswer {
   id: string
   questionId: string
+  title: string
+  difficulty: string
+  syllabus_points: { code: string; label: string; role?: string }[]
   selectedAnswer: string | null
+  selectedAnswers: string[]
+  wrongCount: number
   isCorrect: boolean
+  durationSeconds: number
+  answeredAt: string | null
   examRecord?: {
     id: string
     submittedAt: string
+    paper?: {
+      paperType: string
+      title: string
+    } | null
   }
+}
+
+export interface MistakeNotebookParams {
+  difficulties?: string[]
+  paperTypes?: string[]
+  syllabusCodes?: string[]
+  startDate?: string
+  endDate?: string
 }
 
 export interface PracticeRecord {
@@ -101,11 +120,18 @@ export function getExamResultData(examId: string) {
 }
 
 /** 获取错题本 */
-export function getMistakeNotebookData() {
+export function getMistakeNotebookData(params: MistakeNotebookParams = {}) {
   return callApi<{ wrongAnswers: WrongAnswer[]; total: number }>({
     url: '/exams/error-book',
     method: 'GET',
     isAllData: false,
+    params: {
+      ...(params.difficulties?.length ? { difficulty: params.difficulties.join(',') } : {}),
+      ...(params.paperTypes?.length ? { paperType: params.paperTypes.join(',') } : {}),
+      ...(params.syllabusCodes?.length ? { syllabusCode: params.syllabusCodes.join(',') } : {}),
+      ...(params.startDate ? { startDate: params.startDate } : {}),
+      ...(params.endDate ? { endDate: params.endDate } : {}),
+    },
   })
 }
 

@@ -125,7 +125,7 @@
 
 <script setup lang="ts">
 // 公共逐题解析组件：诊断测试和试题库报告共用同一套题目解析展示。
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import QuestionCard from '@/components/QuestionCard.vue'
 import LatexText from '@/components/LatexText.vue'
 import type { ExamQuestion } from '@/api/exam'
@@ -137,6 +137,7 @@ const props = defineProps<{
   questions: ReportQuestion[]
   correctCount: number
   examTitle: string
+  initialQuestionId?: string
 }>()
 
 const currentIndex = ref(0)
@@ -227,6 +228,17 @@ const hasReviewGuide = computed(() =>
     practiceSuggestions.value.length ||
     commonMistakes.value.length,
   ),
+)
+
+// 从错题本跳转进来时，优先定位到 query 指定的题目。
+watch(
+  () => [props.questions, props.initialQuestionId] as const,
+  ([questions, questionId]) => {
+    if (!questionId || !questions.length) return
+    const targetIndex = questions.findIndex((q) => q.id === questionId || q.questionId === questionId)
+    if (targetIndex >= 0) currentIndex.value = targetIndex
+  },
+  { immediate: true },
 )
 
 // 左侧题号导航只切换当前题，不重新请求报告数据。

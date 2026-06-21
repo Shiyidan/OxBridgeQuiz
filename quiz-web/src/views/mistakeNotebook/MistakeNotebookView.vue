@@ -2,96 +2,173 @@
   <div class="mistake-notebook-page">
     <NavBar />
     <main class="mistake-notebook-main">
+
       <header class="mistake-notebook-header">
-        <h1>错题本</h1>
-        <p>记录你在练习和考试中答错的题目，方便针对性复习</p>
+        <h1>错题本（Mistakes Collector）</h1>
+        <p>智能收录错题，精准定位薄弱点，让复习事半功倍</p>
       </header>
 
-      <!-- 错题列表 -->
       <section class="notebook-section">
-        <h2 class="section-title">错题列表</h2>
+        <div class="section-divider"></div>
 
-        <div v-if="wrongLoading" class="section-card">
+        <div class="filter-bar" aria-label="错题筛选">
+          <label class="filter-field">
+            <span class="filter-field__label">题目难度</span>
+            <el-select
+              v-model="draftFilters.difficulties"
+              multiple
+              collapse-tags
+              collapse-tags-tooltip
+              clearable
+              placeholder="请选择"
+            >
+              <el-option
+                v-for="option in difficultyOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </label>
+
+          <label class="filter-field">
+            <span class="filter-field__label">题目来源</span>
+            <el-select
+              v-model="draftFilters.sources"
+              multiple
+              collapse-tags
+              collapse-tags-tooltip
+              clearable
+              placeholder="请选择"
+            >
+              <el-option
+                v-for="option in sourceOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </label>
+
+          <label class="filter-field">
+            <span class="filter-field__label">知识点</span>
+            <el-tree-select
+              v-model="draftFilters.knowledgeCodes"
+              :data="syllabusTreeData"
+              :props="treeProps"
+              node-key="code"
+              multiple
+              show-checkbox
+              check-strictly
+              collapse-tags
+              collapse-tags-tooltip
+              clearable
+              filterable
+              placeholder="请选择"
+            />
+          </label>
+
+          <label class="filter-field filter-field--range">
+            <span class="filter-field__label">做题时间</span>
+            <el-date-picker
+              v-model="draftFilters.dateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              value-format="YYYY-MM-DD"
+              clearable
+            />
+          </label>
+
+          <div class="filter-actions">
+            <button type="button" class="filter-button" @click="applyFilters">搜索</button>
+            <button type="button" class="filter-button filter-button--ghost" @click="resetFilters">
+              重置
+            </button>
+          </div>
+        </div>
+
+        <div v-if="wrongLoading" class="section-card section-card--empty">
           <p class="loading-text">加载中...</p>
         </div>
 
         <div v-else-if="wrongList.length === 0" class="section-card section-card--empty">
           <div class="empty-icon">
             <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="12" y="8" width="40" height="50" rx="4" stroke="#cbd5e1" stroke-width="2" fill="none"/>
-              <line x1="22" y1="22" x2="42" y2="22" stroke="#e2e8f0" stroke-width="2" stroke-linecap="round"/>
-              <line x1="22" y1="30" x2="38" y2="30" stroke="#e2e8f0" stroke-width="2" stroke-linecap="round"/>
-              <line x1="22" y1="38" x2="34" y2="38" stroke="#e2e8f0" stroke-width="2" stroke-linecap="round"/>
-              <circle cx="46" cy="48" r="12" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="2"/>
-              <path d="M43 48h6M46 45v6" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
+              <rect
+                x="12"
+                y="8"
+                width="40"
+                height="50"
+                rx="4"
+                stroke="#cbd5e1"
+                stroke-width="2"
+              />
+              <line
+                x1="22"
+                y1="22"
+                x2="42"
+                y2="22"
+                stroke="#e2e8f0"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+              <line
+                x1="22"
+                y1="30"
+                x2="38"
+                y2="30"
+                stroke="#e2e8f0"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+              <circle cx="46" cy="48" r="12" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="2" />
+              <path
+                d="M43 48h6M46 45v6"
+                stroke="#94a3b8"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
             </svg>
           </div>
-          <h3>暂无错题</h3>
-          <p class="empty-desc">你还没有做错的题目，继续保持！</p>
+          <h3>{{ hasActiveQuery ? '暂无匹配错题' : '暂无错题' }}</h3>
+          <p class="empty-desc">
+            {{ hasActiveQuery ? '调整筛选条件后再试试。' : '你还没有做错的题目，继续保持。' }}
+          </p>
         </div>
 
-        <div v-else class="section-card">
-          <p class="list-summary">共 {{ wrongList.length }} 道错题</p>
-          <div
-            v-for="(item, idx) in wrongList"
-            :key="item.id"
-            class="wrong-item"
-          >
-            <div class="wrong-item__header">
-              <span class="wrong-item__num">#{{ idx + 1 }}</span>
-              <span class="wrong-item__qid">{{ item.questionId }}</span>
-              <span v-if="item.selectedAnswer" class="wrong-item__answer">
-                选了 {{ item.selectedAnswer }}
-              </span>
-              <span v-else class="wrong-item__answer wrong-item__answer--skip">未作答</span>
-              <span class="wrong-item__date">{{ formatDate(item.examRecord?.submittedAt) }}</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- 练习记录 -->
-      <section class="notebook-section">
-        <h2 class="section-title">试题库练习记录</h2>
-
-        <div v-if="recordsLoading" class="section-card">
-          <p class="loading-text">加载中...</p>
-        </div>
-
-        <div v-else-if="practiceRecords.length === 0" class="section-card section-card--empty">
-          <h3>暂无练习记录</h3>
-          <p class="empty-desc">去试题库完成练习后，记录会出现在这里。</p>
-          <router-link to="/question-bank" class="go-practice-btn">
-            去练习
-          </router-link>
-        </div>
-
-        <div v-else class="section-card">
-          <p class="list-summary">共 {{ practiceRecords.length }} 次练习</p>
-          <div
-            v-for="record in practiceRecords"
-            :key="record.id"
-            class="practice-record-item"
-          >
-            <div class="practice-record__body">
-              <div class="practice-record__info">
-                <span class="practice-record__date">{{ formatDateTime(record.submittedAt) }}</span>
-                <span class="practice-record__score">
-                  {{ record.correctCount }} / {{ record.totalQuestions }} 正确
+        <div v-else class="wrong-list">
+          <article v-for="item in wrongList" :key="item.id" class="wrong-item">
+            <div class="wrong-item__body">
+              <div class="wrong-item__meta">
+                <span>{{ formatDate(item.answeredAt || item.examRecord?.submittedAt) }}</span>
+                <span>{{ formatTime(item.answeredAt || item.examRecord?.submittedAt) }}</span>
+                <span>{{ formatDuration(item.durationSeconds) }}</span>
+                <span class="difficulty-tag">{{ difficultyText(item) }}</span>
+                <span class="source-tag">{{ sourceText(item) }}</span>
+                <span class="history-tag">错 {{ item.wrongCount }} 次</span>
+                <span v-if="selectedAnswersText(item)" class="history-tag">
+                  曾选 {{ selectedAnswersText(item) }}
                 </span>
               </div>
-              <div class="practice-record__meta">
-                <span>正确率 {{ accuracyText(record) }}</span>
-                <span>用时 {{ formatDuration(record.durationSeconds) }}</span>
-              </div>
+              <h2 class="wrong-item__title">
+                <LatexText :text="questionTitle(item)" />
+              </h2>
             </div>
+
             <router-link
-              :to="`/exam-result/${record.id}`"
-              class="practice-record__link"
+              v-if="item.examRecord?.id"
+              :to="analysisLink(item)"
+              class="wrong-item__action wrong-item__action--outline"
+              aria-label="查看试题解析"
             >
-              查看报告 →
+              查看解析
             </router-link>
-          </div>
+            <button v-else class="wrong-item__action wrong-item__action--disabled" type="button">
+              查看解析
+            </button>
+          </article>
         </div>
       </section>
     </main>
@@ -99,286 +176,453 @@
 </template>
 
 <script setup lang="ts">
-// 错题本页面：错题列表 + 试题库练习记录
-import { ref, onMounted } from 'vue'
+// 错题本页面：展示当前用户做错的题目，并支持按难度、来源和大纲知识点筛选。
+import { computed, onMounted, reactive, ref } from 'vue'
 import NavBar from '@/components/NavBar.vue'
-import {
-  getMistakeNotebookData,
-  getPracticeRecords,
-  type WrongAnswer,
-  type PracticeRecord,
-} from '@/api/exam'
+import LatexText from '@/components/LatexText.vue'
+import { getMistakeNotebookData, type WrongAnswer } from '@/api/exam'
+import { getSyllabusData, type SyllabusNode } from '@/api/questionBank'
 
+interface FilterOption {
+  label: string
+  value: string
+}
+
+interface FilterState {
+  difficulties: string[]
+  sources: string[]
+  knowledgeCodes: string[]
+  dateRange: string[] | null
+}
+
+const difficultyLabelMap: Record<string, string> = {
+  easy: '难度-低',
+  medium: '难度-中',
+  hard: '难度-高',
+  composite: '难度-复合',
+}
+const sourceLabelMap: Record<string, string> = {
+  past: '来源-真题',
+  practice: '来源-题库',
+  mock: '来源-模考',
+}
+const treeProps = { children: 'children', label: 'label', value: 'code' }
 const wrongList = ref<WrongAnswer[]>([])
+const syllabusTreeData = ref<SyllabusNode[]>([])
 const wrongLoading = ref(true)
-const practiceRecords = ref<PracticeRecord[]>([])
-const recordsLoading = ref(true)
-
-onMounted(async () => {
-  const [wrongResult, recordsResult] = await Promise.allSettled([
-    getMistakeNotebookData(),
-    getPracticeRecords(),
-  ])
-
-  if (wrongResult.status === 'fulfilled') {
-    wrongList.value = wrongResult.value.wrongAnswers || []
-  }
-  wrongLoading.value = false
-
-  if (recordsResult.status === 'fulfilled') {
-    practiceRecords.value = recordsResult.value.records || []
-  }
-  recordsLoading.value = false
+const hasActiveQuery = ref(false)
+const draftFilters = reactive<FilterState>({
+  difficulties: [],
+  sources: [],
+  knowledgeCodes: [],
+  dateRange: [],
 })
 
-function accuracyText(record: PracticeRecord): string {
-  if (!record.totalQuestions) return '0%'
-  return `${((record.correctCount / record.totalQuestions) * 100).toFixed(0)}%`
+const difficultyOptions = computed<FilterOption[]>(() =>
+  Object.entries(difficultyLabelMap).map(([value, label]) => ({ value, label })),
+)
+const sourceOptions = computed<FilterOption[]>(() =>
+  Object.entries(sourceLabelMap).map(([value, label]) => ({ value, label })),
+)
+
+// 进入页面后同时加载错题记录和试题库同源大纲树。
+onMounted(async () => {
+  wrongLoading.value = true
+  try {
+    const results = await Promise.allSettled([loadWrongAnswers(), getSyllabusData()])
+    const syllabusResult = results[1]
+    if (syllabusResult.status === 'fulfilled') syllabusTreeData.value = syllabusResult.value
+  } finally {
+    wrongLoading.value = false
+  }
+})
+
+// 按当前筛选条件向后端请求错题摘要列表。
+async function loadWrongAnswers(): Promise<void> {
+  const result = await getMistakeNotebookData({
+    difficulties: draftFilters.difficulties,
+    paperTypes: draftFilters.sources,
+    syllabusCodes: draftFilters.knowledgeCodes,
+    startDate: draftFilters.dateRange?.[0],
+    endDate: draftFilters.dateRange?.[1],
+  })
+  wrongList.value = result.wrongAnswers || []
 }
 
-function formatDuration(seconds: number | null): string {
-  if (!seconds) return '-'
-  return `${Math.max(1, Math.round(seconds / 60))} 分钟`
+// 点击搜索时将筛选条件交给后端查询，避免后续分页后前端过滤失真。
+async function applyFilters(): Promise<void> {
+  wrongLoading.value = true
+  hasActiveQuery.value =
+    draftFilters.difficulties.length > 0 ||
+    draftFilters.sources.length > 0 ||
+    draftFilters.knowledgeCodes.length > 0 ||
+    (Array.isArray(draftFilters.dateRange) && draftFilters.dateRange.length === 2)
+  try {
+    await loadWrongAnswers()
+  } finally {
+    wrongLoading.value = false
+  }
 }
 
-function formatDate(dateStr?: string): string {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
+// 重置筛选条件后重新拉取未过滤的错题列表。
+async function resetFilters(): Promise<void> {
+  draftFilters.difficulties = []
+  draftFilters.sources = []
+  draftFilters.knowledgeCodes = []
+  draftFilters.dateRange = []
+  hasActiveQuery.value = false
+  wrongLoading.value = true
+  try {
+    await loadWrongAnswers()
+  } finally {
+    wrongLoading.value = false
+  }
 }
 
-function formatDateTime(dateStr: string | null): string {
+// 跳转到答题报告，并通过 questionId 定位到具体错题解析。
+function analysisLink(item: WrongAnswer) {
+  return {
+    path: `/exam-result/${item.examRecord?.id}`,
+    query: { questionId: item.questionId },
+  }
+}
+
+// 错题卡片优先展示 Question.title，缺失时回退到题目 ID。
+function questionTitle(item: WrongAnswer): string {
+  return item.title || `题目 ${item.questionId}`
+}
+
+// difficulty 已在后端统一为 easy/medium/hard/composite 字符串。
+function difficultyText(item: WrongAnswer): string {
+  return difficultyLabelMap[difficultyValue(item)] || '难度-未标注'
+}
+
+// 难度筛选值统一取固定枚举字符串，缺失题目不进入难度筛选项。
+function difficultyValue(item: WrongAnswer): string {
+  return item.difficulty || ''
+}
+
+// 题目来源筛选值对应 Paper.paperType。
+function sourceValue(item: WrongAnswer): string {
+  return item.examRecord?.paper?.paperType || 'unknown'
+}
+
+// 题目来源展示沿用 paperType，并对常见值做中文化。
+function sourceText(item: WrongAnswer): string {
+  const source = sourceValue(item)
+  return sourceLabelMap[source] || '来源-未知'
+}
+
+// 聚合错题展示历史错误答案，保留用户曾经选错过的选项。
+function selectedAnswersText(item: WrongAnswer): string {
+  if (item.selectedAnswers?.length) return item.selectedAnswers.join('、')
+  return item.selectedAnswer || ''
+}
+
+// 错题日期使用答题时间，没有时回退到考试提交时间。
+function formatDate(dateStr?: string | null): string {
   if (!dateStr) return '-'
   const d = new Date(dateStr)
   if (Number.isNaN(d.getTime())) return '-'
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate(),
+  ).padStart(2, '0')}`
+}
+
+// 做题时间精确到时分，缺失时展示占位符。
+function formatTime(dateStr?: string | null): string {
+  if (!dateStr) return '--:--'
+  const d = new Date(dateStr)
+  if (Number.isNaN(d.getTime())) return '--:--'
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+// 做题耗时按秒记录，展示为秒或分钟。
+function formatDuration(seconds?: number | null): string {
+  if (!seconds) return '用时 -'
+  if (seconds < 60) return `用时 ${seconds} 秒`
+  return `用时 ${Math.max(1, Math.round(seconds / 60))} 分钟`
 }
 </script>
 
 <style scoped lang="scss">
 .mistake-notebook-page {
   min-height: 100vh;
-  background: #f8fafc;
+  background: #fbfbfa;
+  color: #273437;
 }
 
 .mistake-notebook-main {
-  max-width: 900px;
+  width: min(100%, 920px);
   margin: 0 auto;
-  padding: 3rem 2rem;
+  padding: 34px 24px 72px;
+}
+
+.back-link {
+  color: #9aa6a9;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
 }
 
 .mistake-notebook-header {
-  margin-bottom: 2.5rem;
+  margin: 12px 0 46px;
 
   h1 {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 0 0 0.5rem;
+    margin: 0 0 22px;
+    color: #273437;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: 0;
   }
 
   p {
-    font-size: 0.938rem;
-    color: #64748b;
     margin: 0;
+    color: #7d8a8e;
+    font-size: 15px;
+    font-weight: 700;
   }
 }
 
 .notebook-section {
-  margin-bottom: 2.5rem;
+  min-width: 0;
 }
 
-.section-title {
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: #334155;
-  margin: 0 0 1rem;
+.section-divider {
+  height: 1px;
+  margin-bottom: 20px;
+  background: #e5e8e8;
+}
+
+.filter-bar {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 18px;
+  align-items: end;
+  margin-bottom: 18px;
+}
+
+.filter-field {
+  display: grid;
+  grid-column: span 4;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.filter-field--range {
+  grid-column: span 6;
+}
+
+.filter-field__label {
+  color: #273437;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.filter-field :deep(.el-select),
+.filter-field :deep(.el-tree-select),
+.filter-field :deep(.el-date-editor) {
+  width: 100%;
+}
+
+.filter-field :deep(.el-select__wrapper),
+.filter-field :deep(.el-input__wrapper) {
+  min-height: 32px;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px #cfd8dc inset;
+}
+
+.filter-actions {
+  display: flex;
+  grid-column: span 6;
+  gap: 8px;
+  align-items: center;
+}
+
+.filter-button {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid #2f6f9b;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #1f4e75;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.filter-button--ghost {
+  border-color: #cfd8dc;
+  color: #344246;
 }
 
 .section-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 1.5rem;
+  border-radius: 8px;
+  padding: 24px;
 }
 
 .section-card--empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 4rem 2rem;
+  display: grid;
+  place-items: center;
+  min-height: 240px;
   text-align: center;
 
   h3 {
-    font-size: 1.15rem;
-    font-weight: 600;
+    margin: 12px 0 8px;
     color: #475569;
-    margin: 0 0 0.5rem;
+    font-size: 18px;
+    font-weight: 700;
   }
 }
 
-.loading-text {
-  text-align: center;
-  color: #94a3b8;
+.loading-text,
+.empty-desc {
   margin: 0;
-  padding: 1rem;
+  color: #94a3b8;
 }
 
 .empty-icon {
-  margin-bottom: 1.5rem;
-  opacity: 0.6;
-
   svg {
     width: 80px;
     height: 80px;
   }
 }
 
-.empty-desc {
-  font-size: 0.938rem;
-  color: #94a3b8;
-  margin: 0 0 1.5rem;
+.wrong-list {
+  display: grid;
+  gap: 10px;
 }
 
-.go-practice-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.75rem;
-  background: #4f46e5;
-  color: #ffffff;
-  border-radius: 10px;
-  font-size: 0.938rem;
-  font-weight: 600;
-  text-decoration: none;
-  transition: background 0.2s ease;
-
-  &:hover {
-    background: #6366f1;
-  }
-}
-
-.list-summary {
-  font-size: 0.875rem;
-  color: #64748b;
-  margin: 0 0 1rem;
-}
-
-/* 错题列表 */
 .wrong-item {
-  padding: 12px 16px;
-  background: #fef2f2;
-  border-radius: 10px;
-  margin-bottom: 8px;
-
-  &:last-child { margin-bottom: 0; }
-}
-
-.wrong-item__header {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
-  font-size: 0.875rem;
-}
-
-.wrong-item__num {
-  font-weight: 600;
-  color: #0f172a;
-  min-width: 28px;
-}
-
-.wrong-item__qid {
-  flex: 1;
-  color: #475569;
-}
-
-.wrong-item__answer {
-  font-weight: 500;
-  color: #ef4444;
-  &--skip { color: #94a3b8; font-style: italic; }
-}
-
-.wrong-item__date {
-  color: #94a3b8;
-  font-size: 0.8125rem;
-}
-
-/* 练习记录 */
-.practice-record-item {
-  display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  margin-bottom: 10px;
-
-  &:last-child { margin-bottom: 0; }
+  padding: 10px 14px;
+  border: 1px solid #e4e8e8;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
 }
 
-.practice-record__body {
-  flex: 1;
+.wrong-item__body {
   min-width: 0;
 }
 
-.practice-record__info {
+.wrong-item__meta {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   align-items: center;
-  gap: 16px;
   margin-bottom: 6px;
+  color: #2f6f9b;
+  font-size: 12px;
+  font-weight: 800;
 }
 
-.practice-record__date {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #0f172a;
+.difficulty-tag,
+.source-tag,
+.history-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 10px;
+  border-radius: 4px;
+  background: #d8ebf8;
+  color: #2d668e;
 }
 
-.practice-record__score {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: #2563eb;
+.source-tag {
+  background: #eef6f2;
+  color: #36745a;
 }
 
-.practice-record__meta {
-  display: flex;
-  gap: 16px;
-  font-size: 0.8125rem;
-  color: #94a3b8;
-
-  span {
-    white-space: nowrap;
-  }
+.history-tag {
+  background: #f6f3e9;
+  color: #7a6840;
 }
 
-.practice-record__link {
-  flex-shrink: 0;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #4f46e5;
+.wrong-item__title {
+  margin: 0;
+  color: #263437;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.wrong-item__action {
+  min-width: 72px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 900;
   text-decoration: none;
+}
+
+.wrong-item__action--outline {
+  border: 1px solid #1672c7;
+  background: #ffffff;
+  color: #1672c7;
 
   &:hover {
-    color: #6366f1;
+    background: #eef7ff;
   }
 }
 
-@media (max-width: 520px) {
-  .mistake-notebook-main {
-    padding: 2rem 1rem;
-  }
+.wrong-item__action--disabled {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
 
-  .practice-record-item {
-    flex-direction: column;
-    align-items: stretch;
+@media (max-width: 780px) {
+  .filter-bar {
+    grid-template-columns: 1fr;
     gap: 12px;
   }
 
-  .practice-record__info {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
+  .filter-actions {
+    grid-column: auto;
+    justify-content: flex-end;
+  }
+
+  .filter-field,
+  .filter-field--range {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .mistake-notebook-main {
+    padding: 26px 16px 56px;
+  }
+
+  .mistake-notebook-header {
+    margin-bottom: 32px;
+
+    h1 {
+      font-size: 24px;
+      line-height: 1.35;
+    }
+  }
+
+  .wrong-item {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .wrong-item__action {
+    justify-self: end;
   }
 }
 </style>

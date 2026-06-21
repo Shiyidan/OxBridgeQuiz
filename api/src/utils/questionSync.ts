@@ -1,5 +1,18 @@
 import { prisma } from '../services/prisma.js'
 
+function normalizeDifficulty(value: any): string {
+  if (!value) return ''
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value)
+      return parsed?.level || ''
+    } catch {
+      return value
+    }
+  }
+  return value.level || ''
+}
+
 /** 将题目数组写入 Question 表，覆盖该试卷下所有已有题目 */
 export async function syncPaperQuestions(paperId: string, questions: any[]): Promise<void> {
   await prisma.question.deleteMany({ where: { paperId } })
@@ -15,7 +28,7 @@ export async function syncPaperQuestions(paperId: string, questions: any[]): Pro
     subject: q.subject || q.subject_code || null,
     subjectCode: q.subject_code || q.subject || null,
     questionType: q.question_type || null,
-    difficulty: typeof q.difficulty === 'string' ? q.difficulty : JSON.stringify(q.difficulty || {}),
+    difficulty: normalizeDifficulty(q.difficulty),
     topic: q.topic || null,
     topicCode: q.topic_code || null,
     knowledgePoints: JSON.stringify(q.knowledge_points || []),
@@ -51,9 +64,7 @@ export function formatQuestionRow(row: any) {
     subject: row.subject,
     subject_code: row.subjectCode,
     question_type: row.questionType,
-    difficulty: (() => {
-      try { return JSON.parse(row.difficulty || '{}') } catch { return row.difficulty }
-    })(),
+    difficulty: normalizeDifficulty(row.difficulty),
     topic: row.topic,
     topic_code: row.topicCode,
     knowledge_points: JSON.parse(row.knowledgePoints),

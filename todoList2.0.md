@@ -32,6 +32,7 @@ P3 性能 & 可扩展性
 - [ ] P3-2 错题本接口无分页
 - [ ] P3-3 用户管理列表无分页
 - [ ] P3-4 逐页解析 fire-and-forget 前端无法感知单页失败
+- [ ] P3-5 routes 文件拆分：papers.ts（404 行 10 接口）和 exam.ts（399 行）太胖，按子模块拆分
 
 P4 架构性债务
 
@@ -154,6 +155,12 @@ P5 代码整洁
 - **位置**：[`api/src/routes/parse.ts`](api/src/routes/parse.ts) `POST /:id/pages`
 - **问题**：`addPageToTask().catch(console.error)` 不等待结果，前端只能通过轮询进度判断，页解析失败时无法定位哪一页出错
 - **方案**：在 ParseTask.result 中记录每页的处理状态，轮询接口返回逐页详情
+
+### P3-5 routes 文件拆分
+
+- **位置**：[`api/src/routes/papers.ts`](api/src/routes/papers.ts)（404 行 10 接口）+ [`api/src/routes/exam.ts`](api/src/routes/exam.ts)（399 行）
+- **问题**：papers.ts 混杂了试卷 CRUD、试题库、考纲、导入，exam.ts 混杂了交卷、结果、错题本、练习记录。单文件过长，职责不清
+- **方案**：按子模块拆分——`papers.ts`（CRUD）、`papers-import.ts`（导入）、`syllabus.ts`（考纲）、`questionBank.ts`（试题库查询）、`exam.ts`（交卷+结果）、`errorBook.ts`（错题本+练习记录）。等业务稳定后执行
 
 ---
 

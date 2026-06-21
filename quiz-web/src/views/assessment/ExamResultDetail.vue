@@ -199,6 +199,7 @@
               :questions="questions"
               :correct-count="correctCount"
               :exam-title="examTitle"
+              :initial-question-id="targetQuestionId"
             />
           </section>
         </template>
@@ -258,6 +259,7 @@ type ReportQuestion = ExamQuestion & { id: string }
 
 const route = useRoute()
 const examId = computed(() => route.params.id as string)
+const targetQuestionId = computed(() => route.query.questionId as string | undefined)
 const loading = ref(true)
 const totalCount = ref(0)
 const correctCount = ref(0)

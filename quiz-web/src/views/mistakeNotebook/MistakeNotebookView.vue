@@ -69,7 +69,7 @@
           </label>
 
           <label class="filter-field filter-field--range">
-            <span class="filter-field__label">做题时间</span>
+            <span class="filter-field__label">提交时间</span>
             <el-date-picker
               v-model="draftFilters.dateRange"
               type="daterange"
@@ -123,7 +123,14 @@
                 stroke-width="2"
                 stroke-linecap="round"
               />
-              <circle cx="46" cy="48" r="12" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="2" />
+              <circle
+                cx="46"
+                cy="48"
+                r="12"
+                fill="#f1f5f9"
+                stroke="#e2e8f0"
+                stroke-width="2"
+              />
               <path
                 d="M43 48h6M46 45v6"
                 stroke="#94a3b8"
@@ -142,8 +149,8 @@
           <article v-for="item in wrongList" :key="item.id" class="wrong-item">
             <div class="wrong-item__body">
               <div class="wrong-item__meta">
-                <span>{{ formatDate(item.answeredAt || item.examRecord?.submittedAt) }}</span>
-                <span>{{ formatTime(item.answeredAt || item.examRecord?.submittedAt) }}</span>
+                <span>{{ formatDate(item.examRecord?.submittedAt) }}</span>
+                <span>{{ formatTime(item.examRecord?.submittedAt) }}</span>
                 <span>{{ formatDuration(item.durationSeconds) }}</span>
                 <span class="difficulty-tag">{{ difficultyText(item) }}</span>
                 <span class="source-tag">{{ sourceText(item) }}</span>
@@ -170,6 +177,15 @@
             </button>
           </article>
         </div>
+
+        <AppPagination
+          v-if="!wrongLoading"
+          v-model:page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          @page-change="handlePageChange"
+          @page-size-change="handlePageSizeChange"
+        />
       </section>
     </main>
   </div>
@@ -180,6 +196,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import NavBar from '@/components/NavBar.vue'
 import LatexText from '@/components/LatexText.vue'
+import AppPagination from '@/components/AppPagination.vue'
 import { getMistakeNotebookData, type WrongAnswer } from '@/api/exam'
 import { getSyllabusData, type SyllabusNode } from '@/api/questionBank'
 
@@ -217,6 +234,18 @@ const draftFilters = reactive<FilterState>({
   knowledgeCodes: [],
   dateRange: [],
 })
+const appliedFilters = reactive<FilterState>({
+  difficulties: [],
+  sources: [],
+  knowledgeCodes: [],
+  dateRange: [],
+})
+const pagination = reactive({
+  page: 1,
+  pageSize: 20,
+  total: 0,
+  totalPages: 0,
+})
 
 const difficultyOptions = computed<FilterOption[]>(() =>
   Object.entries(difficultyLabelMap).map(([value, label]) => ({ value, label })),
@@ -237,26 +266,34 @@ onMounted(async () => {
   }
 })
 
-// 按当前筛选条件向后端请求错题摘要列表。
+// 按已应用筛选条件和分页参数向后端请求错题摘要列表。
 async function loadWrongAnswers(): Promise<void> {
   const result = await getMistakeNotebookData({
-    difficulties: draftFilters.difficulties,
-    paperTypes: draftFilters.sources,
-    syllabusCodes: draftFilters.knowledgeCodes,
-    startDate: draftFilters.dateRange?.[0],
-    endDate: draftFilters.dateRange?.[1],
+    page: pagination.page,
+    pageSize: pagination.pageSize,
+    difficulties: appliedFilters.difficulties,
+    paperTypes: appliedFilters.sources,
+    syllabusCodes: appliedFilters.knowledgeCodes,
+    startDate: appliedFilters.dateRange?.[0],
+    endDate: appliedFilters.dateRange?.[1],
   })
-  wrongList.value = result.wrongAnswers || []
+  wrongList.value = result.list || []
+  pagination.page = result.pagination.page
+  pagination.pageSize = result.pagination.pageSize
+  pagination.total = result.pagination.total
+  pagination.totalPages = result.pagination.totalPages
 }
 
-// 点击搜索时将筛选条件交给后端查询，避免后续分页后前端过滤失真。
+// 点击搜索时将草稿筛选条件提交为已应用条件，并从第一页重新查询。
 async function applyFilters(): Promise<void> {
+  copyFilters(draftFilters, appliedFilters)
+  pagination.page = 1
   wrongLoading.value = true
   hasActiveQuery.value =
-    draftFilters.difficulties.length > 0 ||
-    draftFilters.sources.length > 0 ||
-    draftFilters.knowledgeCodes.length > 0 ||
-    (Array.isArray(draftFilters.dateRange) && draftFilters.dateRange.length === 2)
+    appliedFilters.difficulties.length > 0 ||
+    appliedFilters.sources.length > 0 ||
+    appliedFilters.knowledgeCodes.length > 0 ||
+    (Array.isArray(appliedFilters.dateRange) && appliedFilters.dateRange.length === 2)
   try {
     await loadWrongAnswers()
   } finally {
@@ -266,10 +303,9 @@ async function applyFilters(): Promise<void> {
 
 // 重置筛选条件后重新拉取未过滤的错题列表。
 async function resetFilters(): Promise<void> {
-  draftFilters.difficulties = []
-  draftFilters.sources = []
-  draftFilters.knowledgeCodes = []
-  draftFilters.dateRange = []
+  clearFilters(draftFilters)
+  clearFilters(appliedFilters)
+  pagination.page = 1
   hasActiveQuery.value = false
   wrongLoading.value = true
   try {
@@ -277,6 +313,45 @@ async function resetFilters(): Promise<void> {
   } finally {
     wrongLoading.value = false
   }
+}
+
+// 分页切换使用已应用筛选条件，避免未点击搜索的草稿条件影响当前列表。
+async function handlePageChange(page: number): Promise<void> {
+  pagination.page = page
+  wrongLoading.value = true
+  try {
+    await loadWrongAnswers()
+  } finally {
+    wrongLoading.value = false
+  }
+}
+
+// 切换每页数量时保留已应用筛选条件，并回到第一页。
+async function handlePageSizeChange(pageSize: number): Promise<void> {
+  pagination.pageSize = pageSize
+  pagination.page = 1
+  wrongLoading.value = true
+  try {
+    await loadWrongAnswers()
+  } finally {
+    wrongLoading.value = false
+  }
+}
+
+// 搜索按钮是草稿条件生效的唯一入口，分页只读取已应用条件。
+function copyFilters(source: FilterState, target: FilterState): void {
+  target.difficulties = [...source.difficulties]
+  target.sources = [...source.sources]
+  target.knowledgeCodes = [...source.knowledgeCodes]
+  target.dateRange = source.dateRange ? [...source.dateRange] : []
+}
+
+// 重置时同时清空草稿条件和已应用条件。
+function clearFilters(filters: FilterState): void {
+  filters.difficulties = []
+  filters.sources = []
+  filters.knowledgeCodes = []
+  filters.dateRange = []
 }
 
 // 跳转到答题报告，并通过 questionId 定位到具体错题解析。
@@ -319,7 +394,7 @@ function selectedAnswersText(item: WrongAnswer): string {
   return item.selectedAnswer || ''
 }
 
-// 错题日期使用答题时间，没有时回退到考试提交时间。
+// 错题本按整次答题提交时间确认最近一次错误，避免逐题时间口径混乱。
 function formatDate(dateStr?: string | null): string {
   if (!dateStr) return '-'
   const d = new Date(dateStr)
@@ -329,7 +404,7 @@ function formatDate(dateStr?: string | null): string {
   ).padStart(2, '0')}`
 }
 
-// 做题时间精确到时分，缺失时展示占位符。
+// 提交时间精确到时分，缺失时展示占位符。
 function formatTime(dateStr?: string | null): string {
   if (!dateStr) return '--:--'
   const d = new Date(dateStr)
@@ -337,12 +412,13 @@ function formatTime(dateStr?: string | null): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-// 做题耗时按秒记录，展示为秒或分钟。
+// 单题耗时是独立统计字段，不参与错题本最近错误时间排序。
 function formatDuration(seconds?: number | null): string {
   if (!seconds) return '用时 -'
   if (seconds < 60) return `用时 ${seconds} 秒`
   return `用时 ${Math.max(1, Math.round(seconds / 60))} 分钟`
 }
+
 </script>
 
 <style scoped lang="scss">
@@ -355,7 +431,7 @@ function formatDuration(seconds?: number | null): string {
 .mistake-notebook-main {
   width: min(100%, 920px);
   margin: 0 auto;
-  padding: 34px 24px 72px;
+  padding: 34px 24px 20px;
 }
 
 .back-link {
@@ -366,7 +442,7 @@ function formatDuration(seconds?: number | null): string {
 }
 
 .mistake-notebook-header {
-  margin: 12px 0 46px;
+  margin: 12px 0 20px;
 
   h1 {
     margin: 0 0 22px;
@@ -604,7 +680,7 @@ function formatDuration(seconds?: number | null): string {
 
 @media (max-width: 640px) {
   .mistake-notebook-main {
-    padding: 26px 16px 56px;
+    padding: 26px 16px 20px;
   }
 
   .mistake-notebook-header {
@@ -624,5 +700,6 @@ function formatDuration(seconds?: number | null): string {
   .wrong-item__action {
     justify-self: end;
   }
+
 }
 </style>

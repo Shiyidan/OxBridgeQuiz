@@ -40,6 +40,12 @@ function parseDateBoundary(value: unknown, boundary: 'start' | 'end'): Date | un
   return Number.isNaN(date.getTime()) ? undefined : date
 }
 
+function parsePositiveInt(value: unknown, fallback: number, max?: number): number {
+  const parsed = Number.parseInt(String(Array.isArray(value) ? value[0] : value), 10)
+  if (Number.isNaN(parsed) || parsed < 1) return fallback
+  return max ? Math.min(parsed, max) : parsed
+}
+
 // 收集考纲节点及其所有子孙 code，用于按考纲节点筛选时覆盖子节点
 async function collectSyllabusCodes(codes: string[]): Promise<string[]> {
   if (!codes.length) return []
@@ -75,6 +81,8 @@ examRouter.get('/error-book', requireAuth, async (req, res) => {
     const difficulties = parseQueryList(req.query.difficulty)
     const paperTypes = parseQueryList(req.query.paperType)
     const syllabusCodes = await collectSyllabusCodes(parseQueryList(req.query.syllabusCode))
+    const page = parsePositiveInt(req.query.page, 1)
+    const pageSize = parsePositiveInt(req.query.pageSize, 20, 100)
     const startDate = parseDateBoundary(req.query.startDate, 'start')
     const endDate = parseDateBoundary(req.query.endDate, 'end')
     const wrongTimeWhere = {
@@ -116,16 +124,9 @@ examRouter.get('/error-book', requireAuth, async (req, res) => {
         examRecord: {
           userId: req.user!.userId,
           ...(paperTypes.length ? { paper: { paperType: { in: paperTypes } } } : {}),
+          ...(hasTimeFilter ? { submittedAt: wrongTimeWhere } : {}),
         },
         isCorrect: false,
-        ...(hasTimeFilter
-          ? {
-              OR: [
-                { answeredAt: wrongTimeWhere },
-                { answeredAt: null, examRecord: { submittedAt: wrongTimeWhere } },
-              ],
-            }
-          : {}),
         ...(hasQuestionFilter
           ? { questionId: { in: questionSummaries.map((question) => question.id) } }
           : {}),
@@ -139,11 +140,10 @@ examRouter.get('/error-book', requireAuth, async (req, res) => {
           },
         },
       },
-      orderBy: { answeredAt: 'desc' },
     })
     const sortedWrongAnswers = wrongAnswers.sort((a, b) => {
-      const bTime = new Date(b.answeredAt || b.examRecord.submittedAt || 0).getTime()
-      const aTime = new Date(a.answeredAt || a.examRecord.submittedAt || 0).getTime()
+      const bTime = new Date(b.examRecord.submittedAt || 0).getTime()
+      const aTime = new Date(a.examRecord.submittedAt || 0).getTime()
       return bTime - aTime
     })
 
@@ -190,26 +190,39 @@ examRouter.get('/error-book', requireAuth, async (req, res) => {
       }
     }
 
+    const allItems = Array.from(groupedWrongAnswers.values()).map((group) => {
+      const answer = group.latest
+      const question = questionMap.get(answer.questionId)
+      return {
+        id: answer.id,
+        questionId: answer.questionId,
+        title: question?.title || '',
+        difficulty: question?.difficulty || '',
+        syllabus_points: question ? safeJsonParse(question.syllabusPoints, []) : [],
+        selectedAnswer: group.selectedAnswers.join('、') || answer.selectedAnswer,
+        selectedAnswers: group.selectedAnswers,
+        wrongCount: group.wrongCount,
+        isCorrect: answer.isCorrect,
+        durationSeconds: answer.durationSeconds,
+        answeredAt: answer.answeredAt,
+        examRecord: answer.examRecord,
+      }
+    })
+    const total = allItems.length
+    const totalPages = Math.ceil(total / pageSize)
+    const safePage = totalPages > 0 ? Math.min(page, totalPages) : 1
+    const startIndex = (safePage - 1) * pageSize
+
     res.json(success({
-      wrongAnswers: Array.from(groupedWrongAnswers.values()).map((group) => {
-        const answer = group.latest
-        const question = questionMap.get(answer.questionId)
-        return {
-          id: answer.id,
-          questionId: answer.questionId,
-          title: question?.title || '',
-          difficulty: question?.difficulty || '',
-          syllabus_points: question ? safeJsonParse(question.syllabusPoints, []) : [],
-          selectedAnswer: group.selectedAnswers.join('、') || answer.selectedAnswer,
-          selectedAnswers: group.selectedAnswers,
-          wrongCount: group.wrongCount,
-          isCorrect: answer.isCorrect,
-          durationSeconds: answer.durationSeconds,
-          answeredAt: answer.answeredAt,
-          examRecord: answer.examRecord,
-        }
-      }),
-      total: groupedWrongAnswers.size,
+      list: allItems.slice(startIndex, startIndex + pageSize),
+      pagination: {
+        page: safePage,
+        pageSize,
+        total,
+        totalPages,
+        hasPrev: safePage > 1,
+        hasNext: totalPages > 0 && safePage < totalPages,
+      },
     }))
   } catch (e: any) {
     console.error('Error book error:', e)

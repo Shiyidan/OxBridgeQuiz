@@ -81,7 +81,23 @@ export interface WrongAnswer {
   }
 }
 
+export interface PaginationMeta {
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+  hasPrev: boolean
+  hasNext: boolean
+}
+
+export interface PageResult<T> {
+  list: T[]
+  pagination: PaginationMeta
+}
+
 export interface MistakeNotebookParams {
+  page?: number
+  pageSize?: number
   difficulties?: string[]
   paperTypes?: string[]
   syllabusCodes?: string[]
@@ -121,11 +137,13 @@ export function getExamResultData(examId: string) {
 
 /** 获取错题本 */
 export function getMistakeNotebookData(params: MistakeNotebookParams = {}) {
-  return callApi<{ wrongAnswers: WrongAnswer[]; total: number }>({
+  return callApi<PageResult<WrongAnswer>>({
     url: '/exams/error-book',
     method: 'GET',
     isAllData: false,
     params: {
+      ...(params.page ? { page: String(params.page) } : {}),
+      ...(params.pageSize ? { pageSize: String(params.pageSize) } : {}),
       ...(params.difficulties?.length ? { difficulty: params.difficulties.join(',') } : {}),
       ...(params.paperTypes?.length ? { paperType: params.paperTypes.join(',') } : {}),
       ...(params.syllabusCodes?.length ? { syllabusCode: params.syllabusCodes.join(',') } : {}),

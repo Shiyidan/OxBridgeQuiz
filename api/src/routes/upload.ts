@@ -23,7 +23,6 @@ uploadRouter.post('/paper-pages/create', requireAuth, requireAdmin, async (req, 
         duration: parseInt(duration) || 60,
         paperType: paperType || 'past',
         pdfUrl: null,
-        questions: '[]',
       },
     })
 

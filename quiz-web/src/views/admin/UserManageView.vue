@@ -32,20 +32,15 @@
                   </span>
                 </td>
                 <td>
-                  <span class="plan-badge" :class="'plan-' + u.paymentStatus">
-                    {{ planLabel(u.paymentStatus) }}
+                  <span class="plan-badge" :class="planClass(u)">
+                    {{ planLabel(u) }}
                   </span>
                 </td>
                 <td class="cell-date">{{ formatDate(u.createdAt) }}</td>
                 <td v-if="isSuperAdmin">
-                  <select
-                    class="role-select"
-                    :value="u.role"
-                    @change="handleRoleChange(u.id, ($event.target as HTMLSelectElement).value)"
-                  >
-                    <option value="student">普通用户</option>
-                    <option value="admin">管理员</option>
-                  </select>
+                  <button class="edit-btn" type="button" @click="openEditDialog(u)">
+                    编辑
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -55,6 +50,63 @@
         <div v-if="users.length === 0" class="empty-state">暂无注册用户</div>
       </template>
     </div>
+
+    <el-dialog v-model="editVisible" title="编辑用户权限" width="520px">
+      <div v-if="editingUser" class="access-form">
+        <div class="user-summary">
+          <strong>{{ editingUser.name }}</strong>
+          <span>{{ editingUser.email }}</span>
+        </div>
+
+        <label class="form-row">
+          <span>用户角色</span>
+          <el-select v-model="editForm.role" class="form-control">
+            <el-option label="普通用户" value="student" />
+            <el-option label="管理员" value="admin" />
+          </el-select>
+        </label>
+
+        <label class="form-row">
+          <span>考试类型</span>
+          <el-select
+            v-model="editForm.examTypes"
+            class="form-control"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            placeholder="选择要开通的考试类型"
+          >
+            <el-option
+              v-for="item in examTypeOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </label>
+
+        <label class="form-row">
+          <span>会员套餐</span>
+          <el-select v-model="editForm.plan" class="form-control">
+            <el-option
+              v-for="item in planOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </label>
+      </div>
+
+      <template #footer>
+        <button class="dialog-btn ghost" type="button" @click="editVisible = false">
+          取消
+        </button>
+        <button class="dialog-btn primary" type="button" :disabled="saving" @click="saveAccess">
+          {{ saving ? '保存中...' : '保存' }}
+        </button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -62,18 +114,62 @@
 // 用户管理页：展示注册用户，并允许管理员调整用户角色。
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { getUserListData, updateUserRole, type UserItem } from '@/api/admin'
+import { getUserListData, updateUserAccess, type UserItem } from '@/api/admin'
 import { ElMessage } from 'element-plus'
 
 const auth = useAuthStore()
 const users = ref<UserItem[]>([])
 const loading = ref(true)
 const isSuperAdmin = computed(() => auth.user?.role === 'admin')
+const editVisible = ref(false)
+const saving = ref(false)
+const editingUser = ref<UserItem | null>(null)
+const editForm = ref({
+  role: 'student',
+  examTypes: [] as string[],
+  plan: 'monthly',
+})
 
-// 支付状态来自用户表枚举，前端统一转换为权益标签。
-function planLabel(status: string): string {
-  const map: Record<string, string> = { free: '免费', paid: '付费', expired: '已过期' }
-  return map[status] || status
+const examTypeOptions = [
+  { label: 'TMUA', value: 'TMUA' },
+  { label: 'ESAT', value: 'ESAT' },
+  { label: 'ENGAA', value: 'ENGAA' },
+  { label: 'NSAA', value: 'NSAA' },
+]
+
+const planOptions = [
+  { label: '月度会员', value: 'monthly' },
+  { label: '年度会员', value: 'yearly' },
+]
+
+function activeMemberships(user: UserItem) {
+  const now = Date.now()
+  return (user.memberships || []).filter((item) => (
+    item.status === 'active' && item.endsAt > now
+  ))
+}
+
+function planName(plan: string): string {
+  const map: Record<string, string> = { monthly: '月度', yearly: '年度' }
+  return map[plan] || plan
+}
+
+// 权益展示以 UserMembership 为准，避免旧 paymentStatus 误导测试。
+function planLabel(user: UserItem): string {
+  if (user.role === 'admin') return '管理员权限'
+  const activeItems = activeMemberships(user)
+  if (activeItems.length > 0) {
+    return activeItems.map((item) => `${item.examType} ${planName(item.plan)}`).join('、')
+  }
+  if ((user.memberships || []).some((item) => item.status === 'expired')) return '会员已过期'
+  return '免费'
+}
+
+function planClass(user: UserItem): string {
+  if (user.role === 'admin') return 'plan-admin'
+  if (activeMemberships(user).length > 0) return 'plan-paid'
+  if ((user.memberships || []).some((item) => item.status === 'expired')) return 'plan-expired'
+  return 'plan-free'
 }
 
 // 后台列表只需要展示日期，避免时间精度干扰用户扫描。
@@ -99,14 +195,40 @@ async function fetchUsers(): Promise<void> {
   }
 }
 
-// 角色更新成功后再改本地数据，避免接口失败时界面提前变更。
-async function handleRoleChange(userId: string, newRole: string): Promise<void> {
+// 打开弹窗时带入现有角色和当前有效会员，便于续改测试账号。
+function openEditDialog(user: UserItem): void {
+  const activeItems = activeMemberships(user)
+  editingUser.value = user
+  editForm.value = {
+    role: user.role,
+    examTypes: activeItems.map((item) => item.examType),
+    plan: activeItems[0]?.plan || 'monthly',
+  }
+  editVisible.value = true
+}
+
+// 保存后以后端返回用户替换当前行，确保会员记录与列表展示一致。
+async function saveAccess(): Promise<void> {
+  if (!editingUser.value) return
+  saving.value = true
   try {
-    await updateUserRole(userId, newRole)
-    const user = users.value.find((u) => u.id === userId)
-    if (user) user.role = newRole
+    const data = await updateUserAccess(editingUser.value.id, {
+      role: editForm.value.role,
+      membership: {
+        examTypes: editForm.value.examTypes,
+        plan: editForm.value.plan,
+      },
+    })
+    if (data.user) {
+      const index = users.value.findIndex((u) => u.id === data.user!.id)
+      if (index >= 0) users.value[index] = data.user
+    }
+    editVisible.value = false
+    ElMessage.success('用户权限已更新')
   } catch (e: any) {
     ElMessage.error(e.response?.data?.errMsg || '操作失败')
+  } finally {
+    saving.value = false
   }
 }
 
@@ -258,12 +380,20 @@ onMounted(fetchUsers)
   color: #dc2626;
 }
 
-.role-select {
-  padding: 6px 10px;
+.plan-admin {
+  background: #111827;
+  color: #fff;
+}
+
+.edit-btn,
+.dialog-btn {
+  height: 32px;
+  padding: 0 14px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   font-size: 0.813rem;
   font-family: inherit;
+  font-weight: 700;
   color: #0f172a;
   background: #fff;
   cursor: pointer;
@@ -273,5 +403,64 @@ onMounted(fetchUsers)
     border-color: #4f46e5;
     box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.12);
   }
+}
+
+.edit-btn:hover {
+  border-color: #4f46e5;
+  color: #4f46e5;
+}
+
+.access-form {
+  display: grid;
+  gap: 18px;
+}
+
+.user-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: #f8fafc;
+
+  strong {
+    color: #0f172a;
+  }
+
+  span {
+    color: #64748b;
+    font-size: 0.875rem;
+  }
+}
+
+.form-row {
+  display: grid;
+  gap: 8px;
+  color: #334155;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.form-control {
+  width: 100%;
+}
+
+.dialog-btn {
+  margin-left: 10px;
+}
+
+.dialog-btn.primary {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+  }
+}
+
+.dialog-btn.ghost {
+  color: #475569;
 }
 </style>

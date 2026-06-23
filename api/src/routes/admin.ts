@@ -3,6 +3,16 @@ import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 import { success, fail } from '../utils/response.js'
+import {
+  MEMBERSHIP_PLAN,
+  MEMBERSHIP_STATUS,
+  USER_PAYMENT_STATUS,
+  USER_ROLE,
+  isExamType,
+  isMembershipPlan,
+  isUserRole,
+} from '../constants/domain.js'
+import { formatUserForClient } from '../utils/userPresenter.js'
 
 export const adminRouter = Router()
 
@@ -20,6 +30,29 @@ interface RevenueCostPayload {
 type RevenueCostPayloadResult =
   | { data: RevenueCostPayload }
   | { error: string }
+
+function buildMembershipEndDate(plan: string, start: Date): Date {
+  const end = new Date(start)
+  if (plan === MEMBERSHIP_PLAN.YEARLY) {
+    end.setFullYear(end.getFullYear() + 1)
+  } else {
+    end.setMonth(end.getMonth() + 1)
+  }
+  return end
+}
+
+function formatAdminUserForClient<T extends { role: string; paymentStatus?: string | null; memberships?: any[] }>(user: T) {
+  const formatted = formatUserForClient(user)
+  if (!user.memberships) return formatted
+  return {
+    ...formatted,
+    memberships: user.memberships.map((membership) => ({
+      ...membership,
+      startsAt: membership.startsAt.getTime(),
+      endsAt: membership.endsAt.getTime(),
+    })),
+  }
+}
 
 function parseRevenueCostPayload(body: Record<string, unknown>): RevenueCostPayloadResult {
   const {
@@ -80,10 +113,21 @@ adminRouter.get('/users', async (_req: Request, res: Response) => {
         paymentStatus: true,
         diagnosticUsed: true,
         createdAt: true,
+        memberships: {
+          select: {
+            id: true,
+            examType: true,
+            plan: true,
+            status: true,
+            startsAt: true,
+            endsAt: true,
+          },
+          orderBy: { endsAt: 'desc' },
+        },
       },
       orderBy: { createdAt: 'desc' },
     })
-    res.json(success({ users }))
+    res.json(success({ users: users.map(formatAdminUserForClient) }))
   } catch (err) {
     console.error('[admin] users error:', err)
     res.status(500).json(fail('服务器错误'))
@@ -94,7 +138,7 @@ adminRouter.get('/users', async (_req: Request, res: Response) => {
 adminRouter.put('/users/:id/role', async (req: Request, res: Response) => {
   try {
     const { role } = req.body
-    if (!role || !['student', 'admin'].includes(role)) {
+    if (!isUserRole(role)) {
       res.status(422).json(fail('无效的角色'))
       return
     }
@@ -104,9 +148,105 @@ adminRouter.put('/users/:id/role', async (req: Request, res: Response) => {
       data: { role },
       select: { id: true, name: true, email: true, role: true, paymentStatus: true },
     })
-    res.json(success({ user }))
+    res.json(success({ user: formatAdminUserForClient(user) }))
   } catch (err) {
     console.error('[admin] update role error:', err)
+    res.status(500).json(fail('服务器错误'))
+  }
+})
+
+// 更新用户权限
+adminRouter.put('/users/:id/access', async (req: Request, res: Response) => {
+  try {
+    const { role, membership } = req.body
+    const userId = req.params.id
+    if (!isUserRole(role)) {
+      res.status(422).json(fail('无效的角色'))
+      return
+    }
+
+    const requestedExamTypes: unknown[] = Array.isArray(membership?.examTypes) ? membership.examTypes : []
+    const plan = membership?.plan
+    if (requestedExamTypes.length > 0 && !isMembershipPlan(plan)) {
+      res.status(422).json(fail('无效的会员套餐'))
+      return
+    }
+    if (requestedExamTypes.some((examType) => !isExamType(examType))) {
+      res.status(422).json(fail('无效的考试类型'))
+      return
+    }
+    const examTypes = requestedExamTypes as string[]
+
+    const now = new Date()
+    const endsAt = examTypes.length > 0 ? buildMembershipEndDate(plan, now) : null
+
+    const user = await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          role,
+          ...(role === USER_ROLE.STUDENT && examTypes.length > 0
+            ? { paymentStatus: USER_PAYMENT_STATUS.PAID }
+            : {}),
+        },
+      })
+
+      if (role === USER_ROLE.STUDENT) {
+        await tx.userMembership.updateMany({
+          where: { userId, status: MEMBERSHIP_STATUS.ACTIVE, examType: { notIn: examTypes } },
+          data: { status: MEMBERSHIP_STATUS.CANCELLED },
+        })
+      }
+
+      for (const examType of examTypes) {
+        const active = await tx.userMembership.findFirst({
+          where: { userId, examType, status: MEMBERSHIP_STATUS.ACTIVE },
+          orderBy: { endsAt: 'desc' },
+        })
+        if (active) {
+          await tx.userMembership.update({
+            where: { id: active.id },
+            data: { plan, startsAt: now, endsAt: endsAt!, status: MEMBERSHIP_STATUS.ACTIVE },
+          })
+        } else {
+          await tx.userMembership.create({
+            data: { userId, examType, plan, startsAt: now, endsAt: endsAt!, status: MEMBERSHIP_STATUS.ACTIVE },
+          })
+        }
+      }
+
+      return tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          paymentStatus: true,
+          diagnosticUsed: true,
+          createdAt: true,
+          memberships: {
+            select: {
+              id: true,
+              examType: true,
+              plan: true,
+              status: true,
+              startsAt: true,
+              endsAt: true,
+            },
+            orderBy: { endsAt: 'desc' },
+          },
+        },
+      })
+    })
+
+    res.json(success({ user: user ? formatAdminUserForClient(user) : null }))
+  } catch (err: any) {
+    if (err?.code === 'P2025') {
+      res.status(404).json(fail('用户不存在'))
+      return
+    }
+    console.error('[admin] update access error:', err)
     res.status(500).json(fail('服务器错误'))
   }
 })

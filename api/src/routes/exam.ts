@@ -3,6 +3,7 @@ import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
 import { formatQuestionRow } from '../utils/questionSync.js'
+import { checkMemberAccess } from '../services/member.js'
 
 export const examRouter = Router()
 
@@ -73,6 +74,10 @@ async function collectSyllabusCodes(codes: string[]): Promise<string[]> {
 function jsonPointsHaveCode(value: string, codes: string[]): boolean {
   const points = safeJsonParse<Array<{ code?: string }>>(value, [])
   return points.some((point) => point.code && codes.includes(point.code))
+}
+
+function isDiagnosticPaperType(paperType: string): boolean {
+  return ['past', 'diagnostic', 'mock'].includes(paperType)
 }
 
 // 错题本 — 按难度、试卷类型和大纲节点筛选当前用户错题摘要。
@@ -233,7 +238,7 @@ examRouter.get('/error-book', requireAuth, async (req, res) => {
 // 交卷 — 保存答题记录和逐题答案
 examRouter.post('/submit', requireAuth, async (req, res) => {
   try {
-    const { questions, answers, questionDurations, startedAt, paperId } = req.body
+    const { questions, answers, questionDurations, startedAt, paperId, examType } = req.body
 
     if (!Array.isArray(questions) || questions.length === 0) {
       res.status(400).json(fail('题目列表不能为空'))
@@ -252,12 +257,28 @@ examRouter.post('/submit', requireAuth, async (req, res) => {
     }
 
     const targetPaperId = paperId || 'question-bank'
+    let targetExamType = examType || 'TMUA'
+    let targetPaperType = 'practice'
     if (paperId) {
       const paper = await prisma.paper.findUnique({ where: { id: paperId } })
       if (!paper) {
         res.status(404).json(fail('试卷不存在'))
         return
       }
+      targetExamType = paper.examType || targetExamType
+      targetPaperType = paper.paperType
+    }
+
+    const isDiagnostic = isDiagnosticPaperType(targetPaperType)
+    const entitlement = await checkMemberAccess(
+      req.user!.userId,
+      isDiagnostic ? 'diagnostic' : 'question-bank',
+      targetExamType,
+      isDiagnostic ? 1 : questions.length,
+    )
+    if (!entitlement.allowed) {
+      res.status(403).json(fail('当前额度不足，请开通会员后继续'))
+      return
     }
 
     if (!paperId) {
@@ -267,6 +288,7 @@ examRouter.post('/submit', requireAuth, async (req, res) => {
         create: {
           id: 'question-bank',
           title: '试题库练习',
+          examType: targetExamType,
           year: new Date().getFullYear(),
           duration: 60,
           paperType: 'practice',
@@ -279,6 +301,7 @@ examRouter.post('/submit', requireAuth, async (req, res) => {
       data: {
         userId: req.user!.userId,
         paperId: targetPaperId,
+        examType: targetExamType,
         totalQuestions: questions.length,
         correctCount,
         startedAt: startedAt ? new Date(startedAt) : new Date(),

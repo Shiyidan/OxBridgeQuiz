@@ -1,0 +1,83 @@
+/**
+ * 会员权益相关 API
+ */
+import { callApi } from '@/utils/request'
+
+export interface MemberUser {
+  id: string
+  name: string
+  email: string
+  role: string
+  avatar?: string
+  paymentStatus?: string
+}
+
+export interface MemberSubscription {
+  examType: string
+  plan: string
+  status: string
+  startsAt: number | null
+  endsAt: number | null
+  remainingDays: number
+}
+
+export interface UsageQuota {
+  limit: number | null
+  used: number
+  remaining: number | null
+  unlimited: boolean
+}
+
+export interface ExamQuota {
+  status: string
+  isMember: boolean
+  plan: string
+  startsAt: number | null
+  endsAt: number | null
+  remainingDays: number
+  diagnostic: UsageQuota
+  questionBank: UsageQuota
+}
+
+export interface MemberContext {
+  user: MemberUser
+  role: string
+  isAdmin: boolean
+  memberships: MemberSubscription[]
+  quotas: Record<string, ExamQuota>
+}
+
+export interface MemberAccessResult {
+  allowed: boolean
+  reason: string | null
+  action: 'diagnostic' | 'question-bank'
+  examType: string
+  required: number
+  limit: number | null
+  used: number
+  remaining: number | null
+  unlimited: boolean
+}
+
+/** 获取当前用户会员权益上下文 */
+export function getMember() {
+  return callApi<MemberContext>({
+    url: '/getMember',
+    method: 'GET',
+    isAllData: false,
+  })
+}
+
+/** 寮€濮嬭瘖鏂垨缁冧範鍓嶉妫€鏉冪泭 */
+export function checkMemberAccess(params: {
+  action: 'diagnostic' | 'question-bank'
+  examType: string
+  questionCount?: number
+}) {
+  return callApi<MemberAccessResult>({
+    url: '/getMember/check-access',
+    method: 'POST',
+    isAllData: false,
+    body: params,
+  })
+}

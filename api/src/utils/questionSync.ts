@@ -19,8 +19,15 @@ export async function syncPaperQuestions(paperId: string, questions: any[]): Pro
 
   if (!questions.length) return
 
+  const paper = await prisma.paper.findUnique({
+    where: { id: paperId },
+    select: { examType: true },
+  })
+  const paperExamType = paper?.examType || 'TMUA'
+
   const rows = questions.map((q: any) => ({
     paperId,
+    examType: q.examType || q.exam_type || paperExamType,
     number: q.number ?? 0,
     title: q.title ?? '',
     options: JSON.stringify(q.options || []),
@@ -57,6 +64,7 @@ export function getPaperQuestions(paperId: string) {
 export function formatQuestionRow(row: any) {
   return {
     id: row.id,
+    examType: row.examType,
     number: row.number,
     title: row.title,
     options: JSON.parse(row.options),

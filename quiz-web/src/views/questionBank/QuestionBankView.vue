@@ -26,7 +26,7 @@
           class="qb-tab"
           :class="{ 'qb-tab--active': activeTabId === tab.id }"
           :aria-selected="activeTabId === tab.id"
-          @click="activeTabId = tab.id"
+          @click="handleTabClick(tab.id)"
         >
           {{ tab.label }}
         </button>
@@ -86,9 +86,11 @@
 // 试题库浏览页：从已发布试卷汇总真实题目，按难度和学科筛选后进入练习。
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import type { SyllabusNode } from '@/api/questionBank'
 import { getSyllabusData, getQuestionSummaryData } from '@/api/questionBank'
+import { checkMemberAccess } from '@/api/member'
 
 const router = useRouter()
 
@@ -153,11 +155,12 @@ const difficulties = ref<DifficultyOption[]>([
 ])
 
 const activeTopicTitle = computed<string>(() => `${selectedNodeLabel.value} · 试题`)
+const activeExamType = computed<string>(() => activeTabId.value.toUpperCase())
 
 // 首次进入试题库时加载大纲树，并默认查询最外层第一个节点。
 onMounted(async () => {
   try {
-    const nodes = await getSyllabusData()
+    const nodes = await getSyllabusData(activeExamType.value)
     treeData.value = nodes[0]?.children || []
     const first = treeData.value[0]
     if (first) {
@@ -174,7 +177,7 @@ onMounted(async () => {
 // 轻量接口只拉题量和难度分布，避免列表页首次加载全量题目。
 async function loadQuestionSummary(): Promise<void> {
   try {
-    const data = await getQuestionSummaryData(selectedNodeCode.value)
+    const data = await getQuestionSummaryData(selectedNodeCode.value, activeExamType.value)
     totalQuestionCount.value = data.total
     if (data.difficultyCount) {
       difficulties.value = difficulties.value.map((d) => ({
@@ -194,11 +197,38 @@ const handleTreeNodeClick = async (node: TreeNode): Promise<void> => {
   await loadQuestionSummary()
 }
 
+// 切换考试类型后重置大纲入口，避免沿用上一考试类型的节点 code。
+async function handleTabClick(tabId: QbTab['id']): Promise<void> {
+  activeTabId.value = tabId
+  try {
+    const nodes = await getSyllabusData(activeExamType.value)
+    treeData.value = nodes[0]?.children || []
+    const first = treeData.value[0]
+    selectedNodeCode.value = first?.code || ''
+    selectedNodeLabel.value = first?.label || '综合考点'
+  } catch {
+    treeData.value = []
+    selectedNodeCode.value = ''
+    selectedNodeLabel.value = '综合考点'
+  }
+  await loadQuestionSummary()
+}
+
 // 难度卡片进入在线练习页，题目数据由 code 和 difficulty 延迟加载。
-const handleStartPractice = (diff: DifficultyOption): void => {
+const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
+  const access = await checkMemberAccess({
+    action: 'question-bank',
+    examType: activeExamType.value,
+    questionCount: diff.count,
+  })
+  if (!access.allowed) {
+    const remainingText = access.remaining === null ? '0' : String(access.remaining)
+    ElMessage.warning(`当前试题库额度不足，剩余 ${remainingText} 题，请开通会员后继续`)
+    return
+  }
   router.push({
     path: '/practice',
-    query: { code: selectedNodeCode.value || '', difficulty: diff.id },
+    query: { code: selectedNodeCode.value || '', difficulty: diff.id, examType: activeExamType.value },
   })
 }
 </script>

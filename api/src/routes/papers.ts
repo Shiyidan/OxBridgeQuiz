@@ -28,7 +28,7 @@ papersRouter.get('/', async (req, res) => {
     prisma.paper.findMany({
       where,
       select: {
-        id: true, title: true, code: true, year: true,
+        id: true, title: true, code: true, examType: true, year: true,
         duration: true, totalQuestions: true, paperType: true, status: true,
         createdAt: true
       },
@@ -44,7 +44,7 @@ papersRouter.get('/', async (req, res) => {
 // JSON 导入试卷
 papersRouter.post('/import-json', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { title, year, duration, code, questions, paperType } = req.body
+    const { title, year, duration, code, examType, questions, paperType } = req.body
 
     if (!title || !year) {
       res.status(400).json(fail('标题和年份为必填项'))
@@ -77,6 +77,7 @@ papersRouter.post('/import-json', requireAuth, requireAdmin, async (req, res) =>
         year: parseInt(String(year)),
         duration: parseInt(String(duration)) || 60,
         code: code || undefined,
+        examType: examType || 'TMUA',
         paperType: paperType || 'past',
         totalQuestions: questions.length,
         status: 'draft',
@@ -99,7 +100,7 @@ papersRouter.post('/import-json', requireAuth, requireAdmin, async (req, res) =>
 // Markdown 导入试卷
 papersRouter.post('/import-markdown', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { markdown, title, year, duration, code, paperType } = req.body
+    const { markdown, title, year, duration, code, examType, paperType } = req.body
 
     if (!title || !year) {
       res.status(400).json(fail('标题和年份为必填项'))
@@ -128,6 +129,7 @@ papersRouter.post('/import-markdown', requireAuth, requireAdmin, async (req, res
         year: parseInt(String(year)),
         duration: parseInt(String(duration)) || 60,
         code: code || undefined,
+        examType: examType || 'TMUA',
         paperType: paperType || 'past',
         totalQuestions: result.questions.length,
         status: 'draft',
@@ -184,8 +186,8 @@ papersRouter.get('/syllabus', async (req, res) => {
 })
 
 // 收集考纲节点及其所有子孙 code
-async function collectDescendantCodes(code: string): Promise<string[]> {
-  const allNodes = await prisma.syllabusNode.findMany({ where: { examType: 'ESAT' } })
+async function collectDescendantCodes(code: string, examType: string): Promise<string[]> {
+  const allNodes = await prisma.syllabusNode.findMany({ where: { examType } })
   const childCodes = new Set<string>([code])
   let prevSize = 0
   while (childCodes.size > prevSize) {
@@ -201,10 +203,11 @@ async function collectDescendantCodes(code: string): Promise<string[]> {
 papersRouter.get('/question-bank/summary', async (req, res) => {
   try {
     const code = req.query.code as string | undefined
-    const filterCodes = code ? await collectDescendantCodes(code) : []
+    const examType = (req.query.examType as string) || 'ESAT'
+    const filterCodes = code ? await collectDescendantCodes(code, examType) : []
 
     const questions = await prisma.question.findMany({
-      where: { paper: { status: 'published' } },
+      where: { examType, paper: { status: 'published' } },
       select: { difficulty: true, syllabusPoints: true },
     })
 
@@ -244,8 +247,9 @@ papersRouter.get('/question-bank', async (req, res) => {
     const difficulty = req.query.difficulty as string | undefined
     const subject = req.query.subject as string | undefined
     const code = req.query.code as string | undefined
+    const examType = (req.query.examType as string) || 'ESAT'
 
-    const where: any = { paper: { status: 'published' } }
+    const where: any = { examType, paper: { status: 'published' } }
     if (subject) where.subject = subject
 
     const questions = await prisma.question.findMany({
@@ -254,7 +258,7 @@ papersRouter.get('/question-bank', async (req, res) => {
       include: { paper: { select: { id: true, title: true, year: true } } },
     })
 
-    const filterCodes = code ? await collectDescendantCodes(code) : []
+    const filterCodes = code ? await collectDescendantCodes(code, examType) : []
     const isFiltered = !!(difficulty || subject || code)
     const diffCount: Record<string, number> = { easy: 0, medium: 0, hard: 0, composite: 0 }
     const subjects = new Set<string>()
@@ -296,7 +300,7 @@ papersRouter.get('/assessment/papers', requireAuth, async (req, res) => {
     const papers = await prisma.paper.findMany({
       where: { status: 'published', paperType: 'past' },
       select: {
-        id: true, title: true, code: true, year: true,
+        id: true, title: true, code: true, examType: true, year: true,
         duration: true, totalQuestions: true, paperType: true, createdAt: true,
       },
       orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
@@ -347,13 +351,14 @@ papersRouter.get('/:id', async (req, res) => {
 
 // 更新试卷
 papersRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
-  const { title, code, year, duration, questions, status, paperType } = req.body
+  const { title, code, examType, year, duration, questions, status, paperType } = req.body
 
   const paper = await prisma.paper.update({
     where: { id: req.params.id },
     data: {
       ...(title && { title }),
       ...(code !== undefined && { code }),
+      ...(examType && { examType }),
       ...(year && { year }),
       ...(duration && { duration }),
       ...(questions && { totalQuestions: questions.length }),

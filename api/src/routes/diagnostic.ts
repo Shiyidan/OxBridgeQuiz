@@ -1,26 +1,31 @@
 import { Router, Request, Response } from 'express'
 import { prisma } from '../services/prisma.js'
-import { optionalAuth, requireAuth } from '../middleware/auth.js'
-import { scoreAnswers, buildPartialReport, buildFullReportFromSession } from '../services/diagnostic.js'
+import { requireAuth } from '../middleware/auth.js'
+import { buildFullReportFromSession } from '../services/diagnostic.js'
 import { success, fail } from '../utils/response.js'
 import { formatQuestionRow } from '../utils/questionSync.js'
+import { checkMemberAccess } from '../services/member.js'
 
 export const diagnosticRouter = Router()
 
-// 获取诊断题目
-diagnosticRouter.get('/questions', optionalAuth, async (req: Request, res: Response) => {
+// 获取诊断题目（需登录）
+diagnosticRouter.get('/questions', requireAuth, async (req: Request, res: Response) => {
   try {
-    if (req.user) {
-      const user = await prisma.user.findUnique({ where: { id: req.user.userId } })
-      if (user && user.diagnosticUsed && user.paymentStatus === 'free') {
-        res.status(403).json(fail('免费诊断次数已用完，请升级付费解锁更多次数'))
-        return
-      }
+    const user = await prisma.user.findUnique({ where: { id: req.user!.userId } })
+    if (!user) {
+      res.status(404).json(fail('用户不存在'))
+      return
     }
 
-    // 从 Question 表直接查询已发布试卷的题目
+    const examType = (req.query.examType as string) || 'TMUA'
+    const entitlement = await checkMemberAccess(req.user!.userId, 'diagnostic', examType, 1)
+    if (!entitlement.allowed) {
+      res.status(403).json(fail('当前诊断测试额度不足，请开通会员后继续'))
+      return
+    }
+
     const dbQuestions = await prisma.question.findMany({
-      where: { paper: { status: 'published' } },
+      where: { examType, paper: { status: 'published' } },
       take: 100,
     })
 
@@ -46,17 +51,21 @@ diagnosticRouter.get('/questions', optionalAuth, async (req: Request, res: Respo
   }
 })
 
-// 提交诊断答案
-diagnosticRouter.post('/submit', optionalAuth, async (req: Request, res: Response) => {
+// 提交诊断答案（需登录）
+diagnosticRouter.post('/submit', requireAuth, async (req: Request, res: Response) => {
   try {
-    const { answers, questionAnswers } = req.body
-    // questionAnswers: 后端在校验时使用，不在响应中暴露
+    const { answers, questionAnswers, examType = 'TMUA' } = req.body
     if (!answers || !Array.isArray(answers)) {
       res.status(422).json(fail('请提交答案'))
       return
     }
 
-    // 批改
+    const entitlement = await checkMemberAccess(req.user!.userId, 'diagnostic', examType, 1)
+    if (!entitlement.allowed) {
+      res.status(403).json(fail('当前诊断测试额度不足，请开通会员后继续'))
+      return
+    }
+
     const qaMap = new Map<string, string[]>(
       (questionAnswers || []).map((qa: { id: string; answer: string[] }) => [qa.id, qa.answer]),
     )
@@ -71,44 +80,32 @@ diagnosticRouter.post('/submit', optionalAuth, async (req: Request, res: Respons
       },
     )
 
-    const totalQuestions = answers.length
-
-    // 创建 DiagnosticSession
     const session = await prisma.diagnosticSession.create({
       data: {
-        userId: req.user?.userId || null,
+        userId: req.user!.userId,
+        examType,
         answers: JSON.stringify(answers),
-        totalQuestions,
+        totalQuestions: answers.length,
         correctCount,
-        status: req.user ? 'linked' : 'anonymous',
+        status: 'linked',
       },
     })
 
-    // 如果已登录，标记 diagnosticUsed
-    if (req.user) {
-      await prisma.user.update({
-        where: { id: req.user.userId },
-        data: { diagnosticUsed: true },
-      })
-    }
+    await prisma.user.update({
+      where: { id: req.user!.userId },
+      data: { diagnosticUsed: true },
+    })
 
-    if (req.user) {
-      // 登录用户返回完整报告
-      const fullReport = buildFullReportFromSession(session)
-      res.json(success({ report: fullReport }))
-    } else {
-      // 游客返回部分报告
-      const partialReport = buildPartialReport(session.id, totalQuestions, items, correctCount)
-      res.json(success({ report: partialReport }))
-    }
+    const fullReport = buildFullReportFromSession(session)
+    res.json(success({ report: fullReport }))
   } catch (err) {
     console.error('[diagnostic] submit error:', err)
     res.status(500).json(fail('服务器错误'))
   }
 })
 
-// 获取报告
-diagnosticRouter.get('/report/:id', optionalAuth, async (req: Request, res: Response) => {
+// 获取报告（需登录，仅允许查看自己的）
+diagnosticRouter.get('/report/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const session = await prisma.diagnosticSession.findUnique({
       where: { id: req.params.id },
@@ -119,39 +116,13 @@ diagnosticRouter.get('/report/:id', optionalAuth, async (req: Request, res: Resp
       return
     }
 
-    // 游客只能看自己的匿名会话，且仅返回部分报告
-    if (session.status === 'anonymous') {
-      if (req.user && session.userId === req.user.userId) {
-        // 已登录且是自己的，返回完整
-        const fullReport = buildFullReportFromSession(session)
-        res.json(success({ report: fullReport }))
-        return
-      }
-      // 游客看部分报告
-      const items = (JSON.parse(session.answers) as Array<{ questionId: string }>).map((a, i) => ({
-        questionId: a.questionId,
-        order: i + 1,
-        isCorrect: true, // 简化，实际应在 session 中存储
-      }))
-      const partialReport = buildPartialReport(
-        session.id,
-        session.totalQuestions,
-        items,
-        session.correctCount,
-      )
-      res.json(success({ report: partialReport }))
+    if (session.userId !== req.user!.userId) {
+      res.status(403).json(fail('无权查看此报告'))
       return
     }
 
-    // linked 状态，检查归属
-    if (req.user && session.userId === req.user.userId) {
-      const fullReport = buildFullReportFromSession(session)
-      res.json(success({ report: fullReport }))
-    } else if (!req.user) {
-      res.status(401).json(fail('请先登录查看完整报告'))
-    } else {
-      res.status(403).json(fail('无权查看此报告'))
-    }
+    const fullReport = buildFullReportFromSession(session)
+    res.json(success({ report: fullReport }))
   } catch (err) {
     console.error('[diagnostic] report error:', err)
     res.status(500).json(fail('服务器错误'))

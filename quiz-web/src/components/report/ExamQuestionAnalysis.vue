@@ -161,10 +161,11 @@ const questionNav = computed(() =>
 )
 // difficulty 兼容对象 { level } 和纯字符串两种格式
 const difficultyDisplay = computed(() => {
-  const d = currentQuestion.value?.difficulty
+  const d: unknown = currentQuestion.value?.difficulty
   if (!d) return ''
   if (typeof d === 'string') return d
-  return d.level || ''
+  if (typeof d === 'object' && 'level' in d) return String(d.level || '')
+  return ''
 })
 
 const la = computed(() => currentQuestion.value?.learning_analysis)

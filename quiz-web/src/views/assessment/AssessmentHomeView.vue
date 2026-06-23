@@ -1,106 +1,65 @@
-﻿<template>
+<template>
   <div class="assessment-page">
     <NavBar />
     <main class="assessment-shell">
-      <button class="back-link" type="button" @click="router.push('/')">← 返回首页</button>
-
       <header class="page-header">
-        <h1>{{ activeExamLabel }} 仿真考试</h1>
-        <p>选择试卷开始全真模拟，严格计时、即时出分。</p>
+        <h1>诊断测试中心</h1>
+        <div class="quota-bar">
+          <span class="quota-text">{{ quotaText }}</span>
+          <button class="quota-button" type="button" @click="handleUpgradeClick">
+            获取更多模考额度
+          </button>
+        </div>
       </header>
 
-      <section class="mode-panel">
-        <div class="mode-panel__copy">
-          <h2>准备好进行全真模拟了吗？</h2>
-          <p>模拟考试将严格按照真实考试环境进行，包含计时器与完整长试卷。</p>
+      <section class="chart-card">
+        <div class="chart-title">
+          <span aria-hidden="true">⌁</span>
+          <strong>历次诊断测试分数变化</strong>
         </div>
-        <div class="mode-actions" role="tablist">
+        <div ref="chartRef" class="score-chart" aria-label="历次诊断测试分数变化折线图"></div>
+        <div class="chart-foot-label">历年真题</div>
+      </section>
+
+      <section class="paper-grid" aria-label="历年真题">
+        <article v-for="item in paperCards" :key="item.paper.id" class="paper-card">
+          <div class="paper-card__info">
+            <h2>{{ item.paper.title }}</h2>
+            <p>{{ item.paper.code || item.paper.title }}</p>
+          </div>
+
+          <div v-if="item.record" class="paper-card__score">
+            <strong>{{ scoreText(item.record) }}</strong>
+            <span>/9.0</span>
+          </div>
+
           <button
+            class="paper-card__button"
             type="button"
-            class="mode-button"
-            :class="{ 'mode-button--active': activeMode === 'custom' }"
-            @click="activeMode = 'custom'"
+            @click="handlePaperAction(item.paper)"
           >
-            自定义模拟考试
+            {{ item.record ? '诊断详情→' : '开始测试→' }}
           </button>
-          <button
-            type="button"
-            class="mode-button"
-            :class="{ 'mode-button--active': activeMode === 'bank' }"
-            @click="activeMode = 'bank'"
-          >
-            试卷库模拟考试
-          </button>
-        </div>
+        </article>
       </section>
 
-      <section v-if="activeMode === 'bank'" class="paper-section">
-        <div class="section-title-row">
-          <h2>试卷入口</h2>
-          <span>{{ visiblePapers.length }} 套可用</span>
-        </div>
-
-        <div v-if="loading" class="empty-state">加载中...</div>
-        <div v-else-if="visiblePapers.length" class="paper-grid">
-          <article v-for="paper in visiblePapers" :key="paper.id" class="paper-card">
-            <span class="card-mark"></span>
-            <div class="paper-card__main">
-              <h3>{{ paper.title }}</h3>
-              <p>考试日期: {{ paper.year }}/{{ formatMonthDay(paper.createdAt) }}</p>
-            </div>
-            <dl class="paper-card__meta">
-              <div>
-                <dt>{{ paper.totalQuestions }}</dt>
-                <dd>题目</dd>
-              </div>
-              <div>
-                <dt>{{ paper.duration }}</dt>
-                <dd>分钟</dd>
-              </div>
-            </dl>
-            <button class="paper-card__link" type="button" @click="startPaper(paper.id)">
-              进入考试 →
-            </button>
-          </article>
-        </div>
-        <div v-else class="empty-state">暂无已上线真题套卷，请先在后台真题库发布试卷。</div>
-      </section>
-
-      <section class="records-section">
-        <h2>参与记录</h2>
-        <div v-if="records.length" class="record-grid">
-          <article v-for="record in records" :key="record.id" class="record-card">
-            <span class="card-mark"></span>
-            <div class="record-card__head">
-              <div>
-                <h3>{{ record.paperTitle }}</h3>
-                <p>考试日期: {{ formatDate(record.submittedAt || record.startedAt) }}</p>
-              </div>
-              <span class="record-status">已完成</span>
-            </div>
-            <div class="record-card__footer">
-              <div>
-                <strong>{{ scoreText(record) }}</strong>
-                <span>分数</span>
-                <small>用时 {{ formatDuration(record.durationSeconds) }}</small>
-              </div>
-              <button type="button" @click="router.push(`/exam-result/${record.id}`)">
-                查看详细报告 →
-              </button>
-            </div>
-          </article>
-        </div>
-        <div v-else class="empty-state empty-state--compact">暂无参与记录</div>
-      </section>
+      <div v-if="loading" class="empty-state">加载中...</div>
+      <div v-else-if="!visiblePapers.length" class="empty-state">
+        暂无已上线真题套卷，请先在后台真题库发布试卷。
+      </div>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-// 诊断测试入口页：展示真题套卷、进入在线答题，并承接历史报告。
-import { computed, onMounted, ref } from 'vue'
+// 诊断测试中心：展示模考额度、历史趋势和真题套卷入口。
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import * as echarts from 'echarts'
 import NavBar from '@/components/NavBar.vue'
+import { checkMemberAccess } from '@/api/member'
+import { useAuthStore } from '@/stores/auth'
 import {
   getAssessmentPapersData,
   type AssessmentPaperItem,
@@ -108,13 +67,45 @@ import {
 } from '@/api/papers'
 
 const router = useRouter()
+const auth = useAuthStore()
 const loading = ref(true)
-const activeMode = ref<'custom' | 'bank'>('bank')
 const papers = ref<AssessmentPaperItem[]>([])
 const records = ref<AssessmentRecordItem[]>([])
+const chartRef = ref<HTMLDivElement | null>(null)
+let chartInstance: echarts.ECharts | null = null
+
+const mockScoreTrend = [
+  { month: '2023-09', score: 5.2 },
+  { month: '2023-10', score: 5.8 },
+  { month: '2023-11', score: 6.2 },
+  { month: '2023-12', score: 6.5 },
+  { month: '2024-01', score: 6.8 },
+  { month: '2024-02', score: 7.1 },
+  { month: '2024-03', score: 7.5 },
+]
+
 const visiblePapers = computed(() => papers.value)
-const activeExamLabel = computed(
-  () => papers.value.find((p) => p.code)?.code?.toUpperCase() || 'TMUA',
+const currentExamType = computed(() => visiblePapers.value[0]?.examType || 'TMUA')
+const currentQuota = computed(() => auth.memberContext?.quotas?.[currentExamType.value])
+const canUseAllTests = computed(() => auth.isAdmin || Boolean(currentQuota.value?.isMember))
+const quotaText = computed(() => {
+  if (canUseAllTests.value) return '可全部测试'
+  const diagnostic = currentQuota.value?.diagnostic
+  if (!diagnostic || diagnostic.remaining === null || diagnostic.limit === null) return '免费额度  --/--次'
+  return `免费额度（${diagnostic.remaining}/${diagnostic.limit}次）`
+})
+const recordByPaperTitle = computed<Record<string, AssessmentRecordItem>>(() => {
+  const map: Record<string, AssessmentRecordItem> = {}
+  for (const record of records.value) {
+    if (!map[record.paperTitle]) map[record.paperTitle] = record
+  }
+  return map
+})
+const paperCards = computed(() =>
+  visiblePapers.value.map((paper) => ({
+    paper,
+    record: recordByPaperTitle.value[paper.title],
+  })),
 )
 
 // 进入诊断测试页时拉取可测试真题与历史记录，保证入口和报告列表同步。
@@ -128,216 +119,245 @@ onMounted(async () => {
     records.value = []
   } finally {
     loading.value = false
+    await nextTick()
+    renderChart()
   }
+  window.addEventListener('resize', resizeChart)
 })
 
-// 点击套卷后复用在线答题页，paperId 决定答题页加载整套真题。
-function startPaper(paperId: string): void {
-  router.push({ path: '/practice', query: { paperId, mode: 'assessment' } })
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', resizeChart)
+  chartInstance?.dispose()
+})
+
+// mock 折线图先固定趋势数据，后续接真实历史诊断分数接口。
+function renderChart(): void {
+  if (!chartRef.value) return
+  chartInstance = echarts.init(chartRef.value)
+  chartInstance.setOption({
+    grid: { left: 46, right: 24, top: 20, bottom: 42 },
+    xAxis: {
+      type: 'category',
+      data: mockScoreTrend.map((item) => item.month),
+      boundaryGap: false,
+      axisTick: { show: false },
+      axisLine: { lineStyle: { color: '#d9e2ea' } },
+      axisLabel: { color: '#7a8794', fontWeight: 600 },
+      splitLine: { show: true, lineStyle: { color: '#edf2f5', type: 'dashed' } },
+    },
+    yAxis: {
+      type: 'value',
+      min: 0,
+      max: 9,
+      interval: 3,
+      axisLabel: { color: '#7a8794', fontWeight: 600 },
+      splitLine: { lineStyle: { color: '#edf2f5', type: 'dashed' } },
+    },
+    series: [
+      {
+        type: 'line',
+        data: mockScoreTrend.map((item) => item.score),
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 8,
+        lineStyle: { width: 3, color: '#3d8bd1' },
+        itemStyle: { color: '#2f80c4' },
+      },
+    ],
+    tooltip: {
+      trigger: 'axis',
+      formatter: (items: any) => {
+        const item = Array.isArray(items) ? items[0] : items
+        return `${item.axisValue}<br/>分数：${item.data}`
+      },
+    },
+  })
 }
 
-// 参与记录按 10 分制展示，和页面原型中的分数表达保持一致。
+function resizeChart(): void {
+  chartInstance?.resize()
+}
+
+function handleUpgradeClick(): void {
+  ElMessage.info('会员开通功能即将上线')
+}
+
+async function handlePaperAction(paper: AssessmentPaperItem): Promise<void> {
+  const record = recordByPaperTitle.value[paper.title]
+  if (record) {
+    router.push(`/exam-result/${record.id}`)
+    return
+  }
+  await startPaper(paper)
+}
+
+// 点击套卷前先做权益预检，避免进入答题页后才发现额度不足。
+async function startPaper(paper: AssessmentPaperItem): Promise<void> {
+  const access = await checkMemberAccess({
+    action: 'diagnostic',
+    examType: paper.examType || 'TMUA',
+    questionCount: 1,
+  })
+  if (!access.allowed) {
+    ElMessage.warning('当前诊断测试额度不足，请开通会员后继续')
+    return
+  }
+  router.push({ path: '/practice', query: { paperId: paper.id, mode: 'assessment' } })
+}
+
 function scoreText(record: AssessmentRecordItem): string {
   if (!record.totalQuestions) return '0'
-  return ((record.correctCount / record.totalQuestions) * 10).toFixed(1)
-}
-
-// 参与记录统一使用 yyyy/MM/dd，和原型中的考试日期格式保持一致。
-function formatDate(value: string | null): string {
-  if (!value) return '-'
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return '-'
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
-}
-
-// 套卷卡片没有真实考试日期时，用创建日期补足月日展示。
-function formatMonthDay(value: string): string {
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return '01/01'
-  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
-}
-
-// 历史记录只展示分钟级用时，减少秒级波动带来的视觉噪声。
-function formatDuration(seconds: number | null): string {
-  if (!seconds) return '-'
-  return `${Math.max(1, Math.round(seconds / 60))} 分钟`
+  return ((record.correctCount / record.totalQuestions) * 9).toFixed(1)
 }
 </script>
 
 <style scoped lang="scss">
 .assessment-page {
   min-height: 100vh;
-  background: #f7f6f4;
-  color: #273437;
+  background: #f5f7fa;
+  color: #1f2a37;
   overflow-x: hidden;
 }
+
 .assessment-shell {
-  width: min(1116px, calc(100% - 40px));
+  width: min(774px, calc(100% - 40px));
   margin: 0 auto;
-  padding: 32px 0 72px;
+  padding: 28px 0 96px;
 }
-.back-link {
-  border: 0;
-  background: transparent;
-  color: #89979a;
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-}
+
 .page-header {
-  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 0 66px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e6ebf0;
 }
+
 .page-header h1 {
   margin: 0;
-  font-size: 32px;
-  letter-spacing: 0;
-}
-.page-header p {
-  margin: 12px 0 0;
-  color: #7b898c;
-}
-.mode-panel {
-  margin-top: 40px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 32px;
-  align-items: center;
-  padding: 28px 30px;
-  border: 1px solid #cfe2ee;
-  border-radius: 8px;
-  background: #edf7fd;
-}
-.mode-panel__copy h2 {
-  margin: 0 0 8px;
-  color: #174264;
-  font-size: 20px;
-}
-.mode-panel__copy p {
-  margin: 0;
-  color: #315d7b;
-}
-.mode-actions {
-  display: flex;
-  gap: 14px;
-}
-.mode-button {
-  width: 186px;
-  height: 82px;
-  border: 1px solid #d8e0e4;
-  border-radius: 8px;
-  background: #fff;
-  color: #23465f;
-  font-weight: 800;
-  cursor: pointer;
-}
-.mode-button--active {
-  background: #3b7192;
-  color: #fff;
-  border-color: #3b7192;
-}
-.paper-section,
-.records-section {
-  margin-top: 36px;
-}
-.section-title-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 18px;
-}
-.section-title-row h2,
-.records-section h2 {
-  margin: 0;
-  font-size: 20px;
-}
-.paper-grid,
-.record-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
-}
-.paper-card,
-.record-card {
-  min-width: 0;
-  padding: 24px;
-  border: 1px solid #e0e4e5;
-  border-radius: 8px;
-  background: #fff;
-}
-.card-mark {
-  display: block;
-  width: 48px;
-  height: 2px;
-  margin-bottom: 18px;
-  background: #3b7192;
-}
-.paper-card__main h3,
-.record-card h3 {
-  margin: 0 0 8px;
-  font-size: 18px;
-  overflow-wrap: anywhere;
-}
-.paper-card__main p,
-.record-card p {
-  margin: 0;
-  color: #7b898c;
-}
-.paper-card__meta {
-  display: flex;
-  gap: 32px;
-  margin: 24px 0;
-  padding-top: 20px;
-  border-top: 1px solid #edf0f1;
-}
-.paper-card__meta dt {
   font-size: 28px;
-  color: #3b7192;
-  font-weight: 800;
+  letter-spacing: 0;
+  white-space: nowrap;
 }
-.paper-card__meta dd {
-  margin: 0;
-  color: #7b898c;
-}
-.paper-card__link,
-.record-card button {
-  border: 0;
-  background: transparent;
-  color: #334b52;
-  font-weight: 800;
-  cursor: pointer;
-}
-.record-card__head,
-.record-card__footer {
+
+.quota-bar {
   display: flex;
-  justify-content: space-between;
+  align-items: center;
   gap: 16px;
 }
-.record-card__footer {
-  align-items: end;
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid #edf0f1;
+
+.quota-text {
+  color: #3979a7;
+  font-size: 16px;
+  font-weight: 800;
 }
-.record-card strong {
-  display: block;
-  color: #3b7192;
-  font-size: 28px;
+
+.quota-button,
+.paper-card__button {
+  height: 32px;
+  padding: 0 16px;
+  border: 1px solid #dbe3ea;
+  border-radius: 4px;
+  background: #fff;
+  color: #1f2a37;
+  font-weight: 800;
+  cursor: pointer;
 }
-.record-card small {
-  display: block;
-  color: #7b898c;
-  margin-top: 6px;
+
+.quota-button {
+  border-color: #3b7192;
+  background: #3b7192;
+  color: #fff;
 }
-.record-status {
-  align-self: start;
-  padding: 6px 10px;
+
+.chart-card {
+  padding: 18px 18px 8px;
+  border: 1px solid #e4e9ee;
   border-radius: 6px;
-  background: #d1fae5;
-  color: #047857;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.chart-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #253445;
+  font-size: 14px;
+}
+
+.chart-title span {
+  color: #3d8bd1;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.score-chart {
+  width: 100%;
+  height: 214px;
+}
+
+.chart-foot-label {
+  margin: -8px 0 4px;
+  color: #1f2a37;
   font-size: 13px;
+  font-weight: 800;
+}
+
+.paper-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 32px;
+  margin-top: 20px;
+}
+
+.paper-card {
+  min-width: 0;
+  min-height: 66px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 22px;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+}
+
+.paper-card__info h2 {
+  margin: 0;
+  color: #263446;
+  font-size: 16px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.paper-card__info p {
+  margin: 6px 0 0;
+  color: #6d7886;
+  font-size: 12px;
   font-weight: 700;
 }
+
+.paper-card__score {
+  white-space: nowrap;
+}
+
+.paper-card__score strong {
+  color: #2f80d1;
+  font-size: 20px;
+}
+
+.paper-card__score span {
+  color: #8793a0;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .empty-state {
+  margin-top: 20px;
   padding: 28px;
   border: 1px dashed #cbd5e1;
   border-radius: 8px;
@@ -345,59 +365,45 @@ function formatDuration(seconds: number | null): string {
   color: #64748b;
   text-align: center;
 }
-.empty-state--compact {
-  margin-top: 16px;
-}
-@media (max-width: 860px) {
+
+@media (max-width: 820px) {
   .assessment-shell {
-    width: min(100% - 24px, 560px);
-    padding: 24px 0 56px;
+    width: min(100% - 28px, 560px);
+    padding-top: 24px;
   }
-  .mode-panel,
-  .paper-grid,
-  .record-grid {
+
+  .quota-bar {
+    justify-content: flex-end;
+  }
+
+  .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+    margin-bottom: 32px;
+  }
+
+  .paper-grid {
     grid-template-columns: 1fr;
   }
-  .mode-actions {
-    flex-direction: column;
-  }
-  .mode-button {
-    width: 100%;
-  }
-  .record-card__head,
-  .record-card__footer {
+}
+
+@media (max-width: 520px) {
+  .quota-bar {
     align-items: flex-start;
     flex-direction: column;
   }
-  .record-card__footer {
-    gap: 18px;
+
+  .quota-button {
+    width: 100%;
   }
-  .record-card button {
-    align-self: stretch;
-    text-align: left;
-    white-space: normal;
+
+  .paper-card {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
-  .record-status {
-    align-self: flex-start;
-  }
-}
-@media (max-width: 520px) {
-  .assessment-shell {
-    width: calc(100% - 24px);
-  }
-  .page-header h1 {
-    font-size: 30px;
-  }
-  .mode-panel {
-    margin-top: 32px;
-    padding: 24px;
-  }
-  .paper-card,
-  .record-card {
-    padding: 22px;
-  }
-  .paper-card__meta {
-    gap: 28px;
+
+  .paper-card__button {
+    width: 100%;
   }
 }
 </style>

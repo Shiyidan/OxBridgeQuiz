@@ -11,6 +11,7 @@ model Paper {
   id             String   @id @default(uuid())
   title          String
   code           String?
+  examType       String   @default("TMUA")
   year           Int
   duration       Int
   totalQuestions Int      @default(0)
@@ -24,11 +25,14 @@ model Paper {
   parseTasks  ParseTask[]
   examRecords ExamRecord[]
   questionsRel Question[]
+
+  @@index([examType])
 }
 
 model Question {
   id              String   @id @default(uuid())
   paperId         String
+  examType        String   @default("TMUA")
   number          Int
   title           String
   options         String   @default("[]")
@@ -48,6 +52,7 @@ model Question {
   answerRecords AnswerRecord[]
 
   @@index([paperId])
+  @@index([examType])
   @@index([subjectCode])
   @@index([number])
 }
@@ -79,11 +84,13 @@ model User {
 
   examRecords      ExamRecord[]
   diagnosticSession DiagnosticSession[]
+  memberships      UserMembership[]
 }
 
 model DiagnosticSession {
   id             String   @id @default(uuid())
   userId         String?
+  examType       String   @default("TMUA")
   answers        String
   totalQuestions Int
   correctCount   Int
@@ -93,12 +100,14 @@ model DiagnosticSession {
   user User? @relation(fields: [userId], references: [id])
 
   @@index([userId])
+  @@index([examType])
 }
 
 model ExamRecord {
   id             String    @id @default(uuid())
   userId         String
   paperId        String
+  examType       String    @default("TMUA")
   totalQuestions Int       @default(0)
   correctCount   Int       @default(0)
   startedAt      DateTime
@@ -108,6 +117,9 @@ model ExamRecord {
   user    User           @relation(fields: [userId], references: [id])
   paper   Paper          @relation(fields: [paperId], references: [id])
   answers AnswerRecord[]
+
+  @@index([userId, examType])
+  @@index([examType])
 }
 
 model AnswerRecord {
@@ -149,4 +161,46 @@ model RevenueCost {
   updatedAt           DateTime @updatedAt
 
   @@index([occurredAt])
+}
+
+model MembershipPlan {
+  id           String   @id @default(uuid())
+  examType     String
+  plan         String
+  priceCents   Int      @default(0)
+  durationDays Int      @default(30)
+  status       String   @default("active")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([examType, plan])
+  @@index([examType])
+}
+
+model UserMembership {
+  id        String   @id @default(uuid())
+  userId    String
+  examType  String
+  plan      String
+  status    String   @default("active")
+  startsAt  DateTime
+  endsAt    DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([examType])
+  @@index([userId, examType, status])
+}
+
+model EntitlementConfig {
+  id                String   @id @default(uuid())
+  examType          String   @unique
+  diagnosticLimit   Int      @default(2)
+  questionBankLimit Int      @default(100)
+  status            String   @default("active")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }

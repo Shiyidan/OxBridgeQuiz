@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { login as apiLogin, register as apiRegister, logout as apiLogout } from '../api/auth'
+import { type MemberContext } from '../api/member'
 
 export interface User {
   id: string
@@ -16,31 +17,67 @@ export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const memberContext = ref<MemberContext | null>(null)
 
   const isLoggedIn = computed(() => !!token.value && !!user.value)
   const isAdmin = computed(() => user.value?.role === 'admin')
   const isPaid = computed(() => user.value?.paymentStatus === 'paid')
+  const permissions = computed(() => {
+    const isCurrentAdmin = memberContext.value?.isAdmin ?? user.value?.role === 'admin'
+    return memberContext.value ? { isAdmin: isCurrentAdmin, canAccessAdmin: isCurrentAdmin } : null
+  })
+  const entitlements = computed(() => {
+    const quotas = memberContext.value?.quotas || {}
+    return Object.fromEntries(
+      Object.entries(quotas).map(([examType, item]) => [
+        examType,
+        {
+          examType,
+          isMember: item.isMember,
+          membershipPlan: item.plan,
+          membershipEndsAt: item.endsAt,
+          diagnostic: item.diagnostic,
+          questionBank: item.questionBank,
+        },
+      ]),
+    )
+  })
+  const memberExamTypes = computed(() =>
+    Object.entries(memberContext.value?.quotas || {}).map(([examType, item]) => ({
+      examType,
+      ...item,
+    })),
+  )
 
   // 从 localStorage 恢复登录态
   function initFromStorage(): void {
     const saved = localStorage.getItem('token')
     const savedUser = localStorage.getItem('user')
+    const savedMemberContext = localStorage.getItem('memberContext')
     if (saved && savedUser) {
       token.value = saved
       user.value = JSON.parse(savedUser)
+      memberContext.value = savedMemberContext ? JSON.parse(savedMemberContext) : null
     }
+  }
+
+  // 保存会员权益上下文（由调用方传入已请求好的数据）
+  function setMemberContext(context: MemberContext): void {
+    memberContext.value = context
+    user.value = context.user
+    localStorage.setItem('user', JSON.stringify(context.user))
+    localStorage.setItem('memberContext', JSON.stringify(context))
   }
 
   // 登录
   async function login(
     email: string,
     password: string,
-    diagnosticSessionId?: string,
   ): Promise<void> {
     loading.value = true
     error.value = null
     try {
-      const data = await apiLogin({ email, password, diagnosticSessionId } as any)
+      const data = await apiLogin({ email, password } as any)
       token.value = data.token
       user.value = data.user
       localStorage.setItem('token', data.token)
@@ -60,12 +97,11 @@ export const useAuthStore = defineStore('auth', () => {
     email: string,
     password: string,
     confirmPassword: string,
-    diagnosticSessionId?: string,
   ): Promise<void> {
     loading.value = true
     error.value = null
     try {
-      const data = await apiRegister({ name, email, password, confirmPassword, diagnosticSessionId } as any)
+      const data = await apiRegister({ name, email, password, confirmPassword } as any)
       token.value = data.token
       user.value = data.user
       localStorage.setItem('token', data.token)
@@ -88,10 +124,29 @@ export const useAuthStore = defineStore('auth', () => {
     }
     token.value = null
     user.value = null
+    memberContext.value = null
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    localStorage.removeItem('memberContext')
     error.value = null
   }
 
-  return { user, token, loading, error, isLoggedIn, isAdmin, isPaid, initFromStorage, login, register, logout }
+  return {
+    user,
+    token,
+    loading,
+    error,
+    memberContext,
+    permissions,
+    entitlements,
+    memberExamTypes,
+    isLoggedIn,
+    isAdmin,
+    isPaid,
+    initFromStorage,
+    setMemberContext,
+    login,
+    register,
+    logout,
+  }
 })

@@ -20,9 +20,27 @@ export interface UserItem {
   name: string
   email: string
   role: string
-  paymentStatus: string
+  paymentStatus?: string
   diagnosticUsed?: boolean
   createdAt: string
+  memberships?: UserMembershipItem[]
+}
+
+export interface UserMembershipItem {
+  id: string
+  examType: string
+  plan: string
+  status: string
+  startsAt: number
+  endsAt: number
+}
+
+export interface UpdateUserAccessPayload {
+  role: string
+  membership?: {
+    examTypes: string[]
+    plan: string
+  }
 }
 
 // ---- 成本管理 ----
@@ -74,5 +92,15 @@ export function updateUserRole(userId: string, role: string) {
     method: 'PUT',
     isAllData: false,
     body: { role },
+  })
+}
+
+/** 更新用户权限 */
+export function updateUserAccess(userId: string, data: UpdateUserAccessPayload) {
+  return callApi<{ user: UserItem | null }>({
+    url: `/admin/users/${userId}/access`,
+    method: 'PUT',
+    isAllData: false,
+    body: data,
   })
 }

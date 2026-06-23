@@ -10,6 +10,7 @@ import { examRouter } from './routes/exam.js'
 import { authRouter } from './routes/auth.js'
 import { diagnosticRouter } from './routes/diagnostic.js'
 import { adminRouter } from './routes/admin.js'
+import { memberRouter } from './routes/member.js'
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env') })
 
@@ -26,6 +27,7 @@ app.use('/api', (_req, res, next) => {
 })
 
 app.use('/api/auth', authRouter)
+app.use('/api/getMember', memberRouter)
 app.use('/api/exams', examRouter)
 app.use('/api/diagnostic', diagnosticRouter)
 app.use('/api/admin', adminRouter)

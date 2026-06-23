@@ -13,6 +13,7 @@ export interface SubmitParams {
   difficulty?: string
   code?: string
   paperId?: string
+  examType?: string
 }
 
 export interface SubmitResult {

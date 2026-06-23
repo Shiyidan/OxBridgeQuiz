@@ -73,6 +73,7 @@ import { reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
 import { useAuthStore } from '@/stores/auth'
+import { getMember } from '@/api/member'
 import { validateEmail, validatePasswordRequired } from '@/utils/validation'
 
 const router = useRouter()
@@ -117,6 +118,8 @@ const handleSubmit = async (): Promise<void> => {
 
   try {
     await auth.login(form.email, form.password)
+    const memberCtx = await getMember()
+    auth.setMemberContext(memberCtx)
     router.push('/')
   } catch {
     // 后端错误已在 auth.error 中

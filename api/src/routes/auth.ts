@@ -5,6 +5,7 @@ import { prisma } from '../services/prisma.js'
 import { signToken } from '../services/jwt.js'
 import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
+import { formatUserForClient } from '../utils/userPresenter.js'
 
 export const authRouter = Router()
 
@@ -16,32 +17,11 @@ const authLimiter = rateLimit({
 
 authRouter.use(authLimiter)
 
-// 将匿名诊断 session 关联到已注册用户，生成完整报告
-async function linkDiagnosticSession(diagnosticSessionId: string | undefined, userId: string): Promise<object | null> {
-  if (!diagnosticSessionId) return null
-
-  const session = await prisma.diagnosticSession.findUnique({ where: { id: diagnosticSessionId } })
-  if (!session || session.userId) return null
-
-  await prisma.diagnosticSession.update({
-    where: { id: diagnosticSessionId },
-    data: { userId, status: 'linked' },
-  })
-  await prisma.user.update({
-    where: { id: userId },
-    data: { diagnosticUsed: true },
-  })
-
-  const { buildFullReportFromSession } = await import('../services/diagnostic.js')
-  return buildFullReportFromSession(session)
-}
-
 // 注册
 authRouter.post('/register', async (req: Request, res: Response) => {
   try {
-    const { email, password, confirmPassword, name, diagnosticSessionId } = req.body
+    const { email, password, confirmPassword, name } = req.body
 
-    // 校验
     if (!email || !password || !name) {
       res.status(422).json(fail('邮箱、密码和姓名为必填项'))
       return
@@ -59,14 +39,12 @@ authRouter.post('/register', async (req: Request, res: Response) => {
       return
     }
 
-    // 查邮箱是否已注册
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
       res.status(409).json(fail('该邮箱已注册'))
       return
     }
 
-    // 创建用户
     const hashed = await bcrypt.hash(password, 12)
     const user = await prisma.user.create({
       data: { email, password: hashed, name },
@@ -74,12 +52,9 @@ authRouter.post('/register', async (req: Request, res: Response) => {
 
     const token = signToken({ id: user.id, email: user.email, role: user.role })
 
-    const fullReport = await linkDiagnosticSession(diagnosticSessionId, user.id)
-
     res.json(success({
-      user: { id: user.id, name: user.name, email: user.email, role: user.role, paymentStatus: user.paymentStatus },
+      user: formatUserForClient({ id: user.id, name: user.name, email: user.email, role: user.role, paymentStatus: user.paymentStatus }),
       token,
-      ...(fullReport ? { fullReport } : {}),
     }))
   } catch (err) {
     console.error('[auth] register error:', err)
@@ -90,7 +65,7 @@ authRouter.post('/register', async (req: Request, res: Response) => {
 // 登录
 authRouter.post('/login', async (req: Request, res: Response) => {
   try {
-    const { email, password, diagnosticSessionId } = req.body
+    const { email, password } = req.body
 
     if (!email || !password) {
       res.status(422).json(fail('邮箱和密码为必填项'))
@@ -111,33 +86,12 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
     const token = signToken({ id: user.id, email: user.email, role: user.role })
 
-    const fullReport = await linkDiagnosticSession(diagnosticSessionId, user.id)
-
     res.json(success({
-      user: { id: user.id, name: user.name, email: user.email, role: user.role, paymentStatus: user.paymentStatus },
+      user: formatUserForClient({ id: user.id, name: user.name, email: user.email, role: user.role, paymentStatus: user.paymentStatus }),
       token,
-      ...(fullReport ? { fullReport } : {}),
     }))
   } catch (err) {
     console.error('[auth] login error:', err)
-    res.status(500).json(fail('服务器错误'))
-  }
-})
-
-// 获取当前用户
-authRouter.get('/me', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user!.userId },
-      select: { id: true, name: true, email: true, role: true, avatar: true, paymentStatus: true },
-    })
-    if (!user) {
-      res.status(404).json(fail('用户不存在'))
-      return
-    }
-    res.json(success(user))
-  } catch (err) {
-    console.error('[auth] me error:', err)
     res.status(500).json(fail('服务器错误'))
   }
 })

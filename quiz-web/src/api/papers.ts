@@ -10,6 +10,7 @@ export interface PaperItem {
   year: number
   duration: number
   totalQuestions: number
+  examType?: string
   paperType?: string
   status: string
   createdAt: string
@@ -77,6 +78,7 @@ export interface AssessmentPaperItem {
   year: number
   duration: number
   totalQuestions: number
+  examType?: string
   paperType: string
   createdAt: string
 }

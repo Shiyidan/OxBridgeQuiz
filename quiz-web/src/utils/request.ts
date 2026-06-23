@@ -41,6 +41,7 @@ instance.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
+      localStorage.removeItem('memberContext')
       if (!window.location.pathname.startsWith('/login') && window.location.pathname !== '/') {
         ElMessage.error('登录状态已过期，即将跳转回首页')
         setTimeout(() => { window.location.href = '/' }, 1500)

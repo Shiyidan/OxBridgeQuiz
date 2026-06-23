@@ -101,11 +101,14 @@ import QuestionCard from '@/components/QuestionCard.vue'
 import { getQuestionsData } from '@/api/questionBank'
 import { getPaperDetailData } from '@/api/papers'
 import { submitExam } from '@/api/exam'
+import { checkMemberAccess, getMember } from '@/api/member'
+import { useAuthStore } from '@/stores/auth'
 import type { Question } from '@/types'
 
 const EXAM_SECONDS = 60 * 60
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 
 const questions = shallowRef<Question[]>([])
 const paperTitle = ref('')
@@ -160,22 +163,48 @@ async function loadQuestions(): Promise<void> {
 
     if (paperId) {
       const paper = await getPaperDetailData(paperId)
-      questions.value = (paper.questions || []).map((q: any, index: number) => ({
+      const loadedQuestions = (paper.questions || []).map((q: any, index: number) => ({
         ...q,
         id: q.id || `paper-${paper.id}-${q.number || index + 1}`,
         order: q.number || index + 1,
       }))
+      const access = await checkMemberAccess({
+        action: 'diagnostic',
+        examType: paper.examType || 'TMUA',
+        questionCount: 1,
+      })
+      if (!access.allowed) {
+        ElMessage.warning('当前诊断测试额度不足，请开通会员后继续')
+        router.replace('/assessment')
+        return
+      }
+      questions.value = loadedQuestions
       paperTitle.value = paper.title
       remainingSeconds.value = Math.max(1, paper.duration || 60) * 60
       return
     }
 
-    const qs = (await getQuestionsData({ code, difficulty })) || []
-    questions.value = qs.map((q: any) => ({
+    const examType = (route.query.examType as string | undefined) || 'ESAT'
+    const qs = (await getQuestionsData({ code, difficulty, examType })) || []
+    const loadedQuestions = qs.map((q: any) => ({
       ...q,
       id: q.id || `${q._paperId || 'paper'}-${q.number}`,
       order: q.number,
     }))
+    if (loadedQuestions.length > 0) {
+      const access = await checkMemberAccess({
+        action: 'question-bank',
+        examType,
+        questionCount: loadedQuestions.length,
+      })
+      if (!access.allowed) {
+        const remainingText = access.remaining === null ? '0' : String(access.remaining)
+        ElMessage.warning(`当前试题库额度不足，剩余 ${remainingText} 题，请开通会员后继续`)
+        router.replace('/question-bank')
+        return
+      }
+    }
+    questions.value = loadedQuestions
     paperTitle.value = '试题库练习'
   } catch (e) {
     console.error('[Practice] 加载失败', e)
@@ -253,7 +282,10 @@ async function handleSubmit(): Promise<void> {
       difficulty: route.query.difficulty as string,
       code: route.query.code as string,
       paperId: route.query.paperId as string,
+      examType: route.query.examType as string,
     })
+    const memberCtx = await getMember()
+    auth.setMemberContext(memberCtx)
     router.push({
       path: '/exam-result',
       query: {

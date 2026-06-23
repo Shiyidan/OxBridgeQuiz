@@ -40,27 +40,27 @@ export interface QuestionBankSummary {
 // ---- API ----
 
 /** 获取考纲树 */
-export function getSyllabusData() {
+export function getSyllabusData(examType = 'ESAT') {
   return callApi<SyllabusNode[]>({
     url: '/papers/syllabus',
     method: 'GET',
     isAllData: false,
-    params: { examType: 'ESAT' },
+    params: { examType },
   })
 }
 
 /** 获取考纲节点下的题数与难度分布（轻量） */
-export function getQuestionSummaryData(code: string) {
+export function getQuestionSummaryData(code: string, examType = 'ESAT') {
   return callApi<QuestionBankSummary>({
     url: '/papers/question-bank/summary',
     method: 'GET',
     isAllData: false,
-    params: { code },
+    params: { code, examType },
   })
 }
 
 /** 获取试题列表（全量，用于在线答题） */
-export function getQuestionsData(filters: { code?: string; difficulty?: string }) {
+export function getQuestionsData(filters: { code?: string; difficulty?: string; examType?: string }) {
   return callApi<{ questions: QuestionBankItem[] }>({
     url: '/papers/question-bank',
     method: 'GET',

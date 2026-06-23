@@ -6,17 +6,17 @@
     </div>
 
     <div class="plan-grid">
-      <!-- ========== 免费基础版 ========== -->
       <article
         v-for="plan in plans"
         :key="plan.id"
         class="plan-card"
         :class="{ 'plan-card--pro': plan.featured }"
       >
-        <!-- 推荐标签 -->
         <span v-if="plan.featured" class="plan-badge">
           <svg
             class="badge-icon"
+            width="14"
+            height="14"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -29,7 +29,6 @@
           推荐
         </span>
 
-        <!-- 装饰光晕（仅 Pro 卡） -->
         <template v-if="plan.featured">
           <span class="plan-glow plan-glow--top"></span>
           <span class="plan-glow plan-glow--bottom"></span>
@@ -56,9 +55,10 @@
             }"
           >
             <span class="plan-feature-icon">
-              <!-- ✓ 已包含 -->
               <svg
                 v-if="feature.included"
+                width="20"
+                height="20"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -68,9 +68,10 @@
               >
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              <!-- ✗ 未包含 -->
               <svg
                 v-else
+                width="20"
+                height="20"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -127,40 +128,39 @@ const emit = defineEmits<{
 const plans = reactive<Plan[]>([
   {
     id: 'free',
-    title: '免费基础版',
-    tagline: '体验核心功能，了解您的学术现状。',
+    title: '免费用户',
+    tagline: '多种功能，任你体验',
     price: '0',
     features: [
-      { text: '1 次 AI 初始能力评估', included: true },
-      { text: '浏览历年公开的考试大纲', included: true },
-      { text: '无试题库访问权限', included: false },
-      { text: '无智能错题本', included: false },
-      { text: '无导师在线答疑', included: false },
+      { text: '100道练习题（任意知识点、难度）', included: true },
+      { text: '1套真题测试', included: true },
+      { text: '1次真题能力诊断', included: true },
+      { text: '1次模考试用', included: true },
+      { text: '错题本基础收录', included: true },
     ],
-    ctaText: '降级至免费版',
+    ctaText: '继续试用',
     ctaDisabled: false,
     featured: false,
   },
   {
-    id: 'pro',
-    title: 'Pro 旗舰版',
-    tagline: '冲击 G5 名校的最强辅助体系。',
-    price: '299',
+    id: 'member',
+    title: '会员用户',
+    tagline: 'AI全流程引导提升',
+    price: '499',
     features: [
-      { text: '无限次考前模拟及全真诊断', included: true },
-      { text: '完全解锁所有笔试真题及解析(TMUA/ESAT等)', included: true, highlight: true },
-      { text: 'AI 动态生成相似题库重点突破', included: true, highlight: true },
-      { text: '智能错题本归档与分析', included: true, highlight: true },
-      { text: '优先获得面试真题及题库更新', included: true },
+      { text: '5000+练习题任意刷（覆盖全部知识点）', included: true, highlight: true },
+      { text: '全部历史真题测试', included: true, highlight: true },
+      { text: '不限次数真题能力诊断', included: true, highlight: true },
+      { text: '600+模拟卷任意考', included: true },
+      { text: '错题智能收录 + 知识点标注 + 错题攻克', included: true },
     ],
-    ctaText: '您已订阅 Pro',
-    ctaDisabled: true,
+    ctaText: '升级会员',
+    ctaDisabled: false,
     featured: true,
   },
 ])
 
 const handleSelectPlan = (plan: Plan): void => {
-  console.log('[PricingSection] select plan:', plan.id)
   emit('select', plan)
 }
 </script>
@@ -423,11 +423,14 @@ const handleSelectPlan = (plan: Plan): void => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px;
+  max-width: 20px;
+  flex: 0 0 20px;
   margin-top: 2px;
   color: var(--color-primary);
+  overflow: hidden;
 }
 
 .plan-card--pro .plan-feature-icon {
@@ -439,8 +442,11 @@ const handleSelectPlan = (plan: Plan): void => {
 }
 
 .plan-feature-icon svg {
-  width: 100%;
-  height: 100%;
+  display: block;
+  width: 20px !important;
+  height: 20px !important;
+  max-width: 20px !important;
+  max-height: 20px !important;
 }
 
 /* ========== CTA 按钮 ========== */

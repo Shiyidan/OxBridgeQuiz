@@ -85,6 +85,8 @@ export interface AssessmentPaperItem {
 
 export interface AssessmentRecordItem {
   id: string
+  paperId: string
+  examType?: string
   paperTitle: string
   totalQuestions: number
   correctCount: number

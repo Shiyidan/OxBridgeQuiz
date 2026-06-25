@@ -5,6 +5,7 @@ import { requireAdmin } from '../middleware/admin.js'
 import { success, fail } from '../utils/response.js'
 import { syncPaperQuestions, getPaperQuestions, formatQuestionRow } from '../utils/questionSync.js'
 import { processMarkdownImport } from '../services/markdownValidator.js'
+import { EXAM_TYPE, isExamType } from '../constants/domain.js'
 
 export const papersRouter = Router()
 
@@ -52,6 +53,10 @@ papersRouter.post('/import-json', requireAuth, requireAdmin, async (req, res) =>
     }
     if (!Array.isArray(questions) || questions.length === 0) {
       res.status(400).json(fail('题目列表不能为空'))
+      return
+    }
+    if (examType && !isExamType(examType)) {
+      res.status(422).json(fail('无效的考试类型'))
       return
     }
 
@@ -110,6 +115,10 @@ papersRouter.post('/import-markdown', requireAuth, requireAdmin, async (req, res
       res.status(400).json(fail('请提供 Markdown 内容'))
       return
     }
+    if (examType && !isExamType(examType)) {
+      res.status(422).json(fail('无效的考试类型'))
+      return
+    }
 
     const result = processMarkdownImport(markdown)
 
@@ -153,7 +162,11 @@ papersRouter.post('/import-markdown', requireAuth, requireAdmin, async (req, res
 // 考纲树
 papersRouter.get('/syllabus', async (req, res) => {
   try {
-    const examType = (req.query.examType as string) || 'ESAT'
+    const examType = (req.query.examType as string) || EXAM_TYPE.TMUA
+    if (!isExamType(examType)) {
+      res.status(422).json(fail('无效的考试类型'))
+      return
+    }
     const nodes = await prisma.syllabusNode.findMany({
       where: { examType },
       orderBy: { order: 'asc' },
@@ -203,7 +216,11 @@ async function collectDescendantCodes(code: string, examType: string): Promise<s
 papersRouter.get('/question-bank/summary', async (req, res) => {
   try {
     const code = req.query.code as string | undefined
-    const examType = (req.query.examType as string) || 'ESAT'
+    const examType = (req.query.examType as string) || EXAM_TYPE.TMUA
+    if (!isExamType(examType)) {
+      res.status(422).json(fail('无效的考试类型'))
+      return
+    }
     const filterCodes = code ? await collectDescendantCodes(code, examType) : []
 
     const questions = await prisma.question.findMany({
@@ -247,7 +264,11 @@ papersRouter.get('/question-bank', async (req, res) => {
     const difficulty = req.query.difficulty as string | undefined
     const subject = req.query.subject as string | undefined
     const code = req.query.code as string | undefined
-    const examType = (req.query.examType as string) || 'ESAT'
+    const examType = (req.query.examType as string) || EXAM_TYPE.TMUA
+    if (!isExamType(examType)) {
+      res.status(422).json(fail('无效的考试类型'))
+      return
+    }
 
     const where: any = { examType, paper: { status: 'published' } }
     if (subject) where.subject = subject
@@ -307,8 +328,12 @@ papersRouter.get('/assessment/papers', requireAuth, async (req, res) => {
     })
 
     const records = await prisma.examRecord.findMany({
-      where: { userId: req.user!.userId, status: 'submitted' },
-      include: { paper: { select: { title: true, paperType: true } } },
+      where: {
+        userId: req.user!.userId,
+        status: 'submitted',
+        paper: { paperType: 'past', status: 'published' },
+      },
+      include: { paper: { select: { id: true, title: true, paperType: true, examType: true } } },
       orderBy: { submittedAt: 'desc' },
       take: 12,
     })
@@ -316,9 +341,10 @@ papersRouter.get('/assessment/papers', requireAuth, async (req, res) => {
     res.json(success({
       papers,
       records: records
-        .filter((record) => record.paper.paperType === 'past')
         .map((record) => ({
           id: record.id,
+          paperId: record.paper.id,
+          examType: record.paper.examType,
           paperTitle: record.paper.title,
           totalQuestions: record.totalQuestions,
           correctCount: record.correctCount,
@@ -352,6 +378,11 @@ papersRouter.get('/:id', async (req, res) => {
 // 更新试卷
 papersRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   const { title, code, examType, year, duration, questions, status, paperType } = req.body
+
+  if (examType && !isExamType(examType)) {
+    res.status(422).json(fail('无效的考试类型'))
+    return
+  }
 
   const paper = await prisma.paper.update({
     where: { id: req.params.id },

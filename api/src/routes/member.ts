@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
 import { checkMemberAccess, getMemberContext, type EntitlementAction } from '../services/member.js'
+import { isExamType } from '../constants/domain.js'
 
 export const memberRouter = Router()
 
@@ -32,6 +33,11 @@ memberRouter.post('/check-access', requireAuth, async (req, res) => {
 
     if (action !== 'diagnostic' && action !== 'question-bank') {
       res.status(422).json(fail('无效的权益类型'))
+      return
+    }
+
+    if (!isExamType(examType)) {
+      res.status(422).json(fail('无效的考试类型'))
       return
     }
 

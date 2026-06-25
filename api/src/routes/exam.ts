@@ -4,10 +4,10 @@ import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
 import { formatQuestionRow } from '../utils/questionSync.js'
 import { checkMemberAccess } from '../services/member.js'
+import { EXAM_TYPES, isExamType } from '../constants/domain.js'
 
 export const examRouter = Router()
 
-// 安全 JSON 解析：解析失败时返回默认值而非抛异常
 function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
   if (!value) return fallback
   try {
@@ -17,7 +17,7 @@ function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
   }
 }
 
-// 解析 query 参数中逗号分隔的列表值，如 ?difficulty=easy,medium → ['easy','medium']
+// Parse comma-separated query values.
 function parseQueryList(value: unknown): string[] {
   if (!value) return []
   const values = Array.isArray(value) ? value : [value]
@@ -47,11 +47,10 @@ function parsePositiveInt(value: unknown, fallback: number, max?: number): numbe
   return max ? Math.min(parsed, max) : parsed
 }
 
-// 收集考纲节点及其所有子孙 code，用于按考纲节点筛选时覆盖子节点
 async function collectSyllabusCodes(codes: string[]): Promise<string[]> {
   if (!codes.length) return []
   const nodes = await prisma.syllabusNode.findMany({
-    where: { examType: 'ESAT' },
+    where: { examType: { in: EXAM_TYPES } },
     select: { code: true, parentCode: true },
   })
   const childrenMap = new Map<string, string[]>()
@@ -70,7 +69,7 @@ async function collectSyllabusCodes(codes: string[]): Promise<string[]> {
   return [...result]
 }
 
-// 检查题目的 knowledgePoints 或 syllabusPoints JSON 中是否包含指定 code
+// Check whether question point JSON contains any target code.
 function jsonPointsHaveCode(value: string, codes: string[]): boolean {
   const points = safeJsonParse<Array<{ code?: string }>>(value, [])
   return points.some((point) => point.code && codes.includes(point.code))
@@ -80,7 +79,11 @@ function isDiagnosticPaperType(paperType: string): boolean {
   return ['past', 'diagnostic', 'mock'].includes(paperType)
 }
 
-// 错题本 — 按难度、试卷类型和大纲节点筛选当前用户错题摘要。
+function calculateNinePointScore(totalQuestions: number, correctCount: number): number | null {
+  if (totalQuestions <= 0) return null
+  return (correctCount / totalQuestions) * 9
+}
+
 examRouter.get('/error-book', requireAuth, async (req, res) => {
   try {
     const difficulties = parseQueryList(req.query.difficulty)
@@ -204,7 +207,7 @@ examRouter.get('/error-book', requireAuth, async (req, res) => {
         title: question?.title || '',
         difficulty: question?.difficulty || '',
         syllabus_points: question ? safeJsonParse(question.syllabusPoints, []) : [],
-        selectedAnswer: group.selectedAnswers.join('、') || answer.selectedAnswer,
+        selectedAnswer: group.selectedAnswers.join(', ') || answer.selectedAnswer,
         selectedAnswers: group.selectedAnswers,
         wrongCount: group.wrongCount,
         isCorrect: answer.isCorrect,
@@ -231,11 +234,11 @@ examRouter.get('/error-book', requireAuth, async (req, res) => {
     }))
   } catch (e: any) {
     console.error('Error book error:', e)
-    res.status(500).json(fail(e.message || '获取错题本失败'))
+    res.status(500).json(fail(e.message || 'Get error book failed'))
   }
 })
 
-// 交卷 — 保存答题记录和逐题答案
+// Submit exam
 examRouter.post('/submit', requireAuth, async (req, res) => {
   try {
     const { questions, answers, questionDurations, startedAt, paperId, examType } = req.body
@@ -258,15 +261,23 @@ examRouter.post('/submit', requireAuth, async (req, res) => {
 
     const targetPaperId = paperId || 'question-bank'
     let targetExamType = examType || 'TMUA'
+    if (!isExamType(targetExamType)) {
+      res.status(422).json(fail('无效的考试类型'))
+      return
+    }
     let targetPaperType = 'practice'
     if (paperId) {
       const paper = await prisma.paper.findUnique({ where: { id: paperId } })
       if (!paper) {
-        res.status(404).json(fail('试卷不存在'))
+        res.status(404).json(fail('Paper not found'))
         return
       }
       targetExamType = paper.examType || targetExamType
       targetPaperType = paper.paperType
+      if (!isExamType(targetExamType)) {
+        res.status(422).json(fail('无效的考试类型'))
+        return
+      }
     }
 
     const isDiagnostic = isDiagnosticPaperType(targetPaperType)
@@ -287,7 +298,7 @@ examRouter.post('/submit', requireAuth, async (req, res) => {
         update: {},
         create: {
           id: 'question-bank',
-          title: '试题库练习',
+          title: 'Question bank practice',
           examType: targetExamType,
           year: new Date().getFullYear(),
           duration: 60,
@@ -310,7 +321,7 @@ examRouter.post('/submit', requireAuth, async (req, res) => {
       },
     })
 
-    // 逐题保存答题明细：questionId 现在是 Question 表的 UUID 外键
+    // Persist per-question answers with Question ids.
     const answerRecords = questions.map((q) => {
       const key = q.id || q.number?.toString()
       const selected = answerMap[key]
@@ -336,11 +347,100 @@ examRouter.post('/submit', requireAuth, async (req, res) => {
     }))
   } catch (e: any) {
     console.error('Exam submit error:', e)
-    res.status(500).json(fail(e.message || '交卷失败'))
+    res.status(500).json(fail(e.message || '浜ゅ嵎澶辫触'))
   }
 })
 
-// 答题结果详情 — 通过 AnswerRecord → Question FK 直接拿到完整题目
+// Profile stats
+examRouter.get('/profile-stats', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user!.userId
+    const [diagnosticRecords, diagnosticSessions, answeredRows] = await Promise.all([
+      prisma.examRecord.findMany({
+        where: {
+          userId,
+          status: 'submitted',
+          examType: { in: EXAM_TYPES },
+          paper: { paperType: { in: ['past', 'diagnostic', 'mock'] } },
+        },
+        select: {
+          examType: true,
+          totalQuestions: true,
+          correctCount: true,
+        },
+      }),
+      prisma.diagnosticSession.findMany({
+        where: {
+          userId,
+          status: 'linked',
+          examType: { in: EXAM_TYPES },
+        },
+        select: {
+          examType: true,
+          totalQuestions: true,
+          correctCount: true,
+        },
+      }),
+      prisma.answerRecord.findMany({
+        where: {
+          examRecord: {
+            userId,
+            status: 'submitted',
+            examType: { in: EXAM_TYPES },
+          },
+        },
+        select: {
+          questionId: true,
+          examRecord: { select: { examType: true } },
+        },
+      }),
+    ])
+    const scoresByExamType = new Map<string, number[]>()
+    const answeredQuestionsByExamType = new Map<string, Set<string>>()
+    const stats: Record<string, {
+      estimatedScore: number | null
+      answeredQuestionCount: number
+      diagnosticExamCount: number
+    }> = {}
+
+    for (const examType of EXAM_TYPES) {
+      scoresByExamType.set(examType, [])
+      answeredQuestionsByExamType.set(examType, new Set())
+      stats[examType] = {
+        estimatedScore: null,
+        answeredQuestionCount: 0,
+        diagnosticExamCount: 0,
+      }
+    }
+
+    for (const item of [...diagnosticRecords, ...diagnosticSessions]) {
+      const score = calculateNinePointScore(item.totalQuestions, item.correctCount)
+      if (score === null) continue
+      scoresByExamType.get(item.examType)?.push(score)
+      stats[item.examType].diagnosticExamCount += 1
+    }
+
+    for (const row of answeredRows) {
+      answeredQuestionsByExamType.get(row.examRecord.examType)?.add(row.questionId)
+    }
+
+    for (const examType of EXAM_TYPES) {
+      const scores = scoresByExamType.get(examType) || []
+      const average = scores.length
+        ? scores.reduce((sum, score) => sum + score, 0) / scores.length
+        : null
+      stats[examType].estimatedScore = average === null ? null : Math.round(average * 10) / 10
+      stats[examType].answeredQuestionCount = answeredQuestionsByExamType.get(examType)?.size || 0
+    }
+
+    res.json(success({ stats }))
+  } catch (e: any) {
+    console.error('Profile exam stats error:', e)
+    res.status(500).json(fail(e.message || 'Get profile stats failed'))
+  }
+})
+
+// Exam result
 examRouter.get('/:id/result', requireAuth, async (req, res) => {
   try {
     const examRecord = await prisma.examRecord.findUnique({
@@ -348,7 +448,7 @@ examRouter.get('/:id/result', requireAuth, async (req, res) => {
     })
 
     if (!examRecord) {
-      res.status(404).json(fail('考试记录不存在'))
+      res.status(404).json(fail('Exam record not found'))
       return
     }
 
@@ -357,7 +457,6 @@ examRouter.get('/:id/result', requireAuth, async (req, res) => {
       orderBy: { answeredAt: 'asc' },
     })
 
-    // 历史答题记录可能没有对应 Question 行，拆开查询避免 Prisma 必填关系直接抛错。
     const questionRows = await prisma.question.findMany({
       where: { id: { in: answers.map((answer) => answer.questionId) } },
     })
@@ -427,11 +526,11 @@ examRouter.get('/:id/result', requireAuth, async (req, res) => {
     }))
   } catch (e: any) {
     console.error('Exam result error:', e)
-    res.status(500).json(fail(e.message || '获取结果失败'))
+    res.status(500).json(fail(e.message || '鑾峰彇缁撴灉澶辫触'))
   }
 })
 
-// 练习记录 — 获取当前用户的试题库练习记录
+// Practice records
 examRouter.get('/practice-records', requireAuth, async (req, res) => {
   try {
     const records = await prisma.examRecord.findMany({
@@ -447,6 +546,7 @@ examRouter.get('/practice-records', requireAuth, async (req, res) => {
     res.json(success({
       records: records.map((record) => ({
         id: record.id,
+        examType: record.examType,
         totalQuestions: record.totalQuestions,
         correctCount: record.correctCount,
         startedAt: record.startedAt,

@@ -20,6 +20,7 @@ export function createUploadTask(params: {
   year: number
   duration: number
   totalPages: number
+  examType?: string
   paperType?: string
 }) {
   return callApi<CreateTaskResult>({
@@ -69,6 +70,7 @@ export function importJson(params: {
   year: number
   duration: number
   code?: string
+  examType?: string
   paperType?: string
   questions: any[]
 }) {
@@ -87,6 +89,7 @@ export function importMarkdown(params: {
   year: number
   duration: number
   code?: string
+  examType?: string
   paperType?: string
 }) {
   return callApi<any>({

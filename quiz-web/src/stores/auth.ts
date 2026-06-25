@@ -1,6 +1,11 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import { login as apiLogin, register as apiRegister, logout as apiLogout } from '../api/auth'
+import {
+  login as apiLogin,
+  register as apiRegister,
+  updateProfile as apiUpdateProfile,
+  logout as apiLogout,
+} from '../api/auth'
 import { type MemberContext } from '../api/member'
 
 export interface User {
@@ -69,6 +74,16 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('memberContext', JSON.stringify(context))
   }
 
+  // 保存当前用户资料后同步本地登录态，避免导航栏和下次进入页面继续显示旧信息。
+  function setUser(nextUser: User): void {
+    user.value = nextUser
+    if (memberContext.value) {
+      memberContext.value = { ...memberContext.value, user: nextUser }
+      localStorage.setItem('memberContext', JSON.stringify(memberContext.value))
+    }
+    localStorage.setItem('user', JSON.stringify(nextUser))
+  }
+
   // 登录
   async function login(
     email: string,
@@ -115,6 +130,22 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // 更新当前用户基础资料
+  async function updateProfile(name: string, email: string): Promise<User> {
+    loading.value = true
+    error.value = null
+    try {
+      const data = await apiUpdateProfile({ name, email })
+      setUser(data.user)
+      return data.user
+    } catch (e: any) {
+      error.value = e.response?.data?.errMsg || e.message || '更新资料失败'
+      throw e
+    } finally {
+      loading.value = false
+    }
+  }
+
   // 退出
   async function logout(): Promise<void> {
     try {
@@ -145,8 +176,10 @@ export const useAuthStore = defineStore('auth', () => {
     isPaid,
     initFromStorage,
     setMemberContext,
+    setUser,
     login,
     register,
+    updateProfile,
     logout,
   }
 })

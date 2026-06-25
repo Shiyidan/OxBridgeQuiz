@@ -20,11 +20,22 @@ export interface UserInfo {
   name: string
   email: string
   role: string
+  avatar?: string
+  paymentStatus?: string
 }
 
 export interface AuthResult {
   user: UserInfo
   token: string
+}
+
+export interface UpdateProfileParams {
+  name: string
+  email: string
+}
+
+export interface UpdateProfileResult {
+  user: UserInfo
 }
 
 /** 登录 */
@@ -42,6 +53,16 @@ export function register(params: RegisterParams) {
   return callApi<AuthResult>({
     url: '/auth/register',
     method: 'POST',
+    isAllData: false,
+    body: params,
+  })
+}
+
+/** 更新当前用户资料 */
+export function updateProfile(params: UpdateProfileParams) {
+  return callApi<UpdateProfileResult>({
+    url: '/auth/profile',
+    method: 'PUT',
     isAllData: false,
     body: params,
   })

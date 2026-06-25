@@ -95,6 +95,14 @@
 
           <div class="meta-row">
             <div class="meta-field">
+              <label class="field-label">考试类型</label>
+              <select v-model="examType" class="field-input field-input--sm">
+                <option v-for="item in examTypeOptions" :key="item.value" :value="item.value">
+                  {{ item.label }}
+                </option>
+              </select>
+            </div>
+            <div class="meta-field">
               <label class="field-label">年份</label>
               <input v-model.number="year" type="number" class="field-input field-input--sm" />
             </div>
@@ -188,6 +196,14 @@
           <input v-model="mdTitle" class="field-input" placeholder="输入试卷名称..." />
 
           <div class="meta-row">
+            <div class="meta-field">
+              <label class="field-label">考试类型</label>
+              <select v-model="mdExamType" class="field-input field-input--sm">
+                <option v-for="item in examTypeOptions" :key="item.value" :value="item.value">
+                  {{ item.label }}
+                </option>
+              </select>
+            </div>
             <div class="meta-field">
               <label class="field-label">年份</label>
               <input v-model.number="mdYear" type="number" class="field-input field-input--sm" />
@@ -290,6 +306,14 @@
 
           <div class="meta-row">
             <div class="meta-field">
+              <label class="field-label">考试类型</label>
+              <select v-model="jsonExamType" class="field-input field-input--sm">
+                <option v-for="item in examTypeOptions" :key="item.value" :value="item.value">
+                  {{ item.label }}
+                </option>
+              </select>
+            </div>
+            <div class="meta-field">
               <label class="field-label">年份</label>
               <input v-model.number="jsonYear" type="number" class="field-input field-input--sm" />
             </div>
@@ -367,6 +391,7 @@ import { useRouter } from 'vue-router'
 import { createUploadTask, uploadPage, getParseTaskStatusData, retryParseTask, importJson as apiImportJson, importMarkdown as apiImportMarkdown } from '@/api/upload'
 import { ElMessage } from 'element-plus'
 import { renderPdfToBase64Pages, type RenderedPage } from '@/utils/pdfRenderer'
+import { DEFAULT_EXAM_TYPE, EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
 
 const router = useRouter()
 
@@ -381,8 +406,10 @@ const fileKind = ref<'pdf' | 'image'>('pdf')
 const imagePreviewUrl = ref('')
 const dragOver = ref(false)
 const title = ref('')
+const examType = ref(DEFAULT_EXAM_TYPE)
 const year = ref(new Date().getFullYear())
 const duration = ref(75)
+const examTypeOptions = EXAM_TYPE_OPTIONS
 
 const PDF_MAX_BYTES = 50 * 1024 * 1024
 const IMG_MAX_BYTES = 10 * 1024 * 1024
@@ -416,6 +443,7 @@ let cachedPages: RenderedPage[] = []
 const jsonDragOver = ref(false)
 const jsonFile = ref<File | null>(null)
 const jsonTitle = ref('')
+const jsonExamType = ref(DEFAULT_EXAM_TYPE)
 const jsonYear = ref(new Date().getFullYear())
 const jsonDuration = ref(75)
 const jsonCode = ref('')
@@ -429,6 +457,7 @@ const jsonPaperId = ref('')
 const mdDragOver = ref(false)
 const mdFile = ref<File | null>(null)
 const mdTitle = ref('')
+const mdExamType = ref(DEFAULT_EXAM_TYPE)
 const mdYear = ref(new Date().getFullYear())
 const mdDuration = ref(75)
 const mdCode = ref('')
@@ -445,6 +474,12 @@ function truncateText(text: string, maxLen: number): string {
   if (!text) return ''
   const cleaned = text.replace(/\[\[(BS|NL|PARA|FIG)\]\]/g, ' ')
   return cleaned.length > maxLen ? cleaned.slice(0, maxLen) + '...' : cleaned
+}
+
+function normalizeExamType(value: unknown): ExamType {
+  return EXAM_TYPE_OPTIONS.some((item) => item.value === value)
+    ? (value as ExamType)
+    : DEFAULT_EXAM_TYPE
 }
 
 onUnmounted(() => {
@@ -510,6 +545,7 @@ function resetUpload(): void {
     imagePreviewUrl.value = ''
   }
   title.value = ''
+  examType.value = DEFAULT_EXAM_TYPE
   rendering.value = false
   parsing.value = false
   uploadDone.value = false
@@ -594,6 +630,7 @@ async function startUpload(): Promise<void> {
       title: title.value,
       year: year.value,
       duration: duration.value,
+      examType: examType.value,
       totalPages: pages.length,
       paperType: 'past',
     })
@@ -673,6 +710,7 @@ async function retryParse(): Promise<void> {
         title: title.value,
         year: year.value,
         duration: duration.value,
+        examType: examType.value,
         totalPages: cachedPages.length,
         paperType: 'past',
       })
@@ -756,12 +794,14 @@ function processJsonFile(f: File): void {
       if (Array.isArray(raw)) {
         jsonQuestions.value = raw
         jsonTitle.value = ''
+        jsonExamType.value = DEFAULT_EXAM_TYPE
         jsonYear.value = new Date().getFullYear()
         jsonDuration.value = 75
         jsonCode.value = ''
       } else {
         jsonQuestions.value = raw.questions || []
         jsonTitle.value = raw.title || ''
+        jsonExamType.value = normalizeExamType(raw.examType || raw.exam_type)
         jsonYear.value = raw.year || new Date().getFullYear()
         jsonDuration.value = raw.duration || 75
         jsonCode.value = raw.code || ''
@@ -784,6 +824,7 @@ function processJsonFile(f: File): void {
 function clearJsonFile(): void {
   jsonFile.value = null
   jsonTitle.value = ''
+  jsonExamType.value = DEFAULT_EXAM_TYPE
   jsonYear.value = new Date().getFullYear()
   jsonDuration.value = 75
   jsonCode.value = ''
@@ -817,6 +858,7 @@ async function importJson(): Promise<void> {
       year: jsonYear.value,
       duration: jsonDuration.value,
       code: jsonCode.value || undefined,
+      examType: jsonExamType.value,
       paperType: 'past',
       questions: jsonQuestions.value,
     })
@@ -890,6 +932,7 @@ function processMdFile(f: File): void {
       mdJsonBlockCount.value = blockCount
       mdQuestions.value = allQuestions
       mdTitle.value = f.name.replace(/\.md$/i, '')
+      mdExamType.value = DEFAULT_EXAM_TYPE
       mdFile.value = f
       mdError.value = ''
       mdWarnings.value = []
@@ -903,6 +946,7 @@ function processMdFile(f: File): void {
 function clearMdFile(): void {
   mdFile.value = null
   mdTitle.value = ''
+  mdExamType.value = DEFAULT_EXAM_TYPE
   mdYear.value = new Date().getFullYear()
   mdDuration.value = 75
   mdCode.value = ''
@@ -941,6 +985,7 @@ async function importMarkdown(): Promise<void> {
       year: mdYear.value,
       duration: mdDuration.value,
       code: mdCode.value || undefined,
+      examType: mdExamType.value,
       paperType: 'past',
     })
     mdPaperId.value = res.id

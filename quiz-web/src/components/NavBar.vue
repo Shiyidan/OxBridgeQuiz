@@ -48,7 +48,9 @@
                   </div>
                   <div class="dropdown-menu">
                     <div class="dropdown-section-label">当前角色：{{ currentRoleLabel }}</div>
-                    <button class="dropdown-item" type="button" @click="goToAdmin">后台管理</button>
+                    <button class="dropdown-item" type="button" @click="goToRoleHome">
+                      {{ roleHomeLabel }}
+                    </button>
                     <div class="dropdown-divider"></div>
                     <button
                       class="dropdown-item dropdown-item--danger"
@@ -82,11 +84,12 @@ const router = useRouter()
 const auth = useAuthStore()
 const showDropdown = ref(false)
 const currentRoleLabel = computed(() => (auth.user?.role === 'admin' ? '管理员' : '学生'))
+const roleHomeLabel = computed(() => (auth.user?.role === 'admin' ? '后台管理' : '个人中心'))
 
-// 管理入口统一落到核心资料库，避免进入后台空白父路由。
-function goToAdmin(): void {
+// 角色入口统一从头像菜单进入，学生和管理员各回到自己的工作台。
+function goToRoleHome(): void {
   showDropdown.value = false
-  router.push('/admin/core-library')
+  router.push(auth.user?.role === 'admin' ? '/admin/core-library' : '/profile')
 }
 
 // 退出后回首页，让需要登录的页面由路由守卫重新拦截。

@@ -108,11 +108,18 @@ export interface MistakeNotebookParams {
 
 export interface PracticeRecord {
   id: string
+  examType?: string
   totalQuestions: number
   correctCount: number
   startedAt: string
   submittedAt: string | null
   durationSeconds: number | null
+}
+
+export interface ProfileExamStats {
+  estimatedScore: number | null
+  answeredQuestionCount: number
+  diagnosticExamCount: number
 }
 
 // ---- API ----
@@ -158,6 +165,15 @@ export function getMistakeNotebookData(params: MistakeNotebookParams = {}) {
 export function getPracticeRecords() {
   return callApi<{ records: PracticeRecord[] }>({
     url: '/exams/practice-records',
+    method: 'GET',
+    isAllData: false,
+  })
+}
+
+/** 获取个人中心考试统计 */
+export function getProfileExamStats() {
+  return callApi<{ stats: Record<string, ProfileExamStats> }>({
+    url: '/exams/profile-stats',
     method: 'GET',
     isAllData: false,
   })

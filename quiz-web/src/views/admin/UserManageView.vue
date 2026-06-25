@@ -116,6 +116,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { getUserListData, updateUserAccess, type UserItem } from '@/api/admin'
 import { ElMessage } from 'element-plus'
+import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 
 const auth = useAuthStore()
 const users = ref<UserItem[]>([])
@@ -130,12 +131,7 @@ const editForm = ref({
   plan: 'monthly',
 })
 
-const examTypeOptions = [
-  { label: 'TMUA', value: 'TMUA' },
-  { label: 'ESAT', value: 'ESAT' },
-  { label: 'ENGAA', value: 'ENGAA' },
-  { label: 'NSAA', value: 'NSAA' },
-]
+const examTypeOptions = EXAM_TYPE_OPTIONS
 
 const planOptions = [
   { label: '月度会员', value: 'monthly' },
@@ -161,6 +157,7 @@ function planLabel(user: UserItem): string {
   if (activeItems.length > 0) {
     return activeItems.map((item) => `${item.examType} ${planName(item.plan)}`).join('、')
   }
+  if ((user.memberships || []).some((item) => item.status === 'cancelled')) return '会员已取消'
   if ((user.memberships || []).some((item) => item.status === 'expired')) return '会员已过期'
   return '免费'
 }
@@ -168,6 +165,7 @@ function planLabel(user: UserItem): string {
 function planClass(user: UserItem): string {
   if (user.role === 'admin') return 'plan-admin'
   if (activeMemberships(user).length > 0) return 'plan-paid'
+  if ((user.memberships || []).some((item) => item.status === 'cancelled')) return 'plan-cancelled'
   if ((user.memberships || []).some((item) => item.status === 'expired')) return 'plan-expired'
   return 'plan-free'
 }
@@ -378,6 +376,11 @@ onMounted(fetchUsers)
 .plan-expired {
   background: #fef2f2;
   color: #dc2626;
+}
+
+.plan-cancelled {
+  background: #fff7ed;
+  color: #c2410c;
 }
 
 .plan-admin {

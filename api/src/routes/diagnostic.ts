@@ -5,6 +5,7 @@ import { buildFullReportFromSession } from '../services/diagnostic.js'
 import { success, fail } from '../utils/response.js'
 import { formatQuestionRow } from '../utils/questionSync.js'
 import { checkMemberAccess } from '../services/member.js'
+import { isExamType } from '../constants/domain.js'
 
 export const diagnosticRouter = Router()
 
@@ -18,6 +19,10 @@ diagnosticRouter.get('/questions', requireAuth, async (req: Request, res: Respon
     }
 
     const examType = (req.query.examType as string) || 'TMUA'
+    if (!isExamType(examType)) {
+      res.status(422).json(fail('无效的考试类型'))
+      return
+    }
     const entitlement = await checkMemberAccess(req.user!.userId, 'diagnostic', examType, 1)
     if (!entitlement.allowed) {
       res.status(403).json(fail('当前诊断测试额度不足，请开通会员后继续'))
@@ -55,6 +60,10 @@ diagnosticRouter.get('/questions', requireAuth, async (req: Request, res: Respon
 diagnosticRouter.post('/submit', requireAuth, async (req: Request, res: Response) => {
   try {
     const { answers, questionAnswers, examType = 'TMUA' } = req.body
+    if (!isExamType(examType)) {
+      res.status(422).json(fail('无效的考试类型'))
+      return
+    }
     if (!answers || !Array.isArray(answers)) {
       res.status(422).json(fail('请提交答案'))
       return

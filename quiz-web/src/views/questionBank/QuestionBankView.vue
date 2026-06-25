@@ -91,6 +91,7 @@ import NavBar from '@/components/NavBar.vue'
 import type { SyllabusNode } from '@/api/questionBank'
 import { getSyllabusData, getQuestionSummaryData } from '@/api/questionBank'
 import { checkMemberAccess } from '@/api/member'
+import { DEFAULT_EXAM_TYPE, EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
 
 const router = useRouter()
 
@@ -106,15 +107,15 @@ interface DifficultyOption {
 }
 
 interface QbTab {
-  id: 'esat' | 'tmua'
+  id: ExamType
   label: string
 }
 
-const tabs: QbTab[] = [
-  { id: 'esat', label: 'ESAT' },
-  { id: 'tmua', label: 'TMUA' },
-]
-const activeTabId = ref<QbTab['id']>('esat')
+const tabs: QbTab[] = EXAM_TYPE_OPTIONS.map((item) => ({
+  id: item.value,
+  label: item.label,
+}))
+const activeTabId = ref<QbTab['id']>(DEFAULT_EXAM_TYPE)
 const treeData = ref<TreeNode[]>([])
 const treeProps = { children: 'children', label: 'label' }
 const defaultExpanded = ref<string[]>(['110000'])
@@ -155,7 +156,7 @@ const difficulties = ref<DifficultyOption[]>([
 ])
 
 const activeTopicTitle = computed<string>(() => `${selectedNodeLabel.value} · 试题`)
-const activeExamType = computed<string>(() => activeTabId.value.toUpperCase())
+const activeExamType = computed<ExamType>(() => activeTabId.value)
 
 // 首次进入试题库时加载大纲树，并默认查询最外层第一个节点。
 onMounted(async () => {

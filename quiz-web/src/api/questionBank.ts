@@ -2,6 +2,7 @@
  * 试题库相关 API
  */
 import { callApi } from '@/utils/request'
+import { DEFAULT_EXAM_TYPE } from '@/constants/examTypes'
 
 // ---- 类型 ----
 
@@ -40,7 +41,7 @@ export interface QuestionBankSummary {
 // ---- API ----
 
 /** 获取考纲树 */
-export function getSyllabusData(examType = 'ESAT') {
+export function getSyllabusData(examType = DEFAULT_EXAM_TYPE) {
   return callApi<SyllabusNode[]>({
     url: '/papers/syllabus',
     method: 'GET',
@@ -50,7 +51,7 @@ export function getSyllabusData(examType = 'ESAT') {
 }
 
 /** 获取考纲节点下的题数与难度分布（轻量） */
-export function getQuestionSummaryData(code: string, examType = 'ESAT') {
+export function getQuestionSummaryData(code: string, examType = DEFAULT_EXAM_TYPE) {
   return callApi<QuestionBankSummary>({
     url: '/papers/question-bank/summary',
     method: 'GET',

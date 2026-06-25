@@ -94,17 +94,17 @@ const quotaText = computed(() => {
   if (!diagnostic || diagnostic.remaining === null || diagnostic.limit === null) return '免费额度  --/--次'
   return `免费额度（${diagnostic.remaining}/${diagnostic.limit}次）`
 })
-const recordByPaperTitle = computed<Record<string, AssessmentRecordItem>>(() => {
+const recordByPaperId = computed<Record<string, AssessmentRecordItem>>(() => {
   const map: Record<string, AssessmentRecordItem> = {}
   for (const record of records.value) {
-    if (!map[record.paperTitle]) map[record.paperTitle] = record
+    if (!map[record.paperId]) map[record.paperId] = record
   }
   return map
 })
 const paperCards = computed(() =>
   visiblePapers.value.map((paper) => ({
     paper,
-    record: recordByPaperTitle.value[paper.title],
+    record: recordByPaperId.value[paper.id],
   })),
 )
 
@@ -183,7 +183,7 @@ function handleUpgradeClick(): void {
 }
 
 async function handlePaperAction(paper: AssessmentPaperItem): Promise<void> {
-  const record = recordByPaperTitle.value[paper.title]
+  const record = recordByPaperId.value[paper.id]
   if (record) {
     router.push(`/exam-result/${record.id}`)
     return

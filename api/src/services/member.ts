@@ -25,6 +25,13 @@ function isMembershipActive(membership: { status: string; startsAt: Date; endsAt
   return membership.status === MEMBERSHIP_STATUS.ACTIVE && membership.startsAt <= now && membership.endsAt > now
 }
 
+function effectiveMembershipStatus(membership: { status: string; endsAt: Date } | undefined, now: Date): string {
+  if (!membership) return EFFECTIVE_MEMBERSHIP_STATUS.FREE
+  if (membership.status === MEMBERSHIP_STATUS.CANCELLED) return EFFECTIVE_MEMBERSHIP_STATUS.CANCELLED
+  if (membership.status === MEMBERSHIP_STATUS.EXPIRED || membership.endsAt <= now) return EFFECTIVE_MEMBERSHIP_STATUS.EXPIRED
+  return membership.status
+}
+
 async function getActiveMembership(userId: string, examType: string, now: Date) {
   const memberships = await prisma.userMembership.findMany({
     where: { userId, examType },
@@ -174,7 +181,7 @@ export async function getMemberContext(userId: string) {
         ? EFFECTIVE_MEMBERSHIP_STATUS.ACTIVE
         : (isAdmin
             ? EFFECTIVE_MEMBERSHIP_STATUS.ACTIVE
-            : (latestMembership ? EFFECTIVE_MEMBERSHIP_STATUS.EXPIRED : EFFECTIVE_MEMBERSHIP_STATUS.FREE))
+            : effectiveMembershipStatus(latestMembership, now))
 
       return {
         examType,
@@ -201,7 +208,7 @@ export async function getMemberContext(userId: string) {
   )
 
   const membershipList = examTypeContexts
-    .filter((item) => item.isMember || item.status === 'expired')
+    .filter((item) => item.isMember || item.status === 'expired' || item.status === 'cancelled')
     .map((item) => ({
       examType: item.examType,
       plan: item.plan,

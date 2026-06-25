@@ -103,6 +103,7 @@ import { getPaperDetailData } from '@/api/papers'
 import { submitExam } from '@/api/exam'
 import { checkMemberAccess, getMember } from '@/api/member'
 import { useAuthStore } from '@/stores/auth'
+import { DEFAULT_EXAM_TYPE } from '@/constants/examTypes'
 import type { Question } from '@/types'
 
 const EXAM_SECONDS = 60 * 60
@@ -170,7 +171,7 @@ async function loadQuestions(): Promise<void> {
       }))
       const access = await checkMemberAccess({
         action: 'diagnostic',
-        examType: paper.examType || 'TMUA',
+        examType: paper.examType || DEFAULT_EXAM_TYPE,
         questionCount: 1,
       })
       if (!access.allowed) {
@@ -184,7 +185,7 @@ async function loadQuestions(): Promise<void> {
       return
     }
 
-    const examType = (route.query.examType as string | undefined) || 'ESAT'
+    const examType = (route.query.examType as string | undefined) || DEFAULT_EXAM_TYPE
     const qs = (await getQuestionsData({ code, difficulty, examType })) || []
     const loadedQuestions = qs.map((q: any) => ({
       ...q,

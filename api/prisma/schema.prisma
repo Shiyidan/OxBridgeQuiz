@@ -139,7 +139,7 @@ model SyllabusNode {
   id         String  @id @default(uuid())
   code       String                    // 学科编码，如 "112001"
   label      String                    // 节点名称
-  examType   String                    // ESAT | TMUA
+  examType   String                    // ESAT | TMUA | STEP
   parentCode String?                   // 父节点编码，null=根节点
   order      Int     @default(0)       // 同级排序
   createdAt  DateTime @default(now())

@@ -28,6 +28,7 @@
           <thead>
             <tr>
               <th>套卷名称</th>
+              <th>考试类型</th>
               <th>学科/模块</th>
               <th>类型</th>
               <th>年份</th>
@@ -40,6 +41,9 @@
           <tbody>
             <tr v-for="paper in paperList" :key="paper.id">
               <td class="name-cell">{{ paper.title }}</td>
+              <td>
+                <span class="exam-type-tag">{{ paper.examType || 'TMUA' }}</span>
+              </td>
               <td>
                 <span :class="`subject-tag subject-tag--${subjectType(paper.code)}`">{{
                   subjectLabel(paper.code)
@@ -147,14 +151,7 @@ const statusOptions = [
 
 // 后台列表用试卷 code 推断学科展示名，兼容历史导入数据的空 code。
 function subjectLabel(code: string | null): string {
-  const map: Record<string, string> = {
-    engaa: 'ENGAA',
-    nsaa: 'NSAA',
-    tmua: 'TMUA',
-    pat: 'PAT',
-    esat: 'ESAT',
-  }
-  return code ? map[code.toLowerCase()] || '通用' : '通用'
+  return code || '通用'
 }
 
 // 学科类型只影响标签颜色，不参与业务筛选。
@@ -162,7 +159,7 @@ function subjectType(code: string | null): string {
   if (!code) return 'general'
   const t = code.toLowerCase()
   if (t.includes('math')) return 'math'
-  if (t.includes('engaa') || t.includes('nsaa')) return 'advanced'
+  if (t.includes('step') || t.includes('esat')) return 'advanced'
   if (t.includes('physics') || t.includes('pat')) return 'physics'
   return 'general'
 }
@@ -310,6 +307,15 @@ th {
   background: #eef2ff;
   color: #3730a3;
   font-weight: 700;
+  font-size: 12px;
+}
+.exam-type-tag {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #ecfeff;
+  color: #0e7490;
+  font-weight: 800;
   font-size: 12px;
 }
 .type-select {

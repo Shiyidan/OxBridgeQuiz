@@ -19,8 +19,7 @@ export type UserPaymentStatus = (typeof USER_PAYMENT_STATUSES)[number]
 export const EXAM_TYPE = {
   TMUA: 'TMUA',
   ESAT: 'ESAT',
-  ENGAA: 'ENGAA',
-  NSAA: 'NSAA',
+  STEP: 'STEP',
 } as const
 
 export const EXAM_TYPES = Object.values(EXAM_TYPE)

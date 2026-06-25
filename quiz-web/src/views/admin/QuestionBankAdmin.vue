@@ -26,10 +26,9 @@
         </div>
         <div class="filter-tags">
           <span class="filter-tag filter-tag--active">全部</span>
-          <span class="filter-tag">ENGAA</span>
-          <span class="filter-tag">NSAA</span>
+          <span class="filter-tag">ESAT</span>
           <span class="filter-tag">TMUA</span>
-          <span class="filter-tag">PAT</span>
+          <span class="filter-tag">STEP</span>
         </div>
       </div>
 
@@ -68,10 +67,10 @@
 <script setup lang="ts">
 // 试题库管理（题目列表 + 搜索筛选）
 const questionList = [
-  { id: 'Q001', title: 'The surface area of a solid sphere of radius R...', subject: 'ENGAA', difficulty: 'easy', status: 'published' },
-  { id: 'Q002', title: 'A spaceship of mass 10000 kg is moving at...', subject: 'ENGAA', difficulty: 'easy', status: 'published' },
-  { id: 'Q003', title: 'Which of the following is a correct rearrangement...', subject: 'ENGAA', difficulty: 'medium', status: 'published' },
-  { id: 'Q004', title: 'A circuit is set up as shown. All three resistors...', subject: 'ENGAA', difficulty: 'hard', status: 'draft' },
+  { id: 'Q001', title: 'The surface area of a solid sphere of radius R...', subject: 'ESAT', difficulty: 'easy', status: 'published' },
+  { id: 'Q002', title: 'A spaceship of mass 10000 kg is moving at...', subject: 'TMUA', difficulty: 'easy', status: 'published' },
+  { id: 'Q003', title: 'Which of the following is a correct rearrangement...', subject: 'STEP', difficulty: 'medium', status: 'published' },
+  { id: 'Q004', title: 'A circuit is set up as shown. All three resistors...', subject: 'ESAT', difficulty: 'hard', status: 'draft' },
 ]
 
 function difficultyLabel(d: string) {

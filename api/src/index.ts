@@ -19,6 +19,15 @@ const app = express()
 app.use(cors({ origin: config.corsOrigins }))
 app.use(express.json({ limit: '50mb' }))
 
+// HTTP 安全头
+app.use((_req, res, next) => {
+  // connect-src 'self'：Nginx 反代下前端 / 和 API /api/ 同域，无需额外配置
+  res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self' https://cdn.jsdelivr.net; connect-src 'self'")
+  res.set('X-Content-Type-Options', 'nosniff')
+  res.set('X-Frame-Options', 'DENY')
+  next()
+})
+
 // 禁用 ETag，避免浏览器缓存 API 返回 304
 app.set('etag', false)
 app.use('/api', (_req, res, next) => {

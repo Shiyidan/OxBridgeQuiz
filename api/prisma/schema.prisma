@@ -79,6 +79,7 @@ model User {
   paymentStatus  String   @default("free")
   diagnosticUsed Boolean  @default(false)
   avatar         String?
+  examPreferences String   @default("[]")  // JSON: [{ examType, subjects }]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

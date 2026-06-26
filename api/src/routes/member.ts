@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
 import { checkMemberAccess, getMemberContext, type EntitlementAction } from '../services/member.js'
@@ -51,6 +52,27 @@ memberRouter.post('/check-access', requireAuth, async (req, res) => {
     res.json(success(result))
   } catch (err) {
     console.error('[member] check access error:', err)
+    res.status(500).json(fail('服务器错误'))
+  }
+})
+
+// 更新备考偏好
+memberRouter.put('/exam-preferences', requireAuth, async (req, res) => {
+  try {
+    const { examPreferences } = req.body
+    if (!Array.isArray(examPreferences)) {
+      res.status(422).json(fail('备考偏好格式不正确'))
+      return
+    }
+
+    await prisma.user.update({
+      where: { id: req.user!.userId },
+      data: { examPreferences: JSON.stringify(examPreferences) },
+    })
+
+    res.json(success(null))
+  } catch (err) {
+    console.error('[member] exam preferences error:', err)
     res.status(500).json(fail('服务器错误'))
   }
 })

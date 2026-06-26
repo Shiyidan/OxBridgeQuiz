@@ -112,11 +112,12 @@ export const useAuthStore = defineStore('auth', () => {
     email: string,
     password: string,
     confirmPassword: string,
+    examPreferences?: Array<{ examType: string; subjects: string[] }>,
   ): Promise<void> {
     loading.value = true
     error.value = null
     try {
-      const data = await apiRegister({ name, email, password, confirmPassword } as any)
+      const data = await apiRegister({ name, email, password, confirmPassword, examPreferences } as any)
       token.value = data.token
       user.value = data.user
       localStorage.setItem('token', data.token)

@@ -39,12 +39,18 @@ export interface ExamQuota {
   questionBank: UsageQuota
 }
 
+export interface ExamPreference {
+  examType: string
+  subjects: string[]
+}
+
 export interface MemberContext {
   user: MemberUser
   role: string
   isAdmin: boolean
   memberships: MemberSubscription[]
   quotas: Record<string, ExamQuota>
+  examPreferences: ExamPreference[]
 }
 
 export interface MemberAccessResult {
@@ -57,6 +63,16 @@ export interface MemberAccessResult {
   used: number
   remaining: number | null
   unlimited: boolean
+}
+
+/** 更新备考偏好 */
+export function updateExamPreferences(examPreferences: ExamPreference[]) {
+  return callApi<null>({
+    url: '/getMember/exam-preferences',
+    method: 'PUT',
+    isAllData: false,
+    body: { examPreferences },
+  })
 }
 
 /** 获取当前用户会员权益上下文 */

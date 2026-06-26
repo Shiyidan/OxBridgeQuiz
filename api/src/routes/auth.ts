@@ -18,7 +18,7 @@ const authLimiter = rateLimit({
 // 注册
 authRouter.post('/register', authLimiter, async (req: Request, res: Response) => {
   try {
-    const { email, password, confirmPassword, name } = req.body
+    const { email, password, confirmPassword, name, examPreferences } = req.body
 
     if (!email || !password || !name) {
       res.status(422).json(fail('邮箱、密码和姓名为必填项'))
@@ -45,7 +45,14 @@ authRouter.post('/register', authLimiter, async (req: Request, res: Response) =>
 
     const hashed = await bcrypt.hash(password, 12)
     const user = await prisma.user.create({
-      data: { email, password: hashed, name },
+      data: {
+        email,
+        password: hashed,
+        name,
+        examPreferences: JSON.stringify(
+          Array.isArray(examPreferences) ? examPreferences : [],
+        ),
+      },
     })
 
     const token = signToken({ id: user.id, email: user.email, role: user.role })
@@ -61,7 +68,7 @@ authRouter.post('/register', authLimiter, async (req: Request, res: Response) =>
 })
 
 // 登录
-authRouter.post('/login', authLimiter, async (req: Request, res: Response) => {
+authRouter.post('/login', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body
 
@@ -72,13 +79,13 @@ authRouter.post('/login', authLimiter, async (req: Request, res: Response) => {
 
     const user = await prisma.user.findUnique({ where: { email } })
     if (!user) {
-      res.status(401).json(fail('邮箱或密码错误'))
+      res.json(fail('邮箱或密码错误', 'AUTH_WRONG'))
       return
     }
 
     const valid = await bcrypt.compare(password, user.password)
     if (!valid) {
-      res.status(401).json(fail('邮箱或密码错误'))
+      res.json(fail('邮箱或密码错误', 'AUTH_WRONG'))
       return
     }
 

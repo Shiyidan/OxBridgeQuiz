@@ -123,29 +123,64 @@
       <section class="form-panel">
         <div class="section-title">
           <h2>报考目标</h2>
-          <button type="button" aria-label="编辑报考目标">编辑</button>
+          <div class="section-actions">
+            <button v-if="!examEditing" type="button" @click="startEditExam">编辑</button>
+            <template v-else>
+              <button type="button" class="text-button" @click="cancelEditExam">取消</button>
+              <button type="button" class="primary-button" :disabled="examSaving" @click="saveExam">
+                {{ examSaving ? '保存中...' : '保存' }}
+              </button>
+            </template>
+          </div>
         </div>
 
-        <div class="readonly-form readonly-form--three">
-          <label>
-            <span>所在年级</span>
-            <input value="高一" readonly />
+        <!-- 编辑模式 -->
+        <div v-if="examEditing" class="exam-edit-mode">
+          <div class="form-field">
+            <label class="form-label">备考类型（可多选）</label>
+            <div class="exam-type-group">
+              <label
+                v-for="et in examTypes"
+                :key="et.value"
+                class="exam-type-chip"
+                :class="{ 'exam-type-chip--active': editExamTypes.includes(et.value) }"
+              >
+                <input type="checkbox" :value="et.value" :checked="editExamTypes.includes(et.value)" class="sr-only" @change="toggleEditExamType(et.value)" />
+                {{ et.label }}
+              </label>
+            </div>
+          </div>
+          <div v-if="editExamTypes.length" class="form-field">
+            <label class="form-label">备考科目</label>
+            <div v-for="et in editExamTypes" :key="et" class="subject-group">
+              <span class="subject-exam-label">{{ examTypeLabel(et) }}{{ et === 'ESAT' ? '（最多选 3 科）' : '' }}</span>
+              <div class="subject-chip-group">
+                <label
+                  v-for="sub in examSubjects[et]"
+                  :key="sub"
+                  class="subject-chip"
+                  :class="{
+                    'subject-chip--active': editSubjects[et]?.includes(sub),
+                    'subject-chip--required': isExamSubjectRequired(et, sub),
+                  }"
+                >
+                  <input type="checkbox" :value="sub" :checked="editSubjects[et]?.includes(sub)" :disabled="isEditSubjectDisabled(et, sub)" class="sr-only" @change="toggleEditSubject(et, sub)" />
+                  {{ sub }}
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 查看模式 -->
+        <div v-else class="readonly-form readonly-form--two">
+          <label v-for="pref in examPreferences" :key="pref.examType">
+            <span>{{ pref.examType }}</span>
+            <input :value="pref.subjects.join('、') || '未选择'" readonly />
           </label>
-          <label>
-            <span>目标院校</span>
-            <input value="University of Oxford" readonly />
-          </label>
-          <label>
-            <span>目标专业</span>
-            <input value="生物工程" readonly />
-          </label>
-          <label>
-            <span>考试类型</span>
-            <input :value="currentExamType" readonly />
-          </label>
-          <label>
-            <span>考试科目</span>
-            <input value="数学1、数学2、物理" readonly />
+          <label v-if="!examPreferences.length">
+            <span>备考偏好</span>
+            <input value="未设置" readonly />
           </label>
         </div>
       </section>
@@ -243,7 +278,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
-import { getMember, type MemberSubscription } from '@/api/member'
+import { getMember, updateExamPreferences, type MemberSubscription, type ExamPreference } from '@/api/member'
 import { getProfileExamStats, type ProfileExamStats } from '@/api/exam'
 import { useAuthStore } from '@/stores/auth'
 import { DEFAULT_EXAM_TYPE, EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
@@ -273,6 +308,103 @@ const profileForm = reactive({
   email: '',
 })
 
+// 报考目标编辑
+const examEditing = ref(false)
+const examSaving = ref(false)
+const editExamTypes = ref<string[]>([])
+const editSubjects = ref<Record<string, string[]>>({})
+
+const examTypes = [
+  { value: 'ESAT', label: 'ESAT' },
+  { value: 'TMUA', label: 'TMUA' },
+  { value: 'STEP', label: 'STEP' },
+] as const
+
+const examSubjects: Record<string, string[]> = {
+  ESAT: ['数学1', '数学2', '物理', '化学', '生物'],
+  TMUA: ['数学'],
+  STEP: ['数学'],
+}
+
+const examRequiredSubjects: Record<string, string[]> = {
+  ESAT: ['数学1'],
+  TMUA: ['数学'],
+  STEP: ['数学'],
+}
+
+const ESAT_MAX_SUBJECTS = 3
+
+function examTypeLabel(value: string): string {
+  return examTypes.find((e) => e.value === value)?.label || value
+}
+
+function isExamSubjectRequired(examType: string, subject: string): boolean {
+  return (examRequiredSubjects[examType] || []).includes(subject)
+}
+
+function isEditSubjectDisabled(examType: string, subject: string): boolean {
+  if (isExamSubjectRequired(examType, subject)) return true
+  if (examType === 'ESAT') {
+    const current = editSubjects.value['ESAT'] || []
+    return current.length >= ESAT_MAX_SUBJECTS && !current.includes(subject)
+  }
+  return false
+}
+
+function toggleEditExamType(value: string): void {
+  const idx = editExamTypes.value.indexOf(value)
+  if (idx >= 0) {
+    editExamTypes.value.splice(idx, 1)
+    delete editSubjects.value[value]
+  } else {
+    editExamTypes.value.push(value)
+    editSubjects.value[value] = [...(examRequiredSubjects[value] || [])]
+  }
+}
+
+function toggleEditSubject(examType: string, subject: string): void {
+  if (isEditSubjectDisabled(examType, subject)) return
+  const subs = editSubjects.value[examType] || []
+  const idx = subs.indexOf(subject)
+  if (idx >= 0) subs.splice(idx, 1)
+  else subs.push(subject)
+  editSubjects.value[examType] = subs
+}
+
+function startEditExam(): void {
+  const prefs = auth.memberContext?.examPreferences || []
+  editExamTypes.value = prefs.map((p) => p.examType)
+  editSubjects.value = {}
+  for (const p of prefs) {
+    editSubjects.value[p.examType] = [...p.subjects]
+  }
+  examEditing.value = true
+}
+
+function cancelEditExam(): void {
+  examEditing.value = false
+}
+
+async function saveExam(): Promise<void> {
+  examSaving.value = true
+  try {
+    const prefs: ExamPreference[] = editExamTypes.value.map((et) => ({
+      examType: et,
+      subjects: editSubjects.value[et] || [],
+    }))
+    await updateExamPreferences(prefs)
+    // 刷新 memberContext 以同步界面
+    const ctx = await getMember()
+    auth.setMemberContext(ctx)
+    examEditing.value = false
+    ElMessage.success('报考目标已更新')
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.errMsg || err?.message || '更新失败')
+  } finally {
+    examSaving.value = false
+  }
+}
+
 const subscriptionFilters: { label: string; value: SubscriptionFilter }[] = [
   { label: '全部记录', value: 'all' },
   { label: '进行中', value: 'active' },
@@ -286,6 +418,7 @@ const activeMemberships = computed(() =>
   (auth.memberContext?.memberships || []).filter((item) => item.status === 'active'),
 )
 const hasActiveMembership = computed(() => activeMemberships.value.length > 0 || auth.isPaid)
+const examPreferences = computed(() => auth.memberContext?.examPreferences || [])
 const examTabs = EXAM_TYPE_OPTIONS.map((item) => item.value)
 const membershipTags = computed(() => {
   if (!activeMemberships.value.length) return ['免费版']
@@ -357,9 +490,14 @@ onMounted(async () => {
 
   if (memberResult.status === 'fulfilled') {
     auth.setMemberContext(memberResult.value)
-    // 首次进入时默认展示用户已开通的考试类型，减少看到占位符的概率。
-    const firstActive = memberResult.value.memberships.find((item) => item.status === 'active')
-    if (firstActive) currentExamType.value = normalizeExamType(firstActive.examType)
+    // 优先用注册时选的备考偏好，其次用已开通会员的考试类型
+    const prefs = memberResult.value.examPreferences || []
+    if (prefs.length) {
+      currentExamType.value = normalizeExamType(prefs[0].examType)
+    } else {
+      const firstActive = memberResult.value.memberships.find((item) => item.status === 'active')
+      if (firstActive) currentExamType.value = normalizeExamType(firstActive.examType)
+    }
   }
   if (statsResult.status === 'fulfilled') {
     profileStats.value = statsResult.value.stats || {}
@@ -1035,6 +1173,81 @@ function formatTimestamp(value: number | null): string {
   color: #b45309;
   font-size: 13px;
   font-weight: 800;
+}
+
+/* 报考目标编辑 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.exam-edit-mode {
+  display: grid;
+  gap: 22px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  font-size: 14px;
+  font-weight: 800;
+  color: #263437;
+}
+
+.exam-type-group,
+.subject-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.exam-type-chip,
+.subject-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  border: 1px solid #e2e6e6;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: #4f46e5;
+  }
+}
+
+.exam-type-chip--active,
+.subject-chip--active {
+  background: #4f46e5;
+  color: #fff;
+  border-color: #4f46e5;
+}
+
+.subject-chip--required {
+  cursor: not-allowed;
+}
+
+.subject-group {
+  margin-bottom: 10px;
+
+  &:last-child { margin-bottom: 0; }
+}
+
+.subject-exam-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.813rem;
+  font-weight: 600;
+  color: #475569;
 }
 
 @media (max-width: 960px) {

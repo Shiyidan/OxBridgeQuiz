@@ -5,7 +5,7 @@ import { API_URL } from '../config'
 /** 后端统一响应格式（拦截器前） */
 export interface ApiResponse<T = unknown> {
   success: boolean
-  code: number
+  code: number | string
   errMsg: string
   data: T
 }
@@ -15,8 +15,10 @@ const instance = axios.create({
   timeout: 15000,
 })
 
-// 请求拦截器：自动注入 Token
+// 请求拦截器：自动注入 Token（公开接口跳过，避免旧 token 污染登录请求）
+const PUBLIC_URLS = ['/auth/login', '/auth/register', '/health']
 instance.interceptors.request.use((config) => {
+  if (config.url && PUBLIC_URLS.some((u) => config.url!.includes(u))) return config
   const token = localStorage.getItem('token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -42,7 +44,8 @@ instance.interceptors.response.use(
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       localStorage.removeItem('memberContext')
-      if (!window.location.pathname.startsWith('/login') && window.location.pathname !== '/') {
+      const isLoginPage = window.location.pathname.startsWith('/login') || window.location.pathname.startsWith('/register')
+      if (!isLoginPage && window.location.pathname !== '/') {
         ElMessage.error('登录状态已过期，即将跳转回首页')
         setTimeout(() => { window.location.href = '/' }, 1500)
       }

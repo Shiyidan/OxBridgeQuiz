@@ -120,7 +120,7 @@ export async function getMemberContext(userId: string) {
   const now = new Date()
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, email: true, role: true, avatar: true, paymentStatus: true },
+    select: { id: true, name: true, email: true, role: true, avatar: true, paymentStatus: true, examPreferences: true },
   })
 
   if (!user) return null
@@ -231,5 +231,10 @@ export async function getMemberContext(userId: string) {
     isAdmin,
     memberships: membershipList,
     quotas,
+    examPreferences: safeParseExamPreferences(user.examPreferences),
   }
+}
+
+function safeParseExamPreferences(raw: string): Array<{ examType: string; subjects: string[] }> {
+  try { return JSON.parse(raw) } catch { return [] }
 }

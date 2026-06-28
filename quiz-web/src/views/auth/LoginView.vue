@@ -19,33 +19,18 @@
           @submit.prevent="handleSubmit"
         >
           <el-form-item label="电子邮箱" prop="email">
-            <el-input
-              v-model="form.email"
-              placeholder="demo@student.com"
-              autocomplete="email"
-            />
+            <el-input v-model="form.email" placeholder="demo@student.com" autocomplete="email" />
           </el-form-item>
 
           <el-form-item label="密码" prop="password">
-            <el-input
-              v-model="form.password"
-              type="password"
-              placeholder="••••••••"
-              autocomplete="current-password"
-              show-password
-            />
+            <el-input v-model="form.password" type="password" placeholder="请输入密码" autocomplete="current-password" show-password />
             <template #extra>
-              <a class="form-link" @click.prevent="handleForgotPassword">忘记密码?</a>
+              <a class="form-link" @click.prevent="handleForgotPassword">忘记密码？</a>
             </template>
           </el-form-item>
 
           <el-form-item>
-            <el-button
-              type="primary"
-              class="login-submit"
-              :loading="auth.loading"
-              native-type="submit"
-            >
+            <el-button type="primary" class="login-submit" :loading="auth.loading" native-type="submit">
               {{ auth.loading ? '登录中...' : '登录' }}
             </el-button>
           </el-form-item>
@@ -61,13 +46,14 @@
 </template>
 
 <script setup lang="ts">
-// 登录页
+// 登录页，用于邮箱密码登录。
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { getMember } from '@/api/member'
+import { validateEmail, validatePasswordRequired } from '@/utils/validation'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -78,13 +64,25 @@ const form = reactive({
   password: '',
 })
 
+// 复用共享校验规则，避免登录页和注册页的邮箱规则漂移。
 const rules: FormRules = {
   email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
-    { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' },
+    {
+      validator: (_rule, value: string, callback) => {
+        const result = validateEmail(value)
+        result.valid ? callback() : callback(new Error(result.message))
+      },
+      trigger: 'blur',
+    },
   ],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
+    {
+      validator: (_rule, value: string, callback) => {
+        const result = validatePasswordRequired(value)
+        result.valid ? callback() : callback(new Error(result.message))
+      },
+      trigger: 'blur',
+    },
   ],
 }
 
@@ -102,12 +100,12 @@ const handleSubmit = async (): Promise<void> => {
     auth.setMemberContext(memberCtx)
     router.push('/')
   } catch {
-    // 后端错误已在 auth.error 中
+    // 错误信息已写入 auth.error。
   }
 }
 
 const handleForgotPassword = (): void => {
-  // 暂未实现
+  // 暂未实现。
 }
 </script>
 

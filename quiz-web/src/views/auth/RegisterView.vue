@@ -27,9 +27,9 @@
           </el-form-item>
 
           <el-form-item label="密码" prop="password">
-            <el-input v-model="form.password" type="password" placeholder="••••••••" autocomplete="new-password" show-password />
+            <el-input v-model="form.password" type="password" placeholder="请输入密码" autocomplete="new-password" show-password />
             <template #extra>
-              <span class="field-hint">8-32 位，需包含字母和数字</span>
+              <span class="field-hint">8-32 位，需要包含字母和数字</span>
             </template>
           </el-form-item>
 
@@ -37,7 +37,6 @@
             <el-input v-model="form.confirmPassword" type="password" placeholder="再次输入密码" autocomplete="new-password" show-password />
           </el-form-item>
 
-          <!-- 备考类型 -->
           <el-form-item label="备考类型（可多选）">
             <div class="exam-type-group">
               <label
@@ -52,7 +51,6 @@
             </div>
           </el-form-item>
 
-          <!-- 备考科目 -->
           <el-form-item v-if="selectedExamTypes.length" label="备考科目">
             <div v-for="et in selectedExamTypes" :key="et" class="subject-group">
               <span class="subject-exam-label">{{ examTypeLabel(et) }}{{ et === 'ESAT' ? '（最多选 3 科）' : '' }}</span>
@@ -90,13 +88,14 @@
 </template>
 
 <script setup lang="ts">
-// 注册页
+// 注册页，用于创建账号并进入登录态。
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { getMember } from '@/api/member'
+import { validateConfirmPassword, validateEmail, validateName, validatePassword } from '@/utils/validation'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -109,44 +108,46 @@ const form = reactive({
   confirmPassword: '',
 })
 
-const validatePass = (_rule: any, value: string, callback: any) => {
-  if (value.length < 8 || value.length > 32) {
-    callback(new Error('密码长度需为 8-32 位'))
-  } else if (!/[a-zA-Z]/.test(value) || !/[0-9]/.test(value)) {
-    callback(new Error('密码需同时包含字母和数字'))
-  } else {
-    callback()
-  }
-}
-
-const validateConfirm = (_rule: any, value: string, callback: any) => {
-  if (value !== form.password) {
-    callback(new Error('两次输入的密码不一致'))
-  } else {
-    callback()
-  }
-}
-
+// 复用共享校验规则，确保注册页与后端基础规则保持一致。
 const rules: FormRules = {
   name: [
-    { required: true, message: '请输入姓名', trigger: 'blur' },
-    { max: 50, message: '姓名不超过 50 字', trigger: 'blur' },
+    {
+      validator: (_rule, value: string, callback) => {
+        const result = validateName(value)
+        result.valid ? callback() : callback(new Error(result.message))
+      },
+      trigger: 'blur',
+    },
   ],
   email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
-    { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' },
+    {
+      validator: (_rule, value: string, callback) => {
+        const result = validateEmail(value)
+        result.valid ? callback() : callback(new Error(result.message))
+      },
+      trigger: 'blur',
+    },
   ],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { validator: validatePass, trigger: 'blur' },
+    {
+      validator: (_rule, value: string, callback) => {
+        const result = validatePassword(value)
+        result.valid ? callback() : callback(new Error(result.message))
+      },
+      trigger: 'blur',
+    },
   ],
   confirmPassword: [
-    { required: true, message: '请再次输入密码', trigger: 'blur' },
-    { validator: validateConfirm, trigger: 'blur' },
+    {
+      validator: (_rule, value: string, callback) => {
+        const result = validateConfirmPassword(form.password, value)
+        result.valid ? callback() : callback(new Error(result.message))
+      },
+      trigger: 'blur',
+    },
   ],
 }
 
-// 备考类型与科目
 const examTypes = [
   { value: 'ESAT', label: 'ESAT' },
   { value: 'TMUA', label: 'TMUA' },
@@ -165,6 +166,7 @@ const examRequiredSubjects: Record<string, string[]> = {
   STEP: ['数学'],
 }
 
+// 注册时保存备考偏好，后续用于个人中心和各考试类型默认展示。
 const selectedExamTypes = ref<string[]>([])
 const selectedSubjects = ref<Record<string, string[]>>({})
 const ESAT_MAX_SUBJECTS = 3
@@ -180,7 +182,7 @@ function isSubjectRequired(examType: string, subject: string): boolean {
 function isSubjectDisabled(examType: string, subject: string): boolean {
   if (isSubjectRequired(examType, subject)) return true
   if (examType === 'ESAT') {
-    const current = selectedSubjects.value['ESAT'] || []
+    const current = selectedSubjects.value.ESAT || []
     return current.length >= ESAT_MAX_SUBJECTS && !current.includes(subject)
   }
   return false
@@ -193,6 +195,7 @@ function toggleExamType(value: string): void {
     delete selectedSubjects.value[value]
   } else {
     selectedExamTypes.value.push(value)
+    // 必选科目需要在选择考试类型时自动带入。
     selectedSubjects.value[value] = [...(examRequiredSubjects[value] || [])]
   }
 }
@@ -224,7 +227,7 @@ const handleSubmit = async (): Promise<void> => {
     auth.setMemberContext(memberCtx)
     router.push('/')
   } catch {
-    // 后端错误已在 auth.error 中
+    // 错误信息已写入 auth.error。
   }
 }
 </script>
@@ -234,7 +237,6 @@ const handleSubmit = async (): Promise<void> => {
   --color-primary: #4f46e5;
   --color-bg: #f8fafc;
   --color-surface: #ffffff;
-  --color-surface-muted: #f1f5f9;
   --color-border: #e2e8f0;
   --color-text: #0f172a;
   --color-text-secondary: #475569;
@@ -334,7 +336,6 @@ const handleSubmit = async (): Promise<void> => {
   color: var(--color-text-secondary);
 }
 
-/* 备考类型 & 科目 chip */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -381,7 +382,9 @@ const handleSubmit = async (): Promise<void> => {
 .subject-group {
   margin-bottom: 10px;
 
-  &:last-child { margin-bottom: 0; }
+  &:last-child {
+    margin-bottom: 0;
+  }
 }
 
 .subject-exam-label {

@@ -492,8 +492,9 @@ onMounted(async () => {
     auth.setMemberContext(memberResult.value)
     // 优先用注册时选的备考偏好，其次用已开通会员的考试类型
     const prefs = memberResult.value.examPreferences || []
-    if (prefs.length) {
-      currentExamType.value = normalizeExamType(prefs[0].examType)
+    const firstPreference = prefs[0]
+    if (firstPreference) {
+      currentExamType.value = normalizeExamType(firstPreference.examType)
     } else {
       const firstActive = memberResult.value.memberships.find((item) => item.status === 'active')
       if (firstActive) currentExamType.value = normalizeExamType(firstActive.examType)
@@ -1316,5 +1317,4 @@ function formatTimestamp(value: number | null): string {
   }
 }
 </style>
-
 

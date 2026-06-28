@@ -1,7 +1,5 @@
 import express from 'express'
 import cors from 'cors'
-import dotenv from 'dotenv'
-import path from 'path'
 import { config } from './config.js'
 import { papersRouter } from './routes/papers.js'
 import { parseRouter } from './routes/parse.js'
@@ -11,8 +9,6 @@ import { authRouter } from './routes/auth.js'
 import { diagnosticRouter } from './routes/diagnostic.js'
 import { adminRouter } from './routes/admin.js'
 import { memberRouter } from './routes/member.js'
-
-dotenv.config({ path: path.resolve(process.cwd(), '.env') })
 
 const app = express()
 

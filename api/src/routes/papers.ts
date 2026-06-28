@@ -9,6 +9,21 @@ import { EXAM_TYPE, isExamType } from '../constants/domain.js'
 
 export const papersRouter = Router()
 
+type RawSyllabusNode = {
+  code?: unknown
+  label?: unknown
+  name?: unknown
+  title?: unknown
+  children?: unknown
+}
+
+type FlatSyllabusNode = {
+  code: string
+  label: string
+  parentCode: string | null
+  order: number
+}
+
 /** 兼容 difficulty 的两种格式：对象 { level } 或纯字符串 */
 function levelOf(q: any): string | null {
   const d = q?.difficulty
@@ -18,6 +33,87 @@ function levelOf(q: any): string | null {
 }
 
 // 试卷列表
+function parseSyllabusJson(input: unknown): unknown {
+  if (typeof input !== 'string') return input
+  try {
+    return JSON.parse(input)
+  } catch {
+    throw new Error('考纲 JSON 格式不正确')
+  }
+}
+
+function getSyllabusRoots(input: unknown): RawSyllabusNode[] {
+  if (Array.isArray(input)) return input as RawSyllabusNode[]
+  if (!input || typeof input !== 'object') throw new Error('考纲内容必须是树形 JSON')
+  const obj = input as Record<string, unknown>
+  if (Array.isArray(obj.nodes)) return obj.nodes as RawSyllabusNode[]
+  if (Array.isArray(obj.syllabus)) return obj.syllabus as RawSyllabusNode[]
+  if (Array.isArray(obj.tree)) return obj.tree as RawSyllabusNode[]
+  if (Array.isArray(obj.children)) return obj.children as RawSyllabusNode[]
+  if ('code' in obj && ('label' in obj || 'name' in obj || 'title' in obj)) {
+    return [obj as RawSyllabusNode]
+  }
+  throw new Error('考纲内容缺少节点数组')
+}
+
+function normalizeSyllabusNodes(input: unknown): FlatSyllabusNode[] {
+  const roots = getSyllabusRoots(input)
+  const flat: FlatSyllabusNode[] = []
+  const seen = new Set<string>()
+
+  function visit(node: RawSyllabusNode, parentCode: string | null, order: number): void {
+    const code = typeof node.code === 'string' ? node.code.trim() : ''
+    const labelSource = node.label ?? node.name ?? node.title
+    const label = typeof labelSource === 'string' ? labelSource.trim() : ''
+    if (!code || !label) throw new Error('考纲节点必须包含 code 和 label')
+    if (seen.has(code)) throw new Error(`考纲节点编码重复：${code}`)
+    seen.add(code)
+    flat.push({ code, label, parentCode, order })
+
+    if (node.children === undefined) return
+    if (!Array.isArray(node.children)) throw new Error(`节点 ${code} 的 children 必须是数组`)
+    node.children.forEach((child, index) => visit(child as RawSyllabusNode, code, index))
+  }
+
+  roots.forEach((node, index) => visit(node, null, index))
+  if (!flat.length) throw new Error('考纲至少需要一个节点')
+  return flat
+}
+
+function safeParseJson(value: string): unknown {
+  try {
+    return JSON.parse(value)
+  } catch {
+    return null
+  }
+}
+
+async function applySyllabusToTree(syllabus: { id: string; examType: string; sourceJson: string }) {
+  const content = parseSyllabusJson(syllabus.sourceJson)
+  const nodes = normalizeSyllabusNodes(content)
+
+  await prisma.$transaction(async (tx) => {
+    await tx.syllabus.updateMany({
+      where: { examType: syllabus.examType },
+      data: { isActive: false },
+    })
+    await tx.syllabus.update({
+      where: { id: syllabus.id },
+      data: { isActive: true },
+    })
+    await tx.syllabusNode.deleteMany({ where: { examType: syllabus.examType } })
+    await tx.syllabusNode.createMany({
+      data: nodes.map((node) => ({
+        code: node.code,
+        label: node.label,
+        examType: syllabus.examType,
+        parentCode: node.parentCode,
+        order: node.order,
+      })),
+    })
+  })
+}
+
 papersRouter.get('/', async (req, res) => {
   const page = parseInt(req.query.page as string) || 1
   const limit = parseInt(req.query.limit as string) || 20
@@ -160,6 +256,123 @@ papersRouter.post('/import-markdown', requireAuth, requireAdmin, async (req, res
 })
 
 // 考纲树
+papersRouter.get('/syllabus-library', requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const items = await prisma.syllabus.findMany({
+      select: {
+        id: true,
+        name: true,
+        examType: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+    res.json(success(items))
+  } catch (e: any) {
+    res.status(500).json(fail(e.message || '获取考纲列表失败'))
+  }
+})
+
+papersRouter.post('/syllabus-library', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { name, examType, content } = req.body
+    if (!name || typeof name !== 'string') {
+      res.status(400).json(fail('考纲名称不能为空'))
+      return
+    }
+    if (!isExamType(examType)) {
+      res.status(422).json(fail('无效的考试类型'))
+      return
+    }
+
+    const parsed = parseSyllabusJson(content)
+    normalizeSyllabusNodes(parsed)
+
+    const item = await prisma.syllabus.create({
+      data: {
+        name: name.trim(),
+        examType,
+        sourceJson: JSON.stringify(parsed),
+      },
+      select: {
+        id: true,
+        name: true,
+        examType: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    })
+
+    res.json(success(item))
+  } catch (e: any) {
+    res.status(400).json(fail(e.message || '上传考纲失败'))
+  }
+})
+
+papersRouter.get('/syllabus-library/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const item = await prisma.syllabus.findUnique({ where: { id: req.params.id } })
+    if (!item) {
+      res.status(404).json(fail('考纲不存在'))
+      return
+    }
+
+    res.json(success({
+      id: item.id,
+      name: item.name,
+      examType: item.examType,
+      isActive: item.isActive,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+      content: safeParseJson(item.sourceJson),
+    }))
+  } catch (e: any) {
+    res.status(500).json(fail(e.message || '获取考纲详情失败'))
+  }
+})
+
+papersRouter.put('/syllabus-library/:id/enable', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const item = await prisma.syllabus.findUnique({ where: { id: req.params.id } })
+    if (!item) {
+      res.status(404).json(fail('考纲不存在'))
+      return
+    }
+
+    await applySyllabusToTree(item)
+    res.json(success({ id: item.id, isActive: true }))
+  } catch (e: any) {
+    res.status(400).json(fail(e.message || '启用考纲失败'))
+  }
+})
+
+papersRouter.put('/syllabus-library/:id/disable', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const item = await prisma.syllabus.findUnique({ where: { id: req.params.id } })
+    if (!item) {
+      res.status(404).json(fail('考纲不存在'))
+      return
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.syllabus.update({
+        where: { id: item.id },
+        data: { isActive: false },
+      })
+      if (item.isActive) {
+        await tx.syllabusNode.deleteMany({ where: { examType: item.examType } })
+      }
+    })
+
+    res.json(success({ id: item.id, isActive: false }))
+  } catch (e: any) {
+    res.status(400).json(fail(e.message || '停用考纲失败'))
+  }
+})
+
 papersRouter.get('/syllabus', async (req, res) => {
   try {
     const examType = (req.query.examType as string) || EXAM_TYPE.TMUA
@@ -212,6 +425,11 @@ async function collectDescendantCodes(code: string, examType: string): Promise<s
   return [...childCodes]
 }
 
+async function hasSyllabusTree(examType: string): Promise<boolean> {
+  const count = await prisma.syllabusNode.count({ where: { examType } })
+  return count > 0
+}
+
 // 试题库轻量摘要
 papersRouter.get('/question-bank/summary', async (req, res) => {
   try {
@@ -219,6 +437,13 @@ papersRouter.get('/question-bank/summary', async (req, res) => {
     const examType = (req.query.examType as string) || EXAM_TYPE.TMUA
     if (!isExamType(examType)) {
       res.status(422).json(fail('无效的考试类型'))
+      return
+    }
+    if (!(await hasSyllabusTree(examType))) {
+      res.json(success({
+        total: 0,
+        difficultyCount: { easy: 0, medium: 0, hard: 0, composite: 0 },
+      }))
       return
     }
     const filterCodes = code ? await collectDescendantCodes(code, examType) : []
@@ -267,6 +492,15 @@ papersRouter.get('/question-bank', async (req, res) => {
     const examType = (req.query.examType as string) || EXAM_TYPE.TMUA
     if (!isExamType(examType)) {
       res.status(422).json(fail('无效的考试类型'))
+      return
+    }
+    if (!(await hasSyllabusTree(examType))) {
+      res.json(success({
+        questions: [],
+        total: 0,
+        difficultyCount: { easy: 0, medium: 0, hard: 0, composite: 0 },
+        subjects: [],
+      }))
       return
     }
 

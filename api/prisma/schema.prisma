@@ -150,6 +150,19 @@ model SyllabusNode {
   @@index([parentCode])
 }
 
+model Syllabus {
+  id         String   @id @default(uuid())
+  name       String
+  examType   String
+  sourceJson String
+  isActive   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([examType])
+  @@index([isActive])
+}
+
 model RevenueCost {
   id                  String   @id @default(uuid())
   rechargeItem        String

@@ -1,13 +1,21 @@
 # AGENTS.md
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+This file provides guidance to Codex when working with code in this repository.
 
-## Project overview
+## Project Overview
 
-Online exam parsing and quiz web app for G5 entrance exams. Upload PDF exam papers → Qwen-VL-Max AI parses questions/formulas/diagrams → structured quiz with online answering and diagnostic reports.
+Online quiz and learning web app for G5 entrance exams. The current product focus is:
 
-- **Backend**: Express + TypeScript + Prisma (SQLite) at `api/`
-- **Frontend**: Vue 3 Composition API + TypeScript + Pinia + KaTeX + SCSS at `quiz-web/`
+- exam paper and question bank management
+- structured question storage and rendering
+- online practice, exam taking, mistake review, and diagnostic reports
+- syllabus management and question-to-syllabus mapping
+- membership, entitlement, and admin operations
+
+The earlier Qwen-VL-Max PDF/image automatic parsing flow is not part of the current active development focus. Do not treat it as the primary product path unless the user explicitly asks to work on legacy parsing.
+
+- **Backend**: Express + TypeScript + Prisma (SQLite) in `api/`
+- **Frontend**: Vue 3 Composition API + TypeScript + Pinia + KaTeX + SCSS in `quiz-web/`
 
 ## Commands
 
@@ -16,8 +24,9 @@ Online exam parsing and quiz web app for G5 entrance exams. Upload PDF exam pape
 cd api
 npm run dev          # Start dev server on :3001 (tsx watch)
 npm run build        # TypeScript compile
-npx prisma migrate dev --name <desc>   # DB migration after schema change
-npx prisma studio    # Visual DB browser
+npx prisma migrate dev --name <desc>
+npx prisma migrate status
+npx prisma studio
 
 # Frontend (quiz-web/)
 cd quiz-web
@@ -28,40 +37,159 @@ npm run lint         # ESLint + Oxlint
 npm run format       # Prettier
 ```
 
+On Windows, if PowerShell blocks `npm.ps1` or `npx.ps1`, use `npm.cmd` or `npx.cmd`.
+
 ## Architecture
 
-### Question rendering chain (critical path)
+### Question Rendering Chain
 
-```
-QuestionCard.vue → LatexText.vue → FormulaBlock.vue (KaTeX)
-```
-
-- **LatexText.vue** splits text by regex `/\$\$([^$]+)\$\$|\$([^$]+)\$/g` into text/latex/latex-display parts
-- **FormulaBlock.vue** calls `katex.renderToString()` with module-level `Map` cache
-- Text parts get `white-space: pre-line` to render actual `\n` newlines as line breaks
-- Text parts also undergo `.replace(/\\n/g, '\n')` to convert literal backslash-n sequences (from Qwen output inconsistencies) into real newlines
-
-### API response format
-
-All endpoints return `{ success: boolean, code: number, errMsg: string, data: T }`. Frontend Axios interceptor in `request.ts` auto-unwraps the `data` field and redirects to `/login` on 401.
-
-### PDF parse flow
-
-```
-upload PDF/image → browser pdf.js renders pages to JPEG base64 (or direct image bytes)
-→ per-page POST to parse-tasks/:id/pages → Qwen-VL-Max per-page recognition → JSON
-→ parseService.ts deduplicates, sorts, writes Paper.questions
+```text
+QuestionCard.vue -> LatexText.vue -> FormulaBlock.vue (KaTeX)
 ```
 
-### Data model
+- `LatexText.vue` splits text by `/\$\$([^$]+)\$\$|\$([^$]+)\$/g` into text, inline LaTeX, and display LaTeX parts.
+- `FormulaBlock.vue` calls `katex.renderToString()` with a module-level `Map` cache.
+- Text parts use `white-space: pre-line` so real `\n` newlines render as line breaks.
+- Text parts also run `.replace(/\\n/g, '\n')` to normalize literal backslash-n sequences.
 
-6 tables: User, Paper (with JSON `questions` column), ParseTask, DiagnosticSession, ExamRecord, AnswerRecord. See `api/prisma/schema.prisma`.
+### API Response Format
 
-## Key conventions
+All backend endpoints must return:
 
-- **Route comments**: above the route definition, short label only, no inline comments. Hierarchy via nested `children`.
-- **Code comments**: WHY only, never WHAT. One line max.
-- **Component file header**: one-line description of what it does and where it's used.
-- **Question data**: paragraph breaks in `title` use `\n\n`, rendered via `white-space: pre-line`. Images prefer SVG over PNG. Options JSON: `[{"label": "A", "text": "..."}]`. Answers JSON: `["A"]`.
-- **DB changes**: after schema change, run `prisma migrate dev` AND update `数据库构建.md`.
-- **All DB access**: through Prisma Client (`api/src/services/prisma.ts`), never raw SQL.
+```ts
+{
+  success: boolean
+  code: number | string
+  errMsg: string
+  data: T
+}
+```
+
+Use `code: 0` for success, `code: 1` for generic failures, and readable string codes for business errors such as `AUTH_WRONG`. Frontend `request.ts` unwraps `data` and redirects to `/login` on 401.
+
+### Frontend API Layer
+
+All backend calls must go through module functions under `quiz-web/src/api/`. Do not call `request.get/post` directly from Vue pages or arbitrary `.ts` files.
+
+API modules should define types first, then API functions. Use `callApi<T>(config)` from `src/utils/request.ts`, and always specify:
+
+- `method`
+- `url`
+- `isAllData`
+- `params` or `body` when needed
+
+Use `isAllData: false` for normal unwrapped API data. Use `true` only when the caller needs response headers, status, or the full Axios response.
+
+### Pagination
+
+Paginated list APIs use `page` and `pageSize` query params. The response `data` shape must be:
+
+```ts
+{
+  list: T[]
+  pagination: {
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+    hasPrev: boolean
+    hasNext: boolean
+  }
+}
+```
+
+Frontend pages should use `src/components/AppPagination.vue`, keep only `pagination.page`, `pagination.pageSize`, and `pagination.total` locally, and pass them with `v-model:page` and `v-model:page-size`.
+
+Search and pagination behavior:
+
+- initial load uses `page=1&pageSize=20`
+- clicking search applies draft filters and resets to `page=1`
+- page changes use the applied filters, not unsent draft filters
+- changing `pageSize` keeps applied filters and resets to `page=1`
+- reset clears draft and applied filters, keeps current `pageSize`, and resets to `page=1`
+
+## Data Model
+
+Current Prisma models include:
+
+```text
+Paper
+Question
+ParseTask
+User
+DiagnosticSession
+ExamRecord
+AnswerRecord
+SyllabusNode
+Syllabus
+RevenueCost
+MembershipPlan
+UserMembership
+EntitlementConfig
+```
+
+See `api/prisma/schema.prisma` and `3.2 数据库构建.md`.
+
+## Database Rules
+
+- `Question` is the single official question data source for business queries, exams, reports, and mistake notebooks.
+- `Paper.questions` is legacy compatibility and backfill input only. New features must not read from or write to it.
+- JSON/Markdown import and question editing flows that create or update questions must write through `syncPaperQuestions`.
+- Historical `Paper.questions` backfill uses `api` script `npm run backfill:questions`; run with `-- --dry-run` first, and only use `-- --clear-legacy` after confirming legacy JSON is no longer needed.
+- All database access must go through Prisma Client from `api/src/services/prisma.ts`; do not use raw SQL.
+- Prefer database `orderBy` for sorted query results; frontend sorting is only a fallback.
+- JSON fields such as `options`, `answer`, `knowledgePoints`, and `syllabusPoints` must use `JSON.stringify` on write and `JSON.parse` before API response.
+- Use `include` for relations instead of repeated single-table queries.
+- Roles, statuses, plans, and exam types must be centralized constants, not scattered hard-coded strings.
+- Do not mix semantics in one field: `role` is identity only, `paymentStatus` is legacy student payment state only, and memberships/entitlements are represented by membership tables and entitlement APIs.
+
+### Schema Changes
+
+For every Prisma schema change:
+
+1. Update `api/prisma/schema.prisma`.
+2. Run `npx prisma migrate dev --name <desc>` from `api/`.
+3. Run `npx prisma migrate status`.
+4. Update `3.2 数据库构建.md` with model and field changes.
+5. If historical data must move, write and verify a migration/backfill script before deleting old columns.
+
+Do not use `prisma db push` in normal development or deployment. If it was used accidentally, repair the migration history with `migrate diff`, `migrate dev --create-only`, and `migrate resolve --applied` as documented in `1-开发规范.md`.
+
+Do not manually create or delete files under `api/prisma/migrations/` except through Prisma migration commands or an explicitly reviewed repair.
+
+## Question Data Rules
+
+- Paragraph breaks in `Question.title` use `\n\n`.
+- Frontend rendering uses `white-space: pre-line`.
+- Images should prefer SVG. Use PNG only for photos or complex raster graphics.
+- Options JSON format is `[{"label": "A", "text": "..."}]`.
+- Answers JSON format is `["A"]`; keep it an array to support multi-select.
+
+## Comment And File Header Rules
+
+- Route comments go above the route definition, not at end of line.
+- Route comments are short page labels only; no decorative separators and no long functional descriptions.
+- Route hierarchy is expressed by nested `children`, not by comment prefixes.
+- Code comments explain WHY, not WHAT. Keep them to one line.
+- Do not leave open-ended `TODO` comments. If needed, include a date or clear condition.
+- Vue components and utility files should start with a one-line header describing purpose and where they are used.
+
+## Frontend Page Method Comments
+
+Add one-line comments above methods or key calls when they:
+
+- load page data on initialization
+- change business source or page context
+- persist business data, such as submit exam, publish paper, update status
+- navigate into key flows, such as admin, upload, or report pages
+
+Comments should explain the business reason or source context, not repeat the code surface.
+
+## Deployment
+
+Use the `quiztestdemo-deploy` skill for production deployment. Normal production deployment uses Prisma migrations, not `db push`, and must preserve:
+
+- `/opt/quiz/api/.env`
+- `/opt/quiz/data/prod.db`
+
+Deployment reports are generated under `deployment-reports/`. The deploy skill is configured to send the HTML report through Agent Mail when `agently-cli +me` is authorized as `solveark@agent.qq.com`.

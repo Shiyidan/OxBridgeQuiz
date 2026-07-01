@@ -1,5 +1,6 @@
-import './assets/main.css'
+// 顺序很重要：先加载 Element Plus 默认样式，再让 main.css 里的覆盖生效
 import 'element-plus/dist/index.css'
+import './assets/main.css'
 
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'

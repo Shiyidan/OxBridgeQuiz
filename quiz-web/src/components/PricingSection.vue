@@ -1,107 +1,90 @@
 <template>
   <section id="pricing" class="pricing">
-    <div class="section-head">
-      <h2>选择适合您的备考方案</h2>
-      <p class="section-sub">从免费体验到全维度冲刺，覆盖每一阶段的需求</p>
-    </div>
+    <div class="container">
+      <header class="section-head">
+        <div class="section-eyebrow"><span></span><span>Pricing</span></div>
+        <h2>选择适合你的备考方案</h2>
+        <p class="section-desc">从免费体验到全维度冲刺，覆盖备考每一阶段的需求。</p>
+      </header>
 
-    <div class="plan-grid">
-      <article
-        v-for="plan in plans"
-        :key="plan.id"
-        class="plan-card"
-        :class="{ 'plan-card--pro': plan.featured }"
-      >
-        <span v-if="plan.featured" class="plan-badge">
-          <svg
-            class="badge-icon"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6 7 18.2l1.9-5.8L4 8.8h6.1z" />
-          </svg>
-          推荐
-        </span>
-
-        <template v-if="plan.featured">
-          <span class="plan-glow plan-glow--top"></span>
-          <span class="plan-glow plan-glow--bottom"></span>
-        </template>
-
-        <header class="plan-header">
-          <h3 class="plan-title">{{ plan.title }}</h3>
-          <p class="plan-tagline">{{ plan.tagline }}</p>
-        </header>
-
-        <div class="plan-price">
-          <span class="plan-price-amount">¥&nbsp;{{ plan.price }}</span>
-          <span class="plan-price-suffix">/&nbsp;月</span>
-        </div>
-
-        <ul class="plan-features">
-          <li
-            v-for="(feature, idx) in plan.features"
-            :key="idx"
-            class="plan-feature"
-            :class="{
-              'plan-feature--disabled': !feature.included,
-              'plan-feature--highlight': feature.highlight,
-            }"
-          >
-            <span class="plan-feature-icon">
-              <svg
-                v-if="feature.included"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              <svg
-                v-else
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </span>
-            <span class="plan-feature-text">{{ feature.text }}</span>
-          </li>
-        </ul>
-
-        <button
-          class="plan-cta"
-          :class="plan.featured ? 'plan-cta--pro' : 'plan-cta--free'"
-          :disabled="plan.ctaDisabled"
-          @click="handleSelectPlan(plan)"
+      <div class="plan-grid">
+        <article
+          v-for="plan in plans"
+          :key="plan.id"
+          class="plan-card"
+          :class="{ 'plan-card--pro': plan.featured }"
         >
-          {{ plan.ctaText }}
-        </button>
-      </article>
+          <span v-if="plan.featured" class="plan-badge">推荐</span>
+
+          <header class="plan-header">
+            <h3 class="plan-title">{{ plan.title }}</h3>
+            <p class="plan-tagline">{{ plan.tagline }}</p>
+          </header>
+
+          <div class="plan-price">
+            <span class="plan-price-amount">¥&nbsp;{{ plan.price }}</span>
+            <span class="plan-price-suffix">/ 月</span>
+          </div>
+
+          <ul class="plan-features">
+            <li
+              v-for="(feature, idx) in plan.features"
+              :key="idx"
+              class="plan-feature"
+              :class="{
+                'plan-feature--disabled': !feature.included,
+                'plan-feature--highlight': feature.highlight,
+              }"
+            >
+              <span class="plan-feature-icon" aria-hidden="true">
+                <svg
+                  v-if="feature.included"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <svg
+                  v-else
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </span>
+              <span class="plan-feature-text">{{ feature.text }}</span>
+            </li>
+          </ul>
+
+          <button
+            class="plan-cta"
+            :class="plan.featured ? 'plan-cta--pro' : 'plan-cta--free'"
+            :disabled="plan.ctaDisabled"
+            @click="handleSelectPlan(plan)"
+          >
+            {{ plan.ctaText }}
+          </button>
+        </article>
+      </div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-// 定价方案卡片区（首页 HomeView 使用，Free / Pro 双卡对比）
+// 定价方案卡片区（首页 HomeView 使用，Free / Pro 双卡对比，Pro 卡走深色反色）
 import { reactive } from 'vue'
 
 interface PlanFeature {
@@ -132,10 +115,10 @@ const plans = reactive<Plan[]>([
     tagline: '多种功能，任你体验',
     price: '0',
     features: [
-      { text: '100道练习题（任意知识点、难度）', included: true },
-      { text: '1套真题测试', included: true },
-      { text: '1次真题能力诊断', included: true },
-      { text: '1次模考试用', included: true },
+      { text: '100 道练习题（任意知识点、难度）', included: true },
+      { text: '1 套真题测试', included: true },
+      { text: '1 次真题能力诊断', included: true },
+      { text: '1 次模考试用', included: true },
       { text: '错题本基础收录', included: true },
     ],
     ctaText: '继续试用',
@@ -145,14 +128,14 @@ const plans = reactive<Plan[]>([
   {
     id: 'member',
     title: '会员用户',
-    tagline: 'AI全流程引导提升',
+    tagline: 'AI 全流程引导提升',
     price: '499',
     features: [
-      { text: '5000+练习题任意刷（覆盖全部知识点）', included: true, highlight: true },
+      { text: '5000+ 练习题任意刷（覆盖全部知识点）', included: true, highlight: true },
       { text: '全部历史真题测试', included: true, highlight: true },
       { text: '不限次数真题能力诊断', included: true, highlight: true },
-      { text: '600+模拟卷任意考', included: true },
-      { text: '错题智能收录 + 知识点标注 + 错题攻克', included: true },
+      { text: '600+ 模拟卷任意考', included: true },
+      { text: '错题智能收录 + 知识点标注 + 攻克', included: true },
     ],
     ctaText: '升级会员',
     ctaDisabled: false,
@@ -165,80 +148,83 @@ const handleSelectPlan = (plan: Plan): void => {
 }
 </script>
 
-<style scoped lang="scss">
-/* 设计令牌（与 样式开发规范.md 对齐） */
+<style scoped>
 .pricing {
-  --color-primary: #4f46e5;
-  --color-primary-light: #6366f1;
-  --color-primary-dark: #4338ca;
-  --color-primary-bg: #eef2ff;
-
-  --color-bg: #f8fafc;
-  --color-surface: #ffffff;
-  --color-border: #e2e8f0;
-  --color-border-light: #f1f5f9;
-
-  --color-text: #0f172a;
-  --color-text-secondary: #475569;
-  --color-text-muted: #94a3b8;
-  --color-text-inverse: #ffffff;
-
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
-  --space-10: 2.5rem;
-  --space-20: 5rem;
-
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
-  --radius-2xl: 1.5rem;
-  --radius-pill: 999px;
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
-  --shadow-pro: 0 24px 48px -12px rgba(79, 70, 229, 0.45);
-
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: var(--space-20) var(--space-8);
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Roboto,
-    sans-serif;
+  padding: var(--section-py-mobile) 0;
+  background: var(--color-bg);
 }
-
-/* ========== 标题区 ========== */
-.section-head {
-  text-align: center;
-  margin-bottom: 4rem;
-
-  h2 {
-    font-size: 2rem; /* text-3xl 30px → 用项目惯例 32px */
-    font-weight: 700;
-    color: var(--color-text);
-    margin: 0 0 var(--space-3);
-    letter-spacing: -0.02em;
+@media (min-width: 1024px) {
+  .pricing {
+    padding: var(--section-py-desktop) 0;
+  }
+}
+.container {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: 0 var(--container-px-mobile);
+}
+@media (min-width: 1024px) {
+  .container {
+    padding: 0 var(--container-px-desktop);
   }
 }
 
-.section-sub {
-  font-size: 1.125rem;
-  color: var(--color-text-secondary);
+.section-head {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto 64px;
+}
+.section-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.section-eyebrow span:first-child {
+  width: 24px;
+  height: 1px;
+  background: var(--color-ink);
+}
+.section-eyebrow span:last-child {
+  font-size: 12px;
+  font-weight: var(--weight-semi);
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-ink);
+  text-transform: uppercase;
+}
+.section-head h2 {
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-bold);
+  color: var(--color-ink);
+  margin: 0 0 16px;
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+}
+@media (min-width: 1024px) {
+  .section-head h2 {
+    font-size: var(--text-5xl);
+  }
+}
+.section-desc {
+  font-size: var(--text-base);
+  color: var(--color-ink-soft);
+  line-height: var(--leading-relaxed);
   margin: 0;
 }
 
 /* ========== 方案卡网格 ========== */
 .plan-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-6);
+  grid-template-columns: 1fr;
+  gap: 24px;
   align-items: stretch;
   max-width: 960px;
   margin: 0 auto;
+}
+@media (min-width: 768px) {
+  .plan-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* ========== 通用方案卡 ========== */
@@ -247,289 +233,182 @@ const handleSelectPlan = (plan: Plan): void => {
   display: flex;
   flex-direction: column;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-line);
   border-radius: var(--radius-2xl);
-  padding: var(--space-10);
+  padding: 40px;
   box-shadow: var(--shadow-sm);
-  transition:
-    transform 0.3s ease,
-    box-shadow 0.3s ease,
-    border-color 0.3s ease;
-  overflow: hidden;
-  isolation: isolate;
+  transition: all var(--duration-slow) ease;
 }
-
 .plan-card:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-lg);
-  border-color: var(--color-primary-light);
+  border-color: var(--color-ink);
 }
 
-/* ========== Pro 卡：紫色实心背景 ========== */
+/* ========== Pro 卡：深色反色 ========== */
 .plan-card--pro {
-  background: linear-gradient(160deg, #5b52ec 0%, #4f46e5 60%, #4338ca 100%);
-  border-color: transparent;
-  color: var(--color-text-inverse);
-  box-shadow: var(--shadow-pro);
+  background: var(--color-charcoal);
+  border-color: var(--color-charcoal);
+  color: var(--color-ink-inverse);
 }
-
 .plan-card--pro:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 32px 56px -12px rgba(79, 70, 229, 0.55);
-  border-color: transparent;
-}
-
-/* Pro 卡装饰光晕 */
-.plan-glow {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(60px);
-  opacity: 0.45;
-  pointer-events: none;
-  z-index: -1;
-}
-
-.plan-glow--top {
-  top: -80px;
-  right: -80px;
-  width: 280px;
-  height: 280px;
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.plan-glow--bottom {
-  bottom: -120px;
-  left: -60px;
-  width: 240px;
-  height: 240px;
-  background: rgba(99, 102, 241, 0.6);
+  border-color: var(--color-black);
+  background: var(--color-black);
 }
 
 /* ========== 推荐标签 ========== */
 .plan-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  align-self: flex-start;
-  padding: 6px 14px;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: var(--radius-pill);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--color-text-inverse);
-  margin-bottom: var(--space-6);
-  backdrop-filter: blur(8px);
-}
-
-.badge-icon {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: var(--weight-semi);
+  letter-spacing: 0.05em;
+  color: var(--color-ink-inverse);
 }
 
 /* ========== 头部 ========== */
 .plan-header {
-  margin-bottom: var(--space-8);
+  margin-bottom: 32px;
 }
-
 .plan-title {
-  font-size: 1.5rem; /* text-2xl 24px */
-  font-weight: 700;
-  margin: 0 0 var(--space-3);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  margin: 0 0 8px;
   letter-spacing: -0.01em;
   color: inherit;
 }
-
-.plan-card--pro .plan-title {
-  color: var(--color-text-inverse);
-}
-
 .plan-tagline {
-  font-size: 0.938rem;
-  line-height: 1.6;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
   margin: 0;
-  color: var(--color-text-secondary);
+  color: var(--color-ink-muted);
 }
-
 .plan-card--pro .plan-tagline {
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 /* ========== 价格 ========== */
 .plan-price {
   display: flex;
   align-items: baseline;
-  gap: var(--space-2);
-  margin-bottom: var(--space-8);
+  gap: 8px;
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--color-line-soft);
 }
-
+.plan-card--pro .plan-price {
+  border-bottom-color: rgba(255, 255, 255, 0.15);
+}
 .plan-price-amount {
-  font-size: 3rem; /* text-5xl 48px */
-  font-weight: 700;
+  font-size: 48px;
+  font-weight: var(--weight-bold);
   line-height: 1;
   letter-spacing: -0.03em;
-  color: var(--color-text);
+  color: inherit;
 }
-
-.plan-card--pro .plan-price-amount {
-  color: var(--color-text-inverse);
-}
-
 .plan-price-suffix {
-  font-size: 1rem;
-  font-weight: 500;
-  color: var(--color-text-muted);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--color-ink-muted);
 }
-
 .plan-card--pro .plan-price-suffix {
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.6);
 }
 
 /* ========== 功能列表 ========== */
 .plan-features {
   list-style: none;
   padding: 0;
-  margin: 0 0 var(--space-10);
+  margin: 0 0 40px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: 16px;
   flex: 1;
 }
-
 .plan-feature {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-3);
-  font-size: 0.938rem;
-  line-height: 1.5;
-  color: var(--color-text);
+  gap: 12px;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--color-ink);
 }
-
 .plan-card--pro .plan-feature {
   color: rgba(255, 255, 255, 0.92);
 }
-
 .plan-feature--highlight {
-  font-weight: 700;
+  font-weight: var(--weight-semi);
 }
-
 .plan-feature--disabled {
-  color: var(--color-text-muted);
+  color: var(--color-ink-muted);
 }
-
 .plan-feature-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px !important;
-  height: 20px !important;
-  min-width: 20px;
-  max-width: 20px;
+  width: 20px;
+  height: 20px;
   flex: 0 0 20px;
-  margin-top: 2px;
-  color: var(--color-primary);
-  overflow: hidden;
+  margin-top: 1px;
+  border-radius: var(--radius-sm);
+  background: var(--color-hover);
+  color: var(--color-ink);
 }
-
 .plan-card--pro .plan-feature-icon {
-  color: #a5f3d0; /* 浅绿色对比，提高识别度 */
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--color-ink-inverse);
 }
-
 .plan-feature--disabled .plan-feature-icon {
-  color: var(--color-text-muted);
-}
-
-.plan-feature-icon svg {
-  display: block;
-  width: 20px !important;
-  height: 20px !important;
-  max-width: 20px !important;
-  max-height: 20px !important;
+  background: transparent;
+  color: var(--color-ink-muted);
 }
 
 /* ========== CTA 按钮 ========== */
 .plan-cta {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   width: 100%;
   padding: 14px 24px;
-  border: none;
-  border-radius: var(--radius-lg);
-  font-size: 1rem;
-  font-weight: 600;
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semi);
   font-family: inherit;
   cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    color 0.2s ease,
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+  transition: all var(--duration-base) ease;
 }
-
 .plan-cta:disabled {
   cursor: not-allowed;
+  opacity: 0.7;
 }
-
-/* 免费方案 CTA：浅灰底 */
 .plan-cta--free {
-  background: var(--color-border-light);
-  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  color: var(--color-ink);
 }
-
-.plan-cta--free:hover {
-  background: #e7ecf2;
-  color: var(--color-text);
+.plan-cta--free:hover:not(:disabled) {
+  background: var(--color-ink);
+  color: var(--color-ink-inverse);
 }
-
-/* Pro 方案 CTA：白色半透明（已订阅状态） */
 .plan-cta--pro {
-  background: rgba(255, 255, 255, 0.18);
-  color: var(--color-text-inverse);
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  backdrop-filter: blur(8px);
+  background: var(--color-ink-inverse);
+  color: var(--color-ink);
+  border-color: var(--color-ink-inverse);
 }
-
 .plan-cta--pro:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.28);
-  transform: translateY(-1px);
-}
-
-.plan-cta--pro:disabled {
-  opacity: 0.85;
+  background: var(--color-hover);
+  transform: translateY(-2px);
 }
 
 /* ========== 响应式 ========== */
 @media (max-width: 768px) {
-  .pricing {
-    padding: 3rem 1.25rem;
-  }
-
-  .section-head {
-    margin-bottom: 2.5rem;
-
-    h2 {
-      font-size: 1.5rem;
-    }
-  }
-
-  .section-sub {
-    font-size: 1rem;
-  }
-
-  .plan-grid {
-    grid-template-columns: 1fr;
-    gap: var(--space-4);
-  }
-
   .plan-card {
-    padding: var(--space-8);
+    padding: 32px;
   }
-
   .plan-price-amount {
-    font-size: 2.5rem;
+    font-size: 40px;
   }
 }
 </style>

@@ -1,0 +1,296 @@
+/* 认证类页面通用布局（登录 / 注册 / 忘记密码 / 邮箱验证 等）
+ *
+ * 定位：仅覆盖认证页的布局与视觉排版，通用的 el-input / el-button /
+ *      autofill 修补等都在 assets/element-overrides.css 里做过了，
+ *      本文件不再重复。
+ *
+ * 引入方式：LoginView.vue / RegisterView.vue 的 <style> 用 src="./auth-page.css"
+ *          按需引入，避免不必要的全局污染。
+ *
+ * 结构：
+ *   .auth-page
+ *     └── .auth-main
+ *           └── .auth-shell
+ *                 ├── .auth-side           左侧品牌介绍（桌面显示）
+ *                 │     ├── .auth-eyebrow
+ *                 │     ├── .auth-headline
+ *                 │     ├── .auth-sub
+ *                 │     └── .auth-features
+ *                 └── .auth-card           右侧表单卡片
+ *                       ├── .auth-brand
+ *                       ├── .auth-title
+ *                       ├── .auth-subtitle
+ *                       ├── .auth-alert (可选)
+ *                       ├── el-form.auth-form
+ *                       │     └── .auth-submit
+ *                       └── .auth-footer
+ */
+
+/* ============ 页面容器 ============ */
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  color: var(--color-ink);
+}
+.auth-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 64px var(--container-px-mobile);
+}
+@media (min-width: 1024px) {
+  .auth-main {
+    padding: 64px var(--container-px-desktop);
+  }
+}
+
+.auth-shell {
+  width: 100%;
+  max-width: 1080px;
+  display: grid;
+  gap: 64px;
+  align-items: center;
+}
+@media (min-width: 1024px) {
+  .auth-shell {
+    grid-template-columns: 1fr 1fr;
+    gap: 80px;
+  }
+}
+
+/* ============ 左侧品牌介绍（桌面显示） ============ */
+.auth-side {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .auth-side {
+    display: block;
+  }
+}
+.auth-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: var(--color-hover);
+  border-radius: var(--radius-pill);
+  margin-bottom: 24px;
+  font-size: 13px;
+  font-weight: var(--weight-medium);
+  color: var(--color-ink-soft);
+}
+.auth-eyebrow-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-ink);
+}
+.auth-headline {
+  font-size: 40px;
+  font-weight: var(--weight-bold);
+  line-height: 1.1;
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-ink);
+  margin: 0 0 20px;
+}
+@media (min-width: 1280px) {
+  .auth-headline {
+    font-size: 48px;
+  }
+}
+.auth-sub {
+  font-size: var(--text-lg);
+  color: var(--color-ink-soft);
+  line-height: var(--leading-relaxed);
+  margin: 0 0 32px;
+  max-width: 420px;
+}
+.auth-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.auth-features li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: var(--text-sm);
+  color: var(--color-ink);
+}
+.auth-features svg {
+  color: var(--color-ink);
+  flex-shrink: 0;
+}
+
+/* ============ 右侧表单卡片 ============ */
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-2xl);
+  padding: 40px 32px;
+  box-shadow: var(--shadow-md);
+}
+@media (min-width: 640px) {
+  .auth-card {
+    padding: 48px 40px;
+  }
+}
+@media (min-width: 1024px) {
+  .auth-card {
+    margin: 0;
+  }
+}
+
+.auth-brand {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 24px;
+}
+.auth-brand-mark {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  background: var(--color-ink);
+  color: var(--color-ink-inverse);
+}
+.auth-title {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-ink);
+  margin: 0 0 8px;
+}
+.auth-subtitle {
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+  margin: 0 0 32px;
+  line-height: var(--leading-relaxed);
+}
+
+/* ============ 表单区（在 .auth-form 上下文里把输入框加高）============
+ * 通用输入色系已在 element-overrides.css 里处理；这里只做认证页专属的
+ * "48px 高、字号 base、行高对齐" 变体，让登录卡片手感更宽松。 */
+.auth-form .el-form-item {
+  margin-bottom: 20px;
+}
+.auth-form .el-form-item__label {
+  padding-bottom: 6px;
+  line-height: 1.4;
+}
+.auth-form .el-input__wrapper {
+  padding: 0 14px;
+  min-height: 48px;
+}
+.auth-form .el-input__inner {
+  height: 46px;
+  line-height: 46px;
+  font-size: var(--text-base);
+}
+
+/* ============ 主提交按钮（黑底白字，全宽 48px） ============ */
+.auth-submit,
+.auth-submit.el-button,
+.auth-submit.el-button--primary {
+  width: 100%;
+  height: 48px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semi);
+  letter-spacing: 0.02em;
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-ink-inverse);
+  transition: all var(--duration-base) ease;
+}
+.auth-submit:hover,
+.auth-submit.el-button--primary:hover,
+.auth-submit.el-button--primary:focus {
+  background: var(--color-charcoal);
+  border-color: var(--color-charcoal);
+  color: var(--color-ink-inverse);
+}
+.auth-submit:active,
+.auth-submit.el-button--primary:active {
+  background: var(--color-black);
+  border-color: var(--color-black);
+}
+.auth-submit.is-loading {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-ink-inverse);
+  opacity: 0.85;
+}
+
+/* ============ 表单内文字链接（"忘记密码" "立即注册"） ============ */
+.auth-link {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-ink);
+  cursor: pointer;
+  transition: color var(--duration-base) ease;
+  border-bottom: 1px solid transparent;
+}
+.auth-link:hover {
+  color: var(--color-ink);
+  border-bottom-color: var(--color-ink);
+}
+.auth-link-muted {
+  color: var(--color-ink-soft);
+}
+.auth-link-muted:hover {
+  color: var(--color-ink);
+}
+
+/* ============ 表单项右侧的辅助链接（例如 "忘记密码"） ============ */
+.auth-form-extra {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+/* ============ 底部行（"还没账号？立即注册"） ============ */
+.auth-footer {
+  margin-top: 32px;
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--color-ink-soft);
+}
+
+/* ============ 分隔线（可选，用于 OAuth 分割） ============ */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0;
+  color: var(--color-ink-muted);
+  font-size: 12px;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-line);
+}
+
+/* ============ 错误提示条（页面级） ============ */
+.auth-alert {
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  background: var(--color-danger-bg);
+  border: 1px solid rgba(217, 83, 79, 0.2);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--color-danger);
+}

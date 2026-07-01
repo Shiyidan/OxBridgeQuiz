@@ -1,15 +1,22 @@
-﻿<template>
+<template>
   <header class="navbar">
     <div class="nav-inner">
       <div class="nav-left">
         <router-link to="/" class="logo">
-          <span class="logo-mark">G5</span>
-          <span class="logo-text">Oxbridge AI</span>
+          <span class="logo-mark" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path
+                d="M5 7V4.5C5 3.12 6.12 2 7.5 2H8.5C9.88 2 11 3.12 11 4.5V7M3 7H13L12 14H4L3 7Z"
+                stroke="currentColor"
+                stroke-width="1.4"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </span>
+          <span class="logo-text">智钥备考</span>
         </router-link>
         <nav class="nav-links">
-          <router-link to="/" class="nav-link" active-class="" exact-active-class="nav-link--active"
-            >首页</router-link
-          >
+          <router-link to="/" class="nav-link" exact-active-class="nav-link--active">首页</router-link>
           <router-link to="/assessment" class="nav-link" active-class="nav-link--active"
             >诊断测试</router-link
           >
@@ -66,7 +73,7 @@
           </template>
           <template v-else>
             <router-link to="/login" class="btn-ghost">登录</router-link>
-            <router-link to="/register" class="btn-primary-sm">立即注册</router-link>
+            <router-link to="/assessment" class="btn-primary-sm">免费诊断</router-link>
           </template>
         </slot>
       </div>
@@ -75,7 +82,7 @@
 </template>
 
 <script setup lang="ts">
-// 全局导航栏：所有前台页面共用。
+// 全局导航栏：所有前台页面共用。极简黑白灰风格，"免费诊断" CTA 引导未登录用户进入诊断入口。
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -100,20 +107,21 @@ async function handleLogout(): Promise<void> {
 }
 </script>
 
-<style scoped lang="scss">
+<style scoped>
 .navbar {
   position: sticky;
   top: 0;
-  z-index: 1000;
-  background: rgba(255, 255, 255, 0.94);
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid #e2e8f0;
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--color-line);
 }
 .nav-inner {
-  max-width: 1280px;
-  height: 64px;
+  max-width: var(--container-max);
+  height: var(--nav-height);
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 var(--container-px-desktop);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -132,50 +140,65 @@ async function handleLogout(): Promise<void> {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  color: #0f172a;
-  font-weight: 800;
-  text-decoration: none;
+  color: var(--color-ink);
+  font-weight: var(--weight-bold);
+  font-size: 17px;
+  letter-spacing: -0.01em;
 }
 .logo-mark {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  background: #1f2937;
-  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--color-ink);
+  color: var(--color-ink-inverse);
 }
 .nav-links {
-  gap: 8px;
+  gap: 32px;
 }
 .nav-right {
-  gap: 10px;
+  gap: 12px;
 }
 .nav-link {
-  padding: 8px 12px;
-  border-radius: 8px;
-  color: #475569;
-  text-decoration: none;
-  font-weight: 600;
+  padding: 8px 4px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-ink-soft);
+  transition: color var(--duration-base) ease;
+  position: relative;
 }
 .nav-link:hover,
 .nav-link--active {
-  background: #eef2ff;
-  color: #2563eb;
+  color: var(--color-ink);
 }
 .btn-ghost,
 .btn-primary-sm {
-  padding: 8px 14px;
-  border-radius: 8px;
-  text-decoration: none;
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 18px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+  transition: all var(--duration-base) ease;
 }
 .btn-ghost {
-  color: #475569;
+  color: var(--color-ink-soft);
+  padding: 10px 4px;
+}
+.btn-ghost:hover {
+  color: var(--color-ink);
 }
 .btn-primary-sm {
-  background: #2563eb;
-  color: #fff;
+  background: var(--color-ink);
+  color: var(--color-ink-inverse);
+  border: 1px solid var(--color-ink);
+}
+.btn-primary-sm:hover {
+  background: var(--color-charcoal);
+  border-color: var(--color-charcoal);
+  color: var(--color-ink-inverse);
+  transform: translateY(-1px);
 }
 .user-chip {
   position: relative;
@@ -188,12 +211,13 @@ async function handleLogout(): Promise<void> {
   align-items: flex-end;
 }
 .user-name {
-  font-weight: 700;
-  color: #0f172a;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+  color: var(--color-ink);
 }
 .user-meta {
   font-size: 12px;
-  color: #64748b;
+  color: var(--color-ink-muted);
 }
 .user-avatar,
 .dropdown-avatar {
@@ -202,19 +226,20 @@ async function handleLogout(): Promise<void> {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #2563eb;
-  color: #fff;
-  font-weight: 700;
+  background: var(--color-ink);
+  color: var(--color-ink-inverse);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
 }
 .user-dropdown {
   position: absolute;
   right: 0;
   top: 48px;
   width: 240px;
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
 }
 .dropdown-header {
@@ -222,16 +247,20 @@ async function handleLogout(): Promise<void> {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--color-line-soft);
 }
 .dropdown-name {
   display: block;
-  font-weight: 700;
+  font-weight: var(--weight-semi);
+  color: var(--color-ink);
 }
 .dropdown-role,
 .dropdown-section-label {
-  color: #64748b;
+  color: var(--color-ink-muted);
   font-size: 12px;
+}
+.dropdown-section-label {
+  padding: 8px 12px 4px;
 }
 .dropdown-menu {
   padding: 10px;
@@ -240,39 +269,45 @@ async function handleLogout(): Promise<void> {
   width: 100%;
   padding: 10px 12px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: transparent;
   text-align: left;
   cursor: pointer;
-  color: #334155;
+  color: var(--color-ink-soft);
+  font-size: var(--text-sm);
+  transition: background var(--duration-base) ease;
 }
 .dropdown-item:hover {
-  background: #f8fafc;
+  background: var(--color-hover);
+  color: var(--color-ink);
 }
 .dropdown-item--danger {
-  color: #dc2626;
+  color: var(--color-danger);
+}
+.dropdown-item--danger:hover {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
 }
 .dropdown-divider {
   height: 1px;
-  background: #f1f5f9;
+  background: var(--color-line-soft);
   margin: 8px 0;
 }
 .dropdown-enter-active,
 .dropdown-leave-active {
-  transition: all 0.15s ease;
+  transition: all var(--duration-fast) ease;
 }
 .dropdown-enter-from,
 .dropdown-leave-to {
   opacity: 0;
   transform: translateY(-4px);
 }
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .nav-inner {
     height: 58px;
     min-height: 56px;
-    padding: 0 14px;
+    padding: 0 var(--container-px-mobile);
     flex-wrap: nowrap;
-    align-items: center;
     gap: 12px;
   }
   .nav-left {
@@ -285,7 +320,7 @@ async function handleLogout(): Promise<void> {
     display: flex;
     flex: 1 1 auto;
     min-width: 0;
-    gap: 8px;
+    gap: 16px;
     overflow-x: auto;
     padding: 0;
     scrollbar-width: none;
@@ -296,8 +331,8 @@ async function handleLogout(): Promise<void> {
   }
   .nav-link {
     flex: 0 0 auto;
-    padding: 7px 9px;
-    font-size: 14px;
+    padding: 7px 4px;
+    font-size: var(--text-sm);
     white-space: nowrap;
   }
   .logo-text,
@@ -313,9 +348,13 @@ async function handleLogout(): Promise<void> {
     flex: 0 0 auto;
     gap: 6px;
   }
-  .btn-ghost,
+  .btn-ghost {
+    padding: 7px 6px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
   .btn-primary-sm {
-    padding: 7px 9px;
+    padding: 7px 12px;
     font-size: 13px;
     white-space: nowrap;
   }

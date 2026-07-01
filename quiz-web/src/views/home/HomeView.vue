@@ -520,7 +520,7 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
 
 /* ============ Hero ============ */
 .hero {
-  padding-top: calc(var(--nav-height) + 64px);
+  /* padding-top: calc(var(--nav-height) + 64px); */
   padding-bottom: 64px;
   background: var(--color-bg);
 }

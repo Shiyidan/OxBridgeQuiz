@@ -118,7 +118,8 @@ async function handleLogout(): Promise<void> {
   border-bottom: 1px solid var(--color-line);
 }
 .nav-inner {
-  max-width: var(--container-max);
+  width: 100%;
+  max-width: 1600px;
   height: var(--nav-height);
   margin: 0 auto;
   padding: 0 var(--container-px-desktop);
@@ -301,72 +302,5 @@ async function handleLogout(): Promise<void> {
 .dropdown-leave-to {
   opacity: 0;
   transform: translateY(-4px);
-}
-@media (max-width: 768px) {
-  .nav-inner {
-    height: 58px;
-    min-height: 56px;
-    padding: 0 var(--container-px-mobile);
-    flex-wrap: nowrap;
-    gap: 12px;
-  }
-  .nav-left {
-    flex: 1 1 0;
-    min-width: 0;
-    gap: 12px;
-    flex-wrap: nowrap;
-  }
-  .nav-links {
-    display: flex;
-    flex: 1 1 auto;
-    min-width: 0;
-    gap: 16px;
-    overflow-x: auto;
-    padding: 0;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-  .nav-links::-webkit-scrollbar {
-    display: none;
-  }
-  .nav-link {
-    flex: 0 0 auto;
-    padding: 7px 4px;
-    font-size: var(--text-sm);
-    white-space: nowrap;
-  }
-  .logo-text,
-  .user-info {
-    display: none;
-  }
-  .logo-mark {
-    width: 32px;
-    height: 32px;
-    flex: 0 0 32px;
-  }
-  .nav-right {
-    flex: 0 0 auto;
-    gap: 6px;
-  }
-  .btn-ghost {
-    padding: 7px 6px;
-    font-size: 13px;
-    white-space: nowrap;
-  }
-  .btn-primary-sm {
-    padding: 7px 12px;
-    font-size: 13px;
-    white-space: nowrap;
-  }
-  .user-avatar,
-  .dropdown-avatar {
-    width: 34px;
-    height: 34px;
-  }
-  .user-dropdown {
-    top: 42px;
-    right: 0;
-    width: min(240px, calc(100vw - 24px));
-  }
 }
 </style>

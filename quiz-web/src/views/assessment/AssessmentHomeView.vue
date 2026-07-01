@@ -216,13 +216,13 @@ function scoreText(record: AssessmentRecordItem): string {
   min-height: 100vh;
   background: #f5f7fa;
   color: #1f2a37;
-  overflow-x: hidden;
 }
 
 .assessment-shell {
-  width: min(774px, calc(100% - 40px));
+  width: 100%;
+  max-width: 1600px;
   margin: 0 auto;
-  padding: 28px 0 96px;
+  padding: 28px var(--container-px-desktop) 96px;
 }
 
 .page-header {
@@ -366,44 +366,4 @@ function scoreText(record: AssessmentRecordItem): string {
   text-align: center;
 }
 
-@media (max-width: 820px) {
-  .assessment-shell {
-    width: min(100% - 28px, 560px);
-    padding-top: 24px;
-  }
-
-  .quota-bar {
-    justify-content: flex-end;
-  }
-
-  .page-header {
-    align-items: flex-start;
-    flex-direction: column;
-    margin-bottom: 32px;
-  }
-
-  .paper-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 520px) {
-  .quota-bar {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .quota-button {
-    width: 100%;
-  }
-
-  .paper-card {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .paper-card__button {
-    width: 100%;
-  }
-}
 </style>

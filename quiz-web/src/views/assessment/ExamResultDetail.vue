@@ -502,18 +502,16 @@ function normalizeKnowledgePoints(question: ReportQuestion): string[] {
 <style scoped lang="scss">
 .practice-report {
   width: 100%;
-  max-width: 100%;
   min-height: 100vh;
-  overflow-x: hidden;
   background: #f8fafc;
   color: #273437;
 }
 
 .report-main {
   width: 100%;
-  max-width: 1180px;
+  max-width: 1600px;
   margin: 0 auto;
-  padding: 40px 24px 72px;
+  padding: 40px var(--container-px-desktop) 72px;
 }
 
 .report-shell {
@@ -1076,51 +1074,4 @@ function normalizeKnowledgePoints(question: ReportQuestion): string[] {
   color: #9db0b0;
 }
 
-@media (max-width: 960px) {
-  .report-main {
-    padding: 28px 16px 56px;
-  }
-
-  .report-title {
-    font-size: 26px;
-    line-height: 1.45;
-  }
-
-  .evaluation-card,
-  .report-panel {
-    padding: 22px 20px;
-  }
-
-  .overview-grid,
-  .time-card__body {
-    grid-template-columns: 1fr;
-  }
-
-  .improvement-panel {
-    max-width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .improvement-table {
-    min-width: 720px;
-  }
-
-  .learning-path-panel {
-    padding: 30px 24px;
-  }
-
-  .knowledge-group,
-  .knowledge-row {
-    grid-template-columns: 32px minmax(0, 1fr);
-    padding: 14px 18px;
-  }
-
-  .knowledge-row span,
-  .knowledge-row b,
-  .knowledge-progress,
-  .knowledge-group small {
-    grid-column: 2;
-  }
-}
 </style>

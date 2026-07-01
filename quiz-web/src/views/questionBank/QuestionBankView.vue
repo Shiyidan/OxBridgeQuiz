@@ -241,9 +241,10 @@ const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
   color: #0f172a;
 }
 .qb-container {
-  max-width: 1180px;
+  width: 100%;
+  max-width: 1600px;
   margin: 0 auto;
-  padding: 36px 24px 72px;
+  padding: 36px var(--container-px-desktop) 72px;
 }
 .qb-header {
   display: flex;
@@ -358,18 +359,5 @@ const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
 .qb-difficulty-card__cta:disabled {
   background: #cbd5e1;
   cursor: not-allowed;
-}
-@media (max-width: 900px) {
-  .qb-header,
-  .qb-content__header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-  .qb-main {
-    grid-template-columns: 1fr;
-  }
-  .qb-difficulty-grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

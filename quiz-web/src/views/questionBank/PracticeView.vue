@@ -1,7 +1,41 @@
 ﻿<!-- 试题库和诊断测试共用的在线答题页 -->
 <template>
   <div class="practice-page">
-    <NavBar />
+    <header class="practice-topbar">
+      <div class="practice-topbar__inner">
+        <button
+          type="button"
+          class="practice-back-link"
+          aria-label="返回试题库"
+          @click="handleBackToQuestionBank"
+        >
+          <svg
+            class="practice-back-link__icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M15 18L9 12L15 6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <span>返回试题库</span>
+        </button>
+        <div v-if="currentQuestion" class="practice-topbar__exam" aria-live="polite">
+          <div class="practice-topbar__exam-row">
+            <strong class="practice-topbar__title">{{ examHeaderText }}</strong>
+            <span class="practice-topbar__timer" aria-label="剩余时间">{{ timerText }}</span>
+          </div>
+          <div class="practice-topbar__progress" aria-hidden="true">
+            <span :style="{ width: progressPercent }" />
+          </div>
+        </div>
+      </div>
+    </header>
     <main class="practice-shell">
       <aside class="question-nav" aria-label="题目导航">
         <h2 class="question-nav__title">题目导航</h2>
@@ -29,34 +63,27 @@
             <span class="question-nav__dot question-nav__dot--pending" />未答 {{ pendingCount }}
           </div>
         </div>
+        <button
+          type="button"
+          class="question-nav__submit"
+          :disabled="submitting || !currentQuestion"
+          @click="confirmSubmitExam"
+        >
+          提前交卷
+        </button>
       </aside>
 
       <section class="exam-panel" aria-live="polite">
         <p v-if="loading" class="practice-status">加载中...</p>
         <p v-else-if="!currentQuestion" class="practice-status">暂无题目数据</p>
         <template v-else>
-          <header class="exam-panel__header">
-            <div class="exam-panel__title">
-              <strong>{{ paperTitle || '试题库练习' }}</strong>
-              <span>第 {{ currentIndex + 1 }}/{{ totalCount }} 题</span>
-            </div>
-            <div class="exam-panel__timer" aria-label="剩余时间">{{ timerText }}</div>
-          </header>
-
-          <div class="exam-progress" aria-hidden="true">
-            <span :style="{ width: progressPercent }" />
-          </div>
-
           <div class="exam-panel__body">
-            <div class="exam-tags">
-              <span>第 {{ currentIndex + 1 }} 题</span>
-              <span>{{ topicTitle }}</span>
-            </div>
             <QuestionCard
               :key="currentQuestion.id"
               :question="currentQuestion"
               :index="currentIndex"
               :selected-answer="currentAnswer"
+              :meta-tags="currentKnowledgeTags"
               variant="exam"
               @select="handleSelectAnswer"
             />
@@ -80,9 +107,6 @@
               >
                 下一题
               </button>
-              <button type="button" class="exam-action exam-action--dark" @click="handleSubmit">
-                提前交卷
-              </button>
             </div>
           </footer>
         </template>
@@ -95,15 +119,14 @@
 // 在线答题页：试题库按考点取题，诊断测试按 paperId 取整套真题。
 import { ref, computed, shallowRef, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import NavBar from '@/components/NavBar.vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import QuestionCard from '@/components/QuestionCard.vue'
 import { getQuestionsData } from '@/api/questionBank'
 import { getPaperDetailData } from '@/api/papers'
 import { submitExam } from '@/api/exam'
 import { checkMemberAccess, getMember } from '@/api/member'
 import { useAuthStore } from '@/stores/auth'
-import { DEFAULT_EXAM_TYPE } from '@/constants/examTypes'
+import { DEFAULT_EXAM_TYPE, EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
 import type { Question } from '@/types'
 
 const EXAM_SECONDS = 60 * 60
@@ -112,7 +135,7 @@ const router = useRouter()
 const auth = useAuthStore()
 
 const questions = shallowRef<Question[]>([])
-const paperTitle = ref('')
+const activeExamType = ref<ExamType>(DEFAULT_EXAM_TYPE)
 const loading = ref(true)
 const currentIndex = ref(0)
 const remainingSeconds = ref(EXAM_SECONDS)
@@ -133,6 +156,7 @@ const currentAnswer = computed(() =>
   currentQuestion.value ? answers.value[currentQuestion.value.id] : undefined,
 )
 const answeredCount = computed(() => Object.keys(answers.value).length)
+const unansweredCount = computed(() => Math.max(totalCount.value - answeredCount.value, 0))
 const skippedCount = computed(() => {
   let count = 0
   visitedIndexes.value.forEach((idx) => {
@@ -153,6 +177,21 @@ const timerText = computed(() => {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 })
 const topicTitle = computed(() => (currentQuestion.value as any)?.subject || '')
+const currentExamTypeLabel = computed(() => (
+  EXAM_TYPE_OPTIONS.find((item) => item.value === activeExamType.value)?.label || activeExamType.value
+))
+const examHeaderText = computed(() => (
+  totalCount.value ? `${currentExamTypeLabel.value}（第${currentIndex.value + 1}/${totalCount.value}题）` : currentExamTypeLabel.value
+))
+const currentKnowledgeTags = computed(() => {
+  const question = currentQuestion.value as any
+  if (!question) return []
+  const points = normalizePointTags(question.syllabus_points || question.syllabusPoints)
+  const fallbackPoints = normalizePointTags(question.knowledge_points || question.knowledgePoints)
+  const tags = points.length ? points : fallbackPoints
+  if (tags.length) return tags
+  return topicTitle.value ? [topicTitle.value] : ['综合考点']
+})
 
 // 根据路由来源切换数据源：paperId 为真题套卷，否则按考点和难度从题库取题。
 async function loadQuestions(): Promise<void> {
@@ -164,6 +203,7 @@ async function loadQuestions(): Promise<void> {
 
     if (paperId) {
       const paper = await getPaperDetailData(paperId)
+      activeExamType.value = normalizeExamType(paper.examType)
       const loadedQuestions = (paper.questions || []).map((q: any, index: number) => ({
         ...q,
         id: q.id || `paper-${paper.id}-${q.number || index + 1}`,
@@ -171,7 +211,7 @@ async function loadQuestions(): Promise<void> {
       }))
       const access = await checkMemberAccess({
         action: 'diagnostic',
-        examType: paper.examType || DEFAULT_EXAM_TYPE,
+        examType: activeExamType.value,
         questionCount: 1,
       })
       if (!access.allowed) {
@@ -180,12 +220,12 @@ async function loadQuestions(): Promise<void> {
         return
       }
       questions.value = loadedQuestions
-      paperTitle.value = paper.title
       remainingSeconds.value = Math.max(1, paper.duration || 60) * 60
       return
     }
 
-    const examType = (route.query.examType as string | undefined) || DEFAULT_EXAM_TYPE
+    const examType = normalizeExamType(route.query.examType as string | undefined)
+    activeExamType.value = examType
     const qs = (await getQuestionsData({ code, difficulty, examType })) || []
     const loadedQuestions = qs.map((q: any) => ({
       ...q,
@@ -206,7 +246,6 @@ async function loadQuestions(): Promise<void> {
       }
     }
     questions.value = loadedQuestions
-    paperTitle.value = '试题库练习'
   } catch (e) {
     console.error('[Practice] 加载失败', e)
     questions.value = []
@@ -269,6 +308,52 @@ function handleNext(): void {
   if (currentIndex.value < totalCount.value - 1) goToQuestion(currentIndex.value + 1)
 }
 
+// 返回题库前提醒用户当前作答不会自动交卷，避免误触离开答题现场。
+async function handleBackToQuestionBank(): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      '返回试题库将离开当前答题页面，当前作答不会自动提交，是否返回？',
+      '提示',
+      {
+        type: 'warning',
+        confirmButtonText: '返回试题库',
+        cancelButtonText: '继续答题',
+        customClass: 'app-confirm-box',
+        closeOnClickModal: false,
+        distinguishCancelAndClose: true,
+      },
+    )
+    router.push('/question-bank')
+  } catch {
+    // 用户取消返回时保持当前答题状态。
+  }
+}
+
+// 提前交卷前进行二次确认，避免学生误触导致答题直接结束。
+async function confirmSubmitExam(): Promise<void> {
+  if (submitting.value || !currentQuestion.value) return
+  const confirmMessage = unansweredCount.value > 0
+    ? '交卷后将生成本次答题结果，未作答题目会计为未答，是否提前交卷？'
+    : '确认交卷？'
+  try {
+    await ElMessageBox.confirm(
+      confirmMessage,
+      '提示',
+      {
+        type: 'warning',
+        confirmButtonText: '确认交卷',
+        cancelButtonText: '继续答题',
+        customClass: 'app-confirm-box',
+        closeOnClickModal: false,
+        distinguishCancelAndClose: true,
+      },
+    )
+    await handleSubmit()
+  } catch {
+    // 用户取消交卷时保持当前答题状态。
+  }
+}
+
 // 交卷后保留来源参数，结果页据此区分返回诊断测试或试题库。
 async function handleSubmit(): Promise<void> {
   if (submitting.value) return
@@ -283,7 +368,7 @@ async function handleSubmit(): Promise<void> {
       difficulty: route.query.difficulty as string,
       code: route.query.code as string,
       paperId: route.query.paperId as string,
-      examType: route.query.examType as string,
+      examType: activeExamType.value,
     })
     const memberCtx = await getMember()
     auth.setMemberContext(memberCtx)
@@ -312,6 +397,36 @@ function startTimer(): void {
   }, 1000)
 }
 
+function normalizeExamType(value: unknown): ExamType {
+  return EXAM_TYPE_OPTIONS.some((item) => item.value === value)
+    ? (value as ExamType)
+    : DEFAULT_EXAM_TYPE
+}
+
+function normalizePointTags(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  const items = raw
+    .map((item: any) => ({
+      code: typeof item?.code === 'string' ? item.code : '',
+      role: typeof item?.role === 'string' ? item.role : '',
+      label: item?.label || item?.name || item?.title || item?.code || '',
+    }))
+    .filter((item) => item.label)
+    .sort((a, b) => b.code.length - a.code.length)
+
+  const leafItems = items.filter((item) => ['leaf', 'child', 'point'].includes(item.role))
+  if (leafItems.length) {
+    return [...new Set(leafItems.map((item) => String(item.label)))]
+  }
+
+  const maxCodeLength = items[0]?.code.length || 0
+  const deepestItems = maxCodeLength
+    ? items.filter((item) => item.code.length === maxCodeLength)
+    : items.slice(0, 1)
+
+  return [...new Set(deepestItems.map((item) => String(item.label)))]
+}
+
 // 页面进入后同时拉题和启动计时，保证首屏可答题且计时同步开始。
 onMounted(() => {
   loadQuestions()
@@ -326,16 +441,103 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 .practice-page {
+  --practice-topbar-height: 64px;
+
   min-height: 100vh;
   background: #fff;
   color: #1d1d1f;
 }
-.practice-shell {
-  min-height: calc(100vh - 64px);
-  padding: 48px clamp(20px, 6vw, 96px);
+.practice-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 80;
+  height: var(--practice-topbar-height);
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid var(--color-line);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.practice-topbar__inner {
+  width: 100%;
+  max-width: 1360px;
+  height: 100%;
+  margin: 0 auto;
+  padding: 0 32px;
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  gap: 32px;
+  grid-template-columns: 240px minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+}
+.practice-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px 0 8px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+  transition:
+    background var(--duration-base) ease,
+    color var(--duration-base) ease;
+}
+.practice-back-link:hover {
+  background: var(--color-hover);
+  color: var(--color-black);
+}
+.practice-back-link__icon {
+  width: 20px;
+  height: 20px;
+}
+.practice-topbar__exam {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+.practice-topbar__exam-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.practice-topbar__title {
+  color: var(--color-ink);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  white-space: nowrap;
+}
+.practice-topbar__timer {
+  flex-shrink: 0;
+  color: #1d4ed8;
+  font-size: var(--text-lg);
+  font-weight: 800;
+}
+.practice-topbar__progress {
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+.practice-topbar__progress span {
+  display: block;
+  height: 100%;
+  background: #2563eb;
+}
+.practice-shell {
+  width: 100%;
+  max-width: 1360px;
+  min-height: calc(100vh - var(--practice-topbar-height));
+  margin: 0 auto;
+  padding: 24px 32px 40px;
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
   background: #fafafa;
 }
 .question-nav,
@@ -345,9 +547,13 @@ onUnmounted(() => {
   border-radius: 8px;
 }
 .question-nav {
-  padding: 24px;
+  align-self: start;
+  height: fit-content;
+  max-height: calc(100vh - var(--practice-topbar-height) - 48px);
+  overflow-y: auto;
+  padding: 20px;
   position: sticky;
-  top: 84px;
+  top: calc(var(--practice-topbar-height) + 24px);
 }
 .question-nav__title {
   margin: 0 0 18px;
@@ -399,10 +605,35 @@ onUnmounted(() => {
 .question-nav__dot--skipped {
   background: #f97316;
 }
-.exam-panel {
-  padding: 28px;
+.question-nav__submit {
+  width: 100%;
+  height: 48px;
+  margin-top: 24px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semi);
+  transition:
+    background var(--duration-base) ease,
+    border-color var(--duration-base) ease,
+    color var(--duration-base) ease;
 }
-.exam-panel__header,
+.question-nav__submit:hover:not(:disabled) {
+  border-color: var(--color-ink);
+  background: var(--color-hover);
+}
+.question-nav__submit:disabled {
+  color: var(--color-ink-muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.exam-panel {
+  padding: 20px 24px 24px;
+}
 .exam-actions {
   display: flex;
   justify-content: space-between;
@@ -410,37 +641,9 @@ onUnmounted(() => {
   gap: 16px;
 }
 .exam-actions {
-  margin-top: 28px;
-  padding-top: 20px;
+  margin-top: 20px;
+  padding-top: 16px;
   border-top: 1px solid #edf0f1;
-}
-.exam-panel__title {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.exam-panel__timer {
-  font-weight: 800;
-  color: #1d4ed8;
-}
-.exam-progress {
-  height: 4px;
-  margin: 18px 0 28px;
-  background: #e2e8f0;
-  border-radius: 999px;
-  overflow: hidden;
-}
-.exam-progress span {
-  display: block;
-  height: 100%;
-  background: #2563eb;
-}
-.exam-tags {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 18px;
-  color: #64748b;
-  font-size: 14px;
 }
 .exam-action {
   min-width: 96px;
@@ -460,19 +663,8 @@ onUnmounted(() => {
   gap: 12px;
 }
 .practice-status {
-  padding: 48px;
+  padding: 32px;
   text-align: center;
   color: #64748b;
-}
-@media (max-width: 900px) {
-  .practice-shell {
-    grid-template-columns: 1fr;
-  }
-  .question-nav {
-    position: static;
-  }
-  .exam-actions {
-    margin-top: 34px;
-  }
 }
 </style>

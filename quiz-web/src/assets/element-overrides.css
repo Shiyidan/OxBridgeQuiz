@@ -261,6 +261,126 @@ input:-webkit-autofill:active,
   color: var(--color-ink);
 }
 
+.el-overlay-message-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.el-overlay-message-box::after {
+  display: none;
+}
+
+/* MessageBox confirm */
+.app-confirm-box {
+  width: 460px;
+  max-width: calc(100vw - 64px);
+  min-height: 204px;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 20px 30px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.app-confirm-box .el-message-box__header {
+  padding: 0 0 22px;
+  text-align: center;
+}
+
+.app-confirm-box .el-message-box__header.show-close {
+  padding-right: 0;
+}
+
+.app-confirm-box .el-message-box__title {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  color: var(--color-ink);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
+  text-align: center;
+}
+
+.app-confirm-box .el-message-box__headerbtn {
+  top: 18px;
+  right: 18px;
+}
+
+.app-confirm-box .el-message-box__content {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 0;
+  color: var(--color-ink);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  text-align: center;
+}
+
+.app-confirm-box .el-message-box__container {
+  width: auto;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+.app-confirm-box .el-message-box__status {
+  color: var(--color-warning);
+}
+
+.app-confirm-box .el-message-box__message {
+  margin: 0;
+  text-align: center;
+}
+
+.app-confirm-box .el-message-box__btns {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: auto;
+  padding: 0;
+}
+
+.app-confirm-box .el-button {
+  min-width: 112px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: var(--radius-md);
+  font-weight: var(--weight-semi);
+}
+
+.app-confirm-box .el-button + .el-button {
+  margin-left: 0;
+}
+
+.app-confirm-box .el-button--primary {
+  border-color: var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-ink-inverse);
+}
+
+.app-confirm-box .el-button--primary:hover {
+  border-color: var(--color-charcoal);
+  background: var(--color-charcoal);
+}
+
+.app-confirm-box .el-button:not(.el-button--primary) {
+  border-color: var(--color-ink);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.app-confirm-box .el-button:not(.el-button--primary):hover {
+  background: var(--color-hover);
+}
+
 /* ========================================================
  * 十二、Tree
  * ======================================================== */

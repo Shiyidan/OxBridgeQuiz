@@ -62,6 +62,7 @@
         :index="currentIndex"
         :selected-answer="currentQuestion.selectedAnswer || undefined"
         :show-answer="true"
+        variant="exam"
         @select="noop"
       />
 
@@ -459,22 +460,4 @@ function noop(): void {}
   text-align: center;
 }
 
-@media (max-width: 900px) {
-  .question-analysis {
-    grid-template-columns: 1fr;
-  }
-
-  .question-nav {
-    position: static;
-  }
-
-  .question-nav,
-  .report-card {
-    padding: 20px 16px;
-  }
-
-  .question-header__row {
-    flex-direction: column;
-  }
-}
 </style>

@@ -57,10 +57,11 @@
   --font-sans: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', Consolas, monospace;
 
-  /* ============ 语义化布局尺寸（组件规范见 2-样式规范.md 十二章） ============
+  /* ============ 语义化布局尺寸（组件规范见 2-样式规范.md 五章） ============
    * 说明：padding / margin / gap 这类局部间距请直接写 px（如 padding: 16px 24px），
    *      仅在跨页面复用的"页面级"布局尺寸才用 token。 */
-  --container-max:        1280px;   /* 页面最大宽度 */
+  --layout-min-width:     1200px;   /* 全站最小布局宽度：视口 <1200 出现横向滚动，不做响应式挤压 */
+  --container-max:        1280px;   /* 页面级最大宽度（Hero/落地页外层容器） */
   --container-px-desktop: 40px;     /* 页面容器桌面内边距 */
   --container-px-mobile:  24px;     /* 页面容器移动内边距 */
   --section-py-desktop:   96px;     /* section 桌面上下 padding */
@@ -104,6 +105,8 @@ html {
 }
 
 body {
+  /* 全站锁定最小布局宽度：视口 <1200 时出现底部横向滚动，不做响应式挤压 */
+  min-width: var(--layout-min-width);
   background: var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-sans);

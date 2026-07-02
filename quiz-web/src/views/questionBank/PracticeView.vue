@@ -1,41 +1,16 @@
 ﻿<!-- 试题库和诊断测试共用的在线答题页 -->
 <template>
   <div class="practice-page">
-    <header class="practice-topbar">
-      <div class="practice-topbar__inner">
-        <button
-          type="button"
-          class="practice-back-link"
-          aria-label="返回试题库"
-          @click="handleBackToQuestionBank"
-        >
-          <svg
-            class="practice-back-link__icon"
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
-          >
-            <path
-              d="M15 18L9 12L15 6"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-          <span>返回试题库</span>
-        </button>
-        <div v-if="currentQuestion" class="practice-topbar__exam" aria-live="polite">
-          <div class="practice-topbar__exam-row">
-            <strong class="practice-topbar__title">{{ examHeaderText }}</strong>
-            <span class="practice-topbar__timer" aria-label="剩余时间">{{ timerText }}</span>
-          </div>
-          <div class="practice-topbar__progress" aria-hidden="true">
-            <span :style="{ width: progressPercent }" />
-          </div>
-        </div>
-      </div>
-    </header>
+    <ExamVue
+      ref="examNavRef"
+      :exam-type="activeExamType"
+      :mode="examMode"
+      :countdown-duration-seconds="countdownDurationSeconds"
+      :current-index="currentIndex"
+      :total-count="totalCount"
+      @back="handleBackToQuestionBank"
+      @time-expired="handleTimeExpired"
+    />
     <main class="practice-shell">
       <aside class="question-nav" aria-label="题目导航">
         <h2 class="question-nav__title">题目导航</h2>
@@ -117,10 +92,11 @@
 
 <script setup lang="ts">
 // 在线答题页：试题库按考点取题，诊断测试按 paperId 取整套真题。
-import { ref, computed, shallowRef, onMounted, onUnmounted } from 'vue'
+import { ref, computed, shallowRef, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import QuestionCard from '@/components/QuestionCard.vue'
+import ExamVue from '@/components/ExamVue.vue'
 import { getQuestionsData } from '@/api/questionBank'
 import { getPaperDetailData } from '@/api/papers'
 import { submitExam } from '@/api/exam'
@@ -129,23 +105,28 @@ import { useAuthStore } from '@/stores/auth'
 import { DEFAULT_EXAM_TYPE, EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
 import type { Question } from '@/types'
 
-const EXAM_SECONDS = 60 * 60
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
+const examNavRef = ref<InstanceType<typeof ExamVue> | null>(null)
 const questions = shallowRef<Question[]>([])
 const activeExamType = ref<ExamType>(DEFAULT_EXAM_TYPE)
 const loading = ref(true)
 const currentIndex = ref(0)
-const remainingSeconds = ref(EXAM_SECONDS)
+const countdownDurationSeconds = ref(0)
 const visitedIndexes = ref<Set<number>>(new Set([0]))
 const answers = ref<Record<string, string>>({})
 const questionDurations = ref<Record<string, number>>({})
-const startedAt = Date.now()
 const submitting = ref(false)
-let timerId: number | undefined
 let questionEnteredAt = Date.now()
+
+// 根据入口区分模式：试题库正计时，诊断测试 / 仿真考试倒计时。
+const examMode = computed(() => {
+  if (route.query.paperId) return 'assessment'
+  // 后续仿真考试入口可在此扩展
+  return 'question-bank'
+})
 
 const totalCount = computed(() => questions.value.length)
 const currentQuestion = computed(() => questions.value[currentIndex.value])
@@ -168,21 +149,7 @@ const skippedCount = computed(() => {
 const pendingCount = computed(() =>
   Math.max(totalCount.value - answeredCount.value - skippedCount.value, 0),
 )
-const progressPercent = computed(() =>
-  totalCount.value ? `${((currentIndex.value + 1) / totalCount.value) * 100}%` : '0%',
-)
-const timerText = computed(() => {
-  const minutes = Math.floor(remainingSeconds.value / 60)
-  const seconds = remainingSeconds.value % 60
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-})
 const topicTitle = computed(() => (currentQuestion.value as any)?.subject || '')
-const currentExamTypeLabel = computed(() => (
-  EXAM_TYPE_OPTIONS.find((item) => item.value === activeExamType.value)?.label || activeExamType.value
-))
-const examHeaderText = computed(() => (
-  totalCount.value ? `${currentExamTypeLabel.value}（第${currentIndex.value + 1}/${totalCount.value}题）` : currentExamTypeLabel.value
-))
 const currentKnowledgeTags = computed(() => {
   const question = currentQuestion.value as any
   if (!question) return []
@@ -220,7 +187,7 @@ async function loadQuestions(): Promise<void> {
         return
       }
       questions.value = loadedQuestions
-      remainingSeconds.value = Math.max(1, paper.duration || 60) * 60
+      countdownDurationSeconds.value = Math.max(1, paper.duration || 60) * 60
       return
     }
 
@@ -308,15 +275,21 @@ function handleNext(): void {
   if (currentIndex.value < totalCount.value - 1) goToQuestion(currentIndex.value + 1)
 }
 
-// 返回题库前提醒用户当前作答不会自动交卷，避免误触离开答题现场。
+// 根据入口返回对应页面，离开前二次确认避免误触。
 async function handleBackToQuestionBank(): Promise<void> {
+  const backTargets: Record<string, { label: string; path: string }> = {
+    'question-bank': { label: '试题库', path: '/question-bank' },
+    'assessment':    { label: '诊断测试', path: '/assessment' },
+    'mock-exam':     { label: '仿真考试', path: '/' },
+  }
+  const target = backTargets[examMode.value]!
   try {
     await ElMessageBox.confirm(
-      '返回试题库将离开当前答题页面，当前作答不会自动提交，是否返回？',
+      `返回${target.label}将离开当前答题页面，当前作答不会自动提交，是否返回？`,
       '提示',
       {
         type: 'warning',
-        confirmButtonText: '返回试题库',
+        confirmButtonText: `返回${target.label}`,
         cancelButtonText: '继续答题',
         confirmButtonClass: 'button_primary',
         cancelButtonClass: 'button_cancel',
@@ -325,7 +298,7 @@ async function handleBackToQuestionBank(): Promise<void> {
         distinguishCancelAndClose: true,
       },
     )
-    router.push('/question-bank')
+    router.push(target.path)
   } catch {
     // 用户取消返回时保持当前答题状态。
   }
@@ -368,7 +341,7 @@ async function handleSubmit(): Promise<void> {
       questions: questions.value,
       answers: { ...answers.value },
       questionDurations: { ...questionDurations.value },
-      startedAt: new Date(startedAt).toISOString(),
+      startedAt: new Date(examNavRef.value?.startedAt ?? Date.now()).toISOString(),
       difficulty: route.query.difficulty as string,
       code: route.query.code as string,
       paperId: route.query.paperId as string,
@@ -383,7 +356,8 @@ async function handleSubmit(): Promise<void> {
         total: String(data.totalQuestions),
         correct: String(data.correctCount),
         wrong: String(data.wrongCount),
-        time: String(Math.round((Date.now() - startedAt) / 1000)),
+        // 使用 ExamVue 组件的已扣除暂停时长的实际用时
+        time: String(examNavRef.value?.timerElapsed ?? 0),
         source: route.query.paperId ? 'assessment' : 'question-bank',
       },
     })
@@ -394,11 +368,23 @@ async function handleSubmit(): Promise<void> {
   }
 }
 
-// 本地计时只负责页面倒计时，最终用时以开始和提交时间差计算。
-function startTimer(): void {
-  timerId = window.setInterval(() => {
-    if (remainingSeconds.value > 0) remainingSeconds.value--
-  }, 1000)
+// 倒计时归零时由 ExamVue 触发，弹出弹窗后强制交卷。
+async function handleTimeExpired(): Promise<void> {
+  try {
+    await ElMessageBox.alert(
+      '考试时间已结束，系统将自动提交您的试卷。',
+      '答题时间到',
+      {
+        confirmButtonText: '确定',
+        confirmButtonClass: 'button_primary',
+        customClass: 'app-confirm-box',
+        closeOnClickModal: false,
+        showClose: false,
+      },
+    )
+  } finally {
+    await handleSubmit()
+  }
 }
 
 function normalizeExamType(value: unknown): ExamType {
@@ -431,15 +417,9 @@ function normalizePointTags(raw: unknown): string[] {
   return [...new Set(deepestItems.map((item) => String(item.label)))]
 }
 
-// 页面进入后同时拉题和启动计时，保证首屏可答题且计时同步开始。
+// 页面进入后拉题，计时由 ExamVue 组件自行管理。
 onMounted(() => {
   loadQuestions()
-  startTimer()
-})
-
-// 离开答题页时清理计时器，避免后台继续扣时或重复计时。
-onUnmounted(() => {
-  if (timerId) window.clearInterval(timerId)
 })
 </script>
 
@@ -450,87 +430,6 @@ onUnmounted(() => {
   min-height: 100vh;
   background: #fff;
   color: #1d1d1f;
-}
-.practice-topbar {
-  position: sticky;
-  top: 0;
-  z-index: 80;
-  height: var(--practice-topbar-height);
-  background: rgba(255, 255, 255, 0.96);
-  border-bottom: 1px solid var(--color-line);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-.practice-topbar__inner {
-  width: 100%;
-  max-width: 1360px;
-  height: 100%;
-  margin: 0 auto;
-  padding: 0 32px;
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  align-items: center;
-  gap: 24px;
-}
-.practice-back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 12px 0 8px;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-ink);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semi);
-  transition:
-    background var(--duration-base) ease,
-    color var(--duration-base) ease;
-}
-.practice-back-link:hover {
-  background: var(--color-hover);
-  color: var(--color-black);
-}
-.practice-back-link__icon {
-  width: 20px;
-  height: 20px;
-}
-.practice-topbar__exam {
-  min-width: 0;
-  display: grid;
-  gap: 8px;
-}
-.practice-topbar__exam-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-}
-.practice-topbar__title {
-  color: var(--color-ink);
-  font-size: var(--text-lg);
-  font-weight: var(--weight-bold);
-  white-space: nowrap;
-}
-.practice-topbar__timer {
-  flex-shrink: 0;
-  color: #1d4ed8;
-  font-size: var(--text-lg);
-  font-weight: 800;
-}
-.practice-topbar__progress {
-  height: 4px;
-  background: #e2e8f0;
-  border-radius: var(--radius-pill);
-  overflow: hidden;
-}
-.practice-topbar__progress span {
-  display: block;
-  height: 100%;
-  background: #2563eb;
 }
 .practice-shell {
   width: 100%;

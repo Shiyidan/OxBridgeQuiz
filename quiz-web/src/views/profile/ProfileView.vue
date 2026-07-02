@@ -617,23 +617,35 @@ function formatTimestamp(value: number | null): string {
 
 <style scoped lang="scss">
 .profile-page {
+  min-width: var(--fluid-page-min-width);
   height: 100vh;
   overflow: hidden;
   background: var(--color-bg);
   color: var(--color-ink);
+  --fluid-shell-min: 980px;
+  --fluid-shell-fluid: calc(68.75vw + 100px);
+  --profile-sidebar-width: clamp(200px, 15vw, 240px);
+  --profile-card-pad: clamp(24px, 2vw, 32px);
+  --profile-card-pad-x: clamp(18px, 1.5vw, 24px);
+  --profile-card-pad-lg: clamp(28px, 2.5vw, 40px);
+  --profile-card-gap: clamp(12px, 1vw, 16px);
+  --profile-card-gap-lg: clamp(18px, 1.5vw, 24px);
+  --profile-card-min-height: clamp(200px, 13.75vw, 220px);
+  --profile-student-min-height: clamp(216px, 14.75vw, 236px);
+  --profile-avatar-size: clamp(84px, 6vw, 96px);
 }
 
 .profile-shell {
   width: 100%;
   height: calc(100vh - var(--nav-height));
   margin: 0;
-  padding: 64px var(--container-px-desktop) 96px;
-  overflow-y: auto;
+  padding: clamp(48px, 3.33vw, 64px) 0 clamp(72px, 5vw, 96px);
+  overflow: auto;
   scrollbar-gutter: stable;
 }
 
 .profile-shell > * {
-  width: min(100%, 1600px);
+  width: clamp(var(--fluid-shell-min), var(--fluid-shell-fluid), var(--fluid-shell-max));
   margin-left: auto;
   margin-right: auto;
 }
@@ -642,14 +654,14 @@ function formatTimestamp(value: number | null): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  padding-bottom: 28px;
+  gap: clamp(18px, 1.25vw, 24px);
+  padding-bottom: clamp(22px, 1.46vw, 28px);
   border-bottom: 1px solid var(--color-line);
 
   h1 {
     margin: 0 0 12px;
     color: var(--color-ink);
-    font-size: var(--text-4xl);
+    font-size: clamp(var(--text-3xl), 1.875vw, var(--text-4xl));
     font-weight: var(--weight-bold);
     line-height: var(--leading-tight);
     letter-spacing: var(--tracking-tight);
@@ -666,9 +678,9 @@ function formatTimestamp(value: number | null): string {
 
 .profile-grid {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  gap: 24px;
-  margin-top: 32px;
+  grid-template-columns: var(--profile-sidebar-width) minmax(0, 1fr);
+  gap: var(--profile-card-gap-lg);
+  margin-top: clamp(24px, 1.67vw, 32px);
 }
 
 .student-card,
@@ -686,14 +698,14 @@ function formatTimestamp(value: number | null): string {
 .student-card {
   display: grid;
   justify-items: center;
-  gap: 16px;
+  gap: var(--profile-card-gap);
   align-self: start;
-  min-height: 236px;
-  padding: 32px 24px 24px;
+  min-height: var(--profile-student-min-height);
+  padding: var(--profile-card-pad) var(--profile-card-pad-x) clamp(20px, 1.5vw, 24px);
 
   strong {
     color: var(--color-ink);
-    font-size: var(--text-xl);
+    font-size: clamp(var(--text-lg), 1.25vw, var(--text-xl));
     font-weight: var(--weight-bold);
     letter-spacing: var(--tracking-tight);
   }
@@ -725,8 +737,8 @@ function formatTimestamp(value: number | null): string {
 .avatar-frame {
   display: grid;
   place-items: center;
-  width: 96px;
-  height: 96px;
+  width: var(--profile-avatar-size);
+  height: var(--profile-avatar-size);
   overflow: hidden;
   border-radius: 50%;
   background: var(--color-ink);
@@ -760,8 +772,8 @@ function formatTimestamp(value: number | null): string {
 }
 
 .free-upgrade-panel {
-  min-height: 220px;
-  padding: 32px;
+  min-height: var(--profile-card-min-height);
+  padding: var(--profile-card-pad);
   border-color: var(--color-charcoal);
   background: var(--color-charcoal);
   color: var(--color-ink-inverse);
@@ -808,21 +820,22 @@ function formatTimestamp(value: number | null): string {
 
 .member-dashboard {
   display: grid;
-  gap: 14px;
+  gap: var(--profile-card-gap);
 }
 
 .exam-tabs {
   display: flex;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: clamp(8px, 0.75vw, 10px);
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
 
   button {
-    height: var(--height-button-lg);
-    min-width: 90px;
-    padding: 0 22px;
+    height: clamp(44px, 3vw, var(--height-button-lg));
+    min-width: clamp(78px, 6vw, 90px);
+    padding: 0 clamp(16px, 1.38vw, 22px);
     border: 1px solid var(--color-line);
     border-radius: var(--radius-md);
     background: var(--color-surface);
@@ -854,16 +867,16 @@ function formatTimestamp(value: number | null): string {
 .metric-panel {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  min-height: 220px;
-  padding: 40px 32px;
+  min-height: var(--profile-card-min-height);
+  padding: var(--profile-card-pad-lg) var(--profile-card-pad);
 
   .metric-item {
     display: grid;
     align-content: center;
     justify-items: center;
-    gap: 18px;
+    gap: clamp(12px, 1.13vw, 18px);
     min-width: 0;
-    padding: 12px 18px;
+    padding: clamp(10px, 0.75vw, 12px) clamp(12px, 1.13vw, 18px);
     text-align: center;
   }
 
@@ -879,7 +892,7 @@ function formatTimestamp(value: number | null): string {
 
   strong {
     color: var(--color-ink);
-    font-size: var(--text-5xl);
+    font-size: clamp(var(--text-3xl), 2.5vw, var(--text-5xl));
     font-weight: var(--weight-bold);
     letter-spacing: var(--tracking-tight);
     line-height: 1;
@@ -896,9 +909,9 @@ function formatTimestamp(value: number | null): string {
   display: grid;
   align-content: center;
   justify-items: center;
-  gap: 16px;
-  min-height: 220px;
-  padding: 40px 32px;
+  gap: var(--profile-card-gap);
+  min-height: var(--profile-card-min-height);
+  padding: var(--profile-card-pad-lg) var(--profile-card-pad);
   text-align: center;
 
   h2 {
@@ -928,21 +941,21 @@ function formatTimestamp(value: number | null): string {
 
 .form-panel,
 .subscription-panel {
-  margin-top: 24px;
-  padding: 32px;
+  margin-top: var(--profile-card-gap-lg);
+  padding: var(--profile-card-pad);
 }
 
 .section-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 28px;
+  gap: clamp(12px, 0.83vw, 16px);
+  margin-bottom: clamp(22px, 1.46vw, 28px);
 
   h2 {
     margin: 0;
     color: var(--color-ink);
-    font-size: var(--text-2xl);
+    font-size: clamp(var(--text-xl), 1.5vw, var(--text-2xl));
     font-weight: var(--weight-bold);
     line-height: var(--leading-snug);
     letter-spacing: var(--tracking-tight);
@@ -984,7 +997,7 @@ function formatTimestamp(value: number | null): string {
 
 .readonly-form {
   display: grid;
-  gap: 22px 32px;
+  gap: clamp(18px, 1.15vw, 22px) clamp(24px, 1.67vw, 32px);
 
   label {
     display: grid;
@@ -1037,7 +1050,7 @@ function formatTimestamp(value: number | null): string {
 }
 
 .readonly-form--profile {
-  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  grid-template-columns: repeat(3, minmax(clamp(160px, 13.75vw, 220px), 1fr));
 }
 
 .readonly-form--two {
@@ -1047,14 +1060,14 @@ function formatTimestamp(value: number | null): string {
 .subscription-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  padding: 0 0 28px;
+  gap: clamp(12px, 0.83vw, 16px);
+  padding: 0 0 clamp(22px, 1.46vw, 28px);
   border-bottom: 1px solid var(--color-line-soft);
 
   article {
     display: grid;
     gap: 6px;
-    padding: 20px;
+    padding: clamp(16px, 1.25vw, 20px);
     border: 1px solid var(--color-line-soft);
     border-radius: var(--radius-lg);
     background: var(--color-surface-alt);
@@ -1069,7 +1082,7 @@ function formatTimestamp(value: number | null): string {
 
   strong {
     color: var(--color-ink);
-    font-size: var(--text-2xl);
+    font-size: clamp(var(--text-xl), 1.5vw, var(--text-2xl));
     font-weight: var(--weight-bold);
   }
 }
@@ -1078,8 +1091,8 @@ function formatTimestamp(value: number | null): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  margin: 28px 0;
+  gap: clamp(14px, 0.94vw, 18px);
+  margin: clamp(22px, 1.46vw, 28px) 0;
 }
 
 .record-tabs {
@@ -1119,15 +1132,15 @@ function formatTimestamp(value: number | null): string {
 
 .subscription-list {
   display: grid;
-  gap: 14px;
+  gap: clamp(10px, 0.88vw, 14px);
   padding: 0;
 }
 
 .subscription-record {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 24px;
-  padding: 22px 24px;
+  gap: var(--profile-card-gap-lg);
+  padding: clamp(16px, 1.38vw, 22px) var(--profile-card-pad-x);
   border: 1px solid var(--color-line);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
@@ -1165,7 +1178,7 @@ function formatTimestamp(value: number | null): string {
 .payment-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 42px;
+  gap: clamp(24px, 2.19vw, 42px);
 
   span {
     display: grid;
@@ -1186,7 +1199,7 @@ function formatTimestamp(value: number | null): string {
   display: grid;
   justify-items: end;
   align-content: space-between;
-  gap: 36px;
+  gap: clamp(24px, 1.88vw, 36px);
 }
 
 .record-status {

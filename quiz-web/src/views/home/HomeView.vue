@@ -446,38 +446,35 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
 <style scoped>
 /* ============ 通用容器 & section ============ */
 .landing {
+  min-width: var(--fluid-page-min-width);
+  overflow-x: clip;
   min-height: 100vh;
   background: var(--color-bg);
   color: var(--color-ink);
 }
+/* 前台流体外壳：默认 1200px，缩窄浏览器时卡片随外壳收缩到紧凑下限。 */
 .container {
-  max-width: var(--container-max);
+  width: clamp(var(--fluid-shell-min), var(--fluid-shell-fluid), var(--fluid-shell-max));
   margin: 0 auto;
-  padding: 0 var(--container-px-mobile);
-}
-@media (min-width: 1024px) {
-  .container {
-    padding: 0 var(--container-px-desktop);
-  }
 }
 .section {
   padding: var(--section-py-mobile) 0;
 }
-@media (min-width: 1024px) {
+
   .section {
     padding: var(--section-py-desktop) 0;
   }
-}
+
 
 .section-head {
   max-width: 640px;
   margin-bottom: 4rem;
 }
-@media (min-width: 1024px) {
+
   .section-head {
     margin-bottom: 5rem;
   }
-}
+
 .section-eyebrow {
   display: flex;
   align-items: center;
@@ -505,12 +502,12 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
   color: var(--color-ink);
   margin: 0 0 20px;
 }
-@media (min-width: 1024px) {
+
   .section-head h2,
   .section h2 {
     font-size: var(--text-5xl);
   }
-}
+
 .section-desc {
   font-size: var(--text-base);
   color: var(--color-ink-soft);
@@ -529,14 +526,14 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
   gap: 48px;
   align-items: center;
 }
-@media (min-width: 1024px) {
+
   .hero-inner {
     grid-template-columns: 1.1fr 1fr;
     gap: 32px;
     min-height: calc(100vh - var(--nav-height) - 64px * 2);
     padding: 64px 0;
   }
-}
+
 .eyebrow {
   display: inline-flex;
   align-items: center;
@@ -563,16 +560,16 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
   color: var(--color-ink);
   margin: 0 0 24px;
 }
-@media (min-width: 640px) {
+
   .hero-title {
     font-size: 56px;
   }
-}
-@media (min-width: 1024px) {
+
+
   .hero-title {
     font-size: 64px;
   }
-}
+
 .hero-sub {
   font-size: var(--text-xl);
   font-weight: var(--weight-medium);
@@ -772,14 +769,14 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
   margin-top: 24px;
   margin-left: auto;
 }
-@media (min-width: 1024px) {
+
   .path-card {
     position: absolute;
     right: 0;
     bottom: -20px;
     margin: 0;
   }
-}
+
 .path-icon {
   display: grid;
   place-items: center;
@@ -825,11 +822,11 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
   display: grid;
   gap: 24px;
 }
-@media (min-width: 768px) {
+
   .features-grid {
     grid-template-columns: repeat(3, 1fr);
   }
-}
+
 .feature-card {
   position: relative;
   background: var(--color-surface);
@@ -1001,12 +998,12 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
   gap: 48px;
   align-items: start;
 }
-@media (min-width: 1024px) {
+
   .stats-inner {
     grid-template-columns: 1fr 1.4fr;
     gap: 80px;
   }
-}
+
 .stats-left h2 {
   margin-bottom: 20px;
 }
@@ -1046,11 +1043,11 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
   letter-spacing: -0.03em;
   color: var(--color-ink);
 }
-@media (min-width: 1024px) {
+
   .stat-val .num {
     font-size: 56px;
   }
-}
+
 .stat-val .unit {
   font-size: var(--text-lg);
   font-weight: var(--weight-medium);
@@ -1080,11 +1077,11 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
   border-radius: var(--radius-2xl);
   overflow: hidden;
 }
-@media (min-width: 768px) {
+
   .process-grid {
     grid-template-columns: repeat(3, 1fr);
   }
-}
+
 .process-step {
   background: var(--color-surface);
   padding: 40px;
@@ -1142,12 +1139,12 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
   gap: 48px;
   align-items: center;
 }
-@media (min-width: 1024px) {
+
   .report-grid {
     grid-template-columns: 1fr 1fr;
     gap: 80px;
   }
-}
+
 .report-content h2 {
   margin-bottom: 20px;
 }
@@ -1238,11 +1235,11 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
   color: var(--color-ink-inverse);
   margin: 0 0 24px;
 }
-@media (min-width: 1024px) {
+
   .cta h2 {
     font-size: 56px;
   }
-}
+
 .cta p {
   font-size: 17px;
   line-height: var(--leading-relaxed);
@@ -1311,22 +1308,22 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
 .footer-inner {
   padding: 64px var(--container-px-mobile);
 }
-@media (min-width: 1024px) {
+
   .footer-inner {
     padding: 80px var(--container-px-desktop);
   }
-}
+
 .footer-grid {
   display: grid;
   gap: 40px;
   margin-bottom: 64px;
 }
-@media (min-width: 1024px) {
+
   .footer-grid {
     grid-template-columns: 1.4fr 1fr 1fr 1fr;
     gap: 48px;
   }
-}
+
 .footer-brand .logo {
   display: inline-flex;
   align-items: center;
@@ -1382,11 +1379,11 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
   padding-top: 32px;
   border-top: 1px solid var(--color-line);
 }
-@media (min-width: 640px) {
+
   .footer-bottom {
     flex-direction: row;
   }
-}
+
 .footer-copy {
   font-size: 12px;
   color: var(--color-ink-muted);

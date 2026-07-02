@@ -153,20 +153,15 @@ const handleSelectPlan = (plan: Plan): void => {
   padding: var(--section-py-mobile) 0;
   background: var(--color-bg);
 }
-@media (min-width: 1024px) {
+
   .pricing {
     padding: var(--section-py-desktop) 0;
   }
-}
+
+/* 前台流体外壳，与首页 HomeView 共用规范。 */
 .container {
-  max-width: var(--container-max);
+  width: clamp(var(--fluid-shell-min), var(--fluid-shell-fluid), var(--fluid-shell-max));
   margin: 0 auto;
-  padding: 0 var(--container-px-mobile);
-}
-@media (min-width: 1024px) {
-  .container {
-    padding: 0 var(--container-px-desktop);
-  }
 }
 
 .section-head {
@@ -200,11 +195,11 @@ const handleSelectPlan = (plan: Plan): void => {
   letter-spacing: var(--tracking-tight);
   line-height: var(--leading-tight);
 }
-@media (min-width: 1024px) {
+
   .section-head h2 {
     font-size: var(--text-5xl);
   }
-}
+
 .section-desc {
   font-size: var(--text-base);
   color: var(--color-ink-soft);
@@ -221,11 +216,11 @@ const handleSelectPlan = (plan: Plan): void => {
   max-width: 960px;
   margin: 0 auto;
 }
-@media (min-width: 768px) {
+
   .plan-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-}
+
 
 /* ========== 通用方案卡 ========== */
 .plan-card {
@@ -403,12 +398,12 @@ const handleSelectPlan = (plan: Plan): void => {
 }
 
 /* ========== 响应式 ========== */
-@media (max-width: 768px) {
+
   .plan-card {
     padding: 32px;
   }
   .plan-price-amount {
     font-size: 40px;
   }
-}
+
 </style>

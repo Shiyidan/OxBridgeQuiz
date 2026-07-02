@@ -25,6 +25,7 @@ quiz-web/public/data/svg/
 # IDE
 .vscode/
 .idea/
+.chrome-cdp/
 *.swp
 *.swo
 *~

@@ -61,6 +61,16 @@
    * 说明：padding / margin / gap 这类局部间距请直接写 px（如 padding: 16px 24px），
    *      仅在跨页面复用的"页面级"布局尺寸才用 token。 */
   --layout-min-width:     1200px;   /* 全站最小布局宽度：视口 <1200 出现横向滚动，不做响应式挤压 */
+  --shell-max:            1600px;   /* 内容外壳大屏上限：视口 >2160 时内容不再放大 */
+  /* 内容外壳流式表达式：
+   * 视口 ≤ 1920 时 = 1200px（触底）
+   * 视口 1920 → 2160 时线性放大 1200 → 1600
+   * 视口 ≥ 2160 时 = 1600px（触顶） */
+  --shell-fluid:          calc(166.67vw - 2000px);
+  --fluid-page-min-width: 1280px;   /* 前台页面最小画布：低于后只滚动，不继续挤压内容卡片 */
+  --fluid-shell-min:      1120px;
+  --fluid-shell-fluid:    calc(25vw + 800px);
+  --fluid-shell-max:      var(--layout-min-width);
   --container-max:        1280px;   /* 页面级最大宽度（Hero/落地页外层容器） */
   --container-px-desktop: 40px;     /* 页面容器桌面内边距 */
   --container-px-mobile:  24px;     /* 页面容器移动内边距 */

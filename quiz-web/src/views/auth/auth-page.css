@@ -39,37 +39,28 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 64px var(--container-px-mobile);
-}
-@media (min-width: 1024px) {
-  .auth-main {
-    padding: 64px var(--container-px-desktop);
-  }
+  padding: 64px 0;
 }
 
+/* 认证页外壳：走全站统一的 1200~1600 流式规范
+ * 触底 1200 保证左右两栏在紧凑视口下不拥挤；触顶 1600 避免大屏文字行长失控。 */
 .auth-shell {
-  width: 100%;
-  max-width: 1080px;
+  width: clamp(var(--layout-min-width), var(--shell-fluid), var(--shell-max));
   display: grid;
-  gap: 64px;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
   align-items: center;
-}
-@media (min-width: 1024px) {
-  .auth-shell {
-    grid-template-columns: 1fr 1fr;
-    gap: 80px;
-  }
 }
 
 /* ============ 左侧品牌介绍（桌面显示） ============ */
 .auth-side {
   display: none;
 }
-@media (min-width: 1024px) {
+
   .auth-side {
     display: block;
   }
-}
+
 .auth-eyebrow {
   display: inline-flex;
   align-items: center;
@@ -96,11 +87,11 @@
   color: var(--color-ink);
   margin: 0 0 20px;
 }
-@media (min-width: 1280px) {
+
   .auth-headline {
     font-size: 48px;
   }
-}
+
 .auth-sub {
   font-size: var(--text-lg);
   color: var(--color-ink-soft);
@@ -139,16 +130,16 @@
   padding: 40px 32px;
   box-shadow: var(--shadow-md);
 }
-@media (min-width: 640px) {
+
   .auth-card {
     padding: 48px 40px;
   }
-}
-@media (min-width: 1024px) {
+
+
   .auth-card {
     margin: 0;
   }
-}
+
 
 .auth-brand {
   display: flex;

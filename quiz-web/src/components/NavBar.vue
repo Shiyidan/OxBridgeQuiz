@@ -112,20 +112,22 @@ async function handleLogout(): Promise<void> {
   position: sticky;
   top: 0;
   z-index: 100;
+  min-width: var(--fluid-page-min-width);
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--color-line);
 }
+
+/* 前台流体外壳：1200px 起步，窄屏继续收缩到紧凑下限。 */
 .nav-inner {
-  width: 100%;
-  max-width: 1600px;
+  width: clamp(var(--fluid-shell-min), var(--fluid-shell-fluid), var(--fluid-shell-max));
   height: var(--nav-height);
   margin: 0 auto;
-  padding: 0 var(--container-px-desktop);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: clamp(20px, 2.08vw, 40px);
 }
 .nav-left,
 .nav-links,
@@ -135,10 +137,12 @@ async function handleLogout(): Promise<void> {
   align-items: center;
 }
 .nav-left {
-  gap: 32px;
+  min-width: 0;
+  gap: clamp(20px, 1.67vw, 32px);
 }
 .logo {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 10px;
   color: var(--color-ink);
@@ -156,9 +160,11 @@ async function handleLogout(): Promise<void> {
   color: var(--color-ink-inverse);
 }
 .nav-links {
-  gap: 32px;
+  min-width: 0;
+  gap: clamp(18px, 1.67vw, 32px);
 }
 .nav-right {
+  flex: 0 0 auto;
   gap: 12px;
 }
 .nav-link {
@@ -168,6 +174,7 @@ async function handleLogout(): Promise<void> {
   color: var(--color-ink-soft);
   transition: color var(--duration-base) ease;
   position: relative;
+  white-space: nowrap;
 }
 .nav-link:hover,
 .nav-link--active {

@@ -134,7 +134,7 @@ MembershipPlan, UserMembership, EntitlementConfig
 - 历史 `Paper.questions` 回填用 `npm run backfill:questions`；先 `-- --dry-run`，确认无问题再正式跑；确认旧 JSON 不再需要后才追加 `-- --clear-legacy`。
 - 所有 DB 读写必须走 Prisma Client（[api/src/services/prisma.ts](api/src/services/prisma.ts)），**禁止** raw SQL。
 - 排序优先用数据库 `orderBy`，前端只做兜底。
-- JSON 字段（`options` / `answer` / `knowledgePoints` / `syllabusPoints` / `tags`）：写入前 `JSON.stringify`，API 返回前必须 `JSON.parse`。
+- JSON 字段（`options` / `answer` / `knowledgePoints` / `tags`）：写入前 `JSON.stringify`，API 返回前必须 `JSON.parse`。
 - 关联查询用 `include`，不要多次单表查询。
 - 角色、状态、套餐、考试类型等枚举值必须集中定义常量，禁止在业务代码里散落硬编码字符串。
 - 语义不混用：`role` 只表达身份；`paymentStatus` 只保留学生旧付费状态；会员权益走会员表 + 权益接口。

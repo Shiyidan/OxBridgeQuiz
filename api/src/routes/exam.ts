@@ -104,7 +104,8 @@ examRouter.get('/error-book', requireAuth, async (req, res) => {
       title: string
       difficulty: string | null
       knowledgePoints: string
-      syllabusPoints: string
+      subjectCode: string | null
+      topicCode: string | null
     }> = []
 
     if (hasQuestionFilter) {
@@ -115,14 +116,16 @@ examRouter.get('/error-book', requireAuth, async (req, res) => {
           title: true,
           difficulty: true,
           knowledgePoints: true,
-          syllabusPoints: true,
+          subjectCode: true,
+          topicCode: true,
         },
       })
       questionSummaries = syllabusCodes.length
         ? candidates.filter(
             (question) =>
-              jsonPointsHaveCode(question.syllabusPoints, syllabusCodes) ||
-              jsonPointsHaveCode(question.knowledgePoints, syllabusCodes),
+              jsonPointsHaveCode(question.knowledgePoints, syllabusCodes) ||
+              (question.subjectCode && syllabusCodes.includes(question.subjectCode)) ||
+              (question.topicCode && syllabusCodes.includes(question.topicCode)),
           )
         : candidates
     }
@@ -164,7 +167,6 @@ examRouter.get('/error-book', requireAuth, async (req, res) => {
             title: true,
             difficulty: true,
             knowledgePoints: true,
-            syllabusPoints: true,
           },
         })
     const questionMap = new Map(questionRows.map((question) => [question.id, question]))
@@ -206,7 +208,7 @@ examRouter.get('/error-book', requireAuth, async (req, res) => {
         questionId: answer.questionId,
         title: question?.title || '',
         difficulty: question?.difficulty || '',
-        syllabus_points: question ? safeJsonParse(question.syllabusPoints, []) : [],
+        knowledge_points: question ? safeJsonParse(question.knowledgePoints, []) : [],
         selectedAnswer: group.selectedAnswers.join(', ') || answer.selectedAnswer,
         selectedAnswers: group.selectedAnswers,
         wrongCount: group.wrongCount,

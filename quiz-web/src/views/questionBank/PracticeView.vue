@@ -186,7 +186,7 @@ const examHeaderText = computed(() => (
 const currentKnowledgeTags = computed(() => {
   const question = currentQuestion.value as any
   if (!question) return []
-  const points = normalizePointTags(question.syllabus_points || question.syllabusPoints)
+  const points = normalizePointTags(question.knowledge_points || question.knowledgePoints)
   const fallbackPoints = normalizePointTags(question.knowledge_points || question.knowledgePoints)
   const tags = points.length ? points : fallbackPoints
   if (tags.length) return tags

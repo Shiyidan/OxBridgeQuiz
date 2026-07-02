@@ -32,7 +32,6 @@ export interface ExamQuestion {
   subject?: string
   difficulty?: string
   knowledge_points?: any[]
-  syllabus_points?: any[]
   learning_analysis?: any
   selectedAnswer?: string | null
   isCorrect?: boolean
@@ -65,7 +64,7 @@ export interface WrongAnswer {
   questionId: string
   title: string
   difficulty: string
-  syllabus_points: { code: string; label: string; role?: string }[]
+  knowledge_points: { code: string; label: string; role?: string }[]
   selectedAnswer: string | null
   selectedAnswers: string[]
   wrongCount: number

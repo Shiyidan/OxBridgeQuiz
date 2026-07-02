@@ -450,7 +450,7 @@ papersRouter.get('/question-bank/summary', async (req, res) => {
 
     const questions = await prisma.question.findMany({
       where: { examType, paper: { status: 'published' } },
-      select: { difficulty: true, syllabusPoints: true },
+      select: { difficulty: true, knowledgePoints: true, subjectCode: true, topicCode: true },
     })
 
     const diffCount: Record<string, number> = { easy: 0, medium: 0, hard: 0, composite: 0 }
@@ -477,10 +477,23 @@ function safeParseDifficulty(d: string | null): any {
   try { return JSON.parse(d) } catch { return d }
 }
 
-/** 检查题目的 syllabus_points 中是否有匹配的考纲 code */
-function matchSyllabusFilter(q: { syllabusPoints: string }, filterCodes: string[]): boolean {
-  const sps: any[] = JSON.parse(q.syllabusPoints)
-  return sps.some((sp: any) => sp.code && filterCodes.includes(sp.code))
+/** 检查题目的 knowledge_points / subjectCode / topicCode 中是否有匹配的考纲 code */
+function matchSyllabusFilter(
+  q: { knowledgePoints?: string; subjectCode?: string | null; topicCode?: string | null },
+  filterCodes: string[],
+): boolean {
+  // knowledgePoints
+  const kps: any[] = safeJsonParse<any[]>(q.knowledgePoints || '[]', [])
+  if (kps.some((kp: any) => kp.code && filterCodes.includes(kp.code))) return true
+  // subjectCode / topicCode（subject / topic 层级 code）
+  if (q.subjectCode && filterCodes.includes(q.subjectCode)) return true
+  if (q.topicCode && filterCodes.includes(q.topicCode)) return true
+  return false
+}
+
+function safeJsonParse<T>(value: string | undefined | null, fallback: T): T {
+  if (!value) return fallback
+  try { return JSON.parse(value) } catch { return fallback }
 }
 
 // 试题库 — 获取已发布考卷的全部题目

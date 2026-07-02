@@ -138,7 +138,7 @@ See `api/prisma/schema.prisma` and `3.2 数据库构建.md`.
 - Historical `Paper.questions` backfill uses `api` script `npm run backfill:questions`; run with `-- --dry-run` first, and only use `-- --clear-legacy` after confirming legacy JSON is no longer needed.
 - All database access must go through Prisma Client from `api/src/services/prisma.ts`; do not use raw SQL.
 - Prefer database `orderBy` for sorted query results; frontend sorting is only a fallback.
-- JSON fields such as `options`, `answer`, `knowledgePoints`, and `syllabusPoints` must use `JSON.stringify` on write and `JSON.parse` before API response.
+- JSON fields such as `options`, `answer`, and `knowledgePoints` must use `JSON.stringify` on write and `JSON.parse` before API response.
 - Use `include` for relations instead of repeated single-table queries.
 - Roles, statuses, plans, and exam types must be centralized constants, not scattered hard-coded strings.
 - Do not mix semantics in one field: `role` is identity only, `paymentStatus` is legacy student payment state only, and memberships/entitlements are represented by membership tables and entitlement APIs.

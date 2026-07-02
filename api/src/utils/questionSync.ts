@@ -39,7 +39,6 @@ export async function syncPaperQuestions(paperId: string, questions: any[]): Pro
     topic: q.topic || null,
     topicCode: q.topic_code || null,
     knowledgePoints: JSON.stringify(q.knowledge_points || []),
-    syllabusPoints: JSON.stringify(q.syllabus_points || []),
     meta: JSON.stringify({
       content_blocks: q.content_blocks,
       images: q.images,
@@ -76,7 +75,6 @@ export function formatQuestionRow(row: any) {
     topic: row.topic,
     topic_code: row.topicCode,
     knowledge_points: JSON.parse(row.knowledgePoints),
-    syllabus_points: JSON.parse(row.syllabusPoints),
     ...JSON.parse(row.meta || '{}'),
   }
 }

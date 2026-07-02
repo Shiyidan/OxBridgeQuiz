@@ -65,7 +65,7 @@
         </div>
         <button
           type="button"
-          class="question-nav__submit"
+          class="question-nav__submit button_cancel"
           :disabled="submitting || !currentQuestion"
           @click="confirmSubmitExam"
         >
@@ -92,7 +92,7 @@
           <footer class="exam-actions">
             <button
               type="button"
-              class="exam-action exam-action--ghost"
+              class="exam-action button_cancel"
               :disabled="currentIndex === 0"
               @click="handlePrev"
             >
@@ -102,7 +102,7 @@
               <button
                 v-if="!isLastQuestion"
                 type="button"
-                class="exam-action exam-action--ghost"
+                class="exam-action button_cancel"
                 @click="handleNext"
               >
                 下一题
@@ -318,6 +318,8 @@ async function handleBackToQuestionBank(): Promise<void> {
         type: 'warning',
         confirmButtonText: '返回试题库',
         cancelButtonText: '继续答题',
+        confirmButtonClass: 'button_primary',
+        cancelButtonClass: 'button_cancel',
         customClass: 'app-confirm-box',
         closeOnClickModal: false,
         distinguishCancelAndClose: true,
@@ -343,6 +345,8 @@ async function confirmSubmitExam(): Promise<void> {
         type: 'warning',
         confirmButtonText: '确认交卷',
         cancelButtonText: '继续答题',
+        confirmButtonClass: 'button_primary',
+        cancelButtonClass: 'button_cancel',
         customClass: 'app-confirm-box',
         closeOnClickModal: false,
         distinguishCancelAndClose: true,
@@ -609,27 +613,7 @@ onUnmounted(() => {
   width: 100%;
   height: 48px;
   margin-top: 24px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  color: var(--color-ink);
-  cursor: pointer;
-  font-family: inherit;
   font-size: var(--text-base);
-  font-weight: var(--weight-semi);
-  transition:
-    background var(--duration-base) ease,
-    border-color var(--duration-base) ease,
-    color var(--duration-base) ease;
-}
-.question-nav__submit:hover:not(:disabled) {
-  border-color: var(--color-ink);
-  background: var(--color-hover);
-}
-.question-nav__submit:disabled {
-  color: var(--color-ink-muted);
-  cursor: not-allowed;
-  opacity: 0.6;
 }
 .exam-panel {
   padding: 20px 24px 24px;
@@ -648,15 +632,6 @@ onUnmounted(() => {
 .exam-action {
   min-width: 96px;
   height: 40px;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
-  cursor: pointer;
-}
-.exam-action--dark {
-  background: #1f2937;
-  color: #fff;
-  border-color: #1f2937;
 }
 .exam-actions__right {
   display: flex;

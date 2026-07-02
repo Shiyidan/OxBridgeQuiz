@@ -68,7 +68,7 @@
               <p class="qb-difficulty-card__desc">{{ diff.description }}</p>
               <button
                 type="button"
-                class="qb-difficulty-card__cta"
+                class="qb-difficulty-card__cta button_primary"
                 :disabled="diff.count === 0"
                 @click="handleStartPractice(diff)"
               >
@@ -350,14 +350,5 @@ const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
 .qb-difficulty-card__cta {
   height: 40px;
   padding: 0 18px;
-  border: 0;
-  border-radius: 8px;
-  background: #1f2937;
-  color: #fff;
-  cursor: pointer;
-}
-.qb-difficulty-card__cta:disabled {
-  background: #cbd5e1;
-  cursor: not-allowed;
 }
 </style>

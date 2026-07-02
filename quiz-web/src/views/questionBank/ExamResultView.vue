@@ -58,8 +58,8 @@
         </div>
 
         <div class="result-actions">
-          <router-link :to="backTarget" class="btn btn--outline">{{ backLabel }}</router-link>
-          <router-link :to="`/exam-result/${examId}`" class="btn btn--primary"
+          <router-link :to="backTarget" class="btn button_cancel">{{ backLabel }}</router-link>
+          <router-link :to="`/exam-result/${examId}`" class="btn button_primary"
             >查看详细报告</router-link
           >
         </div>
@@ -163,24 +163,8 @@ const formattedTime = computed(() => {
   gap: 1rem;
 }
 .btn {
-  display: inline-flex;
-  align-items: center;
   padding: 0.75rem 1.75rem;
-  border-radius: 8px;
   font-size: 15px;
-  font-weight: 600;
-  text-decoration: none;
-  transition: all 0.15s ease;
-}
-.btn--primary {
-  background: #4f46e5;
-  color: #fff;
-  border: none;
-}
-.btn--outline {
-  background: #fff;
-  color: #475569;
-  border: 1px solid #e2e8f0;
 }
 @media (max-width: 640px) {
   .result-stats,

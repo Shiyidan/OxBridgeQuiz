@@ -72,7 +72,7 @@
           </el-form-item>
 
           <el-form-item>
-            <el-button type="primary" class="register-submit" :loading="auth.loading" native-type="submit">
+            <el-button type="primary" class="register-submit button_primary" :loading="auth.loading" native-type="submit">
               {{ auth.loading ? '注册中...' : '注册' }}
             </el-button>
           </el-form-item>

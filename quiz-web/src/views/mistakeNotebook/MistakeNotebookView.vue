@@ -82,8 +82,8 @@
           </label>
 
           <div class="filter-actions">
-            <button type="button" class="filter-button" @click="applyFilters">搜索</button>
-            <button type="button" class="filter-button filter-button--ghost" @click="resetFilters">
+            <button type="button" class="filter-button button_primary" @click="applyFilters">搜索</button>
+            <button type="button" class="filter-button button_cancel" @click="resetFilters">
               重置
             </button>
           </div>
@@ -167,7 +167,7 @@
             <router-link
               v-if="item.examRecord?.id"
               :to="analysisLink(item)"
-              class="wrong-item__action wrong-item__action--outline"
+              class="wrong-item__action button_cancel"
               aria-label="查看试题解析"
             >
               查看解析
@@ -519,20 +519,12 @@ function formatDuration(seconds?: number | null): string {
 }
 
 .filter-button {
+  min-width: 64px;
   height: 32px;
   padding: 0 14px;
-  border: 1px solid #2f6f9b;
   border-radius: 4px;
-  background: #ffffff;
-  color: #1f4e75;
   font-size: 12px;
   font-weight: 800;
-  cursor: pointer;
-}
-
-.filter-button--ghost {
-  border-color: #cfd8dc;
-  color: #344246;
 }
 
 .section-card {
@@ -641,17 +633,6 @@ function formatDuration(seconds?: number | null): string {
   border-radius: 4px;
   font-size: 12px;
   font-weight: 900;
-  text-decoration: none;
-}
-
-.wrong-item__action--outline {
-  border: 1px solid #1672c7;
-  background: #ffffff;
-  color: #1672c7;
-
-  &:hover {
-    background: #eef7ff;
-  }
 }
 
 .wrong-item__action--disabled {

@@ -198,38 +198,12 @@
   font-size: var(--text-base);
 }
 
-/* ============ 主提交按钮（黑底白字，全宽 48px） ============ */
-.auth-submit,
-.auth-submit.el-button,
-.auth-submit.el-button--primary {
+/* ============ 主提交按钮（全宽 48px，视觉样式走 .button_primary） ============ */
+.auth-submit {
   width: 100%;
   height: 48px;
-  border-radius: var(--radius-md);
   font-size: var(--text-base);
-  font-weight: var(--weight-semi);
   letter-spacing: 0.02em;
-  background: var(--color-ink);
-  border-color: var(--color-ink);
-  color: var(--color-ink-inverse);
-  transition: all var(--duration-base) ease;
-}
-.auth-submit:hover,
-.auth-submit.el-button--primary:hover,
-.auth-submit.el-button--primary:focus {
-  background: var(--color-charcoal);
-  border-color: var(--color-charcoal);
-  color: var(--color-ink-inverse);
-}
-.auth-submit:active,
-.auth-submit.el-button--primary:active {
-  background: var(--color-black);
-  border-color: var(--color-black);
-}
-.auth-submit.is-loading {
-  background: var(--color-ink);
-  border-color: var(--color-ink);
-  color: var(--color-ink-inverse);
-  opacity: 0.85;
 }
 
 /* ============ 表单内文字链接（"忘记密码" "立即注册"） ============ */

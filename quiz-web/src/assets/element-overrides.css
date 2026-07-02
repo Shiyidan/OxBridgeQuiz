@@ -99,6 +99,73 @@
   background: var(--color-surface);
 }
 
+.button_primary,
+.button_cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 112px;
+  height: 40px;
+  padding: 0 18px;
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background var(--duration-base) ease,
+    border-color var(--duration-base) ease,
+    color var(--duration-base) ease,
+    opacity var(--duration-base) ease;
+}
+
+.button_primary {
+  background: var(--color-ink);
+  color: var(--color-ink-inverse);
+}
+
+.button_primary:hover,
+.button_primary:focus {
+  border-color: var(--color-charcoal);
+  background: var(--color-charcoal);
+  color: var(--color-ink-inverse);
+}
+
+.button_primary:active {
+  border-color: var(--color-black);
+  background: var(--color-black);
+}
+
+.button_cancel {
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.button_cancel:hover,
+.button_cancel:focus {
+  border-color: var(--color-ink);
+  background: var(--color-hover);
+  color: var(--color-ink);
+}
+
+.button_cancel:active {
+  background: var(--color-surface-alt);
+}
+
+.button_primary:disabled,
+.button_primary.is-disabled,
+.button_primary.is-loading,
+.button_cancel:disabled,
+.button_cancel.is-disabled,
+.button_cancel.is-loading {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 /* ========================================================
  * 三、Input（断根浅蓝底 / focus 走黑 / 自动填充穿透）
  * 全局生效，任何页面的 <el-input> 都会应用这套修正。
@@ -348,37 +415,8 @@ input:-webkit-autofill:active,
   padding: 0;
 }
 
-.app-confirm-box .el-button {
-  min-width: 112px;
-  height: 40px;
-  padding: 0 18px;
-  border-radius: var(--radius-md);
-  font-weight: var(--weight-semi);
-}
-
 .app-confirm-box .el-button + .el-button {
   margin-left: 0;
-}
-
-.app-confirm-box .el-button--primary {
-  border-color: var(--color-ink);
-  background: var(--color-ink);
-  color: var(--color-ink-inverse);
-}
-
-.app-confirm-box .el-button--primary:hover {
-  border-color: var(--color-charcoal);
-  background: var(--color-charcoal);
-}
-
-.app-confirm-box .el-button:not(.el-button--primary) {
-  border-color: var(--color-ink);
-  background: var(--color-surface);
-  color: var(--color-ink);
-}
-
-.app-confirm-box .el-button:not(.el-button--primary):hover {
-  background: var(--color-hover);
 }
 
 /* ========================================================

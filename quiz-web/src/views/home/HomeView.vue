@@ -77,7 +77,7 @@
             </div>
           </div>
 
-          <div class="path-card">
+          <!-- <div class="path-card">
             <div class="path-icon" aria-hidden="true">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path
@@ -95,8 +95,8 @@
                 <span v-for="n in 14" :key="n" class="path-dot" :class="{ done: n <= 4 }"></span>
               </div>
               <div class="path-label">Day 4 / 14</div>
-            </div>
-          </div>
+            </div> -->
+          <!-- </div> -->
         </div>
       </div>
     </section>

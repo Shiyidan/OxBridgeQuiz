@@ -83,7 +83,7 @@
             <el-form-item>
               <el-button
                 type="primary"
-                class="auth-submit"
+                class="auth-submit button_primary"
                 :loading="auth.loading"
                 native-type="submit"
               >

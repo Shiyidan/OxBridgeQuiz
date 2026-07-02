@@ -163,7 +163,7 @@
                       <td class="gain-cell">+{{ item.gain }}</td>
                       <td>{{ item.hours }}</td>
                       <td>
-                        <button type="button" class="path-button">去完成 →</button>
+                        <button type="button" class="path-button button_cancel">去完成 →</button>
                       </td>
                     </tr>
                   </tbody>
@@ -967,12 +967,7 @@ function normalizeKnowledgePoints(question: ReportQuestion): string[] {
 .path-button {
   min-width: 78px;
   height: 44px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #fff;
-  color: #5c6b70;
   font-weight: 700;
-  cursor: pointer;
 }
 
 .path-button::before {

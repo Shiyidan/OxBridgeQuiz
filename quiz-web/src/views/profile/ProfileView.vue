@@ -65,7 +65,7 @@
           <div v-else class="member-upgrade-panel">
             <h2>开通 {{ currentExamType }} 会员</h2>
             <p>解锁 {{ currentExamType }} 历年真题、海量练习题、预估分分析与模拟考试权益。</p>
-            <button type="button" @click="handleUpgradeClick">升级会员</button>
+            <button type="button" class="button_primary" @click="handleUpgradeClick">升级会员</button>
           </div>
         </section>
 
@@ -73,7 +73,7 @@
           <span class="status-pill">诊断测试已完成</span>
           <h2>首次诊断测试分数：{{ estimatedScoreText }}<small v-if="estimatedScoreText !== '--'"> / 9.0</small></h2>
           <p>升级 Pro 会员，解锁历次测试综合分析、海量真题练习册与智能错题本系统。</p>
-          <button type="button">升级 Pro 会员</button>
+          <button type="button" class="button_cancel">升级 Pro 会员</button>
         </section>
       </div>
 
@@ -81,12 +81,12 @@
         <div class="section-title">
           <h2>基础信息</h2>
           <div class="section-actions">
-            <button v-if="!profileEditing" type="button" @click="startEditProfile">编辑</button>
+            <button v-if="!profileEditing" type="button" class="button_cancel" @click="startEditProfile">编辑</button>
             <template v-else>
-              <button type="button" class="text-button" @click="cancelEditProfile">取消</button>
+              <button type="button" class="text-button button_cancel" @click="cancelEditProfile">取消</button>
               <button
                 type="button"
-                class="primary-button"
+                class="primary-button button_primary"
                 :disabled="profileSaving"
                 @click="saveProfile"
               >
@@ -124,10 +124,10 @@
         <div class="section-title">
           <h2>报考目标</h2>
           <div class="section-actions">
-            <button v-if="!examEditing" type="button" @click="startEditExam">编辑</button>
+            <button v-if="!examEditing" type="button" class="button_cancel" @click="startEditExam">编辑</button>
             <template v-else>
-              <button type="button" class="text-button" @click="cancelEditExam">取消</button>
-              <button type="button" class="primary-button" :disabled="examSaving" @click="saveExam">
+              <button type="button" class="text-button button_cancel" @click="cancelEditExam">取消</button>
+              <button type="button" class="primary-button button_primary" :disabled="examSaving" @click="saveExam">
                 {{ examSaving ? '保存中...' : '保存' }}
               </button>
             </template>
@@ -220,7 +220,7 @@
               {{ filter.label }}
             </button>
           </div>
-          <button class="sort-button" type="button">按时间排序（近→远）</button>
+          <button class="sort-button button_cancel" type="button">按时间排序（近→远）</button>
         </div>
 
         <div class="subscription-list">
@@ -250,14 +250,14 @@
               </span>
               <button
                 v-if="record.status === 'active'"
-                class="record-button record-button--primary"
+                class="record-button button_primary"
                 type="button"
               >
                 续费
               </button>
               <button
                 v-else
-                class="record-button"
+                class="record-button button_cancel"
                 type="button"
               >
                 重新订阅
@@ -782,22 +782,13 @@ function formatTimestamp(value: number | null): string {
     line-height: var(--leading-relaxed);
   }
 
-  button {
+  .button_cancel {
     height: 46px;
     padding: 0 24px;
-    border: 1px solid var(--color-ink-inverse);
-    border-radius: var(--radius-md);
-    background: var(--color-ink-inverse);
-    color: var(--color-ink);
-    font-family: inherit;
     font-size: 15px;
-    font-weight: var(--weight-semi);
-    cursor: pointer;
-    transition: all var(--duration-base) ease;
   }
 
-  button:hover {
-    background: var(--color-hover);
+  .button_cancel:hover {
     transform: translateY(-2px);
   }
 }
@@ -926,23 +917,11 @@ function formatTimestamp(value: number | null): string {
     line-height: var(--leading-relaxed);
   }
 
-  button {
-    height: 40px;
+  .button_primary {
     padding: 0 22px;
-    border: 1px solid var(--color-ink);
-    border-radius: var(--radius-md);
-    background: var(--color-ink);
-    color: var(--color-ink-inverse);
-    font-family: inherit;
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semi);
-    cursor: pointer;
-    transition: all var(--duration-base) ease;
   }
 
-  button:hover {
-    background: var(--color-charcoal);
-    border-color: var(--color-charcoal);
+  .button_primary:hover {
     transform: translateY(-2px);
   }
 }
@@ -969,7 +948,7 @@ function formatTimestamp(value: number | null): string {
     letter-spacing: var(--tracking-tight);
   }
 
-  button {
+  button:not(.button_primary):not(.button_cancel) {
     border: 0;
     background: transparent;
     color: var(--color-ink);
@@ -980,7 +959,7 @@ function formatTimestamp(value: number | null): string {
     transition: color var(--duration-base) ease;
   }
 
-  button:hover {
+  button:not(.button_primary):not(.button_cancel):hover {
     color: var(--color-charcoal);
   }
 }
@@ -992,22 +971,15 @@ function formatTimestamp(value: number | null): string {
 }
 
 .section-actions .text-button {
-  color: var(--color-ink-muted);
+  min-width: 62px;
+  height: var(--height-button-sm);
+  padding: 0 14px;
 }
 
 .section-actions .primary-button {
   min-width: 62px;
   height: var(--height-button-sm);
   padding: 0 14px;
-  border: 1px solid var(--color-ink);
-  border-radius: var(--radius-md);
-  background: var(--color-ink);
-  color: var(--color-ink-inverse);
-
-  &:disabled {
-    opacity: 0.65;
-    cursor: not-allowed;
-  }
 }
 
 .readonly-form {
@@ -1142,22 +1114,7 @@ function formatTimestamp(value: number | null): string {
 .sort-button {
   height: 34px;
   padding: 0 18px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  color: var(--color-ink-soft);
-  font-family: inherit;
   font-size: var(--text-xs);
-  font-weight: var(--weight-semi);
-  cursor: pointer;
-  transition:
-    border-color var(--duration-base) ease,
-    color var(--duration-base) ease;
-}
-
-.sort-button:hover {
-  border-color: var(--color-ink);
-  color: var(--color-ink);
 }
 
 .subscription-list {
@@ -1258,33 +1215,14 @@ function formatTimestamp(value: number | null): string {
 }
 
 .record-button {
+  min-width: auto;
   height: 32px;
   padding: 0 14px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  color: var(--color-ink);
-  font-family: inherit;
   font-size: var(--text-xs);
-  font-weight: var(--weight-semi);
-  cursor: pointer;
-  transition: all var(--duration-base) ease;
 }
 
 .record-button:hover {
-  border-color: var(--color-ink);
   transform: translateY(-1px);
-}
-
-.record-button--primary {
-  border-color: var(--color-ink);
-  background: var(--color-ink);
-  color: var(--color-ink-inverse);
-}
-
-.record-button--primary:hover {
-  background: var(--color-charcoal);
-  border-color: var(--color-charcoal);
 }
 
 .load-warning {

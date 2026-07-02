@@ -6,7 +6,7 @@
         <h1>诊断测试中心</h1>
         <div class="quota-bar">
           <span class="quota-text">{{ quotaText }}</span>
-          <button class="quota-button" type="button" @click="handleUpgradeClick">
+          <button class="quota-button button_primary" type="button" @click="handleUpgradeClick">
             获取更多模考额度
           </button>
         </div>
@@ -34,7 +34,7 @@
           </div>
 
           <button
-            class="paper-card__button"
+            class="paper-card__button button_primary"
             type="button"
             @click="handlePaperAction(item.paper)"
           >
@@ -258,18 +258,12 @@ function scoreText(record: AssessmentRecordItem): string {
 .paper-card__button {
   height: 32px;
   padding: 0 16px;
-  border: 1px solid #dbe3ea;
   border-radius: 4px;
-  background: #fff;
-  color: #1f2a37;
   font-weight: 800;
-  cursor: pointer;
 }
 
 .quota-button {
-  border-color: #3b7192;
-  background: #3b7192;
-  color: #fff;
+  min-width: 132px;
 }
 
 .chart-card {

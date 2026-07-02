@@ -6,14 +6,15 @@
     <section id="home" class="hero">
       <div class="container hero-inner">
         <div class="hero-text">
+          <h1 class="hero-title">直通英国G5高校</h1>
+          <p class="hero-sub-title">ESAT &amp; TMUA 专项备考</p>
           <div class="eyebrow">
             <span class="eyebrow-dot"></span>
             <span>精准诊断，让备考的每一步都算数</span>
           </div>
-          <h1 class="hero-title">ESAT &amp; TMUA<br />专项备考</h1>
-          <p class="hero-sub">免费诊断 · AI 精准分析 · 科学提分路径</p>
+          <!-- <p class="hero-sub">免费诊断 · AI 精准分析 · 科学提分路径</p> -->
           <p class="hero-desc">
-            基于真实机考形式和考纲知识点的智能备考系统，一次评估看清能力分布。
+            基于真实试卷和考纲知识点的智能备考系统，一次评估看清能力分布。
           </p>
           <ul class="hero-features">
             <li v-for="f in heroFeatures" :key="f">
@@ -47,33 +48,32 @@
           <p class="hero-note">无需注册 · 2 个模块约 30 分钟 · 即刻获取专属备考报告</p>
         </div>
 
-        <!-- 右侧浮动预览卡 -->
+        <!-- 右侧产品能力轮播图 -->
         <div class="hero-visual">
-          <div class="report-card">
-            <div class="report-card-head">
-              <span class="report-card-title">
-                <span class="dot"></span>
-                TMUA Paper 2
-              </span>
-              <span class="report-card-tag">诊断报告</span>
-            </div>
-            <div class="report-card-score-label">综合得分</div>
-            <div class="report-card-score">
-              <span class="score-num">7.2</span>
-              <span class="score-max"> / 9.0</span>
-            </div>
-            <div class="report-card-grid">
-              <div v-for="item in reportSkills" :key="item.name" class="skill">
-                <div class="skill-name">{{ item.name }}</div>
-                <div class="skill-bar">
-                  <div class="skill-fill" :style="{ width: item.percent + '%' }"></div>
-                </div>
-                <div class="skill-percent">{{ item.percent }}%</div>
-              </div>
-            </div>
-            <div class="report-card-foot">
-              <span class="foot-label">建议提分</span>
-              <span class="foot-value">+1.2 分</span>
+          <div class="banner-carousel hero-banner-carousel" aria-label="诊断报告与答题界面示例轮播">
+            <img
+              v-for="(banner, index) in heroBannerSlides"
+              :key="banner.title"
+              class="banner-image"
+              :class="[
+                `banner-image--${banner.variant}`,
+                {
+                  'banner-image--active': index === activeHeroBannerIndex,
+                  'banner-image--previous':
+                    index === previousHeroBannerIndex && index !== activeHeroBannerIndex,
+                },
+              ]"
+              :src="banner.src"
+              :alt="index === activeHeroBannerIndex ? banner.alt : ''"
+              :aria-hidden="index !== activeHeroBannerIndex"
+            />
+            <div class="banner-dots" aria-hidden="true">
+              <span
+                v-for="(banner, index) in heroBannerSlides"
+                :key="banner.title"
+                class="banner-dot"
+                :class="{ 'banner-dot--active': index === activeHeroBannerIndex }"
+              ></span>
             </div>
           </div>
 
@@ -223,31 +223,27 @@
     <section class="section report">
       <div class="container report-grid">
         <div class="report-visual-block">
-          <div class="report-card report-card--large">
-            <div class="report-card-head">
-              <span class="report-card-title">
-                <span class="dot"></span>
-                TMUA Paper 2
-              </span>
-              <span class="report-card-tag">诊断报告 · 示例</span>
-            </div>
-            <div class="report-card-score-label">综合得分</div>
-            <div class="report-card-score">
-              <span class="score-num">7.2</span>
-              <span class="score-max"> / 9.0</span>
-            </div>
-            <div class="report-card-grid">
-              <div v-for="item in reportSkills" :key="item.name" class="skill">
-                <div class="skill-name">{{ item.name }}</div>
-                <div class="skill-bar">
-                  <div class="skill-fill" :style="{ width: item.percent + '%' }"></div>
-                </div>
-                <div class="skill-percent">{{ item.percent }}%</div>
-              </div>
-            </div>
-            <div class="report-card-foot">
-              <span class="foot-label">建议提分</span>
-              <span class="foot-value">+1.2 分</span>
+          <div class="banner-carousel report-visual-carousel" aria-label="诊断报告类型示例轮播">
+            <img
+              v-for="(banner, index) in reportBannerSlides"
+              :key="banner.title"
+              class="banner-image"
+              :class="{
+                'banner-image--active': index === activeReportBannerIndex,
+                'banner-image--previous':
+                  index === previousReportBannerIndex && index !== activeReportBannerIndex,
+              }"
+              :src="banner.src"
+              :alt="index === activeReportBannerIndex ? banner.alt : ''"
+              :aria-hidden="index !== activeReportBannerIndex"
+            />
+            <div class="banner-dots" aria-hidden="true">
+              <span
+                v-for="(banner, index) in reportBannerSlides"
+                :key="banner.title"
+                class="banner-dot"
+                :class="{ 'banner-dot--active': index === activeReportBannerIndex }"
+              ></span>
             </div>
           </div>
         </div>
@@ -385,17 +381,77 @@
 <script setup lang="ts">
 // 首页（落地页）：Hero + Features + Stats + Process + Report + Pricing + CTA + Footer
 // 极简黑白灰风格，所有样式取自全局 tokens，不再声明局部 CSS 变量。
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import NavBar from '@/components/NavBar.vue'
 import PricingSection from '@/components/PricingSection.vue'
+import esatBannerUrl from '@/assets/banner/esat_banner.png'
+import questionCardBannerUrl from '@/assets/banner/question_card_banner.png'
+import stepBannerUrl from '@/assets/banner/step_banner.png'
+import tmuaBannerUrl from '@/assets/banner/tmua_banner.png'
 
-const heroFeatures = ['30 分钟诊断', '自动生成报告', '14 天动态学习路径']
+const heroFeatures = ['免费诊断', '精准分析', '科学提分路径']
 
-const reportSkills = [
-  { name: '代数与函数', percent: 78 },
-  { name: '微积分', percent: 64 },
-  { name: '逻辑与证明', percent: 52 },
-  { name: '数论与组合', percent: 41 },
-]
+const heroBannerSlides = [
+  {
+    title: 'TMUA 学习诊断报告',
+    src: tmuaBannerUrl,
+    variant: 'report',
+    alt: 'TMUA 学习诊断报告示例，展示综合得分、AI 学习优先级建议和近期模考趋势。',
+  },
+  {
+    title: '在线答题卡界面',
+    src: questionCardBannerUrl,
+    variant: 'practice',
+    alt: '在线答题卡界面示例，展示题目导航、题干、选项和答题进度。',
+  },
+] as const
+
+const reportBannerSlides = [
+  {
+    title: 'ESAT 诊断测试报告',
+    src: esatBannerUrl,
+    alt: 'ESAT 诊断测试报告示例，展示综合得分、得分趋势、知识点掌握度与学习建议。',
+  },
+  {
+    title: 'STEP 学习诊断看板',
+    src: stepBannerUrl,
+    alt: 'STEP 学习诊断看板示例，展示学习表现、模块表现、练习趋势和薄弱点。',
+  },
+  {
+    title: 'TMUA 学习诊断报告',
+    src: tmuaBannerUrl,
+    alt: 'TMUA 学习诊断报告示例，展示综合得分、AI 学习优先级建议和近期模考趋势。',
+  },
+] as const
+
+const activeHeroBannerIndex = ref(0)
+const previousHeroBannerIndex = ref(0)
+const activeReportBannerIndex = ref(0)
+const previousReportBannerIndex = ref(0)
+let bannerTimer: ReturnType<typeof window.setInterval> | null = null
+
+function nextCarouselSlide(
+  activeIndex: typeof activeHeroBannerIndex,
+  previousIndex: typeof previousHeroBannerIndex,
+  total: number,
+): void {
+  previousIndex.value = activeIndex.value
+  activeIndex.value = (activeIndex.value + 1) % total
+}
+
+// 首页轮播统一 5 秒切换一次，避免首屏和报告区动效节奏割裂。
+onMounted(() => {
+  bannerTimer = window.setInterval(() => {
+    nextCarouselSlide(activeHeroBannerIndex, previousHeroBannerIndex, heroBannerSlides.length)
+    nextCarouselSlide(activeReportBannerIndex, previousReportBannerIndex, reportBannerSlides.length)
+  }, 5000)
+})
+
+onBeforeUnmount(() => {
+  if (bannerTimer !== null) {
+    window.clearInterval(bannerTimer)
+  }
+})
 
 const kpNodes = ['代数与函数', '微积分', '逻辑与证明', '数论与组合']
 
@@ -534,16 +590,19 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
     padding: 64px 0;
   }
 
+.hero-text {
+  max-width: 560px;
+}
 .eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 14px;
+  padding: 7px 16px;
   background: var(--color-hover);
   border-radius: var(--radius-pill);
-  margin-bottom: 32px;
-  font-size: 13px;
-  font-weight: var(--weight-medium);
+  margin-bottom: 28px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
   color: var(--color-ink-soft);
 }
 .eyebrow-dot {
@@ -553,22 +612,22 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
   background: var(--color-ink);
 }
 .hero-title {
-  font-size: 44px;
+  font-size: clamp(58px, 3.6vw, 72px);
   font-weight: var(--weight-bold);
-  line-height: 1.05;
-  letter-spacing: var(--tracking-tight);
+  line-height: 1;
+  letter-spacing: 0;
   color: var(--color-ink);
-  margin: 0 0 24px;
+  margin: 0 0 20px;
 }
 
-  .hero-title {
-    font-size: 56px;
-  }
-
-
-  .hero-title {
-    font-size: 64px;
-  }
+.hero-sub-title {
+  margin: 0 0 22px;
+  color: var(--color-ink);
+  font-size: clamp(36px, 2.8vw, 48px);
+  font-weight: var(--weight-medium);
+  line-height: 1.12;
+  letter-spacing: 0;
+}
 
 .hero-sub {
   font-size: var(--text-xl);
@@ -577,17 +636,17 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
   margin: 0 0 16px;
 }
 .hero-desc {
-  font-size: var(--text-base);
+  font-size: var(--text-lg);
   color: var(--color-ink-soft);
-  line-height: var(--leading-relaxed);
-  margin: 0 0 32px;
-  max-width: 480px;
+  line-height: 1.75;
+  margin: 0 0 28px;
+  max-width: 560px;
 }
 .hero-features {
   display: flex;
   flex-wrap: wrap;
-  gap: 20px;
-  margin: 0 0 40px;
+  gap: 18px 24px;
+  margin: 0 0 42px;
   padding: 0;
   list-style: none;
 }
@@ -595,8 +654,8 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
+  font-size: 15px;
+  font-weight: var(--weight-semi);
   color: var(--color-ink);
 }
 .hero-features svg {
@@ -605,16 +664,17 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: 14px;
+  margin-bottom: 28px;
 }
 .btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 14px 28px;
+  min-height: 58px;
+  padding: 0 34px;
   border-radius: var(--radius-md);
-  font-size: 15px;
+  font-size: var(--text-base);
   font-weight: var(--weight-semi);
   transition: all var(--duration-base) ease;
   border: 1px solid transparent;
@@ -637,125 +697,122 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
   background: var(--color-surface);
   color: var(--color-ink);
   border-color: var(--color-line);
+  padding: 0 30px;
 }
 .btn-secondary:hover {
   color: var(--color-ink);
   border-color: var(--color-ink);
 }
 .hero-note {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--color-ink-muted);
   margin: 0;
 }
 .hero-visual {
   position: relative;
   min-height: 420px;
-}
-
-/* ============ 报告卡片 & 路径卡片 ============ */
-.report-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-2xl);
-  padding: 24px;
-  box-shadow: var(--shadow-md);
-  max-width: 440px;
-  margin-left: auto;
-}
-.report-card--large {
-  max-width: 520px;
-  margin: 0 auto;
-}
-.report-card-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
 }
-.report-card-title {
+
+.banner-carousel {
+  position: relative;
+  width: min(100%, 560px);
+  aspect-ratio: 4 / 3;
+  margin-left: auto;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-2xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  isolation: isolate;
+}
+.hero-banner-carousel {
+  width: min(100%, 620px);
+  aspect-ratio: 16 / 9;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.98)),
+    var(--color-surface);
+}
+.report-visual-carousel {
+  width: min(100%, 620px);
+  aspect-ratio: 4 / 3;
+  margin: 0 auto;
+  box-shadow: var(--shadow-lg);
+}
+.banner-image {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  filter: blur(5px) saturate(0.9);
+  transform: translate3d(34px, 18px, 0) scale(0.975);
+  transform-origin: center;
+  transition:
+    opacity 1s var(--ease-out),
+    transform 1s var(--ease-out),
+    filter 1s var(--ease-out);
+  will-change: opacity, transform, filter;
+  z-index: 1;
+}
+.hero-banner-carousel .banner-image {
+  object-fit: cover;
+}
+.hero-banner-carousel .banner-image--report {
+  object-position: 50% 50%;
+}
+.hero-banner-carousel .banner-image--practice {
+  object-position: 50% 42%;
+}
+.report-visual-carousel .banner-image {
+  object-fit: cover;
+  object-position: center;
+}
+.banner-image--active {
+  opacity: 1;
+  filter: blur(0) saturate(1);
+  transform: translate3d(0, 0, 0) scale(1);
+  z-index: 2;
+}
+.banner-image--previous {
+  opacity: 0;
+  filter: blur(4px) saturate(0.96);
+  transform: translate3d(-28px, -14px, 0) scale(1.018);
+  z-index: 1;
+}
+.banner-dots {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semi);
-  color: var(--color-ink);
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--color-line) 76%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-surface) 84%, transparent);
+  box-shadow: var(--shadow-sm);
+  transform: translateX(-50%);
 }
-.report-card-title .dot {
-  width: 8px;
-  height: 8px;
+.banner-dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
+  background: var(--color-line);
+  transition:
+    width var(--duration-slow) var(--ease-out),
+    background var(--duration-slow) var(--ease-out);
+}
+.banner-dot--active {
+  width: 22px;
+  border-radius: var(--radius-pill);
   background: var(--color-ink);
 }
-.report-card-tag {
-  font-size: 12px;
-  color: var(--color-ink-muted);
-}
-.report-card-score-label {
-  font-size: 12px;
-  color: var(--color-ink-muted);
-  margin-bottom: 4px;
-}
-.report-card-score {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  margin-bottom: 24px;
-}
-.score-num {
-  font-size: 40px;
-  font-weight: var(--weight-bold);
-  letter-spacing: var(--tracking-tight);
-  line-height: 1;
-  color: var(--color-ink);
-}
-.score-max {
-  font-size: var(--text-xl);
-  color: var(--color-ink-muted);
-}
-.report-card-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px 24px;
-  margin-bottom: 20px;
-}
-.skill-name {
-  font-size: 13px;
-  color: var(--color-ink);
-  margin-bottom: 6px;
-}
-.skill-bar {
-  height: 4px;
-  background: var(--color-line-soft);
-  border-radius: 2px;
-  overflow: hidden;
-  margin-bottom: 4px;
-}
-.skill-fill {
-  height: 100%;
-  background: var(--color-ink);
-  border-radius: 2px;
-}
-.skill-percent {
-  font-size: 11px;
-  color: var(--color-ink-muted);
-  text-align: right;
-}
-.report-card-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 16px;
-  border-top: 1px solid var(--color-line-soft);
-}
-.foot-label {
-  font-size: 13px;
-  color: var(--color-ink-muted);
-}
-.foot-value {
-  font-size: var(--text-lg);
-  font-weight: var(--weight-bold);
-  color: var(--color-ink);
-}
+
+/* ============ 视觉轮播 & 路径卡片 ============ */
 .path-card {
   display: flex;
   align-items: center;
@@ -1144,6 +1201,13 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
     grid-template-columns: 1fr 1fr;
     gap: 80px;
   }
+
+.report-visual-block {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
 
 .report-content h2 {
   margin-bottom: 20px;

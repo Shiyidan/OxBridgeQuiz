@@ -54,6 +54,12 @@ function formatAdminUserForClient<T extends { role: string; paymentStatus?: stri
   }
 }
 
+function parsePositiveInt(value: unknown, fallback: number, max?: number): number {
+  const parsed = Number.parseInt(String(value ?? ''), 10)
+  const safeValue = Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+  return max ? Math.min(safeValue, max) : safeValue
+}
+
 function parseRevenueCostPayload(body: Record<string, unknown>): RevenueCostPayloadResult {
   const {
     rechargeItem,
@@ -102,8 +108,13 @@ function parseRevenueCostPayload(body: Record<string, unknown>): RevenueCostPayl
 }
 
 // 用户列表
-adminRouter.get('/users', async (_req: Request, res: Response) => {
+adminRouter.get('/users', async (req: Request, res: Response) => {
   try {
+    const page = parsePositiveInt(req.query.page, 1)
+    const pageSize = parsePositiveInt(req.query.pageSize, 20, 100)
+    const total = await prisma.user.count()
+    const totalPages = Math.ceil(total / pageSize)
+    const safePage = totalPages > 0 ? Math.min(page, totalPages) : 1
     const users = await prisma.user.findMany({
       select: {
         id: true,
@@ -126,8 +137,20 @@ adminRouter.get('/users', async (_req: Request, res: Response) => {
         },
       },
       orderBy: { createdAt: 'desc' },
+      skip: (safePage - 1) * pageSize,
+      take: pageSize,
     })
-    res.json(success({ users: users.map(formatAdminUserForClient) }))
+    res.json(success({
+      list: users.map(formatAdminUserForClient),
+      pagination: {
+        page: safePage,
+        pageSize,
+        total,
+        totalPages,
+        hasPrev: safePage > 1,
+        hasNext: totalPages > 0 && safePage < totalPages,
+      },
+    }))
   } catch (err) {
     console.error('[admin] users error:', err)
     res.status(500).json(fail('服务器错误'))
@@ -191,28 +214,24 @@ adminRouter.put('/users/:id/access', async (req: Request, res: Response) => {
         },
       })
 
-      if (role === USER_ROLE.STUDENT) {
-        await tx.userMembership.updateMany({
-          where: { userId, status: MEMBERSHIP_STATUS.ACTIVE, examType: { notIn: examTypes } },
-          data: { status: MEMBERSHIP_STATUS.CANCELLED },
-        })
-      }
-
+      // 后台手动授权是追加语义：未选中的现有权益不在本次操作中取消。
       for (const examType of examTypes) {
         const active = await tx.userMembership.findFirst({
-          where: { userId, examType, status: MEMBERSHIP_STATUS.ACTIVE },
+          where: {
+            userId,
+            examType,
+            status: MEMBERSHIP_STATUS.ACTIVE,
+            startsAt: { lte: now },
+            endsAt: { gt: now },
+          },
           orderBy: { endsAt: 'desc' },
         })
         if (active) {
-          await tx.userMembership.update({
-            where: { id: active.id },
-            data: { plan, startsAt: now, endsAt: endsAt!, status: MEMBERSHIP_STATUS.ACTIVE },
-          })
-        } else {
-          await tx.userMembership.create({
-            data: { userId, examType, plan, startsAt: now, endsAt: endsAt!, status: MEMBERSHIP_STATUS.ACTIVE },
-          })
+          continue
         }
+        await tx.userMembership.create({
+          data: { userId, examType, plan, startsAt: now, endsAt: endsAt!, status: MEMBERSHIP_STATUS.ACTIVE },
+        })
       }
 
       return tx.user.findUnique({

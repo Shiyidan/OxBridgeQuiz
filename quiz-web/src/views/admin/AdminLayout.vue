@@ -103,7 +103,9 @@ function handleNavClick(): void {
 }
 
 .admin-wrapper {
-  max-width: 1280px;
+  width: 100%;
+  min-width: var(--layout-min-width);
+  max-width: none;
   margin: 0 auto;
   padding: 0 2rem;
 }

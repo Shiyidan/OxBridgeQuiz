@@ -35,6 +35,25 @@ export interface UserMembershipItem {
   endsAt: number
 }
 
+export interface PaginationMeta {
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+  hasPrev: boolean
+  hasNext: boolean
+}
+
+export interface PageResult<T> {
+  list: T[]
+  pagination: PaginationMeta
+}
+
+export interface UserListParams {
+  page?: number
+  pageSize?: number
+}
+
 export interface UpdateUserAccessPayload {
   role: string
   membership?: {
@@ -77,11 +96,15 @@ export function createRevenue(data: Partial<RevenueItem>) {
 // ---- 用户管理 ----
 
 /** 用户列表 */
-export function getUserListData() {
-  return callApi<{ users: UserItem[] }>({
+export function getUserListData(params: UserListParams = {}) {
+  return callApi<PageResult<UserItem>>({
     url: '/admin/users',
     method: 'GET',
     isAllData: false,
+    params: {
+      ...(params.page ? { page: String(params.page) } : {}),
+      ...(params.pageSize ? { pageSize: String(params.pageSize) } : {}),
+    },
   })
 }
 

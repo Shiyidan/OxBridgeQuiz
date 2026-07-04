@@ -118,7 +118,7 @@ adminRouter.get('/users', async (req: Request, res: Response) => {
     const users = await prisma.user.findMany({
       select: {
         id: true,
-        name: true,
+        username: true,
         email: true,
         role: true,
         paymentStatus: true,
@@ -169,7 +169,7 @@ adminRouter.put('/users/:id/role', async (req: Request, res: Response) => {
     const user = await prisma.user.update({
       where: { id: req.params.id },
       data: { role },
-      select: { id: true, name: true, email: true, role: true, paymentStatus: true },
+      select: { id: true, username: true, email: true, role: true, paymentStatus: true },
     })
     res.json(success({ user: formatAdminUserForClient(user) }))
   } catch (err) {
@@ -238,7 +238,7 @@ adminRouter.put('/users/:id/access', async (req: Request, res: Response) => {
         where: { id: userId },
         select: {
           id: true,
-          name: true,
+          username: true,
           email: true,
           role: true,
           paymentStatus: true,

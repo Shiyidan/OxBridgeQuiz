@@ -51,7 +51,7 @@ import { useAuthStore } from '@/stores/auth'
 import NavBar from '@/components/NavBar.vue'
 
 const auth = useAuthStore()
-const userName = computed(() => auth.user?.name || '管理员')
+const userName = computed(() => auth.user?.username || '管理员')
 const sidebarCollapsed = ref(true)
 
 interface NavItem {

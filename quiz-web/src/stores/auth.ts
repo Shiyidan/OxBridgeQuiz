@@ -10,11 +10,21 @@ import { type MemberContext } from '../api/member'
 
 export interface User {
   id: string
-  name: string
+  username: string
   email: string
   role: string
   avatar?: string
   paymentStatus?: string
+}
+
+type StoredUser = User & { name?: string }
+
+function normalizeStoredUser(savedUser: StoredUser): User {
+  const { name, ...rest } = savedUser
+  return {
+    ...rest,
+    username: savedUser.username || name || '',
+  }
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -61,8 +71,13 @@ export const useAuthStore = defineStore('auth', () => {
     const savedMemberContext = localStorage.getItem('memberContext')
     if (saved && savedUser) {
       token.value = saved
-      user.value = JSON.parse(savedUser)
+      user.value = normalizeStoredUser(JSON.parse(savedUser))
       memberContext.value = savedMemberContext ? JSON.parse(savedMemberContext) : null
+      if (memberContext.value) {
+        memberContext.value.user = normalizeStoredUser(memberContext.value.user as StoredUser)
+        localStorage.setItem('memberContext', JSON.stringify(memberContext.value))
+      }
+      localStorage.setItem('user', JSON.stringify(user.value))
     }
   }
 
@@ -86,13 +101,13 @@ export const useAuthStore = defineStore('auth', () => {
 
   // 登录
   async function login(
-    email: string,
+    username: string,
     password: string,
   ): Promise<void> {
     loading.value = true
     error.value = null
     try {
-      const data = await apiLogin({ email, password } as any)
+      const data = await apiLogin({ username, password })
       token.value = data.token
       user.value = data.user
       localStorage.setItem('token', data.token)
@@ -108,7 +123,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   // 注册
   async function register(
-    name: string,
+    username: string,
     email: string,
     password: string,
     confirmPassword: string,
@@ -117,7 +132,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     error.value = null
     try {
-      const data = await apiRegister({ name, email, password, confirmPassword, examPreferences } as any)
+      const data = await apiRegister({ username, email, password, confirmPassword, examPreferences })
       token.value = data.token
       user.value = data.user
       localStorage.setItem('token', data.token)
@@ -132,11 +147,11 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // 更新当前用户基础资料
-  async function updateProfile(name: string, email: string): Promise<User> {
+  async function updateProfile(username: string, email: string): Promise<User> {
     loading.value = true
     error.value = null
     try {
-      const data = await apiUpdateProfile({ name, email })
+      const data = await apiUpdateProfile({ username, email })
       setUser(data.user)
       return data.user
     } catch (e: any) {

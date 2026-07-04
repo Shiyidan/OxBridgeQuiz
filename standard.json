@@ -1,0 +1,598 @@
+{
+     "questions": [
+    {
+        "code": "ENGAA_2023_S1-Q001",
+        "number": 1,
+        "title": "Sphere and Cylinder Surface Area",
+        "content_blocks": [
+            {
+            "type": "text",
+            "text": "The surface area of a solid sphere of radius $R$ is equal to the total surface area of 10 solid closed cylinders of radius $r$ and height $4r$.\n\nWhich of the following is an expression for $R$ in terms of $r$?\n\n(The surface area of a sphere of radius $R$ is $4\\pi R^2$.)"
+            }
+        ],
+        // content_blocks形式：每一段单独显示  而不是使用\n\n 换行  保持原题顺序和换行节奏
+    //     "content_blocks": [
+    //     {
+    //       "type": "paragraph",
+    //       "text": "The surface area of a solid sphere of radius $R$ is equal to the total surface area of 10 solid closed cylinders of radius $r$ and height $4r$."
+    //     },
+    //     {
+    //       "type": "paragraph",
+    //       "text": "Which of the following is an expression for $R$ in terms of $r$?"
+    //     },
+    //     {
+    //       "type": "paragraph",
+    //       "text": "(The surface area of a sphere of radius $R$ is $4\\pi R^2$.)"
+    //     }
+    //   ],
+        "options": [
+            {
+            "label": "A",
+            "text": "$R = 5r$"
+            },
+            {
+            "label": "B",
+            "text": "$R = 12r$"
+            },
+            {
+            "label": "C",
+            "text": "$R = 2\\sqrt{5}\\,r$"
+            },
+            {
+            "label": "D",
+            "text": "$R = \\frac{1}{2}\\sqrt{10}\\,r$"
+            },
+            {
+            "label": "E",
+            "text": "$R = \\sqrt{10}\\,r$"
+            },
+            {
+            "label": "F",
+            "text": "$R = \\frac{3}{2}\\sqrt{10}\\,r$"
+            },
+            {
+            "label": "G",
+            "text": "$R = \\sqrt{15}\\,r$"
+            }
+        ],
+        "answer": [
+            "A"
+        ],
+        "images": [],
+        "examType": "ESAT",
+        "source_examType": "ENGAA",
+        "year": 2023,
+        // "paperCode": "S1",
+        // "paperLabel": "ENGAA 2023 Section 1",
+        // "sectionCode": null,
+        // "sectionLabel": null,
+        // "partCode": null,
+        // "partLabel": null,
+        // "questionNumber": 1,
+        // 这些字段应该是不需要  也没有明确含义
+        "question_type": "multiple_choice",
+        // 应该是单选 single_choice   
+        // 暂时分为single_choice  multiple_choice short_answer
+        "difficulty": "medium",
+        "is_ai_generated": false,
+        "learning_analysis": {
+            "solution_trace": {
+            "trace_source": "rule_verified",
+            "knowns": [
+                "A sphere has surface area $4\\pi R^2$.",
+                "Each closed cylinder has radius $r$ and height $4r$.",
+                "The sphere area equals the total area of 10 such cylinders."
+            ],
+            "method": "Equate surface areas of a sphere and closed cylinders, then solve for $R$.",
+            "steps": [
+                "One closed cylinder has area $2\\pi r^2 + 2\\pi r(4r) = 10\\pi r^2$.",
+                "Ten cylinders therefore have total area $100\\pi r^2$.",
+                "Set $4\\pi R^2 = 100\\pi r^2$, so $R^2 = 25r^2$ and $R = 5r$ for a radius."
+            ],
+            "final_value": "$5r$",
+            "correct_answer": [
+                "A"
+            ],
+            "distractors": {
+                "B": "Uses a linear surface-area scale incorrectly.",
+                "C": "Equivalent to $\\sqrt{20}r$, too small.",
+                "D": "Comes from taking a reciprocal or losing the factor of 10."
+            }
+            },
+            "answer_feedback_mode": "precomputed",
+            "exam_focus": "考查把圆柱和球的表面积公式建立等式并化简根式的能力。",
+            "correct_solution": "已知条件：\n- A sphere has surface area $4\\pi R^2$.\n- Each closed cylinder has radius $r$ and height $4r$.\n- The sphere area equals the total area of 10 such cylinders.\n\n解题步骤：\n1. One closed cylinder has area $2\\pi r^2 + 2\\pi r(4r) = 10\\pi r^2$.\n2. Ten cylinders therefore have total area $100\\pi r^2$.\n3. Set $4\\pi R^2 = 100\\pi r^2$, so $R^2 = 25r^2$ and $R = 5r$ for a radius.\n\n选项核对：\n- A 给出 $R = 5r$，与计算结果一致。\n- 其他选项来自漏乘 10 个圆柱、忘记圆柱上下底面或开方错误。\n\n结论：\n因此答案为 A。",
+            "common_error_causes": [
+            "公式选择错误：没有把题目中的比例或物理关系转化成对应等式。",
+            "代数整理错误：移项、约分或指数运算时改变了符号或幂次。",
+            "选项比较错误：算出数值后没有与选项中的精确形式、单位或百分比一致匹配。"
+            ],
+            "review_guidance": "复习建议：\n1. 先把题中给出的比例、单位和目标量写成等式，再进行代数化简。\n2. 做完后用量纲、数量级或代回原条件检查答案是否合理。"
+        },
+        "subject_code": "110000",
+        "subject": "Mathematics 1 (数学1)",
+        "topic_code": "110500",
+        "topic": "Geometry (几何)",
+        "knowledge_points": [
+            {
+            "code": "110515",
+            "label": "Circles, cylinders and composite solids (圆、圆柱与复合立体)",
+            "role": "primary"
+            }
+        ]
+    },
+    {
+      "code": "ENGAA_2023_S1-Q004",
+      "number": 4,
+      "title": "Parallel Resistors and Battery Power",
+      "content_blocks": [
+        {
+          "type": "text",
+          "text": "A circuit is set up as shown. All three resistors are identical.\n\nWhen the switch is open, the reading on the ammeter is $1.0\\,\\mathrm{A}$ and the power transferred from the battery is $1.0\\,\\mathrm{W}$."
+        },
+        {
+          "type": "img",
+          "img_ref": "circuit_switch_resistors"
+        //   题干中的图形绘制直接展示代码即可
+        },
+        {
+          "type": "text",
+          "text": "The switch is now closed.\n\nWhat is the new reading on the ammeter and what is the new power transferred from the battery?"
+        }
+      ],
+      "options": [
+        {
+          "label": "A",
+          "text": "$0.67\\,\\mathrm{A}$; $0.67\\,\\mathrm{W}$"
+        },
+        {
+          "label": "B",
+          "text": "$0.67\\,\\mathrm{A}$; $1.3\\,\\mathrm{W}$"
+        },
+        {
+          "label": "C",
+          "text": "$0.67\\,\\mathrm{A}$; $1.5\\,\\mathrm{W}$"
+        },
+        {
+          "label": "D",
+          "text": "$0.67\\,\\mathrm{A}$; $2.0\\,\\mathrm{W}$"
+        },
+        {
+          "label": "E",
+          "text": "$1.0\\,\\mathrm{A}$; $1.0\\,\\mathrm{W}$"
+        },
+        {
+          "label": "F",
+          "text": "$1.0\\,\\mathrm{A}$; $1.5\\,\\mathrm{W}$"
+        },
+        {
+          "label": "G",
+          "text": "$1.0\\,\\mathrm{A}$; $2.0\\,\\mathrm{W}$"
+        },
+        {
+          "label": "H",
+          "text": "$1.0\\,\\mathrm{A}$; $3.0\\,\\mathrm{W}$"
+        }
+      ],
+      "answer": [
+        "F"
+      ],
+      "images": [
+        // 此处不需要详细描述图形的构成  只有"svg": "<svg xmlns=\"。。。。。即可
+        {
+          "id": "circuit_switch_resistors",
+          "type": "svg",
+          "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 360 190\" width=\"360\" height=\"190\"><g fill=\"none\" stroke=\"#222\" stroke-width=\"2\"><path d=\"M30 45 H160\"/><path d=\"M215 45 H330 V125 H250\"/><path d=\"M30 45 V95 H115\"/><path d=\"M115 95 H165\"/><path d=\"M205 95 H250\"/><path d=\"M115 95 V118\"/><path d=\"M115 142 H330 V125\"/><path d=\"M115 142 H145\"/><path d=\"M205 142 H235\"/><path d=\"M165 45 v-22\"/><path d=\"M176 30 v30\"/><path d=\"M204 30 v30\"/><path d=\"M215 45 v-22\"/><path d=\"M176 45 H204\" stroke-dasharray=\"5 4\"/><circle cx=\"182\" cy=\"95\" r=\"17\"/><rect x=\"250\" y=\"84\" width=\"55\" height=\"22\"/><rect x=\"145\" y=\"131\" width=\"60\" height=\"22\"/><rect x=\"235\" y=\"131\" width=\"60\" height=\"22\"/><circle cx=\"115\" cy=\"95\" r=\"4\" fill=\"#222\"/><circle cx=\"330\" cy=\"95\" r=\"4\" fill=\"#222\"/><path d=\"M107 119 L98 144\"/></g><text x=\"175\" y=\"102\" font-family=\"Arial\" font-size=\"18\">A</text></svg>",
+          "restore_method": "pdf_vector_clip_plus_text_labels",
+          "visual_plan": {
+            "source_style": "official_exam_vector_clip",
+            "location_method": "question_crop_and_vector_bbox",
+            "clip_artifact_id": "ENGAA_2023_S1-Q004-circuit",
+            "fallback_allowed": false
+          },
+          "semantic": {
+            "description": "Battery connected to an upper branch with ammeter and one resistor; an open switch controls a lower branch with two identical series resistors.",
+            "switch_state": "open_in_printed_diagram"
+          },
+          "graph_schema": {
+            "kind": "circuit",
+            "components": [
+              {
+                "id": "battery",
+                "type": "battery",
+                "symbol": "long_short_plates"
+              },
+              {
+                "id": "ammeter",
+                "type": "ammeter"
+              },
+              {
+                "id": "switch",
+                "type": "switch",
+                "state": "open"
+              },
+              {
+                "id": "r_top",
+                "type": "resistor"
+              },
+              {
+                "id": "r_lower_1",
+                "type": "resistor"
+              },
+              {
+                "id": "r_lower_2",
+                "type": "resistor"
+              }
+            ],
+            "connections": [
+              [
+                "battery",
+                "ammeter"
+              ],
+              [
+                "ammeter",
+                "r_top"
+              ],
+              [
+                "switch",
+                "r_lower_1"
+              ],
+              [
+                "r_lower_1",
+                "r_lower_2"
+              ],
+              [
+                "r_top",
+                "battery"
+              ],
+              [
+                "r_lower_2",
+                "battery"
+              ]
+            ]
+          }
+        }
+      ],
+      "examType": "ESAT",
+      "source_examType": "ENGAA",
+      "year": 2023,
+      "paperCode": "S1",
+      "paperLabel": "ENGAA 2023 Section 1",
+      "sectionCode": null,
+      "sectionLabel": null,
+      "partCode": null,
+      "partLabel": null,
+      "questionNumber": 4,
+      "question_type": "multiple_choice",
+      "difficulty": "hard",
+      "is_ai_generated": false,
+      "learning_analysis": {
+        "solution_trace": {
+          "trace_source": "rule_verified",
+          "knowns": [
+            "With the switch open, one resistor is connected and the ammeter reads $1.0\\,\\mathrm{A}$.",
+            "The battery transfers $1.0\\,\\mathrm{W}$, so the battery voltage is $1.0\\,\\mathrm{V}$.",
+            "Closing the switch adds a second branch containing two identical resistors in series."
+          ],
+          "method": "Use circuit resistance in each branch and total power at fixed battery voltage.",
+          "steps": [
+            "The top branch still contains one resistor, so its current and the ammeter reading remain $1.0\\,\\mathrm{A}$.",
+            "The lower branch has resistance $2R$, so at the same voltage its current is half the top branch current.",
+            "Total current becomes $1.5\\,\\mathrm{A}$, so battery power becomes $VI = 1.0\\times1.5 = 1.5\\,\\mathrm{W}$."
+          ],
+          "final_value": "$1.0\\,\\mathrm{A}$ and $1.5\\,\\mathrm{W}$",
+          "correct_answer": [
+            "F"
+          ],
+          "distractors": {
+            "E": "Ignores the added lower branch current.",
+            "G": "Assumes the second branch current equals the top branch current.",
+            "H": "Treats all three resistors as separate equal-current branches."
+          }
+        },
+        "answer_feedback_mode": "precomputed",
+        "exam_focus": "考查并联支路中等效电阻、电流分配和电功率的综合判断。",
+        "correct_solution": "已知条件：\n- With the switch open, one resistor is connected and the ammeter reads $1.0\\,\\mathrm{A}$.\n- The battery transfers $1.0\\,\\mathrm{W}$, so the battery voltage is $1.0\\,\\mathrm{V}$.\n- Closing the switch adds a second branch containing two identical resistors in series.\n\n解题步骤：\n1. The top branch still contains one resistor, so its current and the ammeter reading remain $1.0\\,\\mathrm{A}$.\n2. The lower branch has resistance $2R$, so at the same voltage its current is half the top branch current.\n3. Total current becomes $1.5\\,\\mathrm{A}$, so battery power becomes $VI = 1.0\\times1.5 = 1.5\\,\\mathrm{W}$.\n\n选项核对：\n- F 给出 $1.0\\,\\mathrm{A}$ 和 $1.5\\,\\mathrm{W}$，与支路分析一致。\n- 电流表只在上支路中，因此新支路不会改变它的读数。\n\n结论：\n因此答案为 F。",
+        "common_error_causes": [
+          "公式选择错误：没有把题目中的比例或物理关系转化成对应等式。",
+          "代数整理错误：移项、约分或指数运算时改变了符号或幂次。",
+          "选项比较错误：算出数值后没有与选项中的精确形式、单位或百分比一致匹配。"
+        ],
+        "review_guidance": "复习建议：\n1. 先把题中给出的比例、单位和目标量写成等式，再进行代数化简。\n2. 做完后用量纲、数量级或代回原条件检查答案是否合理。"
+      },
+      "subject_code": "130000",
+      "subject": "Physics (物理)",
+      "topic_code": "130100",
+      "topic": "Electricity (电学)",
+      "knowledge_points": [
+        {
+          "code": "130102",
+          "label": "Electric circuits (电路)",
+          "role": "primary"
+        }
+      ]
+    },
+    {
+      "code": "ENGAA_2023_S1-Q012",
+      "number": 12,
+      "title": "Temperature Gradient Through Two Layers",
+      "options": [
+        // 每个option中展示label  text   option_img  字段即可
+        {
+          "label": "A",
+          "text": "",
+          "option_img": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 220 160\">\n<defs><marker id=\"arrow\" viewBox=\"0 0 10 10\" refX=\"8\" refY=\"5\" markerWidth=\"6\" markerHeight=\"6\" orient=\"auto-start-reverse\"><path d=\"M0 0L10 5L0 10Z\" fill=\"black\"/></marker></defs>\n<line x1=\"34\" y1=\"128\" x2=\"196\" y2=\"128\" stroke=\"black\" stroke-width=\"2\" marker-end=\"url(#arrow)\"/>\n<line x1=\"34\" y1=\"128\" x2=\"34\" y2=\"24\" stroke=\"black\" stroke-width=\"2\" marker-end=\"url(#arrow)\"/>\n<text x=\"14\" y=\"18\" font-size=\"12\">temperature</text>\n<text x=\"112\" y=\"150\" font-size=\"10\">distance from top of metal plate</text>\n<text x=\"16\" y=\"44\" font-size=\"11\">T1</text><text x=\"16\" y=\"123\" font-size=\"11\">T2</text>\n<text x=\"115\" y=\"144\" font-size=\"11\">a</text><text x=\"184\" y=\"144\" font-size=\"11\">2a</text><text x=\"24\" y=\"144\" font-size=\"11\">0</text>\n<line x1=\"120\" y1=\"128\" x2=\"120\" y2=\"24\" stroke=\"black\" stroke-width=\"1\" stroke-dasharray=\"4 4\"/>\n<polyline points=\"34,38 120,62 190,124\" fill=\"none\" stroke=\"black\" stroke-width=\"3\"/><circle cx=\"120\" cy=\"90\" r=\"2.5\" fill=\"black\"/>\n</svg>",
+          "restore_method": "vision_reconstructed_svg",
+          "visual_plan": {
+            "source_style": "official_exam_coordinate_graph_option",
+            "location_method": "reconstructed_from_recovery_prompt_text_and_page_visual",
+            "clip_artifact_id": "Q012-option-A",
+            "vector_fallback_reason": "option graph vector clip was not available as a clean reusable SVG in the assigned packet"
+          },
+          "semantic": {
+            "description": "continuous decrease with a small gradient in the metal and a larger gradient in the insulating material",
+            "correct_conduction_shape": true
+          },
+          "graph_schema": {
+            "kind": "coordinate_graph",
+            "diagram_type": "coordinate_graph",
+            "axes": {
+              "x": "distance from top of metal plate",
+              "y": "temperature"
+            },
+            "ticks": [
+              "0",
+              "a",
+              "2a",
+              "T1",
+              "T2"
+            ],
+            "curve": "continuous decrease with a small gradient in the metal and a larger gradient in the insulating material"
+          }
+        },
+        {
+          "label": "B",
+          "text": "",
+          "option_img": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 220 160\">\n<defs><marker id=\"arrow\" viewBox=\"0 0 10 10\" refX=\"8\" refY=\"5\" markerWidth=\"6\" markerHeight=\"6\" orient=\"auto-start-reverse\"><path d=\"M0 0L10 5L0 10Z\" fill=\"black\"/></marker></defs>\n<line x1=\"34\" y1=\"128\" x2=\"196\" y2=\"128\" stroke=\"black\" stroke-width=\"2\" marker-end=\"url(#arrow)\"/>\n<line x1=\"34\" y1=\"128\" x2=\"34\" y2=\"24\" stroke=\"black\" stroke-width=\"2\" marker-end=\"url(#arrow)\"/>\n<text x=\"14\" y=\"18\" font-size=\"12\">temperature</text>\n<text x=\"112\" y=\"150\" font-size=\"10\">distance from top of metal plate</text>\n<text x=\"16\" y=\"44\" font-size=\"11\">T1</text><text x=\"16\" y=\"123\" font-size=\"11\">T2</text>\n<text x=\"115\" y=\"144\" font-size=\"11\">a</text><text x=\"184\" y=\"144\" font-size=\"11\">2a</text><text x=\"24\" y=\"144\" font-size=\"11\">0</text>\n<line x1=\"120\" y1=\"128\" x2=\"120\" y2=\"24\" stroke=\"black\" stroke-width=\"1\" stroke-dasharray=\"4 4\"/>\n<polyline points=\"34,38 120,100 190,124\" fill=\"none\" stroke=\"black\" stroke-width=\"3\"/><circle cx=\"120\" cy=\"90\" r=\"2.5\" fill=\"black\"/>\n</svg>",
+          "restore_method": "vision_reconstructed_svg",
+          "visual_plan": {
+            "source_style": "official_exam_coordinate_graph_option",
+            "location_method": "reconstructed_from_recovery_prompt_text_and_page_visual",
+            "clip_artifact_id": "Q012-option-B",
+            "vector_fallback_reason": "option graph vector clip was not available as a clean reusable SVG in the assigned packet"
+          },
+          "semantic": {
+            "description": "continuous decrease with a larger gradient in the metal and a smaller gradient in the insulating material",
+            "correct_conduction_shape": false
+          },
+          "graph_schema": {
+            "kind": "coordinate_graph",
+            "diagram_type": "coordinate_graph",
+            "axes": {
+              "x": "distance from top of metal plate",
+              "y": "temperature"
+            },
+            "ticks": [
+              "0",
+              "a",
+              "2a",
+              "T1",
+              "T2"
+            ],
+            "curve": "continuous decrease with a larger gradient in the metal and a smaller gradient in the insulating material"
+          }
+        },
+        {
+          "label": "C",
+          "text": "",
+          "option_img": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 220 160\">\n<defs><marker id=\"arrow\" viewBox=\"0 0 10 10\" refX=\"8\" refY=\"5\" markerWidth=\"6\" markerHeight=\"6\" orient=\"auto-start-reverse\"><path d=\"M0 0L10 5L0 10Z\" fill=\"black\"/></marker></defs>\n<line x1=\"34\" y1=\"128\" x2=\"196\" y2=\"128\" stroke=\"black\" stroke-width=\"2\" marker-end=\"url(#arrow)\"/>\n<line x1=\"34\" y1=\"128\" x2=\"34\" y2=\"24\" stroke=\"black\" stroke-width=\"2\" marker-end=\"url(#arrow)\"/>\n<text x=\"14\" y=\"18\" font-size=\"12\">temperature</text>\n<text x=\"112\" y=\"150\" font-size=\"10\">distance from top of metal plate</text>\n<text x=\"16\" y=\"44\" font-size=\"11\">T1</text><text x=\"16\" y=\"123\" font-size=\"11\">T2</text>\n<text x=\"115\" y=\"144\" font-size=\"11\">a</text><text x=\"184\" y=\"144\" font-size=\"11\">2a</text><text x=\"24\" y=\"144\" font-size=\"11\">0</text>\n<line x1=\"120\" y1=\"128\" x2=\"120\" y2=\"24\" stroke=\"black\" stroke-width=\"1\" stroke-dasharray=\"4 4\"/>\n<polyline points=\"34,38 120,38 190,124\" fill=\"none\" stroke=\"black\" stroke-width=\"3\"/><circle cx=\"120\" cy=\"90\" r=\"2.5\" fill=\"black\"/>\n</svg>",
+          "restore_method": "vision_reconstructed_svg",
+          "visual_plan": {
+            "source_style": "official_exam_coordinate_graph_option",
+            "location_method": "reconstructed_from_recovery_prompt_text_and_page_visual",
+            "clip_artifact_id": "Q012-option-C",
+            "vector_fallback_reason": "option graph vector clip was not available as a clean reusable SVG in the assigned packet"
+          },
+          "semantic": {
+            "description": "temperature constant through the metal then falling in the insulation",
+            "correct_conduction_shape": false
+          },
+          "graph_schema": {
+            "kind": "coordinate_graph",
+            "diagram_type": "coordinate_graph",
+            "axes": {
+              "x": "distance from top of metal plate",
+              "y": "temperature"
+            },
+            "ticks": [
+              "0",
+              "a",
+              "2a",
+              "T1",
+              "T2"
+            ],
+            "curve": "temperature constant through the metal then falling in the insulation"
+          }
+        },
+        {
+          "label": "D",
+          "text": "",
+          "option_img": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 220 160\">\n<defs><marker id=\"arrow\" viewBox=\"0 0 10 10\" refX=\"8\" refY=\"5\" markerWidth=\"6\" markerHeight=\"6\" orient=\"auto-start-reverse\"><path d=\"M0 0L10 5L0 10Z\" fill=\"black\"/></marker></defs>\n<line x1=\"34\" y1=\"128\" x2=\"196\" y2=\"128\" stroke=\"black\" stroke-width=\"2\" marker-end=\"url(#arrow)\"/>\n<line x1=\"34\" y1=\"128\" x2=\"34\" y2=\"24\" stroke=\"black\" stroke-width=\"2\" marker-end=\"url(#arrow)\"/>\n<text x=\"14\" y=\"18\" font-size=\"12\">temperature</text>\n<text x=\"112\" y=\"150\" font-size=\"10\">distance from top of metal plate</text>\n<text x=\"16\" y=\"44\" font-size=\"11\">T1</text><text x=\"16\" y=\"123\" font-size=\"11\">T2</text>\n<text x=\"115\" y=\"144\" font-size=\"11\">a</text><text x=\"184\" y=\"144\" font-size=\"11\">2a</text><text x=\"24\" y=\"144\" font-size=\"11\">0</text>\n<line x1=\"120\" y1=\"128\" x2=\"120\" y2=\"24\" stroke=\"black\" stroke-width=\"1\" stroke-dasharray=\"4 4\"/>\n<polyline points=\"34,38 120,124 190,124\" fill=\"none\" stroke=\"black\" stroke-width=\"3\"/><circle cx=\"120\" cy=\"90\" r=\"2.5\" fill=\"black\"/>\n</svg>",
+          "restore_method": "vision_reconstructed_svg",
+          "visual_plan": {
+            "source_style": "official_exam_coordinate_graph_option",
+            "location_method": "reconstructed_from_recovery_prompt_text_and_page_visual",
+            "clip_artifact_id": "Q012-option-D",
+            "vector_fallback_reason": "option graph vector clip was not available as a clean reusable SVG in the assigned packet"
+          },
+          "semantic": {
+            "description": "temperature falls through the metal then remains constant in the insulation",
+            "correct_conduction_shape": false
+          },
+          "graph_schema": {
+            "kind": "coordinate_graph",
+            "diagram_type": "coordinate_graph",
+            "axes": {
+              "x": "distance from top of metal plate",
+              "y": "temperature"
+            },
+            "ticks": [
+              "0",
+              "a",
+              "2a",
+              "T1",
+              "T2"
+            ],
+            "curve": "temperature falls through the metal then remains constant in the insulation"
+          }
+        },
+        {
+          "label": "E",
+          "text": "",
+          "option_img": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 220 160\">\n<defs><marker id=\"arrow\" viewBox=\"0 0 10 10\" refX=\"8\" refY=\"5\" markerWidth=\"6\" markerHeight=\"6\" orient=\"auto-start-reverse\"><path d=\"M0 0L10 5L0 10Z\" fill=\"black\"/></marker></defs>\n<line x1=\"34\" y1=\"128\" x2=\"196\" y2=\"128\" stroke=\"black\" stroke-width=\"2\" marker-end=\"url(#arrow)\"/>\n<line x1=\"34\" y1=\"128\" x2=\"34\" y2=\"24\" stroke=\"black\" stroke-width=\"2\" marker-end=\"url(#arrow)\"/>\n<text x=\"14\" y=\"18\" font-size=\"12\">temperature</text>\n<text x=\"112\" y=\"150\" font-size=\"10\">distance from top of metal plate</text>\n<text x=\"16\" y=\"44\" font-size=\"11\">T1</text><text x=\"16\" y=\"123\" font-size=\"11\">T2</text>\n<text x=\"115\" y=\"144\" font-size=\"11\">a</text><text x=\"184\" y=\"144\" font-size=\"11\">2a</text><text x=\"24\" y=\"144\" font-size=\"11\">0</text>\n<line x1=\"120\" y1=\"128\" x2=\"120\" y2=\"24\" stroke=\"black\" stroke-width=\"1\" stroke-dasharray=\"4 4\"/>\n<polyline points=\"34,38 190,124\" fill=\"none\" stroke=\"black\" stroke-width=\"3\"/><circle cx=\"120\" cy=\"90\" r=\"2.5\" fill=\"black\"/>\n</svg>",
+          "restore_method": "vision_reconstructed_svg",
+          "visual_plan": {
+            "source_style": "official_exam_coordinate_graph_option",
+            "location_method": "reconstructed_from_recovery_prompt_text_and_page_visual",
+            "clip_artifact_id": "Q012-option-E",
+            "vector_fallback_reason": "option graph vector clip was not available as a clean reusable SVG in the assigned packet"
+          },
+          "semantic": {
+            "description": "single straight-line fall across both materials",
+            "correct_conduction_shape": false
+          },
+          "graph_schema": {
+            "kind": "coordinate_graph",
+            "diagram_type": "coordinate_graph",
+            "axes": {
+              "x": "distance from top of metal plate",
+              "y": "temperature"
+            },
+            "ticks": [
+              "0",
+              "a",
+              "2a",
+              "T1",
+              "T2"
+            ],
+            "curve": "single straight-line fall across both materials"
+          }
+        }
+      ],
+      "answer": [
+        "A"
+      ],
+      "images": [
+        {
+          "id": "q012_layer_diagram",
+          "type": "svg",
+          "diagram_type": "other",
+          "alt": "A metal plate on top of an insulating layer, each of thickness a, with T1 at the top and T2 at the bottom.",
+          "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 300 120\">\n<rect x=\"70\" y=\"25\" width=\"160\" height=\"30\" fill=\"white\" stroke=\"black\" stroke-width=\"2\"/>\n<rect x=\"70\" y=\"55\" width=\"160\" height=\"30\" fill=\"#f2f2f2\" stroke=\"black\" stroke-width=\"2\"/>\n<text x=\"108\" y=\"45\" font-size=\"14\">metal plate</text>\n<text x=\"91\" y=\"76\" font-size=\"14\">insulating material</text>\n<text x=\"238\" y=\"43\" font-size=\"14\">T1</text>\n<text x=\"238\" y=\"76\" font-size=\"14\">T2</text>\n</svg>",
+          "restore_method": "vision_reconstructed_svg",
+          "visual_plan": {
+            "source_style": "official_exam_line_art",
+            "location_method": "source_page_visual_reconstruction",
+            "clip_artifact_id": "q012_layer_diagram",
+            "vector_fallback_reason": "available packet crop/vector evidence did not provide a directly reusable SVG clip"
+          },
+          "semantic": {
+            "description": "A metal plate on top of an insulating layer, each of thickness a, with T1 at the top and T2 at the bottom."
+          },
+          "graph_schema": {
+            "kind": "layered_thermal_structure",
+            "diagram_type": "other",
+            "layers": [
+              {
+                "material": "metal",
+                "thickness": "a"
+              },
+              {
+                "material": "insulator",
+                "thickness": "a"
+              }
+            ],
+            "boundary_temperatures": [
+              "T1",
+              "T2"
+            ]
+          }
+        }
+      ],
+      "examType": "ESAT",
+      "source_examType": "ENGAA",
+      "year": 2023,
+      "paperCode": "S1",
+      "paperLabel": "ENGAA 2023 Section 1",
+      "sectionCode": null,
+      "sectionLabel": null,
+      "partCode": null,
+      "partLabel": null,
+      "questionNumber": 12,
+      "question_type": "graph_interpretation",
+      "difficulty": "medium",
+      "is_ai_generated": false,
+      "subject_code": "130000",
+      "subject": "Physics (物理)",
+      "topic_code": "130400",
+      "topic": "Thermal physics (热学)",
+      "knowledge_points": [
+        {
+          "code": "130401",
+          "label": "Conduction (传导)",
+          "role": "primary"
+        }
+      ],
+      "content_blocks": [
+        {
+          "type": "text",
+          "text": "A large, flat, metal plate is coated on one side with a layer of thermally insulating material of the same thickness $a$ as the metal plate.\n\nThe uninsulated top surface of the metal plate is maintained at a constant temperature $T_1$.\n\nThe bottom surface of the insulating material is maintained at a constant, lower temperature $T_2$.\n\nThe system is in equilibrium.\n\nThe diagram shows this arrangement."
+        },
+        {
+          "type": "img",
+          "img_ref": "q012_layer_diagram"
+        },
+        {
+          "type": "text",
+          "text": "Which graph could show how the temperature varies with distance from the top surface of the metal plate to the bottom surface of the insulating material?"
+        }
+      ],
+      "learning_analysis": {
+        "solution_trace": {
+          "trace_source": "rule_verified",
+          "knowns": [
+            "The metal plate and insulating layer have equal thickness $a$.",
+            "The top is at $T_1$ and the bottom is at the lower temperature $T_2$.",
+            "At equilibrium the heat flow is the same through both layers, while the insulator has lower thermal conductivity."
+          ],
+          "method": "Use steady-state conduction: lower thermal conductivity gives a larger temperature gradient for the same heat flow.",
+          "steps": [
+            "Temperature must decrease continuously from $T_1$ to $T_2$ with no jump at the interface.",
+            "The metal conducts better, so its temperature gradient is smaller over the first thickness $a$.",
+            "The insulating material conducts worse, so the graph is steeper from $a$ to $2a$; this is option A."
+          ],
+          "final_value": "shallow gradient then steeper gradient",
+          "correct_answer": [
+            "A"
+          ],
+          "distractors": {
+            "A": "A shows the smaller gradient in the metal and the larger gradient in the insulation.",
+            "B": "B reverses the gradients and treats the metal as the poorer conductor.",
+            "C": "C would imply no temperature change inside the metal, which is not the general conduction situation.",
+            "D": "D would imply no temperature change inside the insulator despite heat flow.",
+            "E": "E gives equal gradients even though the materials have different conductivities."
+          }
+        },
+        "exam_focus": "考查不同导热材料中稳态温度梯度与图像斜率的关系。",
+        "correct_solution": "已知条件：\n- The metal plate and insulating layer have equal thickness $a$.\n- The top is at $T_1$ and the bottom is at the lower temperature $T_2$.\n- At equilibrium the heat flow is the same through both layers, while the insulator has lower thermal conductivity.\n\n解题步骤：\n1. 稳态时两层中的热流相同，温度从 $T_1$ 连续降到 $T_2$。\n2. 金属导热性较好，因此在相同厚度 $a$ 内只需要较小的温度梯度。\n3. 绝热材料导热性较差，因此在第二段厚度 $a$ 内温度下降更陡。\n4. 图 A 正好表示先缓后陡的连续折线。\n\n选项核对：\n- A shows the smaller gradient in the metal and the larger gradient in the insulation.\n- B reverses the gradients and treats the metal as the poorer conductor.\n- C would imply no temperature change inside the metal, which is not the general conduction situation.\n- D would imply no temperature change inside the insulator despite heat flow.\n- E gives equal gradients even though the materials have different conductivities.\n\n结论：\n因此答案为 A。",
+        "common_error_causes": [
+          "导热性判断错误：把绝热材料当成金属，会把两段斜率顺序倒置。",
+          "连续性错误：认为界面处温度可以跳变，但接触处温度应连续。",
+          "图像斜率错误：只看总温差而忽略不同材料的导热系数。"
+        ],
+        "review_guidance": "复习建议：\n1. 复习热传导图像时，把斜率与导热能力联系起来：导热差通常斜率更大。\n2. 做分层材料题时先标出每层厚度、材料和边界温度，再比较斜率。",
+        "answer_feedback_mode": "precomputed"
+      }
+    },
+    ]
+}

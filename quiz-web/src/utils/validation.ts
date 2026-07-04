@@ -19,6 +19,13 @@ export function validatePasswordRequired(password: string): ValidationResult {
   return { valid: true, message: '' }
 }
 
+// 登录页使用用户名登录，用户名对应当前用户资料中的 name。
+export function validateUsername(username: string): ValidationResult {
+  if (!username.trim()) return { valid: false, message: '请输入用户名' }
+  if (username.length > 50) return { valid: false, message: '用户名不能超过 50 个字符' }
+  return { valid: true, message: '' }
+}
+
 // 注册页使用完整密码规则，避免提交后才被后端拦截。
 export function validatePassword(password: string): ValidationResult {
   if (!password) return { valid: false, message: '请输入密码' }
@@ -34,13 +41,6 @@ export function validatePassword(password: string): ValidationResult {
 export function validateConfirmPassword(password: string, confirmPassword: string): ValidationResult {
   if (!confirmPassword) return { valid: false, message: '请再次输入密码' }
   if (password !== confirmPassword) return { valid: false, message: '两次输入的密码不一致' }
-  return { valid: true, message: '' }
-}
-
-// 用户名限制与后端注册/资料更新保持一致。
-export function validateName(name: string): ValidationResult {
-  if (!name.trim()) return { valid: false, message: '请输入姓名' }
-  if (name.length > 50) return { valid: false, message: '姓名不能超过 50 个字符' }
   return { valid: true, message: '' }
 }
 

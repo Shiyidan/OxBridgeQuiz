@@ -18,8 +18,8 @@
           label-position="top"
           @submit.prevent="handleSubmit"
         >
-          <el-form-item label="姓名" prop="name">
-            <el-input v-model="form.name" placeholder="您的姓名" autocomplete="name" maxlength="50" show-word-limit />
+          <el-form-item label="用户名" prop="username">
+            <el-input v-model="form.username" placeholder="请输入用户名" autocomplete="username" maxlength="50" show-word-limit />
           </el-form-item>
 
           <el-form-item label="电子邮箱" prop="email">
@@ -95,14 +95,14 @@ import type { FormInstance, FormRules } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { getMember } from '@/api/member'
-import { validateConfirmPassword, validateEmail, validateName, validatePassword } from '@/utils/validation'
+import { validateConfirmPassword, validateEmail, validatePassword, validateUsername } from '@/utils/validation'
 
 const router = useRouter()
 const auth = useAuthStore()
 const formRef = ref<FormInstance>()
 
 const form = reactive({
-  name: '',
+  username: '',
   email: '',
   password: '',
   confirmPassword: '',
@@ -110,10 +110,10 @@ const form = reactive({
 
 // 复用共享校验规则，确保注册页与后端基础规则保持一致。
 const rules: FormRules = {
-  name: [
+  username: [
     {
       validator: (_rule, value: string, callback) => {
-        const result = validateName(value)
+        const result = validateUsername(value)
         result.valid ? callback() : callback(new Error(result.message))
       },
       trigger: 'blur',
@@ -222,7 +222,7 @@ const handleSubmit = async (): Promise<void> => {
       examType: et,
       subjects: selectedSubjects.value[et] || [],
     }))
-    await auth.register(form.name, form.email, form.password, form.confirmPassword, examPrefs)
+    await auth.register(form.username, form.email, form.password, form.confirmPassword, examPrefs)
     const memberCtx = await getMember()
     auth.setMemberContext(memberCtx)
     router.push('/')

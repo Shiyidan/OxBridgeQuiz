@@ -18,10 +18,12 @@ const authLimiter = rateLimit({
 // 注册
 authRouter.post('/register', authLimiter, async (req: Request, res: Response) => {
   try {
-    const { email, password, confirmPassword, name, examPreferences } = req.body
+    const { password, confirmPassword, examPreferences } = req.body
+    const email = typeof req.body.email === 'string' ? req.body.email.trim() : ''
+    const username = typeof req.body.username === 'string' ? req.body.username.trim() : ''
 
-    if (!email || !password || !name) {
-      res.status(422).json(fail('邮箱、密码和姓名为必填项'))
+    if (!email || !password || !username) {
+      res.status(422).json(fail('邮箱、密码和用户名为必填项'))
       return
     }
     if (password !== confirmPassword) {
@@ -36,10 +38,19 @@ authRouter.post('/register', authLimiter, async (req: Request, res: Response) =>
       res.status(422).json(fail('密码需同时包含字母和数字'))
       return
     }
+    if (username.length > 50) {
+      res.status(422).json(fail('用户名不能超过 50 个字符'))
+      return
+    }
 
-    const existing = await prisma.user.findUnique({ where: { email } })
-    if (existing) {
+    const existingEmail = await prisma.user.findUnique({ where: { email } })
+    if (existingEmail) {
       res.status(409).json(fail('该邮箱已注册'))
+      return
+    }
+    const existingUsername = await prisma.user.findUnique({ where: { username } })
+    if (existingUsername) {
+      res.status(409).json(fail('该用户名已被使用'))
       return
     }
 
@@ -48,7 +59,7 @@ authRouter.post('/register', authLimiter, async (req: Request, res: Response) =>
       data: {
         email,
         password: hashed,
-        name,
+        username,
         examPreferences: JSON.stringify(
           Array.isArray(examPreferences) ? examPreferences : [],
         ),
@@ -58,7 +69,7 @@ authRouter.post('/register', authLimiter, async (req: Request, res: Response) =>
     const token = signToken({ id: user.id, email: user.email, role: user.role })
 
     res.json(success({
-      user: formatUserForClient({ id: user.id, name: user.name, email: user.email, role: user.role, paymentStatus: user.paymentStatus }),
+      user: formatUserForClient({ id: user.id, username: user.username, email: user.email, role: user.role, paymentStatus: user.paymentStatus }),
       token,
     }))
   } catch (err) {
@@ -70,29 +81,30 @@ authRouter.post('/register', authLimiter, async (req: Request, res: Response) =>
 // 登录
 authRouter.post('/login', async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body
+    const username = typeof req.body.username === 'string' ? req.body.username.trim() : ''
+    const password = typeof req.body.password === 'string' ? req.body.password : ''
 
-    if (!email || !password) {
-      res.status(422).json(fail('邮箱和密码为必填项'))
+    if (!username || !password) {
+      res.status(422).json(fail('用户名和密码为必填项'))
       return
     }
 
-    const user = await prisma.user.findUnique({ where: { email } })
+    const user = await prisma.user.findUnique({ where: { username } })
     if (!user) {
-      res.json(fail('邮箱或密码错误', 'AUTH_WRONG'))
+      res.json(fail('用户名或密码错误', 'AUTH_WRONG'))
       return
     }
 
     const valid = await bcrypt.compare(password, user.password)
     if (!valid) {
-      res.json(fail('邮箱或密码错误', 'AUTH_WRONG'))
+      res.json(fail('用户名或密码错误', 'AUTH_WRONG'))
       return
     }
 
     const token = signToken({ id: user.id, email: user.email, role: user.role })
 
     res.json(success({
-      user: formatUserForClient({ id: user.id, name: user.name, email: user.email, role: user.role, paymentStatus: user.paymentStatus }),
+      user: formatUserForClient({ id: user.id, username: user.username, email: user.email, role: user.role, paymentStatus: user.paymentStatus }),
       token,
     }))
   } catch (err) {
@@ -105,14 +117,14 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 // 更新资料
 authRouter.put('/profile', requireAuth, async (req: Request, res: Response) => {
   try {
-    const name = typeof req.body.name === 'string' ? req.body.name.trim() : ''
+    const username = typeof req.body.username === 'string' ? req.body.username.trim() : ''
     const email = typeof req.body.email === 'string' ? req.body.email.trim() : ''
 
-    if (!name || !email) {
+    if (!username || !email) {
       res.status(422).json(fail('用户名和邮箱为必填项'))
       return
     }
-    if (name.length > 50) {
+    if (username.length > 50) {
       res.status(422).json(fail('用户名不能超过 50 个字符'))
       return
     }
@@ -123,7 +135,7 @@ authRouter.put('/profile', requireAuth, async (req: Request, res: Response) => {
 
     const currentUser = await prisma.user.findUnique({
       where: { id: req.user!.userId },
-      select: { id: true, email: true },
+      select: { id: true, username: true, email: true },
     })
     if (!currentUser) {
       res.status(404).json(fail('用户不存在'))
@@ -137,13 +149,20 @@ authRouter.put('/profile', requireAuth, async (req: Request, res: Response) => {
         return
       }
     }
+    if (username !== currentUser.username) {
+      const existing = await prisma.user.findUnique({ where: { username } })
+      if (existing && existing.id !== currentUser.id) {
+        res.status(409).json(fail('该用户名已被使用'))
+        return
+      }
+    }
 
     const user = await prisma.user.update({
       where: { id: currentUser.id },
-      data: { name, email },
+      data: { username, email },
       select: {
         id: true,
-        name: true,
+        username: true,
         email: true,
         role: true,
         avatar: true,

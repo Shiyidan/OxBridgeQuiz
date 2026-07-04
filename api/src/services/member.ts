@@ -122,7 +122,7 @@ export async function getMemberContext(userId: string) {
   const now = new Date()
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, email: true, role: true, avatar: true, paymentStatus: true, examPreferences: true },
+    select: { id: true, username: true, email: true, role: true, avatar: true, paymentStatus: true, examPreferences: true },
   })
 
   if (!user) return null

@@ -5,7 +5,7 @@ import { callApi } from '@/utils/request'
 
 export interface MemberUser {
   id: string
-  name: string
+  username: string
   email: string
   role: string
   avatar?: string

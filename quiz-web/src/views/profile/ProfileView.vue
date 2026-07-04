@@ -98,9 +98,9 @@
 
         <div class="readonly-form readonly-form--profile">
           <label>
-            <span>用户名称</span>
+            <span>用户名</span>
             <el-input
-              v-model="profileForm.name"
+              v-model="profileForm.username"
               :disabled="!profileEditing || profileSaving"
               placeholder="请输入用户名"
             />
@@ -304,7 +304,7 @@ const subscriptionFilter = ref<SubscriptionFilter>('all')
 const profileEditing = ref(false)
 const profileSaving = ref(false)
 const profileForm = reactive({
-  name: '',
+  username: '',
   email: '',
 })
 
@@ -412,7 +412,7 @@ const subscriptionFilters: { label: string; value: SubscriptionFilter }[] = [
   { label: '已取消', value: 'cancelled' },
 ]
 
-const displayName = computed(() => auth.user?.name || '同学')
+const displayName = computed(() => auth.user?.username || '同学')
 const userInitial = computed(() => displayName.value.charAt(0).toUpperCase())
 const activeMemberships = computed(() =>
   (auth.memberContext?.memberships || []).filter((item) => item.status === 'active'),
@@ -529,13 +529,13 @@ function handleUpgradeClick(): void {
 }
 
 async function saveProfile(): Promise<void> {
-  const name = profileForm.name.trim()
+  const username = profileForm.username.trim()
   const email = profileForm.email.trim()
-  if (!name) {
+  if (!username) {
     ElMessage.warning('请输入用户名')
     return
   }
-  if (name.length > 50) {
+  if (username.length > 50) {
     ElMessage.warning('用户名不能超过 50 个字符')
     return
   }
@@ -547,7 +547,7 @@ async function saveProfile(): Promise<void> {
   profileSaving.value = true
   try {
     // 密码不在个人中心修改，避免和登录凭证更新流程混在一起。
-    await auth.updateProfile(name, email)
+    await auth.updateProfile(username, email)
     profileEditing.value = false
     ElMessage.success('基础信息已更新')
   } catch (err: any) {
@@ -558,7 +558,7 @@ async function saveProfile(): Promise<void> {
 }
 
 function resetProfileForm(): void {
-  profileForm.name = auth.user?.name || ''
+  profileForm.username = auth.user?.username || ''
   profileForm.email = auth.user?.email || ''
 }
 

@@ -4,20 +4,21 @@
 import { callApi } from '@/utils/request'
 
 export interface LoginParams {
-  email: string
+  username: string
   password: string
 }
 
 export interface RegisterParams {
+  username: string
   email: string
   password: string
   confirmPassword: string
-  name: string
+  examPreferences?: Array<{ examType: string; subjects: string[] }>
 }
 
 export interface UserInfo {
   id: string
-  name: string
+  username: string
   email: string
   role: string
   avatar?: string
@@ -30,7 +31,7 @@ export interface AuthResult {
 }
 
 export interface UpdateProfileParams {
-  name: string
+  username: string
   email: string
 }
 

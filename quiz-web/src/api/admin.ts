@@ -17,7 +17,7 @@ export interface RevenueItem {
 
 export interface UserItem {
   id: string
-  name: string
+  username: string
   email: string
   role: string
   paymentStatus?: string

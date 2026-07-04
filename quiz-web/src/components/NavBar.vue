@@ -39,19 +39,19 @@
               @click="showDropdown = !showDropdown"
             >
               <div class="user-info">
-                <span class="user-name">{{ auth.user.name }}</span>
+                <span class="user-name">{{ auth.user.username }}</span>
                 <span class="user-meta">{{ currentRoleLabel }}</span>
               </div>
-              <div class="user-avatar" :title="auth.user.name">{{ auth.user.name.charAt(0) }}</div>
+              <div class="user-avatar" :title="auth.user.username">{{ auth.user.username.charAt(0) }}</div>
 
               <Transition name="dropdown">
                 <div v-if="showDropdown" class="user-dropdown" @click.stop>
                   <div class="dropdown-header">
                     <div class="dropdown-user-info">
-                      <span class="dropdown-name">{{ auth.user.name }}</span>
+                      <span class="dropdown-name">{{ auth.user.username }}</span>
                       <span class="dropdown-role">{{ currentRoleLabel }}</span>
                     </div>
-                    <div class="dropdown-avatar">{{ auth.user.name.charAt(0) }}</div>
+                    <div class="dropdown-avatar">{{ auth.user.username.charAt(0) }}</div>
                   </div>
                   <div class="dropdown-menu">
                     <div class="dropdown-section-label">当前角色：{{ currentRoleLabel }}</div>

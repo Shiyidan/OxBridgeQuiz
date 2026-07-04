@@ -57,11 +57,11 @@
             label-position="top"
             @submit.prevent="handleSubmit"
           >
-            <el-form-item label="电子邮箱" prop="email">
+            <el-form-item label="用户名" prop="username">
               <el-input
-                v-model="form.email"
-                placeholder="demo@student.com"
-                autocomplete="email"
+                v-model="form.username"
+                placeholder="请输入用户名"
+                autocomplete="username"
               />
             </el-form-item>
 
@@ -103,21 +103,21 @@
 </template>
 
 <script setup lang="ts">
-// 登录页：邮箱 + 密码登录，复用全局 auth-page.css 布局与表单样式。
+// 登录页：用户名 + 密码登录，复用全局 auth-page.css 布局与表单样式。
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { getMember } from '@/api/member'
-import { validateEmail, validatePasswordRequired } from '@/utils/validation'
+import { validatePasswordRequired, validateUsername } from '@/utils/validation'
 
 const router = useRouter()
 const auth = useAuthStore()
 const formRef = ref<FormInstance>()
 
 const form = reactive({
-  email: '',
+  username: '',
   password: '',
 })
 
@@ -128,12 +128,12 @@ const features = [
   '14 天动态学习路径持续更新',
 ]
 
-// 复用共享校验规则，避免登录页和注册页的邮箱规则漂移。
+// 复用共享校验规则，登录页只校验用户名和密码是否可用于提交。
 const rules: FormRules = {
-  email: [
+  username: [
     {
       validator: (_rule, value: string, callback) => {
-        const result = validateEmail(value)
+        const result = validateUsername(value)
         if (result.valid) {
           callback()
         } else {
@@ -168,7 +168,7 @@ const handleSubmit = async (): Promise<void> => {
   }
 
   try {
-    await auth.login(form.email, form.password)
+    await auth.login(form.username, form.password)
     const memberCtx = await getMember()
     auth.setMemberContext(memberCtx)
     router.push('/')

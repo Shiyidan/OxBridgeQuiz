@@ -17,9 +17,9 @@
           empty-text="暂无注册用户"
           max-height="calc(100vh - 330px)"
         >
-          <el-table-column prop="name" label="用户名" min-width="180" align="center" header-align="center">
+          <el-table-column prop="username" label="用户名" min-width="180" align="center" header-align="center">
             <template #default="{ row }">
-              <span class="cell-name">{{ row.name || '-' }}</span>
+              <span class="cell-name">{{ row.username || '-' }}</span>
             </template>
           </el-table-column>
           <el-table-column prop="email" label="邮箱" min-width="200" align="center" header-align="center" show-overflow-tooltip>
@@ -101,7 +101,7 @@
     >
       <template v-if="editingUser">
         <div class="user-summary">
-          <strong>{{ editingUser.name }}</strong>
+          <strong>{{ editingUser.username }}</strong>
           <span>{{ editingUser.email }}</span>
         </div>
 

@@ -19,7 +19,13 @@
           @submit.prevent="handleSubmit"
         >
           <el-form-item label="用户名" prop="username">
-            <el-input v-model="form.username" placeholder="请输入用户名" autocomplete="username" maxlength="50" show-word-limit />
+            <el-input
+              v-model="form.username"
+              placeholder="请输入用户名"
+              autocomplete="username"
+              maxlength="50"
+              show-word-limit
+            />
           </el-form-item>
 
           <el-form-item label="电子邮箱" prop="email">
@@ -27,14 +33,26 @@
           </el-form-item>
 
           <el-form-item label="密码" prop="password">
-            <el-input v-model="form.password" type="password" placeholder="请输入密码" autocomplete="new-password" show-password />
+            <el-input
+              v-model="form.password"
+              type="password"
+              placeholder="请输入密码"
+              autocomplete="new-password"
+              show-password
+            />
             <template #extra>
               <span class="field-hint">8-32 位，需要包含字母和数字</span>
             </template>
           </el-form-item>
 
           <el-form-item label="确认密码" prop="confirmPassword">
-            <el-input v-model="form.confirmPassword" type="password" placeholder="再次输入密码" autocomplete="new-password" show-password />
+            <el-input
+              v-model="form.confirmPassword"
+              type="password"
+              placeholder="再次输入密码"
+              autocomplete="new-password"
+              show-password
+            />
           </el-form-item>
 
           <el-form-item label="备考类型（可多选）">
@@ -45,7 +63,13 @@
                 class="exam-type-chip"
                 :class="{ 'exam-type-chip--active': selectedExamTypes.includes(et.value) }"
               >
-                <input type="checkbox" :value="et.value" :checked="selectedExamTypes.includes(et.value)" class="sr-only" @change="toggleExamType(et.value)" />
+                <input
+                  type="checkbox"
+                  :value="et.value"
+                  :checked="selectedExamTypes.includes(et.value)"
+                  class="sr-only"
+                  @change="toggleExamType(et.value)"
+                />
                 {{ et.label }}
               </label>
             </div>
@@ -53,7 +77,9 @@
 
           <el-form-item v-if="selectedExamTypes.length" label="备考科目">
             <div v-for="et in selectedExamTypes" :key="et" class="subject-group">
-              <span class="subject-exam-label">{{ examTypeLabel(et) }}{{ et === 'ESAT' ? '（最多选 3 科）' : '' }}</span>
+              <span class="subject-exam-label"
+                >{{ examTypeLabel(et) }}{{ et === 'ESAT' ? '（最多选 3 科）' : '' }}</span
+              >
               <div class="subject-chip-group">
                 <label
                   v-for="sub in examSubjects[et]"
@@ -64,7 +90,14 @@
                     'subject-chip--required': isSubjectRequired(et, sub),
                   }"
                 >
-                  <input type="checkbox" :value="sub" :checked="selectedSubjects[et]?.includes(sub)" :disabled="isSubjectDisabled(et, sub)" class="sr-only" @change="toggleSubject(et, sub)" />
+                  <input
+                    type="checkbox"
+                    :value="sub"
+                    :checked="selectedSubjects[et]?.includes(sub)"
+                    :disabled="isSubjectDisabled(et, sub)"
+                    class="sr-only"
+                    @change="toggleSubject(et, sub)"
+                  />
                   {{ sub }}
                 </label>
               </div>
@@ -72,7 +105,12 @@
           </el-form-item>
 
           <el-form-item>
-            <el-button type="primary" class="register-submit button_primary" :loading="auth.loading" native-type="submit">
+            <el-button
+              type="primary"
+              class="register-submit button_primary"
+              :loading="auth.loading"
+              native-type="submit"
+            >
               {{ auth.loading ? '注册中...' : '注册' }}
             </el-button>
           </el-form-item>
@@ -95,7 +133,12 @@ import type { FormInstance, FormRules } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { getMember } from '@/api/member'
-import { validateConfirmPassword, validateEmail, validatePassword, validateUsername } from '@/utils/validation'
+import {
+  validateConfirmPassword,
+  validateEmail,
+  validatePassword,
+  validateUsername,
+} from '@/utils/validation'
 
 const router = useRouter()
 const auth = useAuthStore()

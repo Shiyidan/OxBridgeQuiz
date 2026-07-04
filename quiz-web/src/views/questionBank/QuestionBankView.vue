@@ -229,7 +229,11 @@ const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
   }
   router.push({
     path: '/practice',
-    query: { code: selectedNodeCode.value || '', difficulty: diff.id, examType: activeExamType.value },
+    query: {
+      code: selectedNodeCode.value || '',
+      difficulty: diff.id,
+      examType: activeExamType.value,
+    },
   })
 }
 </script>

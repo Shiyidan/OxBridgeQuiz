@@ -32,7 +32,7 @@ export const useExamStore = defineStore('exam', () => {
     return {
       correct,
       total: totalQuestions.value,
-      percentage: Math.round((correct / totalQuestions.value) * 100)
+      percentage: Math.round((correct / totalQuestions.value) * 100),
     }
   })
 
@@ -90,6 +90,6 @@ export const useExamStore = defineStore('exam', () => {
     setAnswer,
     getAnswer,
     submit,
-    reset
+    reset,
   }
 })

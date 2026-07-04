@@ -1,10 +1,7 @@
 <template>
   <span class="latex-text">
     <template v-for="(part, idx) in parts" :key="idx">
-      <FormulaBlock
-        v-if="part.type === 'latex'"
-        :latex="part.content"
-      />
+      <FormulaBlock v-if="part.type === 'latex'" :latex="part.content" />
       <FormulaBlock
         v-else-if="part.type === 'latex-display'"
         :latex="part.content"

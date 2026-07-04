@@ -33,12 +33,15 @@ export function createUploadTask(params: {
 }
 
 /** 上传单页 */
-export function uploadPage(taskId: string, data: {
-  page: number
-  base64: string
-  mimeType: string
-  totalPages: number
-}) {
+export function uploadPage(
+  taskId: string,
+  data: {
+    page: number
+    base64: string
+    mimeType: string
+    totalPages: number
+  },
+) {
   return callApi<void>({
     url: `/parse-tasks/${taskId}/pages`,
     method: 'POST',
@@ -80,10 +83,7 @@ export function importJson(params: {
 }
 
 /** Markdown 导入试卷 */
-export function importMarkdown(params: {
-  markdown: string
-  code?: string
-}) {
+export function importMarkdown(params: { markdown: string; code?: string }) {
   return callApi<any>({
     url: '/papers/import-markdown',
     method: 'POST',

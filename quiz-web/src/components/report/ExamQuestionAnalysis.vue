@@ -99,10 +99,7 @@
           </ul>
         </section>
 
-        <section
-          v-if="!hasSolution && !hasReviewGuide && !examFocusText"
-          class="analysis-box"
-        >
+        <section v-if="!hasSolution && !hasReviewGuide && !examFocusText" class="analysis-box">
           <h3>题目解析</h3>
           <p>当前题目暂无解析内容。</p>
         </section>
@@ -172,10 +169,7 @@ const hasSolution = computed(() =>
   ),
 )
 const hasReviewGuide = computed(() =>
-  Boolean(
-    reviewGuidance.value ||
-    commonErrorCauses.value.length,
-  ),
+  Boolean(reviewGuidance.value || commonErrorCauses.value.length),
 )
 
 // 从错题本跳转进来时，优先定位到 query 指定的题目。
@@ -183,7 +177,9 @@ watch(
   () => [props.questions, props.initialQuestionId] as const,
   ([questions, questionId]) => {
     if (!questionId || !questions.length) return
-    const targetIndex = questions.findIndex((q) => q.id === questionId || q.questionId === questionId)
+    const targetIndex = questions.findIndex(
+      (q) => q.id === questionId || q.questionId === questionId,
+    )
     if (targetIndex >= 0) currentIndex.value = targetIndex
   },
   { immediate: true },
@@ -405,5 +401,4 @@ function noop(): void {}
   color: #64748b;
   text-align: center;
 }
-
 </style>

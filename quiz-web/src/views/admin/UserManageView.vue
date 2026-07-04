@@ -7,88 +7,90 @@
     <div class="page-body">
       <h2 class="page-title">用户管理</h2>
 
-      <div class="table-wrap">
-        <el-table
-          v-loading="loading"
-          :data="users"
-          class="um-table"
-          stripe
-          empty-text="暂无注册用户"
-          max-height="var(--um-table-max-height)"
+      <AdminDataTable
+        v-model:page="pagination.page"
+        v-model:page-size="pagination.pageSize"
+        :data="users"
+        :loading="loading"
+        :total="pagination.total"
+        empty-text="暂无注册用户"
+        max-height="var(--um-table-max-height)"
+        show-pagination
+        @page-change="handlePageChange"
+        @page-size-change="handlePageSizeChange"
+      >
+        <el-table-column
+          prop="username"
+          label="用户名"
+          min-width="180"
+          align="center"
+          header-align="center"
         >
-          <el-table-column prop="username" label="用户名" min-width="180" align="center" header-align="center">
-            <template #default="{ row }">
-              <span class="cell-name">{{ row.username || '-' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="email" label="邮箱" min-width="200" align="center" header-align="center" show-overflow-tooltip>
-            <template #default="{ row }">
-              <span class="cell-email">{{ row.email || '-' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="角色" min-width="150" align="center" header-align="center">
-            <template #default="{ row }">
-              <el-tag
-                class="role-tag"
-                :class="'role-' + row.role"
-                effect="light"
-                round
+          <template #default="{ row }">
+            <span class="cell-name">{{ row.username || '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="email"
+          label="邮箱"
+          min-width="200"
+          align="center"
+          header-align="center"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            <span class="cell-email">{{ row.email || '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="角色" min-width="150" align="center" header-align="center">
+          <template #default="{ row }">
+            <el-tag class="role-tag" :class="'role-' + row.role" effect="light" round>
+              {{ roleLabel(row.role) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="所属权益" width="240" align="center" header-align="center">
+          <template #default="{ row }">
+            <div class="plan-tags">
+              <el-tooltip
+                v-for="item in membershipBadges(row)"
+                :key="item.key"
+                :content="item.tooltip"
+                placement="top"
+                effect="dark"
+                trigger="hover"
+                :show-after="120"
+                :teleported="true"
               >
-                {{ roleLabel(row.role) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="所属权益" width="240" align="center" header-align="center">
-            <template #default="{ row }">
-              <div class="plan-tags">
-                <el-tooltip
-                  v-for="item in membershipBadges(row)"
-                  :key="item.key"
-                  :content="item.tooltip"
-                  placement="top"
-                  effect="dark"
-                  trigger="hover"
-                  :show-after="120"
-                  :teleported="true"
-                >
-                  <span class="plan-tooltip-trigger">
-                    <el-tag
-                      class="plan-tag"
-                      :class="item.className"
-                      effect="light"
-                      round
-                    >
-                      {{ item.label }}
-                    </el-tag>
-                  </span>
-                </el-tooltip>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="注册时间" min-width="150" align="center" header-align="center">
-            <template #default="{ row }">
-              <span class="cell-date">{{ formatDate(row.createdAt) }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column v-if="isSuperAdmin" label="操作" width="120" fixed="right" align="center" header-align="center">
-            <template #default="{ row }">
-              <button class="table-action-btn" type="button" @click.stop="openEditDialog(row)">
-                编辑
-              </button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
-      <div class="pagination-wrap">
-        <AppPagination
-          v-if="!loading"
-          v-model:page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          @page-change="handlePageChange"
-          @page-size-change="handlePageSizeChange"
-        />
-      </div>
+                <span class="plan-tooltip-trigger">
+                  <el-tag class="plan-tag" :class="item.className" effect="light" round>
+                    {{ item.label }}
+                  </el-tag>
+                </span>
+              </el-tooltip>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="注册时间" min-width="150" align="center" header-align="center">
+          <template #default="{ row }">
+            <span class="cell-date">{{ formatDate(row.createdAt) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-if="isSuperAdmin"
+          label="操作"
+          width="120"
+          fixed="right"
+          align="center"
+          header-align="center"
+        >
+          <template #default="{ row }">
+            <button class="table-action-btn" type="button" @click.stop="openEditDialog(row)">
+              编辑
+            </button>
+          </template>
+        </el-table-column>
+      </AdminDataTable>
     </div>
 
     <el-dialog
@@ -154,7 +156,7 @@
 // 用户管理页：展示注册用户，并允许管理员调整用户角色。
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import AppPagination from '@/components/AppPagination.vue'
+import AdminDataTable from '@/components/admin/AdminDataTable.vue'
 import {
   getUserListData,
   updateUserAccess,
@@ -198,9 +200,9 @@ interface MembershipBadge {
 
 function activeMemberships(user: UserItem) {
   const now = Date.now()
-  return (user.memberships || []).filter((item) => (
-    item.status === 'active' && item.startsAt <= now && item.endsAt > now
-  ))
+  return (user.memberships || []).filter(
+    (item) => item.status === 'active' && item.startsAt <= now && item.endsAt > now,
+  )
 }
 
 function planName(plan: string): string {
@@ -223,12 +225,14 @@ function membershipTooltip(item: UserMembershipItem): string {
 // 权益列按 UserMembership 逐项展示，支持同一用户叠加多个考试类型会员。
 function membershipBadges(user: UserItem): MembershipBadge[] {
   if (user.role === 'admin') {
-    return [{
-      key: `${user.id}-admin`,
-      label: '管理员权限',
-      className: 'plan-admin',
-      tooltip: '管理员拥有全产品权限',
-    }]
+    return [
+      {
+        key: `${user.id}-admin`,
+        label: '管理员权限',
+        className: 'plan-admin',
+        tooltip: '管理员拥有全产品权限',
+      },
+    ]
   }
 
   const activeItems = activeMemberships(user)
@@ -243,28 +247,34 @@ function membershipBadges(user: UserItem): MembershipBadge[] {
 
   const latest = latestMembership(user)
   if (latest?.status === 'cancelled') {
-    return [{
-      key: `${user.id}-cancelled`,
-      label: '会员已取消',
-      className: 'plan-cancelled',
-      tooltip: `最近权益：${membershipTooltip(latest)}`,
-    }]
+    return [
+      {
+        key: `${user.id}-cancelled`,
+        label: '会员已取消',
+        className: 'plan-cancelled',
+        tooltip: `最近权益：${membershipTooltip(latest)}`,
+      },
+    ]
   }
   if (latest && (latest.status === 'expired' || latest.endsAt <= Date.now())) {
-    return [{
-      key: `${user.id}-expired`,
-      label: '会员已过期',
-      className: 'plan-expired',
-      tooltip: `最近权益：${membershipTooltip(latest)}`,
-    }]
+    return [
+      {
+        key: `${user.id}-expired`,
+        label: '会员已过期',
+        className: 'plan-expired',
+        tooltip: `最近权益：${membershipTooltip(latest)}`,
+      },
+    ]
   }
 
-  return [{
-    key: `${user.id}-free`,
-    label: '免费',
-    className: 'plan-free',
-    tooltip: '暂无有效会员权益',
-  }]
+  return [
+    {
+      key: `${user.id}-free`,
+      label: '免费',
+      className: 'plan-free',
+      tooltip: '暂无有效会员权益',
+    },
+  ]
 }
 
 // 后台列表只需要展示日期，避免时间精度干扰用户扫描。
@@ -409,65 +419,6 @@ onMounted(fetchUsers)
   font-weight: 800;
   color: #0f172a;
   margin: 0 0 24px;
-}
-
-.table-wrap {
-  flex: 0 1 auto;
-  min-height: 0;
-  max-height: var(--um-table-max-height);
-  width: 100%;
-  background: var(--color-surface);
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.pagination-wrap {
-  position: sticky;
-  bottom: 0;
-  z-index: 10;
-  flex-shrink: 0;
-  margin-top: 10px;
-  padding: 0;
-  background: #f8fafc;
-}
-
-.pagination-wrap:empty {
-  display: none;
-}
-
-.pagination-wrap :deep(.app-pagination) {
-  padding: 0;
-  border-top: 0;
-  background: transparent;
-}
-
-:deep(.um-table) {
-  --el-table-border-color: var(--color-line-soft);
-  --el-table-header-bg-color: #f0f3ff;
-  --el-table-row-hover-bg-color: var(--color-hover);
-
-  width: 100%;
-  font-size: var(--text-sm);
-}
-
-:deep(.um-table .el-table__cell) {
-  padding: 12px 16px;
-}
-
-:deep(.um-table th.el-table__cell) {
-  color: #334155;
-  font-weight: var(--weight-semi);
-  background: #f0f3ff;
-}
-
-:deep(.um-table .el-table__header-wrapper th.el-table__cell),
-:deep(.um-table .el-table__fixed-right th.el-table__cell) {
-  background: #f0f3ff;
-}
-
-:deep(.um-table .el-table__row) {
-  height: var(--height-table-row);
 }
 
 .cell-name {

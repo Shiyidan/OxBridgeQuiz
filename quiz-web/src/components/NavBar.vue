@@ -16,7 +16,9 @@
           <span class="logo-text">智钥备考</span>
         </router-link>
         <nav class="nav-links">
-          <router-link to="/" class="nav-link" exact-active-class="nav-link--active">首页</router-link>
+          <router-link to="/" class="nav-link" exact-active-class="nav-link--active"
+            >首页</router-link
+          >
           <router-link to="/assessment" class="nav-link" active-class="nav-link--active"
             >诊断测试</router-link
           >
@@ -42,7 +44,9 @@
                 <span class="user-name">{{ auth.user.username }}</span>
                 <span class="user-meta">{{ currentRoleLabel }}</span>
               </div>
-              <div class="user-avatar" :title="auth.user.username">{{ auth.user.username.charAt(0) }}</div>
+              <div class="user-avatar" :title="auth.user.username">
+                {{ auth.user.username.charAt(0) }}
+              </div>
 
               <Transition name="dropdown">
                 <div v-if="showDropdown" class="user-dropdown" @click.stop>

@@ -269,7 +269,9 @@ const paper = ref<PaperMeta | null>(null)
 const startedAt = ref<string>('')
 const submittedAt = ref<string>('')
 
-const isPastPaper = computed(() => normalizePaperType(paper.value?.paperType) === PAPER_TYPE.REAL_PAPER)
+const isPastPaper = computed(
+  () => normalizePaperType(paper.value?.paperType) === PAPER_TYPE.REAL_PAPER,
+)
 const backTarget = computed(() => (isPastPaper.value ? '/assessment' : '/question-bank'))
 const backLabel = computed(() => (isPastPaper.value ? '返回无限模考' : '返回试题库'))
 const examCode = computed(() => paper.value?.code?.toUpperCase() || 'TMUA')
@@ -493,9 +495,7 @@ function buildLearningStages(): LearningStage[] {
 function normalizeKnowledgePoints(question: ReportQuestion): string[] {
   const raw = question.knowledge_points
   if (!Array.isArray(raw) || !raw.length) return [question.subject || '综合能力']
-  return raw
-    .map((item: any) => item?.label || item?.code)
-    .filter(Boolean)
+  return raw.map((item: any) => item?.label || item?.code).filter(Boolean)
 }
 </script>
 
@@ -1068,5 +1068,4 @@ function normalizeKnowledgePoints(question: ReportQuestion): string[] {
   margin-right: 12px;
   color: #9db0b0;
 }
-
 </style>

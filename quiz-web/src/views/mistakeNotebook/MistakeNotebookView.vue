@@ -2,7 +2,6 @@
   <div class="mistake-notebook-page">
     <NavBar />
     <main class="mistake-notebook-main">
-
       <header class="mistake-notebook-header">
         <h1>错题本（Mistakes Collector）</h1>
         <p>智能收录错题，精准定位薄弱点，让复习事半功倍</p>
@@ -82,7 +81,9 @@
           </label>
 
           <div class="filter-actions">
-            <button type="button" class="filter-button button_primary" @click="applyFilters">搜索</button>
+            <button type="button" class="filter-button button_primary" @click="applyFilters">
+              搜索
+            </button>
             <button type="button" class="filter-button button_cancel" @click="resetFilters">
               重置
             </button>
@@ -96,15 +97,7 @@
         <div v-else-if="wrongList.length === 0" class="section-card section-card--empty">
           <div class="empty-icon">
             <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect
-                x="12"
-                y="8"
-                width="40"
-                height="50"
-                rx="4"
-                stroke="#cbd5e1"
-                stroke-width="2"
-              />
+              <rect x="12" y="8" width="40" height="50" rx="4" stroke="#cbd5e1" stroke-width="2" />
               <line
                 x1="22"
                 y1="22"
@@ -123,20 +116,8 @@
                 stroke-width="2"
                 stroke-linecap="round"
               />
-              <circle
-                cx="46"
-                cy="48"
-                r="12"
-                fill="#f1f5f9"
-                stroke="#e2e8f0"
-                stroke-width="2"
-              />
-              <path
-                d="M43 48h6M46 45v6"
-                stroke="#94a3b8"
-                stroke-width="2"
-                stroke-linecap="round"
-              />
+              <circle cx="46" cy="48" r="12" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="2" />
+              <path d="M43 48h6M46 45v6" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" />
             </svg>
           </div>
           <h3>{{ hasActiveQuery ? '暂无匹配错题' : '暂无错题' }}</h3>
@@ -199,7 +180,11 @@ import LatexText from '@/components/LatexText.vue'
 import AppPagination from '@/components/AppPagination.vue'
 import { getMistakeNotebookData, type WrongAnswer } from '@/api/exam'
 import { getSyllabusData, type SyllabusNode } from '@/api/questionBank'
-import { PAPER_TYPE_OPTIONS, normalizePaperType, paperTypeSourceLabel } from '@/constants/paperTypes'
+import {
+  PAPER_TYPE_OPTIONS,
+  normalizePaperType,
+  paperTypeSourceLabel,
+} from '@/constants/paperTypes'
 
 interface FilterOption {
   label: string
@@ -247,7 +232,10 @@ const difficultyOptions = computed<FilterOption[]>(() =>
   Object.entries(difficultyLabelMap).map(([value, label]) => ({ value, label })),
 )
 const sourceOptions = computed<FilterOption[]>(() =>
-  PAPER_TYPE_OPTIONS.map((item) => ({ value: item.value, label: paperTypeSourceLabel(item.value) })),
+  PAPER_TYPE_OPTIONS.map((item) => ({
+    value: item.value,
+    label: paperTypeSourceLabel(item.value),
+  })),
 )
 
 // 进入页面后同时加载错题记录和试题库同源大纲树。
@@ -413,7 +401,6 @@ function formatDuration(seconds?: number | null): string {
   if (seconds < 60) return `用时 ${seconds} 秒`
   return `用时 ${Math.max(1, Math.round(seconds / 60))} 分钟`
 }
-
 </script>
 
 <style scoped lang="scss">
@@ -676,6 +663,5 @@ function formatDuration(seconds?: number | null): string {
   .wrong-item__action {
     justify-self: end;
   }
-
 }
 </style>

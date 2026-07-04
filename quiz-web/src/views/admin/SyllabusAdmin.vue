@@ -1,11 +1,5 @@
 <template>
   <div class="syllabus-page">
-    <div class="page-top-bar">
-      <button class="back-btn" type="button" @click="$router.push('/admin/core-library')">
-        ← 返回资料库
-      </button>
-    </div>
-
     <div class="page-body">
       <div class="section-header">
         <div class="header-text">
@@ -24,58 +18,75 @@
         />
       </div>
 
-      <div v-if="loading" class="empty-card">加载中...</div>
-      <div v-else class="data-card">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>序号</th>
-              <th>考纲名称</th>
-              <th>考试类型</th>
-              <th>上传时间</th>
-              <th>是否启用</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(item, index) in syllabusList" :key="item.id">
-              <td>{{ index + 1 }}</td>
-              <td class="name-cell">{{ item.name }}</td>
-              <td><span class="exam-type-tag">{{ item.examType }}</span></td>
-              <td>{{ formatDate(item.createdAt) }}</td>
-              <td>
-                <span class="status-tag" :class="{ 'status-tag--active': item.isActive }">
-                  {{ item.isActive ? '已启用' : '未启用' }}
-                </span>
-              </td>
-              <td class="action-cell">
-                <button class="action-link" type="button" @click="viewSyllabus(item.id)">
-                  查看
-                </button>
-                <button
-                  v-if="item.isActive"
-                  class="action-link danger"
-                  type="button"
-                  @click="disableSyllabus(item)"
-                >
-                  停用
-                </button>
-                <button
-                  v-else
-                  class="action-link"
-                  type="button"
-                  @click="enableSyllabus(item)"
-                >
-                  启用
-                </button>
-              </td>
-            </tr>
-            <tr v-if="!syllabusList.length">
-              <td class="empty-row" colspan="6">暂无考纲，请点击右上角上传考纲</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <AdminDataTable
+        :data="syllabusList"
+        :loading="loading"
+        empty-text="暂无考纲，请点击右上角上传考纲"
+        max-height="var(--syllabus-table-max-height)"
+      >
+        <el-table-column label="序号" width="96" align="center" header-align="center">
+          <template #default="{ $index }">{{ $index + 1 }}</template>
+        </el-table-column>
+        <el-table-column
+          prop="name"
+          label="考纲名称"
+          min-width="240"
+          align="center"
+          header-align="center"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            <span class="cell-name">{{ row.name }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="考试类型" width="140" align="center" header-align="center">
+          <template #default="{ row }">
+            <el-tag class="exam-type-tag" effect="light" round>{{ row.examType }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="上传时间" width="190" align="center" header-align="center">
+          <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
+        </el-table-column>
+        <el-table-column label="是否启用" width="140" align="center" header-align="center">
+          <template #default="{ row }">
+            <el-tag
+              class="status-tag"
+              :class="{ 'status-tag--active': row.isActive }"
+              effect="light"
+              round
+            >
+              {{ row.isActive ? '已启用' : '未启用' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
+          label="操作"
+          width="180"
+          fixed="right"
+          align="center"
+          header-align="center"
+          class-name="syllabus-action-column"
+        >
+          <template #default="{ row }">
+            <div class="action-cell">
+              <button class="table-action-btn" type="button" @click="viewSyllabus(row.id)">
+                查看
+              </button>
+              <button
+                v-if="row.isActive"
+                class="table-action-btn table-action-btn--danger"
+                type="button"
+                @click="disableSyllabus(row)"
+              >
+                停用
+              </button>
+              <button v-else class="table-action-btn" type="button" @click="enableSyllabus(row)">
+                启用
+              </button>
+            </div>
+          </template>
+        </el-table-column>
+      </AdminDataTable>
     </div>
 
     <div v-if="uploadDialogVisible" class="modal-mask" @click.self="closeUploadDialog">
@@ -100,7 +111,12 @@
         </div>
         <div class="modal-actions">
           <button class="btn-ghost-action" type="button" @click="closeUploadDialog">取消</button>
-          <button class="btn-primary-action" type="button" :disabled="submitting" @click="submitUpload">
+          <button
+            class="btn-primary-action"
+            type="button"
+            :disabled="submitting"
+            @click="submitUpload"
+          >
             保存
           </button>
         </div>
@@ -123,6 +139,7 @@
 // 大纲库管理：上传 JSON 考纲版本，并控制试题库当前启用的组织树。
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import AdminDataTable from '@/components/admin/AdminDataTable.vue'
 import { EXAM_TYPE_OPTIONS, DEFAULT_EXAM_TYPE, type ExamType } from '@/constants/examTypes'
 import {
   disableSyllabusData,
@@ -202,7 +219,9 @@ function getSyllabusRoots(input: unknown): RawSyllabusNode[] {
     return [obj as RawSyllabusNode]
   }
 
-  throw new Error('考纲内容缺少节点数组，请使用 [{ code, label, children }] 或包含 nodes/children 的结构。')
+  throw new Error(
+    '考纲内容缺少节点数组，请使用 [{ code, label, children }] 或包含 nodes/children 的结构。',
+  )
 }
 
 function validateSyllabusContent(input: unknown): void {
@@ -322,15 +341,11 @@ async function enableSyllabus(item: SyllabusItem): Promise<void> {
 
 async function disableSyllabus(item: SyllabusItem): Promise<void> {
   try {
-    await ElMessageBox.confirm(
-      '停用后该考试类型的试题库组织树将暂时为空，确认停用？',
-      '停用考纲',
-      {
-        confirmButtonText: '确认停用',
-        cancelButtonText: '取消',
-        type: 'warning',
-      },
-    )
+    await ElMessageBox.confirm('停用后该考试类型的试题库组织树将暂时为空，确认停用？', '停用考纲', {
+      confirmButtonText: '确认停用',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
   } catch {
     return
   }
@@ -351,43 +366,56 @@ function formatDate(value: string): string {
 
 <style scoped lang="scss">
 .syllabus-page {
-  min-height: 100%;
-}
-.page-top-bar {
-  padding: 28px 40px 0;
-}
-.back-btn {
-  padding: 8px 12px;
-  border: 0;
-  background: transparent;
-  color: #64748b;
-  cursor: pointer;
-  font-weight: 600;
-}
-.page-body {
-  padding: 24px 40px 48px;
-}
-.section-header {
+  --syllabus-table-max-height: calc(100vh - var(--nav-height) - 170px);
+
+  height: 100%;
+  min-height: 0;
   display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 28px;
+  flex-direction: column;
+  overflow: hidden;
 }
+
+.page-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 40px 10px;
+  overflow: hidden;
+}
+
+.section-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 10px;
+}
+
 .header-text {
   flex: 1;
 }
+
 .section-title {
   margin: 0 0 8px;
-  font-size: 24px;
+  color: #0f172a;
+  font-size: 1.5rem;
+  font-weight: 800;
   letter-spacing: 0;
 }
+
 .section-desc {
   margin: 0;
   color: #64748b;
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
+
 .file-input {
   display: none;
 }
+
 .btn-ghost-action,
 .btn-primary-action {
   height: 40px;
@@ -410,78 +438,93 @@ function formatDate(value: string): string {
   background: #94a3b8;
   cursor: not-allowed;
 }
-.data-card,
-.empty-card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  overflow: hidden;
-}
-.empty-card {
-  padding: 32px;
-  color: #64748b;
-  text-align: center;
-}
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-th,
-td {
-  padding: 14px 16px;
-  border-bottom: 1px solid #f1f5f9;
-  text-align: left;
-  font-size: 14px;
-}
-th {
-  color: #64748b;
-  background: #f8fafc;
-  font-weight: 700;
-}
-.name-cell {
+
+.cell-name {
   font-weight: 700;
   color: #0f172a;
 }
+
 .exam-type-tag,
 .status-tag {
-  display: inline-flex;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-weight: 800;
-  font-size: 12px;
+  border-radius: var(--radius-pill);
+  font-weight: var(--weight-semi);
 }
+
 .exam-type-tag {
-  background: #ecfeff;
-  color: #0e7490;
+  background: #ecfeff !important;
+  border-color: #a5f3fc !important;
+  color: #0e7490 !important;
 }
+
 .status-tag {
-  background: #f1f5f9;
-  color: #64748b;
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #64748b !important;
 }
+
 .status-tag--active {
-  background: #dcfce7;
-  color: #047857;
+  background: #dcfce7 !important;
+  border-color: #bbf7d0 !important;
+  color: #047857 !important;
 }
+
 .action-cell {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  overflow: visible;
   white-space: nowrap;
 }
-.action-link {
-  margin-right: 12px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #2563eb;
-  cursor: pointer;
-  font-weight: 700;
+
+:deep(.syllabus-action-column .cell) {
+  display: flex;
+  justify-content: center;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
 }
-.action-link.danger {
+
+.table-action-btn {
+  min-width: 48px;
+  height: var(--height-button-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-ink);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--duration-base) ease,
+    border-color var(--duration-base) ease,
+    color var(--duration-base) ease;
+}
+
+.table-action-btn:hover,
+.table-action-btn:focus-visible {
+  border-color: var(--color-line);
+  background: var(--color-hover);
+  color: var(--color-ink);
+}
+
+.table-action-btn--danger {
   color: #dc2626;
 }
-.empty-row {
-  padding: 36px 16px;
-  color: #94a3b8;
-  text-align: center;
+
+.table-action-btn--danger:hover,
+.table-action-btn--danger:focus-visible {
+  color: #dc2626;
 }
+
 .modal-mask {
   position: fixed;
   inset: 0;
@@ -561,9 +604,6 @@ th {
 @media (max-width: 900px) {
   .section-header {
     flex-direction: column;
-  }
-  .data-card {
-    overflow-x: auto;
   }
 }
 </style>

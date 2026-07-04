@@ -44,10 +44,14 @@ instance.interceptors.response.use(
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       localStorage.removeItem('memberContext')
-      const isLoginPage = window.location.pathname.startsWith('/login') || window.location.pathname.startsWith('/register')
+      const isLoginPage =
+        window.location.pathname.startsWith('/login') ||
+        window.location.pathname.startsWith('/register')
       if (!isLoginPage && window.location.pathname !== '/') {
         ElMessage.error('登录状态已过期，即将跳转回首页')
-        setTimeout(() => { window.location.href = '/' }, 1500)
+        setTimeout(() => {
+          window.location.href = '/'
+        }, 1500)
       }
     }
     return Promise.reject(error)
@@ -79,9 +83,9 @@ const request = {
 export interface ApiConfig<T = unknown> {
   url: string
   method: 'GET' | 'POST' | 'PUT' | 'DELETE'
-  isAllData: boolean                             // true=完整res / false=拦截器解包后的data
-  params?: Record<string, string | undefined>    // query 参数
-  body?: unknown                                 // POST/PUT 请求体
+  isAllData: boolean // true=完整res / false=拦截器解包后的data
+  params?: Record<string, string | undefined> // query 参数
+  body?: unknown // POST/PUT 请求体
 }
 
 function buildUrl(path: string, params?: Record<string, string | undefined>): string {

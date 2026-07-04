@@ -100,10 +100,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // 登录
-  async function login(
-    username: string,
-    password: string,
-  ): Promise<void> {
+  async function login(username: string, password: string): Promise<void> {
     loading.value = true
     error.value = null
     try {
@@ -132,7 +129,13 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     error.value = null
     try {
-      const data = await apiRegister({ username, email, password, confirmPassword, examPreferences })
+      const data = await apiRegister({
+        username,
+        email,
+        password,
+        confirmPassword,
+        examPreferences,
+      })
       token.value = data.token
       user.value = data.user
       localStorage.setItem('token', data.token)

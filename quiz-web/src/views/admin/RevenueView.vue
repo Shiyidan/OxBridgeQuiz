@@ -9,78 +9,76 @@
         <el-button type="primary" @click="openImportDialog">成本导入</el-button>
       </div>
 
-      <div class="table-wrap">
-        <el-table
-          v-loading="loading"
-          :data="costs"
-          class="revenue-table"
-          stripe
-          empty-text="暂无成本记录"
-          max-height="var(--revenue-table-max-height)"
-        >
-          <el-table-column
-            type="index"
-            label="序号"
-            width="96"
-            :index="tableIndex"
-            align="center"
-            header-align="center"
-          />
-          <el-table-column
-            prop="rechargeItem"
-            label="充值项"
-            min-width="140"
-            align="center"
-            header-align="center"
-            show-overflow-tooltip
-          />
-          <el-table-column label="金额" min-width="120" align="center" header-align="center">
-            <template #default="{ row }">{{ formatAmount(row.amount) }}</template>
-          </el-table-column>
-          <el-table-column label="时间" min-width="160" align="center" header-align="center">
-            <template #default="{ row }">{{ formatDate(row.occurredAt) }}</template>
-          </el-table-column>
-          <el-table-column
-            prop="operator"
-            label="操作人"
-            width="120"
-            align="center"
-            header-align="center"
-          />
-          <el-table-column label="报销情况" min-width="140" align="center" header-align="center">
-            <template #default="{ row }">
-              <el-tag :type="reimbursementTagType(row.reimbursementStatus)" effect="light">
-                {{ reimbursementLabel(row.reimbursementStatus) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column
-            prop="remark"
-            label="备注"
-            width="140"
-            align="center"
-            header-align="center"
-            show-overflow-tooltip
-          />
-          <el-table-column label="操作" width="120" fixed="right" align="center" header-align="center">
-            <template #default="{ row }">
-              <button class="table-action-btn" type="button" @click.stop="openEditDialog(row)">
-                编辑
-              </button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
-      <div class="pagination-wrap">
-        <AppPagination
-          v-if="!loading"
-          v-model:page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          @page-change="handlePageChange"
-          @page-size-change="handlePageSizeChange"
+      <AdminDataTable
+        v-model:page="pagination.page"
+        v-model:page-size="pagination.pageSize"
+        :data="costs"
+        :loading="loading"
+        :total="pagination.total"
+        empty-text="暂无成本记录"
+        max-height="var(--revenue-table-max-height)"
+        show-pagination
+        @page-change="handlePageChange"
+        @page-size-change="handlePageSizeChange"
+      >
+        <el-table-column
+          type="index"
+          label="序号"
+          width="96"
+          :index="tableIndex"
+          align="center"
+          header-align="center"
         />
-      </div>
+        <el-table-column
+          prop="rechargeItem"
+          label="充值项"
+          min-width="140"
+          align="center"
+          header-align="center"
+          show-overflow-tooltip
+        />
+        <el-table-column label="金额" min-width="120" align="center" header-align="center">
+          <template #default="{ row }">{{ formatAmount(row.amount) }}</template>
+        </el-table-column>
+        <el-table-column label="时间" min-width="160" align="center" header-align="center">
+          <template #default="{ row }">{{ formatDate(row.occurredAt) }}</template>
+        </el-table-column>
+        <el-table-column
+          prop="operator"
+          label="操作人"
+          width="120"
+          align="center"
+          header-align="center"
+        />
+        <el-table-column label="报销情况" min-width="140" align="center" header-align="center">
+          <template #default="{ row }">
+            <el-tag :type="reimbursementTagType(row.reimbursementStatus)" effect="light">
+              {{ reimbursementLabel(row.reimbursementStatus) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="remark"
+          label="备注"
+          width="140"
+          align="center"
+          header-align="center"
+          show-overflow-tooltip
+        />
+        <el-table-column
+          label="操作"
+          width="120"
+          fixed="right"
+          align="center"
+          header-align="center"
+        >
+          <template #default="{ row }">
+            <button class="table-action-btn" type="button" @click.stop="openEditDialog(row)">
+              编辑
+            </button>
+          </template>
+        </el-table-column>
+      </AdminDataTable>
     </div>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="520px" destroy-on-close>
@@ -142,7 +140,7 @@
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { getRevenueListData, updateRevenue, createRevenue, type RevenueItem } from '@/api/admin'
-import AppPagination from '@/components/AppPagination.vue'
+import AdminDataTable from '@/components/admin/AdminDataTable.vue'
 
 type ReimbursementStatus = 'unreimbursed' | 'reimbursing' | 'reimbursed' | 'non_reimbursable'
 type RevenueCost = RevenueItem & { reimbursementStatus: ReimbursementStatus }
@@ -334,9 +332,7 @@ async function submitCost(): Promise<void> {
     dialogVisible.value = false
     ElMessage.success(wasEditing ? '成本记录更新成功' : '成本导入成功')
   } catch (e: any) {
-    ElMessage.error(
-      e.response?.data?.errMsg || (wasEditing ? '成本记录更新失败' : '成本导入失败'),
-    )
+    ElMessage.error(e.response?.data?.errMsg || (wasEditing ? '成本记录更新失败' : '成本导入失败'))
   } finally {
     submitting.value = false
   }
@@ -385,72 +381,6 @@ onMounted(getList)
   font-size: 0.9rem;
   color: #64748b;
   margin: 0;
-}
-
-.table-wrap {
-  flex: 0 1 auto;
-  min-height: 0;
-  max-height: var(--revenue-table-max-height);
-  width: 100%;
-  background: var(--color-surface);
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.pagination-wrap {
-  position: sticky;
-  bottom: 0;
-  z-index: 10;
-  flex-shrink: 0;
-  margin-top: 10px;
-  padding: 0;
-  background: #f8fafc;
-}
-
-.pagination-wrap:empty {
-  display: none;
-}
-
-.pagination-wrap :deep(.app-pagination) {
-  padding: 0;
-  border-top: 0;
-  background: transparent;
-}
-
-:deep(.revenue-table) {
-  --el-table-border-color: var(--color-line-soft);
-  --el-table-header-bg-color: #f0f3ff;
-  --el-table-row-hover-bg-color: var(--color-hover);
-
-  width: 100%;
-  font-size: var(--text-sm);
-}
-
-:deep(.revenue-table .el-table__cell) {
-  padding: 12px 16px;
-}
-
-:deep(.revenue-table th.el-table__cell) {
-  color: #334155;
-  font-weight: var(--weight-semi);
-  background: #f0f3ff;
-}
-
-:deep(.revenue-table .el-table__header-wrapper th.el-table__cell),
-:deep(.revenue-table .el-table__fixed-right th.el-table__cell) {
-  background: #f0f3ff;
-}
-
-:deep(.revenue-table th .cell),
-:deep(.revenue-table .el-table__fixed-right .cell) {
-  overflow: visible;
-  text-overflow: clip;
-  white-space: nowrap;
-}
-
-:deep(.revenue-table .el-table__row) {
-  height: var(--height-table-row);
 }
 
 .table-action-btn {

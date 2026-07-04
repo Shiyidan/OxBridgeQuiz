@@ -277,8 +277,8 @@ function handleNext(): void {
 async function handleBackToQuestionBank(): Promise<void> {
   const backTargets: Record<string, { label: string; path: string }> = {
     'question-bank': { label: '试题库', path: '/question-bank' },
-    'assessment':    { label: '诊断测试', path: '/assessment' },
-    'mock-exam':     { label: '仿真考试', path: '/' },
+    assessment: { label: '诊断测试', path: '/assessment' },
+    'mock-exam': { label: '仿真考试', path: '/' },
   }
   const target = backTargets[examMode.value]!
   try {
@@ -305,24 +305,21 @@ async function handleBackToQuestionBank(): Promise<void> {
 // 提前交卷前进行二次确认，避免学生误触导致答题直接结束。
 async function confirmSubmitExam(): Promise<void> {
   if (submitting.value || !currentQuestion.value) return
-  const confirmMessage = unansweredCount.value > 0
-    ? '交卷后将生成本次答题结果，未作答题目会计为未答，是否提前交卷？'
-    : '确认交卷？'
+  const confirmMessage =
+    unansweredCount.value > 0
+      ? '交卷后将生成本次答题结果，未作答题目会计为未答，是否提前交卷？'
+      : '确认交卷？'
   try {
-    await ElMessageBox.confirm(
-      confirmMessage,
-      '提示',
-      {
-        type: 'warning',
-        confirmButtonText: '确认交卷',
-        cancelButtonText: '继续答题',
-        confirmButtonClass: 'button_primary',
-        cancelButtonClass: 'button_cancel',
-        customClass: 'app-confirm-box',
-        closeOnClickModal: false,
-        distinguishCancelAndClose: true,
-      },
-    )
+    await ElMessageBox.confirm(confirmMessage, '提示', {
+      type: 'warning',
+      confirmButtonText: '确认交卷',
+      cancelButtonText: '继续答题',
+      confirmButtonClass: 'button_primary',
+      cancelButtonClass: 'button_cancel',
+      customClass: 'app-confirm-box',
+      closeOnClickModal: false,
+      distinguishCancelAndClose: true,
+    })
     await handleSubmit()
   } catch {
     // 用户取消交卷时保持当前答题状态。
@@ -369,17 +366,13 @@ async function handleSubmit(): Promise<void> {
 // 倒计时归零时由 ExamVue 触发，弹出弹窗后强制交卷。
 async function handleTimeExpired(): Promise<void> {
   try {
-    await ElMessageBox.alert(
-      '考试时间已结束，系统将自动提交您的试卷。',
-      '答题时间到',
-      {
-        confirmButtonText: '确定',
-        confirmButtonClass: 'button_primary',
-        customClass: 'app-confirm-box',
-        closeOnClickModal: false,
-        showClose: false,
-      },
-    )
+    await ElMessageBox.alert('考试时间已结束，系统将自动提交您的试卷。', '答题时间到', {
+      confirmButtonText: '确定',
+      confirmButtonClass: 'button_primary',
+      customClass: 'app-confirm-box',
+      closeOnClickModal: false,
+      showClose: false,
+    })
   } finally {
     await handleSubmit()
   }

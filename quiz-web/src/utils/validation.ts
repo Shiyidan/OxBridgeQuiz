@@ -38,7 +38,10 @@ export function validatePassword(password: string): ValidationResult {
 }
 
 // 确认密码依赖原密码，调用方需要传入当前密码值。
-export function validateConfirmPassword(password: string, confirmPassword: string): ValidationResult {
+export function validateConfirmPassword(
+  password: string,
+  confirmPassword: string,
+): ValidationResult {
   if (!confirmPassword) return { valid: false, message: '请再次输入密码' }
   if (password !== confirmPassword) return { valid: false, message: '两次输入的密码不一致' }
   return { valid: true, message: '' }
@@ -46,5 +49,10 @@ export function validateConfirmPassword(password: string, confirmPassword: strin
 
 // 用于无需错误文案的密码格式判断。
 export function isPasswordValid(password: string): boolean {
-  return password.length >= 8 && password.length <= 32 && /[a-zA-Z]/.test(password) && /[0-9]/.test(password)
+  return (
+    password.length >= 8 &&
+    password.length <= 32 &&
+    /[a-zA-Z]/.test(password) &&
+    /[0-9]/.test(password)
+  )
 }

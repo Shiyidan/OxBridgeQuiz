@@ -6,68 +6,68 @@
  * ======================================================== */
 :root {
   /* 主色 & 派生 */
-  --el-color-primary:            var(--color-ink);
-  --el-color-primary-light-3:    #4A4A4A;
-  --el-color-primary-light-5:    #8A8A8A;
-  --el-color-primary-light-7:    #C4C4C4;
-  --el-color-primary-light-8:    #DEDEDE;
-  --el-color-primary-light-9:    var(--color-hover);
-  --el-color-primary-dark-2:     #000000;
+  --el-color-primary: var(--color-ink);
+  --el-color-primary-light-3: #4a4a4a;
+  --el-color-primary-light-5: #8a8a8a;
+  --el-color-primary-light-7: #c4c4c4;
+  --el-color-primary-light-8: #dedede;
+  --el-color-primary-light-9: var(--color-hover);
+  --el-color-primary-dark-2: #000000;
 
   /* 状态色 */
-  --el-color-success:            var(--color-success);
-  --el-color-success-light-9:    var(--color-success-bg);
-  --el-color-warning:            var(--color-warning);
-  --el-color-warning-light-9:    var(--color-warning-bg);
-  --el-color-danger:             var(--color-danger);
-  --el-color-danger-light-9:     var(--color-danger-bg);
-  --el-color-error:              var(--color-danger);
-  --el-color-error-light-9:      var(--color-danger-bg);
-  --el-color-info:               var(--color-info);
-  --el-color-info-light-9:       var(--color-info-bg);
+  --el-color-success: var(--color-success);
+  --el-color-success-light-9: var(--color-success-bg);
+  --el-color-warning: var(--color-warning);
+  --el-color-warning-light-9: var(--color-warning-bg);
+  --el-color-danger: var(--color-danger);
+  --el-color-danger-light-9: var(--color-danger-bg);
+  --el-color-error: var(--color-danger);
+  --el-color-error-light-9: var(--color-danger-bg);
+  --el-color-info: var(--color-info);
+  --el-color-info-light-9: var(--color-info-bg);
 
   /* 边框 */
-  --el-border-color:             var(--color-line);
-  --el-border-color-light:       var(--color-line-soft);
-  --el-border-color-lighter:     var(--color-line-soft);
-  --el-border-color-extra-light: #F5F5F5;
-  --el-border-color-dark:        #D0D0D0;
-  --el-border-color-darker:      #B8B8B8;
-  --el-border-radius-base:       var(--radius-md);
-  --el-border-radius-small:      var(--radius-sm);
-  --el-border-radius-round:      var(--radius-pill);
+  --el-border-color: var(--color-line);
+  --el-border-color-light: var(--color-line-soft);
+  --el-border-color-lighter: var(--color-line-soft);
+  --el-border-color-extra-light: #f5f5f5;
+  --el-border-color-dark: #d0d0d0;
+  --el-border-color-darker: #b8b8b8;
+  --el-border-radius-base: var(--radius-md);
+  --el-border-radius-small: var(--radius-sm);
+  --el-border-radius-round: var(--radius-pill);
 
   /* 文字 */
-  --el-text-color-primary:       var(--color-ink);
-  --el-text-color-regular:       var(--color-ink-soft);
-  --el-text-color-secondary:     var(--color-ink-muted);
-  --el-text-color-placeholder:   var(--color-ink-muted);
-  --el-text-color-disabled:      #C0C0C0;
+  --el-text-color-primary: var(--color-ink);
+  --el-text-color-regular: var(--color-ink-soft);
+  --el-text-color-secondary: var(--color-ink-muted);
+  --el-text-color-placeholder: var(--color-ink-muted);
+  --el-text-color-disabled: #c0c0c0;
 
   /* 背景 & 填充 */
-  --el-bg-color:                 var(--color-surface);
-  --el-bg-color-page:            var(--color-bg);
-  --el-bg-color-overlay:         var(--color-surface);
-  --el-fill-color:               var(--color-hover);
-  --el-fill-color-light:         var(--color-hover);
-  --el-fill-color-lighter:       #FAFAFA;
-  --el-fill-color-extra-light:   #FBFBFB;
-  --el-fill-color-blank:         var(--color-surface);
+  --el-bg-color: var(--color-surface);
+  --el-bg-color-page: var(--color-bg);
+  --el-bg-color-overlay: var(--color-surface);
+  --el-fill-color: var(--color-hover);
+  --el-fill-color-light: var(--color-hover);
+  --el-fill-color-lighter: #fafafa;
+  --el-fill-color-extra-light: #fbfbfb;
+  --el-fill-color-blank: var(--color-surface);
 
   /* 阴影 */
-  --el-box-shadow:               var(--shadow-lg);
-  --el-box-shadow-light:         var(--shadow-md);
-  --el-box-shadow-lighter:       var(--shadow-sm);
-  --el-box-shadow-dark:          var(--shadow-xl);
+  --el-box-shadow: var(--shadow-lg);
+  --el-box-shadow-light: var(--shadow-md);
+  --el-box-shadow-lighter: var(--shadow-sm);
+  --el-box-shadow-dark: var(--shadow-xl);
 
   /* 字体 */
-  --el-font-family:              var(--font-sans);
-  --el-font-size-base:           var(--text-sm);
+  --el-font-family: var(--font-sans);
+  --el-font-size-base: var(--text-sm);
 
   /* 组件内部：按钮 hover */
-  --el-button-hover-bg-color:    var(--color-charcoal);
+  --el-button-hover-bg-color: var(--color-charcoal);
   --el-button-hover-border-color: var(--color-charcoal);
-  --el-button-active-bg-color:   var(--color-black);
+  --el-button-active-bg-color: var(--color-black);
 }
 
 /* ========================================================
@@ -171,12 +171,12 @@
  * 全局生效，任何页面的 <el-input> 都会应用这套修正。
  * ======================================================== */
 .el-input {
-  --el-input-bg-color:            var(--color-surface);
-  --el-input-border-color:        var(--color-line);
-  --el-input-hover-border-color:  #B8B8B8;
-  --el-input-focus-border-color:  var(--color-ink);
-  --el-input-text-color:          var(--color-ink);
-  --el-fill-color-blank:          var(--color-surface);
+  --el-input-bg-color: var(--color-surface);
+  --el-input-border-color: var(--color-line);
+  --el-input-hover-border-color: #b8b8b8;
+  --el-input-focus-border-color: var(--color-ink);
+  --el-input-text-color: var(--color-ink);
+  --el-fill-color-blank: var(--color-surface);
 }
 .el-input__wrapper {
   background-color: var(--color-surface) !important;
@@ -187,7 +187,7 @@
 }
 .el-input__wrapper:hover {
   background-color: var(--color-surface) !important;
-  box-shadow: 0 0 0 1px #B8B8B8 inset;
+  box-shadow: 0 0 0 1px #b8b8b8 inset;
 }
 .el-input__wrapper.is-focus {
   background-color: var(--color-surface) !important;
@@ -217,7 +217,7 @@
   transition: box-shadow var(--duration-base) ease;
 }
 .el-textarea__inner:hover {
-  box-shadow: 0 0 0 1px #B8B8B8 inset;
+  box-shadow: 0 0 0 1px #b8b8b8 inset;
 }
 .el-textarea__inner:focus {
   box-shadow: 0 0 0 1px var(--color-ink) inset !important;

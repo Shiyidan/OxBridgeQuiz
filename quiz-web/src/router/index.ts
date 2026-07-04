@@ -16,18 +16,46 @@ const router = createRouter({
       component: () => import('../views/auth/RegisterView.vue'),
     },
     // 个人中心
-    { path: '/profile', name: 'profile', component: () => import('../views/profile/ProfileView.vue') },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: () => import('../views/profile/ProfileView.vue'),
+    },
     // 试题库
-    { path: '/question-bank', name: 'question-bank', component: () => import('../views/questionBank/QuestionBankView.vue') },
+    {
+      path: '/question-bank',
+      name: 'question-bank',
+      component: () => import('../views/questionBank/QuestionBankView.vue'),
+    },
     // 诊断测试
-    { path: '/assessment', name: 'assessment', component: () => import('../views/assessment/AssessmentHomeView.vue') },
+    {
+      path: '/assessment',
+      name: 'assessment',
+      component: () => import('../views/assessment/AssessmentHomeView.vue'),
+    },
     // 在线答题
-    { path: '/practice', name: 'practice', component: () => import('../views/questionBank/PracticeView.vue') },
+    {
+      path: '/practice',
+      name: 'practice',
+      component: () => import('../views/questionBank/PracticeView.vue'),
+    },
     // 错题本
-    { path: '/mistake-notebook', name: 'mistake-notebook', component: () => import('../views/mistakeNotebook/MistakeNotebookView.vue') },
+    {
+      path: '/mistake-notebook',
+      name: 'mistake-notebook',
+      component: () => import('../views/mistakeNotebook/MistakeNotebookView.vue'),
+    },
     // 答题结果
-    { path: '/exam-result', name: 'exam-result', component: () => import('../views/questionBank/ExamResultView.vue') },
-    { path: '/exam-result/:id', name: 'exam-result-detail', component: () => import('../views/assessment/ExamResultDetail.vue') },
+    {
+      path: '/exam-result',
+      name: 'exam-result',
+      component: () => import('../views/questionBank/ExamResultView.vue'),
+    },
+    {
+      path: '/exam-result/:id',
+      name: 'exam-result-detail',
+      component: () => import('../views/assessment/ExamResultDetail.vue'),
+    },
 
     // 管理后台
     {
@@ -36,13 +64,29 @@ const router = createRouter({
       component: () => import('../views/admin/AdminLayout.vue'),
       children: [
         // 营收与数据
-        { path: 'revenue', name: 'admin-revenue', component: () => import('../views/admin/RevenueView.vue') },
+        {
+          path: 'revenue',
+          name: 'admin-revenue',
+          component: () => import('../views/admin/RevenueView.vue'),
+        },
         // 员工管理
-        { path: 'staff', name: 'admin-staff', component: () => import('../views/admin/StaffView.vue') },
+        {
+          path: 'staff',
+          name: 'admin-staff',
+          component: () => import('../views/admin/StaffView.vue'),
+        },
         // 用户管理
-        { path: 'users', name: 'admin-users', component: () => import('../views/admin/UserManageView.vue') },
+        {
+          path: 'users',
+          name: 'admin-users',
+          component: () => import('../views/admin/UserManageView.vue'),
+        },
         // 付费策略与订阅
-        { path: 'payment', name: 'admin-payment', component: () => import('../views/admin/PaymentView.vue') },
+        {
+          path: 'payment',
+          name: 'admin-payment',
+          component: () => import('../views/admin/PaymentView.vue'),
+        },
 
         // 核心资料库
         {
@@ -50,15 +94,35 @@ const router = createRouter({
           component: () => import('../views/admin/CoreLibraryLayout.vue'),
           children: [
             // 首页
-            { path: '', name: 'admin-core-library', component: () => import('../views/admin/CoreLibraryView.vue') },
+            {
+              path: '',
+              name: 'admin-core-library',
+              component: () => import('../views/admin/CoreLibraryView.vue'),
+            },
             // 试题库
-            { path: 'questions', name: 'admin-questions', component: () => import('../views/admin/QuestionBankAdmin.vue') },
+            {
+              path: 'questions',
+              name: 'admin-questions',
+              component: () => import('../views/admin/QuestionBankAdmin.vue'),
+            },
             // 试题库内容预览
-            { path: 'questions/:id', name: 'admin-questions-detail', component: () => import('../views/admin/PaperPreview.vue') },
+            {
+              path: 'questions/:id',
+              name: 'admin-questions-detail',
+              component: () => import('../views/admin/PaperPreview.vue'),
+            },
             // 教材库
-            { path: 'textbooks', name: 'admin-textbooks', component: () => import('../views/admin/TextbookAdmin.vue') },
+            {
+              path: 'textbooks',
+              name: 'admin-textbooks',
+              component: () => import('../views/admin/TextbookAdmin.vue'),
+            },
             // 大纲库
-            { path: 'syllabus', name: 'admin-syllabus', component: () => import('../views/admin/SyllabusAdmin.vue') },
+            {
+              path: 'syllabus',
+              name: 'admin-syllabus',
+              component: () => import('../views/admin/SyllabusAdmin.vue'),
+            },
 
             // 真题库
             {
@@ -66,11 +130,23 @@ const router = createRouter({
               component: () => import('../views/admin/ExamBankLayout.vue'),
               children: [
                 // 列表
-                { path: '', name: 'admin-exams', component: () => import('../views/admin/ExamBankAdmin.vue') },
+                {
+                  path: '',
+                  name: 'admin-exams',
+                  component: () => import('../views/admin/ExamBankAdmin.vue'),
+                },
                 // 上传解析
-                { path: 'upload', name: 'admin-exams-upload', component: () => import('../views/admin/PaperUpload.vue') },
+                {
+                  path: 'upload',
+                  name: 'admin-exams-upload',
+                  component: () => import('../views/admin/PaperUpload.vue'),
+                },
                 // 试卷预览
-                { path: ':id', name: 'admin-exams-detail', component: () => import('../views/admin/PaperPreview.vue') },
+                {
+                  path: ':id',
+                  name: 'admin-exams-detail',
+                  component: () => import('../views/admin/PaperPreview.vue'),
+                },
               ],
             },
           ],

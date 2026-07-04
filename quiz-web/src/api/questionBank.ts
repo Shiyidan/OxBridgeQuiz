@@ -52,11 +52,15 @@ export function getQuestionSummaryData(code: string, examType = DEFAULT_EXAM_TYP
 }
 
 /** 获取试题列表（全量，用于在线答题） */
-export function getQuestionsData(filters: { code?: string; difficulty?: string; examType?: string }) {
+export function getQuestionsData(filters: {
+  code?: string
+  difficulty?: string
+  examType?: string
+}) {
   return callApi<{ questions: QuestionBankItem[] }>({
     url: '/papers/question-bank',
     method: 'GET',
     isAllData: false,
     params: filters,
-  }).then(data => data.questions)
+  }).then((data) => data.questions)
 }

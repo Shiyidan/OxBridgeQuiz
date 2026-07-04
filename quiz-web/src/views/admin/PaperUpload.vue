@@ -3,7 +3,16 @@
     <!-- 顶部返回 -->
     <div class="page-top-bar">
       <button class="back-btn" @click="$router.push(uploadBackPath)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
         {{ uploadBackLabel }}
       </button>
     </div>
@@ -12,7 +21,9 @@
       <div class="section-header">
         <div class="header-text">
           <h2 class="section-title">试卷解析录入</h2>
-          <p class="section-desc">上传 PDF 试卷或单题图片，由 Qwen 大模型自动识别题目、公式与图形。</p>
+          <p class="section-desc">
+            上传 PDF 试卷或单题图片，由 Qwen 大模型自动识别题目、公式与图形。
+          </p>
         </div>
       </div>
 
@@ -22,17 +33,23 @@
           class="mode-tab"
           :class="{ 'mode-tab--active': mode === 'markdown' }"
           @click="mode = 'markdown'"
-        >Markdown 上传</button>
+        >
+          Markdown 上传
+        </button>
         <button
           class="mode-tab"
           :class="{ 'mode-tab--active': mode === 'file' }"
           @click="mode = 'file'"
-        >文件上传</button>
+        >
+          文件上传
+        </button>
         <button
           class="mode-tab"
           :class="{ 'mode-tab--active': mode === 'json' }"
           @click="mode = 'json'"
-        >JSON 导入</button>
+        >
+          JSON 导入
+        </button>
       </div>
 
       <div class="upload-area" v-if="mode === 'file'" :class="{ 'has-file': file }">
@@ -47,7 +64,19 @@
         >
           <template v-if="!file && !parsing">
             <div class="drop-icon-wrap">
-              <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#6366f1"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="12" y1="18" x2="12" y2="12" />
+                <line x1="9" y1="15" x2="15" y2="15" />
+              </svg>
             </div>
             <p class="drop-title">拖拽 PDF 或题目图片到此处</p>
             <p class="drop-hint">或点击此区域选择文件</p>
@@ -60,11 +89,23 @@
                 <img :src="imagePreviewUrl" class="image-thumb" alt="题目图片预览" />
               </div>
               <div v-else class="file-icon-wrap">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#4f46e5"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
               </div>
               <p class="file-name-text">{{ file.name }}</p>
               <p class="file-size-text">
-                <span class="file-kind-badge" :class="`kind-${fileKind}`">{{ fileKind === 'image' ? '单题图片' : 'PDF' }}</span>
+                <span class="file-kind-badge" :class="`kind-${fileKind}`">{{
+                  fileKind === 'image' ? '单题图片' : 'PDF'
+                }}</span>
                 {{ (file.size / 1024 / 1024).toFixed(2) }} MB
               </p>
               <button class="btn-change" @click.stop="clearFile">重新选择</button>
@@ -81,8 +122,14 @@
           <!-- 全部上传完成，等待 Qwen 解析 -->
           <div v-else-if="parsing && !rendering" class="parsing-status">
             <div class="parsing-spinner"></div>
-            <p class="parsing-title">{{ parsingDone ? '解析完成' : parsingFailed ? '解析失败' : 'Qwen 大模型正在识别题目...' }}</p>
-            <p class="parsing-detail" v-if="!parsingDone && !parsingFailed">{{ uploadDone ? `已上传全部 ${renderTotal} 页，后台解析中` : '正在上传页面...' }}</p>
+            <p class="parsing-title">
+              {{
+                parsingDone ? '解析完成' : parsingFailed ? '解析失败' : 'Qwen 大模型正在识别题目...'
+              }}
+            </p>
+            <p class="parsing-detail" v-if="!parsingDone && !parsingFailed">
+              {{ uploadDone ? `已上传全部 ${renderTotal} 页，后台解析中` : '正在上传页面...' }}
+            </p>
             <p class="parsing-detail error-text" v-if="parsingFailed">{{ parseError }}</p>
           </div>
         </div>
@@ -115,7 +162,18 @@
           <div class="action-bar">
             <button class="btn-secondary-action" @click="clearFile">取消</button>
             <button class="btn-primary-action" @click="startUpload" :disabled="!title || !year">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
               开始解析
             </button>
           </div>
@@ -146,7 +204,17 @@
         <div v-if="!rendering" class="result-actions" :class="{ 'mt-20': parsing }">
           <template v-if="parsingDone && paperId">
             <button class="btn-primary-action" @click="goToPreview">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
               查看解析结果
             </button>
             <button class="btn-secondary-action" @click="resetUpload">上传新试卷</button>
@@ -172,7 +240,19 @@
           @click="triggerMdFileInput"
         >
           <div class="drop-icon-wrap">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="12" y1="17" x2="12" y2="9"/></svg>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#6366f1"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="12" y1="17" x2="12" y2="9" />
+            </svg>
           </div>
           <p class="drop-title">拖拽 Markdown 文件到此处</p>
           <p class="drop-hint">或点击此区域选择 .md 文件</p>
@@ -181,13 +261,24 @@
 
         <!-- MD 文件已选择，编辑元数据 -->
         <div v-if="mdFile && !mdImporting && !mdDone && !mdError" class="json-edit-area">
-          <div class="file-preview" style="text-align:center;margin-bottom:20px;">
+          <div class="file-preview" style="text-align: center; margin-bottom: 20px">
             <div class="file-icon-wrap">
-              <svg viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#4f46e5"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
             </div>
             <p class="file-name-text">{{ mdFile.name }}</p>
-            <p style="font-size:0.8125rem;color:#94a3b8;margin:0;">
-              找到 <b>{{ mdJsonBlockCount }}</b> 个 JSON 块，共 <b>{{ mdQuestions.length }}</b> 道题目
+            <p style="font-size: 0.8125rem; color: #94a3b8; margin: 0">
+              找到 <b>{{ mdJsonBlockCount }}</b> 个 JSON 块，共
+              <b>{{ mdQuestions.length }}</b> 道题目
             </p>
             <button class="btn-change" @click="clearMdFile">重新选择</button>
           </div>
@@ -210,23 +301,33 @@
             </div>
             <div class="meta-field">
               <label class="field-label">考试时长（分钟）</label>
-              <input v-model.number="mdDuration" type="number" class="field-input field-input--sm" />
+              <input
+                v-model.number="mdDuration"
+                type="number"
+                class="field-input field-input--sm"
+              />
             </div>
           </div>
 
-          <div class="meta-row" style="margin-top:12px;">
+          <div class="meta-row" style="margin-top: 12px">
             <div class="meta-field">
               <label class="field-label">学科代码（可选）</label>
-              <input v-model="mdCode" class="field-input field-input--sm" placeholder="如 M1, P2..." />
+              <input
+                v-model="mdCode"
+                class="field-input field-input--sm"
+                placeholder="如 M1, P2..."
+              />
             </div>
-            <div class="meta-field" style="display:flex;align-items:flex-end;">
-              <span style="font-size:0.875rem;color:#475569;">共 <b>{{ mdQuestions.length }}</b> 道题目</span>
+            <div class="meta-field" style="display: flex; align-items: flex-end">
+              <span style="font-size: 0.875rem; color: #475569"
+                >共 <b>{{ mdQuestions.length }}</b> 道题目</span
+              >
             </div>
           </div>
 
           <!-- 题目预览列表 -->
           <div class="json-preview-list" v-if="mdQuestions.length">
-            <p class="field-label" style="margin-top:16px;">题目预览</p>
+            <p class="field-label" style="margin-top: 16px">题目预览</p>
             <div class="json-preview-item" v-for="q in mdQuestions" :key="q.number">
               <span class="json-preview-num">{{ q.number }}</span>
               <span class="json-preview-title">{{ truncateText(q.title, 60) }}</span>
@@ -236,8 +337,23 @@
 
           <div class="action-bar">
             <button class="btn-secondary-action" @click="clearMdFile">取消</button>
-            <button class="btn-primary-action" @click="importMarkdown" :disabled="!mdTitle || !mdYear || !mdQuestions.length">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 4 20 4 20 8"/><line x1="14" y1="10" x2="20" y2="4"/><path d="M22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>
+            <button
+              class="btn-primary-action"
+              @click="importMarkdown"
+              :disabled="!mdTitle || !mdYear || !mdQuestions.length"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="16 4 20 4 20 8" />
+                <line x1="14" y1="10" x2="20" y2="4" />
+                <path d="M22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" />
+              </svg>
               导入到真题库
             </button>
           </div>
@@ -253,18 +369,28 @@
         <div v-if="mdError" class="parsing-status">
           <p class="parsing-title">导入失败</p>
           <p class="parsing-detail error-text">{{ mdError }}</p>
-          <div style="margin-top:16px;">
+          <div style="margin-top: 16px">
             <button class="btn-secondary-action" @click="clearMdFile">重新选择</button>
           </div>
         </div>
 
         <!-- 导入成功 -->
         <div v-if="mdDone && mdPaperId" class="result-actions">
-          <p v-if="mdWarnings.length" style="font-size:0.8125rem;color:#f59e0b;margin:0 0 8px;">
+          <p v-if="mdWarnings.length" style="font-size: 0.8125rem; color: #f59e0b; margin: 0 0 8px">
             注意：{{ mdWarnings.join('；') }}
           </p>
           <button class="btn-primary-action" @click="goToMdPreview">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
             查看导入结果
           </button>
           <button class="btn-secondary-action" @click="resetMdImport">导入新试卷</button>
@@ -284,7 +410,17 @@
           @click="triggerJsonFileInput"
         >
           <div class="drop-icon-wrap">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#6366f1"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
           </div>
           <p class="drop-title">拖拽 JSON 文件到此处</p>
           <p class="drop-hint">或点击此区域选择 .json 文件</p>
@@ -293,9 +429,19 @@
 
         <!-- JSON 文件已选择，编辑元数据 -->
         <div v-if="jsonFile && !jsonImporting && !jsonDone && !jsonError" class="json-edit-area">
-          <div class="file-preview" style="text-align:center;margin-bottom:20px;">
+          <div class="file-preview" style="text-align: center; margin-bottom: 20px">
             <div class="file-icon-wrap">
-              <svg viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#4f46e5"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
             </div>
             <p class="file-name-text">{{ jsonFile.name }}</p>
             <button class="btn-change" @click="clearJsonFile">重新选择</button>
@@ -319,23 +465,33 @@
             </div>
             <div class="meta-field">
               <label class="field-label">考试时长（分钟）</label>
-              <input v-model.number="jsonDuration" type="number" class="field-input field-input--sm" />
+              <input
+                v-model.number="jsonDuration"
+                type="number"
+                class="field-input field-input--sm"
+              />
             </div>
           </div>
 
-          <div class="meta-row" style="margin-top:12px;">
+          <div class="meta-row" style="margin-top: 12px">
             <div class="meta-field">
               <label class="field-label">学科代码（可选）</label>
-              <input v-model="jsonCode" class="field-input field-input--sm" placeholder="如 M1, P2..." />
+              <input
+                v-model="jsonCode"
+                class="field-input field-input--sm"
+                placeholder="如 M1, P2..."
+              />
             </div>
-            <div class="meta-field" style="display:flex;align-items:flex-end;">
-              <span style="font-size:0.875rem;color:#475569;">共 <b>{{ jsonQuestions.length }}</b> 道题目</span>
+            <div class="meta-field" style="display: flex; align-items: flex-end">
+              <span style="font-size: 0.875rem; color: #475569"
+                >共 <b>{{ jsonQuestions.length }}</b> 道题目</span
+              >
             </div>
           </div>
 
           <!-- 题目预览列表 -->
           <div class="json-preview-list" v-if="jsonQuestions.length">
-            <p class="field-label" style="margin-top:16px;">题目预览</p>
+            <p class="field-label" style="margin-top: 16px">题目预览</p>
             <div class="json-preview-item" v-for="q in jsonQuestions" :key="q.number">
               <span class="json-preview-num">{{ q.number }}</span>
               <span class="json-preview-title">{{ truncateText(q.title, 60) }}</span>
@@ -345,8 +501,23 @@
 
           <div class="action-bar">
             <button class="btn-secondary-action" @click="clearJsonFile">取消</button>
-            <button class="btn-primary-action" @click="importJson" :disabled="!jsonTitle || !jsonYear">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 4 20 4 20 8"/><line x1="14" y1="10" x2="20" y2="4"/><path d="M22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>
+            <button
+              class="btn-primary-action"
+              @click="importJson"
+              :disabled="!jsonTitle || !jsonYear"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="16 4 20 4 20 8" />
+                <line x1="14" y1="10" x2="20" y2="4" />
+                <path d="M22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" />
+              </svg>
               导入到真题库
             </button>
           </div>
@@ -362,7 +533,7 @@
         <div v-if="jsonError" class="parsing-status">
           <p class="parsing-title">导入失败</p>
           <p class="parsing-detail error-text">{{ jsonError }}</p>
-          <div style="margin-top:16px;">
+          <div style="margin-top: 16px">
             <button class="btn-secondary-action" @click="clearJsonFile">重新选择</button>
           </div>
         </div>
@@ -370,7 +541,17 @@
         <!-- 导入成功 -->
         <div v-if="jsonDone && jsonPaperId" class="result-actions">
           <button class="btn-primary-action" @click="goToJsonPreview">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
             查看导入结果
           </button>
           <button class="btn-secondary-action" @click="resetJsonImport">导入新试卷</button>
@@ -378,9 +559,27 @@
       </div>
     </div>
 
-    <input ref="fileInput" type="file" accept=".pdf,image/png,image/jpeg" class="hidden-input" @change="handleFileSelect" />
-    <input ref="jsonFileInput" type="file" accept=".json,application/json" class="hidden-input" @change="handleJsonFileSelect" />
-    <input ref="mdFileInput" type="file" accept=".md,text/markdown" class="hidden-input" @change="handleMdFileSelect" />
+    <input
+      ref="fileInput"
+      type="file"
+      accept=".pdf,image/png,image/jpeg"
+      class="hidden-input"
+      @change="handleFileSelect"
+    />
+    <input
+      ref="jsonFileInput"
+      type="file"
+      accept=".json,application/json"
+      class="hidden-input"
+      @change="handleJsonFileSelect"
+    />
+    <input
+      ref="mdFileInput"
+      type="file"
+      accept=".md,text/markdown"
+      class="hidden-input"
+      @change="handleMdFileSelect"
+    />
   </div>
 </template>
 
@@ -388,7 +587,14 @@
 import { computed, ref, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { createUploadTask, uploadPage, getParseTaskStatusData, retryParseTask, importJson as apiImportJson, importMarkdown as apiImportMarkdown } from '@/api/upload'
+import {
+  createUploadTask,
+  uploadPage,
+  getParseTaskStatusData,
+  retryParseTask,
+  importJson as apiImportJson,
+  importMarkdown as apiImportMarkdown,
+} from '@/api/upload'
 import { ElMessage } from 'element-plus'
 import { renderPdfToBase64Pages, type RenderedPage } from '@/utils/pdfRenderer'
 import { DEFAULT_EXAM_TYPE, EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
@@ -585,8 +791,14 @@ function resetUpload(): void {
   paperId.value = ''
   taskId = ''
   cachedPages = []
-  if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
-  if (abortController) { abortController.abort(); abortController = null }
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+  if (abortController) {
+    abortController.abort()
+    abortController = null
+  }
 }
 
 // 单题图片直接读原始字节为 base64，不做 Canvas 重编码。
@@ -678,7 +890,10 @@ async function startUpload(): Promise<void> {
   for (const p of pages) {
     try {
       await uploadPage(taskId!, {
-        page: p.page!, base64: p.base64!, mimeType: p.mimeType!, totalPages: pages.length,
+        page: p.page!,
+        base64: p.base64!,
+        mimeType: p.mimeType!,
+        totalPages: pages.length,
       })
     } catch (e: any) {
       if (e?.code === 'ERR_CANCELED') return
@@ -708,11 +923,17 @@ function pollTask(): void {
       progress.value = res.progress || 0
 
       if (res.status === 'completed') {
-        if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+        if (pollTimer) {
+          clearInterval(pollTimer)
+          pollTimer = null
+        }
         parsingDone.value = true
       }
       if (res.status === 'failed') {
-        if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+        if (pollTimer) {
+          clearInterval(pollTimer)
+          pollTimer = null
+        }
         parsingFailed.value = true
         parseError.value = res.error || '解析失败，请重试'
       }
@@ -758,7 +979,10 @@ async function retryParse(): Promise<void> {
     for (const p of cachedPages) {
       try {
         await uploadPage(taskId!, {
-          page: p.page!, base64: p.base64!, mimeType: p.mimeType!, totalPages: cachedPages.length,
+          page: p.page!,
+          base64: p.base64!,
+          mimeType: p.mimeType!,
+          totalPages: cachedPages.length,
         })
       } catch (e: any) {
         if (e?.code === 'ERR_CANCELED') return
@@ -969,7 +1193,10 @@ function processMdFile(f: File): void {
         ElMessage.warning('标准 Markdown 只能包含一个完整 JSON 代码块')
         return
       }
-      if (!parsedDocument || parsedDocument.metadata.totalQuestions !== parsedDocument.questions.length) {
+      if (
+        !parsedDocument ||
+        parsedDocument.metadata.totalQuestions !== parsedDocument.questions.length
+      ) {
         ElMessage.warning('JSON 代码块必须使用标准 { metadata, questions } 结构')
         return
       }
@@ -1085,26 +1312,63 @@ function buildEditedMarkdown(markdown: string, metadata: PaperMetadata): string 
 </script>
 
 <style scoped lang="scss">
-.upload-page { min-height: 100%; }
-
-.page-top-bar { padding: 28px 40px 0; }
-.back-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 16px; border: none; background: transparent;
-  font-size: 0.875rem; font-weight: 500; color: #64748b;
-  cursor: pointer; border-radius: 8px; transition: all 0.15s ease;
-  svg { width: 16px; height: 16px; }
-  &:hover { color: #0f172a; background: #f1f5f9; }
+.upload-page {
+  min-height: 100%;
 }
 
-.page-body { padding: 24px 40px 48px; }
+.page-top-bar {
+  padding: 28px 40px 0;
+}
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+  &:hover {
+    color: #0f172a;
+    background: #f1f5f9;
+  }
+}
 
-.section-header { margin-bottom: 32px; }
-.header-text { max-width: 520px; }
-.section-title { font-size: 1.5rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em; margin: 0 0 8px; }
-.section-desc { font-size: 0.9rem; color: #64748b; line-height: 1.5; margin: 0; }
+.page-body {
+  padding: 24px 40px 48px;
+}
 
-.upload-area { max-width: 620px; }
+.section-header {
+  margin-bottom: 32px;
+}
+.header-text {
+  max-width: 520px;
+}
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+}
+.section-desc {
+  font-size: 0.9rem;
+  color: #64748b;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.upload-area {
+  max-width: 620px;
+}
 
 .drop-zone {
   border: 2px dashed #e2e8f0;
@@ -1115,132 +1379,342 @@ function buildEditedMarkdown(markdown: string, metadata: PaperMetadata): string 
   transition: all 0.2s ease;
   background: #ffffff;
 
-  &:hover { border-color: #c7d2fe; background: #fafaff; }
-  &--active { border-color: #4f46e5; background: #eef2ff; }
+  &:hover {
+    border-color: #c7d2fe;
+    background: #fafaff;
+  }
+  &--active {
+    border-color: #4f46e5;
+    background: #eef2ff;
+  }
 }
 
 .drop-icon-wrap {
-  width: 56px; height: 56px; border-radius: 14px;
-  background: #eef2ff; display: flex; align-items: center; justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: #eef2ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin: 0 auto 16px;
-  svg { width: 28px; height: 28px; }
+  svg {
+    width: 28px;
+    height: 28px;
+  }
 }
 
-.drop-title { font-size: 1rem; font-weight: 600; color: #0f172a; margin: 0 0 6px; }
-.drop-hint { font-size: 0.875rem; color: #94a3b8; margin: 0 0 6px; }
-.drop-limit { font-size: 0.75rem; color: #cbd5e1; margin: 0; }
+.drop-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 6px;
+}
+.drop-hint {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  margin: 0 0 6px;
+}
+.drop-limit {
+  font-size: 0.75rem;
+  color: #cbd5e1;
+  margin: 0;
+}
 
-.file-preview { text-align: center; }
+.file-preview {
+  text-align: center;
+}
 .file-icon-wrap {
-  width: 56px; height: 56px; border-radius: 14px;
-  background: #eef2ff; display: flex; align-items: center; justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: #eef2ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin: 0 auto 12px;
-  svg { width: 28px; height: 28px; }
+  svg {
+    width: 28px;
+    height: 28px;
+  }
 }
-.file-name-text { font-size: 1rem; font-weight: 600; color: #0f172a; margin: 0 0 4px; word-break: break-all; }
+.file-name-text {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 4px;
+  word-break: break-all;
+}
 .file-size-text {
-  font-size: 0.8125rem; color: #94a3b8; margin: 0 0 12px;
-  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 0.8125rem;
+  color: #94a3b8;
+  margin: 0 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 .file-kind-badge {
-  padding: 2px 8px; border-radius: 6px; font-size: 0.6875rem; font-weight: 600;
-  &.kind-pdf { background: #eef2ff; color: #4f46e5; }
-  &.kind-image { background: #ecfeff; color: #0891b2; }
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  &.kind-pdf {
+    background: #eef2ff;
+    color: #4f46e5;
+  }
+  &.kind-image {
+    background: #ecfeff;
+    color: #0891b2;
+  }
 }
 .image-thumb-wrap {
-  margin: 0 auto 12px; max-width: 320px;
+  margin: 0 auto 12px;
+  max-width: 320px;
 }
 .image-thumb {
-  max-width: 100%; max-height: 240px; border-radius: 12px;
-  border: 1px solid #e2e8f0; display: block; margin: 0 auto;
+  max-width: 100%;
+  max-height: 240px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  display: block;
+  margin: 0 auto;
 }
 .btn-change {
-  background: none; border: none; color: #4f46e5; font-size: 0.8125rem;
-  font-weight: 500; cursor: pointer; padding: 4px 12px; border-radius: 6px;
-  &:hover { background: #eef2ff; }
+  background: none;
+  border: none;
+  color: #4f46e5;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 6px;
+  &:hover {
+    background: #eef2ff;
+  }
 }
 
-.parsing-status { text-align: center; }
+.parsing-status {
+  text-align: center;
+}
 .parsing-spinner {
-  width: 40px; height: 40px; border-radius: 50%; margin: 0 auto 16px;
-  border: 4px solid #eef2ff; border-top-color: #4f46e5;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  margin: 0 auto 16px;
+  border: 4px solid #eef2ff;
+  border-top-color: #4f46e5;
   animation: spin 0.8s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
-.parsing-title { font-size: 1rem; font-weight: 600; color: #0f172a; margin: 0 0 6px; }
-.parsing-detail { font-size: 0.875rem; color: #94a3b8; margin: 0; }
-.parsing-detail.error-text { color: #ef4444; }
+.parsing-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 6px;
+}
+.parsing-detail {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  margin: 0;
+}
+.parsing-detail.error-text {
+  color: #ef4444;
+}
 
 .title-edit-area {
   margin-top: 24px;
-  background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
   padding: 24px;
 }
 
-.field-label { display: block; font-size: 0.8125rem; font-weight: 600; color: #475569; margin-bottom: 6px; }
-.field-hint { font-size: 0.75rem; color: #94a3b8; margin: 4px 0 0; }
-
-.field-input {
-  width: 100%; padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 10px;
-  font-size: 0.9rem; color: #0f172a; outline: none; font-family: inherit;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  &::placeholder { color: #cbd5e1; }
-  &:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,.1); }
-  &--sm { width: 100%; }
+.field-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 6px;
+}
+.field-hint {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin: 4px 0 0;
 }
 
-.meta-row { display: flex; gap: 16px; margin-top: 16px; }
-.meta-field { flex: 1; }
+.field-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  color: #0f172a;
+  outline: none;
+  font-family: inherit;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+  &::placeholder {
+    color: #cbd5e1;
+  }
+  &:focus {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+  }
+  &--sm {
+    width: 100%;
+  }
+}
 
-.action-bar { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+.meta-row {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+}
+.meta-field {
+  flex: 1;
+}
+
+.action-bar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
 
 .btn-primary-action {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 10px 22px; background: #4f46e5; color: white; border: none;
-  border-radius: 10px; font-size: 0.875rem; font-weight: 600;
-  cursor: pointer; transition: all 0.2s ease; font-family: inherit;
-  svg { width: 16px; height: 16px; }
-  &:hover:not(:disabled) { background: #6366f1; box-shadow: 0 4px 14px rgba(79,70,229,.35); transform: translateY(-1px); }
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 22px;
+  background: #4f46e5;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+  &:hover:not(:disabled) {
+    background: #6366f1;
+    box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+    transform: translateY(-1px);
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 }
 
 .btn-secondary-action {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 10px 22px; background: #ffffff; color: #475569; border: 1px solid #e2e8f0;
-  border-radius: 10px; font-size: 0.875rem; font-weight: 600;
-  cursor: pointer; transition: all 0.2s ease; font-family: inherit;
-  svg { width: 16px; height: 16px; }
-  &:hover { background: #f8fafc; border-color: #cbd5e1; }
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 22px;
+  background: #ffffff;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+  &:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+  }
 }
 
-.progress-area { margin-top: 20px; }
-.progress-bar-wrap { display: flex; align-items: center; gap: 12px; }
-.progress-bar { flex: 1; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
-.progress-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #4f46e5); border-radius: 4px; transition: width 0.5s ease; }
-.progress-label { font-size: 0.875rem; font-weight: 600; color: #4f46e5; min-width: 36px; }
-.progress-detail { font-size: 0.8125rem; color: #94a3b8; margin: 8px 0 0; text-align: center; }
+.progress-area {
+  margin-top: 20px;
+}
+.progress-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.progress-bar {
+  flex: 1;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #4f46e5);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+.progress-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #4f46e5;
+  min-width: 36px;
+}
+.progress-detail {
+  font-size: 0.8125rem;
+  color: #94a3b8;
+  margin: 8px 0 0;
+  text-align: center;
+}
 
-.result-actions { display: flex; gap: 12px; }
-.mt-20 { margin-top: 20px; }
+.result-actions {
+  display: flex;
+  gap: 12px;
+}
+.mt-20 {
+  margin-top: 20px;
+}
 
-.hidden-input { display: none; }
+.hidden-input {
+  display: none;
+}
 
 // 模式切换标签
 .mode-tabs {
-  display: flex; gap: 4px; margin-bottom: 24px;
-  background: #f1f5f9; border-radius: 10px; padding: 4px;
+  display: flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  background: #f1f5f9;
+  border-radius: 10px;
+  padding: 4px;
   width: fit-content;
 }
 .mode-tab {
-  padding: 8px 20px; border: none; background: transparent;
-  font-size: 0.875rem; font-weight: 500; color: #64748b;
-  border-radius: 8px; cursor: pointer; transition: all 0.15s ease;
+  padding: 8px 20px;
+  border: none;
+  background: transparent;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748b;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
   font-family: inherit;
-  &:hover { color: #0f172a; }
+  &:hover {
+    color: #0f172a;
+  }
   &--active {
-    background: #ffffff; color: #4f46e5; font-weight: 600;
-    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    background: #ffffff;
+    color: #4f46e5;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   }
 }
 
@@ -1249,30 +1723,51 @@ function buildEditedMarkdown(markdown: string, metadata: PaperMetadata): string 
   max-width: 620px;
 }
 .json-edit-area {
-  background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
   padding: 24px;
 }
 .json-preview-list {
-  max-height: 280px; overflow-y: auto; margin-top: 8px;
-  border: 1px solid #e2e8f0; border-radius: 10px;
+  max-height: 280px;
+  overflow-y: auto;
+  margin-top: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
 }
 .json-preview-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 14px; border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-bottom: 1px solid #f1f5f9;
   font-size: 0.8125rem;
-  &:last-child { border-bottom: none; }
+  &:last-child {
+    border-bottom: none;
+  }
 }
 .json-preview-num {
-  min-width: 28px; height: 24px; border-radius: 6px;
-  background: #eef2ff; color: #4f46e5; font-weight: 600;
-  display: flex; align-items: center; justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  border-radius: 6px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.75rem;
 }
 .json-preview-title {
-  flex: 1; color: #334155; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1;
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .json-preview-opts {
-  color: #94a3b8; font-size: 0.75rem; white-space: nowrap;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  white-space: nowrap;
 }
-
 </style>

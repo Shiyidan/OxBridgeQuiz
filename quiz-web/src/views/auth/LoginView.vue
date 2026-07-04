@@ -11,9 +11,7 @@
             <span>精准诊断，让备考的每一步都算数</span>
           </div>
           <h1 class="auth-headline">登录你的备考账户</h1>
-          <p class="auth-sub">
-            登录后即可查看完整诊断报告、错题攻克进度和 14 天动态学习路径。
-          </p>
+          <p class="auth-sub">登录后即可查看完整诊断报告、错题攻克进度和 14 天动态学习路径。</p>
           <ul class="auth-features">
             <li v-for="f in features" :key="f">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">

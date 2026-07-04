@@ -3,11 +3,7 @@
     <!-- 题号小标 -->
     <div class="question-card__label">Question {{ index + 1 }}</div>
     <div v-if="metaTags.length" class="question-card__meta-tags">
-      <span
-        v-for="tag in metaTags"
-        :key="tag"
-        class="question-card__meta-tag"
-      >
+      <span v-for="tag in metaTags" :key="tag" class="question-card__meta-tag">
         {{ tag }}
       </span>
     </div>
@@ -54,10 +50,7 @@
         <span class="opt-card__bullet">{{ opt.label }}</span>
         <span class="opt-card__text">
           <LatexText v-if="opt.text" :text="opt.text" />
-          <span
-            v-if="opt.image_id && getImageById(opt.image_id)"
-            class="opt-card__media"
-          >
+          <span v-if="opt.image_id && getImageById(opt.image_id)" class="opt-card__media">
             <span
               v-if="isSvgImage(opt.image_id)"
               class="opt-card__svg"
@@ -105,7 +98,7 @@ const emit = defineEmits<{
 // 根据 image_ref 的 image_id 匹配 images 数组中的图片
 function getImageById(imageId: string | undefined): QuestionImage | null {
   if (!imageId) return null
-  return props.question.images.find(i => i.id === imageId) || null
+  return props.question.images.find((i) => i.id === imageId) || null
 }
 
 const handleSelect = (label: string): void => {
@@ -135,9 +128,7 @@ function getSvgMarkup(imageId: string | undefined): string {
   return image?.type === 'svg' ? image.svg : ''
 }
 
-const answerSet = computed<Set<string>>(() =>
-  new Set(props.question.answer || [])
-)
+const answerSet = computed<Set<string>>(() => new Set(props.question.answer || []))
 
 function optionClass(text: string | undefined, label: string): Record<string, boolean> {
   const normalizedText = (text || '').replace(/\$+/g, '').replace(/\s+/g, ' ').trim()
@@ -494,7 +485,9 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
   font-size: 0.875rem;
   font-weight: 700;
   flex-shrink: 0;
-  transition: background 0.18s ease, color 0.18s ease;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease;
 }
 
 .opt-card__text {
@@ -531,5 +524,4 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
 .opt-card__text :deep(.katex) {
   font-size: 1em;
 }
-
 </style>

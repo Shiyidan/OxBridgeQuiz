@@ -91,7 +91,8 @@ const canUseAllTests = computed(() => auth.isAdmin || Boolean(currentQuota.value
 const quotaText = computed(() => {
   if (canUseAllTests.value) return '可全部测试'
   const diagnostic = currentQuota.value?.diagnostic
-  if (!diagnostic || diagnostic.remaining === null || diagnostic.limit === null) return '免费额度  --/--次'
+  if (!diagnostic || diagnostic.remaining === null || diagnostic.limit === null)
+    return '免费额度  --/--次'
   return `免费额度（${diagnostic.remaining}/${diagnostic.limit}次）`
 })
 const recordByPaperId = computed<Record<string, AssessmentRecordItem>>(() => {
@@ -359,5 +360,4 @@ function scoreText(record: AssessmentRecordItem): string {
   color: #64748b;
   text-align: center;
 }
-
 </style>

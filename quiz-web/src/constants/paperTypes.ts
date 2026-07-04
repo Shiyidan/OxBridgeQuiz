@@ -26,7 +26,11 @@ const paperTypeSourceLabelMap: Record<PaperType, string> = {
 }
 
 export function normalizePaperType(value?: string | null): PaperType {
-  if (value === PAPER_TYPE.REAL_PAPER || value === PAPER_TYPE.MOCK_PAPER || value === PAPER_TYPE.AI_PAPER) {
+  if (
+    value === PAPER_TYPE.REAL_PAPER ||
+    value === PAPER_TYPE.MOCK_PAPER ||
+    value === PAPER_TYPE.AI_PAPER
+  ) {
     return value
   }
   return PAPER_TYPE.REAL_PAPER

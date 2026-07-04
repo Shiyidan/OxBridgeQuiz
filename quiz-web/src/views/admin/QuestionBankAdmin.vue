@@ -33,81 +33,96 @@
         <el-button @click="handleReset">重置</el-button>
       </div>
 
-      <div class="table-wrap">
-        <el-table
-          v-loading="loading"
-          :data="paperList"
-          class="admin-paper-table"
-          stripe
-          empty-text="暂无 AI 生成题目，请点击“导入题目”上传题目文件"
-          max-height="var(--question-table-max-height)"
+      <AdminDataTable
+        v-model:page="pagination.page"
+        v-model:page-size="pagination.pageSize"
+        :data="paperList"
+        :loading="loading"
+        :total="pagination.total"
+        empty-text="暂无 AI 生成题目，请点击“导入题目”上传题目文件"
+        max-height="var(--question-table-max-height)"
+        show-pagination
+        @page-change="handlePageChange"
+        @page-size-change="handlePageSizeChange"
+      >
+        <el-table-column
+          prop="title"
+          label="题目名称"
+          min-width="240"
+          align="center"
+          header-align="center"
+          show-overflow-tooltip
         >
-          <el-table-column prop="title" label="题目名称" min-width="240" align="center" header-align="center" show-overflow-tooltip>
-            <template #default="{ row }">
-              <span class="cell-name">{{ row.title }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="考试类型" width="120" align="center" header-align="center">
-            <template #default="{ row }">
-              <el-tag class="exam-type-tag" effect="light" round>{{ row.examType || 'TMUA' }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="学科/模块" width="140" align="center" header-align="center">
-            <template #default="{ row }">
-              <el-tag class="subject-tag" :class="`subject-tag--${subjectType(row.code)}`" effect="light" round>
-                {{ subjectLabel(row.code) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="类型" width="130" align="center" header-align="center">
-            <template #default>
-              <el-tag class="paper-type-tag" effect="light" round>AI 生成卷</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="year" label="年份" width="100" align="center" header-align="center" />
-          <el-table-column label="题目数量" width="120" align="center" header-align="center">
-            <template #default="{ row }">{{ row.totalQuestions }} 题</template>
-          </el-table-column>
-          <el-table-column label="状态" width="140" align="center" header-align="center">
-            <template #default="{ row }">
-              <el-dropdown trigger="click" @command="handleStatusCommand(row.id, $event)">
-                <button class="status-btn" :class="`status-btn--${row.status}`" type="button">
-                  {{ statusLabel(row.status) }}
-                </button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item
-                      v-for="item in statusOptions"
-                      :key="item.value"
-                      :command="item.value"
-                    >
-                      {{ item.label }}
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="140" fixed="right" align="center" header-align="center">
-            <template #default="{ row }">
-              <router-link :to="`/admin/core-library/questions/${row.id}`" class="table-action-link">
-                管理内容
-              </router-link>
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
-
-      <div class="pagination-wrap">
-        <AppPagination
-          v-if="!loading"
-          v-model:page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          @page-change="handlePageChange"
-          @page-size-change="handlePageSizeChange"
+          <template #default="{ row }">
+            <span class="cell-name">{{ row.title }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="考试类型" width="120" align="center" header-align="center">
+          <template #default="{ row }">
+            <el-tag class="exam-type-tag" effect="light" round>{{ row.examType || 'TMUA' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="学科/模块" width="140" align="center" header-align="center">
+          <template #default="{ row }">
+            <el-tag
+              class="subject-tag"
+              :class="`subject-tag--${subjectType(row.code)}`"
+              effect="light"
+              round
+            >
+              {{ subjectLabel(row.code) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="类型" width="130" align="center" header-align="center">
+          <template #default>
+            <el-tag class="paper-type-tag" effect="light" round>AI 生成卷</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="year"
+          label="年份"
+          width="100"
+          align="center"
+          header-align="center"
         />
-      </div>
+        <el-table-column label="题目数量" width="120" align="center" header-align="center">
+          <template #default="{ row }">{{ row.totalQuestions }} 题</template>
+        </el-table-column>
+        <el-table-column label="状态" width="140" align="center" header-align="center">
+          <template #default="{ row }">
+            <el-dropdown trigger="click" @command="handleStatusCommand(row.id, $event)">
+              <button class="status-btn" :class="`status-btn--${row.status}`" type="button">
+                {{ statusLabel(row.status) }}
+              </button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item
+                    v-for="item in statusOptions"
+                    :key="item.value"
+                    :command="item.value"
+                  >
+                    {{ item.label }}
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </template>
+        </el-table-column>
+        <el-table-column
+          label="操作"
+          width="140"
+          fixed="right"
+          align="center"
+          header-align="center"
+        >
+          <template #default="{ row }">
+            <router-link :to="`/admin/core-library/questions/${row.id}`" class="table-action-link">
+              管理内容
+            </router-link>
+          </template>
+        </el-table-column>
+      </AdminDataTable>
     </div>
   </div>
 </template>
@@ -117,7 +132,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import AppPagination from '@/components/AppPagination.vue'
+import AdminDataTable from '@/components/admin/AdminDataTable.vue'
 import { getPaperListData, updatePaperStatus, type PaperItem } from '@/api/papers'
 import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 import { PAPER_TYPE } from '@/constants/paperTypes'
@@ -252,6 +267,7 @@ async function changeStatus(id: string, newStatus: string): Promise<void> {
   }
 }
 
+// Element 下拉菜单只返回 command，这里补上当前行 id 后再复用状态更新逻辑。
 function handleStatusCommand(id: string, command: unknown): void {
   void changeStatus(id, String(command))
 }
@@ -358,72 +374,6 @@ function handleImport(): void {
   border-color: var(--color-ink);
   background: var(--color-ink);
   color: var(--color-ink-inverse);
-}
-
-.table-wrap {
-  flex: 0 1 auto;
-  min-height: 0;
-  max-height: var(--question-table-max-height);
-  width: 100%;
-  overflow: hidden;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-}
-
-.pagination-wrap {
-  position: sticky;
-  bottom: 0;
-  z-index: 10;
-  flex-shrink: 0;
-  margin-top: 10px;
-  padding: 0;
-  background: #f8fafc;
-}
-
-.pagination-wrap:empty {
-  display: none;
-}
-
-.pagination-wrap :deep(.app-pagination) {
-  padding: 0;
-  border-top: 0;
-  background: transparent;
-}
-
-:deep(.admin-paper-table) {
-  --el-table-border-color: var(--color-line-soft);
-  --el-table-header-bg-color: #f0f3ff;
-  --el-table-row-hover-bg-color: var(--color-hover);
-
-  width: 100%;
-  font-size: var(--text-sm);
-}
-
-:deep(.admin-paper-table .el-table__cell) {
-  padding: 12px 16px;
-}
-
-:deep(.admin-paper-table th.el-table__cell) {
-  color: #334155;
-  font-weight: var(--weight-semi);
-  background: #f0f3ff;
-}
-
-:deep(.admin-paper-table .el-table__header-wrapper th.el-table__cell),
-:deep(.admin-paper-table .el-table__fixed-right th.el-table__cell) {
-  background: #f0f3ff;
-}
-
-:deep(.admin-paper-table th .cell),
-:deep(.admin-paper-table .el-table__fixed-right .cell) {
-  overflow: visible;
-  text-overflow: clip;
-  white-space: nowrap;
-}
-
-:deep(.admin-paper-table .el-table__row) {
-  height: var(--height-table-row);
 }
 
 .cell-name {

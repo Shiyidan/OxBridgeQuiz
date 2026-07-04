@@ -50,28 +50,42 @@
           <div v-if="isCurrentExamActive" class="metric-panel">
             <article class="metric-item">
               <span>预估分数</span>
-              <strong>{{ estimatedScoreText }}<small v-if="estimatedScoreText !== '--'">/9.0</small></strong>
+              <strong
+                >{{ estimatedScoreText
+                }}<small v-if="estimatedScoreText !== '--'">/9.0</small></strong
+              >
             </article>
             <article class="metric-item">
               <span>累计做题</span>
-              <strong>{{ answeredQuestionText }}<small v-if="answeredQuestionText !== '--'">道</small></strong>
+              <strong
+                >{{ answeredQuestionText
+                }}<small v-if="answeredQuestionText !== '--'">道</small></strong
+              >
             </article>
             <article class="metric-item">
               <span>累计考试</span>
-              <strong>{{ diagnosticExamText }}<small v-if="diagnosticExamText !== '--'">场</small></strong>
+              <strong
+                >{{ diagnosticExamText
+                }}<small v-if="diagnosticExamText !== '--'">场</small></strong
+              >
             </article>
           </div>
 
           <div v-else class="member-upgrade-panel">
             <h2>开通 {{ currentExamType }} 会员</h2>
             <p>解锁 {{ currentExamType }} 历年真题、海量练习题、预估分分析与模拟考试权益。</p>
-            <button type="button" class="button_primary" @click="handleUpgradeClick">升级会员</button>
+            <button type="button" class="button_primary" @click="handleUpgradeClick">
+              升级会员
+            </button>
           </div>
         </section>
 
         <section v-else class="free-upgrade-panel">
           <span class="status-pill">诊断测试已完成</span>
-          <h2>首次诊断测试分数：{{ estimatedScoreText }}<small v-if="estimatedScoreText !== '--'"> / 9.0</small></h2>
+          <h2>
+            首次诊断测试分数：{{ estimatedScoreText
+            }}<small v-if="estimatedScoreText !== '--'"> / 9.0</small>
+          </h2>
           <p>升级 Pro 会员，解锁历次测试综合分析、海量真题练习册与智能错题本系统。</p>
           <button type="button" class="button_cancel">升级 Pro 会员</button>
         </section>
@@ -81,9 +95,18 @@
         <div class="section-title">
           <h2>基础信息</h2>
           <div class="section-actions">
-            <button v-if="!profileEditing" type="button" class="button_cancel" @click="startEditProfile">编辑</button>
+            <button
+              v-if="!profileEditing"
+              type="button"
+              class="button_cancel"
+              @click="startEditProfile"
+            >
+              编辑
+            </button>
             <template v-else>
-              <button type="button" class="text-button button_cancel" @click="cancelEditProfile">取消</button>
+              <button type="button" class="text-button button_cancel" @click="cancelEditProfile">
+                取消
+              </button>
               <button
                 type="button"
                 class="primary-button button_primary"
@@ -124,10 +147,19 @@
         <div class="section-title">
           <h2>报考目标</h2>
           <div class="section-actions">
-            <button v-if="!examEditing" type="button" class="button_cancel" @click="startEditExam">编辑</button>
+            <button v-if="!examEditing" type="button" class="button_cancel" @click="startEditExam">
+              编辑
+            </button>
             <template v-else>
-              <button type="button" class="text-button button_cancel" @click="cancelEditExam">取消</button>
-              <button type="button" class="primary-button button_primary" :disabled="examSaving" @click="saveExam">
+              <button type="button" class="text-button button_cancel" @click="cancelEditExam">
+                取消
+              </button>
+              <button
+                type="button"
+                class="primary-button button_primary"
+                :disabled="examSaving"
+                @click="saveExam"
+              >
                 {{ examSaving ? '保存中...' : '保存' }}
               </button>
             </template>
@@ -145,7 +177,13 @@
                 class="exam-type-chip"
                 :class="{ 'exam-type-chip--active': editExamTypes.includes(et.value) }"
               >
-                <input type="checkbox" :value="et.value" :checked="editExamTypes.includes(et.value)" class="sr-only" @change="toggleEditExamType(et.value)" />
+                <input
+                  type="checkbox"
+                  :value="et.value"
+                  :checked="editExamTypes.includes(et.value)"
+                  class="sr-only"
+                  @change="toggleEditExamType(et.value)"
+                />
                 {{ et.label }}
               </label>
             </div>
@@ -153,7 +191,9 @@
           <div v-if="editExamTypes.length" class="form-field">
             <label class="form-label">备考科目</label>
             <div v-for="et in editExamTypes" :key="et" class="subject-group">
-              <span class="subject-exam-label">{{ examTypeLabel(et) }}{{ et === 'ESAT' ? '（最多选 3 科）' : '' }}</span>
+              <span class="subject-exam-label"
+                >{{ examTypeLabel(et) }}{{ et === 'ESAT' ? '（最多选 3 科）' : '' }}</span
+              >
               <div class="subject-chip-group">
                 <label
                   v-for="sub in examSubjects[et]"
@@ -164,7 +204,14 @@
                     'subject-chip--required': isExamSubjectRequired(et, sub),
                   }"
                 >
-                  <input type="checkbox" :value="sub" :checked="editSubjects[et]?.includes(sub)" :disabled="isEditSubjectDisabled(et, sub)" class="sr-only" @change="toggleEditSubject(et, sub)" />
+                  <input
+                    type="checkbox"
+                    :value="sub"
+                    :checked="editSubjects[et]?.includes(sub)"
+                    :disabled="isEditSubjectDisabled(et, sub)"
+                    class="sr-only"
+                    @change="toggleEditSubject(et, sub)"
+                  />
                   {{ sub }}
                 </label>
               </div>
@@ -255,13 +302,7 @@
               >
                 续费
               </button>
-              <button
-                v-else
-                class="record-button button_cancel"
-                type="button"
-              >
-                重新订阅
-              </button>
+              <button v-else class="record-button button_cancel" type="button">重新订阅</button>
             </div>
           </article>
         </div>
@@ -278,7 +319,12 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
-import { getMember, updateExamPreferences, type MemberSubscription, type ExamPreference } from '@/api/member'
+import {
+  getMember,
+  updateExamPreferences,
+  type MemberSubscription,
+  type ExamPreference,
+} from '@/api/member'
 import { getProfileExamStats, type ProfileExamStats } from '@/api/exam'
 import { useAuthStore } from '@/stores/auth'
 import { DEFAULT_EXAM_TYPE, EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
@@ -426,16 +472,19 @@ const membershipTags = computed(() => {
 })
 // 未开通的考试类型保留 tab 入口，但统计值按产品要求隐藏为占位符。
 const isCurrentExamActive = computed(() =>
-  activeMemberships.value.some((item) => normalizeExamType(item.examType) === currentExamType.value),
+  activeMemberships.value.some(
+    (item) => normalizeExamType(item.examType) === currentExamType.value,
+  ),
 )
 // 后端按考试类型返回统计，前端兜底可避免接口缺项导致模板分支复杂化。
-const currentExamStats = computed<ProfileExamStats>(() => (
-  profileStats.value[currentExamType.value] || {
-    estimatedScore: null,
-    answeredQuestionCount: 0,
-    diagnosticExamCount: 0,
-  }
-))
+const currentExamStats = computed<ProfileExamStats>(
+  () =>
+    profileStats.value[currentExamType.value] || {
+      estimatedScore: null,
+      answeredQuestionCount: 0,
+      diagnosticExamCount: 0,
+    },
+)
 const estimatedScoreText = computed(() => {
   if (!isCurrentExamActive.value) return '--'
   const score = currentExamStats.value.estimatedScore
@@ -483,10 +532,7 @@ watch(
 
 onMounted(async () => {
   errorText.value = ''
-  const [memberResult, statsResult] = await Promise.allSettled([
-    getMember(),
-    getProfileExamStats(),
-  ])
+  const [memberResult, statsResult] = await Promise.allSettled([getMember(), getProfileExamStats()])
 
   if (memberResult.status === 'fulfilled') {
     auth.setMemberContext(memberResult.value)
@@ -503,9 +549,7 @@ onMounted(async () => {
   if (statsResult.status === 'fulfilled') {
     profileStats.value = statsResult.value.stats || {}
   }
-  const hasFailure = [memberResult, statsResult].some(
-    (result) => result.status === 'rejected',
-  )
+  const hasFailure = [memberResult, statsResult].some((result) => result.status === 'rejected')
   if (hasFailure) errorText.value = '部分学习数据暂时无法加载，请稍后刷新。'
 })
 
@@ -1314,7 +1358,9 @@ function formatTimestamp(value: number | null): string {
 .subject-group {
   margin-bottom: 10px;
 
-  &:last-child { margin-bottom: 0; }
+  &:last-child {
+    margin-bottom: 0;
+  }
 }
 
 .subject-exam-label {
@@ -1324,5 +1370,4 @@ function formatTimestamp(value: number | null): string {
   font-weight: var(--weight-semi);
   color: var(--color-ink-muted);
 }
-
 </style>

@@ -8,12 +8,7 @@
         :aria-label="backLabel"
         @click="$emit('back')"
       >
-        <svg
-          class="exam-topbar__back-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          aria-hidden="true"
-        >
+        <svg class="exam-topbar__back-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path
             d="M15 18L9 12L15 6"
             stroke="currentColor"
@@ -31,7 +26,8 @@
             class="exam-topbar__timer"
             :class="{ 'exam-topbar__timer--warning': isCountdown && timerRemaining <= 300 }"
             :aria-label="isCountdown ? '剩余时间' : '已用时间'"
-          >{{ timerText }}</span>
+            >{{ timerText }}</span
+          >
         </div>
         <div class="exam-topbar__progress" aria-hidden="true">
           <span :style="{ width: progressPercent }" />
@@ -51,22 +47,25 @@ export type ExamMode = 'question-bank' | 'assessment' | 'mock-exam'
 // 每种答题模式对应的计时方向和返回按钮文案
 const MODE_CONFIG: Record<ExamMode, { isCountdown: boolean; backLabel: string }> = {
   'question-bank': { isCountdown: false, backLabel: '返回试题库' },
-  'assessment':    { isCountdown: true,  backLabel: '返回诊断测试' },
-  'mock-exam':     { isCountdown: true,  backLabel: '返回仿真考试' },
+  assessment: { isCountdown: true, backLabel: '返回诊断测试' },
+  'mock-exam': { isCountdown: true, backLabel: '返回仿真考试' },
 }
 
-const props = withDefaults(defineProps<{
-  examType: ExamType
-  mode: ExamMode
-  countdownDurationSeconds: number
-  currentIndex: number
-  totalCount: number
-}>(), {
-  mode: 'question-bank',
-  countdownDurationSeconds: 0,
-  currentIndex: 0,
-  totalCount: 0,
-})
+const props = withDefaults(
+  defineProps<{
+    examType: ExamType
+    mode: ExamMode
+    countdownDurationSeconds: number
+    currentIndex: number
+    totalCount: number
+  }>(),
+  {
+    mode: 'question-bank',
+    countdownDurationSeconds: 0,
+    currentIndex: 0,
+    totalCount: 0,
+  },
+)
 
 const emit = defineEmits<{
   (e: 'time-expired'): void
@@ -106,7 +105,8 @@ const timerText = computed(() => {
 
 // 顶部标题：考试类型 + 当前题号
 const headerText = computed(() => {
-  const label = EXAM_TYPE_OPTIONS.find(item => item.value === props.examType)?.label || props.examType
+  const label =
+    EXAM_TYPE_OPTIONS.find((item) => item.value === props.examType)?.label || props.examType
   return `${label}（第${props.currentIndex + 1}/${props.totalCount}题）`
 })
 
@@ -157,17 +157,13 @@ function handleVisibilityChange(): void {
     return
   }
   // 弹窗期间计时保持冻结，点击确定后才累加暂停时长并恢复
-  ElMessageBox.alert(
-    '是否开始继续答题',
-    '提示',
-    {
-      confirmButtonText: '确定',
-      confirmButtonClass: 'button_primary',
-      customClass: 'app-confirm-box',
-      closeOnClickModal: false,
-      showClose: false,
-    },
-  ).then(() => {
+  ElMessageBox.alert('是否开始继续答题', '提示', {
+    confirmButtonText: '确定',
+    confirmButtonClass: 'button_primary',
+    customClass: 'app-confirm-box',
+    closeOnClickModal: false,
+    showClose: false,
+  }).then(() => {
     if (!isMounted) return
     pausedDuration += Date.now() - pauseStartedAt
     startTimer()

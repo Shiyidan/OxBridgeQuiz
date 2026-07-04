@@ -1,9 +1,5 @@
 ﻿<template>
   <div class="revenue-page">
-    <div class="page-top-bar">
-      <button class="back-btn" type="button" @click="$router.push('/admin')">← 返回类别列表</button>
-    </div>
-
     <div class="page-body">
       <div class="page-heading">
         <div>
@@ -14,30 +10,76 @@
       </div>
 
       <div class="table-wrap">
-        <el-table v-loading="loading" :data="costs" stripe>
-          <el-table-column type="index" label="序号" width="80" />
-          <el-table-column prop="rechargeItem" label="充值项" min-width="140" />
-          <el-table-column label="金额" min-width="120">
+        <el-table
+          v-loading="loading"
+          :data="costs"
+          class="revenue-table"
+          stripe
+          empty-text="暂无成本记录"
+          max-height="var(--revenue-table-max-height)"
+        >
+          <el-table-column
+            type="index"
+            label="序号"
+            width="96"
+            :index="tableIndex"
+            align="center"
+            header-align="center"
+          />
+          <el-table-column
+            prop="rechargeItem"
+            label="充值项"
+            min-width="140"
+            align="center"
+            header-align="center"
+            show-overflow-tooltip
+          />
+          <el-table-column label="金额" min-width="120" align="center" header-align="center">
             <template #default="{ row }">{{ formatAmount(row.amount) }}</template>
           </el-table-column>
-          <el-table-column label="时间" min-width="160">
+          <el-table-column label="时间" min-width="160" align="center" header-align="center">
             <template #default="{ row }">{{ formatDate(row.occurredAt) }}</template>
           </el-table-column>
-          <el-table-column prop="operator" label="操作人" min-width="120" />
-          <el-table-column label="报销情况" min-width="140">
+          <el-table-column
+            prop="operator"
+            label="操作人"
+            width="120"
+            align="center"
+            header-align="center"
+          />
+          <el-table-column label="报销情况" min-width="140" align="center" header-align="center">
             <template #default="{ row }">
               <el-tag :type="reimbursementTagType(row.reimbursementStatus)" effect="light">
                 {{ reimbursementLabel(row.reimbursementStatus) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="remark" label="备注" min-width="180" show-overflow-tooltip />
-          <el-table-column label="操作" width="100" fixed="right">
+          <el-table-column
+            prop="remark"
+            label="备注"
+            width="140"
+            align="center"
+            header-align="center"
+            show-overflow-tooltip
+          />
+          <el-table-column label="操作" width="120" fixed="right" align="center" header-align="center">
             <template #default="{ row }">
-              <el-button link type="primary" @click="openEditDialog(row)">编辑</el-button>
+              <button class="table-action-btn" type="button" @click.stop="openEditDialog(row)">
+                编辑
+              </button>
             </template>
           </el-table-column>
         </el-table>
+      </div>
+      <div class="pagination-wrap">
+        <AppPagination
+          v-if="!loading"
+          v-model:page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          @page-change="handlePageChange"
+          @page-size-change="handlePageSizeChange"
+        />
       </div>
     </div>
 
@@ -100,6 +142,7 @@
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { getRevenueListData, updateRevenue, createRevenue, type RevenueItem } from '@/api/admin'
+import AppPagination from '@/components/AppPagination.vue'
 
 type ReimbursementStatus = 'unreimbursed' | 'reimbursing' | 'reimbursed' | 'non_reimbursable'
 type RevenueCost = RevenueItem & { reimbursementStatus: ReimbursementStatus }
@@ -128,6 +171,11 @@ const submitting = ref(false)
 const dialogVisible = ref(false)
 const editingCostId = ref<string | null>(null)
 const formRef = ref<FormInstance>()
+const pagination = reactive({
+  page: 1,
+  pageSize: 20,
+  total: 0,
+})
 
 const form = reactive<CostForm>({
   rechargeItem: '',
@@ -218,6 +266,10 @@ function reimbursementTagType(
   return map[status]
 }
 
+function tableIndex(index: number): number {
+  return (pagination.page - 1) * pagination.pageSize + index + 1
+}
+
 // 表单提交前统一清洗字段，和后端成本 payload 保持一致。
 function buildPayload() {
   return {
@@ -230,18 +282,38 @@ function buildPayload() {
   }
 }
 
-// 成本接口返回 { costs }，页面只消费内部数组。
+// 成本接口返回分页结构，页面只消费当前页列表和分页元数据。
 async function getList(): Promise<void> {
   loading.value = true
   try {
-    const data = await getRevenueListData()
-    costs.value = (data.costs || []) as RevenueCost[]
+    const data = await getRevenueListData({
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+    })
+    costs.value = (data.list || []) as RevenueCost[]
+    pagination.page = data.pagination.page
+    pagination.pageSize = data.pagination.pageSize
+    pagination.total = data.pagination.total
   } catch (e: any) {
     costs.value = []
+    pagination.total = 0
     ElMessage.error(e.response?.data?.errMsg || '成本数据加载失败')
   } finally {
     loading.value = false
   }
+}
+
+// 成本列表分页切换时只更新分页条件，并重新读取当前页数据。
+async function handlePageChange(page: number): Promise<void> {
+  pagination.page = page
+  await getList()
+}
+
+// 修改每页数量后回到第一页，避免请求到不存在的页码。
+async function handlePageSizeChange(pageSize: number): Promise<void> {
+  pagination.pageSize = pageSize
+  pagination.page = 1
+  await getList()
 }
 
 // 根据是否存在编辑 id 选择新增或更新接口，成功后刷新表格。
@@ -250,18 +322,20 @@ async function submitCost(): Promise<void> {
   if (!valid || !form.occurredAt) return
 
   submitting.value = true
+  const wasEditing = Boolean(editingCostId.value)
   try {
-    if (editingCostId.value) {
+    if (wasEditing && editingCostId.value) {
       await updateRevenue(editingCostId.value, buildPayload())
     } else {
       await createRevenue(buildPayload())
+      pagination.page = 1
     }
     await getList()
     dialogVisible.value = false
-    ElMessage.success(isEditing.value ? '成本记录更新成功' : '成本导入成功')
+    ElMessage.success(wasEditing ? '成本记录更新成功' : '成本导入成功')
   } catch (e: any) {
     ElMessage.error(
-      e.response?.data?.errMsg || (isEditing.value ? '成本记录更新失败' : '成本导入失败'),
+      e.response?.data?.errMsg || (wasEditing ? '成本记录更新失败' : '成本导入失败'),
     )
   } finally {
     submitting.value = false
@@ -273,43 +347,31 @@ onMounted(getList)
 
 <style scoped lang="scss">
 .revenue-page {
-  min-height: 100%;
-}
+  --revenue-table-max-height: calc(100vh - var(--nav-height) - 170px);
 
-.page-top-bar {
-  padding: 28px 40px 0;
-}
-
-.back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border: none;
-  background: transparent;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #64748b;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.15s ease;
-
-  &:hover {
-    color: #0f172a;
-    background: #f1f5f9;
-  }
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .page-body {
-  padding: 24px 40px 48px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 40px 10px;
+  overflow: hidden;
 }
 
 .page-heading {
+  flex-shrink: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 20px;
-  margin-bottom: 24px;
+  margin-bottom: 10px;
 }
 
 .page-title {
@@ -326,10 +388,99 @@ onMounted(getList)
 }
 
 .table-wrap {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: var(--revenue-table-max-height);
+  width: 100%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
   overflow: hidden;
+}
+
+.pagination-wrap {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  flex-shrink: 0;
+  margin-top: 10px;
+  padding: 0;
+  background: #f8fafc;
+}
+
+.pagination-wrap:empty {
+  display: none;
+}
+
+.pagination-wrap :deep(.app-pagination) {
+  padding: 0;
+  border-top: 0;
+  background: transparent;
+}
+
+:deep(.revenue-table) {
+  --el-table-border-color: var(--color-line-soft);
+  --el-table-header-bg-color: #f0f3ff;
+  --el-table-row-hover-bg-color: var(--color-hover);
+
+  width: 100%;
+  font-size: var(--text-sm);
+}
+
+:deep(.revenue-table .el-table__cell) {
+  padding: 12px 16px;
+}
+
+:deep(.revenue-table th.el-table__cell) {
+  color: #334155;
+  font-weight: var(--weight-semi);
+  background: #f0f3ff;
+}
+
+:deep(.revenue-table .el-table__header-wrapper th.el-table__cell),
+:deep(.revenue-table .el-table__fixed-right th.el-table__cell) {
+  background: #f0f3ff;
+}
+
+:deep(.revenue-table th .cell),
+:deep(.revenue-table .el-table__fixed-right .cell) {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+:deep(.revenue-table .el-table__row) {
+  height: var(--height-table-row);
+}
+
+.table-action-btn {
+  min-width: 48px;
+  height: var(--height-button-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-ink);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--duration-base) ease,
+    border-color var(--duration-base) ease,
+    color var(--duration-base) ease;
+}
+
+.table-action-btn:hover,
+.table-action-btn:focus-visible {
+  border-color: var(--color-line);
+  background: var(--color-hover);
+  color: var(--color-ink);
 }
 
 :deep(.el-select),
@@ -339,10 +490,6 @@ onMounted(getList)
 }
 
 @media (max-width: 640px) {
-  .page-top-bar {
-    padding: 20px 20px 0;
-  }
-
   .page-body {
     padding: 20px;
   }

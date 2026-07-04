@@ -17,10 +17,25 @@ export interface PaperItem {
 }
 
 export interface PaperListResult {
-  papers: PaperItem[]
-  total: number
+  list: PaperItem[]
+  pagination: PaginationMeta
+}
+
+export interface PaginationMeta {
   page: number
+  pageSize: number
+  total: number
   totalPages: number
+  hasPrev: boolean
+  hasNext: boolean
+}
+
+export interface PaperListParams {
+  page?: number
+  pageSize?: number
+  paperType?: string
+  examType?: string
+  keyword?: string
 }
 
 export interface PaperDetail extends PaperItem {
@@ -29,15 +44,17 @@ export interface PaperDetail extends PaperItem {
 }
 
 /** 试卷列表 */
-export function getPaperListData(params: { page?: number; limit?: number; paperType?: string } = {}) {
+export function getPaperListData(params: PaperListParams = {}) {
   return callApi<PaperListResult>({
     url: '/papers',
     method: 'GET',
     isAllData: false,
     params: {
       page: String(params.page || 1),
-      limit: String(params.limit || 100),
+      pageSize: String(params.pageSize || 20),
       ...(params.paperType ? { paperType: params.paperType } : {}),
+      ...(params.examType ? { examType: params.examType } : {}),
+      ...(params.keyword ? { keyword: params.keyword } : {}),
     },
   })
 }

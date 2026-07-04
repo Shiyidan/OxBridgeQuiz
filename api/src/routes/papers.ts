@@ -92,6 +92,12 @@ function safeParseJson(value: string): unknown {
   }
 }
 
+function parsePositiveInt(value: unknown, fallback: number, max?: number): number {
+  const parsed = Number.parseInt(String(value ?? ''), 10)
+  const safeValue = Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+  return max ? Math.min(safeValue, max) : safeValue
+}
+
 async function applySyllabusToTree(syllabus: { id: string; examType: string; sourceJson: string }) {
   const content = parseSyllabusJson(syllabus.sourceJson)
   const nodes = normalizeSyllabusNodes(content)
@@ -119,27 +125,45 @@ async function applySyllabusToTree(syllabus: { id: string; examType: string; sou
 }
 
 papersRouter.get('/', async (req, res) => {
-  const page = parseInt(req.query.page as string) || 1
-  const limit = parseInt(req.query.limit as string) || 20
-  const paperType = req.query.paperType as string | undefined
-  const skip = (page - 1) * limit
-  const where = paperType ? { paperType: { in: paperTypeWhereValues(paperType) } } : {}
+  const page = parsePositiveInt(req.query.page, 1)
+  const pageSize = parsePositiveInt(req.query.pageSize ?? req.query.limit, 20, 100)
+  const paperType = typeof req.query.paperType === 'string' ? req.query.paperType : undefined
+  const examType = typeof req.query.examType === 'string' ? req.query.examType : undefined
+  const keyword = typeof req.query.keyword === 'string' ? req.query.keyword.trim() : ''
+  const where: Record<string, unknown> = {}
+  const paperTypeValues = paperType ? paperTypeWhereValues(paperType) : []
+  if (paperTypeValues.length > 0) where.paperType = { in: paperTypeValues }
+  if (examType && isExamType(examType)) where.examType = examType
+  if (keyword) where.title = { contains: keyword }
 
-  const [papers, total] = await Promise.all([
-    prisma.paper.findMany({
-      where,
-      select: {
-        id: true, title: true, code: true, examType: true, year: true,
-        duration: true, totalQuestions: true, paperType: true, status: true,
-        createdAt: true
-      },
-      orderBy: { createdAt: 'desc' },
-      skip, take: limit
-    }),
-    prisma.paper.count({ where })
-  ])
+  const total = await prisma.paper.count({ where })
+  const totalPages = Math.ceil(total / pageSize)
+  const safePage = totalPages > 0 ? Math.min(page, totalPages) : 1
+  const skip = (safePage - 1) * pageSize
 
-  res.json(success({ papers, total, page, totalPages: Math.ceil(total / limit) }))
+  const papers = await prisma.paper.findMany({
+    where,
+    select: {
+      id: true, title: true, code: true, examType: true, year: true,
+      duration: true, totalQuestions: true, paperType: true, status: true,
+      createdAt: true
+    },
+    orderBy: { createdAt: 'desc' },
+    skip,
+    take: pageSize,
+  })
+
+  res.json(success({
+    list: papers,
+    pagination: {
+      page: safePage,
+      pageSize,
+      total,
+      totalPages,
+      hasPrev: safePage > 1,
+      hasNext: totalPages > 0 && safePage < totalPages,
+    },
+  }))
 })
 
 // JSON 导入试卷

@@ -1,121 +1,123 @@
 <template>
   <div class="question-bank-page">
-    <div class="page-top-bar">
-      <button class="back-btn" type="button" @click="$router.push('/admin/core-library')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        返回资料库
-      </button>
-    </div>
-
     <div class="page-body">
       <div class="section-header">
         <div class="header-text">
           <h2 class="section-title">试题库题目管理</h2>
           <p class="section-desc">管理 AI 生成题目及其内容，发布后进入学生端试题库练习范围。</p>
         </div>
-        <button class="btn-primary-action" type="button" @click="handleImport">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          导入题目
-        </button>
+        <el-button type="primary" @click="handleImport">导入题目</el-button>
       </div>
 
       <div class="filter-bar">
-        <div class="search-input-wrap">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input v-model.trim="keyword" type="text" placeholder="搜索试卷名称..." class="search-input" />
-        </div>
+        <el-input
+          v-model.trim="draftKeyword"
+          class="search-input"
+          clearable
+          placeholder="搜索试卷名称..."
+          @keyup.enter="handleSearch"
+        />
         <div class="filter-tags">
           <button
             v-for="item in examTypeFilters"
             :key="item.value"
             type="button"
             class="filter-tag"
-            :class="{ 'filter-tag--active': activeExamType === item.value }"
-            @click="activeExamType = item.value"
+            :class="{ 'filter-tag--active': draftExamType === item.value }"
+            @click="handleExamTypeChange(item.value)"
           >
             {{ item.label }}
           </button>
         </div>
+        <el-button @click="handleSearch">搜索</el-button>
+        <el-button @click="handleReset">重置</el-button>
       </div>
 
-      <div v-if="loading" class="empty-card">加载中...</div>
-      <div v-else-if="filteredPapers.length" class="data-card">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>题目名称</th>
-              <th>考试类型</th>
-              <th>学科/模块</th>
-              <th>类型</th>
-              <th>年份</th>
-              <th>题目数量</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="paper in filteredPapers" :key="paper.id">
-              <td class="name-cell">{{ paper.title }}</td>
-              <td>
-                <span class="exam-type-tag">{{ paper.examType || 'TMUA' }}</span>
-              </td>
-              <td>
-                <span :class="`subject-tag subject-tag--${subjectType(paper.code)}`">
-                  {{ subjectLabel(paper.code) }}
-                </span>
-              </td>
-              <td>
-                <span class="paper-type-tag">AI 生成卷</span>
-              </td>
-              <td>{{ paper.year }}</td>
-              <td>{{ paper.totalQuestions }} 题</td>
-              <td>
-                <button
-                  class="status-btn"
-                  :class="`status-btn--${paper.status}`"
-                  type="button"
-                  @click="toggleStatusMenu(paper.id)"
-                >
-                  {{ statusLabel(paper.status) }}
+      <div class="table-wrap">
+        <el-table
+          v-loading="loading"
+          :data="paperList"
+          class="admin-paper-table"
+          stripe
+          empty-text="暂无 AI 生成题目，请点击“导入题目”上传题目文件"
+          max-height="var(--question-table-max-height)"
+        >
+          <el-table-column prop="title" label="题目名称" min-width="240" align="center" header-align="center" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span class="cell-name">{{ row.title }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="考试类型" width="120" align="center" header-align="center">
+            <template #default="{ row }">
+              <el-tag class="exam-type-tag" effect="light" round>{{ row.examType || 'TMUA' }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="学科/模块" width="140" align="center" header-align="center">
+            <template #default="{ row }">
+              <el-tag class="subject-tag" :class="`subject-tag--${subjectType(row.code)}`" effect="light" round>
+                {{ subjectLabel(row.code) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="类型" width="130" align="center" header-align="center">
+            <template #default>
+              <el-tag class="paper-type-tag" effect="light" round>AI 生成卷</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="year" label="年份" width="100" align="center" header-align="center" />
+          <el-table-column label="题目数量" width="120" align="center" header-align="center">
+            <template #default="{ row }">{{ row.totalQuestions }} 题</template>
+          </el-table-column>
+          <el-table-column label="状态" width="140" align="center" header-align="center">
+            <template #default="{ row }">
+              <el-dropdown trigger="click" @command="handleStatusCommand(row.id, $event)">
+                <button class="status-btn" :class="`status-btn--${row.status}`" type="button">
+                  {{ statusLabel(row.status) }}
                 </button>
-                <Transition name="fade">
-                  <div v-if="activeStatusMenu === paper.id" class="status-dropdown" @click.stop>
-                    <button
-                      v-for="s in statusOptions"
-                      :key="s.value"
-                      class="status-option"
-                      type="button"
-                      @click="changeStatus(paper.id, s.value)"
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item
+                      v-for="item in statusOptions"
+                      :key="item.value"
+                      :command="item.value"
                     >
-                      {{ s.label }}
-                    </button>
-                  </div>
-                </Transition>
-              </td>
-              <td>
-                <router-link :to="`/admin/core-library/questions/${paper.id}`" class="action-link">
-                  管理内容
-                </router-link>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                      {{ item.label }}
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="140" fixed="right" align="center" header-align="center">
+            <template #default="{ row }">
+              <router-link :to="`/admin/core-library/questions/${row.id}`" class="table-action-link">
+                管理内容
+              </router-link>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
-      <div v-else class="empty-card">暂无 AI 生成题目，请点击“导入题目”上传题目文件。</div>
-    </div>
 
-    <div
-      v-if="activeStatusMenu !== null"
-      class="menu-overlay"
-      @click="activeStatusMenu = null"
-    ></div>
+      <div class="pagination-wrap">
+        <AppPagination
+          v-if="!loading"
+          v-model:page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          @page-change="handlePageChange"
+          @page-size-change="handlePageSizeChange"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 // 试题库题目管理：按 AI 生成题目文件管理内容和发布状态。
-import { computed, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import AppPagination from '@/components/AppPagination.vue'
 import { getPaperListData, updatePaperStatus, type PaperItem } from '@/api/papers'
 import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 import { PAPER_TYPE } from '@/constants/paperTypes'
@@ -123,29 +125,33 @@ import { PAPER_TYPE } from '@/constants/paperTypes'
 const route = useRoute()
 const router = useRouter()
 const loading = ref(true)
-const keyword = ref('')
-const activeExamType = ref('all')
-const activeStatusMenu = ref<string | null>(null)
+const draftKeyword = ref('')
+const appliedKeyword = ref('')
+const draftExamType = ref('all')
+const appliedExamType = ref('all')
 const paperList = ref<PaperItem[]>([])
+const pagination = reactive({
+  page: 1,
+  pageSize: 20,
+  total: 0,
+})
 
 const examTypeFilters = computed(() => [
   { value: 'all', label: '全部' },
   ...EXAM_TYPE_OPTIONS.map((item) => ({ value: item.value, label: item.label })),
 ])
 
-const filteredPapers = computed(() => {
-  const key = keyword.value.toLowerCase()
-  return paperList.value.filter((paper) => {
-    const matchKeyword = !key || paper.title.toLowerCase().includes(key)
-    const matchExamType = activeExamType.value === 'all' || paper.examType === activeExamType.value
-    return matchKeyword && matchExamType
-  })
-})
+const statusOptions = [
+  { value: 'draft', label: '草稿' },
+  { value: 'review', label: '审核中' },
+  { value: 'published', label: '已上线' },
+  { value: 'archived', label: '已归档' },
+]
 
 watch(
   () => route.path,
   (path) => {
-    if (path === '/admin/core-library/questions') fetchPapers()
+    if (path === '/admin/core-library/questions') void fetchPapers()
   },
   { immediate: true },
 )
@@ -154,23 +160,64 @@ watch(
 async function fetchPapers(): Promise<void> {
   loading.value = true
   try {
-    const papers = (await getPaperListData({ paperType: PAPER_TYPE.AI_PAPER })).papers || []
-    paperList.value = papers.sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    )
+    const data = await getPaperListData({
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+      paperType: PAPER_TYPE.AI_PAPER,
+      keyword: appliedKeyword.value,
+      examType: appliedExamType.value === 'all' ? undefined : appliedExamType.value,
+    })
+    paperList.value = data.list || []
+    pagination.page = data.pagination.page
+    pagination.pageSize = data.pagination.pageSize
+    pagination.total = data.pagination.total
   } catch {
     paperList.value = []
+    pagination.total = 0
+    ElMessage.error('试题库题目加载失败')
   } finally {
     loading.value = false
   }
 }
 
-const statusOptions = [
-  { value: 'draft', label: '草稿' },
-  { value: 'review', label: '审核中' },
-  { value: 'published', label: '已上线' },
-  { value: 'archived', label: '已归档' },
-]
+// 搜索时应用草稿条件并回到第一页，避免只筛当前页数据。
+async function handleSearch(): Promise<void> {
+  appliedKeyword.value = draftKeyword.value
+  appliedExamType.value = draftExamType.value
+  pagination.page = 1
+  await fetchPapers()
+}
+
+// 重置保留当前 pageSize，清空筛选条件后回到第一页。
+async function handleReset(): Promise<void> {
+  draftKeyword.value = ''
+  appliedKeyword.value = ''
+  draftExamType.value = 'all'
+  appliedExamType.value = 'all'
+  pagination.page = 1
+  await fetchPapers()
+}
+
+// 考试类型标签是高频筛选项，点击后立即应用并重置页码。
+async function handleExamTypeChange(examType: string): Promise<void> {
+  draftExamType.value = examType
+  appliedExamType.value = examType
+  pagination.page = 1
+  await fetchPapers()
+}
+
+// 试题库分页切换时只更新分页条件，并重新读取当前页数据。
+async function handlePageChange(page: number): Promise<void> {
+  pagination.page = page
+  await fetchPapers()
+}
+
+// 修改每页数量后回到第一页，避免请求到不存在的页码。
+async function handlePageSizeChange(pageSize: number): Promise<void> {
+  pagination.pageSize = pageSize
+  pagination.page = 1
+  await fetchPapers()
+}
 
 // 后台列表用试卷 code 推断学科展示名，空 code 展示为通用。
 function subjectLabel(code: string | null): string {
@@ -180,10 +227,10 @@ function subjectLabel(code: string | null): string {
 // 学科类型只影响标签颜色，不参与业务筛选。
 function subjectType(code: string | null): string {
   if (!code) return 'general'
-  const t = code.toLowerCase()
-  if (t.includes('math')) return 'math'
-  if (t.includes('step') || t.includes('esat')) return 'advanced'
-  if (t.includes('physics') || t.includes('pat')) return 'physics'
+  const text = code.toLowerCase()
+  if (text.includes('math')) return 'math'
+  if (text.includes('step') || text.includes('esat')) return 'advanced'
+  if (text.includes('physics') || text.includes('pat')) return 'physics'
   return 'general'
 }
 
@@ -194,24 +241,19 @@ function statusLabel(status: string): string {
   )
 }
 
-// 同一时间只展开一个状态菜单，避免表格内多个浮层互相遮挡。
-function toggleStatusMenu(id: string): void {
-  activeStatusMenu.value = activeStatusMenu.value === id ? null : id
-}
-
 // 发布成功后，该批次题目进入学生端试题库练习范围。
 async function changeStatus(id: string, newStatus: string): Promise<void> {
   try {
     await updatePaperStatus(id, newStatus)
-    const item = paperList.value.find((p) => p.id === id)
+    const item = paperList.value.find((paper) => paper.id === id)
     if (item) item.status = newStatus
-  } catch (e: any) {
-    if (e?.response?.status === 401) {
-      activeStatusMenu.value = null
-      return
-    }
+  } catch {
+    ElMessage.error('题目状态更新失败')
   }
-  activeStatusMenu.value = null
+}
+
+function handleStatusCommand(id: string, command: unknown): void {
+  void changeStatus(id, String(command))
 }
 
 // 导入入口复用标准 JSON / Markdown 上传流程，文件内 paperType 决定进入哪个管理列表。
@@ -222,49 +264,31 @@ function handleImport(): void {
 
 <style scoped lang="scss">
 .question-bank-page {
-  min-height: 100%;
-  position: relative;
-}
+  --question-table-max-height: calc(100vh - var(--nav-height) - 226px);
 
-.page-top-bar {
-  padding: 28px 40px 0;
-}
-
-.back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border: none;
-  background: transparent;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #64748b;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.15s ease;
-
-  svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  &:hover {
-    color: #0f172a;
-    background: #f1f5f9;
-  }
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .page-body {
-  padding: 24px 40px 48px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 40px 10px;
+  overflow: hidden;
 }
 
 .section-header {
+  flex-shrink: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 24px;
+  gap: 20px;
+  margin-bottom: 16px;
 }
 
 .header-text {
@@ -272,204 +296,203 @@ function handleImport(): void {
 }
 
 .section-title {
+  margin: 0 0 8px;
+  color: #0f172a;
   font-size: 1.5rem;
   font-weight: 800;
-  color: #0f172a;
-  margin: 0 0 8px;
   letter-spacing: 0;
 }
 
 .section-desc {
-  font-size: 0.9rem;
-  color: #64748b;
   margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
   line-height: 1.5;
 }
 
-.btn-primary-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 40px;
-  padding: 0 16px;
-  background: #4f46e5;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-
-  svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  &:hover {
-    background: #6366f1;
-  }
-}
-
 .filter-bar {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.search-input-wrap {
-  position: relative;
-  flex: 1;
-  max-width: 320px;
-
-  svg {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 16px;
-    height: 16px;
-  }
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .search-input {
-  width: 100%;
-  padding: 10px 12px 10px 38px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  font-size: 0.875rem;
-  color: #0f172a;
-  outline: none;
-  transition: border-color 0.2s;
-
-  &::placeholder {
-    color: #94a3b8;
-  }
-
-  &:focus {
-    border-color: #4f46e5;
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-  }
+  width: 280px;
+  flex: 0 0 280px;
 }
 
 .filter-tags {
   display: flex;
+  flex: 1;
   flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
 }
 
 .filter-tag {
-  padding: 6px 14px;
-  border: 0;
-  border-radius: 8px;
-  font-size: 0.8125rem;
-  font-weight: 500;
+  height: var(--height-button-sm);
+  padding: 0 14px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
   color: #64748b;
-  background: #f1f5f9;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
   cursor: pointer;
-  transition: all 0.15s;
-
-  &:hover {
-    background: #e2e8f0;
-    color: #0f172a;
-  }
-
-  &--active {
-    background: #4f46e5;
-    color: white;
-  }
+  transition:
+    background var(--duration-base) ease,
+    border-color var(--duration-base) ease,
+    color var(--duration-base) ease;
 }
 
-.data-card,
-.empty-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  overflow: visible;
-}
-
-.empty-card {
-  padding: 32px;
-  color: #64748b;
-  text-align: center;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th,
-td {
-  padding: 14px 16px;
-  border-bottom: 1px solid #f1f5f9;
-  text-align: left;
-  font-size: 14px;
-}
-
-th {
-  color: #64748b;
+.filter-tag:hover {
+  border-color: #cbd5e1;
   background: #f8fafc;
-  font-weight: 700;
-}
-
-.name-cell {
-  font-weight: 700;
   color: #0f172a;
 }
 
-.subject-tag,
+.filter-tag--active {
+  border-color: var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-ink-inverse);
+}
+
+.table-wrap {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: var(--question-table-max-height);
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.pagination-wrap {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  flex-shrink: 0;
+  margin-top: 10px;
+  padding: 0;
+  background: #f8fafc;
+}
+
+.pagination-wrap:empty {
+  display: none;
+}
+
+.pagination-wrap :deep(.app-pagination) {
+  padding: 0;
+  border-top: 0;
+  background: transparent;
+}
+
+:deep(.admin-paper-table) {
+  --el-table-border-color: var(--color-line-soft);
+  --el-table-header-bg-color: #f0f3ff;
+  --el-table-row-hover-bg-color: var(--color-hover);
+
+  width: 100%;
+  font-size: var(--text-sm);
+}
+
+:deep(.admin-paper-table .el-table__cell) {
+  padding: 12px 16px;
+}
+
+:deep(.admin-paper-table th.el-table__cell) {
+  color: #334155;
+  font-weight: var(--weight-semi);
+  background: #f0f3ff;
+}
+
+:deep(.admin-paper-table .el-table__header-wrapper th.el-table__cell),
+:deep(.admin-paper-table .el-table__fixed-right th.el-table__cell) {
+  background: #f0f3ff;
+}
+
+:deep(.admin-paper-table th .cell),
+:deep(.admin-paper-table .el-table__fixed-right .cell) {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+:deep(.admin-paper-table .el-table__row) {
+  height: var(--height-table-row);
+}
+
+.cell-name {
+  color: var(--color-ink);
+  font-weight: var(--weight-semi);
+}
+
 .exam-type-tag,
+.subject-tag,
 .paper-type-tag {
-  display: inline-flex;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-weight: 800;
-  font-size: 12px;
-}
-
-.subject-tag {
-  background: #eef2ff;
-  color: #3730a3;
-}
-
-.subject-tag--general {
-  background: #f1f5f9;
-  color: #475569;
-}
-
-.subject-tag--math {
-  background: #ecfdf5;
-  color: #047857;
-}
-
-.subject-tag--advanced {
-  background: #eef2ff;
-  color: #3730a3;
-}
-
-.subject-tag--physics {
-  background: #eff6ff;
-  color: #1d4ed8;
+  border-radius: var(--radius-pill);
+  font-weight: var(--weight-semi);
 }
 
 .exam-type-tag {
-  background: #ecfeff;
-  color: #0e7490;
+  background: #ecfeff !important;
+  border-color: #a5f3fc !important;
+  color: #0e7490 !important;
 }
 
 .paper-type-tag {
-  background: #f5f3ff;
-  color: #5b21b6;
+  background: #f5f3ff !important;
+  border-color: #ddd6fe !important;
+  color: #5b21b6 !important;
+}
+
+.subject-tag--general {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #475569 !important;
+}
+
+.subject-tag--math {
+  background: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+  color: #047857 !important;
+}
+
+.subject-tag--advanced {
+  background: #eef2ff !important;
+  border-color: #c7d2fe !important;
+  color: #3730a3 !important;
+}
+
+.subject-tag--physics {
+  background: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: #1d4ed8 !important;
+}
+
+.status-btn,
+.table-action-link {
+  min-width: 72px;
+  height: var(--height-button-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
 .status-btn {
-  min-width: 78px;
-  height: 32px;
-  border: 0;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 700;
+  border: 1px solid transparent;
 }
 
 .status-btn--published {
@@ -492,65 +515,18 @@ th {
   color: #374151;
 }
 
-.status-dropdown {
-  position: absolute;
-  z-index: 2;
-  margin-top: 8px;
-  width: 110px;
-  padding: 6px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
-}
-
-.status-option {
-  display: block;
-  width: 100%;
-  padding: 8px 10px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-}
-
-.status-option:hover {
-  background: #f8fafc;
-}
-
-.action-link {
-  color: #4f46e5;
+.table-action-link {
+  color: var(--color-ink);
   text-decoration: none;
-  font-weight: 700;
+  transition:
+    background var(--duration-base) ease,
+    border-color var(--duration-base) ease,
+    color var(--duration-base) ease;
 }
 
-.menu-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1;
-  background: transparent;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-@media (max-width: 900px) {
-  .section-header,
-  .filter-bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .data-card {
-    overflow-x: auto;
-  }
+.table-action-link:hover,
+.table-action-link:focus-visible {
+  background: var(--color-hover);
+  color: var(--color-ink);
 }
 </style>

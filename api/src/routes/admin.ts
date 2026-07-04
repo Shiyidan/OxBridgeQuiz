@@ -271,12 +271,29 @@ adminRouter.put('/users/:id/access', async (req: Request, res: Response) => {
 })
 
 // 成本记录
-adminRouter.get('/revenue-costs/getList', async (_req: Request, res: Response) => {
+adminRouter.get('/revenue-costs/getList', async (req: Request, res: Response) => {
   try {
+    const page = parsePositiveInt(req.query.page, 1)
+    const pageSize = parsePositiveInt(req.query.pageSize, 20, 100)
+    const total = await prisma.revenueCost.count()
+    const totalPages = Math.ceil(total / pageSize)
+    const safePage = totalPages > 0 ? Math.min(page, totalPages) : 1
     const costs = await prisma.revenueCost.findMany({
       orderBy: { occurredAt: 'desc' },
+      skip: (safePage - 1) * pageSize,
+      take: pageSize,
     })
-    res.json(success({ costs }))
+    res.json(success({
+      list: costs,
+      pagination: {
+        page: safePage,
+        pageSize,
+        total,
+        totalPages,
+        hasPrev: safePage > 1,
+        hasNext: totalPages > 0 && safePage < totalPages,
+      },
+    }))
   } catch (err) {
     console.error('[admin] revenue costs error:', err)
     res.status(500).json(fail('服务器错误'))

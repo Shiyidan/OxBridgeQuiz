@@ -98,12 +98,16 @@ function handleNavClick(): void {
 
 <style scoped lang="scss">
 .admin-page {
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
   background: #f8fafc;
 }
 
 .admin-wrapper {
   width: 100%;
+  height: calc(100vh - var(--nav-height));
+  min-height: 0;
   min-width: var(--layout-min-width);
   max-width: none;
   margin: 0 auto;
@@ -112,7 +116,8 @@ function handleNavClick(): void {
 
 .admin-layout {
   display: flex;
-  min-height: calc(100vh - 64px);
+  height: 100%;
+  min-height: 0;
 }
 
 .sidebar {
@@ -206,6 +211,7 @@ function handleNavClick(): void {
 .main-content {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   overflow: auto;
 }
 
@@ -216,7 +222,8 @@ function handleNavClick(): void {
   }
 
   .admin-layout {
-    min-height: calc(100vh - 58px);
+    height: 100%;
+    min-height: 0;
     width: 100%;
   }
 

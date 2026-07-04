@@ -49,7 +49,7 @@ export interface PageResult<T> {
   pagination: PaginationMeta
 }
 
-export interface UserListParams {
+export interface ListParams {
   page?: number
   pageSize?: number
 }
@@ -65,11 +65,15 @@ export interface UpdateUserAccessPayload {
 // ---- 成本管理 ----
 
 /** 成本列表 */
-export function getRevenueListData() {
-  return callApi<{ costs: RevenueItem[] }>({
+export function getRevenueListData(params: ListParams = {}) {
+  return callApi<PageResult<RevenueItem>>({
     url: '/admin/revenue-costs/getList',
     method: 'GET',
     isAllData: false,
+    params: {
+      ...(params.page ? { page: String(params.page) } : {}),
+      ...(params.pageSize ? { pageSize: String(params.pageSize) } : {}),
+    },
   })
 }
 
@@ -96,7 +100,7 @@ export function createRevenue(data: Partial<RevenueItem>) {
 // ---- 用户管理 ----
 
 /** 用户列表 */
-export function getUserListData(params: UserListParams = {}) {
+export function getUserListData(params: ListParams = {}) {
   return callApi<PageResult<UserItem>>({
     url: '/admin/users',
     method: 'GET',

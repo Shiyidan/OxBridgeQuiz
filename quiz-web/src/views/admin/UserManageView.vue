@@ -6,7 +6,6 @@
 
     <div class="page-body">
       <h2 class="page-title">用户管理</h2>
-      <p class="page-desc">共 {{ pagination.total }} 位注册用户</p>
 
       <div class="table-wrap">
         <el-table
@@ -15,7 +14,7 @@
           class="um-table"
           stripe
           empty-text="暂无注册用户"
-          max-height="calc(100vh - 330px)"
+          max-height="var(--um-table-max-height)"
         >
           <el-table-column prop="username" label="用户名" min-width="180" align="center" header-align="center">
             <template #default="{ row }">
@@ -364,9 +363,13 @@ onMounted(fetchUsers)
 
 <style scoped lang="scss">
 .um-page {
-  min-height: 100%;
+  --um-table-max-height: calc(100vh - var(--nav-height) - 146px);
+
+  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .page-top-bar {
@@ -398,28 +401,24 @@ onMounted(fetchUsers)
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 24px 40px 48px;
+  padding: 24px 40px 10px;
 }
 
 .page-title {
   font-size: 1.5rem;
   font-weight: 800;
   color: #0f172a;
-  margin: 0 0 8px;
-}
-
-.page-desc {
-  font-size: 0.875rem;
-  color: #64748b;
   margin: 0 0 24px;
 }
 
 .table-wrap {
   flex: 0 1 auto;
+  min-height: 0;
+  max-height: var(--um-table-max-height);
   width: 100%;
   background: var(--color-surface);
   border: 1px solid var(--color-line);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
@@ -428,8 +427,8 @@ onMounted(fetchUsers)
   bottom: 0;
   z-index: 10;
   flex-shrink: 0;
-  margin-top: auto;
-  padding-top: 16px;
+  margin-top: 10px;
+  padding: 0;
   background: #f8fafc;
 }
 
@@ -445,7 +444,7 @@ onMounted(fetchUsers)
 
 :deep(.um-table) {
   --el-table-border-color: var(--color-line-soft);
-  --el-table-header-bg-color: var(--color-surface-alt);
+  --el-table-header-bg-color: #f0f3ff;
   --el-table-row-hover-bg-color: var(--color-hover);
 
   width: 100%;
@@ -457,9 +456,14 @@ onMounted(fetchUsers)
 }
 
 :deep(.um-table th.el-table__cell) {
-  color: var(--color-ink-soft);
+  color: #334155;
   font-weight: var(--weight-semi);
-  background: var(--color-surface-alt);
+  background: #f0f3ff;
+}
+
+:deep(.um-table .el-table__header-wrapper th.el-table__cell),
+:deep(.um-table .el-table__fixed-right th.el-table__cell) {
+  background: #f0f3ff;
 }
 
 :deep(.um-table .el-table__row) {

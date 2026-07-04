@@ -46,10 +46,10 @@ export function scoreAnswers(
   let correctCount = 0
   const items: ReportItem[] = answers.map((a, i) => {
     const q = questionMap.get(a.questionId)
-    const correctAnswer = q?.answer ?? []
+    const answer = q?.answer ?? []
     const isCorrect =
-      correctAnswer.length === 1 &&
-      correctAnswer[0] === a.selectedAnswer
+      answer.length === 1 &&
+      answer[0] === a.selectedAnswer
     if (isCorrect) correctCount++
     return { questionId: a.questionId, order: i + 1, isCorrect }
   })

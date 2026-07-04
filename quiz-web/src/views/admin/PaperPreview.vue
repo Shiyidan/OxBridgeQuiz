@@ -2,9 +2,9 @@
   <div class="preview-page">
     <!-- 顶部返回 -->
     <div class="page-top-bar">
-      <button class="back-btn" @click="$router.push('/admin/core-library/exams')">
+      <button class="back-btn" @click="$router.push(backPath)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        返回真题库列表
+        {{ backLabel }}
       </button>
     </div>
 
@@ -43,6 +43,7 @@
             :question="q"
             :index="i"
             :show-answer="true"
+            variant="exam"
           />
         </div>
         <div v-else class="empty-card">暂无题目数据</div>
@@ -55,7 +56,7 @@
 
 <script setup lang="ts">
 // 试卷详情预览（逐题渲染解析结果，复用 QuestionCard 组件）
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import QuestionCard from '@/components/QuestionCard.vue'
 import type { Question } from '@/types'
@@ -68,21 +69,24 @@ const paper = ref<PaperDetail | null>(null)
 const questions = ref<Question[]>([])
 const loading = ref(true)
 
+const isQuestionBankPreview = computed(() => route.path.includes('/core-library/questions/'))
+const backPath = computed(() =>
+  isQuestionBankPreview.value ? '/admin/core-library/questions' : '/admin/core-library/exams',
+)
+const backLabel = computed(() =>
+  isQuestionBankPreview.value ? '返回试题库管理' : '返回真题库列表',
+)
+
 onMounted(async () => {
   try {
     const data = await getPaperDetailData(route.params.id as string)
     paper.value = data
 
-    // 将 API 返回的 question 映射到 Question 类型
+    // 预览页直接渲染标准题目结构。
     const raw = data.questions || []
     questions.value = raw.map((q: any, idx: number) => ({
+      ...q,
       id: q.id || `q-${idx}`,
-      number: q.number,
-      order: q.order || q.number,
-      title: q.title || '',
-      options: q.options || [],
-      answer: q.answer || [],
-      images: q.images || [],
     }))
   } catch {
     paper.value = null

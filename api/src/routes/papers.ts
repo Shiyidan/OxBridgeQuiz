@@ -4,8 +4,16 @@ import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 import { success, fail } from '../utils/response.js'
 import { syncPaperQuestions, getPaperQuestions, formatQuestionRow } from '../utils/questionSync.js'
-import { processMarkdownImport } from '../services/markdownValidator.js'
-import { EXAM_TYPE, isExamType } from '../constants/domain.js'
+import { processMarkdownImport, validateStandardPaperDocument } from '../services/markdownValidator.js'
+import {
+  EXAM_TYPE,
+  QUESTION_BANK_PAPER_TYPES,
+  REAL_PAPER_TYPES,
+  isExamType,
+  isPaperType,
+  normalizePaperType,
+  paperTypeWhereValues,
+} from '../constants/domain.js'
 
 export const papersRouter = Router()
 
@@ -24,12 +32,8 @@ type FlatSyllabusNode = {
   order: number
 }
 
-/** 兼容 difficulty 的两种格式：对象 { level } 或纯字符串 */
-function levelOf(q: any): string | null {
-  const d = q?.difficulty
-  if (!d) return null
-  if (typeof d === 'string') return d
-  return d.level || null
+function levelOf(d: string | null | undefined): string | null {
+  return typeof d === 'string' && d ? d : null
 }
 
 // 试卷列表
@@ -119,7 +123,7 @@ papersRouter.get('/', async (req, res) => {
   const limit = parseInt(req.query.limit as string) || 20
   const paperType = req.query.paperType as string | undefined
   const skip = (page - 1) * limit
-  const where = paperType ? { paperType } : {}
+  const where = paperType ? { paperType: { in: paperTypeWhereValues(paperType) } } : {}
 
   const [papers, total] = await Promise.all([
     prisma.paper.findMany({
@@ -141,45 +145,22 @@ papersRouter.get('/', async (req, res) => {
 // JSON 导入试卷
 papersRouter.post('/import-json', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { title, year, duration, code, examType, questions, paperType } = req.body
-
-    if (!title || !year) {
-      res.status(400).json(fail('标题和年份为必填项'))
+    const { code } = req.body
+    const validated = validateStandardPaperDocument(req.body)
+    if (validated.errors.length > 0 || !validated.metadata) {
+      res.status(400).json(fail(`校验失败：${validated.errors.map(e => e.message).join('；')}`))
       return
     }
-    if (!Array.isArray(questions) || questions.length === 0) {
-      res.status(400).json(fail('题目列表不能为空'))
-      return
-    }
-    if (examType && !isExamType(examType)) {
-      res.status(422).json(fail('无效的考试类型'))
-      return
-    }
-
-    for (let i = 0; i < questions.length; i++) {
-      const q = questions[i]
-      if (q.number == null) {
-        res.status(400).json(fail(`第 ${i + 1} 题缺少题号 (number)`))
-        return
-      }
-      if (!q.title) {
-        res.status(400).json(fail(`第 ${i + 1} 题缺少题干 (title)`))
-        return
-      }
-      if (!Array.isArray(q.options) || q.options.length === 0) {
-        res.status(400).json(fail(`第 ${i + 1} 题缺少选项 (options)`))
-        return
-      }
-    }
+    const { metadata, questions } = validated
 
     const paper = await prisma.paper.create({
       data: {
-        title,
-        year: parseInt(String(year)),
-        duration: parseInt(String(duration)) || 60,
+        title: metadata.paperName,
+        year: metadata.year,
+        duration: metadata.duration,
         code: code || undefined,
-        examType: examType || 'TMUA',
-        paperType: paperType || 'past',
+        examType: metadata.examType,
+        paperType: metadata.paperType,
         totalQuestions: questions.length,
         status: 'draft',
       },
@@ -201,24 +182,16 @@ papersRouter.post('/import-json', requireAuth, requireAdmin, async (req, res) =>
 // Markdown 导入试卷
 papersRouter.post('/import-markdown', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { markdown, title, year, duration, code, examType, paperType } = req.body
+    const { markdown, code } = req.body
 
-    if (!title || !year) {
-      res.status(400).json(fail('标题和年份为必填项'))
-      return
-    }
     if (!markdown || typeof markdown !== 'string') {
       res.status(400).json(fail('请提供 Markdown 内容'))
-      return
-    }
-    if (examType && !isExamType(examType)) {
-      res.status(422).json(fail('无效的考试类型'))
       return
     }
 
     const result = processMarkdownImport(markdown)
 
-    if (result.errors.length > 0) {
+    if (result.errors.length > 0 || !result.metadata) {
       res.status(400).json(fail(`校验失败：${result.errors.map(e => e.message).join('；')}`))
       return
     }
@@ -230,12 +203,12 @@ papersRouter.post('/import-markdown', requireAuth, requireAdmin, async (req, res
 
     const paper = await prisma.paper.create({
       data: {
-        title,
-        year: parseInt(String(year)),
-        duration: parseInt(String(duration)) || 60,
+        title: result.metadata.paperName,
+        year: result.metadata.year,
+        duration: result.metadata.duration,
         code: code || undefined,
-        examType: examType || 'TMUA',
-        paperType: paperType || 'past',
+        examType: result.metadata.examType,
+        paperType: result.metadata.paperType,
         totalQuestions: result.questions.length,
         status: 'draft',
       },
@@ -449,7 +422,10 @@ papersRouter.get('/question-bank/summary', async (req, res) => {
     const filterCodes = code ? await collectDescendantCodes(code, examType) : []
 
     const questions = await prisma.question.findMany({
-      where: { examType, paper: { status: 'published' } },
+      where: {
+        examType,
+        paper: { status: 'published', paperType: { in: [...QUESTION_BANK_PAPER_TYPES] } },
+      },
       select: { difficulty: true, knowledgePoints: true, subjectCode: true, topicCode: true },
     })
 
@@ -457,7 +433,7 @@ papersRouter.get('/question-bank/summary', async (req, res) => {
     let total = 0
 
     for (const q of questions) {
-      const level = levelOf({ difficulty: safeParseDifficulty(q.difficulty) })
+      const level = levelOf(q.difficulty)
       if (!level || !['easy', 'medium', 'hard', 'composite'].includes(level)) continue
 
       if (filterCodes.length && !matchSyllabusFilter(q, filterCodes)) continue
@@ -471,11 +447,6 @@ papersRouter.get('/question-bank/summary', async (req, res) => {
     res.status(500).json(fail(e.message || '获取摘要失败'))
   }
 })
-
-function safeParseDifficulty(d: string | null): any {
-  if (!d) return null
-  try { return JSON.parse(d) } catch { return d }
-}
 
 /** 检查题目的 knowledge_points / subjectCode / topicCode 中是否有匹配的考纲 code */
 function matchSyllabusFilter(
@@ -517,7 +488,10 @@ papersRouter.get('/question-bank', async (req, res) => {
       return
     }
 
-    const where: any = { examType, paper: { status: 'published' } }
+    const where: any = {
+      examType,
+      paper: { status: 'published', paperType: { in: [...QUESTION_BANK_PAPER_TYPES] } },
+    }
     if (subject) where.subject = subject
 
     const questions = await prisma.question.findMany({
@@ -533,7 +507,7 @@ papersRouter.get('/question-bank', async (req, res) => {
     const allQuestions: any[] = []
 
     for (const q of questions) {
-      const level = levelOf({ difficulty: safeParseDifficulty(q.difficulty) })
+      const level = levelOf(q.difficulty)
       if (!level || !['easy', 'medium', 'hard', 'composite'].includes(level)) continue
       if (difficulty && level !== difficulty) continue
 
@@ -566,7 +540,7 @@ papersRouter.get('/question-bank', async (req, res) => {
 papersRouter.get('/assessment/papers', requireAuth, async (req, res) => {
   try {
     const papers = await prisma.paper.findMany({
-      where: { status: 'published', paperType: 'past' },
+      where: { status: 'published', paperType: { in: [...REAL_PAPER_TYPES] } },
       select: {
         id: true, title: true, code: true, examType: true, year: true,
         duration: true, totalQuestions: true, paperType: true, createdAt: true,
@@ -578,7 +552,7 @@ papersRouter.get('/assessment/papers', requireAuth, async (req, res) => {
       where: {
         userId: req.user!.userId,
         status: 'submitted',
-        paper: { paperType: 'past', status: 'published' },
+        paper: { paperType: { in: [...REAL_PAPER_TYPES] }, status: 'published' },
       },
       include: { paper: { select: { id: true, title: true, paperType: true, examType: true } } },
       orderBy: { submittedAt: 'desc' },
@@ -630,6 +604,10 @@ papersRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     res.status(422).json(fail('无效的考试类型'))
     return
   }
+  if (paperType && !isPaperType(paperType)) {
+    res.status(422).json(fail('无效的试卷来源类型'))
+    return
+  }
 
   const paper = await prisma.paper.update({
     where: { id: req.params.id },
@@ -641,7 +619,7 @@ papersRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
       ...(duration && { duration }),
       ...(questions && { totalQuestions: questions.length }),
       ...(status && { status }),
-      ...(paperType && { paperType }),
+      ...(paperType && { paperType: normalizePaperType(paperType) }),
     },
   })
 

@@ -174,7 +174,6 @@ async function loadQuestions(): Promise<void> {
       const loadedQuestions = (paper.questions || []).map((q: any, index: number) => ({
         ...q,
         id: q.id || `paper-${paper.id}-${q.number || index + 1}`,
-        order: q.number || index + 1,
       }))
       const access = await checkMemberAccess({
         action: 'diagnostic',
@@ -197,7 +196,6 @@ async function loadQuestions(): Promise<void> {
     const loadedQuestions = qs.map((q: any) => ({
       ...q,
       id: q.id || `${q._paperId || 'paper'}-${q.number}`,
-      order: q.number,
     }))
     if (loadedQuestions.length > 0) {
       const access = await checkMemberAccess({
@@ -451,12 +449,8 @@ onMounted(() => {
 }
 .question-nav {
   align-self: start;
-  height: fit-content;
-  max-height: calc(100vh - var(--practice-topbar-height) - 48px);
-  overflow-y: auto;
+  height: auto;
   padding: 20px;
-  position: sticky;
-  top: calc(var(--practice-topbar-height) + 24px);
 }
 .question-nav__title {
   margin: 0 0 18px;

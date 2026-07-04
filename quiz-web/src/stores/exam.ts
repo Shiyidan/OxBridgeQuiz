@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Paper, Question } from '@/types'
+import type { Paper } from '@/types'
 
 export const useExamStore = defineStore('exam', () => {
   // State
@@ -23,7 +23,8 @@ export const useExamStore = defineStore('exam', () => {
 
     let correct = 0
     paper.value.questions.forEach((q) => {
-      if (q.correctAnswer && answers.value.get(q.id) === q.correctAnswer) {
+      const selected = answers.value.get(q.id)
+      if (selected && q.answer.includes(selected)) {
         correct++
       }
     })

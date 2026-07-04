@@ -3,6 +3,7 @@
  */
 import { callApi } from '@/utils/request'
 import { DEFAULT_EXAM_TYPE } from '@/constants/examTypes'
+import type { Question } from '@/types'
 
 // ---- 类型 ----
 
@@ -19,17 +20,8 @@ export interface DifficultyCount {
   composite: number
 }
 
-export interface QuestionBankItem {
-  number: number
-  title: string
-  options: { label: string; text: string }[]
-  answer: string[]
-  images: any[]
-  subject?: string
-  difficulty?: string
-  knowledge_points?: { code: string; label: string; role?: string }[]
-  question_type?: string
-  [key: string]: any
+export interface QuestionBankItem extends Question {
+  _paperId?: string
 }
 
 export interface QuestionBankSummary {

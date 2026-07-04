@@ -12,60 +12,27 @@
       </span>
     </div>
 
-    <!-- 内容区：优先 content_blocks（图文混排），fallback 到 title + images -->
+    <!-- 内容区：按标准 content_blocks 渲染图文混排题干 -->
     <div class="question-card__prompt">
-      <template v-if="hasContentBlocks">
-        <template v-for="(block, idx) in question.content_blocks" :key="idx">
-          <div v-if="block.type === 'paragraph' && block.text" class="question-card__stem">
-            <LatexText :text="block.text" />
-          </div>
-          <div
-            v-else-if="block.type === 'image_ref' && getImageById(block.image_id)"
-            class="question-card__media"
-          >
-            <div class="question-card__media-item">
-              <div
-                v-if="getImageById(block.image_id)!.code"
-                class="question-card__svg"
-                :aria-label="getImageById(block.image_id)!.alt || block.alt || ''"
-                v-html="getImageById(block.image_id)!.code"
-              />
-              <img
-                v-else-if="getImageById(block.image_id)!.src"
-                :src="normalizeImageSrc(getImageById(block.image_id)!.src!)"
-                :alt="getImageById(block.image_id)!.alt || block.alt || ''"
-                class="question-card__img"
-              />
-            </div>
-          </div>
-        </template>
-      </template>
-
-      <!-- Fallback：旧格式 title + images -->
-      <template v-else>
-        <div class="question-card__stem">
-          <LatexText v-if="question.title" :text="question.title" />
+      <template v-for="(block, idx) in question.content_blocks" :key="idx">
+        <div v-if="block.type === 'paragraph'" class="question-card__stem">
+          <LatexText :text="block.text" />
         </div>
-
         <div
-          v-if="renderImages.length"
+          v-else-if="block.type === 'image_ref' && getImageById(block.image_id)"
           class="question-card__media"
         >
-          <div
-            v-for="(img, idx) in renderImages"
-            :key="idx"
-            class="question-card__media-item"
-          >
+          <div class="question-card__media-item">
             <div
-              v-if="img.code"
+              v-if="isSvgImage(block.image_id)"
               class="question-card__svg"
-              :aria-label="img.alt || ''"
-              v-html="img.code"
+              :aria-label="getImageAlt(block.image_id, block.alt)"
+              v-html="getSvgMarkup(block.image_id)"
             />
             <img
-              v-else-if="img.src"
-              :src="img.src"
-              :alt="img.alt || ''"
+              v-else
+              :src="getRasterImageSrc(block.image_id)"
+              :alt="getImageAlt(block.image_id, block.alt)"
               class="question-card__img"
             />
           </div>
@@ -87,7 +54,23 @@
         <span class="opt-card__bullet">{{ opt.label }}</span>
         <span class="opt-card__text">
           <LatexText v-if="opt.text" :text="opt.text" />
-          <template v-else>{{ '' }}</template>
+          <span
+            v-if="opt.image_id && getImageById(opt.image_id)"
+            class="opt-card__media"
+          >
+            <span
+              v-if="isSvgImage(opt.image_id)"
+              class="opt-card__svg"
+              :aria-label="getImageAlt(opt.image_id)"
+              v-html="getSvgMarkup(opt.image_id)"
+            />
+            <img
+              v-else
+              :src="getRasterImageSrc(opt.image_id)"
+              :alt="getImageAlt(opt.image_id)"
+              class="opt-card__img"
+            />
+          </span>
         </span>
       </button>
     </div>
@@ -119,41 +102,11 @@ const emit = defineEmits<{
   (e: 'select', label: string): void
 }>()
 
-// 是否使用新版 content_blocks 渲染（至少有 paragraph 或 image_ref 块）
-const hasContentBlocks = computed<boolean>(() => {
-  const blocks = props.question.content_blocks
-  return Array.isArray(blocks) && blocks.some(b => b.type === 'paragraph' || b.type === 'image_ref')
-})
-
 // 根据 image_ref 的 image_id 匹配 images 数组中的图片
 function getImageById(imageId: string | undefined): QuestionImage | null {
   if (!imageId) return null
-  const images = props.question.images
-  if (!Array.isArray(images)) return null
-  const img = images.find(i => i.id === imageId)
-  if (!img) return null
-  return {
-    id: img.id,
-    type: img.code ? 'svg' : 'image',
-    src: img.src ? normalizeImageSrc(img.src) : undefined,
-    code: img.code,
-    alt: img.alt || '',
-  }
+  return props.question.images.find(i => i.id === imageId) || null
 }
-
-const renderImages = computed<QuestionImage[]>(() => {
-  const directImages = props.question.images || []
-  const contentImages = (props.question.content || [])
-    .filter((block) => (block.type === 'image' || block.type === 'svg') && (block.src || block.value))
-    .map<QuestionImage>((block) => ({
-      type: block.type === 'svg' && !block.src ? 'svg' : 'image',
-      src: block.src ? normalizeImageSrc(block.src) : undefined,
-      code: block.type === 'svg' && block.value ? block.value : undefined,
-      alt: block.metadata?.alt || '',
-    }))
-
-  return [...directImages, ...contentImages].map(normalizeRenderImage)
-})
 
 const handleSelect = (label: string): void => {
   emit('select', label)
@@ -164,15 +117,25 @@ function normalizeImageSrc(src: string): string {
   return `/${src.replace(/^\.?\//, '')}`
 }
 
-function normalizeRenderImage(img: QuestionImage): QuestionImage {
-  return {
-    ...img,
-    type: img.code ? 'svg' : 'image',
-    src: img.src ? normalizeImageSrc(img.src) : undefined,
-  }
+function getImageAlt(imageId: string | undefined, fallback = ''): string {
+  return getImageById(imageId)?.alt || fallback
 }
 
-const correctAnswers = computed<Set<string>>(() =>
+function isSvgImage(imageId: string | undefined): boolean {
+  return getImageById(imageId)?.type === 'svg'
+}
+
+function getRasterImageSrc(imageId: string | undefined): string {
+  const image = getImageById(imageId)
+  return image?.type === 'image' ? normalizeImageSrc(image.src) : ''
+}
+
+function getSvgMarkup(imageId: string | undefined): string {
+  const image = getImageById(imageId)
+  return image?.type === 'svg' ? image.svg : ''
+}
+
+const answerSet = computed<Set<string>>(() =>
   new Set(props.question.answer || [])
 )
 
@@ -180,9 +143,9 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
   const normalizedText = (text || '').replace(/\$+/g, '').replace(/\s+/g, ' ').trim()
   return {
     'opt-card--selected': props.selectedAnswer === label,
-    'opt-card--correct': props.showAnswer && correctAnswers.value.has(label),
+    'opt-card--correct': props.showAnswer && answerSet.value.has(label),
     'opt-card--wrong':
-      props.showAnswer && props.selectedAnswer === label && !correctAnswers.value.has(label),
+      props.showAnswer && props.selectedAnswer === label && !answerSet.value.has(label),
     'opt-card--wide': props.variant === 'exam' && normalizedText.length > 42,
   }
 }
@@ -383,7 +346,7 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
   }
 
   .opt-card__text :deep(.katex) {
-    font-size: 1.18em;
+    font-size: 1em;
   }
 
   .opt-card__text :deep(.katex-display) {
@@ -539,6 +502,29 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
   min-width: 0;
   line-height: 1.5;
   word-break: break-word;
+}
+
+.opt-card__media {
+  display: block;
+  margin-top: 4px;
+}
+
+.opt-card__svg {
+  display: block;
+  max-width: 100%;
+
+  :deep(svg) {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+}
+
+.opt-card__img {
+  max-width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+  display: block;
 }
 
 /* 选项中的 katex 公式略微下移以与字母对齐 */

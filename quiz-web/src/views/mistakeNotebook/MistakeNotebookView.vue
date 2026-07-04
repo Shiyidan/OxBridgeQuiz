@@ -199,6 +199,7 @@ import LatexText from '@/components/LatexText.vue'
 import AppPagination from '@/components/AppPagination.vue'
 import { getMistakeNotebookData, type WrongAnswer } from '@/api/exam'
 import { getSyllabusData, type SyllabusNode } from '@/api/questionBank'
+import { PAPER_TYPE_OPTIONS, normalizePaperType, paperTypeSourceLabel } from '@/constants/paperTypes'
 
 interface FilterOption {
   label: string
@@ -217,11 +218,6 @@ const difficultyLabelMap: Record<string, string> = {
   medium: '难度-中',
   hard: '难度-高',
   composite: '难度-复合',
-}
-const sourceLabelMap: Record<string, string> = {
-  past: '来源-真题',
-  practice: '来源-题库',
-  mock: '来源-模考',
 }
 const treeProps = { children: 'children', label: 'label', value: 'code' }
 const wrongList = ref<WrongAnswer[]>([])
@@ -251,7 +247,7 @@ const difficultyOptions = computed<FilterOption[]>(() =>
   Object.entries(difficultyLabelMap).map(([value, label]) => ({ value, label })),
 )
 const sourceOptions = computed<FilterOption[]>(() =>
-  Object.entries(sourceLabelMap).map(([value, label]) => ({ value, label })),
+  PAPER_TYPE_OPTIONS.map((item) => ({ value: item.value, label: paperTypeSourceLabel(item.value) })),
 )
 
 // 进入页面后同时加载错题记录和试题库同源大纲树。
@@ -377,15 +373,14 @@ function difficultyValue(item: WrongAnswer): string {
   return item.difficulty || ''
 }
 
-// 题目来源筛选值对应 Paper.paperType。
+// 题目来源筛选值对应规范化后的 Paper.paperType。
 function sourceValue(item: WrongAnswer): string {
-  return item.examRecord?.paper?.paperType || 'unknown'
+  return normalizePaperType(item.examRecord?.paper?.paperType)
 }
 
-// 题目来源展示沿用 paperType，并对常见值做中文化。
+// 题目来源展示沿用 paperType 来源定义。
 function sourceText(item: WrongAnswer): string {
-  const source = sourceValue(item)
-  return sourceLabelMap[source] || '来源-未知'
+  return paperTypeSourceLabel(sourceValue(item))
 }
 
 // 聚合错题展示历史错误答案，保留用户曾经选错过的选项。

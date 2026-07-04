@@ -2,9 +2,9 @@
   <div class="upload-page">
     <!-- 顶部返回 -->
     <div class="page-top-bar">
-      <button class="back-btn" @click="$router.push('/admin/core-library/exams')">
+      <button class="back-btn" @click="$router.push(uploadBackPath)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        返回真题库列表
+        {{ uploadBackLabel }}
       </button>
     </div>
 
@@ -385,15 +385,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import { createUploadTask, uploadPage, getParseTaskStatusData, retryParseTask, importJson as apiImportJson, importMarkdown as apiImportMarkdown } from '@/api/upload'
 import { ElMessage } from 'element-plus'
 import { renderPdfToBase64Pages, type RenderedPage } from '@/utils/pdfRenderer'
 import { DEFAULT_EXAM_TYPE, EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
+import { PAPER_TYPE } from '@/constants/paperTypes'
+import type { PaperMetadata, Question } from '@/types'
 
 const router = useRouter()
+const route = useRoute()
+
+const isQuestionBankSource = computed(() => route.query.source === 'questions')
+const uploadBackPath = computed(() =>
+  isQuestionBankSource.value ? '/admin/core-library/questions' : '/admin/core-library/exams',
+)
+const uploadBackLabel = computed(() =>
+  isQuestionBankSource.value ? '返回试题库管理' : '返回真题库列表',
+)
 
 // 模式切换
 const mode = ref<'markdown' | 'file' | 'json'>('markdown')
@@ -447,7 +458,8 @@ const jsonExamType = ref(DEFAULT_EXAM_TYPE)
 const jsonYear = ref(new Date().getFullYear())
 const jsonDuration = ref(75)
 const jsonCode = ref('')
-const jsonQuestions = ref<any[]>([])
+const jsonMetadata = ref<PaperMetadata | null>(null)
+const jsonQuestions = ref<Question[]>([])
 const jsonImporting = ref(false)
 const jsonDone = ref(false)
 const jsonError = ref('')
@@ -461,8 +473,9 @@ const mdExamType = ref(DEFAULT_EXAM_TYPE)
 const mdYear = ref(new Date().getFullYear())
 const mdDuration = ref(75)
 const mdCode = ref('')
+const mdMetadata = ref<PaperMetadata | null>(null)
 const mdRawText = ref('')
-const mdQuestions = ref<any[]>([])
+const mdQuestions = ref<Question[]>([])
 const mdJsonBlockCount = ref(0)
 const mdImporting = ref(false)
 const mdDone = ref(false)
@@ -480,6 +493,22 @@ function normalizeExamType(value: unknown): ExamType {
   return EXAM_TYPE_OPTIONS.some((item) => item.value === value)
     ? (value as ExamType)
     : DEFAULT_EXAM_TYPE
+}
+
+function isPaperTypeValue(value: unknown): value is PaperMetadata['paperType'] {
+  return Object.values(PAPER_TYPE).includes(value as PaperMetadata['paperType'])
+}
+
+function readStandardMetadata(raw: any): PaperMetadata | null {
+  const metadata = raw?.metadata
+  if (!metadata || typeof metadata !== 'object') return null
+  if (!metadata.paperName || typeof metadata.paperName !== 'string') return null
+  if (typeof metadata.year !== 'number') return null
+  if (typeof metadata.duration !== 'number') return null
+  if (!EXAM_TYPE_OPTIONS.some((item) => item.value === metadata.examType)) return null
+  if (!isPaperTypeValue(metadata.paperType)) return null
+  if (typeof metadata.totalQuestions !== 'number') return null
+  return metadata as PaperMetadata
 }
 
 onUnmounted(() => {
@@ -632,7 +661,7 @@ async function startUpload(): Promise<void> {
       duration: duration.value,
       examType: examType.value,
       totalPages: pages.length,
-      paperType: 'past',
+      paperType: PAPER_TYPE.REAL_PAPER,
     })
     taskId = createRes.taskId
     paperId.value = createRes.paperId
@@ -712,7 +741,7 @@ async function retryParse(): Promise<void> {
         duration: duration.value,
         examType: examType.value,
         totalPages: cachedPages.length,
-        paperType: 'past',
+        paperType: PAPER_TYPE.REAL_PAPER,
       })
       taskId = createRes.taskId
       paperId.value = createRes.paperId
@@ -764,6 +793,12 @@ function goToPreview(): void {
   router.push(`/admin/core-library/exams/${paperId.value}`)
 }
 
+function previewPathForPaperType(id: string, paperType?: PaperMetadata['paperType']): string {
+  return paperType === PAPER_TYPE.AI_PAPER
+    ? `/admin/core-library/questions/${id}`
+    : `/admin/core-library/exams/${id}`
+}
+
 // ---- JSON 导入逻辑 ----
 
 function triggerJsonFileInput(): void {
@@ -790,28 +825,23 @@ function processJsonFile(f: File): void {
   reader.onload = () => {
     try {
       const raw = JSON.parse(reader.result as string)
-      // 兼容两种格式：完整对象 或 纯题目数组
-      if (Array.isArray(raw)) {
-        jsonQuestions.value = raw
-        jsonTitle.value = ''
-        jsonExamType.value = DEFAULT_EXAM_TYPE
-        jsonYear.value = new Date().getFullYear()
-        jsonDuration.value = 75
-        jsonCode.value = ''
-      } else {
-        jsonQuestions.value = raw.questions || []
-        jsonTitle.value = raw.title || ''
-        jsonExamType.value = normalizeExamType(raw.examType || raw.exam_type)
-        jsonYear.value = raw.year || new Date().getFullYear()
-        jsonDuration.value = raw.duration || 75
-        jsonCode.value = raw.code || ''
+      const metadata = readStandardMetadata(raw)
+      if (!metadata || !Array.isArray(raw?.questions)) {
+        ElMessage.warning('JSON 必须使用 { metadata, questions } 标准结构')
+        return
       }
-
-      if (!jsonQuestions.value.length) {
-        ElMessage.warning('JSON 中没有找到题目数据')
+      if (metadata.totalQuestions !== raw.questions.length) {
+        ElMessage.warning('metadata.totalQuestions 必须等于 questions.length')
         return
       }
 
+      jsonMetadata.value = metadata
+      jsonQuestions.value = raw.questions
+      jsonTitle.value = metadata.paperName
+      jsonExamType.value = normalizeExamType(metadata.examType)
+      jsonYear.value = metadata.year
+      jsonDuration.value = metadata.duration
+      jsonCode.value = raw.code || ''
       jsonFile.value = f
       jsonError.value = ''
     } catch {
@@ -828,6 +858,7 @@ function clearJsonFile(): void {
   jsonYear.value = new Date().getFullYear()
   jsonDuration.value = 75
   jsonCode.value = ''
+  jsonMetadata.value = null
   jsonQuestions.value = []
   jsonError.value = ''
   jsonDone.value = false
@@ -840,8 +871,12 @@ function resetJsonImport(): void {
 }
 
 async function importJson(): Promise<void> {
-  if (!jsonTitle.value || !jsonYear.value) {
-    ElMessage.warning('请填写试卷名称和年份')
+  if (!jsonMetadata.value) {
+    ElMessage.warning('请先选择标准 JSON 文件')
+    return
+  }
+  if (!jsonTitle.value.trim()) {
+    ElMessage.warning('请填写试卷名称')
     return
   }
   if (!jsonQuestions.value.length) {
@@ -853,15 +888,19 @@ async function importJson(): Promise<void> {
   jsonError.value = ''
 
   try {
+    const metadata = buildEditedMetadata(
+      jsonMetadata.value,
+      jsonTitle.value,
+      jsonExamType.value,
+      jsonYear.value,
+      jsonDuration.value,
+    )
     const res = await apiImportJson({
-      title: jsonTitle.value,
-      year: jsonYear.value,
-      duration: jsonDuration.value,
       code: jsonCode.value || undefined,
-      examType: jsonExamType.value,
-      paperType: 'past',
+      metadata,
       questions: jsonQuestions.value,
     })
+    jsonMetadata.value = metadata
     jsonPaperId.value = res.id
     jsonDone.value = true
   } catch (e: any) {
@@ -872,7 +911,7 @@ async function importJson(): Promise<void> {
 }
 
 function goToJsonPreview(): void {
-  router.push(`/admin/core-library/exams/${jsonPaperId.value}`)
+  router.push(previewPathForPaperType(jsonPaperId.value, jsonMetadata.value?.paperType))
 }
 
 // ---- Markdown 导入逻辑 ----
@@ -905,7 +944,7 @@ function processMdFile(f: File): void {
 
       // 前端提取 JSON 代码块做预览
       const jsonBlockRe = /```json\s*\n([\s\S]*?)\n\s*```/g
-      const allQuestions: any[] = []
+      let parsedDocument: { metadata: PaperMetadata; questions: Question[] } | null = null
       let blockCount = 0
       let match: RegExpExecArray | null
 
@@ -913,8 +952,10 @@ function processMdFile(f: File): void {
         blockCount++
         try {
           const parsed = JSON.parse(match![1]!.trim())
-          const qs = Array.isArray(parsed) ? parsed : parsed.questions
-          if (Array.isArray(qs)) allQuestions.push(...qs)
+          const metadata = readStandardMetadata(parsed)
+          if (metadata && Array.isArray(parsed.questions)) {
+            parsedDocument = { metadata, questions: parsed.questions }
+          }
         } catch {
           // 某个块解析失败，跳过
         }
@@ -924,15 +965,22 @@ function processMdFile(f: File): void {
         ElMessage.warning('未找到 JSON 代码块（需要 ```json ... ``` 格式）')
         return
       }
-      if (allQuestions.length === 0) {
-        ElMessage.warning('JSON 块中未找到有效的题目数据')
+      if (blockCount > 1) {
+        ElMessage.warning('标准 Markdown 只能包含一个完整 JSON 代码块')
+        return
+      }
+      if (!parsedDocument || parsedDocument.metadata.totalQuestions !== parsedDocument.questions.length) {
+        ElMessage.warning('JSON 代码块必须使用标准 { metadata, questions } 结构')
         return
       }
 
       mdJsonBlockCount.value = blockCount
-      mdQuestions.value = allQuestions
-      mdTitle.value = f.name.replace(/\.md$/i, '')
-      mdExamType.value = DEFAULT_EXAM_TYPE
+      mdMetadata.value = parsedDocument.metadata
+      mdQuestions.value = parsedDocument.questions
+      mdTitle.value = parsedDocument.metadata.paperName
+      mdExamType.value = normalizeExamType(parsedDocument.metadata.examType)
+      mdYear.value = parsedDocument.metadata.year
+      mdDuration.value = parsedDocument.metadata.duration
       mdFile.value = f
       mdError.value = ''
       mdWarnings.value = []
@@ -950,6 +998,7 @@ function clearMdFile(): void {
   mdYear.value = new Date().getFullYear()
   mdDuration.value = 75
   mdCode.value = ''
+  mdMetadata.value = null
   mdRawText.value = ''
   mdQuestions.value = []
   mdJsonBlockCount.value = 0
@@ -965,8 +1014,12 @@ function resetMdImport(): void {
 }
 
 async function importMarkdown(): Promise<void> {
-  if (!mdTitle.value || !mdYear.value) {
-    ElMessage.warning('请填写试卷名称和年份')
+  if (!mdMetadata.value) {
+    ElMessage.warning('请先选择包含标准 JSON 代码块的 Markdown 文件')
+    return
+  }
+  if (!mdTitle.value.trim()) {
+    ElMessage.warning('请填写试卷名称')
     return
   }
   if (!mdRawText.value) {
@@ -979,15 +1032,18 @@ async function importMarkdown(): Promise<void> {
   mdWarnings.value = []
 
   try {
+    const metadata = buildEditedMetadata(
+      mdMetadata.value,
+      mdTitle.value,
+      mdExamType.value,
+      mdYear.value,
+      mdDuration.value,
+    )
     const res = await apiImportMarkdown({
-      markdown: mdRawText.value,
-      title: mdTitle.value,
-      year: mdYear.value,
-      duration: mdDuration.value,
+      markdown: buildEditedMarkdown(mdRawText.value, metadata),
       code: mdCode.value || undefined,
-      examType: mdExamType.value,
-      paperType: 'past',
     })
+    mdMetadata.value = metadata
     mdPaperId.value = res.id
     mdWarnings.value = (res as any).warnings || []
     mdDone.value = true
@@ -999,7 +1055,32 @@ async function importMarkdown(): Promise<void> {
 }
 
 function goToMdPreview(): void {
-  router.push(`/admin/core-library/exams/${mdPaperId.value}`)
+  router.push(previewPathForPaperType(mdPaperId.value, mdMetadata.value?.paperType))
+}
+
+function buildEditedMetadata(
+  metadata: PaperMetadata,
+  paperName: string,
+  examType: ExamType,
+  year: number,
+  duration: number,
+): PaperMetadata {
+  return {
+    ...metadata,
+    paperName: paperName.trim(),
+    examType,
+    year: Number(year),
+    duration: Number(duration),
+  }
+}
+
+function buildEditedMarkdown(markdown: string, metadata: PaperMetadata): string {
+  const jsonBlockRe = /```json\s*\n([\s\S]*?)\n\s*```/
+  return markdown.replace(jsonBlockRe, (_full, rawJson: string) => {
+    const parsed = JSON.parse(rawJson.trim())
+    parsed.metadata = metadata
+    return `\`\`\`json\n${JSON.stringify(parsed, null, 2)}\n\`\`\``
+  })
 }
 </script>
 

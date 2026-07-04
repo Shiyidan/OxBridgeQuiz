@@ -3,7 +3,7 @@ import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 import { success, fail } from '../utils/response.js'
-import { isExamType } from '../constants/domain.js'
+import { PAPER_TYPE, isExamType, isPaperType, normalizePaperType } from '../constants/domain.js'
 
 export const uploadRouter = Router()
 
@@ -21,6 +21,10 @@ uploadRouter.post('/paper-pages/create', requireAuth, requireAdmin, async (req, 
       res.status(422).json(fail('无效的考试类型'))
       return
     }
+    if (paperType && !isPaperType(paperType)) {
+      res.status(422).json(fail('无效的试卷来源类型'))
+      return
+    }
 
     const paper = await prisma.paper.create({
       data: {
@@ -28,7 +32,7 @@ uploadRouter.post('/paper-pages/create', requireAuth, requireAdmin, async (req, 
         year: parseInt(year) || new Date().getFullYear(),
         duration: parseInt(duration) || 60,
         examType,
-        paperType: paperType || 'past',
+        paperType: paperType ? normalizePaperType(paperType) : PAPER_TYPE.REAL_PAPER,
         pdfUrl: null,
       },
     })

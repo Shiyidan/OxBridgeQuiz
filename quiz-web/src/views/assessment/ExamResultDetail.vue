@@ -214,6 +214,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import ExamQuestionAnalysis from '@/components/report/ExamQuestionAnalysis.vue'
 import { getExamResultData, type ExamQuestion } from '@/api/exam'
+import { PAPER_TYPE, normalizePaperType } from '@/constants/paperTypes'
 
 interface PaperMeta {
   id: string
@@ -268,7 +269,7 @@ const paper = ref<PaperMeta | null>(null)
 const startedAt = ref<string>('')
 const submittedAt = ref<string>('')
 
-const isPastPaper = computed(() => paper.value?.paperType === 'past')
+const isPastPaper = computed(() => normalizePaperType(paper.value?.paperType) === PAPER_TYPE.REAL_PAPER)
 const backTarget = computed(() => (isPastPaper.value ? '/assessment' : '/question-bank'))
 const backLabel = computed(() => (isPastPaper.value ? '返回无限模考' : '返回试题库'))
 const examCode = computed(() => paper.value?.code?.toUpperCase() || 'TMUA')
@@ -489,12 +490,11 @@ function buildLearningStages(): LearningStage[] {
   ]
 }
 
-// 兼容不同导入来源中的 knowledge_points 字段形态。
 function normalizeKnowledgePoints(question: ReportQuestion): string[] {
   const raw = question.knowledge_points
   if (!Array.isArray(raw) || !raw.length) return [question.subject || '综合能力']
   return raw
-    .map((item: any) => item?.name || item?.title || item?.label || item?.code || String(item))
+    .map((item: any) => item?.label || item?.code)
     .filter(Boolean)
 }
 </script>

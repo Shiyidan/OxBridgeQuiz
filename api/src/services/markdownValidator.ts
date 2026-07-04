@@ -1,6 +1,16 @@
 /**
  * Markdown 导入校验器 — 提取 JSON 代码块、结构校验、安全清洗
  */
+import { isExamType, isPaperType } from '../constants/domain.js'
+
+export interface StandardPaperMetadata {
+  paperName: string
+  year: number
+  duration: number
+  examType: string
+  paperType: string
+  totalQuestions: number
+}
 
 export interface ValidationError {
   block: number // JSON 块序号（1-based）
@@ -8,6 +18,7 @@ export interface ValidationError {
 }
 
 export interface ProcessResult {
+  metadata: StandardPaperMetadata | null
   questions: any[]
   errors: ValidationError[]
   warnings: string[]
@@ -27,6 +38,7 @@ const SVG_BLOCK_RE = /<svg\b[\s\S]*?<\/svg\s*>/gi
 
 // 合法的 LaTeX 占位符，不可作为安全标记移除
 const PLACEHOLDER_RE = /\[\[(BS|NL|PARA|FIG)\]\]/g
+const DEPRECATED_QUESTION_FIELDS = ['correctAnswer', 'content', 'order']
 
 export function extractJsonBlocks(md: string): { index: number; raw: string }[] {
   const blocks: { index: number; raw: string }[] = []
@@ -43,17 +55,57 @@ export function extractJsonBlocks(md: string): { index: number; raw: string }[] 
   return blocks
 }
 
-export function validateQuestionStructure(questions: any[]): ValidationError[] {
+export function validateStandardPaperDocument(input: any): {
+  metadata: StandardPaperMetadata | null
+  questions: any[]
+  errors: ValidationError[]
+} {
   const errors: ValidationError[] = []
+  const metadata = input?.metadata
+  const questions = input?.questions
+
+  if (!metadata || typeof metadata !== 'object') {
+    errors.push({ block: 0, message: '缺少标准根字段 metadata' })
+  } else {
+    if (!metadata.paperName || typeof metadata.paperName !== 'string') {
+      errors.push({ block: 0, message: 'metadata.paperName 必须为试卷名称' })
+    }
+    if (typeof metadata.year !== 'number' || !Number.isFinite(metadata.year)) {
+      errors.push({ block: 0, message: 'metadata.year 必须为数字年份' })
+    }
+    if (typeof metadata.duration !== 'number' || !Number.isFinite(metadata.duration)) {
+      errors.push({ block: 0, message: 'metadata.duration 必须为数字分钟数' })
+    }
+    if (!isExamType(metadata.examType)) {
+      errors.push({ block: 0, message: 'metadata.examType 不是系统支持的考试类型' })
+    }
+    if (!isPaperType(metadata.paperType)) {
+      errors.push({ block: 0, message: 'metadata.paperType 必须为 realPaper、mockPaper 或 aiPaper' })
+    }
+    if (typeof metadata.totalQuestions !== 'number' || !Number.isFinite(metadata.totalQuestions)) {
+      errors.push({ block: 0, message: 'metadata.totalQuestions 必须为数字' })
+    }
+  }
 
   if (!Array.isArray(questions) || questions.length === 0) {
-    errors.push({ block: 0, message: 'JSON 块中未找到有效的题目数组' })
-    return errors
+    errors.push({ block: 0, message: 'questions 必须是非空数组' })
+    return { metadata: metadata || null, questions: [], errors }
+  }
+
+  if (metadata?.totalQuestions !== undefined && metadata.totalQuestions !== questions.length) {
+    errors.push({ block: 0, message: 'metadata.totalQuestions 必须等于 questions.length' })
   }
 
   for (let i = 0; i < questions.length; i++) {
     const q = questions[i]
     const label = `题目 ${q.number ?? `索引${i + 1}`}`
+    const imageIds = new Set((Array.isArray(q.images) ? q.images : []).map((img: any) => img?.id).filter(Boolean))
+
+    for (const field of DEPRECATED_QUESTION_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(q, field)) {
+        errors.push({ block: 0, message: `${label}：${field} 是已废弃字段，请使用标准题目结构` })
+      }
+    }
 
     if (q.number == null) {
       errors.push({ block: 0, message: `${label}：缺少题号 (number)` })
@@ -63,6 +115,29 @@ export function validateQuestionStructure(questions: any[]): ValidationError[] {
 
     if (!q.title || typeof q.title !== 'string' || !q.title.trim()) {
       errors.push({ block: 0, message: `${label}：缺少题干 (title)` })
+    }
+
+    if (!Array.isArray(q.content_blocks) || q.content_blocks.length === 0) {
+      errors.push({ block: 0, message: `${label}：缺少题干内容块 (content_blocks)` })
+    } else {
+      const first = q.content_blocks[0]
+      if (first?.type !== 'paragraph' || first.text !== q.title) {
+        errors.push({ block: 0, message: `${label}：title 必须等于 content_blocks[0].text，且首块必须为 paragraph` })
+      }
+      for (let j = 0; j < q.content_blocks.length; j++) {
+        const block = q.content_blocks[j]
+        if (block?.type === 'paragraph') {
+          if (typeof block.text !== 'string') {
+            errors.push({ block: 0, message: `${label} 的 content_blocks[${j}]：paragraph 必须包含 text` })
+          }
+        } else if (block?.type === 'image_ref') {
+          if (!block.image_id || !imageIds.has(block.image_id)) {
+            errors.push({ block: 0, message: `${label} 的 content_blocks[${j}]：image_id 必须匹配 images[].id` })
+          }
+        } else {
+          errors.push({ block: 0, message: `${label} 的 content_blocks[${j}]：type 只能为 paragraph 或 image_ref` })
+        }
+      }
     }
 
     if (!Array.isArray(q.options) || q.options.length === 0) {
@@ -76,11 +151,47 @@ export function validateQuestionStructure(questions: any[]): ValidationError[] {
         if (opt.text === undefined || opt.text === null) {
           errors.push({ block: 0, message: `${label} 的选项 ${j + 1}：缺少文本 (text)` })
         }
+        if (opt.image_id && !imageIds.has(opt.image_id)) {
+          errors.push({ block: 0, message: `${label} 的选项 ${j + 1}：image_id 必须匹配 images[].id` })
+        }
+      }
+    }
+
+    if (!Array.isArray(q.answer)) {
+      errors.push({ block: 0, message: `${label}：answer 必须为数组` })
+    }
+    if (q.difficulty !== undefined && typeof q.difficulty !== 'string') {
+      errors.push({ block: 0, message: `${label}：difficulty 必须为字符串` })
+    }
+    if (q.examType !== metadata?.examType) {
+      errors.push({ block: 0, message: `${label}：examType 必须与 metadata.examType 一致` })
+    }
+    if (!q.source_examType || typeof q.source_examType !== 'string') {
+      errors.push({ block: 0, message: `${label}：缺少来源考试类型 (source_examType)` })
+    }
+    if (q.year !== metadata?.year) {
+      errors.push({ block: 0, message: `${label}：year 必须与 metadata.year 一致` })
+    }
+    if (!['single_choice', 'multiple_choice', 'short_answer'].includes(q.question_type)) {
+      errors.push({ block: 0, message: `${label}：question_type 必须为 single_choice、multiple_choice 或 short_answer` })
+    }
+    if (Array.isArray(q.images)) {
+      for (const img of q.images) {
+        if (Object.prototype.hasOwnProperty.call(img, 'code')) {
+          errors.push({ block: 0, message: `${label}：images[].code 是已废弃字段，请使用 svg 或 src` })
+        }
+        if (!img.id || !img.alt || !['svg', 'image'].includes(img.type)) {
+          errors.push({ block: 0, message: `${label}：images 每项必须包含 id、type、alt` })
+        } else if (img.type === 'svg' && typeof img.svg !== 'string') {
+          errors.push({ block: 0, message: `${label}：SVG 图片必须包含 svg 字符串` })
+        } else if (img.type === 'image' && typeof img.src !== 'string') {
+          errors.push({ block: 0, message: `${label}：位图图片必须包含 src` })
+        }
       }
     }
   }
 
-  return errors
+  return { metadata: metadata || null, questions, errors }
 }
 
 /**
@@ -218,17 +329,22 @@ export function processMarkdownImport(md: string): ProcessResult {
   const errors: ValidationError[] = []
   const warnings: string[] = []
   const allQuestions: any[] = []
+  let metadata: StandardPaperMetadata | null = null
 
   if (!md || typeof md !== 'string' || !md.trim()) {
     errors.push({ block: 0, message: 'Markdown 内容不能为空' })
-    return { questions: [], errors, warnings }
+    return { metadata: null, questions: [], errors, warnings }
   }
 
   // 1. 提取 JSON 代码块
   const blocks = extractJsonBlocks(md)
   if (blocks.length === 0) {
     errors.push({ block: 0, message: '未找到 JSON 代码块（需要 ```json ... ``` 格式）' })
-    return { questions: [], errors, warnings }
+    return { metadata: null, questions: [], errors, warnings }
+  }
+  if (blocks.length > 1) {
+    errors.push({ block: 0, message: '标准导入 Markdown 只能包含一个完整 JSON 代码块' })
+    return { metadata: null, questions: [], errors, warnings }
   }
 
   // 2. 逐个解析和校验
@@ -241,16 +357,10 @@ export function processMarkdownImport(md: string): ProcessResult {
       continue
     }
 
-    // 支持两种格式：{ questions: [...] } 或纯 [...]
-    const questions = Array.isArray(parsed) ? parsed : parsed.questions
-
-    if (!questions || !Array.isArray(questions)) {
-      errors.push({ block: block.index, message: `第 ${block.index} 个 JSON 块：内容不是题目数组` })
-      continue
-    }
-
-    // 结构校验
-    const structErrors = validateQuestionStructure(questions)
+    const validated = validateStandardPaperDocument(parsed)
+    metadata = validated.metadata
+    const questions = validated.questions
+    const structErrors = validated.errors
     for (const e of structErrors) {
       errors.push({ block: block.index, message: `第 ${block.index} 个 JSON 块，${e.message}` })
     }
@@ -267,5 +377,5 @@ export function processMarkdownImport(md: string): ProcessResult {
     errors.push({ block: 0, message: '未能从 Markdown 中提取到有效的题目数据' })
   }
 
-  return { questions: allQuestions, errors, warnings }
+  return { metadata, questions: allQuestions, errors, warnings }
 }

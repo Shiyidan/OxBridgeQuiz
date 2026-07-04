@@ -4,7 +4,16 @@ import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
 import { formatQuestionRow } from '../utils/questionSync.js'
 import { checkMemberAccess } from '../services/member.js'
-import { EXAM_TYPES, isExamType } from '../constants/domain.js'
+import {
+  EXAM_TYPES,
+  PAPER_TYPE,
+  QUESTION_BANK_PAPER_TYPES,
+  REAL_PAPER_TYPES,
+  isExamType,
+  isRealPaperType,
+  normalizePaperType,
+  paperTypeWhereValues,
+} from '../constants/domain.js'
 
 export const examRouter = Router()
 
@@ -75,10 +84,6 @@ function jsonPointsHaveCode(value: string, codes: string[]): boolean {
   return points.some((point) => point.code && codes.includes(point.code))
 }
 
-function isDiagnosticPaperType(paperType: string): boolean {
-  return ['past', 'diagnostic', 'mock'].includes(paperType)
-}
-
 function calculateNinePointScore(totalQuestions: number, correctCount: number): number | null {
   if (totalQuestions <= 0) return null
   return (correctCount / totalQuestions) * 9
@@ -87,7 +92,7 @@ function calculateNinePointScore(totalQuestions: number, correctCount: number): 
 examRouter.get('/error-book', requireAuth, async (req, res) => {
   try {
     const difficulties = parseQueryList(req.query.difficulty)
-    const paperTypes = parseQueryList(req.query.paperType)
+    const paperTypes = parseQueryList(req.query.paperType).flatMap((value) => paperTypeWhereValues(value))
     const syllabusCodes = await collectSyllabusCodes(parseQueryList(req.query.syllabusCode))
     const page = parsePositiveInt(req.query.page, 1)
     const pageSize = parsePositiveInt(req.query.pageSize, 20, 100)
@@ -267,7 +272,7 @@ examRouter.post('/submit', requireAuth, async (req, res) => {
       res.status(422).json(fail('无效的考试类型'))
       return
     }
-    let targetPaperType = 'practice'
+    let targetPaperType: string = PAPER_TYPE.AI_PAPER
     if (paperId) {
       const paper = await prisma.paper.findUnique({ where: { id: paperId } })
       if (!paper) {
@@ -275,14 +280,14 @@ examRouter.post('/submit', requireAuth, async (req, res) => {
         return
       }
       targetExamType = paper.examType || targetExamType
-      targetPaperType = paper.paperType
+      targetPaperType = normalizePaperType(paper.paperType)
       if (!isExamType(targetExamType)) {
         res.status(422).json(fail('无效的考试类型'))
         return
       }
     }
 
-    const isDiagnostic = isDiagnosticPaperType(targetPaperType)
+    const isDiagnostic = isRealPaperType(targetPaperType)
     const entitlement = await checkMemberAccess(
       req.user!.userId,
       isDiagnostic ? 'diagnostic' : 'question-bank',
@@ -297,14 +302,14 @@ examRouter.post('/submit', requireAuth, async (req, res) => {
     if (!paperId) {
       await prisma.paper.upsert({
         where: { id: 'question-bank' },
-        update: {},
+        update: { paperType: PAPER_TYPE.AI_PAPER, status: 'published' },
         create: {
           id: 'question-bank',
           title: 'Question bank practice',
           examType: targetExamType,
           year: new Date().getFullYear(),
           duration: 60,
-          paperType: 'practice',
+          paperType: PAPER_TYPE.AI_PAPER,
           status: 'published',
         },
       })
@@ -363,7 +368,7 @@ examRouter.get('/profile-stats', requireAuth, async (req, res) => {
           userId,
           status: 'submitted',
           examType: { in: EXAM_TYPES },
-          paper: { paperType: { in: ['past', 'diagnostic', 'mock'] } },
+          paper: { paperType: { in: [...REAL_PAPER_TYPES] } },
         },
         select: {
           examType: true,
@@ -508,7 +513,7 @@ examRouter.get('/:id/result', requireAuth, async (req, res) => {
           ? {
               id: 'question-bank',
               title: '题库练习',
-              paperType: 'practice',
+              paperType: PAPER_TYPE.AI_PAPER,
               year: new Date().getFullYear(),
               duration: 60,
               code: null,
@@ -539,7 +544,7 @@ examRouter.get('/practice-records', requireAuth, async (req, res) => {
       where: {
         userId: req.user!.userId,
         status: 'submitted',
-        paper: { paperType: 'practice' },
+        paper: { paperType: { in: [...QUESTION_BANK_PAPER_TYPES] } },
       },
       orderBy: { submittedAt: 'desc' },
       take: 20,

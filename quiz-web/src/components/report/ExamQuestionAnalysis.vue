@@ -68,50 +68,39 @@
 
       <div class="answer-summary">
         <span>你的答案：{{ currentQuestion.selectedAnswer || '未作答' }}</span>
-        <span>正确答案：{{ correctAnswerText }}</span>
+        <span>正确答案：{{ answerText }}</span>
       </div>
 
       <div class="analysis-stack">
-        <section v-if="examFocusList.length" class="analysis-box">
+        <section v-if="examFocusText" class="analysis-box">
           <h3>考察点</h3>
-          <div v-for="focus in examFocusList" :key="focus.title" class="analysis-focus">
-            <strong>{{ focus.title }}</strong>
-            <p v-if="focus.description"><LatexText :text="focus.description" /></p>
-          </div>
+          <p><LatexText :text="examFocusText" /></p>
         </section>
 
         <section v-if="hasSolution" class="analysis-box">
           <h3>题目解析</h3>
-          <p v-if="solutionSummary"><LatexText :text="solutionSummary" /></p>
-          <ol v-if="analysisSteps.length" class="analysis-steps">
-            <li v-for="(step, i) in analysisSteps" :key="i"><LatexText :text="step" /></li>
+          <p v-if="correctSolution"><LatexText :text="correctSolution" /></p>
+          <ol v-if="solutionSteps.length" class="analysis-steps">
+            <li v-for="(step, i) in solutionSteps" :key="i"><LatexText :text="step" /></li>
           </ol>
-          <p v-if="finalAnswer" class="analysis-final">
-            <strong>最终答案：</strong><LatexText :text="finalAnswer" />
+          <p v-if="finalValue" class="analysis-final">
+            <strong>最终结论：</strong><LatexText :text="finalValue" />
           </p>
-          <ul v-if="wrongReasons.length" class="reason-list">
-            <li v-for="(reason, i) in wrongReasons" :key="i"><LatexText :text="reason" /></li>
+          <ul v-if="distractorReasons.length" class="reason-list">
+            <li v-for="(reason, i) in distractorReasons" :key="i"><LatexText :text="reason" /></li>
           </ul>
         </section>
 
         <section v-if="hasReviewGuide" class="analysis-box">
           <h3>复习引导</h3>
-          <p v-if="reviewSummary"><LatexText :text="reviewSummary" /></p>
-          <ul v-if="recommendedTopics.length">
-            <li v-for="(topic, i) in recommendedTopics" :key="i"><LatexText :text="topic" /></li>
-          </ul>
-          <ul v-if="practiceSuggestions.length">
-            <li v-for="(suggestion, i) in practiceSuggestions" :key="i">
-              <LatexText :text="suggestion" />
-            </li>
-          </ul>
-          <ul v-if="commonMistakes.length">
-            <li v-for="(mistake, i) in commonMistakes" :key="i"><LatexText :text="mistake" /></li>
+          <p v-if="reviewGuidance"><LatexText :text="reviewGuidance" /></p>
+          <ul v-if="commonErrorCauses.length">
+            <li v-for="(cause, i) in commonErrorCauses" :key="i"><LatexText :text="cause" /></li>
           </ul>
         </section>
 
         <section
-          v-if="!hasSolution && !hasReviewGuide && !examFocusList.length"
+          v-if="!hasSolution && !hasReviewGuide && !examFocusText"
           class="analysis-box"
         >
           <h3>题目解析</h3>
@@ -153,82 +142,39 @@ const wrongCount = computed(
 const progressPercent = computed(() =>
   totalCount.value ? `${((currentIndex.value + 1) / totalCount.value) * 100}%` : '0%',
 )
-const correctAnswerText = computed(() => currentQuestion.value?.answer?.join(', ') || '-')
+const answerText = computed(() => currentQuestion.value?.answer?.join(', ') || '-')
 const questionNav = computed(() =>
   props.questions.map((q, i) => ({
     number: i + 1,
     status: (q.selectedAnswer ? (q.isCorrect ? 'correct' : 'wrong') : 'skipped') as QuestionStatus,
   })),
 )
-// difficulty 兼容对象 { level } 和纯字符串两种格式
-const difficultyDisplay = computed(() => {
-  const d: unknown = currentQuestion.value?.difficulty
-  if (!d) return ''
-  if (typeof d === 'string') return d
-  if (typeof d === 'object' && 'level' in d) return String(d.level || '')
-  return ''
-})
+const difficultyDisplay = computed(() => currentQuestion.value?.difficulty || '')
 
 const la = computed(() => currentQuestion.value?.learning_analysis)
-// learning_analysis 兼容新旧两种结构：
-// 旧：{ exam_focus: [{title,description}], solution: {summary,steps,...}, review_guidance: {summary,...} }
-// 新：{ exam_focus: "string", solution: "string", review_guidance: "string" }
-const examFocusList = computed(() => {
-  const ef = la.value?.exam_focus
-  if (!ef) return []
-  if (typeof ef === 'string') return [{ title: ef, description: ef }]
-  return Array.isArray(ef) ? ef : []
-})
-const solutionSummary = computed(() => {
-  const sol = la.value?.solution
-  if (!sol) return ''
-  if (typeof sol === 'string') return sol
-  return sol.summary || ''
-})
-const analysisSteps = computed(() => {
-  const sol = la.value?.solution
-  return (sol && typeof sol !== 'string' && sol.steps) ? sol.steps : []
-})
-const finalAnswer = computed(() => {
-  const sol = la.value?.solution
-  return (sol && typeof sol !== 'string' && sol.final_answer) ? sol.final_answer : ''
-})
-const wrongReasons = computed(() => {
-  const sol = la.value?.solution
-  return (sol && typeof sol !== 'string' && sol.distractor_analysis) ? sol.distractor_analysis : []
-})
-const reviewSummary = computed(() => {
-  const rg = la.value?.review_guidance
-  if (!rg) return ''
-  if (typeof rg === 'string') return rg
-  return rg.summary || ''
-})
-const recommendedTopics = computed(() => {
-  const rg = la.value?.review_guidance
-  return (rg && typeof rg !== 'string' && rg.recommended_topics) ? rg.recommended_topics : []
-})
-const practiceSuggestions = computed(() => {
-  const rg = la.value?.review_guidance
-  return (rg && typeof rg !== 'string' && rg.practice_suggestions) ? rg.practice_suggestions : []
-})
-const commonMistakes = computed(() => {
-  const rg = la.value?.review_guidance
-  return (rg && typeof rg !== 'string' && rg.common_mistakes) ? rg.common_mistakes : []
-})
+const examFocusText = computed(() => la.value?.exam_focus || '')
+const correctSolution = computed(() => la.value?.correct_solution || '')
+const solutionSteps = computed(() => la.value?.solution_trace?.steps || [])
+const finalValue = computed(() => la.value?.solution_trace?.final_value || '')
+const distractorReasons = computed(() =>
+  Object.entries(la.value?.solution_trace?.distractors || {}).map(
+    ([label, reason]) => `${label}: ${reason}`,
+  ),
+)
+const reviewGuidance = computed(() => la.value?.review_guidance || '')
+const commonErrorCauses = computed(() => la.value?.common_error_causes || [])
 const hasSolution = computed(() =>
   Boolean(
-    solutionSummary.value ||
-    analysisSteps.value.length ||
-    finalAnswer.value ||
-    wrongReasons.value.length,
+    correctSolution.value ||
+    solutionSteps.value.length ||
+    finalValue.value ||
+    distractorReasons.value.length,
   ),
 )
 const hasReviewGuide = computed(() =>
   Boolean(
-    reviewSummary.value ||
-    recommendedTopics.value.length ||
-    practiceSuggestions.value.length ||
-    commonMistakes.value.length,
+    reviewGuidance.value ||
+    commonErrorCauses.value.length,
   ),
 )
 

@@ -2,6 +2,7 @@
  * 考试 / 答卷 / 错题本 相关 API
  */
 import { callApi } from '@/utils/request'
+import type { Question } from '@/types'
 
 // ---- 类型 ----
 
@@ -23,20 +24,11 @@ export interface SubmitResult {
   wrongCount: number
 }
 
-export interface ExamQuestion {
-  number: number
-  title: string
-  options: { label: string; text: string }[]
-  answer: string[]
-  images: any[]
-  subject?: string
-  difficulty?: string
-  knowledge_points?: any[]
-  learning_analysis?: any
+export interface ExamQuestion extends Question {
+  questionId?: string
   selectedAnswer?: string | null
   isCorrect?: boolean
   durationSeconds?: number
-  [key: string]: any
 }
 
 export interface ExamResult {

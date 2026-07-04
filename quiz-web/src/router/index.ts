@@ -53,6 +53,8 @@ const router = createRouter({
             { path: '', name: 'admin-core-library', component: () => import('../views/admin/CoreLibraryView.vue') },
             // 试题库
             { path: 'questions', name: 'admin-questions', component: () => import('../views/admin/QuestionBankAdmin.vue') },
+            // 试题库内容预览
+            { path: 'questions/:id', name: 'admin-questions-detail', component: () => import('../views/admin/PaperPreview.vue') },
             // 教材库
             { path: 'textbooks', name: 'admin-textbooks', component: () => import('../views/admin/TextbookAdmin.vue') },
             // 大纲库

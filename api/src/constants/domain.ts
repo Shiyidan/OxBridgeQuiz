@@ -25,6 +25,27 @@ export const EXAM_TYPE = {
 export const EXAM_TYPES = Object.values(EXAM_TYPE)
 export type ExamType = (typeof EXAM_TYPES)[number]
 
+export const PAPER_TYPE = {
+  REAL_PAPER: 'realPaper',
+  MOCK_PAPER: 'mockPaper',
+  AI_PAPER: 'aiPaper',
+} as const
+
+export const PAPER_TYPES = Object.values(PAPER_TYPE)
+export type PaperType = (typeof PAPER_TYPES)[number]
+
+export const REAL_PAPER_TYPES = [
+  PAPER_TYPE.REAL_PAPER,
+] as const
+
+export const QUESTION_BANK_PAPER_TYPES = [
+  PAPER_TYPE.AI_PAPER,
+] as const
+
+export const MOCK_PAPER_TYPES = [
+  PAPER_TYPE.MOCK_PAPER,
+] as const
+
 export const MEMBERSHIP_PLAN = {
   MONTHLY: 'monthly',
   YEARLY: 'yearly',
@@ -59,6 +80,29 @@ export function isUserRole(value: unknown): value is UserRole {
 
 export function isExamType(value: unknown): value is ExamType {
   return typeof value === 'string' && EXAM_TYPES.includes(value as ExamType)
+}
+
+export function normalizePaperType(value: unknown): PaperType {
+  if (REAL_PAPER_TYPES.includes(value as any)) return PAPER_TYPE.REAL_PAPER
+  if (MOCK_PAPER_TYPES.includes(value as any)) return PAPER_TYPE.MOCK_PAPER
+  if (QUESTION_BANK_PAPER_TYPES.includes(value as any)) return PAPER_TYPE.AI_PAPER
+  return PAPER_TYPE.REAL_PAPER
+}
+
+export function isPaperType(value: unknown): value is PaperType {
+  return typeof value === 'string' && PAPER_TYPES.includes(value as PaperType)
+}
+
+export function paperTypeWhereValues(value: unknown): string[] {
+  if (!isPaperType(value)) return []
+  const paperType = normalizePaperType(value)
+  if (paperType === PAPER_TYPE.REAL_PAPER) return [...REAL_PAPER_TYPES]
+  if (paperType === PAPER_TYPE.MOCK_PAPER) return [...MOCK_PAPER_TYPES]
+  return [...QUESTION_BANK_PAPER_TYPES]
+}
+
+export function isRealPaperType(value: unknown): boolean {
+  return REAL_PAPER_TYPES.includes(value as any)
 }
 
 export function isMembershipPlan(value: unknown): value is MembershipPlan {

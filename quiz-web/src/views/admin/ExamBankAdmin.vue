@@ -52,12 +52,16 @@
               <td>
                 <select
                   class="type-select"
-                  :value="paper.paperType || 'past'"
+                  :value="normalizePaperType(paper.paperType)"
                   @change="changePaperType(paper.id, ($event.target as HTMLSelectElement).value)"
                 >
-                  <option value="past">真题</option>
-                  <option value="practice">练习</option>
-                  <option value="diagnostic">诊断</option>
+                  <option
+                    v-for="item in paperTypeOptions"
+                    :key="item.value"
+                    :value="item.value"
+                  >
+                    {{ item.label }}
+                  </option>
                 </select>
               </td>
               <td>{{ paper.year }}</td>
@@ -111,12 +115,14 @@
 import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getPaperListData, updatePaperStatus, updatePaperType, type PaperItem } from '@/api/papers'
+import { PAPER_TYPE, PAPER_TYPE_OPTIONS, normalizePaperType } from '@/constants/paperTypes'
 
 const route = useRoute()
 const router = useRouter()
 const loading = ref(true)
 const activeStatusMenu = ref<string | null>(null)
 const paperList = ref<PaperItem[]>([])
+const paperTypeOptions = PAPER_TYPE_OPTIONS
 
 // 每次回到真题库列表时重新获取数据，保证上传或编辑后的状态可见。
 watch(
@@ -127,11 +133,11 @@ watch(
   { immediate: true },
 )
 
-// 真题库列表只展示 past 类型，避免练习虚拟卷混入后台真题管理。
+// 真题库列表只展示真题卷来源，避免题库和模考来源混入后台真题管理。
 async function fetchPapers(): Promise<void> {
   loading.value = true
   try {
-    const papers = (await getPaperListData({ paperType: 'past' })).papers || []
+    const papers = (await getPaperListData({ paperType: PAPER_TYPE.REAL_PAPER })).papers || []
     paperList.value = papers.sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     )
@@ -149,7 +155,7 @@ const statusOptions = [
   { value: 'archived', label: '已归档' },
 ]
 
-// 后台列表用试卷 code 推断学科展示名，兼容历史导入数据的空 code。
+// 后台列表用试卷 code 推断学科展示名，空 code 展示为通用。
 function subjectLabel(code: string | null): string {
   return code || '通用'
 }
@@ -191,19 +197,19 @@ async function changeStatus(id: string, newStatus: string): Promise<void> {
   activeStatusMenu.value = null
 }
 
-// 类型改出 past 后从当前真题列表移除，和后台筛选条件保持一致。
+// 类型改出真题卷后从当前真题列表移除，和后台筛选条件保持一致。
 async function changePaperType(id: string, paperType: string): Promise<void> {
   try {
     await updatePaperType(id, paperType)
     const item = paperList.value.find((p) => p.id === id)
     if (item) item.paperType = paperType
-    if (paperType !== 'past') paperList.value = paperList.value.filter((p) => p.id !== id)
+    if (paperType !== PAPER_TYPE.REAL_PAPER) paperList.value = paperList.value.filter((p) => p.id !== id)
   } catch {
     await fetchPapers()
   }
 }
 
-// 录入入口复用真题库上传解析流程，上传时默认写入 past 类型。
+// 录入入口复用真题库上传解析流程，上传时默认写入真题卷来源。
 function handleManualImport(): void {
   router.push('/admin/core-library/exams/upload')
 }

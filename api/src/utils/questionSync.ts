@@ -1,16 +1,7 @@
 import { prisma } from '../services/prisma.js'
 
 function normalizeDifficulty(value: any): string {
-  if (!value) return ''
-  if (typeof value === 'string') {
-    try {
-      const parsed = JSON.parse(value)
-      return parsed?.level || ''
-    } catch {
-      return value
-    }
-  }
-  return value.level || ''
+  return typeof value === 'string' ? value : ''
 }
 
 /** 将题目数组写入 Question 表，覆盖该试卷下所有已有题目 */
@@ -27,24 +18,26 @@ export async function syncPaperQuestions(paperId: string, questions: any[]): Pro
 
   const rows = questions.map((q: any) => ({
     paperId,
-    examType: q.examType || q.exam_type || paperExamType,
+    examType: q.examType || paperExamType,
     number: q.number ?? 0,
     title: q.title ?? '',
     options: JSON.stringify(q.options || []),
     answer: JSON.stringify(q.answer || []),
-    subject: q.subject || q.subject_code || null,
-    subjectCode: q.subject_code || q.subject || null,
+    subject: q.subject || null,
+    subjectCode: q.subject_code || null,
     questionType: q.question_type || null,
     difficulty: normalizeDifficulty(q.difficulty),
     topic: q.topic || null,
     topicCode: q.topic_code || null,
     knowledgePoints: JSON.stringify(q.knowledge_points || []),
     meta: JSON.stringify({
+      code: q.code,
+      source_examType: q.source_examType,
+      year: q.year,
+      is_ai_generated: q.is_ai_generated,
       content_blocks: q.content_blocks,
       images: q.images,
-      skills: q.skills,
       learning_analysis: q.learning_analysis,
-      generation_profile: q.generation_profile,
     }),
   }))
 

@@ -5,6 +5,8 @@ import {
   EFFECTIVE_PLAN,
   EXAM_TYPES,
   MEMBERSHIP_STATUS,
+  QUESTION_BANK_PAPER_TYPES,
+  REAL_PAPER_TYPES,
   USER_ROLE,
 } from '../constants/domain.js'
 
@@ -56,7 +58,7 @@ async function countDiagnosticUsed(userId: string, examType: string): Promise<nu
         userId,
         examType,
         status: 'submitted',
-        paper: { paperType: { in: ['past', 'diagnostic', 'mock'] } },
+        paper: { paperType: { in: [...REAL_PAPER_TYPES] } },
       },
     }),
   ])
@@ -69,7 +71,7 @@ async function countQuestionBankUsed(userId: string, examType: string): Promise<
       examRecord: {
         userId,
         examType,
-        paper: { paperType: 'practice' },
+        paper: { paperType: { in: [...QUESTION_BANK_PAPER_TYPES] } },
       },
     },
   })
@@ -169,7 +171,7 @@ export async function getMemberContext(userId: string) {
             examRecord: {
               userId,
               examType,
-              paper: { paperType: 'practice' },
+              paper: { paperType: { in: [...QUESTION_BANK_PAPER_TYPES] } },
             },
           },
         }),

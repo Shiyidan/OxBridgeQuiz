@@ -583,6 +583,21 @@ papersRouter.get('/assessment/papers', requireAuth, async (req, res) => {
       take: 12,
     })
 
+    const progressRecords = await prisma.examRecord.findMany({
+      where: {
+        userId: req.user!.userId,
+        status: 'in_progress',
+        paper: { paperType: { in: [...REAL_PAPER_TYPES] }, status: 'published' },
+      },
+      include: {
+        paper: { select: { id: true, title: true, paperType: true, examType: true } },
+        answers: { select: { selectedAnswer: true, durationSeconds: true } },
+      },
+      orderBy: { startedAt: 'desc' },
+    })
+
+    const submittedPaperIds = new Set(records.map((record) => record.paper.id))
+
     res.json(success({
       papers,
       records: records
@@ -598,6 +613,19 @@ papersRouter.get('/assessment/papers', requireAuth, async (req, res) => {
           durationSeconds: record.submittedAt
             ? Math.max(0, Math.round((record.submittedAt.getTime() - record.startedAt.getTime()) / 1000))
             : null,
+        })),
+      progressRecords: progressRecords
+        .filter((record) => !submittedPaperIds.has(record.paper.id))
+        .map((record) => ({
+          id: record.id,
+          paperId: record.paper.id,
+          examType: record.paper.examType,
+          paperTitle: record.paper.title,
+          totalQuestions: record.totalQuestions,
+          answeredCount: record.answers.filter((answer) => Boolean(answer.selectedAnswer)).length,
+          startedAt: record.startedAt,
+          durationSeconds: record.answers.reduce((sum, answer) => sum + answer.durationSeconds, 0),
+          status: record.status,
         })),
     }))
   } catch (e: any) {

@@ -15,6 +15,24 @@ export interface SubmitParams {
   code?: string
   paperId?: string
   examType?: string
+  debugRetake?: boolean
+}
+
+export interface ExamProgress {
+  id: string
+  paperId: string
+  examType?: string
+  totalQuestions: number
+  startedAt: string
+  status: string
+  answers: Record<string, string>
+  questionDurations: Record<string, number>
+  durationSeconds: number
+}
+
+export interface SaveProgressResult {
+  examRecordId: string
+  status: string
 }
 
 export interface SubmitResult {
@@ -114,6 +132,25 @@ export interface ProfileExamStats {
 }
 
 // ---- API ----
+
+/** 保存诊断测试答题进度 */
+export function saveExamProgress(params: SubmitParams) {
+  return callApi<SaveProgressResult>({
+    url: '/exams/progress',
+    method: 'POST',
+    isAllData: false,
+    body: params,
+  })
+}
+
+/** 获取诊断测试答题进度 */
+export function getExamProgressData(paperId: string) {
+  return callApi<ExamProgress | null>({
+    url: `/exams/progress/${paperId}`,
+    method: 'GET',
+    isAllData: false,
+  })
+}
 
 /** 交卷 */
 export function submitExam(params: SubmitParams) {

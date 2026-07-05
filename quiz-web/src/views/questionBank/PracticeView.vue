@@ -2,10 +2,12 @@
 <template>
   <div class="practice-page">
     <ExamVue
+      :key="examTimerKey"
       ref="examNavRef"
       :exam-type="activeExamType"
       :mode="examMode"
       :countdown-duration-seconds="countdownDurationSeconds"
+      :initial-elapsed-seconds="initialElapsedSeconds"
       :current-index="currentIndex"
       :total-count="totalCount"
       @back="handleBackToQuestionBank"
@@ -99,7 +101,7 @@ import QuestionCard from '@/components/QuestionCard.vue'
 import ExamVue from '@/components/ExamVue.vue'
 import { getQuestionsData } from '@/api/questionBank'
 import { getPaperDetailData } from '@/api/papers'
-import { submitExam } from '@/api/exam'
+import { getExamProgressData, saveExamProgress, submitExam, type ExamProgress } from '@/api/exam'
 import { checkMemberAccess, getMember } from '@/api/member'
 import { useAuthStore } from '@/stores/auth'
 import { DEFAULT_EXAM_TYPE, EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
@@ -115,6 +117,8 @@ const activeExamType = ref<ExamType>(DEFAULT_EXAM_TYPE)
 const loading = ref(true)
 const currentIndex = ref(0)
 const countdownDurationSeconds = ref(0)
+const initialElapsedSeconds = ref(0)
+const examTimerKey = ref(0)
 const visitedIndexes = ref<Set<number>>(new Set([0]))
 const answers = ref<Record<string, string>>({})
 const questionDurations = ref<Record<string, number>>({})
@@ -127,6 +131,7 @@ const examMode = computed(() => {
   // 后续仿真考试入口可在此扩展
   return 'question-bank'
 })
+const isDebugRetake = computed(() => route.query.debugRetake === '1')
 
 const totalCount = computed(() => questions.value.length)
 const currentQuestion = computed(() => questions.value[currentIndex.value])
@@ -175,18 +180,26 @@ async function loadQuestions(): Promise<void> {
         ...q,
         id: q.id || `paper-${paper.id}-${q.number || index + 1}`,
       }))
-      const access = await checkMemberAccess({
-        action: 'diagnostic',
-        examType: activeExamType.value,
-        questionCount: 1,
-      })
-      if (!access.allowed) {
-        ElMessage.warning('当前诊断测试额度不足，请开通会员后继续')
-        router.replace('/assessment')
-        return
+      const savedProgress = isDebugRetake.value ? null : await getExamProgressData(paperId)
+      if (!savedProgress && !isDebugRetake.value) {
+        const access = await checkMemberAccess({
+          action: 'diagnostic',
+          examType: activeExamType.value,
+          questionCount: 1,
+        })
+        if (!access.allowed) {
+          ElMessage.warning('当前诊断测试额度不足，请开通会员后继续')
+          router.replace('/assessment')
+          return
+        }
       }
       questions.value = loadedQuestions
       countdownDurationSeconds.value = Math.max(1, paper.duration || 60) * 60
+      if (savedProgress) {
+        restoreSavedProgress(savedProgress, loadedQuestions)
+      } else {
+        resetAnswerState()
+      }
       return
     }
 
@@ -211,6 +224,7 @@ async function loadQuestions(): Promise<void> {
       }
     }
     questions.value = loadedQuestions
+    resetAnswerState()
   } catch (e) {
     console.error('[Practice] 加载失败', e)
     questions.value = []
@@ -218,6 +232,42 @@ async function loadQuestions(): Promise<void> {
     loading.value = false
     questionEnteredAt = Date.now()
   }
+}
+
+function resetAnswerState(): void {
+  currentIndex.value = 0
+  visitedIndexes.value = new Set([0])
+  answers.value = {}
+  questionDurations.value = {}
+  initialElapsedSeconds.value = 0
+  examTimerKey.value += 1
+}
+
+function restoreSavedProgress(progress: ExamProgress, loadedQuestions: Question[]): void {
+  const questionIds = new Set(loadedQuestions.map((question) => question.id))
+  const restoredAnswers: Record<string, string> = {}
+  const restoredDurations: Record<string, number> = {}
+
+  for (const [questionId, answer] of Object.entries(progress.answers || {})) {
+    if (questionIds.has(questionId)) restoredAnswers[questionId] = answer
+  }
+  for (const [questionId, duration] of Object.entries(progress.questionDurations || {})) {
+    if (questionIds.has(questionId)) restoredDurations[questionId] = Math.max(0, Number(duration) || 0)
+  }
+
+  answers.value = restoredAnswers
+  questionDurations.value = restoredDurations
+  initialElapsedSeconds.value = Object.values(restoredDurations).reduce((sum, value) => sum + value, 0)
+
+  const visited = new Set<number>([0])
+  loadedQuestions.forEach((question, index) => {
+    if (restoredAnswers[question.id] || (restoredDurations[question.id] ?? 0) > 0) visited.add(index)
+  })
+  const firstUnansweredIndex = loadedQuestions.findIndex((question) => !restoredAnswers[question.id])
+  currentIndex.value = firstUnansweredIndex >= 0 ? firstUnansweredIndex : Math.max(loadedQuestions.length - 1, 0)
+  visited.add(currentIndex.value)
+  visitedIndexes.value = visited
+  examTimerKey.value += 1
 }
 
 // 记录访问过的题号，用于区分未看过和跳过的题目状态。
@@ -281,13 +331,17 @@ async function handleBackToQuestionBank(): Promise<void> {
     'mock-exam': { label: '仿真考试', path: '/' },
   }
   const target = backTargets[examMode.value]!
+  const isAssessmentMode = examMode.value === 'assessment'
+  const confirmMessage = isAssessmentMode
+    ? '返回诊断测试会保存当前作答和用时，之后可继续测试，是否返回？'
+    : `返回${target.label}将离开当前答题页面，当前作答不会自动提交，是否返回？`
   try {
     await ElMessageBox.confirm(
-      `返回${target.label}将离开当前答题页面，当前作答不会自动提交，是否返回？`,
+      confirmMessage,
       '提示',
       {
         type: 'warning',
-        confirmButtonText: `返回${target.label}`,
+        confirmButtonText: isAssessmentMode ? '保存并返回' : `返回${target.label}`,
         cancelButtonText: '继续答题',
         confirmButtonClass: 'button_primary',
         cancelButtonClass: 'button_cancel',
@@ -296,10 +350,33 @@ async function handleBackToQuestionBank(): Promise<void> {
         distinguishCancelAndClose: true,
       },
     )
+    if (isAssessmentMode) {
+      try {
+        await saveCurrentAssessmentProgress()
+      } catch (e: any) {
+        ElMessage.error(e.response?.data?.errMsg || '保存答题进度失败，请重试')
+        return
+      }
+    }
     router.push(target.path)
   } catch {
     // 用户取消返回时保持当前答题状态。
   }
+}
+
+// 诊断测试中途返回时保存当前答案和每题停留时长，用于下次续答。
+async function saveCurrentAssessmentProgress(): Promise<void> {
+  const paperId = route.query.paperId as string | undefined
+  if (!paperId || !questions.value.length) return
+  recordCurrentQuestionDuration()
+  await saveExamProgress({
+    questions: questions.value,
+    answers: { ...answers.value },
+    questionDurations: { ...questionDurations.value },
+    startedAt: new Date(examNavRef.value?.startedAt ?? Date.now()).toISOString(),
+    paperId,
+    examType: activeExamType.value,
+  })
 }
 
 // 提前交卷前进行二次确认，避免学生误触导致答题直接结束。
@@ -341,6 +418,7 @@ async function handleSubmit(): Promise<void> {
       code: route.query.code as string,
       paperId: route.query.paperId as string,
       examType: activeExamType.value,
+      debugRetake: isDebugRetake.value,
     })
     const memberCtx = await getMember()
     auth.setMemberContext(memberCtx)
@@ -419,35 +497,38 @@ onMounted(() => {
   --practice-topbar-height: 64px;
 
   min-height: 100vh;
-  background: #fff;
-  color: #1d1d1f;
+  background: var(--color-bg);
+  color: var(--color-ink);
 }
 .practice-shell {
   width: 100%;
-  max-width: 1360px;
+  max-width: 1440px;
   min-height: calc(100vh - var(--practice-topbar-height));
   margin: 0 auto;
-  padding: 24px 32px 40px;
+  padding: 24px 40px 40px;
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: 260px minmax(0, 1fr);
   align-items: start;
   gap: 24px;
-  background: #fafafa;
 }
 .question-nav,
 .exam-panel {
-  background: #fff;
-  border: 1px solid #e9e9e9;
-  border-radius: 8px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
 }
 .question-nav {
+  position: sticky;
+  top: calc(var(--practice-topbar-height) + 24px);
   align-self: start;
   height: auto;
   padding: 20px;
 }
 .question-nav__title {
   margin: 0 0 18px;
-  font-size: 18px;
+  color: var(--color-ink);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
 }
 .question-nav__grid {
   display: grid;
@@ -455,31 +536,51 @@ onMounted(() => {
   gap: 10px;
 }
 .question-nav__item {
-  height: 40px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #fff;
+  height: 42px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
   cursor: pointer;
+  transition:
+    background var(--duration-base) ease,
+    border-color var(--duration-base) ease,
+    color var(--duration-base) ease;
+}
+.question-nav__item:hover {
+  border-color: var(--color-ink);
+  background: var(--color-hover);
 }
 .question-nav__item--current {
-  border-color: #2563eb;
-  color: #2563eb;
-  font-weight: 700;
+  border-color: var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-ink-inverse);
 }
 .question-nav__item--answered {
-  background: #ecfdf5;
-  border-color: #86efac;
+  border-color: var(--color-success);
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 .question-nav__item--skipped {
-  background: #fff7ed;
-  border-color: #fdba74;
+  border-color: var(--color-warning);
+  background: var(--color-warning-bg);
+  color: #9a6200;
+}
+.question-nav__item--current.question-nav__item--answered,
+.question-nav__item--current.question-nav__item--skipped {
+  border-color: var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-ink-inverse);
 }
 .question-nav__stats {
   margin-top: 20px;
   display: grid;
   gap: 10px;
-  color: #64748b;
-  font-size: 14px;
+  color: var(--color-ink-soft);
+  font-size: var(--text-sm);
 }
 .question-nav__dot {
   display: inline-block;
@@ -493,7 +594,7 @@ onMounted(() => {
   background: #22c55e;
 }
 .question-nav__dot--skipped {
-  background: #f97316;
+  background: var(--color-warning);
 }
 .question-nav__submit {
   width: 100%;
@@ -502,18 +603,20 @@ onMounted(() => {
   font-size: var(--text-base);
 }
 .exam-panel {
-  padding: 20px 24px 24px;
+  min-width: 0;
+  padding: 24px;
+}
+.exam-panel__body {
+  min-width: 0;
 }
 .exam-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-}
-.exam-actions {
   margin-top: 20px;
   padding-top: 16px;
-  border-top: 1px solid #edf0f1;
+  border-top: 1px solid var(--color-line-soft);
 }
 .exam-action {
   min-width: 96px;
@@ -526,6 +629,6 @@ onMounted(() => {
 .practice-status {
   padding: 32px;
   text-align: center;
-  color: #64748b;
+  color: var(--color-ink-muted);
 }
 </style>

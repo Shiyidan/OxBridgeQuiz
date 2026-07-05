@@ -1,8 +1,8 @@
 ﻿<template>
   <div class="practice-report">
+    <NavBar />
     <main class="report-main">
       <div class="report-shell">
-        <router-link :to="backTarget" class="back-link">← {{ backLabel }}</router-link>
         <h1 class="report-title">{{ pageTitle }}</h1>
 
         <div v-if="loading" class="loading-card">加载中...</div>
@@ -212,6 +212,7 @@
 // 答题结果详情：诊断测试展示成绩报告，题库练习复用公共逐题解析。
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import NavBar from '@/components/NavBar.vue'
 import ExamQuestionAnalysis from '@/components/report/ExamQuestionAnalysis.vue'
 import { getExamResultData, type ExamQuestion } from '@/api/exam'
 import { PAPER_TYPE, normalizePaperType } from '@/constants/paperTypes'
@@ -272,8 +273,6 @@ const submittedAt = ref<string>('')
 const isPastPaper = computed(
   () => normalizePaperType(paper.value?.paperType) === PAPER_TYPE.REAL_PAPER,
 )
-const backTarget = computed(() => (isPastPaper.value ? '/assessment' : '/question-bank'))
-const backLabel = computed(() => (isPastPaper.value ? '返回无限模考' : '返回试题库'))
 const examCode = computed(() => paper.value?.code?.toUpperCase() || 'TMUA')
 const examTitle = computed(() => paper.value?.title || questions.value[0]?.subject || '题库练习')
 const pageTitle = computed(() => {
@@ -517,12 +516,6 @@ function normalizeKnowledgePoints(question: ReportQuestion): string[] {
 .report-shell {
   max-width: 100%;
   min-width: 0;
-}
-
-.back-link {
-  color: #8a999d;
-  text-decoration: none;
-  font-weight: 700;
 }
 
 .report-title {

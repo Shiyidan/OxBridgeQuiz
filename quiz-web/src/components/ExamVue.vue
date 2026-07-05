@@ -56,12 +56,14 @@ const props = withDefaults(
     examType: ExamType
     mode: ExamMode
     countdownDurationSeconds: number
+    initialElapsedSeconds?: number
     currentIndex: number
     totalCount: number
   }>(),
   {
     mode: 'question-bank',
     countdownDurationSeconds: 0,
+    initialElapsedSeconds: 0,
     currentIndex: 0,
     totalCount: 0,
   },
@@ -78,7 +80,7 @@ const isCountdown = computed(() => config.value.isCountdown)
 const backLabel = computed(() => config.value.backLabel)
 
 // 页面初始化时打点，后续 tick 基于此时间戳与 wall clock 对比
-const startedAt = Date.now()
+const startedAt = Date.now() - Math.max(0, props.initialElapsedSeconds) * 1000
 let timerId: number | undefined
 let isMounted = false
 // 记录页面隐藏期间的总时长（毫秒），tick 中扣除以保证计时准确
@@ -88,7 +90,7 @@ let pauseStartedAt = 0
 let fiveMinWarned = false
 
 // 从组件初始化到当前时刻的实际可见秒数
-const timerElapsed = ref(0)
+const timerElapsed = ref(Math.max(0, props.initialElapsedSeconds))
 
 // 倒计时模式下剩余秒数，正计时模式恒为 0
 const timerRemaining = computed(() =>
@@ -196,19 +198,19 @@ defineExpose({ startedAt, timerElapsed })
   top: 0;
   z-index: 80;
   height: var(--exam-topbar-height);
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.98);
   border-bottom: 1px solid var(--color-line);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 .exam-topbar__inner {
   width: 100%;
-  max-width: 1360px;
+  max-width: 1440px;
   height: 100%;
   margin: 0 auto;
-  padding: 0 32px;
+  padding: 0 40px;
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: 260px minmax(0, 1fr);
   align-items: center;
   gap: 24px;
 }
@@ -251,28 +253,29 @@ defineExpose({ startedAt, timerElapsed })
 }
 .exam-topbar__title {
   color: var(--color-ink);
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
   font-weight: var(--weight-bold);
   white-space: nowrap;
 }
 .exam-topbar__timer {
   flex-shrink: 0;
-  color: #1d4ed8;
+  color: var(--color-ink);
   font-size: var(--text-lg);
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 .exam-topbar__timer--warning {
-  color: #dc2626;
+  color: var(--color-danger);
 }
 .exam-topbar__progress {
   height: 4px;
-  background: #e2e8f0;
+  background: var(--color-line);
   border-radius: var(--radius-pill);
   overflow: hidden;
 }
 .exam-topbar__progress span {
   display: block;
   height: 100%;
-  background: #2563eb;
+  background: var(--color-ink);
 }
 </style>

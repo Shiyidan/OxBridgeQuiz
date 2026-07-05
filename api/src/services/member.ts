@@ -163,9 +163,7 @@ export async function getMemberContext(userId: string) {
       const questionBankLimit = config?.questionBankLimit ?? DEFAULT_QUESTION_BANK_LIMIT
 
       const [diagnosticUsed, questionBankUsed] = await Promise.all([
-        prisma.diagnosticSession.count({
-          where: { userId, examType, status: 'linked' },
-        }),
+        countDiagnosticUsed(userId, examType),
         prisma.answerRecord.count({
           where: {
             examRecord: {

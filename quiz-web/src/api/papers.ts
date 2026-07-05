@@ -112,9 +112,22 @@ export interface AssessmentRecordItem {
   durationSeconds: number | null
 }
 
+export interface AssessmentProgressItem {
+  id: string
+  paperId: string
+  examType?: string
+  paperTitle: string
+  totalQuestions: number
+  answeredCount: number
+  startedAt: string
+  durationSeconds: number
+  status: string
+}
+
 export interface AssessmentPaperResult {
   papers: AssessmentPaperItem[]
   records: AssessmentRecordItem[]
+  progressRecords: AssessmentProgressItem[]
 }
 
 /** 诊断测试套卷与参与记录 */

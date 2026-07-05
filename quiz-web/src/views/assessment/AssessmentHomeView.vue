@@ -3,9 +3,23 @@
     <NavBar />
     <main class="assessment-shell">
       <header class="page-header">
-        <h1>诊断测试中心</h1>
-        <div class="quota-bar">
-          <span class="quota-text">{{ quotaText }}</span>
+        <div class="page-header__lead">
+          <span class="page-eyebrow">Diagnostic Assessment</span>
+          <h1>诊断测试中心</h1>
+          <p>选择已发布真题套卷完成一次全真诊断，系统会在交卷后生成成绩报告。</p>
+        </div>
+        <div class="quota-card">
+          <div class="quota-list" aria-label="诊断测试额度明细">
+            <span
+              v-for="item in diagnosticQuotaItems"
+              :key="item.examType"
+              class="quota-pill"
+              :class="{ 'quota-pill--empty': item.isEmpty }"
+            >
+              <strong>{{ item.label }}</strong>
+              <span>{{ item.text }}</span>
+            </span>
+          </div>
           <button class="quota-button button_primary" type="button" @click="handleUpgradeClick">
             获取更多模考额度
           </button>
@@ -14,16 +28,18 @@
 
       <section class="chart-card">
         <div class="chart-title">
-          <span aria-hidden="true">⌁</span>
-          <strong>历次诊断测试分数变化</strong>
+          <div>
+            <span>Score Trend</span>
+            <strong>历次诊断测试分数变化</strong>
+          </div>
         </div>
         <div ref="chartRef" class="score-chart" aria-label="历次诊断测试分数变化折线图"></div>
-        <div class="chart-foot-label">历年真题</div>
       </section>
 
       <section class="paper-grid" aria-label="历年真题">
         <article v-for="item in paperCards" :key="item.paper.id" class="paper-card">
           <div class="paper-card__info">
+            <span class="paper-card__badge">{{ paperStatusLabel(item) }}</span>
             <h2>{{ item.paper.title }}</h2>
             <p>{{ item.paper.code || item.paper.title }}</p>
           </div>
@@ -33,13 +49,23 @@
             <span>/9.0</span>
           </div>
 
-          <button
-            class="paper-card__button button_primary"
-            type="button"
-            @click="handlePaperAction(item.paper)"
-          >
-            {{ item.record ? '诊断详情→' : '开始测试→' }}
-          </button>
+          <div class="paper-card__actions">
+            <button
+              v-if="item.record"
+              class="paper-card__button paper-card__button--secondary button_cancel"
+              type="button"
+              @click="handleRetestPaper(item.paper)"
+            >
+              重新测试
+            </button>
+            <button
+              class="paper-card__button button_primary"
+              type="button"
+              @click="handlePaperAction(item.paper)"
+            >
+              {{ paperActionLabel(item) }}
+            </button>
+          </div>
         </article>
       </section>
 
@@ -60,9 +86,11 @@ import * as echarts from 'echarts'
 import NavBar from '@/components/NavBar.vue'
 import { checkMemberAccess } from '@/api/member'
 import { useAuthStore } from '@/stores/auth'
+import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 import {
   getAssessmentPapersData,
   type AssessmentPaperItem,
+  type AssessmentProgressItem,
   type AssessmentRecordItem,
 } from '@/api/papers'
 
@@ -71,6 +99,7 @@ const auth = useAuthStore()
 const loading = ref(true)
 const papers = ref<AssessmentPaperItem[]>([])
 const records = ref<AssessmentRecordItem[]>([])
+const progressRecords = ref<AssessmentProgressItem[]>([])
 const chartRef = ref<HTMLDivElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
 
@@ -85,15 +114,35 @@ const mockScoreTrend = [
 ]
 
 const visiblePapers = computed(() => papers.value)
-const currentExamType = computed(() => visiblePapers.value[0]?.examType || 'TMUA')
-const currentQuota = computed(() => auth.memberContext?.quotas?.[currentExamType.value])
-const canUseAllTests = computed(() => auth.isAdmin || Boolean(currentQuota.value?.isMember))
-const quotaText = computed(() => {
-  if (canUseAllTests.value) return '可全部测试'
-  const diagnostic = currentQuota.value?.diagnostic
-  if (!diagnostic || diagnostic.remaining === null || diagnostic.limit === null)
-    return '免费额度  --/--次'
-  return `免费额度（${diagnostic.remaining}/${diagnostic.limit}次）`
+const examTypeLabelMap = new Map<string, string>(EXAM_TYPE_OPTIONS.map((item) => [item.value, item.label]))
+const diagnosticQuotaItems = computed(() => {
+  const quotas = auth.memberContext?.quotas || {}
+  const examTypes = new Set<string>([
+    ...EXAM_TYPE_OPTIONS.map((item) => item.value),
+    ...Object.keys(quotas),
+    ...visiblePapers.value.map((paper) => paper.examType || '').filter(Boolean),
+  ])
+
+  return [...examTypes].map((examType) => {
+    const quota = quotas[examType]
+    const diagnostic = quota?.diagnostic
+    const isUnlimited = Boolean(quota?.isMember || diagnostic?.unlimited)
+    const hasQuota = Boolean(diagnostic)
+    let text = '暂无额度'
+
+    if (isUnlimited) {
+      text = '会员不限次'
+    } else if (diagnostic && diagnostic.remaining !== null && diagnostic.limit !== null) {
+      text = `剩余 ${diagnostic.remaining}/${diagnostic.limit} 次`
+    }
+
+    return {
+      examType,
+      label: examTypeLabelMap.get(examType) || examType,
+      text,
+      isEmpty: !isUnlimited && (!hasQuota || diagnostic?.remaining === 0),
+    }
+  })
 })
 const recordByPaperId = computed<Record<string, AssessmentRecordItem>>(() => {
   const map: Record<string, AssessmentRecordItem> = {}
@@ -102,10 +151,18 @@ const recordByPaperId = computed<Record<string, AssessmentRecordItem>>(() => {
   }
   return map
 })
+const progressByPaperId = computed<Record<string, AssessmentProgressItem>>(() => {
+  const map: Record<string, AssessmentProgressItem> = {}
+  for (const record of progressRecords.value) {
+    if (!map[record.paperId]) map[record.paperId] = record
+  }
+  return map
+})
 const paperCards = computed(() =>
   visiblePapers.value.map((paper) => ({
     paper,
     record: recordByPaperId.value[paper.id],
+    progress: progressByPaperId.value[paper.id],
   })),
 )
 
@@ -115,9 +172,11 @@ onMounted(async () => {
     const data = await getAssessmentPapersData()
     papers.value = data.papers || []
     records.value = data.records || []
+    progressRecords.value = data.progressRecords || []
   } catch {
     papers.value = []
     records.value = []
+    progressRecords.value = []
   } finally {
     loading.value = false
     await nextTick()
@@ -136,23 +195,23 @@ function renderChart(): void {
   if (!chartRef.value) return
   chartInstance = echarts.init(chartRef.value)
   chartInstance.setOption({
-    grid: { left: 46, right: 24, top: 20, bottom: 42 },
+    grid: { left: 44, right: 20, top: 24, bottom: 36 },
     xAxis: {
       type: 'category',
       data: mockScoreTrend.map((item) => item.month),
       boundaryGap: false,
       axisTick: { show: false },
-      axisLine: { lineStyle: { color: '#d9e2ea' } },
-      axisLabel: { color: '#7a8794', fontWeight: 600 },
-      splitLine: { show: true, lineStyle: { color: '#edf2f5', type: 'dashed' } },
+      axisLine: { lineStyle: { color: '#eaeaea' } },
+      axisLabel: { color: '#8a8a8a', fontWeight: 600 },
+      splitLine: { show: true, lineStyle: { color: '#f0f0f0', type: 'dashed' } },
     },
     yAxis: {
       type: 'value',
       min: 0,
       max: 9,
       interval: 3,
-      axisLabel: { color: '#7a8794', fontWeight: 600 },
-      splitLine: { lineStyle: { color: '#edf2f5', type: 'dashed' } },
+      axisLabel: { color: '#8a8a8a', fontWeight: 600 },
+      splitLine: { lineStyle: { color: '#f0f0f0', type: 'dashed' } },
     },
     series: [
       {
@@ -161,8 +220,8 @@ function renderChart(): void {
         smooth: true,
         symbol: 'circle',
         symbolSize: 8,
-        lineStyle: { width: 3, color: '#3d8bd1' },
-        itemStyle: { color: '#2f80c4' },
+        lineStyle: { width: 3, color: '#1a1a1a' },
+        itemStyle: { color: '#1a1a1a', borderColor: '#ffffff', borderWidth: 2 },
       },
     ],
     tooltip: {
@@ -189,7 +248,20 @@ async function handlePaperAction(paper: AssessmentPaperItem): Promise<void> {
     router.push(`/exam-result/${record.id}`)
     return
   }
+  const progress = progressByPaperId.value[paper.id]
+  if (progress) {
+    router.push({ path: '/practice', query: { paperId: paper.id, mode: 'assessment' } })
+    return
+  }
   await startPaper(paper)
+}
+
+// 临时调试入口：已完成套卷可直接重新进入答题，不消耗诊断额度。
+function handleRetestPaper(paper: AssessmentPaperItem): void {
+  router.push({
+    path: '/practice',
+    query: { paperId: paper.id, mode: 'assessment', debugRetake: '1' },
+  })
 }
 
 // 点击套卷前先做权益预检，避免进入答题页后才发现额度不足。
@@ -210,154 +282,256 @@ function scoreText(record: AssessmentRecordItem): string {
   if (!record.totalQuestions) return '0'
   return ((record.correctCount / record.totalQuestions) * 9).toFixed(1)
 }
+
+function paperStatusLabel(item: { record?: AssessmentRecordItem; progress?: AssessmentProgressItem }): string {
+  if (item.record) return '已完成'
+  if (item.progress) return '进行中'
+  return '待开始'
+}
+
+function paperActionLabel(item: { record?: AssessmentRecordItem; progress?: AssessmentProgressItem }): string {
+  if (item.record) return '诊断详情→'
+  if (item.progress) return '继续测试→'
+  return '开始测试→'
+}
 </script>
 
 <style scoped lang="scss">
 .assessment-page {
   min-height: 100vh;
-  background: #f5f7fa;
-  color: #1f2a37;
+  min-width: var(--fluid-page-min-width);
+  background: var(--color-bg);
+  color: var(--color-ink);
 }
 
 .assessment-shell {
-  width: 100%;
-  max-width: 1600px;
+  width: clamp(var(--fluid-shell-min), var(--fluid-shell-fluid), var(--fluid-shell-max));
   margin: 0 auto;
-  padding: 28px var(--container-px-desktop) 96px;
+  padding: 40px 0 96px;
 }
 
 .page-header {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 24px;
-  margin: 0 0 66px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #e6ebf0;
+  gap: 32px;
+  margin: 0 0 24px;
 }
 
 .page-header h1 {
   margin: 0;
-  font-size: 28px;
+  color: var(--color-ink);
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-bold);
   letter-spacing: 0;
   white-space: nowrap;
 }
 
-.quota-bar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+.page-header__lead p {
+  max-width: 560px;
+  margin: 10px 0 0;
+  color: var(--color-ink-soft);
+  line-height: var(--leading-relaxed);
 }
 
-.quota-text {
-  color: #3979a7;
-  font-size: 16px;
-  font-weight: 800;
+.page-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.page-eyebrow::before {
+  width: 24px;
+  height: 1px;
+  background: var(--color-ink);
+  content: '';
+}
+
+.quota-card {
+  width: fit-content;
+  max-width: 100%;
+  display: grid;
+  gap: 14px;
+  flex: 0 1 auto;
+  justify-items: stretch;
+  padding: 16px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.quota-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quota-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: var(--color-hover);
+  color: var(--color-ink-soft);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+  white-space: nowrap;
+}
+
+.quota-pill strong {
+  color: var(--color-ink);
+}
+
+.quota-pill--empty {
+  background: var(--color-surface-alt);
+  color: var(--color-ink-muted);
 }
 
 .quota-button,
 .paper-card__button {
-  height: 32px;
-  padding: 0 16px;
-  border-radius: 4px;
-  font-weight: 800;
+  height: var(--height-button);
+  border-radius: var(--radius-md);
 }
 
 .quota-button {
-  min-width: 132px;
+  min-width: 128px;
+  width: 100%;
 }
 
 .chart-card {
-  padding: 18px 18px 8px;
-  border: 1px solid #e4e9ee;
-  border-radius: 6px;
-  background: #fff;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  padding: 24px 24px 16px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
 }
 
 .chart-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: #253445;
-  font-size: 14px;
+  justify-content: space-between;
+  margin-bottom: 4px;
 }
 
 .chart-title span {
-  color: #3d8bd1;
-  font-size: 20px;
-  line-height: 1;
+  display: block;
+  margin-bottom: 4px;
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.chart-title strong {
+  color: var(--color-ink);
+  font-size: var(--text-lg);
 }
 
 .score-chart {
   width: 100%;
-  height: 214px;
-}
-
-.chart-foot-label {
-  margin: -8px 0 4px;
-  color: #1f2a37;
-  font-size: 13px;
-  font-weight: 800;
+  height: 220px;
 }
 
 .paper-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px 32px;
-  margin-top: 20px;
+  gap: 16px;
+  margin-top: 24px;
 }
 
 .paper-card {
   min-width: 0;
-  min-height: 66px;
+  min-height: 96px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 18px;
-  padding: 18px 22px;
-  border-radius: 4px;
-  background: #fff;
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+  gap: 20px;
+  padding: 20px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  transition:
+    border-color var(--duration-base) ease,
+    transform var(--duration-fast) ease;
+}
+
+.paper-card:hover {
+  border-color: var(--color-ink);
+  transform: translateY(-1px);
+}
+
+.paper-card__badge {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  margin-bottom: 10px;
+  padding: 0 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: var(--color-hover);
+  color: var(--color-ink-soft);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
 }
 
 .paper-card__info h2 {
   margin: 0;
-  color: #263446;
-  font-size: 16px;
-  font-weight: 800;
+  color: var(--color-ink);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
   overflow-wrap: anywhere;
 }
 
 .paper-card__info p {
-  margin: 6px 0 0;
-  color: #6d7886;
-  font-size: 12px;
-  font-weight: 700;
+  margin: 8px 0 0;
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
 }
 
 .paper-card__score {
+  padding: 0 4px;
   white-space: nowrap;
 }
 
 .paper-card__score strong {
-  color: #2f80d1;
-  font-size: 20px;
+  color: var(--color-ink);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
 }
 
 .paper-card__score span {
-  color: #8793a0;
-  font-size: 12px;
-  font-weight: 800;
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+}
+
+.paper-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.paper-card__button--secondary {
+  min-width: 92px;
 }
 
 .empty-state {
-  margin-top: 20px;
-  padding: 28px;
-  border: 1px dashed #cbd5e1;
-  border-radius: 8px;
-  background: #fff;
-  color: #64748b;
+  margin-top: 24px;
+  padding: 32px;
+  border: 1px dashed var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink-muted);
   text-align: center;
 }
 </style>

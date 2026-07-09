@@ -14,7 +14,7 @@ G5 入学考试在线练习与学习平台。当前产品重心：
 
 早期的 Qwen-VL-Max PDF/图片自动解析流程属于历史模块，非当前主线，除非用户明确要求处理旧解析。
 
-- **后端**：Express + TypeScript + Prisma (SQLite)，位于 [api/](api/)
+- **后端**：Express + TypeScript + Prisma (MySQL)，位于 [api/](api/)
 - **前端**：Vue 3 Composition API + TypeScript + Pinia + KaTeX + SCSS，位于 [quiz-web/](quiz-web/)
 
 详细目录职责与路由表见 [项目架构.md](项目架构.md)。
@@ -26,9 +26,9 @@ G5 入学考试在线练习与学习平台。当前产品重心：
 cd api
 npm run dev                              # dev server on :3001 (tsx watch)
 npm run build                            # TypeScript compile
-npx prisma migrate dev --name <desc>     # Schema 变更后生成迁移
-npx prisma migrate status                # 校验迁移一致性
-npx prisma studio                        # 可视化 DB 浏览器
+.\node_modules\.bin\prisma.cmd migrate dev --name <desc> --schema prisma/schema.prisma
+.\node_modules\.bin\prisma.cmd migrate status --schema prisma/schema.prisma
+.\node_modules\.bin\prisma.cmd studio --schema prisma/schema.prisma
 npm run backfill:questions -- --dry-run  # Paper.questions 回填校验
 
 # Frontend (quiz-web/)
@@ -41,6 +41,66 @@ npm run format       # Prettier
 ```
 
 Windows 下若 PowerShell 拦截 `npm.ps1` / `npx.ps1`，改用 `npm.cmd` / `npx.cmd`。
+
+## Windows 本地开发注意事项
+
+当前主要开发机为 Windows。遇到 Prisma、MySQL、长驻服务相关问题时按以下方式处理，减少重复试错。
+
+### Prisma 命令
+
+- 在 `api/` 目录优先使用项目本地 Prisma：
+  ```bash
+  .\node_modules\.bin\prisma.cmd <command>
+  ```
+- 避免从仓库根目录直接 `npx prisma ...`，否则可能尝试访问 npm registry 或用户级 npm cache，导致权限/网络错误。
+- PowerShell 中如果要写 Node one-liner，`$disconnect()` 需要写成：
+  ```ts
+  prisma.`$disconnect()
+  ```
+  否则 `$disconnect` 会被 PowerShell 当成变量。
+
+### Prisma Client 生成
+
+- 如果 `prisma generate` 报 `EPERM`，并提示无法 rename `query_engine-windows.dll.node`，通常是后端 Node 进程占用了 Prisma engine DLL。
+- 处理方式：
+  1. 先停止正在运行的后端服务。
+  2. 再执行：
+     ```bash
+     cd api
+     .\node_modules\.bin\prisma.cmd generate --schema prisma/schema.prisma
+     ```
+- `PRISMA_GENERATE_NO_ENGINE=1` 只能临时诊断使用，结束前必须重新正常 generate，避免运行时要求 `prisma://` 或缺少本地 engine。
+
+### Prisma migration
+
+- 正常人工终端中可使用：
+  ```bash
+  cd api
+  .\node_modules\.bin\prisma.cmd migrate dev --name <desc> --schema prisma/schema.prisma
+  ```
+- 如果自动化/工具环境提示 `migrate dev` 不支持非交互环境，改用非交互流程：
+  1. 用 `migrate diff` 生成 SQL。
+  2. 保存到 `api/prisma/migrations/<timestamp_name>/migration.sql`。
+  3. 用 `migrate deploy` 应用。
+- 禁止用 `prisma db push` 替代迁移。
+- MySQL migration SQL 必须是 UTF-8 无 BOM。若文件带 BOM，MySQL shadow database 可能报 `P3018`，错误位置在 `﻿-- CreateTable` 附近。
+- 本地 MySQL shadow database 报权限问题时，可为本地 `quiz_dev` 临时补充创建/删除 shadow database 的权限；线上 RDS 不应照搬全局高权限。
+
+### 服务启动与检查
+
+- 长驻服务通过工具调用可能被 timeout 回收。需要稳定检查页面时，优先在真实终端运行：
+  ```bash
+  scripts/start-mysql-local.cmd
+  scripts/start-api-dev.cmd
+  cd quiz-web
+  npm.cmd run dev
+  ```
+- 服务检查命令：
+  ```bash
+  netstat -ano | findstr ":3001 :5173 :3307"
+  Invoke-WebRequest -UseBasicParsing http://localhost:3001/api/health
+  ```
+- 后端端口：`3001`；前端 Vite 常用端口：`5173`，若被占用会自动递增；本地 MySQL：`3307`。
 
 ## Architecture
 
@@ -134,7 +194,7 @@ MembershipPlan, UserMembership, EntitlementConfig
 - 历史 `Paper.questions` 回填用 `npm run backfill:questions`；先 `-- --dry-run`，确认无问题再正式跑；确认旧 JSON 不再需要后才追加 `-- --clear-legacy`。
 - 所有 DB 读写必须走 Prisma Client（[api/src/services/prisma.ts](api/src/services/prisma.ts)），**禁止** raw SQL。
 - 排序优先用数据库 `orderBy`，前端只做兜底。
-- JSON 字段（`options` / `answer` / `knowledgePoints` / `tags`）：写入前 `JSON.stringify`，API 返回前必须 `JSON.parse`。
+- MySQL JSON 字段（`options` / `answer` / `knowledgePoints` / `syllabusPoints` / `meta` / `examPreferences` / `answers` / `sourceJson` / `result`）：通过 Prisma 写入数组或对象，不再写入 JSON 字符串。读取历史字符串 JSON 时使用 [api/src/utils/jsonField.ts](api/src/utils/jsonField.ts) 做兼容解析。
 - 关联查询用 `include`，不要多次单表查询。
 - 角色、状态、套餐、考试类型等枚举值必须集中定义常量，禁止在业务代码里散落硬编码字符串。
 - 语义不混用：`role` 只表达身份；`paymentStatus` 只保留学生旧付费状态；会员权益走会员表 + 权益接口。
@@ -142,10 +202,11 @@ MembershipPlan, UserMembership, EntitlementConfig
 ### Schema 变更流程
 
 1. 改 [api/prisma/schema.prisma](api/prisma/schema.prisma)
-2. 在 `api/` 下跑 `npx prisma migrate dev --name <desc>`
-3. `npx prisma migrate status` 确认一致
-4. **同步更新 [3.2 数据库构建.md](3.2%20数据库构建.md)**（新增/修改/删除表或字段都要维护）
-5. 有历史数据要迁移的，先写并验证迁移脚本，再删旧列
+2. 在 `api/` 下优先跑 `.\node_modules\.bin\prisma.cmd migrate dev --name <desc> --schema prisma/schema.prisma`
+3. 若环境不支持交互式 `migrate dev`，使用 `migrate diff` + `migrate deploy`
+4. `.\node_modules\.bin\prisma.cmd migrate status --schema prisma/schema.prisma` 确认一致
+5. **同步更新 [3.2 数据库构建.md](3.2%20数据库构建.md)**（新增/修改/删除表或字段都要维护）
+6. 有历史数据要迁移的，先写并验证迁移脚本，再删旧列
 
 ⛔ **禁止 `prisma db push`**：会绕过迁移历史造成 Schema / 数据库 / 迁移文件三者不一致。若已误用，用 `migrate diff` → `migrate dev --create-only` → `migrate resolve --applied` 修复，详见 [1-开发规范.md](1-开发规范.md) §2.1.1。
 
@@ -194,7 +255,7 @@ MembershipPlan, UserMembership, EntitlementConfig
 生产部署使用 `quiztestdemo-deploy` 技能。生产走 Prisma 迁移，不使用 `db push`。部署必须保留：
 
 - `/opt/quiz/api/.env`
-- `/opt/quiz/data/prod.db`
+- 线上 RDS MySQL 数据；新生产部署不再依赖 `/opt/quiz/data/prod.db`
 
 部署报告生成到 [deployment-reports/](deployment-reports/)。授权 `agently-cli +me` 为 `solveark@agent.qq.com` 后，deploy 技能会通过 Agent Mail 发送 HTML 报告。
 

@@ -67,7 +67,7 @@ memberRouter.put('/exam-preferences', requireAuth, async (req, res) => {
 
     await prisma.user.update({
       where: { id: req.user!.userId },
-      data: { examPreferences: JSON.stringify(examPreferences) },
+      data: { examPreferences },
     })
 
     res.json(success(null))

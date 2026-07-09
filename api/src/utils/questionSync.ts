@@ -1,4 +1,6 @@
 import { prisma } from '../services/prisma.js'
+import { parseJsonArray, parseJsonObject } from './jsonField.js'
+import { createQuestionUniqueCode } from './id.js'
 
 function normalizeDifficulty(value: any): string {
   return typeof value === 'string' ? value : ''
@@ -16,30 +18,36 @@ export async function syncPaperQuestions(paperId: string, questions: any[]): Pro
   })
   const paperExamType = paper?.examType || 'TMUA'
 
-  const rows = questions.map((q: any) => ({
-    paperId,
-    examType: q.examType || paperExamType,
-    number: q.number ?? 0,
-    title: q.title ?? '',
-    options: JSON.stringify(q.options || []),
-    answer: JSON.stringify(q.answer || []),
-    subject: q.subject || null,
-    subjectCode: q.subject_code || null,
-    questionType: q.question_type || null,
-    difficulty: normalizeDifficulty(q.difficulty),
-    topic: q.topic || null,
-    topicCode: q.topic_code || null,
-    knowledgePoints: JSON.stringify(q.knowledge_points || []),
-    meta: JSON.stringify({
-      code: q.code,
-      source_examType: q.source_examType,
-      year: q.year,
-      is_ai_generated: q.is_ai_generated,
-      content_blocks: q.content_blocks,
-      images: q.images,
-      learning_analysis: q.learning_analysis,
-    }),
-  }))
+  const rows = questions.map((q: any, index) => {
+    const questionNumber = q.number ?? index + 1
+
+    return {
+      uniqueCode: createQuestionUniqueCode(paperId, questionNumber),
+      paperId,
+      examType: q.examType || paperExamType,
+      number: questionNumber,
+      title: q.title ?? '',
+      options: Array.isArray(q.options) ? q.options : [],
+      answer: Array.isArray(q.answer) ? q.answer : [],
+      subject: q.subject || null,
+      subjectCode: q.subject_code || null,
+      questionType: q.question_type || null,
+      difficulty: normalizeDifficulty(q.difficulty),
+      topic: q.topic || null,
+      topicCode: q.topic_code || null,
+      knowledgePoints: Array.isArray(q.knowledge_points) ? q.knowledge_points : [],
+      syllabusPoints: Array.isArray(q.syllabus_points) ? q.syllabus_points : [],
+      meta: {
+        code: q.code,
+        source_examType: q.source_examType,
+        year: q.year,
+        is_ai_generated: q.is_ai_generated,
+        content_blocks: q.content_blocks,
+        images: q.images,
+        learning_analysis: q.learning_analysis,
+      },
+    }
+  })
 
   await prisma.question.createMany({ data: rows })
 }
@@ -56,18 +64,20 @@ export function getPaperQuestions(paperId: string) {
 export function formatQuestionRow(row: any) {
   return {
     id: row.id,
+    uniqueCode: row.uniqueCode,
     examType: row.examType,
     number: row.number,
     title: row.title,
-    options: JSON.parse(row.options),
-    answer: JSON.parse(row.answer),
+    options: parseJsonArray(row.options),
+    answer: parseJsonArray<string>(row.answer),
     subject: row.subject,
     subject_code: row.subjectCode,
     question_type: row.questionType,
     difficulty: normalizeDifficulty(row.difficulty),
     topic: row.topic,
     topic_code: row.topicCode,
-    knowledge_points: JSON.parse(row.knowledgePoints),
-    ...JSON.parse(row.meta || '{}'),
+    knowledge_points: parseJsonArray(row.knowledgePoints),
+    syllabus_points: parseJsonArray(row.syllabusPoints),
+    ...parseJsonObject(row.meta),
   }
 }

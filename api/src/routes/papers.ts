@@ -1,9 +1,12 @@
 import { Router } from 'express'
+import { Prisma } from '@prisma/client'
 import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 import { success, fail } from '../utils/response.js'
 import { syncPaperQuestions, getPaperQuestions, formatQuestionRow } from '../utils/questionSync.js'
+import { parseJsonArray, parseJsonField } from '../utils/jsonField.js'
+import { createNumericId } from '../utils/id.js'
 import { processMarkdownImport, validateStandardPaperDocument } from '../services/markdownValidator.js'
 import {
   EXAM_TYPE,
@@ -84,12 +87,8 @@ function normalizeSyllabusNodes(input: unknown): FlatSyllabusNode[] {
   return flat
 }
 
-function safeParseJson(value: string): unknown {
-  try {
-    return JSON.parse(value)
-  } catch {
-    return null
-  }
+function safeParseJson(value: unknown): unknown {
+  return parseJsonField<unknown>(value, null)
 }
 
 function parsePositiveInt(value: unknown, fallback: number, max?: number): number {
@@ -98,7 +97,7 @@ function parsePositiveInt(value: unknown, fallback: number, max?: number): numbe
   return max ? Math.min(safeValue, max) : safeValue
 }
 
-async function applySyllabusToTree(syllabus: { id: string; examType: string; sourceJson: string }) {
+async function applySyllabusToTree(syllabus: { id: string; examType: string; sourceJson: unknown }) {
   const content = parseSyllabusJson(syllabus.sourceJson)
   const nodes = normalizeSyllabusNodes(content)
 
@@ -179,6 +178,7 @@ papersRouter.post('/import-json', requireAuth, requireAdmin, async (req, res) =>
 
     const paper = await prisma.paper.create({
       data: {
+        id: createNumericId(),
         title: metadata.paperName,
         year: metadata.year,
         duration: metadata.duration,
@@ -187,6 +187,7 @@ papersRouter.post('/import-json', requireAuth, requireAdmin, async (req, res) =>
         paperType: metadata.paperType,
         totalQuestions: questions.length,
         status: 'draft',
+        questions: [],
       },
     })
 
@@ -227,6 +228,7 @@ papersRouter.post('/import-markdown', requireAuth, requireAdmin, async (req, res
 
     const paper = await prisma.paper.create({
       data: {
+        id: createNumericId(),
         title: result.metadata.paperName,
         year: result.metadata.year,
         duration: result.metadata.duration,
@@ -235,6 +237,7 @@ papersRouter.post('/import-markdown', requireAuth, requireAdmin, async (req, res
         paperType: result.metadata.paperType,
         totalQuestions: result.questions.length,
         status: 'draft',
+        questions: [],
       },
     })
 
@@ -284,14 +287,14 @@ papersRouter.post('/syllabus-library', requireAuth, requireAdmin, async (req, re
       return
     }
 
-    const parsed = parseSyllabusJson(content)
+    const parsed = parseSyllabusJson(content) as Prisma.InputJsonValue
     normalizeSyllabusNodes(parsed)
 
     const item = await prisma.syllabus.create({
       data: {
         name: name.trim(),
         examType,
-        sourceJson: JSON.stringify(parsed),
+        sourceJson: parsed,
       },
       select: {
         id: true,
@@ -474,11 +477,11 @@ papersRouter.get('/question-bank/summary', async (req, res) => {
 
 /** 检查题目的 knowledge_points / subjectCode / topicCode 中是否有匹配的考纲 code */
 function matchSyllabusFilter(
-  q: { knowledgePoints?: string; subjectCode?: string | null; topicCode?: string | null },
+  q: { knowledgePoints?: unknown; subjectCode?: string | null; topicCode?: string | null },
   filterCodes: string[],
 ): boolean {
   // knowledgePoints
-  const kps: any[] = safeJsonParse<any[]>(q.knowledgePoints || '[]', [])
+  const kps = parseJsonArray<{ code?: string }>(q.knowledgePoints)
   if (kps.some((kp: any) => kp.code && filterCodes.includes(kp.code))) return true
   // subjectCode / topicCode（subject / topic 层级 code）
   if (q.subjectCode && filterCodes.includes(q.subjectCode)) return true
@@ -486,9 +489,8 @@ function matchSyllabusFilter(
   return false
 }
 
-function safeJsonParse<T>(value: string | undefined | null, fallback: T): T {
-  if (!value) return fallback
-  try { return JSON.parse(value) } catch { return fallback }
+function safeJsonParse<T>(value: unknown, fallback: T): T {
+  return parseJsonField<T>(value, fallback)
 }
 
 // 试题库 — 获取已发布考卷的全部题目

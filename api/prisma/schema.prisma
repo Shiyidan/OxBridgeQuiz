@@ -3,54 +3,56 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
 model Paper {
-  id             String   @id @default(uuid())
-  title          String
-  code           String?
-  examType       String   @default("TMUA")
+  id             String   @id @db.VarChar(191)
+  title          String   @db.VarChar(255)
+  code           String?  @db.VarChar(100)
+  examType       String   @default("TMUA") @db.VarChar(32)
   year           Int
   duration       Int
   totalQuestions Int      @default(0)
-  paperType      String   @default("realPaper")
-  pdfUrl         String?
-  status         String   @default("draft")
-  questions      String   @default("[]")
+  paperType      String   @default("realPaper") @db.VarChar(32)
+  pdfUrl         String?  @db.Text
+  status         String   @default("draft") @db.VarChar(32)
+  questions      Json?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  parseTasks  ParseTask[]
-  examRecords ExamRecord[]
+  parseTasks   ParseTask[]
+  examRecords  ExamRecord[]
   questionsRel Question[]
 
   @@index([examType])
 }
 
 model Question {
-  id              String   @id @default(uuid())
-  paperId         String
-  examType        String   @default("TMUA")
+  id              String   @id @default(uuid()) @db.VarChar(191)
+  uniqueCode      String   @unique @db.VarChar(191)
+  paperId         String   @db.VarChar(191)
+  examType        String   @default("TMUA") @db.VarChar(32)
   number          Int
-  title           String
-  options         String   @default("[]")
-  answer          String   @default("[]")
-  subject         String?
-  subjectCode     String?
-  questionType    String?
-  difficulty      String?
-  topic           String?
-  topicCode       String?
-  knowledgePoints String   @default("[]")
-  syllabusPoints  String   @default("[]")
-  meta            String   @default("{}")
+  title           String   @db.LongText
+  options         Json
+  answer          Json
+  subject         String?  @db.VarChar(100)
+  subjectCode     String?  @db.VarChar(64)
+  questionType    String?  @db.VarChar(64)
+  difficulty      String?  @db.VarChar(32)
+  topic           String?  @db.VarChar(255)
+  topicCode       String?  @db.VarChar(64)
+  knowledgePoints Json
+  syllabusPoints  Json
+  meta            Json
   createdAt       DateTime @default(now())
 
   paper         Paper          @relation(fields: [paperId], references: [id], onDelete: Cascade)
   answerRecords AnswerRecord[]
 
+  @@unique([paperId, number])
   @@index([paperId])
   @@index([examType])
   @@index([subjectCode])
@@ -58,12 +60,12 @@ model Question {
 }
 
 model ParseTask {
-  id        String   @id @default(uuid())
-  paperId   String
-  status    String   @default("pending")
+  id        String   @id @default(uuid()) @db.VarChar(191)
+  paperId   String   @db.VarChar(191)
+  status    String   @default("pending") @db.VarChar(32)
   progress  Int      @default(0)
-  error     String?
-  result    String?
+  error     String?  @db.Text
+  result    Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -71,31 +73,31 @@ model ParseTask {
 }
 
 model User {
-  id             String   @id @default(uuid())
-  username       String   @unique
-  email          String   @unique
-  password       String
-  role           String   @default("student")
-  paymentStatus  String   @default("free")
-  diagnosticUsed Boolean  @default(false)
-  avatar         String?
-  examPreferences String   @default("[]")  // JSON: [{ examType, subjects }]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id              String   @id @default(uuid()) @db.VarChar(191)
+  username        String   @unique @db.VarChar(191)
+  email           String   @unique @db.VarChar(191)
+  password        String   @db.VarChar(255)
+  role            String   @default("student") @db.VarChar(32)
+  paymentStatus   String   @default("free") @db.VarChar(32)
+  diagnosticUsed  Boolean  @default(false)
+  avatar          String?  @db.Text
+  examPreferences Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  examRecords      ExamRecord[]
+  examRecords       ExamRecord[]
   diagnosticSession DiagnosticSession[]
-  memberships      UserMembership[]
+  memberships       UserMembership[]
 }
 
 model DiagnosticSession {
-  id             String   @id @default(uuid())
-  userId         String?
-  examType       String   @default("TMUA")
-  answers        String
+  id             String   @id @default(uuid()) @db.VarChar(191)
+  userId         String?  @db.VarChar(191)
+  examType       String   @default("TMUA") @db.VarChar(32)
+  answers        Json
   totalQuestions Int
   correctCount   Int
-  status         String   @default("anonymous")
+  status         String   @default("anonymous") @db.VarChar(32)
   createdAt      DateTime @default(now())
 
   user User? @relation(fields: [userId], references: [id])
@@ -105,15 +107,15 @@ model DiagnosticSession {
 }
 
 model ExamRecord {
-  id             String    @id @default(uuid())
-  userId         String
-  paperId        String
-  examType       String    @default("TMUA")
+  id             String    @id @default(uuid()) @db.VarChar(191)
+  userId         String    @db.VarChar(191)
+  paperId        String    @db.VarChar(191)
+  examType       String    @default("TMUA") @db.VarChar(32)
   totalQuestions Int       @default(0)
   correctCount   Int       @default(0)
   startedAt      DateTime
   submittedAt    DateTime?
-  status         String    @default("in_progress")
+  status         String    @default("in_progress") @db.VarChar(32)
 
   user    User           @relation(fields: [userId], references: [id])
   paper   Paper          @relation(fields: [paperId], references: [id])
@@ -124,25 +126,25 @@ model ExamRecord {
 }
 
 model AnswerRecord {
-  id              String   @id @default(uuid())
-  examRecordId    String
-  questionId      String
-  selectedAnswer  String?
-  isCorrect       Boolean  @default(false)
-  durationSeconds Int      @default(0)
+  id              String    @id @default(uuid()) @db.VarChar(191)
+  examRecordId    String    @db.VarChar(191)
+  questionId      String    @db.VarChar(191)
+  selectedAnswer  String?   @db.VarChar(64)
+  isCorrect       Boolean   @default(false)
+  durationSeconds Int       @default(0)
   answeredAt      DateTime?
 
   examRecord ExamRecord @relation(fields: [examRecordId], references: [id], onDelete: Cascade)
-  question   Question  @relation(fields: [questionId], references: [id])
+  question   Question   @relation(fields: [questionId], references: [id])
 }
 
 model SyllabusNode {
-  id         String  @id @default(uuid())
-  code       String                    // 学科编码，如 "112001"
-  label      String                    // 节点名称
-  examType   String                    // ESAT | TMUA | STEP
-  parentCode String?                   // 父节点编码，null=根节点
-  order      Int     @default(0)       // 同级排序
+  id         String   @id @default(uuid()) @db.VarChar(191)
+  code       String   @db.VarChar(100)
+  label      String   @db.VarChar(512)
+  examType   String   @db.VarChar(32)
+  parentCode String?  @db.VarChar(100)
+  order      Int      @default(0)
   createdAt  DateTime @default(now())
 
   @@unique([examType, code])
@@ -151,10 +153,10 @@ model SyllabusNode {
 }
 
 model Syllabus {
-  id         String   @id @default(uuid())
-  name       String
-  examType   String
-  sourceJson String
+  id         String   @id @default(uuid()) @db.VarChar(191)
+  name       String   @db.VarChar(255)
+  examType   String   @db.VarChar(32)
+  sourceJson Json
   isActive   Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -164,13 +166,13 @@ model Syllabus {
 }
 
 model RevenueCost {
-  id                  String   @id @default(uuid())
-  rechargeItem        String
+  id                  String   @id @default(uuid()) @db.VarChar(191)
+  rechargeItem        String   @db.VarChar(100)
   amount              Float
-  operator            String
+  operator            String   @db.VarChar(100)
   occurredAt          DateTime
-  reimbursementStatus String   @default("unreimbursed")
-  remark              String?
+  reimbursementStatus String   @default("unreimbursed") @db.VarChar(32)
+  remark              String?  @db.Text
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -178,12 +180,12 @@ model RevenueCost {
 }
 
 model MembershipPlan {
-  id           String   @id @default(uuid())
-  examType     String
-  plan         String
+  id           String   @id @default(uuid()) @db.VarChar(191)
+  examType     String   @db.VarChar(32)
+  plan         String   @db.VarChar(32)
   priceCents   Int      @default(0)
   durationDays Int      @default(30)
-  status       String   @default("active")
+  status       String   @default("active") @db.VarChar(32)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -192,11 +194,11 @@ model MembershipPlan {
 }
 
 model UserMembership {
-  id        String   @id @default(uuid())
-  userId    String
-  examType  String
-  plan      String
-  status    String   @default("active")
+  id        String   @id @default(uuid()) @db.VarChar(191)
+  userId    String   @db.VarChar(191)
+  examType  String   @db.VarChar(32)
+  plan      String   @db.VarChar(32)
+  status    String   @default("active") @db.VarChar(32)
   startsAt  DateTime
   endsAt    DateTime
   createdAt DateTime @default(now())
@@ -210,11 +212,11 @@ model UserMembership {
 }
 
 model EntitlementConfig {
-  id                String   @id @default(uuid())
-  examType          String   @unique
+  id                String   @id @default(uuid()) @db.VarChar(191)
+  examType          String   @unique @db.VarChar(32)
   diagnosticLimit   Int      @default(2)
   questionBankLimit Int      @default(100)
-  status            String   @default("active")
+  status            String   @default("active") @db.VarChar(32)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }

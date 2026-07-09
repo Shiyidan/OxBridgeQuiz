@@ -93,7 +93,7 @@ diagnosticRouter.post('/submit', requireAuth, async (req: Request, res: Response
       data: {
         userId: req.user!.userId,
         examType,
-        answers: JSON.stringify(answers),
+        answers,
         totalQuestions: answers.length,
         correctCount,
         status: 'linked',

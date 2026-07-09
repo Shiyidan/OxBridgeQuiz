@@ -1,6 +1,7 @@
 // 会员权益上下文汇总与权限判定。用于 routes/member.ts、routes/diagnostic.ts、routes/exam.ts 的额度预检。
 import { prisma } from './prisma.js'
 import { formatUserForClient } from '../utils/userPresenter.js'
+import { parseJsonArray } from '../utils/jsonField.js'
 import {
   EFFECTIVE_MEMBERSHIP_STATUS,
   EFFECTIVE_PLAN,
@@ -236,6 +237,6 @@ export async function getMemberContext(userId: string) {
   }
 }
 
-function safeParseExamPreferences(raw: string): Array<{ examType: string; subjects: string[] }> {
-  try { return JSON.parse(raw) } catch { return [] }
+function safeParseExamPreferences(raw: unknown): Array<{ examType: string; subjects: string[] }> {
+  return parseJsonArray<{ examType: string; subjects: string[] }>(raw)
 }

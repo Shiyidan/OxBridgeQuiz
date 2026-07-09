@@ -1,6 +1,7 @@
 // 诊断测试评分与报告生成。用于 routes/diagnostic.ts 的提交和报告接口。
 import { computeScores } from './scoring.js'
 import type { QuestionResult } from './scoring.js'
+import { parseJsonArray } from '../utils/jsonField.js'
 
 // 用户提交的单题答案，来自 POST /diagnostic/submit 的 answers 数组
 interface AnswerInput {
@@ -96,12 +97,12 @@ export function buildPartialReport(
 // 从 DiagnosticSession 生成完整诊断报告。批改在提交时已完成，此处只做评分和文案生成。
 export function buildFullReportFromSession(session: {
   id: string
-  answers: string
+  answers: unknown
   totalQuestions: number
   correctCount: number
   examType?: string
 }): FullReport {
-  const answers: AnswerInput[] = JSON.parse(session.answers)
+  const answers = parseJsonArray<AnswerInput>(session.answers)
   const total = session.totalQuestions
   const correct = session.correctCount
   const accuracy = total > 0 ? correct / total : 0

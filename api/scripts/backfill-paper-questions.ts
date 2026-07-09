@@ -1,6 +1,7 @@
 // 历史 Paper.questions 回填到 Question 表，避免业务继续依赖试卷 JSON。
 import { prisma } from '../src/services/prisma.js'
 import { syncPaperQuestions } from '../src/utils/questionSync.js'
+import { parseJsonField } from '../src/utils/jsonField.js'
 
 interface BackfillOptions {
   dryRun: boolean
@@ -26,13 +27,9 @@ function parseOptions(): BackfillOptions {
   }
 }
 
-function parseLegacyQuestions(raw: string): any[] | null {
-  try {
-    const parsed = JSON.parse(raw || '[]')
-    return Array.isArray(parsed) ? parsed : null
-  } catch {
-    return null
-  }
+function parseLegacyQuestions(raw: unknown): any[] | null {
+  const parsed = parseJsonField<unknown>(raw, [])
+  return Array.isArray(parsed) ? parsed : null
 }
 
 async function main(): Promise<void> {
@@ -82,7 +79,7 @@ async function main(): Promise<void> {
         if (!options.dryRun) {
           await prisma.paper.update({
             where: { id: paper.id },
-            data: { questions: '[]' },
+            data: { questions: [] },
           })
           stats.clearedLegacy += 1
         }
@@ -107,7 +104,7 @@ async function main(): Promise<void> {
       where: { id: paper.id },
       data: {
         totalQuestions: legacyQuestions.length,
-        ...(options.clearLegacy ? { questions: '[]' } : {}),
+        ...(options.clearLegacy ? { questions: [] } : {}),
       },
     })
 

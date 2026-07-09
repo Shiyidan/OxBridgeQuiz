@@ -60,9 +60,7 @@ authRouter.post('/register', authLimiter, async (req: Request, res: Response) =>
         email,
         password: hashed,
         username,
-        examPreferences: JSON.stringify(
-          Array.isArray(examPreferences) ? examPreferences : [],
-        ),
+        examPreferences: Array.isArray(examPreferences) ? examPreferences : [],
       },
     })
 

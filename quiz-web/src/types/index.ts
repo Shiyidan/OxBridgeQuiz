@@ -75,6 +75,7 @@ export interface LearningAnalysis {
 /** 标准题目结构：前端渲染、练习、考试和报告统一使用这一份结构。 */
 export interface Question {
   id: string
+  uniqueCode?: string
   code?: string
   number: number
   title: string

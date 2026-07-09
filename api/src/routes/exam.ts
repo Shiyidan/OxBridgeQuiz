@@ -3,6 +3,7 @@ import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
 import { formatQuestionRow } from '../utils/questionSync.js'
+import { parseJsonField, parseJsonArray } from '../utils/jsonField.js'
 import { checkMemberAccess } from '../services/member.js'
 import { computeScores } from '../services/scoring.js'
 import type { QuestionResult } from '../services/scoring.js'
@@ -19,13 +20,8 @@ import {
 
 export const examRouter = Router()
 
-function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
-  if (!value) return fallback
-  try {
-    return JSON.parse(value) as T
-  } catch {
-    return fallback
-  }
+function safeJsonParse<T>(value: unknown, fallback: T): T {
+  return parseJsonField<T>(value, fallback)
 }
 
 // Parse comma-separated query values.
@@ -135,8 +131,8 @@ async function collectSyllabusCodes(codes: string[]): Promise<string[]> {
 }
 
 // Check whether question point JSON contains any target code.
-function jsonPointsHaveCode(value: string, codes: string[]): boolean {
-  const points = safeJsonParse<Array<{ code?: string }>>(value, [])
+function jsonPointsHaveCode(value: unknown, codes: string[]): boolean {
+  const points = parseJsonArray<{ code?: string }>(value)
   return points.some((point) => point.code && codes.includes(point.code))
 }
 
@@ -169,7 +165,7 @@ examRouter.get('/error-book', requireAuth, async (req, res) => {
       id: string
       title: string
       difficulty: string | null
-      knowledgePoints: string
+      knowledgePoints: unknown
       subjectCode: string | null
       topicCode: string | null
     }> = []
@@ -502,6 +498,7 @@ examRouter.post('/submit', requireAuth, async (req, res) => {
           duration: 60,
           paperType: PAPER_TYPE.AI_PAPER,
           status: 'published',
+          questions: [],
         },
       })
     }

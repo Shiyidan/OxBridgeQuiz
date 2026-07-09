@@ -10,6 +10,11 @@ __pycache__/
 .env
 .env.local
 .env.deploy.local
+api/.env.mysql.local
+api/prisma/generated/
+api/prisma/schema.mysql.local.prisma
+api/prisma/schema.sqlite.local.prisma
+.mysql/
 
 # 构建产物
 dist/

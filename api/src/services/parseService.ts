@@ -220,7 +220,7 @@ async function finalizeTask(
     data: {
       status: 'completed',
       progress: 100,
-      result: JSON.stringify({ questionsFound: questions.length }),
+      result: { questionsFound: questions.length },
     },
   })
 

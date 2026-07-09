@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 import { success, fail } from '../utils/response.js'
 import { PAPER_TYPE, isExamType, isPaperType, normalizePaperType } from '../constants/domain.js'
+import { createNumericId } from '../utils/id.js'
 
 export const uploadRouter = Router()
 
@@ -28,12 +29,14 @@ uploadRouter.post('/paper-pages/create', requireAuth, requireAdmin, async (req, 
 
     const paper = await prisma.paper.create({
       data: {
+        id: createNumericId(),
         title: title || '未命名试卷',
         year: parseInt(year) || new Date().getFullYear(),
         duration: parseInt(duration) || 60,
         examType,
         paperType: paperType ? normalizePaperType(paperType) : PAPER_TYPE.REAL_PAPER,
         pdfUrl: null,
+        questions: [],
       },
     })
 

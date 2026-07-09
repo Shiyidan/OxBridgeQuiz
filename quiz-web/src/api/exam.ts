@@ -49,6 +49,27 @@ export interface ExamQuestion extends Question {
   durationSeconds?: number
 }
 
+export interface ModuleScore {
+  module: string
+  moduleLabel: string
+  rawScore: number
+  totalQuestions: number
+  scaledScore: number
+  band: string
+  bandLabel: string
+  approximatePercentile: number
+}
+
+export interface ScoringResult {
+  examType: string
+  strategy: string
+  overallScore: number
+  overallBand: string
+  overallBandLabel: string
+  modules: ModuleScore[]
+  generatedAt: string
+}
+
 export interface ExamResult {
   examRecord: {
     id: string
@@ -67,6 +88,7 @@ export interface ExamResult {
     } | null
   }
   questions: ExamQuestion[]
+  scoring?: ScoringResult
 }
 
 export interface WrongAnswer {

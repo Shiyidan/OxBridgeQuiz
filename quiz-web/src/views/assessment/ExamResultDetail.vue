@@ -21,6 +21,30 @@
               </div>
             </section>
 
+            <section v-if="scoring?.modules?.length" class="report-section">
+              <h2 class="section-heading">▥ 模块得分明细</h2>
+              <article class="module-score-panel report-panel">
+                <div class="module-score-header">
+                  <span>模块</span>
+                  <span>正确率</span>
+                  <span>标准分</span>
+                  <span>评级</span>
+                  <span>预估百分位</span>
+                </div>
+                <div
+                  v-for="mod in scoring.modules"
+                  :key="mod.module"
+                  class="module-score-row"
+                >
+                  <span class="module-score__label">{{ moduleDisplayName(mod.module) }}</span>
+                  <span class="module-score__raw">{{ mod.rawScore }}/{{ mod.totalQuestions }}</span>
+                  <span class="module-score__scaled">{{ mod.scaledScore.toFixed(1) }}</span>
+                  <span class="module-score__band" :class="`module-band--${mod.band}`">{{ mod.bandLabel }}</span>
+                  <span class="module-score__pct">~{{ mod.approximatePercentile }}%</span>
+                </div>
+              </article>
+            </section>
+
             <section class="report-section">
               <h2 class="section-heading">⌁ 总体成绩概览</h2>
               <div class="overview-grid">
@@ -214,7 +238,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
 import ExamQuestionAnalysis from '@/components/report/ExamQuestionAnalysis.vue'
-import { getExamResultData, type ExamQuestion } from '@/api/exam'
+import { getExamResultData, type ExamQuestion, type ScoringResult, type ModuleScore } from '@/api/exam'
 import { PAPER_TYPE, normalizePaperType } from '@/constants/paperTypes'
 
 interface PaperMeta {
@@ -267,6 +291,7 @@ const totalCount = ref(0)
 const correctCount = ref(0)
 const questions = ref<ReportQuestion[]>([])
 const paper = ref<PaperMeta | null>(null)
+const scoring = ref<ScoringResult | null>(null)
 const startedAt = ref<string>('')
 const submittedAt = ref<string>('')
 
@@ -286,8 +311,18 @@ const wrongCount = computed(
 const skippedCount = computed(() => questions.value.filter((q) => !q.selectedAnswer).length)
 const accuracy = computed(() => (totalCount.value ? correctCount.value / totalCount.value : 0))
 const accuracyText = computed(() => `${(accuracy.value * 100).toFixed(1)}%`)
-const standardScore = computed(() => (accuracy.value * 8.8 + 1.2).toFixed(1))
-const percentile = computed(() => Math.max(1, Math.min(99, Math.round(accuracy.value * 92))))
+const standardScore = computed(() => {
+  if (scoring.value) return scoring.value.overallScore.toFixed(1)
+  // 旧数据兜底
+  return (accuracy.value * 8.8 + 1.2).toFixed(1)
+})
+const percentile = computed(() => {
+  if (scoring.value && scoring.value.modules.length > 0) {
+    const avgPct = scoring.value.modules.reduce((sum, m) => sum + m.approximatePercentile, 0) / scoring.value.modules.length
+    return Math.round(avgPct)
+  }
+  return Math.max(1, Math.min(99, Math.round(accuracy.value * 92)))
+})
 const paperDurationMinutes = computed(() => Math.max(1, paper.value?.duration || 120))
 const durationSeconds = computed(() => secondsBetween(startedAt.value, submittedAt.value))
 const trackedDurationSeconds = computed(() =>
@@ -309,6 +344,13 @@ const timeoutQuestionCount = computed(() => {
 })
 const evaluationText = computed(() => {
   const weak = weakestKnowledge.value?.name || '错题集中知识点'
+  if (scoring.value && scoring.value.strategy === 'esat') {
+    const bandLabel = scoring.value.overallBandLabel
+    const moduleText = scoring.value.modules
+      .map((m) => `${m.moduleLabel} ${m.scaledScore.toFixed(1)}（${m.bandLabel}）`)
+      .join('，')
+    return `整体评级「${bandLabel}」，模块得分：${moduleText}。建议优先强化 ${weak}，再结合逐题解析复盘解题路径和时间分配。`
+  }
   return `整体表现${accuracy.value >= 0.75 ? '良好' : '仍有提升空间'}，正确率 ${accuracyText.value}。建议优先强化 ${weak}，再结合逐题解析复盘解题路径和时间分配。`
 })
 const moduleStats = computed(() => buildModuleStats())
@@ -327,6 +369,7 @@ onMounted(async () => {
     totalCount.value = data.examRecord.totalQuestions
     correctCount.value = data.examRecord.correctCount
     paper.value = data.examRecord.paper || null
+    scoring.value = data.scoring ?? null
     startedAt.value = data.examRecord.startedAt
     submittedAt.value = data.examRecord.submittedAt
     questions.value = (data.questions || []).map((q, i) => ({
@@ -489,6 +532,17 @@ function buildLearningStages(): LearningStage[] {
       ],
     },
   ]
+}
+
+function moduleDisplayName(module: string): string {
+  const names: Record<string, string> = {
+    maths1: 'Mathematics 1',
+    maths2: 'Mathematics 2',
+    physics: 'Physics',
+    chemistry: 'Chemistry',
+    biology: 'Biology',
+  }
+  return names[module] ?? module
 }
 
 function normalizeKnowledgePoints(question: ReportQuestion): string[] {
@@ -970,6 +1024,90 @@ function normalizeKnowledgePoints(question: ReportQuestion): string[] {
   height: 2px;
   margin: 0 auto 8px;
   background: #4f86a6;
+}
+
+.module-score-panel {
+  min-height: auto;
+}
+
+.module-score-header,
+.module-score-row {
+  display: grid;
+  grid-template-columns: 130px 80px 80px 70px 110px;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 24px;
+  border-bottom: 1px solid #eef2f4;
+}
+
+.module-score-header {
+  background: #f8fbfd;
+  color: #7a8a8d;
+  font-size: 13px;
+  font-weight: 800;
+  border-bottom: 1px solid #dce8e8;
+}
+
+.module-score-row {
+  color: #344246;
+}
+
+.module-score__label {
+  font-weight: 800;
+  color: #273437;
+}
+
+.module-score__raw {
+  color: #6b7c80;
+  font-weight: 700;
+}
+
+.module-score__scaled {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1f2937;
+}
+
+.module-score__band {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: var(--text-xs, 12px);
+  font-weight: 700;
+}
+
+.module-band--elite {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.module-band--excellent {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.module-band--good {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.module-band--average {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.module-band--below_avg {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.module-score__pct {
+  color: #91a0a4;
+  font-size: 13px;
 }
 
 .learning-path-panel {

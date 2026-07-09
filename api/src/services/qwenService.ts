@@ -1,3 +1,4 @@
+// Qwen-VL-Max API 调用与 JSON 修复。用于 parseService.ts 的逐页识别流程。
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
@@ -7,6 +8,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY || ''
 const DASHSCOPE_BASE = 'https://dashscope.aliyuncs.com/api/v1'
 
+// Qwen 解析单题输出结构：经 decodePlaceholders 还原后的干净题目数据
 export interface ParsedQuestion {
   number: number
   title: string

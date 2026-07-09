@@ -77,7 +77,7 @@ function parseRevenueCostPayload(body: Record<string, unknown>): RevenueCostPayl
   const normalizedRemark = typeof remark === 'string' && remark.trim() ? remark.trim() : null
 
   if (!normalizedRechargeItem) {
-    return { error: '无效的充值项' }
+    return { error: '无效的成本项' }
   }
   if (!Number.isFinite(numericAmount) || numericAmount < 0) {
     return { error: '无效的金额' }

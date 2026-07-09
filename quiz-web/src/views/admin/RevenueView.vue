@@ -31,12 +31,19 @@
         />
         <el-table-column
           prop="rechargeItem"
-          label="充值项"
+          label="成本项"
           min-width="140"
           align="center"
           header-align="center"
-          show-overflow-tooltip
-        />
+        >
+          <template #default="{ row }">
+            <div class="cost-item-cell">
+              <span :class="['cost-item-tag', costItemClass(row.rechargeItem)]">
+                {{ row.rechargeItem || '-' }}
+              </span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column label="金额" min-width="120" align="center" header-align="center">
           <template #default="{ row }">{{ formatAmount(row.amount) }}</template>
         </el-table-column>
@@ -83,8 +90,8 @@
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="520px" destroy-on-close>
       <el-form ref="formRef" :model="form" :rules="rules" label-width="92px">
-        <el-form-item label="充值项" prop="rechargeItem">
-          <el-select v-model="form.rechargeItem" placeholder="请选择充值项">
+        <el-form-item label="成本项" prop="rechargeItem">
+          <el-select v-model="form.rechargeItem" placeholder="请选择成本项">
             <el-option v-for="item in rechargeItems" :key="item" :label="item" :value="item" />
           </el-select>
         </el-form-item>
@@ -185,7 +192,7 @@ const form = reactive<CostForm>({
 })
 
 const rules: FormRules<CostForm> = {
-  rechargeItem: [{ required: true, message: '请选择充值项', trigger: 'change' }],
+  rechargeItem: [{ required: true, message: '请选择成本项', trigger: 'change' }],
   amount: [{ required: true, message: '请输入金额', trigger: 'blur' }],
   operator: [{ required: true, message: '请选择操作人', trigger: 'change' }],
   occurredAt: [{ required: true, message: '请选择时间', trigger: 'change' }],
@@ -262,6 +269,16 @@ function reimbursementTagType(
     non_reimbursable: 'info',
   }
   return map[status]
+}
+
+function costItemClass(item: string): string {
+  const normalized = item.trim().toLowerCase()
+  const map: Record<string, string> = {
+    deepseek: 'cost-item-tag--deepseek',
+    claude: 'cost-item-tag--claude',
+    codex: 'cost-item-tag--codex',
+  }
+  return map[normalized] || 'cost-item-tag--default'
 }
 
 function tableIndex(index: number): number {
@@ -411,6 +428,49 @@ onMounted(getList)
   border-color: var(--color-line);
   background: var(--color-hover);
   color: var(--color-ink);
+}
+
+.cost-item-cell {
+  display: flex;
+  justify-content: center;
+}
+
+.cost-item-tag {
+  min-width: 88px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+  line-height: 1;
+  text-align: center;
+}
+
+.cost-item-tag--deepseek {
+  color: #0f766e;
+  background: #ecfeff;
+  border-color: #bae6fd;
+}
+
+.cost-item-tag--claude {
+  color: #9a3412;
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.cost-item-tag--codex {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.cost-item-tag--default {
+  color: #475569;
+  background: #f8fafc;
+  border-color: #cbd5e1;
 }
 
 :deep(.el-select),

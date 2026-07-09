@@ -1,7 +1,9 @@
+// PDF 解析编排：信号量控制并发 + 协调器汇合多页结果 → 去重排序入库。用于 routes/upload.ts。
 import { prisma } from './prisma.js'
 import { analyzePageWithQwen, type ParsedQuestion } from './qwenService.js'
 import { syncPaperQuestions } from '../utils/questionSync.js'
 
+// 前端逐页 POST 的单页数据
 interface PageData {
   page: number
   base64: string
@@ -47,6 +49,7 @@ const qwenSemaphore = new Semaphore(5)
 // 协调器：串行汇入多页并发 Qwen 结果，全部完成时自动入库
 // ============================================================
 
+// 多页异步并发，统一汇入此协调器：全部页面到达后触发 finalizeTask
 interface TaskCoordinator {
   paperId: string
   totalPages: number

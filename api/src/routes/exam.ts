@@ -4,6 +4,8 @@ import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
 import { formatQuestionRow } from '../utils/questionSync.js'
 import { checkMemberAccess } from '../services/member.js'
+import { computeScores } from '../services/scoring.js'
+import type { QuestionResult } from '../services/scoring.js'
 import {
   EXAM_TYPES,
   PAPER_TYPE,
@@ -138,9 +140,14 @@ function jsonPointsHaveCode(value: string, codes: string[]): boolean {
   return points.some((point) => point.code && codes.includes(point.code))
 }
 
-function calculateNinePointScore(totalQuestions: number, correctCount: number): number | null {
+function calculateNinePointScore(examType: string, totalQuestions: number, correctCount: number): number | null {
   if (totalQuestions <= 0) return null
-  return (correctCount / totalQuestions) * 9
+  const dummyQuestions: QuestionResult[] = Array.from({ length: totalQuestions }, (_, i) => ({
+    subject: null,
+    isCorrect: i < correctCount,
+  }))
+  const result = computeScores(examType, dummyQuestions)
+  return result.overallScore
 }
 
 examRouter.get('/error-book', requireAuth, async (req, res) => {
@@ -613,7 +620,7 @@ examRouter.get('/profile-stats', requireAuth, async (req, res) => {
     }
 
     for (const item of [...diagnosticRecords, ...diagnosticSessions]) {
-      const score = calculateNinePointScore(item.totalQuestions, item.correctCount)
+      const score = calculateNinePointScore(item.examType, item.totalQuestions, item.correctCount)
       if (score === null) continue
       scoresByExamType.get(item.examType)?.push(score)
       stats[item.examType].diagnosticExamCount += 1
@@ -693,6 +700,12 @@ examRouter.get('/:id/result', requireAuth, async (req, res) => {
       }
     })
 
+    const questionsWithResults: QuestionResult[] = answeredQuestions.map((q: any) => ({
+      subject: q.subject ?? null,
+      isCorrect: q.isCorrect ?? false,
+    }))
+    const scoring = computeScores(examRecord.examType, questionsWithResults)
+
     res.json(success({
       examRecord: {
         id: examRecord.id,
@@ -722,6 +735,7 @@ examRouter.get('/:id/result', requireAuth, async (req, res) => {
           : null,
       },
       questions: answeredQuestions,
+      scoring,
     }))
   } catch (e: any) {
     console.error('Exam result error:', e)

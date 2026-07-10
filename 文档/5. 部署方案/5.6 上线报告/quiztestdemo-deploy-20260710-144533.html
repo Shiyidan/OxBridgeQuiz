@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QuizTestDemo 部署报告</title>
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #243434; background: #f6f8f8; line-height: 1.6; }
+    main { max-width: 1040px; margin: 0 auto; padding: 40px 24px; }
+    h1 { margin: 0 0 8px; font-size: 32px; }
+    h2 { margin: 30px 0 12px; font-size: 20px; }
+    .meta, section { background: #fff; border: 1px solid #dfe7e7; border-radius: 8px; padding: 20px; margin-top: 18px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #e8eeee; padding: 10px 12px; text-align: left; vertical-align: top; }
+    th { background: #f0f5f5; }
+    pre { overflow: auto; background: #f7faf9; border: 1px solid #e3ebea; border-radius: 6px; padding: 12px; white-space: pre-wrap; }
+    code { background: #eef4f4; padding: 2px 5px; border-radius: 4px; }
+    .ok { color: #07825d; font-weight: 700; }
+    .warn { color: #9a6200; font-weight: 700; }
+    .bad { color: #b42318; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>QuizTestDemo 部署报告</h1>
+    <div class="meta">
+      <p><strong>结果：</strong><span class="ok">success</span></p>
+      <p><strong>范围：</strong>backend</p>
+      <p><strong>分支：</strong><code>20260626-feature-development</code></p>
+      <p><strong>Commit：</strong><code>a098a8d</code> a098a8d 2026-07-10 13:07:57 +0800 SQLite数据删除</p>
+      <p><strong>时间：</strong>2026-07-10 14:46:18 +0800</p>
+    </div>
+
+    <section>
+      <h2>一、部署内容</h2>
+      <ul>
+        <li>执行范围：<code>backend</code></li>
+        <li>代码分支：<code>20260626-feature-development</code></li>
+        <li>后端范围包含依赖安装、迁移检查、RDS 迁移、构建和 PM2 重载。</li>
+        <li>前端范围包含依赖安装、Vite 生产构建和静态资源同步。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>二、核心验证</h2>
+      <table>
+        <thead><tr><th>检查项</th><th>结果</th></tr></thead>
+        <tbody>
+          <tr><td>公网首页</td><td class="ok">通过</td></tr>
+          <tr><td>公网 API Health</td><td class="ok">通过</td></tr>
+          <tr><td>PM2 quiz-api</td><td class="ok">online</td></tr>
+          <tr><td>本地 API Health</td><td><code>{&quot;success&quot;:true,&quot;code&quot;:0,&quot;errMsg&quot;:&quot;&quot;,&quot;data&quot;:{&quot;status&quot;:&quot;ok&quot;}}</code></td></tr>
+          <tr><td>本地 Nginx API Health</td><td><code>{&quot;success&quot;:true,&quot;code&quot;:0,&quot;errMsg&quot;:&quot;&quot;,&quot;data&quot;:{&quot;status&quot;:&quot;ok&quot;}}</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    
+    <section>
+      <h2>三、服务器目录结构</h2>
+      <pre>/opt/quiz
+/opt/quiz/api
+/opt/quiz/api/dist
+/opt/quiz/api/node_modules
+/opt/quiz/backups
+/opt/quiz/backups/config
+/opt/quiz/backups/manifests
+/opt/quiz/backups/mysql
+/opt/quiz/backups/uploads
+/opt/quiz/data
+/opt/quiz/repo
+/opt/quiz/repo/api
+/opt/quiz/repo/deployment-reports
+/opt/quiz/repo/.git
+/opt/quiz/repo/quiz-web
+/opt/quiz/repo/scripts
+/opt/quiz/repo/文档
+/opt/quiz/scripts
+/opt/quiz/uploads
+/opt/quiz/web
+/opt/quiz/web/dist</pre>
+    </section>
+    
+    <section>
+      <h2>四、更新时间</h2>
+      <pre>2026-07-10 13:25:12.912011075 +0800 /opt/quiz/repo
+2026-07-10 14:45:47.156365231 +0800 /opt/quiz/api/dist/index.js
+2026-07-10 13:27:04.788667308 +0800 /opt/quiz/web/dist/index.html
+2026-06-15 14:42:04.124676710 +0800 /opt/quiz/ecosystem.config.cjs
+2026-06-15 14:42:05.488684726 +0800 /etc/nginx/sites-available/quiz</pre>
+    </section>
+    
+    <section>
+      <h2>五、磁盘空间</h2>
+      <pre>Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda3        40G  5.1G   33G  14% /
+789M	/opt/quiz</pre>
+    </section>
+    
+    <section>
+      <h2>六、内存空间</h2>
+      <pre>total        used        free      shared  buff/cache   available
+Mem:           3.4Gi       352Mi       508Mi       2.0Mi       2.6Gi       2.8Gi
+Swap:             0B          0B          0B</pre>
+    </section>
+    
+    <section>
+      <h2>七、CPU / 负载 / 运行时间</h2>
+      <pre>14:46:18 up 25 days,  1:18,  0 users,  load average: 0.40, 0.18, 0.06
+2</pre>
+    </section>
+    
+    <section>
+      <h2>八、端口监听</h2>
+      <pre>LISTEN 0      511          0.0.0.0:80        0.0.0.0:*                                                
+LISTEN 0      511                *:3001            *:*    users:((&quot;node /opt/quiz/&quot;,pid=105777,fd=20))</pre>
+    </section>
+    
+    <section>
+      <h2>九、PM2 状态</h2>
+      <pre>┌────┬─────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name        │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼─────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ quiz-api    │ default     │ 1.0.0   │ fork    │ 105777   │ 30s    │ 13   │ online    │ 0%       │ 67.5mb   │ deploy   │ disabled │
+└────┴─────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘</pre>
+    </section>
+    
+    <section>
+      <h2>十、数据库与备份</h2>
+      <pre>-rw------- 1 deploy deploy  319 Jul 10 01:18 /opt/quiz/backups/api_env_before_rds_20260710_011847.env
+-rw------- 1 deploy deploy 1.1K Jul 10 14:43 /opt/quiz/backups/config/config_before_deploy_20260710_144340.tar.gz
+-rw------- 1 deploy deploy 1.1K Jul 10 14:45 /opt/quiz/backups/config/config_before_deploy_20260710_144533.tar.gz
+-rw------- 1 deploy deploy 1.1K Jul 10 14:20 /opt/quiz/backups/config/config_manual_20260710_140000.tar.gz
+-rw------- 1 deploy deploy 1.1K Jul 10 14:21 /opt/quiz/backups/config/config_manual_20260710_142200.tar.gz
+-rw------- 1 deploy deploy  844 Jul 10 14:43 /opt/quiz/backups/manifests/backup_before_deploy_20260710_144340.txt
+-rw------- 1 deploy deploy  844 Jul 10 14:45 /opt/quiz/backups/manifests/backup_before_deploy_20260710_144533.txt
+-rw------- 1 deploy deploy  795 Jul 10 14:20 /opt/quiz/backups/manifests/backup_manual_20260710_140000.txt
+-rw------- 1 deploy deploy  795 Jul 10 14:21 /opt/quiz/backups/manifests/backup_manual_20260710_142200.txt
+-rw------- 1 deploy deploy 342K Jul 10 14:43 /opt/quiz/backups/mysql/quiztestdemo_tc_before_deploy_20260710_144340.sql.gz
+-rw------- 1 deploy deploy 342K Jul 10 14:45 /opt/quiz/backups/mysql/quiztestdemo_tc_before_deploy_20260710_144533.sql.gz
+-rw------- 1 deploy deploy 342K Jul 10 14:20 /opt/quiz/backups/mysql/quiztestdemo_tc_manual_20260710_140000.sql.gz
+-rw------- 1 deploy deploy 342K Jul 10 14:21 /opt/quiz/backups/mysql/quiztestdemo_tc_manual_20260710_142200.sql.gz
+-rw-r--r-- 1 deploy deploy 240K Jun 15 15:02 /opt/quiz/backups/prod_after_syllabus_import_20260615.db
+-rw-r--r-- 1 deploy deploy  88K Jun 15 14:56 /opt/quiz/backups/prod_after_user_import_20260615.db
+-rw-r--r-- 1 deploy deploy 240K Jun 16 12:05 /opt/quiz/backups/prod_before_deploy_20260616_120504.db
+-rw-r--r-- 1 deploy deploy 240K Jun 19 15:21 /opt/quiz/backups/prod_before_deploy_20260619_152114.db
+-rw-r--r-- 1 deploy deploy 240K Jun 22 10:55 /opt/quiz/backups/prod_before_deploy_20260622_105550.db
+-rw-r--r-- 1 deploy deploy 240K Jun 22 10:59 /opt/quiz/backups/prod_before_deploy_20260622_105949.db
+-rw-r--r-- 1 deploy deploy 264K Jun 22 13:42 /opt/quiz/backups/prod_before_deploy_20260622_134247.db
+-rw-r--r-- 1 deploy deploy 264K Jun 30 16:13 /opt/quiz/backups/prod_before_deploy_20260630_161331.db
+-rw-r--r-- 1 deploy deploy 564K Jul  4 17:45 /opt/quiz/backups/prod_before_deploy_20260704_174524.db
+-rw-r--r-- 1 deploy deploy 956K Jul  5 01:45 /opt/quiz/backups/prod_before_deploy_20260705_014549.db
+-rw-r--r-- 1 deploy deploy 956K Jul  5 19:02 /opt/quiz/backups/prod_before_deploy_20260705_190157.db
+-rw-r--r-- 1 deploy deploy 240K Jun 15 15:01 /opt/quiz/backups/prod_before_syllabus_import_20260615.db
+-rw-r--r-- 1 deploy deploy  88K Jun 15 14:55 /opt/quiz/backups/prod_before_user_import_.db
+-rw-r--r-- 1 deploy deploy 972K Jul 10 01:25 /opt/quiz/backups/prod_sqlite_before_rds_.db
+-rw------- 1 deploy deploy  117 Jul 10 14:43 /opt/quiz/backups/uploads/uploads_before_deploy_20260710_144340.tar.gz
+-rw------- 1 deploy deploy  117 Jul 10 14:45 /opt/quiz/backups/uploads/uploads_before_deploy_20260710_144533.tar.gz
+-rw------- 1 deploy deploy  117 Jul 10 14:20 /opt/quiz/backups/uploads/uploads_manual_20260710_140000.tar.gz
+-rw------- 1 deploy deploy  117 Jul 10 14:21 /opt/quiz/backups/uploads/uploads_manual_20260710_142200.tar.gz
+runtime database: RDS MySQL quiztestdemo_tc</pre>
+    </section>
+    
+    <section>
+      <h2>十一、Prisma 迁移状态</h2>
+      <pre>Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource &quot;db&quot;: MySQL database &quot;quiztestdemo_tc&quot; at &quot;rm-bp1736yx3djiwwj0h.mysql.rds.aliyuncs.com:3306&quot;
+
+3 migrations found in prisma/migrations
+
+Database schema is up to date!</pre>
+    </section>
+    
+    <section>
+      <h2>十二、公网首页响应</h2>
+      <pre>﻿HTTP/1.1 200 OK
+Server: nginx/1.18.0 (Ubuntu)
+Date: Fri, 10 Jul 2026 06:46:42 GMT
+Content-Type: text/html
+Content-Length: 545
+Last-Modified: Fri, 10 Jul 2026 05:27:04 GMT
+Connection: keep-alive
+ETag: &quot;6a5082a8-221&quot;
+Accept-Ranges: bytes
+
+</pre>
+    </section>
+    
+    <section>
+      <h2>十三、公网 API Health</h2>
+      <pre>﻿{&quot;success&quot;:true,&quot;code&quot;:0,&quot;errMsg&quot;:&quot;&quot;,&quot;data&quot;:{&quot;status&quot;:&quot;ok&quot;}}
+</pre>
+    </section>
+    
+    <section>
+      <h2>十四、部署日志摘要</h2>
+      <pre>
+=== deploy start ===
+scope=backend
+branch=20260626-feature-development
+stamp=20260710_144533
+
+=== git update ===
+From https://github.com/Shiyidan/OxBridgeQuiz
+ * branch            20260626-feature-development -&gt; FETCH_HEAD
+Already on '20260626-feature-development'
+Your branch is up to date with 'origin/20260626-feature-development'.
+From https://github.com/Shiyidan/OxBridgeQuiz
+ * branch            20260626-feature-development -&gt; FETCH_HEAD
+Already up to date.
+a098a8d
+
+=== backend dependencies ===
+npm warn deprecated multer@1.4.5-lts.2: Multer 1.x is impacted by a number of vulnerabilities, which have been patched in 2.x. You should upgrade to the latest 2.x version.
+npm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+
+added 140 packages, and audited 141 packages in 3s
+
+23 packages are looking for funding
+  run `npm fund` for details
+
+4 vulnerabilities (1 low, 3 moderate)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+=== prisma migration guard ===
+=== prisma migration guard ===
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+The schema at prisma/schema.prisma is valid 🚀
+MySQL schema detected; SHADOW_DATABASE_URL is not configured.
+Skipping migrate diff guard and relying on prisma validate + migrate deploy.
+Prisma schema/migration guard passed.
+
+=== runtime backup ===
+
+=== backup: rds mysql logical dump ===
+database=quiztestdemo_tc
+host=rm-bp1736yx3djiwwj0h.mysql.rds.aliyuncs.com
+output=/opt/quiz/backups/mysql/quiztestdemo_tc_before_deploy_20260710_144533.sql.gz
+-rw------- 1 deploy deploy 342K Jul 10 14:45 /opt/quiz/backups/mysql/quiztestdemo_tc_before_deploy_20260710_144533.sql.gz
+
+=== backup: uploads archive ===
+-rw------- 1 deploy deploy 117 Jul 10 14:45 /opt/quiz/backups/uploads/uploads_before_deploy_20260710_144533.tar.gz
+
+=== backup: runtime config archive ===
+-rw------- 1 deploy deploy 1.1K Jul 10 14:45 /opt/quiz/backups/config/config_before_deploy_20260710_144533.tar.gz
+
+=== backup: manifest ===
+stamp=20260710_144533
+reason=before_deploy
+database=quiztestdemo_tc
+host=rm-bp1736yx3djiwwj0h.mysql.rds.aliyuncs.com
+created_at=2026-07-10 14:45:40 +0800
+mysql_backup=/opt/quiz/backups/mysql/quiztestdemo_tc_before_deploy_20260710_144533.sql.gz
+uploads_backup=/opt/quiz/backups/uploads/uploads_before_deploy_20260710_144533.tar.gz
+config_backup=/opt/quiz/backups/config/config_before_deploy_20260710_144533.tar.gz
+
+--- sha256 ---
+5f8d7df80fd18bd0ec7071234cc3821d0f879bde9d2c15ac6d7e29382de1570f  /opt/quiz/backups/mysql/quiztestdemo_tc_before_deploy_20260710_144533.sql.gz
+0c6f914ec7a98a7fc8be18af79da34aa0349e328826a536f54dd605f4735704c  /opt/quiz/backups/uploads/uploads_before_deploy_20260710_144533.tar.gz
+e8af78e504467c59e69eea8eafd872f25038813c62de15d2b0c2ea2fbe2de74a  /opt/quiz/backups/config/config_before_deploy_20260710_144533.tar.gz
+
+=== backup: retention ===
+retention_days=14
+
+=== backup: backup done ===
+manifest=/opt/quiz/backups/manifests/backup_before_deploy_20260710_144533.txt
+
+=== backend migrate and build ===
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource &quot;db&quot;: MySQL database &quot;quiztestdemo_tc&quot; at &quot;rm-bp1736yx3djiwwj0h.mysql.rds.aliyuncs.com:3306&quot;
+
+3 migrations found in prisma/migrations
+
+
+No pending migrations to apply.
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+
+✔ Generated Prisma Client (v5.22.0) to ./node_modules/@prisma/client in 209ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Want to react to database changes in your app as they happen? Discover how with Pulse: https://pris.ly/tip-1-pulse
+
+
+&gt; quiz-api@1.0.0 build
+&gt; tsc
+
+
+=== backend runtime sync ===
+[PM2] Applying action reloadProcessId on app [quiz-api](ids: [ 0 ])
+[PM2] [quiz-api](0) ✓
+
+=== validation local ===
+curl: (7) Failed to connect to 127.0.0.1 port 3001 after 0 ms: Connection refused
+health check not ready: http://127.0.0.1:3001/api/health attempt=1/15
+{&quot;success&quot;:true,&quot;code&quot;:0,&quot;errMsg&quot;:&quot;&quot;,&quot;data&quot;:{&quot;status&quot;:&quot;ok&quot;}}
+{&quot;success&quot;:true,&quot;code&quot;:0,&quot;errMsg&quot;:&quot;&quot;,&quot;data&quot;:{&quot;status&quot;:&quot;ok&quot;}}
+┌────┬─────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name        │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼─────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ quiz-api    │ default     │ 1.0.0   │ fork    │ 105777   │ 2s     │ 13   │ online    │ 0%       │ 73.7mb   │ deploy   │ disabled │
+└────┴─────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+
+=== deploy done ===
+</pre>
+    </section>
+    
+    <section>
+      <h2>十五、部署方案处理记录</h2>
+      <pre>未采集到数据</pre>
+    </section>
+
+    <section>
+      <h2>十六、风险与后续</h2>
+      <ul>
+        <li>如果 npm audit 在部署日志中提示漏洞，应单独安排依赖升级和回归测试。</li>
+        <li>生产或测试数据库只能通过 Prisma migration 演进，常规部署不得使用 <code>db push</code>。</li>
+        <li>如果公网仍使用 HTTP，正式对外前建议补充域名、备案和 HTTPS。</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

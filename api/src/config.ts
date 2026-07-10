@@ -15,11 +15,16 @@ function resolveJwtSecret(): string {
   return generated
 }
 
+function resolveDatabaseUrl(): string {
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL
+  throw new Error('[config] DATABASE_URL is required')
+}
+
 export const config = {
   port: parseInt(process.env.API_PORT || '3001', 10),
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
   jwtSecret: resolveJwtSecret(),
-  databaseUrl: process.env.DATABASE_URL || 'file:./dev.db',
+  databaseUrl: resolveDatabaseUrl(),
 
   // CORS 白名单：开发期匹配 localhost / 127.0.0.1 / 局域网 IP，生产环境配具体域名
   corsOrigins: process.env.CORS_ORIGINS

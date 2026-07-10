@@ -17,7 +17,7 @@
 | 层级 | 技术 |
 |------|------|
 | 后端框架 | Express（Node.js + TypeScript） |
-| 数据库 ORM | Prisma（SQLite） |
+| 数据库 ORM | Prisma（MySQL） |
 | 认证 | JWT（bcryptjs 密码加密） |
 | AI 识别 | Qwen-VL-Max（阿里云 DashScope） |
 | PDF 处理 | pdf.js（浏览器端渲染） |

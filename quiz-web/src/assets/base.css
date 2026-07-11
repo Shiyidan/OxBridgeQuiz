@@ -27,6 +27,20 @@
   --color-info: #6c757d;
   --color-info-bg: #f0f1f3;
 
+  /* ============ 诊断报告图表色（仅用于成绩与时间数据编码） ============ */
+  --color-report-blue: #3478f6;
+  --color-report-red: #ff5f67;
+  --color-report-green: #00b85a;
+  --color-report-orange: #d98900;
+  --color-report-purple: #7c3aed;
+  --color-report-purple-soft: #f3e8ff;
+  --color-report-slate: #9aa6ba;
+  --color-report-track: #edf0f4;
+  --color-report-cell-strong: #d8f8e5;
+  --color-report-cell-medium: #fff6bd;
+  --color-report-cell-weak: #fff0f1;
+  --color-report-cell-insufficient: #f1f3f6;
+
   /* ============ 字号 & 行高 ============ */
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;

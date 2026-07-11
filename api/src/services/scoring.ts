@@ -2,14 +2,16 @@
  * 统一评分引擎：按考试类型分发策略，将原始答题结果转换为标准分。
  * 使用于 exam 路由（/exams/:id/result）、diagnostic 服务和 profile-stats。
  *
- * ESAT 策略按模块独立评分（1.0-9.0），基于 ESAT计分规则.md 中的 raw→scaled 参考表。
- * 非 ESAT 考试回退到通用策略 (correct/total)*9。
+ * ESAT 策略按模块独立评分（1.0-9.0），不产生官方总分。
+ * TMUA 对外只报告单一总分；分卷估值仅供诊断，参考曲线会随年度动态变化。
+ * 难度标签不参与标准分加权，符合 Rasch 模型只按原始正确数估计能力的规则。
  */
 
 // ---- 类型 ----
 
 /** ESAT 规范模块标识 */
 export type EsatModule = 'maths1' | 'maths2' | 'physics' | 'chemistry' | 'biology'
+export type TmuaPaper = 'paper1' | 'paper2'
 
 /** raw→scaled 锚点 */
 interface RawToScaledPoint {
@@ -19,7 +21,7 @@ interface RawToScaledPoint {
 
 /** 单模块评分结果 */
 export interface ModuleScore {
-  module: EsatModule
+  module: string
   moduleLabel: string
   rawScore: number
   totalQuestions: number
@@ -51,6 +53,7 @@ export interface ScoringResult {
 export interface QuestionResult {
   subject: string | null
   isCorrect: boolean
+  number?: number | null
 }
 
 // ---- ESAT 模块定义 ----
@@ -167,6 +170,29 @@ const ESAT_TABLES: Record<EsatModule, RawToScaledPoint[]> = {
   biology: BIOLOGY_TABLE,
 }
 
+// ---- TMUA raw→scaled 代表性参考表（2024 新制） ----
+
+const TMUA_TABLES: Record<TmuaPaper, RawToScaledPoint[]> = {
+  paper1: [
+    { raw: 0, scaled: 1 }, { raw: 3, scaled: 1 }, { raw: 4, scaled: 1.6 },
+    { raw: 5, scaled: 2.3 }, { raw: 6, scaled: 3 }, { raw: 7, scaled: 3.6 },
+    { raw: 8, scaled: 4.2 }, { raw: 9, scaled: 4.7 }, { raw: 10, scaled: 5.3 },
+    { raw: 11, scaled: 5.8 }, { raw: 12, scaled: 6.4 }, { raw: 13, scaled: 6.7 },
+    { raw: 14, scaled: 6.9 }, { raw: 15, scaled: 7.1 }, { raw: 16, scaled: 7.4 },
+    { raw: 17, scaled: 7.8 }, { raw: 18, scaled: 8.2 }, { raw: 19, scaled: 8.9 },
+    { raw: 20, scaled: 9 },
+  ],
+  paper2: [
+    { raw: 0, scaled: 1 }, { raw: 3, scaled: 1 }, { raw: 4, scaled: 1.3 },
+    { raw: 5, scaled: 2.2 }, { raw: 6, scaled: 2.9 }, { raw: 7, scaled: 3.6 },
+    { raw: 8, scaled: 4.2 }, { raw: 9, scaled: 4.8 }, { raw: 10, scaled: 5.4 },
+    { raw: 11, scaled: 6 }, { raw: 12, scaled: 6.5 }, { raw: 13, scaled: 6.8 },
+    { raw: 14, scaled: 7 }, { raw: 15, scaled: 7.3 }, { raw: 16, scaled: 7.6 },
+    { raw: 17, scaled: 7.9 }, { raw: 18, scaled: 8.4 }, { raw: 19, scaled: 9 },
+    { raw: 20, scaled: 9 },
+  ],
+}
+
 // ---- 分数段位 ----
 
 const SCORE_BANDS: (ScoreBand & { min: number; max: number })[] = [
@@ -228,6 +254,13 @@ export function quickEsatScore(module: EsatModule, correct: number, total: numbe
   return interpolateScaledScore(correct, table)
 }
 
+/** TMUA 分卷诊断估值：按实际题量归一到 20 题后查 2024 新制代表曲线。 */
+export function quickTmuaPaperScore(paper: TmuaPaper, correct: number, total: number): number {
+  if (total <= 0) return 1.0
+  const normalizedRaw = Math.max(0, Math.min(20, (correct / total) * 20))
+  return interpolateScaledScore(normalizedRaw, TMUA_TABLES[paper])
+}
+
 // ---- 评分主入口 ----
 
 /** 按考试类型分发评分策略，返回统一 ScoringResult */
@@ -239,6 +272,10 @@ export function computeScores(
 
   if (examType === 'ESAT') {
     return computeEsatScores(questionsWithResults, now)
+  }
+
+  if (examType === 'TMUA') {
+    return computeTmuaScores(questionsWithResults, now)
   }
 
   // 通用策略兜底
@@ -288,8 +325,8 @@ function computeEsatScores(
 
   // 按模块顺序排序
   modules.sort((a, b) => {
-    const orderA = ESAT_MODULE_META[a.module]?.order ?? 99
-    const orderB = ESAT_MODULE_META[b.module]?.order ?? 99
+    const orderA = ESAT_MODULE_META[a.module as EsatModule]?.order ?? 99
+    const orderB = ESAT_MODULE_META[b.module as EsatModule]?.order ?? 99
     return orderA - orderB
   })
 
@@ -312,6 +349,57 @@ function computeEsatScores(
   return {
     examType: 'ESAT',
     strategy: 'esat',
+    overallScore,
+    overallBand: overallBand.band,
+    overallBandLabel: overallBand.label,
+    modules,
+    generatedAt,
+  }
+}
+
+/** TMUA 平台等效估值：两卷分别查代表曲线后取平均，对外仍只使用单一总分。 */
+function computeTmuaScores(
+  questions: QuestionResult[],
+  generatedAt: string,
+): ScoringResult {
+  const midpoint = Math.ceil(questions.length / 2)
+  const groups: Record<TmuaPaper, QuestionResult[]> = { paper1: [], paper2: [] }
+  questions.forEach((question, index) => {
+    const subject = question.subject?.toLowerCase() || ''
+    const paper: TmuaPaper = /paper\s*2|p2|reasoning|推理/.test(subject)
+      ? 'paper2'
+      : /paper\s*1|p1|thinking|思维/.test(subject)
+        ? 'paper1'
+        : index < midpoint ? 'paper1' : 'paper2'
+    groups[paper].push(question)
+  })
+
+  const modules: ModuleScore[] = (Object.keys(groups) as TmuaPaper[])
+    .filter((paper) => groups[paper].length > 0)
+    .map((paper) => {
+      const items = groups[paper]
+      const rawScore = items.filter((question) => question.isCorrect).length
+      const scaledScore = quickTmuaPaperScore(paper, rawScore, items.length)
+      const band = getScoreBand(scaledScore)
+      return {
+        module: paper,
+        moduleLabel: paper === 'paper1' ? 'Paper 1' : 'Paper 2',
+        rawScore,
+        totalQuestions: items.length,
+        scaledScore,
+        band: band.band,
+        bandLabel: band.label,
+        approximatePercentile: band.approximatePercentile,
+      }
+    })
+
+  const overallScore = modules.length
+    ? clampScore(Math.round((modules.reduce((sum, module) => sum + module.scaledScore, 0) / modules.length) * 10) / 10)
+    : 1
+  const overallBand = getScoreBand(overallScore)
+  return {
+    examType: 'TMUA',
+    strategy: 'tmua-equivalent',
     overallScore,
     overallBand: overallBand.band,
     overallBandLabel: overallBand.label,

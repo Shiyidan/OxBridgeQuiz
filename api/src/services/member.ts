@@ -237,6 +237,20 @@ export async function getMemberContext(userId: string) {
   }
 }
 
-function safeParseExamPreferences(raw: unknown): Array<{ examType: string; subjects: string[] }> {
-  return parseJsonArray<{ examType: string; subjects: string[] }>(raw)
+function safeParseExamPreferences(raw: unknown): Array<{
+  examType: string
+  subjects: string[]
+  targetUniversities?: string[]
+  targetMajor?: string
+  examDate?: string
+  weeklyHours?: number
+}> {
+  return parseJsonArray<{
+    examType: string
+    subjects: string[]
+    targetUniversities?: string[]
+    targetMajor?: string
+    examDate?: string
+    weeklyHours?: number
+  }>(raw)
 }

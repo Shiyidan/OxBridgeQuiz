@@ -124,7 +124,15 @@ export const useAuthStore = defineStore('auth', () => {
     email: string,
     password: string,
     confirmPassword: string,
-    examPreferences?: Array<{ examType: string; subjects: string[] }>,
+    examPreferences?: Array<{
+      examType: string
+      subjects: string[]
+      targetUniversities?: string[]
+      targetMajor?: string
+      targetScore?: number
+      examDate?: string
+      weeklyHours?: number
+    }>,
   ): Promise<void> {
     loading.value = true
     error.value = null

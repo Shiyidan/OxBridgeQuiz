@@ -25,6 +25,14 @@ export const EXAM_TYPE = {
 export const EXAM_TYPES = Object.values(EXAM_TYPE)
 export type ExamType = (typeof EXAM_TYPES)[number]
 
+export const EXAM_RECORD_STATUS = {
+  IN_PROGRESS: 'in_progress',
+  SUBMITTED: 'submitted',
+} as const
+
+export const EXAM_RECORD_STATUSES = Object.values(EXAM_RECORD_STATUS)
+export type ExamRecordStatus = (typeof EXAM_RECORD_STATUSES)[number]
+
 export const PAPER_TYPE = {
   REAL_PAPER: 'realPaper',
   MOCK_PAPER: 'mockPaper',

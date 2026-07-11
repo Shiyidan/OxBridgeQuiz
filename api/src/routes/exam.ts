@@ -8,7 +8,13 @@ import { checkMemberAccess } from '../services/member.js'
 import { computeScores } from '../services/scoring.js'
 import type { QuestionResult } from '../services/scoring.js'
 import {
+  buildDiagnosticReportSummary,
+  type LearnerProfileInput,
+} from '../services/diagnosticReport.js'
+import {
+  EXAM_TYPE,
   EXAM_TYPES,
+  EXAM_RECORD_STATUS,
   PAPER_TYPE,
   QUESTION_BANK_PAPER_TYPES,
   REAL_PAPER_TYPES,
@@ -46,6 +52,36 @@ function parseDateBoundary(value: unknown, boundary: 'start' | 'end'): Date | un
       )
     : new Date(text)
   return Number.isNaN(date.getTime()) ? undefined : date
+}
+
+// 学习路径只读取当前考试类型的结构化备考资料，并对旧版偏好数据安全降级。
+function learnerProfileForExam(raw: unknown, examType: string): LearnerProfileInput {
+  const preferences = parseJsonArray<Record<string, unknown>>(raw)
+  const preference = preferences.find((item) => String(item.examType || '').toUpperCase() === examType.toUpperCase())
+  const weeklyHoursValue = Number(preference?.weeklyHours)
+  const targetScoreValue = Number(preference?.targetScore)
+  const examDateValue = typeof preference?.examDate === 'string' ? preference.examDate.trim() : ''
+  const targetUniversities = Array.isArray(preference?.targetUniversities)
+    ? preference.targetUniversities.filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
+    : typeof preference?.targetUniversity === 'string' && preference.targetUniversity.trim()
+      ? [preference.targetUniversity.trim()]
+      : []
+  return {
+    subjects: Array.isArray(preference?.subjects)
+      ? preference.subjects.filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
+      : [],
+    targetUniversities,
+    targetMajor: typeof preference?.targetMajor === 'string' && preference.targetMajor.trim()
+      ? preference.targetMajor.trim()
+      : null,
+    targetScore: Number.isFinite(targetScoreValue) && targetScoreValue >= 1 && targetScoreValue <= 9
+      ? targetScoreValue
+      : null,
+    examDate: /^\d{4}-\d{2}-\d{2}$/.test(examDateValue) ? examDateValue : null,
+    weeklyHours: Number.isFinite(weeklyHoursValue) && weeklyHoursValue >= 1 && weeklyHoursValue <= 80
+      ? weeklyHoursValue
+      : null,
+  }
 }
 
 function parsePositiveInt(value: unknown, fallback: number, max?: number): number {
@@ -646,8 +682,8 @@ examRouter.get('/profile-stats', requireAuth, async (req, res) => {
 // Exam result
 examRouter.get('/:id/result', requireAuth, async (req, res) => {
   try {
-    const examRecord = await prisma.examRecord.findUnique({
-      where: { id: req.params.id },
+    const examRecord = await prisma.examRecord.findFirst({
+      where: { id: req.params.id, userId: req.user!.userId },
     })
 
     if (!examRecord) {
@@ -700,12 +736,14 @@ examRouter.get('/:id/result', requireAuth, async (req, res) => {
     const questionsWithResults: QuestionResult[] = answeredQuestions.map((q: any) => ({
       subject: q.subject ?? null,
       isCorrect: q.isCorrect ?? false,
+      number: q.number ?? null,
     }))
     const scoring = computeScores(examRecord.examType, questionsWithResults)
 
     res.json(success({
       examRecord: {
         id: examRecord.id,
+        examType: examRecord.examType,
         totalQuestions: examRecord.totalQuestions,
         correctCount: examRecord.correctCount,
         startedAt: examRecord.startedAt,
@@ -737,6 +775,89 @@ examRouter.get('/:id/result', requireAuth, async (req, res) => {
   } catch (e: any) {
     console.error('Exam result error:', e)
     res.status(500).json(fail(e.message || '鑾峰彇缁撴灉澶辫触'))
+  }
+})
+
+// 诊断报告头、等效评估分与总体成绩概览
+examRouter.get('/:id/diagnostic-report/summary', requireAuth, async (req, res) => {
+  try {
+    const examRecord = await prisma.examRecord.findFirst({
+      where: { id: req.params.id, userId: req.user!.userId },
+      include: {
+        paper: true,
+        answers: true,
+        user: { select: { examPreferences: true } },
+      },
+    })
+
+    if (!examRecord) {
+      res.status(404).json(fail('Exam record not found'))
+      return
+    }
+    if (!isRealPaperType(examRecord.paper.paperType)) {
+      res.status(400).json(fail('Only diagnostic real-paper records have this report'))
+      return
+    }
+    if (examRecord.status !== EXAM_RECORD_STATUS.SUBMITTED || !examRecord.submittedAt) {
+      res.status(409).json(fail('Diagnostic report is available after submission'))
+      return
+    }
+
+    const questionRows = await prisma.question.findMany({
+      where: { paperId: examRecord.paperId },
+      orderBy: { number: 'asc' },
+      select: {
+        id: true,
+        number: true,
+        subject: true,
+        subjectCode: true,
+        topic: true,
+        topicCode: true,
+        knowledgePoints: true,
+        difficulty: true,
+      },
+    })
+    const syllabusNodes = await prisma.syllabusNode.findMany({
+      where: { examType: examRecord.examType },
+      orderBy: { order: 'asc' },
+      select: { code: true, label: true },
+    })
+    const answerMap = new Map(examRecord.answers.map((answer) => [answer.questionId, answer]))
+
+    const report = await buildDiagnosticReportSummary({
+      examType: examRecord.examType,
+      paper: {
+        title: examRecord.paper.title,
+        code: examRecord.paper.code,
+        year: examRecord.paper.year,
+        duration: examRecord.paper.duration,
+      },
+      questions: questionRows.map((question) => ({
+        number: question.number,
+        subject: question.subject,
+        subjectCode: question.subjectCode,
+        topic: question.topic,
+        topicCode: question.topicCode,
+        knowledgePoints: parseJsonArray<{ code: string; label: string; role?: string }>(
+          question.knowledgePoints,
+        ),
+        difficulty: question.difficulty,
+        isCorrect: answerMap.get(question.id)?.isCorrect ?? false,
+        isAnswered: Boolean(answerMap.get(question.id)?.selectedAnswer?.trim()),
+        durationSeconds: answerMap.get(question.id)?.durationSeconds ?? null,
+      })),
+      elapsedDurationSeconds: Math.max(
+        0,
+        Math.round((examRecord.submittedAt.getTime() - examRecord.startedAt.getTime()) / 1000),
+      ),
+      syllabusNodes,
+      learnerProfile: learnerProfileForExam(examRecord.user.examPreferences, examRecord.examType),
+    })
+
+    res.json(success({ report }))
+  } catch (error: any) {
+    console.error('[diagnostic-report] summary error:', error)
+    res.status(500).json(fail(error.message || 'Get diagnostic report summary failed'))
   }
 })
 

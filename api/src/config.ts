@@ -73,4 +73,7 @@ export const config = {
   corsOrigins: process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',')
     : backendDefaults.corsOrigins,
+  deepseekApiKey: process.env.DEEPSEEK_API_KEY || '',
+  deepseekBaseUrl: (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/$/, ''),
+  deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash',
 }

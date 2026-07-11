@@ -13,7 +13,15 @@ export interface RegisterParams {
   email: string
   password: string
   confirmPassword: string
-  examPreferences?: Array<{ examType: string; subjects: string[] }>
+  examPreferences?: Array<{
+    examType: string
+    subjects: string[]
+    targetUniversities?: string[]
+    targetMajor?: string
+    targetScore?: number
+    examDate?: string
+    weeklyHours?: number
+  }>
 }
 
 export interface UserInfo {

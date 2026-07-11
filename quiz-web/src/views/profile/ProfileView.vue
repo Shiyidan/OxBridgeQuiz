@@ -217,14 +217,85 @@
               </div>
             </div>
           </div>
+          <div v-if="editExamTypes.length" class="form-field">
+            <label class="form-label">学习路径分析资料</label>
+            <div v-for="et in editExamTypes" :key="`${et}-goals`" class="goal-group">
+              <strong>{{ examTypeLabel(et) }}</strong>
+              <div class="goal-grid">
+                <label>
+                  <span>目标院校（多个用逗号分隔）</span>
+                  <input
+                    v-model="editGoals[et]!.targetUniversitiesText"
+                    type="text"
+                    placeholder="例如：Imperial College London"
+                  />
+                </label>
+                <label>
+                  <span>目标专业</span>
+                  <input
+                    v-model="editGoals[et]!.targetMajor"
+                    type="text"
+                    placeholder="例如：Mechanical Engineering"
+                  />
+                </label>
+                <label v-if="et === 'ESAT'">
+                  <span>ESAT 目标分数（1.0–9.0）</span>
+                  <input
+                    v-model="editGoals[et]!.targetScore"
+                    type="number"
+                    min="1"
+                    max="9"
+                    step="0.1"
+                    placeholder="例如：7.0"
+                  />
+                </label>
+                <label>
+                  <span>考试日期</span>
+                  <input v-model="editGoals[et]!.examDate" type="date" />
+                </label>
+                <label>
+                  <span>每周可投入时长</span>
+                  <input
+                    v-model="editGoals[et]!.weeklyHours"
+                    type="number"
+                    min="1"
+                    max="80"
+                    step="1"
+                    placeholder="例如：12"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- 查看模式 -->
         <div v-else class="readonly-form readonly-form--two">
-          <label v-for="pref in examPreferences" :key="pref.examType">
-            <span>{{ pref.examType }}</span>
-            <input :value="pref.subjects.join('、') || '未选择'" readonly />
-          </label>
+          <template v-for="pref in examPreferences" :key="pref.examType">
+            <label>
+              <span>{{ pref.examType }} 备考科目</span>
+              <input :value="pref.subjects.join('、') || '未选择'" readonly />
+            </label>
+            <label>
+              <span>{{ pref.examType }} 目标院校</span>
+              <input :value="pref.targetUniversities?.join('、') || '未设置'" readonly />
+            </label>
+            <label>
+              <span>{{ pref.examType }} 目标专业</span>
+              <input :value="pref.targetMajor || '未设置'" readonly />
+            </label>
+            <label v-if="pref.examType.toUpperCase() === 'ESAT'">
+              <span>{{ pref.examType }} 目标分数</span>
+              <input :value="pref.targetScore ? `${pref.targetScore.toFixed(1)} / 9.0` : '未设置'" readonly />
+            </label>
+            <label>
+              <span>{{ pref.examType }} 考试与投入</span>
+              <input
+                :value="`${pref.examDate || '日期未设置'} · ${pref.weeklyHours ? `${pref.weeklyHours} 小时/周` : '时长未设置'}`"
+                readonly
+              />
+            </label>
+          </template>
           <label v-if="!examPreferences.length">
             <span>备考偏好</span>
             <input value="未设置" readonly />
@@ -341,6 +412,14 @@ interface SubscriptionRecord {
   status: SubscriptionFilter
 }
 
+interface ExamGoalDraft {
+  targetUniversitiesText: string
+  targetMajor: string
+  targetScore: string
+  examDate: string
+  weeklyHours: string
+}
+
 const router = useRouter()
 const auth = useAuthStore()
 const errorText = ref('')
@@ -359,6 +438,7 @@ const examEditing = ref(false)
 const examSaving = ref(false)
 const editExamTypes = ref<string[]>([])
 const editSubjects = ref<Record<string, string[]>>({})
+const editGoals = ref<Record<string, ExamGoalDraft>>({})
 
 const examTypes = [
   { value: 'ESAT', label: 'ESAT' },
@@ -384,6 +464,17 @@ function examTypeLabel(value: string): string {
   return examTypes.find((e) => e.value === value)?.label || value
 }
 
+// 新增考试类型时创建完整空白资料，保证模板中的双向绑定始终有目标对象。
+function emptyExamGoal(): ExamGoalDraft {
+  return {
+    targetUniversitiesText: '',
+    targetMajor: '',
+    targetScore: '',
+    examDate: '',
+    weeklyHours: '',
+  }
+}
+
 function isExamSubjectRequired(examType: string, subject: string): boolean {
   return (examRequiredSubjects[examType] || []).includes(subject)
 }
@@ -397,14 +488,17 @@ function isEditSubjectDisabled(examType: string, subject: string): boolean {
   return false
 }
 
+// 切换备考类型时同步创建或清理对应科目与学习路径资料。
 function toggleEditExamType(value: string): void {
   const idx = editExamTypes.value.indexOf(value)
   if (idx >= 0) {
     editExamTypes.value.splice(idx, 1)
     delete editSubjects.value[value]
+    delete editGoals.value[value]
   } else {
     editExamTypes.value.push(value)
     editSubjects.value[value] = [...(examRequiredSubjects[value] || [])]
+    editGoals.value[value] = emptyExamGoal()
   }
 }
 
@@ -417,12 +511,21 @@ function toggleEditSubject(examType: string, subject: string): void {
   editSubjects.value[examType] = subs
 }
 
+// 进入编辑模式时把已保存的结构化备考资料转换为表单草稿。
 function startEditExam(): void {
   const prefs = auth.memberContext?.examPreferences || []
   editExamTypes.value = prefs.map((p) => p.examType)
   editSubjects.value = {}
+  editGoals.value = {}
   for (const p of prefs) {
     editSubjects.value[p.examType] = [...p.subjects]
+    editGoals.value[p.examType] = {
+      targetUniversitiesText: (p.targetUniversities || []).join('、'),
+      targetMajor: p.targetMajor || '',
+      targetScore: p.targetScore ? String(p.targetScore) : '',
+      examDate: p.examDate || '',
+      weeklyHours: p.weeklyHours ? String(p.weeklyHours) : '',
+    }
   }
   examEditing.value = true
 }
@@ -431,13 +534,42 @@ function cancelEditExam(): void {
   examEditing.value = false
 }
 
+// 保存前验证目标分数与周投入范围，并将目标资料写回对应考试类型的 JSON 偏好。
 async function saveExam(): Promise<void> {
+  for (const et of editExamTypes.value) {
+    const targetScoreText = editGoals.value[et]?.targetScore.trim() || ''
+    const targetScore = Number(targetScoreText)
+    if (et === 'ESAT' && targetScoreText && (!Number.isFinite(targetScore) || targetScore < 1 || targetScore > 9)) {
+      ElMessage.warning('ESAT 目标分数需为 1.0-9.0')
+      return
+    }
+    const weeklyHoursText = editGoals.value[et]?.weeklyHours.trim() || ''
+    const weeklyHours = Number(weeklyHoursText)
+    if (weeklyHoursText && (!Number.isFinite(weeklyHours) || weeklyHours < 1 || weeklyHours > 80)) {
+      ElMessage.warning(`${et} 每周可投入时长需为 1-80 小时`)
+      return
+    }
+  }
   examSaving.value = true
   try {
-    const prefs: ExamPreference[] = editExamTypes.value.map((et) => ({
-      examType: et,
-      subjects: editSubjects.value[et] || [],
-    }))
+    const prefs: ExamPreference[] = editExamTypes.value.map((et) => {
+      const goal = editGoals.value[et] || emptyExamGoal()
+      const targetUniversities = goal.targetUniversitiesText
+        .split(/[，,、]/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+      const weeklyHours = Number(goal.weeklyHours)
+      const targetScore = Number(goal.targetScore)
+      return {
+        examType: et,
+        subjects: editSubjects.value[et] || [],
+        ...(targetUniversities.length ? { targetUniversities } : {}),
+        ...(goal.targetMajor.trim() ? { targetMajor: goal.targetMajor.trim() } : {}),
+        ...(et === 'ESAT' && goal.targetScore && Number.isFinite(targetScore) ? { targetScore } : {}),
+        ...(goal.examDate ? { examDate: goal.examDate } : {}),
+        ...(goal.weeklyHours && Number.isFinite(weeklyHours) ? { weeklyHours } : {}),
+      }
+    })
     await updateExamPreferences(prefs)
     // 刷新 memberContext 以同步界面
     const ctx = await getMember()
@@ -1369,5 +1501,50 @@ function formatTimestamp(value: number | null): string {
   font-size: var(--text-xs);
   font-weight: var(--weight-semi);
   color: var(--color-ink-muted);
+}
+
+.goal-group {
+  padding: 16px;
+  border: 1px solid var(--color-line-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+}
+
+.goal-group > strong {
+  display: block;
+  margin-bottom: 12px;
+  font-size: var(--text-sm);
+}
+
+.goal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.goal-grid label {
+  display: grid;
+  gap: 6px;
+}
+
+.goal-grid span {
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+}
+
+.goal-grid input {
+  width: 100%;
+  height: var(--height-input-sm);
+  padding: 0 12px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: inherit;
+  outline: none;
+}
+
+.goal-grid input:focus {
+  border-color: var(--color-ink);
 }
 </style>

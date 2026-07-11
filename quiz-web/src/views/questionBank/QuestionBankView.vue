@@ -59,6 +59,7 @@
               v-for="diff in difficulties"
               :key="diff.id"
               class="qb-difficulty-card"
+              :class="{ 'qb-difficulty-card--target': targetDifficulty === diff.id }"
               :data-theme="diff.id"
             >
               <h3 class="qb-difficulty-card__title">
@@ -85,7 +86,7 @@
 <script setup lang="ts">
 // 试题库浏览页：从已发布试卷汇总真实题目，按难度和学科筛选后进入练习。
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import type { SyllabusNode } from '@/api/questionBank'
@@ -94,6 +95,7 @@ import { checkMemberAccess } from '@/api/member'
 import { DEFAULT_EXAM_TYPE, EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
 
 const router = useRouter()
+const route = useRoute()
 
 interface TreeNode extends SyllabusNode {}
 type DifficultyId = 'easy' | 'medium' | 'hard' | 'composite'
@@ -123,6 +125,7 @@ const selectedNodeCode = ref<string>('110000')
 const selectedNodeLabel = ref<string>('综合考点')
 const totalQuestionCount = ref<number>(0)
 const searchKeyword = ref<string>('')
+const targetDifficulty = ref<DifficultyId | null>(null)
 
 const difficulties = ref<DifficultyOption[]>([
   {
@@ -155,19 +158,52 @@ const difficulties = ref<DifficultyOption[]>([
   },
 ])
 
+// 当前考点标题同步反映树选择或学习路径传入的考纲 code。
 const activeTopicTitle = computed<string>(() => `${selectedNodeLabel.value} · 试题`)
+
+// 题库接口统一使用当前 tab 的标准考试类型。
 const activeExamType = computed<ExamType>(() => activeTabId.value)
+
+// 深层考纲节点查找同时返回祖先 code，便于学习路径入口展开对应树路径。
+function findTreeNode(
+  nodes: TreeNode[],
+  code: string,
+  parents: string[] = [],
+): { node: TreeNode; parents: string[] } | null {
+  for (const node of nodes) {
+    if (node.code === code) return { node, parents }
+    const found = findTreeNode(node.children || [], code, [...parents, node.code])
+    if (found) return found
+  }
+  return null
+}
 
 // 首次进入试题库时加载大纲树，并默认查询最外层第一个节点。
 onMounted(async () => {
+  const requestedExamType = String(route.query.examType || '').toUpperCase()
+  if (EXAM_TYPE_OPTIONS.some((item) => item.value === requestedExamType)) {
+    activeTabId.value = requestedExamType as ExamType
+  }
   try {
     const nodes = await getSyllabusData(activeExamType.value)
     treeData.value = nodes[0]?.children || []
-    const first = treeData.value[0]
-    if (first) {
-      selectedNodeCode.value = first.code
-      selectedNodeLabel.value = first.label
+    const requestedCode = String(route.query.code || '').trim()
+    const requestedNode = requestedCode ? findTreeNode(treeData.value, requestedCode) : null
+    if (requestedCode) {
+      selectedNodeCode.value = requestedCode
+      selectedNodeLabel.value = requestedNode?.node.label || String(route.query.label || requestedCode)
+      if (requestedNode) defaultExpanded.value = requestedNode.parents
+    } else {
+      const first = treeData.value[0]
+      if (first) {
+        selectedNodeCode.value = first.code
+        selectedNodeLabel.value = first.label
+      }
     }
+    const requestedDifficulty = String(route.query.difficulty || '') as DifficultyId
+    targetDifficulty.value = difficulties.value.some((item) => item.id === requestedDifficulty)
+      ? requestedDifficulty
+      : null
   } catch {
     treeData.value = []
   }
@@ -333,6 +369,11 @@ const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
   border-radius: 8px;
   padding: 20px;
   background: #fff;
+}
+
+.qb-difficulty-card--target {
+  border-color: var(--color-report-blue);
+  box-shadow: 0 0 0 2px var(--color-info-bg);
 }
 .qb-difficulty-card__title {
   display: flex;

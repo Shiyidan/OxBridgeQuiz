@@ -66,6 +66,18 @@ const router = createRouter({
       name: 'exam-result-detail',
       component: () => import('../views/assessment/ExamResultDetail.vue'),
     },
+    // ESAT 诊断报告
+    {
+      path: '/exam-result/:id/esat',
+      name: 'esat-diagnostic-report',
+      component: () => import('../views/assessment/EsatDiagnosticReportView/index.vue'),
+    },
+    // TMUA 诊断报告
+    {
+      path: '/exam-result/:id/tmua',
+      name: 'tmua-diagnostic-report',
+      component: () => import('../views/assessment/TmuaDiagnosticReportView.vue'),
+    },
 
     // 管理后台
     {
@@ -176,6 +188,7 @@ router.beforeEach((to, _from) => {
     to.path.startsWith('/profile') ||
     to.path.startsWith('/practice') ||
     to.path.startsWith('/assessment') ||
+    to.path.startsWith('/exam-result') ||
     to.path.startsWith('/mistake-notebook')
 
   const requiresAdmin = to.path.startsWith('/admin')

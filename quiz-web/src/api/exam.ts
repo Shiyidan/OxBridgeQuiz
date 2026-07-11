@@ -73,6 +73,7 @@ export interface ScoringResult {
 export interface ExamResult {
   examRecord: {
     id: string
+    examType: string
     totalQuestions: number
     correctCount: number
     startedAt: string
@@ -89,6 +90,192 @@ export interface ExamResult {
   }
   questions: ExamQuestion[]
   scoring?: ScoringResult
+}
+
+export interface DiagnosticPositioning {
+  percentileValue: number | null
+  percentileLabel: string
+  performanceLevel: string
+  competitiveness: string
+  analysisSource?: 'deepseek' | 'fallback'
+  cohortReference: string
+  limitedData: boolean
+}
+
+export interface DiagnosticAssessmentModule {
+  id: string
+  label: string
+  correct: number
+  total: number
+  score: number | null
+  scoreRange: [number, number] | null
+  scaleLabel: string
+  summary: string
+  positioning: DiagnosticPositioning | null
+  difficultyMastery: DiagnosticDifficultyMastery[]
+  scoringBasis?: 'standard' | 'normalized'
+  equivalentRawScore?: number | null
+  notice?: string | null
+  riskSignal?: string | null
+  diagnosticAnalysis?: {
+    summary: string
+    strength: string
+    keyIssue: string
+    focusSuggestion: string
+    source: 'deepseek' | 'fallback'
+  }
+}
+
+export interface DiagnosticDifficultyMastery {
+  level: 'low' | 'medium' | 'high'
+  label: string
+  correct: number
+  total: number
+  accuracy: number | null
+}
+
+export interface DiagnosticReportOverview {
+  totalQuestions: number
+  correct: number
+  wrong: number
+  unanswered: number
+  accuracy: number | null
+  timing: {
+    totalDurationSeconds: number | null
+    plannedDurationSeconds: number | null
+    detailedTimingReliable: boolean
+    averageDurationSeconds: number | null
+    overtimeQuestionCount: number | null
+    modules: Array<{
+      id: string
+      label: string
+      actualDurationSeconds: number
+      plannedDurationSeconds: number
+    }>
+  }
+}
+
+export interface DiagnosticKnowledgeMastery {
+  modules: Array<{
+    id: string
+    label: string
+    knowledgePointCount: number
+    correct: number
+    total: number
+    accuracy: number | null
+    topics: Array<{
+      code: string
+      label: string
+      knowledgePointCount: number
+      correct: number
+      total: number
+      accuracy: number | null
+      children: Array<{
+        code: string
+        label: string
+        correct: number
+        total: number
+        accuracy: number | null
+      }>
+    }>
+  }>
+}
+
+export interface DiagnosticAiImprovementPlan {
+  matrix: Array<{
+    code: string
+    label: string
+    moduleId: string
+    moduleLabel: string
+    cells: Array<{
+      difficulty: 'low' | 'medium' | 'high'
+      label: string
+      correct: number
+      total: number
+      accuracy: number | null
+      status: 'strong' | 'medium' | 'weak' | 'insufficient'
+    }>
+  }>
+  highRoiGaps: Array<{
+    rank: number
+    topicCode: string
+    topicLabel: string
+    moduleId: string
+    moduleLabel: string
+    difficulty: 'low' | 'medium' | 'high'
+    difficultyLabel: string
+    correct: number
+    total: number
+    accuracy: number
+    priorityReason: string
+    suggestedHours: string
+    prerequisiteCheck: string
+    analysisSource: 'deepseek' | 'fallback'
+  }>
+  analysisStatus: 'generated' | 'fallback' | 'not-needed'
+}
+
+export interface DiagnosticLearningPath {
+  profile: {
+    subjects: string[]
+    targetUniversities: string[]
+    targetMajor: string | null
+    targetScore: number | null
+    examDate: string | null
+    weeklyHours: number | null
+    missingFields: string[]
+  }
+  summary: {
+    planningWeeks: number
+    weeklyHours: number
+    totalHours: number
+    mode: 'Standard' | 'Intensive' | 'Extended'
+    modeReason: string
+    dataSourceNote: string
+    analysisSource: 'deepseek' | 'fallback'
+  }
+  phases: Array<{
+    id: 'foundation' | 'improvement' | 'sprint'
+    title: string
+    durationWeeks: number
+    weekLabel: string
+    goal: string
+    strategy: string
+    focusTags: string[]
+    tasks: Array<{
+      period: string
+      title: string
+      completionLabel: string
+    }>
+    activities: string[]
+  }>
+}
+
+export interface DiagnosticReportSummary {
+  reportKind: 'esat' | 'tmua' | 'step'
+  header: {
+    title: string
+    examType: string
+    year: number
+    modules: Array<{ id: string; label: string }>
+  }
+  assessment: {
+    score: number | null
+    scoreRange: [number, number] | null
+    scaleLabel: string
+    basedOnQuestions: number
+    methodNote: string
+    referenceVersion: string
+    positioning: DiagnosticPositioning | null
+    modules: DiagnosticAssessmentModule[]
+    difficultyMastery: DiagnosticDifficultyMastery[]
+    riskSignal: string | null
+    riskStatus: 'generated' | 'unavailable'
+  }
+  overview?: DiagnosticReportOverview
+  knowledgeMastery?: DiagnosticKnowledgeMastery
+  aiImprovementPlan?: DiagnosticAiImprovementPlan
+  learningPath?: DiagnosticLearningPath
 }
 
 export interface WrongAnswer {
@@ -188,6 +375,15 @@ export function submitExam(params: SubmitParams) {
 export function getExamResultData(examId: string) {
   return callApi<ExamResult>({
     url: `/exams/${examId}/result`,
+    method: 'GET',
+    isAllData: false,
+  })
+}
+
+/** 获取新版诊断报告头、等效评估分与总体成绩概览 */
+export function getDiagnosticReportSummary(examId: string) {
+  return callApi<{ report: DiagnosticReportSummary }>({
+    url: `/exams/${examId}/diagnostic-report/summary`,
     method: 'GET',
     isAllData: false,
   })

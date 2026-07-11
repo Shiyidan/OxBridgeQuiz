@@ -28,6 +28,35 @@
           <router-link to="/mistake-notebook" class="nav-link" active-class="nav-link--active"
             >错题本</router-link
           >
+          <el-dropdown
+            class="nav-exam-menu"
+            trigger="hover"
+            placement="bottom-start"
+            :show-timeout="80"
+            :hide-timeout="180"
+            popper-class="exam-intro-dropdown"
+            @command="handleExamCommand"
+          >
+            <button
+              class="nav-link nav-exam-trigger"
+              :class="{ 'nav-link--active': isExamIntroRoute }"
+              type="button"
+            >
+              考试介绍
+            </button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item
+                  v-for="exam in examMenuItems"
+                  :key="exam.type"
+                  :command="exam.type"
+                  :class="{ 'is-current-exam': currentExamType === exam.type }"
+                >
+                  {{ exam.label }}
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </nav>
       </div>
 
@@ -88,14 +117,27 @@
 <script setup lang="ts">
 // 全局导航栏：所有前台页面共用。极简黑白灰风格，"免费诊断" CTA 引导未登录用户进入诊断入口。
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 const showDropdown = ref(false)
+const examMenuItems = [
+  { type: 'tmua', label: 'TMUA' },
+  { type: 'esat', label: 'ESAT' },
+  { type: 'step', label: 'STEP' },
+]
 const currentRoleLabel = computed(() => (auth.user?.role === 'admin' ? '管理员' : '学生'))
 const roleHomeLabel = computed(() => (auth.user?.role === 'admin' ? '后台管理' : '个人中心'))
+const isExamIntroRoute = computed(() => route.path.startsWith('/exam-intro'))
+const currentExamType = computed(() => String(route.params.examType || '').toLowerCase())
+
+// Element Plus 下拉命令统一切换考试页面，避免手写 hover 浮层产生闪烁。
+function handleExamCommand(examType: string): void {
+  router.push(`/exam-intro/${examType}`)
+}
 
 // 角色入口统一从头像菜单进入，学生和管理员各回到自己的工作台。
 function goToRoleHome(): void {
@@ -179,6 +221,55 @@ async function handleLogout(): Promise<void> {
   transition: color var(--duration-base) ease;
   position: relative;
   white-space: nowrap;
+}
+.nav-exam-menu {
+  position: relative;
+}
+.nav-exam-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+}
+.nav-exam-trigger:focus,
+.nav-exam-trigger:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+:global(.exam-intro-dropdown.el-popper) {
+  width: max-content;
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+:global(.exam-intro-dropdown .el-dropdown-menu) {
+  padding: 0;
+}
+:global(.exam-intro-dropdown .el-dropdown-menu__item) {
+  width: max-content;
+  min-height: 40px;
+  min-width: 76px;
+  padding: 0 14px;
+  border-radius: var(--radius-md);
+  color: var(--color-ink-soft);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+:global(.exam-intro-dropdown .el-dropdown-menu__item:focus),
+:global(.exam-intro-dropdown .el-dropdown-menu__item:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+:global(.exam-intro-dropdown .el-dropdown-menu__item:hover),
+:global(.exam-intro-dropdown .el-dropdown-menu__item:focus),
+:global(.exam-intro-dropdown .el-dropdown-menu__item.is-current-exam) {
+  background: var(--color-hover);
+  color: var(--color-ink);
 }
 .nav-link:hover,
 .nav-link--active {

@@ -45,6 +45,16 @@ const router = createRouter({
       name: 'mistake-notebook',
       component: () => import('../views/mistakeNotebook/MistakeNotebookView.vue'),
     },
+    // 考试介绍
+    {
+      path: '/exam-intro',
+      redirect: '/exam-intro/tmua',
+    },
+    {
+      path: '/exam-intro/:examType(tmua|esat|step)',
+      name: 'exam-intro',
+      component: () => import('../views/examIntro/ExamIntroView.vue'),
+    },
     // 答题结果
     {
       path: '/exam-result',

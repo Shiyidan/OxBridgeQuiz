@@ -25,6 +25,11 @@ const DIFFICULTY_LABELS: Record<DifficultyLevel, string> = {
   medium: '中难度',
   high: '高难度',
 }
+const DIFFICULTY_TIME_WEIGHTS: Record<DifficultyLevel, number> = {
+  low: 0.8,
+  medium: 1,
+  high: 1.25,
+}
 const MODULE_LABELS: Record<string, string> = {
   maths1: '数学 1',
   maths2: '数学 2',
@@ -34,6 +39,14 @@ const MODULE_LABELS: Record<string, string> = {
   unclassified: '未分类模块',
 }
 const MODULE_ORDER = ['maths1', 'maths2', 'physics', 'chemistry', 'biology', 'unclassified']
+const ESAT_SCORE_BINS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9]
+const ESAT_DISTRIBUTION_PERCENTAGES: Record<string, number[]> = {
+  maths1: [0.4, 0.7, 2.2, 3.5, 11.2, 11.8, 15.4, 17.2, 10.2, 8.7, 5.5, 4.9, 2.8, 2.0, 0.4, 1.5, 1.7],
+  maths2: [2.1, 2.2, 3.4, 5.4, 10.5, 13.3, 14.8, 9.9, 12.5, 7.3, 7.1, 3.5, 2.7, 1.1, 1.6, 0.4, 2.3],
+  physics: [3.7, 2.7, 5.6, 7.5, 7.7, 12.9, 11.3, 13.0, 8.1, 10.4, 5.0, 4.3, 3.4, 0.6, 2.0, 0.3, 1.7],
+  chemistry: [1.8, 3.3, 2.5, 4.8, 11.7, 7.0, 14.0, 12.3, 9.4, 11.0, 6.2, 3.4, 5.2, 4.0, 0.6, 0, 3.2],
+  biology: [7.1, 0.9, 5.2, 7.7, 7.1, 9.0, 9.3, 11.0, 10.8, 9.0, 5.5, 7.3, 3.2, 2.5, 2.1, 0, 2.7],
+}
 type ModuleAnalysis = {
   riskSignal: string
   positioningInsight: string
@@ -67,6 +80,11 @@ function normalizeDifficulty(value: string | null): DifficultyLevel | null {
   return null
 }
 
+// 题目目标题时按难度权重分配整卷规定时长，所有题的目标时间之和始终等于试卷时长。
+function timingWeight(question: ReportQuestionInput): number {
+  return DIFFICULTY_TIME_WEIGHTS[normalizeDifficulty(question.difficulty) || 'medium']
+}
+
 // 非标准题量使用正确率 Wilson 区间，再映射到 ESAT 27 题等效原始分。
 function ratioRange(correct: number, total: number): [number, number] {
   if (total <= 0) return [0, 0]
@@ -95,24 +113,48 @@ function buildDifficultyMastery(questions: ReportQuestionInput[]): DifficultyMas
   })
 }
 
-// ESAT 只提供模块级定位，历史数据有限时始终展示参考提示。
-function buildPositioning(score: number): AssessmentPositioning {
+// 官方仅提供图表，因此按数字化后的 0.5 分档分布计算中秩百分位，并归一化微小读取误差。
+function estimateOfficialPercentile(moduleId: string, score: number): number {
+  const percentages = ESAT_DISTRIBUTION_PERCENTAGES[moduleId] || ESAT_DISTRIBUTION_PERCENTAGES.maths1
+  const total = percentages.reduce((sum, value) => sum + value, 0)
+  const boundedScore = clamp(score, 1, 9)
+  const midRanks: Array<{ score: number; percentile: number }> = []
+  let cumulative = 0
+
+  ESAT_SCORE_BINS.forEach((scoreBin, index) => {
+    const percentage = total > 0 ? ((percentages[index] || 0) / total) * 100 : 0
+    midRanks.push({ score: scoreBin, percentile: cumulative + percentage / 2 })
+    cumulative += percentage
+  })
+
+  const upperIndex = midRanks.findIndex((point) => point.score >= boundedScore)
+  if (upperIndex <= 0) return Math.round(midRanks[0]?.percentile || 0)
+  if (upperIndex < 0) return Math.round(midRanks[midRanks.length - 1]?.percentile || 100)
+  const lower = midRanks[upperIndex - 1]
+  const upper = midRanks[upperIndex]
+  const ratio = (boundedScore - lower.score) / (upper.score - lower.score)
+  return Math.round(lower.percentile + (upper.percentile - lower.percentile) * ratio)
+}
+
+// ESAT 模块定位的表现等级使用平台分档，参考百分位使用对应模块的官方历史分布。
+function buildPositioning(moduleId: string, score: number): AssessmentPositioning {
   const bands = [
-    { min: 8, percentile: 96, level: 'Excellent', competitiveness: '该模块处于顶尖水平' },
-    { min: 7, percentile: 90, level: 'Very Good', competitiveness: '该模块具备较强竞争力' },
-    { min: 6, percentile: 80, level: 'Good', competitiveness: '该模块具备竞争力' },
-    { min: 4, percentile: 55, level: 'Average', competitiveness: '该模块处于主要考生分布区间' },
-    { min: 1, percentile: 20, level: 'Below Average', competitiveness: '该模块仍有较大提升空间' },
+    { min: 8, level: 'Excellent', competitiveness: '该模块处于顶尖水平' },
+    { min: 7, level: 'Very Good', competitiveness: '该模块具备较强竞争力' },
+    { min: 6, level: 'Good', competitiveness: '该模块具备竞争力' },
+    { min: 4, level: 'Average', competitiveness: '该模块处于主要考生分布区间' },
+    { min: 1, level: 'Below Average', competitiveness: '该模块仍有较大提升空间' },
   ]
   const band = bands.find((item) => score >= item.min) || bands[bands.length - 1]
+  const percentile = estimateOfficialPercentile(moduleId, score)
   return {
-    percentileValue: band.percentile,
-    percentileLabel: `Top ${100 - band.percentile}%`,
+    percentileValue: percentile,
+    percentileLabel: `Top ${Math.max(1, 100 - percentile)}%`,
     performanceLevel: band.level,
     competitiveness: band.competitiveness,
     analysisSource: 'fallback',
-    cohortReference: 'ESAT 历史场次较少，百分位仅供参考',
-    limitedData: true,
+    cohortReference: 'UAT-UK 2025年10月与2026年1月官方模块成绩分布（图表数字化近似）',
+    limitedData: false,
   }
 }
 
@@ -144,7 +186,7 @@ function buildModule(id: string, questions: ReportQuestionInput[]): AssessmentMo
     scoreRange,
     scaleLabel: '/ 9.0',
     summary: score === null ? '当前模块缺少可靠换算规则。' : 'ESAT 模块独立评分，不与其他模块合并。',
-    positioning: score === null ? null : buildPositioning(score),
+    positioning: score === null ? null : buildPositioning(id, score),
     difficultyMastery: buildDifficultyMastery(questions),
     scoringBasis,
     equivalentRawScore,
@@ -270,7 +312,7 @@ function buildTitle(paper: PaperInput): string {
   return `${title} · 成绩报告`
 }
 
-// 总体概览仅做确定性聚合，逐题计时通过覆盖率和总时长校验后才进入详细分析。
+// 总体概览以完成节奏、时间效率和模块效率组织，所有数值均由答题记录确定性计算。
 function buildOverview(
   questions: ReportQuestionInput[],
   paper: PaperInput,
@@ -287,6 +329,11 @@ function buildOverview(
   const timedQuestions = questions.filter(
     (question) => typeof question.durationSeconds === 'number' && question.durationSeconds > 0,
   )
+  const attemptedQuestionCount = questions.filter((question) => (
+    question.isAnswered
+    || question.answerState === 'skipped'
+    || (question.durationSeconds || 0) > 0
+  )).length
   const recordedDurationSeconds = questions.reduce(
     (sum, question) => sum + Math.max(0, question.durationSeconds || 0),
     0,
@@ -295,6 +342,8 @@ function buildOverview(
   const durationRatio = totalDurationSeconds && totalDurationSeconds > 0
     ? recordedDurationSeconds / totalDurationSeconds
     : 0
+  const hasTimingBaseline = Boolean(plannedDurationSeconds && totalDurationSeconds && totalDurationSeconds > 0)
+  const hasReferenceTiming = Boolean(hasTimingBaseline && timingCoverage >= 0.3)
   const detailedTimingReliable = Boolean(
     plannedDurationSeconds
     && totalDurationSeconds
@@ -302,16 +351,82 @@ function buildOverview(
     && durationRatio >= 0.7
     && durationRatio <= 1.15,
   )
-  const plannedPerQuestion = plannedDurationSeconds && totalQuestions
+  const analysisLevel = detailedTimingReliable
+    ? 'complete' as const
+    : hasReferenceTiming
+      ? 'reference' as const
+      : 'unavailable' as const
+  const pacingStatus = !hasTimingBaseline
+    ? 'unavailable' as const
+    : totalDurationSeconds! > plannedDurationSeconds!
+      ? 'overtime' as const
+      : attemptedQuestionCount < totalQuestions
+        ? 'incomplete' as const
+        : 'within_limit' as const
+  const baselineTargetDurationSeconds = plannedDurationSeconds && totalQuestions
     ? plannedDurationSeconds / totalQuestions
-    : 0
-  const moduleGroups = new Map<string, ReportQuestionInput[]>()
+    : null
+  const totalTimingWeight = questions.reduce((sum, question) => sum + timingWeight(question), 0)
+  const expectedDurationFor = (question: ReportQuestionInput): number => (
+    plannedDurationSeconds && totalTimingWeight > 0
+      ? (plannedDurationSeconds * timingWeight(question)) / totalTimingWeight
+      : 0
+  )
+  const quadrantCounts = {
+    fast_correct: 0,
+    slow_correct: 0,
+    fast_wrong: 0,
+    slow_wrong: 0,
+  }
+  const moduleGroups = new Map<string, Array<{ question: ReportQuestionInput; expectedDurationSeconds: number }>>()
+
   for (const question of questions) {
+    const expectedDurationSeconds = expectedDurationFor(question)
+    const durationSeconds = Math.max(0, question.durationSeconds || 0)
+    if (durationSeconds > 0 && question.isAnswered && expectedDurationSeconds > 0) {
+      const speed = durationSeconds <= expectedDurationSeconds ? 'fast' : 'slow'
+      const outcome = question.isCorrect ? 'correct' : 'wrong'
+      const quadrantKey = `${speed}_${outcome}` as keyof typeof quadrantCounts
+      quadrantCounts[quadrantKey] += 1
+    }
     const moduleId = mapSubjectToEsatModule(question.subject) || 'unclassified'
     const group = moduleGroups.get(moduleId) || []
-    group.push(question)
+    group.push({ question, expectedDurationSeconds })
     moduleGroups.set(moduleId, group)
   }
+  const efficiencySampleCount = Object.values(quadrantCounts).reduce((sum, count) => sum + count, 0)
+  const modules = Array.from(moduleGroups.entries())
+    .map(([id, items]) => {
+      const timedItems = items.filter((item) => (item.question.durationSeconds || 0) > 0)
+      const actualDurationSeconds = timedItems.reduce(
+        (sum, item) => sum + Math.max(0, item.question.durationSeconds || 0),
+        0,
+      )
+      const plannedDurationSecondsForModule = items.reduce(
+        (sum, item) => sum + item.expectedDurationSeconds,
+        0,
+      )
+      const actualAverageDurationSeconds = timedItems.length
+        ? actualDurationSeconds / timedItems.length
+        : null
+      const expectedAverageDurationSeconds = items.length
+        ? plannedDurationSecondsForModule / items.length
+        : null
+      return {
+        id,
+        label: MODULE_LABELS[id] || id,
+        actualDurationSeconds: Math.round(actualDurationSeconds),
+        plannedDurationSeconds: Math.round(plannedDurationSecondsForModule),
+        totalQuestions: items.length,
+        timedQuestionCount: timedItems.length,
+        correct: items.filter((item) => item.question.isCorrect).length,
+        accuracy: items.length ? round1(items.filter((item) => item.question.isCorrect).length / items.length) : null,
+        timeEfficiencyIndex: actualAverageDurationSeconds && expectedAverageDurationSeconds
+          ? round1(actualAverageDurationSeconds / expectedAverageDurationSeconds)
+          : null,
+      }
+    })
+    .sort((a, b) => MODULE_ORDER.indexOf(a.id) - MODULE_ORDER.indexOf(b.id))
 
   return {
     totalQuestions,
@@ -323,25 +438,28 @@ function buildOverview(
       totalDurationSeconds,
       plannedDurationSeconds,
       detailedTimingReliable,
-      averageDurationSeconds: detailedTimingReliable && totalQuestions
-        ? Math.round(recordedDurationSeconds / totalQuestions)
+      analysisLevel,
+      pacingStatus,
+      attemptedQuestionCount,
+      timedQuestionCount: timedQuestions.length,
+      timingCoverage: Math.round(timingCoverage * 1000) / 1000,
+      efficiencySampleCount,
+      targetDurationSeconds: baselineTargetDurationSeconds === null ? null : Math.round(baselineTargetDurationSeconds),
+      averageDurationSeconds: analysisLevel !== 'unavailable' && timedQuestions.length
+        ? Math.round(recordedDurationSeconds / timedQuestions.length)
         : null,
-      overtimeQuestionCount: detailedTimingReliable
-        ? questions.filter((question) => (question.durationSeconds || 0) > plannedPerQuestion).length
+      overtimeQuestionCount: analysisLevel !== 'unavailable'
+        ? questions.filter((question) => (
+            (question.durationSeconds || 0) > expectedDurationFor(question)
+          )).length
         : null,
-      modules: detailedTimingReliable
-        ? Array.from(moduleGroups.entries())
-            .map(([id, items]) => ({
-              id,
-              label: MODULE_LABELS[id] || id,
-              actualDurationSeconds: items.reduce(
-                (sum, question) => sum + Math.max(0, question.durationSeconds || 0),
-                0,
-              ),
-              plannedDurationSeconds: Math.round(plannedPerQuestion * items.length),
-            }))
-            .sort((a, b) => MODULE_ORDER.indexOf(a.id) - MODULE_ORDER.indexOf(b.id))
-        : [],
+      quadrants: [
+        { id: 'fast_correct', count: quadrantCounts.fast_correct },
+        { id: 'slow_correct', count: quadrantCounts.slow_correct },
+        { id: 'fast_wrong', count: quadrantCounts.fast_wrong },
+        { id: 'slow_wrong', count: quadrantCounts.slow_wrong },
+      ],
+      modules,
     },
   }
 }
@@ -783,6 +901,7 @@ async function personalizeLearningPath(input: {
   focusGaps: LearningFocusGap[]
   profile: LearnerProfileInput
   summary: Omit<ReportLearningPath['summary'], 'analysisSource'>
+  timing: ReportOverview['timing']
 }): Promise<{ phases: ReportLearningPath['phases']; source: 'deepseek' | 'fallback' }> {
   const allowedGaps = new Map(input.focusGaps.map((gap) => [gap.gapKey, gap]))
   const payload = {
@@ -816,6 +935,21 @@ async function personalizeLearningPath(input: {
       suggestedHours: gap.suggestedHours,
       priorityReason: gap.priorityReason,
     })),
+    timingAnalysis: input.timing.analysisLevel === 'unavailable'
+      ? { available: false }
+      : {
+          available: true,
+          pacingStatus: input.timing.pacingStatus,
+          modules: input.timing.modules
+            .filter((module) => module.timeEfficiencyIndex !== null)
+            .map((module) => ({
+              moduleLabel: module.label,
+              timeEfficiencyIndex: module.timeEfficiencyIndex,
+              timedQuestionCount: module.timedQuestionCount,
+              totalQuestions: module.totalQuestions,
+              accuracyPercent: module.accuracy === null ? null : Math.round(module.accuracy * 100),
+            })),
+        },
   }
   const cacheKey = crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex')
   let generated = learningPathCache.get(cacheKey) as { phases?: unknown } | undefined
@@ -830,6 +964,7 @@ async function personalizeLearningPath(input: {
           'title 不超过50字；completionLabel 不超过70字，且必须原样包含该缺口的 suggestedHours。',
           'improvement 与 sprint 的 activities 各输出2条，每条不超过70字；不得改变阶段周数和总投入时长。',
           '必须结合备考科目、目标专业、目标分数、考试日期、每周投入和固定模式判定依据；缺失资料不得猜测。',
+          '若 timingAnalysis.available 为 true，可将其中模块时间效率用于限时训练或整卷节奏安排；不得创造未提供的耗时、比例或时间问题。',
           '所有百分比只能使用输入中的 accuracyPercent、targetPercent 或40%阶段阈值，不得创造其他提分指标。',
           '不得生成院校录取线、录取概率、心理归因、知识点依赖或输入中不存在的分数。',
         ].join('\n'),
@@ -925,6 +1060,7 @@ async function buildLearningPath(
   plan: ReportAiImprovementPlan,
   modules: AssessmentModule[],
   learnerProfile: LearnerProfileInput | undefined,
+  timing: ReportOverview['timing'],
 ): Promise<ReportLearningPath> {
   const matrixSubjects = Array.from(new Set(plan.matrix.map((row) => row.moduleLabel)))
   const profile: LearnerProfileInput = {
@@ -978,6 +1114,14 @@ async function buildLearningPath(
   const firstTarget = firstGap
     ? Math.max(firstGap.accuracy < 0.4 ? 0.5 : 0.7, firstGap.accuracy)
     : null
+  const slowTimingModules = timing.analysisLevel === 'unavailable'
+    ? []
+    : timing.modules
+      .filter((module) => module.timeEfficiencyIndex !== null && module.timeEfficiencyIndex > 1.25)
+      .sort((left, right) => (right.timeEfficiencyIndex || 0) - (left.timeEfficiencyIndex || 0))
+  const timingTrainingFocus = slowTimingModules[0]
+    ? `${slowTimingModules[0].label} 当前题时效率 ${slowTimingModules[0].timeEfficiencyIndex?.toFixed(1)}×，阶段二加入限时模块训练。`
+    : ''
   const applicationContext = profile.targetUniversities.length
     ? `，为 ${profile.targetUniversities.join('、')} 的申请考试做好准备`
     : ''
@@ -1007,7 +1151,7 @@ async function buildLearningPath(
         goal: firstGap && firstTarget !== null
           ? `优先将“${firstGap.topicLabel} × ${firstGap.difficultyLabel}”正确率从 ${Math.round(firstGap.accuracy * 100)}% 提升至 ${Math.round(firstTarget * 100)}% 以上。`
           : '复盘本次诊断错题，补齐样本充分格子中的基础薄弱项。',
-        strategy: '按高 ROI 顺序逐项补漏，每项完成复盘、专项训练与小样本复测。',
+        strategy: `按高 ROI 顺序逐项补漏，每项完成复盘、专项训练与小样本复测。${timingTrainingFocus}`,
         focusTags,
         tasks,
         activities: [],
@@ -1018,7 +1162,7 @@ async function buildLearningPath(
         durationWeeks: improvementWeeks,
         weekLabel: weekLabel(improvementStart, improvementWeeks),
         goal: '将样本充分格子中的红色缺口逐步提升至 40% 以上，并建立跨题型稳定性。',
-        strategy: '围绕阶段一复诊后仍存在的缺口进行中高难度迁移，并用限时模块测试校验稳定性。',
+        strategy: `围绕阶段一复诊后仍存在的缺口进行中高难度迁移，并用限时模块测试校验稳定性。${timingTrainingFocus}`,
         focusTags,
         tasks: [],
         activities: [
@@ -1048,6 +1192,7 @@ async function buildLearningPath(
     focusGaps,
     profile: { ...profile, subjects },
     summary: summaryBase,
+    timing,
   })
   return {
     profile: { ...profile, subjects, missingFields },
@@ -1109,11 +1254,13 @@ export async function buildEsatDiagnosticReportSummary(input: {
     }
   })
   const difficultyMastery = buildDifficultyMastery(input.questions)
+  const overview = buildOverview(input.questions, input.paper, input.elapsedDurationSeconds)
   await input.onStage?.('path_analyzing')
   const learningPath = await buildLearningPath(
     aiImprovementPlan,
     modulesWithRisks,
     input.learnerProfile,
+    overview.timing,
   )
 
   return {
@@ -1139,7 +1286,7 @@ export async function buildEsatDiagnosticReportSummary(input: {
         ? 'generated'
         : 'unavailable',
     },
-    overview: buildOverview(input.questions, input.paper, input.elapsedDurationSeconds),
+    overview,
     knowledgeMastery: buildKnowledgeMastery(input.questions, input.syllabusNodes || []),
     aiImprovementPlan,
     learningPath,

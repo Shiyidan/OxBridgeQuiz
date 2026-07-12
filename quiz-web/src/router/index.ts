@@ -66,6 +66,12 @@ const router = createRouter({
       name: 'exam-result-detail',
       component: () => import('../views/assessment/ExamResultDetail.vue'),
     },
+    // 诊断报告中的逐题解析
+    {
+      path: '/exam-result/:id/questions',
+      name: 'exam-question-review',
+      component: () => import('../views/assessment/ExamResultDetail.vue'),
+    },
     // ESAT 诊断报告
     {
       path: '/exam-result/:id/esat',

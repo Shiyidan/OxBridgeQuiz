@@ -1,6 +1,6 @@
 # API 项目待优化清单（todoList 2.0）
 
-> 基于 2026-06-20 对 `api/` 项目的全面代码审计，并持续补充诊断测试链路审查结果，共发现问题 28 项，按优先级排列。
+> 基于 2026-06-20 对 `api/` 项目的全面代码审计，并持续补充诊断测试链路审查结果，共发现问题 30 项，按优先级排列。
 
 ---
 
@@ -20,6 +20,7 @@ P1 业务逻辑 Bug
 - [ ] P1-3 解析任务内存在服务重启后丢失
 - [ ] P1-4 答题结果中无匹配题目时静默降级
 - [ ] P1-5 “重新测试”通过 debugRetake 绕过诊断额度
+- [ ] P1-6 诊断真题错题本未直达逐题解析
 
 P2 代码重复 & 规范不一致
 
@@ -117,6 +118,12 @@ P5 代码整洁
 - **位置**：[`quiz-web/src/views/assessment/AssessmentHomeView.vue`](quiz-web/src/views/assessment/AssessmentHomeView.vue) `handleRetestPaper()`、[`api/src/routes/exam.ts`](api/src/routes/exam.ts) `/start` 与 `/:id/submit`
 - **问题**：正式页面的“重新测试”会由客户端传入 `debugRetake=1`，后端据此跳过开始和交卷阶段的诊断额度校验。普通用户可直接构造该参数无限次创建和提交诊断测试
 - **方案**：正式重新测试不传 `debugRetake`，按正常额度规则创建新的 `ExamRecord`；如需保留开发调试能力，仅允许本地环境或经过后端管理员身份校验的请求使用，不能信任客户端布尔参数
+
+### P1-6 诊断真题错题本未直达逐题解析
+
+- **位置**：[`quiz-web/src/views/mistakeNotebook/MistakeNotebookView.vue`](quiz-web/src/views/mistakeNotebook/MistakeNotebookView.vue) `analysisLink()`、[`quiz-web/src/views/assessment/ExamResultDetail.vue`](quiz-web/src/views/assessment/ExamResultDetail.vue) 诊断报告分流逻辑
+- **问题**：错题本“查看解析”统一跳转 `/exam-result/:id?questionId=xxx`。若记录来自诊断真题，该路由会优先分流到 ESAT/TMUA 诊断报告，`questionId` 无法进入逐题解析页面并定位对应题目
+- **方案**：错题本根据 `paperType` 区分来源；诊断真题改跳转 `/exam-result/:id/questions?questionId=xxx`（`exam-question-review`），普通题库练习保持原结果页路径。复用现有 `ExamQuestionAnalysis` 的 `initialQuestionId` 定位能力，不新增题目解析组件
 
 ---
 
@@ -267,4 +274,4 @@ P5 代码整洁
 
 ---
 
-> **共计**：29 项，已完成 14 项（P0: 4 / P1: 5 / P2: 4 / P3: 5 / P4: 6 / P5: 5）
+> **共计**：30 项，已完成 14 项（P0: 4 / P1: 6 / P2: 4 / P3: 5 / P4: 6 / P5: 5）

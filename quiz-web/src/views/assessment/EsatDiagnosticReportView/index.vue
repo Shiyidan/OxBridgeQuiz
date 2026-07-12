@@ -15,6 +15,9 @@
             <span>ESAT Diagnostic Report</span>
             <h1>{{ report.header.title }}</h1>
           </div>
+          <button type="button" class="question-analysis-button" @click="viewQuestionAnalysis">
+            题目解析
+          </button>
         </header>
         <div v-if="reportWarning" class="report-warning">{{ reportWarning }}</div>
 
@@ -33,12 +36,15 @@
           v-if="report.knowledgeMastery"
           :knowledge-mastery="report.knowledgeMastery"
         />
-        <EsatQuestionReview />
         <EsatAiImprovementPlan
           v-if="report.aiImprovementPlan"
           :plan="report.aiImprovementPlan"
         />
-        <EsatLearningPath v-if="report.learningPath" :path="report.learningPath" />
+        <EsatLearningPath
+          v-if="report.learningPath"
+          :path="report.learningPath"
+          :timing="report.overview?.timing"
+        />
       </template>
     </main>
   </div>
@@ -46,22 +52,23 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
 import { getDiagnosticReportSummary, type DiagnosticReportSummary } from '@/api/exam'
 import EsatEquivalentScore from './EsatEquivalentScore.vue'
 import EsatOverallOverview from './EsatOverallOverview.vue'
 import EsatKnowledgeMastery from './EsatKnowledgeMastery.vue'
-import EsatQuestionReview from './EsatQuestionReview.vue'
 import EsatAiImprovementPlan from './EsatAiImprovementPlan.vue'
 import EsatLearningPath from './EsatLearningPath.vue'
 
 const route = useRoute()
+const router = useRouter()
 const loading = ref(true)
 const errorMessage = ref('')
 const reportWarning = ref('')
 const report = ref<DiagnosticReportSummary | null>(null)
 const activeModuleId = ref('')
+const reportExamRecordId = ref('')
 
 // 路由参数是 ESAT 报告接口和权限校验使用的 ExamRecord ID。
 const examId = computed(() => String(route.params.id || ''))
@@ -70,6 +77,9 @@ const examId = computed(() => String(route.params.id || ''))
 const activeModule = computed(() =>
   report.value?.assessment.modules.find((module) => module.id === activeModuleId.value) || null,
 )
+
+// 当页面展示上一份有效报告时，题目解析必须读取该报告对应的答卷，而不是本次失败或分析中的答卷。
+const questionReviewExamId = computed(() => reportExamRecordId.value || examId.value)
 
 // 报告重新生成后保持合法模块选择，失效时回到第一个实际模块。
 watch(
@@ -93,6 +103,15 @@ function selectModule(moduleId: string): void {
   }
 }
 
+// 逐题解析复用公共 ExamQuestionAnalysis 页面，并以当前报告对应答卷作为只读数据来源。
+function viewQuestionAnalysis(): void {
+  void router.push({
+    name: 'exam-question-review',
+    params: { id: questionReviewExamId.value },
+    query: { from: 'diagnostic', report: 'esat' },
+  })
+}
+
 // 加载后校验 reportKind，防止错误考试类型进入 ESAT 页面。
 async function loadReport(): Promise<void> {
   loading.value = true
@@ -105,6 +124,7 @@ async function loadReport(): Promise<void> {
     }
     report.value = data.report
     reportWarning.value = data.meta.warning || ''
+    reportExamRecordId.value = data.meta.reportExamRecordId || examId.value
     activeModuleId.value = data.report.header.modules[0]?.id || ''
   } catch (error: any) {
     errorMessage.value = error?.response?.data?.errMsg || error?.message || 'ESAT 诊断报告加载失败'
@@ -149,6 +169,10 @@ async function loadReport(): Promise<void> {
 }
 
 .report-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
   margin-bottom: 32px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--color-line);
@@ -166,6 +190,30 @@ async function loadReport(): Promise<void> {
   font-size: var(--text-2xl);
 }
 
+.question-analysis-button {
+  min-width: 128px;
+  padding: 10px 18px;
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-sm);
+  background: var(--color-ink);
+  color: var(--color-ink-inverse);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.question-analysis-button:hover {
+  border-color: #303030;
+  background: #303030;
+  transform: translateY(-1px);
+}
+
+.question-analysis-button:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
 .report-warning {
   margin: -16px 0 24px;
   padding: 12px 16px;
@@ -179,6 +227,11 @@ async function loadReport(): Promise<void> {
 @media (max-width: 760px) {
   .report-main {
     padding: 24px 0 48px;
+  }
+
+  .report-header {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
 }

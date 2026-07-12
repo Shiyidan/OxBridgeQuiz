@@ -53,13 +53,29 @@ export interface ReportOverview {
     totalDurationSeconds: number | null
     plannedDurationSeconds: number | null
     detailedTimingReliable: boolean
+    analysisLevel: 'unavailable' | 'reference' | 'complete'
+    pacingStatus: 'unavailable' | 'within_limit' | 'incomplete' | 'overtime'
+    attemptedQuestionCount: number
+    timedQuestionCount: number
+    timingCoverage: number
+    efficiencySampleCount: number
+    targetDurationSeconds: number | null
     averageDurationSeconds: number | null
     overtimeQuestionCount: number | null
+    quadrants: Array<{
+      id: 'fast_correct' | 'slow_correct' | 'fast_wrong' | 'slow_wrong'
+      count: number
+    }>
     modules: Array<{
       id: string
       label: string
       actualDurationSeconds: number
       plannedDurationSeconds: number
+      totalQuestions: number
+      timedQuestionCount: number
+      correct: number
+      accuracy: number | null
+      timeEfficiencyIndex: number | null
     }>
   }
 }

@@ -68,7 +68,10 @@
 
         <div class="result-actions">
           <router-link to="/question-bank" class="btn button_cancel">返回试题库</router-link>
-          <router-link :to="`/exam-result/${examId}`" class="btn button_primary">
+          <router-link
+            :to="{ name: 'exam-result-detail', params: { id: examId }, query: { from: 'question-bank' } }"
+            class="btn button_primary"
+          >
             查看详细报告
           </router-link>
         </div>

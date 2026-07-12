@@ -37,26 +37,6 @@
     </aside>
 
     <section v-if="currentQuestion" class="report-card" aria-label="题目详情">
-      <span class="section-mark" aria-hidden="true"></span>
-      <header class="question-header">
-        <div class="question-header__row">
-          <h2>{{ examTitle }}</h2>
-          <span>第 {{ currentIndex + 1 }}/{{ totalCount }} 题</span>
-        </div>
-        <div class="question-progress" aria-hidden="true">
-          <span :style="{ width: progressPercent }"></span>
-        </div>
-        <div class="question-tags">
-          <span>第 {{ currentIndex + 1 }} 题</span>
-          <span v-if="currentQuestion.difficulty">{{ difficultyDisplay }}</span>
-          <span :class="currentQuestion.isCorrect ? 'tag-success' : 'tag-error'">
-            {{
-              currentQuestion.isCorrect ? '正确' : currentQuestion.selectedAnswer ? '错误' : '未答'
-            }}
-          </span>
-        </div>
-      </header>
-
       <QuestionCard
         :question="currentQuestion"
         :index="currentIndex"
@@ -74,34 +54,42 @@
       <div class="analysis-stack">
         <section v-if="examFocusText" class="analysis-box">
           <h3>考察点</h3>
-          <p><LatexText :text="examFocusText" /></p>
+          <div class="analysis-box__body">
+            <p><LatexText :text="examFocusText" /></p>
+          </div>
         </section>
 
         <section v-if="hasSolution" class="analysis-box">
           <h3>题目解析</h3>
-          <p v-if="correctSolution"><LatexText :text="correctSolution" /></p>
-          <ol v-if="solutionSteps.length" class="analysis-steps">
-            <li v-for="(step, i) in solutionSteps" :key="i"><LatexText :text="step" /></li>
-          </ol>
-          <p v-if="finalValue" class="analysis-final">
-            <strong>最终结论：</strong><LatexText :text="finalValue" />
-          </p>
-          <ul v-if="distractorReasons.length" class="reason-list">
-            <li v-for="(reason, i) in distractorReasons" :key="i"><LatexText :text="reason" /></li>
-          </ul>
+          <div class="analysis-box__body">
+            <p v-if="correctSolution"><LatexText :text="correctSolution" /></p>
+            <ol v-if="solutionSteps.length" class="analysis-steps">
+              <li v-for="(step, i) in solutionSteps" :key="i"><LatexText :text="step" /></li>
+            </ol>
+            <p v-if="finalValue" class="analysis-final">
+              <strong>最终结论：</strong><LatexText :text="finalValue" />
+            </p>
+            <ul v-if="distractorReasons.length" class="reason-list">
+              <li v-for="(reason, i) in distractorReasons" :key="i"><LatexText :text="reason" /></li>
+            </ul>
+          </div>
         </section>
 
         <section v-if="hasReviewGuide" class="analysis-box">
           <h3>复习引导</h3>
-          <p v-if="reviewGuidance"><LatexText :text="reviewGuidance" /></p>
-          <ul v-if="commonErrorCauses.length">
-            <li v-for="(cause, i) in commonErrorCauses" :key="i"><LatexText :text="cause" /></li>
-          </ul>
+          <div class="analysis-box__body">
+            <p v-if="reviewGuidance"><LatexText :text="reviewGuidance" /></p>
+            <ul v-if="commonErrorCauses.length">
+              <li v-for="(cause, i) in commonErrorCauses" :key="i"><LatexText :text="cause" /></li>
+            </ul>
+          </div>
         </section>
 
         <section v-if="!hasSolution && !hasReviewGuide && !examFocusText" class="analysis-box">
           <h3>题目解析</h3>
-          <p>当前题目暂无解析内容。</p>
+          <div class="analysis-box__body">
+            <p>当前题目暂无解析内容。</p>
+          </div>
         </section>
       </div>
     </section>
@@ -123,21 +111,16 @@ type ReportQuestion = ExamQuestion & { id: string }
 const props = defineProps<{
   questions: ReportQuestion[]
   correctCount: number
-  examTitle: string
   initialQuestionId?: string
 }>()
 
 const currentIndex = ref(0)
-const totalCount = computed(() => props.questions.length)
 const currentQuestion = computed<ReportQuestion | undefined>(
   () => props.questions[currentIndex.value],
 )
 const skippedCount = computed(() => props.questions.filter((q) => !q.selectedAnswer).length)
 const wrongCount = computed(
   () => props.questions.filter((q) => q.selectedAnswer && !q.isCorrect).length,
-)
-const progressPercent = computed(() =>
-  totalCount.value ? `${((currentIndex.value + 1) / totalCount.value) * 100}%` : '0%',
 )
 const answerText = computed(() => currentQuestion.value?.answer?.join(', ') || '-')
 const questionNav = computed(() =>
@@ -146,8 +129,6 @@ const questionNav = computed(() =>
     status: (q.selectedAnswer ? (q.isCorrect ? 'correct' : 'wrong') : 'skipped') as QuestionStatus,
   })),
 )
-const difficultyDisplay = computed(() => currentQuestion.value?.difficulty || '')
-
 const la = computed(() => currentQuestion.value?.learning_analysis)
 const examFocusText = computed(() => la.value?.exam_focus || '')
 const correctSolution = computed(() => la.value?.correct_solution || '')
@@ -294,49 +275,6 @@ function noop(): void {}
   background: #ef4444;
 }
 
-.question-header__row {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  min-width: 0;
-}
-
-.question-header h2 {
-  margin: 0;
-  font-size: 22px;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.question-progress {
-  height: 4px;
-  margin: 16px 0;
-  background: #e2e8f0;
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.question-progress span {
-  display: block;
-  height: 100%;
-  background: #2563eb;
-}
-
-.question-tags {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
-  color: #64748b;
-}
-
-.tag-success {
-  color: #047857;
-}
-
-.tag-error {
-  color: #dc2626;
-}
-
 .answer-summary {
   display: flex;
   gap: 16px;
@@ -350,15 +288,43 @@ function noop(): void {}
 
 .analysis-stack {
   display: grid;
-  gap: 16px;
+  gap: 20px;
 }
 
 .analysis-box {
-  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  border: 1px solid #cfe3ff;
   border-radius: 8px;
-  padding: 18px;
   background: #fff;
   overflow-wrap: anywhere;
+}
+
+.analysis-box h3 {
+  margin: 0;
+  padding: 15px 20px;
+  border-bottom: 1px solid #cfe3ff;
+  background: #f4f9ff;
+  color: #123b7b;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.analysis-box__body {
+  padding: 20px;
+  color: #1e3a5f;
+  line-height: 1.75;
+}
+
+.analysis-box__body > :first-child {
+  margin-top: 0;
+}
+
+.analysis-box__body > :last-child {
+  margin-bottom: 0;
+}
+
+.analysis-box__body p {
+  margin: 0 0 18px;
 }
 
 .report-card :deep(.question-card) {
@@ -388,13 +354,19 @@ function noop(): void {}
   max-width: 100%;
 }
 
-.analysis-box h3 {
-  margin: 0 0 12px;
-}
-
 .analysis-steps,
 .reason-list {
+  margin: 0 0 18px;
   padding-left: 22px;
+}
+
+.analysis-steps li + li,
+.reason-list li + li {
+  margin-top: 4px;
+}
+
+.analysis-final strong {
+  color: #123b7b;
 }
 
 .empty-text {

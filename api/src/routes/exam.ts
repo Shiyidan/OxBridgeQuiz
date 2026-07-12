@@ -939,13 +939,13 @@ examRouter.get('/:id/result', requireAuth, async (req, res) => {
 
     const answers = await prisma.answerRecord.findMany({
       where: { examRecordId: examRecord.id },
-      orderBy: { answeredAt: 'asc' },
     })
 
     const questionRows = await prisma.question.findMany({
       where: { id: { in: answers.map((answer) => answer.questionId) } },
+      orderBy: { number: 'asc' },
     })
-    const questionMap = new Map(questionRows.map((question) => [question.id, question]))
+    const answerMap = new Map(answers.map((answer) => [answer.questionId, answer]))
 
     const needPaperMeta = examRecord.paperId !== 'question-bank'
     const paper = needPaperMeta
@@ -955,27 +955,15 @@ examRouter.get('/:id/result', requireAuth, async (req, res) => {
         })
       : null
 
-    const answeredQuestions = answers.map((a) => {
-      const question = questionMap.get(a.questionId)
-      if (question) {
-        return {
-          ...formatQuestionRow(question),
-          questionId: a.questionId,
-          selectedAnswer: a.selectedAnswer,
-          isCorrect: a.isCorrect,
-          durationSeconds: a.durationSeconds,
-        }
-      }
+    // 逐题解析必须遵循试卷题号，不能受作答先后或未答题的空时间影响。
+    const answeredQuestions = questionRows.map((question) => {
+      const answer = answerMap.get(question.id)
       return {
-        questionId: a.questionId,
-        selectedAnswer: a.selectedAnswer,
-        isCorrect: a.isCorrect,
-        durationSeconds: a.durationSeconds,
-        number: undefined,
-        title: '',
-        options: [],
-        answer: [],
-        images: [],
+        ...formatQuestionRow(question),
+        questionId: question.id,
+        selectedAnswer: answer?.selectedAnswer ?? null,
+        isCorrect: answer?.isCorrect ?? false,
+        durationSeconds: answer?.durationSeconds ?? 0,
       }
     })
 

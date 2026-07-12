@@ -33,23 +33,25 @@
             <span>中难度</span>
             <span>高难度</span>
           </div>
-          <div v-for="row in plan.matrix" :key="`${row.moduleId}:${row.code}`" class="matrix-row">
-            <div class="matrix-topic" :title="row.label">
-              <strong>{{ row.label }}</strong>
-              <small>{{ row.moduleLabel }}</small>
+          <div class="matrix-body">
+            <div v-for="row in plan.matrix" :key="`${row.moduleId}:${row.code}`" class="matrix-row">
+              <div class="matrix-topic" :title="row.label">
+                <strong>{{ row.label }}</strong>
+                <small>{{ row.moduleLabel }}</small>
+              </div>
+              <div
+                v-for="cell in row.cells"
+                :key="cell.difficulty"
+                class="matrix-cell"
+                :class="`matrix-cell--${cell.status}`"
+              >
+                <strong>{{ cell.correct }}/{{ cell.total }}（{{ formatAccuracy(cell.accuracy) }}）</strong>
+                <small>n={{ cell.total }}<template v-if="cell.total < 3"> · 样本不足</template></small>
+              </div>
             </div>
-            <div
-              v-for="cell in row.cells"
-              :key="cell.difficulty"
-              class="matrix-cell"
-              :class="`matrix-cell--${cell.status}`"
-            >
-              <strong>{{ cell.correct }}/{{ cell.total }}（{{ formatAccuracy(cell.accuracy) }}）</strong>
-              <small>n={{ cell.total }}<template v-if="cell.total < 3"> · 样本不足</template></small>
+            <div v-if="plan.matrix.length === 0" class="matrix-empty">
+              本次试卷没有可用于能力矩阵的二级知识点。
             </div>
-          </div>
-          <div v-if="plan.matrix.length === 0" class="matrix-empty">
-            本次试卷没有可用于能力矩阵的二级知识点。
           </div>
         </div>
       </section>
@@ -238,8 +240,29 @@ function formatAccuracy(value: number | null): string {
   text-align: left;
 }
 
+.matrix-body {
+  max-height: 432px;
+  overflow-y: auto;
+  scrollbar-color: var(--color-report-slate) var(--color-report-track);
+  scrollbar-width: thin;
+}
+
+.matrix-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.matrix-body::-webkit-scrollbar-track {
+  background: var(--color-report-track);
+}
+
+.matrix-body::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-pill);
+  background: var(--color-report-slate);
+}
+
 .matrix-row {
   min-height: 72px;
+  box-sizing: border-box;
   border-top: 1px solid var(--color-line-soft);
 }
 

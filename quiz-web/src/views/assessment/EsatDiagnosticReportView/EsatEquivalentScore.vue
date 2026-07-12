@@ -130,52 +130,10 @@
           <h3>{{ module.label }} 水平定位与竞争力评估</h3>
           <span>模块独立参考</span>
         </div>
-        <div class="positioning-distribution">
-          <div class="distribution-chart" aria-label="当前表现所处参考分布位置">
-            <svg viewBox="0 0 1000 240" preserveAspectRatio="none" aria-hidden="true">
-              <defs>
-                <linearGradient id="esat-positioning-gradient" x1="0" y1="0" x2="1" y2="0">
-                  <stop class="distribution-stop distribution-stop--weak" offset="0%"></stop>
-                  <stop class="distribution-stop distribution-stop--warning" offset="28%"></stop>
-                  <stop class="distribution-stop distribution-stop--average" offset="50%"></stop>
-                  <stop class="distribution-stop distribution-stop--strong" offset="75%"></stop>
-                  <stop class="distribution-stop distribution-stop--excellent" offset="100%"></stop>
-                </linearGradient>
-              </defs>
-              <path
-                class="distribution-area"
-                d="M40 210 C150 210 210 194 280 150 C360 98 405 38 500 30 C595 38 640 98 720 150 C790 194 850 210 960 210 L960 216 L40 216 Z"
-              ></path>
-              <path
-                class="distribution-curve"
-                d="M40 210 C150 210 210 194 280 150 C360 98 405 38 500 30 C595 38 640 98 720 150 C790 194 850 210 960 210"
-              ></path>
-            </svg>
-            <div
-              class="distribution-marker"
-              :style="positioningMarkerStyle(module.score)"
-            >
-              <span>
-                <small>你的预估分</small>
-                <strong>{{ module.score?.toFixed(1) }} / 9.0</strong>
-              </span>
-              <i aria-hidden="true"></i>
-            </div>
-          </div>
-          <div class="distribution-score-axis" aria-label="ESAT 预估分刻度">
-            <span v-for="scoreTick in ESAT_SCORE_TICKS" :key="scoreTick">
-              {{ scoreTick.toFixed(1) }}
-            </span>
-          </div>
-          <div class="distribution-scale" aria-hidden="true">
-            <span>需要提升</span>
-            <span>接近平均</span>
-            <span>表现突出</span>
-          </div>
-        </div>
+        <EsatScoreDistributionChart :module-id="module.id" :score="module.score" />
         <div
           class="positioning-result"
-          :class="positioningToneClass(module.positioning.percentileValue)"
+          :class="positioningToneClass(referencePercentile)"
         >
           <div>
             <span class="positioning-result__label">
@@ -199,7 +157,7 @@
           </div>
           <div>
             <small>参考百分位</small>
-            <strong>{{ module.positioning.percentileLabel }}</strong>
+            <strong>{{ referencePercentileLabel }}</strong>
           </div>
           <p>
             <span v-if="module.positioning.analysisSource === 'deepseek'" class="ai-analysis-badge">
@@ -209,7 +167,7 @@
           </p>
         </div>
         <small class="positioning-reference">
-          {{ module.positioning.cohortReference }} · 曲线仅用于位置示意，不代表真实成绩服从正态分布
+          参考百分位按当前模块官方成绩分布累计估算；当前分数仍是基于本次作答的等效预估分
         </small>
       </div>
 
@@ -252,7 +210,10 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { DiagnosticAssessmentModule } from '@/api/exam'
+import { estimateEsatPercentile } from '@/data/esatScoreDistribution'
+import EsatScoreDistributionChart from './EsatScoreDistributionChart.vue'
 
 const props = defineProps<{
   module: DiagnosticAssessmentModule
@@ -264,7 +225,11 @@ const emit = defineEmits<{
   selectModule: [moduleId: string]
 }>()
 
-const ESAT_SCORE_TICKS = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+const referencePercentile = computed(() => estimateEsatPercentile(props.module.id, props.module.score))
+const referencePercentileLabel = computed(() => {
+  if (referencePercentile.value === null) return '暂无参考'
+  return `Top ${Math.max(1, 100 - referencePercentile.value)}%`
+})
 
 // 模块卡片只允许提交实际存在的模块 ID，避免页面科目状态越界。
 function selectModule(moduleId: string): void {
@@ -281,18 +246,7 @@ function formatRawAccuracy(correct: number, total: number): string {
   return total > 0 ? `${((correct / total) * 100).toFixed(1)}%` : '-'
 }
 
-// ESAT 1.0-9.0 预估分映射到横轴，并沿钟形曲线计算标记高度。
-function positioningMarkerStyle(score: number | null): Record<string, string> {
-  const boundedScore = Math.min(9, Math.max(1, score ?? 1))
-  const position = 4 + ((boundedScore - 1) / 8) * 92
-  const curveHeight = 13 + 68 * Math.exp(-0.5 * ((position - 50) / 18) ** 2)
-  return {
-    left: `${position}%`,
-    '--marker-height': `${curveHeight}%`,
-  }
-}
-
-// Tooltip 明确表现等级由固定分数档位决定，避免被误解为大模型主观判断。
+// Tooltip 区分平台表现分档与官方成绩分布百分位，避免把两种定位口径混为一谈。
 function performanceLevelExplanation(level: string, score: number | null): string {
   const ranges: Record<string, string> = {
     Excellent: '8.0-9.0',
@@ -303,10 +257,10 @@ function performanceLevelExplanation(level: string, score: number | null): strin
   }
   const scoreLabel = score === null ? '暂无预估分' : `当前预估分 ${score.toFixed(1)}`
   const rangeLabel = ranges[level] || '对应分数档位'
-  return `${scoreLabel}，落在 ${rangeLabel}，因此划分为 ${level}。等级由代码按预估分固定计算，不由大模型决定。`
+  return `${scoreLabel}，落在 ${rangeLabel}，因此划分为 ${level}。表现等级由平台按预估分固定分档；旁边的参考百分位则按当前模块官方成绩分布估算。`
 }
 
-// 定位结果颜色仅表达相对表现区段，不改变后端返回的百分位结论。
+// 定位结果颜色仅表达官方参考分布中的累计位置，不改变预估分本身。
 function positioningToneClass(value: number | null): string {
   if ((value ?? 0) >= 70) return 'positioning-result--strong'
   if ((value ?? 0) >= 40) return 'positioning-result--average'
@@ -321,7 +275,7 @@ function positioningToneClass(value: number | null): string {
 
 .module-toolbar {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 20px;
   margin-bottom: 16px;
@@ -353,20 +307,21 @@ function positioningToneClass(value: number | null): string {
   display: inline-flex;
   overflow: hidden;
   flex: 0 0 auto;
-  border: 1px solid var(--color-line);
+  border: 1px solid #dddce6;
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
 }
 
 .module-tabs button {
-  min-width: 104px;
+  min-width: 96px;
   height: 38px;
-  padding: 0 18px;
+  padding: 0 12px;
   border: 0;
-  border-right: 1px solid var(--color-line);
-  background: var(--color-surface);
-  color: var(--color-ink-soft);
+  border-right: 1px solid #e6e5ed;
+  background: #fafafd;
+  color: #56536a;
   cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .module-tabs button:last-child {
@@ -374,7 +329,7 @@ function positioningToneClass(value: number | null): string {
 }
 
 .module-tabs .module-tab--active {
-  background: var(--color-ink);
+  background: #4a485e;
   color: var(--color-ink-inverse);
 }
 
@@ -673,149 +628,6 @@ function positioningToneClass(value: number | null): string {
   font-size: var(--text-sm);
 }
 
-.positioning-distribution {
-  max-width: 920px;
-  margin: 0 auto;
-  padding: 12px 28px 10px;
-  border: 1px solid var(--color-line-soft);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-alt);
-}
-
-.distribution-chart {
-  position: relative;
-  height: 190px;
-}
-
-.distribution-chart svg {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.distribution-area {
-  fill: url('#esat-positioning-gradient');
-  opacity: 0.26;
-}
-
-.distribution-curve {
-  fill: none;
-  stroke: var(--color-report-purple);
-  stroke-linecap: round;
-  stroke-width: 3;
-  vector-effect: non-scaling-stroke;
-}
-
-.distribution-stop--weak {
-  stop-color: var(--color-report-red);
-}
-
-.distribution-stop--warning {
-  stop-color: var(--color-warning);
-}
-
-.distribution-stop--average {
-  stop-color: var(--color-report-blue);
-}
-
-.distribution-stop--strong {
-  stop-color: var(--color-report-green);
-}
-
-.distribution-stop--excellent {
-  stop-color: var(--color-report-purple);
-}
-
-.distribution-marker {
-  position: absolute;
-  bottom: var(--marker-height);
-  color: var(--color-ink);
-  transform: translate(-50%, 5px);
-}
-
-.distribution-marker span {
-  position: absolute;
-  bottom: 30px;
-  left: 50%;
-  display: grid;
-  gap: 1px;
-  padding: 5px 9px;
-  border-radius: var(--radius-pill);
-  background: var(--color-charcoal);
-  box-shadow: var(--shadow-sm);
-  color: var(--color-ink-inverse);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  transform: translateX(-50%);
-  white-space: nowrap;
-}
-
-.distribution-marker span small {
-  color: var(--color-report-slate);
-  font-size: var(--text-xs);
-}
-
-.distribution-marker span strong {
-  color: var(--color-ink-inverse);
-  font-size: var(--text-xs);
-}
-
-.distribution-marker::after {
-  position: absolute;
-  bottom: 7px;
-  left: 50%;
-  width: 1px;
-  height: 20px;
-  background: var(--color-charcoal);
-  content: '';
-  transform: translateX(-50%);
-}
-
-.distribution-marker i {
-  display: block;
-  width: 12px;
-  height: 12px;
-  border: 3px solid var(--color-surface);
-  border-radius: 50%;
-  background: var(--color-charcoal);
-  box-shadow: var(--shadow-sm);
-  transform: translateX(-50%);
-}
-
-.distribution-score-axis {
-  display: flex;
-  justify-content: space-between;
-  margin-top: -5px;
-  padding: 7px 3.2% 0;
-  border-top: 1px solid var(--color-line);
-  color: var(--color-ink-muted);
-  font-size: var(--text-xs);
-}
-
-.distribution-score-axis span {
-  position: relative;
-  min-width: 24px;
-  text-align: center;
-}
-
-.distribution-score-axis span::before {
-  position: absolute;
-  top: -8px;
-  left: 50%;
-  width: 1px;
-  height: 5px;
-  background: var(--color-report-slate);
-  content: '';
-}
-
-.distribution-scale {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 9px;
-  color: var(--color-ink-muted);
-  font-size: var(--text-xs);
-}
-
 .positioning-result {
   display: flex;
   max-width: 820px;
@@ -1041,7 +853,7 @@ function positioningToneClass(value: number | null): string {
   .module-tabs button {
     min-width: 0;
     flex: 1;
-    padding: 0 10px;
+    padding: 0 8px;
   }
 
   .calculation-panel__heading {
@@ -1067,14 +879,6 @@ function positioningToneClass(value: number | null): string {
     gap: 8px;
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  .positioning-distribution {
-    padding: 10px 10px 8px;
-  }
-
-  .distribution-chart {
-    height: 150px;
   }
 
   .positioning-result {

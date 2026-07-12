@@ -33,6 +33,42 @@ export const EXAM_RECORD_STATUS = {
 export const EXAM_RECORD_STATUSES = Object.values(EXAM_RECORD_STATUS)
 export type ExamRecordStatus = (typeof EXAM_RECORD_STATUSES)[number]
 
+export const ANSWER_RECORD_STATE = {
+  UNSEEN: 'unseen',
+  SKIPPED: 'skipped',
+  ANSWERED: 'answered',
+} as const
+
+export const ANSWER_RECORD_STATES = Object.values(ANSWER_RECORD_STATE)
+export type AnswerRecordState = (typeof ANSWER_RECORD_STATES)[number]
+
+export function isAnswerRecordState(value: unknown): value is AnswerRecordState {
+  return typeof value === 'string' && ANSWER_RECORD_STATES.includes(value as AnswerRecordState)
+}
+
+export const DIAGNOSTIC_REPORT_TASK_STATUS = {
+  PENDING: 'pending',
+  ANALYZING: 'analyzing',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+} as const
+
+export const DIAGNOSTIC_REPORT_TASK_STAGE = {
+  ANSWERS_SAVED: 'answers_saved',
+  FIXED_CALCULATING: 'fixed_calculating',
+  MODULE_ANALYZING: 'module_analyzing',
+  ROI_ANALYZING: 'roi_analyzing',
+  PATH_ANALYZING: 'path_analyzing',
+  REPORT_SAVING: 'report_saving',
+  COMPLETED: 'completed',
+} as const
+
+export const DIAGNOSTIC_REPORT_GENERATION_MODE = {
+  FULL_AI: 'full_ai',
+  MIXED_FALLBACK: 'mixed_fallback',
+  RULES_ONLY: 'rules_only',
+} as const
+
 export const PAPER_TYPE = {
   REAL_PAPER: 'realPaper',
   MOCK_PAPER: 'mockPaper',

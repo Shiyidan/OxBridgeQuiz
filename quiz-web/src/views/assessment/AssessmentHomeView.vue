@@ -37,31 +37,32 @@
       </section>
 
       <section class="paper-grid" aria-label="历年真题">
-        <article v-for="item in paperCards" :key="item.paper.id" class="paper-card">
+        <article v-for="item in diagnosticTests" :key="item.id" class="paper-card">
           <div class="paper-card__info">
             <span class="paper-card__badge">{{ paperStatusLabel(item) }}</span>
-            <h2>{{ item.paper.title }}</h2>
-            <p>{{ item.paper.code || item.paper.title }}</p>
+            <h2>{{ item.title }}</h2>
+            <p>{{ item.code || item.title }}</p>
           </div>
 
-          <div v-if="item.record" class="paper-card__score">
-            <strong>{{ scoreText(item.record) }}</strong>
-            <span>/9.0</span>
+          <div v-if="item.testStatus === 'completed' && item.correctCount !== null" class="paper-card__score">
+            <strong>{{ item.correctCount }}/{{ item.totalQuestions }}</strong>
+            <span v-if="isReportGenerating(item)">报告 {{ item.reportProgress }}%</span>
+            <span v-else>题正确</span>
           </div>
 
           <div class="paper-card__actions">
             <button
-              v-if="item.record"
+              v-if="item.testStatus === 'completed'"
               class="paper-card__button paper-card__button--secondary button_cancel"
               type="button"
-              @click="handleRetestPaper(item.paper)"
+              @click="handleRetestPaper(item)"
             >
               重新测试
             </button>
             <button
               class="paper-card__button button_primary"
               type="button"
-              @click="handlePaperAction(item.paper)"
+              @click="handlePaperAction(item)"
             >
               {{ paperActionLabel(item) }}
             </button>
@@ -70,7 +71,7 @@
       </section>
 
       <div v-if="loading" class="empty-state">加载中...</div>
-      <div v-else-if="!visiblePapers.length" class="empty-state">
+      <div v-else-if="!diagnosticTests.length" class="empty-state">
         暂无已上线真题套卷，请先在后台真题库发布试卷。
       </div>
     </main>
@@ -90,16 +91,12 @@ import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 import {
   getAssessmentPapersData,
   type AssessmentPaperItem,
-  type AssessmentProgressItem,
-  type AssessmentRecordItem,
 } from '@/api/papers'
 
 const router = useRouter()
 const auth = useAuthStore()
 const loading = ref(true)
-const papers = ref<AssessmentPaperItem[]>([])
-const records = ref<AssessmentRecordItem[]>([])
-const progressRecords = ref<AssessmentProgressItem[]>([])
+const diagnosticTests = ref<AssessmentPaperItem[]>([])
 const chartRef = ref<HTMLDivElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
 
@@ -113,14 +110,13 @@ const mockScoreTrend = [
   { month: '2024-03', score: 7.5 },
 ]
 
-const visiblePapers = computed(() => papers.value)
 const examTypeLabelMap = new Map<string, string>(EXAM_TYPE_OPTIONS.map((item) => [item.value, item.label]))
 const diagnosticQuotaItems = computed(() => {
   const quotas = auth.memberContext?.quotas || {}
   const examTypes = new Set<string>([
     ...EXAM_TYPE_OPTIONS.map((item) => item.value),
     ...Object.keys(quotas),
-    ...visiblePapers.value.map((paper) => paper.examType || '').filter(Boolean),
+    ...diagnosticTests.value.map((paper) => paper.examType || '').filter(Boolean),
   ])
 
   return [...examTypes].map((examType) => {
@@ -144,39 +140,13 @@ const diagnosticQuotaItems = computed(() => {
     }
   })
 })
-const recordByPaperId = computed<Record<string, AssessmentRecordItem>>(() => {
-  const map: Record<string, AssessmentRecordItem> = {}
-  for (const record of records.value) {
-    if (!map[record.paperId]) map[record.paperId] = record
-  }
-  return map
-})
-const progressByPaperId = computed<Record<string, AssessmentProgressItem>>(() => {
-  const map: Record<string, AssessmentProgressItem> = {}
-  for (const record of progressRecords.value) {
-    if (!map[record.paperId]) map[record.paperId] = record
-  }
-  return map
-})
-const paperCards = computed(() =>
-  visiblePapers.value.map((paper) => ({
-    paper,
-    record: recordByPaperId.value[paper.id],
-    progress: progressByPaperId.value[paper.id],
-  })),
-)
-
-// 进入诊断测试页时拉取可测试真题与历史记录，保证入口和报告列表同步。
+// 进入诊断测试页时读取后端已聚合的试卷状态列表，不在前端拼接考试记录。
 onMounted(async () => {
   try {
     const data = await getAssessmentPapersData()
-    papers.value = data.papers || []
-    records.value = data.records || []
-    progressRecords.value = data.progressRecords || []
+    diagnosticTests.value = data.list || []
   } catch {
-    papers.value = []
-    records.value = []
-    progressRecords.value = []
+    diagnosticTests.value = []
   } finally {
     loading.value = false
     await nextTick()
@@ -242,18 +212,28 @@ function handleUpgradeClick(): void {
   ElMessage.info('会员开通功能即将上线')
 }
 
-async function handlePaperAction(paper: AssessmentPaperItem): Promise<void> {
-  const record = recordByPaperId.value[paper.id]
-  if (record) {
-    router.push(`/exam-result/${record.id}`)
+async function handlePaperAction(item: AssessmentPaperItem): Promise<void> {
+  if (item.testStatus === 'in_progress') {
+    router.push({ path: '/practice', query: { paperId: item.paperId, mode: 'assessment' } })
     return
   }
-  const progress = progressByPaperId.value[paper.id]
-  if (progress) {
-    router.push({ path: '/practice', query: { paperId: paper.id, mode: 'assessment' } })
+  if (item.testStatus === 'completed' && item.examRecordId) {
+    if (isReportGenerating(item) || item.reportStatus === 'not_generated' || !item.hasReport) {
+      router.push({
+        path: '/exam-result',
+        query: {
+          id: item.examRecordId,
+          total: String(item.totalQuestions),
+          correct: String(item.correctCount || 0),
+          source: 'assessment',
+        },
+      })
+      return
+    }
+    router.push(`/exam-result/${item.reportExamRecordId || item.examRecordId}`)
     return
   }
-  await startPaper(paper)
+  await startPaper(item)
 }
 
 // 临时调试入口：已完成套卷可直接重新进入答题，不消耗诊断额度。
@@ -278,21 +258,30 @@ async function startPaper(paper: AssessmentPaperItem): Promise<void> {
   router.push({ path: '/practice', query: { paperId: paper.id, mode: 'assessment' } })
 }
 
-function scoreText(record: AssessmentRecordItem): string {
-  if (!record.totalQuestions) return '0'
-  return ((record.correctCount / record.totalQuestions) * 9).toFixed(1)
+// 分析中与待分析统一进入分析弹窗恢复入口，完成或有旧报告时进入报告路由。
+function isReportGenerating(item: AssessmentPaperItem): boolean {
+  return item.reportStatus === 'pending' || item.reportStatus === 'analyzing'
 }
 
-function paperStatusLabel(item: { record?: AssessmentRecordItem; progress?: AssessmentProgressItem }): string {
-  if (item.record) return '已完成'
-  if (item.progress) return '进行中'
-  return '待开始'
+function paperStatusLabel(item: AssessmentPaperItem): string {
+  if (item.testStatus === 'in_progress') return '进行中'
+  if (item.testStatus === 'not_started') return '待开始'
+  if (item.reportStatus === 'failed') {
+    return item.hasReport ? '最新分析失败 · 可看上次报告' : '分析失败'
+  }
+  if (isReportGenerating(item)) return `报告生成中 ${item.reportProgress}%`
+  if (item.reportStatus === 'not_generated') return '待生成报告'
+  return '报告已完成'
 }
 
-function paperActionLabel(item: { record?: AssessmentRecordItem; progress?: AssessmentProgressItem }): string {
-  if (item.record) return '诊断详情→'
-  if (item.progress) return '继续测试→'
-  return '开始测试→'
+function paperActionLabel(item: AssessmentPaperItem): string {
+  if (item.testStatus === 'in_progress') return '继续测试→'
+  if (item.testStatus === 'not_started') return '开始测试→'
+  if (item.reportStatus === 'failed' && !item.hasReport) return '重新分析→'
+  if (isReportGenerating(item) || item.reportStatus === 'not_generated') {
+    return '查看生成进度→'
+  }
+  return '查看诊断报告→'
 }
 </script>
 

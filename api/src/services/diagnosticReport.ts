@@ -21,6 +21,7 @@ export interface ReportQuestionInput {
   difficulty: string | null
   isCorrect: boolean
   isAnswered?: boolean
+  answerState?: 'unseen' | 'skipped' | 'answered'
   durationSeconds?: number | null
 }
 
@@ -39,6 +40,8 @@ export interface LearnerProfileInput {
   examDate: string | null
   weeklyHours: number | null
 }
+
+export type DiagnosticBuildStage = 'module_analyzing' | 'roi_analyzing' | 'path_analyzing'
 
 export interface ReportOverview {
   totalQuestions: number
@@ -421,10 +424,13 @@ export async function buildDiagnosticReportSummary(input: {
   elapsedDurationSeconds?: number | null
   syllabusNodes?: Array<{ code: string; label: string }>
   learnerProfile?: LearnerProfileInput
+  onStage?: (stage: DiagnosticBuildStage) => void | Promise<void>
 }): Promise<DiagnosticReportSummary> {
   if (input.examType === EXAM_TYPE.ESAT) {
     return buildEsatDiagnosticReportSummary(input)
   }
+
+  await input.onStage?.('module_analyzing')
 
   const questions = [...input.questions].sort((a, b) => a.number - b.number)
   const groups = groupModules(input.examType, questions)

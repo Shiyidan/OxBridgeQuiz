@@ -489,10 +489,6 @@ function matchSyllabusFilter(
   return false
 }
 
-function safeJsonParse<T>(value: unknown, fallback: T): T {
-  return parseJsonField<T>(value, fallback)
-}
-
 // 试题库 — 获取已发布考卷的全部题目
 papersRouter.get('/question-bank', async (req, res) => {
   try {
@@ -562,73 +558,108 @@ papersRouter.get('/question-bank', async (req, res) => {
   }
 })
 
-// 诊断测试套卷与参与记录
+// 诊断测试列表按试卷聚合当前用户的最新测试与报告状态。
 papersRouter.get('/assessment/papers', requireAuth, async (req, res) => {
   try {
-    const papers = await prisma.paper.findMany({
-      where: { status: 'published', paperType: { in: [...REAL_PAPER_TYPES] } },
-      select: {
-        id: true, title: true, code: true, examType: true, year: true,
-        duration: true, totalQuestions: true, paperType: true, createdAt: true,
-      },
-      orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
-    })
+    const [papers, records, currentReports] = await Promise.all([
+      prisma.paper.findMany({
+        where: { status: 'published', paperType: { in: [...REAL_PAPER_TYPES] } },
+        select: {
+          id: true,
+          title: true,
+          code: true,
+          examType: true,
+          year: true,
+          duration: true,
+          totalQuestions: true,
+          paperType: true,
+          createdAt: true,
+        },
+        orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
+      }),
+      prisma.examRecord.findMany({
+        where: {
+          userId: req.user!.userId,
+          paper: { paperType: { in: [...REAL_PAPER_TYPES] }, status: 'published' },
+        },
+        select: {
+          id: true,
+          paperId: true,
+          status: true,
+          totalQuestions: true,
+          correctCount: true,
+          startedAt: true,
+          expiresAt: true,
+          submittedAt: true,
+          durationSeconds: true,
+          _count: {
+            select: { answers: { where: { selectedAnswer: { not: null } } } },
+          },
+          diagnosticReportTask: {
+            select: { status: true, stage: true, progress: true, errorMessage: true },
+          },
+        },
+        orderBy: { startedAt: 'desc' },
+      }),
+      prisma.diagnosticReport.findMany({
+        where: {
+          userId: req.user!.userId,
+          paper: { paperType: { in: [...REAL_PAPER_TYPES] }, status: 'published' },
+        },
+        select: { paperId: true, examRecordId: true, generationMode: true, completedAt: true },
+      }),
+    ])
 
-    const records = await prisma.examRecord.findMany({
-      where: {
-        userId: req.user!.userId,
-        status: 'submitted',
-        paper: { paperType: { in: [...REAL_PAPER_TYPES] }, status: 'published' },
-      },
-      include: { paper: { select: { id: true, title: true, paperType: true, examType: true } } },
-      orderBy: { submittedAt: 'desc' },
-      take: 12,
-    })
-
-    const progressRecords = await prisma.examRecord.findMany({
-      where: {
-        userId: req.user!.userId,
-        status: 'in_progress',
-        paper: { paperType: { in: [...REAL_PAPER_TYPES] }, status: 'published' },
-      },
-      include: {
-        paper: { select: { id: true, title: true, paperType: true, examType: true } },
-        answers: { select: { selectedAnswer: true, durationSeconds: true } },
-      },
-      orderBy: { startedAt: 'desc' },
-    })
-
-    const submittedPaperIds = new Set(records.map((record) => record.paper.id))
+    const latestRecordMap = new Map<string, (typeof records)[number]>()
+    for (const record of records) {
+      if (!latestRecordMap.has(record.paperId)) latestRecordMap.set(record.paperId, record)
+    }
+    const currentReportMap = new Map(currentReports.map((report) => [report.paperId, report]))
 
     res.json(success({
-      papers,
-      records: records
-        .map((record) => ({
-          id: record.id,
-          paperId: record.paper.id,
-          examType: record.paper.examType,
-          paperTitle: record.paper.title,
-          totalQuestions: record.totalQuestions,
-          correctCount: record.correctCount,
-          startedAt: record.startedAt,
-          submittedAt: record.submittedAt,
-          durationSeconds: record.submittedAt
-            ? Math.max(0, Math.round((record.submittedAt.getTime() - record.startedAt.getTime()) / 1000))
-            : null,
-        })),
-      progressRecords: progressRecords
-        .filter((record) => !submittedPaperIds.has(record.paper.id))
-        .map((record) => ({
-          id: record.id,
-          paperId: record.paper.id,
-          examType: record.paper.examType,
-          paperTitle: record.paper.title,
-          totalQuestions: record.totalQuestions,
-          answeredCount: record.answers.filter((answer) => Boolean(answer.selectedAnswer)).length,
-          startedAt: record.startedAt,
-          durationSeconds: record.answers.reduce((sum, answer) => sum + answer.durationSeconds, 0),
-          status: record.status,
-        })),
+      list: papers.map((paper) => {
+        const record = latestRecordMap.get(paper.id)
+        const currentReport = currentReportMap.get(paper.id)
+        const testStatus = record?.status === 'in_progress'
+          ? 'in_progress'
+          : record?.status === 'submitted'
+            ? 'completed'
+            : 'not_started'
+        const reportStatus = record?.status === 'submitted'
+          ? record.diagnosticReportTask?.status
+            || (currentReport?.examRecordId === record.id ? 'completed' : 'not_generated')
+          : null
+
+        return {
+          id: paper.id,
+          paperId: paper.id,
+          paperName: paper.title,
+          title: paper.title,
+          code: paper.code,
+          examType: paper.examType,
+          year: paper.year,
+          duration: paper.duration,
+          totalQuestions: paper.totalQuestions,
+          paperType: paper.paperType,
+          testStatus,
+          examRecordId: record?.id || null,
+          answeredCount: record?._count.answers || 0,
+          correctCount: record?.status === 'submitted' ? record.correctCount : null,
+          startedAt: record?.startedAt || null,
+          expiresAt: record?.expiresAt || null,
+          submittedAt: record?.submittedAt || null,
+          durationSeconds: record?.status === 'submitted' ? record.durationSeconds : null,
+          reportStatus,
+          reportStage: record?.diagnosticReportTask?.stage || null,
+          reportProgress: record?.diagnosticReportTask?.progress
+            ?? (currentReport?.examRecordId === record?.id ? 100 : 0),
+          reportErrorMessage: record?.diagnosticReportTask?.errorMessage || null,
+          hasReport: Boolean(currentReport),
+          reportExamRecordId: currentReport?.examRecordId || null,
+          generationMode: currentReport?.generationMode || null,
+          reportCompletedAt: currentReport?.completedAt || null,
+        }
+      }),
     }))
   } catch (e: any) {
     console.error('Assessment papers error:', e)

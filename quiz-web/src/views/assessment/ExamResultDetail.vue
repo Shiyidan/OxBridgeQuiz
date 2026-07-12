@@ -23,7 +23,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
 import ExamQuestionAnalysis from '@/components/report/ExamQuestionAnalysis.vue'
-import { getExamResultData, type ExamQuestion } from '@/api/exam'
+import { getDiagnosticReportStatus, getExamResultData, type ExamQuestion } from '@/api/exam'
 import { PAPER_TYPE, normalizePaperType } from '@/constants/paperTypes'
 
 interface PaperMeta {
@@ -60,7 +60,22 @@ onMounted(async () => {
     const data = await getExamResultData(examId.value)
     const isDiagnostic = normalizePaperType(data.examRecord.paper?.paperType) === PAPER_TYPE.REAL_PAPER
     if (isDiagnostic) {
-      await redirectDiagnosticReport(data.examRecord.examType)
+      const status = await getDiagnosticReportStatus(examId.value)
+      if (status.status === 'completed' && status.reportExamRecordId) {
+        await redirectDiagnosticReport(data.examRecord.examType, status.reportExamRecordId)
+      } else if (status.status === 'failed' && status.hasPreviousReport) {
+        await redirectDiagnosticReport(data.examRecord.examType, examId.value)
+      } else {
+        await router.replace({
+          path: '/exam-result',
+          query: {
+            id: examId.value,
+            total: String(data.examRecord.totalQuestions),
+            correct: String(data.examRecord.correctCount),
+            source: 'assessment',
+          },
+        })
+      }
       return
     }
 
@@ -80,14 +95,14 @@ onMounted(async () => {
 })
 
 // 根据 examType 进入独立路由，后续 ESAT/TMUA 页面可以分别开发和验收。
-async function redirectDiagnosticReport(examType: string): Promise<void> {
+async function redirectDiagnosticReport(examType: string, reportRecordId: string): Promise<void> {
   const normalized = examType.trim().toUpperCase()
   if (normalized === 'ESAT') {
-    await router.replace({ name: 'esat-diagnostic-report', params: { id: examId.value } })
+    await router.replace({ name: 'esat-diagnostic-report', params: { id: reportRecordId } })
     return
   }
   if (normalized === 'TMUA') {
-    await router.replace({ name: 'tmua-diagnostic-report', params: { id: examId.value } })
+    await router.replace({ name: 'tmua-diagnostic-report', params: { id: reportRecordId } })
     return
   }
   throw new Error(`暂不支持 ${normalized || '未知考试'} 的诊断报告`)

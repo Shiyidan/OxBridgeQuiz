@@ -90,6 +90,8 @@ export function updatePaperType(id: string, paperType: string) {
 
 export interface AssessmentPaperItem {
   id: string
+  paperId: string
+  paperName: string
   title: string
   code: string | null
   year: number
@@ -97,40 +99,29 @@ export interface AssessmentPaperItem {
   totalQuestions: number
   examType?: string
   paperType: string
-  createdAt: string
-}
-
-export interface AssessmentRecordItem {
-  id: string
-  paperId: string
-  examType?: string
-  paperTitle: string
-  totalQuestions: number
-  correctCount: number
-  startedAt: string
+  testStatus: 'not_started' | 'in_progress' | 'completed'
+  examRecordId: string | null
+  answeredCount: number
+  correctCount: number | null
+  startedAt: string | null
+  expiresAt: string | null
   submittedAt: string | null
   durationSeconds: number | null
-}
-
-export interface AssessmentProgressItem {
-  id: string
-  paperId: string
-  examType?: string
-  paperTitle: string
-  totalQuestions: number
-  answeredCount: number
-  startedAt: string
-  durationSeconds: number
-  status: string
+  reportStatus: 'not_generated' | 'pending' | 'analyzing' | 'completed' | 'failed' | null
+  reportStage: string | null
+  reportProgress: number
+  reportErrorMessage: string | null
+  hasReport: boolean
+  reportExamRecordId: string | null
+  generationMode: 'full_ai' | 'mixed_fallback' | 'rules_only' | null
+  reportCompletedAt: string | null
 }
 
 export interface AssessmentPaperResult {
-  papers: AssessmentPaperItem[]
-  records: AssessmentRecordItem[]
-  progressRecords: AssessmentProgressItem[]
+  list: AssessmentPaperItem[]
 }
 
-/** 诊断测试套卷与参与记录 */
+/** 获取按试卷聚合的诊断测试列表及当前用户状态。 */
 export function getAssessmentPapersData() {
   return callApi<AssessmentPaperResult>({
     url: '/papers/assessment/papers',

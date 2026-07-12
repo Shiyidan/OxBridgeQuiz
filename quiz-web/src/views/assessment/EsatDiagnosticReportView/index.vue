@@ -16,6 +16,7 @@
             <h1>{{ report.header.title }}</h1>
           </div>
         </header>
+        <div v-if="reportWarning" class="report-warning">{{ reportWarning }}</div>
 
         <EsatEquivalentScore
           :module="activeModule"
@@ -58,6 +59,7 @@ import EsatLearningPath from './EsatLearningPath.vue'
 const route = useRoute()
 const loading = ref(true)
 const errorMessage = ref('')
+const reportWarning = ref('')
 const report = ref<DiagnosticReportSummary | null>(null)
 const activeModuleId = ref('')
 
@@ -95,12 +97,14 @@ function selectModule(moduleId: string): void {
 async function loadReport(): Promise<void> {
   loading.value = true
   errorMessage.value = ''
+  reportWarning.value = ''
   try {
     const data = await getDiagnosticReportSummary(examId.value)
     if (data.report.reportKind !== 'esat') {
       throw new Error('该答卷不是 ESAT 诊断记录')
     }
     report.value = data.report
+    reportWarning.value = data.meta.warning || ''
     activeModuleId.value = data.report.header.modules[0]?.id || ''
   } catch (error: any) {
     errorMessage.value = error?.response?.data?.errMsg || error?.message || 'ESAT 诊断报告加载失败'
@@ -160,6 +164,16 @@ async function loadReport(): Promise<void> {
 .report-header h1 {
   margin: 5px 0 0;
   font-size: var(--text-2xl);
+}
+
+.report-warning {
+  margin: -16px 0 24px;
+  padding: 12px 16px;
+  border: 1px solid #f1c56a;
+  border-radius: var(--radius-md);
+  background: #fff8e8;
+  color: #8a5a00;
+  font-size: var(--text-sm);
 }
 
 @media (max-width: 760px) {

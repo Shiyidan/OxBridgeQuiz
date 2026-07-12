@@ -1,4 +1,4 @@
-// 会员权益上下文汇总与权限判定。用于 routes/member.ts、routes/diagnostic.ts、routes/exam.ts 的额度预检。
+// 会员权益上下文汇总与权限判定。用于会员接口和考试开始、交卷阶段的额度预检。
 import { prisma } from './prisma.js'
 import { formatUserForClient } from '../utils/userPresenter.js'
 import { parseJsonArray } from '../utils/jsonField.js'

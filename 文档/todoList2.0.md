@@ -1,6 +1,6 @@
 # API 项目待优化清单（todoList 2.0）
 
-> 基于 2026-06-20 对 `api/` 项目的全面代码审计，共发现问题 23 项，按优先级排列。
+> 基于 2026-06-20 对 `api/` 项目的全面代码审计，并持续补充诊断测试链路审查结果，共发现问题 28 项，按优先级排列。
 
 ---
 
@@ -8,16 +8,18 @@
 
 P0 安全漏洞
 
-- [ ] P0-1 诊断测试答案密钥暴露给客户端
-- [ ] P0-2 诊断提交接口信任客户端提供的答案
+- [x] P0-1 诊断测试答案密钥暴露给客户端
+- [x] P0-2 诊断提交接口信任客户端提供的答案
 - [ ] P0-3 /papers/:id/pdf 存在开放重定向漏洞
+- [ ] P0-4 正式试卷详情接口向答题端下发正确答案
 
 P1 业务逻辑 Bug
 
-- [ ] P1-1 诊断完整报告中 isCorrect 被硬编码为 true
+- [x] P1-1 诊断完整报告中 isCorrect 被硬编码为 true
 - [ ] P1-2 解析任务只保留前 10 道题
 - [ ] P1-3 解析任务内存在服务重启后丢失
 - [ ] P1-4 答题结果中无匹配题目时静默降级
+- [ ] P1-5 “重新测试”通过 debugRetake 绕过诊断额度
 
 P2 代码重复 & 规范不一致
 
@@ -41,14 +43,15 @@ P4 架构性债务
 - [ ] P4-3 JWT 登出是空操作
 - [ ] P4-4 无全局错误处理中间件
 - [x] P4-5 JWT 密钥有硬编码回退值
+- [ ] P4-6 PracticeView 同时承载诊断测试与题库练习，页面职责过重
 
 P5 代码整洁
 
 - [x] P5-1 数据库迁移与 Schema 不一致 — 补齐 SyllabusNode 迁移
 - [x] P5-2 项目架构.md 数据模型过时 — 更新为 8 表完整定义
-- [ ] P5-3 scoreAnswers() 函数未被使用
-- [ ] P5-4 config.ts 中 __dirname 计算后未使用
-- [ ] P5-5 index.ts 中 import 语句放在文件末尾
+- [x] P5-3 scoreAnswers() 函数未被使用
+- [x] P5-4 config.ts 中 __dirname 计算后未使用
+- [x] P5-5 index.ts 中 import 语句放在文件末尾
 
 ---
 
@@ -59,18 +62,26 @@ P5 代码整洁
 - **位置**：[`api/src/routes/diagnostic.ts`](api/src/routes/diagnostic.ts) `/questions` 接口
 - **问题**：获取题目的同时把正确答案 `answerKey` 返回给了客户端，用户在浏览器控制台可直接看到答案
 - **方案**：答案密钥仅在服务端 session 中维护，提交时由服务端自行比对，不随题目数据下发
+- **处理结果**：2026-07-12 已停止挂载并删除无前端引用的旧 `/api/diagnostic` 随机诊断路由，新诊断测试统一走 `ExamRecord + AnswerRecord` 服务端判分链路
 
 ### P0-2 诊断提交接口信任客户端提供的答案
 
 - **位置**：[`api/src/routes/diagnostic.ts`](api/src/routes/diagnostic.ts) `/submit` 接口
 - **问题**：提交时要求客户端回传 `questionAnswers`（即上一接口暴露的答案），服务端用客户端提供的数据判定对错。用户可篡改获得满分
 - **方案**：服务端自行维护题号→答案映射，不依赖客户端传回的 `questionAnswers`
+- **处理结果**：2026-07-12 已随旧 `/api/diagnostic` 路由下线；当前交卷接口只接收 `questionId + selectedAnswer`，正确答案从 `Question` 表读取
 
 ### P0-3 /papers/:id/pdf 存在开放重定向漏洞
 
 - **位置**：[`api/src/routes/papers.ts`](api/src/routes/papers.ts) `GET /:id/pdf`
 - **问题**：直接 `res.redirect(paper.pdfUrl)` 跳转到外部 URL，攻击者可通过修改 `pdfUrl` 实施钓鱼攻击
 - **方案**：校验 `pdfUrl` 是否为可信域名白名单，或改为服务端代理下载而非 302 重定向
+
+### P0-4 正式试卷详情接口向答题端下发正确答案
+
+- **位置**：[`api/src/routes/papers.ts`](api/src/routes/papers.ts) `GET /:id`、[`api/src/utils/questionSync.ts`](api/src/utils/questionSync.ts) `formatQuestionRow()`、[`quiz-web/src/views/questionBank/PracticeView.vue`](quiz-web/src/views/questionBank/PracticeView.vue) 诊断试卷加载逻辑
+- **问题**：诊断答题页通过通用试卷详情接口读取题目，该接口未区分管理预览与学生作答场景，并返回包含 `answer` 的完整题目。用户可在浏览器 Network 或控制台中直接查看正式试卷正确答案
+- **方案**：管理端保留受管理员权限保护的完整试卷详情；学生答题改用 `POST /api/exams/start` 返回的脱敏题目，或新增按 `examRecordId` 校验归属的考试题目接口，响应中移除 `answer`、解析和其他可能泄题的字段
 
 ---
 
@@ -81,6 +92,7 @@ P5 代码整洁
 - **位置**：[`api/src/services/diagnostic.ts`](api/src/services/diagnostic.ts) `buildFullReportFromSession()` 函数
 - **问题**：每道题的 `isCorrect` 始终为 `true`，注释说"从 answers JSON 中取"但代码从未读取，导致报告永远显示全对
 - **方案**：从 `session.answers` 解析每道题的实际批改结果，正确设置 `isCorrect`
+- **处理结果**：2026-07-12 已删除旧 `DiagnosticSession` 报告生成服务；历史会话仅保留作额度与统计兼容，不再生成新报告
 
 ### P1-2 解析任务只保留前 10 道题
 
@@ -99,6 +111,12 @@ P5 代码整洁
 - **位置**：[`api/src/routes/exam.ts`](api/src/routes/exam.ts) `/result` 接口
 - **问题**：当 `questionMap` 匹配不到题目时返回空壳对象（空标题、空选项），前端展示空白，用户完全不知道出了什么问题
 - **方案**：匹配失败时记录 warning 日志，并在返回数据中标记 `_unmatched: true`，前端据此展示降级提示
+
+### P1-5 “重新测试”通过 debugRetake 绕过诊断额度
+
+- **位置**：[`quiz-web/src/views/assessment/AssessmentHomeView.vue`](quiz-web/src/views/assessment/AssessmentHomeView.vue) `handleRetestPaper()`、[`api/src/routes/exam.ts`](api/src/routes/exam.ts) `/start` 与 `/:id/submit`
+- **问题**：正式页面的“重新测试”会由客户端传入 `debugRetake=1`，后端据此跳过开始和交卷阶段的诊断额度校验。普通用户可直接构造该参数无限次创建和提交诊断测试
+- **方案**：正式重新测试不传 `debugRetake`，按正常额度规则创建新的 `ExamRecord`；如需保留开发调试能力，仅允许本地环境或经过后端管理员身份校验的请求使用，不能信任客户端布尔参数
 
 ---
 
@@ -196,6 +214,13 @@ P5 代码整洁
 - **问题**：`process.env.JWT_SECRET \|\| 'dev-secret-change-in-production'`，如果部署时忘记设环境变量会使用弱密钥
 - **方案**：启动时检查 `JWT_SECRET` 环境变量是否存在，不存在则打印错误并 `process.exit(1)`
 
+### P4-6 PracticeView 同时承载诊断测试与题库练习，页面职责过重
+
+- **位置**：[`quiz-web/src/views/questionBank/PracticeView.vue`](quiz-web/src/views/questionBank/PracticeView.vue)
+- **问题**：当前页面同时负责诊断真题和题库练习的数据加载、考试创建与恢复、题目导航、答案状态、逐题耗时、增量保存、交卷以及诊断分析弹窗。两种模式虽然共享答题交互，但数据源、计时规则、额度规则、保存策略和交卷后去向不同，继续扩展会增加条件分支和修改影响范围
+- **方案**：拆分为 `AssessmentPracticeView` 和 `QuestionBankPracticeView` 两个业务入口；抽取共用的 `QuestionAnswerPanel`、题号导航以及答题状态/增量保存 composable。诊断页面只负责真题倒计时、恢复考试和分析弹窗，题库页面只负责筛题练习与普通结果页
+- **暂缓原因**：当前两种答题链路已经稳定共用同一页面，本期优先保证诊断提交与报告闭环；待题库练习或仿真考试继续扩展时再执行页面拆分
+
 ---
 
 ## P5 — 代码整洁（低优先级）
@@ -226,17 +251,20 @@ P5 代码整洁
 
 - **位置**：[`api/src/services/diagnostic.ts`](api/src/services/diagnostic.ts)
 - **方案**：删除或在实际调用处使用
+- **处理结果**：2026-07-12 已随无引用的旧诊断报告服务一并删除
 
 ### P5-4 config.ts 中 __dirname 计算后未使用
 
 - **位置**：[`api/src/config.ts`](api/src/config.ts)
 - **方案**：删除无用代码
+- **处理结果**：2026-07-12 已删除未使用的 `fileURLToPath` 和 `__dirname`
 
 ### P5-5 index.ts 中 import 语句放在文件末尾
 
 - **位置**：[`api/src/index.ts`](api/src/index.ts) `import { success } from './utils/response.js'` 放在第 36 行
 - **方案**：移动到文件顶部与其他 import 一起
+- **处理结果**：2026-07-12 已将 `success` 导入移动到顶部导入区
 
 ---
 
-> **共计**：25 项，已完成 2 项（P0: 3 / P1: 4 / P2: 4 / P3: 4 / P4: 5 / P5: 5）
+> **共计**：29 项，已完成 14 项（P0: 4 / P1: 5 / P2: 4 / P3: 5 / P4: 6 / P5: 5）

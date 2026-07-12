@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { Prisma } from '@prisma/client'
 import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
@@ -8,10 +9,14 @@ import { checkMemberAccess } from '../services/member.js'
 import { computeScores } from '../services/scoring.js'
 import type { QuestionResult } from '../services/scoring.js'
 import {
-  buildDiagnosticReportSummary,
-  type LearnerProfileInput,
-} from '../services/diagnosticReport.js'
+  ensureDiagnosticReportTask,
+  retryDiagnosticReportTask,
+  scheduleDiagnosticReportWorker,
+} from '../services/diagnosticReportTask.js'
 import {
+  ANSWER_RECORD_STATE,
+  type AnswerRecordState,
+  DIAGNOSTIC_REPORT_TASK_STATUS,
   EXAM_TYPE,
   EXAM_TYPES,
   EXAM_RECORD_STATUS,
@@ -19,6 +24,7 @@ import {
   QUESTION_BANK_PAPER_TYPES,
   REAL_PAPER_TYPES,
   isExamType,
+  isAnswerRecordState,
   isRealPaperType,
   normalizePaperType,
   paperTypeWhereValues,
@@ -54,36 +60,6 @@ function parseDateBoundary(value: unknown, boundary: 'start' | 'end'): Date | un
   return Number.isNaN(date.getTime()) ? undefined : date
 }
 
-// 学习路径只读取当前考试类型的结构化备考资料，并对旧版偏好数据安全降级。
-function learnerProfileForExam(raw: unknown, examType: string): LearnerProfileInput {
-  const preferences = parseJsonArray<Record<string, unknown>>(raw)
-  const preference = preferences.find((item) => String(item.examType || '').toUpperCase() === examType.toUpperCase())
-  const weeklyHoursValue = Number(preference?.weeklyHours)
-  const targetScoreValue = Number(preference?.targetScore)
-  const examDateValue = typeof preference?.examDate === 'string' ? preference.examDate.trim() : ''
-  const targetUniversities = Array.isArray(preference?.targetUniversities)
-    ? preference.targetUniversities.filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
-    : typeof preference?.targetUniversity === 'string' && preference.targetUniversity.trim()
-      ? [preference.targetUniversity.trim()]
-      : []
-  return {
-    subjects: Array.isArray(preference?.subjects)
-      ? preference.subjects.filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
-      : [],
-    targetUniversities,
-    targetMajor: typeof preference?.targetMajor === 'string' && preference.targetMajor.trim()
-      ? preference.targetMajor.trim()
-      : null,
-    targetScore: Number.isFinite(targetScoreValue) && targetScoreValue >= 1 && targetScoreValue <= 9
-      ? targetScoreValue
-      : null,
-    examDate: /^\d{4}-\d{2}-\d{2}$/.test(examDateValue) ? examDateValue : null,
-    weeklyHours: Number.isFinite(weeklyHoursValue) && weeklyHoursValue >= 1 && weeklyHoursValue <= 80
-      ? weeklyHoursValue
-      : null,
-  }
-}
-
 function parsePositiveInt(value: unknown, fallback: number, max?: number): number {
   const parsed = Number.parseInt(String(Array.isArray(value) ? value[0] : value), 10)
   if (Number.isNaN(parsed) || parsed < 1) return fallback
@@ -99,6 +75,7 @@ function buildAnswerRecordRows(
   questions: any[],
   answers: Record<string, string>,
   questionDurations: Record<string, number>,
+  answerStates: Record<string, AnswerRecordState> = {},
   includeUnanswered = true,
 ) {
   return questions
@@ -110,13 +87,19 @@ function buildAnswerRecordRows(
       if (!includeUnanswered && !selected && durationSeconds <= 0) return null
       const correct = Array.isArray(question.answer) ? question.answer : []
       const isCorrect = !!(selected && correct.includes(selected))
+      const answerState = selected
+        ? ANSWER_RECORD_STATE.ANSWERED
+        : answerStates[key] === ANSWER_RECORD_STATE.SKIPPED || durationSeconds > 0
+          ? ANSWER_RECORD_STATE.SKIPPED
+          : ANSWER_RECORD_STATE.UNSEEN
       return {
         examRecordId,
         questionId: key,
         selectedAnswer: selected || null,
+        answerState,
         isCorrect,
         durationSeconds,
-        answeredAt: new Date(),
+        answeredAt: selected ? new Date() : null,
       }
     })
     .filter((item): item is NonNullable<typeof item> => Boolean(item))
@@ -132,16 +115,90 @@ function countCorrectAnswers(questions: any[], answers: Record<string, string>):
   return correctCount
 }
 
+type ExamResponseInput = {
+  questionId: string
+  selectedAnswer: string | null
+  durationSeconds: number
+  answerState: AnswerRecordState
+}
+
+class ExamProgressConflictError extends Error {}
+
+// 保存和交卷统一使用逐题响应数组，避免答案与耗时两个 Map 的题目键不一致。
+function normalizeExamResponses(value: unknown): ExamResponseInput[] {
+  if (!Array.isArray(value)) return []
+  const responseMap = new Map<string, ExamResponseInput>()
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue
+    const raw = item as Record<string, unknown>
+    const questionId = typeof raw.questionId === 'string' ? raw.questionId.trim() : ''
+    if (!questionId) continue
+    const selectedAnswer = typeof raw.selectedAnswer === 'string' && raw.selectedAnswer.trim()
+      ? raw.selectedAnswer.trim().slice(0, 64)
+      : null
+    const durationSeconds = Math.max(0, Math.min(24 * 60 * 60, Math.round(Number(raw.durationSeconds) || 0)))
+    const requestedState = isAnswerRecordState(raw.answerState)
+      ? raw.answerState
+      : ANSWER_RECORD_STATE.UNSEEN
+    const answerState = selectedAnswer
+      ? ANSWER_RECORD_STATE.ANSWERED
+      : requestedState === ANSWER_RECORD_STATE.SKIPPED || durationSeconds > 0
+        ? ANSWER_RECORD_STATE.SKIPPED
+        : ANSWER_RECORD_STATE.UNSEEN
+    responseMap.set(questionId, { questionId, selectedAnswer, durationSeconds, answerState })
+  }
+  return [...responseMap.values()]
+}
+
+function responseMaps(responses: ExamResponseInput[]): {
+  answers: Record<string, string>
+  durations: Record<string, number>
+  states: Record<string, AnswerRecordState>
+} {
+  const answers: Record<string, string> = {}
+  const durations: Record<string, number> = {}
+  const states: Record<string, AnswerRecordState> = {}
+  for (const response of responses) {
+    if (response.selectedAnswer) answers[response.questionId] = response.selectedAnswer
+    durations[response.questionId] = response.durationSeconds
+    states[response.questionId] = response.answerState
+  }
+  return { answers, durations, states }
+}
+
+function usesContinuousExamClock(paperType: unknown): boolean {
+  const normalized = normalizePaperType(paperType)
+  return normalized === PAPER_TYPE.REAL_PAPER || normalized === PAPER_TYPE.MOCK_PAPER
+}
+
+function buildExamDeadline(startedAt: Date, durationMinutes: number): Date {
+  return new Date(startedAt.getTime() + Math.max(1, durationMinutes) * 60 * 1000)
+}
+
+function continuousExamDurationSeconds(startedAt: Date, expiresAt: Date, endedAt: Date): number {
+  const effectiveEnd = Math.min(endedAt.getTime(), expiresAt.getTime())
+  return Math.max(0, Math.round((effectiveEnd - startedAt.getTime()) / 1000))
+}
+
 async function replaceAnswerRecords(
+  client: Prisma.TransactionClient | typeof prisma,
   examRecordId: string,
   questions: any[],
   answers: Record<string, string>,
   questionDurations: Record<string, number>,
+  answerStates: Record<string, AnswerRecordState> = {},
   includeUnanswered = true,
 ) {
-  await prisma.answerRecord.deleteMany({ where: { examRecordId } })
-  const rows = buildAnswerRecordRows(examRecordId, questions, answers, questionDurations, includeUnanswered)
-  if (rows.length) await prisma.answerRecord.createMany({ data: rows })
+  await client.answerRecord.deleteMany({ where: { examRecordId } })
+  const rows = buildAnswerRecordRows(
+    examRecordId,
+    questions,
+    answers,
+    questionDurations,
+    answerStates,
+    includeUnanswered,
+  )
+  if (rows.length) await client.answerRecord.createMany({ data: rows })
 }
 
 async function collectSyllabusCodes(codes: string[]): Promise<string[]> {
@@ -338,194 +395,107 @@ examRouter.get('/error-book', requireAuth, async (req, res) => {
   }
 })
 
-// Exam progress
-examRouter.get('/progress/:paperId', requireAuth, async (req, res) => {
+// 开始或恢复考试；诊断真题复用进行中记录，明确重测时创建新记录。
+examRouter.post('/start', requireAuth, async (req, res) => {
   try {
-    const record = await prisma.examRecord.findFirst({
-      where: {
-        userId: req.user!.userId,
-        paperId: req.params.paperId,
-        status: 'in_progress',
-        paper: { paperType: { in: [...REAL_PAPER_TYPES] } },
-      },
-      include: {
-        answers: {
-          select: {
-            questionId: true,
-            selectedAnswer: true,
-            durationSeconds: true,
-          },
-        },
-      },
-      orderBy: { startedAt: 'desc' },
-    })
-
-    if (!record) {
-      res.json(success(null))
-      return
+    const { paperId, examType, questionIds, debugRetake } = req.body as {
+      paperId?: string
+      examType?: string
+      questionIds?: unknown
+      startedAt?: string
+      debugRetake?: boolean | string
     }
-
-    const answers: Record<string, string> = {}
-    const questionDurations: Record<string, number> = {}
-    for (const answer of record.answers) {
-      if (answer.selectedAnswer) answers[answer.questionId] = answer.selectedAnswer
-      questionDurations[answer.questionId] = answer.durationSeconds
-    }
-
-    res.json(success({
-      id: record.id,
-      paperId: record.paperId,
-      examType: record.examType,
-      totalQuestions: record.totalQuestions,
-      startedAt: record.startedAt,
-      status: record.status,
-      answers,
-      questionDurations,
-      durationSeconds: Object.values(questionDurations).reduce((sum, value) => sum + value, 0),
-    }))
-  } catch (e: any) {
-    console.error('Exam progress get error:', e)
-    res.status(500).json(fail(e.message || '获取答题进度失败'))
-  }
-})
-
-// Save exam progress
-examRouter.post('/progress', requireAuth, async (req, res) => {
-  try {
-    const { questions, answers, questionDurations, startedAt, paperId, examType } = req.body
-
-    if (!paperId) {
-      res.status(400).json(fail('paperId 不能为空'))
-      return
-    }
-    if (!Array.isArray(questions) || questions.length === 0) {
-      res.status(400).json(fail('题目列表不能为空'))
-      return
-    }
-
-    const paper = await prisma.paper.findUnique({ where: { id: paperId } })
-    if (!paper) {
-      res.status(404).json(fail('Paper not found'))
-      return
-    }
-    if (!isRealPaperType(normalizePaperType(paper.paperType))) {
-      res.status(422).json(fail('仅诊断测试支持保存进度'))
-      return
-    }
-
-    const targetExamType = paper.examType || examType || 'TMUA'
-    if (!isExamType(targetExamType)) {
-      res.status(422).json(fail('无效的考试类型'))
-      return
-    }
-
-    let record = await prisma.examRecord.findFirst({
-      where: {
-        userId: req.user!.userId,
-        paperId,
-        status: 'in_progress',
-      },
-      orderBy: { startedAt: 'desc' },
-    })
-
-    if (!record) {
-      const entitlement = await checkMemberAccess(req.user!.userId, 'diagnostic', targetExamType, 1)
-      if (!entitlement.allowed) {
-        res.status(403).json(fail('当前额度不足，请开通会员后继续'))
-        return
-      }
-      record = await prisma.examRecord.create({
-        data: {
-          userId: req.user!.userId,
-          paperId,
-          examType: targetExamType,
-          totalQuestions: questions.length,
-          correctCount: countCorrectAnswers(questions, answers || {}),
-          startedAt: startedAt ? new Date(startedAt) : new Date(),
-          submittedAt: null,
-          status: 'in_progress',
-        },
-      })
-    } else {
-      record = await prisma.examRecord.update({
-        where: { id: record.id },
-        data: {
-          examType: targetExamType,
-          totalQuestions: questions.length,
-          correctCount: countCorrectAnswers(questions, answers || {}),
-          startedAt: startedAt ? new Date(startedAt) : record.startedAt,
-          submittedAt: null,
-          status: 'in_progress',
-        },
-      })
-    }
-
-    await replaceAnswerRecords(record.id, questions, answers || {}, questionDurations || {}, true)
-
-    res.json(success({
-      examRecordId: record.id,
-      status: record.status,
-    }))
-  } catch (e: any) {
-    console.error('Exam progress save error:', e)
-    res.status(500).json(fail(e.message || '保存答题进度失败'))
-  }
-})
-
-// Submit exam
-examRouter.post('/submit', requireAuth, async (req, res) => {
-  try {
-    const { questions, answers, questionDurations, startedAt, paperId, examType, debugRetake } = req.body
-
-    if (!Array.isArray(questions) || questions.length === 0) {
-      res.status(400).json(fail('题目列表不能为空'))
-      return
-    }
-
-    const answerMap: Record<string, string> = answers || {}
-    const durationMap: Record<string, number> = questionDurations || {}
-    const correctCount = countCorrectAnswers(questions, answerMap)
-
-    const targetPaperId = paperId || 'question-bank'
-    let targetExamType = examType || 'TMUA'
-    if (!isExamType(targetExamType)) {
-      res.status(422).json(fail('无效的考试类型'))
-      return
-    }
+    const isDebugRetake = debugRetake === true || debugRetake === '1'
+    let targetPaperId = paperId || 'question-bank'
+    let targetExamType = examType || EXAM_TYPE.TMUA
     let targetPaperType: string = PAPER_TYPE.AI_PAPER
+    let targetDurationMinutes = 60
+
     if (paperId) {
       const paper = await prisma.paper.findUnique({ where: { id: paperId } })
       if (!paper) {
         res.status(404).json(fail('Paper not found'))
         return
       }
-      targetExamType = paper.examType || targetExamType
+      targetExamType = paper.examType
       targetPaperType = normalizePaperType(paper.paperType)
-      if (!isExamType(targetExamType)) {
-        res.status(422).json(fail('无效的考试类型'))
-        return
-      }
+      targetDurationMinutes = paper.duration
+    }
+    if (!isExamType(targetExamType)) {
+      res.status(422).json(fail('无效的考试类型'))
+      return
     }
 
     const isDiagnostic = isRealPaperType(targetPaperType)
-    const skipEntitlementForDebugRetake = isDiagnostic && (debugRetake === true || debugRetake === '1')
-    if (!skipEntitlementForDebugRetake) {
-      const entitlement = await checkMemberAccess(
-        req.user!.userId,
-        isDiagnostic ? 'diagnostic' : 'question-bank',
-        targetExamType,
-        isDiagnostic ? 1 : questions.length,
-      )
-      if (!entitlement.allowed) {
-        res.status(403).json(fail('当前额度不足，请开通会员后继续'))
-        return
+    const usesContinuousClock = usesContinuousExamClock(targetPaperType)
+    const existingRecord = isDiagnostic && !isDebugRetake
+      ? await prisma.examRecord.findFirst({
+          where: {
+            userId: req.user!.userId,
+            paperId: targetPaperId,
+            status: EXAM_RECORD_STATUS.IN_PROGRESS,
+          },
+          include: {
+            answers: {
+              select: {
+                questionId: true,
+                selectedAnswer: true,
+                durationSeconds: true,
+                answerState: true,
+              },
+            },
+          },
+          orderBy: { startedAt: 'desc' },
+        })
+      : null
+
+    if (existingRecord) {
+      const answers: Record<string, string> = {}
+      const questionDurations: Record<string, number> = {}
+      const answerStates: Record<string, AnswerRecordState> = {}
+      for (const answer of existingRecord.answers) {
+        if (answer.selectedAnswer) answers[answer.questionId] = answer.selectedAnswer
+        questionDurations[answer.questionId] = answer.durationSeconds
+        answerStates[answer.questionId] = isAnswerRecordState(answer.answerState)
+          ? answer.answerState
+          : answer.selectedAnswer
+            ? ANSWER_RECORD_STATE.ANSWERED
+            : answer.durationSeconds > 0
+              ? ANSWER_RECORD_STATE.SKIPPED
+              : ANSWER_RECORD_STATE.UNSEEN
       }
+      const expiresAt = usesContinuousClock
+        ? existingRecord.expiresAt || buildExamDeadline(existingRecord.startedAt, targetDurationMinutes)
+        : null
+      if (expiresAt && !existingRecord.expiresAt) {
+        await prisma.examRecord.update({ where: { id: existingRecord.id }, data: { expiresAt } })
+      }
+      const now = new Date()
+      const durationSeconds = expiresAt
+        ? continuousExamDurationSeconds(existingRecord.startedAt, expiresAt, now)
+        : Object.values(questionDurations).reduce((sum, value) => sum + value, 0)
+      res.json(success({
+        examRecordId: existingRecord.id,
+        paperId: existingRecord.paperId,
+        examType: existingRecord.examType,
+        totalQuestions: existingRecord.totalQuestions,
+        startedAt: existingRecord.startedAt,
+        expiresAt,
+        status: existingRecord.status,
+        isResumed: true,
+        isExpired: Boolean(expiresAt && expiresAt.getTime() <= now.getTime()),
+        answers,
+        questionDurations,
+        answerStates,
+        durationSeconds,
+      }))
+      return
     }
 
     if (!paperId) {
       await prisma.paper.upsert({
         where: { id: 'question-bank' },
-        update: { paperType: PAPER_TYPE.AI_PAPER, status: 'published' },
+        update: { paperType: PAPER_TYPE.AI_PAPER, status: 'published', examType: targetExamType },
         create: {
           id: 'question-bank',
           title: 'Question bank practice',
@@ -537,56 +507,332 @@ examRouter.post('/submit', requireAuth, async (req, res) => {
           questions: [],
         },
       })
+      targetPaperId = 'question-bank'
     }
 
-    const inProgressRecord = paperId
-      ? await prisma.examRecord.findFirst({
-          where: {
-            userId: req.user!.userId,
-            paperId: targetPaperId,
-            status: 'in_progress',
-          },
-          orderBy: { startedAt: 'desc' },
-        })
-      : null
+    const requestedQuestionIds = Array.isArray(questionIds)
+      ? [...new Set(questionIds.filter((value): value is string => typeof value === 'string' && Boolean(value.trim())))]
+      : []
+    const questionRows = await prisma.question.findMany({
+      where: isDiagnostic
+        ? { paperId: targetPaperId }
+        : { id: { in: requestedQuestionIds }, examType: targetExamType },
+      orderBy: [{ paperId: 'asc' }, { number: 'asc' }],
+      select: { id: true, answer: true },
+    })
+    if (!questionRows.length || (!isDiagnostic && questionRows.length !== requestedQuestionIds.length)) {
+      res.status(422).json(fail('考试题目不存在或不属于当前考试类型'))
+      return
+    }
+    const officialQuestions = questionRows.map((question) => ({
+      id: question.id,
+      answer: parseJsonArray<string>(question.answer),
+    }))
 
-    const examRecord = inProgressRecord
-      ? await prisma.examRecord.update({
-          where: { id: inProgressRecord.id },
-          data: {
-            examType: targetExamType,
-            totalQuestions: questions.length,
-            correctCount,
-            startedAt: startedAt ? new Date(startedAt) : inProgressRecord.startedAt,
-            submittedAt: new Date(),
-            status: 'submitted',
-          },
-        })
-      : await prisma.examRecord.create({
-          data: {
-            userId: req.user!.userId,
-            paperId: targetPaperId,
-            examType: targetExamType,
-            totalQuestions: questions.length,
-            correctCount,
-            startedAt: startedAt ? new Date(startedAt) : new Date(),
-            submittedAt: new Date(),
-            status: 'submitted',
-          },
-        })
+    const skipEntitlement = isDiagnostic && isDebugRetake
+    if (!skipEntitlement) {
+      const entitlement = await checkMemberAccess(
+        req.user!.userId,
+        isDiagnostic ? 'diagnostic' : 'question-bank',
+        targetExamType,
+        isDiagnostic ? 1 : officialQuestions.length,
+      )
+      if (!entitlement.allowed) {
+        res.status(403).json(fail('当前额度不足，请开通会员后继续'))
+        return
+      }
+    }
 
-    // Persist per-question answers with Question ids.
-    await replaceAnswerRecords(examRecord.id, questions, answerMap, durationMap, true)
+    const examRecord = await prisma.$transaction(async (tx) => {
+      // 真题和仿真考试使用服务端开始时间，防止客户端修改截止时间。
+      const serverStartedAt = new Date()
+      const expiresAt = usesContinuousClock
+        ? buildExamDeadline(serverStartedAt, targetDurationMinutes)
+        : null
+      const record = await tx.examRecord.create({
+        data: {
+          userId: req.user!.userId,
+          paperId: targetPaperId,
+          examType: targetExamType,
+          totalQuestions: officialQuestions.length,
+          correctCount: 0,
+          startedAt: serverStartedAt,
+          expiresAt,
+          submittedAt: null,
+          durationSeconds: 0,
+          status: EXAM_RECORD_STATUS.IN_PROGRESS,
+        },
+      })
+      await replaceAnswerRecords(tx, record.id, officialQuestions, {}, {}, {}, true)
+      return record
+    })
 
     res.json(success({
       examRecordId: examRecord.id,
-      totalQuestions: questions.length,
-      correctCount,
-      wrongCount: questions.length - correctCount,
+      paperId: examRecord.paperId,
+      examType: examRecord.examType,
+      totalQuestions: examRecord.totalQuestions,
+      startedAt: examRecord.startedAt,
+      expiresAt: examRecord.expiresAt,
+      status: examRecord.status,
+      isResumed: false,
+      isExpired: false,
+      answers: {},
+      questionDurations: {},
+      answerStates: {},
+      durationSeconds: 0,
+    }))
+  } catch (error: any) {
+    console.error('Exam start error:', error)
+    res.status(500).json(fail(error.message || '开始考试失败'))
+  }
+})
+
+// 按考试记录保存进度；startedAt 只在 start 创建记录时写入，此处不会覆盖。
+examRouter.put('/:id/progress', requireAuth, async (req, res) => {
+  try {
+    const record = await prisma.examRecord.findFirst({
+      where: { id: req.params.id, userId: req.user!.userId },
+      select: { id: true, status: true, expiresAt: true },
+    })
+    if (!record) {
+      res.status(404).json(fail('Exam record not found'))
+      return
+    }
+    if (record.status !== EXAM_RECORD_STATUS.IN_PROGRESS) {
+      res.status(409).json(fail('已交卷记录不能继续保存进度', 'EXAM_ALREADY_SUBMITTED'))
+      return
+    }
+    if (record.expiresAt && record.expiresAt.getTime() <= Date.now()) {
+      res.status(409).json(fail('考试时间已结束，请提交当前答卷', 'EXAM_EXPIRED'))
+      return
+    }
+
+    const responses = normalizeExamResponses(req.body?.responses)
+    if (!responses.length) {
+      res.status(400).json(fail('至少需要提交一道发生变化的题目'))
+      return
+    }
+
+    const responseQuestionIds = responses.map((response) => response.questionId)
+    const scopedQuestionCount = await prisma.answerRecord.count({
+      where: {
+        examRecordId: record.id,
+        questionId: { in: responseQuestionIds },
+      },
+    })
+    if (scopedQuestionCount !== responseQuestionIds.length) {
+      res.status(422).json(fail('提交的题目不属于当前考试记录'))
+      return
+    }
+
+    try {
+      await prisma.$transaction(async (tx) => {
+        const updateResults = await Promise.all(responses.map((response) => {
+          return tx.answerRecord.updateMany({
+            where: {
+              examRecordId: record.id,
+              questionId: response.questionId,
+              examRecord: { status: EXAM_RECORD_STATUS.IN_PROGRESS },
+            },
+            data: {
+              selectedAnswer: response.selectedAnswer,
+              answerState: response.answerState,
+              durationSeconds: response.durationSeconds,
+              answeredAt: response.selectedAnswer ? new Date() : null,
+            },
+          })
+        }))
+        if (updateResults.some((result) => result.count !== 1)) {
+          throw new ExamProgressConflictError('Exam was submitted while progress was being saved')
+        }
+      })
+    } catch (error) {
+      if (error instanceof ExamProgressConflictError) {
+        res.status(409).json(fail('考试已交卷，当前进度未再写入', 'EXAM_ALREADY_SUBMITTED'))
+        return
+      }
+      throw error
+    }
+
+    res.json(success({
+      examRecordId: record.id,
+      status: record.status,
+      savedQuestionIds: responseQuestionIds,
     }))
   } catch (e: any) {
-    console.error('Exam submit error:', e)
-    res.status(500).json(fail(e.message || '浜ゅ嵎澶辫触'))
+    console.error('Exam progress save error:', e)
+    res.status(500).json(fail(e.message || '保存答题进度失败'))
+  }
+})
+
+// 按考试记录交卷；题目范围、考试类型和试卷信息全部由服务端记录推导。
+examRouter.post('/:id/submit', requireAuth, async (req, res) => {
+  try {
+    const record = await prisma.examRecord.findFirst({
+      where: { id: req.params.id, userId: req.user!.userId },
+      include: {
+        paper: true,
+        answers: { select: { questionId: true } },
+        diagnosticReportTask: true,
+      },
+    })
+    if (!record) {
+      res.status(404).json(fail('Exam record not found'))
+      return
+    }
+
+    const isDiagnostic = isRealPaperType(record.paper.paperType)
+    const usesContinuousClock = usesContinuousExamClock(record.paper.paperType)
+    if (record.status === EXAM_RECORD_STATUS.SUBMITTED) {
+      const task = isDiagnostic
+        ? await ensureDiagnosticReportTask(record.id, req.user!.userId)
+        : null
+      res.json(success({
+        examRecordId: record.id,
+        totalQuestions: record.totalQuestions,
+        correctCount: record.correctCount,
+        wrongCount: record.totalQuestions - record.correctCount,
+        durationSeconds: record.durationSeconds,
+        reportStatus: task?.status || null,
+      }))
+      return
+    }
+    if (record.status !== EXAM_RECORD_STATUS.IN_PROGRESS) {
+      res.status(409).json(fail('当前考试记录不能交卷'))
+      return
+    }
+
+    const responses = normalizeExamResponses(req.body?.responses)
+    const maps = responseMaps(responses)
+    const scopedQuestionIds = record.answers.map((answer) => answer.questionId)
+    const questionRows = await prisma.question.findMany({
+      where: isDiagnostic ? { paperId: record.paperId } : { id: { in: scopedQuestionIds } },
+      orderBy: [{ paperId: 'asc' }, { number: 'asc' }],
+      select: { id: true, answer: true },
+    })
+    if (!questionRows.length) {
+      res.status(422).json(fail('当前考试记录没有可提交的正式题目'))
+      return
+    }
+    const officialQuestions = questionRows.map((question) => ({
+      id: question.id,
+      answer: parseJsonArray<string>(question.answer),
+    }))
+
+    const debugRetake = req.body?.debugRetake === true || req.body?.debugRetake === '1'
+    // 题库练习在 start 创建题目范围时已完成额度校验；诊断测试在正式交卷前再次校验次数。
+    if (isDiagnostic && !debugRetake) {
+      const entitlement = await checkMemberAccess(
+        req.user!.userId,
+        'diagnostic',
+        record.examType,
+        1,
+      )
+      if (!entitlement.allowed) {
+        // 并发重复提交可能在额度检查前已由另一个请求完成，优先返回既有结果。
+        const submittedRecord = await prisma.examRecord.findFirst({
+          where: {
+            id: record.id,
+            userId: req.user!.userId,
+            status: EXAM_RECORD_STATUS.SUBMITTED,
+          },
+          include: { diagnosticReportTask: { select: { status: true } } },
+        })
+        if (submittedRecord) {
+          res.json(success({
+            examRecordId: submittedRecord.id,
+            totalQuestions: submittedRecord.totalQuestions,
+            correctCount: submittedRecord.correctCount,
+            wrongCount: submittedRecord.totalQuestions - submittedRecord.correctCount,
+            durationSeconds: submittedRecord.durationSeconds,
+            reportStatus: submittedRecord.diagnosticReportTask?.status || null,
+          }))
+          return
+        }
+        res.status(403).json(fail('当前额度不足，请开通会员后继续'))
+        return
+      }
+    }
+
+    const submissionKey = typeof req.body?.submissionKey === 'string' && req.body.submissionKey.trim()
+      ? req.body.submissionKey.trim().slice(0, 191)
+      : record.submissionKey
+    const correctCount = countCorrectAnswers(officialQuestions, maps.answers)
+    const submittedAt = new Date()
+    const expiresAt = usesContinuousClock
+      ? record.expiresAt || buildExamDeadline(record.startedAt, record.paper.duration)
+      : null
+    const durationSeconds = expiresAt
+      ? continuousExamDurationSeconds(record.startedAt, expiresAt, submittedAt)
+      : Object.values(maps.durations).reduce((sum, value) => sum + Math.max(0, value), 0)
+    const result = await prisma.$transaction(async (tx) => {
+      const claimed = await tx.examRecord.updateMany({
+        where: { id: record.id, status: EXAM_RECORD_STATUS.IN_PROGRESS },
+        data: {
+          totalQuestions: officialQuestions.length,
+          correctCount,
+          submissionKey,
+          expiresAt,
+          submittedAt,
+          durationSeconds,
+          status: EXAM_RECORD_STATUS.SUBMITTED,
+        },
+      })
+      if (!claimed.count) {
+        const existingRecord = await tx.examRecord.findUnique({ where: { id: record.id } })
+        const existingTask = isDiagnostic
+          ? await tx.diagnosticReportTask.findUnique({
+              where: { examRecordId: record.id },
+              select: { status: true },
+            })
+          : null
+        return { examRecord: existingRecord, task: existingTask, claimed: false }
+      }
+
+      await replaceAnswerRecords(
+        tx,
+        record.id,
+        officialQuestions,
+        maps.answers,
+        maps.durations,
+        maps.states,
+        true,
+      )
+      const task = isDiagnostic
+        ? await tx.diagnosticReportTask.upsert({
+            where: { examRecordId: record.id },
+            update: {},
+            create: {
+              examRecordId: record.id,
+              userId: req.user!.userId,
+              paperId: record.paperId,
+              reportKind: record.examType.toLowerCase(),
+            },
+            select: { status: true },
+          })
+        : null
+      const examRecord = await tx.examRecord.findUnique({ where: { id: record.id } })
+      return { examRecord, task, claimed: true }
+    })
+
+    if (!result.examRecord) {
+      res.status(404).json(fail('Exam record not found'))
+      return
+    }
+
+    if (isDiagnostic && result.claimed) scheduleDiagnosticReportWorker()
+    res.json(success({
+      examRecordId: result.examRecord.id,
+      totalQuestions: result.examRecord.totalQuestions,
+      correctCount: result.examRecord.correctCount,
+      wrongCount: result.examRecord.totalQuestions - result.examRecord.correctCount,
+      durationSeconds: result.examRecord.durationSeconds,
+      reportStatus: result.task?.status || null,
+    }))
+  } catch (error: any) {
+    console.error('Exam submit error:', error)
+    res.status(500).json(fail(error.message || '交卷失败'))
   }
 })
 
@@ -778,18 +1024,16 @@ examRouter.get('/:id/result', requireAuth, async (req, res) => {
   }
 })
 
-// 诊断报告头、等效评估分与总体成绩概览
-examRouter.get('/:id/diagnostic-report/summary', requireAuth, async (req, res) => {
+// 诊断报告生成状态
+examRouter.get('/:id/diagnostic-report/status', requireAuth, async (req, res) => {
   try {
     const examRecord = await prisma.examRecord.findFirst({
       where: { id: req.params.id, userId: req.user!.userId },
       include: {
-        paper: true,
-        answers: true,
-        user: { select: { examPreferences: true } },
+        paper: { select: { paperType: true } },
+        diagnosticReportTask: true,
       },
     })
-
     if (!examRecord) {
       res.status(404).json(fail('Exam record not found'))
       return
@@ -803,61 +1047,135 @@ examRouter.get('/:id/diagnostic-report/summary', requireAuth, async (req, res) =
       return
     }
 
-    const questionRows = await prisma.question.findMany({
-      where: { paperId: examRecord.paperId },
-      orderBy: { number: 'asc' },
-      select: {
-        id: true,
-        number: true,
-        subject: true,
-        subjectCode: true,
-        topic: true,
-        topicCode: true,
-        knowledgePoints: true,
-        difficulty: true,
+    if (!examRecord.diagnosticReportTask) {
+      await ensureDiagnosticReportTask(examRecord.id, req.user!.userId)
+    }
+    const [task, currentReport] = await Promise.all([
+      prisma.diagnosticReportTask.findUnique({ where: { examRecordId: examRecord.id } }),
+      prisma.diagnosticReport.findUnique({
+        where: { userId_paperId: { userId: req.user!.userId, paperId: examRecord.paperId } },
+        select: { examRecordId: true },
+      }),
+    ])
+    if (!task) {
+      res.status(500).json(fail('诊断分析任务创建失败'))
+      return
+    }
+
+    const messageByStage: Record<string, string> = {
+      answers_saved: '答卷已安全保存',
+      fixed_calculating: '正在计算成绩与能力表现',
+      module_analyzing: '正在分析各考试模块',
+      roi_analyzing: '正在定位高价值提升方向',
+      path_analyzing: '正在生成个性化学习路径',
+      report_saving: '正在保存诊断报告',
+      completed: '诊断报告生成完成',
+    }
+    const hasPreviousReport = Boolean(currentReport && currentReport.examRecordId !== examRecord.id)
+
+    res.json(success({
+      status: task.status,
+      stage: task.stage,
+      progress: task.progress,
+      message: task.status === DIAGNOSTIC_REPORT_TASK_STATUS.FAILED
+        ? '最新一次诊断分析失败'
+        : messageByStage[task.stage] || '正在生成诊断报告',
+      reportKind: task.reportKind,
+      reportExamRecordId: task.status === DIAGNOSTIC_REPORT_TASK_STATUS.COMPLETED
+        ? currentReport?.examRecordId || null
+        : null,
+      previousReportExamRecordId: hasPreviousReport ? currentReport?.examRecordId || null : null,
+      hasPreviousReport,
+      errorMessage: task.status === DIAGNOSTIC_REPORT_TASK_STATUS.FAILED ? task.errorMessage : null,
+      generationMode: task.generationMode,
+    }))
+  } catch (error: any) {
+    console.error('[diagnostic-report] status error:', error)
+    res.status(500).json(fail(error.message || '获取诊断分析状态失败'))
+  }
+})
+
+// 失败的诊断报告重新分析
+examRouter.post('/:id/diagnostic-report/retry', requireAuth, async (req, res) => {
+  try {
+    await retryDiagnosticReportTask(req.params.id, req.user!.userId)
+    const task = await prisma.diagnosticReportTask.findUnique({ where: { examRecordId: req.params.id } })
+    res.json(success({
+      status: task?.status || DIAGNOSTIC_REPORT_TASK_STATUS.PENDING,
+      stage: task?.stage || 'answers_saved',
+      progress: task?.progress ?? 10,
+    }))
+  } catch (error: any) {
+    console.error('[diagnostic-report] retry error:', error)
+    res.status(500).json(fail(error.message || '重新分析失败'))
+  }
+})
+
+// 读取已持久化的当前有效诊断报告
+examRouter.get('/:id/diagnostic-report/summary', requireAuth, async (req, res) => {
+  try {
+    const examRecord = await prisma.examRecord.findFirst({
+      where: { id: req.params.id, userId: req.user!.userId },
+      include: {
+        paper: { select: { paperType: true } },
+        diagnosticReportTask: true,
       },
     })
-    const syllabusNodes = await prisma.syllabusNode.findMany({
-      where: { examType: examRecord.examType },
-      orderBy: { order: 'asc' },
-      select: { code: true, label: true },
-    })
-    const answerMap = new Map(examRecord.answers.map((answer) => [answer.questionId, answer]))
+    if (!examRecord) {
+      res.status(404).json(fail('Exam record not found'))
+      return
+    }
+    if (!isRealPaperType(examRecord.paper.paperType)) {
+      res.status(400).json(fail('Only diagnostic real-paper records have this report'))
+      return
+    }
+    if (examRecord.status !== EXAM_RECORD_STATUS.SUBMITTED || !examRecord.submittedAt) {
+      res.status(409).json(fail('Diagnostic report is available after submission'))
+      return
+    }
 
-    const report = await buildDiagnosticReportSummary({
-      examType: examRecord.examType,
-      paper: {
-        title: examRecord.paper.title,
-        code: examRecord.paper.code,
-        year: examRecord.paper.year,
-        duration: examRecord.paper.duration,
+    if (!examRecord.diagnosticReportTask) {
+      await ensureDiagnosticReportTask(examRecord.id, req.user!.userId)
+    }
+    const [task, currentReport] = await Promise.all([
+      prisma.diagnosticReportTask.findUnique({ where: { examRecordId: examRecord.id } }),
+      prisma.diagnosticReport.findUnique({
+        where: { userId_paperId: { userId: req.user!.userId, paperId: examRecord.paperId } },
+      }),
+    ])
+    if (!currentReport) {
+      res.status(409).json(fail(
+        task?.status === DIAGNOSTIC_REPORT_TASK_STATUS.FAILED
+          ? '诊断报告生成失败，请重新分析'
+          : '诊断报告仍在生成中',
+        task?.status === DIAGNOSTIC_REPORT_TASK_STATUS.FAILED ? 'REPORT_FAILED' : 'REPORT_PENDING',
+      ))
+      return
+    }
+
+    const isRequestedReport = currentReport.examRecordId === examRecord.id
+    const warning = isRequestedReport
+      ? null
+      : task?.status === DIAGNOSTIC_REPORT_TASK_STATUS.FAILED
+        ? '最新一次分析失败，当前展示上一次报告'
+        : task?.status === DIAGNOSTIC_REPORT_TASK_STATUS.PENDING || task?.status === DIAGNOSTIC_REPORT_TASK_STATUS.ANALYZING
+          ? '最新一次报告正在生成，当前展示上一次报告'
+          : '当前展示该试卷最新生成的诊断报告'
+
+    res.json(success({
+      report: currentReport.result,
+      meta: {
+        reportExamRecordId: currentReport.examRecordId,
+        requestedExamRecordId: examRecord.id,
+        isPreviousReport: !isRequestedReport,
+        warning,
+        generationMode: currentReport.generationMode,
+        completedAt: currentReport.completedAt,
       },
-      questions: questionRows.map((question) => ({
-        number: question.number,
-        subject: question.subject,
-        subjectCode: question.subjectCode,
-        topic: question.topic,
-        topicCode: question.topicCode,
-        knowledgePoints: parseJsonArray<{ code: string; label: string; role?: string }>(
-          question.knowledgePoints,
-        ),
-        difficulty: question.difficulty,
-        isCorrect: answerMap.get(question.id)?.isCorrect ?? false,
-        isAnswered: Boolean(answerMap.get(question.id)?.selectedAnswer?.trim()),
-        durationSeconds: answerMap.get(question.id)?.durationSeconds ?? null,
-      })),
-      elapsedDurationSeconds: Math.max(
-        0,
-        Math.round((examRecord.submittedAt.getTime() - examRecord.startedAt.getTime()) / 1000),
-      ),
-      syllabusNodes,
-      learnerProfile: learnerProfileForExam(examRecord.user.examPreferences, examRecord.examType),
-    })
-
-    res.json(success({ report }))
+    }))
   } catch (error: any) {
     console.error('[diagnostic-report] summary error:', error)
-    res.status(500).json(fail(error.message || 'Get diagnostic report summary failed'))
+    res.status(500).json(fail(error.message || '读取诊断报告失败'))
   }
 })
 
@@ -882,9 +1200,7 @@ examRouter.get('/practice-records', requireAuth, async (req, res) => {
         correctCount: record.correctCount,
         startedAt: record.startedAt,
         submittedAt: record.submittedAt,
-        durationSeconds: record.submittedAt
-          ? Math.max(0, Math.round((record.submittedAt.getTime() - record.startedAt.getTime()) / 1000))
-          : null,
+        durationSeconds: record.submittedAt ? record.durationSeconds : null,
       })),
     }))
   } catch (e: any) {

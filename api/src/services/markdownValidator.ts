@@ -220,8 +220,8 @@ function sanitizeRecursive(obj: any, questionLabel: string, warnings: string[], 
     if (PLACEHOLDER_RE.test(obj) && obj.replace(PLACEHOLDER_RE, '').trim() === '') return
 
     const result = sanitizeText(obj, questionLabel, path || '字段')
-    // 因为这是递归的，不能直接赋值回原值 — 需要在父级处理
-    // 这里只记录 warning，实际替换由上层 handleArray/handleObject 完成
+    if (result.warning) warnings.push(result.warning)
+    // 原始字符串没有父级可回写，此分支只补充校验告警。
     return
   }
 

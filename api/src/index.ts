@@ -6,9 +6,10 @@ import { parseRouter } from './routes/parse.js'
 import { uploadRouter } from './routes/upload.js'
 import { examRouter } from './routes/exam.js'
 import { authRouter } from './routes/auth.js'
-import { diagnosticRouter } from './routes/diagnostic.js'
 import { adminRouter } from './routes/admin.js'
 import { memberRouter } from './routes/member.js'
+import { startDiagnosticReportWorker } from './services/diagnosticReportTask.js'
+import { success } from './utils/response.js'
 
 const app = express()
 
@@ -34,13 +35,10 @@ app.use('/api', (_req, res, next) => {
 app.use('/api/auth', authRouter)
 app.use('/api/getMember', memberRouter)
 app.use('/api/exams', examRouter)
-app.use('/api/diagnostic', diagnosticRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/papers', papersRouter)
 app.use('/api/parse-tasks', parseRouter)
 app.use('/api/upload', uploadRouter)
-
-import { success } from './utils/response.js'
 
 app.get('/api/health', (_req, res) => {
   res.json(success({ status: 'ok' }))
@@ -48,4 +46,7 @@ app.get('/api/health', (_req, res) => {
 
 app.listen(config.port, () => {
   console.log(`API Server running on http://localhost:${config.port}`)
+  void startDiagnosticReportWorker().catch((error) => {
+    console.error('[diagnostic-report-task] worker startup failed:', error)
+  })
 })

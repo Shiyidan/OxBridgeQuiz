@@ -56,6 +56,7 @@ const props = withDefaults(
     examType: ExamType
     mode: ExamMode
     countdownDurationSeconds: number
+    expiresAt?: string | null
     initialElapsedSeconds?: number
     currentIndex: number
     totalCount: number
@@ -63,6 +64,7 @@ const props = withDefaults(
   {
     mode: 'question-bank',
     countdownDurationSeconds: 0,
+    expiresAt: null,
     initialElapsedSeconds: 0,
     currentIndex: 0,
     totalCount: 0,
@@ -72,22 +74,31 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: 'time-expired'): void
   (e: 'back'): void
+  (e: 'answering-paused'): void
+  (e: 'answering-resumed'): void
 }>()
 
 // 当前模式对应的配置（计时方向、返回文案）
 const config = computed(() => MODE_CONFIG[props.mode])
 const isCountdown = computed(() => config.value.isCountdown)
+const usesContinuousClock = computed(() => props.mode !== 'question-bank')
 const backLabel = computed(() => config.value.backLabel)
 
 // 页面初始化时打点，后续 tick 基于此时间戳与 wall clock 对比
-const startedAt = Date.now() - Math.max(0, props.initialElapsedSeconds) * 1000
+const expiresAtTimestamp = props.expiresAt ? new Date(props.expiresAt).getTime() : Number.NaN
+const hasServerDeadline = Number.isFinite(expiresAtTimestamp)
+const startedAt = hasServerDeadline
+  ? expiresAtTimestamp - Math.max(0, props.countdownDurationSeconds) * 1000
+  : Date.now() - Math.max(0, props.initialElapsedSeconds) * 1000
 let timerId: number | undefined
 let isMounted = false
 // 记录页面隐藏期间的总时长（毫秒），tick 中扣除以保证计时准确
 let pausedDuration = 0
 let pauseStartedAt = 0
+let isVisibilityPaused = false
 // 5 分钟提醒只触发一次
 let fiveMinWarned = false
+let timeExpiredEmitted = false
 
 // 从组件初始化到当前时刻的实际可见秒数
 const timerElapsed = ref(Math.max(0, props.initialElapsedSeconds))
@@ -119,10 +130,15 @@ const progressPercent = computed(() =>
 
 // 每次 tick 基于 wall clock 计算实际经过的秒数，扣除暂停时长
 function tick(): void {
-  timerElapsed.value = Math.max(0, Math.round((Date.now() - startedAt - pausedDuration) / 1000))
+  if (isCountdown.value && hasServerDeadline) {
+    const remainingSeconds = Math.max(0, Math.ceil((expiresAtTimestamp - Date.now()) / 1000))
+    timerElapsed.value = Math.max(0, props.countdownDurationSeconds - remainingSeconds)
+  } else {
+    timerElapsed.value = Math.max(0, Math.round((Date.now() - startedAt - pausedDuration) / 1000))
+  }
   if (isCountdown.value && props.countdownDurationSeconds > 0) {
     // 剩余 5 分钟时弹出一次提醒
-    if (!fiveMinWarned && timerRemaining.value <= 300) {
+    if (!fiveMinWarned && timerRemaining.value > 0 && timerRemaining.value <= 300) {
       fiveMinWarned = true
       ElNotification({
         title: '考试时间提醒',
@@ -131,7 +147,9 @@ function tick(): void {
         duration: 5000,
       })
     }
-    if (timerElapsed.value >= props.countdownDurationSeconds) {
+    if (!timeExpiredEmitted && timerElapsed.value >= props.countdownDurationSeconds) {
+      timeExpiredEmitted = true
+      stopTimer()
       emit('time-expired')
     }
   }
@@ -139,8 +157,9 @@ function tick(): void {
 
 // 启动计时器，每秒同步一次 wall clock
 function startTimer(): void {
+  stopTimer()
   tick()
-  timerId = window.setInterval(tick, 1000)
+  if (!timeExpiredEmitted) timerId = window.setInterval(tick, 1000)
 }
 
 // 停止计时器
@@ -154,11 +173,31 @@ function stopTimer(): void {
 // 页面隐藏时暂停计时，恢复时弹窗确认后继续；隐藏期间的时长不计入
 function handleVisibilityChange(): void {
   if (document.hidden) {
+    if (isVisibilityPaused) return
+    isVisibilityPaused = true
     pauseStartedAt = Date.now()
+    emit('answering-paused')
     stopTimer()
     return
   }
-  // 弹窗期间计时保持冻结，点击确定后才累加暂停时长并恢复
+  if (!isVisibilityPaused) return
+
+  // 真题与仿真考试按服务端截止时间继续计时，切回后直接恢复单题活跃耗时。
+  if (usesContinuousClock.value) {
+    startTimer()
+    if (timeExpiredEmitted) return
+    isVisibilityPaused = false
+    emit('answering-resumed')
+    ElNotification({
+      title: '考试计时未暂停',
+      message: '离开页面期间倒计时仍在继续，请继续作答。',
+      type: 'warning',
+      duration: 5000,
+    })
+    return
+  }
+
+  // 试题库练习在确认继续前保持总计时和单题耗时冻结。
   ElMessageBox.alert('是否开始继续答题', '提示', {
     confirmButtonText: '确定',
     confirmButtonClass: 'button_primary',
@@ -168,7 +207,9 @@ function handleVisibilityChange(): void {
   }).then(() => {
     if (!isMounted) return
     pausedDuration += Date.now() - pauseStartedAt
+    isVisibilityPaused = false
     startTimer()
+    emit('answering-resumed')
   })
 }
 

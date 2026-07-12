@@ -14,6 +14,7 @@ import type {
   ReportAiImprovementPlan,
   ReportLearningPath,
   LearnerProfileInput,
+  DiagnosticBuildStage,
 } from './diagnosticReport.js'
 
 type DifficultyLevel = 'low' | 'medium' | 'high'
@@ -1063,6 +1064,7 @@ export async function buildEsatDiagnosticReportSummary(input: {
   elapsedDurationSeconds?: number | null
   syllabusNodes?: Array<{ code: string; label: string }>
   learnerProfile?: LearnerProfileInput
+  onStage?: (stage: DiagnosticBuildStage) => void | Promise<void>
 }): Promise<DiagnosticReportSummary> {
   const groups = new Map<string, ReportQuestionInput[]>()
   for (const question of [...input.questions].sort((a, b) => a.number - b.number)) {
@@ -1074,8 +1076,13 @@ export async function buildEsatDiagnosticReportSummary(input: {
   const modules = Array.from(groups.entries())
     .map(([id, questions]) => buildModule(id, questions))
     .sort((a, b) => MODULE_ORDER.indexOf(a.id) - MODULE_ORDER.indexOf(b.id))
+  await input.onStage?.('module_analyzing')
+  const moduleAnalysisPromise = generateModuleAnalyses(modules).then(async (result) => {
+    await input.onStage?.('roi_analyzing')
+    return result
+  })
   const [moduleAnalyses, aiImprovementPlan] = await Promise.all([
-    generateModuleAnalyses(modules),
+    moduleAnalysisPromise,
     buildAiImprovementPlan(input.questions, input.syllabusNodes || []),
   ])
   const modulesWithRisks = modules.map((module) => {
@@ -1102,6 +1109,7 @@ export async function buildEsatDiagnosticReportSummary(input: {
     }
   })
   const difficultyMastery = buildDifficultyMastery(input.questions)
+  await input.onStage?.('path_analyzing')
   const learningPath = await buildLearningPath(
     aiImprovementPlan,
     modulesWithRisks,

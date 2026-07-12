@@ -6,16 +6,28 @@ import type { Question } from '@/types'
 
 // ---- 类型 ----
 
-export interface SubmitParams {
-  questions: any[]
-  answers: Record<string, string>
-  questionDurations?: Record<string, number>
-  startedAt: string
-  difficulty?: string
-  code?: string
+export type AnswerState = 'unseen' | 'skipped' | 'answered'
+
+export interface ExamResponseInput {
+  questionId: string
+  selectedAnswer: string | null
+  durationSeconds: number
+  answerState: AnswerState
+}
+
+export interface StartExamParams {
   paperId?: string
-  examType?: string
+  examType: string
+  questionIds?: string[]
+  startedAt: string
   debugRetake?: boolean
+}
+
+export interface SubmitParams {
+  responses: ExamResponseInput[]
+  startedAt: string
+  debugRetake?: boolean
+  submissionKey?: string
 }
 
 export interface ExamProgress {
@@ -24,15 +36,24 @@ export interface ExamProgress {
   examType?: string
   totalQuestions: number
   startedAt: string
+  expiresAt: string | null
   status: string
   answers: Record<string, string>
   questionDurations: Record<string, number>
+  answerStates: Record<string, AnswerState>
   durationSeconds: number
+  isResumed?: boolean
+  isExpired?: boolean
+}
+
+export interface StartExamResult extends Omit<ExamProgress, 'id'> {
+  examRecordId: string
 }
 
 export interface SaveProgressResult {
   examRecordId: string
   status: string
+  savedQuestionIds: string[]
 }
 
 export interface SubmitResult {
@@ -40,6 +61,37 @@ export interface SubmitResult {
   totalQuestions: number
   correctCount: number
   wrongCount: number
+  durationSeconds: number
+  reportStatus: string | null
+}
+
+export interface DiagnosticReportStatus {
+  status: 'pending' | 'analyzing' | 'completed' | 'failed'
+  stage:
+    | 'answers_saved'
+    | 'fixed_calculating'
+    | 'module_analyzing'
+    | 'roi_analyzing'
+    | 'path_analyzing'
+    | 'report_saving'
+    | 'completed'
+  progress: number
+  message: string
+  reportKind: 'esat' | 'tmua' | 'step'
+  reportExamRecordId: string | null
+  previousReportExamRecordId: string | null
+  hasPreviousReport: boolean
+  errorMessage: string | null
+  generationMode: 'full_ai' | 'mixed_fallback' | 'rules_only' | null
+}
+
+export interface DiagnosticReportMeta {
+  reportExamRecordId: string
+  requestedExamRecordId: string
+  isPreviousReport: boolean
+  warning: string | null
+  generationMode: 'full_ai' | 'mixed_fallback' | 'rules_only'
+  completedAt: string
 }
 
 export interface ExamQuestion extends Question {
@@ -342,29 +394,30 @@ export interface ProfileExamStats {
 
 // ---- API ----
 
-/** 保存诊断测试答题进度 */
-export function saveExamProgress(params: SubmitParams) {
-  return callApi<SaveProgressResult>({
-    url: '/exams/progress',
+/** 进入答题页时创建或恢复考试记录，后续请求只使用返回的 ExamRecord ID。 */
+export function startExam(params: StartExamParams) {
+  return callApi<StartExamResult>({
+    url: '/exams/start',
     method: 'POST',
     isAllData: false,
     body: params,
   })
 }
 
-/** 获取诊断测试答题进度 */
-export function getExamProgressData(paperId: string) {
-  return callApi<ExamProgress | null>({
-    url: `/exams/progress/${paperId}`,
-    method: 'GET',
+/** 按考试记录保存逐题答案与耗时。 */
+export function saveExamProgress(examId: string, responses: ExamResponseInput[]) {
+  return callApi<SaveProgressResult>({
+    url: `/exams/${examId}/progress`,
+    method: 'PUT',
     isAllData: false,
+    body: { responses },
   })
 }
 
-/** 交卷 */
-export function submitExam(params: SubmitParams) {
+/** 按考试记录交卷，试卷、题目范围与考试类型由后端记录推导。 */
+export function submitExam(examId: string, params: SubmitParams) {
   return callApi<SubmitResult>({
-    url: '/exams/submit',
+    url: `/exams/${examId}/submit`,
     method: 'POST',
     isAllData: false,
     body: params,
@@ -382,9 +435,27 @@ export function getExamResultData(examId: string) {
 
 /** 获取新版诊断报告头、等效评估分与总体成绩概览 */
 export function getDiagnosticReportSummary(examId: string) {
-  return callApi<{ report: DiagnosticReportSummary }>({
+  return callApi<{ report: DiagnosticReportSummary; meta: DiagnosticReportMeta }>({
     url: `/exams/${examId}/diagnostic-report/summary`,
     method: 'GET',
+    isAllData: false,
+  })
+}
+
+/** 获取诊断报告后台生成状态，分析弹窗据此展示真实进度。 */
+export function getDiagnosticReportStatus(examId: string) {
+  return callApi<DiagnosticReportStatus>({
+    url: `/exams/${examId}/diagnostic-report/status`,
+    method: 'GET',
+    isAllData: false,
+  })
+}
+
+/** 重新执行失败的诊断分析，不重复提交答卷。 */
+export function retryDiagnosticReport(examId: string) {
+  return callApi<Pick<DiagnosticReportStatus, 'status' | 'stage' | 'progress'>>({
+    url: `/exams/${examId}/diagnostic-report/retry`,
+    method: 'POST',
     isAllData: false,
   })
 }

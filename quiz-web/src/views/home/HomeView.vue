@@ -324,16 +324,9 @@
           <div class="footer-brand">
             <router-link to="/" class="logo">
               <span class="logo-mark" aria-hidden="true">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path
-                    d="M5 7V4.5C5 3.12 6.12 2 7.5 2H8.5C9.88 2 11 3.12 11 4.5V7M3 7H13L12 14H4L3 7Z"
-                    stroke="currentColor"
-                    stroke-width="1.4"
-                    stroke-linejoin="round"
-                  />
-                </svg>
+                <img :src="brandIconUrl" alt="" class="logo-mark-image" />
               </span>
-              <span>智钥备考</span>
+              <span>云舟备考</span>
             </router-link>
             <p>基于真实机考形式和考纲知识点的智能备考系统。精准诊断，让备考的每一步都算数。</p>
           </div>
@@ -366,7 +359,7 @@
           </div>
         </div>
         <div class="footer-bottom">
-          <span class="footer-copy">© 2026 智钥备考 SmartKey. All Rights Reserved.</span>
+          <span class="footer-copy">© 2026 云舟备考 SmartKey. All Rights Reserved.</span>
           <div class="footer-legal">
             <a>用户协议</a>
             <a>隐私政策</a>
@@ -388,6 +381,7 @@ import esatBannerUrl from '@/assets/banner/esat_banner.png'
 import questionCardBannerUrl from '@/assets/banner/question_card_banner.png'
 import stepBannerUrl from '@/assets/banner/step_banner.png'
 import tmuaBannerUrl from '@/assets/banner/tmua_banner.png'
+import brandIconUrl from '@/assets/brand/acemock-icon.png'
 
 const heroFeatures = ['免费诊断', '精准分析', '科学提分路径']
 
@@ -1403,8 +1397,14 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
   width: 32px;
   height: 32px;
   border-radius: var(--radius-md);
-  background: var(--color-ink);
-  color: var(--color-ink-inverse);
+  overflow: hidden;
+}
+.footer-brand .logo-mark-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: scale(1.45);
 }
 .footer-brand p {
   font-size: var(--text-sm);

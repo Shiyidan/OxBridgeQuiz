@@ -44,7 +44,7 @@ const BACKEND_CONFIG_BY_ENV: Record<BackendEnv, BackendEnvConfig> = {
   prod: {
     port: 3001,
     frontendUrl: 'https://acemock.cn',
-    corsOrigins: ['https://acemock.cn', 'https://www.acemock.cn'],
+    corsOrigins: ['https://acemock.cn'],
     refreshCookieSecure: true,
     refreshCookieSameSite: 'lax',
     trustProxy: 1,
@@ -58,6 +58,7 @@ if (!backendDefaults) {
   throw new Error(`[config] Unsupported API_RUNTIME_ENV: ${BACKEND_ENV}`)
 }
 
+// 生产环境必须显式提供固定 JWT 密钥，非生产环境才允许临时生成。
 function resolveJwtSecret(): string {
   if (process.env.JWT_SECRET) return process.env.JWT_SECRET
 
@@ -70,6 +71,7 @@ function resolveJwtSecret(): string {
   return generated
 }
 
+// 邮箱验证码使用独立 HMAC 密钥，避免与访问令牌密钥相互影响。
 function resolveEmailCodeSecret(): string {
   if (process.env.EMAIL_CODE_SECRET) return process.env.EMAIL_CODE_SECRET
   if (BACKEND_ENV === 'prod') {
@@ -79,6 +81,7 @@ function resolveEmailCodeSecret(): string {
   return crypto.randomBytes(64).toString('hex')
 }
 
+// 布尔环境变量只接受明确值，防止拼写错误静默改变安全配置。
 function parseBoolean(value: string | undefined, fallback: boolean): boolean {
   if (value === undefined) return fallback
   if (value === 'true') return true
@@ -86,12 +89,14 @@ function parseBoolean(value: string | undefined, fallback: boolean): boolean {
   throw new Error(`[config] Expected true or false, received: ${value}`)
 }
 
+// Cookie SameSite 只允许浏览器支持的三个标准取值。
 function parseCookieSameSite(value: string | undefined, fallback: CookieSameSite): CookieSameSite {
   if (!value) return fallback
   if (value === 'lax' || value === 'strict' || value === 'none') return value
   throw new Error(`[config] Unsupported REFRESH_COOKIE_SAME_SITE: ${value}`)
 }
 
+// 可信代理按明确跳数配置，避免伪造客户端 IP 绕过审计和限流。
 function parseTrustProxy(value: string | undefined, fallback: boolean | number): boolean | number {
   if (value === undefined) return fallback
   if (value === 'true') return true
@@ -101,11 +106,13 @@ function parseTrustProxy(value: string | undefined, fallback: boolean | number):
   throw new Error(`[config] TRUST_PROXY must be true, false, or a non-negative integer`)
 }
 
+// 数据库连接必须由环境提供，不在源码中保留可用默认凭据。
 function resolveDatabaseUrl(): string {
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL
   throw new Error('[config] DATABASE_URL is required')
 }
 
+// CORS 只接受明确来源，生产环境统一到唯一正式主域名。
 function resolveCorsOrigins(): (string | RegExp)[] {
   if (!process.env.CORS_ORIGINS) return backendDefaults.corsOrigins
   const origins = process.env.CORS_ORIGINS.split(',')

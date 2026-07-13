@@ -4,16 +4,9 @@
       <div class="nav-left">
         <router-link to="/" class="logo">
           <span class="logo-mark" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path
-                d="M5 7V4.5C5 3.12 6.12 2 7.5 2H8.5C9.88 2 11 3.12 11 4.5V7M3 7H13L12 14H4L3 7Z"
-                stroke="currentColor"
-                stroke-width="1.4"
-                stroke-linejoin="round"
-              />
-            </svg>
+            <img :src="brandIconUrl" alt="" class="logo-mark-image" />
           </span>
-          <span class="logo-text">智钥备考</span>
+          <span class="logo-text">云舟备考</span>
         </router-link>
         <nav class="nav-links">
           <router-link to="/" class="nav-link" exact-active-class="nav-link--active"
@@ -117,6 +110,7 @@
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import brandIconUrl from '@/assets/brand/acemock-icon.png'
 
 const router = useRouter()
 const route = useRoute()
@@ -208,8 +202,14 @@ async function handleLogout(): Promise<void> {
   width: 32px;
   height: 32px;
   border-radius: var(--radius-md);
-  background: var(--color-ink);
-  color: var(--color-ink-inverse);
+  overflow: hidden;
+}
+.logo-mark-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: scale(1.45);
 }
 .nav-links {
   min-width: 0;

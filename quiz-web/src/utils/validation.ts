@@ -19,18 +19,18 @@ export function validatePasswordRequired(password: string): ValidationResult {
   return { valid: true, message: '' }
 }
 
-// 登录页使用用户名登录，用户名对应当前用户资料中的 name。
+// 登录页支持用户名或邮箱，长度上限覆盖规范化邮箱。
 export function validateUsername(username: string): ValidationResult {
-  if (!username.trim()) return { valid: false, message: '请输入用户名' }
-  if (username.length > 50) return { valid: false, message: '用户名不能超过 50 个字符' }
+  if (!username.trim()) return { valid: false, message: '请输入用户名或邮箱' }
+  if (username.length > 191) return { valid: false, message: '用户名或邮箱过长' }
   return { valid: true, message: '' }
 }
 
 // 注册页使用完整密码规则，避免提交后才被后端拦截。
 export function validatePassword(password: string): ValidationResult {
   if (!password) return { valid: false, message: '请输入密码' }
-  if (password.length < 8 || password.length > 32) {
-    return { valid: false, message: '密码长度需要为 8-32 位' }
+  if (password.length < 8 || password.length > 128) {
+    return { valid: false, message: '密码长度需要为 8-128 位' }
   }
   if (!/[a-zA-Z]/.test(password)) return { valid: false, message: '密码需要包含字母' }
   if (!/[0-9]/.test(password)) return { valid: false, message: '密码需要包含数字' }
@@ -51,7 +51,7 @@ export function validateConfirmPassword(
 export function isPasswordValid(password: string): boolean {
   return (
     password.length >= 8 &&
-    password.length <= 32 &&
+    password.length <= 128 &&
     /[a-zA-Z]/.test(password) &&
     /[0-9]/.test(password)
   )

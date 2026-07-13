@@ -13,11 +13,11 @@ import { useAuthStore } from './stores/auth'
 const app = createApp(App)
 
 app.use(createPinia())
-app.use(router)
 app.use(ElementPlus)
 
-// 从 localStorage 恢复登录态
+// 页面启动时通过HttpOnly刷新Cookie恢复服务端会话，再执行路由守卫。
 const auth = useAuthStore()
-auth.initFromStorage()
+await auth.restoreSession()
 
+app.use(router)
 app.mount('#app')

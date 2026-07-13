@@ -1,26 +1,43 @@
-// JWT 签发与校验。用于 middleware/auth.ts 的 Token 验证和 routes/auth.ts 的登录签发。
+// 短期访问令牌签发与校验，服务端会话状态由认证中间件进一步确认。
 import jwt from 'jsonwebtoken'
+import crypto from 'node:crypto'
+import type { User } from '@prisma/client'
 import { config } from '../config.js'
 
-// 7 天有效期：平衡用户体验和安全——关闭浏览器重新打开无需重新登录
-const TOKEN_TTL = '7d'
-
-export interface JwtPayload {
-  userId: string
-  email: string
-  role: string
+export interface AccessTokenPayload extends jwt.JwtPayload {
+  sub: string
+  sid: string
+  type: 'access'
 }
 
-// 登录成功后签发 Token，payload 只放最小必要字段（userId + email + role）
-export function signToken(user: { id: string; email: string; role: string }): string {
+export function signAccessToken(user: User, sessionId: string): string {
   return jwt.sign(
-    { userId: user.id, email: user.email, role: user.role },
+    { sid: sessionId, type: 'access' },
     config.jwtSecret,
-    { expiresIn: TOKEN_TTL },
+    {
+      algorithm: 'HS256',
+      subject: user.id,
+      issuer: config.jwtIssuer,
+      audience: config.jwtAudience,
+      expiresIn: config.accessTokenTtlSeconds,
+      jwtid: crypto.randomUUID(),
+    },
   )
 }
 
-// 中间件调用，校验失败直接 throw——由调用方 catch 返回 401
-export function verifyToken(token: string): JwtPayload {
-  return jwt.verify(token, config.jwtSecret) as JwtPayload
+export function verifyAccessToken(token: string): AccessTokenPayload {
+  const payload = jwt.verify(token, config.jwtSecret, {
+    algorithms: ['HS256'],
+    issuer: config.jwtIssuer,
+    audience: config.jwtAudience,
+  })
+  if (
+    typeof payload === 'string' ||
+    payload.type !== 'access' ||
+    typeof payload.sub !== 'string' ||
+    typeof payload.sid !== 'string'
+  ) {
+    throw new Error('Invalid access token payload')
+  }
+  return payload as AccessTokenPayload
 }

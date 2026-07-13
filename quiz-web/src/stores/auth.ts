@@ -1,12 +1,16 @@
-import { ref, computed } from 'vue'
+/** 认证状态：访问令牌仅保存在内存，刷新凭证由HttpOnly Cookie管理。 */
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
   login as apiLogin,
+  logout as apiLogout,
+  logoutAll as apiLogoutAll,
+  refreshSession,
   register as apiRegister,
   updateProfile as apiUpdateProfile,
-  logout as apiLogout,
 } from '../api/auth'
-import { type MemberContext } from '../api/member'
+import { setAccessToken } from '../utils/request'
+import type { MemberContext } from '../api/member'
 
 export interface User {
   id: string
@@ -17,29 +21,20 @@ export interface User {
   paymentStatus?: string
 }
 
-type StoredUser = User & { name?: string }
-
-function normalizeStoredUser(savedUser: StoredUser): User {
-  const { name, ...rest } = savedUser
-  return {
-    ...rest,
-    username: savedUser.username || name || '',
-  }
-}
-
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const token = ref<string | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
   const memberContext = ref<MemberContext | null>(null)
+  const sessionRestored = ref(false)
 
   const isLoggedIn = computed(() => !!token.value && !!user.value)
   const isAdmin = computed(() => user.value?.role === 'admin')
   const isPaid = computed(() => user.value?.paymentStatus === 'paid')
   const permissions = computed(() => {
-    const isCurrentAdmin = memberContext.value?.isAdmin ?? user.value?.role === 'admin'
-    return memberContext.value ? { isAdmin: isCurrentAdmin, canAccessAdmin: isCurrentAdmin } : null
+    const currentAdmin = memberContext.value?.isAdmin ?? user.value?.role === 'admin'
+    return user.value ? { isAdmin: currentAdmin, canAccessAdmin: currentAdmin } : null
   })
   const entitlements = computed(() => {
     const quotas = memberContext.value?.quotas || {}
@@ -64,66 +59,68 @@ export const useAuthStore = defineStore('auth', () => {
     })),
   )
 
-  // 从 localStorage 恢复登录态
-  function initFromStorage(): void {
-    const saved = localStorage.getItem('token')
-    const savedUser = localStorage.getItem('user')
-    const savedMemberContext = localStorage.getItem('memberContext')
-    if (saved && savedUser) {
-      token.value = saved
-      user.value = normalizeStoredUser(JSON.parse(savedUser))
-      memberContext.value = savedMemberContext ? JSON.parse(savedMemberContext) : null
-      if (memberContext.value) {
-        memberContext.value.user = normalizeStoredUser(memberContext.value.user as StoredUser)
-        localStorage.setItem('memberContext', JSON.stringify(memberContext.value))
-      }
-      localStorage.setItem('user', JSON.stringify(user.value))
+  function applyAuth(nextUser: User, accessToken: string): void {
+    user.value = nextUser
+    token.value = accessToken
+    setAccessToken(accessToken)
+  }
+
+  function clearAuth(): void {
+    user.value = null
+    token.value = null
+    memberContext.value = null
+    setAccessToken(null)
+  }
+
+  function clearLocalSession(): void {
+    clearAuth()
+  }
+
+  async function restoreSession(): Promise<boolean> {
+    if (sessionRestored.value) return isLoggedIn.value
+    try {
+      const data = await refreshSession()
+      applyAuth(data.user, data.accessToken)
+      return true
+    } catch {
+      clearAuth()
+      return false
+    } finally {
+      sessionRestored.value = true
     }
   }
 
-  // 保存会员权益上下文（由调用方传入已请求好的数据）
   function setMemberContext(context: MemberContext): void {
     memberContext.value = context
     user.value = context.user
-    localStorage.setItem('user', JSON.stringify(context.user))
-    localStorage.setItem('memberContext', JSON.stringify(context))
   }
 
-  // 保存当前用户资料后同步本地登录态，避免导航栏和下次进入页面继续显示旧信息。
   function setUser(nextUser: User): void {
     user.value = nextUser
-    if (memberContext.value) {
-      memberContext.value = { ...memberContext.value, user: nextUser }
-      localStorage.setItem('memberContext', JSON.stringify(memberContext.value))
-    }
-    localStorage.setItem('user', JSON.stringify(nextUser))
+    if (memberContext.value) memberContext.value = { ...memberContext.value, user: nextUser }
   }
 
-  // 登录
   async function login(username: string, password: string): Promise<void> {
     loading.value = true
     error.value = null
     try {
       const data = await apiLogin({ username, password })
-      token.value = data.token
-      user.value = data.user
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('user', JSON.stringify(data.user))
-      return data as any
-    } catch (e: any) {
-      error.value = e.response?.data?.errMsg || e.message || '登录失败'
-      throw e
+      applyAuth(data.user, data.accessToken)
+    } catch (exception: any) {
+      error.value = exception?.message || '登录失败'
+      throw exception
     } finally {
       loading.value = false
     }
   }
 
-  // 注册
-  async function register(
-    username: string,
-    email: string,
-    password: string,
-    confirmPassword: string,
+  async function register(input: {
+    username: string
+    email: string
+    password: string
+    confirmPassword: string
+    challengeId: string
+    emailCode: string
     examPreferences?: Array<{
       examType: string
       subjects: string[]
@@ -132,61 +129,55 @@ export const useAuthStore = defineStore('auth', () => {
       targetScore?: number
       examDate?: string
       weeklyHours?: number
-    }>,
-  ): Promise<void> {
+    }>
+  }): Promise<void> {
     loading.value = true
     error.value = null
     try {
-      const data = await apiRegister({
-        username,
-        email,
-        password,
-        confirmPassword,
-        examPreferences,
-      })
-      token.value = data.token
-      user.value = data.user
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('user', JSON.stringify(data.user))
-      return data as any
-    } catch (e: any) {
-      error.value = e.response?.data?.errMsg || e.message || '注册失败'
-      throw e
+      const data = await apiRegister(input)
+      applyAuth(data.user, data.accessToken)
+    } catch (exception: any) {
+      error.value = exception?.message || '注册失败'
+      throw exception
     } finally {
       loading.value = false
     }
   }
 
-  // 更新当前用户基础资料
-  async function updateProfile(username: string, email: string): Promise<User> {
+  async function updateProfile(input: {
+    username: string
+    email: string
+    challengeId?: string
+    emailCode?: string
+  }): Promise<User> {
     loading.value = true
     error.value = null
     try {
-      const data = await apiUpdateProfile({ username, email })
+      const data = await apiUpdateProfile(input)
       setUser(data.user)
       return data.user
-    } catch (e: any) {
-      error.value = e.response?.data?.errMsg || e.message || '更新资料失败'
-      throw e
+    } catch (exception: any) {
+      error.value = exception?.message || '更新资料失败'
+      throw exception
     } finally {
       loading.value = false
     }
   }
 
-  // 退出
   async function logout(): Promise<void> {
     try {
       await apiLogout()
-    } catch {
-      // 网络异常等情况下也继续清除本地状态
+    } finally {
+      clearAuth()
     }
-    token.value = null
-    user.value = null
-    memberContext.value = null
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    localStorage.removeItem('memberContext')
-    error.value = null
+  }
+
+  async function logoutAll(): Promise<void> {
+    try {
+      await apiLogoutAll()
+    } finally {
+      clearAuth()
+    }
   }
 
   return {
@@ -195,18 +186,21 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     error,
     memberContext,
+    sessionRestored,
     permissions,
     entitlements,
     memberExamTypes,
     isLoggedIn,
     isAdmin,
     isPaid,
-    initFromStorage,
+    restoreSession,
     setMemberContext,
     setUser,
+    clearLocalSession,
     login,
     register,
     updateProfile,
     logout,
+    logoutAll,
   }
 })

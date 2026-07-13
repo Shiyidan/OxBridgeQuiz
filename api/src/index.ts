@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import cookieParser from 'cookie-parser'
 import { config } from './config.js'
 import { papersRouter } from './routes/papers.js'
 import { parseRouter } from './routes/parse.js'
@@ -13,7 +14,9 @@ import { success } from './utils/response.js'
 
 const app = express()
 
-app.use(cors({ origin: config.corsOrigins }))
+app.set('trust proxy', config.trustProxy)
+app.use(cors({ origin: config.corsOrigins, credentials: true }))
+app.use(cookieParser())
 app.use(express.json({ limit: '50mb' }))
 
 // HTTP 安全头
@@ -46,6 +49,9 @@ app.get('/api/health', (_req, res) => {
 
 app.listen(config.port, () => {
   console.log(`API Server running on http://localhost:${config.port}`)
+  console.log(
+    `[config] env=${config.runtimeEnv}, refreshCookie=Secure:${config.refreshCookieSecure}; SameSite:${config.refreshCookieSameSite}`,
+  )
   void startDiagnosticReportWorker().catch((error) => {
     console.error('[diagnostic-report-task] worker startup failed:', error)
   })

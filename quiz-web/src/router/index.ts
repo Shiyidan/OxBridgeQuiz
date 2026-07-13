@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/home/HomeView.vue'
 import LoginView from '../views/auth/LoginView.vue'
+import { useAuthStore } from '../stores/auth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -14,6 +15,11 @@ const router = createRouter({
       path: '/register',
       name: 'register',
       component: () => import('../views/auth/RegisterView.vue'),
+    },
+    {
+      path: '/forgot-password',
+      name: 'forgot-password',
+      component: () => import('../views/auth/ForgotPasswordView.vue'),
     },
     // 个人中心
     {
@@ -185,10 +191,8 @@ const router = createRouter({
 })
 
 router.beforeEach((to, _from) => {
-  const token = localStorage.getItem('token')
-  const userStr = localStorage.getItem('user')
-  const user = userStr ? JSON.parse(userStr) : null
-  const isLoggedIn = !!token && !!user
+  const auth = useAuthStore()
+  const isLoggedIn = auth.isLoggedIn
 
   const requiresAuth =
     to.path.startsWith('/profile') ||
@@ -205,10 +209,10 @@ router.beforeEach((to, _from) => {
 
   if (requiresAdmin) {
     if (!isLoggedIn) return '/login'
-    if (user?.role !== 'admin') return '/'
+    if (!auth.isAdmin) return '/'
   }
 
-  if ((to.path === '/login' || to.path === '/register') && isLoggedIn) {
+  if ((to.path === '/login' || to.path === '/register' || to.path === '/forgot-password') && isLoggedIn) {
     return '/'
   }
 })

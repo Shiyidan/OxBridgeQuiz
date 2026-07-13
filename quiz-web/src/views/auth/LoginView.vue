@@ -55,10 +55,10 @@
             label-position="top"
             @submit.prevent="handleSubmit"
           >
-            <el-form-item label="用户名" prop="username">
+            <el-form-item label="用户名或邮箱" prop="username">
               <el-input
                 v-model="form.username"
-                placeholder="请输入用户名"
+                placeholder="请输入用户名或邮箱"
                 autocomplete="username"
               />
             </el-form-item>
@@ -176,7 +176,7 @@ const handleSubmit = async (): Promise<void> => {
 }
 
 const handleForgotPassword = (): void => {
-  // 暂未实现。
+  router.push('/forgot-password')
 }
 </script>
 

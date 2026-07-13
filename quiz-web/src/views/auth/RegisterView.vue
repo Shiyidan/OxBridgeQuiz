@@ -29,7 +29,30 @@
           </el-form-item>
 
           <el-form-item label="电子邮箱" prop="email">
-            <el-input v-model="form.email" placeholder="example@mail.com" autocomplete="email" />
+            <el-input
+              v-model="form.email"
+              placeholder="example@mail.com"
+              autocomplete="email"
+              @input="handleEmailInput"
+            />
+          </el-form-item>
+
+          <el-form-item label="邮箱验证码" prop="emailCode">
+            <div class="verification-row">
+              <el-input
+                v-model="form.emailCode"
+                placeholder="请输入六位验证码"
+                maxlength="6"
+                inputmode="numeric"
+              />
+              <el-button
+                :loading="codeSending"
+                :disabled="codeSending || countdown > 0"
+                @click="handleSendCode"
+              >
+                {{ countdown > 0 ? `${countdown}秒后重发` : '获取验证码' }}
+              </el-button>
+            </div>
           </el-form-item>
 
           <el-form-item label="密码" prop="password">
@@ -41,7 +64,7 @@
               show-password
             />
             <template #extra>
-              <span class="field-hint">8-32 位，需要包含字母和数字</span>
+              <span class="field-hint">8-128 位，需要包含字母和数字</span>
             </template>
           </el-form-item>
 
@@ -127,12 +150,13 @@
 
 <script setup lang="ts">
 // 注册页，用于创建账号并进入登录态。
-import { reactive, ref } from 'vue'
+import { onBeforeUnmount, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import type { FormInstance, FormRules } from 'element-plus'
+import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { getMember } from '@/api/member'
+import { sendEmailCode } from '@/api/auth'
 import {
   validateConfirmPassword,
   validateEmail,
@@ -147,6 +171,7 @@ const formRef = ref<FormInstance>()
 const form = reactive({
   username: '',
   email: '',
+  emailCode: '',
   password: '',
   confirmPassword: '',
 })
@@ -167,6 +192,14 @@ const rules: FormRules = {
       validator: (_rule, value: string, callback) => {
         const result = validateEmail(value)
         result.valid ? callback() : callback(new Error(result.message))
+      },
+      trigger: 'blur',
+    },
+  ],
+  emailCode: [
+    {
+      validator: (_rule, value: string, callback) => {
+        /^\d{6}$/.test(value) ? callback() : callback(new Error('请输入六位数字验证码'))
       },
       trigger: 'blur',
     },
@@ -213,6 +246,60 @@ const examRequiredSubjects: Record<string, string[]> = {
 const selectedExamTypes = ref<string[]>([])
 const selectedSubjects = ref<Record<string, string[]>>({})
 const ESAT_MAX_SUBJECTS = 3
+const challengeId = ref('')
+const codeSending = ref(false)
+const countdown = ref(0)
+let countdownTimer: number | undefined
+
+function startCountdown(seconds: number): void {
+  if (countdownTimer) window.clearInterval(countdownTimer)
+  countdown.value = seconds
+  countdownTimer = window.setInterval(() => {
+    countdown.value -= 1
+    if (countdown.value <= 0 && countdownTimer) {
+      window.clearInterval(countdownTimer)
+      countdownTimer = undefined
+    }
+  }, 1000)
+}
+
+function handleEmailInput(): void {
+  challengeId.value = ''
+  form.emailCode = ''
+}
+
+async function handleSendCode(): Promise<void> {
+  const emailResult = validateEmail(form.email)
+  if (!emailResult.valid) {
+    ElMessage.warning(emailResult.message)
+    return
+  }
+  codeSending.value = true
+  try {
+    const data = await sendEmailCode(form.email, 'REGISTER')
+    challengeId.value = data.challengeId
+    startCountdown(data.resendAfter)
+    ElMessage({
+      type: 'success',
+      message: '验证码已发送，请检查邮箱',
+      showClose: true,
+      duration: 3000,
+    })
+  } catch (error: any) {
+    ElMessage({
+      type: 'error',
+      message: error?.message || '验证码发送失败',
+      showClose: true,
+      duration: 4000,
+    })
+  } finally {
+    codeSending.value = false
+  }
+}
+
+onBeforeUnmount(() => {
+  if (countdownTimer) window.clearInterval(countdownTimer)
+})
 
 function examTypeLabel(value: string): string {
   return examTypes.find((e) => e.value === value)?.label || value
@@ -260,18 +347,43 @@ const handleSubmit = async (): Promise<void> => {
     return
   }
 
+  if (!challengeId.value) {
+    ElMessage.warning('请先获取邮箱验证码')
+    return
+  }
+  const examPrefs = selectedExamTypes.value.map((et) => ({
+    examType: et,
+    subjects: selectedSubjects.value[et] || [],
+  }))
+
   try {
-    const examPrefs = selectedExamTypes.value.map((et) => ({
-      examType: et,
-      subjects: selectedSubjects.value[et] || [],
-    }))
-    await auth.register(form.username, form.email, form.password, form.confirmPassword, examPrefs)
+    await auth.register({
+      username: form.username,
+      email: form.email,
+      password: form.password,
+      confirmPassword: form.confirmPassword,
+      challengeId: challengeId.value,
+      emailCode: form.emailCode,
+      examPreferences: examPrefs,
+    })
+  } catch (error: any) {
+    ElMessage({
+      type: 'error',
+      message: error?.message || auth.error || '注册失败，请稍后重试',
+      showClose: true,
+      duration: 4000,
+    })
+    return
+  }
+
+  ElMessage({ type: 'success', message: '注册成功', showClose: true, duration: 2500 })
+  try {
     const memberCtx = await getMember()
     auth.setMemberContext(memberCtx)
-    router.push('/')
   } catch {
-    // 错误信息已写入 auth.error。
+    // 会员上下文可以在后续页面重新加载，不阻断已经成功的注册流程。
   }
+  router.push('/')
 }
 </script>
 
@@ -351,6 +463,13 @@ const handleSubmit = async (): Promise<void> => {
 
 .register-form {
   text-align: left;
+}
+
+.verification-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 132px;
+  gap: 12px;
+  width: 100%;
 }
 
 .field-hint {

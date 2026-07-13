@@ -1,7 +1,7 @@
-/**
- * 认证相关 API
- */
+/** 认证相关API：验证码、密码流程和可撤销会话。 */
 import { callApi } from '@/utils/request'
+
+export type EmailCodePurpose = 'REGISTER' | 'RESET_PASSWORD' | 'CHANGE_EMAIL'
 
 export interface LoginParams {
   username: string
@@ -13,6 +13,8 @@ export interface RegisterParams {
   email: string
   password: string
   confirmPassword: string
+  challengeId: string
+  emailCode: string
   examPreferences?: Array<{
     examType: string
     subjects: string[]
@@ -35,41 +37,55 @@ export interface UserInfo {
 
 export interface AuthResult {
   user: UserInfo
-  token: string
+  accessToken: string
+}
+
+export interface EmailCodeResult {
+  challengeId: string
+  expiresIn: number
+  resendAfter: number
 }
 
 export interface UpdateProfileParams {
   username: string
   email: string
+  challengeId?: string
+  emailCode?: string
 }
 
-export interface UpdateProfileResult {
-  user: UserInfo
+export interface AuthSessionItem {
+  id: string
+  ipAddress?: string
+  userAgent?: string
+  createdAt: string
+  lastUsedAt: string
+  expiresAt: string
+  isCurrent: boolean
 }
 
-/** 登录 */
+export function sendEmailCode(email: string, purpose: EmailCodePurpose) {
+  return callApi<EmailCodeResult>({
+    url: '/auth/email-code',
+    method: 'POST',
+    isAllData: false,
+    body: { email, purpose },
+  })
+}
+
 export function login(params: LoginParams) {
-  return callApi<AuthResult>({
-    url: '/auth/login',
-    method: 'POST',
-    isAllData: false,
-    body: params,
-  })
+  return callApi<AuthResult>({ url: '/auth/login', method: 'POST', isAllData: false, body: params })
 }
 
-/** 注册 */
 export function register(params: RegisterParams) {
-  return callApi<AuthResult>({
-    url: '/auth/register',
-    method: 'POST',
-    isAllData: false,
-    body: params,
-  })
+  return callApi<AuthResult>({ url: '/auth/register', method: 'POST', isAllData: false, body: params })
 }
 
-/** 更新当前用户资料 */
+export function refreshSession() {
+  return callApi<AuthResult>({ url: '/auth/refresh', method: 'POST', isAllData: false })
+}
+
 export function updateProfile(params: UpdateProfileParams) {
-  return callApi<UpdateProfileResult>({
+  return callApi<{ user: UserInfo }>({
     url: '/auth/profile',
     method: 'PUT',
     isAllData: false,
@@ -77,11 +93,54 @@ export function updateProfile(params: UpdateProfileParams) {
   })
 }
 
-/** 登出 */
-export function logout() {
+export function resetPassword(params: {
+  email: string
+  challengeId: string
+  emailCode: string
+  password: string
+  confirmPassword: string
+}) {
   return callApi<null>({
-    url: '/auth/logout',
+    url: '/auth/password/reset',
     method: 'POST',
     isAllData: false,
+    body: params,
   })
+}
+
+export function changePassword(params: {
+  currentPassword: string
+  newPassword: string
+  confirmPassword: string
+}) {
+  return callApi<null>({
+    url: '/auth/password/change',
+    method: 'POST',
+    isAllData: false,
+    body: params,
+  })
+}
+
+export function getSessions() {
+  return callApi<{ list: AuthSessionItem[] }>({
+    url: '/auth/sessions',
+    method: 'GET',
+    isAllData: false,
+  })
+}
+
+export function revokeSession(sessionId: string) {
+  return callApi<null>({
+    url: `/auth/sessions/${sessionId}`,
+    method: 'DELETE',
+    isAllData: false,
+  })
+}
+
+export function logout() {
+  return callApi<null>({ url: '/auth/logout', method: 'POST', isAllData: false })
+}
+
+export function logoutAll() {
+  return callApi<null>({ url: '/auth/logout-all', method: 'POST', isAllData: false })
 }

@@ -1,40 +1,68 @@
-import { Request, Response, NextFunction } from 'express'
-import { verifyToken, JwtPayload } from '../services/jwt.js'
+// API身份中间件：同时校验短期访问令牌、服务端会话和用户当前状态。
+import type { Request, Response, NextFunction } from 'express'
+import { verifyAccessToken } from '../services/jwt.js'
+import { prisma } from '../services/prisma.js'
 import { fail } from '../utils/response.js'
+import { AUTH_ERROR } from '../constants/auth.js'
+
+export interface AuthContext {
+  userId: string
+  sessionId: string
+  email: string
+  role: string
+  authenticatedAt: number
+}
 
 declare global {
   namespace Express {
     interface Request {
-      user?: JwtPayload
+      user?: AuthContext
     }
   }
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+async function resolveAuthContext(req: Request): Promise<AuthContext | null> {
   const header = req.headers.authorization
-  if (!header || !header.startsWith('Bearer ')) {
-    res.status(401).json(fail('请先登录'))
-    return
+  if (!header?.startsWith('Bearer ')) return null
+  const payload = verifyAccessToken(header.slice(7))
+  const session = await prisma.authSession.findFirst({
+    where: {
+      id: payload.sid,
+      userId: payload.sub,
+      revokedAt: null,
+      expiresAt: { gt: new Date() },
+    },
+    include: { user: true },
+  })
+  if (!session) return null
+  return {
+    userId: session.user.id,
+    sessionId: session.id,
+    email: session.user.email,
+    role: session.user.role,
+    authenticatedAt: session.createdAt.getTime(),
   }
+}
 
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const token = header.slice(7)
-    req.user = verifyToken(token)
+    const context = await resolveAuthContext(req)
+    if (!context) {
+      res.status(401).json(fail('请先登录', AUTH_ERROR.SESSION_EXPIRED))
+      return
+    }
+    req.user = context
     next()
   } catch {
-    res.status(401).json(fail('登录已过期，请重新登录'))
+    res.status(401).json(fail('登录状态已过期，请重新登录', AUTH_ERROR.SESSION_EXPIRED))
   }
 }
 
-export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
-  const header = req.headers.authorization
-  if (header && header.startsWith('Bearer ')) {
-    try {
-      const token = header.slice(7)
-      req.user = verifyToken(token)
-    } catch {
-      // token 无效也放行，以游客身份处理
-    }
+export async function optionalAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
+  try {
+    req.user = (await resolveAuthContext(req)) || undefined
+  } catch {
+    req.user = undefined
   }
   next()
 }

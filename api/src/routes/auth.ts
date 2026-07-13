@@ -1,181 +1,382 @@
-import { Router, Request, Response } from 'express'
+// 认证路由：邮箱验证、密码流程、短期访问令牌和可撤销会话。
+import crypto from 'node:crypto'
+import { Router, type Request, type Response } from 'express'
 import bcrypt from 'bcryptjs'
 import rateLimit from 'express-rate-limit'
+import { Prisma, type User } from '@prisma/client'
+import { ZodError } from 'zod'
 import { prisma } from '../services/prisma.js'
-import { signToken } from '../services/jwt.js'
-import { requireAuth } from '../middleware/auth.js'
+import { requireAuth, optionalAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
 import { formatUserForClient } from '../utils/userPresenter.js'
+import { AUTH_ERROR, EMAIL_CODE_PURPOSE, type EmailCodePurpose } from '../constants/auth.js'
+import {
+  changePasswordSchema,
+  loginSchema,
+  normalizeEmail,
+  parseSchema,
+  registerSchema,
+  resetPasswordSchema,
+  sendEmailCodeSchema,
+  updateProfileSchema,
+} from '../utils/authSchemas.js'
+import { AuthError } from '../utils/authError.js'
+import { config } from '../config.js'
+import { createEmailChallenge, consumeEmailChallenge } from '../services/emailVerification.js'
+import { sendVerificationCodeEmail } from '../services/mail.js'
+import {
+  clearRefreshCookie,
+  createAuthSession,
+  revokeRefreshSession,
+  rotateAuthSession,
+} from '../services/authSession.js'
 
 export const authRouter = Router()
 
-const authLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 5,
-  message: { success: false, code: 1, errMsg: '请求过于频繁，请稍后再试', data: null },
+function limiter(windowMs: number, max: number) {
+  return rateLimit({
+    windowMs,
+    max,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    handler: (_req, res) => {
+      res.status(429).json(fail('请求过于频繁，请稍后再试', AUTH_ERROR.RATE_LIMITED))
+    },
+  })
+}
+
+const registerLimiter = limiter(60 * 1000, 5)
+const loginLimiter = limiter(15 * 60 * 1000, 20)
+const emailCodeLimiter = limiter(60 * 60 * 1000, 20)
+const passwordLimiter = limiter(15 * 60 * 1000, 10)
+const dummyPasswordHash = bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12)
+
+function presentUser(user: User) {
+  return formatUserForClient({
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    role: user.role,
+    avatar: user.avatar,
+    paymentStatus: user.paymentStatus,
+  })
+}
+
+function handleAuthError(res: Response, error: unknown, label: string): void {
+  if (error instanceof AuthError) {
+    res.status(error.status).json(fail(error.message, error.code))
+    return
+  }
+  if (error instanceof ZodError) {
+    const firstMessage = error.issues[0]?.message
+    const message = firstMessage?.startsWith('Invalid input') ? '请求参数不正确' : firstMessage
+    res.status(422).json(fail(message || '请求参数不正确', AUTH_ERROR.INVALID_INPUT))
+    return
+  }
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+    res.status(409).json(fail('用户名或邮箱已被使用', AUTH_ERROR.EMAIL_IN_USE))
+    return
+  }
+  console.error(`[auth] ${label}:`, error)
+  res.status(500).json(fail('服务器错误'))
+}
+
+// 发送注册、重置密码或修改邮箱验证码。
+authRouter.post('/email-code', emailCodeLimiter, optionalAuth, async (req: Request, res: Response) => {
+  try {
+    const input = parseSchema(sendEmailCodeSchema, req.body)
+    const purpose = input.purpose as EmailCodePurpose
+    let userId: string | undefined
+
+    if (purpose === EMAIL_CODE_PURPOSE.REGISTER) {
+      const exists = await prisma.user.findUnique({ where: { email: input.email } })
+      if (exists) throw new AuthError(AUTH_ERROR.EMAIL_IN_USE, '该邮箱已注册', 409)
+    }
+
+    if (purpose === EMAIL_CODE_PURPOSE.RESET_PASSWORD) {
+      const user = await prisma.user.findUnique({ where: { email: input.email } })
+      if (!user) {
+        res.json(success({
+          challengeId: crypto.randomUUID(),
+          expiresIn: config.emailCodeTtlSeconds,
+          resendAfter: config.emailCodeResendSeconds,
+        }))
+        return
+      }
+      userId = user.id
+    }
+
+    if (purpose === EMAIL_CODE_PURPOSE.CHANGE_EMAIL) {
+      if (!req.user) throw new AuthError(AUTH_ERROR.SESSION_EXPIRED, '请先登录', 401)
+      if (input.email === req.user.email) {
+        throw new AuthError(AUTH_ERROR.INVALID_INPUT, '新邮箱不能与当前邮箱相同', 422)
+      }
+      const exists = await prisma.user.findUnique({ where: { email: input.email } })
+      if (exists) throw new AuthError(AUTH_ERROR.EMAIL_IN_USE, '该邮箱已被使用', 409)
+      userId = req.user.userId
+    }
+
+    const since = new Date(Date.now() - 60 * 60 * 1000)
+    const [latest, sentLastHour] = await Promise.all([
+      prisma.emailVerificationChallenge.findFirst({
+        where: { email: input.email, purpose },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.emailVerificationChallenge.count({
+        where: { email: input.email, purpose, createdAt: { gte: since } },
+      }),
+    ])
+    if (latest && Date.now() - latest.createdAt.getTime() < config.emailCodeResendSeconds * 1000) {
+      throw new AuthError(AUTH_ERROR.EMAIL_CODE_TOO_FREQUENT, '请稍后再重新获取验证码', 429)
+    }
+    if (sentLastHour >= 5) {
+      throw new AuthError(AUTH_ERROR.EMAIL_CODE_TOO_FREQUENT, '该邮箱获取验证码过于频繁，请稍后再试', 429)
+    }
+
+    const challenge = await prisma.$transaction((tx) =>
+      createEmailChallenge(tx, { email: input.email, purpose, userId }),
+    )
+    try {
+      await sendVerificationCodeEmail({
+        to: input.email,
+        code: challenge.code,
+        purpose,
+        expiresInMinutes: Math.ceil(config.emailCodeTtlSeconds / 60),
+      })
+    } catch (error) {
+      await prisma.emailVerificationChallenge.update({
+        where: { id: challenge.id },
+        data: { invalidatedAt: new Date() },
+      })
+      console.error('[auth] send email code:', error)
+      throw new AuthError(AUTH_ERROR.EMAIL_SERVICE_UNAVAILABLE, '验证码邮件暂时无法发送，请稍后再试', 503)
+    }
+
+    res.json(success({
+      challengeId: challenge.id,
+      expiresIn: config.emailCodeTtlSeconds,
+      resendAfter: config.emailCodeResendSeconds,
+    }))
+  } catch (error) {
+    handleAuthError(res, error, 'email code error')
+  }
 })
 
-// 注册
-authRouter.post('/register', authLimiter, async (req: Request, res: Response) => {
+// 注册必须在同一事务中消费邮箱验证码并创建账号。
+authRouter.post('/register', registerLimiter, async (req: Request, res: Response) => {
   try {
-    const { password, confirmPassword, examPreferences } = req.body
-    const email = typeof req.body.email === 'string' ? req.body.email.trim() : ''
-    const username = typeof req.body.username === 'string' ? req.body.username.trim() : ''
+    const input = parseSchema(registerSchema, req.body)
+    const [existingEmail, existingUsername] = await Promise.all([
+      prisma.user.findUnique({ where: { email: input.email } }),
+      prisma.user.findUnique({ where: { username: input.username } }),
+    ])
+    if (existingEmail) throw new AuthError(AUTH_ERROR.EMAIL_IN_USE, '该邮箱已注册', 409)
+    if (existingUsername) throw new AuthError(AUTH_ERROR.USERNAME_IN_USE, '该用户名已被使用', 409)
 
-    if (!email || !password || !username) {
-      res.status(422).json(fail('邮箱、密码和用户名为必填项'))
-      return
-    }
-    if (password !== confirmPassword) {
-      res.status(422).json(fail('两次输入的密码不一致'))
-      return
-    }
-    if (password.length < 8 || password.length > 32) {
-      res.status(422).json(fail('密码长度需为 8-32 位'))
-      return
-    }
-    if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
-      res.status(422).json(fail('密码需同时包含字母和数字'))
-      return
-    }
-    if (username.length > 50) {
-      res.status(422).json(fail('用户名不能超过 50 个字符'))
-      return
-    }
-
-    const existingEmail = await prisma.user.findUnique({ where: { email } })
-    if (existingEmail) {
-      res.status(409).json(fail('该邮箱已注册'))
-      return
-    }
-    const existingUsername = await prisma.user.findUnique({ where: { username } })
-    if (existingUsername) {
-      res.status(409).json(fail('该用户名已被使用'))
-      return
-    }
-
-    const hashed = await bcrypt.hash(password, 12)
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashed,
-        username,
-        examPreferences: Array.isArray(examPreferences) ? examPreferences : [],
-      },
+    const hashed = await bcrypt.hash(input.password, 12)
+    const user = await prisma.$transaction(async (tx) => {
+      await consumeEmailChallenge(tx, {
+        challengeId: input.challengeId,
+        email: input.email,
+        purpose: EMAIL_CODE_PURPOSE.REGISTER,
+        code: input.emailCode,
+      })
+      return tx.user.create({
+        data: {
+          email: input.email,
+          emailVerifiedAt: new Date(),
+          password: hashed,
+          username: input.username,
+          examPreferences: input.examPreferences || [],
+        },
+      })
     })
-
-    const token = signToken({ id: user.id, email: user.email, role: user.role })
-
-    res.json(success({
-      user: formatUserForClient({ id: user.id, username: user.username, email: user.email, role: user.role, paymentStatus: user.paymentStatus }),
-      token,
-    }))
-  } catch (err) {
-    console.error('[auth] register error:', err)
-    res.status(500).json(fail('服务器错误'))
+    const session = await createAuthSession(user, req, res)
+    res.status(201).json(success({ user: presentUser(user), accessToken: session.accessToken }))
+  } catch (error) {
+    handleAuthError(res, error, 'register error')
   }
 })
 
-// 登录
-authRouter.post('/login', async (req: Request, res: Response) => {
+// 用户名或邮箱密码登录，成功后创建可撤销服务端会话。
+authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
   try {
-    const username = typeof req.body.username === 'string' ? req.body.username.trim() : ''
-    const password = typeof req.body.password === 'string' ? req.body.password : ''
-
-    if (!username || !password) {
-      res.status(422).json(fail('用户名和密码为必填项'))
-      return
-    }
-
-    const user = await prisma.user.findUnique({ where: { username } })
+    const input = parseSchema(loginSchema, req.body)
+    const identifier = input.username.includes('@') ? normalizeEmail(input.username) : input.username
+    const user = await prisma.user.findFirst({
+      where: input.username.includes('@') ? { email: identifier } : { username: identifier },
+    })
     if (!user) {
-      res.json(fail('用户名或密码错误', 'AUTH_WRONG'))
-      return
+      await bcrypt.compare(input.password, await dummyPasswordHash)
+      throw new AuthError(AUTH_ERROR.INVALID_CREDENTIALS, '用户名、邮箱或密码错误', 401)
     }
+    const valid = await bcrypt.compare(input.password, user.password)
+    if (!valid) throw new AuthError(AUTH_ERROR.INVALID_CREDENTIALS, '用户名、邮箱或密码错误', 401)
 
-    const valid = await bcrypt.compare(password, user.password)
-    if (!valid) {
-      res.json(fail('用户名或密码错误', 'AUTH_WRONG'))
-      return
-    }
-
-    const token = signToken({ id: user.id, email: user.email, role: user.role })
-
-    res.json(success({
-      user: formatUserForClient({ id: user.id, username: user.username, email: user.email, role: user.role, paymentStatus: user.paymentStatus }),
-      token,
-    }))
-  } catch (err) {
-    console.error('[auth] login error:', err)
-    res.status(500).json(fail('服务器错误'))
+    const session = await createAuthSession(user, req, res)
+    res.json(success({ user: presentUser(user), accessToken: session.accessToken }))
+  } catch (error) {
+    handleAuthError(res, error, 'login error')
   }
 })
 
+// 使用HttpOnly刷新Cookie轮换刷新凭证，并签发新的短期访问令牌。
+authRouter.post('/refresh', async (req: Request, res: Response) => {
+  try {
+    const result = await rotateAuthSession(req, res)
+    res.json(success({ user: presentUser(result.user), accessToken: result.accessToken }))
+  } catch (error) {
+    handleAuthError(res, error, 'refresh error')
+  }
+})
 
-// 更新资料
+// 忘记密码：消费邮箱验证码、更新密码并撤销全部既有会话。
+authRouter.post('/password/reset', passwordLimiter, async (req: Request, res: Response) => {
+  try {
+    const input = parseSchema(resetPasswordSchema, req.body)
+    const user = await prisma.user.findUnique({ where: { email: input.email } })
+    if (!user) throw new AuthError(AUTH_ERROR.EMAIL_CODE_INVALID, '验证码无效，请重新获取', 422)
+    const password = await bcrypt.hash(input.password, 12)
+    await prisma.$transaction(async (tx) => {
+      await consumeEmailChallenge(tx, {
+        challengeId: input.challengeId,
+        email: input.email,
+        purpose: EMAIL_CODE_PURPOSE.RESET_PASSWORD,
+        code: input.emailCode,
+        userId: user.id,
+      })
+      await tx.user.update({
+        where: { id: user.id },
+        data: { password, passwordChangedAt: new Date() },
+      })
+      await tx.authSession.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      })
+    })
+    clearRefreshCookie(res)
+    res.json(success(null))
+  } catch (error) {
+    handleAuthError(res, error, 'reset password error')
+  }
+})
+
+// 登录状态下修改密码，成功后撤销全部设备会话并要求重新登录。
+authRouter.post('/password/change', passwordLimiter, requireAuth, async (req: Request, res: Response) => {
+  try {
+    const input = parseSchema(changePasswordSchema, req.body)
+    const user = await prisma.user.findUnique({ where: { id: req.user!.userId } })
+    if (!user) throw new AuthError(AUTH_ERROR.SESSION_EXPIRED, '登录状态已过期', 401)
+    const currentValid = await bcrypt.compare(input.currentPassword, user.password)
+    if (!currentValid) {
+      throw new AuthError(AUTH_ERROR.CURRENT_PASSWORD_INVALID, '当前密码错误', 422)
+    }
+    if (await bcrypt.compare(input.newPassword, user.password)) {
+      throw new AuthError(AUTH_ERROR.PASSWORD_UNCHANGED, '新密码不能与当前密码相同', 422)
+    }
+    const password = await bcrypt.hash(input.newPassword, 12)
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: { password, passwordChangedAt: new Date() },
+      }),
+      prisma.authSession.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+    ])
+    clearRefreshCookie(res)
+    res.json(success(null))
+  } catch (error) {
+    handleAuthError(res, error, 'change password error')
+  }
+})
+
+// 更新用户名；邮箱变化时必须消费绑定当前用户的新邮箱验证码。
 authRouter.put('/profile', requireAuth, async (req: Request, res: Response) => {
   try {
-    const username = typeof req.body.username === 'string' ? req.body.username.trim() : ''
-    const email = typeof req.body.email === 'string' ? req.body.email.trim() : ''
+    const input = parseSchema(updateProfileSchema, req.body)
+    const currentUser = await prisma.user.findUnique({ where: { id: req.user!.userId } })
+    if (!currentUser) throw new AuthError(AUTH_ERROR.SESSION_EXPIRED, '用户不存在', 401)
 
-    if (!username || !email) {
-      res.status(422).json(fail('用户名和邮箱为必填项'))
-      return
+    const emailChanged = input.email !== currentUser.email
+    if (emailChanged && (!input.challengeId || !input.emailCode)) {
+      throw new AuthError(AUTH_ERROR.EMAIL_CODE_INVALID, '请验证新邮箱', 422)
     }
-    if (username.length > 50) {
-      res.status(422).json(fail('用户名不能超过 50 个字符'))
-      return
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      res.status(422).json(fail('请输入有效的邮箱地址'))
-      return
-    }
-
-    const currentUser = await prisma.user.findUnique({
-      where: { id: req.user!.userId },
-      select: { id: true, username: true, email: true },
-    })
-    if (!currentUser) {
-      res.status(404).json(fail('用户不存在'))
-      return
-    }
-
-    if (email !== currentUser.email) {
-      const existing = await prisma.user.findUnique({ where: { email } })
-      if (existing && existing.id !== currentUser.id) {
-        res.status(409).json(fail('该邮箱已被使用'))
-        return
+    const user = await prisma.$transaction(async (tx) => {
+      if (emailChanged) {
+        await consumeEmailChallenge(tx, {
+          challengeId: input.challengeId!,
+          email: input.email,
+          purpose: EMAIL_CODE_PURPOSE.CHANGE_EMAIL,
+          code: input.emailCode!,
+          userId: currentUser.id,
+        })
       }
-    }
-    if (username !== currentUser.username) {
-      const existing = await prisma.user.findUnique({ where: { username } })
-      if (existing && existing.id !== currentUser.id) {
-        res.status(409).json(fail('该用户名已被使用'))
-        return
-      }
-    }
-
-    const user = await prisma.user.update({
-      where: { id: currentUser.id },
-      data: { username, email },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        role: true,
-        avatar: true,
-        paymentStatus: true,
-      },
+      return tx.user.update({
+        where: { id: currentUser.id },
+        data: {
+          username: input.username,
+          email: input.email,
+          emailVerifiedAt: emailChanged ? new Date() : currentUser.emailVerifiedAt,
+        },
+      })
     })
-
-    res.json(success({ user: formatUserForClient(user) }))
-  } catch (err) {
-    console.error('[auth] update profile error:', err)
-    res.status(500).json(fail('服务器错误'))
+    res.json(success({ user: presentUser(user) }))
+  } catch (error) {
+    handleAuthError(res, error, 'update profile error')
   }
 })
 
-// 登出  未完善
-authRouter.post('/logout', requireAuth, (_req: Request, res: Response) => {
+// 当前设备服务端登出。
+authRouter.post('/logout', async (req: Request, res: Response) => {
+  try {
+    await revokeRefreshSession(req)
+    clearRefreshCookie(res)
+    res.json(success(null))
+  } catch (error) {
+    handleAuthError(res, error, 'logout error')
+  }
+})
+
+// 撤销当前用户全部设备会话。
+authRouter.post('/logout-all', requireAuth, async (req: Request, res: Response) => {
+  await prisma.authSession.updateMany({
+    where: { userId: req.user!.userId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  })
+  clearRefreshCookie(res)
+  res.json(success(null))
+})
+
+// 查看当前用户的有效会话。
+authRouter.get('/sessions', requireAuth, async (req: Request, res: Response) => {
+  const sessions = await prisma.authSession.findMany({
+    where: { userId: req.user!.userId, revokedAt: null, expiresAt: { gt: new Date() } },
+    orderBy: { lastUsedAt: 'desc' },
+    select: {
+      id: true,
+      ipAddress: true,
+      userAgent: true,
+      createdAt: true,
+      lastUsedAt: true,
+      expiresAt: true,
+    },
+  })
+  res.json(success({
+    list: sessions.map((session) => ({
+      ...session,
+      isCurrent: session.id === req.user!.sessionId,
+    })),
+  }))
+})
+
+// 撤销指定设备会话。
+authRouter.delete('/sessions/:id', requireAuth, async (req: Request, res: Response) => {
+  await prisma.authSession.updateMany({
+    where: { id: req.params.id, userId: req.user!.userId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  })
+  if (req.params.id === req.user!.sessionId) clearRefreshCookie(res)
   res.json(success(null))
 })

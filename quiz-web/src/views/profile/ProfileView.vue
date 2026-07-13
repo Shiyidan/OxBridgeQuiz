@@ -10,6 +10,40 @@
         </div>
       </header>
 
+      <section class="diagnostic-quota-panel">
+        <div class="diagnostic-quota-heading">
+          <h2>诊断测试额度</h2>
+          <p>各考试类型独立计算额度，互不占用。</p>
+        </div>
+        <div class="diagnostic-quota-actions">
+          <div class="diagnostic-quota-list" role="tablist" aria-label="诊断测试额度明细">
+            <button
+              v-for="item in diagnosticQuotaItems"
+              :key="item.examType"
+              class="diagnostic-quota-pill"
+              :class="{
+                'diagnostic-quota-pill--active': currentExamType === item.examType,
+                'diagnostic-quota-pill--empty': item.isEmpty,
+              }"
+              type="button"
+              role="tab"
+              :aria-selected="currentExamType === item.examType"
+              @click="currentExamType = item.examType"
+            >
+              <strong>{{ item.label }}</strong>
+              <span>{{ item.text }}</span>
+            </button>
+          </div>
+          <button
+            type="button"
+            class="diagnostic-quota-button button_primary"
+            @click="handleUpgradeClick"
+          >
+            获取更多模考额度
+          </button>
+        </div>
+      </section>
+
       <div class="profile-grid">
         <aside class="student-card">
           <div class="avatar-frame">
@@ -34,19 +68,6 @@
         </aside>
 
         <section v-if="hasActiveMembership" class="member-dashboard">
-          <div class="exam-tabs" role="tablist" aria-label="考试类型">
-            <button
-              v-for="examType in examTabs"
-              :key="examType"
-              :class="{ active: currentExamType === examType }"
-              type="button"
-              role="tab"
-              @click="currentExamType = examType"
-            >
-              {{ examType }}
-            </button>
-          </div>
-
           <div v-if="isCurrentExamActive" class="metric-panel">
             <article class="metric-item">
               <span>预估分数</span>
@@ -81,13 +102,25 @@
         </section>
 
         <section v-else class="free-upgrade-panel">
-          <span class="status-pill">诊断测试已完成</span>
-          <h2>
-            首次诊断测试分数：{{ estimatedScoreText
-            }}<small v-if="estimatedScoreText !== '--'"> / 9.0</small>
-          </h2>
-          <p>升级 Pro 会员，解锁历次测试综合分析、海量真题练习册与智能错题本系统。</p>
-          <button type="button" class="button_cancel">升级 Pro 会员</button>
+          <template v-if="hasCompletedCurrentDiagnostic">
+            <span class="status-pill">{{ currentExamType }} 诊断测试已完成</span>
+            <h2>
+              {{ currentExamType }} 诊断测试分数：{{ currentDiagnosticScoreText
+              }}<small v-if="currentDiagnosticScoreText !== '--'"> / 9.0</small>
+            </h2>
+            <p>升级 Pro 会员，解锁历次测试综合分析、海量真题练习册与智能错题本系统。</p>
+            <button type="button" class="button_cancel" @click="handleUpgradeClick">
+              升级 Pro 会员
+            </button>
+          </template>
+          <template v-else>
+            <span class="status-pill">{{ currentExamType }} 尚未完成诊断测试</span>
+            <h2>完成 {{ currentExamType }} 首次诊断，获取能力评估</h2>
+            <p>完成该考试类型的诊断测试后，可查看预估分数、薄弱知识点和后续学习建议。</p>
+            <button type="button" class="button_cancel" @click="handleStartDiagnostic">
+              开始 {{ currentExamType }} 诊断测试
+            </button>
+          </template>
         </section>
       </div>
 
@@ -134,12 +167,101 @@
               v-model="profileForm.email"
               :disabled="!profileEditing || profileSaving"
               placeholder="请输入邮箱"
+              @input="resetEmailVerification"
             />
           </label>
           <label>
             <span>用户密码</span>
             <el-input model-value="************" disabled />
           </label>
+        </div>
+        <div v-if="profileEditing && profileEmailChanged" class="email-verification-row">
+          <el-input
+            v-model="emailCode"
+            maxlength="6"
+            inputmode="numeric"
+            placeholder="输入新邮箱收到的六位验证码"
+          />
+          <button
+            type="button"
+            class="button_cancel"
+            :disabled="emailCodeSending || emailCountdown > 0"
+            @click="sendChangeEmailCode"
+          >
+            {{ emailCountdown > 0 ? `${emailCountdown}秒后重发` : '验证新邮箱' }}
+          </button>
+        </div>
+
+        <div class="security-subsection">
+          <div class="security-heading">
+            <div>
+              <h3>登录安全</h3>
+              <p>修改密码和管理当前账号的登录设备。</p>
+            </div>
+            <button
+              type="button"
+              class="button_cancel"
+              :disabled="!profileEditing"
+              @click="handleLogoutAll"
+            >
+              退出全部设备
+            </button>
+          </div>
+
+          <div class="password-form">
+            <el-input
+              v-model="passwordForm.currentPassword"
+              type="password"
+              autocomplete="current-password"
+              placeholder="当前密码"
+              :disabled="!profileEditing || passwordSaving"
+              show-password
+            />
+            <el-input
+              v-model="passwordForm.newPassword"
+              type="password"
+              autocomplete="new-password"
+              placeholder="新密码（8-128位，包含字母和数字）"
+              :disabled="!profileEditing || passwordSaving"
+              show-password
+            />
+            <el-input
+              v-model="passwordForm.confirmPassword"
+              type="password"
+              autocomplete="new-password"
+              placeholder="确认新密码"
+              :disabled="!profileEditing || passwordSaving"
+              show-password
+            />
+            <button
+              type="button"
+              class="button_primary"
+              :disabled="!profileEditing || passwordSaving"
+              @click="savePassword"
+            >
+              {{ passwordSaving ? '修改中...' : '修改密码' }}
+            </button>
+          </div>
+
+          <div class="session-list">
+            <article v-for="session in sessions" :key="session.id" class="session-item">
+              <div>
+                <strong>{{ session.isCurrent ? '当前设备' : '已登录设备' }}</strong>
+                <small
+                  >IP：{{ formatIpAddress(session.ipAddress) }} · 最近活动
+                  {{ formatSessionTime(session.lastUsedAt) }}</small
+                >
+              </div>
+              <button
+                type="button"
+                class="button_cancel"
+                :disabled="!profileEditing"
+                @click="handleRevokeSession(session)"
+              >
+                {{ session.isCurrent ? '退出' : '撤销' }}
+              </button>
+            </article>
+          </div>
         </div>
       </section>
 
@@ -286,7 +408,10 @@
             </label>
             <label v-if="pref.examType.toUpperCase() === 'ESAT'">
               <span>{{ pref.examType }} 目标分数</span>
-              <input :value="pref.targetScore ? `${pref.targetScore.toFixed(1)} / 9.0` : '未设置'" readonly />
+              <input
+                :value="pref.targetScore ? `${pref.targetScore.toFixed(1)} / 9.0` : '未设置'"
+                readonly
+              />
             </label>
             <label>
               <span>{{ pref.examType }} 考试与投入</span>
@@ -386,7 +511,7 @@
 
 <script setup lang="ts">
 // 学生个人中心：展示会员权益、学习统计、基础信息和订阅记录。
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
@@ -399,6 +524,14 @@ import {
 import { getProfileExamStats, type ProfileExamStats } from '@/api/exam'
 import { useAuthStore } from '@/stores/auth'
 import { DEFAULT_EXAM_TYPE, EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
+import {
+  changePassword,
+  getSessions,
+  revokeSession,
+  sendEmailCode,
+  type AuthSessionItem,
+} from '@/api/auth'
+import { validateConfirmPassword, validatePassword } from '@/utils/validation'
 
 type SubscriptionFilter = 'all' | 'active' | 'expired' | 'cancelled'
 type PaymentMethod = 'wechat' | 'alipay' | 'manual'
@@ -432,6 +565,17 @@ const profileForm = reactive({
   username: '',
   email: '',
 })
+const emailCode = ref('')
+const emailChallengeId = ref('')
+const emailCodeSending = ref(false)
+const emailCountdown = ref(0)
+let emailTimer: number | undefined
+const passwordSaving = ref(false)
+const passwordForm = reactive({ currentPassword: '', newPassword: '', confirmPassword: '' })
+const sessions = ref<AuthSessionItem[]>([])
+const profileEmailChanged = computed(
+  () => profileForm.email.trim().toLowerCase() !== (auth.user?.email || '').toLowerCase(),
+)
 
 // 报考目标编辑
 const examEditing = ref(false)
@@ -539,7 +683,11 @@ async function saveExam(): Promise<void> {
   for (const et of editExamTypes.value) {
     const targetScoreText = editGoals.value[et]?.targetScore.trim() || ''
     const targetScore = Number(targetScoreText)
-    if (et === 'ESAT' && targetScoreText && (!Number.isFinite(targetScore) || targetScore < 1 || targetScore > 9)) {
+    if (
+      et === 'ESAT' &&
+      targetScoreText &&
+      (!Number.isFinite(targetScore) || targetScore < 1 || targetScore > 9)
+    ) {
       ElMessage.warning('ESAT 目标分数需为 1.0-9.0')
       return
     }
@@ -565,7 +713,9 @@ async function saveExam(): Promise<void> {
         subjects: editSubjects.value[et] || [],
         ...(targetUniversities.length ? { targetUniversities } : {}),
         ...(goal.targetMajor.trim() ? { targetMajor: goal.targetMajor.trim() } : {}),
-        ...(et === 'ESAT' && goal.targetScore && Number.isFinite(targetScore) ? { targetScore } : {}),
+        ...(et === 'ESAT' && goal.targetScore && Number.isFinite(targetScore)
+          ? { targetScore }
+          : {}),
         ...(goal.examDate ? { examDate: goal.examDate } : {}),
         ...(goal.weeklyHours && Number.isFinite(weeklyHours) ? { weeklyHours } : {}),
       }
@@ -597,7 +747,6 @@ const activeMemberships = computed(() =>
 )
 const hasActiveMembership = computed(() => activeMemberships.value.length > 0 || auth.isPaid)
 const examPreferences = computed(() => auth.memberContext?.examPreferences || [])
-const examTabs = EXAM_TYPE_OPTIONS.map((item) => item.value)
 const membershipTags = computed(() => {
   if (!activeMemberships.value.length) return ['免费版']
   return activeMemberships.value.map((item) => `${item.examType} ${planName(item.plan)}`)
@@ -628,6 +777,33 @@ const answeredQuestionText = computed(() =>
 const diagnosticExamText = computed(() =>
   isCurrentExamActive.value ? String(currentExamStats.value.diagnosticExamCount) : '--',
 )
+const diagnosticQuotaItems = computed(() => {
+  const quotas = auth.memberContext?.quotas || {}
+  return EXAM_TYPE_OPTIONS.map((item) => {
+    const quota = quotas[item.value]
+    const diagnostic = quota?.diagnostic
+    const isUnlimited = Boolean(quota?.isMember || diagnostic?.unlimited)
+    let text = '暂无额度'
+
+    if (isUnlimited) {
+      text = '会员不限次'
+    } else if (diagnostic && diagnostic.remaining !== null && diagnostic.limit !== null) {
+      text = `剩余 ${diagnostic.remaining}/${diagnostic.limit} 次`
+    }
+
+    return {
+      examType: item.value,
+      label: item.label,
+      text,
+      isEmpty: !isUnlimited && (!diagnostic || diagnostic.remaining === 0),
+    }
+  })
+})
+const hasCompletedCurrentDiagnostic = computed(() => currentExamStats.value.diagnosticExamCount > 0)
+const currentDiagnosticScoreText = computed(() => {
+  const score = currentExamStats.value.estimatedScore
+  return score === null ? '--' : score.toFixed(1)
+})
 const subscriptionRecords = computed<SubscriptionRecord[]>(() =>
   (auth.memberContext?.memberships || []).map((item, index) => ({
     id: `${item.examType}-${item.plan}-${item.startsAt || index}`,
@@ -664,7 +840,11 @@ watch(
 
 onMounted(async () => {
   errorText.value = ''
-  const [memberResult, statsResult] = await Promise.allSettled([getMember(), getProfileExamStats()])
+  const [memberResult, statsResult, sessionsResult] = await Promise.allSettled([
+    getMember(),
+    getProfileExamStats(),
+    getSessions(),
+  ])
 
   if (memberResult.status === 'fulfilled') {
     auth.setMemberContext(memberResult.value)
@@ -681,7 +861,10 @@ onMounted(async () => {
   if (statsResult.status === 'fulfilled') {
     profileStats.value = statsResult.value.stats || {}
   }
-  const hasFailure = [memberResult, statsResult].some((result) => result.status === 'rejected')
+  if (sessionsResult.status === 'fulfilled') sessions.value = sessionsResult.value.list
+  const hasFailure = [memberResult, statsResult, sessionsResult].some(
+    (result) => result.status === 'rejected',
+  )
   if (hasFailure) errorText.value = '部分学习数据暂时无法加载，请稍后刷新。'
 })
 
@@ -692,16 +875,26 @@ async function handleLogout(): Promise<void> {
 
 function startEditProfile(): void {
   resetProfileForm()
+  emailCode.value = ''
+  emailChallengeId.value = ''
+  resetPasswordDraft()
   profileEditing.value = true
 }
 
 function cancelEditProfile(): void {
   resetProfileForm()
+  emailCode.value = ''
+  emailChallengeId.value = ''
+  resetPasswordDraft()
   profileEditing.value = false
 }
 
 function handleUpgradeClick(): void {
   ElMessage.info(`即将开通 ${currentExamType.value} 会员`)
+}
+
+function handleStartDiagnostic(): void {
+  router.push('/assessment')
 }
 
 async function saveProfile(): Promise<void> {
@@ -719,11 +912,20 @@ async function saveProfile(): Promise<void> {
     ElMessage.warning('请输入有效的邮箱地址')
     return
   }
+  if (profileEmailChanged.value && (!emailChallengeId.value || !/^\d{6}$/.test(emailCode.value))) {
+    ElMessage.warning('请先验证新邮箱并输入六位验证码')
+    return
+  }
 
   profileSaving.value = true
   try {
-    // 密码不在个人中心修改，避免和登录凭证更新流程混在一起。
-    await auth.updateProfile(username, email)
+    await auth.updateProfile({
+      username,
+      email,
+      challengeId: profileEmailChanged.value ? emailChallengeId.value : undefined,
+      emailCode: profileEmailChanged.value ? emailCode.value : undefined,
+    })
+    resetPasswordDraft()
     profileEditing.value = false
     ElMessage.success('基础信息已更新')
   } catch (err: any) {
@@ -733,10 +935,120 @@ async function saveProfile(): Promise<void> {
   }
 }
 
+function startEmailCountdown(seconds: number): void {
+  if (emailTimer) window.clearInterval(emailTimer)
+  emailCountdown.value = seconds
+  emailTimer = window.setInterval(() => {
+    emailCountdown.value -= 1
+    if (emailCountdown.value <= 0 && emailTimer) {
+      window.clearInterval(emailTimer)
+      emailTimer = undefined
+    }
+  }, 1000)
+}
+
+function resetEmailVerification(): void {
+  emailChallengeId.value = ''
+  emailCode.value = ''
+}
+
+async function sendChangeEmailCode(): Promise<void> {
+  const email = profileForm.email.trim()
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    ElMessage.warning('请输入有效的新邮箱地址')
+    return
+  }
+  emailCodeSending.value = true
+  try {
+    const data = await sendEmailCode(email, 'CHANGE_EMAIL')
+    emailChallengeId.value = data.challengeId
+    emailCode.value = ''
+    startEmailCountdown(data.resendAfter)
+    ElMessage.success('验证码已发送到新邮箱')
+  } catch (error: any) {
+    ElMessage.error(error?.message || '验证码发送失败')
+  } finally {
+    emailCodeSending.value = false
+  }
+}
+
+async function savePassword(): Promise<void> {
+  if (!profileEditing.value) return
+  const passwordResult = validatePassword(passwordForm.newPassword)
+  const confirmResult = validateConfirmPassword(
+    passwordForm.newPassword,
+    passwordForm.confirmPassword,
+  )
+  if (!passwordForm.currentPassword) {
+    ElMessage.warning('请输入当前密码')
+    return
+  }
+  if (!passwordResult.valid) {
+    ElMessage.warning(passwordResult.message)
+    return
+  }
+  if (!confirmResult.valid) {
+    ElMessage.warning(confirmResult.message)
+    return
+  }
+
+  passwordSaving.value = true
+  try {
+    await changePassword(passwordForm)
+    resetPasswordDraft()
+    auth.clearLocalSession()
+    ElMessage.success('密码已修改，请使用新密码重新登录')
+    await router.replace('/login')
+  } catch (error: any) {
+    ElMessage.error(error?.message || '密码修改失败')
+  } finally {
+    passwordSaving.value = false
+  }
+}
+
+function formatSessionTime(value: string): string {
+  return new Date(value).toLocaleString('zh-CN', { hour12: false })
+}
+
+function formatIpAddress(value?: string | null): string {
+  if (!value) return '未知'
+  if (value === '::1') return '127.0.0.1'
+  return value.replace(/^::ffff:/i, '')
+}
+
+async function handleRevokeSession(session: AuthSessionItem): Promise<void> {
+  if (!profileEditing.value) return
+  await revokeSession(session.id)
+  if (session.isCurrent) {
+    await auth.logout()
+    router.push('/login')
+    return
+  }
+  sessions.value = sessions.value.filter((item) => item.id !== session.id)
+  ElMessage.success('设备会话已撤销')
+}
+
+async function handleLogoutAll(): Promise<void> {
+  if (!profileEditing.value) return
+  await auth.logoutAll()
+  ElMessage.success('全部设备已退出')
+  router.push('/login')
+}
+
 function resetProfileForm(): void {
   profileForm.username = auth.user?.username || ''
   profileForm.email = auth.user?.email || ''
 }
+
+function resetPasswordDraft(): void {
+  passwordForm.currentPassword = ''
+  passwordForm.newPassword = ''
+  passwordForm.confirmPassword = ''
+}
+
+onBeforeUnmount(() => {
+  if (emailTimer) window.clearInterval(emailTimer)
+})
 
 function normalizeExamType(value: unknown): ExamType {
   return EXAM_TYPE_OPTIONS.some((item) => item.value === value)
@@ -852,11 +1164,110 @@ function formatTimestamp(value: number | null): string {
   }
 }
 
+.diagnostic-quota-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--profile-card-gap-lg);
+  margin-top: clamp(24px, 1.67vw, 32px);
+  padding: clamp(20px, 1.67vw, 26px) var(--profile-card-pad);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.diagnostic-quota-heading {
+  flex: 0 0 auto;
+
+  h2 {
+    margin: 0 0 6px;
+    color: var(--color-ink);
+    font-size: var(--text-xl);
+    font-weight: var(--weight-bold);
+  }
+
+  p {
+    margin: 0;
+    color: var(--color-ink-muted);
+    font-size: var(--text-sm);
+  }
+}
+
+.diagnostic-quota-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--profile-card-gap);
+  min-width: 0;
+}
+
+.diagnostic-quota-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.diagnostic-quota-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: var(--color-hover);
+  color: var(--color-ink-soft);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color var(--duration-base) ease,
+    background var(--duration-base) ease,
+    color var(--duration-base) ease,
+    transform var(--duration-base) ease;
+
+  strong {
+    color: var(--color-ink);
+  }
+
+  &:hover {
+    border-color: var(--color-ink);
+    transform: translateY(-1px);
+  }
+}
+
+.diagnostic-quota-pill--active {
+  border-color: var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-ink-inverse);
+
+  strong {
+    color: var(--color-ink-inverse);
+  }
+}
+
+.diagnostic-quota-pill--empty:not(.diagnostic-quota-pill--active) {
+  background: var(--color-surface-alt);
+  color: var(--color-ink-muted);
+}
+
+.diagnostic-quota-button {
+  flex: 0 0 auto;
+  min-width: 176px;
+  height: 42px;
+  padding: 0 20px;
+  border-radius: var(--radius-md);
+}
+
 .profile-grid {
   display: grid;
   grid-template-columns: var(--profile-sidebar-width) minmax(0, 1fr);
   gap: var(--profile-card-gap-lg);
-  margin-top: clamp(24px, 1.67vw, 32px);
+  margin-top: var(--profile-card-gap-lg);
 }
 
 .student-card,
@@ -997,47 +1408,6 @@ function formatTimestamp(value: number | null): string {
 .member-dashboard {
   display: grid;
   gap: var(--profile-card-gap);
-}
-
-.exam-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: clamp(8px, 0.75vw, 10px);
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-
-  button {
-    height: clamp(44px, 3vw, var(--height-button-lg));
-    min-width: clamp(78px, 6vw, 90px);
-    padding: 0 clamp(16px, 1.38vw, 22px);
-    border: 1px solid var(--color-line);
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
-    color: var(--color-ink-soft);
-    font-family: inherit;
-    font-size: var(--text-base);
-    font-weight: var(--weight-medium);
-    cursor: pointer;
-    transition:
-      background var(--duration-base) ease,
-      color var(--duration-base) ease,
-      border-color var(--duration-base) ease,
-      transform var(--duration-base) ease;
-
-    &.active {
-      border-color: var(--color-ink);
-      background: var(--color-ink);
-      color: var(--color-ink-inverse);
-    }
-
-    &:hover:not(.active) {
-      border-color: var(--color-ink);
-      color: var(--color-ink);
-      transform: translateY(-1px);
-    }
-  }
 }
 
 .metric-panel {
@@ -1231,6 +1601,78 @@ function formatTimestamp(value: number | null): string {
 
 .readonly-form--two {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.email-verification-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  gap: 12px;
+  max-width: 560px;
+  margin-top: 18px;
+}
+
+.security-subsection {
+  margin-top: clamp(24px, 1.67vw, 32px);
+  padding-top: clamp(22px, 1.46vw, 28px);
+  border-top: 1px solid var(--color-line-soft);
+}
+
+.security-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.security-heading h3 {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+}
+
+.security-heading p {
+  margin: 5px 0 0;
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+}
+
+.security-subsection button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.password-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.session-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px;
+  border: 1px solid var(--color-line-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+}
+
+.session-item small {
+  display: block;
+  margin: 4px 0 0;
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
 }
 
 .subscription-summary {

@@ -54,6 +54,33 @@ export interface ListParams {
   pageSize?: number
 }
 
+export interface AdminPaymentConfig {
+  firstMonthlyPriceCents: number
+  monthlyPriceCents: number
+  yearlyPriceCents: number
+  status: 'active' | 'inactive'
+  updatedBy?: string | null
+  updatedAt: string
+}
+
+export interface AdminPaymentOrder {
+  id: string
+  orderNo: string
+  examTypes: string[]
+  plan: string
+  priceType: string
+  amountCents: number
+  currency: string
+  channel: string
+  status: string
+  provider: string
+  providerOrderNo?: string | null
+  expiresAt: string
+  paidAt?: string | null
+  createdAt: string
+  user: { username: string; email: string }
+}
+
 export interface UpdateUserAccessPayload {
   role: string
   membership?: {
@@ -129,5 +156,40 @@ export function updateUserAccess(userId: string, data: UpdateUserAccessPayload) 
     method: 'PUT',
     isAllData: false,
     body: data,
+  })
+}
+
+// ---- 支付策略与订单 ----
+
+/** 获取后台支付策略。 */
+export function getAdminPaymentConfig() {
+  return callApi<AdminPaymentConfig>({
+    url: '/admin/payment-config',
+    method: 'GET',
+    isAllData: false,
+  })
+}
+
+/** 保存后台支付策略，金额单位为分。 */
+export function updateAdminPaymentConfig(data: Omit<AdminPaymentConfig, 'updatedAt' | 'updatedBy'>) {
+  return callApi<AdminPaymentConfig>({
+    url: '/admin/payment-config',
+    method: 'PUT',
+    isAllData: false,
+    body: data,
+  })
+}
+
+/** 查询支付订单。 */
+export function getAdminPaymentOrders(params: ListParams & { status?: string } = {}) {
+  return callApi<PageResult<AdminPaymentOrder>>({
+    url: '/admin/payment-orders',
+    method: 'GET',
+    isAllData: false,
+    params: {
+      ...(params.page ? { page: String(params.page) } : {}),
+      ...(params.pageSize ? { pageSize: String(params.pageSize) } : {}),
+      status: params.status,
+    },
   })
 }

@@ -14,6 +14,7 @@ const LOCAL_CORS_ORIGINS = [
 
 type BackendEnv = 'local' | 'test' | 'prod'
 type CookieSameSite = 'lax' | 'strict' | 'none'
+type ChinaumsEnv = 'test' | 'prod'
 
 type BackendEnvConfig = {
   port: number
@@ -123,6 +124,91 @@ function resolveCorsOrigins(): (string | RegExp)[] {
   return origins
 }
 
+function parseChinaumsEnv(value: string | undefined): ChinaumsEnv {
+  const fallback = BACKEND_ENV === 'prod' ? 'prod' : 'test'
+  const environment = value || fallback
+  if (environment === 'test' || environment === 'prod') return environment
+  throw new Error(`[config] CHINAUMS_ENV must be test or prod, received: ${environment}`)
+}
+
+function validateChinaumsUrl(name: string, value: string, requireHttps: boolean): void {
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    throw new Error(`[config] ${name} must be a valid absolute URL`)
+  }
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new Error(`[config] ${name} must use HTTP or HTTPS`)
+  }
+  if (requireHttps && url.protocol !== 'https:') {
+    throw new Error(`[config] ${name} must use HTTPS in the ChinaUMS production environment`)
+  }
+}
+
+function resolveChinaumsConfig() {
+  const enabled = parseBoolean(process.env.CHINAUMS_ENABLED, false)
+  const environment = parseChinaumsEnv(process.env.CHINAUMS_ENV)
+  const productionMode = environment === 'prod' || BACKEND_ENV === 'prod'
+  const defaultBaseUrl = environment === 'prod'
+    ? 'https://api-mop.chinaums.com'
+    : 'https://test-api-open.chinaums.com'
+  const payment = {
+    enabled,
+    environment,
+    baseUrl: (process.env.CHINAUMS_BASE_URL || defaultBaseUrl).replace(/\/$/, ''),
+    appId: process.env.CHINAUMS_APP_ID || '',
+    appKey: process.env.CHINAUMS_APP_KEY || '',
+    mid: process.env.CHINAUMS_MID || '',
+    tid: process.env.CHINAUMS_TID || '',
+    instMid: process.env.CHINAUMS_INST_MID || 'QRPAYDEFAULT',
+    msgSrcId: process.env.CHINAUMS_MSG_SRC_ID || '',
+    communicationKey: process.env.CHINAUMS_COMMUNICATION_KEY || '',
+    notifyUrl: process.env.CHINAUMS_NOTIFY_URL || '',
+    returnUrl: process.env.CHINAUMS_RETURN_URL || '',
+    orderDescription: process.env.CHINAUMS_ORDER_DESCRIPTION || 'AceMock 在线会员订阅',
+    timeoutMs: parseInt(process.env.CHINAUMS_TIMEOUT_MS || '10000', 10),
+    orderExpireMinutes: parseInt(process.env.CHINAUMS_ORDER_EXPIRE_MINUTES || '15', 10),
+  }
+
+  if (!enabled) return payment
+  if (BACKEND_ENV === 'prod' && environment !== 'prod') {
+    throw new Error('[config] API_RUNTIME_ENV=prod requires CHINAUMS_ENV=prod')
+  }
+
+  const required: Array<[string, string]> = [
+    ['CHINAUMS_APP_ID', payment.appId],
+    ['CHINAUMS_APP_KEY', payment.appKey],
+    ['CHINAUMS_MID', payment.mid],
+    ['CHINAUMS_TID', payment.tid],
+    ['CHINAUMS_MSG_SRC_ID', payment.msgSrcId],
+    ['CHINAUMS_COMMUNICATION_KEY', payment.communicationKey],
+    ['CHINAUMS_NOTIFY_URL', payment.notifyUrl],
+  ]
+  const missing = required.filter(([, value]) => !value).map(([name]) => name)
+  if (missing.length > 0) {
+    throw new Error(`[config] ChinaUMS is enabled but required values are missing: ${missing.join(', ')}`)
+  }
+  if (payment.mid.length !== 15) throw new Error('[config] CHINAUMS_MID must contain 15 characters')
+  if (payment.tid.length !== 8) throw new Error('[config] CHINAUMS_TID must contain 8 characters')
+  if (!/^[A-Za-z0-9]{4}$/.test(payment.msgSrcId)) {
+    throw new Error('[config] CHINAUMS_MSG_SRC_ID must contain exactly 4 letters or digits')
+  }
+  if (!Number.isInteger(payment.timeoutMs) || payment.timeoutMs < 1000) {
+    throw new Error('[config] CHINAUMS_TIMEOUT_MS must be an integer of at least 1000')
+  }
+  if (!Number.isInteger(payment.orderExpireMinutes) || payment.orderExpireMinutes < 1) {
+    throw new Error('[config] CHINAUMS_ORDER_EXPIRE_MINUTES must be a positive integer')
+  }
+  if (payment.orderDescription.length > 128) {
+    throw new Error('[config] CHINAUMS_ORDER_DESCRIPTION must not exceed 128 characters')
+  }
+  validateChinaumsUrl('CHINAUMS_BASE_URL', payment.baseUrl, true)
+  validateChinaumsUrl('CHINAUMS_NOTIFY_URL', payment.notifyUrl, productionMode)
+  if (payment.returnUrl) validateChinaumsUrl('CHINAUMS_RETURN_URL', payment.returnUrl, productionMode)
+  return payment
+}
+
 const refreshCookieSecure = parseBoolean(
   process.env.REFRESH_COOKIE_SECURE,
   backendDefaults.refreshCookieSecure,
@@ -170,4 +256,5 @@ export const config = {
   deepseekApiKey: process.env.DEEPSEEK_API_KEY || '',
   deepseekBaseUrl: (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/$/, ''),
   deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash',
+  chinaums: resolveChinaumsConfig(),
 }

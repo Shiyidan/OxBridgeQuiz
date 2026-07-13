@@ -81,11 +81,16 @@
       </div>
     </div>
   </section>
+  <PaymentModal v-model="paymentVisible" @paid="handlePaymentSuccess" />
 </template>
 
 <script setup lang="ts">
 // 定价方案卡片区（首页 HomeView 使用，Free / Pro 双卡对比，Pro 卡走深色反色）
-import { reactive } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
+import PaymentModal from '@/components/PaymentModal.vue'
+import { getMember } from '@/api/member'
+import { getPaymentConfig } from '@/api/payment'
+import { useAuthStore } from '@/stores/auth'
 
 interface PlanFeature {
   text: string
@@ -143,9 +148,49 @@ const plans = reactive<Plan[]>([
   },
 ])
 
-const handleSelectPlan = (plan: Plan): void => {
+const paymentVisible = ref(false)
+const authStore = useAuthStore()
+
+function formatPrice(valueCents: number): string {
+  const value = valueCents / 100
+  return Number.isInteger(value) ? String(value) : value.toFixed(2)
+}
+
+// 首页会员卡片与支付弹窗共用后台支付策略，避免出现多套价格。
+async function syncMemberPrice(): Promise<void> {
+  try {
+    const config = await getPaymentConfig()
+    const memberPlan = plans.find((item) => item.id === 'member')
+    if (!memberPlan) return
+    memberPlan.price = formatPrice(config.monthlyPriceCents)
+    memberPlan.ctaDisabled = config.status !== 'active'
+    memberPlan.ctaText = config.status === 'active' ? '升级会员' : '暂未开放'
+  } catch (error) {
+    console.warn('[PricingSection] 支付价格同步失败', error)
+  }
+}
+
+const handleSelectPlan = async (plan: Plan): Promise<void> => {
+  if (plan.id === 'member') {
+    await syncMemberPrice()
+    if (plan.ctaDisabled) return
+    paymentVisible.value = true
+  }
   emit('select', plan)
 }
+
+// 支付入账后立即刷新当前用户权益，使页面无需重新登录即可识别会员状态。
+async function handlePaymentSuccess(): Promise<void> {
+  try {
+    authStore.setMemberContext(await getMember())
+  } catch (error) {
+    console.warn('[PricingSection] 会员权益刷新失败', error)
+  }
+}
+
+onMounted(() => {
+  void syncMemberPrice()
+})
 </script>
 
 <style scoped>

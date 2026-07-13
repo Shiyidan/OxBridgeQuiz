@@ -114,6 +114,41 @@ export const MEMBERSHIP_STATUS = {
   CANCELLED: 'cancelled',
 } as const
 
+export const PAYMENT_CONFIG_STATUS = {
+  ACTIVE: 'active',
+  INACTIVE: 'inactive',
+} as const
+
+export const PAYMENT_ORDER_STATUS = {
+  PENDING: 'pending',
+  PAID: 'paid',
+  FAILED: 'failed',
+  CLOSED: 'closed',
+  REFUNDING: 'refunding',
+  REFUNDED: 'refunded',
+} as const
+
+export const PAYMENT_CHANNEL = {
+  ALIPAY: 'alipay',
+  WECHAT: 'wechat',
+  UNIONPAY: 'unionpay',
+} as const
+
+export const PAYMENT_CHANNELS = Object.values(PAYMENT_CHANNEL)
+
+export const PAYMENT_PRICE_TYPE = {
+  FIRST_MONTHLY: 'first_monthly',
+  MONTHLY: 'monthly',
+  YEARLY: 'yearly',
+} as const
+
+export const PAYMENT_NOTIFICATION_STATUS = {
+  RECEIVED: 'received',
+  PROCESSED: 'processed',
+  IGNORED: 'ignored',
+  FAILED: 'failed',
+} as const
+
 export const EFFECTIVE_MEMBERSHIP_STATUS = {
   FREE: 'free',
   ACTIVE: MEMBERSHIP_STATUS.ACTIVE,

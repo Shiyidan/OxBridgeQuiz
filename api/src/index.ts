@@ -9,6 +9,7 @@ import { examRouter } from './routes/exam.js'
 import { authRouter } from './routes/auth.js'
 import { adminRouter } from './routes/admin.js'
 import { memberRouter } from './routes/member.js'
+import { paymentRouter } from './routes/payment.js'
 import { startDiagnosticReportWorker } from './services/diagnosticReportTask.js'
 import { success } from './utils/response.js'
 
@@ -17,12 +18,13 @@ const app = express()
 app.set('trust proxy', config.trustProxy)
 app.use(cors({ origin: config.corsOrigins, credentials: true }))
 app.use(cookieParser())
+app.use(express.urlencoded({ extended: false, limit: '1mb' }))
 app.use(express.json({ limit: '50mb' }))
 
 // HTTP 安全头
 app.use((_req, res, next) => {
   // connect-src 'self'：Nginx 反代下前端 / 和 API /api/ 同域，无需额外配置
-  res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self' https://cdn.jsdelivr.net; connect-src 'self'")
+  res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https://qr-test2.chinaums.com https://qr.chinaums.com; font-src 'self' https://cdn.jsdelivr.net; connect-src 'self'")
   res.set('X-Content-Type-Options', 'nosniff')
   res.set('X-Frame-Options', 'DENY')
   next()
@@ -37,6 +39,7 @@ app.use('/api', (_req, res, next) => {
 
 app.use('/api/auth', authRouter)
 app.use('/api/getMember', memberRouter)
+app.use('/api/payment', paymentRouter)
 app.use('/api/exams', examRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/papers', papersRouter)

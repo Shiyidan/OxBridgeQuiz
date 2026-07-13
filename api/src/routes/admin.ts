@@ -13,10 +13,129 @@ import {
   isUserRole,
 } from '../constants/domain.js'
 import { formatUserForClient } from '../utils/userPresenter.js'
+import { PAYMENT_CONFIG_STATUS } from '../constants/domain.js'
+import { getOrCreatePaymentConfig } from './payment.js'
 
 export const adminRouter = Router()
 
 adminRouter.use(requireAuth, requireAdmin)
+
+function parsePaymentAmount(value: unknown): number | null {
+  const amount = Number(value)
+  if (!Number.isInteger(amount) || amount < 1 || amount > 100000000) return null
+  return amount
+}
+
+function formatPaymentConfig(config: {
+  firstMonthlyPriceCents: number
+  monthlyPriceCents: number
+  yearlyPriceCents: number
+  status: string
+  updatedBy: string | null
+  updatedAt: Date
+}) {
+  return { ...config, updatedAt: config.updatedAt.toISOString() }
+}
+
+// 支付策略配置
+adminRouter.get('/payment-config', async (_req, res) => {
+  try {
+    const config = await getOrCreatePaymentConfig()
+    res.json(success(formatPaymentConfig(config)))
+  } catch (error) {
+    console.error('[admin] payment config error:', error)
+    res.status(500).json(fail('获取支付策略失败'))
+  }
+})
+
+// 保存支付策略后，前台支付弹窗立即读取最新价格。
+adminRouter.put('/payment-config', async (req, res) => {
+  try {
+    const firstMonthlyPriceCents = parsePaymentAmount(req.body.firstMonthlyPriceCents)
+    const monthlyPriceCents = parsePaymentAmount(req.body.monthlyPriceCents)
+    const yearlyPriceCents = parsePaymentAmount(req.body.yearlyPriceCents)
+    const status = req.body.status
+    if (firstMonthlyPriceCents === null || monthlyPriceCents === null || yearlyPriceCents === null) {
+      res.status(422).json(fail('价格必须是大于 0 的整数分'))
+      return
+    }
+    if (status !== PAYMENT_CONFIG_STATUS.ACTIVE && status !== PAYMENT_CONFIG_STATUS.INACTIVE) {
+      res.status(422).json(fail('无效的支付策略状态'))
+      return
+    }
+    if (firstMonthlyPriceCents > monthlyPriceCents) {
+      res.status(422).json(fail('首次按月价格不能高于正常月价格'))
+      return
+    }
+
+    const config = await prisma.paymentConfig.upsert({
+      where: { id: 'default' },
+      create: {
+        id: 'default',
+        firstMonthlyPriceCents,
+        monthlyPriceCents,
+        yearlyPriceCents,
+        status,
+        updatedBy: req.user!.userId,
+      },
+      update: {
+        firstMonthlyPriceCents,
+        monthlyPriceCents,
+        yearlyPriceCents,
+        status,
+        updatedBy: req.user!.userId,
+      },
+    })
+    res.json(success(formatPaymentConfig(config)))
+  } catch (error) {
+    console.error('[admin] update payment config error:', error)
+    res.status(500).json(fail('保存支付策略失败'))
+  }
+})
+
+// 支付订单列表
+adminRouter.get('/payment-orders', async (req, res) => {
+  try {
+    const page = parsePositiveInt(req.query.page, 1)
+    const pageSize = parsePositiveInt(req.query.pageSize, 20, 100)
+    const status = typeof req.query.status === 'string' && req.query.status ? req.query.status : undefined
+    const where = status ? { status } : {}
+    const total = await prisma.paymentOrder.count({ where })
+    const totalPages = Math.ceil(total / pageSize)
+    const safePage = totalPages > 0 ? Math.min(page, totalPages) : 1
+    const list = await prisma.paymentOrder.findMany({
+      where,
+      include: { user: { select: { username: true, email: true } } },
+      orderBy: { createdAt: 'desc' },
+      skip: (safePage - 1) * pageSize,
+      take: pageSize,
+    })
+    res.json(success({
+      list: list.map((order) => {
+        const { providerPayload: _providerPayload, ...safeOrder } = order
+        return {
+          ...safeOrder,
+          createdAt: order.createdAt.toISOString(),
+          updatedAt: order.updatedAt.toISOString(),
+          expiresAt: order.expiresAt.toISOString(),
+          paidAt: order.paidAt?.toISOString() || null,
+          closedAt: order.closedAt?.toISOString() || null,
+        }
+      }),
+      pagination: {
+        page: safePage,
+        pageSize,
+        total,
+        totalPages,
+        hasPrev: safePage > 1,
+        hasNext: totalPages > 0 && safePage < totalPages,
+      },
+    }))
+  } catch (error) {
+    console.error('[admin] payment orders error:', error)
+    res.status(500).json(fail('获取支付订单失败'))
+  }
+})
 
 interface RevenueCostPayload {
   rechargeItem: string

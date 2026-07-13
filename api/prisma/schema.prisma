@@ -96,6 +96,7 @@ model User {
   diagnosticReports     DiagnosticReport[]
   authSessions          AuthSession[]
   emailChallenges       EmailVerificationChallenge[]
+  paymentOrders         PaymentOrder[]
 }
 
 model AuthSession {
@@ -331,4 +332,62 @@ model EntitlementConfig {
   status            String   @default("active") @db.VarChar(32)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+model PaymentConfig {
+  id                     String   @id @default("default") @db.VarChar(32)
+  firstMonthlyPriceCents Int      @default(7800)
+  monthlyPriceCents      Int      @default(7900)
+  yearlyPriceCents       Int      @default(39800)
+  status                 String   @default("active") @db.VarChar(32)
+  updatedBy              String?  @db.VarChar(191)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+model PaymentOrder {
+  id              String    @id @default(uuid()) @db.VarChar(191)
+  orderNo         String    @unique @db.VarChar(64)
+  userId          String    @db.VarChar(191)
+  examTypes       Json
+  plan            String    @db.VarChar(32)
+  priceType       String    @db.VarChar(32)
+  amountCents     Int
+  currency        String    @default("CNY") @db.VarChar(8)
+  channel         String    @db.VarChar(32)
+  status          String    @default("pending") @db.VarChar(32)
+  provider        String    @default("chinaums") @db.VarChar(32)
+  providerOrderNo String?   @unique @db.VarChar(128)
+  providerPayload Json?
+  failureCode     String?   @db.VarChar(64)
+  failureMessage  String?   @db.VarChar(500)
+  paidAt          DateTime?
+  closedAt        DateTime?
+  expiresAt       DateTime
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([expiresAt, status])
+}
+
+model PaymentNotification {
+  id             String    @id @default(uuid()) @db.VarChar(191)
+  provider       String    @default("chinaums") @db.VarChar(32)
+  notificationId String    @db.VarChar(128)
+  orderNo        String?   @db.VarChar(64)
+  signatureValid Boolean   @default(false)
+  processStatus  String    @default("received") @db.VarChar(32)
+  rawPayload     Json
+  errorMessage   String?   @db.VarChar(500)
+  processedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([provider, notificationId])
+  @@index([orderNo, createdAt])
+  @@index([processStatus, createdAt])
 }

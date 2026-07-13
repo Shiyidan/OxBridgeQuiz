@@ -24,6 +24,7 @@ export class ApiError extends Error {
 let accessToken: string | null = null
 let refreshPromise: Promise<string> | null = null
 
+// 登录态变化时同步更新后续 API 请求使用的内存访问令牌。
 export function setAccessToken(token: string | null): void {
   accessToken = token
 }
@@ -48,6 +49,7 @@ const NO_REFRESH_URLS = [
   '/auth/password/reset',
 ]
 
+// 多个并发 401 共用一次刷新请求，避免重复轮换服务端会话。
 function refreshAccessToken(): Promise<string> {
   if (refreshPromise) return refreshPromise
   refreshPromise = instance
@@ -119,14 +121,16 @@ const request = {
   },
 }
 
-export interface ApiConfig<T = unknown> {
+export interface ApiConfig {
   url: string
   method: 'GET' | 'POST' | 'PUT' | 'DELETE'
   isAllData: boolean
   params?: Record<string, string | undefined>
   body?: unknown
+  timeout?: number
 }
 
+// 统一过滤空查询参数，避免各 API 模块重复拼接 URL。
 function buildUrl(path: string, params?: Record<string, string | undefined>): string {
   if (!params) return path
   const qs = new URLSearchParams()
@@ -137,13 +141,15 @@ function buildUrl(path: string, params?: Record<string, string | undefined>): st
   return suffix ? `${path}?${suffix}` : path
 }
 
-export async function callApi<T>(config: ApiConfig<T>): Promise<T> {
+// API 模块通过统一配置发起请求，并按需覆盖全局超时时间。
+export async function callApi<T>(config: ApiConfig): Promise<T> {
   const url = buildUrl(config.url, config.params)
+  const requestConfig = config.timeout === undefined ? undefined : { timeout: config.timeout }
   let response: AxiosResponse<T>
-  if (config.method === 'POST') response = await request.post<T>(url, config.body)
-  else if (config.method === 'PUT') response = await request.put<T>(url, config.body)
-  else if (config.method === 'DELETE') response = await request.delete<T>(url)
-  else response = await request.get<T>(url)
+  if (config.method === 'POST') response = await request.post<T>(url, config.body, requestConfig)
+  else if (config.method === 'PUT') response = await request.put<T>(url, config.body, requestConfig)
+  else if (config.method === 'DELETE') response = await request.delete<T>(url, requestConfig)
+  else response = await request.get<T>(url, requestConfig)
   return config.isAllData ? (response as T) : response.data
 }
 

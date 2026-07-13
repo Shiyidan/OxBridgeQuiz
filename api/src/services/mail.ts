@@ -1,23 +1,30 @@
+import { lookup } from 'node:dns/promises'
 import nodemailer from 'nodemailer'
 import { config } from '../config.js'
 import type { EmailCodePurpose } from '../constants/auth.js'
 
-let transporter: nodemailer.Transporter | null = null
-
-function getTransporter(): nodemailer.Transporter {
+// 使用操作系统 DNS 解析 SMTP 主机，避免 Node c-ares 在部分 Windows 网络中长时间阻塞。
+async function createTransporter(): Promise<nodemailer.Transporter> {
   if (!config.smtpUser || !config.smtpPass || !config.mailFrom) {
     throw new Error('SMTP_USER, SMTP_PASS and MAIL_FROM are required')
   }
-  transporter ??= nodemailer.createTransport({
-    host: config.smtpHost,
+  const { address } = await lookup(config.smtpHost, { family: 4 })
+  return nodemailer.createTransport({
+    host: address,
     port: config.smtpPort,
     secure: config.smtpSecure,
+    authMethod: 'LOGIN',
+    connectionTimeout: config.smtpConnectionTimeoutMs,
+    greetingTimeout: config.smtpGreetingTimeoutMs,
+    socketTimeout: config.smtpSocketTimeoutMs,
+    tls: {
+      servername: config.smtpHost,
+    },
     auth: {
       user: config.smtpUser,
       pass: config.smtpPass,
     },
   })
-  return transporter
 }
 
 const purposeLabels: Record<EmailCodePurpose, string> = {
@@ -26,6 +33,7 @@ const purposeLabels: Record<EmailCodePurpose, string> = {
   CHANGE_EMAIL: '修改邮箱',
 }
 
+// 将验证码邮件提交给 SMTP 服务，并返回服务端生成的邮件标识。
 export async function sendVerificationCodeEmail(input: {
   to: string
   code: string
@@ -33,7 +41,8 @@ export async function sendVerificationCodeEmail(input: {
   expiresInMinutes: number
 }): Promise<string> {
   const action = purposeLabels[input.purpose]
-  const info = await getTransporter().sendMail({
+  const transporter = await createTransporter()
+  const info = await transporter.sendMail({
     from: config.mailFrom,
     to: input.to,
     subject: `AceMock ${action}验证码`,
@@ -50,4 +59,3 @@ export async function sendVerificationCodeEmail(input: {
   })
   return info.messageId
 }
-

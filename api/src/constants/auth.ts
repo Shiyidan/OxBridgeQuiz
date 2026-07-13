@@ -22,4 +22,3 @@ export const AUTH_ERROR = {
   FORBIDDEN: 'AUTH_FORBIDDEN',
   RATE_LIMITED: 'AUTH_RATE_LIMITED',
 } as const
-

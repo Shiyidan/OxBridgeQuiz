@@ -253,7 +253,7 @@
 
         <p class="register-footnote">
           已有账号？
-          <router-link to="/login" class="form-link form-link--back">
+          <router-link :to="loginLocation" class="form-link form-link--back">
             <span class="back-icon" aria-hidden="true">←</span>
             去登录
           </router-link>
@@ -264,15 +264,16 @@
 </template>
 
 <script setup lang="ts">
-// 注册页，用于创建账号并进入登录态。
-import { onBeforeUnmount, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+// 注册页：创建账号并进入登录态，完成后返回认证流程开始前的目标页面。
+import { computed, onBeforeUnmount, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { getMember } from '@/api/member'
 import { sendEmailCode } from '@/api/auth'
 import { TARGET_UNIVERSITY_OPTIONS } from '@/constants/universities'
+import { createAuthRouteLocation, getSafeAuthRedirect } from '@/utils/authRedirect'
 import {
   validateConfirmPassword,
   EMAIL_CODE_PATTERN,
@@ -283,8 +284,15 @@ import {
 } from '@/utils/validation'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 const formRef = ref<FormInstance>()
+
+// 从注册页查询参数恢复受保护目标，并过滤非站内地址。
+const redirectAfterAuth = computed(() => getSafeAuthRedirect(route.query.redirect))
+
+// 用户返回登录页时继续保留最初访问的目标页面。
+const loginLocation = computed(() => createAuthRouteLocation('login', redirectAfterAuth.value))
 
 const form = reactive({
   username: '',
@@ -300,7 +308,8 @@ const rules: FormRules = {
     {
       validator: (_rule, value: string, callback) => {
         const result = validateUsername(value)
-        result.valid ? callback() : callback(new Error(result.message))
+        if (result.valid) callback()
+        else callback(new Error(result.message))
       },
       trigger: 'blur',
     },
@@ -309,7 +318,8 @@ const rules: FormRules = {
     {
       validator: (_rule, value: string, callback) => {
         const result = validateEmail(value)
-        result.valid ? callback() : callback(new Error(result.message))
+        if (result.valid) callback()
+        else callback(new Error(result.message))
       },
       trigger: 'blur',
     },
@@ -317,7 +327,8 @@ const rules: FormRules = {
   emailCode: [
     {
       validator: (_rule, value: string, callback) => {
-        EMAIL_CODE_PATTERN.test(value) ? callback() : callback(new Error('请输入六位数字验证码'))
+        if (EMAIL_CODE_PATTERN.test(value)) callback()
+        else callback(new Error('请输入六位数字验证码'))
       },
       trigger: 'blur',
     },
@@ -326,7 +337,8 @@ const rules: FormRules = {
     {
       validator: (_rule, value: string, callback) => {
         const result = validatePassword(value)
-        result.valid ? callback() : callback(new Error(result.message))
+        if (result.valid) callback()
+        else callback(new Error(result.message))
       },
       trigger: 'blur',
     },
@@ -335,7 +347,8 @@ const rules: FormRules = {
     {
       validator: (_rule, value: string, callback) => {
         const result = validateConfirmPassword(form.password, value)
-        result.valid ? callback() : callback(new Error(result.message))
+        if (result.valid) callback()
+        else callback(new Error(result.message))
       },
       trigger: 'blur',
     },
@@ -419,10 +432,10 @@ async function handleSendCode(): Promise<void> {
       showClose: true,
       duration: 3000,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     ElMessage({
       type: 'error',
-      message: error?.message || '验证码发送失败',
+      message: error instanceof Error ? error.message : '验证码发送失败',
       showClose: true,
       duration: 4000,
     })
@@ -563,10 +576,10 @@ const handleSubmit = async (): Promise<void> => {
       emailCode: form.emailCode,
       examPreferences: examPrefs,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     ElMessage({
       type: 'error',
-      message: error?.message || auth.error || '注册失败，请稍后重试',
+      message: error instanceof Error ? error.message : auth.error || '注册失败，请稍后重试',
       showClose: true,
       duration: 4000,
     })
@@ -585,7 +598,7 @@ const handleSubmit = async (): Promise<void> => {
   } catch {
     // 会员上下文可以在后续页面重新加载，不阻断已经成功的注册流程。
   }
-  router.push('/')
+  await router.replace(redirectAfterAuth.value)
 }
 </script>
 

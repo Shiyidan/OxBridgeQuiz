@@ -87,7 +87,6 @@
                     <div class="dropdown-avatar">{{ auth.user.username.charAt(0) }}</div>
                   </div>
                   <div class="dropdown-menu">
-                    <div class="dropdown-section-label">当前角色：{{ currentRoleLabel }}</div>
                     <button class="dropdown-item" type="button" @click="goToRoleHome">
                       {{ roleHomeLabel }}
                     </button>
@@ -106,7 +105,6 @@
           </template>
           <template v-else>
             <router-link to="/login" class="btn-ghost">登录</router-link>
-            <router-link to="/assessment" class="btn-primary-sm">免费诊断</router-link>
           </template>
         </slot>
       </div>
@@ -115,7 +113,7 @@
 </template>
 
 <script setup lang="ts">
-// 全局导航栏：所有前台页面共用。极简黑白灰风格，"免费诊断" CTA 引导未登录用户进入诊断入口。
+// 全局导航栏：所有前台页面共用，并根据登录状态展示用户入口。
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -129,9 +127,17 @@ const examMenuItems = [
   { type: 'esat', label: 'ESAT' },
   { type: 'step', label: 'STEP' },
 ]
+
+// 根据登录用户身份显示导航栏角色名称。
 const currentRoleLabel = computed(() => (auth.user?.role === 'admin' ? '管理员' : '学生'))
+
+// 根据登录用户身份切换头像菜单的工作台入口。
 const roleHomeLabel = computed(() => (auth.user?.role === 'admin' ? '后台管理' : '个人中心'))
+
+// 考试介绍子路由共享同一个导航激活状态。
 const isExamIntroRoute = computed(() => route.path.startsWith('/exam-intro'))
+
+// 从路由参数派生当前考试类型，用于标记下拉菜单选中项。
 const currentExamType = computed(() => String(route.params.examType || '').toLowerCase())
 
 // Element Plus 下拉命令统一切换考试页面，避免手写 hover 浮层产生闪烁。
@@ -215,7 +221,7 @@ async function handleLogout(): Promise<void> {
 }
 .nav-link {
   padding: 8px 4px;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: var(--weight-medium);
   color: var(--color-ink-soft);
   transition: color var(--duration-base) ease;
@@ -275,8 +281,7 @@ async function handleLogout(): Promise<void> {
 .nav-link--active {
   color: var(--color-ink);
 }
-.btn-ghost,
-.btn-primary-sm {
+.btn-ghost {
   display: inline-flex;
   align-items: center;
   padding: 10px 18px;
@@ -291,17 +296,6 @@ async function handleLogout(): Promise<void> {
 }
 .btn-ghost:hover {
   color: var(--color-ink);
-}
-.btn-primary-sm {
-  background: var(--color-ink);
-  color: var(--color-ink-inverse);
-  border: 1px solid var(--color-ink);
-}
-.btn-primary-sm:hover {
-  background: var(--color-charcoal);
-  border-color: var(--color-charcoal);
-  color: var(--color-ink-inverse);
-  transform: translateY(-1px);
 }
 .user-chip {
   position: relative;
@@ -357,13 +351,9 @@ async function handleLogout(): Promise<void> {
   font-weight: var(--weight-semi);
   color: var(--color-ink);
 }
-.dropdown-role,
-.dropdown-section-label {
+.dropdown-role {
   color: var(--color-ink-muted);
   font-size: 12px;
-}
-.dropdown-section-label {
-  padding: 8px 12px 4px;
 }
 .dropdown-menu {
   padding: 10px;

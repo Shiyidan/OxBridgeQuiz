@@ -92,7 +92,7 @@
 
           <p class="auth-footer">
             还没有账号？
-            <router-link to="/register" class="auth-link">立即注册</router-link>
+            <router-link :to="registerLocation" class="auth-link">立即注册</router-link>
           </p>
         </section>
       </div>
@@ -101,16 +101,18 @@
 </template>
 
 <script setup lang="ts">
-// 登录页：用户名 + 密码登录，复用全局 auth-page.css 布局与表单样式。
-import { reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+// 登录页：完成认证后返回用户进入登录流程前访问的受保护页面。
+import { computed, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { getMember } from '@/api/member'
+import { createAuthRouteLocation, getSafeAuthRedirect } from '@/utils/authRedirect'
 import { validateLoginIdentifier, validatePasswordRequired } from '@/utils/validation'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 const formRef = ref<FormInstance>()
 
@@ -125,6 +127,14 @@ const features = [
   '错题自动归因，AI 生成攻克路径',
   '14 天动态学习路径持续更新',
 ]
+
+// 从登录页查询参数恢复受保护目标，并过滤非站内地址。
+const redirectAfterAuth = computed(() => getSafeAuthRedirect(route.query.redirect))
+
+// 用户改走注册流程时继续保留最初访问的目标页面。
+const registerLocation = computed(() =>
+  createAuthRouteLocation('register', redirectAfterAuth.value),
+)
 
 // 复用共享校验规则，登录页只校验用户名和密码是否可用于提交。
 const rules: FormRules = {
@@ -167,16 +177,20 @@ const handleSubmit = async (): Promise<void> => {
 
   try {
     await auth.login(form.username, form.password)
-    const memberCtx = await getMember()
-    auth.setMemberContext(memberCtx)
-    router.push('/')
+    try {
+      const memberCtx = await getMember()
+      auth.setMemberContext(memberCtx)
+    } catch {
+      // 会员上下文可由目标页面重新加载，不阻断已经成功的登录流程。
+    }
+    await router.replace(redirectAfterAuth.value)
   } catch {
     // 错误信息已写入 auth.error，模板顶部的 .auth-alert 会展示。
   }
 }
 
 const handleForgotPassword = (): void => {
-  router.push('/forgot-password')
+  router.push(createAuthRouteLocation('forgot-password', redirectAfterAuth.value))
 }
 </script>
 

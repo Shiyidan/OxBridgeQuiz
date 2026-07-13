@@ -63,12 +63,14 @@ export interface AuthSessionItem {
   isCurrent: boolean
 }
 
+// 验证码发送允许覆盖 SMTP 的正常响应窗口，不放宽其他 API 的全局超时。
 export function sendEmailCode(email: string, purpose: EmailCodePurpose) {
   return callApi<EmailCodeResult>({
     url: '/auth/email-code',
     method: 'POST',
     isAllData: false,
     body: { email, purpose },
+    timeout: 30000,
   })
 }
 

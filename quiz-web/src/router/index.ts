@@ -190,12 +190,14 @@ const router = createRouter({
   ],
 })
 
+// 受保护页面统一先进入登录流程，并携带原地址供认证成功后返回。
 router.beforeEach((to, _from) => {
   const auth = useAuthStore()
   const isLoggedIn = auth.isLoggedIn
 
   const requiresAuth =
     to.path.startsWith('/profile') ||
+    to.path.startsWith('/question-bank') ||
     to.path.startsWith('/practice') ||
     to.path.startsWith('/assessment') ||
     to.path.startsWith('/exam-result') ||
@@ -204,11 +206,11 @@ router.beforeEach((to, _from) => {
   const requiresAdmin = to.path.startsWith('/admin')
 
   if (requiresAuth && !isLoggedIn) {
-    return '/login'
+    return { name: 'login', query: { redirect: to.fullPath } }
   }
 
   if (requiresAdmin) {
-    if (!isLoggedIn) return '/login'
+    if (!isLoggedIn) return { name: 'login', query: { redirect: to.fullPath } }
     if (!auth.isAdmin) return '/'
   }
 

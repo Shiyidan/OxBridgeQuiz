@@ -67,7 +67,7 @@
           </el-form>
 
           <p class="auth-footer forgot-password-footer">
-            <router-link to="/login" class="auth-link">
+            <router-link :to="loginLocation" class="auth-link">
               <span class="back-icon" aria-hidden="true">←</span>
               返回登录
             </router-link>
@@ -79,12 +79,13 @@
 </template>
 
 <script setup lang="ts">
-// 忘记密码页通过注册邮箱验证码重置密码，并使原有会话失效。
-import { onBeforeUnmount, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+// 忘记密码页：重置密码后返回登录页，并保留认证流程开始前的目标页面。
+import { computed, onBeforeUnmount, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import { resetPassword, sendEmailCode } from '@/api/auth'
+import { createAuthRouteLocation, getSafeAuthRedirect } from '@/utils/authRedirect'
 import {
   EMAIL_CODE_PATTERN,
   normalizeEmailCode,
@@ -95,6 +96,14 @@ import {
 import './auth-page.css'
 
 const router = useRouter()
+const route = useRoute()
+
+// 从找回密码页查询参数恢复受保护目标，并过滤非站内地址。
+const redirectAfterAuth = computed(() => getSafeAuthRedirect(route.query.redirect))
+
+// 返回登录页时继续保留最初访问的目标页面。
+const loginLocation = computed(() => createAuthRouteLocation('login', redirectAfterAuth.value))
+
 const form = reactive({
   email: '',
   emailCode: '',
@@ -144,8 +153,8 @@ async function handleSendCode(): Promise<void> {
     challengeId.value = data.challengeId
     startCountdown(data.resendAfter)
     ElMessage.success('如果该邮箱已注册，验证码邮件会很快送达')
-  } catch (error: any) {
-    ElMessage.error(error?.message || '验证码发送失败')
+  } catch (error: unknown) {
+    ElMessage.error(error instanceof Error ? error.message : '验证码发送失败')
   } finally {
     sending.value = false
   }
@@ -177,9 +186,9 @@ async function handleReset(): Promise<void> {
   try {
     await resetPassword({ ...form, challengeId: challengeId.value })
     ElMessage.success('密码已重置，请使用新密码登录')
-    router.push('/login')
-  } catch (error: any) {
-    ElMessage.error(error?.message || '密码重置失败')
+    router.push(loginLocation.value)
+  } catch (error: unknown) {
+    ElMessage.error(error instanceof Error ? error.message : '密码重置失败')
   } finally {
     submitting.value = false
   }

@@ -1,3 +1,4 @@
+// 刷新凭证与服务端会话管理，供登录、自动续期和设备退出流程复用。
 import crypto from 'node:crypto'
 import type { Request, Response } from 'express'
 import type { User } from '@prisma/client'
@@ -9,14 +10,17 @@ import { AuthError } from '../utils/authError.js'
 
 export const REFRESH_COOKIE_NAME = 'quiz_refresh'
 
+// Refresh Token 只保存摘要，数据库泄露时不暴露可直接使用的凭证。
 function hashRefreshSecret(secret: string): string {
   return crypto.createHash('sha256').update(secret).digest('hex')
 }
 
+// 浏览器凭证由会话标识和随机秘密组成，服务端仅持久化秘密摘要。
 function buildRefreshToken(sessionId: string, secret: string): string {
   return `${sessionId}.${secret}`
 }
 
+// 非法或残缺 Cookie 统一视为无会话，避免进入数据库查询流程。
 function parseRefreshToken(token: string | undefined): { sessionId: string; secret: string } | null {
   if (!token) return null
   const separator = token.indexOf('.')
@@ -27,6 +31,7 @@ function parseRefreshToken(token: string | undefined): { sessionId: string; secr
   return { sessionId, secret }
 }
 
+// Refresh Cookie 仅发送到认证接口，并按环境控制 HTTPS 属性。
 function refreshCookieBaseOptions() {
   return {
     httpOnly: true,
@@ -36,6 +41,7 @@ function refreshCookieBaseOptions() {
   }
 }
 
+// 每次登录或成功刷新都重置 Cookie 的七天空闲有效期。
 export function setRefreshCookie(res: Response, token: string): void {
   res.cookie(REFRESH_COOKIE_NAME, token, {
     ...refreshCookieBaseOptions(),
@@ -43,14 +49,17 @@ export function setRefreshCookie(res: Response, token: string): void {
   })
 }
 
+// 登出或刷新失败时使用同一组选项删除浏览器中的刷新凭证。
 export function clearRefreshCookie(res: Response): void {
   res.clearCookie(REFRESH_COOKIE_NAME, refreshCookieBaseOptions())
 }
 
+// 服务端只从受限 HttpOnly Cookie 读取刷新凭证。
 export function getRefreshCookie(req: Request): string | undefined {
   return req.cookies?.[REFRESH_COOKIE_NAME]
 }
 
+// 会话记录保存有限长度的设备信息，用于个人中心安全排查。
 function requestMetadata(req: Request): { ipAddress?: string; userAgent?: string } {
   return {
     ipAddress: req.ip?.slice(0, 64),
@@ -58,6 +67,7 @@ function requestMetadata(req: Request): { ipAddress?: string; userAgent?: string
   }
 }
 
+// 登录成功后创建七天空闲会话，并签发首个短期访问令牌。
 export async function createAuthSession(user: User, req: Request, res: Response) {
   const sessionId = crypto.randomUUID()
   const secret = crypto.randomBytes(32).toString('base64url')
@@ -79,6 +89,7 @@ export async function createAuthSession(user: User, req: Request, res: Response)
   }
 }
 
+// 成功刷新视为用户活动，同时轮换秘密并把空闲过期时间顺延七天。
 export async function rotateAuthSession(req: Request, res: Response) {
   const parsed = parseRefreshToken(getRefreshCookie(req))
   if (!parsed) throw new AuthError(AUTH_ERROR.SESSION_EXPIRED, '登录状态已过期，请重新登录', 401)
@@ -88,7 +99,10 @@ export async function rotateAuthSession(req: Request, res: Response) {
     include: { user: true },
   })
   const now = new Date()
-  if (!session || session.revokedAt || session.expiresAt <= now) {
+  const idleExpired = session
+    ? session.lastUsedAt.getTime() + config.refreshTokenTtlSeconds * 1000 <= now.getTime()
+    : false
+  if (!session || session.revokedAt || session.expiresAt <= now || idleExpired) {
     clearRefreshCookie(res)
     throw new AuthError(AUTH_ERROR.SESSION_EXPIRED, '登录状态已过期，请重新登录', 401)
   }
@@ -101,11 +115,13 @@ export async function rotateAuthSession(req: Request, res: Response) {
   }
 
   const nextSecret = crypto.randomBytes(32).toString('base64url')
+  const nextExpiresAt = new Date(now.getTime() + config.refreshTokenTtlSeconds * 1000)
   await prisma.authSession.update({
     where: { id: session.id },
     data: {
       refreshTokenHash: hashRefreshSecret(nextSecret),
       lastUsedAt: now,
+      expiresAt: nextExpiresAt,
       ...requestMetadata(req),
     },
   })
@@ -114,9 +130,11 @@ export async function rotateAuthSession(req: Request, res: Response) {
     user: session.user,
     accessToken: signAccessToken(session.user, session.id),
     sessionId: session.id,
+    expiresAt: nextExpiresAt,
   }
 }
 
+// 当前设备退出时只撤销 Cookie 指向的服务端会话，不影响其他设备。
 export async function revokeRefreshSession(req: Request): Promise<void> {
   const parsed = parseRefreshToken(getRefreshCookie(req))
   if (!parsed) return

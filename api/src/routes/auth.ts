@@ -149,7 +149,11 @@ authRouter.post('/email-code', emailCodeLimiter, optionalAuth, async (req: Reque
         data: { invalidatedAt: new Date() },
       })
       console.error('[auth] send email code:', error)
-      throw new AuthError(AUTH_ERROR.EMAIL_SERVICE_UNAVAILABLE, '验证码邮件暂时无法发送，请稍后再试', 503)
+      throw new AuthError(
+        AUTH_ERROR.EMAIL_SERVICE_UNAVAILABLE,
+        '验证码邮件暂时无法发送，请稍后再试',
+        503,
+      )
     }
 
     res.json(success({

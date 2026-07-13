@@ -4,15 +4,12 @@
 
     <main class="register-main">
       <section class="register-card">
-        <div class="register-brand">
-          <span class="brand-mark">G5</span>
-        </div>
         <h1 class="register-title">创建账号</h1>
         <p class="register-subtitle">注册后即可查看完整诊断报告</p>
 
         <el-form
           ref="formRef"
-          class="register-form"
+          class="register-form auth-form"
           :model="form"
           :rules="rules"
           label-position="top"
@@ -103,7 +100,7 @@
                 <span>02</span>
                 <div>
                   <h2>备考信息</h2>
-                  <p>选择考试和科目，并补充个性化学习目标。</p>
+                  <p>补充个性化学习目标，形成学习档案与诊断报告</p>
                 </div>
               </div>
 
@@ -602,9 +599,11 @@ const handleSubmit = async (): Promise<void> => {
 }
 </script>
 
+<!-- 复用登录页的认证表单输入规格，注册页仅保留自身布局样式。 -->
+<style src="./auth-page.css"></style>
+
 <style scoped lang="scss">
 .register-page {
-  --color-primary: #4f46e5;
   --color-bg: #f8fafc;
   --color-surface: #ffffff;
   --color-border: #e2e8f0;
@@ -619,49 +618,35 @@ const handleSubmit = async (): Promise<void> => {
   --radius-2xl: 1.5rem;
   --shadow-card: 0 4px 24px -4px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
 
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background: var(--color-bg);
   color: var(--color-text);
 }
 
 .register-main {
   flex: 1;
+  min-height: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: var(--space-12) 1rem;
+  overflow-y: auto;
 }
 
 .register-card {
   width: 100%;
   max-width: 1080px;
+  margin-block: auto;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-2xl);
   padding: var(--space-12) var(--space-10);
   box-shadow: var(--shadow-card);
   text-align: center;
-}
-
-.register-brand {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 1.5rem;
-}
-
-.brand-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 64px;
-  height: 64px;
-  background: var(--color-text);
-  color: var(--color-text-inverse);
-  border-radius: var(--radius-xl);
-  font-size: 1.5rem;
-  font-weight: 700;
 }
 
 .register-title {
@@ -691,7 +676,7 @@ const handleSubmit = async (): Promise<void> => {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   gap: 40px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .register-form-section {
@@ -740,6 +725,10 @@ const handleSubmit = async (): Promise<void> => {
   grid-template-columns: minmax(0, 1fr) 132px;
   gap: 12px;
   width: 100%;
+}
+
+.verification-row :deep(.el-button) {
+  height: 48px;
 }
 
 .field-hint {
@@ -818,15 +807,15 @@ const handleSubmit = async (): Promise<void> => {
   transition: all 0.15s ease;
 
   &:hover {
-    border-color: var(--color-primary);
+    border-color: var(--color-text);
   }
 }
 
 .exam-type-chip--active,
 .subject-chip--active {
-  background: var(--color-primary);
-  color: #fff;
-  border-color: var(--color-primary);
+  background: var(--color-text);
+  color: var(--color-text-inverse);
+  border-color: var(--color-text);
 }
 
 .subject-chip--required {
@@ -890,6 +879,7 @@ const handleSubmit = async (): Promise<void> => {
 .exam-goal-field {
   display: grid;
   gap: 6px;
+  align-content: start;
   min-width: 0;
 }
 
@@ -899,10 +889,16 @@ const handleSubmit = async (): Promise<void> => {
 
 .exam-goal-field :deep(.el-date-editor) {
   width: 100%;
+  height: var(--height-input);
 }
 
 .exam-goal-field :deep(.el-select) {
   width: 100%;
+}
+
+.exam-goal-field :deep(.el-select__wrapper) {
+  min-height: var(--height-input);
+  padding: 0 14px;
 }
 
 .exam-empty-state {

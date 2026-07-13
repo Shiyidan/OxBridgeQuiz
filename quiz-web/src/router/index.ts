@@ -16,11 +16,6 @@ const router = createRouter({
       name: 'register',
       component: () => import('../views/auth/RegisterView.vue'),
     },
-    {
-      path: '/forgot-password',
-      name: 'forgot-password',
-      component: () => import('../views/auth/ForgotPasswordView.vue'),
-    },
     // 个人中心
     {
       path: '/profile',
@@ -214,7 +209,7 @@ router.beforeEach((to, _from) => {
     if (!auth.isAdmin) return '/'
   }
 
-  if ((to.path === '/login' || to.path === '/register' || to.path === '/forgot-password') && isLoggedIn) {
+  if ((to.path === '/login' || to.path === '/register') && isLoggedIn) {
     return '/'
   }
 })

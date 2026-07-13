@@ -286,7 +286,7 @@ async function handleLogout(): Promise<void> {
   align-items: center;
   padding: 10px 18px;
   border-radius: var(--radius-md);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: var(--weight-semi);
   transition: all var(--duration-base) ease;
 }

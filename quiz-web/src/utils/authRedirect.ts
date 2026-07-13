@@ -1,7 +1,7 @@
-// 认证跳转工具：在登录、注册和找回密码流程之间安全保留站内目标地址。
+// 认证跳转工具：在登录和注册流程之间安全保留站内目标地址。
 import type { LocationQueryValue, RouteLocationRaw } from 'vue-router'
 
-type AuthRouteName = 'login' | 'register' | 'forgot-password'
+type AuthRouteName = 'login' | 'register'
 
 // 仅接受站内绝对路径，避免认证完成后跳转到外部地址。
 export function getSafeAuthRedirect(

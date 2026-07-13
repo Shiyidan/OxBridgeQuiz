@@ -28,24 +28,29 @@
 
 /* ============ 页面容器 ============ */
 .auth-page {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background: var(--color-bg);
   color: var(--color-ink);
 }
 .auth-main {
   flex: 1;
+  min-height: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 64px 0;
+  overflow-y: auto;
 }
 
 /* 认证页外壳：走全站统一的 1200~1600 流式规范
  * 触底 1200 保证左右两栏在紧凑视口下不拥挤；触顶 1600 避免大屏文字行长失控。 */
 .auth-shell {
   width: clamp(var(--layout-min-width), var(--shell-fluid), var(--shell-max));
+  margin-block: auto;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 80px;
@@ -222,6 +227,25 @@
   display: flex;
   justify-content: flex-end;
   margin-top: 4px;
+}
+
+/* ============ 登录卡片内的密码重置模块 ============ */
+.auth-verification-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 132px;
+  gap: 12px;
+  width: 100%;
+}
+.auth-verification-row .el-button {
+  height: var(--height-input);
+}
+.auth-reset-footer {
+  margin-top: 24px;
+}
+.auth-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* ============ 底部行（"还没账号？立即注册"） ============ */

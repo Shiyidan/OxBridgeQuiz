@@ -42,12 +42,19 @@
               </svg>
             </span>
           </div>
-          <h2 class="auth-title">欢迎回来</h2>
-          <p class="auth-subtitle">使用你的账号继续备考旅程</p>
+          <h2 class="auth-title">{{ isResetMode ? '重置密码' : '欢迎回来' }}</h2>
+          <p class="auth-subtitle">
+            {{
+              isResetMode
+                ? '验证注册邮箱并设置新密码，完成后将退出所有设备。'
+                : '使用你的账号继续备考旅程'
+            }}
+          </p>
 
-          <div v-if="auth.error" class="auth-alert">{{ auth.error }}</div>
+          <div v-if="!isResetMode && auth.error" class="auth-alert">{{ auth.error }}</div>
 
           <el-form
+            v-if="!isResetMode"
             ref="formRef"
             class="auth-form"
             :model="form"
@@ -90,9 +97,84 @@
             </el-form-item>
           </el-form>
 
-          <p class="auth-footer">
+          <el-form
+            v-else
+            ref="resetFormRef"
+            class="auth-form"
+            :model="resetForm"
+            :rules="resetRules"
+            label-position="top"
+            @submit.prevent="handleReset"
+          >
+            <el-form-item label="电子邮箱" prop="email">
+              <el-input
+                v-model="resetForm.email"
+                autocomplete="email"
+                placeholder="example@mail.com"
+                @input="resetEmailChallenge"
+              />
+            </el-form-item>
+
+            <el-form-item label="邮箱验证码" prop="emailCode">
+              <div class="auth-verification-row">
+                <el-input
+                  v-model="resetForm.emailCode"
+                  maxlength="6"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="六位验证码"
+                  @input="handleEmailCodeInput"
+                />
+                <el-button
+                  :loading="codeSending"
+                  :disabled="codeSending || countdown > 0"
+                  @click="handleSendCode"
+                >
+                  {{ countdown > 0 ? `${countdown}秒后重发` : '获取验证码' }}
+                </el-button>
+              </div>
+            </el-form-item>
+
+            <el-form-item label="新密码" prop="password">
+              <el-input
+                v-model="resetForm.password"
+                type="password"
+                autocomplete="new-password"
+                maxlength="12"
+                placeholder="8-12位，包含英文和数字，可使用 !@#$%"
+                show-password
+              />
+            </el-form-item>
+
+            <el-form-item label="确认新密码" prop="confirmPassword">
+              <el-input
+                v-model="resetForm.confirmPassword"
+                type="password"
+                autocomplete="new-password"
+                maxlength="12"
+                placeholder="再次输入新密码"
+                show-password
+              />
+            </el-form-item>
+
+            <el-button
+              class="auth-submit button_primary"
+              native-type="submit"
+              :loading="resetSubmitting"
+            >
+              {{ resetSubmitting ? '提交中...' : '重置密码' }}
+            </el-button>
+          </el-form>
+
+          <p v-if="!isResetMode" class="auth-footer">
             还没有账号？
             <router-link :to="registerLocation" class="auth-link">立即注册</router-link>
+          </p>
+          <p v-else class="auth-footer auth-reset-footer">
+            <a class="auth-link auth-back-link" @click.prevent="showLoginMode">
+              <span aria-hidden="true">←</span>
+              返回登录
+            </a>
           </p>
         </section>
       </div>
@@ -101,25 +183,48 @@
 </template>
 
 <script setup lang="ts">
-// 登录页：完成认证后返回用户进入登录流程前访问的受保护页面。
-import { computed, reactive, ref } from 'vue'
+// 登录页：承载登录和密码重置模块，认证后返回用户原先访问的受保护页面。
+import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { FormInstance, FormRules } from 'element-plus'
+import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import { useAuthStore } from '@/stores/auth'
+import { resetPassword, sendEmailCode } from '@/api/auth'
 import { getMember } from '@/api/member'
 import { createAuthRouteLocation, getSafeAuthRedirect } from '@/utils/authRedirect'
-import { validateLoginIdentifier, validatePasswordRequired } from '@/utils/validation'
+import {
+  EMAIL_CODE_PATTERN,
+  normalizeEmailCode,
+  validateConfirmPassword,
+  validateEmail,
+  validateLoginIdentifier,
+  validatePassword,
+  validatePasswordRequired,
+} from '@/utils/validation'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const formRef = ref<FormInstance>()
+const resetFormRef = ref<FormInstance>()
+const isResetMode = ref(false)
 
 const form = reactive({
   username: '',
   password: '',
 })
+
+const resetForm = reactive({
+  email: '',
+  emailCode: '',
+  password: '',
+  confirmPassword: '',
+})
+const challengeId = ref('')
+const codeSending = ref(false)
+const resetSubmitting = ref(false)
+const countdown = ref(0)
+let countdownTimer: number | undefined
 
 // 左侧品牌区特性卡文案，与首页 Hero 卖点保持一致。
 const features = [
@@ -166,6 +271,54 @@ const rules: FormRules = {
   ],
 }
 
+// 重置模块复用共享正则，并通过表单项在失焦和提交时展示字段错误。
+const resetRules: FormRules = {
+  email: [
+    {
+      validator: (_rule, value: string, callback) => {
+        const result = validateEmail(value)
+        if (result.valid) callback()
+        else callback(new Error(result.message))
+      },
+      trigger: 'blur',
+    },
+  ],
+  emailCode: [
+    {
+      validator: (_rule, value: string, callback) => {
+        if (!EMAIL_CODE_PATTERN.test(value)) {
+          callback(new Error('请输入六位数字验证码'))
+        } else if (!challengeId.value) {
+          callback(new Error('请先获取邮箱验证码'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur',
+    },
+  ],
+  password: [
+    {
+      validator: (_rule, value: string, callback) => {
+        const result = validatePassword(value)
+        if (result.valid) callback()
+        else callback(new Error(result.message))
+      },
+      trigger: 'blur',
+    },
+  ],
+  confirmPassword: [
+    {
+      validator: (_rule, value: string, callback) => {
+        const result = validateConfirmPassword(resetForm.password, value)
+        if (result.valid) callback()
+        else callback(new Error(result.message))
+      },
+      trigger: 'blur',
+    },
+  ],
+}
+
 // 登录成功后拉一次会员上下文，缓存到 auth store 供后续页面复用。
 const handleSubmit = async (): Promise<void> => {
   if (!formRef.value) return
@@ -189,9 +342,104 @@ const handleSubmit = async (): Promise<void> => {
   }
 }
 
+// 忘记密码入口在当前登录卡片内切换模块，不再进入独立路由。
 const handleForgotPassword = (): void => {
-  router.push(createAuthRouteLocation('forgot-password', redirectAfterAuth.value))
+  isResetMode.value = true
 }
+
+// 邮箱变化后废弃旧挑战，防止验证码被用于不同邮箱。
+function resetEmailChallenge(): void {
+  challengeId.value = ''
+  resetForm.emailCode = ''
+  resetFormRef.value?.clearValidate('emailCode')
+}
+
+// 输入阶段过滤非数字，保证验证码模型始终符合提交格式。
+function handleEmailCodeInput(value: string): void {
+  resetForm.emailCode = normalizeEmailCode(value)
+}
+
+// 释放当前倒计时，避免模块切换后继续更新隐藏状态。
+function stopCountdown(): void {
+  if (!countdownTimer) return
+  window.clearInterval(countdownTimer)
+  countdownTimer = undefined
+}
+
+// 重发倒计时使用服务端返回间隔，避免客户端与限流时间不一致。
+function startCountdown(seconds: number): void {
+  stopCountdown()
+  countdown.value = seconds
+  countdownTimer = window.setInterval(() => {
+    countdown.value -= 1
+    if (countdown.value <= 0) stopCountdown()
+  }, 1000)
+}
+
+// 忘记密码验证码发送前先校验邮箱，并保存本次重置挑战。
+async function handleSendCode(): Promise<void> {
+  if (!resetFormRef.value) return
+  try {
+    await resetFormRef.value.validateField('email')
+  } catch {
+    return
+  }
+  codeSending.value = true
+  try {
+    const data = await sendEmailCode(resetForm.email, 'RESET_PASSWORD')
+    challengeId.value = data.challengeId
+    resetFormRef.value?.clearValidate('emailCode')
+    startCountdown(data.resendAfter)
+    ElMessage.success('如果该邮箱已注册，验证码邮件会很快送达')
+  } catch (error: unknown) {
+    ElMessage.error(error instanceof Error ? error.message : '验证码发送失败')
+  } finally {
+    codeSending.value = false
+  }
+}
+
+// 清空重置模块的临时挑战与密码，返回登录时不保留敏感输入。
+function clearResetState(): void {
+  stopCountdown()
+  resetForm.email = ''
+  resetForm.emailCode = ''
+  resetForm.password = ''
+  resetForm.confirmPassword = ''
+  challengeId.value = ''
+  countdown.value = 0
+  resetFormRef.value?.clearValidate()
+}
+
+// 重置密码前统一校验邮箱、挑战和新密码，避免无效请求进入后端。
+async function handleReset(): Promise<void> {
+  if (!resetFormRef.value) return
+  try {
+    await resetFormRef.value.validate()
+  } catch {
+    return
+  }
+
+  resetSubmitting.value = true
+  try {
+    await resetPassword({ ...resetForm, challengeId: challengeId.value })
+    ElMessage.success('密码已重置，请使用新密码登录')
+    clearResetState()
+    isResetMode.value = false
+  } catch (error: unknown) {
+    ElMessage.error(error instanceof Error ? error.message : '密码重置失败')
+  } finally {
+    resetSubmitting.value = false
+  }
+}
+
+// 返回登录模块时销毁验证码挑战和密码草稿。
+function showLoginMode(): void {
+  clearResetState()
+  isResetMode.value = false
+}
+
+// 登录页卸载时释放验证码倒计时。
+onBeforeUnmount(stopCountdown)
 </script>
 
 <!-- 认证类页面共享布局，非 scoped，按需引入以避免全站污染。 -->

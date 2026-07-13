@@ -1,9 +1,11 @@
+// 会员权益查询、额度预检与备考偏好更新接口。
 import { Router } from 'express'
 import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
 import { checkMemberAccess, getMemberContext, type EntitlementAction } from '../services/member.js'
 import { isExamType } from '../constants/domain.js'
+import { examPreferencesSchema } from '../utils/authSchemas.js'
 
 export const memberRouter = Router()
 
@@ -26,7 +28,11 @@ memberRouter.get('/', requireAuth, async (req, res) => {
 // 权益预检
 memberRouter.post('/check-access', requireAuth, async (req, res) => {
   try {
-    const { action, examType = 'TMUA', questionCount = 1 } = req.body as {
+    const {
+      action,
+      examType = 'TMUA',
+      questionCount = 1,
+    } = req.body as {
       action?: EntitlementAction
       examType?: string
       questionCount?: number
@@ -59,15 +65,15 @@ memberRouter.post('/check-access', requireAuth, async (req, res) => {
 // 更新备考偏好
 memberRouter.put('/exam-preferences', requireAuth, async (req, res) => {
   try {
-    const { examPreferences } = req.body
-    if (!Array.isArray(examPreferences)) {
-      res.status(422).json(fail('备考偏好格式不正确'))
+    const parsed = examPreferencesSchema.safeParse(req.body.examPreferences)
+    if (!parsed.success) {
+      res.status(422).json(fail(parsed.error.issues[0]?.message || '备考偏好格式不正确'))
       return
     }
 
     await prisma.user.update({
       where: { id: req.user!.userId },
-      data: { examPreferences },
+      data: { examPreferences: parsed.data },
     })
 
     res.json(success(null))

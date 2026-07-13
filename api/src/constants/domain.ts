@@ -25,6 +25,14 @@ export const EXAM_TYPE = {
 export const EXAM_TYPES = Object.values(EXAM_TYPE)
 export type ExamType = (typeof EXAM_TYPES)[number]
 
+export const TARGET_UNIVERSITIES = [
+  '剑桥大学',
+  '牛津大学',
+  '帝国理工学院',
+  '伦敦大学学院',
+  '伦敦政治经济学院',
+] as const
+
 export const EXAM_RECORD_STATUS = {
   IN_PROGRESS: 'in_progress',
   SUBMITTED: 'submitted',
@@ -42,6 +50,7 @@ export const ANSWER_RECORD_STATE = {
 export const ANSWER_RECORD_STATES = Object.values(ANSWER_RECORD_STATE)
 export type AnswerRecordState = (typeof ANSWER_RECORD_STATES)[number]
 
+// 将外部状态值收窄为答题记录允许的状态，供接口边界安全复用。
 export function isAnswerRecordState(value: unknown): value is AnswerRecordState {
   return typeof value === 'string' && ANSWER_RECORD_STATES.includes(value as AnswerRecordState)
 }
@@ -78,17 +87,11 @@ export const PAPER_TYPE = {
 export const PAPER_TYPES = Object.values(PAPER_TYPE)
 export type PaperType = (typeof PAPER_TYPES)[number]
 
-export const REAL_PAPER_TYPES = [
-  PAPER_TYPE.REAL_PAPER,
-] as const
+export const REAL_PAPER_TYPES = [PAPER_TYPE.REAL_PAPER] as const
 
-export const QUESTION_BANK_PAPER_TYPES = [
-  PAPER_TYPE.AI_PAPER,
-] as const
+export const QUESTION_BANK_PAPER_TYPES = [PAPER_TYPE.AI_PAPER] as const
 
-export const MOCK_PAPER_TYPES = [
-  PAPER_TYPE.MOCK_PAPER,
-] as const
+export const MOCK_PAPER_TYPES = [PAPER_TYPE.MOCK_PAPER] as const
 
 export const MEMBERSHIP_PLAN = {
   MONTHLY: 'monthly',
@@ -118,14 +121,17 @@ export const EFFECTIVE_MEMBERSHIP_STATUS = {
   CANCELLED: MEMBERSHIP_STATUS.CANCELLED,
 } as const
 
+// 角色判断统一使用领域常量，避免各接口接受未定义角色。
 export function isUserRole(value: unknown): value is UserRole {
   return typeof value === 'string' && USER_ROLES.includes(value as UserRole)
 }
 
+// 考试类型判断统一约束在当前产品支持的类型集合内。
 export function isExamType(value: unknown): value is ExamType {
   return typeof value === 'string' && EXAM_TYPES.includes(value as ExamType)
 }
 
+// 旧试卷类型在业务查询前归一到当前三类标准值。
 export function normalizePaperType(value: unknown): PaperType {
   if (REAL_PAPER_TYPES.includes(value as any)) return PAPER_TYPE.REAL_PAPER
   if (MOCK_PAPER_TYPES.includes(value as any)) return PAPER_TYPE.MOCK_PAPER
@@ -133,10 +139,12 @@ export function normalizePaperType(value: unknown): PaperType {
   return PAPER_TYPE.REAL_PAPER
 }
 
+// 在接口边界判断试卷类型是否可用于当前业务查询。
 export function isPaperType(value: unknown): value is PaperType {
   return typeof value === 'string' && PAPER_TYPES.includes(value as PaperType)
 }
 
+// 将标准试卷类型展开为数据库兼容值，集中处理历史类型映射。
 export function paperTypeWhereValues(value: unknown): string[] {
   if (!isPaperType(value)) return []
   const paperType = normalizePaperType(value)
@@ -145,16 +153,19 @@ export function paperTypeWhereValues(value: unknown): string[] {
   return [...QUESTION_BANK_PAPER_TYPES]
 }
 
+// 真题判断沿用统一兼容集合，避免业务层重复比较字符串。
 export function isRealPaperType(value: unknown): boolean {
   return REAL_PAPER_TYPES.includes(value as any)
 }
 
+// 会员套餐判断只接受系统已配置的月度或年度方案。
 export function isMembershipPlan(value: unknown): value is MembershipPlan {
   return typeof value === 'string' && MEMBERSHIP_PLANS.includes(value as MembershipPlan)
 }
 
+// 旧支付状态缺失或异常时按免费用户处理，避免误授予权益。
 export function normalizeUserPaymentStatus(value: unknown): UserPaymentStatus {
   return USER_PAYMENT_STATUSES.includes(value as UserPaymentStatus)
-    ? value as UserPaymentStatus
+    ? (value as UserPaymentStatus)
     : USER_PAYMENT_STATUS.FREE
 }

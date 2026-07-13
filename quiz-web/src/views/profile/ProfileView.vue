@@ -94,7 +94,11 @@
 
           <div v-else class="member-upgrade-panel">
             <h2>开通 {{ currentExamType }} 会员</h2>
-            <p>解锁 {{ currentExamType }} 历年真题、海量练习题、预估分分析与模拟考试权益。</p>
+            <p>
+              解锁
+              {{ currentExamType }}
+              历年真题、海量练习题、预估分分析与模拟考试权益。
+            </p>
             <button type="button" class="button_primary" @click="handleUpgradeClick">
               升级会员
             </button>
@@ -159,6 +163,8 @@
               v-model="profileForm.username"
               :disabled="!profileEditing || profileSaving"
               placeholder="请输入用户名"
+              maxlength="30"
+              show-word-limit
             />
           </label>
           <label>
@@ -180,7 +186,9 @@
             v-model="emailCode"
             maxlength="6"
             inputmode="numeric"
+            pattern="[0-9]*"
             placeholder="输入新邮箱收到的六位验证码"
+            @input="handleChangeEmailCodeInput"
           />
           <button
             type="button"
@@ -221,7 +229,8 @@
               v-model="passwordForm.newPassword"
               type="password"
               autocomplete="new-password"
-              placeholder="新密码（8-128位，包含字母和数字）"
+              maxlength="12"
+              placeholder="新密码（8-12位，英文+数字，可使用 !@#$%）"
               :disabled="!profileEditing || passwordSaving"
               show-password
             />
@@ -229,6 +238,7 @@
               v-model="passwordForm.confirmPassword"
               type="password"
               autocomplete="new-password"
+              maxlength="12"
               placeholder="确认新密码"
               :disabled="!profileEditing || passwordSaving"
               show-password
@@ -297,7 +307,9 @@
                 v-for="et in examTypes"
                 :key="et.value"
                 class="exam-type-chip"
-                :class="{ 'exam-type-chip--active': editExamTypes.includes(et.value) }"
+                :class="{
+                  'exam-type-chip--active': editExamTypes.includes(et.value),
+                }"
               >
                 <input
                   type="checkbox"
@@ -345,12 +357,22 @@
               <strong>{{ examTypeLabel(et) }}</strong>
               <div class="goal-grid">
                 <label>
-                  <span>目标院校（多个用逗号分隔）</span>
-                  <input
-                    v-model="editGoals[et]!.targetUniversitiesText"
-                    type="text"
-                    placeholder="例如：Imperial College London"
-                  />
+                  <span>目标院校（最多选择 2 个）</span>
+                  <el-select
+                    v-model="editGoals[et]!.targetUniversities"
+                    multiple
+                    :multiple-limit="2"
+                    collapse-tags
+                    collapse-tags-tooltip
+                    placeholder="请选择目标院校"
+                  >
+                    <el-option
+                      v-for="university in TARGET_UNIVERSITY_OPTIONS"
+                      :key="university"
+                      :label="university"
+                      :value="university"
+                    />
+                  </el-select>
                 </label>
                 <label>
                   <span>目标专业</span>
@@ -391,40 +413,51 @@
           </div>
         </div>
 
-        <!-- 查看模式 -->
-        <div v-else class="readonly-form readonly-form--two">
-          <template v-for="pref in examPreferences" :key="pref.examType">
-            <label>
-              <span>{{ pref.examType }} 备考科目</span>
-              <input :value="pref.subjects.join('、') || '未选择'" readonly />
-            </label>
-            <label>
-              <span>{{ pref.examType }} 目标院校</span>
-              <input :value="pref.targetUniversities?.join('、') || '未设置'" readonly />
-            </label>
-            <label>
-              <span>{{ pref.examType }} 目标专业</span>
-              <input :value="pref.targetMajor || '未设置'" readonly />
-            </label>
-            <label v-if="pref.examType.toUpperCase() === 'ESAT'">
-              <span>{{ pref.examType }} 目标分数</span>
-              <input
-                :value="pref.targetScore ? `${pref.targetScore.toFixed(1)} / 9.0` : '未设置'"
-                readonly
-              />
-            </label>
-            <label>
-              <span>{{ pref.examType }} 考试与投入</span>
-              <input
-                :value="`${pref.examDate || '日期未设置'} · ${pref.weeklyHours ? `${pref.weeklyHours} 小时/周` : '时长未设置'}`"
-                readonly
-              />
-            </label>
-          </template>
-          <label v-if="!examPreferences.length">
-            <span>备考偏好</span>
-            <input value="未设置" readonly />
-          </label>
+        <!-- 查看模式按考试类型分组，避免长标签与内容相互遮挡。 -->
+        <div v-else-if="examPreferences.length" class="exam-summary-list">
+          <article v-for="pref in examPreferences" :key="pref.examType" class="exam-summary-card">
+            <header class="exam-summary-header">
+              <span>{{ pref.examType }}</span>
+              <div>
+                <strong>{{ pref.examType }} 备考目标</strong>
+                <small>该考试类型的科目与申请目标</small>
+              </div>
+            </header>
+
+            <div class="exam-summary-grid">
+              <div class="exam-summary-item">
+                <span>备考科目</span>
+                <strong>{{ pref.subjects.join('、') || '未选择' }}</strong>
+              </div>
+              <div class="exam-summary-item">
+                <span>目标院校</span>
+                <strong>{{ pref.targetUniversities?.join('、') || '未设置' }}</strong>
+              </div>
+              <div class="exam-summary-item">
+                <span>目标专业</span>
+                <strong>{{ pref.targetMajor || '未设置' }}</strong>
+              </div>
+              <div v-if="pref.examType.toUpperCase() === 'ESAT'" class="exam-summary-item">
+                <span>目标分数</span>
+                <strong>{{
+                  pref.targetScore ? `${pref.targetScore.toFixed(1)} / 9.0` : '未设置'
+                }}</strong>
+              </div>
+              <div class="exam-summary-item">
+                <span>考试日期</span>
+                <strong>{{ pref.examDate || '未设置' }}</strong>
+              </div>
+              <div class="exam-summary-item">
+                <span>每周投入</span>
+                <strong>{{ pref.weeklyHours ? `${pref.weeklyHours} 小时/周` : '未设置' }}</strong>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div v-else class="exam-summary-empty">
+          <strong>尚未设置报考目标</strong>
+          <span>点击“编辑”选择备考类型并完善申请目标。</span>
         </div>
       </section>
 
@@ -524,6 +557,7 @@ import {
 import { getProfileExamStats, type ProfileExamStats } from '@/api/exam'
 import { useAuthStore } from '@/stores/auth'
 import { DEFAULT_EXAM_TYPE, EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
+import { TARGET_UNIVERSITY_OPTIONS } from '@/constants/universities'
 import {
   changePassword,
   getSessions,
@@ -531,7 +565,13 @@ import {
   sendEmailCode,
   type AuthSessionItem,
 } from '@/api/auth'
-import { validateConfirmPassword, validatePassword } from '@/utils/validation'
+import {
+  EMAIL_CODE_PATTERN,
+  normalizeEmailCode,
+  validateConfirmPassword,
+  validatePassword,
+  validateUsername,
+} from '@/utils/validation'
 
 type SubscriptionFilter = 'all' | 'active' | 'expired' | 'cancelled'
 type PaymentMethod = 'wechat' | 'alipay' | 'manual'
@@ -546,7 +586,7 @@ interface SubscriptionRecord {
 }
 
 interface ExamGoalDraft {
-  targetUniversitiesText: string
+  targetUniversities: string[]
   targetMajor: string
   targetScore: string
   examDate: string
@@ -571,8 +611,13 @@ const emailCodeSending = ref(false)
 const emailCountdown = ref(0)
 let emailTimer: number | undefined
 const passwordSaving = ref(false)
-const passwordForm = reactive({ currentPassword: '', newPassword: '', confirmPassword: '' })
+const passwordForm = reactive({
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+})
 const sessions = ref<AuthSessionItem[]>([])
+// 只有邮箱实际变化时才要求验证码，单独修改用户名无需重复验证邮箱。
 const profileEmailChanged = computed(
   () => profileForm.email.trim().toLowerCase() !== (auth.user?.email || '').toLowerCase(),
 )
@@ -604,6 +649,7 @@ const examRequiredSubjects: Record<string, string[]> = {
 
 const ESAT_MAX_SUBJECTS = 3
 
+// 考试类型展示名从统一选项读取，避免页面直接展示内部值。
 function examTypeLabel(value: string): string {
   return examTypes.find((e) => e.value === value)?.label || value
 }
@@ -611,7 +657,7 @@ function examTypeLabel(value: string): string {
 // 新增考试类型时创建完整空白资料，保证模板中的双向绑定始终有目标对象。
 function emptyExamGoal(): ExamGoalDraft {
   return {
-    targetUniversitiesText: '',
+    targetUniversities: [],
     targetMajor: '',
     targetScore: '',
     examDate: '',
@@ -619,10 +665,12 @@ function emptyExamGoal(): ExamGoalDraft {
   }
 }
 
+// 必选科目沿用注册规则，确保个人中心不会保存出不兼容偏好。
 function isExamSubjectRequired(examType: string, subject: string): boolean {
   return (examRequiredSubjects[examType] || []).includes(subject)
 }
 
+// 必选科目和 ESAT 数量上限在编辑时同步锁定，防止选择状态失真。
 function isEditSubjectDisabled(examType: string, subject: string): boolean {
   if (isExamSubjectRequired(examType, subject)) return true
   if (examType === 'ESAT') {
@@ -646,6 +694,7 @@ function toggleEditExamType(value: string): void {
   }
 }
 
+// 只允许修改可选科目，避免用户移除考试类型要求的基础科目。
 function toggleEditSubject(examType: string, subject: string): void {
   if (isEditSubjectDisabled(examType, subject)) return
   const subs = editSubjects.value[examType] || []
@@ -664,7 +713,7 @@ function startEditExam(): void {
   for (const p of prefs) {
     editSubjects.value[p.examType] = [...p.subjects]
     editGoals.value[p.examType] = {
-      targetUniversitiesText: (p.targetUniversities || []).join('、'),
+      targetUniversities: [...(p.targetUniversities || [])],
       targetMajor: p.targetMajor || '',
       targetScore: p.targetScore ? String(p.targetScore) : '',
       examDate: p.examDate || '',
@@ -674,6 +723,7 @@ function startEditExam(): void {
   examEditing.value = true
 }
 
+// 取消编辑只退出草稿态，已保存的会员上下文保持不变。
 function cancelEditExam(): void {
   examEditing.value = false
 }
@@ -681,6 +731,10 @@ function cancelEditExam(): void {
 // 保存前验证目标分数与周投入范围，并将目标资料写回对应考试类型的 JSON 偏好。
 async function saveExam(): Promise<void> {
   for (const et of editExamTypes.value) {
+    if ((editGoals.value[et]?.targetUniversities.length || 0) > 2) {
+      ElMessage.warning(`${et} 目标院校最多选择 2 个`)
+      return
+    }
     const targetScoreText = editGoals.value[et]?.targetScore.trim() || ''
     const targetScore = Number(targetScoreText)
     if (
@@ -702,16 +756,14 @@ async function saveExam(): Promise<void> {
   try {
     const prefs: ExamPreference[] = editExamTypes.value.map((et) => {
       const goal = editGoals.value[et] || emptyExamGoal()
-      const targetUniversities = goal.targetUniversitiesText
-        .split(/[，,、]/)
-        .map((item) => item.trim())
-        .filter(Boolean)
       const weeklyHours = Number(goal.weeklyHours)
       const targetScore = Number(goal.targetScore)
       return {
         examType: et,
         subjects: editSubjects.value[et] || [],
-        ...(targetUniversities.length ? { targetUniversities } : {}),
+        ...(goal.targetUniversities.length
+          ? { targetUniversities: [...goal.targetUniversities] }
+          : {}),
         ...(goal.targetMajor.trim() ? { targetMajor: goal.targetMajor.trim() } : {}),
         ...(et === 'ESAT' && goal.targetScore && Number.isFinite(targetScore)
           ? { targetScore }
@@ -740,13 +792,19 @@ const subscriptionFilters: { label: string; value: SubscriptionFilter }[] = [
   { label: '已取消', value: 'cancelled' },
 ]
 
+// 用户名缺失时提供稳定称呼，避免个人中心标题为空。
 const displayName = computed(() => auth.user?.username || '同学')
+// 未上传头像时从展示名生成文字占位。
 const userInitial = computed(() => displayName.value.charAt(0).toUpperCase())
+// 仅有效会员记录参与当前权益和标签计算。
 const activeMemberships = computed(() =>
   (auth.memberContext?.memberships || []).filter((item) => item.status === 'active'),
 )
+// 兼容旧支付标识，确保迁移期间已付费用户仍被识别为会员。
 const hasActiveMembership = computed(() => activeMemberships.value.length > 0 || auth.isPaid)
+// 缺少备考偏好时统一为空数组，简化模板遍历和编辑初始化。
 const examPreferences = computed(() => auth.memberContext?.examPreferences || [])
+// 会员标签由实际生效套餐生成，无有效套餐时明确展示免费版。
 const membershipTags = computed(() => {
   if (!activeMemberships.value.length) return ['免费版']
   return activeMemberships.value.map((item) => `${item.examType} ${planName(item.plan)}`)
@@ -766,17 +824,21 @@ const currentExamStats = computed<ProfileExamStats>(
       diagnosticExamCount: 0,
     },
 )
+// 预估分数只对已开通考试展示，并统一保留一位小数。
 const estimatedScoreText = computed(() => {
   if (!isCurrentExamActive.value) return '--'
   const score = currentExamStats.value.estimatedScore
   return score === null ? '--' : score.toFixed(1)
 })
+// 未开通考试隐藏答题量，避免把零误解为有效学习统计。
 const answeredQuestionText = computed(() =>
   isCurrentExamActive.value ? String(currentExamStats.value.answeredQuestionCount) : '--',
 )
+// 未开通考试隐藏诊断次数，与其他统计卡片保持同一展示规则。
 const diagnosticExamText = computed(() =>
   isCurrentExamActive.value ? String(currentExamStats.value.diagnosticExamCount) : '--',
 )
+// 诊断额度完全按后端分考试类型权益计算，不再用历史记录推断状态。
 const diagnosticQuotaItems = computed(() => {
   const quotas = auth.memberContext?.quotas || {}
   return EXAM_TYPE_OPTIONS.map((item) => {
@@ -799,11 +861,14 @@ const diagnosticQuotaItems = computed(() => {
     }
   })
 })
+// 诊断完成状态只读取当前考试类型，避免不同考试记录相互污染。
 const hasCompletedCurrentDiagnostic = computed(() => currentExamStats.value.diagnosticExamCount > 0)
+// 当前诊断卡片统一格式化分数，无有效成绩时显示占位符。
 const currentDiagnosticScoreText = computed(() => {
   const score = currentExamStats.value.estimatedScore
   return score === null ? '--' : score.toFixed(1)
 })
+// 将后端会员记录转换为订阅列表所需的稳定展示结构。
 const subscriptionRecords = computed<SubscriptionRecord[]>(() =>
   (auth.memberContext?.memberships || []).map((item, index) => ({
     id: `${item.examType}-${item.plan}-${item.startsAt || index}`,
@@ -814,22 +879,27 @@ const subscriptionRecords = computed<SubscriptionRecord[]>(() =>
     status: normalizeSubscriptionStatus(item.status),
   })),
 )
+// 订阅筛选只作用于展示数据，不修改原始会员上下文。
 const filteredSubscriptionRecords = computed(() => {
   if (subscriptionFilter.value === 'all') return subscriptionRecords.value
   return subscriptionRecords.value.filter((item) => item.status === subscriptionFilter.value)
 })
+// 消费合计从当前订阅记录派生，避免维护额外易失同步状态。
 const totalSpend = computed(() =>
   subscriptionRecords.value.reduce((sum, item) => sum + item.amount, 0).toFixed(0),
 )
+// 有效订阅数量用于概览卡片，状态判断与列表筛选保持一致。
 const activeSubscriptionCount = computed(
   () => subscriptionRecords.value.filter((item) => item.status === 'active').length,
 )
+// 概览优先展示首个有效套餐，无套餐时回落到免费版。
 const currentPlanName = computed(() => {
   const active = activeMemberships.value[0]
   if (!active) return '免费版'
   return planName(active.plan)
 })
 
+// 用户上下文刷新时仅同步非编辑态表单，避免覆盖正在输入的草稿。
 watch(
   () => auth.user,
   () => {
@@ -838,6 +908,7 @@ watch(
   { immediate: true },
 )
 
+// 进入个人中心并行加载权益、统计和设备会话，局部失败不阻塞其他区域。
 onMounted(async () => {
   errorText.value = ''
   const [memberResult, statsResult, sessionsResult] = await Promise.allSettled([
@@ -868,11 +939,13 @@ onMounted(async () => {
   if (hasFailure) errorText.value = '部分学习数据暂时无法加载，请稍后刷新。'
 })
 
+// 退出当前设备时先撤销服务端会话，再离开个人中心。
 async function handleLogout(): Promise<void> {
   await auth.logout()
   router.push('/')
 }
 
+// 开始编辑时基于最新用户数据创建干净草稿并清空敏感输入。
 function startEditProfile(): void {
   resetProfileForm()
   emailCode.value = ''
@@ -881,6 +954,7 @@ function startEditProfile(): void {
   profileEditing.value = true
 }
 
+// 取消编辑时丢弃未保存资料和密码草稿，恢复服务端状态。
 function cancelEditProfile(): void {
   resetProfileForm()
   emailCode.value = ''
@@ -889,30 +963,33 @@ function cancelEditProfile(): void {
   profileEditing.value = false
 }
 
+// 升级入口保留当前考试类型上下文，便于后续接入支付流程。
 function handleUpgradeClick(): void {
   ElMessage.info(`即将开通 ${currentExamType.value} 会员`)
 }
 
+// 从额度区进入统一诊断入口，由诊断页继续选择具体试卷。
 function handleStartDiagnostic(): void {
   router.push('/assessment')
 }
 
+// 基础信息保存时仅在邮箱变化后附带新邮箱验证挑战。
 async function saveProfile(): Promise<void> {
   const username = profileForm.username.trim()
   const email = profileForm.email.trim()
-  if (!username) {
-    ElMessage.warning('请输入用户名')
-    return
-  }
-  if (username.length > 50) {
-    ElMessage.warning('用户名不能超过 50 个字符')
+  const usernameResult = validateUsername(username)
+  if (!usernameResult.valid) {
+    ElMessage.warning(usernameResult.message)
     return
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     ElMessage.warning('请输入有效的邮箱地址')
     return
   }
-  if (profileEmailChanged.value && (!emailChallengeId.value || !/^\d{6}$/.test(emailCode.value))) {
+  if (
+    profileEmailChanged.value &&
+    (!emailChallengeId.value || !EMAIL_CODE_PATTERN.test(emailCode.value))
+  ) {
     ElMessage.warning('请先验证新邮箱并输入六位验证码')
     return
   }
@@ -935,6 +1012,7 @@ async function saveProfile(): Promise<void> {
   }
 }
 
+// 邮箱验证码倒计时使用服务端返回间隔，避免与限流时间不一致。
 function startEmailCountdown(seconds: number): void {
   if (emailTimer) window.clearInterval(emailTimer)
   emailCountdown.value = seconds
@@ -947,11 +1025,18 @@ function startEmailCountdown(seconds: number): void {
   }, 1000)
 }
 
+// 新邮箱再次变化时废弃旧挑战，防止验证码绑定到错误地址。
 function resetEmailVerification(): void {
   emailChallengeId.value = ''
   emailCode.value = ''
 }
 
+// 输入阶段过滤非数字，保证验证码模型始终符合提交格式。
+function handleChangeEmailCodeInput(value: string): void {
+  emailCode.value = normalizeEmailCode(value)
+}
+
+// 修改邮箱验证码只发送至当前表单的新地址，并保存本次挑战标识。
 async function sendChangeEmailCode(): Promise<void> {
   const email = profileForm.email.trim()
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -972,6 +1057,7 @@ async function sendChangeEmailCode(): Promise<void> {
   }
 }
 
+// 密码修改成功后清除本地会话并要求重新登录，避免旧凭据继续使用。
 async function savePassword(): Promise<void> {
   if (!profileEditing.value) return
   const passwordResult = validatePassword(passwordForm.newPassword)
@@ -1006,16 +1092,19 @@ async function savePassword(): Promise<void> {
   }
 }
 
+// 会话时间统一按中文二十四小时制展示，方便用户识别最近活动。
 function formatSessionTime(value: string): string {
   return new Date(value).toLocaleString('zh-CN', { hour12: false })
 }
 
+// IPv4 映射地址转换为用户熟悉的显示格式，本地回环统一为 127.0.0.1。
 function formatIpAddress(value?: string | null): string {
   if (!value) return '未知'
   if (value === '::1') return '127.0.0.1'
   return value.replace(/^::ffff:/i, '')
 }
 
+// 撤销当前会话后立即退出；其他设备则只从会话列表移除。
 async function handleRevokeSession(session: AuthSessionItem): Promise<void> {
   if (!profileEditing.value) return
   await revokeSession(session.id)
@@ -1028,6 +1117,7 @@ async function handleRevokeSession(session: AuthSessionItem): Promise<void> {
   ElMessage.success('设备会话已撤销')
 }
 
+// 全部设备退出由后端批量撤销会话，当前页面随后返回登录页。
 async function handleLogoutAll(): Promise<void> {
   if (!profileEditing.value) return
   await auth.logoutAll()
@@ -1035,27 +1125,32 @@ async function handleLogoutAll(): Promise<void> {
   router.push('/login')
 }
 
+// 资料草稿始终从当前登录用户重建，避免保留上次编辑内容。
 function resetProfileForm(): void {
   profileForm.username = auth.user?.username || ''
   profileForm.email = auth.user?.email || ''
 }
 
+// 密码草稿不做持久化，每次结束编辑都立即清空。
 function resetPasswordDraft(): void {
   passwordForm.currentPassword = ''
   passwordForm.newPassword = ''
   passwordForm.confirmPassword = ''
 }
 
+// 页面离开时释放邮箱倒计时，避免卸载后继续更新组件状态。
 onBeforeUnmount(() => {
   if (emailTimer) window.clearInterval(emailTimer)
 })
 
+// 未识别的考试类型回落到默认值，保证统计和路由上下文可用。
 function normalizeExamType(value: unknown): ExamType {
   return EXAM_TYPE_OPTIONS.some((item) => item.value === value)
     ? (value as ExamType)
     : DEFAULT_EXAM_TYPE
 }
 
+// 套餐内部值集中映射为中文名称，避免各卡片重复维护文案。
 function planName(plan: string): string {
   if (plan === 'yearly') return '专业版'
   if (plan === 'monthly') return '月度版'
@@ -1063,17 +1158,20 @@ function planName(plan: string): string {
   return '免费版'
 }
 
+// 当前静态金额仅用于历史订阅展示，未知或免费套餐按零元处理。
 function planAmount(item: MemberSubscription): number {
   if (item.plan === 'yearly') return 259
   if (item.plan === 'monthly') return 69
   return 0
 }
 
+// 后端异常订阅状态按已过期展示，避免误标记为仍在生效。
 function normalizeSubscriptionStatus(status: string): SubscriptionFilter {
   if (status === 'active' || status === 'expired' || status === 'cancelled') return status
   return 'expired'
 }
 
+// 支付方式内部值在展示层统一转换为中文标签。
 function paymentMethodText(method: PaymentMethod): string {
   const map: Record<PaymentMethod, string> = {
     wechat: '微信',
@@ -1083,6 +1181,7 @@ function paymentMethodText(method: PaymentMethod): string {
   return map[method]
 }
 
+// 订阅状态文案集中映射，保证筛选项和记录标签一致。
 function statusText(status: SubscriptionFilter): string {
   const map: Record<SubscriptionFilter, string> = {
     all: '全部',
@@ -1093,6 +1192,7 @@ function statusText(status: SubscriptionFilter): string {
   return map[status]
 }
 
+// 订阅日期统一输出年月日，无效或缺失时间使用占位符。
 function formatTimestamp(value: number | null): string {
   if (!value) return '-'
   const date = new Date(value)
@@ -1599,8 +1699,109 @@ function formatTimestamp(value: number | null): string {
   grid-template-columns: repeat(3, minmax(clamp(160px, 13.75vw, 220px), 1fr));
 }
 
-.readonly-form--two {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.exam-summary-list {
+  display: grid;
+  gap: 18px;
+}
+
+.exam-summary-card {
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-alt);
+}
+
+.exam-summary-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--color-line-soft);
+  background: var(--color-surface);
+}
+
+.exam-summary-header > span {
+  display: grid;
+  place-items: center;
+  min-width: 58px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  background: var(--color-ink);
+  color: var(--color-ink-inverse);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+}
+
+.exam-summary-header div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.exam-summary-header strong {
+  color: var(--color-ink);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+}
+
+.exam-summary-header small {
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+}
+
+.exam-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+
+.exam-summary-item {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  min-height: 76px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-line-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.exam-summary-item span {
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+}
+
+.exam-summary-item strong {
+  overflow-wrap: anywhere;
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+  line-height: var(--leading-relaxed);
+}
+
+.exam-summary-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 36px 24px;
+  border: 1px dashed var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-alt);
+  text-align: center;
+}
+
+.exam-summary-empty strong {
+  color: var(--color-ink);
+  font-size: var(--text-base);
+}
+
+.exam-summary-empty span {
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
 }
 
 .email-verification-row {
@@ -1988,5 +2189,9 @@ function formatTimestamp(value: number | null): string {
 
 .goal-grid input:focus {
   border-color: var(--color-ink);
+}
+
+.goal-grid :deep(.el-select) {
+  width: 100%;
 }
 </style>

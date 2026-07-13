@@ -108,7 +108,7 @@ import type { FormInstance, FormRules } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { getMember } from '@/api/member'
-import { validatePasswordRequired, validateUsername } from '@/utils/validation'
+import { validateLoginIdentifier, validatePasswordRequired } from '@/utils/validation'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -131,7 +131,7 @@ const rules: FormRules = {
   username: [
     {
       validator: (_rule, value: string, callback) => {
-        const result = validateUsername(value)
+        const result = validateLoginIdentifier(value)
         if (result.valid) {
           callback()
         } else {

@@ -17,25 +17,42 @@ const DEFAULT_QUESTION_BANK_LIMIT = 100
 
 export type EntitlementAction = 'diagnostic' | 'question-bank'
 
+// 剩余天数按自然日向上取整，避免未到期会员提前显示为零天。
 function daysUntil(date: Date, now: Date): number {
   return Math.max(0, Math.ceil((date.getTime() - now.getTime()) / 86400000))
 }
 
+// 对外时间字段统一输出毫秒时间戳，并保留未配置状态。
 function toTimestamp(date: Date | null | undefined): number | null {
   return date ? date.getTime() : null
 }
 
-function isMembershipActive(membership: { status: string; startsAt: Date; endsAt: Date }, now: Date): boolean {
-  return membership.status === MEMBERSHIP_STATUS.ACTIVE && membership.startsAt <= now && membership.endsAt > now
+// 会员只有同时满足状态与有效期条件时才参与权益判定。
+function isMembershipActive(
+  membership: { status: string; startsAt: Date; endsAt: Date },
+  now: Date,
+): boolean {
+  return (
+    membership.status === MEMBERSHIP_STATUS.ACTIVE &&
+    membership.startsAt <= now &&
+    membership.endsAt > now
+  )
 }
 
-function effectiveMembershipStatus(membership: { status: string; endsAt: Date } | undefined, now: Date): string {
+// 当前无有效会员时仍保留最近记录状态，供个人中心准确展示。
+function effectiveMembershipStatus(
+  membership: { status: string; endsAt: Date } | undefined,
+  now: Date,
+): string {
   if (!membership) return EFFECTIVE_MEMBERSHIP_STATUS.FREE
-  if (membership.status === MEMBERSHIP_STATUS.CANCELLED) return EFFECTIVE_MEMBERSHIP_STATUS.CANCELLED
-  if (membership.status === MEMBERSHIP_STATUS.EXPIRED || membership.endsAt <= now) return EFFECTIVE_MEMBERSHIP_STATUS.EXPIRED
+  if (membership.status === MEMBERSHIP_STATUS.CANCELLED)
+    return EFFECTIVE_MEMBERSHIP_STATUS.CANCELLED
+  if (membership.status === MEMBERSHIP_STATUS.EXPIRED || membership.endsAt <= now)
+    return EFFECTIVE_MEMBERSHIP_STATUS.EXPIRED
   return membership.status
 }
 
+// 同考试类型存在多条记录时选取仍在有效期内且结束最晚的一条。
 async function getActiveMembership(userId: string, examType: string, now: Date) {
   const memberships = await prisma.userMembership.findMany({
     where: { userId, examType },
@@ -44,12 +61,14 @@ async function getActiveMembership(userId: string, examType: string, now: Date) 
   return memberships.find((membership) => isMembershipActive(membership, now)) || null
 }
 
+// 权益配置按考试类型读取，未配置时由调用方使用安全默认额度。
 async function getEntitlementConfig(examType: string) {
   return prisma.entitlementConfig.findFirst({
     where: { examType, status: MEMBERSHIP_STATUS.ACTIVE },
   })
 }
 
+// 诊断用量合并已关联会话和已提交真题，避免两条入口重复赠送额度。
 async function countDiagnosticUsed(userId: string, examType: string): Promise<number> {
   const [sessionCount, examRecordCount] = await Promise.all([
     prisma.diagnosticSession.count({
@@ -67,6 +86,7 @@ async function countDiagnosticUsed(userId: string, examType: string): Promise<nu
   return sessionCount + examRecordCount
 }
 
+// 题库用量按实际答题记录计数，确保额度反映用户已消费题目数。
 async function countQuestionBankUsed(userId: string, examType: string): Promise<number> {
   return prisma.answerRecord.count({
     where: {
@@ -97,12 +117,14 @@ export async function checkMemberAccess(
   const activeMembership = isAdmin ? null : await getActiveMembership(userId, examType, now)
   const config = await getEntitlementConfig(examType)
   const unlimited = isAdmin || !!activeMembership
-  const limit = action === 'diagnostic'
-    ? config?.diagnosticLimit ?? DEFAULT_DIAGNOSTIC_LIMIT
-    : config?.questionBankLimit ?? DEFAULT_QUESTION_BANK_LIMIT
-  const used = action === 'diagnostic'
-    ? await countDiagnosticUsed(userId, examType)
-    : await countQuestionBankUsed(userId, examType)
+  const limit =
+    action === 'diagnostic'
+      ? (config?.diagnosticLimit ?? DEFAULT_DIAGNOSTIC_LIMIT)
+      : (config?.questionBankLimit ?? DEFAULT_QUESTION_BANK_LIMIT)
+  const used =
+    action === 'diagnostic'
+      ? await countDiagnosticUsed(userId, examType)
+      : await countQuestionBankUsed(userId, examType)
   const remaining = unlimited ? null : Math.max(0, limit - used)
   const allowed = unlimited || (remaining ?? 0) >= requiredCount
 
@@ -119,12 +141,20 @@ export async function checkMemberAccess(
   }
 }
 
-// 汇总用户在各考试类型下的会员和免费额度上下文
+// 汇总用户在各考试类型下的会员和免费额度上下文。
 export async function getMemberContext(userId: string) {
   const now = new Date()
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, username: true, email: true, role: true, avatar: true, paymentStatus: true, examPreferences: true },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      role: true,
+      avatar: true,
+      paymentStatus: true,
+      examPreferences: true,
+    },
   })
 
   if (!user) return null
@@ -159,7 +189,9 @@ export async function getMemberContext(userId: string) {
     [...examTypes].map(async (examType) => {
       const config = configMap.get(examType)
       const userMemberships = membershipsByExamType.get(examType) || []
-      const activeMembership = userMemberships.find((membership) => isMembershipActive(membership, now))
+      const activeMembership = userMemberships.find((membership) =>
+        isMembershipActive(membership, now),
+      )
       const latestMembership = userMemberships[0]
       const diagnosticLimit = config?.diagnosticLimit ?? DEFAULT_DIAGNOSTIC_LIMIT
       const questionBankLimit = config?.questionBankLimit ?? DEFAULT_QUESTION_BANK_LIMIT
@@ -178,12 +210,15 @@ export async function getMemberContext(userId: string) {
       ])
 
       const unlimited = isAdmin || !!activeMembership
-      const plan = activeMembership?.plan || latestMembership?.plan || (isAdmin ? EFFECTIVE_PLAN.ADMIN : EFFECTIVE_PLAN.FREE)
+      const plan =
+        activeMembership?.plan ||
+        latestMembership?.plan ||
+        (isAdmin ? EFFECTIVE_PLAN.ADMIN : EFFECTIVE_PLAN.FREE)
       const status = activeMembership
         ? EFFECTIVE_MEMBERSHIP_STATUS.ACTIVE
-        : (isAdmin
-            ? EFFECTIVE_MEMBERSHIP_STATUS.ACTIVE
-            : effectiveMembershipStatus(latestMembership, now))
+        : isAdmin
+          ? EFFECTIVE_MEMBERSHIP_STATUS.ACTIVE
+          : effectiveMembershipStatus(latestMembership, now)
 
       return {
         examType,
@@ -221,7 +256,7 @@ export async function getMemberContext(userId: string) {
     }))
 
   // 将 examTypes 数组转为 quotas 对象，前端用 quotas[examType] 直接取，无需 find()
-  const quotas: Record<string, Omit<typeof examTypeContexts[number], 'examType'>> = {}
+  const quotas: Record<string, Omit<(typeof examTypeContexts)[number], 'examType'>> = {}
   for (const ctx of examTypeContexts) {
     const { examType, ...rest } = ctx
     quotas[examType] = rest
@@ -237,11 +272,13 @@ export async function getMemberContext(userId: string) {
   }
 }
 
+// 读取历史或空偏好时统一返回数组，避免会员上下文输出不稳定结构。
 function safeParseExamPreferences(raw: unknown): Array<{
   examType: string
   subjects: string[]
   targetUniversities?: string[]
   targetMajor?: string
+  targetScore?: number
   examDate?: string
   weeklyHours?: number
 }> {
@@ -250,6 +287,7 @@ function safeParseExamPreferences(raw: unknown): Array<{
     subjects: string[]
     targetUniversities?: string[]
     targetMajor?: string
+    targetScore?: number
     examDate?: string
     weeklyHours?: number
   }>(raw)

@@ -182,9 +182,13 @@ function resolveChinaumsConfig() {
     ['CHINAUMS_MID', payment.mid],
     ['CHINAUMS_TID', payment.tid],
     ['CHINAUMS_MSG_SRC_ID', payment.msgSrcId],
-    ['CHINAUMS_COMMUNICATION_KEY', payment.communicationKey],
-    ['CHINAUMS_NOTIFY_URL', payment.notifyUrl],
   ]
+  if (productionMode) {
+    required.push(
+      ['CHINAUMS_COMMUNICATION_KEY', payment.communicationKey],
+      ['CHINAUMS_NOTIFY_URL', payment.notifyUrl],
+    )
+  }
   const missing = required.filter(([, value]) => !value).map(([name]) => name)
   if (missing.length > 0) {
     throw new Error(`[config] ChinaUMS is enabled but required values are missing: ${missing.join(', ')}`)
@@ -204,7 +208,7 @@ function resolveChinaumsConfig() {
     throw new Error('[config] CHINAUMS_ORDER_DESCRIPTION must not exceed 128 characters')
   }
   validateChinaumsUrl('CHINAUMS_BASE_URL', payment.baseUrl, true)
-  validateChinaumsUrl('CHINAUMS_NOTIFY_URL', payment.notifyUrl, productionMode)
+  if (payment.notifyUrl) validateChinaumsUrl('CHINAUMS_NOTIFY_URL', payment.notifyUrl, productionMode)
   if (payment.returnUrl) validateChinaumsUrl('CHINAUMS_RETURN_URL', payment.returnUrl, productionMode)
   return payment
 }

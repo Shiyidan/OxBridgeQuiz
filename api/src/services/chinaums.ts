@@ -1,6 +1,7 @@
 // 银联商务 C扫B 聚合支付适配器：统一处理双环境地址、OPEN-BODY-SIG 认证和通知验签。
 import crypto from 'crypto'
 import { config } from '../config.js'
+import { createChinaumsAuthorizationHeader } from './chinaumsSignature.js'
 
 type ChinaumsPayload = Record<string, unknown>
 
@@ -113,12 +114,13 @@ export function createChinaumsOrderNo(date = new Date()): string {
 
 export function createChinaumsAuthorization(body: string, date = new Date(), nonce = crypto.randomUUID().replace(/-/g, '')): string {
   const timestamp = formatAuthorizationTimestamp(date)
-  const bodyDigest = crypto.createHash('sha256').update(body, 'utf8').digest('hex')
-  const signature = crypto
-    .createHmac('sha256', config.chinaums.appKey)
-    .update(`${config.chinaums.appId}${timestamp}${nonce}${bodyDigest}`, 'utf8')
-    .digest('base64')
-  return `OPEN-BODY-SIG AppId="${config.chinaums.appId}",Timestamp="${timestamp}",Nonce="${nonce}",Signature="${signature}"`
+  return createChinaumsAuthorizationHeader({
+    appId: config.chinaums.appId,
+    appKey: config.chinaums.appKey,
+    body,
+    timestamp,
+    nonce,
+  })
 }
 
 function commonPayload(): ChinaumsPayload {
@@ -191,7 +193,7 @@ export async function createChinaumsQr(input: {
     billDesc: (input.description || config.chinaums.orderDescription).slice(0, 128),
     totalAmount: input.amountCents,
     expireTime: formatChinaumsDateTime(input.expiresAt),
-    notifyUrl: config.chinaums.notifyUrl,
+    ...(config.chinaums.notifyUrl ? { notifyUrl: config.chinaums.notifyUrl } : {}),
     ...(config.chinaums.returnUrl ? { returnUrl: config.chinaums.returnUrl } : {}),
     walletOption: 'MULTIPLE',
     attachedData: input.orderNo,

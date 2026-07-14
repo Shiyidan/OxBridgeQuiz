@@ -1,4 +1,4 @@
-<!-- 首页会员卡片使用的支付套餐弹窗，当前仅承载支付交互原型。 -->
+<!-- 会员支付弹窗：选择已开放考试、套餐与支付渠道并完成订单支付。 -->
 <template>
   <Teleport to="body">
     <Transition name="payment-fade">
@@ -16,7 +16,12 @@
         >
           <header class="payment-header">
             <h2 id="payment-modal-title">选择会员套餐</h2>
-            <button class="payment-close" type="button" aria-label="关闭支付弹窗" @click="closeModal">
+            <button
+              class="payment-close"
+              type="button"
+              aria-label="关闭支付弹窗"
+              @click="closeModal"
+            >
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M6 6l12 12M18 6L6 18" />
               </svg>
@@ -28,12 +33,12 @@
               <div class="option-section">
                 <p class="option-label">请选择您的备考类型：</p>
                 <div class="exam-options">
-                  <label v-for="exam in examOptions" :key="exam" class="exam-option">
-                    <input v-model="selectedExams" type="checkbox" :value="exam" />
+                  <label v-for="exam in examOptions" :key="exam.value" class="exam-option">
+                    <input v-model="selectedExams" type="checkbox" :value="exam.value" />
                     <span class="check-box" aria-hidden="true">
                       <svg viewBox="0 0 16 16"><path d="M3.5 8.2l2.7 2.7 6.3-6.1" /></svg>
                     </span>
-                    <span>{{ exam }}</span>
+                    <span>{{ exam.label }}</span>
                   </label>
                 </div>
               </div>
@@ -50,14 +55,17 @@
                 >
                   <span v-if="plan.recommended" class="recommend-badge">
                     <svg viewBox="0 0 16 16" aria-hidden="true">
-                      <path d="M8 1.6l1.7 3.1 3.5.7-2.4 2.7.4 3.6L8 10.2l-3.2 1.5.4-3.6-2.4-2.7 3.5-.7L8 1.6z" />
+                      <path
+                        d="M8 1.6l1.7 3.1 3.5.7-2.4 2.7.4 3.6L8 10.2l-3.2 1.5.4-3.6-2.4-2.7 3.5-.7L8 1.6z"
+                      />
                     </svg>
                     最受欢迎
                   </span>
                   <span class="plan-name">{{ plan.name }}</span>
                   <span class="plan-price">
                     <span v-if="plan.promo" class="plan-promo">{{ plan.promo }}</span>
-                    <strong>¥{{ plan.price }}</strong><small>/月</small>
+                    <strong>¥{{ plan.price }}</strong
+                    ><small>/月</small>
                     <del v-if="plan.originalPrice">原价¥{{ plan.originalPrice }}/月</del>
                   </span>
                   <span v-if="selectedPlanId === plan.id" class="plan-selected" aria-hidden="true">
@@ -93,7 +101,9 @@
                     <path d="M1 1h7v7H1zm1 1v5h5V2zM3 3h3v3H3z" fill-rule="evenodd" />
                     <path d="M13 1h7v7h-7zm1 1v5h5V2zM15 3h3v3h-3z" fill-rule="evenodd" />
                     <path d="M1 13h7v7H1zm1 1v5h5v-5zM3 15h3v3H3z" fill-rule="evenodd" />
-                    <path d="M10 1h2v2h-1v2H9V3h1zm-1 5h2v2h2v2h-2V9H9zm3-1h1v2h-1zM8 10h2v2H8zM1 10h2v1h2v2H3v-1H1zm5-1h2v2H6zm-1 3h3v2H6v-1H5zm4 1h2v1h1v2h-2v-1H9zm3-2h2v2h-1v2h-1zm3-2h2v2h3v3h-2v-1h-3v-2h-1V9zm3 6h2v2h-1v3h-2v-2h-2v-2h1v1h2zm-5 1h2v2h2v2h-4v-1h-2v-2h2zM9 18h2v2H9zm1-2h1v1h-1z" />
+                    <path
+                      d="M10 1h2v2h-1v2H9V3h1zm-1 5h2v2h2v2h-2V9H9zm3-1h1v2h-1zM8 10h2v2H8zM1 10h2v1h2v2H3v-1H1zm5-1h2v2H6zm-1 3h3v2H6v-1H5zm4 1h2v1h1v2h-2v-1H9zm3-2h2v2h-1v2h-1zm3-2h2v2h3v3h-2v-1h-3v-2h-1V9zm3 6h2v2h-1v3h-2v-2h-2v-2h1v1h2zm-5 1h2v2h2v2h-4v-1h-2v-2h2zM9 18h2v2H9zm1-2h1v1h-1z"
+                    />
                   </g>
                 </svg>
                 <button
@@ -103,9 +113,17 @@
                   :disabled="creatingOrder || configStatus !== 'active' || !providerReady"
                   @click="handleCreateOrder"
                 >
-                  {{ creatingOrder ? '正在创建订单…' : providerReady ? '生成支付订单' : '待配置支付参数' }}
+                  {{
+                    creatingOrder
+                      ? '正在创建订单…'
+                      : providerReady
+                        ? '生成支付订单'
+                        : '待配置支付参数'
+                  }}
                 </button>
-                <span v-else-if="paymentStatus === 'paid'" class="qr-demo qr-success">支付成功</span>
+                <span v-else-if="paymentStatus === 'paid'" class="qr-demo qr-success"
+                  >支付成功</span
+                >
               </div>
 
               <p class="scan-tip">
@@ -127,7 +145,9 @@
                   :aria-selected="selectedChannelId === channel.id"
                   @click="selectedChannelId = channel.id"
                 >
-                  <span class="channel-logo" :class="`channel-logo--${channel.id}`">{{ channel.mark }}</span>
+                  <span class="channel-logo" :class="`channel-logo--${channel.id}`">{{
+                    channel.mark
+                  }}</span>
                   <span>{{ channel.label }}</span>
                 </button>
               </div>
@@ -157,6 +177,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 import {
   closePaymentOrder,
   createPaymentOrder,
@@ -183,7 +204,7 @@ const emit = defineEmits<{
   (event: 'paid', orderNo: string): void
 }>()
 
-const examOptions = ['TMUA', 'ESAT', 'STEP'] as const
+const examOptions = EXAM_TYPE_OPTIONS.filter((item) => item.available)
 const selectedExams = ref<string[]>(['TMUA'])
 const selectedPlanId = ref('monthly')
 const selectedChannelId = ref('alipay')
@@ -229,17 +250,17 @@ const channels = [
   { id: 'unionpay', name: '云闪付', label: '云闪付', mark: '云' },
 ] as const
 
-const selectedPlan = computed<PaymentPlan>(
-  () => plans.value.find((item) => item.id === selectedPlanId.value) || plans.value[0]!,
-)
 const activeChannel = computed(
   () => channels.find((item) => item.id === selectedChannelId.value) || channels[0],
 )
-const displayAmount = computed(() => formatPrice(
-  orderAmountCents.value ?? (selectedPlanId.value === 'monthly'
-    ? priceConfig.value.firstMonthlyPriceCents
-    : priceConfig.value.yearlyPriceCents),
-))
+const displayAmount = computed(() =>
+  formatPrice(
+    orderAmountCents.value ??
+      (selectedPlanId.value === 'monthly'
+        ? priceConfig.value.firstMonthlyPriceCents
+        : priceConfig.value.yearlyPriceCents),
+  ),
+)
 
 function closeModal(): void {
   void cancelCurrentOrder()
@@ -247,7 +268,9 @@ function closeModal(): void {
 }
 
 function formatPrice(valueCents: number): string {
-  return Number.isInteger(valueCents / 100) ? String(valueCents / 100) : (valueCents / 100).toFixed(2)
+  return Number.isInteger(valueCents / 100)
+    ? String(valueCents / 100)
+    : (valueCents / 100).toFixed(2)
 }
 
 async function loadPaymentConfig(): Promise<void> {
@@ -356,10 +379,14 @@ watch(
   },
 )
 
-watch([selectedExams, selectedPlanId, selectedChannelId], () => {
-  if (createdOrderNo.value) void cancelCurrentOrder()
-  resetPaymentOrder()
-}, { deep: true })
+watch(
+  [selectedExams, selectedPlanId, selectedChannelId],
+  () => {
+    if (createdOrderNo.value) void cancelCurrentOrder()
+    resetPaymentOrder()
+  },
+  { deep: true },
+)
 
 window.addEventListener('keydown', handleKeydown)
 onBeforeUnmount(() => {
@@ -784,9 +811,15 @@ onBeforeUnmount(() => {
   border-radius: 6px;
 }
 
-.channel-logo--alipay { background: #1677ff; }
-.channel-logo--wechat { background: #16b83e; }
-.channel-logo--unionpay { background: linear-gradient(135deg, #e51c35 0 46%, #087a9d 47% 100%); }
+.channel-logo--alipay {
+  background: #1677ff;
+}
+.channel-logo--wechat {
+  background: #16b83e;
+}
+.channel-logo--unionpay {
+  background: linear-gradient(135deg, #e51c35 0 46%, #087a9d 47% 100%);
+}
 
 .safe-tip {
   display: flex;
@@ -824,32 +857,72 @@ onBeforeUnmount(() => {
 }
 
 .payment-fade-enter-active,
-.payment-fade-leave-active { transition: opacity 0.2s ease; }
+.payment-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
 .payment-fade-enter-active .payment-modal,
-.payment-fade-leave-active .payment-modal { transition: transform 0.2s ease; }
+.payment-fade-leave-active .payment-modal {
+  transition: transform 0.2s ease;
+}
 .payment-fade-enter-from,
-.payment-fade-leave-to { opacity: 0; }
+.payment-fade-leave-to {
+  opacity: 0;
+}
 .payment-fade-enter-from .payment-modal,
-.payment-fade-leave-to .payment-modal { transform: translateY(12px) scale(0.985); }
+.payment-fade-leave-to .payment-modal {
+  transform: translateY(12px) scale(0.985);
+}
 
 @media (max-width: 760px) {
-  .payment-overlay { padding: 0; }
+  .payment-overlay {
+    padding: 0;
+  }
   .payment-modal {
     width: 100%;
     min-height: 100vh;
     overflow: hidden;
     border-radius: 0;
   }
-  .payment-header { min-height: 64px; padding: 0 20px; }
-  .payment-header h2 { font-size: 19px; }
-  .payment-close { top: 15px; right: 14px; }
-  .payment-body { display: block; }
-  .payment-options { padding: 28px 20px; border-right: 0; }
-  .exam-options { gap: 20px 28px; }
-  .plan-option { min-height: 82px; padding: 12px 15px; }
-  .plan-price { flex-wrap: wrap; justify-content: flex-end; max-width: 66%; }
-  .plan-price del { width: 100%; text-align: right; }
-  .payment-checkout { padding: 30px 20px; border-top: 1px solid #edf0f3; }
-  .qr-card { width: min(242px, 76vw); }
+  .payment-header {
+    min-height: 64px;
+    padding: 0 20px;
+  }
+  .payment-header h2 {
+    font-size: 19px;
+  }
+  .payment-close {
+    top: 15px;
+    right: 14px;
+  }
+  .payment-body {
+    display: block;
+  }
+  .payment-options {
+    padding: 28px 20px;
+    border-right: 0;
+  }
+  .exam-options {
+    gap: 20px 28px;
+  }
+  .plan-option {
+    min-height: 82px;
+    padding: 12px 15px;
+  }
+  .plan-price {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 66%;
+  }
+  .plan-price del {
+    width: 100%;
+    text-align: right;
+  }
+  .payment-checkout {
+    padding: 30px 20px;
+    border-top: 1px solid #edf0f3;
+  }
+  .qr-card {
+    width: min(242px, 76vw);
+  }
 }
 </style>

@@ -32,7 +32,16 @@
         </button>
       </div>
 
-      <section class="qb-main">
+      <section v-if="!isActiveExamAvailable" class="qb-unavailable" aria-live="polite">
+        <span class="qb-unavailable__badge">STEP · COMING SOON</span>
+        <h2>STEP 试题库正在推进中</h2>
+        <p>STEP 考纲、专项试题与在线练习暂未开放。相关内容准备完成后会在这里统一上线。</p>
+        <button type="button" class="button_primary" @click="handleTabClick(DEFAULT_EXAM_TYPE)">
+          查看 TMUA 试题库
+        </button>
+      </section>
+
+      <section v-else class="qb-main">
         <aside class="qb-sidebar">
           <h3 class="qb-sidebar__title">考点大纲 (SYLLABUS)</h3>
           <el-tree
@@ -92,12 +101,18 @@ import NavBar from '@/components/NavBar.vue'
 import type { SyllabusNode } from '@/api/questionBank'
 import { getSyllabusData, getQuestionSummaryData } from '@/api/questionBank'
 import { checkMemberAccess } from '@/api/member'
-import { DEFAULT_EXAM_TYPE, EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
+import {
+  DEFAULT_EXAM_TYPE,
+  EXAM_TYPE_OPTIONS,
+  getExamUnavailableMessage,
+  isExamTypeAvailable,
+  type ExamType,
+} from '@/constants/examTypes'
 
 const router = useRouter()
 const route = useRoute()
 
-interface TreeNode extends SyllabusNode {}
+type TreeNode = SyllabusNode
 type DifficultyId = 'easy' | 'medium' | 'hard' | 'composite'
 
 interface DifficultyOption {
@@ -164,6 +179,9 @@ const activeTopicTitle = computed<string>(() => `${selectedNodeLabel.value} · �
 // 题库接口统一使用当前 tab 的标准考试类型。
 const activeExamType = computed<ExamType>(() => activeTabId.value)
 
+// STEP 等未开放类型使用专用空状态，不向题库接口发起无意义请求。
+const isActiveExamAvailable = computed(() => isExamTypeAvailable(activeExamType.value))
+
 // 深层考纲节点查找同时返回祖先 code，便于学习路径入口展开对应树路径。
 function findTreeNode(
   nodes: TreeNode[],
@@ -184,6 +202,14 @@ onMounted(async () => {
   if (EXAM_TYPE_OPTIONS.some((item) => item.value === requestedExamType)) {
     activeTabId.value = requestedExamType as ExamType
   }
+  if (!isActiveExamAvailable.value) {
+    treeData.value = []
+    selectedNodeCode.value = ''
+    selectedNodeLabel.value = 'STEP'
+    resetQuestionSummary()
+    return
+  }
+
   try {
     const nodes = await getSyllabusData(activeExamType.value)
     treeData.value = nodes[0]?.children || []
@@ -191,7 +217,8 @@ onMounted(async () => {
     const requestedNode = requestedCode ? findTreeNode(treeData.value, requestedCode) : null
     if (requestedCode) {
       selectedNodeCode.value = requestedCode
-      selectedNodeLabel.value = requestedNode?.node.label || String(route.query.label || requestedCode)
+      selectedNodeLabel.value =
+        requestedNode?.node.label || String(route.query.label || requestedCode)
       if (requestedNode) defaultExpanded.value = requestedNode.parents
     } else {
       const first = treeData.value[0]
@@ -213,6 +240,10 @@ onMounted(async () => {
 
 // 轻量接口只拉题量和难度分布，避免列表页首次加载全量题目。
 async function loadQuestionSummary(): Promise<void> {
+  if (!isActiveExamAvailable.value) {
+    resetQuestionSummary()
+    return
+  }
   try {
     const data = await getQuestionSummaryData(selectedNodeCode.value, activeExamType.value)
     totalQuestionCount.value = data.total
@@ -227,6 +258,12 @@ async function loadQuestionSummary(): Promise<void> {
   }
 }
 
+// 考试类型切换时统一清空旧题量，避免暂未开放页面残留上一类型统计。
+function resetQuestionSummary(): void {
+  totalQuestionCount.value = 0
+  difficulties.value = difficulties.value.map((item) => ({ ...item, count: 0 }))
+}
+
 // 点击大纲节点后刷新统计卡片，后续练习入口沿用当前节点 code。
 const handleTreeNodeClick = async (node: TreeNode): Promise<void> => {
   selectedNodeCode.value = node.code
@@ -237,6 +274,15 @@ const handleTreeNodeClick = async (node: TreeNode): Promise<void> => {
 // 切换考试类型后重置大纲入口，避免沿用上一考试类型的节点 code。
 async function handleTabClick(tabId: QbTab['id']): Promise<void> {
   activeTabId.value = tabId
+  targetDifficulty.value = null
+  if (!isActiveExamAvailable.value) {
+    treeData.value = []
+    selectedNodeCode.value = ''
+    selectedNodeLabel.value = tabId
+    resetQuestionSummary()
+    ElMessage.info(getExamUnavailableMessage(tabId))
+    return
+  }
   try {
     const nodes = await getSyllabusData(activeExamType.value)
     treeData.value = nodes[0]?.children || []
@@ -253,6 +299,10 @@ async function handleTabClick(tabId: QbTab['id']): Promise<void> {
 
 // 难度卡片进入在线练习页，题目数据由 code 和 difficulty 延迟加载。
 const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
+  if (!isActiveExamAvailable.value) {
+    ElMessage.info(getExamUnavailableMessage(activeExamType.value))
+    return
+  }
   const access = await checkMemberAccess({
     action: 'question-bank',
     examType: activeExamType.value,
@@ -331,6 +381,42 @@ const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
   gap: 24px;
+}
+.qb-unavailable {
+  display: grid;
+  justify-items: center;
+  min-height: 420px;
+  padding: 72px 32px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(99, 102, 241, 0.08), transparent 34%),
+    linear-gradient(135deg, #ffffff, #f8fafc);
+  text-align: center;
+}
+.qb-unavailable__badge {
+  align-self: end;
+  padding: 7px 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.qb-unavailable h2 {
+  margin: 22px 0 0;
+  font-size: 28px;
+}
+.qb-unavailable p {
+  max-width: 560px;
+  margin: 12px 0 28px;
+  color: #64748b;
+  line-height: 1.8;
+}
+.qb-unavailable .button_primary {
+  align-self: start;
 }
 .qb-sidebar,
 .qb-content {

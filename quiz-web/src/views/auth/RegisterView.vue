@@ -112,16 +112,19 @@
                     class="exam-type-chip"
                     :class="{
                       'exam-type-chip--active': selectedExamTypes.includes(et.value),
+                      'exam-type-chip--unavailable': !et.available,
                     }"
+                    :aria-disabled="!et.available"
+                    @click.prevent="toggleExamType(et.value)"
                   >
                     <input
                       type="checkbox"
                       :value="et.value"
                       :checked="selectedExamTypes.includes(et.value)"
                       class="sr-only"
-                      @change="toggleExamType(et.value)"
                     />
                     {{ et.label }}
+                    <small v-if="!et.available">推进中</small>
                   </label>
                 </div>
               </el-form-item>
@@ -269,6 +272,11 @@ import NavBar from '@/components/NavBar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { getMember } from '@/api/member'
 import { sendEmailCode } from '@/api/auth'
+import {
+  EXAM_TYPE_OPTIONS,
+  getExamUnavailableMessage,
+  isExamTypeAvailable,
+} from '@/constants/examTypes'
 import { TARGET_UNIVERSITY_OPTIONS } from '@/constants/universities'
 import { createAuthRouteLocation, getSafeAuthRedirect } from '@/utils/authRedirect'
 import {
@@ -352,11 +360,8 @@ const rules: FormRules = {
   ],
 }
 
-const examTypes = [
-  { value: 'ESAT', label: 'ESAT' },
-  { value: 'TMUA', label: 'TMUA' },
-  { value: 'STEP', label: 'STEP' },
-] as const
+// STEP 注册入口暂时隐藏；考试开放后移除 filter 即可恢复现有选择、科目和目标表单逻辑。
+const examTypes = EXAM_TYPE_OPTIONS.filter((item) => item.value !== 'STEP')
 
 const examSubjects: Record<string, string[]> = {
   ESAT: ['数学1', '数学2', '物理', '化学', '生物'],
@@ -479,6 +484,10 @@ function emptyExamGoal(): ExamGoalDraft {
 
 // 切换考试类型时同步初始化或清理科目与目标，避免提交残留数据。
 function toggleExamType(value: string): void {
+  if (!isExamTypeAvailable(value)) {
+    ElMessage.info(getExamUnavailableMessage(value))
+    return
+  }
   const idx = selectedExamTypes.value.indexOf(value)
   if (idx >= 0) {
     selectedExamTypes.value.splice(idx, 1)
@@ -816,6 +825,21 @@ const handleSubmit = async (): Promise<void> => {
   background: var(--color-text);
   color: var(--color-text-inverse);
   border-color: var(--color-text);
+}
+
+.exam-type-chip--unavailable {
+  gap: 7px;
+  border-style: dashed;
+  color: var(--color-text-secondary);
+}
+
+.exam-type-chip--unavailable:hover {
+  border-color: var(--color-border);
+}
+
+.exam-type-chip--unavailable small {
+  font-size: 0.6875rem;
+  font-weight: var(--weight-semi);
 }
 
 .subject-chip--required {

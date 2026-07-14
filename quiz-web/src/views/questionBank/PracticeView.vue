@@ -122,7 +122,13 @@ import {
 } from '@/api/exam'
 import { checkMemberAccess, getMember } from '@/api/member'
 import { useAuthStore } from '@/stores/auth'
-import { DEFAULT_EXAM_TYPE, EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
+import {
+  DEFAULT_EXAM_TYPE,
+  EXAM_TYPE_OPTIONS,
+  getExamUnavailableMessage,
+  isExamTypeAvailable,
+  type ExamType,
+} from '@/constants/examTypes'
 import type { Question } from '@/types'
 
 const route = useRoute()
@@ -210,6 +216,11 @@ async function loadQuestions(): Promise<void> {
     if (paperId) {
       const paper = await getPaperDetailData(paperId)
       activeExamType.value = normalizeExamType(paper.examType)
+      if (!isExamTypeAvailable(activeExamType.value)) {
+        ElMessage.info(getExamUnavailableMessage(activeExamType.value))
+        router.replace('/assessment')
+        return
+      }
       const loadedQuestions = (paper.questions || []).map((q: any, index: number) => ({
         ...q,
         id: q.id || `paper-${paper.id}-${q.number || index + 1}`,
@@ -247,6 +258,11 @@ async function loadQuestions(): Promise<void> {
 
     const examType = normalizeExamType(route.query.examType as string | undefined)
     activeExamType.value = examType
+    if (!isExamTypeAvailable(examType)) {
+      ElMessage.info(getExamUnavailableMessage(examType))
+      router.replace({ path: '/question-bank', query: { examType } })
+      return
+    }
     const qs = (await getQuestionsData({ code, difficulty, examType })) || []
     const loadedQuestions = qs.map((q: any) => ({
       ...q,
@@ -335,10 +351,14 @@ function restoreSavedProgress(
       savedState === 'skipped' ||
       restoredAnswers[question.id] ||
       (restoredDurations[question.id] ?? 0) > 0
-    ) visited.add(index)
+    )
+      visited.add(index)
   })
-  const firstUnansweredIndex = loadedQuestions.findIndex((question) => !restoredAnswers[question.id])
-  currentIndex.value = firstUnansweredIndex >= 0 ? firstUnansweredIndex : Math.max(loadedQuestions.length - 1, 0)
+  const firstUnansweredIndex = loadedQuestions.findIndex(
+    (question) => !restoredAnswers[question.id],
+  )
+  currentIndex.value =
+    firstUnansweredIndex >= 0 ? firstUnansweredIndex : Math.max(loadedQuestions.length - 1, 0)
   visited.add(currentIndex.value)
   visitedIndexes.value = visited
   dirtyQuestionVersions.clear()
@@ -458,20 +478,16 @@ async function handleBackToQuestionBank(): Promise<void> {
     ? '返回诊断测试会保存当前作答和用时，之后可继续测试，是否返回？'
     : `返回${target.label}将离开当前答题页面，当前作答不会自动提交，是否返回？`
   try {
-    await ElMessageBox.confirm(
-      confirmMessage,
-      '提示',
-      {
-        type: 'warning',
-        confirmButtonText: isAssessmentMode ? '保存并返回' : `返回${target.label}`,
-        cancelButtonText: '继续答题',
-        confirmButtonClass: 'button_primary',
-        cancelButtonClass: 'button_cancel',
-        customClass: 'app-confirm-box',
-        closeOnClickModal: false,
-        distinguishCancelAndClose: true,
-      },
-    )
+    await ElMessageBox.confirm(confirmMessage, '提示', {
+      type: 'warning',
+      confirmButtonText: isAssessmentMode ? '保存并返回' : `返回${target.label}`,
+      cancelButtonText: '继续答题',
+      confirmButtonClass: 'button_primary',
+      cancelButtonClass: 'button_cancel',
+      customClass: 'app-confirm-box',
+      closeOnClickModal: false,
+      distinguishCancelAndClose: true,
+    })
     router.push(target.path)
   } catch {
     // 用户取消返回时保持当前答题状态。
@@ -495,7 +511,8 @@ async function flushAssessmentProgress(
     submitting.value ||
     !activeExamRecordId.value ||
     !questions.value.length
-  ) return
+  )
+    return
   if (includeCurrentDuration) {
     const question = currentQuestion.value
     recordCurrentQuestionDuration(false)
@@ -506,7 +523,8 @@ async function flushAssessmentProgress(
         forceCurrentSave ||
         dirtyQuestionVersions.has(question.id) ||
         currentDuration - persistedDuration >= 60
-      ) markQuestionDirty(question.id)
+      )
+        markQuestionDirty(question.id)
     }
   }
   if (progressSavePromise) {
@@ -533,7 +551,8 @@ async function flushAssessmentProgress(
       persistedQuestionDurations.set(response.questionId, response.durationSeconds)
     })
     capturedVersions.forEach(([questionId, version]) => {
-      if (dirtyQuestionVersions.get(questionId) === version) dirtyQuestionVersions.delete(questionId)
+      if (dirtyQuestionVersions.get(questionId) === version)
+        dirtyQuestionVersions.delete(questionId)
     })
   })
   progressSavePromise = request
@@ -717,7 +736,8 @@ onBeforeRouteLeave(async () => {
     submitting.value ||
     examSubmitted.value ||
     !activeExamRecordId.value
-  ) return true
+  )
+    return true
   try {
     await saveCurrentAssessmentProgress()
     return true

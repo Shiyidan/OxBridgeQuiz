@@ -55,11 +55,13 @@
                   :class="{
                     'diagnostic-quota-pill--active': currentExamType === item.examType,
                     'diagnostic-quota-pill--empty': item.isEmpty,
+                    'diagnostic-quota-pill--unavailable': !item.available,
                   }"
                   type="button"
                   role="tab"
                   :aria-selected="currentExamType === item.examType"
-                  @click="currentExamType = item.examType"
+                  :aria-disabled="!item.available"
+                  @click="handleExamContextClick(item.examType)"
                 >
                   <strong>{{ item.label }}</strong>
                   <span>{{ item.text }}</span>
@@ -326,16 +328,19 @@
                 class="exam-type-chip"
                 :class="{
                   'exam-type-chip--active': editExamTypes.includes(et.value),
+                  'exam-type-chip--unavailable': !et.available,
                 }"
+                :aria-disabled="!et.available && !editExamTypes.includes(et.value)"
+                @click.prevent="toggleEditExamType(et.value)"
               >
                 <input
                   type="checkbox"
                   :value="et.value"
                   :checked="editExamTypes.includes(et.value)"
                   class="sr-only"
-                  @change="toggleEditExamType(et.value)"
                 />
                 {{ et.label }}
+                <small v-if="!et.available">推进中</small>
               </label>
             </div>
           </div>
@@ -530,10 +535,18 @@
                 v-if="record.status === 'active'"
                 class="record-button button_primary"
                 type="button"
+                @click="handleSubscriptionAction(record)"
               >
                 续费
               </button>
-              <button v-else class="record-button button_cancel" type="button">重新订阅</button>
+              <button
+                v-else
+                class="record-button button_cancel"
+                type="button"
+                @click="handleSubscriptionAction(record)"
+              >
+                重新订阅
+              </button>
             </div>
           </article>
         </div>
@@ -658,7 +671,13 @@ import { getMember, updateExamPreferences, type ExamPreference } from '@/api/mem
 import { getProfileExamStats, type ProfileExamStats } from '@/api/exam'
 import { getMyPaymentOrders, type PaymentOrder } from '@/api/payment'
 import { useAuthStore } from '@/stores/auth'
-import { DEFAULT_EXAM_TYPE, EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
+import {
+  DEFAULT_EXAM_TYPE,
+  EXAM_TYPE_OPTIONS,
+  getExamUnavailableMessage,
+  isExamTypeAvailable,
+  type ExamType,
+} from '@/constants/examTypes'
 import { TARGET_UNIVERSITY_OPTIONS } from '@/constants/universities'
 import {
   changePassword,
@@ -680,6 +699,7 @@ type PaymentOrderFilter = 'all' | 'pending' | 'paid' | 'closed' | 'refund'
 
 interface SubscriptionRecord {
   id: string
+  examType: string
   title: string
   period: string
   startedAt: number | null
@@ -746,11 +766,7 @@ const editExamTypes = ref<string[]>([])
 const editSubjects = ref<Record<string, string[]>>({})
 const editGoals = ref<Record<string, ExamGoalDraft>>({})
 
-const examTypes = [
-  { value: 'ESAT', label: 'ESAT' },
-  { value: 'TMUA', label: 'TMUA' },
-  { value: 'STEP', label: 'STEP' },
-] as const
+const examTypes = EXAM_TYPE_OPTIONS
 
 const examSubjects: Record<string, string[]> = {
   ESAT: ['数学1', '数学2', '物理', '化学', '生物'],
@@ -800,6 +816,10 @@ function isEditSubjectDisabled(examType: string, subject: string): boolean {
 // 切换备考类型时同步创建或清理对应科目与学习路径资料。
 function toggleEditExamType(value: string): void {
   const idx = editExamTypes.value.indexOf(value)
+  if (idx < 0 && !isExamTypeAvailable(value)) {
+    ElMessage.info(getExamUnavailableMessage(value))
+    return
+  }
   if (idx >= 0) {
     editExamTypes.value.splice(idx, 1)
     delete editSubjects.value[value]
@@ -962,11 +982,17 @@ const diagnosticQuotaItems = computed(() => {
     const quota = quotas[item.value]
     const diagnostic = quota?.diagnostic
     const isUnlimited = Boolean(quota?.isMember || diagnostic?.unlimited)
-    let text = '暂无额度'
+    const available = isExamTypeAvailable(item.value)
+    let text = available ? '暂无额度' : '正在推进中'
 
-    if (isUnlimited) {
+    if (available && isUnlimited) {
       text = '会员不限次'
-    } else if (diagnostic && diagnostic.remaining !== null && diagnostic.limit !== null) {
+    } else if (
+      available &&
+      diagnostic &&
+      diagnostic.remaining !== null &&
+      diagnostic.limit !== null
+    ) {
       text = `剩余 ${diagnostic.remaining}/${diagnostic.limit} 次`
     }
 
@@ -974,7 +1000,8 @@ const diagnosticQuotaItems = computed(() => {
       examType: item.value,
       label: item.label,
       text,
-      isEmpty: !isUnlimited && (!diagnostic || diagnostic.remaining === 0),
+      available,
+      isEmpty: !available || (!isUnlimited && (!diagnostic || diagnostic.remaining === 0)),
     }
   })
 })
@@ -1004,6 +1031,7 @@ const subscriptionRecords = computed<SubscriptionRecord[]>(() =>
 
     return {
       id: `${item.examType}-${item.plan}-${item.startsAt || index}`,
+      examType: item.examType,
       title: `${item.examType}-${planName(item.plan)}订阅`,
       period: `${formatTimestamp(item.startsAt)} — ${formatTimestamp(item.endsAt)}`,
       startedAt: item.startsAt,
@@ -1066,11 +1094,13 @@ onMounted(async () => {
     auth.setMemberContext(memberResult.value)
     // 优先用注册时选的备考偏好，其次用已开通会员的考试类型
     const prefs = memberResult.value.examPreferences || []
-    const firstPreference = prefs[0]
+    const firstPreference = prefs.find((item) => isExamTypeAvailable(item.examType))
     if (firstPreference) {
       currentExamType.value = normalizeExamType(firstPreference.examType)
     } else {
-      const firstActive = memberResult.value.memberships.find((item) => item.status === 'active')
+      const firstActive = memberResult.value.memberships.find(
+        (item) => item.status === 'active' && isExamTypeAvailable(item.examType),
+      )
       if (firstActive) currentExamType.value = normalizeExamType(firstActive.examType)
     }
   }
@@ -1116,11 +1146,38 @@ function cancelEditProfile(): void {
 
 // 升级入口保留当前考试类型上下文，便于后续接入支付流程。
 function handleUpgradeClick(): void {
+  if (!isExamTypeAvailable(currentExamType.value)) {
+    ElMessage.info(getExamUnavailableMessage(currentExamType.value))
+    return
+  }
   ElMessage.info(`即将开通 ${currentExamType.value} 会员`)
+}
+
+// 历史 STEP 订阅只保留记录展示，续费入口按当前开放状态给出明确说明。
+function handleSubscriptionAction(record: SubscriptionRecord): void {
+  if (!isExamTypeAvailable(record.examType)) {
+    ElMessage.info(getExamUnavailableMessage(record.examType))
+    return
+  }
+  currentExamType.value = normalizeExamType(record.examType)
+  handleUpgradeClick()
+}
+
+// 额度卡片保留 STEP 上线预告，但未开放类型不会切换到可购买或可诊断状态。
+function handleExamContextClick(examType: ExamType): void {
+  if (!isExamTypeAvailable(examType)) {
+    ElMessage.info(getExamUnavailableMessage(examType))
+    return
+  }
+  currentExamType.value = examType
 }
 
 // 从额度区进入统一诊断入口，由诊断页继续选择具体试卷。
 function handleStartDiagnostic(): void {
+  if (!isExamTypeAvailable(currentExamType.value)) {
+    ElMessage.info(getExamUnavailableMessage(currentExamType.value))
+    return
+  }
   router.push('/assessment')
 }
 
@@ -2812,6 +2869,14 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
   box-shadow: none;
 }
 
+.diagnostic-quota-pill--unavailable,
+.diagnostic-quota-pill--unavailable:hover {
+  border-color: var(--color-line);
+  border-style: dashed;
+  background: color-mix(in srgb, var(--color-report-purple-soft) 36%, var(--color-surface));
+  color: var(--color-ink-muted);
+}
+
 .metric-panel .metric-item:nth-child(1) strong {
   color: var(--color-report-purple);
 }
@@ -2930,6 +2995,20 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
 .goal-grid input:focus {
   border-color: var(--color-report-blue);
   color: var(--color-report-blue);
+}
+
+.exam-type-chip--unavailable,
+.exam-type-chip--unavailable:hover {
+  gap: 7px;
+  border-color: var(--color-line);
+  border-style: dashed;
+  background: var(--color-surface-alt);
+  color: var(--color-ink-muted);
+}
+
+.exam-type-chip--unavailable small {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
 }
 
 .goal-group {

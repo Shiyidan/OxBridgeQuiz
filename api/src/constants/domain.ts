@@ -25,6 +25,8 @@ export const EXAM_TYPE = {
 export const EXAM_TYPES = Object.values(EXAM_TYPE)
 export type ExamType = (typeof EXAM_TYPES)[number]
 
+export const AVAILABLE_STUDENT_EXAM_TYPES = [EXAM_TYPE.TMUA, EXAM_TYPE.ESAT] as const
+
 export const TARGET_UNIVERSITIES = [
   '剑桥大学',
   '牛津大学',
@@ -164,6 +166,11 @@ export function isUserRole(value: unknown): value is UserRole {
 // 考试类型判断统一约束在当前产品支持的类型集合内。
 export function isExamType(value: unknown): value is ExamType {
   return typeof value === 'string' && EXAM_TYPES.includes(value as ExamType)
+}
+
+// 学生端开放状态与完整数据类型分离，STEP 可供后台维护但不能进入购买和作答流程。
+export function isStudentExamTypeAvailable(value: unknown): boolean {
+  return AVAILABLE_STUDENT_EXAM_TYPES.includes(value as (typeof AVAILABLE_STUDENT_EXAM_TYPES)[number])
 }
 
 // 旧试卷类型在业务查询前归一到当前三类标准值。

@@ -10,6 +10,7 @@ import {
   QUESTION_BANK_PAPER_TYPES,
   REAL_PAPER_TYPES,
   USER_ROLE,
+  isStudentExamTypeAvailable,
 } from '../constants/domain.js'
 
 const DEFAULT_DIAGNOSTIC_LIMIT = 1
@@ -112,6 +113,19 @@ export async function checkMemberAccess(
     select: { id: true, role: true },
   })
   if (!user) return { allowed: false, reason: 'USER_NOT_FOUND', examType, required: requiredCount }
+  if (!isStudentExamTypeAvailable(examType)) {
+    return {
+      allowed: false,
+      reason: 'EXAM_NOT_AVAILABLE',
+      action,
+      examType,
+      required: requiredCount,
+      limit: 0,
+      used: 0,
+      remaining: 0,
+      unlimited: false,
+    }
+  }
 
   const isAdmin = user.role === USER_ROLE.ADMIN
   const activeMembership = isAdmin ? null : await getActiveMembership(userId, examType, now)

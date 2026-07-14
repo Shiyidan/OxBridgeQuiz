@@ -29,6 +29,7 @@ import {
   PAYMENT_ORDER_STATUS,
   PAYMENT_PRICE_TYPE,
   isMembershipPlan,
+  isStudentExamTypeAvailable,
 } from '../constants/domain.js'
 
 export const paymentRouter = Router()
@@ -272,6 +273,10 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
       normalizedExamTypes.some((item) => !EXAM_TYPES.includes(item as (typeof EXAM_TYPES)[number]))
     ) {
       res.status(422).json(fail('请选择有效的备考类型'))
+      return
+    }
+    if (normalizedExamTypes.some((item) => !isStudentExamTypeAvailable(item))) {
+      res.status(422).json(fail('STEP 考试相关功能正在推进中，暂不支持购买', 'EXAM_NOT_AVAILABLE'))
       return
     }
     if (!isMembershipPlan(plan)) {

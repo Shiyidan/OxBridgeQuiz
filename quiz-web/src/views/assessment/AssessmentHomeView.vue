@@ -14,7 +14,10 @@
               v-for="item in diagnosticQuotaItems"
               :key="item.examType"
               class="quota-pill"
-              :class="{ 'quota-pill--empty': item.isEmpty }"
+              :class="{
+                'quota-pill--empty': item.isEmpty,
+                'quota-pill--unavailable': !item.available,
+              }"
             >
               <strong>{{ item.label }}</strong>
               <span>{{ item.text }}</span>
@@ -37,14 +40,22 @@
       </section>
 
       <section class="paper-grid" aria-label="历年真题">
-        <article v-for="item in diagnosticTests" :key="item.id" class="paper-card">
+        <article
+          v-for="item in diagnosticTests"
+          :key="item.id"
+          class="paper-card"
+          :class="{ 'paper-card--unavailable': !isPaperAvailable(item) }"
+        >
           <div class="paper-card__info">
             <span class="paper-card__badge">{{ paperStatusLabel(item) }}</span>
             <h2>{{ item.title }}</h2>
             <p>{{ item.code || item.title }}</p>
           </div>
 
-          <div v-if="item.testStatus === 'completed' && item.correctCount !== null" class="paper-card__score">
+          <div
+            v-if="item.testStatus === 'completed' && item.correctCount !== null"
+            class="paper-card__score"
+          >
             <strong>{{ item.correctCount }}/{{ item.totalQuestions }}</strong>
             <span v-if="isReportGenerating(item)">报告 {{ item.reportProgress }}%</span>
             <span v-else>题正确</span>
@@ -87,11 +98,12 @@ import * as echarts from 'echarts'
 import NavBar from '@/components/NavBar.vue'
 import { checkMemberAccess } from '@/api/member'
 import { useAuthStore } from '@/stores/auth'
-import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 import {
-  getAssessmentPapersData,
-  type AssessmentPaperItem,
-} from '@/api/papers'
+  EXAM_TYPE_OPTIONS,
+  getExamUnavailableMessage,
+  isExamTypeAvailable,
+} from '@/constants/examTypes'
+import { getAssessmentPapersData, type AssessmentPaperItem } from '@/api/papers'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -110,7 +122,9 @@ const mockScoreTrend = [
   { month: '2024-03', score: 7.5 },
 ]
 
-const examTypeLabelMap = new Map<string, string>(EXAM_TYPE_OPTIONS.map((item) => [item.value, item.label]))
+const examTypeLabelMap = new Map<string, string>(
+  EXAM_TYPE_OPTIONS.map((item) => [item.value, item.label]),
+)
 const diagnosticQuotaItems = computed(() => {
   const quotas = auth.memberContext?.quotas || {}
   const examTypes = new Set<string>([
@@ -122,13 +136,19 @@ const diagnosticQuotaItems = computed(() => {
   return [...examTypes].map((examType) => {
     const quota = quotas[examType]
     const diagnostic = quota?.diagnostic
+    const available = isExamTypeAvailable(examType)
     const isUnlimited = Boolean(quota?.isMember || diagnostic?.unlimited)
     const hasQuota = Boolean(diagnostic)
-    let text = '暂无额度'
+    let text = available ? '暂无额度' : '正在推进中'
 
-    if (isUnlimited) {
+    if (available && isUnlimited) {
       text = '会员不限次'
-    } else if (diagnostic && diagnostic.remaining !== null && diagnostic.limit !== null) {
+    } else if (
+      available &&
+      diagnostic &&
+      diagnostic.remaining !== null &&
+      diagnostic.limit !== null
+    ) {
       text = `剩余 ${diagnostic.remaining}/${diagnostic.limit} 次`
     }
 
@@ -136,7 +156,8 @@ const diagnosticQuotaItems = computed(() => {
       examType,
       label: examTypeLabelMap.get(examType) || examType,
       text,
-      isEmpty: !isUnlimited && (!hasQuota || diagnostic?.remaining === 0),
+      available,
+      isEmpty: !available || (!isUnlimited && (!hasQuota || diagnostic?.remaining === 0)),
     }
   })
 })
@@ -213,6 +234,10 @@ function handleUpgradeClick(): void {
 }
 
 async function handlePaperAction(item: AssessmentPaperItem): Promise<void> {
+  if (!isPaperAvailable(item)) {
+    ElMessage.info(getExamUnavailableMessage(item.examType))
+    return
+  }
   if (item.testStatus === 'in_progress') {
     router.push({ path: '/practice', query: { paperId: item.paperId, mode: 'assessment' } })
     return
@@ -238,6 +263,10 @@ async function handlePaperAction(item: AssessmentPaperItem): Promise<void> {
 
 // 临时调试入口：已完成套卷可直接重新进入答题，不消耗诊断额度。
 function handleRetestPaper(paper: AssessmentPaperItem): void {
+  if (!isPaperAvailable(paper)) {
+    ElMessage.info(getExamUnavailableMessage(paper.examType))
+    return
+  }
   router.push({
     path: '/practice',
     query: { paperId: paper.id, mode: 'assessment', debugRetake: '1' },
@@ -246,6 +275,10 @@ function handleRetestPaper(paper: AssessmentPaperItem): void {
 
 // 点击套卷前先做权益预检，避免进入答题页后才发现额度不足。
 async function startPaper(paper: AssessmentPaperItem): Promise<void> {
+  if (!isPaperAvailable(paper)) {
+    ElMessage.info(getExamUnavailableMessage(paper.examType))
+    return
+  }
   const access = await checkMemberAccess({
     action: 'diagnostic',
     examType: paper.examType || 'TMUA',
@@ -263,7 +296,13 @@ function isReportGenerating(item: AssessmentPaperItem): boolean {
   return item.reportStatus === 'pending' || item.reportStatus === 'analyzing'
 }
 
+// 诊断列表可展示 STEP 上线预告，但任何开始、继续和重测操作都必须保持关闭。
+function isPaperAvailable(item: AssessmentPaperItem): boolean {
+  return isExamTypeAvailable(item.examType || 'TMUA')
+}
+
 function paperStatusLabel(item: AssessmentPaperItem): string {
+  if (!isPaperAvailable(item)) return '暂未开放'
   if (item.testStatus === 'in_progress') return '进行中'
   if (item.testStatus === 'not_started') return '待开始'
   if (item.reportStatus === 'failed') {
@@ -275,6 +314,7 @@ function paperStatusLabel(item: AssessmentPaperItem): string {
 }
 
 function paperActionLabel(item: AssessmentPaperItem): string {
+  if (!isPaperAvailable(item)) return '正在推进中'
   if (item.testStatus === 'in_progress') return '继续测试→'
   if (item.testStatus === 'not_started') return '开始测试→'
   if (item.reportStatus === 'failed' && !item.hasReport) return '重新分析→'
@@ -385,6 +425,11 @@ function paperActionLabel(item: AssessmentPaperItem): string {
   color: var(--color-ink-muted);
 }
 
+.quota-pill--unavailable {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--color-report-purple-soft) 42%, var(--color-surface));
+}
+
 .quota-button,
 .paper-card__button {
   height: var(--height-button);
@@ -456,6 +501,25 @@ function paperActionLabel(item: AssessmentPaperItem): string {
 .paper-card:hover {
   border-color: var(--color-ink);
   transform: translateY(-1px);
+}
+
+.paper-card--unavailable,
+.paper-card--unavailable:hover {
+  border-color: var(--color-line);
+  border-style: dashed;
+  background: linear-gradient(
+    135deg,
+    var(--color-surface),
+    color-mix(in srgb, var(--color-report-purple-soft) 44%, var(--color-surface))
+  );
+  transform: none;
+}
+
+.paper-card--unavailable .paper-card__button,
+.paper-card--unavailable .paper-card__button:hover {
+  border-color: var(--color-line);
+  background: var(--color-surface-alt);
+  color: var(--color-ink-muted);
 }
 
 .paper-card__badge {

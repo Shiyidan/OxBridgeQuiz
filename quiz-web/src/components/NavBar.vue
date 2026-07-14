@@ -110,17 +110,17 @@
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 import brandIconUrl from '@/assets/brand/acemock-icon.png'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const showDropdown = ref(false)
-const examMenuItems = [
-  { type: 'tmua', label: 'TMUA' },
-  { type: 'esat', label: 'ESAT' },
-  { type: 'step', label: 'STEP' },
-]
+const examMenuItems = EXAM_TYPE_OPTIONS.map((item) => ({
+  type: item.value.toLowerCase(),
+  label: item.label,
+}))
 
 // 根据登录用户身份显示导航栏角色名称。
 const currentRoleLabel = computed(() => (auth.user?.role === 'admin' ? '管理员' : '学生'))

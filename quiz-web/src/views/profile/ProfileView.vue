@@ -10,40 +10,6 @@
         </div>
       </header>
 
-      <section class="diagnostic-quota-panel">
-        <div class="diagnostic-quota-heading">
-          <h2>诊断测试额度</h2>
-          <p>各考试类型独立计算额度，互不占用。</p>
-        </div>
-        <div class="diagnostic-quota-actions">
-          <div class="diagnostic-quota-list" role="tablist" aria-label="诊断测试额度明细">
-            <button
-              v-for="item in diagnosticQuotaItems"
-              :key="item.examType"
-              class="diagnostic-quota-pill"
-              :class="{
-                'diagnostic-quota-pill--active': currentExamType === item.examType,
-                'diagnostic-quota-pill--empty': item.isEmpty,
-              }"
-              type="button"
-              role="tab"
-              :aria-selected="currentExamType === item.examType"
-              @click="currentExamType = item.examType"
-            >
-              <strong>{{ item.label }}</strong>
-              <span>{{ item.text }}</span>
-            </button>
-          </div>
-          <button
-            type="button"
-            class="diagnostic-quota-button button_primary"
-            @click="handleUpgradeClick"
-          >
-            获取更多模考额度
-          </button>
-        </div>
-      </section>
-
       <div class="profile-grid">
         <aside class="student-card">
           <div class="avatar-frame">
@@ -64,67 +30,103 @@
               </el-tag>
             </div>
           </div>
+          <button
+            type="button"
+            class="diagnostic-quota-button button_primary"
+            @click="handleUpgradeClick"
+          >
+            获取更多模考额度
+          </button>
           <button class="logout-link" type="button" @click="handleLogout">退出登录</button>
         </aside>
 
-        <section v-if="hasActiveMembership" class="member-dashboard">
-          <div v-if="isCurrentExamActive" class="metric-panel">
-            <article class="metric-item">
-              <span>预估分数</span>
-              <strong
-                >{{ estimatedScoreText
-                }}<small v-if="estimatedScoreText !== '--'">/9.0</small></strong
-              >
-            </article>
-            <article class="metric-item">
-              <span>累计做题</span>
-              <strong
-                >{{ answeredQuestionText
-                }}<small v-if="answeredQuestionText !== '--'">道</small></strong
-              >
-            </article>
-            <article class="metric-item">
-              <span>累计考试</span>
-              <strong
-                >{{ diagnosticExamText
-                }}<small v-if="diagnosticExamText !== '--'">场</small></strong
-              >
-            </article>
+        <section class="learning-overview-panel">
+          <div class="diagnostic-quota-panel">
+            <div class="diagnostic-quota-heading">
+              <h2>诊断测试额度</h2>
+              <p>各考试类型独立计算额度，互不占用。</p>
+            </div>
+            <div class="diagnostic-quota-actions">
+              <div class="diagnostic-quota-list" role="tablist" aria-label="诊断测试额度明细">
+                <button
+                  v-for="item in diagnosticQuotaItems"
+                  :key="item.examType"
+                  class="diagnostic-quota-pill"
+                  :class="{
+                    'diagnostic-quota-pill--active': currentExamType === item.examType,
+                    'diagnostic-quota-pill--empty': item.isEmpty,
+                  }"
+                  type="button"
+                  role="tab"
+                  :aria-selected="currentExamType === item.examType"
+                  @click="currentExamType = item.examType"
+                >
+                  <strong>{{ item.label }}</strong>
+                  <span>{{ item.text }}</span>
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div v-else class="member-upgrade-panel">
-            <h2>开通 {{ currentExamType }} 会员</h2>
-            <p>
-              解锁
-              {{ currentExamType }}
-              历年真题、海量练习题、预估分分析与模拟考试权益。
-            </p>
-            <button type="button" class="button_primary" @click="handleUpgradeClick">
-              升级会员
-            </button>
-          </div>
-        </section>
+          <section v-if="hasActiveMembership" class="member-dashboard">
+            <div v-if="isCurrentExamActive" class="metric-panel">
+              <article class="metric-item">
+                <span>预估分数</span>
+                <strong
+                  >{{ estimatedScoreText
+                  }}<small v-if="estimatedScoreText !== '--'">/9.0</small></strong
+                >
+              </article>
+              <article class="metric-item">
+                <span>累计做题</span>
+                <strong
+                  >{{ answeredQuestionText
+                  }}<small v-if="answeredQuestionText !== '--'">道</small></strong
+                >
+              </article>
+              <article class="metric-item">
+                <span>累计考试</span>
+                <strong
+                  >{{ diagnosticExamText
+                  }}<small v-if="diagnosticExamText !== '--'">场</small></strong
+                >
+              </article>
+            </div>
 
-        <section v-else class="free-upgrade-panel">
-          <template v-if="hasCompletedCurrentDiagnostic">
-            <span class="status-pill">{{ currentExamType }} 诊断测试已完成</span>
-            <h2>
-              {{ currentExamType }} 诊断测试分数：{{ currentDiagnosticScoreText
-              }}<small v-if="currentDiagnosticScoreText !== '--'"> / 9.0</small>
-            </h2>
-            <p>升级 Pro 会员，解锁历次测试综合分析、海量真题练习册与智能错题本系统。</p>
-            <button type="button" class="button_cancel" @click="handleUpgradeClick">
-              升级 Pro 会员
-            </button>
-          </template>
-          <template v-else>
-            <span class="status-pill">{{ currentExamType }} 尚未完成诊断测试</span>
-            <h2>完成 {{ currentExamType }} 首次诊断，获取能力评估</h2>
-            <p>完成该考试类型的诊断测试后，可查看预估分数、薄弱知识点和后续学习建议。</p>
-            <button type="button" class="button_cancel" @click="handleStartDiagnostic">
-              开始 {{ currentExamType }} 诊断测试
-            </button>
-          </template>
+            <div v-else class="member-upgrade-panel">
+              <h2>开通 {{ currentExamType }} 会员</h2>
+              <p>
+                解锁
+                {{ currentExamType }}
+                历年真题、海量练习题、预估分分析与模拟考试权益。
+              </p>
+              <button type="button" class="button_primary" @click="handleUpgradeClick">
+                升级会员
+              </button>
+            </div>
+          </section>
+
+          <section v-else class="free-upgrade-panel">
+            <template v-if="hasCompletedCurrentDiagnostic">
+              <span class="status-pill">{{ currentExamType }} 诊断测试已完成</span>
+              <h2>
+                {{ currentExamType }} 诊断测试分数：{{ currentDiagnosticScoreText
+                }}<small v-if="currentDiagnosticScoreText !== '--'"> / 9.0</small>
+              </h2>
+              <p>升级 Pro 会员，解锁历次测试综合分析、海量真题练习册与智能错题本系统。</p>
+              <button type="button" class="button_cancel" @click="handleUpgradeClick">
+                升级 Pro 会员
+              </button>
+            </template>
+            <template v-else>
+              <span class="status-pill">{{ currentExamType }} 尚未完成诊断测试</span>
+              <h2>完成 {{ currentExamType }} 首次诊断，获取能力评估</h2>
+              <p>完成该考试类型的诊断测试后，可查看预估分数、薄弱知识点和后续学习建议。</p>
+              <button type="button" class="button_cancel" @click="handleStartDiagnostic">
+                开始 {{ currentExamType }} 诊断测试
+              </button>
+            </template>
+          </section>
         </section>
       </div>
 
@@ -461,30 +463,12 @@
         </div>
       </section>
 
-      <section v-if="hasActiveMembership" class="subscription-panel">
+      <section class="subscription-panel subscription-center">
         <div class="section-title">
-          <h2>订阅中心</h2>
+          <h2>订阅记录</h2>
         </div>
 
-        <div class="subscription-summary">
-          <article>
-            <span>当前套餐</span>
-            <strong>{{ currentPlanName }}</strong>
-            <small>{{ activeSubscriptionCount > 0 ? '进行中' : '暂无有效订阅' }}</small>
-          </article>
-          <article>
-            <span>累计订阅</span>
-            <strong>{{ subscriptionRecords.length }}次</strong>
-            <small>订阅次数</small>
-          </article>
-          <article>
-            <span>总消费</span>
-            <strong>¥{{ totalSpend }}</strong>
-            <small>累计金额</small>
-          </article>
-        </div>
-
-        <div class="record-toolbar">
+        <div v-if="subscriptionRecords.length" class="record-toolbar">
           <div class="record-tabs" role="tablist" aria-label="订阅记录筛选">
             <button
               v-for="filter in subscriptionFilters"
@@ -496,26 +480,29 @@
               {{ filter.label }}
             </button>
           </div>
-          <button class="sort-button button_cancel" type="button">按时间排序（近→远）</button>
+          <button class="subscription-sort-button" type="button" @click="toggleSubscriptionSort">
+            <span aria-hidden="true">⇅</span>
+            {{ subscriptionSortDescending ? '按时间排序（近→远）' : '按时间排序（远→近）' }}
+          </button>
         </div>
 
-        <div class="subscription-list">
+        <div v-if="filteredSubscriptionRecords.length" class="record-list">
           <article
             v-for="record in filteredSubscriptionRecords"
             :key="record.id"
-            class="subscription-record"
+            class="record-card"
           >
             <div class="record-main">
               <h3>{{ record.title }}</h3>
-              <p>订阅周期: {{ record.period }}</p>
-              <div class="payment-meta">
+              <p>订阅周期：{{ record.period }}</p>
+              <div class="payment-meta subscription-payment-meta">
                 <span>
                   支付金额
-                  <strong>¥{{ record.amount }}</strong>
+                  <strong>{{ record.paymentAmount }}</strong>
                 </span>
                 <span>
                   支付方式
-                  <strong>{{ paymentMethodText(record.paymentMethod) }}</strong>
+                  <strong>{{ record.paymentMethod }}</strong>
                 </span>
               </div>
             </div>
@@ -535,6 +522,110 @@
             </div>
           </article>
         </div>
+        <div v-else class="record-empty">
+          <strong>暂无订阅记录</strong>
+          <span>开通会员后，订阅周期和权益状态将在这里显示。</span>
+        </div>
+      </section>
+
+      <section class="payment-panel">
+        <div class="section-title">
+          <div>
+            <h2>支付记录</h2>
+            <p>展示通过在线支付创建的真实订单和交易状态。</p>
+          </div>
+        </div>
+
+        <div class="payment-summary">
+          <article>
+            <span>累计订单</span>
+            <strong>{{ paymentOrders.length }}笔</strong>
+            <small>全部交易</small>
+          </article>
+          <article>
+            <span>支付成功</span>
+            <strong>{{ paidPaymentOrderCount }}笔</strong>
+            <small>不含已退款订单</small>
+          </article>
+          <article>
+            <span>累计实付</span>
+            <strong>{{ totalPaidAmount }}</strong>
+            <small>不含已退款金额</small>
+          </article>
+        </div>
+
+        <div v-if="paymentOrders.length" class="record-toolbar">
+          <div class="record-tabs record-tabs--payment" role="tablist" aria-label="支付记录筛选">
+            <button
+              v-for="filter in paymentFilters"
+              :key="filter.value"
+              :class="{ active: paymentFilter === filter.value }"
+              type="button"
+              @click="paymentFilter = filter.value"
+            >
+              {{ filter.label }}
+            </button>
+          </div>
+          <span class="record-sort-hint">按创建时间倒序</span>
+        </div>
+
+        <div v-if="paymentOrdersLoading" class="record-empty">
+          <strong>正在加载支付记录</strong>
+          <span>请稍候...</span>
+        </div>
+        <div v-else-if="paymentOrdersError" class="record-empty record-empty--error">
+          <strong>支付记录加载失败</strong>
+          <span>{{ paymentOrdersError }}</span>
+          <button class="button_cancel" type="button" @click="loadPaymentOrders">重新加载</button>
+        </div>
+        <div v-else-if="filteredPaymentOrders.length" class="record-list">
+          <article v-for="order in filteredPaymentOrders" :key="order.id" class="record-card">
+            <div class="record-main">
+              <h3>{{ paymentOrderTitle(order) }}</h3>
+              <p>订单号：{{ order.orderNo }}</p>
+              <div class="payment-meta">
+                <span>
+                  考试类型
+                  <strong>{{ order.examTypes.join('、') || '-' }}</strong>
+                </span>
+                <span>
+                  套餐
+                  <strong>{{ paymentPlanText(order) }}</strong>
+                </span>
+                <span>
+                  支付金额
+                  <strong>{{ formatPaymentAmount(order.amountCents, order.currency) }}</strong>
+                </span>
+                <span>
+                  支付方式
+                  <strong>{{ paymentChannelText(order.channel) }}</strong>
+                </span>
+                <span>
+                  创建时间
+                  <strong>{{ formatDateTime(order.createdAt) }}</strong>
+                </span>
+                <span>
+                  支付时间
+                  <strong>{{ formatDateTime(order.paidAt) }}</strong>
+                </span>
+              </div>
+            </div>
+
+            <div class="record-side">
+              <span class="record-status" :class="`record-status--${order.status}`">
+                {{ paymentStatusText(order.status) }}
+              </span>
+            </div>
+          </article>
+        </div>
+        <div v-else class="record-empty">
+          <strong>{{ paymentOrders.length ? '当前筛选下暂无订单' : '暂无支付记录' }}</strong>
+          <span>{{
+            paymentOrders.length
+              ? '请选择其他订单状态查看。'
+              : '完成在线支付后，订单记录将在这里显示。'
+          }}</span>
+        </div>
       </section>
 
       <p v-if="errorText" class="load-warning">{{ errorText }}</p>
@@ -543,18 +634,14 @@
 </template>
 
 <script setup lang="ts">
-// 学生个人中心：展示会员权益、学习统计、基础信息和订阅记录。
+// 学生个人中心：展示会员权益、学习统计、基础信息、订阅和支付记录。
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
-import {
-  getMember,
-  updateExamPreferences,
-  type MemberSubscription,
-  type ExamPreference,
-} from '@/api/member'
+import { getMember, updateExamPreferences, type ExamPreference } from '@/api/member'
 import { getProfileExamStats, type ProfileExamStats } from '@/api/exam'
+import { getMyPaymentOrders, type PaymentOrder } from '@/api/payment'
 import { useAuthStore } from '@/stores/auth'
 import { DEFAULT_EXAM_TYPE, EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
 import { TARGET_UNIVERSITY_OPTIONS } from '@/constants/universities'
@@ -574,14 +661,15 @@ import {
 } from '@/utils/validation'
 
 type SubscriptionFilter = 'all' | 'active' | 'expired' | 'cancelled'
-type PaymentMethod = 'wechat' | 'alipay' | 'manual'
+type PaymentOrderFilter = 'all' | 'pending' | 'paid' | 'closed' | 'refund'
 
 interface SubscriptionRecord {
   id: string
   title: string
   period: string
-  amount: number
-  paymentMethod: PaymentMethod
+  startedAt: number | null
+  paymentAmount: string
+  paymentMethod: string
   status: SubscriptionFilter
 }
 
@@ -599,6 +687,18 @@ const errorText = ref('')
 const profileStats = ref<Record<string, ProfileExamStats>>({})
 const currentExamType = ref(DEFAULT_EXAM_TYPE)
 const subscriptionFilter = ref<SubscriptionFilter>('all')
+const subscriptionSortDescending = ref(true)
+const paymentFilter = ref<PaymentOrderFilter>('all')
+const paymentOrders = ref<PaymentOrder[]>([])
+const paymentOrdersLoading = ref(true)
+const paymentOrdersError = ref('')
+const paymentFilters: { label: string; value: PaymentOrderFilter }[] = [
+  { label: '全部订单', value: 'all' },
+  { label: '待支付', value: 'pending' },
+  { label: '已支付', value: 'paid' },
+  { label: '已关闭', value: 'closed' },
+  { label: '退款', value: 'refund' },
+]
 const profileEditing = ref(false)
 const profileSaving = ref(false)
 const profileForm = reactive({
@@ -778,8 +878,8 @@ async function saveExam(): Promise<void> {
     auth.setMemberContext(ctx)
     examEditing.value = false
     ElMessage.success('报考目标已更新')
-  } catch (err: any) {
-    ElMessage.error(err?.response?.data?.errMsg || err?.message || '更新失败')
+  } catch (error: unknown) {
+    ElMessage.error(getApiErrorMessage(error, '更新失败'))
   } finally {
     examSaving.value = false
   }
@@ -870,35 +970,65 @@ const currentDiagnosticScoreText = computed(() => {
 })
 // 将后端会员记录转换为订阅列表所需的稳定展示结构。
 const subscriptionRecords = computed<SubscriptionRecord[]>(() =>
-  (auth.memberContext?.memberships || []).map((item, index) => ({
-    id: `${item.examType}-${item.plan}-${item.startsAt || index}`,
-    title: `${item.examType}-${planName(item.plan)}订阅`,
-    period: `${formatTimestamp(item.startsAt)} — ${formatTimestamp(item.endsAt)}`,
-    amount: planAmount(item),
-    paymentMethod: 'manual',
-    status: normalizeSubscriptionStatus(item.status),
-  })),
-)
-// 订阅筛选只作用于展示数据，不修改原始会员上下文。
-const filteredSubscriptionRecords = computed(() => {
-  if (subscriptionFilter.value === 'all') return subscriptionRecords.value
-  return subscriptionRecords.value.filter((item) => item.status === subscriptionFilter.value)
-})
-// 消费合计从当前订阅记录派生，避免维护额外易失同步状态。
-const totalSpend = computed(() =>
-  subscriptionRecords.value.reduce((sum, item) => sum + item.amount, 0).toFixed(0),
-)
-// 有效订阅数量用于概览卡片，状态判断与列表筛选保持一致。
-const activeSubscriptionCount = computed(
-  () => subscriptionRecords.value.filter((item) => item.status === 'active').length,
-)
-// 概览优先展示首个有效套餐，无套餐时回落到免费版。
-const currentPlanName = computed(() => {
-  const active = activeMemberships.value[0]
-  if (!active) return '免费版'
-  return planName(active.plan)
-})
+  (auth.memberContext?.memberships || []).map((item, index) => {
+    const paymentOrder = findSubscriptionPaymentOrder(item.examType, item.plan)
+    let paymentAmount = '无在线支付记录'
+    let paymentMethod = '无在线支付记录'
+    if (paymentOrdersLoading.value) {
+      paymentAmount = '加载中...'
+      paymentMethod = '加载中...'
+    } else if (paymentOrdersError.value) {
+      paymentAmount = '暂不可用'
+      paymentMethod = '暂不可用'
+    } else if (paymentOrder) {
+      paymentAmount = formatPaymentAmount(paymentOrder.amountCents, paymentOrder.currency)
+      paymentMethod = paymentChannelText(paymentOrder.channel)
+    }
 
+    return {
+      id: `${item.examType}-${item.plan}-${item.startsAt || index}`,
+      title: `${item.examType}-${planName(item.plan)}订阅`,
+      period: `${formatTimestamp(item.startsAt)} — ${formatTimestamp(item.endsAt)}`,
+      startedAt: item.startsAt,
+      paymentAmount,
+      paymentMethod,
+      status: normalizeSubscriptionStatus(item.status),
+    }
+  }),
+)
+// 订阅筛选和时间排序只作用于展示副本，不修改原始会员上下文。
+const filteredSubscriptionRecords = computed(() => {
+  const records =
+    subscriptionFilter.value === 'all'
+      ? subscriptionRecords.value
+      : subscriptionRecords.value.filter((item) => item.status === subscriptionFilter.value)
+  const direction = subscriptionSortDescending.value ? -1 : 1
+  return [...records].sort(
+    (left, right) => ((left.startedAt || 0) - (right.startedAt || 0)) * direction,
+  )
+})
+// 支付筛选按订单业务状态归类，关闭和退款相关状态分别聚合展示。
+const filteredPaymentOrders = computed(() => {
+  if (paymentFilter.value === 'all') return paymentOrders.value
+  if (paymentFilter.value === 'closed') {
+    return paymentOrders.value.filter((item) => ['closed', 'failed'].includes(item.status))
+  }
+  if (paymentFilter.value === 'refund') {
+    return paymentOrders.value.filter((item) => ['refunding', 'refunded'].includes(item.status))
+  }
+  return paymentOrders.value.filter((item) => item.status === paymentFilter.value)
+})
+// 已支付统计排除退款完成订单，退款处理中仍保留当前实付金额。
+const paidPaymentOrders = computed(() =>
+  paymentOrders.value.filter((item) => ['paid', 'refunding'].includes(item.status)),
+)
+const paidPaymentOrderCount = computed(() => paidPaymentOrders.value.length)
+const totalPaidAmount = computed(() =>
+  formatPaymentAmount(
+    paidPaymentOrders.value.reduce((sum, item) => sum + item.amountCents, 0),
+    'CNY',
+  ),
+)
 // 用户上下文刷新时仅同步非编辑态表单，避免覆盖正在输入的草稿。
 watch(
   () => auth.user,
@@ -908,14 +1038,12 @@ watch(
   { immediate: true },
 )
 
-// 进入个人中心并行加载权益、统计和设备会话，局部失败不阻塞其他区域。
+// 进入个人中心并行加载权益、统计、设备会话和真实支付订单，局部失败不阻塞其他区域。
 onMounted(async () => {
   errorText.value = ''
-  const [memberResult, statsResult, sessionsResult] = await Promise.allSettled([
-    getMember(),
-    getProfileExamStats(),
-    getSessions(),
-  ])
+  const [memberResult, statsResult, sessionsResult, paymentOrdersResult] = await Promise.allSettled(
+    [getMember(), getProfileExamStats(), getSessions(), getMyPaymentOrders()],
+  )
 
   if (memberResult.status === 'fulfilled') {
     auth.setMemberContext(memberResult.value)
@@ -933,6 +1061,12 @@ onMounted(async () => {
     profileStats.value = statsResult.value.stats || {}
   }
   if (sessionsResult.status === 'fulfilled') sessions.value = sessionsResult.value.list
+  if (paymentOrdersResult.status === 'fulfilled') {
+    paymentOrders.value = paymentOrdersResult.value
+  } else {
+    paymentOrdersError.value = '暂时无法获取订单，请稍后重试。'
+  }
+  paymentOrdersLoading.value = false
   const hasFailure = [memberResult, statsResult, sessionsResult].some(
     (result) => result.status === 'rejected',
   )
@@ -973,6 +1107,24 @@ function handleStartDiagnostic(): void {
   router.push('/assessment')
 }
 
+// 订阅列表按用户选择在最近和最早记录之间切换，便于查看历史周期。
+function toggleSubscriptionSort(): void {
+  subscriptionSortDescending.value = !subscriptionSortDescending.value
+}
+
+// 用户主动重试时仅刷新支付订单，避免重复请求个人中心的其他数据。
+async function loadPaymentOrders(): Promise<void> {
+  paymentOrdersLoading.value = true
+  paymentOrdersError.value = ''
+  try {
+    paymentOrders.value = await getMyPaymentOrders()
+  } catch (error: unknown) {
+    paymentOrdersError.value = getApiErrorMessage(error, '暂时无法获取订单，请稍后重试。')
+  } finally {
+    paymentOrdersLoading.value = false
+  }
+}
+
 // 基础信息保存时仅在邮箱变化后附带新邮箱验证挑战。
 async function saveProfile(): Promise<void> {
   const username = profileForm.username.trim()
@@ -1005,8 +1157,8 @@ async function saveProfile(): Promise<void> {
     resetPasswordDraft()
     profileEditing.value = false
     ElMessage.success('基础信息已更新')
-  } catch (err: any) {
-    ElMessage.error(err?.response?.data?.errMsg || err?.message || '更新资料失败')
+  } catch (error: unknown) {
+    ElMessage.error(getApiErrorMessage(error, '更新资料失败'))
   } finally {
     profileSaving.value = false
   }
@@ -1050,8 +1202,8 @@ async function sendChangeEmailCode(): Promise<void> {
     emailCode.value = ''
     startEmailCountdown(data.resendAfter)
     ElMessage.success('验证码已发送到新邮箱')
-  } catch (error: any) {
-    ElMessage.error(error?.message || '验证码发送失败')
+  } catch (error: unknown) {
+    ElMessage.error(getApiErrorMessage(error, '验证码发送失败'))
   } finally {
     emailCodeSending.value = false
   }
@@ -1085,8 +1237,8 @@ async function savePassword(): Promise<void> {
     auth.clearLocalSession()
     ElMessage.success('密码已修改，请使用新密码重新登录')
     await router.replace('/login')
-  } catch (error: any) {
-    ElMessage.error(error?.message || '密码修改失败')
+  } catch (error: unknown) {
+    ElMessage.error(getApiErrorMessage(error, '密码修改失败'))
   } finally {
     passwordSaving.value = false
   }
@@ -1158,27 +1310,10 @@ function planName(plan: string): string {
   return '免费版'
 }
 
-// 当前静态金额仅用于历史订阅展示，未知或免费套餐按零元处理。
-function planAmount(item: MemberSubscription): number {
-  if (item.plan === 'yearly') return 259
-  if (item.plan === 'monthly') return 69
-  return 0
-}
-
 // 后端异常订阅状态按已过期展示，避免误标记为仍在生效。
 function normalizeSubscriptionStatus(status: string): SubscriptionFilter {
   if (status === 'active' || status === 'expired' || status === 'cancelled') return status
   return 'expired'
-}
-
-// 支付方式内部值在展示层统一转换为中文标签。
-function paymentMethodText(method: PaymentMethod): string {
-  const map: Record<PaymentMethod, string> = {
-    wechat: '微信',
-    alipay: '支付宝',
-    manual: '手动',
-  }
-  return map[method]
 }
 
 // 订阅状态文案集中映射，保证筛选项和记录标签一致。
@@ -1201,6 +1336,88 @@ function formatTimestamp(value: number | null): string {
     date.getDate(),
   ).padStart(2, '0')}`
 }
+
+// 支付订单标题由考试类型和套餐组成，缺失考试类型时保留稳定兜底。
+function paymentOrderTitle(order: PaymentOrder): string {
+  return `${order.examTypes.join('、') || '会员'} ${paymentPlanText(order)}订单`
+}
+
+// 套餐文案同时体现首月优惠，避免用户将优惠订单误解为普通月付。
+function paymentPlanText(order: Pick<PaymentOrder, 'plan' | 'priceType'>): string {
+  if (order.priceType === 'first_monthly') return '月度套餐（首月优惠）'
+  return order.plan === 'yearly' ? '年度套餐' : '月度套餐'
+}
+
+// 支付渠道统一转换为用户可理解的中文名称。
+function paymentChannelText(channel: PaymentOrder['channel']): string {
+  const map: Record<PaymentOrder['channel'], string> = {
+    alipay: '支付宝',
+    wechat: '微信支付',
+    unionpay: '银联支付',
+  }
+  return map[channel]
+}
+
+// 订阅记录关联最近一笔同考试、同套餐的成功订单，续费场景优先展示最新交易信息。
+function findSubscriptionPaymentOrder(examType: string, plan: string): PaymentOrder | undefined {
+  return paymentOrders.value.find(
+    (order) =>
+      order.plan === plan &&
+      Boolean(order.paidAt) &&
+      ['paid', 'refunding', 'refunded'].includes(order.status) &&
+      order.examTypes.some((item) => item.toUpperCase() === examType.toUpperCase()),
+  )
+}
+
+// 支付状态集中映射，未知状态保持原值以便排查后端扩展状态。
+function paymentStatusText(status: string): string {
+  const map: Record<string, string> = {
+    pending: '待支付',
+    paid: '已支付',
+    failed: '支付失败',
+    closed: '已关闭',
+    refunding: '退款中',
+    refunded: '已退款',
+  }
+  return map[status] || status
+}
+
+// 金额以分为单位格式化，异常币种回退到人民币符号展示。
+function formatPaymentAmount(amountCents: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat('zh-CN', {
+      style: 'currency',
+      currency: currency || 'CNY',
+      minimumFractionDigits: 2,
+    }).format(amountCents / 100)
+  } catch {
+    return `¥${(amountCents / 100).toFixed(2)}`
+  }
+}
+
+// 支付时间保留到分钟，未支付订单使用占位符。
+function formatDateTime(value: string | null): string {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date)
+}
+
+// 接口异常优先展示后端业务消息，网络异常和未知异常使用调用方兜底文案。
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  const apiError = error as { response?: { data?: { errMsg?: unknown } }; message?: unknown }
+  const responseMessage = apiError.response?.data?.errMsg
+  if (typeof responseMessage === 'string' && responseMessage) return responseMessage
+  if (typeof apiError.message === 'string' && apiError.message) return apiError.message
+  return fallback
+}
 </script>
 
 <style scoped lang="scss">
@@ -1215,12 +1432,10 @@ function formatTimestamp(value: number | null): string {
   --profile-sidebar-width: clamp(200px, 15vw, 240px);
   --profile-card-pad: clamp(24px, 2vw, 32px);
   --profile-card-pad-x: clamp(18px, 1.5vw, 24px);
-  --profile-card-pad-lg: clamp(28px, 2.5vw, 40px);
   --profile-card-gap: clamp(12px, 1vw, 16px);
   --profile-card-gap-lg: clamp(18px, 1.5vw, 24px);
-  --profile-card-min-height: clamp(200px, 13.75vw, 220px);
-  --profile-student-min-height: clamp(216px, 14.75vw, 236px);
-  --profile-avatar-size: clamp(84px, 6vw, 96px);
+  --profile-overview-body-min-height: clamp(150px, 10vw, 160px);
+  --profile-avatar-size: clamp(76px, 5.25vw, 84px);
 }
 
 .profile-shell {
@@ -1265,16 +1480,13 @@ function formatTimestamp(value: number | null): string {
 }
 
 .diagnostic-quota-panel {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(170px, 0.65fr) minmax(0, 1.35fr);
   align-items: center;
-  justify-content: space-between;
   gap: var(--profile-card-gap-lg);
-  margin-top: clamp(24px, 1.67vw, 32px);
-  padding: clamp(20px, 1.67vw, 26px) var(--profile-card-pad);
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-xl);
+  padding: clamp(16px, 1.25vw, 20px) var(--profile-card-pad);
+  border-bottom: 1px solid var(--color-line-soft);
   background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
 }
 
 .diagnostic-quota-heading {
@@ -1296,6 +1508,7 @@ function formatTimestamp(value: number | null): string {
 
 .diagnostic-quota-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: var(--profile-card-gap);
@@ -1371,11 +1584,10 @@ function formatTimestamp(value: number | null): string {
 }
 
 .student-card,
-.free-upgrade-panel,
-.metric-panel,
-.member-upgrade-panel,
+.learning-overview-panel,
 .form-panel,
-.subscription-panel {
+.subscription-panel,
+.payment-panel {
   border: 1px solid var(--color-line);
   border-radius: var(--radius-xl);
   background: var(--color-surface);
@@ -1384,11 +1596,12 @@ function formatTimestamp(value: number | null): string {
 
 .student-card {
   display: grid;
+  grid-template-rows: auto auto auto 1fr;
   justify-items: center;
-  gap: var(--profile-card-gap);
-  align-self: start;
-  min-height: var(--profile-student-min-height);
-  padding: var(--profile-card-pad) var(--profile-card-pad-x) clamp(20px, 1.5vw, 24px);
+  gap: 10px;
+  align-self: stretch;
+  min-height: 0;
+  padding: clamp(20px, 1.5vw, 24px) var(--profile-card-pad-x) 18px;
 
   strong {
     color: var(--color-ink);
@@ -1396,6 +1609,23 @@ function formatTimestamp(value: number | null): string {
     font-weight: var(--weight-bold);
     letter-spacing: var(--tracking-tight);
   }
+}
+
+.student-card .diagnostic-quota-button {
+  width: auto;
+  min-width: 0;
+  margin-top: 4px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.learning-overview-panel {
+  display: grid;
+  grid-template-rows: auto minmax(var(--profile-overview-body-min-height), 1fr);
+  overflow: hidden;
 }
 
 .student-name-row {
@@ -1441,8 +1671,9 @@ function formatTimestamp(value: number | null): string {
 }
 
 .logout-link {
+  align-self: end;
   width: 100%;
-  padding-top: 16px;
+  padding-top: 12px;
   border: 0;
   border-top: 1px solid var(--color-line-soft);
   background: transparent;
@@ -1459,9 +1690,8 @@ function formatTimestamp(value: number | null): string {
 }
 
 .free-upgrade-panel {
-  min-height: var(--profile-card-min-height);
-  padding: var(--profile-card-pad);
-  border-color: var(--color-charcoal);
+  min-height: var(--profile-overview-body-min-height);
+  padding: clamp(20px, 1.5vw, 24px) var(--profile-card-pad);
   background: var(--color-charcoal);
   color: var(--color-ink-inverse);
 
@@ -1507,14 +1737,14 @@ function formatTimestamp(value: number | null): string {
 
 .member-dashboard {
   display: grid;
-  gap: var(--profile-card-gap);
+  min-height: var(--profile-overview-body-min-height);
 }
 
 .metric-panel {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  min-height: var(--profile-card-min-height);
-  padding: var(--profile-card-pad-lg) var(--profile-card-pad);
+  min-height: 100%;
+  padding: clamp(18px, 1.5vw, 24px) var(--profile-card-pad);
 
   .metric-item {
     display: grid;
@@ -1556,8 +1786,8 @@ function formatTimestamp(value: number | null): string {
   align-content: center;
   justify-items: center;
   gap: var(--profile-card-gap);
-  min-height: var(--profile-card-min-height);
-  padding: var(--profile-card-pad-lg) var(--profile-card-pad);
+  min-height: 100%;
+  padding: clamp(18px, 1.5vw, 24px) var(--profile-card-pad);
   text-align: center;
 
   h2 {
@@ -1586,7 +1816,8 @@ function formatTimestamp(value: number | null): string {
 }
 
 .form-panel,
-.subscription-panel {
+.subscription-panel,
+.payment-panel {
   margin-top: var(--profile-card-gap-lg);
   padding: var(--profile-card-pad);
 }
@@ -1621,6 +1852,12 @@ function formatTimestamp(value: number | null): string {
   button:not(.button_primary):not(.button_cancel):hover {
     color: var(--color-charcoal);
   }
+}
+
+.section-title > div > p {
+  margin: 6px 0 0;
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
 }
 
 .section-actions {
@@ -1876,7 +2113,11 @@ function formatTimestamp(value: number | null): string {
   font-size: var(--text-xs);
 }
 
-.subscription-summary {
+.subscription-center {
+  margin-top: var(--profile-card-gap-lg);
+}
+
+.payment-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: clamp(12px, 0.83vw, 16px);
@@ -1943,19 +2184,64 @@ function formatTimestamp(value: number | null): string {
   }
 }
 
-.sort-button {
-  height: 34px;
-  padding: 0 18px;
-  font-size: var(--text-xs);
+.record-tabs--payment {
+  grid-template-columns: repeat(5, minmax(78px, 1fr));
 }
 
-.subscription-list {
+.subscription-center .record-toolbar {
+  margin: 0 0 clamp(22px, 1.46vw, 28px);
+}
+
+.subscription-center .record-tabs {
+  border-color: transparent;
+  background: var(--color-info-bg);
+}
+
+.subscription-center .record-tabs button.active {
+  background: var(--color-surface);
+  color: var(--color-report-blue);
+  box-shadow: var(--shadow-sm);
+}
+
+.subscription-sort-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink-soft);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-base) ease,
+    color var(--duration-base) ease;
+}
+
+.subscription-sort-button:hover {
+  border-color: var(--color-report-blue);
+  color: var(--color-report-blue);
+}
+
+.record-sort-hint {
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+}
+
+.record-list {
   display: grid;
   gap: clamp(10px, 0.88vw, 14px);
   padding: 0;
 }
 
-.subscription-record {
+.record-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--profile-card-gap-lg);
@@ -1969,10 +2255,97 @@ function formatTimestamp(value: number | null): string {
     transform var(--duration-slow) ease;
 }
 
-.subscription-record:hover {
+.record-card:hover {
   border-color: var(--color-ink);
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
+}
+
+.subscription-center .record-card {
+  min-height: 126px;
+  border-color: var(--color-line);
+  box-shadow: var(--shadow-sm);
+}
+
+.subscription-center .record-card:hover {
+  border-color: color-mix(in srgb, var(--color-report-blue) 35%, var(--color-line));
+  box-shadow: var(--shadow-md);
+}
+
+.subscription-center .record-main p {
+  margin-bottom: 0;
+}
+
+.subscription-payment-meta {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-line-soft);
+}
+
+.subscription-center .record-side {
+  min-width: 104px;
+}
+
+.subscription-center .record-status--active {
+  background: color-mix(in srgb, var(--color-report-blue) 12%, var(--color-surface));
+  color: var(--color-report-blue);
+}
+
+.subscription-center .record-status--expired {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.subscription-center .record-button.button_primary {
+  border-color: var(--color-report-blue);
+  background: var(--color-report-blue);
+  color: var(--color-ink-inverse);
+}
+
+.subscription-center .record-button.button_primary:hover {
+  border-color: color-mix(in srgb, var(--color-report-blue) 80%, var(--color-black));
+  background: color-mix(in srgb, var(--color-report-blue) 80%, var(--color-black));
+}
+
+.subscription-center .record-button.button_cancel {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-report-blue) 8%, var(--color-surface));
+  color: var(--color-report-blue);
+}
+
+.subscription-center .record-button.button_cancel:hover {
+  border-color: color-mix(in srgb, var(--color-report-blue) 24%, var(--color-line));
+  background: color-mix(in srgb, var(--color-report-blue) 13%, var(--color-surface));
+}
+
+.record-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: clamp(28px, 2.5vw, 40px) 24px;
+  border: 1px dashed var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-alt);
+  text-align: center;
+}
+
+.record-empty strong {
+  color: var(--color-ink);
+  font-size: var(--text-base);
+}
+
+.record-empty span {
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+}
+
+.record-empty button {
+  margin-top: 8px;
+}
+
+.record-empty--error strong,
+.record-empty--error span {
+  color: var(--color-danger);
 }
 
 .record-main {
@@ -2044,6 +2417,28 @@ function formatTimestamp(value: number | null): string {
 .record-status--cancelled {
   background: var(--color-danger-bg);
   color: var(--color-danger);
+}
+
+.record-status--pending,
+.record-status--refunding {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.record-status--paid {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.record-status--failed,
+.record-status--refunded {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.record-status--closed {
+  background: var(--color-hover);
+  color: var(--color-ink-muted);
 }
 
 .record-button {

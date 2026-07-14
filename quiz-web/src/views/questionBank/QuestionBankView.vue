@@ -4,33 +4,25 @@
     <main class="qb-container">
       <header class="qb-header">
         <div class="qb-header__lead">
-          <h1 class="qb-header__title">试题库 (Question Bank)</h1>
+          <span class="page-eyebrow">Question Bank</span>
+          <h1 class="qb-header__title">试题库</h1>
           <p class="qb-header__subtitle">包含专项试题练习与全真模拟考试系统。</p>
         </div>
-        <div class="qb-search">
-          <input
-            v-model="searchKeyword"
-            type="text"
-            class="qb-search__input"
-            placeholder="搜索题目、考点..."
-          />
+        <div class="qb-tabs" role="tablist">
+          <button
+            v-for="tab in tabs"
+            :key="tab.id"
+            type="button"
+            role="tab"
+            class="qb-tab"
+            :class="{ 'qb-tab--active': activeTabId === tab.id }"
+            :aria-selected="activeTabId === tab.id"
+            @click="handleTabClick(tab.id)"
+          >
+            {{ tab.label }}
+          </button>
         </div>
       </header>
-
-      <div class="qb-tabs" role="tablist">
-        <button
-          v-for="tab in tabs"
-          :key="tab.id"
-          type="button"
-          role="tab"
-          class="qb-tab"
-          :class="{ 'qb-tab--active': activeTabId === tab.id }"
-          :aria-selected="activeTabId === tab.id"
-          @click="handleTabClick(tab.id)"
-        >
-          {{ tab.label }}
-        </button>
-      </div>
 
       <section v-if="!isActiveExamAvailable" class="qb-unavailable" aria-live="polite">
         <span class="qb-unavailable__badge">STEP · COMING SOON</span>
@@ -45,6 +37,8 @@
         <aside class="qb-sidebar">
           <h3 class="qb-sidebar__title">考点大纲 (SYLLABUS)</h3>
           <el-tree
+            ref="syllabusTreeRef"
+            :key="activeExamType"
             :data="treeData"
             :props="treeProps"
             node-key="code"
@@ -94,9 +88,10 @@
 
 <script setup lang="ts">
 // 试题库浏览页：从已发布试卷汇总真实题目，按难度和学科筛选后进入练习。
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import type { TreeInstance } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import type { SyllabusNode } from '@/api/questionBank'
 import { getSyllabusData, getQuestionSummaryData } from '@/api/questionBank'
@@ -134,12 +129,12 @@ const tabs: QbTab[] = EXAM_TYPE_OPTIONS.map((item) => ({
 }))
 const activeTabId = ref<QbTab['id']>(DEFAULT_EXAM_TYPE)
 const treeData = ref<TreeNode[]>([])
+const syllabusTreeRef = ref<TreeInstance>()
 const treeProps = { children: 'children', label: 'label' }
-const defaultExpanded = ref<string[]>(['110000'])
-const selectedNodeCode = ref<string>('110000')
+const defaultExpanded = ref<string[]>([])
+const selectedNodeCode = ref<string>('')
 const selectedNodeLabel = ref<string>('综合考点')
 const totalQuestionCount = ref<number>(0)
-const searchKeyword = ref<string>('')
 const targetDifficulty = ref<DifficultyId | null>(null)
 
 const difficulties = ref<DifficultyOption[]>([
@@ -196,6 +191,26 @@ function findTreeNode(
   return null
 }
 
+// 考纲包含考试分组层时继续展开首个学科，让 ESAT 与 TMUA 默认显示相同知识点层级。
+function resolveDefaultExpandedCodes(nodes: TreeNode[], examType: ExamType): string[] {
+  const first = nodes[0]
+  if (!first) return []
+
+  const expandedCodes = [first.code]
+  const firstSubject = first.children?.[0]
+  const isExamGroup = first.label.toUpperCase().includes(examType)
+  if (isExamGroup && firstSubject) expandedCodes.push(firstSubject.code)
+  return expandedCodes
+}
+
+// 异步考纲渲染完成后显式展开目标层级，避免 Element Plus 忽略后更新的默认展开项。
+async function expandDefaultSyllabusNodes(): Promise<void> {
+  await nextTick()
+  for (const code of defaultExpanded.value) {
+    syllabusTreeRef.value?.getNode(code)?.expand()
+  }
+}
+
 // 首次进入试题库时加载大纲树，并默认查询最外层第一个节点。
 onMounted(async () => {
   const requestedExamType = String(route.query.examType || '').toUpperCase()
@@ -204,6 +219,7 @@ onMounted(async () => {
   }
   if (!isActiveExamAvailable.value) {
     treeData.value = []
+    defaultExpanded.value = []
     selectedNodeCode.value = ''
     selectedNodeLabel.value = 'STEP'
     resetQuestionSummary()
@@ -223,6 +239,7 @@ onMounted(async () => {
     } else {
       const first = treeData.value[0]
       if (first) {
+        defaultExpanded.value = resolveDefaultExpandedCodes(treeData.value, activeExamType.value)
         selectedNodeCode.value = first.code
         selectedNodeLabel.value = first.label
       }
@@ -233,8 +250,10 @@ onMounted(async () => {
       : null
   } catch {
     treeData.value = []
+    defaultExpanded.value = []
   }
 
+  await expandDefaultSyllabusNodes()
   await loadQuestionSummary()
 })
 
@@ -277,6 +296,7 @@ async function handleTabClick(tabId: QbTab['id']): Promise<void> {
   targetDifficulty.value = null
   if (!isActiveExamAvailable.value) {
     treeData.value = []
+    defaultExpanded.value = []
     selectedNodeCode.value = ''
     selectedNodeLabel.value = tabId
     resetQuestionSummary()
@@ -287,13 +307,16 @@ async function handleTabClick(tabId: QbTab['id']): Promise<void> {
     const nodes = await getSyllabusData(activeExamType.value)
     treeData.value = nodes[0]?.children || []
     const first = treeData.value[0]
+    defaultExpanded.value = resolveDefaultExpandedCodes(treeData.value, activeExamType.value)
     selectedNodeCode.value = first?.code || ''
     selectedNodeLabel.value = first?.label || '综合考点'
   } catch {
     treeData.value = []
+    defaultExpanded.value = []
     selectedNodeCode.value = ''
     selectedNodeLabel.value = '综合考点'
   }
+  await expandDefaultSyllabusNodes()
   await loadQuestionSummary()
 }
 
@@ -328,108 +351,191 @@ const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
 .question-bank {
   min-height: 100vh;
   min-width: var(--fluid-page-min-width);
-  background: #f8fafc;
-  color: #0f172a;
+  background: var(--color-bg);
+  color: var(--color-ink);
 }
+
 .qb-container {
   width: var(--fluid-shell-width);
   margin: 0 auto;
-  padding: 36px 0 72px;
+  padding: 40px 0 96px;
 }
+
 .qb-header {
   display: flex;
   justify-content: space-between;
-  gap: 24px;
-  align-items: center;
+  gap: 32px;
+  align-items: flex-end;
   margin-bottom: 24px;
 }
+
+.page-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.page-eyebrow::before {
+  width: 24px;
+  height: 1px;
+  background: var(--color-ink);
+  content: '';
+}
+
 .qb-header__title {
   margin: 0;
-  font-size: 32px;
+  color: var(--color-ink);
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-bold);
   letter-spacing: 0;
 }
+
 .qb-header__subtitle {
-  margin: 8px 0 0;
-  color: #64748b;
+  max-width: 560px;
+  margin: 10px 0 0;
+  color: var(--color-ink-soft);
+  line-height: var(--leading-relaxed);
 }
-.qb-search__input {
-  width: 260px;
-  height: 40px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 0 12px;
-}
+
 .qb-tabs {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 24px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
 }
+
 .qb-tab {
-  height: 38px;
+  min-width: 76px;
+  height: var(--height-button);
   padding: 0 18px;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-ink-soft);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
   cursor: pointer;
+  transition:
+    background var(--duration-base) ease,
+    color var(--duration-base) ease;
 }
+
+.qb-tab:hover:not(.qb-tab--active) {
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
 .qb-tab--active {
-  background: #2563eb;
-  color: #fff;
-  border-color: #2563eb;
+  border-color: var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-ink-inverse);
 }
+
 .qb-main {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: 24px;
+  align-items: start;
 }
+
 .qb-unavailable {
   display: grid;
   justify-items: center;
   min-height: 420px;
   padding: 72px 32px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border: 1px dashed var(--color-line);
+  border-radius: var(--radius-md);
   background:
-    radial-gradient(circle at 20% 10%, rgba(99, 102, 241, 0.08), transparent 34%),
-    linear-gradient(135deg, #ffffff, #f8fafc);
+    radial-gradient(
+      circle at 20% 10%,
+      color-mix(in srgb, var(--color-report-purple-soft) 48%, transparent),
+      transparent 34%
+    ),
+    linear-gradient(135deg, var(--color-surface), var(--color-surface-alt));
   text-align: center;
 }
+
 .qb-unavailable__badge {
   align-self: end;
   padding: 7px 12px;
-  border: 1px solid #dbe3ef;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+  letter-spacing: var(--tracking-wide);
 }
+
 .qb-unavailable h2 {
   margin: 22px 0 0;
-  font-size: 28px;
+  color: var(--color-ink);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
 }
+
 .qb-unavailable p {
   max-width: 560px;
   margin: 12px 0 28px;
-  color: #64748b;
-  line-height: 1.8;
+  color: var(--color-ink-soft);
+  line-height: var(--leading-relaxed);
 }
+
 .qb-unavailable .button_primary {
   align-self: start;
 }
+
 .qb-sidebar,
 .qb-content {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
   padding: 24px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
 }
+
+.qb-sidebar {
+  position: sticky;
+  top: calc(var(--nav-height) + 24px);
+}
+
 .qb-sidebar__title {
   margin: 0 0 16px;
-  font-size: 14px;
-  color: #64748b;
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
 }
+
+.qb-sidebar :deep(.el-tree) {
+  background: transparent;
+  color: var(--color-ink-soft);
+}
+
+.qb-sidebar :deep(.el-tree-node__content) {
+  min-height: 36px;
+  border-radius: var(--radius-sm);
+}
+
+.qb-sidebar :deep(.el-tree-node__content:hover) {
+  background: var(--color-hover);
+}
+
+.qb-sidebar :deep(.el-tree-node.is-current > .el-tree-node__content) {
+  background: var(--color-surface-alt);
+  color: var(--color-ink);
+  font-weight: var(--weight-semi);
+}
+
 .qb-content__header {
   display: flex;
   justify-content: space-between;
@@ -439,47 +545,70 @@ const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
 }
 .qb-content__title {
   margin: 0;
-  font-size: 22px;
+  color: var(--color-ink);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
 }
+
 .qb-content__hint {
-  color: #64748b;
-  font-size: 14px;
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
 }
+
 .qb-difficulty-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+  gap: 16px;
 }
+
 .qb-difficulty-card {
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  min-height: 190px;
   padding: 20px;
-  background: #fff;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  transition:
+    border-color var(--duration-base) ease,
+    transform var(--duration-fast) ease;
+}
+
+.qb-difficulty-card:hover {
+  border-color: var(--color-ink);
+  transform: translateY(-1px);
 }
 
 .qb-difficulty-card--target {
-  border-color: var(--color-report-blue);
-  box-shadow: 0 0 0 2px var(--color-info-bg);
+  border-color: var(--color-ink);
+  box-shadow: 0 0 0 2px var(--color-hover);
 }
+
 .qb-difficulty-card__title {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   margin: 0 0 12px;
-  font-size: 18px;
+  color: var(--color-ink);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
 }
+
 .qb-difficulty-card__count {
-  color: #64748b;
-  font-size: 14px;
-  font-weight: 500;
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
 }
+
 .qb-difficulty-card__desc {
   min-height: 48px;
-  color: #64748b;
-  line-height: 1.6;
+  margin: 0 0 24px;
+  color: var(--color-ink-soft);
+  line-height: var(--leading-relaxed);
 }
+
 .qb-difficulty-card__cta {
-  height: 40px;
+  min-width: 112px;
+  height: var(--height-button);
   padding: 0 18px;
+  border-radius: var(--radius-md);
 }
 </style>

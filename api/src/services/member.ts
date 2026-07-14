@@ -12,8 +12,8 @@ import {
   USER_ROLE,
 } from '../constants/domain.js'
 
-const DEFAULT_DIAGNOSTIC_LIMIT = 2
-const DEFAULT_QUESTION_BANK_LIMIT = 100
+const DEFAULT_DIAGNOSTIC_LIMIT = 1
+const DEFAULT_QUESTION_BANK_LIMIT = 1
 
 export type EntitlementAction = 'diagnostic' | 'question-bank'
 

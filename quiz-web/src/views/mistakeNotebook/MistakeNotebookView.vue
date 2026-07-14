@@ -406,14 +406,15 @@ function formatDuration(seconds?: number | null): string {
 <style scoped lang="scss">
 .mistake-notebook-page {
   min-height: 100vh;
+  min-width: var(--fluid-page-min-width);
   background: #fbfbfa;
   color: #273437;
 }
 
 .mistake-notebook-main {
-  width: min(100%, 920px);
+  width: var(--fluid-shell-width);
   margin: 0 auto;
-  padding: 34px 24px 20px;
+  padding: 34px 0 20px;
 }
 
 .back-link {

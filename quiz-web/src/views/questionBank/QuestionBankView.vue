@@ -327,14 +327,14 @@ const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
 <style scoped lang="scss">
 .question-bank {
   min-height: 100vh;
+  min-width: var(--fluid-page-min-width);
   background: #f8fafc;
   color: #0f172a;
 }
 .qb-container {
-  width: 100%;
-  max-width: 1600px;
+  width: var(--fluid-shell-width);
   margin: 0 auto;
-  padding: 36px var(--container-px-desktop) 72px;
+  padding: 36px 0 72px;
 }
 .qb-header {
   display: flex;

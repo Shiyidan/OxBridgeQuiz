@@ -205,7 +205,7 @@ onMounted(() => {
 
 /* 前台流体外壳，与首页 HomeView 共用规范。 */
 .container {
-  width: clamp(var(--fluid-shell-min), var(--fluid-shell-fluid), var(--fluid-shell-max));
+  width: var(--fluid-shell-width);
   margin: 0 auto;
 }
 

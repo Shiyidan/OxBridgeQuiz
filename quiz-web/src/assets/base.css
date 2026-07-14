@@ -87,6 +87,11 @@
   --fluid-shell-min: 1120px;
   --fluid-shell-fluid: calc(25vw + 800px);
   --fluid-shell-max: var(--layout-min-width);
+  --fluid-shell-width: clamp(
+    var(--fluid-shell-min),
+    var(--fluid-shell-fluid),
+    var(--fluid-shell-max)
+  ); /* 前台导航与一级页面共享的内容宽度 */
   --container-max: 1280px; /* 页面级最大宽度（Hero/落地页外层容器） */
   --container-px-desktop: 40px; /* 页面容器桌面内边距 */
   --container-px-mobile: 24px; /* 页面容器移动内边距 */
@@ -126,6 +131,7 @@
 
 /* body 基础样式 */
 html {
+  scrollbar-gutter: stable;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

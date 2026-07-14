@@ -1492,8 +1492,6 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
   overflow: hidden;
   background: var(--color-bg);
   color: var(--color-ink);
-  --fluid-shell-min: 980px;
-  --fluid-shell-fluid: calc(68.75vw + 100px);
   --profile-sidebar-width: clamp(200px, 15vw, 240px);
   --profile-card-pad: clamp(24px, 2vw, 32px);
   --profile-card-pad-x: clamp(18px, 1.5vw, 24px);
@@ -1513,7 +1511,7 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
 }
 
 .profile-shell > * {
-  width: clamp(var(--fluid-shell-min), var(--fluid-shell-fluid), var(--fluid-shell-max));
+  width: var(--fluid-shell-width);
   margin-left: auto;
   margin-right: auto;
 }

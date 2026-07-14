@@ -167,7 +167,7 @@ async function handleLogout(): Promise<void> {
 
 /* 前台流体外壳：1200px 起步，窄屏继续收缩到紧凑下限。 */
 .nav-inner {
-  width: clamp(var(--fluid-shell-min), var(--fluid-shell-fluid), var(--fluid-shell-max));
+  width: var(--fluid-shell-width);
   height: var(--nav-height);
   margin: 0 auto;
   display: flex;

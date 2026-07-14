@@ -504,7 +504,7 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
 }
 /* 前台流体外壳：默认 1200px，缩窄浏览器时卡片随外壳收缩到紧凑下限。 */
 .container {
-  width: clamp(var(--fluid-shell-min), var(--fluid-shell-fluid), var(--fluid-shell-max));
+  width: var(--fluid-shell-width);
   margin: 0 auto;
 }
 .section {

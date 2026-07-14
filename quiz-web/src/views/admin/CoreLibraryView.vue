@@ -7,20 +7,6 @@
           <h2 class="section-title">ESAT 专业资料库</h2>
           <p class="section-desc">管理该学科下的所有题目、教材与学习大纲。</p>
         </div>
-        <button class="btn-upload" @click="handleUpload">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          上传新资料
-        </button>
       </div>
 
       <!-- 四卡片网格 -->
@@ -106,9 +92,6 @@ const libraryCards: LibraryCard[] = [
   },
 ]
 
-function handleUpload(): void {
-  // TODO: 上传新资料弹窗/页面
-}
 </script>
 
 <style scoped lang="scss">
@@ -144,33 +127,6 @@ function handleUpload(): void {
   color: #64748b;
   line-height: 1.5;
   margin: 0;
-}
-
-.btn-upload {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  background: #4f46e5;
-  color: white;
-  border: none;
-  border-radius: 10px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-
-  svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  &:hover {
-    background: #6366f1;
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
-    transform: translateY(-1px);
-  }
 }
 
 /* ========== 卡片网格 ========== */
@@ -272,10 +228,6 @@ function handleUpload(): void {
   .section-header {
     flex-direction: column;
     gap: 16px;
-  }
-
-  .btn-upload {
-    align-self: flex-start;
   }
 
   .card-grid {

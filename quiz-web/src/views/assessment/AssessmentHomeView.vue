@@ -334,7 +334,7 @@ function paperActionLabel(item: AssessmentPaperItem): string {
 }
 
 .assessment-shell {
-  width: clamp(var(--fluid-shell-min), var(--fluid-shell-fluid), var(--fluid-shell-max));
+  width: var(--fluid-shell-width);
   margin: 0 auto;
   padding: 40px 0 96px;
 }

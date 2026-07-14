@@ -169,7 +169,7 @@ const SectionTitle = defineComponent({
 }
 
 .exam-shell {
-  width: clamp(var(--fluid-shell-min), var(--fluid-shell-fluid), var(--fluid-shell-max));
+  width: var(--fluid-shell-width);
   margin: 0 auto;
 }
 

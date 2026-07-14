@@ -158,122 +158,137 @@
           </div>
         </div>
 
-        <div class="readonly-form readonly-form--profile">
-          <label>
-            <span>用户名</span>
-            <el-input
-              v-model="profileForm.username"
-              :disabled="!profileEditing || profileSaving"
-              placeholder="请输入用户名"
-              maxlength="30"
-              show-word-limit
-            />
-          </label>
-          <label>
-            <span>电子邮箱</span>
-            <el-input
-              v-model="profileForm.email"
-              :disabled="!profileEditing || profileSaving"
-              placeholder="请输入邮箱"
-              @input="resetEmailVerification"
-            />
-          </label>
-          <label>
-            <span>用户密码</span>
-            <el-input model-value="************" disabled />
-          </label>
-        </div>
-        <div v-if="profileEditing && profileEmailChanged" class="email-verification-row">
-          <el-input
-            v-model="emailCode"
-            maxlength="6"
-            inputmode="numeric"
-            pattern="[0-9]*"
-            placeholder="输入新邮箱收到的六位验证码"
-            @input="handleChangeEmailCodeInput"
-          />
-          <button
-            type="button"
-            class="button_cancel"
-            :disabled="emailCodeSending || emailCountdown > 0"
-            @click="sendChangeEmailCode"
-          >
-            {{ emailCountdown > 0 ? `${emailCountdown}秒后重发` : '验证新邮箱' }}
-          </button>
+        <div v-if="profileEditing" class="profile-edit-content">
+          <div class="readonly-form readonly-form--profile-edit">
+            <label>
+              <span>用户名</span>
+              <el-input
+                v-model="profileForm.username"
+                :disabled="profileSaving"
+                placeholder="请输入用户名"
+                maxlength="30"
+                show-word-limit
+              />
+            </label>
+            <label class="profile-email-field">
+              <span>电子邮箱</span>
+              <div class="profile-field-control">
+                <el-input
+                  v-model="profileForm.email"
+                  :disabled="profileSaving"
+                  placeholder="请输入邮箱"
+                  @input="resetEmailVerification"
+                />
+                <small>修改邮箱后，必须验证新邮箱才能保存。</small>
+              </div>
+            </label>
+          </div>
+          <div v-if="profileEmailChanged" class="email-verification-panel">
+            <div class="email-verification-heading">
+              <strong>验证新邮箱</strong>
+              <span>验证码将发送至 {{ profileForm.email.trim() || '新邮箱' }}</span>
+            </div>
+            <div class="email-verification-row">
+              <el-input
+                v-model="emailCode"
+                maxlength="6"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                placeholder="输入新邮箱收到的六位验证码"
+                @input="handleChangeEmailCodeInput"
+              />
+              <button
+                type="button"
+                class="button_cancel"
+                :disabled="emailCodeSending || emailCountdown > 0"
+                @click="sendChangeEmailCode"
+              >
+                {{ emailCountdown > 0 ? `${emailCountdown}秒后重发` : '获取验证码' }}
+              </button>
+            </div>
+          </div>
+
+          <div class="password-edit-section">
+            <div class="profile-subsection-heading">
+              <h3>修改密码</h3>
+              <p>登录状态下验证当前密码；如果忘记当前密码，请通过登录页重置密码。</p>
+            </div>
+            <div class="password-form">
+              <el-input
+                v-model="passwordForm.currentPassword"
+                type="password"
+                autocomplete="current-password"
+                placeholder="当前密码"
+                :disabled="passwordSaving"
+                show-password
+              />
+              <el-input
+                v-model="passwordForm.newPassword"
+                type="password"
+                autocomplete="new-password"
+                maxlength="12"
+                placeholder="新密码（8-12位，英文+数字，可使用 !@#$%）"
+                :disabled="passwordSaving"
+                show-password
+              />
+              <el-input
+                v-model="passwordForm.confirmPassword"
+                type="password"
+                autocomplete="new-password"
+                maxlength="12"
+                placeholder="确认新密码"
+                :disabled="passwordSaving"
+                show-password
+              />
+              <button
+                type="button"
+                class="button_primary"
+                :disabled="passwordSaving"
+                @click="savePassword"
+              >
+                {{ passwordSaving ? '修改中...' : '修改密码' }}
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div class="security-subsection">
-          <div class="security-heading">
+        <div v-else class="profile-summary-grid">
+          <article>
+            <span>用户名</span>
+            <strong>{{ auth.user?.username || '-' }}</strong>
+          </article>
+          <article>
+            <span>电子邮箱</span>
+            <strong>{{ auth.user?.email || '-' }}</strong>
+          </article>
+          <article>
+            <span>登录密码</span>
+            <strong>已设置</strong>
+          </article>
+        </div>
+
+        <div class="current-device-section">
+          <div class="profile-subsection-heading">
+            <h3>当前设备</h3>
+            <p>显示本次登录会话的网络地址和最近活动时间。</p>
+          </div>
+          <article v-if="currentSession" class="session-item">
             <div>
-              <h3>登录安全</h3>
-              <p>修改密码和管理当前账号的登录设备。</p>
+              <strong>当前设备</strong>
+              <small
+                >IP：{{ formatIpAddress(currentSession.ipAddress) }} · 最近活动
+                {{ formatSessionTime(currentSession.lastUsedAt) }}</small
+              >
             </div>
             <button
               type="button"
               class="button_cancel"
-              :disabled="!profileEditing"
-              @click="handleLogoutAll"
+              @click="handleRevokeSession(currentSession)"
             >
-              退出全部设备
+              退出当前设备
             </button>
-          </div>
-
-          <div class="password-form">
-            <el-input
-              v-model="passwordForm.currentPassword"
-              type="password"
-              autocomplete="current-password"
-              placeholder="当前密码"
-              :disabled="!profileEditing || passwordSaving"
-              show-password
-            />
-            <el-input
-              v-model="passwordForm.newPassword"
-              type="password"
-              autocomplete="new-password"
-              maxlength="12"
-              placeholder="新密码（8-12位，英文+数字，可使用 !@#$%）"
-              :disabled="!profileEditing || passwordSaving"
-              show-password
-            />
-            <el-input
-              v-model="passwordForm.confirmPassword"
-              type="password"
-              autocomplete="new-password"
-              maxlength="12"
-              placeholder="确认新密码"
-              :disabled="!profileEditing || passwordSaving"
-              show-password
-            />
-            <button
-              type="button"
-              class="button_primary"
-              :disabled="!profileEditing || passwordSaving"
-              @click="savePassword"
-            >
-              {{ passwordSaving ? '修改中...' : '修改密码' }}
-            </button>
-          </div>
-
-          <div class="session-list">
-            <article v-for="session in sessions" :key="session.id" class="session-item">
-              <div>
-                <strong>{{ session.isCurrent ? '当前设备' : '已登录设备' }}</strong>
-                <small
-                  >IP：{{ formatIpAddress(session.ipAddress) }} · 最近活动
-                  {{ formatSessionTime(session.lastUsedAt) }}</small
-                >
-              </div>
-              <button
-                type="button"
-                class="button_cancel"
-                :disabled="!profileEditing"
-                @click="handleRevokeSession(session)"
-              >
-                {{ session.isCurrent ? '退出' : '撤销' }}
-              </button>
-            </article>
-          </div>
+          </article>
+          <div v-else class="current-device-empty">暂时无法获取当前设备信息。</div>
         </div>
       </section>
 
@@ -717,6 +732,8 @@ const passwordForm = reactive({
   confirmPassword: '',
 })
 const sessions = ref<AuthSessionItem[]>([])
+// 基础信息只展示本次登录会话，其他设备不再占用个人中心页面空间。
+const currentSession = computed(() => sessions.value.find((item) => item.isCurrent) || null)
 // 只有邮箱实际变化时才要求验证码，单独修改用户名无需重复验证邮箱。
 const profileEmailChanged = computed(
   () => profileForm.email.trim().toLowerCase() !== (auth.user?.email || '').toLowerCase(),
@@ -1258,7 +1275,6 @@ function formatIpAddress(value?: string | null): string {
 
 // 撤销当前会话后立即退出；其他设备则只从会话列表移除。
 async function handleRevokeSession(session: AuthSessionItem): Promise<void> {
-  if (!profileEditing.value) return
   await revokeSession(session.id)
   if (session.isCurrent) {
     await auth.logout()
@@ -1267,14 +1283,6 @@ async function handleRevokeSession(session: AuthSessionItem): Promise<void> {
   }
   sessions.value = sessions.value.filter((item) => item.id !== session.id)
   ElMessage.success('设备会话已撤销')
-}
-
-// 全部设备退出由后端批量撤销会话，当前页面随后返回登录页。
-async function handleLogoutAll(): Promise<void> {
-  if (!profileEditing.value) return
-  await auth.logoutAll()
-  ElMessage.success('全部设备已退出')
-  router.push('/login')
 }
 
 // 资料草稿始终从当前登录用户重建，避免保留上次编辑内容。
@@ -1932,8 +1940,64 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.readonly-form--profile {
-  grid-template-columns: repeat(3, minmax(clamp(160px, 13.75vw, 220px), 1fr));
+.readonly-form--profile-edit {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px 28px;
+}
+
+.profile-edit-content {
+  width: min(100%, 1080px);
+}
+
+.readonly-form--profile-edit > label {
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: start;
+}
+
+.readonly-form--profile-edit > label > span {
+  padding-top: 10px;
+}
+
+.profile-field-control {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.profile-field-control small {
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-relaxed);
+}
+
+.profile-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.profile-summary-grid article {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--color-line-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+}
+
+.profile-summary-grid span {
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+}
+
+.profile-summary-grid strong {
+  overflow-wrap: anywhere;
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
 }
 
 .exam-summary-list {
@@ -2041,42 +2105,93 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
   font-size: var(--text-sm);
 }
 
-.email-verification-row {
+.email-verification-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 150px;
-  gap: 12px;
-  max-width: 560px;
-  margin-top: 18px;
+  gap: 14px;
+  max-width: none;
+  margin-top: 22px;
+  padding: 18px 20px;
+  border: 1px solid var(--color-line-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
 }
 
-.security-subsection {
+.email-verification-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.email-verification-heading strong {
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+.email-verification-heading span {
+  overflow-wrap: anywhere;
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+}
+
+.email-verification-row {
+  display: grid;
+  grid-template-columns: minmax(0, 520px) 150px;
+  align-items: center;
+  gap: 12px;
+}
+
+.email-verification-row :deep(.el-input__wrapper),
+.password-form :deep(.el-input__wrapper) {
+  height: 40px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: 0 0 0 1px var(--color-line) inset;
+}
+
+.email-verification-row :deep(.el-input__inner),
+.password-form :deep(.el-input__inner) {
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.password-edit-section,
+.current-device-section {
   margin-top: clamp(24px, 1.67vw, 32px);
   padding-top: clamp(22px, 1.46vw, 28px);
   border-top: 1px solid var(--color-line-soft);
 }
 
-.security-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+.password-edit-section {
+  padding: 24px;
+  border: 1px solid var(--color-line-soft);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-alt);
+}
+
+.profile-subsection-heading {
+  display: grid;
+  gap: 5px;
   margin-bottom: 18px;
 }
 
-.security-heading h3 {
+.profile-subsection-heading h3 {
   margin: 0;
   color: var(--color-ink);
   font-size: var(--text-lg);
   font-weight: var(--weight-bold);
 }
 
-.security-heading p {
-  margin: 5px 0 0;
+.profile-subsection-heading p {
+  margin: 0;
   color: var(--color-ink-muted);
   font-size: var(--text-xs);
 }
 
-.security-subsection button:disabled {
+.password-edit-section button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
   transform: none;
@@ -2084,15 +2199,15 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
 
 .password-form {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) 140px;
   gap: 12px;
   align-items: center;
+  max-width: 1120px;
 }
 
-.session-list {
-  display: grid;
-  gap: 10px;
-  margin-top: 24px;
+.password-form > button {
+  min-width: 140px;
+  width: 100%;
 }
 
 .session-item {
@@ -2111,6 +2226,16 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
   margin: 4px 0 0;
   color: var(--color-ink-muted);
   font-size: var(--text-xs);
+}
+
+.current-device-empty {
+  padding: 18px;
+  border: 1px dashed var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  text-align: center;
 }
 
 .subscription-center {
@@ -2294,17 +2419,6 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
 .subscription-center .record-status--expired {
   background: var(--color-success-bg);
   color: var(--color-success);
-}
-
-.subscription-center .record-button.button_primary {
-  border-color: var(--color-report-blue);
-  background: var(--color-report-blue);
-  color: var(--color-ink-inverse);
-}
-
-.subscription-center .record-button.button_primary:hover {
-  border-color: color-mix(in srgb, var(--color-report-blue) 80%, var(--color-black));
-  background: color-mix(in srgb, var(--color-report-blue) 80%, var(--color-black));
 }
 
 .subscription-center .record-button.button_cancel {
@@ -2588,5 +2702,256 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
 
 .goal-grid :deep(.el-select) {
   width: 100%;
+}
+
+/* 个人中心沿用诊断报告功能色建立层次，现有布局尺寸和模块顺序保持不变。 */
+.profile-page {
+  background:
+    radial-gradient(
+      circle at 92% 4%,
+      color-mix(in srgb, var(--color-report-blue) 9%, transparent) 0,
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 6% 42%,
+      color-mix(in srgb, var(--color-report-purple) 6%, transparent) 0,
+      transparent 26%
+    ),
+    var(--color-bg);
+}
+
+.page-heading {
+  position: relative;
+  border-bottom-color: color-mix(in srgb, var(--color-report-blue) 18%, var(--color-line));
+}
+
+.page-heading::after {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 112px;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--color-report-blue), var(--color-report-purple));
+  content: '';
+}
+
+.student-card,
+.learning-overview-panel,
+.form-panel,
+.subscription-panel,
+.payment-panel {
+  border-color: color-mix(in srgb, var(--color-report-slate) 22%, var(--color-line));
+  box-shadow:
+    var(--shadow-sm),
+    0 12px 32px color-mix(in srgb, var(--color-report-slate) 8%, transparent);
+}
+
+.student-card {
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--color-report-purple-soft) 58%, var(--color-surface)) 0%,
+    var(--color-surface) 42%
+  );
+}
+
+.avatar-frame {
+  background: linear-gradient(145deg, var(--color-report-blue), var(--color-report-purple));
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--color-report-purple) 24%, transparent);
+}
+
+.membership-tags :deep(.el-tag) {
+  border-color: color-mix(in srgb, var(--color-report-purple) 18%, var(--color-line));
+  background: var(--color-report-purple-soft);
+  color: var(--color-report-purple);
+}
+
+.student-card .diagnostic-quota-button {
+  border-color: color-mix(in srgb, var(--color-report-blue) 24%, var(--color-line));
+  background: color-mix(in srgb, var(--color-report-blue) 9%, var(--color-surface));
+  color: color-mix(in srgb, var(--color-report-blue) 48%, var(--color-ink-soft));
+  box-shadow: none;
+}
+
+.student-card .diagnostic-quota-button:hover,
+.student-card .diagnostic-quota-button:focus {
+  border-color: color-mix(in srgb, var(--color-report-blue) 36%, var(--color-line));
+  background: color-mix(in srgb, var(--color-report-blue) 14%, var(--color-surface));
+  color: color-mix(in srgb, var(--color-report-blue) 58%, var(--color-ink-soft));
+}
+
+.logout-link:hover {
+  color: var(--color-report-red);
+}
+
+.diagnostic-quota-panel {
+  background: linear-gradient(
+    115deg,
+    color-mix(in srgb, var(--color-report-blue) 7%, var(--color-surface)) 0%,
+    color-mix(in srgb, var(--color-report-purple-soft) 45%, var(--color-surface)) 100%
+  );
+}
+
+.diagnostic-quota-heading h2 {
+  color: var(--color-report-blue);
+}
+
+.diagnostic-quota-pill {
+  border-color: color-mix(in srgb, var(--color-report-blue) 13%, var(--color-line));
+  background: color-mix(in srgb, var(--color-report-blue) 4%, var(--color-surface));
+}
+
+.diagnostic-quota-pill:hover {
+  border-color: var(--color-report-blue);
+  color: var(--color-report-blue);
+}
+
+.diagnostic-quota-pill--active {
+  border-color: color-mix(in srgb, var(--color-report-blue) 50%, var(--color-ink-soft));
+  background: color-mix(in srgb, var(--color-report-blue) 48%, var(--color-ink-soft));
+  box-shadow: none;
+}
+
+.metric-panel .metric-item:nth-child(1) strong {
+  color: var(--color-report-purple);
+}
+
+.metric-panel .metric-item:nth-child(2) strong {
+  color: var(--color-report-green);
+}
+
+.metric-panel .metric-item:nth-child(3) strong {
+  color: var(--color-report-orange);
+}
+
+.metric-panel,
+.member-upgrade-panel {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-report-blue) 5%, var(--color-surface)),
+    color-mix(in srgb, var(--color-report-purple-soft) 68%, var(--color-surface))
+  );
+}
+
+.member-upgrade-panel h2 {
+  color: var(--color-report-purple);
+}
+
+.member-upgrade-panel .button_primary {
+  border-color: color-mix(in srgb, var(--color-report-blue) 52%, var(--color-ink-soft));
+  background: color-mix(in srgb, var(--color-report-blue) 52%, var(--color-ink-soft));
+}
+
+.free-upgrade-panel {
+  background: linear-gradient(
+    135deg,
+    var(--color-charcoal),
+    color-mix(in srgb, var(--color-report-purple) 28%, var(--color-charcoal))
+  );
+}
+
+.section-title h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-title h2::before {
+  width: 4px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  background: var(--color-report-blue);
+  content: '';
+}
+
+.subscription-panel .section-title h2::before {
+  background: var(--color-report-purple);
+}
+
+.payment-panel .section-title h2::before {
+  background: var(--color-report-green);
+}
+
+.form-panel :deep(.el-input__wrapper:hover),
+.form-panel :deep(.el-select__wrapper:hover) {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-report-blue) 45%, var(--color-line)) inset;
+}
+
+.form-panel :deep(.el-input__wrapper.is-focus),
+.form-panel :deep(.el-select__wrapper.is-focused) {
+  box-shadow: 0 0 0 1px var(--color-report-blue) inset;
+}
+
+.exam-summary-card {
+  background: color-mix(in srgb, var(--color-report-blue) 3%, var(--color-surface-alt));
+}
+
+.exam-summary-header {
+  background: color-mix(in srgb, var(--color-report-blue) 5%, var(--color-surface));
+}
+
+.exam-summary-header > span {
+  background: linear-gradient(105deg, var(--color-report-blue), var(--color-report-purple));
+}
+
+.session-item {
+  background: color-mix(in srgb, var(--color-report-blue) 3%, var(--color-surface-alt));
+}
+
+.payment-summary article:nth-child(1) strong {
+  color: var(--color-report-blue);
+}
+
+.payment-summary article:nth-child(2) strong {
+  color: var(--color-report-green);
+}
+
+.payment-summary article:nth-child(3) strong {
+  color: var(--color-report-orange);
+}
+
+.payment-panel .record-tabs button.active {
+  background: color-mix(in srgb, var(--color-report-blue) 48%, var(--color-ink-soft));
+  color: var(--color-ink-inverse);
+}
+
+.record-empty {
+  background: color-mix(in srgb, var(--color-report-blue) 3%, var(--color-surface-alt));
+}
+
+.exam-type-chip--active,
+.subject-chip--active {
+  border-color: color-mix(in srgb, var(--color-report-blue) 48%, var(--color-ink-soft));
+  background: color-mix(in srgb, var(--color-report-blue) 48%, var(--color-ink-soft));
+}
+
+.exam-type-chip:hover,
+.subject-chip:hover,
+.goal-grid input:focus {
+  border-color: var(--color-report-blue);
+  color: var(--color-report-blue);
+}
+
+.goal-group {
+  background: color-mix(in srgb, var(--color-report-purple-soft) 32%, var(--color-surface-alt));
+}
+
+@media (max-width: 900px) {
+  .readonly-form--profile-edit,
+  .password-form {
+    grid-template-columns: 1fr;
+  }
+
+  .password-form > button {
+    grid-column: 1;
+  }
+
+  .email-verification-row {
+    grid-template-columns: 1fr;
+  }
+
+  .email-verification-row .button_cancel {
+    justify-self: start;
+  }
 }
 </style>

@@ -110,6 +110,20 @@ function parseBoolean(value: string | undefined, fallback: boolean): boolean {
   throw new Error(`[config] Expected true or false, received: ${value}`)
 }
 
+// 后台任务参数必须是有界正整数，避免错误配置触发忙轮询或一次拉取过多记录。
+function parsePositiveInteger(
+  name: string,
+  value: string | undefined,
+  fallback: number,
+  bounds: { min: number; max: number },
+): number {
+  const parsed = Number(value ?? fallback)
+  if (!Number.isInteger(parsed) || parsed < bounds.min || parsed > bounds.max) {
+    throw new Error(`[config] ${name} must be an integer between ${bounds.min} and ${bounds.max}`)
+  }
+  return parsed
+}
+
 // Cookie SameSite 只允许浏览器支持的三个标准取值。
 function parseCookieSameSite(value: string | undefined, fallback: CookieSameSite): CookieSameSite {
   if (!value) return fallback
@@ -233,6 +247,64 @@ function resolveChinaumsConfig() {
   return payment
 }
 
+// 支付生命周期任务在测试和生产环境默认开启，本地按需显式启用。
+function resolvePaymentLifecycleConfig() {
+  const pollIntervalMs = parsePositiveInteger(
+    'PAYMENT_LIFECYCLE_POLL_INTERVAL_MS',
+    process.env.PAYMENT_LIFECYCLE_POLL_INTERVAL_MS,
+    60_000,
+    { min: 10_000, max: 3_600_000 },
+  )
+  const leaseMs = parsePositiveInteger(
+    'PAYMENT_LIFECYCLE_LEASE_MS',
+    process.env.PAYMENT_LIFECYCLE_LEASE_MS,
+    300_000,
+    { min: 60_000, max: 3_600_000 },
+  )
+  if (leaseMs < pollIntervalMs) {
+    throw new Error('[config] PAYMENT_LIFECYCLE_LEASE_MS must be greater than or equal to the poll interval')
+  }
+  return {
+    enabled: parseBoolean(process.env.PAYMENT_LIFECYCLE_ENABLED, BACKEND_ENV !== 'local'),
+    pollIntervalMs,
+    leaseMs,
+    batchSize: parsePositiveInteger(
+      'PAYMENT_LIFECYCLE_BATCH_SIZE',
+      process.env.PAYMENT_LIFECYCLE_BATCH_SIZE,
+      20,
+      { min: 1, max: 100 },
+    ),
+    pendingQueryAgeSeconds: parsePositiveInteger(
+      'PAYMENT_PENDING_QUERY_AGE_SECONDS',
+      process.env.PAYMENT_PENDING_QUERY_AGE_SECONDS,
+      30,
+      { min: 10, max: 86_400 },
+    ),
+    refundQueryAgeSeconds: parsePositiveInteger(
+      'PAYMENT_REFUND_QUERY_AGE_SECONDS',
+      process.env.PAYMENT_REFUND_QUERY_AGE_SECONDS,
+      30,
+      { min: 10, max: 86_400 },
+    ),
+    reconciliationEnabled: parseBoolean(
+      process.env.PAYMENT_RECONCILIATION_ENABLED,
+      BACKEND_ENV !== 'local',
+    ),
+    reconciliationHour: parsePositiveInteger(
+      'PAYMENT_RECONCILIATION_HOUR',
+      process.env.PAYMENT_RECONCILIATION_HOUR,
+      2,
+      { min: 0, max: 23 },
+    ),
+    reconciliationBatchSize: parsePositiveInteger(
+      'PAYMENT_RECONCILIATION_BATCH_SIZE',
+      process.env.PAYMENT_RECONCILIATION_BATCH_SIZE,
+      100,
+      { min: 1, max: 500 },
+    ),
+  }
+}
+
 const refreshCookieSecure = parseBoolean(
   process.env.REFRESH_COOKIE_SECURE,
   backendDefaults.refreshCookieSecure,
@@ -281,4 +353,5 @@ export const config = {
   deepseekBaseUrl: (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/$/, ''),
   deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash',
   chinaums: resolveChinaumsConfig(),
+  paymentLifecycle: resolvePaymentLifecycleConfig(),
 }

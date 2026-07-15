@@ -130,6 +130,12 @@ export const PAYMENT_ORDER_STATUS = {
   REFUNDED: 'refunded',
 } as const
 
+export const PAYMENT_REFUND_STATUS = {
+  PROCESSING: 'processing',
+  SUCCEEDED: 'succeeded',
+  FAILED: 'failed',
+} as const
+
 export const PAYMENT_CHANNEL = {
   ALIPAY: 'alipay',
   WECHAT: 'wechat',
@@ -149,6 +155,32 @@ export const PAYMENT_NOTIFICATION_STATUS = {
   PROCESSED: 'processed',
   IGNORED: 'ignored',
   FAILED: 'failed',
+} as const
+
+export const PAYMENT_RECONCILIATION_RUN_STATUS = {
+  RUNNING: 'running',
+  COMPLETED: 'completed',
+  PARTIAL: 'partial',
+  FAILED: 'failed',
+} as const
+
+export const PAYMENT_RECONCILIATION_TRIGGER = {
+  SCHEDULED: 'scheduled',
+  MANUAL: 'manual',
+} as const
+
+export const PAYMENT_RECONCILIATION_RESULT = {
+  MATCHED: 'matched',
+  CORRECTED: 'corrected',
+  ANOMALY: 'anomaly',
+  ERROR: 'error',
+} as const
+
+export const PAYMENT_RECONCILIATION_RESOLUTION = {
+  NONE: 'none',
+  OPEN: 'open',
+  AUTO_RESOLVED: 'auto_resolved',
+  MANUALLY_RESOLVED: 'manually_resolved',
 } as const
 
 export const EFFECTIVE_MEMBERSHIP_STATUS = {

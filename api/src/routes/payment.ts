@@ -7,18 +7,15 @@ import { requireAuth } from '../middleware/auth.js'
 import {
   ChinaumsRequestError,
   chinaumsResponseSnapshot,
-  closeChinaumsQr,
   createChinaumsOrderNo,
   createChinaumsQr,
-  formatChinaumsBillDate,
   normalizeChinaumsNotification,
-  queryChinaumsBill,
   verifyChinaumsNotification,
-  type ChinaumsBillResponse,
 } from '../services/chinaums.js'
-import { fulfillPaidOrder, PaymentFulfillmentError } from '../services/paymentFulfillment.js'
+import { PaymentFulfillmentError } from '../services/paymentFulfillment.js'
+import { closePaymentOrder, syncPaymentOrderFromChinaums } from '../services/paymentOrder.js'
+import { refreshPaymentRefund } from '../services/paymentRefund.js'
 import { prisma } from '../services/prisma.js'
-import { parseJsonObject } from '../utils/jsonField.js'
 import { fail, success } from '../utils/response.js'
 import {
   EXAM_TYPES,
@@ -28,6 +25,7 @@ import {
   PAYMENT_NOTIFICATION_STATUS,
   PAYMENT_ORDER_STATUS,
   PAYMENT_PRICE_TYPE,
+  PAYMENT_REFUND_STATUS,
   isMembershipPlan,
   isStudentExamTypeAvailable,
 } from '../constants/domain.js'
@@ -79,26 +77,6 @@ function jsonValue(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue
 }
 
-function providerMeta(order: { providerPayload: unknown; createdAt: Date }) {
-  const payload = parseJsonObject(order.providerPayload)
-  const qrCode = parseJsonObject(payload.qrCode)
-  return {
-    billDate: typeof qrCode.billDate === 'string' ? qrCode.billDate : formatChinaumsBillDate(order.createdAt),
-    qrCodeId: typeof qrCode.qrCodeId === 'string' ? qrCode.qrCodeId : '',
-    systemId: typeof qrCode.systemId === 'string' ? qrCode.systemId : '',
-  }
-}
-
-function mergeProviderResponse(existing: unknown, key: string, response: ChinaumsBillResponse): Prisma.InputJsonValue {
-  return {
-    ...parseJsonObject(existing),
-    [key]: {
-      receivedAt: new Date().toISOString(),
-      response: jsonValue(chinaumsResponseSnapshot(response)),
-    },
-  } as Prisma.InputJsonValue
-}
-
 function sanitizeNotification(payload: Record<string, string>): Prisma.InputJsonValue {
   const sensitive = /(^sign$|buyer|bankCard|mobile|certNo|extraBuyerInfo)/i
   const nestedPayload = new Set(['billPayment', 'refundBillPayment'])
@@ -139,35 +117,6 @@ function requestErrorDetails(error: unknown) {
     message: error instanceof Error ? error.message : '银联商务请求失败',
     response: undefined,
   }
-}
-
-async function syncOrderFromChinaums(order: {
-  id: string
-  orderNo: string
-  status: string
-  providerPayload: unknown
-  createdAt: Date
-}) {
-  if (order.status === PAYMENT_ORDER_STATUS.PAID) return prisma.paymentOrder.findUnique({ where: { id: order.id } })
-  const meta = providerMeta(order)
-  const response = await queryChinaumsBill(order.orderNo, meta.billDate)
-  if (response.billStatus === 'PAID') {
-    return fulfillPaidOrder(order.orderNo, response, 'query')
-  }
-  if (response.billStatus === 'CLOSED') {
-    return prisma.paymentOrder.update({
-      where: { id: order.id },
-      data: {
-        status: PAYMENT_ORDER_STATUS.CLOSED,
-        closedAt: new Date(),
-        providerPayload: mergeProviderResponse(order.providerPayload, 'latestQuery', response),
-      },
-    })
-  }
-  return prisma.paymentOrder.update({
-    where: { id: order.id },
-    data: { providerPayload: mergeProviderResponse(order.providerPayload, 'latestQuery', response) },
-  })
 }
 
 export async function getOrCreatePaymentConfig() {
@@ -224,8 +173,18 @@ paymentRouter.post('/notifications/chinaums', async (req, res) => {
 
     const order = await prisma.paymentOrder.findUnique({ where: { orderNo } })
     if (!order) throw new PaymentFulfillmentError('本地支付订单不存在', 'PAYMENT_ORDER_NOT_FOUND')
-    if (order.status !== PAYMENT_ORDER_STATUS.PAID) {
-      await syncOrderFromChinaums(order)
+    const refundOrderNo = payload.refundOrderId
+      || (order.status === PAYMENT_ORDER_STATUS.REFUNDING
+        ? (await prisma.paymentRefund.findFirst({
+            where: { paymentOrderId: order.id, status: PAYMENT_REFUND_STATUS.PROCESSING },
+            orderBy: { createdAt: 'desc' },
+            select: { refundOrderNo: true },
+          }))?.refundOrderNo
+        : undefined)
+    if (refundOrderNo) {
+      await refreshPaymentRefund(refundOrderNo)
+    } else if (order.status !== PAYMENT_ORDER_STATUS.PAID) {
+      await syncPaymentOrderFromChinaums(order)
     }
     await prisma.paymentNotification.update({
       where: { id: notificationRecord.id },
@@ -401,7 +360,7 @@ paymentRouter.post('/orders/:orderNo/query', requireAuth, async (req, res) => {
       res.status(404).json(fail('支付订单不存在'))
       return
     }
-    const synced = await syncOrderFromChinaums(order)
+    const synced = await syncPaymentOrderFromChinaums(order)
     if (!synced) {
       res.status(404).json(fail('支付订单不存在'))
       return
@@ -425,7 +384,11 @@ paymentRouter.post('/orders/:orderNo/close', requireAuth, async (req, res) => {
       res.status(404).json(fail('支付订单不存在'))
       return
     }
-    if (order.status === PAYMENT_ORDER_STATUS.PAID) {
+    if ([
+      PAYMENT_ORDER_STATUS.PAID,
+      PAYMENT_ORDER_STATUS.REFUNDING,
+      PAYMENT_ORDER_STATUS.REFUNDED,
+    ].includes(order.status as any)) {
       res.status(409).json(fail('已支付订单不能关闭', 'PAYMENT_ALREADY_PAID'))
       return
     }
@@ -433,20 +396,11 @@ paymentRouter.post('/orders/:orderNo/close', requireAuth, async (req, res) => {
       res.json(success(formatOrder(order)))
       return
     }
-    const meta = providerMeta(order)
-    if (!meta.qrCodeId) {
-      res.status(409).json(fail('该订单缺少银联商务二维码标识', 'PAYMENT_QR_ID_MISSING'))
+    const updated = await closePaymentOrder(order, 'user')
+    if (!updated) {
+      res.status(404).json(fail('支付订单不存在'))
       return
     }
-    const response = await closeChinaumsQr(meta.qrCodeId, meta.systemId)
-    const updated = await prisma.paymentOrder.update({
-      where: { id: order.id },
-      data: {
-        status: PAYMENT_ORDER_STATUS.CLOSED,
-        closedAt: new Date(),
-        providerPayload: mergeProviderResponse(order.providerPayload, 'closeResponse', response),
-      },
-    })
     res.json(success(formatOrder(updated)))
   } catch (error) {
     const detail = requestErrorDetails(error)

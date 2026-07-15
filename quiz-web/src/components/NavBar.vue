@@ -83,6 +83,14 @@
                     <button class="dropdown-item" type="button" @click="goToRoleHome">
                       {{ roleHomeLabel }}
                     </button>
+                    <button
+                      v-if="auth.isAdmin"
+                      class="dropdown-item"
+                      type="button"
+                      @click="goToProfile"
+                    >
+                      个人中心
+                    </button>
                     <div class="dropdown-divider"></div>
                     <button
                       class="dropdown-item dropdown-item--danger"
@@ -143,6 +151,12 @@ function handleExamCommand(examType: string): void {
 function goToRoleHome(): void {
   showDropdown.value = false
   router.push(auth.user?.role === 'admin' ? '/admin/core-library' : '/profile')
+}
+
+// 管理员保留后台入口的同时，可进入普通个人中心检查会员与支付结果。
+function goToProfile(): void {
+  showDropdown.value = false
+  router.push('/profile')
 }
 
 // 退出后回首页，让需要登录的页面由路由守卫重新拦截。

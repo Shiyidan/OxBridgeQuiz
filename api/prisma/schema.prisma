@@ -346,32 +346,57 @@ model PaymentConfig {
 }
 
 model PaymentOrder {
-  id              String    @id @default(uuid()) @db.VarChar(191)
-  orderNo         String    @unique @db.VarChar(64)
-  userId          String    @db.VarChar(191)
-  examTypes       Json
-  plan            String    @db.VarChar(32)
-  priceType       String    @db.VarChar(32)
-  amountCents     Int
-  currency        String    @default("CNY") @db.VarChar(8)
-  channel         String    @db.VarChar(32)
-  status          String    @default("pending") @db.VarChar(32)
-  provider        String    @default("chinaums") @db.VarChar(32)
-  providerOrderNo String?   @unique @db.VarChar(128)
-  providerPayload Json?
-  failureCode     String?   @db.VarChar(64)
-  failureMessage  String?   @db.VarChar(500)
-  paidAt          DateTime?
-  closedAt        DateTime?
-  expiresAt       DateTime
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                  String    @id @default(uuid()) @db.VarChar(191)
+  orderNo             String    @unique @db.VarChar(64)
+  userId              String    @db.VarChar(191)
+  examTypes           Json
+  plan                String    @db.VarChar(32)
+  priceType           String    @db.VarChar(32)
+  amountCents         Int
+  refundedAmountCents Int       @default(0)
+  currency            String    @default("CNY") @db.VarChar(8)
+  channel             String    @db.VarChar(32)
+  status              String    @default("pending") @db.VarChar(32)
+  provider            String    @default("chinaums") @db.VarChar(32)
+  providerOrderNo     String?   @unique @db.VarChar(128)
+  providerPayload     Json?
+  failureCode         String?   @db.VarChar(64)
+  failureMessage      String?   @db.VarChar(500)
+  paidAt              DateTime?
+  closedAt            DateTime?
+  expiresAt           DateTime
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user                User                        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  refunds             PaymentRefund[]
+  reconciliationItems PaymentReconciliationItem[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
   @@index([expiresAt, status])
+}
+
+model PaymentRefund {
+  id               String    @id @default(uuid()) @db.VarChar(191)
+  refundOrderNo    String    @unique @db.VarChar(64)
+  paymentOrderId   String    @db.VarChar(191)
+  amountCents      Int
+  reason           String    @db.VarChar(255)
+  status           String    @default("processing") @db.VarChar(32)
+  providerRefundNo String?   @unique @db.VarChar(128)
+  providerPayload  Json?
+  failureCode      String?   @db.VarChar(64)
+  failureMessage   String?   @db.VarChar(500)
+  operatorId       String    @db.VarChar(191)
+  refundedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  paymentOrder PaymentOrder @relation(fields: [paymentOrderId], references: [id], onDelete: Restrict)
+
+  @@index([paymentOrderId, createdAt])
+  @@index([status, createdAt])
 }
 
 model PaymentNotification {
@@ -390,4 +415,67 @@ model PaymentNotification {
   @@unique([provider, notificationId])
   @@index([orderNo, createdAt])
   @@index([processStatus, createdAt])
+}
+
+model PaymentReconciliationRun {
+  id              String    @id @default(uuid()) @db.VarChar(191)
+  provider        String    @default("chinaums") @db.VarChar(32)
+  businessDate    DateTime  @db.Date
+  status          String    @default("running") @db.VarChar(32)
+  trigger         String    @default("scheduled") @db.VarChar(32)
+  triggeredBy     String?   @db.VarChar(191)
+  totalOrders     Int       @default(0)
+  matchedOrders   Int       @default(0)
+  correctedOrders Int       @default(0)
+  anomalyOrders   Int       @default(0)
+  errorOrders     Int       @default(0)
+  errorMessage    String?   @db.VarChar(500)
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  items PaymentReconciliationItem[]
+
+  @@unique([provider, businessDate])
+  @@index([status, businessDate])
+}
+
+model PaymentReconciliationItem {
+  id                  String    @id @default(uuid()) @db.VarChar(191)
+  runId               String    @db.VarChar(191)
+  paymentOrderId      String    @db.VarChar(191)
+  orderNo             String    @db.VarChar(64)
+  localStatus         String    @db.VarChar(32)
+  providerStatus      String?   @db.VarChar(32)
+  localAmountCents    Int
+  providerAmountCents Int?
+  result              String    @db.VarChar(32)
+  anomalyType         String?   @db.VarChar(64)
+  message             String    @db.VarChar(500)
+  providerPayload     Json?
+  resolutionStatus    String    @default("none") @db.VarChar(32)
+  resolutionNote      String?   @db.VarChar(500)
+  resolvedBy          String?   @db.VarChar(191)
+  resolvedAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  run          PaymentReconciliationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  paymentOrder PaymentOrder             @relation(fields: [paymentOrderId], references: [id], onDelete: Restrict)
+
+  @@unique([runId, paymentOrderId])
+  @@index([resolutionStatus, updatedAt])
+  @@index([result, updatedAt])
+  @@index([orderNo])
+}
+
+model BackgroundJobLease {
+  name        String   @id @db.VarChar(64)
+  ownerId     String   @db.VarChar(128)
+  lockedUntil DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([lockedUntil])
 }

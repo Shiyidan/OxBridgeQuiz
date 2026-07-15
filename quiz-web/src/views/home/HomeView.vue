@@ -422,7 +422,7 @@ const activeHeroBannerIndex = ref(0)
 const previousHeroBannerIndex = ref(0)
 const activeReportBannerIndex = ref(0)
 const previousReportBannerIndex = ref(0)
-let bannerTimer: ReturnType<typeof window.setInterval> | null = null
+let bannerTimer: number | null = null
 
 function nextCarouselSlide(
   activeIndex: typeof activeHeroBannerIndex,

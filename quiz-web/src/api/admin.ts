@@ -70,15 +70,162 @@ export interface AdminPaymentOrder {
   plan: string
   priceType: string
   amountCents: number
+  refundedAmountCents: number
   currency: string
   channel: string
   status: string
   provider: string
   providerOrderNo?: string | null
+  failureCode?: string | null
+  failureMessage?: string | null
   expiresAt: string
   paidAt?: string | null
+  closedAt?: string | null
   createdAt: string
-  user: { username: string; email: string }
+  updatedAt?: string
+  latestRefund?: AdminPaymentRefund | null
+  user: { id: string; username: string; email: string }
+}
+
+export interface AdminPaymentRefund {
+  id: string
+  refundOrderNo: string
+  amountCents: number
+  reason: string
+  status: 'processing' | 'succeeded' | 'failed'
+  providerRefundNo?: string | null
+  failureCode?: string | null
+  failureMessage?: string | null
+  operatorId: string
+  refundedAt?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AdminPaymentReconciliationRun {
+  id: string
+  provider: string
+  businessDate: string
+  status: 'running' | 'completed' | 'partial' | 'failed'
+  trigger: 'scheduled' | 'manual'
+  triggeredBy?: string | null
+  totalOrders: number
+  matchedOrders: number
+  correctedOrders: number
+  anomalyOrders: number
+  errorOrders: number
+  errorMessage?: string | null
+  startedAt: string
+  completedAt?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AdminPaymentReconciliationOverview {
+  latestRun: AdminPaymentReconciliationRun | null
+  openAnomalyCount: number
+  failedNotificationCount: number
+  stuckRefundCount: number
+  stalePendingCount: number
+  defaultBusinessDate: string
+  scope: 'local_orders_with_provider_query'
+}
+
+export interface AdminPaymentReconciliationItem {
+  id: string
+  runId: string
+  paymentOrderId: string
+  orderNo: string
+  localStatus: string
+  providerStatus?: string | null
+  localAmountCents: number
+  providerAmountCents?: number | null
+  result: 'matched' | 'corrected' | 'anomaly' | 'error'
+  anomalyType?: string | null
+  message: string
+  resolutionStatus: 'none' | 'open' | 'auto_resolved' | 'manually_resolved'
+  resolutionNote?: string | null
+  resolvedBy?: string | null
+  resolvedAt?: string | null
+  createdAt: string
+  updatedAt: string
+  run?: { businessDate: string }
+  paymentOrder?: {
+    status: string
+    user: { id: string; username: string; email: string }
+  }
+}
+
+export interface AdminPaymentAuditActor {
+  id: string
+  username: string
+  email: string
+}
+
+export interface AdminPaymentAuditEvent {
+  id: string
+  category: 'order' | 'notification' | 'refund' | 'entitlement' | 'reconciliation'
+  title: string
+  description: string
+  status: string
+  occurredAt: string
+  actor?: AdminPaymentAuditActor | null
+  inferred?: boolean
+}
+
+export interface AdminPaymentOrderDetail {
+  order: AdminPaymentOrder
+  provider: {
+    environment: 'test' | 'prod'
+    appIdMasked: string
+    mid: string
+    tid: string
+    instMid: string
+    msgSrcId: string
+    providerOrderNo?: string | null
+    billDate?: string | null
+    qrCodeId?: string | null
+    systemId?: string | null
+  }
+  providerSnapshots: Array<{
+    key: string
+    label: string
+    receivedAt?: string | null
+    response: Record<string, unknown>
+  }>
+  notifications: Array<{
+    id: string
+    provider: string
+    notificationId: string
+    signatureValid: boolean
+    processStatus: string
+    payload: Record<string, unknown>
+    errorMessage?: string | null
+    processedAt?: string | null
+    createdAt: string
+    updatedAt: string
+  }>
+  refunds: Array<AdminPaymentRefund & {
+    operator?: AdminPaymentAuditActor | null
+    providerResult: Record<string, unknown>
+  }>
+  memberships: Array<{
+    id: string
+    examType: string
+    plan: string
+    status: string
+    startsAt: string
+    endsAt: string
+    createdAt: string
+    updatedAt: string
+    associationBasis: 'user_exam_type_snapshot'
+  }>
+  reconciliationItems: Array<AdminPaymentReconciliationItem & {
+    run: AdminPaymentReconciliationRun
+    resolver?: AdminPaymentAuditActor | null
+    triggerOperator?: AdminPaymentAuditActor | null
+  }>
+  timeline: AdminPaymentAuditEvent[]
 }
 
 export interface UpdateUserAccessPayload {
@@ -181,7 +328,7 @@ export function updateAdminPaymentConfig(data: Omit<AdminPaymentConfig, 'updated
 }
 
 /** 查询支付订单。 */
-export function getAdminPaymentOrders(params: ListParams & { status?: string } = {}) {
+export function getAdminPaymentOrders(params: ListParams & { status?: string; keyword?: string } = {}) {
   return callApi<PageResult<AdminPaymentOrder>>({
     url: '/admin/payment-orders',
     method: 'GET',
@@ -190,6 +337,89 @@ export function getAdminPaymentOrders(params: ListParams & { status?: string } =
       ...(params.page ? { page: String(params.page) } : {}),
       ...(params.pageSize ? { pageSize: String(params.pageSize) } : {}),
       status: params.status,
+      keyword: params.keyword,
     },
+  })
+}
+
+/** 获取单笔支付订单及通知、退款、权益和对账审计详情。 */
+export function getAdminPaymentOrderDetail(orderNo: string) {
+  return callApi<AdminPaymentOrderDetail>({
+    url: `/admin/payment-orders/${encodeURIComponent(orderNo)}`,
+    method: 'GET',
+    isAllData: false,
+  })
+}
+
+/** 管理员对已支付订单发起全额退款。 */
+export function createAdminPaymentRefund(orderNo: string, reason: string) {
+  return callApi<AdminPaymentRefund>({
+    url: `/admin/payment-orders/${encodeURIComponent(orderNo)}/refunds`,
+    method: 'POST',
+    isAllData: false,
+    body: { reason },
+  })
+}
+
+/** 主动向银联查询处理中的退款单，并同步最终结果。 */
+export function queryAdminPaymentRefund(refundOrderNo: string) {
+  return callApi<AdminPaymentRefund>({
+    url: `/admin/payment-refunds/${encodeURIComponent(refundOrderNo)}/query`,
+    method: 'POST',
+    isAllData: false,
+  })
+}
+
+/** 获取最近对账批次和全站支付异常计数。 */
+export function getAdminPaymentReconciliationOverview() {
+  return callApi<AdminPaymentReconciliationOverview>({
+    url: '/admin/payment-reconciliation/overview',
+    method: 'GET',
+    isAllData: false,
+  })
+}
+
+/** 获取对账明细，默认只读取仍待处理的异常。 */
+export function getAdminPaymentReconciliationItems(
+  params: ListParams & { resolutionStatus?: string } = {},
+) {
+  return callApi<PageResult<AdminPaymentReconciliationItem>>({
+    url: '/admin/payment-reconciliation/items',
+    method: 'GET',
+    isAllData: false,
+    params: {
+      ...(params.page ? { page: String(params.page) } : {}),
+      ...(params.pageSize ? { pageSize: String(params.pageSize) } : {}),
+      resolutionStatus: params.resolutionStatus,
+    },
+  })
+}
+
+/** 管理员手动执行指定自然日的逐单渠道对账。 */
+export function runAdminPaymentReconciliation(businessDate: string) {
+  return callApi<AdminPaymentReconciliationRun>({
+    url: '/admin/payment-reconciliation/runs',
+    method: 'POST',
+    isAllData: false,
+    body: { businessDate },
+  })
+}
+
+/** 重新查询银联并执行仅基于渠道成功结果的安全补偿。 */
+export function recheckAdminPaymentReconciliationItem(id: string) {
+  return callApi<AdminPaymentReconciliationItem>({
+    url: `/admin/payment-reconciliation/items/${encodeURIComponent(id)}/recheck`,
+    method: 'POST',
+    isAllData: false,
+  })
+}
+
+/** 保存管理员线下核查说明并关闭异常告警。 */
+export function resolveAdminPaymentReconciliationItem(id: string, note: string) {
+  return callApi<AdminPaymentReconciliationItem>({
+    url: `/admin/payment-reconciliation/items/${encodeURIComponent(id)}/resolve`,
+    method: 'POST',
+    isAllData: false,
+    body: { note },
   })
 }

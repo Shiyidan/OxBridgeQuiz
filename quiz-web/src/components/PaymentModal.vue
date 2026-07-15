@@ -94,7 +94,21 @@
               </div>
 
               <div class="qr-card" aria-label="银联商务聚合支付二维码">
-                <img v-if="qrCodeUrl" class="qr-image" :src="qrCodeUrl" alt="支付二维码" />
+                <img
+                  v-if="qrCodeImageUrl"
+                  class="qr-image"
+                  :src="qrCodeImageUrl"
+                  alt="支付二维码"
+                />
+                <a
+                  v-else-if="paymentPageUrl"
+                  class="qr-fallback"
+                  :href="paymentPageUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  二维码生成失败<br />点击打开银联收银台
+                </a>
                 <svg v-else viewBox="0 0 21 21" role="img" aria-hidden="true">
                   <rect width="21" height="21" fill="#fff" />
                   <g fill="#101010">
@@ -177,6 +191,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import QRCode from 'qrcode'
 import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 import {
   closePaymentOrder,
@@ -210,7 +225,8 @@ const selectedPlanId = ref('monthly')
 const selectedChannelId = ref('alipay')
 const creatingOrder = ref(false)
 const createdOrderNo = ref('')
-const qrCodeUrl = ref('')
+const qrCodeImageUrl = ref('')
+const paymentPageUrl = ref('')
 const orderAmountCents = ref<number | null>(null)
 const paymentStatus = ref('')
 let pollingTimer: ReturnType<typeof setInterval> | null = null
@@ -333,9 +349,19 @@ async function cancelCurrentOrder(): Promise<void> {
 function resetPaymentOrder(): void {
   stopPaymentPolling()
   createdOrderNo.value = ''
-  qrCodeUrl.value = ''
+  qrCodeImageUrl.value = ''
+  paymentPageUrl.value = ''
   orderAmountCents.value = null
   paymentStatus.value = ''
+}
+
+// 银联返回的是收银台网页地址，需要在浏览器端编码为可扫码的二维码图片。
+async function createPaymentQrImage(checkoutUrl: string): Promise<string> {
+  return QRCode.toDataURL(checkoutUrl, {
+    width: 240,
+    margin: 1,
+    errorCorrectionLevel: 'M',
+  })
 }
 
 // 用户确认当前套餐和渠道后创建支付订单，金额始终由后端重新计算。
@@ -352,10 +378,17 @@ async function handleCreateOrder(): Promise<void> {
       channel: selectedChannelId.value as 'alipay' | 'wechat' | 'unionpay',
     })
     createdOrderNo.value = result.order.orderNo
-    qrCodeUrl.value = result.qrCodeUrl
+    paymentPageUrl.value = result.qrCodeUrl
     orderAmountCents.value = result.order.amountCents
     paymentStatus.value = result.order.status
     startPaymentPolling()
+    try {
+      qrCodeImageUrl.value = await createPaymentQrImage(result.qrCodeUrl)
+    } catch (error) {
+      console.error('[PaymentModal] 支付二维码生成失败', error)
+      ElMessage.error('支付二维码生成失败，请点击卡片打开银联收银台')
+      return
+    }
     ElMessage.success(result.message)
   } finally {
     creatingOrder.value = false
@@ -717,6 +750,19 @@ onBeforeUnmount(() => {
   width: 100%;
   aspect-ratio: 1;
   object-fit: contain;
+}
+
+.qr-fallback {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 1;
+  place-items: center;
+  color: #2672ff;
+  font-size: 13px;
+  line-height: 1.8;
+  text-align: center;
+  text-decoration: none;
+  background: #f7f9fc;
 }
 
 .qr-demo {

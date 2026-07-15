@@ -11,6 +11,7 @@ import { adminRouter } from './routes/admin.js'
 import { memberRouter } from './routes/member.js'
 import { paymentRouter } from './routes/payment.js'
 import { startDiagnosticReportWorker } from './services/diagnosticReportTask.js'
+import { startPaymentLifecycleWorker } from './services/paymentLifecycle.js'
 import { success } from './utils/response.js'
 
 const app = express()
@@ -57,5 +58,8 @@ app.listen(config.port, () => {
   )
   void startDiagnosticReportWorker().catch((error) => {
     console.error('[diagnostic-report-task] worker startup failed:', error)
+  })
+  void startPaymentLifecycleWorker().catch((error) => {
+    console.error('[payment-lifecycle] worker startup failed:', error)
   })
 })

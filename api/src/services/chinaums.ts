@@ -15,6 +15,12 @@ export interface ChinaumsBillPayment {
   merOrderId?: string
 }
 
+export interface ChinaumsRefundPayment extends ChinaumsBillPayment {
+  refundOrderId?: string
+  refundAmount?: number | string
+  refundPayTime?: string
+}
+
 export interface ChinaumsBillResponse extends ChinaumsPayload {
   errCode?: string
   errMsg?: string
@@ -26,10 +32,17 @@ export interface ChinaumsBillResponse extends ChinaumsPayload {
   systemId?: string
   totalAmount?: number | string
   billPayment?: ChinaumsBillPayment
+  refundOrderId?: string
+  refundTargetOrderId?: string
+  refundPayTime?: string
+  refundStatus?: string
+  refundAmount?: number | string
+  refundBillPayment?: ChinaumsRefundPayment
 }
 
 export function chinaumsResponseSnapshot(response: ChinaumsBillResponse): ChinaumsBillResponse {
   const payment = response.billPayment
+  const refundPayment = response.refundBillPayment
   return {
     errCode: response.errCode,
     errMsg: response.errMsg,
@@ -40,6 +53,11 @@ export function chinaumsResponseSnapshot(response: ChinaumsBillResponse): Chinau
     qrCodeId: response.qrCodeId,
     systemId: response.systemId,
     totalAmount: response.totalAmount,
+    refundOrderId: response.refundOrderId,
+    refundTargetOrderId: response.refundTargetOrderId,
+    refundPayTime: response.refundPayTime,
+    refundStatus: response.refundStatus,
+    refundAmount: response.refundAmount,
     ...(payment
       ? {
           billPayment: {
@@ -50,6 +68,22 @@ export function chinaumsResponseSnapshot(response: ChinaumsBillResponse): Chinau
             totalAmount: payment.totalAmount,
             buyerPayAmount: payment.buyerPayAmount,
             merOrderId: payment.merOrderId,
+          },
+        }
+      : {}),
+    ...(refundPayment
+      ? {
+          refundBillPayment: {
+            status: refundPayment.status,
+            targetOrderId: refundPayment.targetOrderId,
+            targetSys: refundPayment.targetSys,
+            payTime: refundPayment.payTime,
+            totalAmount: refundPayment.totalAmount,
+            buyerPayAmount: refundPayment.buyerPayAmount,
+            merOrderId: refundPayment.merOrderId,
+            refundOrderId: refundPayment.refundOrderId,
+            refundAmount: refundPayment.refundAmount,
+            refundPayTime: refundPayment.refundPayTime,
           },
         }
       : {}),
@@ -205,6 +239,36 @@ export function queryChinaumsBill(orderNo: string, billDate: string): Promise<Ch
     ...commonPayload(),
     billNo: orderNo,
     billDate,
+  })
+}
+
+export function refundChinaumsBill(input: {
+  orderNo: string
+  billDate: string
+  refundOrderNo: string
+  amountCents: number
+  description: string
+}): Promise<ChinaumsBillResponse> {
+  return postChinaums('/v1/netpay/bills/refund', {
+    ...commonPayload(),
+    billNo: input.orderNo,
+    billDate: input.billDate,
+    refundOrderId: input.refundOrderNo,
+    refundAmount: input.amountCents,
+    refundDesc: input.description.slice(0, 255),
+  })
+}
+
+export function queryChinaumsRefund(input: {
+  orderNo: string
+  billDate: string
+  refundOrderNo: string
+}): Promise<ChinaumsBillResponse> {
+  return postChinaums('/v1/netpay/bills/query', {
+    ...commonPayload(),
+    billNo: input.orderNo,
+    billDate: input.billDate,
+    refundOrderId: input.refundOrderNo,
   })
 }
 

@@ -1,7 +1,9 @@
+// 统一选择浏览器调用的 API 地址，支持本地开发、测试环境及同源生产部署。
 const API_BASE_BY_ENV = {
   local: 'http://localhost:3001',
-  test: 'http://8.149.140.115',
-  // Production is served by Nginx, so browser API calls stay on the same HTTPS origin.
+  // 测试与线上页面统一调用同源 /api；本地 test 模式由 Vite 转发请求。
+  test: '',
+  // 线上环境由 Nginx 提供页面与 API，浏览器请求保持在同一 HTTPS 来源。
   prod: '',
 } as const
 

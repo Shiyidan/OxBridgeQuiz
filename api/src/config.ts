@@ -2,7 +2,8 @@ import path from 'path'
 import crypto from 'crypto'
 import dotenv from 'dotenv'
 
-dotenv.config({ path: path.resolve(process.cwd(), '.env') })
+const envFile = process.env.API_ENV_FILE?.trim() || path.resolve(process.cwd(), '.env')
+dotenv.config({ path: envFile })
 
 const LOCAL_CORS_ORIGINS = [
   /^http:\/\/localhost:\d+$/,
@@ -52,34 +53,53 @@ const BACKEND_CONFIG_BY_ENV: Record<BackendEnv, BackendEnvConfig> = {
   },
 }
 
-const BACKEND_ENV = (process.env.API_RUNTIME_ENV || 'local') as BackendEnv
+const runtimeEnv = process.env.API_RUNTIME_ENV?.trim()
+if (!runtimeEnv) {
+  throw new Error('[config] API_RUNTIME_ENV is required; use local, test, or prod explicitly')
+}
+
+const BACKEND_ENV = runtimeEnv as BackendEnv
 const backendDefaults = BACKEND_CONFIG_BY_ENV[BACKEND_ENV]
 
 if (!backendDefaults) {
   throw new Error(`[config] Unsupported API_RUNTIME_ENV: ${BACKEND_ENV}`)
 }
 
-// 生产环境必须显式提供固定 JWT 密钥，非生产环境才允许临时生成。
+// 测试与线上环境必须使用稳定 JWT 密钥，避免重启后令牌整体失效。
 function resolveJwtSecret(): string {
   if (process.env.JWT_SECRET) return process.env.JWT_SECRET
 
-  if (BACKEND_ENV === 'prod') {
-    throw new Error('[config] JWT_SECRET is required in production')
+  if (BACKEND_ENV !== 'local') {
+    throw new Error(`[config] JWT_SECRET is required when API_RUNTIME_ENV=${BACKEND_ENV}`)
   }
 
   const generated = crypto.randomBytes(64).toString('hex')
-  console.warn('[config] JWT_SECRET is missing. A temporary random secret was generated. Production must use a fixed secret.')
+  console.warn(
+    '[config] JWT_SECRET is missing. A temporary random secret was generated for local development.',
+  )
   return generated
 }
 
-// 邮箱验证码使用独立 HMAC 密钥，避免与访问令牌密钥相互影响。
+// 邮箱验证码使用独立且稳定的 HMAC 密钥，测试与线上重启后仍可继续验证。
 function resolveEmailCodeSecret(): string {
   if (process.env.EMAIL_CODE_SECRET) return process.env.EMAIL_CODE_SECRET
-  if (BACKEND_ENV === 'prod') {
-    throw new Error('[config] EMAIL_CODE_SECRET is required in production')
+  if (BACKEND_ENV !== 'local') {
+    throw new Error(`[config] EMAIL_CODE_SECRET is required when API_RUNTIME_ENV=${BACKEND_ENV}`)
   }
-  console.warn('[config] EMAIL_CODE_SECRET is missing. Local email codes will be invalid after restart.')
+  console.warn(
+    '[config] EMAIL_CODE_SECRET is missing. Local email codes will be invalid after restart.',
+  )
   return crypto.randomBytes(64).toString('hex')
+}
+
+// 注册依赖邮件验证码，测试与线上环境缺少 SMTP 凭据时应在启动阶段直接失败。
+function resolveMailValue(name: 'SMTP_USER' | 'SMTP_PASS' | 'MAIL_FROM'): string {
+  const value = process.env[name]?.trim()
+  if (value) return value
+  if (BACKEND_ENV !== 'local') {
+    throw new Error(`[config] ${name} is required when API_RUNTIME_ENV=${BACKEND_ENV}`)
+  }
+  return ''
 }
 
 // 布尔环境变量只接受明确值，防止拼写错误静默改变安全配置。
@@ -251,9 +271,9 @@ export const config = {
   smtpConnectionTimeoutMs: parseInt(process.env.SMTP_CONNECTION_TIMEOUT_MS || '5000', 10),
   smtpGreetingTimeoutMs: parseInt(process.env.SMTP_GREETING_TIMEOUT_MS || '5000', 10),
   smtpSocketTimeoutMs: parseInt(process.env.SMTP_SOCKET_TIMEOUT_MS || '15000', 10),
-  smtpUser: process.env.SMTP_USER || '',
-  smtpPass: process.env.SMTP_PASS || '',
-  mailFrom: process.env.MAIL_FROM || '',
+  smtpUser: resolveMailValue('SMTP_USER'),
+  smtpPass: resolveMailValue('SMTP_PASS'),
+  mailFrom: resolveMailValue('MAIL_FROM'),
   databaseUrl: resolveDatabaseUrl(),
   corsOrigins: resolveCorsOrigins(),
   trustProxy: parseTrustProxy(process.env.TRUST_PROXY, backendDefaults.trustProxy),

@@ -201,4 +201,13 @@ EntitlementConfig
 - `/opt/quiz/api/.env`
 - RDS MySQL 中的生产数据库数据；新的生产部署不得依赖 `/opt/quiz/data/prod.db`
 
+保留服务器 `.env` 不代表忽略配置演进。每次部署后端前必须先备份现有 `.env`，根据 `api/.env.example` 合并新增配置，并在目标服务器的仓库目录执行：
+
+```bash
+cd /opt/quiz/repo/api
+API_ENV_FILE=/opt/quiz/api/.env npm run validate:runtime
+```
+
+该命令必须成功验证目标运行环境、数据库连接和 SMTP 登录后，才能执行 PM2 重载。测试和线上环境必须显式提供 `API_RUNTIME_ENV`、`JWT_SECRET`、`EMAIL_CODE_SECRET`、`SMTP_USER`、`SMTP_PASS` 和 `MAIL_FROM`；不得依赖本地默认值。部署完成后还需验证 `/api/health` 和至少一条依赖数据库的只读接口。
+
 部署报告生成在 `deployment-reports/` 下。当 `agently-cli +me` 已授权为 `solveark@agent.qq.com` 时，部署 skill 会配置为通过 Agent Mail 发送 HTML 报告。

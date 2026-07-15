@@ -27,6 +27,16 @@ async function createTransporter(): Promise<nodemailer.Transporter> {
   })
 }
 
+// 部署预检通过真实握手验证 SMTP 地址、网络连通性与账号凭据，不发送邮件。
+export async function verifyMailTransport(): Promise<void> {
+  const transporter = await createTransporter()
+  try {
+    await transporter.verify()
+  } finally {
+    transporter.close()
+  }
+}
+
 const purposeLabels: Record<EmailCodePurpose, string> = {
   REGISTER: '注册账号',
   RESET_PASSWORD: '重置密码',

@@ -6,6 +6,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "validate:runtime": "tsx scripts/validate-runtime-config.ts",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "backfill:questions": "tsx scripts/backfill-paper-questions.ts",

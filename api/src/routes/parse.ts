@@ -1,11 +1,11 @@
-import { Router } from 'express'
 import { prisma } from '../services/prisma.js'
 import { addPageToTask } from '../services/parseService.js'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 import { success, fail } from '../utils/response.js'
+import { createAsyncRouter } from '../utils/asyncRouter.js'
 
-export const parseRouter = Router()
+export const parseRouter = createAsyncRouter()
 
 // 查询解析任务状态与进度
 parseRouter.get('/:id', requireAuth, requireAdmin, async (req, res) => {

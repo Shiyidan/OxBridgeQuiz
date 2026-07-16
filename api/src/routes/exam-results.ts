@@ -1,6 +1,5 @@
 
 // 提供考试结果、个人统计及诊断报告任务与摘要接口。
-import { Router } from 'express'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
@@ -8,6 +7,7 @@ import { success, fail } from '../utils/response.js'
 import { formatQuestionRow } from '../utils/questionSync.js'
 import { parseJsonField, parseJsonArray } from '../utils/jsonField.js'
 import { checkMemberAccess } from '../services/member.js'
+import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { computeScores } from '../services/scoring.js'
 import type { QuestionResult } from '../services/scoring.js'
 import {
@@ -33,7 +33,7 @@ import {
 } from '../constants/domain.js'
 
 import { safeJsonParse, parseQueryList, parseDateBoundary, parsePositiveInt, getQuestionKey, buildAnswerRecordRows, countCorrectAnswers, ExamResponseInput, normalizeExamResponses, responseMaps, usesContinuousExamClock, buildExamDeadline, continuousExamDurationSeconds, replaceAnswerRecords, collectSyllabusCodes, jsonPointsHaveCode, calculateNinePointScore } from './exam-shared.js'
-export const examResultRouter = Router()
+export const examResultRouter = createAsyncRouter()
 
 examResultRouter.get('/profile-stats', requireAuth, async (req, res) => {
   try {
@@ -372,4 +372,3 @@ examResultRouter.get('/:id/diagnostic-report/summary', requireAuth, async (req, 
     res.status(500).json(fail(error.message || '读取诊断报告失败'))
   }
 })
-

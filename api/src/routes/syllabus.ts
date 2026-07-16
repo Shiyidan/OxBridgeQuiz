@@ -1,6 +1,5 @@
 
 // 管理考纲版本、启停状态与前台考纲树查询。
-import { Router } from 'express'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
@@ -11,6 +10,7 @@ import { parseJsonArray, parseJsonField } from '../utils/jsonField.js'
 import { createNumericId } from '../utils/id.js'
 import { processMarkdownImport, validateStandardPaperDocument } from '../services/markdownValidator.js'
 import { checkMemberAccess } from '../services/member.js'
+import { createAsyncRouter } from '../utils/asyncRouter.js'
 import {
   EXAM_TYPE,
   QUESTION_BANK_PAPER_TYPES,
@@ -24,7 +24,7 @@ import {
 } from '../constants/domain.js'
 
 import { RawSyllabusNode, FlatSyllabusNode, levelOf, parseSyllabusJson, getSyllabusRoots, normalizeSyllabusNodes, safeParseJson, parsePositiveInt, formatQuestionForAttempt, hasStudentPaperEntitlement, applySyllabusToTree } from './papers-shared.js'
-export const syllabusRouter = Router()
+export const syllabusRouter = createAsyncRouter()
 
 syllabusRouter.get('/syllabus-library', requireAuth, requireAdmin, async (_req, res) => {
   try {
@@ -182,4 +182,3 @@ syllabusRouter.get('/syllabus', async (req, res) => {
     res.status(500).json(fail(e.message || '获取考纲失败'))
   }
 })
-

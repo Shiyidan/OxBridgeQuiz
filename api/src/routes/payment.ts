@@ -1,7 +1,6 @@
 // 支付前台接口：提供价格、银联商务聚合码下单、查询、关单和异步通知处理。
 import crypto from 'crypto'
 import { Prisma } from '@prisma/client'
-import { Router } from 'express'
 import { config } from '../config.js'
 import { requireAuth } from '../middleware/auth.js'
 import {
@@ -17,6 +16,7 @@ import { closePaymentOrder, syncPaymentOrderFromChinaums } from '../services/pay
 import { refreshPaymentRefund } from '../services/paymentRefund.js'
 import { prisma } from '../services/prisma.js'
 import { fail, success } from '../utils/response.js'
+import { createAsyncRouter } from '../utils/asyncRouter.js'
 import {
   EXAM_TYPES,
   MEMBERSHIP_PLAN,
@@ -30,7 +30,7 @@ import {
   isStudentExamTypeAvailable,
 } from '../constants/domain.js'
 
-export const paymentRouter = Router()
+export const paymentRouter = createAsyncRouter()
 
 const DEFAULT_CONFIG = {
   firstMonthlyPriceCents: 7800,

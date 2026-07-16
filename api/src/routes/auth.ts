@@ -1,6 +1,6 @@
 // 认证路由：邮箱验证、密码流程、短期访问令牌和可撤销会话。
 import crypto from 'node:crypto'
-import { Router, type Request, type Response } from 'express'
+import { type Request, type Response } from 'express'
 import bcrypt from 'bcryptjs'
 import rateLimit from 'express-rate-limit'
 import { Prisma, type User } from '@prisma/client'
@@ -21,6 +21,7 @@ import {
   updateProfileSchema,
 } from '../utils/authSchemas.js'
 import { AuthError } from '../utils/authError.js'
+import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { config } from '../config.js'
 import { createEmailChallenge, consumeEmailChallenge } from '../services/emailVerification.js'
 import { sendVerificationCodeEmail } from '../services/mail.js'
@@ -31,7 +32,7 @@ import {
   rotateAuthSession,
 } from '../services/authSession.js'
 
-export const authRouter = Router()
+export const authRouter = createAsyncRouter()
 
 function limiter(windowMs: number, max: number) {
   return rateLimit({

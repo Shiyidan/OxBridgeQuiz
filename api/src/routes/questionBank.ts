@@ -1,6 +1,5 @@
 
 // 提供题库概览、筛选列表与诊断试卷列表接口。
-import { Router } from 'express'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
@@ -11,6 +10,7 @@ import { parseJsonArray, parseJsonField } from '../utils/jsonField.js'
 import { createNumericId } from '../utils/id.js'
 import { processMarkdownImport, validateStandardPaperDocument } from '../services/markdownValidator.js'
 import { checkMemberAccess } from '../services/member.js'
+import { createAsyncRouter } from '../utils/asyncRouter.js'
 import {
   EXAM_TYPE,
   QUESTION_BANK_PAPER_TYPES,
@@ -24,7 +24,7 @@ import {
 } from '../constants/domain.js'
 
 import { RawSyllabusNode, FlatSyllabusNode, levelOf, parseSyllabusJson, getSyllabusRoots, normalizeSyllabusNodes, safeParseJson, parsePositiveInt, formatQuestionForAttempt, hasStudentPaperEntitlement, applySyllabusToTree } from './papers-shared.js'
-export const questionBankRouter = Router()
+export const questionBankRouter = createAsyncRouter()
 
 // 收集考纲节点及其所有子孙 code
 async function collectDescendantCodes(code: string, examType: string): Promise<string[]> {

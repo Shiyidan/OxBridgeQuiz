@@ -41,8 +41,8 @@ P4 架构性债务
 
 - [x] P4-1 Paper.questions 作为 JSON blob 存储
 - [x] P4-2 AnswerRecord.questionId 格式不统一
-- [ ] P4-3 JWT 登出是空操作
-- [ ] P4-4 无全局错误处理中间件
+- [x] P4-3 JWT 登出是空操作
+- [x] P4-4 无全局错误处理中间件
 - [x] P4-5 JWT 密钥有硬编码回退值
 - [ ] P4-6 PracticeView 同时承载诊断测试与题库练习，页面职责过重
 
@@ -212,12 +212,14 @@ P5 代码整洁
 - **位置**：[`api/src/routes/auth.ts`](api/src/routes/auth.ts) `/logout` 接口
 - **问题**：什么都不做直接返回成功。JWT 无状态无法撤销，但如果需要实现强制登出（如修改密码后踢出其他设备），目前做不到
 - **方案**：若需要做强制登出，引入 Redis 维护 Token 黑名单（TTL 与 JWT 过期时间一致）
+- **处理结果**：2026-07-17 已确认认证链路采用短期 Access Token + 服务端 `AuthSession` + 可轮换 Refresh Token；当前设备登出会撤销对应会话并清除 Refresh Cookie，认证中间件每次请求均校验会话未撤销，原 Access Token 随即失效；同时支持全部设备登出以及修改、重置密码后撤销全部会话
 
 ### P4-4 无全局错误处理中间件
 
 - **位置**：[`api/src/index.ts`](api/src/index.ts)
 - **问题**：路由中未捕获的异常会直接导致 Express 返回 HTML 错误页面，破坏 JSON 响应契约
 - **方案**：添加 `app.use((err, req, res, next) => res.status(500).json(fail(err.message)))`
+- **处理结果**：2026-07-17 已新增异步 Router 工厂、JSON 404 和全局错误处理中间件；全部业务 Router 会将同步异常与 rejected Promise 转入错误链，损坏 JSON、请求体或文件过大、Zod 校验、Prisma 常见错误及未知异常均按统一 API envelope 返回，未知异常不再向客户端暴露堆栈和内部路径
 
 ### P4-5 JWT 密钥有硬编码回退值
 

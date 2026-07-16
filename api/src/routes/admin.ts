@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express'
+import { Request, Response } from 'express'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
@@ -21,6 +21,7 @@ import { getOrCreatePaymentConfig } from './payment.js'
 import { ChinaumsRequestError } from '../services/chinaums.js'
 import { config } from '../config.js'
 import { parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
+import { createAsyncRouter } from '../utils/asyncRouter.js'
 import {
   PaymentRefundError,
   refreshPaymentRefund,
@@ -35,7 +36,7 @@ import {
   runPaymentReconciliation,
 } from '../services/paymentReconciliation.js'
 
-export const adminRouter = Router()
+export const adminRouter = createAsyncRouter()
 
 adminRouter.use(requireAuth, requireAdmin)
 

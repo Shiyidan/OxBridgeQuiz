@@ -1,6 +1,5 @@
 
 // 处理考试开始或恢复、增量保存及原子交卷流程。
-import { Router } from 'express'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
@@ -8,6 +7,7 @@ import { success, fail } from '../utils/response.js'
 import { formatQuestionRow } from '../utils/questionSync.js'
 import { parseJsonField, parseJsonArray } from '../utils/jsonField.js'
 import { checkMemberAccess } from '../services/member.js'
+import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { computeScores } from '../services/scoring.js'
 import type { QuestionResult } from '../services/scoring.js'
 import {
@@ -33,7 +33,7 @@ import {
 } from '../constants/domain.js'
 
 import { safeJsonParse, parseQueryList, parseDateBoundary, parsePositiveInt, getQuestionKey, buildAnswerRecordRows, countCorrectAnswers, ExamResponseInput, ExamProgressConflictError, normalizeExamResponses, responseMaps, usesContinuousExamClock, buildExamDeadline, continuousExamDurationSeconds, replaceAnswerRecords, collectSyllabusCodes, jsonPointsHaveCode, calculateNinePointScore } from './exam-shared.js'
-export const examSessionRouter = Router()
+export const examSessionRouter = createAsyncRouter()
 
 examSessionRouter.post('/start', requireAuth, async (req, res) => {
   try {

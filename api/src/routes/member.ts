@@ -1,13 +1,13 @@
 // 会员权益查询、额度预检与备考偏好更新接口。
-import { Router } from 'express'
 import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
 import { checkMemberAccess, getMemberContext, type EntitlementAction } from '../services/member.js'
 import { isExamType } from '../constants/domain.js'
 import { examPreferencesSchema } from '../utils/authSchemas.js'
+import { createAsyncRouter } from '../utils/asyncRouter.js'
 
-export const memberRouter = Router()
+export const memberRouter = createAsyncRouter()
 
 // 当前会员权益
 memberRouter.get('/', requireAuth, async (req, res) => {

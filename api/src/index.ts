@@ -13,16 +13,14 @@ import { paymentRouter } from './routes/payment.js'
 import { startDiagnosticReportWorker } from './services/diagnosticReportTask.js'
 import { startPaymentLifecycleWorker } from './services/paymentLifecycle.js'
 import { success } from './utils/response.js'
+import { globalErrorHandler, notFoundHandler } from './middleware/error.js'
 
 const app = express()
 
 app.set('trust proxy', config.trustProxy)
 app.use(cors({ origin: config.corsOrigins, credentials: true }))
-app.use(cookieParser())
-app.use(express.urlencoded({ extended: false, limit: '1mb' }))
-app.use(express.json({ limit: '50mb' }))
 
-// HTTP 安全头
+// 安全头必须先于请求体解析器执行，确保解析失败响应也受到相同保护。
 app.use((_req, res, next) => {
   // connect-src 'self'：Nginx 反代下前端 / 和 API /api/ 同域，无需额外配置
   res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https://qr-test2.chinaums.com https://qr.chinaums.com; font-src 'self' https://cdn.jsdelivr.net; connect-src 'self'")
@@ -38,6 +36,10 @@ app.use('/api', (_req, res, next) => {
   next()
 })
 
+app.use(cookieParser())
+app.use(express.urlencoded({ extended: false, limit: '1mb' }))
+app.use(express.json({ limit: '50mb' }))
+
 app.use('/api/auth', authRouter)
 app.use('/api/getMember', memberRouter)
 app.use('/api/payment', paymentRouter)
@@ -50,6 +52,10 @@ app.use('/api/upload', uploadRouter)
 app.get('/api/health', (_req, res) => {
   res.json(success({ status: 'ok' }))
 })
+
+// 404 和异常处理必须位于全部正常路由之后，统一 API 失败响应。
+app.use(notFoundHandler)
+app.use(globalErrorHandler)
 
 app.listen(config.port, () => {
   console.log(`API Server running on http://localhost:${config.port}`)

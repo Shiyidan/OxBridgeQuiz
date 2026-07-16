@@ -1,6 +1,5 @@
 
 // 处理试卷列表、详情、更新、发布、删除与 PDF 访问。
-import { Router } from 'express'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
@@ -11,6 +10,7 @@ import { parseJsonArray, parseJsonField } from '../utils/jsonField.js'
 import { createNumericId } from '../utils/id.js'
 import { processMarkdownImport, validateStandardPaperDocument } from '../services/markdownValidator.js'
 import { checkMemberAccess } from '../services/member.js'
+import { createAsyncRouter } from '../utils/asyncRouter.js'
 import {
   EXAM_TYPE,
   QUESTION_BANK_PAPER_TYPES,
@@ -24,7 +24,7 @@ import {
 } from '../constants/domain.js'
 
 import { RawSyllabusNode, FlatSyllabusNode, levelOf, parseSyllabusJson, getSyllabusRoots, normalizeSyllabusNodes, safeParseJson, parsePositiveInt, formatQuestionForAttempt, hasStudentPaperEntitlement, applySyllabusToTree } from './papers-shared.js'
-export const paperCrudRouter = Router()
+export const paperCrudRouter = createAsyncRouter()
 
 paperCrudRouter.get('/', requireAuth, requireAdmin, async (req, res) => {
   const page = parsePositiveInt(req.query.page, 1)

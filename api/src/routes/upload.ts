@@ -1,12 +1,12 @@
-import { Router } from 'express'
 import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 import { success, fail } from '../utils/response.js'
 import { PAPER_TYPE, isExamType, isPaperType, normalizePaperType } from '../constants/domain.js'
 import { createNumericId } from '../utils/id.js'
+import { createAsyncRouter } from '../utils/asyncRouter.js'
 
-export const uploadRouter = Router()
+export const uploadRouter = createAsyncRouter()
 
 // 前端 pdf.js 流式上传：先创建试卷和任务，再由 parse-tasks/:id/pages 逐页提交
 uploadRouter.post('/paper-pages/create', requireAuth, requireAdmin, async (req, res) => {

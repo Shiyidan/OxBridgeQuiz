@@ -8,12 +8,15 @@ import { syncPaperQuestions, getPaperQuestions, formatQuestionRow } from '../uti
 import { parseJsonArray, parseJsonField } from '../utils/jsonField.js'
 import { createNumericId } from '../utils/id.js'
 import { processMarkdownImport, validateStandardPaperDocument } from '../services/markdownValidator.js'
+import { checkMemberAccess } from '../services/member.js'
 import {
   EXAM_TYPE,
   QUESTION_BANK_PAPER_TYPES,
   REAL_PAPER_TYPES,
+  USER_ROLE,
   isExamType,
   isPaperType,
+  isRealPaperType,
   normalizePaperType,
   paperTypeWhereValues,
 } from '../constants/domain.js'
@@ -97,6 +100,38 @@ function parsePositiveInt(value: unknown, fallback: number, max?: number): numbe
   return max ? Math.min(safeValue, max) : safeValue
 }
 
+// 学生作答数据不得提前下发正确答案或题目解析，完整结构仅供管理员预览和交卷后报告使用。
+function formatQuestionForAttempt(row: any) {
+  return {
+    ...formatQuestionRow(row),
+    answer: [],
+    learning_analysis: undefined,
+  }
+}
+
+// 学生试卷访问统一受试卷类型和会员权益约束，调用方另行隐藏未发布资源的存在性。
+async function hasStudentPaperEntitlement(
+  userId: string,
+  paper: { paperType: string; examType: string },
+  questionCount: number,
+): Promise<boolean> {
+  const normalizedPaperType = normalizePaperType(paper.paperType)
+  const action = isRealPaperType(normalizedPaperType)
+    ? 'diagnostic'
+    : QUESTION_BANK_PAPER_TYPES.includes(normalizedPaperType as any)
+      ? 'question-bank'
+      : null
+  if (!action) return false
+
+  const entitlement = await checkMemberAccess(
+    userId,
+    action,
+    paper.examType,
+    action === 'diagnostic' ? 1 : Math.max(1, questionCount),
+  )
+  return entitlement.allowed
+}
+
 async function applySyllabusToTree(syllabus: { id: string; examType: string; sourceJson: unknown }) {
   const content = parseSyllabusJson(syllabus.sourceJson)
   const nodes = normalizeSyllabusNodes(content)
@@ -123,7 +158,7 @@ async function applySyllabusToTree(syllabus: { id: string; examType: string; sou
   })
 }
 
-papersRouter.get('/', async (req, res) => {
+papersRouter.get('/', requireAuth, requireAdmin, async (req, res) => {
   const page = parsePositiveInt(req.query.page, 1)
   const pageSize = parsePositiveInt(req.query.pageSize ?? req.query.limit, 20, 100)
   const paperType = typeof req.query.paperType === 'string' ? req.query.paperType : undefined
@@ -490,7 +525,7 @@ function matchSyllabusFilter(
 }
 
 // 试题库 — 获取已发布考卷的全部题目
-papersRouter.get('/question-bank', async (req, res) => {
+papersRouter.get('/question-bank', requireAuth, async (req, res) => {
   try {
     const difficulty = req.query.difficulty as string | undefined
     const subject = req.query.subject as string | undefined
@@ -539,11 +574,24 @@ papersRouter.get('/question-bank', async (req, res) => {
       if (!isFiltered && q.subject) subjects.add(q.subject)
 
       allQuestions.push({
-        ...formatQuestionRow(q),
+        ...formatQuestionForAttempt(q),
         _paperId: q.paper.id,
         _paperTitle: q.paper.title,
         _paperYear: q.paper.year,
       })
+    }
+
+    if (allQuestions.length > 0) {
+      const entitlement = await checkMemberAccess(
+        req.user!.userId,
+        'question-bank',
+        examType,
+        allQuestions.length,
+      )
+      if (!entitlement.allowed) {
+        res.status(403).json(fail('当前题库额度不足，请开通会员后继续', 'QUESTION_BANK_ACCESS_DENIED'))
+        return
+      }
     }
 
     res.json(success({
@@ -668,13 +716,42 @@ papersRouter.get('/assessment/papers', requireAuth, async (req, res) => {
 })
 
 // 试卷详情
-papersRouter.get('/:id', async (req, res) => {
+papersRouter.get('/:id', requireAuth, async (req, res) => {
   const paper = await prisma.paper.findUnique({ where: { id: req.params.id } })
   if (!paper) {
     res.status(404).json(fail('试卷不存在'))
     return
   }
   const questions = await getPaperQuestions(paper.id)
+
+  if (req.user!.role !== USER_ROLE.ADMIN) {
+    if (paper.status !== 'published') {
+      res.status(404).json(fail('试卷不存在'))
+      return
+    }
+
+    if (!(await hasStudentPaperEntitlement(req.user!.userId, paper, questions.length))) {
+      res.status(403).json(fail('当前无权访问该试卷', 'PAPER_ACCESS_DENIED'))
+      return
+    }
+
+    res.json(success({
+      id: paper.id,
+      title: paper.title,
+      code: paper.code,
+      examType: paper.examType,
+      year: paper.year,
+      duration: paper.duration,
+      totalQuestions: paper.totalQuestions,
+      paperType: paper.paperType,
+      status: paper.status,
+      createdAt: paper.createdAt,
+      updatedAt: paper.updatedAt,
+      questions: questions.map(formatQuestionForAttempt),
+    }))
+    return
+  }
+
   res.json(success({
     ...paper,
     questions: questions.map(formatQuestionRow),
@@ -736,6 +813,16 @@ papersRouter.get('/:id/pdf', requireAuth, async (req, res) => {
   if (!paper?.pdfUrl) {
     res.status(404).json(fail('PDF暂不可用，OSS 尚未接入'))
     return
+  }
+  if (req.user!.role !== USER_ROLE.ADMIN) {
+    if (paper.status !== 'published') {
+      res.status(404).json(fail('PDF暂不可用'))
+      return
+    }
+    if (!(await hasStudentPaperEntitlement(req.user!.userId, paper, paper.totalQuestions))) {
+      res.status(403).json(fail('当前无权访问该试卷', 'PAPER_ACCESS_DENIED'))
+      return
+    }
   }
   if (paper.pdfUrl.startsWith('http')) {
     res.redirect(paper.pdfUrl)

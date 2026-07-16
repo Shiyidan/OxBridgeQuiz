@@ -937,6 +937,11 @@ examRouter.get('/:id/result', requireAuth, async (req, res) => {
       return
     }
 
+    if (examRecord.status !== EXAM_RECORD_STATUS.SUBMITTED || !examRecord.submittedAt) {
+      res.status(409).json(fail('考试尚未交卷，暂不能查看结果', 'EXAM_NOT_SUBMITTED'))
+      return
+    }
+
     const answers = await prisma.answerRecord.findMany({
       where: { examRecordId: examRecord.id },
     })

@@ -25,17 +25,17 @@ P1 业务逻辑 Bug
 P2 代码重复 & 规范不一致
 
 - [x] P2-1 诊断 session 链接逻辑在 register 和 login 中重复
-- [ ] P2-2 大纲后代编码收集逻辑重复
+- [x] P2-2 大纲后代编码收集逻辑重复
 - [x] P2-3 requireAdmin 中间件响应格式不统一
 - [x] P2-4 多处 JSON.parse(paper.questions) 未做异常防护
 
 P3 性能 & 可扩展性
 
 - [ ] P3-1 试题库全量加载到内存再过滤
-- [ ] P3-2 错题本接口无分页
-- [ ] P3-3 用户管理列表无分页
+- [x] P3-2 错题本接口无分页
+- [x] P3-3 用户管理列表无分页
 - [ ] P3-4 逐页解析 fire-and-forget 前端无法感知单页失败
-- [ ] P3-5 routes 文件拆分：papers.ts（404 行 10 接口）和 exam.ts（399 行）太胖，按子模块拆分
+- [x] P3-5 routes 文件拆分：papers.ts（404 行 10 接口）和 exam.ts（399 行）太胖，按子模块拆分
 
 P4 架构性债务
 
@@ -140,6 +140,7 @@ P5 代码整洁
 - **位置**：[`api/src/routes/papers.ts`](api/src/routes/papers.ts) `/question-bank/summary` 和 `/question-bank`
 - **问题**：递归子节点收集代码出现了两次
 - **方案**：抽取为 `collectDescendantCodes(nodeMap, parentCode)` 工具函数
+- **处理结果**：2026-07-16 已确认两个题库接口统一调用 `collectDescendantCodes()`，原有重复实现已消除
 
 ### P2-3 requireAdmin 中间件响应格式不统一
 
@@ -168,12 +169,14 @@ P5 代码整洁
 - **位置**：[`api/src/routes/exam.ts`](api/src/routes/exam.ts) `/error-book` 接口
 - **问题**：返回用户全部错题，无分页参数，用户错题积累多了之后响应会很大
 - **方案**：加入 `page` / `limit` 分页参数
+- **处理结果**：2026-07-16 已确认接口支持 `page` / `pageSize`、返回统一分页元数据，错题本页面已接入 `AppPagination`
 
 ### P3-3 用户管理列表无分页
 
 - **位置**：[`api/src/routes/admin.ts`](api/src/routes/admin.ts) `/users` 接口
 - **问题**：返回全部用户列表，用户量增长后同样面临性能问题
 - **方案**：加入 `page` / `limit` 分页参数
+- **处理结果**：2026-07-16 已确认接口通过 Prisma `skip` / `take` 执行数据库分页并返回统一分页元数据，用户管理页面已接入分页组件
 
 ### P3-4 逐页解析采用 fire-and-forget 模式，前端无法感知单页失败
 
@@ -186,6 +189,7 @@ P5 代码整洁
 - **位置**：[`api/src/routes/papers.ts`](api/src/routes/papers.ts)（404 行 10 接口）+ [`api/src/routes/exam.ts`](api/src/routes/exam.ts)（399 行）
 - **问题**：papers.ts 混杂了试卷 CRUD、试题库、考纲、导入，exam.ts 混杂了交卷、结果、错题本、练习记录。单文件过长，职责不清
 - **方案**：按子模块拆分——`papers.ts`（CRUD）、`papers-import.ts`（导入）、`syllabus.ts`（考纲）、`questionBank.ts`（试题库查询）、`exam.ts`（交卷+结果）、`errorBook.ts`（错题本+练习记录）。等业务稳定后执行
+- **处理结果**：2026-07-16 已将 `papers.ts` 和 `exam.ts` 改为稳定的路由聚合入口；业务分别拆至 `papers-crud.ts`、`papers-import.ts`、`syllabus.ts`、`questionBank.ts`、`exam-session.ts`、`exam-results.ts`、`errorBook.ts`，公共逻辑收敛至 `papers-shared.ts` 与 `exam-shared.ts`。拆分前后 27 条路由完全一致，后端编译、前端类型检查及本地代表接口回归通过
 
 ---
 

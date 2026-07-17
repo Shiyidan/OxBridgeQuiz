@@ -22,6 +22,7 @@ import { ChinaumsRequestError } from '../services/chinaums.js'
 import { config } from '../config.js'
 import { parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
+import { logRuntimeError } from '../utils/runtimeLogger.js'
 import {
   PaymentRefundError,
   refreshPaymentRefund,
@@ -152,6 +153,7 @@ adminRouter.get('/operation-logs', async (req, res) => {
             { actorEmailSnapshot: { contains: keyword } },
             { summary: { contains: keyword } },
             { resourceId: { contains: keyword } },
+            { requestId: { contains: keyword } },
           ],
         }
       : {}),
@@ -267,7 +269,7 @@ adminRouter.get('/payment-config', async (_req, res) => {
     const config = await getOrCreatePaymentConfig()
     res.json(success(formatPaymentConfig(config)))
   } catch (error) {
-    console.error('[admin] payment config error:', error)
+    logRuntimeError('admin.payment_config.read_failed', error)
     res.status(500).json(fail('获取支付策略失败'))
   }
 })
@@ -325,7 +327,7 @@ adminRouter.put('/payment-config', async (req, res) => {
     })
     res.json(success(formatPaymentConfig(config)))
   } catch (error) {
-    console.error('[admin] update payment config error:', error)
+    logRuntimeError('admin.payment_config.update_failed', error)
     res.status(500).json(fail('保存支付策略失败'))
   }
 })
@@ -406,7 +408,7 @@ adminRouter.get('/payment-orders', async (req, res) => {
       },
     }))
   } catch (error) {
-    console.error('[admin] payment orders error:', error)
+    logRuntimeError('admin.payment_orders.list_failed', error)
     res.status(500).json(fail('获取支付订单失败'))
   }
 })
@@ -675,7 +677,7 @@ adminRouter.get('/payment-orders/:orderNo', async (req, res) => {
       timeline,
     }))
   } catch (error) {
-    console.error('[admin] payment order detail error:', error)
+    logRuntimeError('admin.payment_order.detail_failed', error)
     res.status(500).json(fail('获取支付订单详情失败'))
   }
 })
@@ -695,7 +697,7 @@ adminRouter.post('/payment-orders/:orderNo/refunds', async (req, res) => {
     })
     res.json(success(formatPaymentRefund(refund)))
   } catch (error) {
-    console.error('[admin] payment refund error:', error)
+    logRuntimeError('admin.payment_refund.create_failed', error)
     if (error instanceof PaymentRefundError) {
       res.status(error.httpStatus).json(fail(error.message, error.code))
       return
@@ -714,7 +716,7 @@ adminRouter.post('/payment-refunds/:refundOrderNo/query', async (req, res) => {
     const refund = await refreshPaymentRefund(req.params.refundOrderNo)
     res.json(success(formatPaymentRefund(refund)))
   } catch (error) {
-    console.error('[admin] payment refund query error:', error)
+    logRuntimeError('admin.payment_refund.query_failed', error)
     if (error instanceof PaymentRefundError) {
       res.status(error.httpStatus).json(fail(error.message, error.code))
       return
@@ -756,7 +758,7 @@ adminRouter.get('/payment-reconciliation/overview', async (_req, res) => {
       scope: 'local_orders_with_provider_query',
     }))
   } catch (error) {
-    console.error('[admin] payment reconciliation overview error:', error)
+    logRuntimeError('admin.payment_reconciliation.overview_failed', error)
     res.status(500).json(fail('获取支付对账摘要失败'))
   }
 })
@@ -805,7 +807,7 @@ adminRouter.get('/payment-reconciliation/items', async (req, res) => {
       },
     }))
   } catch (error) {
-    console.error('[admin] payment reconciliation items error:', error)
+    logRuntimeError('admin.payment_reconciliation.items_failed', error)
     res.status(500).json(fail('获取支付对账明细失败'))
   }
 })
@@ -826,7 +828,7 @@ adminRouter.post('/payment-reconciliation/runs', async (req, res) => {
     })
     res.json(success(formatReconciliationRun(run)))
   } catch (error) {
-    console.error('[admin] payment reconciliation run error:', error)
+    logRuntimeError('admin.payment_reconciliation.run_failed', error)
     if (error instanceof PaymentReconciliationError) {
       res.status(error.httpStatus).json(fail(error.message, error.code))
       return
@@ -854,7 +856,7 @@ adminRouter.post('/payment-reconciliation/items/:id/recheck', async (req, res) =
     await refreshPaymentReconciliationRun(existing.runId)
     res.json(success(formatReconciliationItem(item)))
   } catch (error) {
-    console.error('[admin] payment reconciliation recheck error:', error)
+    logRuntimeError('admin.payment_reconciliation.recheck_failed', error)
     if (error instanceof PaymentReconciliationError) {
       res.status(error.httpStatus).json(fail(error.message, error.code))
       return
@@ -890,7 +892,7 @@ adminRouter.post('/payment-reconciliation/items/:id/resolve', async (req, res) =
     const item = await prisma.paymentReconciliationItem.findUniqueOrThrow({ where: { id: req.params.id } })
     res.json(success(formatReconciliationItem(item)))
   } catch (error) {
-    console.error('[admin] payment reconciliation resolve error:', error)
+    logRuntimeError('admin.payment_reconciliation.resolve_failed', error)
     res.status(500).json(fail('标记异常处理结果失败', 'RECONCILIATION_RESOLVE_FAILED'))
   }
 })
@@ -1029,7 +1031,7 @@ adminRouter.get('/users', async (req: Request, res: Response) => {
       },
     }))
   } catch (err) {
-    console.error('[admin] users error:', err)
+    logRuntimeError('admin.users.list_failed', err)
     res.status(500).json(fail('服务器错误'))
   }
 })
@@ -1062,7 +1064,7 @@ adminRouter.put('/users/:id/role', async (req: Request, res: Response) => {
     })
     res.json(success({ user: formatAdminUserForClient(user) }))
   } catch (err) {
-    console.error('[admin] update role error:', err)
+    logRuntimeError('admin.user.role_update_failed', err)
     res.status(500).json(fail('服务器错误'))
   }
 })
@@ -1194,7 +1196,7 @@ adminRouter.put('/users/:id/access', async (req: Request, res: Response) => {
       res.status(404).json(fail('用户不存在'))
       return
     }
-    console.error('[admin] update access error:', err)
+    logRuntimeError('admin.user.access_update_failed', err)
     res.status(500).json(fail('服务器错误'))
   }
 })
@@ -1224,7 +1226,7 @@ adminRouter.get('/revenue-costs/getList', async (req: Request, res: Response) =>
       },
     }))
   } catch (err) {
-    console.error('[admin] revenue costs error:', err)
+    logRuntimeError('admin.revenue_costs.list_failed', err)
     res.status(500).json(fail('服务器错误'))
   }
 })
@@ -1247,7 +1249,7 @@ adminRouter.post('/revenue-costs', async (req: Request, res: Response) => {
     })
     res.json(success({ cost }))
   } catch (err) {
-    console.error('[admin] create revenue cost error:', err)
+    logRuntimeError('admin.revenue_cost.create_failed', err)
     res.status(500).json(fail('服务器错误'))
   }
 })
@@ -1297,7 +1299,7 @@ adminRouter.put('/revenue-costs/:id', async (req: Request, res: Response) => {
       res.status(404).json(fail('成本记录不存在'))
       return
     }
-    console.error('[admin] update revenue cost error:', err)
+    logRuntimeError('admin.revenue_cost.update_failed', err)
     res.status(500).json(fail('服务器错误'))
   }
 })

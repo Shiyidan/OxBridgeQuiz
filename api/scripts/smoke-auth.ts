@@ -54,9 +54,14 @@ async function request(
   if (!response.ok || !payload.success) {
     throw new Error(`${options.method || 'GET'} ${path} failed: ${response.status} ${JSON.stringify(payload)}`)
   }
+  const requestId = response.headers.get('x-request-id')
+  if (!requestId || !/^[0-9a-f-]{36}$/i.test(requestId)) {
+    throw new Error(`${options.method || 'GET'} ${path} did not return a valid X-Request-ID`)
+  }
   return {
     data: payload.data,
     cookie: response.headers.get('set-cookie')?.split(';')[0],
+    requestId,
   }
 }
 
@@ -66,7 +71,7 @@ async function expectUnauthorized(path: string, token: string): Promise<void> {
 }
 
 // 审计在响应完成后异步落库，冒烟测试短暂轮询直到关键认证操作全部可见。
-async function expectOperationAudit(userId: string): Promise<void> {
+async function expectOperationAudit(userId: string, profileRequestId: string): Promise<void> {
   const requiredActions = new Set([
     'auth.register',
     'auth.login',
@@ -81,6 +86,12 @@ async function expectOperationAudit(userId: string): Promise<void> {
     if ([...requiredActions].every((action) => actions.has(action))) {
       const profileLog = logs.find((log) => log.action === 'profile.update')
       const changes = profileLog?.changes as Record<string, { before?: unknown; after?: unknown }> | null
+      if (logs.some((log) => !log.requestId)) {
+        throw new Error('New operation audit records did not persist Request ID')
+      }
+      if (profileLog?.requestId !== profileRequestId) {
+        throw new Error('Profile response and operation audit Request ID did not match')
+      }
       if (changes?.email?.before !== firstEmail || changes.email.after !== secondEmail) {
         throw new Error('Profile audit did not preserve the email before/after values')
       }
@@ -92,7 +103,7 @@ async function expectOperationAudit(userId: string): Promise<void> {
 }
 
 // 管理员查询接口必须支持角色筛选，并且只在详情中返回字段前后值。
-async function expectOperationAuditApi(token: string): Promise<void> {
+async function expectOperationAuditApi(token: string, profileRequestId: string): Promise<void> {
   const result = await request(`/admin/operation-logs?role=student&keyword=${username}`, { token })
   if (!Array.isArray(result.data.list) || result.data.list.length === 0) {
     throw new Error('Operation audit list did not return the test user records')
@@ -104,6 +115,13 @@ async function expectOperationAuditApi(token: string): Promise<void> {
   const detail = await request(`/admin/operation-logs/${profileLog.id}`, { token })
   if (detail.data.changes?.email?.before !== firstEmail || detail.data.changes.email.after !== secondEmail) {
     throw new Error('Operation audit detail did not return the email before/after values')
+  }
+  if (detail.data.requestId !== profileRequestId) {
+    throw new Error('Operation audit detail did not return the persisted Request ID')
+  }
+  const requestIdResult = await request(`/admin/operation-logs?keyword=${profileRequestId}`, { token })
+  if (requestIdResult.data.list.length !== 1 || requestIdResult.data.list[0].id !== profileLog.id) {
+    throw new Error('Operation audit list could not locate the record by Request ID')
   }
 }
 
@@ -177,7 +195,7 @@ async function main(): Promise<void> {
 
   const user = await prisma.user.findUniqueOrThrow({ where: { username } })
   const emailChallenge = await createChallenge(secondEmail, EMAIL_CODE_PURPOSE.CHANGE_EMAIL, user.id)
-  await request('/auth/profile', {
+  const updatedProfile = await request('/auth/profile', {
     method: 'PUT',
     token: accessToken,
     cookie,
@@ -217,14 +235,14 @@ async function main(): Promise<void> {
     body: { username, password: resetPasswordValue },
   })
 
-  await expectOperationAudit(user.id)
+  await expectOperationAudit(user.id, updatedProfile.requestId)
 
   await prisma.user.update({ where: { id: user.id }, data: { role: 'admin' } })
   const adminLogin = await request('/auth/login', {
     method: 'POST',
     body: { username, password: resetPasswordValue },
   })
-  await expectOperationAuditApi(adminLogin.data.accessToken)
+  await expectOperationAuditApi(adminLogin.data.accessToken, updatedProfile.requestId)
 
   console.log('Auth and operation audit smoke test passed')
 }

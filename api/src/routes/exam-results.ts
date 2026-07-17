@@ -10,6 +10,7 @@ import { checkMemberAccess } from '../services/member.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { computeScores } from '../services/scoring.js'
 import type { QuestionResult } from '../services/scoring.js'
+import { logRuntimeError } from '../utils/runtimeLogger.js'
 import {
   ensureDiagnosticReportTask,
   retryDiagnosticReportTask,
@@ -119,7 +120,7 @@ examResultRouter.get('/profile-stats', requireAuth, async (req, res) => {
 
     res.json(success({ stats }))
   } catch (e: any) {
-    console.error('Profile exam stats error:', e)
+    logRuntimeError('exam.profile_stats_failed', e)
     res.status(500).json(fail(e.message || 'Get profile stats failed'))
   }
 })
@@ -212,7 +213,7 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
       scoring,
     }))
   } catch (e: any) {
-    console.error('Exam result error:', e)
+    logRuntimeError('exam.result_failed', e)
     res.status(500).json(fail(e.message || '鑾峰彇缁撴灉澶辫触'))
   }
 })
@@ -283,7 +284,7 @@ examResultRouter.get('/:id/diagnostic-report/status', requireAuth, async (req, r
       generationMode: task.generationMode,
     }))
   } catch (error: any) {
-    console.error('[diagnostic-report] status error:', error)
+    logRuntimeError('diagnostic_report.status_failed', error)
     res.status(500).json(fail(error.message || '获取诊断分析状态失败'))
   }
 })
@@ -300,7 +301,7 @@ examResultRouter.post('/:id/diagnostic-report/retry', requireAuth, async (req, r
     }))
 
   } catch (error: any) {
-    console.error('[diagnostic-report] retry error:', error)
+    logRuntimeError('diagnostic_report.retry_failed', error)
     res.status(500).json(fail(error.message || '重新分析失败'))
   }
 })
@@ -368,7 +369,7 @@ examResultRouter.get('/:id/diagnostic-report/summary', requireAuth, async (req, 
       },
     }))
   } catch (error: any) {
-    console.error('[diagnostic-report] summary error:', error)
+    logRuntimeError('diagnostic_report.summary_failed', error)
     res.status(500).json(fail(error.message || '读取诊断报告失败'))
   }
 })

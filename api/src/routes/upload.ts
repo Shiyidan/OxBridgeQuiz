@@ -6,6 +6,7 @@ import { PAPER_TYPE, isExamType, isPaperType, normalizePaperType } from '../cons
 import { createNumericId } from '../utils/id.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { setOperationAuditContext } from '../middleware/operationAudit.js'
+import { logRuntimeError } from '../utils/runtimeLogger.js'
 
 export const uploadRouter = createAsyncRouter()
 
@@ -60,7 +61,7 @@ uploadRouter.post('/paper-pages/create', requireAuth, requireAdmin, async (req, 
       }),
     )
   } catch (e: any) {
-    console.error('Create paper-pages error:', e)
+    logRuntimeError('paper.upload_create_failed', e)
     res.status(500).json(fail(e.message || '创建失败'))
   }
 })

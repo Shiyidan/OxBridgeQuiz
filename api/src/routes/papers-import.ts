@@ -12,6 +12,7 @@ import { processMarkdownImport, validateStandardPaperDocument } from '../service
 import { checkMemberAccess } from '../services/member.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { setOperationAuditContext } from '../middleware/operationAudit.js'
+import { logRuntimeError } from '../utils/runtimeLogger.js'
 import {
   EXAM_TYPE,
   QUESTION_BANK_PAPER_TYPES,
@@ -64,7 +65,7 @@ paperImportRouter.post('/import-json', requireAuth, requireAdmin, async (req, re
       questions: savedQuestions.map(formatQuestionRow),
     }))
   } catch (e: any) {
-    console.error('Import JSON error:', e)
+    logRuntimeError('paper.import_json_failed', e)
     res.status(500).json(fail(e.message || '导入失败'))
   }
 })
@@ -119,7 +120,7 @@ paperImportRouter.post('/import-markdown', requireAuth, requireAdmin, async (req
       warnings: result.warnings,
     }))
   } catch (e: any) {
-    console.error('Import markdown error:', e)
+    logRuntimeError('paper.import_markdown_failed', e)
     res.status(500).json(fail(e.message || '导入失败'))
   }
 })

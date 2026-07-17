@@ -7,6 +7,7 @@ import { isExamType } from '../constants/domain.js'
 import { examPreferencesSchema } from '../utils/authSchemas.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { buildOperationAuditChanges, setOperationAuditContext } from '../middleware/operationAudit.js'
+import { logRuntimeError } from '../utils/runtimeLogger.js'
 
 export const memberRouter = createAsyncRouter()
 
@@ -21,7 +22,7 @@ memberRouter.get('/', requireAuth, async (req, res) => {
 
     res.json(success(context))
   } catch (err) {
-    console.error('[member] me error:', err)
+    logRuntimeError('member.context.read_failed', err)
     res.status(500).json(fail('服务器错误'))
   }
 })
@@ -58,7 +59,7 @@ memberRouter.post('/check-access', requireAuth, async (req, res) => {
 
     res.json(success(result))
   } catch (err) {
-    console.error('[member] check access error:', err)
+    logRuntimeError('member.access_check_failed', err)
     res.status(500).json(fail('服务器错误'))
   }
 })
@@ -95,7 +96,7 @@ memberRouter.put('/exam-preferences', requireAuth, async (req, res) => {
 
     res.json(success(null))
   } catch (err) {
-    console.error('[member] exam preferences error:', err)
+    logRuntimeError('member.exam_preferences.update_failed', err)
     res.status(500).json(fail('服务器错误'))
   }
 })

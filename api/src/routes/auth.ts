@@ -36,6 +36,7 @@ import {
   setOperationAuditActor,
   setOperationAuditContext,
 } from '../middleware/operationAudit.js'
+import { logRuntimeError } from '../utils/runtimeLogger.js'
 
 export const authRouter = createAsyncRouter()
 
@@ -68,7 +69,7 @@ function presentUser(user: User) {
   })
 }
 
-function handleAuthError(res: Response, error: unknown, label: string): void {
+function handleAuthError(res: Response, error: unknown, event: string): void {
   if (error instanceof AuthError) {
     res.status(error.status).json(fail(error.message, error.code))
     return
@@ -83,7 +84,7 @@ function handleAuthError(res: Response, error: unknown, label: string): void {
     res.status(409).json(fail('用户名或邮箱已被使用', AUTH_ERROR.EMAIL_IN_USE))
     return
   }
-  console.error(`[auth] ${label}:`, error)
+  logRuntimeError(`auth.${event}_failed`, error)
   res.status(500).json(fail('服务器错误'))
 }
 
@@ -154,7 +155,7 @@ authRouter.post('/email-code', emailCodeLimiter, optionalAuth, async (req: Reque
         where: { id: challenge.id },
         data: { invalidatedAt: new Date() },
       })
-      console.error('[auth] send email code:', error)
+      logRuntimeError('auth.email_code.send_failed', error)
       throw new AuthError(
         AUTH_ERROR.EMAIL_SERVICE_UNAVAILABLE,
         '验证码邮件暂时无法发送，请稍后再试',
@@ -168,7 +169,7 @@ authRouter.post('/email-code', emailCodeLimiter, optionalAuth, async (req: Reque
       resendAfter: config.emailCodeResendSeconds,
     }))
   } catch (error) {
-    handleAuthError(res, error, 'email code error')
+    handleAuthError(res, error, 'email_code')
   }
 })
 
@@ -206,7 +207,7 @@ authRouter.post('/register', registerLimiter, async (req: Request, res: Response
     setOperationAuditContext(req, { resourceId: user.id })
     res.status(201).json(success({ user: presentUser(user), accessToken: session.accessToken }))
   } catch (error) {
-    handleAuthError(res, error, 'register error')
+    handleAuthError(res, error, 'register')
   }
 })
 
@@ -230,7 +231,7 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
     setOperationAuditContext(req, { resourceId: user.id })
     res.json(success({ user: presentUser(user), accessToken: session.accessToken }))
   } catch (error) {
-    handleAuthError(res, error, 'login error')
+    handleAuthError(res, error, 'login')
   }
 })
 
@@ -240,7 +241,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
     const result = await rotateAuthSession(req, res)
     res.json(success({ user: presentUser(result.user), accessToken: result.accessToken }))
   } catch (error) {
-    handleAuthError(res, error, 'refresh error')
+    handleAuthError(res, error, 'refresh')
   }
 })
 
@@ -279,7 +280,7 @@ authRouter.post('/password/reset', passwordLimiter, async (req: Request, res: Re
     })
     res.json(success(null))
   } catch (error) {
-    handleAuthError(res, error, 'reset password error')
+    handleAuthError(res, error, 'password_reset')
   }
 })
 
@@ -317,7 +318,7 @@ authRouter.post('/password/change', passwordLimiter, requireAuth, async (req: Re
     })
     res.json(success(null))
   } catch (error) {
-    handleAuthError(res, error, 'change password error')
+    handleAuthError(res, error, 'password_change')
   }
 })
 
@@ -360,7 +361,7 @@ authRouter.put('/profile', requireAuth, async (req: Request, res: Response) => {
     })
     res.json(success({ user: presentUser(user) }))
   } catch (error) {
-    handleAuthError(res, error, 'update profile error')
+    handleAuthError(res, error, 'profile_update')
   }
 })
 
@@ -372,7 +373,7 @@ authRouter.post('/logout', optionalAuth, async (req: Request, res: Response) => 
     if (req.user) setOperationAuditContext(req, { resourceId: req.user.userId })
     res.json(success(null))
   } catch (error) {
-    handleAuthError(res, error, 'logout error')
+    handleAuthError(res, error, 'logout')
   }
 })
 

@@ -18,6 +18,7 @@ import { prisma } from '../services/prisma.js'
 import { fail, success } from '../utils/response.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { setOperationAuditContext } from '../middleware/operationAudit.js'
+import { logRuntimeError } from '../utils/runtimeLogger.js'
 import {
   EXAM_TYPES,
   MEMBERSHIP_PLAN,
@@ -134,7 +135,7 @@ paymentRouter.get('/config', async (_req, res) => {
     const paymentConfig = await getOrCreatePaymentConfig()
     res.json(success(formatConfig(paymentConfig)))
   } catch (error) {
-    console.error('[payment] config error:', error)
+    logRuntimeError('payment.config.read_failed', error)
     res.status(500).json(fail('获取支付策略失败'))
   }
 })
@@ -197,7 +198,7 @@ paymentRouter.post('/notifications/chinaums', async (req, res) => {
     })
     res.type('text/plain').send('SUCCESS')
   } catch (error) {
-    console.error('[payment] ChinaUMS notification error:', error)
+    logRuntimeError('payment.chinaums_notification_failed', error)
     if (notificationRecord) {
       await prisma.paymentNotification.update({
         where: { id: notificationRecord.id },
@@ -205,7 +206,7 @@ paymentRouter.post('/notifications/chinaums', async (req, res) => {
           processStatus: PAYMENT_NOTIFICATION_STATUS.FAILED,
           errorMessage: error instanceof Error ? error.message.slice(0, 500) : '通知处理失败',
         },
-      }).catch((updateError) => console.error('[payment] notification audit update error:', updateError))
+      }).catch((updateError) => logRuntimeError('payment.notification_audit_update_failed', updateError))
     }
     res.status(400).type('text/plain').send('FAILED')
   }
@@ -321,7 +322,7 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
     }))
   } catch (error) {
     const detail = requestErrorDetails(error)
-    console.error('[payment] create order error:', error)
+    logRuntimeError('payment.order.create_failed', error)
     if (createdOrderId) {
       await prisma.paymentOrder.update({
         where: { id: createdOrderId },
@@ -333,7 +334,7 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
             ? { providerPayload: jsonValue({ createError: chinaumsResponseSnapshot(detail.response) }) }
             : {}),
         },
-      }).catch((updateError) => console.error('[payment] failed order update error:', updateError))
+      }).catch((updateError) => logRuntimeError('payment.failed_order_update_failed', updateError))
     }
     const status = error instanceof ChinaumsRequestError ? 502 : 500
     res.status(status).json(fail(detail.message, detail.code))
@@ -350,7 +351,7 @@ paymentRouter.get('/orders', requireAuth, async (req, res) => {
     })
     res.json(success(orders.map(formatOrder)))
   } catch (error) {
-    console.error('[payment] orders error:', error)
+    logRuntimeError('payment.orders.list_failed', error)
     res.status(500).json(fail('获取支付订单失败'))
   }
 })
@@ -373,7 +374,7 @@ paymentRouter.post('/orders/:orderNo/query', requireAuth, async (req, res) => {
     res.json(success(formatOrder(synced)))
   } catch (error) {
     const detail = requestErrorDetails(error)
-    console.error('[payment] query order error:', error)
+    logRuntimeError('payment.order.query_failed', error)
     const status = error instanceof ChinaumsRequestError ? 502 : 500
     res.status(status).json(fail(detail.message, detail.code))
   }
@@ -411,7 +412,7 @@ paymentRouter.post('/orders/:orderNo/close', requireAuth, async (req, res) => {
     res.json(success(formatOrder(updated)))
   } catch (error) {
     const detail = requestErrorDetails(error)
-    console.error('[payment] close order error:', error)
+    logRuntimeError('payment.order.close_failed', error)
     const status = error instanceof ChinaumsRequestError ? 502 : 500
     res.status(status).json(fail(detail.message, detail.code))
   }
@@ -429,7 +430,7 @@ paymentRouter.get('/orders/:orderNo', requireAuth, async (req, res) => {
     }
     res.json(success(formatOrder(order)))
   } catch (error) {
-    console.error('[payment] order detail error:', error)
+    logRuntimeError('payment.order.detail_failed', error)
     res.status(500).json(fail('获取支付订单失败'))
   }
 })

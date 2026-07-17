@@ -11,6 +11,7 @@ import { createNumericId } from '../utils/id.js'
 import { processMarkdownImport, validateStandardPaperDocument } from '../services/markdownValidator.js'
 import { checkMemberAccess } from '../services/member.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
+import { logRuntimeError } from '../utils/runtimeLogger.js'
 import {
   EXAM_TYPE,
   QUESTION_BANK_PAPER_TYPES,
@@ -183,7 +184,7 @@ questionBankRouter.get('/question-bank', requireAuth, async (req, res) => {
       ...(isFiltered ? {} : { subjects: [...subjects] }),
     }))
   } catch (e: any) {
-    console.error('Question bank error:', e)
+    logRuntimeError('question_bank.list_failed', e)
     res.status(500).json(fail(e.message || '获取试题库失败'))
   }
 })
@@ -293,7 +294,7 @@ questionBankRouter.get('/assessment/papers', requireAuth, async (req, res) => {
       }),
     }))
   } catch (e: any) {
-    console.error('Assessment papers error:', e)
+    logRuntimeError('assessment_papers.list_failed', e)
     res.status(500).json(fail(e.message || '获取诊断测试套卷失败'))
   }
 })

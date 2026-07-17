@@ -10,6 +10,7 @@ import { checkMemberAccess } from '../services/member.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { computeScores } from '../services/scoring.js'
 import type { QuestionResult } from '../services/scoring.js'
+import { logRuntimeError } from '../utils/runtimeLogger.js'
 import {
   ensureDiagnosticReportTask,
   retryDiagnosticReportTask,
@@ -187,7 +188,7 @@ errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
       },
     }))
   } catch (e: any) {
-    console.error('Error book error:', e)
+    logRuntimeError('error_book.list_failed', e)
     res.status(500).json(fail(e.message || 'Get error book failed'))
   }
 })
@@ -218,7 +219,7 @@ errorBookRouter.get('/practice-records', requireAuth, async (req, res) => {
       })),
     }))
   } catch (e: any) {
-    console.error('Practice records error:', e)
+    logRuntimeError('practice_records.list_failed', e)
 
     res.status(500).json(fail(e.message || '获取练习记录失败'))
   }

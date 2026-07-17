@@ -28,7 +28,7 @@
           v-model="draftFilters.keyword"
           class="filter-keyword"
           clearable
-          placeholder="操作人、邮箱、操作内容或对象 ID"
+          placeholder="操作人、邮箱、对象 ID 或 Request ID"
           @keyup.enter="applyFilters"
         />
         <el-select v-model="draftFilters.module" clearable placeholder="全部模块">
@@ -123,6 +123,19 @@
           <el-descriptions :column="2" border>
             <el-descriptions-item label="发生时间" :span="2">
               {{ formatDateTime(selectedLog.occurredAt) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="Request ID" :span="2">
+              <div class="request-id-row">
+                <code>{{ selectedLog.requestId || '历史日志暂无 Request ID' }}</code>
+                <el-button
+                  v-if="selectedLog.requestId"
+                  link
+                  type="primary"
+                  @click="copyRequestId(selectedLog.requestId)"
+                >
+                  复制
+                </el-button>
+              </div>
             </el-descriptions-item>
             <el-descriptions-item label="操作人">{{
               selectedLog.actorNameSnapshot
@@ -333,6 +346,16 @@ function formatChangeValue(value: unknown): string {
   if (typeof value === 'boolean') return value ? '是' : '否'
   if (typeof value === 'object') return JSON.stringify(value, null, 2)
   return String(value)
+}
+
+// Request ID 可直接粘贴到 PM2 日志查询命令中定位同一次请求。
+async function copyRequestId(requestId: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(requestId)
+    ElMessage.success('Request ID 已复制')
+  } catch {
+    ElMessage.error('复制失败，请手动选择 Request ID')
+  }
 }
 
 // 管理端统一优先展示后端业务错误，没有响应体时使用页面兜底文案。
@@ -551,6 +574,18 @@ onMounted(() => {
 
 .detail-content {
   min-height: 240px;
+}
+
+.request-id-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+
+  code {
+    overflow-wrap: anywhere;
+    color: #334155;
+  }
 }
 
 .changes-section {

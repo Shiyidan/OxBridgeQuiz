@@ -57,6 +57,7 @@ export interface ListParams {
 export interface OperationLogItem {
   id: string
   occurredAt: string
+  requestId?: string | null
   actorUserId?: string | null
   actorNameSnapshot: string
   actorEmailSnapshot: string

@@ -15,11 +15,15 @@ import { startPaymentLifecycleWorker } from './services/paymentLifecycle.js'
 import { success } from './utils/response.js'
 import { globalErrorHandler, notFoundHandler } from './middleware/error.js'
 import { operationAuditMiddleware } from './middleware/operationAudit.js'
+import { requestContextMiddleware } from './utils/requestContext.js'
+import { requestLoggingMiddleware } from './middleware/requestLogging.js'
 
 const app = express()
 
 app.set('trust proxy', config.trustProxy)
-app.use(cors({ origin: config.corsOrigins, credentials: true }))
+app.use(requestContextMiddleware)
+app.use(requestLoggingMiddleware)
+app.use(cors({ origin: config.corsOrigins, credentials: true, exposedHeaders: ['X-Request-ID'] }))
 
 // 安全头必须先于请求体解析器执行，确保解析失败响应也受到相同保护。
 app.use((_req, res, next) => {

@@ -5,6 +5,7 @@ import { MulterError } from 'multer'
 import { ZodError } from 'zod'
 import { AuthError } from '../utils/authError.js'
 import { fail } from '../utils/response.js'
+import { logRuntimeError } from '../utils/runtimeLogger.js'
 
 type ErrorResponse = {
   status: number
@@ -69,12 +70,12 @@ export const globalErrorHandler: ErrorRequestHandler = (error, req, res, next) =
   }
 
   const mapped = mapError(error)
-  console.error('[unhandled-api-error]', {
+  logRuntimeError('http.request.unhandled_error', error, {
+    requestId: req.requestId,
     method: req.method,
-    path: req.originalUrl,
+    path: req.originalUrl.split('?')[0],
     status: mapped.status,
     code: mapped.code,
-    error,
   })
   res.status(mapped.status).json(fail(mapped.message, mapped.code))
 }

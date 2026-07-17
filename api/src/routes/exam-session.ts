@@ -10,6 +10,7 @@ import { checkMemberAccess } from '../services/member.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { computeScores } from '../services/scoring.js'
 import { setOperationAuditContext } from '../middleware/operationAudit.js'
+import { logRuntimeError } from '../utils/runtimeLogger.js'
 import type { QuestionResult } from '../services/scoring.js'
 import {
   ensureDiagnosticReportTask,
@@ -233,7 +234,7 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
       durationSeconds: 0,
     }))
   } catch (error: any) {
-    console.error('Exam start error:', error)
+    logRuntimeError('exam.start_failed', error)
     res.status(500).json(fail(error.message || '开始考试失败'))
   }
 })
@@ -312,7 +313,7 @@ examSessionRouter.put('/:id/progress', requireAuth, async (req, res) => {
       savedQuestionIds: responseQuestionIds,
     }))
   } catch (e: any) {
-    console.error('Exam progress save error:', e)
+    logRuntimeError('exam.progress_save_failed', e)
     res.status(500).json(fail(e.message || '保存答题进度失败'))
   }
 })
@@ -487,7 +488,7 @@ examSessionRouter.post('/:id/submit', requireAuth, async (req, res) => {
       reportStatus: result.task?.status || null,
     }))
   } catch (error: any) {
-    console.error('Exam submit error:', error)
+    logRuntimeError('exam.submit_failed', error)
     res.status(500).json(fail(error.message || '交卷失败'))
   }
 })

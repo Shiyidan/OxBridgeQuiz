@@ -8,6 +8,7 @@ import {
   type OperationAuditModule,
 } from '../constants/operationAudit.js'
 import { normalizeIpAddress } from '../utils/ipAddress.js'
+import { logRuntimeError } from '../utils/runtimeLogger.js'
 
 type AuditJsonValue = string | number | boolean | null | AuditJsonValue[] | { [key: string]: AuditJsonValue }
 
@@ -184,6 +185,7 @@ async function persistOperationAudit(req: Request, res: Response, occurredAt: Da
   await prisma.operationLog.create({
     data: {
       occurredAt,
+      requestId: req.requestId,
       actorUserId: actor.userId,
       actorNameSnapshot: actor.username.slice(0, 191),
       actorEmailSnapshot: actor.email.slice(0, 191),
@@ -218,7 +220,11 @@ export const operationAuditMiddleware: RequestHandler = (req, res, next) => {
 
   res.once('finish', () => {
     void persistOperationAudit(req, res, occurredAt, errorCode).catch((error) => {
-      console.error('[operation-audit] persist failed:', error)
+      logRuntimeError('operation_audit.persist_failed', error, {
+        requestId: req.requestId,
+        method: req.method,
+        path: requestPath(req),
+      })
     })
   })
   next()

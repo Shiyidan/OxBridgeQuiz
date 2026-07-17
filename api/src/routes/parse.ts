@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 import { success, fail } from '../utils/response.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
+import { logRuntimeError } from '../utils/runtimeLogger.js'
 
 export const parseRouter = createAsyncRouter()
 
@@ -31,9 +32,9 @@ parseRouter.post('/:id/pages', requireAuth, requireAdmin, async (req, res) => {
     return
   }
 
-  addPageToTask(task.id, task.paperId, { page, base64, mimeType }, totalPages).catch((err) =>
-    console.error(`Page ${page} add failed:`, err),
-  )
+  addPageToTask(task.id, task.paperId, { page, base64, mimeType }, totalPages).catch((err) => {
+    logRuntimeError('parse_task.page_add_failed', err, { taskId: task.id, page })
+  })
 
   res.json(success({ accepted: true, page }))
 })

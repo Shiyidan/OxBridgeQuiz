@@ -17,6 +17,7 @@ import { refreshPaymentRefund } from '../services/paymentRefund.js'
 import { prisma } from '../services/prisma.js'
 import { fail, success } from '../utils/response.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
+import { setOperationAuditContext } from '../middleware/operationAudit.js'
 import {
   EXAM_TYPES,
   MEMBERSHIP_PLAN,
@@ -308,6 +309,10 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
       },
     })
 
+    setOperationAuditContext(req, {
+      resourceId: updatedOrder.orderNo,
+      summary: `创建支付订单 ${updatedOrder.orderNo}`,
+    })
     res.status(201).json(success({
       order: formatOrder(updatedOrder),
       paymentReady: true,
@@ -393,6 +398,7 @@ paymentRouter.post('/orders/:orderNo/close', requireAuth, async (req, res) => {
       return
     }
     if (order.status === PAYMENT_ORDER_STATUS.CLOSED) {
+      setOperationAuditContext(req, { summary: `关闭支付订单 ${order.orderNo}` })
       res.json(success(formatOrder(order)))
       return
     }
@@ -401,6 +407,7 @@ paymentRouter.post('/orders/:orderNo/close', requireAuth, async (req, res) => {
       res.status(404).json(fail('支付订单不存在'))
       return
     }
+    setOperationAuditContext(req, { summary: `关闭支付订单 ${updated.orderNo}` })
     res.json(success(formatOrder(updated)))
   } catch (error) {
     const detail = requestErrorDetails(error)

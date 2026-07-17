@@ -11,6 +11,7 @@ import { createNumericId } from '../utils/id.js'
 import { processMarkdownImport, validateStandardPaperDocument } from '../services/markdownValidator.js'
 import { checkMemberAccess } from '../services/member.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
+import { buildOperationAuditChanges, setOperationAuditContext } from '../middleware/operationAudit.js'
 import {
   EXAM_TYPE,
   QUESTION_BANK_PAPER_TYPES,
@@ -77,6 +78,10 @@ syllabusRouter.post('/syllabus-library', requireAuth, requireAdmin, async (req, 
       },
     })
 
+    setOperationAuditContext(req, {
+      resourceId: item.id,
+      summary: `上传考纲“${item.name}”`,
+    })
     res.json(success(item))
   } catch (e: any) {
     res.status(400).json(fail(e.message || '上传考纲失败'))
@@ -114,6 +119,13 @@ syllabusRouter.put('/syllabus-library/:id/enable', requireAuth, requireAdmin, as
     }
 
     await applySyllabusToTree(item)
+    setOperationAuditContext(req, {
+      summary: `启用考纲“${item.name}”`,
+      changes: buildOperationAuditChanges(
+        { isActive: item.isActive },
+        { isActive: true },
+      ),
+    })
     res.json(success({ id: item.id, isActive: true }))
   } catch (e: any) {
     res.status(400).json(fail(e.message || '启用考纲失败'))
@@ -139,6 +151,13 @@ syllabusRouter.put('/syllabus-library/:id/disable', requireAuth, requireAdmin, a
       }
     })
 
+    setOperationAuditContext(req, {
+      summary: `停用考纲“${item.name}”`,
+      changes: buildOperationAuditChanges(
+        { isActive: item.isActive },
+        { isActive: false },
+      ),
+    })
     res.json(success({ id: item.id, isActive: false }))
   } catch (e: any) {
     res.status(400).json(fail(e.message || '停用考纲失败'))

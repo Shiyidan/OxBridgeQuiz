@@ -9,6 +9,7 @@ import { parseJsonField, parseJsonArray } from '../utils/jsonField.js'
 import { checkMemberAccess } from '../services/member.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { computeScores } from '../services/scoring.js'
+import { setOperationAuditContext } from '../middleware/operationAudit.js'
 import type { QuestionResult } from '../services/scoring.js'
 import {
   ensureDiagnosticReportTask,
@@ -114,6 +115,10 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
       const durationSeconds = expiresAt
         ? continuousExamDurationSeconds(existingRecord.startedAt, expiresAt, now)
         : Object.values(questionDurations).reduce((sum, value) => sum + value, 0)
+      setOperationAuditContext(req, {
+        resourceId: existingRecord.id,
+        summary: `恢复 ${existingRecord.examType} 考试`,
+      })
       res.json(success({
         examRecordId: existingRecord.id,
         paperId: existingRecord.paperId,
@@ -208,6 +213,10 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
       return record
     })
 
+    setOperationAuditContext(req, {
+      resourceId: examRecord.id,
+      summary: `开始 ${examRecord.examType} 考试`,
+    })
     res.json(success({
       examRecordId: examRecord.id,
       paperId: examRecord.paperId,
@@ -466,6 +475,9 @@ examSessionRouter.post('/:id/submit', requireAuth, async (req, res) => {
     }
 
     if (isDiagnostic && result.claimed) scheduleDiagnosticReportWorker()
+    setOperationAuditContext(req, {
+      summary: `提交 ${result.examRecord.examType} 考试`,
+    })
     res.json(success({
       examRecordId: result.examRecord.id,
       totalQuestions: result.examRecord.totalQuestions,

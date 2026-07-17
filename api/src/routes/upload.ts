@@ -5,6 +5,7 @@ import { success, fail } from '../utils/response.js'
 import { PAPER_TYPE, isExamType, isPaperType, normalizePaperType } from '../constants/domain.js'
 import { createNumericId } from '../utils/id.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
+import { setOperationAuditContext } from '../middleware/operationAudit.js'
 
 export const uploadRouter = createAsyncRouter()
 
@@ -47,6 +48,10 @@ uploadRouter.post('/paper-pages/create', requireAuth, requireAdmin, async (req, 
       },
     })
 
+    setOperationAuditContext(req, {
+      resourceId: paper.id,
+      summary: `创建上传试卷“${paper.title}”`,
+    })
     res.json(
       success({
         paperId: paper.id,

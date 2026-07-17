@@ -116,6 +116,12 @@ const router = createRouter({
           name: 'admin-payment',
           component: () => import('../views/admin/PaymentView.vue'),
         },
+        // 操作日志
+        {
+          path: 'operation-logs',
+          name: 'admin-operation-logs',
+          component: () => import('../views/admin/OperationLogsView.vue'),
+        },
 
         // 核心资料库
         {

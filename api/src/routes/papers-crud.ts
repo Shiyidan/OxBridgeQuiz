@@ -11,6 +11,7 @@ import { createNumericId } from '../utils/id.js'
 import { processMarkdownImport, validateStandardPaperDocument } from '../services/markdownValidator.js'
 import { checkMemberAccess } from '../services/member.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
+import { buildOperationAuditChanges, setOperationAuditContext } from '../middleware/operationAudit.js'
 import {
   EXAM_TYPE,
   QUESTION_BANK_PAPER_TYPES,
@@ -125,6 +126,11 @@ paperCrudRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     return
   }
 
+  const previousPaper = await prisma.paper.findUnique({ where: { id: req.params.id } })
+  if (!previousPaper) {
+    res.status(404).json(fail('试卷不存在'))
+    return
+  }
   const paper = await prisma.paper.update({
     where: { id: req.params.id },
     data: {
@@ -143,21 +149,79 @@ paperCrudRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     await syncPaperQuestions(paper.id, questions)
   }
 
+  setOperationAuditContext(req, {
+    summary: `修改试卷“${paper.title}”`,
+    changes: buildOperationAuditChanges(
+      {
+        title: previousPaper.title,
+        code: previousPaper.code,
+        examType: previousPaper.examType,
+        year: previousPaper.year,
+        duration: previousPaper.duration,
+        totalQuestions: previousPaper.totalQuestions,
+        status: previousPaper.status,
+        paperType: previousPaper.paperType,
+      },
+      {
+        title: paper.title,
+        code: paper.code,
+        examType: paper.examType,
+        year: paper.year,
+        duration: paper.duration,
+        totalQuestions: paper.totalQuestions,
+        status: paper.status,
+        paperType: paper.paperType,
+      },
+    ),
+  })
   res.json(success(paper))
 })
 
 // 删除试卷
 paperCrudRouter.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
+  const previousPaper = await prisma.paper.findUnique({ where: { id: req.params.id } })
+  if (!previousPaper) {
+    res.status(404).json(fail('试卷不存在'))
+    return
+  }
   await prisma.paper.delete({ where: { id: req.params.id } })
+  setOperationAuditContext(req, {
+    summary: `删除试卷“${previousPaper.title}”`,
+    changes: buildOperationAuditChanges(
+      {
+        record: {
+          title: previousPaper.title,
+          code: previousPaper.code,
+          examType: previousPaper.examType,
+          year: previousPaper.year,
+          paperType: previousPaper.paperType,
+          status: previousPaper.status,
+        },
+      },
+      { record: null },
+    ),
+  })
   res.json(success(null))
 })
 
 
 // 发布试卷
 paperCrudRouter.put('/:id/publish', requireAuth, requireAdmin, async (req, res) => {
+  const previousPaper = await prisma.paper.findUnique({ where: { id: req.params.id } })
+  if (!previousPaper) {
+    res.status(404).json(fail('试卷不存在'))
+    return
+  }
   const paper = await prisma.paper.update({
     where: { id: req.params.id },
     data: { status: 'published' },
+  })
+  setOperationAuditContext(req, {
+    summary: `发布试卷“${paper.title}”`,
+    changes: buildOperationAuditChanges(
+      { status: previousPaper.status },
+      { status: paper.status },
+    ),
   })
   res.json(success(paper))
 })

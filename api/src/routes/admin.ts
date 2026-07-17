@@ -35,6 +35,12 @@ import {
   refreshPaymentReconciliationRun,
   runPaymentReconciliation,
 } from '../services/paymentReconciliation.js'
+import {
+  OPERATION_AUDIT_MODULE_VALUES,
+  OPERATION_AUDIT_RESULT,
+} from '../constants/operationAudit.js'
+import { buildOperationAuditChanges, setOperationAuditContext } from '../middleware/operationAudit.js'
+import { normalizeIpAddress } from '../utils/ipAddress.js'
 
 export const adminRouter = createAsyncRouter()
 
@@ -78,6 +84,114 @@ function formatPaymentRefund(refund: {
     updatedAt: refund.updatedAt.toISOString(),
   }
 }
+
+// 审计列表只返回检索与定位字段，前后值仅在管理员打开详情时读取。
+function formatOperationLog<T extends {
+  occurredAt: Date
+  createdAt: Date
+  changes?: unknown
+}>(log: T) {
+  const { changes, ...safeLog } = log
+  return {
+    ...safeLog,
+    ipAddress: normalizeIpAddress((safeLog as { ipAddress?: string | null }).ipAddress),
+    hasChanges: changes !== null && changes !== undefined,
+    occurredAt: log.occurredAt.toISOString(),
+    createdAt: log.createdAt.toISOString(),
+  }
+}
+
+// 时间筛选只接受有效 ISO 日期，避免无效 Date 进入 Prisma 查询。
+function parseOperationLogDate(value: unknown): Date | null | undefined {
+  if (value === undefined || value === null || value === '') return undefined
+  const parsed = new Date(String(value))
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+// 操作日志
+adminRouter.get('/operation-logs', async (req, res) => {
+  const page = parsePositiveInt(req.query.page, 1)
+  const pageSize = parsePositiveInt(req.query.pageSize, 20, 100)
+  const role = typeof req.query.role === 'string' ? req.query.role.trim() : ''
+  const module = typeof req.query.module === 'string' ? req.query.module.trim() : ''
+  const result = typeof req.query.result === 'string' ? req.query.result.trim() : ''
+  const action = typeof req.query.action === 'string' ? req.query.action.trim().slice(0, 128) : ''
+  const keyword = typeof req.query.keyword === 'string' ? req.query.keyword.trim().slice(0, 100) : ''
+  const startAt = parseOperationLogDate(req.query.startAt)
+  const endAt = parseOperationLogDate(req.query.endAt)
+
+  if (role && role !== 'all' && !isUserRole(role)) {
+    res.status(422).json(fail('无效的用户角色'))
+    return
+  }
+  if (module && !OPERATION_AUDIT_MODULE_VALUES.some((value) => value === module)) {
+    res.status(422).json(fail('无效的操作模块'))
+    return
+  }
+  if (result && !Object.values(OPERATION_AUDIT_RESULT).some((value) => value === result)) {
+    res.status(422).json(fail('无效的操作结果'))
+    return
+  }
+  if (startAt === null || endAt === null || (startAt && endAt && startAt > endAt)) {
+    res.status(422).json(fail('无效的时间范围'))
+    return
+  }
+
+  const where: Prisma.OperationLogWhereInput = {
+    ...(role && role !== 'all' ? { actorRoleSnapshot: role } : {}),
+    ...(module ? { module } : {}),
+    ...(result ? { result } : {}),
+    ...(action ? { action } : {}),
+    ...(startAt || endAt
+      ? { occurredAt: { ...(startAt ? { gte: startAt } : {}), ...(endAt ? { lte: endAt } : {}) } }
+      : {}),
+    ...(keyword
+      ? {
+          OR: [
+            { actorNameSnapshot: { contains: keyword } },
+            { actorEmailSnapshot: { contains: keyword } },
+            { summary: { contains: keyword } },
+            { resourceId: { contains: keyword } },
+          ],
+        }
+      : {}),
+  }
+  const total = await prisma.operationLog.count({ where })
+  const totalPages = Math.ceil(total / pageSize)
+  const safePage = totalPages > 0 ? Math.min(page, totalPages) : 1
+  const list = await prisma.operationLog.findMany({
+    where,
+    orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+    skip: (safePage - 1) * pageSize,
+    take: pageSize,
+  })
+  res.json(success({
+    list: list.map(formatOperationLog),
+    pagination: {
+      page: safePage,
+      pageSize,
+      total,
+      totalPages,
+      hasPrev: safePage > 1,
+      hasNext: totalPages > 0 && safePage < totalPages,
+    },
+  }))
+})
+
+// 操作日志详情
+adminRouter.get('/operation-logs/:id', async (req, res) => {
+  const log = await prisma.operationLog.findUnique({ where: { id: req.params.id } })
+  if (!log) {
+    res.status(404).json(fail('操作日志不存在'))
+    return
+  }
+  res.json(success({
+    ...log,
+    ipAddress: normalizeIpAddress(log.ipAddress),
+    occurredAt: log.occurredAt.toISOString(),
+    createdAt: log.createdAt.toISOString(),
+  }))
+})
 
 // 管理后台只展示可定位配置，AppKey 和通信密钥始终留在服务端。
 function maskPaymentIdentifier(value: string): string {
@@ -178,6 +292,7 @@ adminRouter.put('/payment-config', async (req, res) => {
       return
     }
 
+    const previousConfig = await getOrCreatePaymentConfig()
     const config = await prisma.paymentConfig.upsert({
       where: { id: 'default' },
       create: {
@@ -195,6 +310,18 @@ adminRouter.put('/payment-config', async (req, res) => {
         status,
         updatedBy: req.user!.userId,
       },
+    })
+    setOperationAuditContext(req, {
+      resourceId: config.id,
+      changes: buildOperationAuditChanges(
+        {
+          firstMonthlyPriceCents: previousConfig.firstMonthlyPriceCents,
+          monthlyPriceCents: previousConfig.monthlyPriceCents,
+          yearlyPriceCents: previousConfig.yearlyPriceCents,
+          status: previousConfig.status,
+        },
+        { firstMonthlyPriceCents, monthlyPriceCents, yearlyPriceCents, status },
+      ),
     })
     res.json(success(formatPaymentConfig(config)))
   } catch (error) {
@@ -916,10 +1043,22 @@ adminRouter.put('/users/:id/role', async (req: Request, res: Response) => {
       return
     }
 
+    const previousUser = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, username: true, role: true },
+    })
+    if (!previousUser) {
+      res.status(404).json(fail('用户不存在'))
+      return
+    }
     const user = await prisma.user.update({
       where: { id: req.params.id },
       data: { role },
       select: { id: true, username: true, email: true, role: true, paymentStatus: true },
+    })
+    setOperationAuditContext(req, {
+      summary: `修改用户“${user.username}”的角色`,
+      changes: buildOperationAuditChanges({ role: previousUser.role }, { role: user.role }),
     })
     res.json(success({ user: formatAdminUserForClient(user) }))
   } catch (err) {
@@ -949,6 +1088,23 @@ adminRouter.put('/users/:id/access', async (req: Request, res: Response) => {
       return
     }
     const examTypes = requestedExamTypes as string[]
+
+    const previousUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        username: true,
+        role: true,
+        paymentStatus: true,
+        memberships: {
+          select: { examType: true, plan: true, status: true, startsAt: true, endsAt: true },
+          orderBy: [{ examType: 'asc' }, { endsAt: 'desc' }],
+        },
+      },
+    })
+    if (!previousUser) {
+      res.status(404).json(fail('用户不存在'))
+      return
+    }
 
     const now = new Date()
     const endsAt = examTypes.length > 0 ? buildMembershipEndDate(plan, now) : null
@@ -1009,6 +1165,29 @@ adminRouter.put('/users/:id/access', async (req: Request, res: Response) => {
       })
     })
 
+    if (user) {
+      setOperationAuditContext(req, {
+        summary: `修改用户“${user.username}”的权限`,
+        changes: buildOperationAuditChanges(
+          {
+            role: previousUser.role,
+            paymentStatus: previousUser.paymentStatus,
+            memberships: previousUser.memberships,
+          },
+          {
+            role: user.role,
+            paymentStatus: user.paymentStatus,
+            memberships: user.memberships.map((membership) => ({
+              examType: membership.examType,
+              plan: membership.plan,
+              status: membership.status,
+              startsAt: membership.startsAt,
+              endsAt: membership.endsAt,
+            })),
+          },
+        ),
+      })
+    }
     res.json(success({ user: user ? formatAdminUserForClient(user) : null }))
   } catch (err: any) {
     if (err?.code === 'P2025') {
@@ -1062,6 +1241,10 @@ adminRouter.post('/revenue-costs', async (req: Request, res: Response) => {
     const cost = await prisma.revenueCost.create({
       data: parsed.data,
     })
+    setOperationAuditContext(req, {
+      resourceId: cost.id,
+      summary: `新增成本记录“${cost.rechargeItem}”`,
+    })
     res.json(success({ cost }))
   } catch (err) {
     console.error('[admin] create revenue cost error:', err)
@@ -1078,9 +1261,35 @@ adminRouter.put('/revenue-costs/:id', async (req: Request, res: Response) => {
       return
     }
 
+    const previousCost = await prisma.revenueCost.findUnique({ where: { id: req.params.id } })
+    if (!previousCost) {
+      res.status(404).json(fail('成本记录不存在'))
+      return
+    }
     const cost = await prisma.revenueCost.update({
       where: { id: req.params.id },
       data: parsed.data,
+    })
+    setOperationAuditContext(req, {
+      summary: `修改成本记录“${cost.rechargeItem}”`,
+      changes: buildOperationAuditChanges(
+        {
+          rechargeItem: previousCost.rechargeItem,
+          amount: previousCost.amount,
+          operator: previousCost.operator,
+          occurredAt: previousCost.occurredAt,
+          reimbursementStatus: previousCost.reimbursementStatus,
+          remark: previousCost.remark,
+        },
+        {
+          rechargeItem: cost.rechargeItem,
+          amount: cost.amount,
+          operator: cost.operator,
+          occurredAt: cost.occurredAt,
+          reimbursementStatus: cost.reimbursementStatus,
+          remark: cost.remark,
+        },
+      ),
     })
     res.json(success({ cost }))
   } catch (err: any) {

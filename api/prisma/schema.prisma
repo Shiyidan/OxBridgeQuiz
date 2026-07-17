@@ -97,6 +97,39 @@ model User {
   authSessions          AuthSession[]
   emailChallenges       EmailVerificationChallenge[]
   paymentOrders         PaymentOrder[]
+  operationLogs         OperationLog[]
+}
+
+model OperationLog {
+  id                 String   @id @default(uuid()) @db.VarChar(191)
+  occurredAt         DateTime @default(now())
+  actorUserId        String?  @db.VarChar(191)
+  actorNameSnapshot  String   @db.VarChar(191)
+  actorEmailSnapshot String   @db.VarChar(191)
+  actorRoleSnapshot  String   @db.VarChar(32)
+  module             String   @db.VarChar(64)
+  action             String   @db.VarChar(128)
+  summary            String   @db.VarChar(500)
+  result             String   @db.VarChar(32)
+  resourceType       String?  @db.VarChar(64)
+  resourceId         String?  @db.VarChar(191)
+  changes            Json?
+  method             String   @db.VarChar(16)
+  path               String   @db.VarChar(500)
+  statusCode         Int
+  ipAddress          String?  @db.VarChar(64)
+  userAgent          String?  @db.VarChar(512)
+  errorCode          String?  @db.VarChar(64)
+  createdAt          DateTime @default(now())
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([occurredAt])
+  @@index([actorRoleSnapshot, occurredAt])
+  @@index([actorUserId, occurredAt])
+  @@index([module, occurredAt])
+  @@index([action, occurredAt])
+  @@index([resourceType, resourceId, occurredAt])
 }
 
 model AuthSession {

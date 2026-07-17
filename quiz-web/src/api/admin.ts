@@ -54,6 +54,48 @@ export interface ListParams {
   pageSize?: number
 }
 
+export interface OperationLogItem {
+  id: string
+  occurredAt: string
+  actorUserId?: string | null
+  actorNameSnapshot: string
+  actorEmailSnapshot: string
+  actorRoleSnapshot: string
+  module: string
+  action: string
+  summary: string
+  result: 'success' | 'failure'
+  resourceType?: string | null
+  resourceId?: string | null
+  method: string
+  path: string
+  statusCode: number
+  ipAddress?: string | null
+  userAgent?: string | null
+  errorCode?: string | null
+  hasChanges: boolean
+  createdAt: string
+}
+
+export interface OperationLogChange {
+  before: unknown
+  after: unknown
+}
+
+export interface OperationLogDetail extends Omit<OperationLogItem, 'hasChanges'> {
+  changes?: Record<string, OperationLogChange> | null
+}
+
+export interface OperationLogListParams extends ListParams {
+  role?: string
+  module?: string
+  result?: string
+  action?: string
+  keyword?: string
+  startAt?: string
+  endAt?: string
+}
+
 export interface AdminPaymentConfig {
   firstMonthlyPriceCents: number
   monthlyPriceCents: number
@@ -205,10 +247,12 @@ export interface AdminPaymentOrderDetail {
     createdAt: string
     updatedAt: string
   }>
-  refunds: Array<AdminPaymentRefund & {
-    operator?: AdminPaymentAuditActor | null
-    providerResult: Record<string, unknown>
-  }>
+  refunds: Array<
+    AdminPaymentRefund & {
+      operator?: AdminPaymentAuditActor | null
+      providerResult: Record<string, unknown>
+    }
+  >
   memberships: Array<{
     id: string
     examType: string
@@ -220,11 +264,13 @@ export interface AdminPaymentOrderDetail {
     updatedAt: string
     associationBasis: 'user_exam_type_snapshot'
   }>
-  reconciliationItems: Array<AdminPaymentReconciliationItem & {
-    run: AdminPaymentReconciliationRun
-    resolver?: AdminPaymentAuditActor | null
-    triggerOperator?: AdminPaymentAuditActor | null
-  }>
+  reconciliationItems: Array<
+    AdminPaymentReconciliationItem & {
+      run: AdminPaymentReconciliationRun
+      resolver?: AdminPaymentAuditActor | null
+      triggerOperator?: AdminPaymentAuditActor | null
+    }
+  >
   timeline: AdminPaymentAuditEvent[]
 }
 
@@ -318,7 +364,9 @@ export function getAdminPaymentConfig() {
 }
 
 /** 保存后台支付策略，金额单位为分。 */
-export function updateAdminPaymentConfig(data: Omit<AdminPaymentConfig, 'updatedAt' | 'updatedBy'>) {
+export function updateAdminPaymentConfig(
+  data: Omit<AdminPaymentConfig, 'updatedAt' | 'updatedBy'>,
+) {
   return callApi<AdminPaymentConfig>({
     url: '/admin/payment-config',
     method: 'PUT',
@@ -328,7 +376,9 @@ export function updateAdminPaymentConfig(data: Omit<AdminPaymentConfig, 'updated
 }
 
 /** 查询支付订单。 */
-export function getAdminPaymentOrders(params: ListParams & { status?: string; keyword?: string } = {}) {
+export function getAdminPaymentOrders(
+  params: ListParams & { status?: string; keyword?: string } = {},
+) {
   return callApi<PageResult<AdminPaymentOrder>>({
     url: '/admin/payment-orders',
     method: 'GET',
@@ -421,5 +471,36 @@ export function resolveAdminPaymentReconciliationItem(id: string, note: string) 
     method: 'POST',
     isAllData: false,
     body: { note },
+  })
+}
+
+// ---- 操作审计 ----
+
+/** 查询管理员与普通用户的操作审计记录。 */
+export function getOperationLogs(params: OperationLogListParams = {}) {
+  return callApi<PageResult<OperationLogItem>>({
+    url: '/admin/operation-logs',
+    method: 'GET',
+    isAllData: false,
+    params: {
+      ...(params.page ? { page: String(params.page) } : {}),
+      ...(params.pageSize ? { pageSize: String(params.pageSize) } : {}),
+      role: params.role,
+      module: params.module,
+      result: params.result,
+      action: params.action,
+      keyword: params.keyword,
+      startAt: params.startAt,
+      endAt: params.endAt,
+    },
+  })
+}
+
+/** 详情接口按需返回白名单字段的前后值。 */
+export function getOperationLogDetail(id: string) {
+  return callApi<OperationLogDetail>({
+    url: `/admin/operation-logs/${encodeURIComponent(id)}`,
+    method: 'GET',
+    isAllData: false,
   })
 }

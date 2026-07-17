@@ -86,6 +86,11 @@ const navItems: NavItem[] = [
     label: '付费策略与订阅',
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>',
   },
+  {
+    path: '/admin/operation-logs',
+    label: '操作日志',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6"/><path d="M9 8h6"/><path d="M9 12h3"/><path d="M5 3h14v18H5z"/><path d="m14 16 2 2 4-4"/></svg>',
+  },
 ]
 
 // 手机端点击导航后自动收起侧栏，给内容区留出更多横向空间。

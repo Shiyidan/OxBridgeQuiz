@@ -8,6 +8,7 @@ import { AUTH_ERROR } from '../constants/auth.js'
 export interface AuthContext {
   userId: string
   sessionId: string
+  username: string
   email: string
   role: string
   authenticatedAt: number
@@ -38,6 +39,7 @@ async function resolveAuthContext(req: Request): Promise<AuthContext | null> {
   return {
     userId: session.user.id,
     sessionId: session.id,
+    username: session.user.username,
     email: session.user.email,
     role: session.user.role,
     authenticatedAt: session.createdAt.getTime(),

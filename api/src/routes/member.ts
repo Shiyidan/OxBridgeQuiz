@@ -6,6 +6,7 @@ import { checkMemberAccess, getMemberContext, type EntitlementAction } from '../
 import { isExamType } from '../constants/domain.js'
 import { examPreferencesSchema } from '../utils/authSchemas.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
+import { buildOperationAuditChanges, setOperationAuditContext } from '../middleware/operationAudit.js'
 
 export const memberRouter = createAsyncRouter()
 
@@ -71,9 +72,25 @@ memberRouter.put('/exam-preferences', requireAuth, async (req, res) => {
       return
     }
 
+    const previousUser = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { examPreferences: true },
+    })
+    if (!previousUser) {
+      res.status(404).json(fail('用户不存在'))
+      return
+    }
     await prisma.user.update({
       where: { id: req.user!.userId },
       data: { examPreferences: parsed.data },
+    })
+
+    setOperationAuditContext(req, {
+      resourceId: req.user!.userId,
+      changes: buildOperationAuditChanges(
+        { examPreferences: previousUser.examPreferences },
+        { examPreferences: parsed.data },
+      ),
     })
 
     res.json(success(null))

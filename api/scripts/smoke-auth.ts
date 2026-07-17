@@ -1,4 +1,4 @@
-// 非生产认证闭环冒烟测试，通过数据库准备验证码，不绕过生产接口校验逻辑。
+// 非生产认证与操作审计闭环冒烟测试，通过数据库准备验证码，不绕过生产接口校验逻辑。
 import crypto from 'node:crypto'
 import { config } from '../src/config.js'
 import { prisma } from '../src/services/prisma.js'
@@ -65,6 +65,48 @@ async function expectUnauthorized(path: string, token: string): Promise<void> {
   if (response.status !== 401) throw new Error(`${path} should return 401, received ${response.status}`)
 }
 
+// 审计在响应完成后异步落库，冒烟测试短暂轮询直到关键认证操作全部可见。
+async function expectOperationAudit(userId: string): Promise<void> {
+  const requiredActions = new Set([
+    'auth.register',
+    'auth.login',
+    'auth.password.change',
+    'profile.update',
+    'auth.logout_all',
+    'auth.password.reset',
+  ])
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const logs = await prisma.operationLog.findMany({ where: { actorUserId: userId } })
+    const actions = new Set(logs.map((log) => log.action))
+    if ([...requiredActions].every((action) => actions.has(action))) {
+      const profileLog = logs.find((log) => log.action === 'profile.update')
+      const changes = profileLog?.changes as Record<string, { before?: unknown; after?: unknown }> | null
+      if (changes?.email?.before !== firstEmail || changes.email.after !== secondEmail) {
+        throw new Error('Profile audit did not preserve the email before/after values')
+      }
+      return
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  throw new Error('Operation audit records were not persisted in time')
+}
+
+// 管理员查询接口必须支持角色筛选，并且只在详情中返回字段前后值。
+async function expectOperationAuditApi(token: string): Promise<void> {
+  const result = await request(`/admin/operation-logs?role=student&keyword=${username}`, { token })
+  if (!Array.isArray(result.data.list) || result.data.list.length === 0) {
+    throw new Error('Operation audit list did not return the test user records')
+  }
+  const profileLog = result.data.list.find((log: any) => log.action === 'profile.update')
+  if (!profileLog?.hasChanges || 'changes' in profileLog) {
+    throw new Error('Operation audit list did not hide changes or expose hasChanges correctly')
+  }
+  const detail = await request(`/admin/operation-logs/${profileLog.id}`, { token })
+  if (detail.data.changes?.email?.before !== firstEmail || detail.data.changes.email.after !== secondEmail) {
+    throw new Error('Operation audit detail did not return the email before/after values')
+  }
+}
+
 async function cleanup(): Promise<void> {
   const users = await prisma.user.findMany({
     where: { OR: [{ username }, { email: { in: [firstEmail, secondEmail] } }] },
@@ -73,6 +115,7 @@ async function cleanup(): Promise<void> {
   const userIds = users.map((item) => item.id)
   if (userIds.length) {
     await prisma.$transaction([
+      prisma.operationLog.deleteMany({ where: { actorUserId: { in: userIds } } }),
       prisma.answerRecord.deleteMany({ where: { examRecord: { userId: { in: userIds } } } }),
       prisma.diagnosticReport.deleteMany({ where: { userId: { in: userIds } } }),
       prisma.diagnosticReportTask.deleteMany({ where: { userId: { in: userIds } } }),
@@ -174,7 +217,16 @@ async function main(): Promise<void> {
     body: { username, password: resetPasswordValue },
   })
 
-  console.log('Auth smoke test passed')
+  await expectOperationAudit(user.id)
+
+  await prisma.user.update({ where: { id: user.id }, data: { role: 'admin' } })
+  const adminLogin = await request('/auth/login', {
+    method: 'POST',
+    body: { username, password: resetPasswordValue },
+  })
+  await expectOperationAuditApi(adminLogin.data.accessToken)
+
+  console.log('Auth and operation audit smoke test passed')
 }
 
 main()

@@ -11,6 +11,7 @@ import { createNumericId } from '../utils/id.js'
 import { processMarkdownImport, validateStandardPaperDocument } from '../services/markdownValidator.js'
 import { checkMemberAccess } from '../services/member.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
+import { setOperationAuditContext } from '../middleware/operationAudit.js'
 import {
   EXAM_TYPE,
   QUESTION_BANK_PAPER_TYPES,
@@ -54,6 +55,10 @@ paperImportRouter.post('/import-json', requireAuth, requireAdmin, async (req, re
     await syncPaperQuestions(paper.id, questions)
     const savedQuestions = await getPaperQuestions(paper.id)
 
+    setOperationAuditContext(req, {
+      resourceId: paper.id,
+      summary: `导入 JSON 试卷“${paper.title}”`,
+    })
     res.json(success({
       ...paper,
       questions: savedQuestions.map(formatQuestionRow),
@@ -104,6 +109,10 @@ paperImportRouter.post('/import-markdown', requireAuth, requireAdmin, async (req
     await syncPaperQuestions(paper.id, result.questions)
     const savedQuestions = await getPaperQuestions(paper.id)
 
+    setOperationAuditContext(req, {
+      resourceId: paper.id,
+      summary: `导入 Markdown 试卷“${paper.title}”`,
+    })
     res.json(success({
       ...paper,
       questions: savedQuestions.map(formatQuestionRow),

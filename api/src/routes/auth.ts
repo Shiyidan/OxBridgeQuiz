@@ -31,6 +31,11 @@ import {
   revokeRefreshSession,
   rotateAuthSession,
 } from '../services/authSession.js'
+import {
+  buildOperationAuditChanges,
+  setOperationAuditActor,
+  setOperationAuditContext,
+} from '../middleware/operationAudit.js'
 
 export const authRouter = createAsyncRouter()
 
@@ -197,6 +202,8 @@ authRouter.post('/register', registerLimiter, async (req: Request, res: Response
       })
     })
     const session = await createAuthSession(user, req, res)
+    setOperationAuditActor(req, user)
+    setOperationAuditContext(req, { resourceId: user.id })
     res.status(201).json(success({ user: presentUser(user), accessToken: session.accessToken }))
   } catch (error) {
     handleAuthError(res, error, 'register error')
@@ -219,6 +226,8 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
     if (!valid) throw new AuthError(AUTH_ERROR.INVALID_CREDENTIALS, '用户名、邮箱或密码错误', 401)
 
     const session = await createAuthSession(user, req, res)
+    setOperationAuditActor(req, user)
+    setOperationAuditContext(req, { resourceId: user.id })
     res.json(success({ user: presentUser(user), accessToken: session.accessToken }))
   } catch (error) {
     handleAuthError(res, error, 'login error')
@@ -260,6 +269,14 @@ authRouter.post('/password/reset', passwordLimiter, async (req: Request, res: Re
       })
     })
     clearRefreshCookie(res)
+    setOperationAuditActor(req, user)
+    setOperationAuditContext(req, {
+      resourceId: user.id,
+      changes: buildOperationAuditChanges(
+        { passwordChanged: false },
+        { passwordChanged: true },
+      ),
+    })
     res.json(success(null))
   } catch (error) {
     handleAuthError(res, error, 'reset password error')
@@ -291,6 +308,13 @@ authRouter.post('/password/change', passwordLimiter, requireAuth, async (req: Re
       }),
     ])
     clearRefreshCookie(res)
+    setOperationAuditContext(req, {
+      resourceId: user.id,
+      changes: buildOperationAuditChanges(
+        { passwordChanged: false },
+        { passwordChanged: true },
+      ),
+    })
     res.json(success(null))
   } catch (error) {
     handleAuthError(res, error, 'change password error')
@@ -327,6 +351,13 @@ authRouter.put('/profile', requireAuth, async (req: Request, res: Response) => {
         },
       })
     })
+    setOperationAuditContext(req, {
+      resourceId: user.id,
+      changes: buildOperationAuditChanges(
+        { username: currentUser.username, email: currentUser.email },
+        { username: user.username, email: user.email },
+      ),
+    })
     res.json(success({ user: presentUser(user) }))
   } catch (error) {
     handleAuthError(res, error, 'update profile error')
@@ -334,10 +365,11 @@ authRouter.put('/profile', requireAuth, async (req: Request, res: Response) => {
 })
 
 // 当前设备服务端登出。
-authRouter.post('/logout', async (req: Request, res: Response) => {
+authRouter.post('/logout', optionalAuth, async (req: Request, res: Response) => {
   try {
     await revokeRefreshSession(req)
     clearRefreshCookie(res)
+    if (req.user) setOperationAuditContext(req, { resourceId: req.user.userId })
     res.json(success(null))
   } catch (error) {
     handleAuthError(res, error, 'logout error')

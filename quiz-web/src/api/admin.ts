@@ -97,6 +97,124 @@ export interface OperationLogListParams extends ListParams {
   endAt?: string
 }
 
+export interface BehaviorAnalyticsParams {
+  startAt?: string
+  endAt?: string
+  module?: string
+}
+
+export interface BehaviorAnalyticsOverview {
+  activeUsers: number
+  activeUsersChangeRate: number | null
+  operationCount: number
+  operationCountChangeRate: number | null
+  averageOperations: number
+  averageOperationsChangeRate: number | null
+  moduleCount: number
+  failureRate: number
+  failureRateChange: number | null
+}
+
+export interface BehaviorAnalyticsRankingItem {
+  userCount: number
+  operationCount: number
+  averageOperations: number
+  penetrationRate: number
+  repeatedUserRate: number
+  failureRate: number
+  userChangeRate: number | null
+  operationChangeRate: number | null
+}
+
+export interface BehaviorAnalyticsModule extends BehaviorAnalyticsRankingItem {
+  module: string
+}
+
+export interface BehaviorAnalyticsAction extends BehaviorAnalyticsRankingItem {
+  module: string
+  action: string
+}
+
+export interface BehaviorAnalyticsTrendItem {
+  date: string
+  userCount: number
+  operationCount: number
+  failureCount: number
+}
+
+export type ProductUsageModuleCode = 'diagnostic_test' | 'question_bank' | 'mock_exam'
+export type ProductPreferenceCode = ProductUsageModuleCode | 'mixed' | 'insufficient'
+
+export interface BehaviorProductUsageModule {
+  module: ProductUsageModuleCode
+  userCount: number
+  completionCount: number
+  averageCompletions: number
+  completionShare: number
+  userPenetrationRate: number
+  repeatedUserRate: number
+  completionChangeRate: number | null
+}
+
+export interface BehaviorProductPreference {
+  preference: ProductPreferenceCode
+  userCount: number
+  userRate: number
+}
+
+export interface BehaviorProductTrendItem {
+  date: string
+  diagnosticTestCount: number
+  questionBankPracticeCount: number
+  mockExamCount: number
+  reportViewCount: number
+}
+
+export interface BehaviorProductUsage {
+  scope: {
+    completionSource: 'exam_record'
+    reportViewSource: 'operation_log'
+    preferenceMinimumCompletions: number
+  }
+  overview: {
+    activeUsers: number
+    completedActivityCount: number
+    completedActivityChangeRate: number | null
+    reportViewCount: number
+    reportViewChangeRate: number | null
+    reportViewerCount: number
+    distinctReportCount: number
+    averageReportViews: number
+    samePeriodReportViewRate: number
+  }
+  modules: BehaviorProductUsageModule[]
+  preferences: BehaviorProductPreference[]
+  trend: BehaviorProductTrendItem[]
+}
+
+export interface BehaviorAnalyticsResult {
+  scope: {
+    actorRoleSnapshot: 'student'
+    excludedModules: string[]
+    timezone: 'Asia/Shanghai'
+  }
+  period: {
+    startAt: string
+    endAt: string
+    previousStartAt: string
+    previousEndAt: string
+    endExclusive: true
+  }
+  overview: BehaviorAnalyticsOverview
+  modules: BehaviorAnalyticsModule[]
+  actions: BehaviorAnalyticsAction[]
+  trend: BehaviorAnalyticsTrendItem[]
+  productUsage: BehaviorProductUsage
+  dataQuality: {
+    unattributedOperationCount: number
+  }
+}
+
 export interface AdminPaymentConfig {
   firstMonthlyPriceCents: number
   monthlyPriceCents: number
@@ -476,6 +594,20 @@ export function resolveAdminPaymentReconciliationItem(id: string, note: string) 
 }
 
 // ---- 操作审计 ----
+
+/** 查询学生学习产品偏好与操作审计统计，不接收角色参数。 */
+export function getBehaviorAnalytics(params: BehaviorAnalyticsParams = {}) {
+  return callApi<BehaviorAnalyticsResult>({
+    url: '/admin/behavior-analytics',
+    method: 'GET',
+    isAllData: false,
+    params: {
+      startAt: params.startAt,
+      endAt: params.endAt,
+      module: params.module,
+    },
+  })
+}
 
 /** 查询管理员与普通用户的操作审计记录。 */
 export function getOperationLogs(params: OperationLogListParams = {}) {

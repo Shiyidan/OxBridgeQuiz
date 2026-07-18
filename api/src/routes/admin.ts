@@ -37,11 +37,17 @@ import {
   runPaymentReconciliation,
 } from '../services/paymentReconciliation.js'
 import {
+  OPERATION_AUDIT_MODULE,
   OPERATION_AUDIT_MODULE_VALUES,
   OPERATION_AUDIT_RESULT,
 } from '../constants/operationAudit.js'
 import { buildOperationAuditChanges, setOperationAuditContext } from '../middleware/operationAudit.js'
 import { normalizeIpAddress } from '../utils/ipAddress.js'
+import {
+  BEHAVIOR_ANALYTICS_MAX_RANGE_DAYS,
+  defaultBehaviorAnalyticsPeriod,
+  getStudentBehaviorAnalytics,
+} from '../services/behaviorAnalytics.js'
 
 export const adminRouter = createAsyncRouter()
 
@@ -108,6 +114,50 @@ function parseOperationLogDate(value: unknown): Date | null | undefined {
   const parsed = new Date(String(value))
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
+
+// 学生行为分析
+adminRouter.get('/behavior-analytics', async (req, res) => {
+  const requestedStartAt = parseOperationLogDate(req.query.startAt)
+  const requestedEndAt = parseOperationLogDate(req.query.endAt)
+  const module = typeof req.query.module === 'string' ? req.query.module.trim() : ''
+
+  if (requestedStartAt === null || requestedEndAt === null) {
+    res.status(422).json(fail('无效的时间范围'))
+    return
+  }
+  if ((requestedStartAt === undefined) !== (requestedEndAt === undefined)) {
+    res.status(422).json(fail('开始时间和结束时间必须同时提供'))
+    return
+  }
+  if (module === OPERATION_AUDIT_MODULE.AUTH) {
+    res.status(422).json(fail('用户行为分析不统计认证登录模块'))
+    return
+  }
+  if (module && !OPERATION_AUDIT_MODULE_VALUES.some((value) => value === module)) {
+    res.status(422).json(fail('无效的操作模块'))
+    return
+  }
+  const defaults = defaultBehaviorAnalyticsPeriod()
+  const startAt = requestedStartAt || defaults.startAt
+  const endAt = requestedEndAt || defaults.endAt
+  const durationMs = endAt.getTime() - startAt.getTime()
+  const maxDurationMs = BEHAVIOR_ANALYTICS_MAX_RANGE_DAYS * 24 * 60 * 60 * 1000
+  if (durationMs <= 0) {
+    res.status(422).json(fail('结束时间必须晚于开始时间'))
+    return
+  }
+  if (durationMs > maxDurationMs) {
+    res.status(422).json(fail(`统计时间范围不能超过 ${BEHAVIOR_ANALYTICS_MAX_RANGE_DAYS} 天`))
+    return
+  }
+
+  const analytics = await getStudentBehaviorAnalytics({
+    startAt,
+    endAt,
+    ...(module ? { module } : {}),
+  })
+  res.json(success(analytics))
+})
 
 // 操作日志
 adminRouter.get('/operation-logs', async (req, res) => {

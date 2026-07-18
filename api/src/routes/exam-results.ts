@@ -11,6 +11,7 @@ import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { computeScores } from '../services/scoring.js'
 import type { QuestionResult } from '../services/scoring.js'
 import { logRuntimeError } from '../utils/runtimeLogger.js'
+import { setOperationAuditContext } from '../middleware/operationAudit.js'
 import {
   ensureDiagnosticReportTask,
   retryDiagnosticReportTask,
@@ -357,6 +358,12 @@ examResultRouter.get('/:id/diagnostic-report/summary', requireAuth, async (req, 
           ? '最新一次报告正在生成，当前展示上一次报告'
           : '当前展示该试卷最新生成的诊断报告'
 
+    // 报告正文成功读取才计为一次查看，状态轮询与尚未生成的请求不会进入成功统计。
+    setOperationAuditContext(req, {
+      summary: `查看 ${examRecord.examType} 诊断分析报告`,
+      resourceType: 'ExamRecord',
+      resourceId: currentReport.examRecordId,
+    })
     res.json(success({
       report: currentReport.result,
       meta: {

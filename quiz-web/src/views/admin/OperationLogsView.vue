@@ -1,3 +1,4 @@
+<!-- 操作日志页面：按角色和业务维度检索审计记录，并承接行为分析的精确下钻。 -->
 <template>
   <div class="operation-logs-page">
     <div class="page-heading">
@@ -21,6 +22,13 @@
         >
           {{ option.label }}
         </button>
+      </div>
+
+      <div v-if="draftFilters.action" class="precision-filter">
+        <span>当前行为</span>
+        <strong>{{ operationActionLabel(draftFilters.action) }}</strong>
+        <code>{{ draftFilters.action }}</code>
+        <button type="button" aria-label="清除行为筛选" @click="clearActionFilter">×</button>
       </div>
 
       <div class="filter-row">
@@ -211,6 +219,7 @@
 // 操作日志页面：供管理员按角色和业务维度检索审计记录，并查看白名单字段变更。
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useRoute, useRouter } from 'vue-router'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
 import {
   getOperationLogDetail,
@@ -219,13 +228,19 @@ import {
   type OperationLogDetail,
   type OperationLogItem,
 } from '@/api/admin'
+import {
+  OPERATION_AUDIT_MODULE_OPTIONS,
+  operationActionLabel,
+  operationModuleLabel,
+} from '@/constants/operationAudit'
 
 interface AuditFilters {
   role: string
   module: string
   result: string
+  action: string
   keyword: string
-  timeRange: [Date, Date] | []
+  timeRange: [Date, Date] | null
 }
 
 interface ApiFailureShape {
@@ -242,16 +257,7 @@ const roleOptions = [
   { label: '普通用户操作', value: 'student' },
 ]
 
-const moduleOptions = [
-  { label: '认证安全', value: 'auth' },
-  { label: '个人资料', value: 'profile' },
-  { label: '考试作答', value: 'exam' },
-  { label: '支付订阅', value: 'payment' },
-  { label: '用户管理', value: 'user' },
-  { label: '试卷题库', value: 'paper' },
-  { label: '教学大纲', value: 'syllabus' },
-  { label: '营收成本', value: 'revenue' },
-]
+const moduleOptions = OPERATION_AUDIT_MODULE_OPTIONS
 
 const fieldLabels: Record<string, string> = {
   username: '用户名',
@@ -284,6 +290,8 @@ const fieldLabels: Record<string, string> = {
 
 const defaultTimes: [Date, Date] = [new Date(2000, 0, 1, 0, 0, 0), new Date(2000, 0, 1, 23, 59, 59)]
 
+const route = useRoute()
+const router = useRouter()
 const logs = ref<OperationLogItem[]>([])
 const loading = ref(false)
 let latestListRequestId = 0
@@ -295,15 +303,17 @@ const draftFilters = reactive<AuditFilters>({
   role: 'all',
   module: '',
   result: '',
+  action: '',
   keyword: '',
-  timeRange: [],
+  timeRange: null,
 })
 const appliedFilters = reactive<AuditFilters>({
   role: 'all',
   module: '',
   result: '',
+  action: '',
   keyword: '',
-  timeRange: [],
+  timeRange: null,
 })
 
 // 详情仅在打开抽屉后读取 changes，列表请求不暴露字段前后值。
@@ -314,10 +324,7 @@ const changeEntries = computed(() =>
   })),
 )
 
-// 模块编码集中映射为后台中文标签。
-function moduleLabel(module: string): string {
-  return moduleOptions.find((item) => item.value === module)?.label || module
-}
+const moduleLabel = operationModuleLabel
 
 // 角色快照按操作发生时的身份显示，不跟随用户当前角色变化。
 function roleLabel(role: string): string {
@@ -368,11 +375,27 @@ function copyFilters(target: AuditFilters, source: AuditFilters): void {
   target.role = source.role
   target.module = source.module
   target.result = source.result
+  target.action = source.action
   target.keyword = source.keyword.trim()
   target.timeRange =
-    source.timeRange.length === 2
+    Array.isArray(source.timeRange) && source.timeRange.length === 2
       ? [new Date(source.timeRange[0]), new Date(source.timeRange[1])]
-      : []
+      : null
+}
+
+// 已提交条件同步到地址栏，使下钻链接、清除和刷新后的页面状态保持一致。
+function syncFilterQuery(filters: AuditFilters): void {
+  const query: Record<string, string> = {}
+  if (filters.role !== 'all') query.role = filters.role
+  if (filters.module) query.module = filters.module
+  if (filters.result) query.result = filters.result
+  if (filters.action) query.action = filters.action
+  if (filters.keyword) query.keyword = filters.keyword
+  if (Array.isArray(filters.timeRange) && filters.timeRange.length === 2) {
+    query.startAt = filters.timeRange[0].toISOString()
+    query.endAt = filters.timeRange[1].toISOString()
+  }
+  void router.replace({ name: 'admin-operation-logs', query })
 }
 
 // 列表始终使用已提交筛选条件，保持搜索和分页状态一致。
@@ -381,15 +404,17 @@ async function loadLogs(): Promise<void> {
   loading.value = true
   try {
     const timeRange = appliedFilters.timeRange
+    const hasTimeRange = Array.isArray(timeRange) && timeRange.length === 2
     const data = await getOperationLogs({
       page: pagination.page,
       pageSize: pagination.pageSize,
       role: appliedFilters.role === 'all' ? undefined : appliedFilters.role,
       module: appliedFilters.module || undefined,
       result: appliedFilters.result || undefined,
+      action: appliedFilters.action || undefined,
       keyword: appliedFilters.keyword || undefined,
-      startAt: timeRange.length === 2 ? timeRange[0].toISOString() : undefined,
-      endAt: timeRange.length === 2 ? timeRange[1].toISOString() : undefined,
+      startAt: hasTimeRange ? timeRange[0].toISOString() : undefined,
+      endAt: hasTimeRange ? timeRange[1].toISOString() : undefined,
     })
     if (requestId !== latestListRequestId) return
     logs.value = data.list || []
@@ -410,6 +435,7 @@ async function loadLogs(): Promise<void> {
 async function changeRole(role: string): Promise<void> {
   draftFilters.role = role
   copyFilters(appliedFilters, draftFilters)
+  syncFilterQuery(appliedFilters)
   pagination.page = 1
   await loadLogs()
 }
@@ -417,6 +443,7 @@ async function changeRole(role: string): Promise<void> {
 // 查询时提交当前草稿条件，并从第一页读取结果。
 function applyFilters(): void {
   copyFilters(appliedFilters, draftFilters)
+  syncFilterQuery(appliedFilters)
   pagination.page = 1
   void loadLogs()
 }
@@ -426,9 +453,44 @@ function resetFilters(): void {
   draftFilters.role = 'all'
   draftFilters.module = ''
   draftFilters.result = ''
+  draftFilters.action = ''
   draftFilters.keyword = ''
-  draftFilters.timeRange = []
+  draftFilters.timeRange = null
   applyFilters()
+}
+
+// 下钻行为以可见标签呈现，清除后保留其余时间、角色和模块条件。
+function clearActionFilter(): void {
+  draftFilters.action = ''
+  applyFilters()
+}
+
+// 路由查询只接受页面可识别的筛选值，非法值回退为默认条件。
+function initializeFiltersFromRoute(): void {
+  const role = typeof route.query.role === 'string' ? route.query.role : ''
+  const module = typeof route.query.module === 'string' ? route.query.module : ''
+  const result = typeof route.query.result === 'string' ? route.query.result : ''
+  const keyword =
+    typeof route.query.keyword === 'string' ? route.query.keyword.trim().slice(0, 100) : ''
+  const action =
+    typeof route.query.action === 'string' ? route.query.action.trim().slice(0, 128) : ''
+  const startAt = typeof route.query.startAt === 'string' ? new Date(route.query.startAt) : null
+  const endAt = typeof route.query.endAt === 'string' ? new Date(route.query.endAt) : null
+
+  draftFilters.role = ['all', 'admin', 'student'].includes(role) ? role : 'all'
+  draftFilters.module = moduleOptions.some((option) => option.value === module) ? module : ''
+  draftFilters.result = ['success', 'failure'].includes(result) ? result : ''
+  draftFilters.action = action
+  draftFilters.keyword = keyword
+  draftFilters.timeRange =
+    startAt &&
+    endAt &&
+    !Number.isNaN(startAt.getTime()) &&
+    !Number.isNaN(endAt.getTime()) &&
+    startAt <= endAt
+      ? [startAt, endAt]
+      : null
+  copyFilters(appliedFilters, draftFilters)
 }
 
 // 页码变化继续复用已应用筛选条件。
@@ -459,8 +521,9 @@ async function openDetail(id: string): Promise<void> {
   }
 }
 
-// 首次进入页面读取最近操作，不预设时间范围以免遗漏历史记录。
+// 首次进入先承接行为分析下钻条件；普通入口仍读取全部最近操作。
 onMounted(() => {
+  initializeFiltersFromRoute()
   void loadLogs()
 })
 </script>
@@ -526,6 +589,47 @@ onMounted(() => {
   background: #eef2ff;
   color: #4f46e5;
   font-weight: 650;
+}
+
+.precision-filter {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 8px;
+  margin: -2px 0 14px;
+  padding: 7px 9px 7px 11px;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  background: #f5f7ff;
+  color: #64748b;
+  font-size: 0.76rem;
+}
+
+.precision-filter strong {
+  color: #4338ca;
+}
+
+.precision-filter code {
+  overflow: hidden;
+  color: #818cf8;
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.precision-filter button {
+  display: grid;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #e0e7ff;
+  color: #4f46e5;
+  font: inherit;
+  cursor: pointer;
 }
 
 .filter-row {
@@ -673,7 +777,7 @@ onMounted(() => {
   font-weight: 800;
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 1500px) {
   .filter-row {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }

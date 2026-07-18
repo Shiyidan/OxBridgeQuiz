@@ -116,6 +116,12 @@ const router = createRouter({
           name: 'admin-payment',
           component: () => import('../views/admin/PaymentView.vue'),
         },
+        // 用户行为分析
+        {
+          path: 'behavior-analytics',
+          name: 'admin-behavior-analytics',
+          component: () => import('../views/admin/BehaviorAnalyticsView.vue'),
+        },
         // 操作日志
         {
           path: 'operation-logs',

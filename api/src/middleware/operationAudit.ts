@@ -1,4 +1,4 @@
-// 操作审计中间件：为明确纳入审计的用户写操作保存身份快照、结果和白名单变更。
+// 操作审计中间件：为明确纳入审计的关键用户操作保存身份快照、结果和白名单变更。
 import type { Request, RequestHandler, Response } from 'express'
 import type { Prisma, User } from '@prisma/client'
 import { prisma } from '../services/prisma.js'
@@ -62,6 +62,7 @@ const OPERATION_DEFINITIONS: OperationDefinition[] = [
   { method: 'PUT', pattern: /^\/api\/getMember\/exam-preferences$/, module: OPERATION_AUDIT_MODULE.PROFILE, action: 'profile.exam_preferences.update', summary: '修改备考偏好', resourceType: 'User' },
   { method: 'POST', pattern: /^\/api\/exams\/start$/, module: OPERATION_AUDIT_MODULE.EXAM, action: 'exam.start', summary: '开始考试', resourceType: 'ExamRecord' },
   { method: 'POST', pattern: /^\/api\/exams\/([^/]+)\/submit$/, module: OPERATION_AUDIT_MODULE.EXAM, action: 'exam.submit', summary: '提交考试', resourceType: 'ExamRecord', resourceIdGroup: 1 },
+  { method: 'GET', pattern: /^\/api\/exams\/([^/]+)\/diagnostic-report\/summary$/, module: OPERATION_AUDIT_MODULE.EXAM, action: 'diagnostic_report.view', summary: '查看诊断分析报告', resourceType: 'ExamRecord', resourceIdGroup: 1 },
   { method: 'POST', pattern: /^\/api\/payment\/orders$/, module: OPERATION_AUDIT_MODULE.PAYMENT, action: 'payment.order.create', summary: '创建支付订单', resourceType: 'PaymentOrder' },
   { method: 'POST', pattern: /^\/api\/payment\/orders\/([^/]+)\/close$/, module: OPERATION_AUDIT_MODULE.PAYMENT, action: 'payment.order.close', summary: '关闭支付订单', resourceType: 'PaymentOrder', resourceIdGroup: 1 },
   { method: 'PUT', pattern: /^\/api\/admin\/payment-config$/, module: OPERATION_AUDIT_MODULE.PAYMENT, action: 'admin.payment_config.update', summary: '修改支付策略', resourceType: 'PaymentConfig' },
@@ -143,7 +144,7 @@ function requestPath(req: Request): string {
   return req.originalUrl.split('?')[0].slice(0, 500)
 }
 
-// 路由定义集中决定哪些写操作值得审计，高频轮询和自动保存不会命中。
+// 路由定义集中决定哪些关键操作值得审计，高频轮询、列表浏览和自动保存不会命中。
 function resolveOperationDefinition(req: Request): { definition: OperationDefinition; match: RegExpMatchArray } | null {
   const path = requestPath(req)
   for (const definition of OPERATION_DEFINITIONS) {

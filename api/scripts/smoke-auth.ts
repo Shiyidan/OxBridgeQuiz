@@ -70,6 +70,23 @@ async function expectUnauthorized(path: string, token: string): Promise<void> {
   if (response.status !== 401) throw new Error(`${path} should return 401, received ${response.status}`)
 }
 
+// 参数边界测试直接检查失败响应，不经过只接受成功状态的 request 包装。
+async function expectApiFailure(
+  path: string,
+  token: string,
+  expectedStatus: number,
+): Promise<void> {
+  const response = await fetch(`${baseUrl}${path}`, {
+    headers: { authorization: `Bearer ${token}` },
+  })
+  const payload = (await response.json()) as any
+  if (response.status !== expectedStatus || payload.success !== false) {
+    throw new Error(
+      `${path} should return ${expectedStatus}, received ${response.status} ${JSON.stringify(payload)}`,
+    )
+  }
+}
+
 // 审计在响应完成后异步落库，冒烟测试短暂轮询直到关键认证操作全部可见。
 async function expectOperationAudit(userId: string, profileRequestId: string): Promise<void> {
   const requiredActions = new Set([
@@ -123,6 +140,136 @@ async function expectOperationAuditApi(token: string, profileRequestId: string):
   if (requestIdResult.data.list.length !== 1 || requestIdResult.data.list[0].id !== profileLog.id) {
     throw new Error('Operation audit list could not locate the record by Request ID')
   }
+}
+
+// 审计异步落库后再读取统计，确保管理员同模块操作已真实存在而不是尚未写入。
+async function waitForOperationLog(requestId: string, expectedRole: string): Promise<void> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const log = await prisma.operationLog.findFirst({
+      where: { requestId, actorRoleSnapshot: expectedRole },
+    })
+    if (log) return
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  throw new Error(`Operation audit ${requestId} was not persisted in time`)
+}
+
+// 行为统计必须等于同范围学生角色快照日志，并排除已经落库的管理员同名操作。
+async function expectBehaviorAnalyticsApi(
+  token: string,
+  userId: string,
+  startAt: Date,
+  endAt: Date,
+): Promise<void> {
+  const query = new URLSearchParams({
+    module: 'profile',
+    startAt: startAt.toISOString(),
+    endAt: endAt.toISOString(),
+  })
+  const expectedLogs = await prisma.operationLog.findMany({
+    where: {
+      actorRoleSnapshot: 'student',
+      module: 'profile',
+      occurredAt: { gte: startAt, lt: endAt },
+    },
+    select: { actorUserId: true },
+  })
+  const expectedUsers = new Set(
+    expectedLogs.flatMap((log) => (log.actorUserId ? [log.actorUserId] : [])),
+  )
+  if (!expectedLogs.some((log) => log.actorUserId === userId)) {
+    throw new Error('Student profile operation was not available for behavior analytics assertion')
+  }
+
+  const result = await request(`/admin/behavior-analytics?${query.toString()}`, { token })
+  if (result.data.scope.actorRoleSnapshot !== 'student') {
+    throw new Error('Behavior analytics did not expose the fixed student scope')
+  }
+  if (result.data.overview.operationCount !== expectedLogs.length) {
+    throw new Error(
+      'Behavior analytics included non-student operations or omitted student operations',
+    )
+  }
+  if (result.data.overview.activeUsers !== expectedUsers.size) {
+    throw new Error('Behavior analytics active users did not match distinct student actor IDs')
+  }
+  if (result.data.modules.length !== 1 || result.data.modules[0].module !== 'profile') {
+    throw new Error('Behavior analytics module filter was not applied')
+  }
+  if (!result.data.actions.some((item: any) => item.action === 'profile.update')) {
+    throw new Error('Behavior analytics action ranking did not include profile.update')
+  }
+  if (
+    result.data.productUsage.scope.completionSource !== 'exam_record' ||
+    result.data.productUsage.scope.reportViewSource !== 'operation_log'
+  ) {
+    throw new Error('Behavior analytics product usage sources were not exposed correctly')
+  }
+  if (result.data.productUsage.modules.length !== 3) {
+    throw new Error('Behavior analytics did not return the three fixed learning product modules')
+  }
+  const trendOperationCount = result.data.trend.reduce(
+    (total: number, item: any) => total + item.operationCount,
+    0,
+  )
+  if (trendOperationCount !== expectedLogs.length) {
+    throw new Error('Behavior analytics trend did not reconcile with the overview count')
+  }
+
+  const expectedCoreCount = await prisma.operationLog.count({
+    where: {
+      actorRoleSnapshot: 'student',
+      module: { not: 'auth' },
+      occurredAt: { gte: startAt, lt: endAt },
+    },
+  })
+  const authCount = await prisma.operationLog.count({
+    where: {
+      actorRoleSnapshot: 'student',
+      module: 'auth',
+      occurredAt: { gte: startAt, lt: endAt },
+    },
+  })
+  if (authCount === 0) {
+    throw new Error('Behavior analytics fixture did not include student auth logs')
+  }
+  const unfilteredQuery = new URLSearchParams({
+    startAt: startAt.toISOString(),
+    endAt: endAt.toISOString(),
+  })
+  const unfilteredResult = await request(
+    `/admin/behavior-analytics?${unfilteredQuery.toString()}`,
+    { token },
+  )
+  if (unfilteredResult.data.overview.operationCount !== expectedCoreCount) {
+    throw new Error('Behavior analytics default scope did not exclude authentication operations')
+  }
+  if (unfilteredResult.data.modules.some((item: any) => item.module === 'auth')) {
+    throw new Error('Behavior analytics exposed the excluded authentication module')
+  }
+
+  const invalidEnd = new Date(startAt.getTime() - 1).toISOString()
+  await expectApiFailure(
+    `/admin/behavior-analytics?startAt=${encodeURIComponent(startAt.toISOString())}&endAt=${encodeURIComponent(invalidEnd)}`,
+    token,
+    422,
+  )
+  const overlongStart = new Date(endAt.getTime() - 91 * 24 * 60 * 60 * 1000).toISOString()
+  await expectApiFailure(
+    `/admin/behavior-analytics?startAt=${encodeURIComponent(overlongStart)}&endAt=${encodeURIComponent(endAt.toISOString())}`,
+    token,
+    422,
+  )
+  await expectApiFailure(
+    `/admin/behavior-analytics?module=auth&startAt=${encodeURIComponent(startAt.toISOString())}&endAt=${encodeURIComponent(endAt.toISOString())}`,
+    token,
+    422,
+  )
+  await expectApiFailure(
+    `/admin/behavior-analytics?startAt=${encodeURIComponent(startAt.toISOString())}`,
+    token,
+    422,
+  )
 }
 
 async function cleanup(): Promise<void> {
@@ -195,6 +342,7 @@ async function main(): Promise<void> {
 
   const user = await prisma.user.findUniqueOrThrow({ where: { username } })
   const emailChallenge = await createChallenge(secondEmail, EMAIL_CODE_PURPOSE.CHANGE_EMAIL, user.id)
+  const behaviorAnalyticsStartAt = new Date(Date.now() - 1000)
   const updatedProfile = await request('/auth/profile', {
     method: 'PUT',
     token: accessToken,
@@ -242,9 +390,21 @@ async function main(): Promise<void> {
     method: 'POST',
     body: { username, password: resetPasswordValue },
   })
+  const adminProfile = await request('/auth/profile', {
+    method: 'PUT',
+    token: adminLogin.data.accessToken,
+    body: { username, email: secondEmail },
+  })
+  await waitForOperationLog(adminProfile.requestId, 'admin')
   await expectOperationAuditApi(adminLogin.data.accessToken, updatedProfile.requestId)
+  await expectBehaviorAnalyticsApi(
+    adminLogin.data.accessToken,
+    user.id,
+    behaviorAnalyticsStartAt,
+    new Date(Date.now() + 1000),
+  )
 
-  console.log('Auth and operation audit smoke test passed')
+  console.log('Auth, operation audit, and behavior analytics smoke test passed')
 }
 
 main()

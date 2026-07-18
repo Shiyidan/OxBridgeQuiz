@@ -271,6 +271,7 @@ const fieldLabels: Record<string, string> = {
   monthlyPriceCents: '正常月付价格（分）',
   yearlyPriceCents: '年度价格（分）',
   status: '状态',
+  costCategory: '成本分类',
   rechargeItem: '成本项',
   amount: '金额',
   operator: '操作人',

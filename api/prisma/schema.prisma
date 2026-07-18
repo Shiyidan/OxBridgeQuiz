@@ -315,6 +315,7 @@ model Syllabus {
 
 model RevenueCost {
   id                  String   @id @default(uuid()) @db.VarChar(191)
+  costCategory        String   @default("development_tools") @db.VarChar(32)
   rechargeItem        String   @db.VarChar(100)
   amount              Float
   operator            String   @db.VarChar(100)

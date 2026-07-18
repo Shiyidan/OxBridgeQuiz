@@ -30,6 +30,19 @@
           header-align="center"
         />
         <el-table-column
+          prop="costCategory"
+          label="成本分类"
+          min-width="170"
+          align="center"
+          header-align="center"
+        >
+          <template #default="{ row }">
+            <el-tag :type="costCategoryTagType(row.costCategory)" effect="light">
+              {{ revenueCostCategoryLabel(row.costCategory) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
           prop="rechargeItem"
           label="成本项"
           min-width="140"
@@ -38,8 +51,8 @@
         >
           <template #default="{ row }">
             <div class="cost-item-cell">
-              <span :class="['cost-item-tag', costItemClass(row.rechargeItem)]">
-                {{ row.rechargeItem || '-' }}
+              <span :class="['cost-item-tag', costItemClass(row.costCategory)]">
+                {{ revenueCostItemLabel(row.rechargeItem) }}
               </span>
             </div>
           </template>
@@ -90,9 +103,28 @@
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="520px" destroy-on-close>
       <el-form ref="formRef" :model="form" :rules="rules" label-width="92px">
+        <el-form-item label="成本分类" prop="costCategory">
+          <el-select
+            v-model="form.costCategory"
+            placeholder="请选择成本分类"
+            @change="handleCostCategoryChange"
+          >
+            <el-option
+              v-for="item in REVENUE_COST_CATEGORY_OPTIONS"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="成本项" prop="rechargeItem">
           <el-select v-model="form.rechargeItem" placeholder="请选择成本项">
-            <el-option v-for="item in rechargeItems" :key="item" :label="item" :value="item" />
+            <el-option
+              v-for="item in availableCostItems"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="金额" prop="amount">
@@ -148,11 +180,25 @@ import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { getRevenueListData, updateRevenue, createRevenue, type RevenueItem } from '@/api/admin'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
+import {
+  REVENUE_COST_CATEGORY,
+  REVENUE_COST_CATEGORY_OPTIONS,
+  REVENUE_COST_ITEM_OPTIONS,
+  normalizeRevenueCostCategory,
+  normalizeRevenueCostItem,
+  revenueCostCategoryLabel,
+  revenueCostItemLabel,
+  type RevenueCostCategory,
+} from '@/constants/revenueCost'
 
 type ReimbursementStatus = 'unreimbursed' | 'reimbursing' | 'reimbursed' | 'non_reimbursable'
-type RevenueCost = RevenueItem & { reimbursementStatus: ReimbursementStatus }
+type RevenueCost = RevenueItem & {
+  costCategory: RevenueCostCategory
+  reimbursementStatus: ReimbursementStatus
+}
 
 interface CostForm {
+  costCategory: RevenueCostCategory
   rechargeItem: string
   amount: number | undefined
   operator: string
@@ -161,7 +207,14 @@ interface CostForm {
   remark: string
 }
 
-const rechargeItems = ['deepseek', 'claude', 'codex']
+interface ApiFailureShape {
+  response?: {
+    data?: {
+      errMsg?: string
+    }
+  }
+}
+
 const operators = ['S', 'L', 'P', 'SS']
 const reimbursementOptions: Array<{ label: string; value: ReimbursementStatus }> = [
   { label: '未报销', value: 'unreimbursed' },
@@ -183,6 +236,7 @@ const pagination = reactive({
 })
 
 const form = reactive<CostForm>({
+  costCategory: REVENUE_COST_CATEGORY.TECHNICAL_INFRASTRUCTURE,
   rechargeItem: '',
   amount: undefined,
   operator: '',
@@ -192,6 +246,7 @@ const form = reactive<CostForm>({
 })
 
 const rules: FormRules<CostForm> = {
+  costCategory: [{ required: true, message: '请选择成本分类', trigger: 'change' }],
   rechargeItem: [{ required: true, message: '请选择成本项', trigger: 'change' }],
   amount: [{ required: true, message: '请输入金额', trigger: 'blur' }],
   operator: [{ required: true, message: '请选择操作人', trigger: 'change' }],
@@ -201,6 +256,7 @@ const rules: FormRules<CostForm> = {
 
 const isEditing = computed(() => Boolean(editingCostId.value))
 const dialogTitle = computed(() => (isEditing.value ? '编辑成本' : '成本导入'))
+const availableCostItems = computed(() => REVENUE_COST_ITEM_OPTIONS[form.costCategory])
 
 // 弹窗打开后等待表单挂载完成，再清理旧校验状态。
 function clearValidate(): void {
@@ -209,6 +265,7 @@ function clearValidate(): void {
 
 // 导入新成本时重置表单，避免沿用上一条编辑记录。
 function resetForm(): void {
+  form.costCategory = REVENUE_COST_CATEGORY.TECHNICAL_INFRASTRUCTURE
   form.rechargeItem = ''
   form.amount = undefined
   form.operator = ''
@@ -228,7 +285,11 @@ function openImportDialog(): void {
 // 编辑时把行数据回填到表单，提交时走更新接口。
 function openEditDialog(row: RevenueCost): void {
   editingCostId.value = row.id
-  form.rechargeItem = row.rechargeItem
+  form.costCategory = normalizeRevenueCostCategory(row.costCategory)
+  const normalizedItem = normalizeRevenueCostItem(row.rechargeItem)
+  form.rechargeItem = availableCostItems.value.some((item) => item.value === normalizedItem)
+    ? normalizedItem
+    : ''
   form.amount = Number(row.amount)
   form.operator = row.operator
   form.occurredAt = new Date(row.occurredAt)
@@ -271,23 +332,40 @@ function reimbursementTagType(
   return map[status]
 }
 
-function costItemClass(item: string): string {
-  const normalized = item.trim().toLowerCase()
-  const map: Record<string, string> = {
-    deepseek: 'cost-item-tag--deepseek',
-    claude: 'cost-item-tag--claude',
-    codex: 'cost-item-tag--codex',
+// 成本分类使用固定标签颜色，方便管理员快速区分三类开支。
+function costCategoryTagType(category: RevenueCostCategory): 'primary' | 'success' | 'warning' {
+  const map: Record<RevenueCostCategory, 'primary' | 'success' | 'warning'> = {
+    [REVENUE_COST_CATEGORY.TECHNICAL_INFRASTRUCTURE]: 'primary',
+    [REVENUE_COST_CATEGORY.DEVELOPMENT_TOOLS]: 'success',
+    [REVENUE_COST_CATEGORY.OPERATIONS_MARKETING]: 'warning',
   }
-  return map[normalized] || 'cost-item-tag--default'
+  return map[normalizeRevenueCostCategory(category)]
+}
+
+// 成本项颜色跟随所属分类，不再为每个供应商维护独立样式。
+function costItemClass(category: RevenueCostCategory): string {
+  return `cost-item-tag--${normalizeRevenueCostCategory(category)}`
+}
+
+// 切换分类后清空旧成本项，避免保存不属于新分类的组合。
+function handleCostCategoryChange(): void {
+  form.rechargeItem = ''
+  formRef.value?.clearValidate('rechargeItem')
 }
 
 function tableIndex(index: number): number {
   return (pagination.page - 1) * pagination.pageSize + index + 1
 }
 
+// 成本页面优先展示后端业务错误，没有响应正文时使用操作场景兜底文案。
+function apiErrorMessage(error: unknown, fallback: string): string {
+  return (error as ApiFailureShape)?.response?.data?.errMsg || fallback
+}
+
 // 表单提交前统一清洗字段，和后端成本 payload 保持一致。
 function buildPayload() {
   return {
+    costCategory: form.costCategory,
     rechargeItem: form.rechargeItem,
     amount: form.amount,
     operator: form.operator,
@@ -309,10 +387,10 @@ async function getList(): Promise<void> {
     pagination.page = data.pagination.page
     pagination.pageSize = data.pagination.pageSize
     pagination.total = data.pagination.total
-  } catch (e: any) {
+  } catch (error: unknown) {
     costs.value = []
     pagination.total = 0
-    ElMessage.error(e.response?.data?.errMsg || '成本数据加载失败')
+    ElMessage.error(apiErrorMessage(error, '成本数据加载失败'))
   } finally {
     loading.value = false
   }
@@ -348,8 +426,8 @@ async function submitCost(): Promise<void> {
     await getList()
     dialogVisible.value = false
     ElMessage.success(wasEditing ? '成本记录更新成功' : '成本导入成功')
-  } catch (e: any) {
-    ElMessage.error(e.response?.data?.errMsg || (wasEditing ? '成本记录更新失败' : '成本导入失败'))
+  } catch (error: unknown) {
+    ElMessage.error(apiErrorMessage(error, wasEditing ? '成本记录更新失败' : '成本导入失败'))
   } finally {
     submitting.value = false
   }
@@ -449,22 +527,22 @@ onMounted(getList)
   text-align: center;
 }
 
-.cost-item-tag--deepseek {
-  color: #0f766e;
-  background: #ecfeff;
-  border-color: #bae6fd;
-}
-
-.cost-item-tag--claude {
-  color: #9a3412;
-  background: #fff7ed;
-  border-color: #fed7aa;
-}
-
-.cost-item-tag--codex {
+.cost-item-tag--technical_infrastructure {
   color: #1d4ed8;
   background: #eff6ff;
   border-color: #bfdbfe;
+}
+
+.cost-item-tag--development_tools {
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.cost-item-tag--operations_marketing {
+  color: #9a3412;
+  background: #fff7ed;
+  border-color: #fed7aa;
 }
 
 .cost-item-tag--default {

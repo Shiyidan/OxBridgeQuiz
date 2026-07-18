@@ -183,6 +183,51 @@ export const PAYMENT_RECONCILIATION_RESOLUTION = {
   MANUALLY_RESOLVED: 'manually_resolved',
 } as const
 
+export const REVENUE_COST_CATEGORY = {
+  TECHNICAL_INFRASTRUCTURE: 'technical_infrastructure',
+  DEVELOPMENT_TOOLS: 'development_tools',
+  OPERATIONS_MARKETING: 'operations_marketing',
+} as const
+
+export const REVENUE_COST_CATEGORIES = Object.values(REVENUE_COST_CATEGORY)
+export type RevenueCostCategory = (typeof REVENUE_COST_CATEGORIES)[number]
+
+export const REVENUE_COST_ITEM = {
+  SERVER_RENTAL: 'server_rental',
+  DATABASE_RENTAL: 'database_rental',
+  DOMAIN_CERTIFICATE: 'domain_certificate',
+  THIRD_PARTY_TECHNICAL_SERVICE: 'third_party_technical_service',
+  DEEPSEEK: 'deepseek',
+  CLAUDE: 'claude',
+  CODEX: 'codex',
+  MARKETING_PROMOTION: 'marketing_promotion',
+  CONTENT_OPERATIONS: 'content_operations',
+  ADMINISTRATION_FINANCE: 'administration_finance',
+} as const
+
+export type RevenueCostItem = (typeof REVENUE_COST_ITEM)[keyof typeof REVENUE_COST_ITEM]
+
+export const REVENUE_COST_ITEMS_BY_CATEGORY: Record<RevenueCostCategory, readonly RevenueCostItem[]> = {
+  [REVENUE_COST_CATEGORY.TECHNICAL_INFRASTRUCTURE]: [
+    REVENUE_COST_ITEM.SERVER_RENTAL,
+    REVENUE_COST_ITEM.DATABASE_RENTAL,
+    REVENUE_COST_ITEM.DOMAIN_CERTIFICATE,
+    REVENUE_COST_ITEM.THIRD_PARTY_TECHNICAL_SERVICE,
+  ],
+  [REVENUE_COST_CATEGORY.DEVELOPMENT_TOOLS]: [
+    REVENUE_COST_ITEM.DEEPSEEK,
+    REVENUE_COST_ITEM.CLAUDE,
+    REVENUE_COST_ITEM.CODEX,
+  ],
+  [REVENUE_COST_CATEGORY.OPERATIONS_MARKETING]: [
+    REVENUE_COST_ITEM.MARKETING_PROMOTION,
+    REVENUE_COST_ITEM.CONTENT_OPERATIONS,
+    REVENUE_COST_ITEM.ADMINISTRATION_FINANCE,
+  ],
+}
+
+const DEVELOPMENT_TOOL_COST_ITEMS = new Set(REVENUE_COST_ITEMS_BY_CATEGORY[REVENUE_COST_CATEGORY.DEVELOPMENT_TOOLS])
+
 export const EFFECTIVE_MEMBERSHIP_STATUS = {
   FREE: 'free',
   ACTIVE: MEMBERSHIP_STATUS.ACTIVE,
@@ -235,6 +280,30 @@ export function isRealPaperType(value: unknown): boolean {
 // 会员套餐判断只接受系统已配置的月度或年度方案。
 export function isMembershipPlan(value: unknown): value is MembershipPlan {
   return typeof value === 'string' && MEMBERSHIP_PLANS.includes(value as MembershipPlan)
+}
+
+// 成本分类只接受后台成本管理已定义的三类稳定编码。
+export function isRevenueCostCategory(value: unknown): value is RevenueCostCategory {
+  return typeof value === 'string' && REVENUE_COST_CATEGORIES.includes(value as RevenueCostCategory)
+}
+
+// 成本项编码统一去除首尾空格并转为小写，兼容历史工具名称的大小写差异。
+export function normalizeRevenueCostItem(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  return value.trim().toLowerCase()
+}
+
+// 成本项必须属于所选分类，防止前端联动被绕过后写入错误组合。
+export function isRevenueCostItemForCategory(category: RevenueCostCategory, item: string): item is RevenueCostItem {
+  return REVENUE_COST_ITEMS_BY_CATEGORY[category].includes(item as RevenueCostItem)
+}
+
+// 旧客户端提交具体研发工具但缺少分类时兼容归入研发工具，新分类项仍必须显式提交分类。
+export function legacyRevenueCostCategory(value: unknown): RevenueCostCategory | null {
+  if (typeof value !== 'string') return null
+  return DEVELOPMENT_TOOL_COST_ITEMS.has(value.trim().toLowerCase() as RevenueCostItem)
+    ? REVENUE_COST_CATEGORY.DEVELOPMENT_TOOLS
+    : null
 }
 
 // 旧支付状态缺失或异常时按免费用户处理，避免误授予权益。

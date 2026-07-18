@@ -5,6 +5,7 @@ import { callApi } from '@/utils/request'
 
 export interface RevenueItem {
   id: string
+  costCategory: string
   rechargeItem: string
   amount: number
   operator: string

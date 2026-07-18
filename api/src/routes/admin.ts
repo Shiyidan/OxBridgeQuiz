@@ -11,9 +11,13 @@ import {
   USER_ROLE,
   PAYMENT_NOTIFICATION_STATUS,
   PAYMENT_RECONCILIATION_RESOLUTION,
+  isRevenueCostCategory,
+  isRevenueCostItemForCategory,
   isExamType,
   isMembershipPlan,
   isUserRole,
+  legacyRevenueCostCategory,
+  normalizeRevenueCostItem,
 } from '../constants/domain.js'
 import { formatUserForClient } from '../utils/userPresenter.js'
 import { PAYMENT_CONFIG_STATUS } from '../constants/domain.js'
@@ -948,6 +952,7 @@ adminRouter.post('/payment-reconciliation/items/:id/resolve', async (req, res) =
 })
 
 interface RevenueCostPayload {
+  costCategory: string
   rechargeItem: string
   amount: number
   operator: string
@@ -991,6 +996,7 @@ function parsePositiveInt(value: unknown, fallback: number, max?: number): numbe
 
 function parseRevenueCostPayload(body: Record<string, unknown>): RevenueCostPayloadResult {
   const {
+    costCategory,
     rechargeItem,
     amount,
     operator,
@@ -1000,12 +1006,18 @@ function parseRevenueCostPayload(body: Record<string, unknown>): RevenueCostPayl
   } = body
   const numericAmount = Number(amount)
   const costDate = new Date(String(occurredAt))
-  const normalizedRechargeItem = typeof rechargeItem === 'string' ? rechargeItem.trim() : ''
+  const normalizedRechargeItem = normalizeRevenueCostItem(rechargeItem)
+  const normalizedCostCategory = typeof costCategory === 'string' && costCategory.trim()
+    ? costCategory.trim()
+    : legacyRevenueCostCategory(rechargeItem)
   const normalizedOperator = typeof operator === 'string' ? operator.trim() : ''
   const normalizedReimbursementStatus = typeof reimbursementStatus === 'string' ? reimbursementStatus.trim() : ''
   const normalizedRemark = typeof remark === 'string' && remark.trim() ? remark.trim() : null
 
-  if (!normalizedRechargeItem) {
+  if (!isRevenueCostCategory(normalizedCostCategory)) {
+    return { error: '无效的成本分类' }
+  }
+  if (!isRevenueCostItemForCategory(normalizedCostCategory, normalizedRechargeItem)) {
     return { error: '无效的成本项' }
   }
   if (!Number.isFinite(numericAmount) || numericAmount < 0) {
@@ -1026,6 +1038,7 @@ function parseRevenueCostPayload(body: Record<string, unknown>): RevenueCostPayl
 
   return {
     data: {
+      costCategory: normalizedCostCategory,
       rechargeItem: normalizedRechargeItem,
       amount: numericAmount,
       operator: normalizedOperator,
@@ -1326,6 +1339,7 @@ adminRouter.put('/revenue-costs/:id', async (req: Request, res: Response) => {
       summary: `修改成本记录“${cost.rechargeItem}”`,
       changes: buildOperationAuditChanges(
         {
+          costCategory: previousCost.costCategory,
           rechargeItem: previousCost.rechargeItem,
           amount: previousCost.amount,
           operator: previousCost.operator,
@@ -1334,6 +1348,7 @@ adminRouter.put('/revenue-costs/:id', async (req: Request, res: Response) => {
           remark: previousCost.remark,
         },
         {
+          costCategory: cost.costCategory,
           rechargeItem: cost.rechargeItem,
           amount: cost.amount,
           operator: cost.operator,

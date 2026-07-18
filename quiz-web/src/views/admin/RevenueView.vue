@@ -24,7 +24,7 @@
         <el-table-column
           type="index"
           label="序号"
-          width="96"
+          width="64"
           :index="tableIndex"
           align="center"
           header-align="center"
@@ -32,7 +32,8 @@
         <el-table-column
           prop="costCategory"
           label="成本分类"
-          min-width="170"
+          width="180"
+          class-name="cost-category-column"
           align="center"
           header-align="center"
         >
@@ -45,7 +46,7 @@
         <el-table-column
           prop="rechargeItem"
           label="成本项"
-          min-width="140"
+          width="132"
           align="center"
           header-align="center"
         >
@@ -57,20 +58,20 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="金额" min-width="120" align="center" header-align="center">
+        <el-table-column label="金额" width="112" align="center" header-align="center">
           <template #default="{ row }">{{ formatAmount(row.amount) }}</template>
         </el-table-column>
-        <el-table-column label="时间" min-width="160" align="center" header-align="center">
+        <el-table-column label="时间" width="142" align="center" header-align="center">
           <template #default="{ row }">{{ formatDate(row.occurredAt) }}</template>
         </el-table-column>
         <el-table-column
           prop="operator"
           label="操作人"
-          width="120"
+          width="90"
           align="center"
           header-align="center"
         />
-        <el-table-column label="报销情况" min-width="140" align="center" header-align="center">
+        <el-table-column label="报销情况" width="120" align="center" header-align="center">
           <template #default="{ row }">
             <el-tag :type="reimbursementTagType(row.reimbursementStatus)" effect="light">
               {{ reimbursementLabel(row.reimbursementStatus) }}
@@ -80,14 +81,14 @@
         <el-table-column
           prop="remark"
           label="备注"
-          width="140"
+          min-width="179"
           align="center"
           header-align="center"
           show-overflow-tooltip
         />
         <el-table-column
           label="操作"
-          width="120"
+          width="96"
           fixed="right"
           align="center"
           header-align="center"
@@ -102,7 +103,13 @@
     </div>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="520px" destroy-on-close>
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="92px">
+      <el-form
+        ref="formRef"
+        class="cost-form"
+        :model="form"
+        :rules="rules"
+        label-width="92px"
+      >
         <el-form-item label="成本分类" prop="costCategory">
           <el-select
             v-model="form.costCategory"
@@ -513,18 +520,29 @@ onMounted(getList)
   justify-content: center;
 }
 
+:deep(.admin-data-table__table .el-table__cell) {
+  padding-right: 10px;
+  padding-left: 10px;
+}
+
+:deep(.el-table td.cost-category-column .cell) {
+  overflow: visible;
+  text-overflow: clip;
+}
+
 .cost-item-tag {
-  min-width: 88px;
+  min-width: 82px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 7px 12px;
+  padding: 6px 10px;
   border: 1px solid transparent;
   border-radius: 999px;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: var(--weight-semi);
-  line-height: 1;
+  line-height: 1.2;
   text-align: center;
+  white-space: nowrap;
 }
 
 .cost-item-tag--technical_infrastructure {
@@ -551,9 +569,9 @@ onMounted(getList)
   border-color: #cbd5e1;
 }
 
-:deep(.el-select),
-:deep(.el-date-editor.el-input),
-:deep(.el-input-number) {
+.cost-form :deep(.el-select),
+.cost-form :deep(.el-date-editor.el-input),
+.cost-form :deep(.el-input-number) {
   width: 100%;
 }
 

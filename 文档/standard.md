@@ -1,6 +1,6 @@
 # 题目解析 JSON 批注与标准范例
 
-本文基于 `standard.json` 整理，目标是把当前带批注的解析结果沉淀为一份便于阅读、校验和后续导入的题目 JSON 标准说明。
+本文基于 `standard.json` 整理，目标是把当前带批注的解析结果沉淀为一份便于阅读、校验和后续导入的题目 JSON 标准说明。标准同时覆盖旧版扁平试卷与 ESAT 三模块等效诊断卷。
 
 ## 第一部分：当前 JSON 文档加批注
 
@@ -32,8 +32,9 @@
 
 批注整理：
 
-- 必须使用 `{ "metadata": {...}, "questions": [...] }` 作为批量导入根结构。
-- `metadata` 必须写在 `questions` 前面，用于保存试卷级信息。
+- 扁平试卷使用 `{ "metadata": {...}, "questions": [...] }`。
+- ESAT 模块化诊断卷使用 `{ "metadata": {...}, "modules": [...] }`；兼容读取历史 `questions[].items`，但新文件不得继续生成该兼容格式。
+- `metadata` 必须写在 `questions` 或 `modules` 前面，用于保存试卷级信息。
 - 不使用纯数组作为标准根结构，统一根结构便于后续扩展。
 - `questions` 中每一项代表一道题。
 
@@ -46,7 +47,12 @@
 | `duration` | 考试时长（分钟） | 必须为数字，例如 `75` |
 | `examType` | 考试类型 | 必须使用系统考试类型，例如 `TMUA`、`ESAT` |
 | `paperType` | 类型 | 必须为 `realPaper`、`mockPaper`、`aiPaper` 之一 |
-| `totalQuestions` | 题目数量 | 必须等于 `questions.length` |
+| `totalQuestions` | 题目数量 | 扁平卷等于 `questions.length`；模块卷等于全部 `modules[].questions.length` 之和 |
+| `deliveryMode` | 上传文档交付方式 | 模块卷写 `module_sequence`；扁平卷可省略或写 `continuous` |
+| `breakPolicy` | 科目间休息规则 | 模块卷写 `{ "durationSeconds": 180, "skippable": true }`；休息不计入 `duration` |
+| `assemblyType` | 组卷来源 | ENGAA/NSAA 真题组合为 `legacy_equivalent`，原始整卷为 `original` |
+| `sourceExamTypes` | 原始考试来源 | 等效卷推荐写 `['ENGAA', 'NSAA']`，最终仍以各题 `source_examType` 为准 |
+| `remarks` | 诊断适用说明 | 可说明短卷可信度、题量或使用限制 |
 
 `paperType` 枚举含义：
 
@@ -57,6 +63,88 @@
 | `aiPaper` | AI 生成卷 |
 
 `metadata` 保存试卷级信息；单题对象仍必须保留 `examType`、`year`、`source_examType`，用于题库独立检索和来源追踪。
+
+### 2.1 ESAT 三模块等效诊断卷
+
+模块表示一次连续作答阶段，不表示把三个科目的题目混合。学生按 `order` 依次完成三个模块；每个模块使用自己的题量与时长，前两个模块结束后休息 180 秒，休息可跳过，最后一个模块结束后统一交卷。
+
+新组合卷的标准根结构如下。下例为结构示意，`questions` 中的 27 道完整题目已省略，因此不能直接作为上传文件：
+
+```json
+{
+  "schemaVersion": "diagnostic-paper-v2",
+  "code": "ESAT-EQUIV-2023-M1-PHY-M2",
+  "metadata": {
+    "paperName": "ESAT 2023 Equivalent Diagnostic — Mathematics 1 / Physics / Mathematics 2",
+    "year": 2023,
+    "duration": 120,
+    "examType": "ESAT",
+    "paperType": "realPaper",
+    "totalQuestions": 81,
+    "deliveryMode": "module_sequence",
+    "breakPolicy": {
+      "durationSeconds": 180,
+      "skippable": true
+    },
+    "assemblyType": "legacy_equivalent",
+    "sourceExamTypes": ["ENGAA", "NSAA"],
+    "remarks": "使用历年真题组成的等效诊断卷，并非某位考生的官方 ESAT 原卷。"
+  },
+  "modules": [
+    {
+      "code": "maths1",
+      "order": 1,
+      "subject": "Mathematics 1",
+      "subject_code": "110000",
+      "duration": 40,
+      "totalQuestions": 27,
+      "questions": ["... 27 道完整题目 ..."]
+    },
+    {
+      "code": "physics",
+      "order": 2,
+      "subject": "Physics",
+      "subject_code": "130000",
+      "duration": 40,
+      "totalQuestions": 27,
+      "questions": ["... 27 道完整题目 ..."]
+    },
+    {
+      "code": "maths2",
+      "order": 3,
+      "subject": "Mathematics 2",
+      "subject_code": "120000",
+      "duration": 40,
+      "totalQuestions": 27,
+      "questions": ["... 27 道完整题目 ..."]
+    }
+  ]
+}
+```
+
+根级 `code` 是整套试卷的稳定编码（入库为 `Paper.code`），用于套卷识别、报告编号和来源追踪，不是学科代码。具体学科必须读取 `modules[].code` / `modules[].subject_code`，不得从根级 `code` 的文本中推断。
+
+模块字段规则：
+
+| 字段 | 标准要求 |
+| --- | --- |
+| `code` | 稳定模块标识，只能为 `maths1`、`maths2`、`physics`、`chemistry`、`biology` |
+| `order` | 作答顺序，必须为互不重复的正整数 |
+| `subject` | 展示名称，不参与业务判断 |
+| `subject_code` | 对应考纲学科编码：`maths1=110000`、`maths2=120000`、`physics=130000`、`chemistry=140000`、`biology=150000`；可使用字符串或数字，入库时统一为字符串 |
+| `duration` | 当前模块作答分钟数，必须大于 0 |
+| `totalQuestions` | 推荐填写并等于当前 `questions.length` |
+| `questions` | 当前模块题目；题号可从 1 重新开始 |
+
+ESAT 模块卷必须满足：
+
+- 恰好三个不同模块，并且必须包含 `maths1`。
+- `metadata.duration` 等于三个模块 `duration` 之和；两次休息不计入该值。
+- `metadata.totalQuestions` 等于三个模块实际题量之和。
+- 模块内 `number` 从 1 开始且不得重复。导入器会生成全卷连续数据库题号，并另存 `module_question_number`，因此前端仍展示原科目内题号。
+- 每题继续保留其真实来源 `source_examType`（例如 `ENGAA` 或 `NSAA`）和来源稳定标识 `code`；`code` 在本卷内不得重复，同一道历史真题可以在不同等效卷复用相同来源标识。数据库全局唯一键由系统另行生成，不得把来源伪装成官方 ESAT 真题。
+- 组合卷发布后如已有作答记录，不得覆盖题目或模块结构；需要调整时创建新版本，以保证历史报告可复现。
+- 历史扁平 ESAT `realPaper` 仍可兼容导入为草稿，但不能发布为诊断测试；发布前必须转换为上述三模块结构。
 
 ### 3. 标题字段 `title`
 
@@ -422,12 +510,12 @@ PNG 替换资源：
 
 ## 第二部分：需要形成的 JSON 标准范例
 
-下面是必须形成的严格 JSON 范例。实际导入时必须满足：
+下面是扁平卷的严格 JSON 范例；模块卷使用前述 `modules[].questions` 容器，单题结构完全相同。实际导入时必须满足：
 
 - 不包含 `//` 注释。
 - 不包含尾逗号。
 - 使用 UTF-8。
-- 根结构必须先写 `metadata`，再写 `questions`。
+- 根结构必须先写 `metadata`，再写 `questions` 或 `modules`。
 - `metadata` 必须包含试卷名称、年份、考试时长、考试类型、试卷类型和题目数量。
 - `title` 必须等于 `content_blocks[0].text`。
 - 段落用多个 `content_blocks` 表达，不用一个字符串里的 `\n\n` 承担排版。
@@ -619,15 +707,17 @@ SVG 还原效果不好时，必须保持选项中的 `image_id` 不变，只替�
 
 导入前逐项检查：
 
-- 根结构必须是 `{ "metadata": {...}, "questions": [...] }`。
-- `metadata` 必须写在 `questions` 前面。
+- 根结构必须是扁平 `{ "metadata": {...}, "questions": [...] }` 或模块化 `{ "metadata": {...}, "modules": [...] }`。
+- `metadata` 必须写在题目或模块数组前面。
 - `metadata.paperName` 必须是试卷名称。
 - `metadata.year` 必须是数字年份。
 - `metadata.duration` 必须是考试时长分钟数。
 - `metadata.examType` 必须是系统考试类型。
 - `metadata.paperType` 必须为 `realPaper`、`mockPaper`、`aiPaper` 之一。
-- `metadata.totalQuestions` 必须等于 `questions.length`。
-- `questions` 是数组，且至少有一道题。
+- `metadata.totalQuestions` 必须等于扁平题目数或全部模块题目数之和。
+- 扁平卷 `questions` 至少有一道题；模块卷必须恰好有三个非空 `modules`，且包含 `maths1`。
+- 模块卷 `metadata.duration` 必须等于模块时长之和，`breakPolicy.durationSeconds` 必须为 180 且 `skippable` 为 `true`。
+- 模块 `code` 必须稳定且不重复，`order` 和模块内 `number` 必须为不重复的正整数。
 - 每题有 `number`、`title`、`options`。
 - 每题必须保留 `examType`、`source_examType`、`year`。
 - 每题的 `examType` 必须与 `metadata.examType` 一致。

@@ -57,17 +57,21 @@ const props = withDefaults(
     mode: ExamMode
     countdownDurationSeconds: number
     expiresAt?: string | null
+    serverNow?: string | null
     initialElapsedSeconds?: number
     currentIndex: number
     totalCount: number
+    sectionTitle?: string
   }>(),
   {
     mode: 'question-bank',
     countdownDurationSeconds: 0,
     expiresAt: null,
+    serverNow: null,
     initialElapsedSeconds: 0,
     currentIndex: 0,
     totalCount: 0,
+    sectionTitle: '',
   },
 )
 
@@ -87,6 +91,9 @@ const backLabel = computed(() => config.value.backLabel)
 // 页面初始化时打点，后续 tick 基于此时间戳与 wall clock 对比
 const expiresAtTimestamp = props.expiresAt ? new Date(props.expiresAt).getTime() : Number.NaN
 const hasServerDeadline = Number.isFinite(expiresAtTimestamp)
+const serverClockOffsetMs = props.serverNow
+  ? new Date(props.serverNow).getTime() - Date.now()
+  : 0
 const startedAt = hasServerDeadline
   ? expiresAtTimestamp - Math.max(0, props.countdownDurationSeconds) * 1000
   : Date.now() - Math.max(0, props.initialElapsedSeconds) * 1000
@@ -116,11 +123,12 @@ const timerText = computed(() => {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 })
 
-// 顶部标题：考试类型 + 当前题号
+// 模块化考试在考试类型后补充当前科目，旧答题流程保持原有标题。
 const headerText = computed(() => {
   const label =
     EXAM_TYPE_OPTIONS.find((item) => item.value === props.examType)?.label || props.examType
-  return `${label}（第${props.currentIndex + 1}/${props.totalCount}题）`
+  const section = props.sectionTitle ? ` · ${props.sectionTitle}` : ''
+  return `${label}${section}（第${props.currentIndex + 1}/${props.totalCount}题）`
 })
 
 // 进度条百分比
@@ -131,7 +139,10 @@ const progressPercent = computed(() =>
 // 每次 tick 基于 wall clock 计算实际经过的秒数，扣除暂停时长
 function tick(): void {
   if (isCountdown.value && hasServerDeadline) {
-    const remainingSeconds = Math.max(0, Math.ceil((expiresAtTimestamp - Date.now()) / 1000))
+    const remainingSeconds = Math.max(
+      0,
+      Math.ceil((expiresAtTimestamp - (Date.now() + serverClockOffsetMs)) / 1000),
+    )
     timerElapsed.value = Math.max(0, props.countdownDurationSeconds - remainingSeconds)
   } else {
     timerElapsed.value = Math.max(0, Math.round((Date.now() - startedAt - pausedDuration) / 1000))

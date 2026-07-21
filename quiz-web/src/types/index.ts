@@ -3,6 +3,19 @@
 /** 题目类型：用于区分单选、多选和主观简答题。 */
 export type QuestionType = 'single_choice' | 'multiple_choice' | 'short_answer'
 
+/** ESAT 官方五个模块的稳定标识；展示名称不参与业务判断。 */
+export type EsatModuleCode = 'maths1' | 'maths2' | 'physics' | 'chemistry' | 'biology'
+
+export type PaperDeliveryMode = 'continuous' | 'module_sequence'
+
+/** 上传文档与 API 统一使用 module_sequence；module 仅作为兼容值。 */
+export type PaperDocumentDeliveryMode = PaperDeliveryMode | 'module'
+
+export interface PaperBreakPolicy {
+  durationSeconds: number
+  skippable: true
+}
+
 /** 试卷元数据：只描述整张试卷，不重复放到每一道题里。 */
 export interface PaperMetadata {
   paperName: string
@@ -11,6 +24,13 @@ export interface PaperMetadata {
   examType: string
   paperType: 'realPaper' | 'mockPaper' | 'aiPaper'
   totalQuestions: number
+  deliveryMode?: PaperDocumentDeliveryMode
+  /** @deprecated 兼容早期生成文件；新文件使用 breakPolicy。 */
+  breakDurationSeconds?: number
+  breakPolicy?: PaperBreakPolicy
+  assemblyType?: 'original' | 'legacy_equivalent' | string
+  sourceExamTypes?: string[]
+  remarks?: string
 }
 
 /** 题干内容块：题干按段落和图片引用顺序渲染。 */
@@ -68,6 +88,8 @@ export interface LearningAnalysis {
   answer_feedback_mode?: 'precomputed'
   exam_focus?: string
   correct_solution?: string
+  /** 旧解析文件兼容字段；导入时会归一化到 correct_solution。 */
+  solution?: string
   common_error_causes?: string[]
   review_guidance?: string
 }
@@ -91,17 +113,109 @@ export interface Question {
   is_ai_generated?: boolean
   subject_code?: string
   subject?: string
+  module_code?: EsatModuleCode
+  module_order?: number
+  module_question_number?: number
+  /** @deprecated 兼容早期组合卷；新数据使用 module_*。 */
+  component_code?: EsatModuleCode
+  component_order?: number
+  component_question_number?: number
   topic_code?: string
   topic?: string
   knowledge_points?: KnowledgePoint[]
+  syllabus_points?: Array<{ code: string; label: string }>
   learning_analysis?: LearningAnalysis
 }
 
-/** 标准试卷 JSON：上传和导入时的根结构。 */
-export interface StandardPaperJson {
-  metadata: PaperMetadata
-  questions: Question[]
+/** 作答接口题目：服务端不会下发正确答案或解析。 */
+export type AttemptQuestion = Omit<Question, 'answer' | 'learning_analysis'> & {
+  answer?: never
+  learning_analysis?: never
 }
+
+/** 通用题卡既渲染完整题目，也渲染不含答案的作答态题目。 */
+export type RenderableQuestion = Omit<Question, 'answer'> & { answer?: string[] }
+
+/** 上传态题目尚未生成数据库 id。 */
+export type QuestionInput = Omit<Question, 'id' | 'uniqueCode' | 'subject_code'> & {
+  id?: string
+  /** 外部试卷可使用数字考纲码；服务端入库前会统一转为字符串。 */
+  subject_code?: string | number
+}
+
+/** 模块化诊断卷：每个模块独立计时，模块内题号从 1 开始。 */
+export interface DiagnosticPaperModule {
+  code: EsatModuleCode
+  order: number
+  subject: string
+  subject_code: string | number
+  duration: number
+  totalQuestions?: number
+  questions: Array<QuestionInput & { code: string }>
+}
+
+export interface FlatPaperJson {
+  metadata: PaperMetadata
+  questions: QuestionInput[]
+  modules?: never
+}
+
+export interface ModularPaperJson {
+  schemaVersion: 'diagnostic-paper-v2'
+  code?: string
+  metadata: PaperMetadata & {
+    examType: 'ESAT'
+    deliveryMode: 'module_sequence'
+    breakPolicy: {
+      durationSeconds: 180
+      skippable: true
+    }
+  }
+  modules: DiagnosticPaperModule[]
+  questions?: never
+}
+
+/** 现有生成器过渡格式；导入器接受，但新文件应使用 ModularPaperJson。 */
+export interface LegacyGroupedPaperJson {
+  code?: string
+  metadata: PaperMetadata
+  questions: Array<{
+    /** 旧格式允许省略，导入器会由 subject 推导。 */
+    code?: EsatModuleCode
+    module_code?: EsatModuleCode
+    component_code?: EsatModuleCode
+    order?: number
+    subject: string
+    subject_code?: string | number
+    duration: number
+    items: QuestionInput[]
+  }>
+  modules?: never
+}
+
+/** 早期 modules[].items 格式；只用于兼容导入。 */
+export interface LegacyModuleItemsPaperJson {
+  code?: string
+  metadata: PaperMetadata
+  modules: Array<{
+    code?: EsatModuleCode
+    module_code?: EsatModuleCode
+    component_code?: EsatModuleCode
+    order?: number
+    subject: string
+    subject_code?: string | number
+    duration: number
+    totalQuestions?: number
+    items: QuestionInput[]
+  }>
+  questions?: never
+}
+
+export type StandardPaperJson =
+  | FlatPaperJson
+  | ModularPaperJson
+  | LegacyGroupedPaperJson
+  | LegacyModuleItemsPaperJson
 
 /** 前端考试态中的试卷对象。 */
 export interface Paper {
@@ -109,6 +223,16 @@ export interface Paper {
   year: number
   duration: number
   totalQuestions: number
+  deliveryMode?: PaperDeliveryMode
+  breakDurationSeconds?: number
+  modules?: Array<{
+    code: EsatModuleCode
+    subject: string
+    subjectCode?: string | null
+    order: number
+    durationSeconds: number
+    questionCount: number
+  }>
   questions: Question[]
 }
 

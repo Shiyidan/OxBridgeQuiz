@@ -104,10 +104,91 @@ export function parsePositiveInt(value: unknown, fallback: number, max?: number)
 
 // 学生作答数据不得提前下发正确答案或题目解析，完整结构仅供管理员预览和交卷后报告使用。
 export function formatQuestionForAttempt(row: any) {
+  const question = formatQuestionRow(row)
+  const contentBlocks: Array<Record<string, unknown>> = Array.isArray(question.content_blocks)
+    ? question.content_blocks.flatMap((block: any): Array<Record<string, unknown>> => {
+        if (block?.type === 'paragraph' && typeof block.text === 'string') {
+          return [{ type: 'paragraph', text: block.text }]
+        }
+        if (block?.type === 'image_ref' && typeof block.image_id === 'string') {
+          return [{
+            type: 'image_ref',
+            image_id: block.image_id,
+            ...(typeof block.alt === 'string' ? { alt: block.alt } : {}),
+          }]
+        }
+        return []
+      })
+    : []
+  const options = Array.isArray(question.options)
+    ? question.options.map((option: any) => ({
+        label: typeof option?.label === 'string' ? option.label : '',
+        text: typeof option?.text === 'string' ? option.text : '',
+        ...(typeof option?.image_id === 'string' ? { image_id: option.image_id } : {}),
+      }))
+    : []
+  const images: Array<Record<string, unknown>> = Array.isArray(question.images)
+    ? question.images.flatMap((image: any): Array<Record<string, unknown>> => {
+        if (image?.type === 'svg' && typeof image.svg === 'string') {
+          return [{
+            id: String(image.id || ''),
+            type: 'svg',
+            svg: image.svg,
+            alt: typeof image.alt === 'string' ? image.alt : '',
+          }]
+        }
+        if (image?.type === 'image' && typeof image.src === 'string') {
+          return [{
+            id: String(image.id || ''),
+            type: 'image',
+            src: image.src,
+            alt: typeof image.alt === 'string' ? image.alt : '',
+          }]
+        }
+        return []
+      })
+    : []
+  const knowledgePoints = Array.isArray(question.knowledge_points)
+    ? question.knowledge_points.map((point: any) => ({
+        code: typeof point?.code === 'string' ? point.code : '',
+        label: typeof point?.label === 'string' ? point.label : '',
+        ...(typeof point?.role === 'string' ? { role: point.role } : {}),
+      }))
+    : []
+  const syllabusPoints = Array.isArray(question.syllabus_points)
+    ? question.syllabus_points.map((point: any) => ({
+        code: typeof point?.code === 'string' ? point.code : '',
+        label: typeof point?.label === 'string' ? point.label : '',
+      }))
+    : []
+
+  // 作答态按白名单投影，嵌套对象中的解析、正确标记或生成器私有字段一律不下发。
   return {
-    ...formatQuestionRow(row),
-    answer: [],
-    learning_analysis: undefined,
+    id: question.id,
+    uniqueCode: question.uniqueCode,
+    code: question.code,
+    number: question.number,
+    module_code: question.module_code,
+    module_order: question.module_order,
+    module_question_number: question.module_question_number,
+    component_code: question.component_code,
+    component_order: question.component_order,
+    component_question_number: question.component_question_number,
+    title: question.title,
+    content_blocks: contentBlocks,
+    options,
+    images,
+    examType: question.examType,
+    source_examType: question.source_examType,
+    year: question.year,
+    question_type: question.question_type,
+    difficulty: question.difficulty,
+    subject: question.subject,
+    subject_code: question.subject_code,
+    topic: question.topic,
+    topic_code: question.topic_code,
+    knowledge_points: knowledgePoints,
+    syllabus_points: syllabusPoints,
   }
 }
 
@@ -159,4 +240,3 @@ export async function applySyllabusToTree(syllabus: { id: string; examType: stri
     })
   })
 }
-

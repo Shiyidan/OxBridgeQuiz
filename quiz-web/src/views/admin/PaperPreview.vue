@@ -1,3 +1,4 @@
+<!-- 管理端试卷预览：按模块分组复用正式题目渲染链路，并展示模块内题号。 -->
 <template>
   <div class="preview-page">
     <!-- 顶部返回 -->
@@ -32,6 +33,10 @@
               <span>时长：{{ paper.duration }} 分钟</span>
               <span class="meta-sep">·</span>
               <span>共 {{ questions.length }} 题</span>
+              <template v-if="paper.deliveryMode === 'module_sequence'">
+                <span class="meta-sep">·</span>
+                <span>科目间休息 {{ (paper.breakDurationSeconds || 0) / 60 }} 分钟</span>
+              </template>
               <span class="meta-sep">·</span>
               <span :class="`status-tag status-tag--${paper.status}`">{{
                 statusLabel(paper.status)
@@ -58,15 +63,28 @@
         </div>
 
         <!-- 题目列表 -->
+        <p v-if="paper.assemblyType === 'legacy_equivalent'" class="assembly-notice">
+          本卷为历年官方真题重组的 ESAT 等效诊断卷，并非某一场官方原版试卷。
+        </p>
         <div v-if="questions.length" class="questions-list">
-          <QuestionCard
-            v-for="(q, i) in questions"
-            :key="q.id || i"
-            :question="q"
-            :index="i"
-            :show-answer="true"
-            variant="exam"
-          />
+          <section v-for="group in questionGroups" :key="group.code" class="module-group">
+            <header v-if="paper.deliveryMode === 'module_sequence'" class="module-group__header">
+              <div>
+                <span>Module {{ group.order }}</span>
+                <h3>{{ group.label }}</h3>
+              </div>
+              <strong>{{ group.questions.length }} 题</strong>
+            </header>
+            <QuestionCard
+              v-for="(q, i) in group.questions"
+              :key="q.id || i"
+              :question="q"
+              :index="i"
+              :question-label="`${group.label} · Question ${q.module_question_number || q.component_question_number || i + 1}`"
+              :show-answer="true"
+              variant="exam"
+            />
+          </section>
         </div>
         <div v-else class="empty-card">暂无题目数据</div>
       </template>
@@ -91,10 +109,30 @@ const paper = ref<PaperDetail | null>(null)
 const questions = ref<Question[]>([])
 const loading = ref(true)
 
+// 模块卷按稳定 module code 和顺序分组；扁平卷归入单一连续分组。
+const questionGroups = computed(() => {
+  const groups = new Map<string, { code: string; label: string; order: number; questions: Question[] }>()
+  for (const question of questions.value) {
+    const code = question.module_code || question.component_code || 'continuous'
+    const existing = groups.get(code) || {
+      code,
+      label: question.subject || (code === 'continuous' ? '试卷题目' : code),
+      order: question.module_order || question.component_order || 1,
+      questions: [],
+    }
+    existing.questions.push(question)
+    groups.set(code, existing)
+  }
+  return [...groups.values()].sort((a, b) => a.order - b.order)
+})
+
+// 路由来源决定预览页返回试题库或真题库管理。
 const isQuestionBankPreview = computed(() => route.path.includes('/core-library/questions/'))
+// 返回路径与当前管理入口保持一致。
 const backPath = computed(() =>
   isQuestionBankPreview.value ? '/admin/core-library/questions' : '/admin/core-library/exams',
 )
+// 返回按钮文案与目标管理页面对应。
 const backLabel = computed(() =>
   isQuestionBankPreview.value ? '返回试题库管理' : '返回真题库列表',
 )
@@ -106,7 +144,7 @@ onMounted(async () => {
 
     // 预览页直接渲染标准题目结构。
     const raw = data.questions || []
-    questions.value = raw.map((q: any, idx: number) => ({
+    questions.value = raw.map((q, idx) => ({
       ...q,
       id: q.id || `q-${idx}`,
     }))
@@ -243,6 +281,43 @@ function statusLabel(s: string) {
   flex-direction: column;
   gap: 28px;
   max-width: 820px;
+}
+.module-group {
+  display: grid;
+  gap: 28px;
+}
+.module-group__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+.module-group__header span {
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.module-group__header h3 {
+  margin: 4px 0 0;
+  color: #0f172a;
+}
+.module-group__header strong {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+.assembly-notice {
+  max-width: 820px;
+  padding: 12px 16px;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.82rem;
 }
 
 /* SVG 兜底：Qwen 偶发忘记输出 width/height，用 CSS 补位 */

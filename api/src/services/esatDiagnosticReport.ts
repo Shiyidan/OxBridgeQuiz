@@ -1,6 +1,6 @@
 // ESAT 独立诊断策略：按实际模块分别估分、定位、分析难度并生成模块风险信号。
 import crypto from 'crypto'
-import { mapSubjectToEsatModule, quickEsatScore, type EsatModule } from './scoring.js'
+import { resolveEsatModule, quickEsatScore, type EsatModule } from './scoring.js'
 import { requestDeepSeekJson } from './deepseek.js'
 import type {
   AssessmentModule,
@@ -389,7 +389,10 @@ function buildOverview(
       const quadrantKey = `${speed}_${outcome}` as keyof typeof quadrantCounts
       quadrantCounts[quadrantKey] += 1
     }
-    const moduleId = mapSubjectToEsatModule(question.subject) || 'unclassified'
+    const moduleId = resolveEsatModule(
+      question.moduleCode ?? question.componentCode,
+      question.subject,
+    ) || 'unclassified'
     const group = moduleGroups.get(moduleId) || []
     group.push({ question, expectedDurationSeconds })
     moduleGroups.set(moduleId, group)
@@ -472,7 +475,10 @@ function buildKnowledgeMastery(
   const syllabusLabels = new Map(syllabusNodes.map((node) => [node.code, node.label]))
   const moduleGroups = new Map<string, ReportQuestionInput[]>()
   for (const question of questions) {
-    const moduleId = mapSubjectToEsatModule(question.subject) || 'unclassified'
+    const moduleId = resolveEsatModule(
+      question.moduleCode ?? question.componentCode,
+      question.subject,
+    ) || 'unclassified'
     const group = moduleGroups.get(moduleId) || []
     group.push(question)
     moduleGroups.set(moduleId, group)
@@ -563,7 +569,10 @@ function buildAbilityMatrix(
   const syllabusLabels = new Map(syllabusNodes.map((node) => [node.code, node.label]))
   const topicGroups = new Map<string, { moduleId: string; label: string; questions: ReportQuestionInput[] }>()
   for (const question of questions) {
-    const moduleId = mapSubjectToEsatModule(question.subject) || 'unclassified'
+    const moduleId = resolveEsatModule(
+      question.moduleCode ?? question.componentCode,
+      question.subject,
+    ) || 'unclassified'
     const topicCode = question.topicCode?.trim() || `${moduleId}-unmapped`
     const key = `${moduleId}:${topicCode}`
     const group = topicGroups.get(key) || {
@@ -1213,7 +1222,10 @@ export async function buildEsatDiagnosticReportSummary(input: {
 }): Promise<DiagnosticReportSummary> {
   const groups = new Map<string, ReportQuestionInput[]>()
   for (const question of [...input.questions].sort((a, b) => a.number - b.number)) {
-    const moduleId = mapSubjectToEsatModule(question.subject) || 'unclassified'
+    const moduleId = resolveEsatModule(
+      question.moduleCode ?? question.componentCode,
+      question.subject,
+    ) || 'unclassified'
     const group = groups.get(moduleId) || []
     group.push(question)
     groups.set(moduleId, group)

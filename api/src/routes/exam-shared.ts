@@ -22,6 +22,7 @@ import {
   EXAM_TYPE,
   EXAM_TYPES,
   EXAM_RECORD_STATUS,
+  PAPER_DELIVERY_MODE,
   PAPER_TYPE,
   QUESTION_BANK_PAPER_TYPES,
   REAL_PAPER_TYPES,
@@ -168,7 +169,8 @@ export function responseMaps(responses: ExamResponseInput[]): {
   return { answers, durations, states }
 }
 
-export function usesContinuousExamClock(paperType: unknown): boolean {
+export function usesContinuousExamClock(paperType: unknown, deliveryMode?: unknown): boolean {
+  if (deliveryMode === PAPER_DELIVERY_MODE.MODULE_SEQUENCE) return false
   const normalized = normalizePaperType(paperType)
   return normalized === PAPER_TYPE.REAL_PAPER || normalized === PAPER_TYPE.MOCK_PAPER
 }
@@ -234,6 +236,7 @@ export function jsonPointsHaveCode(value: unknown, codes: string[]): boolean {
 
 export function calculateNinePointScore(examType: string, totalQuestions: number, correctCount: number): number | null {
   if (totalQuestions <= 0) return null
+  if (examType === 'ESAT') return null
   const dummyQuestions: QuestionResult[] = Array.from({ length: totalQuestions }, (_, i) => ({
     subject: null,
     isCorrect: i < correctCount,

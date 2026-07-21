@@ -131,7 +131,7 @@ const questionNav = computed(() =>
 )
 const la = computed(() => currentQuestion.value?.learning_analysis)
 const examFocusText = computed(() => la.value?.exam_focus || '')
-const correctSolution = computed(() => la.value?.correct_solution || '')
+const correctSolution = computed(() => la.value?.correct_solution || la.value?.solution || '')
 const solutionSteps = computed(() => la.value?.solution_trace?.steps || [])
 const finalValue = computed(() => la.value?.solution_trace?.final_value || '')
 const distractorReasons = computed(() =>

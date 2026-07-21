@@ -14,6 +14,7 @@ import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { logRuntimeError } from '../utils/runtimeLogger.js'
 import {
   EXAM_TYPE,
+  PAPER_DELIVERY_MODE,
   QUESTION_BANK_PAPER_TYPES,
   REAL_PAPER_TYPES,
   USER_ROLE,
@@ -194,7 +195,14 @@ questionBankRouter.get('/assessment/papers', requireAuth, async (req, res) => {
   try {
     const [papers, records, currentReports] = await Promise.all([
       prisma.paper.findMany({
-        where: { status: 'published', paperType: { in: [...REAL_PAPER_TYPES] } },
+        where: {
+          status: 'published',
+          paperType: { in: [...REAL_PAPER_TYPES] },
+          OR: [
+            { examType: { not: EXAM_TYPE.ESAT } },
+            { deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE },
+          ],
+        },
         select: {
           id: true,
           title: true,
@@ -204,6 +212,11 @@ questionBankRouter.get('/assessment/papers', requireAuth, async (req, res) => {
           duration: true,
           totalQuestions: true,
           paperType: true,
+          deliveryMode: true,
+          breakDurationSeconds: true,
+          moduleConfig: true,
+          assemblyType: true,
+          remarks: true,
           createdAt: true,
         },
         orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
@@ -211,7 +224,14 @@ questionBankRouter.get('/assessment/papers', requireAuth, async (req, res) => {
       prisma.examRecord.findMany({
         where: {
           userId: req.user!.userId,
-          paper: { paperType: { in: [...REAL_PAPER_TYPES] }, status: 'published' },
+          paper: {
+            paperType: { in: [...REAL_PAPER_TYPES] },
+            status: 'published',
+            OR: [
+              { examType: { not: EXAM_TYPE.ESAT } },
+              { deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE },
+            ],
+          },
         },
         select: {
           id: true,
@@ -221,6 +241,9 @@ questionBankRouter.get('/assessment/papers', requireAuth, async (req, res) => {
           correctCount: true,
           startedAt: true,
           expiresAt: true,
+          phase: true,
+          currentModuleIndex: true,
+          phaseExpiresAt: true,
           submittedAt: true,
           durationSeconds: true,
           _count: {
@@ -235,7 +258,14 @@ questionBankRouter.get('/assessment/papers', requireAuth, async (req, res) => {
       prisma.diagnosticReport.findMany({
         where: {
           userId: req.user!.userId,
-          paper: { paperType: { in: [...REAL_PAPER_TYPES] }, status: 'published' },
+          paper: {
+            paperType: { in: [...REAL_PAPER_TYPES] },
+            status: 'published',
+            OR: [
+              { examType: { not: EXAM_TYPE.ESAT } },
+              { deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE },
+            ],
+          },
         },
         select: { paperId: true, examRecordId: true, generationMode: true, completedAt: true },
       }),
@@ -272,12 +302,20 @@ questionBankRouter.get('/assessment/papers', requireAuth, async (req, res) => {
           duration: paper.duration,
           totalQuestions: paper.totalQuestions,
           paperType: paper.paperType,
+          deliveryMode: paper.deliveryMode,
+          breakDurationSeconds: paper.breakDurationSeconds,
+          modules: parseJsonField(paper.moduleConfig, []),
+          assemblyType: paper.assemblyType,
+          remarks: paper.remarks,
           testStatus,
           examRecordId: record?.id || null,
           answeredCount: record?._count.answers || 0,
           correctCount: record?.status === 'submitted' ? record.correctCount : null,
           startedAt: record?.startedAt || null,
           expiresAt: record?.expiresAt || null,
+          phase: record?.phase || null,
+          currentModuleIndex: record?.currentModuleIndex ?? null,
+          phaseExpiresAt: record?.phaseExpiresAt || null,
           submittedAt: record?.submittedAt || null,
           durationSeconds: record?.status === 'submitted' ? record.durationSeconds : null,
           reportStatus,

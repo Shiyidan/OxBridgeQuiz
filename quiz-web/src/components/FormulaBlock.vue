@@ -28,6 +28,16 @@ const props = withDefaults(defineProps<Props>(), {
  */
 const renderCache = new Map<string, string>()
 
+// KaTeX 异常回退仍进入 v-html，因此必须先转义用户试卷中的原始公式文本。
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 const renderedFormula = computed<string>(() => {
   const key = `${props.displayMode ? 'D' : 'I'}|${props.latex}`
   const cached = renderCache.get(key)
@@ -43,7 +53,7 @@ const renderedFormula = computed<string>(() => {
     return html
   } catch (e) {
     console.error('KaTeX render error:', e)
-    return `<span class="formula-error">${props.latex}</span>`
+    return `<span class="formula-error">${escapeHtml(props.latex)}</span>`
   }
 })
 </script>

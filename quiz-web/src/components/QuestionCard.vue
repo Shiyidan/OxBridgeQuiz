@@ -1,7 +1,8 @@
+<!-- 题目通用渲染卡：按内容块顺序安全展示文本、公式、题图与选项。 -->
 <template>
   <article :class="['question-card', `question-card--${variant}`]">
     <!-- 题号小标 -->
-    <div class="question-card__label">Question {{ index + 1 }}</div>
+    <div class="question-card__label">{{ questionLabel || `Question ${index + 1}` }}</div>
     <div v-if="metaTags.length" class="question-card__meta-tags">
       <span v-for="tag in metaTags" :key="tag" class="question-card__meta-tag">
         {{ tag }}
@@ -10,7 +11,7 @@
 
     <!-- 内容区：按标准 content_blocks 渲染图文混排题干 -->
     <div class="question-card__prompt">
-      <template v-for="(block, idx) in question.content_blocks" :key="idx">
+      <template v-for="(block, idx) in contentBlocks" :key="idx">
         <div v-if="block.type === 'paragraph'" class="question-card__stem">
           <LatexText :text="block.text" />
         </div>
@@ -19,11 +20,11 @@
           class="question-card__media"
         >
           <div class="question-card__media-item">
-            <div
+            <img
               v-if="isSvgImage(block.image_id)"
               class="question-card__svg"
-              :aria-label="getImageAlt(block.image_id, block.alt)"
-              v-html="getSvgMarkup(block.image_id)"
+              :src="getSvgImageSrc(block.image_id)"
+              :alt="getImageAlt(block.image_id, block.alt)"
             />
             <img
               v-else
@@ -51,11 +52,11 @@
         <span class="opt-card__text">
           <LatexText v-if="opt.text" :text="opt.text" />
           <span v-if="opt.image_id && getImageById(opt.image_id)" class="opt-card__media">
-            <span
+            <img
               v-if="isSvgImage(opt.image_id)"
               class="opt-card__svg"
-              :aria-label="getImageAlt(opt.image_id)"
-              v-html="getSvgMarkup(opt.image_id)"
+              :src="getSvgImageSrc(opt.image_id)"
+              :alt="getImageAlt(opt.image_id)"
             />
             <img
               v-else
@@ -74,15 +75,16 @@
 // 题目渲染卡片（试题库、练习页、试卷预览共用）
 import { computed } from 'vue'
 import LatexText from './LatexText.vue'
-import type { Question, QuestionImage } from '@/types'
+import type { QuestionImage, RenderableQuestion } from '@/types'
 
 interface Props {
-  question: Question
+  question: RenderableQuestion
   index: number
   selectedAnswer?: string
   showAnswer?: boolean
   variant?: 'default' | 'exam'
   metaTags?: string[]
+  questionLabel?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -95,18 +97,29 @@ const emit = defineEmits<{
   (e: 'select', label: string): void
 }>()
 
+// 历史题缺少内容块时回退到 title，避免预览和报告出现空题干。
+const contentBlocks = computed(() => {
+  if (Array.isArray(props.question.content_blocks) && props.question.content_blocks.length) {
+    return props.question.content_blocks
+  }
+  return [{ type: 'paragraph' as const, text: props.question.title || '' }]
+})
+
 // 根据 image_ref 的 image_id 匹配 images 数组中的图片
 function getImageById(imageId: string | undefined): QuestionImage | null {
   if (!imageId) return null
-  return props.question.images.find((i) => i.id === imageId) || null
+  return (props.question.images || []).find((i) => i.id === imageId) || null
 }
 
+// 组件只上报选项标签，答案状态由考试页或预览页维护。
 const handleSelect = (label: string): void => {
   emit('select', label)
 }
 
 function normalizeImageSrc(src: string): string {
-  if (/^(https?:|data:|blob:|\/)/i.test(src)) return src
+  if (/^data:image\/(?:png|jpe?g|gif|webp);base64,/i.test(src)) return src
+  if (/^(https?:|blob:|\/)/i.test(src)) return src
+  if (/^[a-z][a-z0-9+.-]*:/i.test(src)) return ''
   return `/${src.replace(/^\.?\//, '')}`
 }
 
@@ -123,9 +136,11 @@ function getRasterImageSrc(imageId: string | undefined): string {
   return image?.type === 'image' ? normalizeImageSrc(image.src) : ''
 }
 
-function getSvgMarkup(imageId: string | undefined): string {
+function getSvgImageSrc(imageId: string | undefined): string {
   const image = getImageById(imageId)
-  return image?.type === 'svg' ? image.svg : ''
+  return image?.type === 'svg'
+    ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(image.svg)}`
+    : ''
 }
 
 const answerSet = computed<Set<string>>(() => new Set(props.question.answer || []))
@@ -237,12 +252,9 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
 
   .question-card__svg {
     width: min(100%, 320px);
-    margin: 0 auto;
-  }
-
-  .question-card__svg :deep(svg) {
-    width: 100%;
     max-height: 280px;
+    margin: 0 auto;
+    object-fit: contain;
   }
 
   .question-card__img {
@@ -393,13 +405,6 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
 
 .question-card__svg {
   max-width: 100%;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-}
-
-.question-card__svg :deep(svg) {
-  max-width: 100%;
   width: min(100%, 360px);
   height: auto;
   display: block;
@@ -505,12 +510,7 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
 .opt-card__svg {
   display: block;
   max-width: 100%;
-
-  :deep(svg) {
-    max-width: 100%;
-    height: auto;
-    display: block;
-  }
+  height: auto;
 }
 
 .opt-card__img {

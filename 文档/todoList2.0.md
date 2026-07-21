@@ -19,7 +19,7 @@ P1 业务逻辑 Bug
 - [ ] P1-2 解析任务只保留前 10 道题
 - [ ] P1-3 解析任务内存在服务重启后丢失
 - [ ] P1-4 答题结果中无匹配题目时静默降级
-- [ ] P1-5 “重新测试”通过 debugRetake 绕过诊断额度
+- [x] P1-5 “重新测试”曾绕过诊断额度
 - [ ] P1-6 诊断真题错题本未直达逐题解析
 
 P2 代码重复 & 规范不一致
@@ -113,11 +113,11 @@ P5 代码整洁
 - **问题**：当 `questionMap` 匹配不到题目时返回空壳对象（空标题、空选项），前端展示空白，用户完全不知道出了什么问题
 - **方案**：匹配失败时记录 warning 日志，并在返回数据中标记 `_unmatched: true`，前端据此展示降级提示
 
-### P1-5 “重新测试”通过 debugRetake 绕过诊断额度
+### P1-5 “重新测试”曾绕过诊断额度
 
-- **位置**：[`quiz-web/src/views/assessment/AssessmentHomeView.vue`](quiz-web/src/views/assessment/AssessmentHomeView.vue) `handleRetestPaper()`、[`api/src/routes/exam.ts`](api/src/routes/exam.ts) `/start` 与 `/:id/submit`
-- **问题**：正式页面的“重新测试”会由客户端传入 `debugRetake=1`，后端据此跳过开始和交卷阶段的诊断额度校验。普通用户可直接构造该参数无限次创建和提交诊断测试
-- **方案**：正式重新测试不传 `debugRetake`，按正常额度规则创建新的 `ExamRecord`；如需保留开发调试能力，仅允许本地环境或经过后端管理员身份校验的请求使用，不能信任客户端布尔参数
+- **位置**：[`quiz-web/src/views/assessment/AssessmentHomeView.vue`](quiz-web/src/views/assessment/AssessmentHomeView.vue) `handleRetestPaper()`、[`api/src/routes/exam-session.ts`](api/src/routes/exam-session.ts) `/start` 与 `/:id/submit`
+- **原问题**：正式重新测试曾允许客户端信息影响额度校验，存在普通用户重复创建和提交诊断测试的风险。
+- **处理结果**：2026-07-21 已统一为正式重测流程。前端复用正常开始请求；后端在开始前校验权益，并在交卷事务内复核权益，同一用户同一考试类型的进行中诊断由 `activeDiagnosticKey` 唯一约束。当前运行代码不存在任何客户端重测豁免参数。
 
 ### P1-6 诊断真题错题本未直达逐题解析
 

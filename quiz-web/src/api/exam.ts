@@ -2,7 +2,7 @@
  * 考试 / 答卷 / 错题本 相关 API
  */
 import { callApi } from '@/utils/request'
-import type { Question } from '@/types'
+import type { AttemptQuestion, Question } from '@/types'
 
 // ---- 类型 ----
 
@@ -19,15 +19,41 @@ export interface StartExamParams {
   paperId?: string
   examType: string
   questionIds?: string[]
-  startedAt: string
-  debugRetake?: boolean
+  startedAt?: string
 }
 
 export interface SubmitParams {
   responses: ExamResponseInput[]
-  startedAt: string
-  debugRetake?: boolean
+  startedAt?: string
   submissionKey?: string
+}
+
+export type ExamPhase = 'continuous' | 'answering' | 'break' | 'ready_to_submit' | 'submitted'
+
+export interface ExamModuleState {
+  code: string
+  label: string
+  subjectCode: string | null
+  order: number
+  durationSeconds: number
+  totalQuestions: number
+  status: 'pending' | 'in_progress' | 'completed'
+}
+
+export interface ActiveExamModule extends ExamModuleState {
+  startedAt: string
+  expiresAt: string
+  questions: AttemptQuestion[]
+}
+
+export interface ExamBreakState {
+  afterModuleCode: string
+  nextModuleCode: string
+  nextModuleLabel: string
+  startedAt: string
+  endsAt: string
+  durationSeconds: number
+  canSkip: true
 }
 
 export interface ExamProgress {
@@ -44,6 +70,15 @@ export interface ExamProgress {
   durationSeconds: number
   isResumed?: boolean
   isExpired?: boolean
+  deliveryMode?: 'continuous' | 'module_sequence'
+  phase?: ExamPhase
+  serverNow?: string
+  currentModuleIndex?: number
+  modules?: ExamModuleState[]
+  currentModule?: ActiveExamModule | null
+  break?: ExamBreakState | null
+  questions?: AttemptQuestion[]
+  activeDurationSeconds?: number
 }
 
 export interface StartExamResult extends Omit<ExamProgress, 'id'> {
@@ -115,9 +150,9 @@ export interface ModuleScore {
 export interface ScoringResult {
   examType: string
   strategy: string
-  overallScore: number
-  overallBand: string
-  overallBandLabel: string
+  overallScore: number | null
+  overallBand: string | null
+  overallBandLabel: string | null
   modules: ModuleScore[]
   generatedAt: string
 }
@@ -427,6 +462,35 @@ export function saveExamProgress(examId: string, responses: ExamResponseInput[])
     method: 'PUT',
     isAllData: false,
     body: { responses },
+  })
+}
+
+/** 恢复模块化诊断会话；题目范围和阶段均由服务端决定。 */
+export function getModuleExamSession(examId: string) {
+  return callApi<StartExamResult>({
+    url: `/exams/${examId}/session`,
+    method: 'GET',
+    isAllData: false,
+  })
+}
+
+/** 锁定当前科目答案，并进入休息或最终交卷阶段。 */
+export function completeExamModule(examId: string, responses: ExamResponseInput[]) {
+  return callApi<StartExamResult>({
+    url: `/exams/${examId}/module/complete`,
+    method: 'POST',
+    isAllData: false,
+    body: { responses },
+  })
+}
+
+/** 跳过当前三分钟休息并立即开始下一科目。 */
+export function skipExamBreak(examId: string) {
+  return callApi<StartExamResult>({
+    url: `/exams/${examId}/break/skip`,
+    method: 'POST',
+    isAllData: false,
+    body: {},
   })
 }
 

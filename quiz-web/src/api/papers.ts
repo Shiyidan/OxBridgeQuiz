@@ -2,6 +2,16 @@
  * 试卷 相关 API
  */
 import { callApi } from '@/utils/request'
+import type { PaperDeliveryMode, Question } from '@/types'
+
+export interface PaperModuleOutline {
+  code: string
+  subject: string
+  subjectCode: string | null
+  order: number
+  durationSeconds: number
+  questionCount: number
+}
 
 export interface PaperItem {
   id: string
@@ -12,6 +22,11 @@ export interface PaperItem {
   totalQuestions: number
   examType?: string
   paperType?: string
+  deliveryMode?: PaperDeliveryMode
+  breakDurationSeconds?: number
+  modules?: PaperModuleOutline[]
+  assemblyType?: string
+  remarks?: string | null
   status: string
   createdAt: string
 }
@@ -40,7 +55,7 @@ export interface PaperListParams {
 
 export interface PaperDetail extends PaperItem {
   updatedAt: string
-  questions: any[]
+  questions: Question[]
 }
 
 /** 试卷列表 */
@@ -99,12 +114,20 @@ export interface AssessmentPaperItem {
   totalQuestions: number
   examType?: string
   paperType: string
+  deliveryMode: PaperDeliveryMode
+  breakDurationSeconds: number
+  modules: PaperModuleOutline[]
+  assemblyType: string
+  remarks: string | null
   testStatus: 'not_started' | 'in_progress' | 'completed'
   examRecordId: string | null
   answeredCount: number
   correctCount: number | null
   startedAt: string | null
   expiresAt: string | null
+  phase: string | null
+  currentModuleIndex: number | null
+  phaseExpiresAt: string | null
   submittedAt: string | null
   durationSeconds: number | null
   reportStatus: 'not_generated' | 'pending' | 'analyzing' | 'completed' | 'failed' | null

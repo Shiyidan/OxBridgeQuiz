@@ -1,7 +1,28 @@
 /**
  * Markdown 导入校验器 — 提取 JSON 代码块、结构校验、安全清洗
  */
-import { isExamType, isPaperType } from '../constants/domain.js'
+import {
+  ESAT_MODULE,
+  ESAT_MODULES,
+  EXAM_TYPE,
+  PAPER_DELIVERY_MODE,
+  isExamType,
+  isPaperType,
+} from '../constants/domain.js'
+
+export interface PaperBreakPolicy {
+  durationSeconds: number
+  skippable: true
+}
+
+export interface StandardPaperModule {
+  code: string
+  subject: string
+  subjectCode: string | null
+  order: number
+  durationSeconds: number
+  questionCount: number
+}
 
 export interface StandardPaperMetadata {
   paperName: string
@@ -10,6 +31,13 @@ export interface StandardPaperMetadata {
   examType: string
   paperType: string
   totalQuestions: number
+  deliveryMode: string
+  breakDurationSeconds: number
+  moduleConfig: StandardPaperModule[]
+  breakPolicy: PaperBreakPolicy
+  assemblyType: string
+  sourceExamTypes: string[]
+  remarks: string | null
 }
 
 export interface ValidationError {
@@ -20,6 +48,7 @@ export interface ValidationError {
 export interface ProcessResult {
   metadata: StandardPaperMetadata | null
   questions: any[]
+  modules: StandardPaperModule[]
   errors: ValidationError[]
   warnings: string[]
 }
@@ -39,6 +68,44 @@ const SVG_BLOCK_RE = /<svg\b[\s\S]*?<\/svg\s*>/gi
 // 合法的 LaTeX 占位符，不可作为安全标记移除
 const PLACEHOLDER_RE = /\[\[(BS|NL|PARA|FIG)\]\]/g
 const DEPRECATED_QUESTION_FIELDS = ['correctAnswer', 'content', 'order']
+const DEFAULT_MODULE_BREAK_SECONDS = 180
+const SAFE_RASTER_DATA_URI = /^data:image\/(?:png|jpe?g|gif|webp);base64,[a-z0-9+/=\s]+$/i
+
+const ESAT_MODULE_ALIASES: Record<string, string> = {
+  m1: ESAT_MODULE.MATHS_1,
+  math1: ESAT_MODULE.MATHS_1,
+  maths1: ESAT_MODULE.MATHS_1,
+  mathematics1: ESAT_MODULE.MATHS_1,
+  m2: ESAT_MODULE.MATHS_2,
+  math2: ESAT_MODULE.MATHS_2,
+  maths2: ESAT_MODULE.MATHS_2,
+  mathematics2: ESAT_MODULE.MATHS_2,
+  physics: ESAT_MODULE.PHYSICS,
+  chemistry: ESAT_MODULE.CHEMISTRY,
+  biology: ESAT_MODULE.BIOLOGY,
+}
+
+const ESAT_MODULE_SUBJECT_CODES: Record<string, string> = {
+  [ESAT_MODULE.MATHS_1]: '110000',
+  [ESAT_MODULE.MATHS_2]: '120000',
+  [ESAT_MODULE.PHYSICS]: '130000',
+  [ESAT_MODULE.CHEMISTRY]: '140000',
+  [ESAT_MODULE.BIOLOGY]: '150000',
+}
+
+// 外部文件可使用科目全名或短码；入库前统一为稳定的 ESAT module code。
+export function normalizeEsatModuleCode(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const key = value.toLowerCase().replace(/[^a-z0-9]/g, '')
+  return ESAT_MODULE_ALIASES[key] || null
+}
+
+// 位图只允许站内相对地址、HTTP(S)、临时 blob 或常见位图 base64，禁止 data:SVG/HTML。
+function isSafeRasterImageSource(value: string): boolean {
+  if (SAFE_RASTER_DATA_URI.test(value)) return true
+  if (/^(?:https?:|blob:|\/)/i.test(value)) return true
+  return !/^[a-z][a-z0-9+.-]*:/i.test(value)
+}
 
 export function extractJsonBlocks(md: string): { index: number; raw: string }[] {
   const blocks: { index: number; raw: string }[] = []
@@ -58,47 +125,258 @@ export function extractJsonBlocks(md: string): { index: number; raw: string }[] 
 export function validateStandardPaperDocument(input: any): {
   metadata: StandardPaperMetadata | null
   questions: any[]
+  modules: StandardPaperModule[]
   errors: ValidationError[]
+  warnings: string[]
 } {
   const errors: ValidationError[] = []
-  const metadata = input?.metadata
-  const questions = input?.questions
+  const warnings: string[] = []
+  const rawMetadata = input?.metadata
 
-  if (!metadata || typeof metadata !== 'object') {
+  if (!rawMetadata || typeof rawMetadata !== 'object') {
     errors.push({ block: 0, message: '缺少标准根字段 metadata' })
   } else {
-    if (!metadata.paperName || typeof metadata.paperName !== 'string') {
+    if (!rawMetadata.paperName || typeof rawMetadata.paperName !== 'string') {
       errors.push({ block: 0, message: 'metadata.paperName 必须为试卷名称' })
     }
-    if (typeof metadata.year !== 'number' || !Number.isFinite(metadata.year)) {
+    if (typeof rawMetadata.year !== 'number' || !Number.isFinite(rawMetadata.year)) {
       errors.push({ block: 0, message: 'metadata.year 必须为数字年份' })
     }
-    if (typeof metadata.duration !== 'number' || !Number.isFinite(metadata.duration)) {
+    if (typeof rawMetadata.duration !== 'number' || !Number.isFinite(rawMetadata.duration)) {
       errors.push({ block: 0, message: 'metadata.duration 必须为数字分钟数' })
     }
-    if (!isExamType(metadata.examType)) {
+    if (!isExamType(rawMetadata.examType)) {
       errors.push({ block: 0, message: 'metadata.examType 不是系统支持的考试类型' })
     }
-    if (!isPaperType(metadata.paperType)) {
+    if (!isPaperType(rawMetadata.paperType)) {
       errors.push({ block: 0, message: 'metadata.paperType 必须为 realPaper、mockPaper 或 aiPaper' })
     }
-    if (typeof metadata.totalQuestions !== 'number' || !Number.isFinite(metadata.totalQuestions)) {
+    if (typeof rawMetadata.totalQuestions !== 'number' || !Number.isFinite(rawMetadata.totalQuestions)) {
       errors.push({ block: 0, message: 'metadata.totalQuestions 必须为数字' })
     }
   }
 
-  if (!Array.isArray(questions) || questions.length === 0) {
-    errors.push({ block: 0, message: 'questions 必须是非空数组' })
-    return { metadata: metadata || null, questions: [], errors }
+  const explicitModules = Array.isArray(input?.modules) ? input.modules : null
+  const isCanonicalModuleDocument = Boolean(
+    explicitModules
+    && explicitModules.length > 0
+    && explicitModules.every((module: any) => Array.isArray(module?.questions)),
+  )
+  const legacyModuleItemsAlias = Boolean(
+    explicitModules?.some(
+      (module: any) => Array.isArray(module?.items) && !Array.isArray(module?.questions),
+    ),
+  )
+  const legacyModuleAlias = !explicitModules
+    && Array.isArray(input?.questions)
+    && input.questions.length > 0
+    && input.questions.every((item: any) => Array.isArray(item?.items))
+      ? input.questions
+      : null
+  const rawModules = explicitModules || legacyModuleAlias
+  const isModular = Boolean(rawModules)
+
+  if (isCanonicalModuleDocument && input?.schemaVersion !== 'diagnostic-paper-v2') {
+    errors.push({ block: 0, message: '标准模块卷 schemaVersion 必须为 diagnostic-paper-v2' })
   }
 
-  if (metadata?.totalQuestions !== undefined && metadata.totalQuestions !== questions.length) {
-    errors.push({ block: 0, message: 'metadata.totalQuestions 必须等于 questions.length' })
+  if (
+    rawMetadata?.examType === EXAM_TYPE.ESAT
+    && rawMetadata?.paperType === 'realPaper'
+    && !isModular
+  ) {
+    warnings.push('扁平 ESAT 真题仅可作为草稿兼容导入；发布诊断卷前必须改为三模块 modules[].questions')
   }
 
-  for (let i = 0; i < questions.length; i++) {
-    const q = questions[i]
-    const label = `题目 ${q.number ?? `索引${i + 1}`}`
+  if (legacyModuleAlias) {
+    warnings.push('检测到兼容格式 questions[].items；新组合卷建议改用 modules[].questions')
+  }
+  if (legacyModuleItemsAlias) {
+    warnings.push('检测到兼容格式 modules[].items；新组合卷建议改用 modules[].questions')
+  }
+
+  if (!isModular && (!Array.isArray(input?.questions) || input.questions.length === 0)) {
+    errors.push({ block: 0, message: '扁平试卷需要非空 questions；模块试卷需要非空 modules' })
+    return { metadata: null, questions: [], modules: [], errors, warnings }
+  }
+  if (rawModules && rawModules.length === 0) {
+    errors.push({ block: 0, message: 'modules 必须是非空数组' })
+  }
+
+  const normalizedQuestions: any[] = []
+  const modules: StandardPaperModule[] = []
+  const sourceExamTypes = new Set<string>()
+  const sourceQuestionCodes = new Set<string>()
+
+  if (rawModules) {
+    if (rawMetadata?.examType === EXAM_TYPE.ESAT && rawModules.length !== 3) {
+      errors.push({ block: 0, message: 'ESAT 模块诊断卷必须恰好包含 3 个科目模块' })
+    }
+
+    const usedModuleCodes = new Set<string>()
+    const usedOrders = new Set<number>()
+    let globalNumber = 1
+    for (let moduleIndex = 0; moduleIndex < rawModules.length; moduleIndex++) {
+      const rawModule = rawModules[moduleIndex] || {}
+      const moduleItems = Array.isArray(rawModule.questions)
+        ? rawModule.questions
+        : Array.isArray(rawModule.items)
+          ? rawModule.items
+          : []
+      const subject = typeof rawModule.subject === 'string' ? rawModule.subject.trim() : ''
+      if (
+        isCanonicalModuleDocument
+        && (typeof rawModule.code !== 'string' || !rawModule.code.trim())
+      ) {
+        errors.push({
+          block: 0,
+          message: `模块 ${moduleIndex + 1}：标准 modules[].questions 格式必须填写 code`,
+        })
+      }
+      const moduleCode = normalizeEsatModuleCode(
+        rawModule.code || rawModule.module_code || rawModule.component_code || subject,
+      )
+      if (
+        isCanonicalModuleDocument
+        && moduleCode
+        && typeof rawModule.code === 'string'
+        && rawModule.code.trim().toLowerCase() !== moduleCode
+      ) {
+        errors.push({
+          block: 0,
+          message: `模块 ${moduleIndex + 1}：code 必须使用稳定值 ${moduleCode}`,
+        })
+      }
+      if (isCanonicalModuleDocument && !Number.isInteger(rawModule.order)) {
+        errors.push({ block: 0, message: `模块 ${moduleIndex + 1}：标准格式必须显式填写正整数 order` })
+      }
+      const order = Number.isInteger(rawModule.order) ? rawModule.order : moduleIndex + 1
+      const durationMinutes = Number(rawModule.duration)
+
+      if (!moduleCode || !ESAT_MODULES.includes(moduleCode as any)) {
+        errors.push({ block: 0, message: `模块 ${moduleIndex + 1}：无法识别科目代码或科目名称` })
+      } else if (usedModuleCodes.has(moduleCode)) {
+        errors.push({ block: 0, message: `模块 ${moduleIndex + 1}：科目 ${moduleCode} 重复` })
+      } else {
+        usedModuleCodes.add(moduleCode)
+      }
+      if (!subject) errors.push({ block: 0, message: `模块 ${moduleIndex + 1}：缺少 subject` })
+      if (!Number.isInteger(order) || order < 1 || usedOrders.has(order)) {
+        errors.push({ block: 0, message: `模块 ${moduleIndex + 1}：order 必须为不重复的正整数` })
+      }
+      usedOrders.add(order)
+      if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
+        errors.push({ block: 0, message: `模块 ${moduleIndex + 1}：duration 必须为正数分钟` })
+      }
+      if (!moduleItems.length) {
+        errors.push({ block: 0, message: `模块 ${moduleIndex + 1}：questions 必须是非空数组` })
+      }
+      if (
+        rawModule.totalQuestions !== undefined
+        && Number(rawModule.totalQuestions) !== moduleItems.length
+      ) {
+        errors.push({
+          block: 0,
+          message: `模块 ${moduleIndex + 1}：totalQuestions 必须等于 questions.length`,
+        })
+      }
+
+      const subjectCode = typeof rawModule.subject_code === 'string'
+        ? rawModule.subject_code
+        : rawModule.subject_code == null
+          ? null
+          : String(rawModule.subject_code)
+      const expectedSubjectCode = moduleCode ? ESAT_MODULE_SUBJECT_CODES[moduleCode] : null
+      if (isCanonicalModuleDocument && !subjectCode) {
+        errors.push({ block: 0, message: `模块 ${moduleIndex + 1}：标准格式必须填写 subject_code` })
+      } else if (subjectCode && expectedSubjectCode && subjectCode !== expectedSubjectCode) {
+        errors.push({
+          block: 0,
+          message: `模块 ${moduleIndex + 1}：${moduleCode} 的 subject_code 必须为 ${expectedSubjectCode}`,
+        })
+      }
+      modules.push({
+        code: moduleCode || `unknown_${moduleIndex + 1}`,
+        subject,
+        subjectCode,
+        order,
+        durationSeconds: Number.isFinite(durationMinutes) ? Math.round(durationMinutes * 60) : 0,
+        questionCount: moduleItems.length,
+      })
+
+      const usedModuleQuestionNumbers = new Set<number>()
+      moduleItems.forEach((item: any, itemIndex: number) => {
+        if (isCanonicalModuleDocument && !Number.isInteger(item?.number)) {
+          errors.push({
+            block: 0,
+            message: `模块 ${moduleIndex + 1}：questions[${itemIndex}] 必须显式填写正整数 number`,
+          })
+        }
+        const moduleQuestionNumber = Number.isFinite(item?.number) ? item.number : itemIndex + 1
+        if (
+          !Number.isInteger(moduleQuestionNumber)
+          || moduleQuestionNumber < 1
+          || usedModuleQuestionNumbers.has(moduleQuestionNumber)
+        ) {
+          errors.push({
+            block: 0,
+            message: `模块 ${moduleIndex + 1}：questions[${itemIndex}] 的 number 必须为不重复的正整数`,
+          })
+        }
+        usedModuleQuestionNumbers.add(moduleQuestionNumber)
+        const learningAnalysis = item?.learning_analysis && typeof item.learning_analysis === 'object'
+          ? {
+              ...item.learning_analysis,
+              correct_solution: item.learning_analysis.correct_solution || item.learning_analysis.solution,
+            }
+          : item?.learning_analysis
+        normalizedQuestions.push({
+          ...item,
+          number: globalNumber++,
+          module_code: moduleCode,
+          module_order: order,
+          module_question_number: moduleQuestionNumber,
+          // 兼容早期 component_* 输出；新业务统一读取 module_*。
+          component_code: moduleCode,
+          component_order: order,
+          component_question_number: moduleQuestionNumber,
+          subject: item?.subject || subject,
+          subject_code: item?.subject_code || subjectCode,
+          learning_analysis: learningAnalysis,
+        })
+      })
+    }
+
+    if (rawMetadata?.examType === EXAM_TYPE.ESAT && !usedModuleCodes.has(ESAT_MODULE.MATHS_1)) {
+      errors.push({ block: 0, message: 'ESAT 模块诊断卷必须包含 Mathematics 1' })
+    }
+
+    const durationSum = modules.reduce((sum, module) => sum + module.durationSeconds, 0) / 60
+    if (Number.isFinite(rawMetadata?.duration) && rawMetadata.duration !== durationSum) {
+      errors.push({ block: 0, message: 'metadata.duration 必须等于各模块 duration 之和，且不包含休息时间' })
+    }
+  } else {
+    normalizedQuestions.push(...input.questions.map((question: any) => ({ ...question })))
+  }
+
+  if (
+    rawMetadata?.totalQuestions !== undefined
+    && rawMetadata.totalQuestions !== normalizedQuestions.length
+  ) {
+    errors.push({
+      block: 0,
+      message: isModular
+        ? 'metadata.totalQuestions 必须等于所有 modules[].questions 的题数之和'
+        : 'metadata.totalQuestions 必须等于 questions.length',
+    })
+  }
+
+  for (let i = 0; i < normalizedQuestions.length; i++) {
+    const q = normalizedQuestions[i]
+    const moduleCode = q.module_code || q.component_code
+    const moduleQuestionNumber = q.module_question_number ?? q.component_question_number
+    const modulePrefix = moduleCode ? `${moduleCode} ` : ''
+    const label = `${modulePrefix}题目 ${moduleQuestionNumber ?? q.number ?? `索引${i + 1}`}`
     const imageIds = new Set((Array.isArray(q.images) ? q.images : []).map((img: any) => img?.id).filter(Boolean))
 
     for (const field of DEPRECATED_QUESTION_FIELDS) {
@@ -163,19 +441,26 @@ export function validateStandardPaperDocument(input: any): {
     if (q.difficulty !== undefined && typeof q.difficulty !== 'string') {
       errors.push({ block: 0, message: `${label}：difficulty 必须为字符串` })
     }
-    if (q.examType !== metadata?.examType) {
+    if (q.examType !== rawMetadata?.examType) {
       errors.push({ block: 0, message: `${label}：examType 必须与 metadata.examType 一致` })
     }
     if (!q.source_examType || typeof q.source_examType !== 'string') {
       errors.push({ block: 0, message: `${label}：缺少来源考试类型 (source_examType)` })
+    } else {
+      sourceExamTypes.add(q.source_examType)
     }
-    if (q.year !== metadata?.year) {
+    if (q.year !== rawMetadata?.year) {
       errors.push({ block: 0, message: `${label}：year 必须与 metadata.year 一致` })
     }
     if (!['single_choice', 'multiple_choice', 'short_answer'].includes(q.question_type)) {
       errors.push({ block: 0, message: `${label}：question_type 必须为 single_choice、multiple_choice 或 short_answer` })
     }
-    if (Array.isArray(q.images)) {
+    if (isModular && rawMetadata?.examType === EXAM_TYPE.ESAT && q.question_type !== 'single_choice') {
+      errors.push({ block: 0, message: `${label}：ESAT 模块诊断只支持 single_choice` })
+    }
+    if (!Array.isArray(q.images)) {
+      errors.push({ block: 0, message: `${label}：images 必须为数组，没有图片时请使用空数组` })
+    } else {
       for (const img of q.images) {
         if (Object.prototype.hasOwnProperty.call(img, 'code')) {
           errors.push({ block: 0, message: `${label}：images[].code 是已废弃字段，请使用 svg 或 src` })
@@ -186,12 +471,140 @@ export function validateStandardPaperDocument(input: any): {
           errors.push({ block: 0, message: `${label}：SVG 图片必须包含 svg 字符串` })
         } else if (img.type === 'image' && typeof img.src !== 'string') {
           errors.push({ block: 0, message: `${label}：位图图片必须包含 src` })
+        } else if (img.type === 'image' && !isSafeRasterImageSource(img.src)) {
+          errors.push({ block: 0, message: `${label}：位图 src 协议或 data URI 类型不安全` })
         }
       }
     }
+
+    const optionLabels = new Set(
+      (Array.isArray(q.options) ? q.options : [])
+        .map((option: any) => option?.label)
+        .filter((value: unknown): value is string => typeof value === 'string'),
+    )
+    if (Array.isArray(q.answer) && q.answer.some((answer: unknown) => !optionLabels.has(String(answer)))) {
+      errors.push({ block: 0, message: `${label}：answer 必须是 options[].label 的子集` })
+    }
+    if (q.question_type === 'single_choice' && Array.isArray(q.answer) && q.answer.length !== 1) {
+      errors.push({ block: 0, message: `${label}：single_choice 必须且只能有一个正确答案` })
+    }
+    if (isCanonicalModuleDocument && (typeof q.code !== 'string' || !q.code.trim())) {
+      errors.push({ block: 0, message: `${label}：标准等效真题必须填写来源稳定标识 code` })
+    } else if (typeof q.code === 'string' && q.code.trim()) {
+      if (sourceQuestionCodes.has(q.code)) {
+        errors.push({ block: 0, message: `${label}：题目 code 在本卷中重复` })
+      }
+      sourceQuestionCodes.add(q.code)
+    }
   }
 
-  return { metadata: metadata || null, questions, errors }
+  const requestedDeliveryMode = rawMetadata?.deliveryMode
+  if (requestedDeliveryMode === 'module') {
+    warnings.push('metadata.deliveryMode=module 为兼容值；新文件请使用 module_sequence')
+  }
+  if (isCanonicalModuleDocument && requestedDeliveryMode !== PAPER_DELIVERY_MODE.MODULE_SEQUENCE) {
+    errors.push({ block: 0, message: '标准模块卷 metadata.deliveryMode 必须显式为 module_sequence' })
+  }
+  if (
+    requestedDeliveryMode !== undefined
+    && requestedDeliveryMode !== (isModular ? PAPER_DELIVERY_MODE.MODULE_SEQUENCE : PAPER_DELIVERY_MODE.CONTINUOUS)
+    && requestedDeliveryMode !== (isModular ? 'module' : undefined)
+  ) {
+    errors.push({
+      block: 0,
+      message: isModular
+        ? 'metadata.deliveryMode 模块卷必须为 module_sequence（兼容旧值 module）'
+        : 'metadata.deliveryMode 扁平卷必须为 continuous',
+    })
+  }
+
+  const policyBreakDuration = rawMetadata?.breakPolicy?.durationSeconds
+  const legacyBreakDuration = rawMetadata?.breakDurationSeconds
+  if (
+    isModular
+    && policyBreakDuration !== undefined
+    && legacyBreakDuration !== undefined
+    && Number(policyBreakDuration) !== Number(legacyBreakDuration)
+  ) {
+    errors.push({ block: 0, message: 'breakPolicy.durationSeconds 与兼容字段 breakDurationSeconds 不能冲突' })
+  }
+  const rawBreakDuration = policyBreakDuration ?? legacyBreakDuration
+  if (isModular && rawMetadata?.breakDurationSeconds !== undefined) {
+    warnings.push('metadata.breakDurationSeconds 为兼容字段；新文件请使用 breakPolicy.durationSeconds')
+  }
+  if (isModular && rawMetadata?.breakPolicy?.skippable === false) {
+    errors.push({ block: 0, message: '模块诊断卷的 breakPolicy.skippable 必须为 true' })
+  }
+  if (
+    isCanonicalModuleDocument
+    && (
+      !rawMetadata?.breakPolicy
+      || policyBreakDuration === undefined
+      || rawMetadata.breakPolicy.skippable !== true
+    )
+  ) {
+    errors.push({ block: 0, message: '标准模块卷必须填写 breakPolicy.durationSeconds 和 skippable: true' })
+  }
+  const breakDurationSeconds = isModular
+    ? rawBreakDuration === undefined
+      ? DEFAULT_MODULE_BREAK_SECONDS
+      : Number(rawBreakDuration)
+    : 0
+  if (
+    isModular
+    && (!Number.isInteger(breakDurationSeconds) || breakDurationSeconds < 0)
+  ) {
+    errors.push({ block: 0, message: 'metadata.breakPolicy.durationSeconds 必须为非负整数秒' })
+  }
+  if (
+    isModular
+    && rawMetadata?.examType === EXAM_TYPE.ESAT
+    && Number.isInteger(breakDurationSeconds)
+    && breakDurationSeconds !== DEFAULT_MODULE_BREAK_SECONDS
+  ) {
+    errors.push({ block: 0, message: 'ESAT 模块诊断卷的 breakPolicy.durationSeconds 必须为 180 秒' })
+  }
+  const normalizedBreakDurationSeconds = Number.isInteger(breakDurationSeconds)
+    && breakDurationSeconds >= 0
+    ? breakDurationSeconds
+    : DEFAULT_MODULE_BREAK_SECONDS
+  const metadata: StandardPaperMetadata | null = rawMetadata && typeof rawMetadata === 'object'
+    ? {
+        paperName: rawMetadata.paperName,
+        year: rawMetadata.year,
+        duration: rawMetadata.duration,
+        examType: rawMetadata.examType,
+        paperType: rawMetadata.paperType,
+        totalQuestions: rawMetadata.totalQuestions,
+        deliveryMode: isModular
+          ? PAPER_DELIVERY_MODE.MODULE_SEQUENCE
+          : PAPER_DELIVERY_MODE.CONTINUOUS,
+        breakDurationSeconds: normalizedBreakDurationSeconds,
+        moduleConfig: modules.sort((a, b) => a.order - b.order),
+        breakPolicy: { durationSeconds: normalizedBreakDurationSeconds, skippable: true },
+        assemblyType: typeof rawMetadata.assemblyType === 'string'
+          ? rawMetadata.assemblyType
+          : isModular && rawMetadata.examType === EXAM_TYPE.ESAT
+            ? 'legacy_equivalent'
+            : 'original',
+        sourceExamTypes: [...sourceExamTypes],
+        remarks: typeof rawMetadata.remarks === 'string' ? rawMetadata.remarks : null,
+      }
+    : null
+
+  if (isModular && modules.some((module) => module.questionCount !== 27)) {
+    warnings.push('模块题量不是正式 ESAT 的每模块 27 题；可用于流程测试，但等效分仅作低可信度估算')
+  }
+
+  if (errors.length) return { metadata, questions: normalizedQuestions, modules, errors, warnings }
+  const sanitized = sanitizeQuestionContent(normalizedQuestions)
+  return {
+    metadata,
+    questions: sanitized.cleaned,
+    modules: modules.sort((a, b) => a.order - b.order),
+    errors,
+    warnings: [...warnings, ...sanitized.warnings],
+  }
 }
 
 /**
@@ -261,23 +674,29 @@ function sanitizeText(
   fieldLabel: string,
 ): { text: string; warning?: string } {
   const original = text
+  let cleaned = original
+  // 先解码再做标签与协议清洗，避免 &lt;script&gt; 或编码后的 SVG 绕过检测。
+  for (let pass = 0; pass < 2; pass++) {
+    const decoded = cleaned
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&amp;/gi, '&')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#x27;/gi, "'")
+      .replace(/&#x2f;/gi, '/')
+      .replace(/&#(\d+);/g, (_m, d) => String.fromCharCode(parseInt(d, 10)))
+      .replace(/&#[xX]([0-9a-fA-F]+);/g, (_m, h) => String.fromCharCode(parseInt(h, 16)))
+    if (decoded === cleaned) break
+    cleaned = decoded
+  }
 
   // 0. 保存 SVG 标签块（合法图形），清洗后还原
   const svgBlocks: string[] = []
-  let cleaned = original.replace(SVG_BLOCK_RE, (match) => {
+  cleaned = cleaned.replace(SVG_BLOCK_RE, (match) => {
     const idx = svgBlocks.length
-    svgBlocks.push(match)
+    svgBlocks.push(sanitizeSvgMarkup(match))
     return `[[SVG_${idx}]]`
   })
-
-  // 1. 检查 SVG 内部是否嵌入了危险标签
-  for (let i = 0; i < svgBlocks.length; i++) {
-    const dangerInSvg = svgBlocks[i].match(DANGEROUS_TAGS)
-    if (dangerInSvg) {
-      // SVG 内含恶意标签，移除该 SVG 块回退为占位提示
-      svgBlocks[i] = ''
-    }
-  }
 
   // 2. 移除 <script>, <iframe>, <object>, <embed> 整标签
   cleaned = cleaned.replace(DANGEROUS_TAGS, '')
@@ -296,17 +715,6 @@ function sanitizeText(
     return svgBlocks[parseInt(idx, 10)] || ''
   })
 
-  // 解码常见的 HTML 实体，防止被利用
-  cleaned = cleaned
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&amp;/gi, '&')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#x27;/gi, "'")
-    .replace(/&#x2f;/gi, '/')
-    .replace(/&#(\d+);/g, (_m, d) => String.fromCharCode(parseInt(d, 10)))
-    .replace(/&#[xX]([0-9a-fA-F]+);/g, (_m, h) => String.fromCharCode(parseInt(h, 16)))
-
   // 检查是否有内容被移除
   const trimmed = cleaned.trim()
   if (original !== cleaned) {
@@ -322,6 +730,15 @@ function sanitizeText(
   return { text: trimmed }
 }
 
+// SVG 会进入题目渲染链路；移除脚本容器、事件属性和外部可执行引用。
+function sanitizeSvgMarkup(svg: string): string {
+  return svg
+    .replace(/<\s*(script|style|foreignObject|iframe|object|embed)\b[\s\S]*?<\/\s*\1\s*>/gi, '')
+    .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/\s+(?:href|xlink:href)\s*=\s*(?:"(?!#)[^"]*"|'(?!#)[^']*'|(?!#)[^\s>]+)/gi, '')
+    .replace(/javascript\s*:/gi, '')
+}
+
 /**
  * 串联处理：提取 → 解析 → 校验 → 清洗
  */
@@ -329,22 +746,23 @@ export function processMarkdownImport(md: string): ProcessResult {
   const errors: ValidationError[] = []
   const warnings: string[] = []
   const allQuestions: any[] = []
+  let modules: StandardPaperModule[] = []
   let metadata: StandardPaperMetadata | null = null
 
   if (!md || typeof md !== 'string' || !md.trim()) {
     errors.push({ block: 0, message: 'Markdown 内容不能为空' })
-    return { metadata: null, questions: [], errors, warnings }
+    return { metadata: null, questions: [], modules: [], errors, warnings }
   }
 
   // 1. 提取 JSON 代码块
   const blocks = extractJsonBlocks(md)
   if (blocks.length === 0) {
     errors.push({ block: 0, message: '未找到 JSON 代码块（需要 ```json ... ``` 格式）' })
-    return { metadata: null, questions: [], errors, warnings }
+    return { metadata: null, questions: [], modules: [], errors, warnings }
   }
   if (blocks.length > 1) {
     errors.push({ block: 0, message: '标准导入 Markdown 只能包含一个完整 JSON 代码块' })
-    return { metadata: null, questions: [], errors, warnings }
+    return { metadata: null, questions: [], modules: [], errors, warnings }
   }
 
   // 2. 逐个解析和校验
@@ -359,6 +777,7 @@ export function processMarkdownImport(md: string): ProcessResult {
 
     const validated = validateStandardPaperDocument(parsed)
     metadata = validated.metadata
+    modules = validated.modules
     const questions = validated.questions
     const structErrors = validated.errors
     for (const e of structErrors) {
@@ -367,15 +786,14 @@ export function processMarkdownImport(md: string): ProcessResult {
 
     if (structErrors.length > 0) continue
 
-    // 安全清洗
-    const { cleaned, warnings: sanitizeWarnings } = sanitizeQuestionContent(questions)
-    allQuestions.push(...cleaned)
-    warnings.push(...sanitizeWarnings)
+    // JSON 与 Markdown 共用同一归一化和安全清洗入口。
+    allQuestions.push(...questions)
+    warnings.push(...validated.warnings)
   }
 
   if (allQuestions.length === 0 && errors.length === 0) {
     errors.push({ block: 0, message: '未能从 Markdown 中提取到有效的题目数据' })
   }
 
-  return { metadata, questions: allQuestions, errors, warnings }
+  return { metadata, questions: allQuestions, modules, errors, warnings }
 }

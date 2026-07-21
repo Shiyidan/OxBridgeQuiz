@@ -40,16 +40,10 @@
             <el-tag class="exam-type-tag" effect="light" round>{{ row.examType || 'TMUA' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="学科/模块" width="140" align="center" header-align="center">
+        <el-table-column label="学科/模块" min-width="380" align="center" header-align="center">
           <template #default="{ row }">
-            <el-tag
-              class="subject-tag"
-              :class="`subject-tag--${subjectType(row.code)}`"
-              effect="light"
-              round
-            >
-              {{ subjectLabel(row.code) }}
-            </el-tag>
+            <SubjectModuleTags v-if="row.modules?.length" :modules="row.modules" />
+            <span v-else class="empty-modules">—</span>
           </template>
         </el-table-column>
         <el-table-column
@@ -109,6 +103,7 @@ import { reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
+import SubjectModuleTags from '@/components/SubjectModuleTags.vue'
 import { getPaperListData, updatePaperStatus, type PaperItem } from '@/api/papers'
 import { PAPER_TYPE } from '@/constants/paperTypes'
 
@@ -171,21 +166,6 @@ async function handlePageSizeChange(pageSize: number): Promise<void> {
   pagination.pageSize = pageSize
   pagination.page = 1
   await fetchPapers()
-}
-
-// 后台列表用试卷 code 推断学科展示名，空 code 展示为通用。
-function subjectLabel(code: string | null): string {
-  return code || '通用'
-}
-
-// 学科类型只影响标签颜色，不参与业务筛选。
-function subjectType(code: string | null): string {
-  if (!code) return 'general'
-  const text = code.toLowerCase()
-  if (text.includes('math')) return 'math'
-  if (text.includes('step') || text.includes('esat')) return 'advanced'
-  if (text.includes('physics') || text.includes('pat')) return 'physics'
-  return 'general'
 }
 
 // 状态值来自后端枚举，前端统一转为中文展示。
@@ -279,8 +259,7 @@ function handleAIGenerate(): void {}
   font-weight: var(--weight-semi);
 }
 
-.exam-type-tag,
-.subject-tag {
+.exam-type-tag {
   border-radius: var(--radius-pill);
   font-weight: var(--weight-semi);
 }
@@ -291,28 +270,8 @@ function handleAIGenerate(): void {}
   color: #0e7490 !important;
 }
 
-.subject-tag--general {
-  background: #f1f5f9 !important;
-  border-color: #cbd5e1 !important;
-  color: #475569 !important;
-}
-
-.subject-tag--math {
-  background: #ecfdf5 !important;
-  border-color: #a7f3d0 !important;
-  color: #047857 !important;
-}
-
-.subject-tag--advanced {
-  background: #eef2ff !important;
-  border-color: #c7d2fe !important;
-  color: #3730a3 !important;
-}
-
-.subject-tag--physics {
-  background: #eff6ff !important;
-  border-color: #bfdbfe !important;
-  color: #1d4ed8 !important;
+.empty-modules {
+  color: #94a3b8;
 }
 
 .status-btn,

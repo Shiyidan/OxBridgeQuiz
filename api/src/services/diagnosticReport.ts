@@ -11,6 +11,12 @@ export interface ReportQuestionInput {
   number: number
   subject: string | null
   subjectCode: string | null
+  /** 上传规范中的稳定模块标识，报告分组优先使用。 */
+  moduleCode?: string | null
+  /** @deprecated 兼容早期报告输入。 */
+  componentCode?: string | null
+  moduleOrder?: number | null
+  moduleQuestionNumber?: number | null
   topic?: string | null
   topicCode?: string | null
   knowledgePoints?: Array<{

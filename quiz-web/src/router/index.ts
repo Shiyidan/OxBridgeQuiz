@@ -34,6 +34,12 @@ const router = createRouter({
       name: 'assessment',
       component: () => import('../views/assessment/AssessmentHomeView.vue'),
     },
+    // 模块化诊断测试
+    {
+      path: '/assessment/exam/:paperId',
+      name: 'diagnostic-exam',
+      component: () => import('../views/assessment/DiagnosticExamView.vue'),
+    },
     // 在线答题
     {
       path: '/practice',

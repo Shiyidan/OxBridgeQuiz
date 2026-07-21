@@ -14,6 +14,8 @@ import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { buildOperationAuditChanges, setOperationAuditContext } from '../middleware/operationAudit.js'
 import {
   EXAM_TYPE,
+  ESAT_MODULES,
+  PAPER_DELIVERY_MODE,
   QUESTION_BANK_PAPER_TYPES,
   REAL_PAPER_TYPES,
   USER_ROLE,
@@ -26,6 +28,65 @@ import {
 
 import { RawSyllabusNode, FlatSyllabusNode, levelOf, parseSyllabusJson, getSyllabusRoots, normalizeSyllabusNodes, safeParseJson, parsePositiveInt, formatQuestionForAttempt, hasStudentPaperEntitlement, applySyllabusToTree } from './papers-shared.js'
 export const paperCrudRouter = createAsyncRouter()
+
+type PublishablePaper = {
+  id: string
+  examType: string
+  paperType: string
+  deliveryMode: string
+  breakDurationSeconds: number
+  moduleConfig: unknown
+  totalQuestions: number
+}
+
+// ESAT 诊断发布前复核数据库结构，避免绕过上传校验发布扁平卷或残缺模块卷。
+async function getDiagnosticPublishIssue(paper: PublishablePaper): Promise<string | null> {
+  if (paper.examType !== EXAM_TYPE.ESAT || !isRealPaperType(paper.paperType)) return null
+  if (paper.deliveryMode !== PAPER_DELIVERY_MODE.MODULE_SEQUENCE) {
+    return 'ESAT 诊断卷必须使用三模块顺序作答模式'
+  }
+  if (paper.breakDurationSeconds !== 180) return 'ESAT 诊断卷的科目间休息必须为 180 秒'
+
+  const modules = parseJsonField<Array<{
+    code?: string
+    order?: number
+    durationSeconds?: number
+    questionCount?: number
+  }>>(paper.moduleConfig, [])
+  const moduleCodes = modules.map((module) => String(module.code || ''))
+  const moduleOrders = modules.map((module) => Number(module.order))
+  if (
+    modules.length !== 3
+    || new Set(moduleCodes).size !== 3
+    || moduleCodes.some((code) => !ESAT_MODULES.some((moduleCode) => moduleCode === code))
+    || !moduleCodes.includes('maths1')
+    || moduleOrders.some((order) => !Number.isInteger(order) || order < 1)
+    || new Set(moduleOrders).size !== 3
+    || modules.some((module) => !Number.isInteger(module.durationSeconds) || Number(module.durationSeconds) <= 0)
+  ) {
+    return 'ESAT 诊断卷必须包含三个不重复科目，并且包含 Mathematics 1'
+  }
+
+  const questions = await prisma.question.findMany({
+    where: { paperId: paper.id },
+    select: { moduleCode: true, moduleOrder: true },
+  })
+  const configuredModules = new Set(modules.map((module) => `${module.code}:${module.order}`))
+  if (
+    questions.length !== paper.totalQuestions
+    || !questions.length
+    || questions.some((question) => !configuredModules.has(`${question.moduleCode}:${question.moduleOrder}`))
+    || modules.some((module) => !questions.some((question) => (
+      question.moduleCode === module.code && question.moduleOrder === module.order
+    )))
+    || modules.some((module) => questions.filter((question) => (
+      question.moduleCode === module.code && question.moduleOrder === module.order
+    )).length !== module.questionCount)
+  ) {
+    return 'ESAT 诊断卷题目必须完整归属于三个已配置模块'
+  }
+  return null
+}
 
 paperCrudRouter.get('/', requireAuth, requireAdmin, async (req, res) => {
   const page = parsePositiveInt(req.query.page, 1)
@@ -49,7 +110,8 @@ paperCrudRouter.get('/', requireAuth, requireAdmin, async (req, res) => {
     select: {
       id: true, title: true, code: true, examType: true, year: true,
       duration: true, totalQuestions: true, paperType: true, status: true,
-      createdAt: true
+      deliveryMode: true, breakDurationSeconds: true, moduleConfig: true,
+      assemblyType: true, remarks: true, createdAt: true
     },
     orderBy: { createdAt: 'desc' },
     skip,
@@ -57,7 +119,10 @@ paperCrudRouter.get('/', requireAuth, requireAdmin, async (req, res) => {
   })
 
   res.json(success({
-    list: papers,
+    list: papers.map(({ moduleConfig, ...paper }) => ({
+      ...paper,
+      modules: parseJsonField(moduleConfig, []),
+    })),
     pagination: {
       page: safePage,
       pageSize,
@@ -99,10 +164,17 @@ paperCrudRouter.get('/:id', requireAuth, async (req, res) => {
       duration: paper.duration,
       totalQuestions: paper.totalQuestions,
       paperType: paper.paperType,
+      deliveryMode: paper.deliveryMode,
+      breakDurationSeconds: paper.breakDurationSeconds,
+      modules: parseJsonField(paper.moduleConfig, []),
+      assemblyType: paper.assemblyType,
+      remarks: paper.remarks,
       status: paper.status,
       createdAt: paper.createdAt,
       updatedAt: paper.updatedAt,
-      questions: questions.map(formatQuestionForAttempt),
+      questions: paper.deliveryMode === 'module_sequence'
+        ? []
+        : questions.map(formatQuestionForAttempt),
     }))
     return
   }
@@ -130,6 +202,22 @@ paperCrudRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   if (!previousPaper) {
     res.status(404).json(fail('试卷不存在'))
     return
+  }
+  const nextStatus = status || previousPaper.status
+  if (nextStatus === 'published' && questions) {
+    res.status(422).json(fail('请先以草稿状态保存题目结构，再单独发布试卷', 'PAPER_STRUCTURE_INVALID'))
+    return
+  }
+  if (nextStatus === 'published') {
+    const publishIssue = await getDiagnosticPublishIssue({
+      ...previousPaper,
+      examType: examType || previousPaper.examType,
+      paperType: paperType ? normalizePaperType(paperType) : previousPaper.paperType,
+    })
+    if (publishIssue) {
+      res.status(422).json(fail(publishIssue, 'PAPER_STRUCTURE_INVALID'))
+      return
+    }
   }
   const paper = await prisma.paper.update({
     where: { id: req.params.id },
@@ -210,6 +298,11 @@ paperCrudRouter.put('/:id/publish', requireAuth, requireAdmin, async (req, res) 
   const previousPaper = await prisma.paper.findUnique({ where: { id: req.params.id } })
   if (!previousPaper) {
     res.status(404).json(fail('试卷不存在'))
+    return
+  }
+  const publishIssue = await getDiagnosticPublishIssue(previousPaper)
+  if (publishIssue) {
+    res.status(422).json(fail(publishIssue, 'PAPER_STRUCTURE_INVALID'))
     return
   }
   const paper = await prisma.paper.update({

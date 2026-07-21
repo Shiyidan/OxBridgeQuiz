@@ -1,3 +1,4 @@
+<!-- 诊断测试首页：按试卷交付方式进入连续作答或三模块诊断流程。 -->
 <template>
   <div class="assessment-page">
     <NavBar />
@@ -6,7 +7,7 @@
         <div class="page-header__lead">
           <span class="page-eyebrow">Diagnostic Assessment</span>
           <h1>诊断测试中心</h1>
-          <p>选择已发布真题套卷完成一次全真诊断，系统会在交卷后生成成绩报告。</p>
+          <p>选择历年真题组成的等效诊断卷，按三个科目完成测试后生成估分与能力报告。</p>
         </div>
         <div class="quota-card">
           <div class="quota-list" aria-label="诊断测试额度明细">
@@ -46,37 +47,46 @@
           class="paper-card"
           :class="{ 'paper-card--unavailable': !isPaperAvailable(item) }"
         >
-          <div class="paper-card__info">
+          <div class="paper-card__heading">
             <span class="paper-card__badge">{{ paperStatusLabel(item) }}</span>
-            <h2>{{ item.title }}</h2>
-            <p>{{ item.code || item.title }}</p>
+            <h2 :title="item.title">{{ item.title }}</h2>
+            <SubjectModuleTags
+              v-if="item.modules?.length"
+              class="paper-card__subject-tags"
+              :modules="item.modules"
+              align="start"
+            />
           </div>
 
-          <div
-            v-if="item.testStatus === 'completed' && item.correctCount !== null"
-            class="paper-card__score"
-          >
-            <strong>{{ item.correctCount }}/{{ item.totalQuestions }}</strong>
-            <span v-if="isReportGenerating(item)">报告 {{ item.reportProgress }}%</span>
-            <span v-else>题正确</span>
-          </div>
+          <div class="paper-card__footer">
+            <div
+              v-if="item.testStatus === 'completed' && item.correctCount !== null"
+              class="paper-card__score"
+            >
+              <strong>{{ item.correctCount }}/{{ item.totalQuestions }}</strong>
+              <span v-if="isReportGenerating(item)">报告 {{ item.reportProgress }}%</span>
+              <span v-else>题正确</span>
+            </div>
 
-          <div class="paper-card__actions">
-            <button
-              v-if="item.testStatus === 'completed'"
-              class="paper-card__button paper-card__button--secondary button_cancel"
-              type="button"
-              @click="handleRetestPaper(item)"
-            >
-              重新测试
-            </button>
-            <button
-              class="paper-card__button button_primary"
-              type="button"
-              @click="handlePaperAction(item)"
-            >
-              {{ paperActionLabel(item) }}
-            </button>
+            <div class="paper-card__actions">
+              <button
+                v-if="item.testStatus === 'completed'"
+                class="paper-card__button paper-card__button--secondary button_cancel"
+                type="button"
+                :disabled="startingPaperId === item.id"
+                @click="handleRetestPaper(item)"
+              >
+                重新测试
+              </button>
+              <button
+                class="paper-card__button button_primary"
+                type="button"
+                :disabled="startingPaperId === item.id"
+                @click="handlePaperAction(item)"
+              >
+                {{ startingPaperId === item.id ? '正在检查...' : paperActionLabel(item) }}
+              </button>
+            </div>
           </div>
         </article>
       </section>
@@ -96,6 +106,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import NavBar from '@/components/NavBar.vue'
+import SubjectModuleTags from '@/components/SubjectModuleTags.vue'
 import { checkMemberAccess } from '@/api/member'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -108,6 +119,7 @@ import { getAssessmentPapersData, type AssessmentPaperItem } from '@/api/papers'
 const router = useRouter()
 const auth = useAuthStore()
 const loading = ref(true)
+const startingPaperId = ref('')
 const diagnosticTests = ref<AssessmentPaperItem[]>([])
 const chartRef = ref<HTMLDivElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
@@ -217,9 +229,10 @@ function renderChart(): void {
     ],
     tooltip: {
       trigger: 'axis',
-      formatter: (items: any) => {
-        const item = Array.isArray(items) ? items[0] : items
-        return `${item.axisValue}<br/>分数：${item.data}`
+      formatter: (params: unknown) => {
+        const rawItem = Array.isArray(params) ? params[0] : params
+        const item = rawItem as { axisValue?: string | number; data?: string | number }
+        return `${item.axisValue ?? ''}<br/>分数：${item.data ?? ''}`
       },
     },
   })
@@ -239,7 +252,7 @@ async function handlePaperAction(item: AssessmentPaperItem): Promise<void> {
     return
   }
   if (item.testStatus === 'in_progress') {
-    router.push({ path: '/practice', query: { paperId: item.paperId, mode: 'assessment' } })
+    routeToDiagnosticPaper(item, true)
     return
   }
   if (item.testStatus === 'completed' && item.examRecordId) {
@@ -261,16 +274,13 @@ async function handlePaperAction(item: AssessmentPaperItem): Promise<void> {
   await startPaper(item)
 }
 
-// 临时调试入口：已完成套卷可直接重新进入答题，不消耗诊断额度。
-function handleRetestPaper(paper: AssessmentPaperItem): void {
+// 重新测试走正式权益校验并创建新的 attempt，不再提供客户端调试绕过参数。
+async function handleRetestPaper(paper: AssessmentPaperItem): Promise<void> {
   if (!isPaperAvailable(paper)) {
     ElMessage.info(getExamUnavailableMessage(paper.examType))
     return
   }
-  router.push({
-    path: '/practice',
-    query: { paperId: paper.id, mode: 'assessment', debugRetake: '1' },
-  })
+  await startPaper(paper)
 }
 
 // 点击套卷前先做权益预检，避免进入答题页后才发现额度不足。
@@ -279,13 +289,40 @@ async function startPaper(paper: AssessmentPaperItem): Promise<void> {
     ElMessage.info(getExamUnavailableMessage(paper.examType))
     return
   }
-  const access = await checkMemberAccess({
-    action: 'diagnostic',
-    examType: paper.examType || 'TMUA',
-    questionCount: 1,
-  })
-  if (!access.allowed) {
-    ElMessage.warning('当前诊断测试额度不足，请开通会员后继续')
+  const activePaper = diagnosticTests.value.find((item) =>
+    item.examType === paper.examType && item.testStatus === 'in_progress',
+  )
+  if (activePaper && activePaper.id !== paper.id) {
+    ElMessage.warning(`请先完成正在进行的“${activePaper.title}”`)
+    return
+  }
+  if (startingPaperId.value) return
+  startingPaperId.value = paper.id
+  try {
+    const access = await checkMemberAccess({
+      action: 'diagnostic',
+      examType: paper.examType || 'TMUA',
+      questionCount: 1,
+    })
+    if (!access.allowed) {
+      ElMessage.warning('当前诊断测试额度不足，请开通会员后继续')
+      return
+    }
+    routeToDiagnosticPaper(paper, false)
+  } catch {
+    ElMessage.error('权益检查失败，请检查网络后重试')
+  } finally {
+    startingPaperId.value = ''
+  }
+}
+
+// 只有带模块交付配置的试卷进入专用状态机；TMUA 和旧扁平卷保持原答题页。
+function routeToDiagnosticPaper(paper: AssessmentPaperItem, resume: boolean): void {
+  if (paper.deliveryMode === 'module_sequence') {
+    router.push({
+      path: `/assessment/exam/${paper.id}`,
+      query: resume && paper.examRecordId ? { examRecordId: paper.examRecordId } : {},
+    })
     return
   }
   router.push({ path: '/practice', query: { paperId: paper.id, mode: 'assessment' } })
@@ -484,12 +521,10 @@ function paperActionLabel(item: AssessmentPaperItem): string {
 
 .paper-card {
   min-width: 0;
-  min-height: 96px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 20px;
-  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -536,19 +571,32 @@ function paperActionLabel(item: AssessmentPaperItem): string {
   font-weight: var(--weight-semi);
 }
 
-.paper-card__info h2 {
+.paper-card__heading {
+  min-width: 0;
+}
+
+.paper-card__heading h2 {
+  overflow: hidden;
   margin: 0;
   color: var(--color-ink);
   font-size: var(--text-lg);
   font-weight: var(--weight-bold);
-  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.paper-card__info p {
-  margin: 8px 0 0;
-  color: var(--color-ink-muted);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semi);
+.paper-card__subject-tags {
+  margin-top: 10px;
+}
+
+.paper-card__footer {
+  min-height: var(--height-button);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-line);
 }
 
 .paper-card__score {
@@ -572,6 +620,7 @@ function paperActionLabel(item: AssessmentPaperItem): string {
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-left: auto;
 }
 
 .paper-card__button--secondary {

@@ -2,7 +2,7 @@
  * 试卷上传 / 解析 相关 API
  */
 import { callApi } from '@/utils/request'
-import type { PaperMetadata, Question } from '@/types'
+import type { Question, StandardPaperJson } from '@/types'
 
 export interface CreateTaskResult {
   paperId: string
@@ -13,6 +13,20 @@ export interface ParseTaskStatus {
   progress: number
   status: string
   error?: string
+}
+
+export interface ImportedPaperResult {
+  id: string
+  questions: Question[]
+  modules?: Array<{
+    code: string
+    subject: string
+    subjectCode: string | null
+    order: number
+    durationSeconds: number
+    questionCount: number
+  }>
+  warnings?: string[]
 }
 
 /** 创建上传任务 */
@@ -69,12 +83,8 @@ export function retryParseTask(taskId: string) {
 }
 
 /** JSON 导入试卷 */
-export function importJson(params: {
-  code?: string
-  metadata: PaperMetadata
-  questions: Question[]
-}) {
-  return callApi<any>({
+export function importJson(params: StandardPaperJson & { code?: string }) {
+  return callApi<ImportedPaperResult>({
     url: '/papers/import-json',
     method: 'POST',
     isAllData: false,
@@ -84,7 +94,7 @@ export function importJson(params: {
 
 /** Markdown 导入试卷 */
 export function importMarkdown(params: { markdown: string; code?: string }) {
-  return callApi<any>({
+  return callApi<ImportedPaperResult>({
     url: '/papers/import-markdown',
     method: 'POST',
     isAllData: false,

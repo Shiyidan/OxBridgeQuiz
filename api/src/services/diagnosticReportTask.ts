@@ -140,11 +140,18 @@ async function buildReportForTask(taskId: string, examRecordId: string): Promise
 
   const [questionRows, syllabusNodes] = await Promise.all([
     prisma.question.findMany({
-      where: { paperId: examRecord.paperId },
-      orderBy: { number: 'asc' },
+      where: { id: { in: examRecord.answers.map((answer) => answer.questionId) } },
+      orderBy: [
+        { moduleOrder: 'asc' },
+        { moduleQuestionNumber: 'asc' },
+        { number: 'asc' },
+      ],
       select: {
         id: true,
         number: true,
+        moduleCode: true,
+        moduleOrder: true,
+        moduleQuestionNumber: true,
         subject: true,
         subjectCode: true,
         topic: true,
@@ -167,6 +174,9 @@ async function buildReportForTask(taskId: string, examRecordId: string): Promise
     number: question.number,
     subject: question.subject,
     subjectCode: question.subjectCode,
+    moduleCode: question.moduleCode,
+    moduleOrder: question.moduleOrder,
+    moduleQuestionNumber: question.moduleQuestionNumber,
     topic: question.topic,
     topicCode: question.topicCode,
     knowledgePoints: parseJsonArray<{ code: string; label: string; role?: string }>(question.knowledgePoints),

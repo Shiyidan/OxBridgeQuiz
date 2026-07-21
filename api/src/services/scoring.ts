@@ -42,9 +42,9 @@ interface ScoreBand {
 export interface ScoringResult {
   examType: string
   strategy: string
-  overallScore: number
-  overallBand: string
-  overallBandLabel: string
+  overallScore: number | null
+  overallBand: string | null
+  overallBandLabel: string | null
   modules: ModuleScore[]
   generatedAt: string
 }
@@ -52,6 +52,10 @@ export interface ScoringResult {
 /** computeScores 入参：每题一条 */
 export interface QuestionResult {
   subject: string | null
+  /** 评分入口的稳定模块标识，不依赖展示名称。 */
+  moduleCode?: string | null
+  /** @deprecated 兼容早期组合卷调用方；新调用方传 moduleCode。 */
+  componentCode?: string | null
   isCorrect: boolean
   number?: number | null
 }
@@ -215,6 +219,18 @@ export function mapSubjectToEsatModule(subject: string | null | undefined): Esat
   return null
 }
 
+/** 新数据优先使用显式模块标识，旧数据才回退到 subject 文本推断。 */
+export function resolveEsatModule(
+  moduleCode: string | null | undefined,
+  subject: string | null | undefined,
+): EsatModule | null {
+  const normalizedCode = moduleCode?.trim().toLowerCase()
+  if (normalizedCode && Object.prototype.hasOwnProperty.call(ESAT_MODULE_META, normalizedCode)) {
+    return normalizedCode as EsatModule
+  }
+  return mapSubjectToEsatModule(subject)
+}
+
 /** 分段线性插值：raw → scaled，结果四舍五入到 1 位小数，夹紧到 [1.0, 9.0] */
 export function interpolateScaledScore(raw: number, table: RawToScaledPoint[]): number {
   if (!table.length) return 1.0
@@ -251,7 +267,8 @@ export function quickEsatScore(module: EsatModule, correct: number, total: numbe
   if (total <= 0) return 1.0
   const table = ESAT_TABLES[module]
   if (!table) return clampScore(Math.round((correct / total) * 9 * 10) / 10)
-  return interpolateScaledScore(correct, table)
+  const normalizedRaw = Math.max(0, Math.min(27, (correct / total) * 27))
+  return interpolateScaledScore(normalizedRaw, table)
 }
 
 /** TMUA 分卷诊断估值：按实际题量归一到 20 题后查 2024 新制代表曲线。 */
@@ -296,7 +313,7 @@ function computeEsatScores(
   // 按模块分组
   const groups = new Map<EsatModule, { total: number; correct: number }>()
   for (const q of questions) {
-    const module = mapSubjectToEsatModule(q.subject)
+    const module = resolveEsatModule(q.moduleCode ?? q.componentCode, q.subject)
     if (!module) continue
     const entry = groups.get(module) || { total: 0, correct: 0 }
     entry.total += 1
@@ -308,8 +325,7 @@ function computeEsatScores(
   const modules: ModuleScore[] = []
   for (const [module, counts] of groups) {
     const meta = ESAT_MODULE_META[module]
-    const table = ESAT_TABLES[module]
-    const scaledScore = interpolateScaledScore(counts.correct, table)
+    const scaledScore = quickEsatScore(module, counts.correct, counts.total)
     const band = getScoreBand(scaledScore)
     modules.push({
       module,
@@ -330,28 +346,13 @@ function computeEsatScores(
     return orderA - orderB
   })
 
-  // 总体分 = 各模块加权平均
-  let overallScore = 1.0
-  if (modules.length > 0) {
-    const totalQ = modules.reduce((sum, m) => sum + m.totalQuestions, 0)
-    overallScore = totalQ > 0
-      ? clampScore(Math.round(modules.reduce((sum, m) => sum + m.scaledScore * m.totalQuestions, 0) / totalQ * 10) / 10)
-      : 1.0
-  } else {
-    // 没有匹配到任何模块 → 退化为通用策略
-    const total = questions.length
-    const correct = questions.filter((q) => q.isCorrect).length
-    overallScore = total > 0 ? clampScore(Math.round((correct / total) * 9 * 10) / 10) : 1.0
-  }
-
-  const overallBand = getScoreBand(overallScore)
-
   return {
     examType: 'ESAT',
-    strategy: 'esat',
-    overallScore,
-    overallBand: overallBand.band,
-    overallBandLabel: overallBand.label,
+    strategy: 'esat-module-equivalent',
+    // ESAT 只公布三个模块的独立分数，不制造不存在的合成总分。
+    overallScore: null,
+    overallBand: null,
+    overallBandLabel: null,
     modules,
     generatedAt,
   }

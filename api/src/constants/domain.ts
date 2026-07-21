@@ -43,6 +43,35 @@ export const EXAM_RECORD_STATUS = {
 export const EXAM_RECORD_STATUSES = Object.values(EXAM_RECORD_STATUS)
 export type ExamRecordStatus = (typeof EXAM_RECORD_STATUSES)[number]
 
+export const PAPER_DELIVERY_MODE = {
+  CONTINUOUS: 'continuous',
+  MODULE_SEQUENCE: 'module_sequence',
+} as const
+
+export const PAPER_DELIVERY_MODES = Object.values(PAPER_DELIVERY_MODE)
+export type PaperDeliveryMode = (typeof PAPER_DELIVERY_MODES)[number]
+
+export const EXAM_PHASE = {
+  CONTINUOUS: 'continuous',
+  ANSWERING: 'answering',
+  BREAK: 'break',
+  READY_TO_SUBMIT: 'ready_to_submit',
+} as const
+
+export const EXAM_PHASES = Object.values(EXAM_PHASE)
+export type ExamPhase = (typeof EXAM_PHASES)[number]
+
+export const ESAT_MODULE = {
+  MATHS_1: 'maths1',
+  MATHS_2: 'maths2',
+  PHYSICS: 'physics',
+  CHEMISTRY: 'chemistry',
+  BIOLOGY: 'biology',
+} as const
+
+export const ESAT_MODULES = Object.values(ESAT_MODULE)
+export type EsatModuleCode = (typeof ESAT_MODULES)[number]
+
 export const ANSWER_RECORD_STATE = {
   UNSEEN: 'unseen',
   SKIPPED: 'skipped',

@@ -149,7 +149,11 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
 
     const questionRows = await prisma.question.findMany({
       where: { id: { in: answers.map((answer) => answer.questionId) } },
-      orderBy: { number: 'asc' },
+      orderBy: [
+        { moduleOrder: 'asc' },
+        { moduleQuestionNumber: 'asc' },
+        { number: 'asc' },
+      ],
     })
     const answerMap = new Map(answers.map((answer) => [answer.questionId, answer]))
 
@@ -175,6 +179,7 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
 
     const questionsWithResults: QuestionResult[] = answeredQuestions.map((q: any) => ({
       subject: q.subject ?? null,
+      moduleCode: q.module_code ?? q.component_code ?? null,
       isCorrect: q.isCorrect ?? false,
       number: q.number ?? null,
     }))

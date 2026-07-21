@@ -1,4 +1,5 @@
 // 会员权益上下文汇总与权限判定。用于会员接口和考试开始、交卷阶段的额度预检。
+import type { Prisma } from '@prisma/client'
 import { prisma } from './prisma.js'
 import { formatUserForClient } from '../utils/userPresenter.js'
 import { parseJsonArray } from '../utils/jsonField.js'
@@ -17,6 +18,7 @@ const DEFAULT_DIAGNOSTIC_LIMIT = 1
 const DEFAULT_QUESTION_BANK_LIMIT = 1
 
 export type EntitlementAction = 'diagnostic' | 'question-bank'
+type MemberDatabase = typeof prisma | Prisma.TransactionClient
 
 // 剩余天数按自然日向上取整，避免未到期会员提前显示为零天。
 function daysUntil(date: Date, now: Date): number {
@@ -54,8 +56,13 @@ function effectiveMembershipStatus(
 }
 
 // 同考试类型存在多条记录时选取仍在有效期内且结束最晚的一条。
-async function getActiveMembership(userId: string, examType: string, now: Date) {
-  const memberships = await prisma.userMembership.findMany({
+async function getActiveMembership(
+  userId: string,
+  examType: string,
+  now: Date,
+  db: MemberDatabase,
+) {
+  const memberships = await db.userMembership.findMany({
     where: { userId, examType },
     orderBy: { endsAt: 'desc' },
   })
@@ -63,19 +70,23 @@ async function getActiveMembership(userId: string, examType: string, now: Date) 
 }
 
 // 权益配置按考试类型读取，未配置时由调用方使用安全默认额度。
-async function getEntitlementConfig(examType: string) {
-  return prisma.entitlementConfig.findFirst({
+async function getEntitlementConfig(examType: string, db: MemberDatabase) {
+  return db.entitlementConfig.findFirst({
     where: { examType, status: MEMBERSHIP_STATUS.ACTIVE },
   })
 }
 
 // 诊断用量合并已关联会话和已提交真题，避免两条入口重复赠送额度。
-async function countDiagnosticUsed(userId: string, examType: string): Promise<number> {
+async function countDiagnosticUsed(
+  userId: string,
+  examType: string,
+  db: MemberDatabase,
+): Promise<number> {
   const [sessionCount, examRecordCount] = await Promise.all([
-    prisma.diagnosticSession.count({
+    db.diagnosticSession.count({
       where: { userId, examType, status: 'linked' },
     }),
-    prisma.examRecord.count({
+    db.examRecord.count({
       where: {
         userId,
         examType,
@@ -88,8 +99,12 @@ async function countDiagnosticUsed(userId: string, examType: string): Promise<nu
 }
 
 // 题库用量按实际答题记录计数，确保额度反映用户已消费题目数。
-async function countQuestionBankUsed(userId: string, examType: string): Promise<number> {
-  return prisma.answerRecord.count({
+async function countQuestionBankUsed(
+  userId: string,
+  examType: string,
+  db: MemberDatabase,
+): Promise<number> {
+  return db.answerRecord.count({
     where: {
       examRecord: {
         userId,
@@ -106,9 +121,10 @@ export async function checkMemberAccess(
   action: EntitlementAction,
   examType: string,
   requiredCount = 1,
+  db: MemberDatabase = prisma,
 ) {
   const now = new Date()
-  const user = await prisma.user.findUnique({
+  const user = await db.user.findUnique({
     where: { id: userId },
     select: { id: true, role: true },
   })
@@ -128,8 +144,8 @@ export async function checkMemberAccess(
   }
 
   const isAdmin = user.role === USER_ROLE.ADMIN
-  const activeMembership = isAdmin ? null : await getActiveMembership(userId, examType, now)
-  const config = await getEntitlementConfig(examType)
+  const activeMembership = isAdmin ? null : await getActiveMembership(userId, examType, now, db)
+  const config = await getEntitlementConfig(examType, db)
   const unlimited = isAdmin || !!activeMembership
   const limit =
     action === 'diagnostic'
@@ -137,8 +153,8 @@ export async function checkMemberAccess(
       : (config?.questionBankLimit ?? DEFAULT_QUESTION_BANK_LIMIT)
   const used =
     action === 'diagnostic'
-      ? await countDiagnosticUsed(userId, examType)
-      : await countQuestionBankUsed(userId, examType)
+      ? await countDiagnosticUsed(userId, examType, db)
+      : await countQuestionBankUsed(userId, examType, db)
   const remaining = unlimited ? null : Math.max(0, limit - used)
   const allowed = unlimited || (remaining ?? 0) >= requiredCount
 
@@ -211,7 +227,7 @@ export async function getMemberContext(userId: string) {
       const questionBankLimit = config?.questionBankLimit ?? DEFAULT_QUESTION_BANK_LIMIT
 
       const [diagnosticUsed, questionBankUsed] = await Promise.all([
-        countDiagnosticUsed(userId, examType),
+        countDiagnosticUsed(userId, examType, prisma),
         prisma.answerRecord.count({
           where: {
             examRecord: {

@@ -1,3 +1,4 @@
+<!-- 管理端试卷上传页：校验并预览扁平卷、标准模块卷及历史兼容格式。 -->
 <template>
   <div class="upload-page">
     <!-- 顶部返回 -->
@@ -311,12 +312,13 @@
 
           <div class="meta-row" style="margin-top: 12px">
             <div class="meta-field">
-              <label class="field-label">学科代码（可选）</label>
+              <label class="field-label">套卷代码（可选）</label>
               <input
                 v-model="mdCode"
                 class="field-input field-input--sm"
-                placeholder="如 M1, P2..."
+                placeholder="如 ESAT-EQUIV-2023-M1-CHE-M2"
               />
+              <p class="field-hint">用于识别整套试卷及报告展示，不代表学科</p>
             </div>
             <div class="meta-field" style="display: flex; align-items: flex-end">
               <span style="font-size: 0.875rem; color: #475569"
@@ -326,10 +328,16 @@
           </div>
 
           <!-- 题目预览列表 -->
+          <div v-if="mdModules.length" class="module-preview">
+            <span v-for="module in mdModules" :key="module.code">
+              <b>{{ module.subject }}</b> · {{ module.count }} 题 · {{ module.duration }} 分钟
+            </span>
+          </div>
           <div class="json-preview-list" v-if="mdQuestions.length">
             <p class="field-label" style="margin-top: 16px">题目预览</p>
             <div class="json-preview-item" v-for="q in mdQuestions" :key="q.number">
-              <span class="json-preview-num">{{ q.number }}</span>
+              <span class="json-preview-num">{{ q.module_question_number || q.component_question_number || q.number }}</span>
+              <span v-if="q.subject" class="json-preview-module">{{ q.subject }}</span>
               <span class="json-preview-title">{{ truncateText(q.title, 60) }}</span>
               <span class="json-preview-opts">{{ q.options?.length || 0 }} 个选项</span>
             </div>
@@ -475,12 +483,13 @@
 
           <div class="meta-row" style="margin-top: 12px">
             <div class="meta-field">
-              <label class="field-label">学科代码（可选）</label>
+              <label class="field-label">套卷代码（可选）</label>
               <input
                 v-model="jsonCode"
                 class="field-input field-input--sm"
-                placeholder="如 M1, P2..."
+                placeholder="如 ESAT-EQUIV-2023-M1-CHE-M2"
               />
+              <p class="field-hint">用于识别整套试卷及报告展示，不代表学科</p>
             </div>
             <div class="meta-field" style="display: flex; align-items: flex-end">
               <span style="font-size: 0.875rem; color: #475569"
@@ -490,10 +499,16 @@
           </div>
 
           <!-- 题目预览列表 -->
+          <div v-if="jsonModules.length" class="module-preview">
+            <span v-for="module in jsonModules" :key="module.code">
+              <b>{{ module.subject }}</b> · {{ module.count }} 题 · {{ module.duration }} 分钟
+            </span>
+          </div>
           <div class="json-preview-list" v-if="jsonQuestions.length">
             <p class="field-label" style="margin-top: 16px">题目预览</p>
             <div class="json-preview-item" v-for="q in jsonQuestions" :key="q.number">
-              <span class="json-preview-num">{{ q.number }}</span>
+              <span class="json-preview-num">{{ q.module_question_number || q.component_question_number || q.number }}</span>
+              <span v-if="q.subject" class="json-preview-module">{{ q.subject }}</span>
               <span class="json-preview-title">{{ truncateText(q.title, 60) }}</span>
               <span class="json-preview-opts">{{ q.options.length }} 个选项</span>
             </div>
@@ -599,7 +614,11 @@ import { ElMessage } from 'element-plus'
 import { renderPdfToBase64Pages, type RenderedPage } from '@/utils/pdfRenderer'
 import { DEFAULT_EXAM_TYPE, EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
 import { PAPER_TYPE } from '@/constants/paperTypes'
-import type { PaperMetadata, Question } from '@/types'
+import type {
+  PaperMetadata,
+  QuestionInput,
+  StandardPaperJson,
+} from '@/types'
 
 const router = useRouter()
 const route = useRoute()
@@ -665,7 +684,9 @@ const jsonYear = ref(new Date().getFullYear())
 const jsonDuration = ref(75)
 const jsonCode = ref('')
 const jsonMetadata = ref<PaperMetadata | null>(null)
-const jsonQuestions = ref<Question[]>([])
+const jsonQuestions = ref<QuestionInput[]>([])
+const jsonDocument = ref<StandardPaperJson | null>(null)
+const jsonModules = ref<Array<{ code: string; subject: string; duration: number; count: number }>>([])
 const jsonImporting = ref(false)
 const jsonDone = ref(false)
 const jsonError = ref('')
@@ -681,7 +702,8 @@ const mdDuration = ref(75)
 const mdCode = ref('')
 const mdMetadata = ref<PaperMetadata | null>(null)
 const mdRawText = ref('')
-const mdQuestions = ref<Question[]>([])
+const mdQuestions = ref<QuestionInput[]>([])
+const mdModules = ref<Array<{ code: string; subject: string; duration: number; count: number }>>([])
 const mdJsonBlockCount = ref(0)
 const mdImporting = ref(false)
 const mdDone = ref(false)
@@ -715,6 +737,76 @@ function readStandardMetadata(raw: any): PaperMetadata | null {
   if (!isPaperTypeValue(metadata.paperType)) return null
   if (typeof metadata.totalQuestions !== 'number') return null
   return metadata as PaperMetadata
+}
+
+// 上传预览以 modules[].questions 为标准，并兼容 modules[].items、旧分组容器和扁平 questions。
+function readPaperDocumentPreview(raw: any): {
+  metadata: PaperMetadata
+  questions: QuestionInput[]
+  modules: Array<{ code: string; subject: string; duration: number; count: number }>
+} | null {
+  const metadata = readStandardMetadata(raw)
+  if (!metadata) return null
+
+  const rawModuleRows = Array.isArray(raw?.modules)
+    ? raw.modules
+    : Array.isArray(raw?.questions)
+      && raw.questions.length > 0
+      && raw.questions.every((item: any) => Array.isArray(item?.items))
+      ? raw.questions
+      : null
+  const moduleRows = rawModuleRows?.map((module: any) => ({
+    ...module,
+    questions: Array.isArray(module?.questions) ? module.questions : module?.items,
+  })) || null
+
+  if (moduleRows) {
+    const modules = moduleRows.map((module: any, moduleIndex: number) => ({
+      code: String(
+        module.code
+          || module.module_code
+          || module.component_code
+          || module.subject
+          || `module-${moduleIndex + 1}`,
+      ),
+      subject: String(module.subject || `Module ${moduleIndex + 1}`),
+      duration: Number(module.duration) || 0,
+      count: Array.isArray(module.questions) ? module.questions.length : 0,
+    }))
+    const questions = moduleRows.flatMap((module: any, moduleIndex: number) => {
+      const moduleQuestions = Array.isArray(module.questions) ? module.questions : []
+      return moduleQuestions.map((question: QuestionInput, itemIndex: number) => ({
+        ...question,
+        number: questionsBeforeModule(moduleRows, moduleIndex) + itemIndex + 1,
+        module_code: module.code || module.module_code || module.component_code,
+        module_order: Number(module.order) || moduleIndex + 1,
+        module_question_number: question.number || itemIndex + 1,
+        // 预览期保留旧别名，便于早期管理页和已上传数据平滑迁移。
+        component_code: module.code || module.module_code || module.component_code,
+        component_order: Number(module.order) || moduleIndex + 1,
+        component_question_number: question.number || itemIndex + 1,
+        subject: question.subject || module.subject,
+        subject_code: question.subject_code || String(module.subject_code || ''),
+      }))
+    })
+    if (metadata.totalQuestions !== questions.length) return null
+    return { metadata, questions, modules }
+  }
+
+  if (!Array.isArray(raw?.questions) || metadata.totalQuestions !== raw.questions.length) return null
+  return { metadata, questions: raw.questions, modules: [] }
+}
+
+function questionsBeforeModule(modules: any[], targetIndex: number): number {
+  return modules
+    .slice(0, targetIndex)
+    .reduce((sum, module) => sum + (
+      Array.isArray(module?.questions)
+        ? module.questions.length
+        : Array.isArray(module?.items)
+          ? module.items.length
+          : 0
+    ), 0)
 }
 
 onUnmounted(() => {
@@ -1049,22 +1141,20 @@ function processJsonFile(f: File): void {
   reader.onload = () => {
     try {
       const raw = JSON.parse(reader.result as string)
-      const metadata = readStandardMetadata(raw)
-      if (!metadata || !Array.isArray(raw?.questions)) {
-        ElMessage.warning('JSON 必须使用 { metadata, questions } 标准结构')
-        return
-      }
-      if (metadata.totalQuestions !== raw.questions.length) {
-        ElMessage.warning('metadata.totalQuestions 必须等于 questions.length')
+      const preview = readPaperDocumentPreview(raw)
+      if (!preview) {
+        ElMessage.warning('JSON 必须使用标准扁平 questions 或模块化 modules 结构，题目总数需一致')
         return
       }
 
-      jsonMetadata.value = metadata
-      jsonQuestions.value = raw.questions
-      jsonTitle.value = metadata.paperName
-      jsonExamType.value = normalizeExamType(metadata.examType)
-      jsonYear.value = metadata.year
-      jsonDuration.value = metadata.duration
+      jsonMetadata.value = preview.metadata
+      jsonQuestions.value = preview.questions
+      jsonModules.value = preview.modules
+      jsonDocument.value = raw as StandardPaperJson
+      jsonTitle.value = preview.metadata.paperName
+      jsonExamType.value = normalizeExamType(preview.metadata.examType)
+      jsonYear.value = preview.metadata.year
+      jsonDuration.value = preview.metadata.duration
       jsonCode.value = raw.code || ''
       jsonFile.value = f
       jsonError.value = ''
@@ -1084,6 +1174,8 @@ function clearJsonFile(): void {
   jsonCode.value = ''
   jsonMetadata.value = null
   jsonQuestions.value = []
+  jsonDocument.value = null
+  jsonModules.value = []
   jsonError.value = ''
   jsonDone.value = false
   jsonPaperId.value = ''
@@ -1095,7 +1187,7 @@ function resetJsonImport(): void {
 }
 
 async function importJson(): Promise<void> {
-  if (!jsonMetadata.value) {
+  if (!jsonMetadata.value || !jsonDocument.value) {
     ElMessage.warning('请先选择标准 JSON 文件')
     return
   }
@@ -1120,13 +1212,16 @@ async function importJson(): Promise<void> {
       jsonDuration.value,
     )
     const res = await apiImportJson({
-      code: jsonCode.value || undefined,
+      ...jsonDocument.value,
+      code: jsonCode.value || (jsonDocument.value as any).code || undefined,
       metadata,
-      questions: jsonQuestions.value,
-    })
+    } as StandardPaperJson & { code?: string })
     jsonMetadata.value = metadata
     jsonPaperId.value = res.id
     jsonDone.value = true
+    if (res.warnings?.length) {
+      ElMessage.warning(res.warnings.join('；'))
+    }
   } catch (e: any) {
     jsonError.value = e.response?.data?.errMsg || e.message || '导入失败'
   } finally {
@@ -1168,7 +1263,7 @@ function processMdFile(f: File): void {
 
       // 前端提取 JSON 代码块做预览
       const jsonBlockRe = /```json\s*\n([\s\S]*?)\n\s*```/g
-      let parsedDocument: { metadata: PaperMetadata; questions: Question[] } | null = null
+      let parsedDocument: ReturnType<typeof readPaperDocumentPreview> = null
       let blockCount = 0
       let match: RegExpExecArray | null
 
@@ -1176,10 +1271,7 @@ function processMdFile(f: File): void {
         blockCount++
         try {
           const parsed = JSON.parse(match![1]!.trim())
-          const metadata = readStandardMetadata(parsed)
-          if (metadata && Array.isArray(parsed.questions)) {
-            parsedDocument = { metadata, questions: parsed.questions }
-          }
+          parsedDocument = readPaperDocumentPreview(parsed)
         } catch {
           // 某个块解析失败，跳过
         }
@@ -1193,17 +1285,15 @@ function processMdFile(f: File): void {
         ElMessage.warning('标准 Markdown 只能包含一个完整 JSON 代码块')
         return
       }
-      if (
-        !parsedDocument ||
-        parsedDocument.metadata.totalQuestions !== parsedDocument.questions.length
-      ) {
-        ElMessage.warning('JSON 代码块必须使用标准 { metadata, questions } 结构')
+      if (!parsedDocument) {
+        ElMessage.warning('JSON 代码块必须使用标准扁平 questions 或模块化 modules 结构')
         return
       }
 
       mdJsonBlockCount.value = blockCount
       mdMetadata.value = parsedDocument.metadata
       mdQuestions.value = parsedDocument.questions
+      mdModules.value = parsedDocument.modules
       mdTitle.value = parsedDocument.metadata.paperName
       mdExamType.value = normalizeExamType(parsedDocument.metadata.examType)
       mdYear.value = parsedDocument.metadata.year
@@ -1228,6 +1318,7 @@ function clearMdFile(): void {
   mdMetadata.value = null
   mdRawText.value = ''
   mdQuestions.value = []
+  mdModules.value = []
   mdJsonBlockCount.value = 0
   mdError.value = ''
   mdWarnings.value = []
@@ -1272,7 +1363,7 @@ async function importMarkdown(): Promise<void> {
     })
     mdMetadata.value = metadata
     mdPaperId.value = res.id
-    mdWarnings.value = (res as any).warnings || []
+    mdWarnings.value = res.warnings || []
     mdDone.value = true
   } catch (e: any) {
     mdError.value = e.response?.data?.errMsg || e.message || '导入失败'
@@ -1735,6 +1826,19 @@ function buildEditedMarkdown(markdown: string, metadata: PaperMetadata): string 
   border: 1px solid #e2e8f0;
   border-radius: 10px;
 }
+.module-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.module-preview span {
+  padding: 6px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  color: #64748b;
+  font-size: 0.75rem;
+}
 .json-preview-item {
   display: flex;
   align-items: center;
@@ -1764,6 +1868,12 @@ function buildEditedMarkdown(markdown: string, metadata: PaperMetadata): string 
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.json-preview-module {
+  min-width: 86px;
+  color: #6366f1;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 .json-preview-opts {
   color: #94a3b8;

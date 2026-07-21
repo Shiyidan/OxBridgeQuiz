@@ -1,4 +1,3 @@
-
 // 处理管理员 JSON 与 Markdown 试卷导入，并同步正式 Question 数据。
 import { Prisma } from '@prisma/client'
 import { prisma } from '../services/prisma.js'
@@ -36,7 +35,7 @@ paperImportRouter.post('/import-json', requireAuth, requireAdmin, async (req, re
       res.status(400).json(fail(`校验失败：${validated.errors.map(e => e.message).join('；')}`))
       return
     }
-    const { metadata, questions } = validated
+    const { metadata, questions, modules } = validated
 
     const paper = await prisma.paper.create({
       data: {
@@ -47,9 +46,14 @@ paperImportRouter.post('/import-json', requireAuth, requireAdmin, async (req, re
         code: code || undefined,
         examType: metadata.examType,
         paperType: metadata.paperType,
+        deliveryMode: metadata.deliveryMode,
+        breakDurationSeconds: metadata.breakDurationSeconds,
+        moduleConfig: metadata.moduleConfig as unknown as Prisma.InputJsonValue,
+        assemblyType: metadata.assemblyType,
+        sourceExamTypes: metadata.sourceExamTypes as Prisma.InputJsonValue,
+        remarks: metadata.remarks,
         totalQuestions: questions.length,
         status: 'draft',
-        questions: [],
       },
     })
 
@@ -63,6 +67,8 @@ paperImportRouter.post('/import-json', requireAuth, requireAdmin, async (req, re
     res.json(success({
       ...paper,
       questions: savedQuestions.map(formatQuestionRow),
+      modules,
+      warnings: validated.warnings,
     }))
   } catch (e: any) {
     logRuntimeError('paper.import_json_failed', e)
@@ -101,9 +107,14 @@ paperImportRouter.post('/import-markdown', requireAuth, requireAdmin, async (req
         code: code || undefined,
         examType: result.metadata.examType,
         paperType: result.metadata.paperType,
+        deliveryMode: result.metadata.deliveryMode,
+        breakDurationSeconds: result.metadata.breakDurationSeconds,
+        moduleConfig: result.metadata.moduleConfig as unknown as Prisma.InputJsonValue,
+        assemblyType: result.metadata.assemblyType,
+        sourceExamTypes: result.metadata.sourceExamTypes as Prisma.InputJsonValue,
+        remarks: result.metadata.remarks,
         totalQuestions: result.questions.length,
         status: 'draft',
-        questions: [],
       },
     })
 
@@ -117,6 +128,7 @@ paperImportRouter.post('/import-markdown', requireAuth, requireAdmin, async (req
     res.json(success({
       ...paper,
       questions: savedQuestions.map(formatQuestionRow),
+      modules: result.modules,
       warnings: result.warnings,
     }))
   } catch (e: any) {

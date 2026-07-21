@@ -173,8 +173,6 @@ const examMode = computed(() => {
   // 后续仿真考试入口可在此扩展
   return 'question-bank'
 })
-const isDebugRetake = computed(() => route.query.debugRetake === '1')
-
 const totalCount = computed(() => questions.value.length)
 const currentQuestion = computed(() => questions.value[currentIndex.value])
 const isLastQuestion = computed(
@@ -221,27 +219,29 @@ async function loadQuestions(): Promise<void> {
         router.replace('/assessment')
         return
       }
-      const loadedQuestions = (paper.questions || []).map((q: any, index: number) => ({
+      // 兼容旧链接：模块卷必须进入服务端按科目下题的专用页面，不能走整卷答题流程。
+      if (paper.deliveryMode === 'module_sequence') {
+        await router.replace({ name: 'diagnostic-exam', params: { paperId: paper.id } })
+        return
+      }
+      const loadedQuestions = (paper.questions || []).map((q, index) => ({
         ...q,
         id: q.id || `paper-${paper.id}-${q.number || index + 1}`,
       }))
-      if (!isDebugRetake.value) {
-        const access = await checkMemberAccess({
-          action: 'diagnostic',
-          examType: activeExamType.value,
-          questionCount: 1,
-        })
-        if (!access.allowed) {
-          ElMessage.warning('当前诊断测试额度不足，请开通会员后继续')
-          router.replace('/assessment')
-          return
-        }
+      const access = await checkMemberAccess({
+        action: 'diagnostic',
+        examType: activeExamType.value,
+        questionCount: 1,
+      })
+      if (!access.allowed) {
+        ElMessage.warning('当前诊断测试额度不足，请开通会员后继续')
+        router.replace('/assessment')
+        return
       }
       const examSession = await startExam({
         paperId,
         examType: activeExamType.value,
         startedAt: new Date().toISOString(),
-        debugRetake: isDebugRetake.value,
       })
       activeExamRecordId.value = examSession.examRecordId
       questions.value = loadedQuestions
@@ -616,7 +616,6 @@ async function handleSubmit(): Promise<void> {
     const data = await submitExam(activeExamRecordId.value, {
       responses: buildExamResponses(),
       startedAt: new Date(examNavRef.value?.startedAt ?? Date.now()).toISOString(),
-      debugRetake: isDebugRetake.value,
       submissionKey: submissionKey.value,
     })
     // 后端已经交卷后禁止路由守卫再次保存进度，否则会被 submitted 状态拒绝。

@@ -366,12 +366,17 @@ function computeTmuaScores(
   const midpoint = Math.ceil(questions.length / 2)
   const groups: Record<TmuaPaper, QuestionResult[]> = { paper1: [], paper2: [] }
   questions.forEach((question, index) => {
+    const explicitPaper = question.moduleCode ?? question.componentCode
     const subject = question.subject?.toLowerCase() || ''
-    const paper: TmuaPaper = /paper\s*2|p2|reasoning|推理/.test(subject)
+    const paper: TmuaPaper = explicitPaper === 'paper2'
       ? 'paper2'
-      : /paper\s*1|p1|thinking|思维/.test(subject)
+      : explicitPaper === 'paper1'
         ? 'paper1'
-        : index < midpoint ? 'paper1' : 'paper2'
+        : /paper\s*2|p2|reasoning|推理/.test(subject)
+          ? 'paper2'
+          : /paper\s*1|p1|thinking|思维/.test(subject)
+            ? 'paper1'
+            : index < midpoint ? 'paper1' : 'paper2'
     groups[paper].push(question)
   })
 

@@ -103,6 +103,21 @@ export function updatePaperType(id: string, paperType: string) {
   })
 }
 
+export interface DeletePaperResult {
+  id: string
+  deletedQuestions: number
+  deletedParseTasks: number
+}
+
+/** 删除未产生诊断历史的试卷及其直属题目数据。 */
+export function deletePaper(id: string) {
+  return callApi<DeletePaperResult>({
+    url: `/papers/${id}`,
+    method: 'DELETE',
+    isAllData: false,
+  })
+}
+
 export interface AssessmentPaperItem {
   id: string
   paperId: string

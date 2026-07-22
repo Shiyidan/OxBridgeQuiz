@@ -1,4 +1,4 @@
-<!-- 诊断测试首页：按试卷交付方式进入连续作答或三模块诊断流程。 -->
+<!-- 诊断测试首页：按试卷交付方式进入连续作答或分段诊断流程。 -->
 <template>
   <div class="assessment-page">
     <NavBar />
@@ -7,7 +7,7 @@
         <div class="page-header__lead">
           <span class="page-eyebrow">Diagnostic Assessment</span>
           <h1>诊断测试中心</h1>
-          <p>选择历年真题组成的等效诊断卷，按三个科目完成测试后生成估分与能力报告。</p>
+          <p>选择历年真题诊断卷，按 ESAT 科目模块或 TMUA Paper 1/2 完成在线测试。</p>
         </div>
         <div class="quota-card">
           <div class="quota-list" aria-label="诊断测试额度明细">
@@ -316,7 +316,7 @@ async function startPaper(paper: AssessmentPaperItem): Promise<void> {
   }
 }
 
-// 只有带模块交付配置的试卷进入专用状态机；TMUA 和旧扁平卷保持原答题页。
+// 带分段交付配置的 ESAT 与 TMUA 试卷进入专用状态机；旧扁平卷保持原答题页。
 function routeToDiagnosticPaper(paper: AssessmentPaperItem, resume: boolean): void {
   if (paper.deliveryMode === 'module_sequence') {
     router.push({

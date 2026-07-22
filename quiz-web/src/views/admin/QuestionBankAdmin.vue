@@ -111,15 +111,28 @@
         </el-table-column>
         <el-table-column
           label="操作"
-          width="140"
+          width="190"
           fixed="right"
           align="center"
           header-align="center"
         >
           <template #default="{ row }">
-            <router-link :to="`/admin/core-library/questions/${row.id}`" class="table-action-link">
-              管理内容
-            </router-link>
+            <div class="action-group">
+              <router-link
+                :to="`/admin/core-library/questions/${row.id}`"
+                class="table-action-link"
+              >
+                管理内容
+              </router-link>
+              <button
+                class="table-action-link table-action-link--danger"
+                type="button"
+                :disabled="deletingPaperId === row.id"
+                @click="handleDeletePaper(row)"
+              >
+                {{ deletingPaperId === row.id ? '删除中' : '删除' }}
+              </button>
+            </div>
           </template>
         </el-table-column>
       </AdminDataTable>
@@ -131,15 +144,16 @@
 // 试题库题目管理：按 AI 生成题目文件管理内容和发布状态。
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
-import { getPaperListData, updatePaperStatus, type PaperItem } from '@/api/papers'
+import { deletePaper, getPaperListData, updatePaperStatus, type PaperItem } from '@/api/papers'
 import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 import { PAPER_TYPE } from '@/constants/paperTypes'
 
 const route = useRoute()
 const router = useRouter()
 const loading = ref(true)
+const deletingPaperId = ref<string | null>(null)
 const draftKeyword = ref('')
 const appliedKeyword = ref('')
 const draftExamType = ref('all')
@@ -275,6 +289,35 @@ function handleStatusCommand(id: string, command: unknown): void {
 // 导入入口复用标准 JSON / Markdown 上传流程，文件内 paperType 决定进入哪个管理列表。
 function handleImport(): void {
   router.push({ path: '/admin/core-library/exams/upload', query: { source: 'questions' } })
+}
+
+// 删除操作复用试卷数据库删除接口，成功后刷新筛选结果并避免停留在空页。
+async function handleDeletePaper(paper: PaperItem): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除“${paper.title}”吗？删除后该批次及其全部题目不可恢复。已有学生诊断记录的数据不能删除，只能归档。`,
+      '删除试题数据',
+      {
+        type: 'warning',
+        confirmButtonText: '确认删除',
+        cancelButtonText: '取消',
+      },
+    )
+  } catch {
+    return
+  }
+
+  deletingPaperId.value = paper.id
+  try {
+    const result = await deletePaper(paper.id)
+    ElMessage.success(`试题数据已删除，同时清理 ${result.deletedQuestions} 道题目`)
+    if (paperList.value.length === 1 && pagination.page > 1) pagination.page -= 1
+    await fetchPapers()
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '试题数据删除失败')
+  } finally {
+    deletingPaperId.value = null
+  }
 }
 </script>
 
@@ -441,6 +484,13 @@ function handleImport(): void {
   cursor: pointer;
 }
 
+.action-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
 .status-btn {
   border: 1px solid transparent;
 }
@@ -466,6 +516,8 @@ function handleImport(): void {
 }
 
 .table-action-link {
+  border: 0;
+  background: transparent;
   color: var(--color-ink);
   text-decoration: none;
   transition:
@@ -474,9 +526,24 @@ function handleImport(): void {
     color var(--duration-base) ease;
 }
 
+.table-action-link--danger {
+  color: #dc2626;
+}
+
+.table-action-link:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
 .table-action-link:hover,
 .table-action-link:focus-visible {
   background: var(--color-hover);
   color: var(--color-ink);
+}
+
+.table-action-link--danger:not(:disabled):hover,
+.table-action-link--danger:not(:disabled):focus-visible {
+  background: #fef2f2;
+  color: #b91c1c;
 }
 </style>

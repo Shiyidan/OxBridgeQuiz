@@ -72,6 +72,14 @@ export const ESAT_MODULE = {
 export const ESAT_MODULES = Object.values(ESAT_MODULE)
 export type EsatModuleCode = (typeof ESAT_MODULES)[number]
 
+export const TMUA_PAPER = {
+  PAPER_1: 'paper1',
+  PAPER_2: 'paper2',
+} as const
+
+export const TMUA_PAPERS = Object.values(TMUA_PAPER)
+export type TmuaPaperCode = (typeof TMUA_PAPERS)[number]
+
 export const ANSWER_RECORD_STATE = {
   UNSEEN: 'unseen',
   SKIPPED: 'skipped',

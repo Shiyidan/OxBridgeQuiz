@@ -37,10 +37,17 @@
         </el-table-column>
         <el-table-column label="考试类型" width="120" align="center" header-align="center">
           <template #default="{ row }">
-            <el-tag class="exam-type-tag" effect="light" round>{{ row.examType || 'TMUA' }}</el-tag>
+            <el-tag
+              class="exam-type-tag"
+              :class="examTypeClass(row.examType)"
+              effect="light"
+              round
+            >
+              {{ row.examType || 'TMUA' }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="学科/模块" min-width="380" align="center" header-align="center">
+        <el-table-column label="学科/模块" width="240" align="center" header-align="center">
           <template #default="{ row }">
             <SubjectModuleTags v-if="row.modules?.length" :modules="row.modules" />
             <span v-else class="empty-modules">—</span>
@@ -56,7 +63,7 @@
         <el-table-column label="建议时长" width="120" align="center" header-align="center">
           <template #default="{ row }">{{ row.duration }} 分钟</template>
         </el-table-column>
-        <el-table-column label="题目数量" width="120" align="center" header-align="center">
+        <el-table-column label="题目数量" width="100" align="center" header-align="center">
           <template #default="{ row }">{{ row.totalQuestions }} 题</template>
         </el-table-column>
         <el-table-column label="状态" width="140" align="center" header-align="center">
@@ -81,15 +88,25 @@
         </el-table-column>
         <el-table-column
           label="操作"
-          width="140"
+          width="190"
           fixed="right"
           align="center"
           header-align="center"
         >
           <template #default="{ row }">
-            <router-link :to="`/admin/core-library/exams/${row.id}`" class="table-action-link">
-              管理内容
-            </router-link>
+            <div class="action-group">
+              <router-link :to="`/admin/core-library/exams/${row.id}`" class="table-action-link">
+                管理内容
+              </router-link>
+              <button
+                class="table-action-link table-action-link--danger"
+                type="button"
+                :disabled="deletingPaperId === row.id"
+                @click="handleDeletePaper(row)"
+              >
+                {{ deletingPaperId === row.id ? '删除中' : '删除' }}
+              </button>
+            </div>
           </template>
         </el-table-column>
       </AdminDataTable>
@@ -101,15 +118,16 @@
 // 真题库列表：套卷管理、发布状态和预览入口。
 import { reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
 import SubjectModuleTags from '@/components/SubjectModuleTags.vue'
-import { getPaperListData, updatePaperStatus, type PaperItem } from '@/api/papers'
+import { deletePaper, getPaperListData, updatePaperStatus, type PaperItem } from '@/api/papers'
 import { PAPER_TYPE } from '@/constants/paperTypes'
 
 const route = useRoute()
 const router = useRouter()
 const loading = ref(true)
+const deletingPaperId = ref<string | null>(null)
 const paperList = ref<PaperItem[]>([])
 const pagination = reactive({
   page: 1,
@@ -123,6 +141,12 @@ const statusOptions = [
   { value: 'published', label: '已上线' },
   { value: 'archived', label: '已归档' },
 ]
+
+// 考试类型使用稳定样式类，便于在同一列表中快速区分 ESAT 与 TMUA。
+function examTypeClass(examType: unknown): string {
+  const normalized = String(examType || 'TMUA').toLowerCase()
+  return `exam-type-tag--${normalized}`
+}
 
 // 每次回到真题库列表时重新获取数据，保证上传或编辑后的状态可见。
 watch(
@@ -196,8 +220,35 @@ function handleManualImport(): void {
   router.push('/admin/core-library/exams/upload')
 }
 
-// AI 生成入口暂未接入流程，先保留按钮事件避免模板空挂载。
-function handleAIGenerate(): void {}
+// 删除操作先进行不可逆确认，成功后重新读取数据库列表并修正空页分页。
+async function handleDeletePaper(paper: PaperItem): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除试卷“${paper.title}”吗？删除后试卷及其题目不可恢复。已有学生诊断记录的试卷不能删除，只能归档。`,
+      '删除试卷',
+      {
+        type: 'warning',
+        confirmButtonText: '确认删除',
+        cancelButtonText: '取消',
+      },
+    )
+  } catch {
+    return
+  }
+
+  deletingPaperId.value = paper.id
+  try {
+    const result = await deletePaper(paper.id)
+    ElMessage.success(`试卷已删除，同时清理 ${result.deletedQuestions} 道题目`)
+    if (paperList.value.length === 1 && pagination.page > 1) pagination.page -= 1
+    await fetchPapers()
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '试卷删除失败')
+  } finally {
+    deletingPaperId.value = null
+  }
+}
+
 </script>
 
 <style scoped lang="scss">
@@ -264,10 +315,16 @@ function handleAIGenerate(): void {}
   font-weight: var(--weight-semi);
 }
 
-.exam-type-tag {
+.exam-type-tag--esat {
   background: #ecfeff !important;
   border-color: #a5f3fc !important;
   color: #0e7490 !important;
+}
+
+.exam-type-tag--tmua {
+  background: #f5f3ff !important;
+  border-color: #ddd6fe !important;
+  color: #6d28d9 !important;
 }
 
 .empty-modules {
@@ -289,6 +346,13 @@ function handleAIGenerate(): void {}
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
+}
+
+.action-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .status-btn {
@@ -316,6 +380,8 @@ function handleAIGenerate(): void {}
 }
 
 .table-action-link {
+  border: 0;
+  background: transparent;
   color: var(--color-ink);
   text-decoration: none;
   transition:
@@ -324,9 +390,24 @@ function handleAIGenerate(): void {}
     color var(--duration-base) ease;
 }
 
+.table-action-link--danger {
+  color: #dc2626;
+}
+
+.table-action-link:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
 .table-action-link:hover,
 .table-action-link:focus-visible {
   background: var(--color-hover);
   color: var(--color-ink);
+}
+
+.table-action-link--danger:not(:disabled):hover,
+.table-action-link--danger:not(:disabled):focus-visible {
+  background: #fef2f2;
+  color: #b91c1c;
 }
 </style>

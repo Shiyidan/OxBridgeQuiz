@@ -18,6 +18,7 @@ import {
   PAPER_DELIVERY_MODE,
   QUESTION_BANK_PAPER_TYPES,
   REAL_PAPER_TYPES,
+  TMUA_PAPER,
   USER_ROLE,
   isExamType,
   isPaperType,
@@ -39,13 +40,21 @@ type PublishablePaper = {
   totalQuestions: number
 }
 
-// ESAT 诊断发布前复核数据库结构，避免绕过上传校验发布扁平卷或残缺模块卷。
+// ESAT 与 TMUA 诊断发布前复核数据库结构，避免绕过上传校验发布扁平卷或残缺分段卷。
 async function getDiagnosticPublishIssue(paper: PublishablePaper): Promise<string | null> {
-  if (paper.examType !== EXAM_TYPE.ESAT || !isRealPaperType(paper.paperType)) return null
+  if (
+    !isRealPaperType(paper.paperType)
+    || (paper.examType !== EXAM_TYPE.ESAT && paper.examType !== EXAM_TYPE.TMUA)
+  ) return null
   if (paper.deliveryMode !== PAPER_DELIVERY_MODE.MODULE_SEQUENCE) {
-    return 'ESAT 诊断卷必须使用三模块顺序作答模式'
+    return `${paper.examType} 诊断卷必须使用分段顺序作答模式`
   }
-  if (paper.breakDurationSeconds !== 180) return 'ESAT 诊断卷的科目间休息必须为 180 秒'
+  if (paper.examType === EXAM_TYPE.ESAT && paper.breakDurationSeconds !== 180) {
+    return 'ESAT 诊断卷的科目间休息必须为 180 秒'
+  }
+  if (paper.examType === EXAM_TYPE.TMUA && paper.breakDurationSeconds !== 0) {
+    return 'TMUA Paper 1 与 Paper 2 之间不配置休息倒计时'
+  }
 
   const modules = parseJsonField<Array<{
     code?: string
@@ -53,18 +62,40 @@ async function getDiagnosticPublishIssue(paper: PublishablePaper): Promise<strin
     durationSeconds?: number
     questionCount?: number
   }>>(paper.moduleConfig, [])
+  modules.sort((left, right) => Number(left.order) - Number(right.order))
   const moduleCodes = modules.map((module) => String(module.code || ''))
   const moduleOrders = modules.map((module) => Number(module.order))
-  if (
+  const commonConfigInvalid = (
+    !modules.length
+    || new Set(moduleCodes).size !== modules.length
+    || moduleOrders.some((order) => !Number.isInteger(order) || order < 1)
+    || new Set(moduleOrders).size !== modules.length
+    || modules.some((module) => !Number.isInteger(module.durationSeconds) || Number(module.durationSeconds) <= 0)
+  )
+  const esatConfigInvalid = paper.examType === EXAM_TYPE.ESAT && (
     modules.length !== 3
     || new Set(moduleCodes).size !== 3
     || moduleCodes.some((code) => !ESAT_MODULES.some((moduleCode) => moduleCode === code))
     || !moduleCodes.includes('maths1')
-    || moduleOrders.some((order) => !Number.isInteger(order) || order < 1)
-    || new Set(moduleOrders).size !== 3
-    || modules.some((module) => !Number.isInteger(module.durationSeconds) || Number(module.durationSeconds) <= 0)
-  ) {
+  )
+  const tmuaConfigInvalid = paper.examType === EXAM_TYPE.TMUA && (
+    modules.length !== 2
+    || moduleCodes[0] !== TMUA_PAPER.PAPER_1
+    || moduleOrders[0] !== 1
+    || moduleCodes[1] !== TMUA_PAPER.PAPER_2
+    || moduleOrders[1] !== 2
+    || modules.some((module) => module.durationSeconds !== 75 * 60)
+    || modules.some((module) => module.questionCount !== 20)
+    || paper.totalQuestions !== 40
+  )
+  if (commonConfigInvalid) {
+    return `${paper.examType} 诊断卷的分段代码、顺序和时长配置不完整`
+  }
+  if (esatConfigInvalid) {
     return 'ESAT 诊断卷必须包含三个不重复科目，并且包含 Mathematics 1'
+  }
+  if (tmuaConfigInvalid) {
+    return 'TMUA 诊断卷必须按顺序包含 paper1、paper2，每卷 20 题且独立计时 75 分钟'
   }
 
   const questions = await prisma.question.findMany({
@@ -83,7 +114,7 @@ async function getDiagnosticPublishIssue(paper: PublishablePaper): Promise<strin
       question.moduleCode === module.code && question.moduleOrder === module.order
     )).length !== module.questionCount)
   ) {
-    return 'ESAT 诊断卷题目必须完整归属于三个已配置模块'
+    return `${paper.examType} 诊断卷题目必须完整归属于全部已配置分段`
   }
   return null
 }
@@ -181,6 +212,7 @@ paperCrudRouter.get('/:id', requireAuth, async (req, res) => {
 
   res.json(success({
     ...paper,
+    modules: parseJsonField(paper.moduleConfig, []),
     questions: questions.map(formatQuestionRow),
   }))
 })
@@ -267,12 +299,43 @@ paperCrudRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
 
 // 删除试卷
 paperCrudRouter.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
-  const previousPaper = await prisma.paper.findUnique({ where: { id: req.params.id } })
+  const previousPaper = await prisma.paper.findUnique({
+    where: { id: req.params.id },
+    include: {
+      _count: {
+        select: {
+          questionsRel: true,
+          parseTasks: true,
+          examRecords: true,
+        },
+      },
+    },
+  })
   if (!previousPaper) {
     res.status(404).json(fail('试卷不存在'))
     return
   }
-  await prisma.paper.delete({ where: { id: req.params.id } })
+  if (previousPaper._count.examRecords > 0) {
+    res.status(409).json(fail(
+      '该试卷已有学生诊断记录，不能删除；请将试卷状态改为“已归档”',
+      'PAPER_HAS_DIAGNOSTIC_HISTORY',
+    ))
+    return
+  }
+
+  try {
+    // Paper 外键负责级联删除直属题目和解析任务，单条删除保证数据库操作原子性。
+    await prisma.paper.delete({ where: { id: req.params.id } })
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+      res.status(409).json(fail(
+        '该试卷已产生关联业务数据，不能删除；请刷新列表后改为“已归档”',
+        'PAPER_DELETE_CONFLICT',
+      ))
+      return
+    }
+    throw error
+  }
   setOperationAuditContext(req, {
     summary: `删除试卷“${previousPaper.title}”`,
     changes: buildOperationAuditChanges(
@@ -284,12 +347,18 @@ paperCrudRouter.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
           year: previousPaper.year,
           paperType: previousPaper.paperType,
           status: previousPaper.status,
+          questionCount: previousPaper._count.questionsRel,
+          parseTaskCount: previousPaper._count.parseTasks,
         },
       },
       { record: null },
     ),
   })
-  res.json(success(null))
+  res.json(success({
+    id: previousPaper.id,
+    deletedQuestions: previousPaper._count.questionsRel,
+    deletedParseTasks: previousPaper._count.parseTasks,
+  }))
 })
 
 

@@ -6,13 +6,15 @@ import {
   ESAT_MODULES,
   EXAM_TYPE,
   PAPER_DELIVERY_MODE,
+  TMUA_PAPER,
+  TMUA_PAPERS,
   isExamType,
   isPaperType,
 } from '../constants/domain.js'
 
 export interface PaperBreakPolicy {
   durationSeconds: number
-  skippable: true
+  skippable: boolean
 }
 
 export interface StandardPaperModule {
@@ -93,11 +95,43 @@ const ESAT_MODULE_SUBJECT_CODES: Record<string, string> = {
   [ESAT_MODULE.BIOLOGY]: '150000',
 }
 
+const TMUA_PAPER_ALIASES: Record<string, string> = {
+  p1: TMUA_PAPER.PAPER_1,
+  paper1: TMUA_PAPER.PAPER_1,
+  tmuap1: TMUA_PAPER.PAPER_1,
+  tmuapaper1: TMUA_PAPER.PAPER_1,
+  applicationsofmathematicalknowledge: TMUA_PAPER.PAPER_1,
+  mathematicalthinking: TMUA_PAPER.PAPER_1,
+  p2: TMUA_PAPER.PAPER_2,
+  paper2: TMUA_PAPER.PAPER_2,
+  tmuap2: TMUA_PAPER.PAPER_2,
+  tmuapaper2: TMUA_PAPER.PAPER_2,
+  mathematicalreasoning: TMUA_PAPER.PAPER_2,
+}
+
+const TMUA_PAPER_SUBJECT_CODES: Record<string, string> = {
+  [TMUA_PAPER.PAPER_1]: 'TMUA-P1',
+  [TMUA_PAPER.PAPER_2]: 'TMUA-P2',
+}
+
 // 外部文件可使用科目全名或短码；入库前统一为稳定的 ESAT module code。
 export function normalizeEsatModuleCode(value: unknown): string | null {
   if (typeof value !== 'string') return null
   const key = value.toLowerCase().replace(/[^a-z0-9]/g, '')
   return ESAT_MODULE_ALIASES[key] || null
+}
+
+// TMUA 的分段代码表达 Paper 1/2，不与题目的数学考纲学科代码混用。
+export function normalizeTmuaPaperCode(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const key = value.toLowerCase().replace(/[^a-z0-9]/g, '')
+  return TMUA_PAPER_ALIASES[key] || null
+}
+
+// 上传文件按考试类型收窄稳定代码，禁止 ESAT 科目代码与 TMUA Paper 代码串用。
+function normalizeDiagnosticSectionCode(examType: unknown, value: unknown): string | null {
+  if (examType === EXAM_TYPE.TMUA) return normalizeTmuaPaperCode(value)
+  return normalizeEsatModuleCode(value)
 }
 
 // 位图只允许站内相对地址、HTTP(S)、临时 blob 或常见位图 base64，禁止 data:SVG/HTML。
@@ -177,7 +211,7 @@ export function validateStandardPaperDocument(input: any): {
   const isModular = Boolean(rawModules)
 
   if (isCanonicalModuleDocument && input?.schemaVersion !== 'diagnostic-paper-v2') {
-    errors.push({ block: 0, message: '标准模块卷 schemaVersion 必须为 diagnostic-paper-v2' })
+    errors.push({ block: 0, message: '标准分段卷 schemaVersion 必须为 diagnostic-paper-v2' })
   }
 
   if (
@@ -186,6 +220,13 @@ export function validateStandardPaperDocument(input: any): {
     && !isModular
   ) {
     warnings.push('扁平 ESAT 真题仅可作为草稿兼容导入；发布诊断卷前必须改为三模块 modules[].questions')
+  }
+  if (
+    rawMetadata?.examType === EXAM_TYPE.TMUA
+    && rawMetadata?.paperType === 'realPaper'
+    && !isModular
+  ) {
+    warnings.push('扁平 TMUA 真题仅可作为草稿兼容导入；发布诊断卷前必须改为 Paper 1/2 的 modules[].questions')
   }
 
   if (legacyModuleAlias) {
@@ -212,12 +253,16 @@ export function validateStandardPaperDocument(input: any): {
     if (rawMetadata?.examType === EXAM_TYPE.ESAT && rawModules.length !== 3) {
       errors.push({ block: 0, message: 'ESAT 模块诊断卷必须恰好包含 3 个科目模块' })
     }
+    if (rawMetadata?.examType === EXAM_TYPE.TMUA && rawModules.length !== 2) {
+      errors.push({ block: 0, message: 'TMUA 诊断卷必须恰好包含 Paper 1 和 Paper 2' })
+    }
 
     const usedModuleCodes = new Set<string>()
     const usedOrders = new Set<number>()
     let globalNumber = 1
     for (let moduleIndex = 0; moduleIndex < rawModules.length; moduleIndex++) {
       const rawModule = rawModules[moduleIndex] || {}
+      const sectionName = rawMetadata?.examType === EXAM_TYPE.TMUA ? '分卷' : '模块'
       const moduleItems = Array.isArray(rawModule.questions)
         ? rawModule.questions
         : Array.isArray(rawModule.items)
@@ -230,10 +275,11 @@ export function validateStandardPaperDocument(input: any): {
       ) {
         errors.push({
           block: 0,
-          message: `模块 ${moduleIndex + 1}：标准 modules[].questions 格式必须填写 code`,
+          message: `${sectionName} ${moduleIndex + 1}：标准 modules[].questions 格式必须填写 code`,
         })
       }
-      const moduleCode = normalizeEsatModuleCode(
+      const moduleCode = normalizeDiagnosticSectionCode(
+        rawMetadata?.examType,
         rawModule.code || rawModule.module_code || rawModule.component_code || subject,
       )
       if (
@@ -244,32 +290,40 @@ export function validateStandardPaperDocument(input: any): {
       ) {
         errors.push({
           block: 0,
-          message: `模块 ${moduleIndex + 1}：code 必须使用稳定值 ${moduleCode}`,
+          message: `${sectionName} ${moduleIndex + 1}：code 必须使用稳定值 ${moduleCode}`,
         })
       }
       if (isCanonicalModuleDocument && !Number.isInteger(rawModule.order)) {
-        errors.push({ block: 0, message: `模块 ${moduleIndex + 1}：标准格式必须显式填写正整数 order` })
+        errors.push({ block: 0, message: `${sectionName} ${moduleIndex + 1}：标准格式必须显式填写正整数 order` })
       }
       const order = Number.isInteger(rawModule.order) ? rawModule.order : moduleIndex + 1
       const durationMinutes = Number(rawModule.duration)
 
-      if (!moduleCode || !ESAT_MODULES.includes(moduleCode as any)) {
-        errors.push({ block: 0, message: `模块 ${moduleIndex + 1}：无法识别科目代码或科目名称` })
+      const validSectionCodes = rawMetadata?.examType === EXAM_TYPE.TMUA
+        ? TMUA_PAPERS
+        : ESAT_MODULES
+      if (!moduleCode || !validSectionCodes.some((code) => code === moduleCode)) {
+        errors.push({
+          block: 0,
+          message: rawMetadata?.examType === EXAM_TYPE.TMUA
+            ? `分卷 ${moduleIndex + 1}：无法识别 Paper 代码或名称`
+            : `模块 ${moduleIndex + 1}：无法识别科目代码或科目名称`,
+        })
       } else if (usedModuleCodes.has(moduleCode)) {
-        errors.push({ block: 0, message: `模块 ${moduleIndex + 1}：科目 ${moduleCode} 重复` })
+        errors.push({ block: 0, message: `${sectionName} ${moduleIndex + 1}：代码 ${moduleCode} 重复` })
       } else {
         usedModuleCodes.add(moduleCode)
       }
-      if (!subject) errors.push({ block: 0, message: `模块 ${moduleIndex + 1}：缺少 subject` })
+      if (!subject) errors.push({ block: 0, message: `${sectionName} ${moduleIndex + 1}：缺少 subject` })
       if (!Number.isInteger(order) || order < 1 || usedOrders.has(order)) {
-        errors.push({ block: 0, message: `模块 ${moduleIndex + 1}：order 必须为不重复的正整数` })
+        errors.push({ block: 0, message: `${sectionName} ${moduleIndex + 1}：order 必须为不重复的正整数` })
       }
       usedOrders.add(order)
       if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
-        errors.push({ block: 0, message: `模块 ${moduleIndex + 1}：duration 必须为正数分钟` })
+        errors.push({ block: 0, message: `${sectionName} ${moduleIndex + 1}：duration 必须为正数分钟` })
       }
       if (!moduleItems.length) {
-        errors.push({ block: 0, message: `模块 ${moduleIndex + 1}：questions 必须是非空数组` })
+        errors.push({ block: 0, message: `${sectionName} ${moduleIndex + 1}：questions 必须是非空数组` })
       }
       if (
         rawModule.totalQuestions !== undefined
@@ -277,7 +331,7 @@ export function validateStandardPaperDocument(input: any): {
       ) {
         errors.push({
           block: 0,
-          message: `模块 ${moduleIndex + 1}：totalQuestions 必须等于 questions.length`,
+          message: `${sectionName} ${moduleIndex + 1}：totalQuestions 必须等于 questions.length`,
         })
       }
 
@@ -286,13 +340,17 @@ export function validateStandardPaperDocument(input: any): {
         : rawModule.subject_code == null
           ? null
           : String(rawModule.subject_code)
-      const expectedSubjectCode = moduleCode ? ESAT_MODULE_SUBJECT_CODES[moduleCode] : null
+      const expectedSubjectCode = moduleCode
+        ? rawMetadata?.examType === EXAM_TYPE.TMUA
+          ? TMUA_PAPER_SUBJECT_CODES[moduleCode]
+          : ESAT_MODULE_SUBJECT_CODES[moduleCode]
+        : null
       if (isCanonicalModuleDocument && !subjectCode) {
-        errors.push({ block: 0, message: `模块 ${moduleIndex + 1}：标准格式必须填写 subject_code` })
+        errors.push({ block: 0, message: `${sectionName} ${moduleIndex + 1}：标准格式必须填写 subject_code` })
       } else if (subjectCode && expectedSubjectCode && subjectCode !== expectedSubjectCode) {
         errors.push({
           block: 0,
-          message: `模块 ${moduleIndex + 1}：${moduleCode} 的 subject_code 必须为 ${expectedSubjectCode}`,
+          message: `${sectionName} ${moduleIndex + 1}：${moduleCode} 的 subject_code 必须为 ${expectedSubjectCode}`,
         })
       }
       modules.push({
@@ -304,12 +362,24 @@ export function validateStandardPaperDocument(input: any): {
         questionCount: moduleItems.length,
       })
 
+      if (
+        rawMetadata?.examType === EXAM_TYPE.TMUA
+        && rawMetadata?.paperType === 'realPaper'
+      ) {
+        if (durationMinutes !== 75) {
+          errors.push({ block: 0, message: `TMUA ${moduleCode || `Paper ${moduleIndex + 1}`} 的 duration 必须为 75 分钟` })
+        }
+        if (moduleItems.length !== 20) {
+          errors.push({ block: 0, message: `TMUA ${moduleCode || `Paper ${moduleIndex + 1}`} 必须包含 20 道题` })
+        }
+      }
+
       const usedModuleQuestionNumbers = new Set<number>()
       moduleItems.forEach((item: any, itemIndex: number) => {
         if (isCanonicalModuleDocument && !Number.isInteger(item?.number)) {
           errors.push({
             block: 0,
-            message: `模块 ${moduleIndex + 1}：questions[${itemIndex}] 必须显式填写正整数 number`,
+            message: `${sectionName} ${moduleIndex + 1}：questions[${itemIndex}] 必须显式填写正整数 number`,
           })
         }
         const moduleQuestionNumber = Number.isFinite(item?.number) ? item.number : itemIndex + 1
@@ -320,7 +390,7 @@ export function validateStandardPaperDocument(input: any): {
         ) {
           errors.push({
             block: 0,
-            message: `模块 ${moduleIndex + 1}：questions[${itemIndex}] 的 number 必须为不重复的正整数`,
+            message: `${sectionName} ${moduleIndex + 1}：questions[${itemIndex}] 的 number 必须为不重复的正整数`,
           })
         }
         usedModuleQuestionNumbers.add(moduleQuestionNumber)
@@ -349,6 +419,15 @@ export function validateStandardPaperDocument(input: any): {
 
     if (rawMetadata?.examType === EXAM_TYPE.ESAT && !usedModuleCodes.has(ESAT_MODULE.MATHS_1)) {
       errors.push({ block: 0, message: 'ESAT 模块诊断卷必须包含 Mathematics 1' })
+    }
+    if (
+      rawMetadata?.examType === EXAM_TYPE.TMUA
+      && (
+        !usedModuleCodes.has(TMUA_PAPER.PAPER_1)
+        || !usedModuleCodes.has(TMUA_PAPER.PAPER_2)
+      )
+    ) {
+      errors.push({ block: 0, message: 'TMUA 诊断卷必须同时包含 paper1 和 paper2' })
     }
 
     const durationSum = modules.reduce((sum, module) => sum + module.durationSeconds, 0) / 60
@@ -455,8 +534,12 @@ export function validateStandardPaperDocument(input: any): {
     if (!['single_choice', 'multiple_choice', 'short_answer'].includes(q.question_type)) {
       errors.push({ block: 0, message: `${label}：question_type 必须为 single_choice、multiple_choice 或 short_answer` })
     }
-    if (isModular && rawMetadata?.examType === EXAM_TYPE.ESAT && q.question_type !== 'single_choice') {
-      errors.push({ block: 0, message: `${label}：ESAT 模块诊断只支持 single_choice` })
+    if (
+      isModular
+      && (rawMetadata?.examType === EXAM_TYPE.ESAT || rawMetadata?.examType === EXAM_TYPE.TMUA)
+      && q.question_type !== 'single_choice'
+    ) {
+      errors.push({ block: 0, message: `${label}：${rawMetadata.examType} 分段诊断只支持 single_choice` })
     }
     if (!Array.isArray(q.images)) {
       errors.push({ block: 0, message: `${label}：images 必须为数组，没有图片时请使用空数组` })
@@ -489,7 +572,7 @@ export function validateStandardPaperDocument(input: any): {
       errors.push({ block: 0, message: `${label}：single_choice 必须且只能有一个正确答案` })
     }
     if (isCanonicalModuleDocument && (typeof q.code !== 'string' || !q.code.trim())) {
-      errors.push({ block: 0, message: `${label}：标准等效真题必须填写来源稳定标识 code` })
+      errors.push({ block: 0, message: `${label}：标准分段真题必须填写来源稳定标识 code` })
     } else if (typeof q.code === 'string' && q.code.trim()) {
       if (sourceQuestionCodes.has(q.code)) {
         errors.push({ block: 0, message: `${label}：题目 code 在本卷中重复` })
@@ -503,7 +586,7 @@ export function validateStandardPaperDocument(input: any): {
     warnings.push('metadata.deliveryMode=module 为兼容值；新文件请使用 module_sequence')
   }
   if (isCanonicalModuleDocument && requestedDeliveryMode !== PAPER_DELIVERY_MODE.MODULE_SEQUENCE) {
-    errors.push({ block: 0, message: '标准模块卷 metadata.deliveryMode 必须显式为 module_sequence' })
+    errors.push({ block: 0, message: '标准分段卷 metadata.deliveryMode 必须显式为 module_sequence' })
   }
   if (
     requestedDeliveryMode !== undefined
@@ -513,7 +596,7 @@ export function validateStandardPaperDocument(input: any): {
     errors.push({
       block: 0,
       message: isModular
-        ? 'metadata.deliveryMode 模块卷必须为 module_sequence（兼容旧值 module）'
+        ? 'metadata.deliveryMode 分段卷必须为 module_sequence（兼容旧值 module）'
         : 'metadata.deliveryMode 扁平卷必须为 continuous',
     })
   }
@@ -532,22 +615,27 @@ export function validateStandardPaperDocument(input: any): {
   if (isModular && rawMetadata?.breakDurationSeconds !== undefined) {
     warnings.push('metadata.breakDurationSeconds 为兼容字段；新文件请使用 breakPolicy.durationSeconds')
   }
-  if (isModular && rawMetadata?.breakPolicy?.skippable === false) {
-    errors.push({ block: 0, message: '模块诊断卷的 breakPolicy.skippable 必须为 true' })
-  }
+  const expectedBreakSkippable = rawMetadata?.examType === EXAM_TYPE.TMUA ? false : true
   if (
     isCanonicalModuleDocument
     && (
       !rawMetadata?.breakPolicy
       || policyBreakDuration === undefined
-      || rawMetadata.breakPolicy.skippable !== true
+      || rawMetadata.breakPolicy.skippable !== expectedBreakSkippable
     )
   ) {
-    errors.push({ block: 0, message: '标准模块卷必须填写 breakPolicy.durationSeconds 和 skippable: true' })
+    errors.push({
+      block: 0,
+      message: rawMetadata?.examType === EXAM_TYPE.TMUA
+        ? 'TMUA 标准分卷必须填写 breakPolicy.durationSeconds: 0 和 skippable: false'
+        : '标准模块卷必须填写 breakPolicy.durationSeconds 和 skippable: true',
+    })
   }
   const breakDurationSeconds = isModular
     ? rawBreakDuration === undefined
-      ? DEFAULT_MODULE_BREAK_SECONDS
+      ? rawMetadata?.examType === EXAM_TYPE.TMUA
+        ? 0
+        : DEFAULT_MODULE_BREAK_SECONDS
       : Number(rawBreakDuration)
     : 0
   if (
@@ -564,10 +652,20 @@ export function validateStandardPaperDocument(input: any): {
   ) {
     errors.push({ block: 0, message: 'ESAT 模块诊断卷的 breakPolicy.durationSeconds 必须为 180 秒' })
   }
+  if (
+    isModular
+    && rawMetadata?.examType === EXAM_TYPE.TMUA
+    && Number.isInteger(breakDurationSeconds)
+    && breakDurationSeconds !== 0
+  ) {
+    errors.push({ block: 0, message: 'TMUA 两卷连续作答，breakPolicy.durationSeconds 必须为 0 秒' })
+  }
   const normalizedBreakDurationSeconds = Number.isInteger(breakDurationSeconds)
     && breakDurationSeconds >= 0
     ? breakDurationSeconds
-    : DEFAULT_MODULE_BREAK_SECONDS
+    : rawMetadata?.examType === EXAM_TYPE.TMUA
+      ? 0
+      : DEFAULT_MODULE_BREAK_SECONDS
   const metadata: StandardPaperMetadata | null = rawMetadata && typeof rawMetadata === 'object'
     ? {
         paperName: rawMetadata.paperName,
@@ -581,7 +679,10 @@ export function validateStandardPaperDocument(input: any): {
           : PAPER_DELIVERY_MODE.CONTINUOUS,
         breakDurationSeconds: normalizedBreakDurationSeconds,
         moduleConfig: modules.sort((a, b) => a.order - b.order),
-        breakPolicy: { durationSeconds: normalizedBreakDurationSeconds, skippable: true },
+        breakPolicy: {
+          durationSeconds: normalizedBreakDurationSeconds,
+          skippable: normalizedBreakDurationSeconds > 0,
+        },
         assemblyType: typeof rawMetadata.assemblyType === 'string'
           ? rawMetadata.assemblyType
           : isModular && rawMetadata.examType === EXAM_TYPE.ESAT
@@ -592,18 +693,23 @@ export function validateStandardPaperDocument(input: any): {
       }
     : null
 
-  if (isModular && modules.some((module) => module.questionCount !== 27)) {
+  if (
+    isModular
+    && rawMetadata?.examType === EXAM_TYPE.ESAT
+    && modules.some((module) => module.questionCount !== 27)
+  ) {
     warnings.push('模块题量不是正式 ESAT 的每模块 27 题；可用于流程测试，但等效分仅作低可信度估算')
   }
 
   if (errors.length) return { metadata, questions: normalizedQuestions, modules, errors, warnings }
-  const sanitized = sanitizeQuestionContent(normalizedQuestions)
+  // 暂停上传阶段的文本安全清洗：当前 HTML 标签规则会误删数学表达式中的 < 与 >。
+  // 清洗函数暂时保留，待后续改为能区分数学符号与真实 HTML 标签的字段级规则后再接回。
   return {
     metadata,
-    questions: sanitized.cleaned,
+    questions: normalizedQuestions,
     modules: modules.sort((a, b) => a.order - b.order),
     errors,
-    warnings: [...warnings, ...sanitized.warnings],
+    warnings,
   }
 }
 
@@ -786,7 +892,7 @@ export function processMarkdownImport(md: string): ProcessResult {
 
     if (structErrors.length > 0) continue
 
-    // JSON 与 Markdown 共用同一归一化和安全清洗入口。
+    // JSON 与 Markdown 共用同一结构归一化和业务校验入口。
     allQuestions.push(...questions)
     warnings.push(...validated.warnings)
   }

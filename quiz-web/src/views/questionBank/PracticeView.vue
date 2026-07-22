@@ -219,7 +219,7 @@ async function loadQuestions(): Promise<void> {
         router.replace('/assessment')
         return
       }
-      // 兼容旧链接：模块卷必须进入服务端按科目下题的专用页面，不能走整卷答题流程。
+      // 兼容旧链接：分段卷必须进入服务端按当前科目或 Paper 下题的专用页面。
       if (paper.deliveryMode === 'module_sequence') {
         await router.replace({ name: 'diagnostic-exam', params: { paperId: paper.id } })
         return

@@ -316,7 +316,7 @@
               <input
                 v-model="mdCode"
                 class="field-input field-input--sm"
-                placeholder="如 ESAT-EQUIV-2023-M1-CHE-M2"
+                placeholder="如 ESAT-EQUIV-2023-M1-CHE-M2 或 TMUA-2023"
               />
               <p class="field-hint">用于识别整套试卷及报告展示，不代表学科</p>
             </div>
@@ -487,7 +487,7 @@
               <input
                 v-model="jsonCode"
                 class="field-input field-input--sm"
-                placeholder="如 ESAT-EQUIV-2023-M1-CHE-M2"
+                placeholder="如 ESAT-EQUIV-2023-M1-CHE-M2 或 TMUA-2023"
               />
               <p class="field-hint">用于识别整套试卷及报告展示，不代表学科</p>
             </div>

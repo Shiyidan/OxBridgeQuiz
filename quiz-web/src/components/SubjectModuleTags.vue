@@ -1,9 +1,9 @@
-<!-- ESAT 学科标签：在真题库与诊断列表中统一模块顺序、配色和单行样式。 -->
+<!-- 诊断分段标签：统一展示 ESAT 学科模块与 TMUA Paper 1/2 的顺序和配色。 -->
 <template>
   <div
     class="subject-module-tags"
     :class="`subject-module-tags--${align}`"
-    aria-label="试卷学科模块"
+    aria-label="试卷学科或分卷"
   >
     <el-tag
       v-for="module in orderedModules"
@@ -13,7 +13,7 @@
       effect="light"
       round
     >
-      {{ module.subject }}
+      {{ moduleLabel(module) }}
     </el-tag>
   </div>
 </template>
@@ -35,13 +35,27 @@ const orderedModules = computed(() => (
   [...props.modules].sort((left, right) => left.order - right.order)
 ))
 
-// 五个 ESAT 稳定模块代码分别映射到独立颜色，仅影响视觉识别。
+// ESAT 五科与 TMUA 两卷分别映射到独立颜色，仅影响视觉识别。
 function subjectType(code: string | null): string {
   const normalizedCode = String(code || '').toLowerCase()
-  if (['maths1', 'maths2', 'physics', 'chemistry', 'biology'].includes(normalizedCode)) {
+  if (
+    ['maths1', 'maths2', 'physics', 'chemistry', 'biology', 'paper1', 'paper2'].includes(
+      normalizedCode,
+    )
+  ) {
     return normalizedCode
   }
   return 'general'
+}
+
+// 数学模块与 TMUA 分卷使用简洁展示名，内部稳定代码和业务判断保持不变。
+function moduleLabel(module: PaperModuleOutline): string {
+  const normalizedCode = String(module.code || '').toLowerCase()
+  if (normalizedCode === 'maths1') return 'Math 1'
+  if (normalizedCode === 'maths2') return 'Math 2'
+  if (normalizedCode === 'paper1') return 'Paper 1'
+  if (normalizedCode === 'paper2') return 'Paper 2'
+  return module.subject
 }
 </script>
 
@@ -107,5 +121,17 @@ function subjectType(code: string | null): string {
   background: #f0fdf4 !important;
   border-color: #bbf7d0 !important;
   color: #15803d !important;
+}
+
+.subject-module-tag--paper1 {
+  background: #eef2ff !important;
+  border-color: #c7d2fe !important;
+  color: #4338ca !important;
+}
+
+.subject-module-tag--paper2 {
+  background: #fdf4ff !important;
+  border-color: #f0abfc !important;
+  color: #a21caf !important;
 }
 </style>

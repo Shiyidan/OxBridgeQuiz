@@ -85,9 +85,13 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
 
     const isDiagnostic = isRealPaperType(targetPaperType)
     const isModuleSequence = targetDeliveryMode === PAPER_DELIVERY_MODE.MODULE_SEQUENCE
-    if (isDiagnostic && targetExamType === EXAM_TYPE.ESAT && !isModuleSequence) {
+    if (
+      isDiagnostic
+      && (targetExamType === EXAM_TYPE.ESAT || targetExamType === EXAM_TYPE.TMUA)
+      && !isModuleSequence
+    ) {
       res.status(422).json(fail(
-        'ESAT 诊断卷必须配置三个科目模块后才能开始',
+        `${targetExamType} 诊断卷必须配置完整分段结构后才能开始`,
         'PAPER_STRUCTURE_INVALID',
       ))
       return
@@ -341,7 +345,7 @@ examSessionRouter.put('/:id/progress', requireAuth, async (req, res) => {
     }
     const moduleSnapshot = parseModuleExamSnapshot(record.structureSnapshot)
     if (moduleSnapshot && record.phase !== EXAM_PHASE.ANSWERING) {
-      res.status(409).json(fail('当前不在科目作答阶段，不能保存题目进度', 'EXAM_NOT_ANSWERING'))
+      res.status(409).json(fail('当前不在分段作答阶段，不能保存题目进度', 'EXAM_NOT_ANSWERING'))
       return
     }
     if (record.expiresAt && record.expiresAt.getTime() <= Date.now()) {
@@ -360,7 +364,7 @@ examSessionRouter.put('/:id/progress', requireAuth, async (req, res) => {
       ? new Set(moduleSnapshot.modules[record.currentModuleIndex]?.questionIds || [])
       : null
     if (activeModuleQuestionIds && responseQuestionIds.some((id) => !activeModuleQuestionIds.has(id))) {
-      res.status(422).json(fail('只能保存当前科目模块内的题目'))
+      res.status(422).json(fail('只能保存当前考试分段内的题目'))
       return
     }
     const scopedQuestionCount = await prisma.answerRecord.count({
@@ -404,7 +408,7 @@ examSessionRouter.put('/:id/progress', requireAuth, async (req, res) => {
     } catch (error) {
       if (error instanceof ExamProgressConflictError) {
         res.status(409).json(moduleSnapshot
-          ? fail('当前科目已结束，进度未再写入', 'EXAM_PHASE_CHANGED')
+          ? fail('当前考试分段已结束，进度未再写入', 'EXAM_PHASE_CHANGED')
           : fail('考试已交卷，当前进度未再写入', 'EXAM_ALREADY_SUBMITTED'))
         return
       }
@@ -422,7 +426,7 @@ examSessionRouter.put('/:id/progress', requireAuth, async (req, res) => {
   }
 })
 
-// 刷新或重新进入模块化诊断页时，以服务端保存的阶段和截止时间恢复。
+// 刷新或重新进入分段诊断页时，以服务端保存的阶段和截止时间恢复。
 examSessionRouter.get('/:id/session', requireAuth, async (req, res) => {
   try {
     const session = await getModuleExamSession(req.params.id, req.user!.userId)
@@ -437,7 +441,7 @@ examSessionRouter.get('/:id/session', requireAuth, async (req, res) => {
   }
 })
 
-// 当前科目完成后立即锁定；前两个科目进入固定休息，最后一个进入待交卷阶段。
+// 当前分段完成后立即锁定；有休息策略时进入休息，否则直接开启下一分段。
 examSessionRouter.post('/:id/module/complete', requireAuth, async (req, res) => {
   try {
     await reconcileModuleBreak(req.params.id, req.user!.userId)
@@ -466,7 +470,7 @@ examSessionRouter.post('/:id/module/complete', requireAuth, async (req, res) => 
 
     const activeModule = snapshot.modules[record.currentModuleIndex]
     if (!activeModule) {
-      res.status(409).json(fail('当前科目模块不存在'))
+      res.status(409).json(fail('当前考试分段不存在'))
       return
     }
     const now = new Date()
@@ -477,7 +481,7 @@ examSessionRouter.post('/:id/module/complete', requireAuth, async (req, res) => 
     const responses = isExpired ? [] : normalizeExamResponses(req.body?.responses)
     const activeQuestionIds = new Set(activeModule.questionIds)
     if (responses.some((response) => !activeQuestionIds.has(response.questionId))) {
-      res.status(422).json(fail('只能提交当前科目模块内的题目'))
+      res.status(422).json(fail('只能提交当前考试分段内的题目'))
       return
     }
 
@@ -511,7 +515,12 @@ examSessionRouter.post('/:id/module/complete', requireAuth, async (req, res) => 
         })
       }
 
+      const nextModule = snapshot.modules[nextModuleIndex]
+      const hasBreak = snapshot.breakDurationSeconds > 0
       const breakEndsAt = new Date(endedAt.getTime() + snapshot.breakDurationSeconds * 1000)
+      const nextModuleExpiresAt = nextModule
+        ? new Date(endedAt.getTime() + nextModule.durationSeconds * 1000)
+        : null
       await tx.examRecord.updateMany({
         where: {
           id: record.id,
@@ -528,14 +537,23 @@ examSessionRouter.post('/:id/module/complete', requireAuth, async (req, res) => 
               expiresAt: null,
               activeDurationSeconds: { increment: elapsedSeconds },
             }
-          : {
-              phase: EXAM_PHASE.BREAK,
-              currentModuleIndex: nextModuleIndex,
-              phaseStartedAt: endedAt,
-              phaseExpiresAt: breakEndsAt,
-              expiresAt: breakEndsAt,
-              activeDurationSeconds: { increment: elapsedSeconds },
-            },
+          : hasBreak
+            ? {
+                phase: EXAM_PHASE.BREAK,
+                currentModuleIndex: nextModuleIndex,
+                phaseStartedAt: endedAt,
+                phaseExpiresAt: breakEndsAt,
+                expiresAt: breakEndsAt,
+                activeDurationSeconds: { increment: elapsedSeconds },
+              }
+            : {
+                phase: EXAM_PHASE.ANSWERING,
+                currentModuleIndex: nextModuleIndex,
+                phaseStartedAt: endedAt,
+                phaseExpiresAt: nextModuleExpiresAt,
+                expiresAt: nextModuleExpiresAt,
+                activeDurationSeconds: { increment: elapsedSeconds },
+              },
       })
     })
 
@@ -543,7 +561,7 @@ examSessionRouter.post('/:id/module/complete', requireAuth, async (req, res) => 
     res.json(success(session))
   } catch (error: any) {
     logRuntimeError('exam.module_complete_failed', error)
-    res.status(500).json(fail(error.message || '完成当前科目失败'))
+    res.status(500).json(fail(error.message || '完成当前考试分段失败'))
   }
 })
 
@@ -643,7 +661,7 @@ examSessionRouter.post('/:id/submit', requireAuth, async (req, res) => {
       return
     }
     if (moduleSnapshot && record.phase !== EXAM_PHASE.READY_TO_SUBMIT) {
-      res.status(409).json(fail('请先完成当前科目，三个科目完成后才能交卷', 'MODULE_NOT_COMPLETED'))
+      res.status(409).json(fail('请先完成所有考试分段后再交卷', 'MODULE_NOT_COMPLETED'))
       return
     }
 

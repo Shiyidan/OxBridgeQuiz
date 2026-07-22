@@ -1,4 +1,4 @@
-<!-- 管理端试卷预览：按模块分组复用正式题目渲染链路，并展示模块内题号。 -->
+<!-- 管理端试卷预览：按 ESAT 模块或 TMUA 分卷复用正式题目渲染链路。 -->
 <template>
   <div class="preview-page">
     <!-- 顶部返回 -->
@@ -33,9 +33,17 @@
               <span>时长：{{ paper.duration }} 分钟</span>
               <span class="meta-sep">·</span>
               <span>共 {{ questions.length }} 题</span>
-              <template v-if="paper.deliveryMode === 'module_sequence'">
+              <template
+                v-if="paper.deliveryMode === 'module_sequence' && paper.breakDurationSeconds"
+              >
                 <span class="meta-sep">·</span>
                 <span>科目间休息 {{ (paper.breakDurationSeconds || 0) / 60 }} 分钟</span>
+              </template>
+              <template
+                v-else-if="paper.deliveryMode === 'module_sequence' && paper.examType === 'TMUA'"
+              >
+                <span class="meta-sep">·</span>
+                <span>两卷独立计时，卷间自动切换</span>
               </template>
               <span class="meta-sep">·</span>
               <span :class="`status-tag status-tag--${paper.status}`">{{
@@ -70,7 +78,7 @@
           <section v-for="group in questionGroups" :key="group.code" class="module-group">
             <header v-if="paper.deliveryMode === 'module_sequence'" class="module-group__header">
               <div>
-                <span>Module {{ group.order }}</span>
+                <span>{{ paper.examType === 'TMUA' ? `Paper ${group.order}` : `Module ${group.order}` }}</span>
                 <h3>{{ group.label }}</h3>
               </div>
               <strong>{{ group.questions.length }} 题</strong>
@@ -109,15 +117,19 @@ const paper = ref<PaperDetail | null>(null)
 const questions = ref<Question[]>([])
 const loading = ref(true)
 
-// 模块卷按稳定 module code 和顺序分组；扁平卷归入单一连续分组。
+// 分段卷按稳定代码和顺序分组；扁平卷归入单一连续分组。
 const questionGroups = computed(() => {
   const groups = new Map<string, { code: string; label: string; order: number; questions: Question[] }>()
   for (const question of questions.value) {
     const code = question.module_code || question.component_code || 'continuous'
+    const order = question.module_order || question.component_order || 1
+    const configuredSection = paper.value?.modules?.find((module) => (
+      module.code === code && module.order === order
+    ))
     const existing = groups.get(code) || {
       code,
-      label: question.subject || (code === 'continuous' ? '试卷题目' : code),
-      order: question.module_order || question.component_order || 1,
+      label: configuredSection?.subject || question.subject || (code === 'continuous' ? '试卷题目' : code),
+      order,
       questions: [],
     }
     existing.questions.push(question)

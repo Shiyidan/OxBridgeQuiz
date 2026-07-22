@@ -6,6 +6,11 @@ export type QuestionType = 'single_choice' | 'multiple_choice' | 'short_answer'
 /** ESAT 官方五个模块的稳定标识；展示名称不参与业务判断。 */
 export type EsatModuleCode = 'maths1' | 'maths2' | 'physics' | 'chemistry' | 'biology'
 
+/** TMUA 两份试卷的稳定标识；Paper 展示名称不参与业务判断。 */
+export type TmuaPaperCode = 'paper1' | 'paper2'
+
+export type DiagnosticSectionCode = EsatModuleCode | TmuaPaperCode
+
 export type PaperDeliveryMode = 'continuous' | 'module_sequence'
 
 /** 上传文档与 API 统一使用 module_sequence；module 仅作为兼容值。 */
@@ -13,7 +18,7 @@ export type PaperDocumentDeliveryMode = PaperDeliveryMode | 'module'
 
 export interface PaperBreakPolicy {
   durationSeconds: number
-  skippable: true
+  skippable: boolean
 }
 
 /** 试卷元数据：只描述整张试卷，不重复放到每一道题里。 */
@@ -113,11 +118,11 @@ export interface Question {
   is_ai_generated?: boolean
   subject_code?: string
   subject?: string
-  module_code?: EsatModuleCode
+  module_code?: DiagnosticSectionCode
   module_order?: number
   module_question_number?: number
   /** @deprecated 兼容早期组合卷；新数据使用 module_*。 */
-  component_code?: EsatModuleCode
+  component_code?: DiagnosticSectionCode
   component_order?: number
   component_question_number?: number
   topic_code?: string
@@ -145,7 +150,7 @@ export type QuestionInput = Omit<Question, 'id' | 'uniqueCode' | 'subject_code'>
 
 /** 模块化诊断卷：每个模块独立计时，模块内题号从 1 开始。 */
 export interface DiagnosticPaperModule {
-  code: EsatModuleCode
+  code: DiagnosticSectionCode
   order: number
   subject: string
   subject_code: string | number
@@ -160,7 +165,7 @@ export interface FlatPaperJson {
   modules?: never
 }
 
-export interface ModularPaperJson {
+export interface EsatModularPaperJson {
   schemaVersion: 'diagnostic-paper-v2'
   code?: string
   metadata: PaperMetadata & {
@@ -175,15 +180,34 @@ export interface ModularPaperJson {
   questions?: never
 }
 
+export interface TmuaModularPaperJson {
+  schemaVersion: 'diagnostic-paper-v2'
+  code?: string
+  metadata: PaperMetadata & {
+    examType: 'TMUA'
+    deliveryMode: 'module_sequence'
+    duration: 150
+    totalQuestions: 40
+    breakPolicy: {
+      durationSeconds: 0
+      skippable: false
+    }
+  }
+  modules: DiagnosticPaperModule[]
+  questions?: never
+}
+
+export type ModularPaperJson = EsatModularPaperJson | TmuaModularPaperJson
+
 /** 现有生成器过渡格式；导入器接受，但新文件应使用 ModularPaperJson。 */
 export interface LegacyGroupedPaperJson {
   code?: string
   metadata: PaperMetadata
   questions: Array<{
     /** 旧格式允许省略，导入器会由 subject 推导。 */
-    code?: EsatModuleCode
-    module_code?: EsatModuleCode
-    component_code?: EsatModuleCode
+    code?: DiagnosticSectionCode
+    module_code?: DiagnosticSectionCode
+    component_code?: DiagnosticSectionCode
     order?: number
     subject: string
     subject_code?: string | number
@@ -198,9 +222,9 @@ export interface LegacyModuleItemsPaperJson {
   code?: string
   metadata: PaperMetadata
   modules: Array<{
-    code?: EsatModuleCode
-    module_code?: EsatModuleCode
-    component_code?: EsatModuleCode
+    code?: DiagnosticSectionCode
+    module_code?: DiagnosticSectionCode
+    component_code?: DiagnosticSectionCode
     order?: number
     subject: string
     subject_code?: string | number
@@ -226,7 +250,7 @@ export interface Paper {
   deliveryMode?: PaperDeliveryMode
   breakDurationSeconds?: number
   modules?: Array<{
-    code: EsatModuleCode
+    code: DiagnosticSectionCode
     subject: string
     subjectCode?: string | null
     order: number

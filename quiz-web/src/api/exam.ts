@@ -17,7 +17,7 @@ export interface ExamResponseInput {
 
 export interface StartExamParams {
   paperId?: string
-  examType: string
+  examType?: string
   questionIds?: string[]
   startedAt?: string
 }
@@ -474,7 +474,7 @@ export function getModuleExamSession(examId: string) {
   })
 }
 
-/** 锁定当前科目答案，并进入休息或最终交卷阶段。 */
+/** 锁定当前考试分段答案，并进入休息、下一分段或最终交卷阶段。 */
 export function completeExamModule(examId: string, responses: ExamResponseInput[]) {
   return callApi<StartExamResult>({
     url: `/exams/${examId}/module/complete`,

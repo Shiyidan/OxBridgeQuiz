@@ -1,6 +1,6 @@
 # 题目解析 JSON 批注与标准范例
 
-本文基于 `standard.json` 整理，目标是把当前带批注的解析结果沉淀为一份便于阅读、校验和后续导入的题目 JSON 标准说明。标准同时覆盖旧版扁平试卷与 ESAT 三模块等效诊断卷。
+本文基于 `standard.json` 整理，目标是把当前带批注的解析结果沉淀为一份便于阅读、校验和后续导入的题目 JSON 标准说明。标准同时覆盖旧版扁平试卷、ESAT 三模块等效诊断卷与 TMUA 两卷诊断卷。
 
 ## 第一部分：当前 JSON 文档加批注
 
@@ -33,7 +33,7 @@
 批注整理：
 
 - 扁平试卷使用 `{ "metadata": {...}, "questions": [...] }`。
-- ESAT 模块化诊断卷使用 `{ "metadata": {...}, "modules": [...] }`；兼容读取历史 `questions[].items`，但新文件不得继续生成该兼容格式。
+- ESAT/TMUA 分段诊断卷使用 `{ "metadata": {...}, "modules": [...] }`；ESAT 的 `modules` 表示科目模块，TMUA 的 `modules` 表示 Paper 1/2。兼容读取历史 `questions[].items`，但新文件不得继续生成该兼容格式。
 - `metadata` 必须写在 `questions` 或 `modules` 前面，用于保存试卷级信息。
 - 不使用纯数组作为标准根结构，统一根结构便于后续扩展。
 - `questions` 中每一项代表一道题。
@@ -49,7 +49,7 @@
 | `paperType` | 类型 | 必须为 `realPaper`、`mockPaper`、`aiPaper` 之一 |
 | `totalQuestions` | 题目数量 | 扁平卷等于 `questions.length`；模块卷等于全部 `modules[].questions.length` 之和 |
 | `deliveryMode` | 上传文档交付方式 | 模块卷写 `module_sequence`；扁平卷可省略或写 `continuous` |
-| `breakPolicy` | 科目间休息规则 | 模块卷写 `{ "durationSeconds": 180, "skippable": true }`；休息不计入 `duration` |
+| `breakPolicy` | 分段切换规则 | ESAT 写 `{ "durationSeconds": 180, "skippable": true }`；TMUA 写 `{ "durationSeconds": 0, "skippable": false }`；休息不计入 `duration` |
 | `assemblyType` | 组卷来源 | ENGAA/NSAA 真题组合为 `legacy_equivalent`，原始整卷为 `original` |
 | `sourceExamTypes` | 原始考试来源 | 等效卷推荐写 `['ENGAA', 'NSAA']`，最终仍以各题 `source_examType` 为准 |
 | `remarks` | 诊断适用说明 | 可说明短卷可信度、题量或使用限制 |
@@ -145,6 +145,62 @@ ESAT 模块卷必须满足：
 - 每题继续保留其真实来源 `source_examType`（例如 `ENGAA` 或 `NSAA`）和来源稳定标识 `code`；`code` 在本卷内不得重复，同一道历史真题可以在不同等效卷复用相同来源标识。数据库全局唯一键由系统另行生成，不得把来源伪装成官方 ESAT 真题。
 - 组合卷发布后如已有作答记录，不得覆盖题目或模块结构；需要调整时创建新版本，以保证历史报告可复现。
 - 历史扁平 ESAT `realPaper` 仍可兼容导入为草稿，但不能发布为诊断测试；发布前必须转换为上述三模块结构。
+
+### 2.2 TMUA 两卷诊断卷
+
+TMUA 使用同一 `module_sequence` 容器承载两份独立计时试卷，但 `modules` 在该考试类型下表示 Paper，而不是学科。Paper 1 与 Paper 2 均为 20 道单项选择题、75 分钟；`metadata.duration` 为 150 分钟，卷间不设置休息倒计时，Paper 1 锁定后立即开始 Paper 2。
+
+```json
+{
+  "schemaVersion": "diagnostic-paper-v2",
+  "code": "TMUA-2023",
+  "metadata": {
+    "paperName": "TMUA 2023 Diagnostic Paper",
+    "year": 2023,
+    "duration": 150,
+    "examType": "TMUA",
+    "paperType": "realPaper",
+    "totalQuestions": 40,
+    "deliveryMode": "module_sequence",
+    "breakPolicy": {
+      "durationSeconds": 0,
+      "skippable": false
+    },
+    "assemblyType": "original",
+    "sourceExamTypes": ["TMUA"]
+  },
+  "modules": [
+    {
+      "code": "paper1",
+      "order": 1,
+      "subject": "Paper 1: Applications of Mathematical Knowledge",
+      "subject_code": "TMUA-P1",
+      "duration": 75,
+      "totalQuestions": 20,
+      "questions": ["... 20 道完整题目 ..."]
+    },
+    {
+      "code": "paper2",
+      "order": 2,
+      "subject": "Paper 2: Mathematical Reasoning",
+      "subject_code": "TMUA-P2",
+      "duration": 75,
+      "totalQuestions": 20,
+      "questions": ["... 20 道完整题目 ..."]
+    }
+  ]
+}
+```
+
+TMUA 分卷必须满足：
+
+- `modules[].code` 依次且仅为 `paper1`、`paper2`，对应 `subject_code` 为 `TMUA-P1`、`TMUA-P2`。
+- TMUA 的 `modules[].subject_code` 是分卷分组代码，不是数学考纲节点；每道题可继续填写自身真实考纲 `subject_code/topic_code/knowledge_points`，题目级值优先入库。
+- 每卷 `duration = 75`、`totalQuestions = 20`；整卷 `duration = 150`、`totalQuestions = 40`。
+- `breakPolicy.durationSeconds = 0` 且 `skippable = false`。零秒策略表示服务端直接切换下一卷，前端不得短暂展示休息弹窗。
+- 两卷题号均从 1 开始；系统以 `module_code/module_order/module_question_number` 保存分卷归属，并生成数据库全卷连续题号。
+- 每题 `question_type = single_choice`，`examType = TMUA`，并保留真实来源 `source_examType` 与来源稳定题号 `code`。
+- Paper 1 结束后答案永久锁定，不能从 Paper 2 返回修改；刷新或重新进入必须恢复当前卷及其服务端截止时间。
 
 ### 3. 标题字段 `title`
 

@@ -1,10 +1,10 @@
-<!-- ESAT 模块化诊断答题页：当前科目独立计时，科目之间执行可跳过的固定休息。 -->
+<!-- 分段诊断答题页：支持 ESAT 科目模块和 TMUA Paper 1/2 的独立计时与顺序锁定。 -->
 <template>
   <div class="diagnostic-exam-page">
     <ExamVue
       v-if="session?.phase === 'answering' && activeModule"
       :key="timerKey"
-      exam-type="ESAT"
+      :exam-type="session.examType === 'TMUA' ? 'TMUA' : 'ESAT'"
       mode="assessment"
       :countdown-duration-seconds="activeModule.durationSeconds"
       :expires-at="activeModule.expiresAt"
@@ -24,10 +24,10 @@
       <template v-else-if="session">
         <header class="module-header">
           <div>
-            <span>ESAT Equivalent Diagnostic</span>
+            <span>{{ examEyebrow }}</span>
             <h1>{{ activeModule?.label || breakState?.nextModuleLabel || '诊断测试' }}</h1>
           </div>
-          <ol class="module-progress" aria-label="科目进度">
+          <ol class="module-progress" :aria-label="`${sectionNoun}进度`">
             <li
               v-for="(module, index) in session.modules || []"
               :key="module.code"
@@ -43,7 +43,7 @@
         </header>
 
         <div v-if="session.phase === 'answering'" class="exam-layout">
-          <aside class="question-nav" aria-label="当前科目题目导航">
+          <aside class="question-nav" :aria-label="`当前${sectionNoun}题目导航`">
             <strong>{{ activeModule?.label }}</strong>
             <small>{{ activeModule?.totalQuestions }} 题 · {{ moduleMinutes }} 分钟</small>
             <div class="question-nav__grid">
@@ -66,7 +66,7 @@
               :disabled="transitioning || !questions.length"
               @click="confirmCompleteModule"
             >
-              {{ isFinalModule ? '结束本学科并交卷' : '结束本学科' }}
+              {{ completeSectionLabel }}
             </button>
           </aside>
 
@@ -107,7 +107,11 @@
         </div>
 
         <div v-else-if="session.phase === 'ready_to_submit'" class="diagnostic-status">
-          <p>三个科目已完成，{{ transitioning ? '正在提交诊断结果...' : '诊断结果尚未提交。' }}</p>
+          <p>
+            全部{{ sectionNoun }}已完成，{{
+              transitioning ? '正在提交诊断结果...' : '诊断结果尚未提交。'
+            }}
+          </p>
           <button
             v-if="!transitioning"
             type="button"
@@ -128,7 +132,7 @@
       :visible="session?.phase === 'break'"
       :ends-at="breakState?.endsAt || null"
       :server-now="session?.serverNow || null"
-      :next-module-label="breakState?.nextModuleLabel || '下一科目'"
+      :next-module-label="breakState?.nextModuleLabel || `下一${sectionNoun}`"
       :skipping="transitioning"
       @skip="handleSkipBreak"
       @elapsed="handleBreakElapsed"
@@ -210,11 +214,26 @@ const moduleMinutes = computed(() => Math.round((activeModule.value?.durationSec
 const isFinalModule = computed(
   () => (session.value?.currentModuleIndex || 0) === (session.value?.modules?.length || 1) - 1,
 )
-// 题号展示使用科目内题号，数据库全卷序号只作为旧数据兜底。
+// 服务端考试类型决定页面使用 TMUA 分卷语义还是 ESAT 科目语义。
+const isTmua = computed(() => session.value?.examType === 'TMUA')
+// 学生操作提示统一使用考试真实结构名称，避免把 TMUA Paper 称为学科。
+const sectionNoun = computed(() => (isTmua.value ? '试卷' : '科目'))
+// 页头明确当前诊断结构，帮助学生确认两卷或三科进度。
+const examEyebrow = computed(() => (
+  isTmua.value ? 'TMUA Diagnostic · Paper 1 & Paper 2' : 'ESAT Equivalent Diagnostic'
+))
+// 最后一段结束即进入交卷，其余分段只锁定当前答案并继续流程。
+const completeSectionLabel = computed(() => (
+  isFinalModule.value
+    ? `结束本${sectionNoun.value}并交卷`
+    : `结束本${sectionNoun.value}`
+))
+
+// 题号展示使用当前分段内题号，数据库全卷序号只作为旧数据兜底。
 const currentQuestionLabel = computed(() => {
   const question = currentQuestion.value
   if (!question) return ''
-  return `${activeModule.value?.label || '当前科目'} · Question ${getQuestionDisplayNumber(question, currentIndex.value)}`
+  return `${activeModule.value?.label || `当前${sectionNoun.value}`} · Question ${getQuestionDisplayNumber(question, currentIndex.value)}`
 })
 const currentKnowledgeTags = computed(() => {
   const points = currentQuestion.value?.knowledge_points || []
@@ -242,7 +261,7 @@ async function loadSession(): Promise<void> {
     const paperId = String(route.params.paperId || '')
     const data = examRecordId
       ? await getModuleExamSession(examRecordId)
-      : await startExam({ paperId, examType: 'ESAT' })
+      : await startExam({ paperId })
     await applySession(data)
     if (data.phase === 'ready_to_submit') await finalizeExam()
   } catch (error: unknown) {
@@ -252,7 +271,7 @@ async function loadSession(): Promise<void> {
   }
 }
 
-// 切换科目时只保留服务端下发的当前模块作答状态，已完成模块不会再暴露。
+// 切换分段时只保留服务端下发的当前作答状态，已完成分段不会再暴露。
 async function applySession(nextSession: StartExamResult): Promise<void> {
   session.value = nextSession
   if (nextSession.phase === 'submitted') {
@@ -313,7 +332,7 @@ function recordCurrentDuration(): void {
   questionEnteredAt = Date.now()
 }
 
-// 当前科目始终提交完整快照，避免最后一次选择未进入定时保存。
+// 当前分段始终提交完整快照，避免最后一次选择未进入定时保存。
 function buildResponses(): ExamResponseInput[] {
   return questions.value.map((question) => ({
     questionId: question.id,
@@ -352,7 +371,7 @@ async function saveProgress(showError = false): Promise<void> {
   }
 }
 
-// 当前科目内切题时结算上一题用时，并记录新题已访问。
+// 当前分段内切题时结算上一题用时，并记录新题已访问。
 function goToQuestion(index: number): void {
   if (index < 0 || index >= questions.value.length || index === currentIndex.value) return
   recordCurrentDuration()
@@ -370,7 +389,7 @@ function handleSelectAnswer(label: string): void {
   selectionSaveTimer = setTimeout(() => void saveProgress(), 400)
 }
 
-// 题号状态只反映当前科目，不暴露已锁定科目或未来科目。
+// 题号状态只反映当前分段，不暴露已锁定分段或未来分段。
 function navItemClass(question: AttemptQuestion, index: number): Record<string, boolean> {
   return {
     'question-nav__item': true,
@@ -396,18 +415,23 @@ function handleAnsweringResumed(): void {
   questionEnteredAt = Date.now()
 }
 
-// 学科一旦结束便不可返回，未答题存在时需向学生明确二次确认。
+// 分段一旦结束便不可返回，未答题存在时需向学生明确二次确认。
 async function confirmCompleteModule(): Promise<void> {
   const unanswered = questions.value.length - answeredCount.value
+  const nextSection = session.value?.modules?.[(session.value?.currentModuleIndex || 0) + 1]
   try {
     await ElMessageBox.confirm(
       unanswered > 0
-        ? `本模块还有 ${unanswered} 题未作答。结束后不能返回修改，是否继续？`
-        : '本模块结束后不能返回修改，是否继续？',
-      isFinalModule.value ? '完成诊断测试' : '结束当前科目',
+        ? `本${sectionNoun.value}还有 ${unanswered} 题未作答。结束后不能返回修改，是否继续？`
+        : `本${sectionNoun.value}结束后不能返回修改，是否继续？`,
+      isFinalModule.value ? '完成诊断测试' : `结束当前${sectionNoun.value}`,
       {
         type: 'warning',
-        confirmButtonText: isFinalModule.value ? '完成并交卷' : '结束并进入休息',
+        confirmButtonText: isFinalModule.value
+          ? '完成并交卷'
+          : isTmua.value
+            ? `结束并开始 ${nextSection?.label || 'Paper 2'}`
+            : '结束并进入休息',
         cancelButtonText: '继续答题',
         closeOnClickModal: false,
       },
@@ -418,7 +442,7 @@ async function confirmCompleteModule(): Promise<void> {
   }
 }
 
-// 服务端锁定当前科目后返回休息或待交卷阶段，前端不自行推断下一状态。
+// 服务端锁定当前分段后返回休息、下一分段或待交卷阶段，前端不自行推断下一状态。
 async function completeCurrentModule(): Promise<void> {
   if (!session.value || transitioning.value || session.value.phase !== 'answering') return
   transitioning.value = true
@@ -436,7 +460,7 @@ async function completeCurrentModule(): Promise<void> {
     nextSession = await completeExamModule(session.value.examRecordId, buildResponses())
     await applySession(nextSession)
   } catch (error: unknown) {
-    ElMessage.error(getApiError(error)?.data?.errMsg || '结束当前科目失败，请重试')
+    ElMessage.error(getApiError(error)?.data?.errMsg || `结束当前${sectionNoun.value}失败，请重试`)
     if (!moduleDeadlineReached.value) {
       timingPaused = false
       questionEnteredAt = Date.now()
@@ -447,11 +471,11 @@ async function completeCurrentModule(): Promise<void> {
   if (nextSession?.phase === 'ready_to_submit') await finalizeExam()
 }
 
-// 科目倒计时归零时直接锁定当前答案，不触发整场考试提前交卷。
+// 分段倒计时归零时直接锁定当前答案，不触发整场考试提前交卷。
 async function handleModuleTimeExpired(): Promise<void> {
   if (transitioning.value || session.value?.phase !== 'answering') return
   moduleDeadlineReached.value = true
-  ElMessage.warning('当前科目时间已结束，答案已锁定')
+  ElMessage.warning(`当前${sectionNoun.value}时间已结束，答案已锁定`)
   await completeCurrentModule()
 }
 
@@ -479,7 +503,7 @@ function handleBreakElapsed(): void {
   void advanceFromBreak()
 }
 
-// 三科均锁定后提交空响应，由后端使用各模块已持久化答案生成诊断结果。
+// 所有分段均锁定后提交空响应，由后端使用已持久化答案生成诊断结果。
 async function finalizeExam(): Promise<void> {
   if (!session.value || submitted.value || transitioning.value) return
   transitioning.value = true
@@ -503,10 +527,10 @@ async function finalizeExam(): Promise<void> {
   }
 }
 
-// 中途返回前保存当前科目，休息阶段可直接返回并在下次恢复倒计时。
+// 中途返回前保存当前分段，休息阶段可直接返回并在下次恢复倒计时。
 async function handleBack(): Promise<void> {
   try {
-    await ElMessageBox.confirm('返回诊断中心会保存当前科目进度，之后可继续测试。', '确认返回', {
+    await ElMessageBox.confirm(`返回诊断中心会保存当前${sectionNoun.value}进度，之后可继续测试。`, '确认返回', {
       confirmButtonText: '保存并返回',
       cancelButtonText: '继续答题',
       closeOnClickModal: false,
@@ -546,7 +570,7 @@ onBeforeRouteLeave(async () => {
     await saveProgress(true)
     return true
   } catch {
-    ElMessage.error('保存当前科目进度失败，请重试')
+    ElMessage.error(`保存当前${sectionNoun.value}进度失败，请重试`)
     return false
   }
 })

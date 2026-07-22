@@ -1,4 +1,4 @@
-// 模块化诊断回归测试：验证三模块快照、ESAT 分科评分和并发额度/活动租约边界。
+// 分段诊断回归测试：验证 ESAT 三模块、TMUA 两卷及并发额度/活动租约边界。
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import { Prisma } from '@prisma/client'
@@ -8,6 +8,7 @@ import { buildModuleExamSnapshot } from '../src/services/moduleExamSession.js'
 import { computeScores, quickEsatScore } from '../src/services/scoring.js'
 import { withQuotaTransaction } from '../src/services/transactionRetry.js'
 import { formatQuestionForAttempt } from '../src/routes/papers-shared.js'
+import { normalizeTmuaPaperCode } from '../src/services/markdownValidator.js'
 
 const suffix = crypto.randomUUID()
 const userId = `module-test-user-${suffix}`
@@ -43,6 +44,7 @@ async function main(): Promise<void> {
   })))
   const snapshot = buildModuleExamSnapshot({
     id: 'snapshot-test',
+    examType: 'ESAT',
     deliveryMode: 'module_sequence',
     breakDurationSeconds: 180,
     moduleConfig,
@@ -51,10 +53,52 @@ async function main(): Promise<void> {
   assert.equal(snapshot.breakDurationSeconds, 180)
   assert.throws(() => buildModuleExamSnapshot({
     id: 'invalid-break',
+    examType: 'ESAT',
     deliveryMode: 'module_sequence',
     breakDurationSeconds: 0,
     moduleConfig,
   }, snapshotQuestions))
+  const tmuaModuleConfig = [
+    {
+      code: 'paper1',
+      subject: 'Paper 1: Applications of Mathematical Knowledge',
+      subjectCode: 'TMUA-P1',
+      order: 1,
+      durationSeconds: 4500,
+      questionCount: 20,
+    },
+    {
+      code: 'paper2',
+      subject: 'Paper 2: Mathematical Reasoning',
+      subjectCode: 'TMUA-P2',
+      order: 2,
+      durationSeconds: 4500,
+      questionCount: 20,
+    },
+  ]
+  const tmuaQuestions = tmuaModuleConfig.flatMap((module) => (
+    Array.from({ length: 20 }, (_, index) => ({
+      id: `${module.code}-${index + 1}`,
+      moduleCode: module.code,
+      moduleOrder: module.order,
+    }))
+  ))
+  const tmuaSnapshot = buildModuleExamSnapshot({
+    id: 'tmua-snapshot-test',
+    examType: 'TMUA',
+    deliveryMode: 'module_sequence',
+    breakDurationSeconds: 0,
+    moduleConfig: tmuaModuleConfig,
+  }, tmuaQuestions)
+  assert.deepEqual(tmuaSnapshot.modules.map((module) => module.code), ['paper1', 'paper2'])
+  assert.equal(tmuaSnapshot.breakDurationSeconds, 0)
+  assert.equal(normalizeTmuaPaperCode('TMUA-P1'), 'paper1')
+  assert.equal(normalizeTmuaPaperCode('Mathematical Reasoning'), 'paper2')
+  const tmuaScoring = computeScores('TMUA', [
+    { subject: null, moduleCode: 'paper2', isCorrect: true },
+    { subject: null, moduleCode: 'paper1', isCorrect: false },
+  ])
+  assert.equal(tmuaScoring.modules.find((module) => module.module === 'paper2')?.rawScore, 1)
   assert.equal(quickEsatScore('maths1', 2, 2), quickEsatScore('maths1', 27, 27))
   assert.equal(computeScores('ESAT', [
     { subject: 'Mathematics 1', moduleCode: 'maths1', isCorrect: true },

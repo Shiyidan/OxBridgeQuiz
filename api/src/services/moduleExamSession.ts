@@ -1,6 +1,13 @@
 // 模块化诊断会话：冻结试卷结构、恢复阶段状态，并只下发当前模块题目。
 import { Prisma } from '@prisma/client'
-import { EXAM_PHASE, EXAM_RECORD_STATUS, PAPER_DELIVERY_MODE } from '../constants/domain.js'
+import {
+  ESAT_MODULES,
+  EXAM_PHASE,
+  EXAM_RECORD_STATUS,
+  EXAM_TYPE,
+  PAPER_DELIVERY_MODE,
+  TMUA_PAPER,
+} from '../constants/domain.js'
 import { prisma } from './prisma.js'
 import { parseJsonField } from '../utils/jsonField.js'
 import { formatQuestionForAttempt } from '../routes/papers-shared.js'
@@ -24,12 +31,15 @@ export interface ModuleExamSnapshot {
 
 type ModulePaper = {
   id: string
+  examType: string
   deliveryMode: string
   breakDurationSeconds: number
   moduleConfig: unknown
 }
 
 const ESAT_MODULE_BREAK_SECONDS = 180
+const TMUA_PAPER_DURATION_SECONDS = 75 * 60
+const TMUA_PAPER_QUESTION_COUNT = 20
 
 // Paper.moduleConfig 与题目列共同生成不可变的 attempt 快照，防止后续编辑影响历史考试。
 export function buildModuleExamSnapshot(
@@ -68,25 +78,43 @@ export function buildModuleExamSnapshot(
     })
     .sort((a, b) => a.order - b.order)
   const moduleQuestionIds = modules.flatMap((module) => module.questionIds)
-
-  if (
+  const commonStructureInvalid = (
     paper.deliveryMode !== PAPER_DELIVERY_MODE.MODULE_SEQUENCE
-    || paper.breakDurationSeconds !== 180
-    || modules.length !== 3
     || modules.some((module) => !module.code || !module.questionIds.length || module.durationSeconds <= 0)
     || new Set(modules.map((module) => module.code)).size !== modules.length
     || new Set(modules.map((module) => module.order)).size !== modules.length
     || moduleQuestionIds.length !== questions.length
     || new Set(moduleQuestionIds).size !== questions.length
-    || paper.breakDurationSeconds !== ESAT_MODULE_BREAK_SECONDS
+  )
+  const esatStructureInvalid = paper.examType === EXAM_TYPE.ESAT && (
+    paper.breakDurationSeconds !== ESAT_MODULE_BREAK_SECONDS
+    || modules.length !== 3
+    || !modules.some((module) => module.code === 'maths1')
+    || modules.some((module) => !ESAT_MODULES.some((code) => code === module.code))
+  )
+  const tmuaStructureInvalid = paper.examType === EXAM_TYPE.TMUA && (
+    paper.breakDurationSeconds !== 0
+    || modules.length !== 2
+    || modules[0]?.code !== TMUA_PAPER.PAPER_1
+    || modules[0]?.order !== 1
+    || modules[1]?.code !== TMUA_PAPER.PAPER_2
+    || modules[1]?.order !== 2
+    || modules.some((module) => module.durationSeconds !== TMUA_PAPER_DURATION_SECONDS)
+    || modules.some((module) => module.questionCount !== TMUA_PAPER_QUESTION_COUNT)
+  )
+  if (
+    commonStructureInvalid
+    || esatStructureInvalid
+    || tmuaStructureInvalid
+    || (paper.examType !== EXAM_TYPE.ESAT && paper.examType !== EXAM_TYPE.TMUA)
   ) {
-    throw new Error('模块化试卷结构不完整，无法开始诊断测试')
+    throw new Error('分段试卷结构不完整，无法开始诊断测试')
   }
 
   return {
     version: 1,
     deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE,
-    breakDurationSeconds: ESAT_MODULE_BREAK_SECONDS,
+    breakDurationSeconds: paper.breakDurationSeconds,
     modules,
   }
 }
@@ -226,7 +254,7 @@ export async function getModuleExamSession(examRecordId: string, userId: string)
         startedAt: record.phaseStartedAt,
         endsAt: record.phaseExpiresAt,
         durationSeconds: snapshot.breakDurationSeconds,
-        canSkip: true,
+        canSkip: snapshot.breakDurationSeconds > 0,
       }
     : null
   const questions = questionRows.map(formatQuestionForAttempt)

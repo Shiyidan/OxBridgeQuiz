@@ -1,191 +1,142 @@
 # 题目解析 JSON 批注与标准范例
 
-本文基于 `standard.json` 整理，目标是把当前带批注的解析结果沉淀为一份便于阅读、校验和后续导入的题目 JSON 标准说明。标准同时覆盖旧版扁平试卷、ESAT 三模块等效诊断卷与 TMUA 两卷诊断卷。
+本文规定当前正式上传 JSON。新版分段卷统一使用 `metadata + sections` 和 camelCase 题目字段；历史 `modules`、扁平 `questions` 与 snake_case 题目只作为兼容输入。若后文兼容示例与新版规则冲突，以第 2、2.1、2.2 节为准。
 
 ## 第一部分：当前 JSON 文档加批注
 
 ### 1. 当前文件状态
 
-| 题号 | 示例用途 | 当前覆盖的问题 |
-| --- | --- | --- |
-| Q001 | 纯文本选择题 | 题干段落拆分、题型命名、冗余试卷字段 |
-| Q004 | 题干中含 SVG 图 | 题干图文混排、图片引用、图片元数据精简 |
+| 题号 | 示例用途        | 当前覆盖的问题                           |
+| ---- | --------------- | ---------------------------------------- |
+| Q001 | 纯文本选择题    | 题干段落拆分、题型命名、冗余试卷字段     |
+| Q004 | 题干中含 SVG 图 | 题干图文混排、图片引用、图片元数据精简   |
 | Q012 | 选项中含 SVG 图 | 图像选项格式、题干配图、题型和知识点字段 |
 
 ### 2. 根结构
 
-当前结构：
+新版分段卷根结构：
 
 ```json
 {
   "metadata": {
-    "paperName": "ENGAA 2023 Section 1",
-    "year": 2023,
-    "duration": 75,
-    "examType": "ESAT",
+    "code": "TMUA-2018",
+    "title": "TMUA 2018 Diagnostic Paper",
+    "examType": "TMUA",
+    "year": 2018,
     "paperType": "realPaper",
-    "totalQuestions": 20
+    "assemblyType": "original",
+    "deliveryMode": "section_sequence",
+    "remarks": "Annual TMUA paper."
   },
-  "questions": []
+  "sections": []
 }
 ```
 
 批注整理：
 
-- 扁平试卷使用 `{ "metadata": {...}, "questions": [...] }`。
-- ESAT/TMUA 分段诊断卷使用 `{ "metadata": {...}, "modules": [...] }`；ESAT 的 `modules` 表示科目模块，TMUA 的 `modules` 表示 Paper 1/2。兼容读取历史 `questions[].items`，但新文件不得继续生成该兼容格式。
-- `metadata` 必须写在 `questions` 或 `modules` 前面，用于保存试卷级信息。
-- 不使用纯数组作为标准根结构，统一根结构便于后续扩展。
-- `questions` 中每一项代表一道题。
+- 新版 ESAT/TMUA 分段诊断卷使用 `{ "metadata": {...}, "sections": [...] }`。
+- ESAT 的 `sections` 表示三个科目，TMUA 的 `sections` 表示 Paper 1/2。
+- `sections` 只保存 `code`、`sectionType`、`order` 和 `questions`。分段名称、时长、题量规则、休息和跳转策略由服务端派生，不写入上传文件。
+- 历史 `{ "metadata": {...}, "modules": [...] }`、`questions[].items` 和扁平 `questions` 仍可兼容读取，但不再作为新文件生成目标。
+- 不使用纯数组作为根结构。
 
 `metadata` 字段规则：
 
-| 字段 | 含义 | 标准要求 |
-| --- | --- | --- |
-| `paperName` | 试卷名称 | 必须填写，例如 `ENGAA 2023 Section 1` |
-| `year` | 年份 | 必须为数字，例如 `2023` |
-| `duration` | 考试时长（分钟） | 必须为数字，例如 `75` |
-| `examType` | 考试类型 | 必须使用系统考试类型，例如 `TMUA`、`ESAT` |
-| `paperType` | 类型 | 必须为 `realPaper`、`mockPaper`、`aiPaper` 之一 |
-| `totalQuestions` | 题目数量 | 扁平卷等于 `questions.length`；模块卷等于全部 `modules[].questions.length` 之和 |
-| `deliveryMode` | 上传文档交付方式 | 模块卷写 `module_sequence`；扁平卷可省略或写 `continuous` |
-| `breakPolicy` | 分段切换规则 | ESAT 写 `{ "durationSeconds": 180, "skippable": true }`；TMUA 写 `{ "durationSeconds": 0, "skippable": false }`；休息不计入 `duration` |
-| `assemblyType` | 组卷来源 | ENGAA/NSAA 真题组合为 `legacy_equivalent`，原始整卷为 `original` |
-| `sourceExamTypes` | 原始考试来源 | 等效卷推荐写 `['ENGAA', 'NSAA']`，最终仍以各题 `source_examType` 为准 |
-| `remarks` | 诊断适用说明 | 可说明短卷可信度、题量或使用限制 |
+| 字段           | 含义             | 标准要求                                                         |
+| -------------- | ---------------- | ---------------------------------------------------------------- |
+| `code`         | 套卷稳定代码     | 必须填写，例如 `TMUA-2018`；入库为 `Paper.code`                  |
+| `title`        | 试卷名称         | 必须填写，例如 `TMUA 2018 Diagnostic Paper`                      |
+| `year`         | 年份             | 必须为数字，例如 `2023`                                          |
+| `examType`     | 考试类型         | 必须使用系统考试类型，例如 `TMUA`、`ESAT`                        |
+| `paperType`    | 类型             | 必须为 `realPaper`、`mockPaper`、`aiPaper` 之一                  |
+| `deliveryMode` | 上传文档交付方式 | 新版分段卷固定为 `section_sequence`                              |
+| `assemblyType` | 组卷来源         | ENGAA/NSAA 真题组合为 `legacy_equivalent`，原始整卷为 `original` |
+| `remarks`      | 诊断适用说明     | 可选；只保存业务说明，不保存解析过程信息                         |
 
 `paperType` 枚举含义：
 
-| 值 | 含义 |
-| --- | --- |
-| `realPaper` | 真题卷 |
-| `mockPaper` | 模考卷 |
-| `aiPaper` | AI 生成卷 |
+| 值          | 含义      |
+| ----------- | --------- |
+| `realPaper` | 真题卷    |
+| `mockPaper` | 模考卷    |
+| `aiPaper`   | AI 生成卷 |
 
-`metadata` 保存试卷级信息；单题对象仍必须保留 `examType`、`year`、`source_examType`，用于题库独立检索和来源追踪。
+上传 JSON 不包含 `duration`、`totalQuestions`、`breakPolicy`。服务端根据 `examType + sections[].code` 计算并在开始考试时冻结运行快照。单题通过 `source.examType/year/sectionCode/questionNumber` 保存来源。
 
 ### 2.1 ESAT 三模块等效诊断卷
 
-模块表示一次连续作答阶段，不表示把三个科目的题目混合。学生按 `order` 依次完成三个模块；每个模块使用自己的题量与时长，前两个模块结束后休息 180 秒，休息可跳过，最后一个模块结束后统一交卷。
-
-新组合卷的标准根结构如下。下例为结构示意，`questions` 中的 27 道完整题目已省略，因此不能直接作为上传文件：
+`sections` 表示三个独立科目，不表示混合出题。每科固定 40 分钟；前两科结束后进入 180 秒可跳过休息。名称、时长和休息均由服务端规则生成。
 
 ```json
 {
-  "schemaVersion": "diagnostic-paper-v2",
-  "code": "ESAT-EQUIV-2023-M1-PHY-M2",
   "metadata": {
-    "paperName": "ESAT 2023 Equivalent Diagnostic — Mathematics 1 / Physics / Mathematics 2",
-    "year": 2023,
-    "duration": 120,
+    "code": "ESAT-EQUIV-2023-M1-PHY-M2",
+    "title": "ESAT 2023 Equivalent Diagnostic — Mathematics 1 / Physics / Mathematics 2",
     "examType": "ESAT",
+    "year": 2023,
     "paperType": "realPaper",
-    "totalQuestions": 81,
-    "deliveryMode": "module_sequence",
-    "breakPolicy": {
-      "durationSeconds": 180,
-      "skippable": true
-    },
     "assemblyType": "legacy_equivalent",
-    "sourceExamTypes": ["ENGAA", "NSAA"],
+    "deliveryMode": "section_sequence",
     "remarks": "使用历年真题组成的等效诊断卷，并非某位考生的官方 ESAT 原卷。"
   },
-  "modules": [
+  "sections": [
     {
       "code": "maths1",
+      "sectionType": "subject",
       "order": 1,
-      "subject": "Mathematics 1",
-      "subject_code": "110000",
-      "duration": 40,
-      "totalQuestions": 27,
-      "questions": ["... 27 道完整题目 ..."]
+      "questions": []
     },
     {
       "code": "physics",
+      "sectionType": "subject",
       "order": 2,
-      "subject": "Physics",
-      "subject_code": "130000",
-      "duration": 40,
-      "totalQuestions": 27,
-      "questions": ["... 27 道完整题目 ..."]
+      "questions": []
     },
     {
       "code": "maths2",
+      "sectionType": "subject",
       "order": 3,
-      "subject": "Mathematics 2",
-      "subject_code": "120000",
-      "duration": 40,
-      "totalQuestions": 27,
-      "questions": ["... 27 道完整题目 ..."]
+      "questions": []
     }
   ]
 }
 ```
 
-根级 `code` 是整套试卷的稳定编码（入库为 `Paper.code`），用于套卷识别、报告编号和来源追踪，不是学科代码。具体学科必须读取 `modules[].code` / `modules[].subject_code`，不得从根级 `code` 的文本中推断。
-
-模块字段规则：
-
-| 字段 | 标准要求 |
-| --- | --- |
-| `code` | 稳定模块标识，只能为 `maths1`、`maths2`、`physics`、`chemistry`、`biology` |
-| `order` | 作答顺序，必须为互不重复的正整数 |
-| `subject` | 展示名称，不参与业务判断 |
-| `subject_code` | 对应考纲学科编码：`maths1=110000`、`maths2=120000`、`physics=130000`、`chemistry=140000`、`biology=150000`；可使用字符串或数字，入库时统一为字符串 |
-| `duration` | 当前模块作答分钟数，必须大于 0 |
-| `totalQuestions` | 推荐填写并等于当前 `questions.length` |
-| `questions` | 当前模块题目；题号可从 1 重新开始 |
-
 ESAT 模块卷必须满足：
 
-- 恰好三个不同模块，并且必须包含 `maths1`。
-- `metadata.duration` 等于三个模块 `duration` 之和；两次休息不计入该值。
-- `metadata.totalQuestions` 等于三个模块实际题量之和。
-- 模块内 `number` 从 1 开始且不得重复。导入器会生成全卷连续数据库题号，并另存 `module_question_number`，因此前端仍展示原科目内题号。
-- 每题继续保留其真实来源 `source_examType`（例如 `ENGAA` 或 `NSAA`）和来源稳定标识 `code`；`code` 在本卷内不得重复，同一道历史真题可以在不同等效卷复用相同来源标识。数据库全局唯一键由系统另行生成，不得把来源伪装成官方 ESAT 真题。
+- 恰好三个不同 `sections`，必须包含 `maths1`；`sectionType` 固定为 `subject`。
+- `code` 只能为 `maths1`、`maths2`、`physics`、`chemistry`、`biology`；`order` 为不重复正整数。
+- 每个 `questions` 非空；科目内 `number` 从 1 开始且不得重复。
+- 每题通过 `source.examType` 保存 `ENGAA`、`NSAA` 或其他真实来源，通过 `source.sectionCode` 保存当前科目代码。
 - 组合卷发布后如已有作答记录，不得覆盖题目或模块结构；需要调整时创建新版本，以保证历史报告可复现。
-- 历史扁平 ESAT `realPaper` 仍可兼容导入为草稿，但不能发布为诊断测试；发布前必须转换为上述三模块结构。
 
 ### 2.2 TMUA 两卷诊断卷
 
-TMUA 使用同一 `module_sequence` 容器承载两份独立计时试卷，但 `modules` 在该考试类型下表示 Paper，而不是学科。Paper 1 与 Paper 2 均为 20 道单项选择题、75 分钟；`metadata.duration` 为 150 分钟，卷间不设置休息倒计时，Paper 1 锁定后立即开始 Paper 2。
+TMUA 的 `sections` 表示两份 Paper。Paper 1 与 Paper 2 均为 20 道单项选择题、75 分钟；卷间不设置休息，Paper 1 锁定后立即开始 Paper 2。
 
 ```json
 {
-  "schemaVersion": "diagnostic-paper-v2",
-  "code": "TMUA-2023",
   "metadata": {
-    "paperName": "TMUA 2023 Diagnostic Paper",
-    "year": 2023,
-    "duration": 150,
+    "code": "TMUA-2018",
+    "title": "TMUA 2018 Diagnostic Paper",
     "examType": "TMUA",
+    "year": 2018,
     "paperType": "realPaper",
-    "totalQuestions": 40,
-    "deliveryMode": "module_sequence",
-    "breakPolicy": {
-      "durationSeconds": 0,
-      "skippable": false
-    },
     "assemblyType": "original",
-    "sourceExamTypes": ["TMUA"]
+    "deliveryMode": "section_sequence",
+    "remarks": "Annual TMUA paper."
   },
-  "modules": [
+  "sections": [
     {
       "code": "paper1",
+      "sectionType": "paper",
       "order": 1,
-      "subject": "Paper 1: Applications of Mathematical Knowledge",
-      "subject_code": "TMUA-P1",
-      "duration": 75,
-      "totalQuestions": 20,
       "questions": ["... 20 道完整题目 ..."]
     },
     {
       "code": "paper2",
+      "sectionType": "paper",
       "order": 2,
-      "subject": "Paper 2: Mathematical Reasoning",
-      "subject_code": "TMUA-P2",
-      "duration": 75,
-      "totalQuestions": 20,
       "questions": ["... 20 道完整题目 ..."]
     }
   ]
@@ -194,25 +145,56 @@ TMUA 使用同一 `module_sequence` 容器承载两份独立计时试卷，但 `
 
 TMUA 分卷必须满足：
 
-- `modules[].code` 依次且仅为 `paper1`、`paper2`，对应 `subject_code` 为 `TMUA-P1`、`TMUA-P2`。
-- TMUA 的 `modules[].subject_code` 是分卷分组代码，不是数学考纲节点；每道题可继续填写自身真实考纲 `subject_code/topic_code/knowledge_points`，题目级值优先入库。
-- 每卷 `duration = 75`、`totalQuestions = 20`；整卷 `duration = 150`、`totalQuestions = 40`。
-- `breakPolicy.durationSeconds = 0` 且 `skippable = false`。零秒策略表示服务端直接切换下一卷，前端不得短暂展示休息弹窗。
-- 两卷题号均从 1 开始；系统以 `module_code/module_order/module_question_number` 保存分卷归属，并生成数据库全卷连续题号。
-- 每题 `question_type = single_choice`，`examType = TMUA`，并保留真实来源 `source_examType` 与来源稳定题号 `code`。
+- `sections[].code` 依次且仅为 `paper1`、`paper2`，`sectionType` 固定为 `paper`，`order` 固定为 1、2。
+- 每个 Paper 恰好 20 题；两卷题号均从 1 开始。
+- 每题 `questionType = single_choice`，并保留来源稳定题号 `code`。
+- 每题 `source.examType/year/sectionCode/questionNumber` 必须与所属试卷和分卷一致。
+- 分卷名称、`TMUA-P1/TMUA-P2` 内部分组码、75 分钟时长和直接切换策略均由服务端生成；不得在 section 中填写 `name`、`duration`、`durationSeconds` 或 `transitionAfter`。
 - Paper 1 结束后答案永久锁定，不能从 Paper 2 返回修改；刷新或重新进入必须恢复当前卷及其服务端截止时间。
+
+### 2.3 新版题目字段
+
+新版 `sections[].questions[]` 使用 camelCase：
+
+| 上传字段                             | 入库/前端标准字段                       | 用途                               |
+| ------------------------------------ | --------------------------------------- | ---------------------------------- |
+| `contentBlocks`                      | `content_blocks`                        | 按原顺序渲染题干段落和 `image_ref` |
+| `questionType`                       | `question_type`                         | 题型                               |
+| `classification.subject/subjectCode` | `subject/subject_code`                  | 真实考纲学科，不是 Paper 分组码    |
+| `classification.topic/topicCode`     | `topic/topic_code`                      | 主题                               |
+| `classification.knowledgePoints`     | `knowledge_points`                      | 细分知识点                         |
+| `source.examType/year`               | `source_examType/year`                  | 真题来源                           |
+| `source.sectionCode/questionNumber`  | 分段归属和分段内题号                    | 必须与外层 section 和题号一致      |
+| `learningAnalysis.correctSolution`   | `learning_analysis.correct_solution`    | 中文正确解析                       |
+| `learningAnalysis.examFocus`         | `learning_analysis.exam_focus`          | 考查重点                           |
+| `learningAnalysis.commonErrorCauses` | `learning_analysis.common_error_causes` | 常见错误                           |
+| `learningAnalysis.reviewGuidance`    | `learning_analysis.review_guidance`     | 复习建议                           |
+
+`contentBlocks` 支持 `paragraph { text, align? }` 和 `image_ref { image_id }`。`paragraph.align` 目前只允许 `"center"`；未填写时按普通题干流展示，填写 `"center"` 时该段作为独立行整体居中。该字段控制段落布局，不改变 LaTeX 的解析方式。
+
+```json
+{
+  "type": "paragraph",
+  "text": "\\[5x^2+2xy=4\\]",
+  "align": "center"
+}
+```
+
+图片引用必须匹配同题 `images[].id`；SVG 使用 `{ id, type: "svg", svg, alt }`。前端通过公共 `QuestionCard`、`LatexText` 渲染，不直接执行 SVG。
 
 ### 3. 标题字段 `title`
 
-`title` 必须取自 `content_blocks[0].text`，不得单独生成摘要标题或人工标题。
+本节之后保留的 snake_case 示例描述归一化后的数据库/前端结构，也用于历史文件兼容。新版上传文件把 `content_blocks`、`question_type`、`learning_analysis` 分别写为 `contentBlocks`、`questionType`、`learningAnalysis`。
+
+`title` 必须取自新版 `contentBlocks[0].text`（兼容格式为 `content_blocks[0].text`），不得单独生成摘要标题或人工标题。
 
 字段规则：
 
-| 字段 | 标准要求 |
-| --- | --- |
-| `title` | 必须等于 `content_blocks[0].text` |
-| `content_blocks[0]` | 必须是第一段题干文本块 |
-| `content_blocks[0].type` | 必须为 `paragraph` |
+| 字段                     | 标准要求                          |
+| ------------------------ | --------------------------------- |
+| `title`                  | 必须等于 `content_blocks[0].text` |
+| `content_blocks[0]`      | 必须是第一段题干文本块            |
+| `content_blocks[0].type` | 必须为 `paragraph`                |
 
 标准写法：
 
@@ -268,12 +250,12 @@ TMUA 分卷必须满足：
 
 字段规则：
 
-| 字段 | 标准含义 |
-| --- | --- |
-| `type: "paragraph"` | 一个独立题干段落，含普通文本和 LaTeX |
-| `type: "image_ref"` | 题干中的内嵌图片引用 |
-| `text` | 段落文本，保留 LaTeX，如 `$R$`、`$4\\pi R^2$` |
-| `image_id` | 当 `type` 为 `image_ref` 时，匹配 `images[].id` |
+| 字段                | 标准含义                                        |
+| ------------------- | ----------------------------------------------- |
+| `type: "paragraph"` | 一个独立题干段落，含普通文本和 LaTeX            |
+| `type: "image_ref"` | 题干中的内嵌图片引用                            |
+| `text`              | 段落文本，保留 LaTeX，如 `$R$`、`$4\\pi R^2$`   |
+| `image_id`          | 当 `type` 为 `image_ref` 时，匹配 `images[].id` |
 
 注意：
 
@@ -363,10 +345,10 @@ TMUA 分卷必须满足：
 
 统一引用规则：
 
-| 使用位置 | 引用方式 | 说明 |
-| --- | --- | --- |
+| 使用位置 | 引用方式                                                            | 说明                              |
+| -------- | ------------------------------------------------------------------- | --------------------------------- |
 | 题干图形 | `content_blocks[].type = "image_ref"` + `content_blocks[].image_id` | `image_id` 必须匹配 `images[].id` |
-| 选项图形 | `options[].image_id` | `image_id` 必须匹配 `images[].id` |
+| 选项图形 | `options[].image_id`                                                | `image_id` 必须匹配 `images[].id` |
 
 这样处理后，SVG 还原质量不好时，必须只替换 `images` 中对应资源，例如从 `type: "svg" + svg` 改为 `type: "image" + src`，题干和选项中的引用不需要改。
 
@@ -401,13 +383,13 @@ TMUA 分卷必须满足：
 
 字段规则：
 
-| 字段 | 是否必需 | 说明 |
-| --- | --- | --- |
-| `id` | 是 | 被 `content_blocks[].image_id` 或 `options[].image_id` 引用 |
-| `type` | 是 | `svg` 或 `image` |
-| `svg` | SVG 必需 | 当 `type` 为 `svg` 时，直接保存完整 SVG 字符串 |
-| `src` | PNG/JPG 必需 | 当 `type` 为 `image` 时，保存图片地址或相对路径 |
-| `alt` | 必需 | 图片备用描述，便于无障碍和人工审阅 |
+| 字段   | 是否必需     | 说明                                                        |
+| ------ | ------------ | ----------------------------------------------------------- |
+| `id`   | 是           | 被 `content_blocks[].image_id` 或 `options[].image_id` 引用 |
+| `type` | 是           | `svg` 或 `image`                                            |
+| `svg`  | SVG 必需     | 当 `type` 为 `svg` 时，直接保存完整 SVG 字符串              |
+| `src`  | PNG/JPG 必需 | 当 `type` 为 `image` 时，保存图片地址或相对路径             |
+| `alt`  | 必需         | 图片备用描述，便于无障碍和人工审阅                          |
 
 SVG 资源：
 
@@ -495,11 +477,11 @@ PNG 替换资源：
 
 必须使用以下枚举：
 
-| 值 | 含义 |
-| --- | --- |
-| `single_choice` | 单选题，`answer` 通常只有一个选项 |
+| 值                | 含义                              |
+| ----------------- | --------------------------------- |
+| `single_choice`   | 单选题，`answer` 通常只有一个选项 |
 | `multiple_choice` | 多选题，`answer` 允许包含多个选项 |
-| `short_answer` | 简答题或填空题 |
+| `short_answer`    | 简答题或填空题                    |
 
 因此：
 
@@ -564,14 +546,14 @@ PNG 替换资源：
 - `knowledge_points` 至少有一个 `primary`。
 - 如有多个知识点，必须用 `secondary` 标记次要知识点。
 
-## 第二部分：需要形成的 JSON 标准范例
+## 第二部分：历史扁平卷兼容范例
 
-下面是扁平卷的严格 JSON 范例；模块卷使用前述 `modules[].questions` 容器，单题结构完全相同。实际导入时必须满足：
+下面只说明旧扁平 `questions + snake_case` 文件如何继续兼容导入，不是新文件生成标准。使用该兼容结构时必须满足：
 
 - 不包含 `//` 注释。
 - 不包含尾逗号。
 - 使用 UTF-8。
-- 根结构必须先写 `metadata`，再写 `questions` 或 `modules`。
+- 根结构必须先写 `metadata`，再写 `questions`。
 - `metadata` 必须包含试卷名称、年份、考试时长、考试类型、试卷类型和题目数量。
 - `title` 必须等于 `content_blocks[0].text`。
 - 段落用多个 `content_blocks` 表达，不用一个字符串里的 `\n\n` 承担排版。
@@ -650,9 +632,7 @@ PNG 替换资源：
           "text": "$1.0\\,\\mathrm{A}$; $3.0\\,\\mathrm{W}$"
         }
       ],
-      "answer": [
-        "F"
-      ],
+      "answer": ["F"],
       "images": [
         {
           "id": "circuit_switch_resistors",
@@ -693,9 +673,7 @@ PNG 替换资源：
             "Total current becomes $1.5\\,\\mathrm{A}$, so battery power becomes $VI = 1.0\\times1.5 = 1.5\\,\\mathrm{W}$."
           ],
           "final_value": "$1.0\\,\\mathrm{A}$ and $1.5\\,\\mathrm{W}$",
-          "correct_answer": [
-            "F"
-          ],
+          "correct_answer": ["F"],
           "distractors": {
             "E": "Ignores the added lower branch current.",
             "G": "Assumes the second branch current equals the top branch current.",
@@ -763,27 +741,25 @@ SVG 还原效果不好时，必须保持选项中的 `image_id` 不变，只替�
 
 导入前逐项检查：
 
-- 根结构必须是扁平 `{ "metadata": {...}, "questions": [...] }` 或模块化 `{ "metadata": {...}, "modules": [...] }`。
-- `metadata` 必须写在题目或模块数组前面。
-- `metadata.paperName` 必须是试卷名称。
+- 新版分段卷根结构必须为 `{ "metadata": {...}, "sections": [...] }`；扁平 `questions` 和 `modules` 仅用于兼容历史数据。
+- `metadata.code` 和 `metadata.title` 必须为非空字符串。
 - `metadata.year` 必须是数字年份。
-- `metadata.duration` 必须是考试时长分钟数。
 - `metadata.examType` 必须是系统考试类型。
 - `metadata.paperType` 必须为 `realPaper`、`mockPaper`、`aiPaper` 之一。
-- `metadata.totalQuestions` 必须等于扁平题目数或全部模块题目数之和。
-- 扁平卷 `questions` 至少有一道题；模块卷必须恰好有三个非空 `modules`，且包含 `maths1`。
-- 模块卷 `metadata.duration` 必须等于模块时长之和，`breakPolicy.durationSeconds` 必须为 180 且 `skippable` 为 `true`。
-- 模块 `code` 必须稳定且不重复，`order` 和模块内 `number` 必须为不重复的正整数。
+- `metadata.deliveryMode` 必须为 `section_sequence`，且不得上传 `duration`、`totalQuestions`、`breakPolicy`。
+- TMUA 必须依次包含 `paper1`、`paper2`，各 20 题，`sectionType = paper`。
+- ESAT 必须包含三个不重复科目且包含 `maths1`，`sectionType = subject`。
+- section 只允许业务内容字段；不得包含名称、时长或跳转规则。
+- section `code` 必须稳定，`order` 和 section 内 `number` 必须为不重复的正整数。
 - 每题有 `number`、`title`、`options`。
-- 每题必须保留 `examType`、`source_examType`、`year`。
-- 每题的 `examType` 必须与 `metadata.examType` 一致。
-- 每题的 `year` 必须与 `metadata.year` 一致。
-- `title` 必须等于 `content_blocks[0].text`。
-- `content_blocks[0]` 必须是第一段题干文本块。
+- 每题必须保留 `code`、`source`、`classification` 和 `learningAnalysis`。
+- `source.year` 必须与 `metadata.year` 一致，`source.sectionCode` 必须与外层 section 一致。
+- `title` 必须等于 `contentBlocks[0].text`。
+- `contentBlocks[0]` 必须是第一段题干文本块。
 - `options` 中每个选项都有 `label` 和 `text`。
 - `answer` 始终是数组。
-- `question_type` 只使用 `single_choice`、`multiple_choice`、`short_answer`。
-- `content_blocks` 中不得用一个长字符串塞多个自然段。
+- `questionType` 只使用 `single_choice`、`multiple_choice`、`short_answer`；ESAT/TMUA 分段诊断卷固定为 `single_choice`。
+- `contentBlocks` 中不得用一个长字符串塞多个自然段。
 - 题干图片使用 `image_ref + image_id`，并能匹配 `images[].id`。
 - 选项图片使用 `options[].image_id`，并能匹配 `images[].id`。
 - `images` 中只保留必要展示字段，SVG 用 `svg`，PNG/JPG 用 `src`。

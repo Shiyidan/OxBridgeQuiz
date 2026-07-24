@@ -1,4 +1,4 @@
-<!-- 管理端试卷上传页：校验并预览扁平卷、标准模块卷及历史兼容格式。 -->
+<!-- 管理端试卷上传页：校验并预览新版 sections 试卷及历史兼容格式。 -->
 <template>
   <div class="upload-page">
     <!-- 顶部返回 -->
@@ -290,7 +290,11 @@
           <div class="meta-row">
             <div class="meta-field">
               <label class="field-label">考试类型</label>
-              <select v-model="mdExamType" class="field-input field-input--sm">
+              <select
+                v-model="mdExamType"
+                class="field-input field-input--sm"
+                :disabled="mdUsesSectionSchema"
+              >
                 <option v-for="item in examTypeOptions" :key="item.value" :value="item.value">
                   {{ item.label }}
                 </option>
@@ -298,7 +302,12 @@
             </div>
             <div class="meta-field">
               <label class="field-label">年份</label>
-              <input v-model.number="mdYear" type="number" class="field-input field-input--sm" />
+              <input
+                v-model.number="mdYear"
+                type="number"
+                class="field-input field-input--sm"
+                :disabled="mdUsesSectionSchema"
+              />
             </div>
             <div class="meta-field">
               <label class="field-label">考试时长（分钟）</label>
@@ -306,13 +315,17 @@
                 v-model.number="mdDuration"
                 type="number"
                 class="field-input field-input--sm"
+                :disabled="mdUsesSectionSchema"
               />
+              <p v-if="mdUsesSectionSchema" class="field-hint">按考试分段规则自动计算</p>
             </div>
           </div>
 
           <div class="meta-row" style="margin-top: 12px">
             <div class="meta-field">
-              <label class="field-label">套卷代码（可选）</label>
+              <label class="field-label">
+                {{ mdUsesSectionSchema ? '套卷代码' : '套卷代码（可选）' }}
+              </label>
               <input
                 v-model="mdCode"
                 class="field-input field-input--sm"
@@ -335,8 +348,10 @@
           </div>
           <div class="json-preview-list" v-if="mdQuestions.length">
             <p class="field-label" style="margin-top: 16px">题目预览</p>
-            <div class="json-preview-item" v-for="q in mdQuestions" :key="q.number">
-              <span class="json-preview-num">{{ q.module_question_number || q.component_question_number || q.number }}</span>
+            <div class="json-preview-item" v-for="q in mdQuestions" :key="questionPreviewKey(q)">
+              <span class="json-preview-num">{{
+                q.module_question_number || q.component_question_number || q.number
+              }}</span>
               <span v-if="q.subject" class="json-preview-module">{{ q.subject }}</span>
               <span class="json-preview-title">{{ truncateText(q.title, 60) }}</span>
               <span class="json-preview-opts">{{ q.options?.length || 0 }} 个选项</span>
@@ -461,7 +476,11 @@
           <div class="meta-row">
             <div class="meta-field">
               <label class="field-label">考试类型</label>
-              <select v-model="jsonExamType" class="field-input field-input--sm">
+              <select
+                v-model="jsonExamType"
+                class="field-input field-input--sm"
+                :disabled="jsonUsesSectionSchema"
+              >
                 <option v-for="item in examTypeOptions" :key="item.value" :value="item.value">
                   {{ item.label }}
                 </option>
@@ -469,7 +488,12 @@
             </div>
             <div class="meta-field">
               <label class="field-label">年份</label>
-              <input v-model.number="jsonYear" type="number" class="field-input field-input--sm" />
+              <input
+                v-model.number="jsonYear"
+                type="number"
+                class="field-input field-input--sm"
+                :disabled="jsonUsesSectionSchema"
+              />
             </div>
             <div class="meta-field">
               <label class="field-label">考试时长（分钟）</label>
@@ -477,13 +501,17 @@
                 v-model.number="jsonDuration"
                 type="number"
                 class="field-input field-input--sm"
+                :disabled="jsonUsesSectionSchema"
               />
+              <p v-if="jsonUsesSectionSchema" class="field-hint">按考试分段规则自动计算</p>
             </div>
           </div>
 
           <div class="meta-row" style="margin-top: 12px">
             <div class="meta-field">
-              <label class="field-label">套卷代码（可选）</label>
+              <label class="field-label">
+                {{ jsonUsesSectionSchema ? '套卷代码' : '套卷代码（可选）' }}
+              </label>
               <input
                 v-model="jsonCode"
                 class="field-input field-input--sm"
@@ -506,8 +534,10 @@
           </div>
           <div class="json-preview-list" v-if="jsonQuestions.length">
             <p class="field-label" style="margin-top: 16px">题目预览</p>
-            <div class="json-preview-item" v-for="q in jsonQuestions" :key="q.number">
-              <span class="json-preview-num">{{ q.module_question_number || q.component_question_number || q.number }}</span>
+            <div class="json-preview-item" v-for="q in jsonQuestions" :key="questionPreviewKey(q)">
+              <span class="json-preview-num">{{
+                q.module_question_number || q.component_question_number || q.number
+              }}</span>
               <span v-if="q.subject" class="json-preview-module">{{ q.subject }}</span>
               <span class="json-preview-title">{{ truncateText(q.title, 60) }}</span>
               <span class="json-preview-opts">{{ q.options.length }} 个选项</span>
@@ -614,11 +644,7 @@ import { ElMessage } from 'element-plus'
 import { renderPdfToBase64Pages, type RenderedPage } from '@/utils/pdfRenderer'
 import { DEFAULT_EXAM_TYPE, EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
 import { PAPER_TYPE } from '@/constants/paperTypes'
-import type {
-  PaperMetadata,
-  QuestionInput,
-  StandardPaperJson,
-} from '@/types'
+import type { PaperMetadata, ProjectQuestionInput, QuestionInput, StandardPaperJson } from '@/types'
 
 const router = useRouter()
 const route = useRoute()
@@ -686,7 +712,10 @@ const jsonCode = ref('')
 const jsonMetadata = ref<PaperMetadata | null>(null)
 const jsonQuestions = ref<QuestionInput[]>([])
 const jsonDocument = ref<StandardPaperJson | null>(null)
-const jsonModules = ref<Array<{ code: string; subject: string; duration: number; count: number }>>([])
+const jsonModules = ref<Array<{ code: string; subject: string; duration: number; count: number }>>(
+  [],
+)
+const jsonUsesSectionSchema = ref(false)
 const jsonImporting = ref(false)
 const jsonDone = ref(false)
 const jsonError = ref('')
@@ -704,6 +733,7 @@ const mdMetadata = ref<PaperMetadata | null>(null)
 const mdRawText = ref('')
 const mdQuestions = ref<QuestionInput[]>([])
 const mdModules = ref<Array<{ code: string; subject: string; duration: number; count: number }>>([])
+const mdUsesSectionSchema = ref(false)
 const mdJsonBlockCount = ref(0)
 const mdImporting = ref(false)
 const mdDone = ref(false)
@@ -727,9 +757,142 @@ function isPaperTypeValue(value: unknown): value is PaperMetadata['paperType'] {
   return Object.values(PAPER_TYPE).includes(value as PaperMetadata['paperType'])
 }
 
+const SECTION_PREVIEW_PROFILES: Record<
+  string,
+  { subject: string; duration: number; sectionType: 'paper' | 'subject' }
+> = {
+  paper1: {
+    subject: 'Paper 1: Applications of Mathematical Knowledge',
+    duration: 75,
+    sectionType: 'paper',
+  },
+  paper2: {
+    subject: 'Paper 2: Mathematical Reasoning',
+    duration: 75,
+    sectionType: 'paper',
+  },
+  maths1: { subject: 'Mathematics 1', duration: 40, sectionType: 'subject' },
+  maths2: { subject: 'Mathematics 2', duration: 40, sectionType: 'subject' },
+  physics: { subject: 'Physics', duration: 40, sectionType: 'subject' },
+  chemistry: { subject: 'Chemistry', duration: 40, sectionType: 'subject' },
+  biology: { subject: 'Biology', duration: 40, sectionType: 'subject' },
+}
+
+// 新版 sections 文档不携带计时字段，上传页仅按后端同一考试规则展示派生值。
+function isSectionPaperDocument(raw: unknown): boolean {
+  return Boolean(
+    raw && typeof raw === 'object' && Array.isArray((raw as { sections?: unknown }).sections),
+  )
+}
+
+// 上传预览统一转为页面现有题目模型，正式入库仍由后端完成同一字段归一化和校验。
+function normalizeProjectQuestionForPreview(
+  question: ProjectQuestionInput,
+  metadata: { examType?: string },
+): QuestionInput {
+  const classification = question?.classification
+  const source = question?.source
+  const learningAnalysis = question?.learningAnalysis
+  return {
+    ...question,
+    content_blocks: Array.isArray(question?.contentBlocks)
+      ? question.contentBlocks.map((block) =>
+          block?.type === 'paragraph'
+            ? { ...block, inline: block.align === 'center' ? false : true }
+            : block,
+        )
+      : [],
+    question_type: question?.questionType,
+    subject: classification?.subject,
+    subject_code: classification?.subjectCode,
+    topic: classification?.topic,
+    topic_code: classification?.topicCode,
+    knowledge_points: Array.isArray(classification?.knowledgePoints)
+      ? classification.knowledgePoints
+      : [],
+    examType: metadata?.examType,
+    source_examType: source?.examType,
+    year: source?.year,
+    learning_analysis: learningAnalysis
+      ? {
+          correct_solution: learningAnalysis.correctSolution,
+          exam_focus: learningAnalysis.examFocus,
+          common_error_causes: learningAnalysis.commonErrorCauses,
+          review_guidance: learningAnalysis.reviewGuidance,
+        }
+      : undefined,
+  } as QuestionInput
+}
+
+// 页面编辑表单沿用统一元数据视图；新版文档缺省的时长和题量由 sections 规则派生。
 function readStandardMetadata(raw: any): PaperMetadata | null {
   const metadata = raw?.metadata
   if (!metadata || typeof metadata !== 'object') return null
+  if (isSectionPaperDocument(raw)) {
+    if (!metadata.code || typeof metadata.code !== 'string') return null
+    if (!metadata.title || typeof metadata.title !== 'string') return null
+    if (typeof metadata.year !== 'number') return null
+    if (metadata.examType !== 'TMUA' && metadata.examType !== 'ESAT') return null
+    if (!isPaperTypeValue(metadata.paperType)) return null
+    if (metadata.deliveryMode !== 'section_sequence') return null
+    const expectedSectionCount = metadata.examType === 'TMUA' ? 2 : 3
+    if (raw.sections.length !== expectedSectionCount) return null
+    const seenCodes = new Set<string>()
+    const seenOrders = new Set<number>()
+    const sectionRows = raw.sections as Array<{
+      code?: string
+      sectionType?: string
+      order?: number
+      questions?: unknown[]
+    }>
+    const validSections = sectionRows.every((section, index) => {
+      const profile = SECTION_PREVIEW_PROFILES[String(section?.code)]
+      const tmuaOrderIsValid =
+        metadata.examType !== 'TMUA' ||
+        (section?.code === (index === 0 ? 'paper1' : 'paper2') && section?.order === index + 1)
+      const sectionQuestionCount = Array.isArray(section.questions) ? section.questions.length : 0
+      const questionCountIsValid =
+        metadata.examType === 'TMUA' ? sectionQuestionCount === 20 : sectionQuestionCount > 0
+      const sectionCode = String(section?.code || '')
+      const sectionOrder = Number(section?.order)
+      const hasUniqueIdentity = !seenCodes.has(sectionCode) && !seenOrders.has(sectionOrder)
+      seenCodes.add(sectionCode)
+      seenOrders.add(sectionOrder)
+      if (!profile) return false
+      return (
+        profile.sectionType === section?.sectionType &&
+        Number.isInteger(section?.order) &&
+        sectionOrder > 0 &&
+        tmuaOrderIsValid &&
+        hasUniqueIdentity &&
+        Array.isArray(section?.questions) &&
+        questionCountIsValid
+      )
+    })
+    if (!validSections) return null
+    if (metadata.examType === 'ESAT' && !seenCodes.has('maths1')) return null
+    const totalQuestions = sectionRows.reduce(
+      (sum: number, section) =>
+        sum + (Array.isArray(section?.questions) ? section.questions.length : 0),
+      0,
+    )
+    const duration = sectionRows.reduce(
+      (sum: number, section) =>
+        sum + (SECTION_PREVIEW_PROFILES[String(section?.code)]?.duration || 0),
+      0,
+    )
+    return {
+      paperName: metadata.title,
+      year: metadata.year,
+      duration,
+      examType: metadata.examType,
+      paperType: metadata.paperType,
+      totalQuestions,
+      deliveryMode: 'section_sequence',
+      assemblyType: metadata.assemblyType,
+      remarks: metadata.remarks,
+    }
+  }
   if (!metadata.paperName || typeof metadata.paperName !== 'string') return null
   if (typeof metadata.year !== 'number') return null
   if (typeof metadata.duration !== 'number') return null
@@ -739,74 +902,104 @@ function readStandardMetadata(raw: any): PaperMetadata | null {
   return metadata as PaperMetadata
 }
 
-// 上传预览以 modules[].questions 为标准，并兼容 modules[].items、旧分组容器和扁平 questions。
+// 上传预览接受新版 sections，并兼容 modules[].questions、modules[].items 和扁平 questions。
 function readPaperDocumentPreview(raw: any): {
   metadata: PaperMetadata
   questions: QuestionInput[]
   modules: Array<{ code: string; subject: string; duration: number; count: number }>
+  isSectionSchema: boolean
 } | null {
   const metadata = readStandardMetadata(raw)
   if (!metadata) return null
 
-  const rawModuleRows = Array.isArray(raw?.modules)
-    ? raw.modules
-    : Array.isArray(raw?.questions)
-      && raw.questions.length > 0
-      && raw.questions.every((item: any) => Array.isArray(item?.items))
-      ? raw.questions
-      : null
-  const moduleRows = rawModuleRows?.map((module: any) => ({
-    ...module,
-    questions: Array.isArray(module?.questions) ? module.questions : module?.items,
-  })) || null
+  const isSectionSchema = isSectionPaperDocument(raw)
+  const rawModuleRows = isSectionSchema
+    ? raw.sections
+    : Array.isArray(raw?.modules)
+      ? raw.modules
+      : Array.isArray(raw?.questions) &&
+          raw.questions.length > 0 &&
+          raw.questions.every((item: any) => Array.isArray(item?.items))
+        ? raw.questions
+        : null
+  const moduleRows =
+    rawModuleRows?.map((module: any) => ({
+      ...module,
+      questions: Array.isArray(module?.questions) ? module.questions : module?.items,
+    })) || null
 
   if (moduleRows) {
     const modules = moduleRows.map((module: any, moduleIndex: number) => ({
       code: String(
-        module.code
-          || module.module_code
-          || module.component_code
-          || module.subject
-          || `module-${moduleIndex + 1}`,
+        module.code ||
+          module.module_code ||
+          module.component_code ||
+          module.subject ||
+          `module-${moduleIndex + 1}`,
       ),
-      subject: String(module.subject || `Module ${moduleIndex + 1}`),
-      duration: Number(module.duration) || 0,
+      subject: String(
+        module.subject ||
+          SECTION_PREVIEW_PROFILES[String(module.code)]?.subject ||
+          `Module ${moduleIndex + 1}`,
+      ),
+      duration:
+        Number(module.duration) || SECTION_PREVIEW_PROFILES[String(module.code)]?.duration || 0,
       count: Array.isArray(module.questions) ? module.questions.length : 0,
     }))
     const questions = moduleRows.flatMap((module: any, moduleIndex: number) => {
       const moduleQuestions = Array.isArray(module.questions) ? module.questions : []
-      return moduleQuestions.map((question: QuestionInput, itemIndex: number) => ({
-        ...question,
-        number: questionsBeforeModule(moduleRows, moduleIndex) + itemIndex + 1,
-        module_code: module.code || module.module_code || module.component_code,
-        module_order: Number(module.order) || moduleIndex + 1,
-        module_question_number: question.number || itemIndex + 1,
-        // 预览期保留旧别名，便于早期管理页和已上传数据平滑迁移。
-        component_code: module.code || module.module_code || module.component_code,
-        component_order: Number(module.order) || moduleIndex + 1,
-        component_question_number: question.number || itemIndex + 1,
-        subject: question.subject || module.subject,
-        subject_code: question.subject_code || String(module.subject_code || ''),
-      }))
+      return moduleQuestions.map((rawQuestion: QuestionInput, itemIndex: number) => {
+        const question = isSectionSchema
+          ? normalizeProjectQuestionForPreview(
+              rawQuestion as unknown as ProjectQuestionInput,
+              raw.metadata,
+            )
+          : rawQuestion
+        return {
+          ...question,
+          number: questionsBeforeModule(moduleRows, moduleIndex) + itemIndex + 1,
+          module_code: module.code || module.module_code || module.component_code,
+          module_order: Number(module.order) || moduleIndex + 1,
+          module_question_number: rawQuestion.number || itemIndex + 1,
+          // 预览期保留旧别名，便于早期管理页和已上传数据平滑迁移。
+          component_code: module.code || module.module_code || module.component_code,
+          component_order: Number(module.order) || moduleIndex + 1,
+          component_question_number: rawQuestion.number || itemIndex + 1,
+          subject: question.subject || module.subject,
+          subject_code: question.subject_code || String(module.subject_code || ''),
+        }
+      })
     })
     if (metadata.totalQuestions !== questions.length) return null
-    return { metadata, questions, modules }
+    return { metadata, questions, modules, isSectionSchema }
   }
 
-  if (!Array.isArray(raw?.questions) || metadata.totalQuestions !== raw.questions.length) return null
-  return { metadata, questions: raw.questions, modules: [] }
+  if (!Array.isArray(raw?.questions) || metadata.totalQuestions !== raw.questions.length)
+    return null
+  return { metadata, questions: raw.questions, modules: [], isSectionSchema: false }
+}
+
+// Paper 1/2 内题号都会从 1 开始，预览列表使用稳定 code 避免重复 Vue key。
+function questionPreviewKey(question: QuestionInput): string {
+  return (
+    question.code ||
+    `${question.module_code || question.component_code || 'flat'}-${question.module_question_number || question.number}`
+  )
 }
 
 function questionsBeforeModule(modules: any[], targetIndex: number): number {
   return modules
     .slice(0, targetIndex)
-    .reduce((sum, module) => sum + (
-      Array.isArray(module?.questions)
-        ? module.questions.length
-        : Array.isArray(module?.items)
-          ? module.items.length
-          : 0
-    ), 0)
+    .reduce(
+      (sum, module) =>
+        sum +
+        (Array.isArray(module?.questions)
+          ? module.questions.length
+          : Array.isArray(module?.items)
+            ? module.items.length
+            : 0),
+      0,
+    )
 }
 
 onUnmounted(() => {
@@ -1143,19 +1336,20 @@ function processJsonFile(f: File): void {
       const raw = JSON.parse(reader.result as string)
       const preview = readPaperDocumentPreview(raw)
       if (!preview) {
-        ElMessage.warning('JSON 必须使用标准扁平 questions 或模块化 modules 结构，题目总数需一致')
+        ElMessage.warning('JSON 必须使用新版 sections 或受支持的历史试卷结构')
         return
       }
 
       jsonMetadata.value = preview.metadata
       jsonQuestions.value = preview.questions
       jsonModules.value = preview.modules
+      jsonUsesSectionSchema.value = preview.isSectionSchema
       jsonDocument.value = raw as StandardPaperJson
       jsonTitle.value = preview.metadata.paperName
       jsonExamType.value = normalizeExamType(preview.metadata.examType)
       jsonYear.value = preview.metadata.year
       jsonDuration.value = preview.metadata.duration
-      jsonCode.value = raw.code || ''
+      jsonCode.value = raw.metadata?.code || raw.code || ''
       jsonFile.value = f
       jsonError.value = ''
     } catch {
@@ -1176,6 +1370,7 @@ function clearJsonFile(): void {
   jsonQuestions.value = []
   jsonDocument.value = null
   jsonModules.value = []
+  jsonUsesSectionSchema.value = false
   jsonError.value = ''
   jsonDone.value = false
   jsonPaperId.value = ''
@@ -1211,11 +1406,8 @@ async function importJson(): Promise<void> {
       jsonYear.value,
       jsonDuration.value,
     )
-    const res = await apiImportJson({
-      ...jsonDocument.value,
-      code: jsonCode.value || (jsonDocument.value as any).code || undefined,
-      metadata,
-    } as StandardPaperJson & { code?: string })
+    const editedDocument = buildEditedPaperDocument(jsonDocument.value, metadata, jsonCode.value)
+    const res = await apiImportJson(editedDocument)
     jsonMetadata.value = metadata
     jsonPaperId.value = res.id
     jsonDone.value = true
@@ -1264,6 +1456,7 @@ function processMdFile(f: File): void {
       // 前端提取 JSON 代码块做预览
       const jsonBlockRe = /```json\s*\n([\s\S]*?)\n\s*```/g
       let parsedDocument: ReturnType<typeof readPaperDocumentPreview> = null
+      let parsedSource: { metadata?: { code?: string }; code?: string } | null = null
       let blockCount = 0
       let match: RegExpExecArray | null
 
@@ -1272,6 +1465,7 @@ function processMdFile(f: File): void {
         try {
           const parsed = JSON.parse(match![1]!.trim())
           parsedDocument = readPaperDocumentPreview(parsed)
+          parsedSource = parsed
         } catch {
           // 某个块解析失败，跳过
         }
@@ -1286,7 +1480,7 @@ function processMdFile(f: File): void {
         return
       }
       if (!parsedDocument) {
-        ElMessage.warning('JSON 代码块必须使用标准扁平 questions 或模块化 modules 结构')
+        ElMessage.warning('JSON 代码块必须使用新版 sections 或受支持的历史试卷结构')
         return
       }
 
@@ -1294,10 +1488,12 @@ function processMdFile(f: File): void {
       mdMetadata.value = parsedDocument.metadata
       mdQuestions.value = parsedDocument.questions
       mdModules.value = parsedDocument.modules
+      mdUsesSectionSchema.value = parsedDocument.isSectionSchema
       mdTitle.value = parsedDocument.metadata.paperName
       mdExamType.value = normalizeExamType(parsedDocument.metadata.examType)
       mdYear.value = parsedDocument.metadata.year
       mdDuration.value = parsedDocument.metadata.duration
+      mdCode.value = parsedSource?.metadata?.code || parsedSource?.code || ''
       mdFile.value = f
       mdError.value = ''
       mdWarnings.value = []
@@ -1319,6 +1515,7 @@ function clearMdFile(): void {
   mdRawText.value = ''
   mdQuestions.value = []
   mdModules.value = []
+  mdUsesSectionSchema.value = false
   mdJsonBlockCount.value = 0
   mdError.value = ''
   mdWarnings.value = []
@@ -1358,7 +1555,7 @@ async function importMarkdown(): Promise<void> {
       mdDuration.value,
     )
     const res = await apiImportMarkdown({
-      markdown: buildEditedMarkdown(mdRawText.value, metadata),
+      markdown: buildEditedMarkdown(mdRawText.value, metadata, mdCode.value),
       code: mdCode.value || undefined,
     })
     mdMetadata.value = metadata
@@ -1392,12 +1589,39 @@ function buildEditedMetadata(
   }
 }
 
-function buildEditedMarkdown(markdown: string, metadata: PaperMetadata): string {
+// 新版文档只回写它声明的元数据字段，避免把 duration 等考试规则重新塞入上传 JSON。
+function buildEditedPaperDocument(
+  document: StandardPaperJson,
+  metadata: PaperMetadata,
+  code: string,
+): StandardPaperJson {
+  if ('sections' in document && Array.isArray(document.sections)) {
+    return {
+      ...document,
+      metadata: {
+        ...document.metadata,
+        code: code.trim() || document.metadata.code,
+        title: metadata.paperName,
+        examType: metadata.examType,
+        year: metadata.year,
+        paperType: metadata.paperType,
+      },
+    } as StandardPaperJson
+  }
+  return {
+    ...document,
+    ...(code.trim() ? { code: code.trim() } : {}),
+    metadata,
+  } as StandardPaperJson
+}
+
+// Markdown 仍只是 JSON 容器，编辑后保持原文档采用的 sections 或兼容结构。
+function buildEditedMarkdown(markdown: string, metadata: PaperMetadata, code: string): string {
   const jsonBlockRe = /```json\s*\n([\s\S]*?)\n\s*```/
   return markdown.replace(jsonBlockRe, (_full, rawJson: string) => {
-    const parsed = JSON.parse(rawJson.trim())
-    parsed.metadata = metadata
-    return `\`\`\`json\n${JSON.stringify(parsed, null, 2)}\n\`\`\``
+    const parsed = JSON.parse(rawJson.trim()) as StandardPaperJson
+    const editedDocument = buildEditedPaperDocument(parsed, metadata, code)
+    return `\`\`\`json\n${JSON.stringify(editedDocument, null, 2)}\n\`\`\``
   })
 }
 </script>

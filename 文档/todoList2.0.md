@@ -1,6 +1,6 @@
 # API 项目待优化清单（todoList 2.0）
 
-> 基于 2026-06-20 对 `api/` 项目的全面代码审计，并持续补充诊断测试链路审查结果，共发现问题 30 项，按优先级排列。
+> 基于 2026-06-20 对 `api/` 项目的全面代码审计，并持续补充诊断测试链路审查结果，共发现问题 31 项，按优先级排列。
 
 ---
 
@@ -53,6 +53,7 @@ P5 代码整洁
 - [x] P5-3 scoreAnswers() 函数未被使用
 - [x] P5-4 config.ts 中 __dirname 计算后未使用
 - [x] P5-5 index.ts 中 import 语句放在文件末尾
+- [ ] P5-6 试卷上传代码优化：移除旧上传格式并精简未使用引用
 
 ---
 
@@ -278,6 +279,16 @@ P5 代码整洁
 - **方案**：移动到文件顶部与其他 import 一起
 - **处理结果**：2026-07-12 已将 `success` 导入移动到顶部导入区
 
+### P5-6 试卷上传代码优化：移除旧上传格式并精简未使用引用
+
+- **位置**：[`quiz-web/src/views/admin/PaperUpload.vue`](quiz-web/src/views/admin/PaperUpload.vue)、[`api/src/services/markdownValidator.ts`](api/src/services/markdownValidator.ts)、[`api/src/routes/papers-shared.ts`](api/src/routes/papers-shared.ts) 及拆分后的试卷、题库和考纲路由
+- **问题**：上传链路同时兼容新版 `metadata + sections`、旧版 `modules[].questions`、`modules[].items`、嵌套 `questions[].items` 和扁平 `questions`，导致前后端存在重复解析、重复校验和规则遗漏风险；部分拆分路由还从 `papers-shared.ts` 批量导入了未实际使用的函数
+- **方案**：
+  1. 将 ESAT/TMUA 外部上传格式统一为 `metadata + sections`，移除前后端对旧外部上传结构的解析和校验分支。
+  2. 删除旧格式前先盘点历史文件和数据库依赖，必要时提供一次性转换脚本；本项不删除入库后仍在使用的标准化 `moduleConfig`、`module_*` 字段和历史数据读取能力。
+  3. 按实际调用精简 `questionBank.ts`、`syllabus.ts`、`papers-crud.ts`、`papers-import.ts` 的 import；将仍需复用的分页解析、学生作答安全投影、试卷权益和考纲启用逻辑拆入职责单一的工具或服务文件。
+  4. 补充新版 JSON 上传、学生安全题目返回、诊断分段和考纲启用的回归测试，确认旧格式移除不影响已入库试卷的展示与作答。
+
 ---
 
-> **共计**：30 项，已完成 14 项（P0: 4 / P1: 6 / P2: 4 / P3: 5 / P4: 6 / P5: 5）
+> **共计**：31 项，已完成 14 项（P0: 4 / P1: 6 / P2: 4 / P3: 5 / P4: 6 / P5: 6）

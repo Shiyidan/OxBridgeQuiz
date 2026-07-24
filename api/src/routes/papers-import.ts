@@ -24,7 +24,19 @@ import {
   paperTypeWhereValues,
 } from '../constants/domain.js'
 
-import { RawSyllabusNode, FlatSyllabusNode, levelOf, parseSyllabusJson, getSyllabusRoots, normalizeSyllabusNodes, safeParseJson, parsePositiveInt, formatQuestionForAttempt, hasStudentPaperEntitlement, applySyllabusToTree } from './papers-shared.js'
+import {
+  RawSyllabusNode,
+  FlatSyllabusNode,
+  levelOf,
+  parseSyllabusJson,
+  getSyllabusRoots,
+  normalizeSyllabusNodes,
+  safeParseJson,
+  parsePositiveInt,
+  formatQuestionForAttempt,
+  hasStudentPaperEntitlement,
+  applySyllabusToTree,
+} from './papers-shared.js'
 export const paperImportRouter = createAsyncRouter()
 
 paperImportRouter.post('/import-json', requireAuth, requireAdmin, async (req, res) => {
@@ -32,7 +44,7 @@ paperImportRouter.post('/import-json', requireAuth, requireAdmin, async (req, re
     const { code } = req.body
     const validated = validateStandardPaperDocument(req.body)
     if (validated.errors.length > 0 || !validated.metadata) {
-      res.status(400).json(fail(`校验失败：${validated.errors.map(e => e.message).join('；')}`))
+      res.status(400).json(fail(`校验失败：${validated.errors.map((e) => e.message).join('；')}`))
       return
     }
     const { metadata, questions, modules } = validated
@@ -43,7 +55,7 @@ paperImportRouter.post('/import-json', requireAuth, requireAdmin, async (req, re
         title: metadata.paperName,
         year: metadata.year,
         duration: metadata.duration,
-        code: code || undefined,
+        code: code || metadata.code || undefined,
         examType: metadata.examType,
         paperType: metadata.paperType,
         deliveryMode: metadata.deliveryMode,
@@ -64,12 +76,14 @@ paperImportRouter.post('/import-json', requireAuth, requireAdmin, async (req, re
       resourceId: paper.id,
       summary: `导入 JSON 试卷“${paper.title}”`,
     })
-    res.json(success({
-      ...paper,
-      questions: savedQuestions.map(formatQuestionRow),
-      modules,
-      warnings: validated.warnings,
-    }))
+    res.json(
+      success({
+        ...paper,
+        questions: savedQuestions.map(formatQuestionRow),
+        modules,
+        warnings: validated.warnings,
+      }),
+    )
   } catch (e: any) {
     logRuntimeError('paper.import_json_failed', e)
     res.status(500).json(fail(e.message || '导入失败'))
@@ -89,7 +103,7 @@ paperImportRouter.post('/import-markdown', requireAuth, requireAdmin, async (req
     const result = processMarkdownImport(markdown)
 
     if (result.errors.length > 0 || !result.metadata) {
-      res.status(400).json(fail(`校验失败：${result.errors.map(e => e.message).join('；')}`))
+      res.status(400).json(fail(`校验失败：${result.errors.map((e) => e.message).join('；')}`))
       return
     }
 
@@ -104,7 +118,7 @@ paperImportRouter.post('/import-markdown', requireAuth, requireAdmin, async (req
         title: result.metadata.paperName,
         year: result.metadata.year,
         duration: result.metadata.duration,
-        code: code || undefined,
+        code: code || result.metadata.code || undefined,
         examType: result.metadata.examType,
         paperType: result.metadata.paperType,
         deliveryMode: result.metadata.deliveryMode,
@@ -125,12 +139,14 @@ paperImportRouter.post('/import-markdown', requireAuth, requireAdmin, async (req
       resourceId: paper.id,
       summary: `导入 Markdown 试卷“${paper.title}”`,
     })
-    res.json(success({
-      ...paper,
-      questions: savedQuestions.map(formatQuestionRow),
-      modules: result.modules,
-      warnings: result.warnings,
-    }))
+    res.json(
+      success({
+        ...paper,
+        questions: savedQuestions.map(formatQuestionRow),
+        modules: result.modules,
+        warnings: result.warnings,
+      }),
+    )
   } catch (e: any) {
     logRuntimeError('paper.import_markdown_failed', e)
     res.status(500).json(fail(e.message || '导入失败'))

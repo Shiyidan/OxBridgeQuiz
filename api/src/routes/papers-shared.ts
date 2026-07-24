@@ -108,7 +108,12 @@ export function formatQuestionForAttempt(row: any) {
   const contentBlocks: Array<Record<string, unknown>> = Array.isArray(question.content_blocks)
     ? question.content_blocks.flatMap((block: any): Array<Record<string, unknown>> => {
         if (block?.type === 'paragraph' && typeof block.text === 'string') {
-          return [{ type: 'paragraph', text: block.text }]
+          return [{
+            type: 'paragraph',
+            text: block.text,
+            ...(block.align === 'center' ? { align: 'center' } : {}),
+            ...(block.inline === true ? { inline: true } : {}),
+          }]
         }
         if (block?.type === 'image_ref' && typeof block.image_id === 'string') {
           return [{

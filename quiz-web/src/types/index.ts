@@ -13,8 +13,8 @@ export type DiagnosticSectionCode = EsatModuleCode | TmuaPaperCode
 
 export type PaperDeliveryMode = 'continuous' | 'module_sequence'
 
-/** 上传文档与 API 统一使用 module_sequence；module 仅作为兼容值。 */
-export type PaperDocumentDeliveryMode = PaperDeliveryMode | 'module'
+/** 上传文档可使用新版 section_sequence；module 仅作为历史兼容值。 */
+export type PaperDocumentDeliveryMode = PaperDeliveryMode | 'section_sequence' | 'module'
 
 export interface PaperBreakPolicy {
   durationSeconds: number
@@ -43,6 +43,10 @@ export type RichContentBlock =
   | {
       type: 'paragraph'
       text: string
+      /** 仅显式 center 时整段居中；缺省时沿用普通题干流。 */
+      align?: 'center'
+      /** 新版 project JSON 的连续片段在同一阅读流中展示。 */
+      inline?: boolean
     }
   | {
       type: 'image_ref'
@@ -159,6 +163,82 @@ export interface DiagnosticPaperModule {
   questions: Array<QuestionInput & { code: string }>
 }
 
+/** 新版项目题目在上传边界使用 camelCase，导入后统一转为 Question。 */
+export interface ProjectQuestionInput {
+  code: string
+  number: number
+  title: string
+  contentBlocks: RichContentBlock[]
+  options: Option[]
+  answer: string[]
+  images: QuestionImage[]
+  questionType: QuestionType
+  difficulty?: string
+  classification: {
+    subject: string
+    subjectCode: string | number
+    topic: string
+    topicCode: string | number
+    knowledgePoints: KnowledgePoint[]
+  }
+  source: {
+    examType: string
+    year: number
+    sectionCode: DiagnosticSectionCode
+    questionNumber: number
+  }
+  learningAnalysis: {
+    correctSolution: string
+    examFocus: string
+    commonErrorCauses: string[]
+    reviewGuidance: string
+  }
+}
+
+/** 新版 TMUA 项目卷只携带内容结构，计时与切换规则由服务端考试配置派生。 */
+export interface TmuaSectionPaperJson {
+  metadata: {
+    code: string
+    title: string
+    examType: 'TMUA'
+    year: number
+    paperType: 'realPaper' | 'mockPaper' | 'aiPaper'
+    assemblyType: 'original' | string
+    deliveryMode: 'section_sequence'
+    remarks?: string
+  }
+  sections: Array<{
+    code: TmuaPaperCode
+    sectionType: 'paper'
+    order: 1 | 2
+    questions: ProjectQuestionInput[]
+  }>
+  questions?: never
+  modules?: never
+}
+
+/** 新版 ESAT 等效诊断卷同样只携带三个科目的内容结构。 */
+export interface EsatSectionPaperJson {
+  metadata: {
+    code: string
+    title: string
+    examType: 'ESAT'
+    year: number
+    paperType: 'realPaper' | 'mockPaper' | 'aiPaper'
+    assemblyType: 'legacy_equivalent' | string
+    deliveryMode: 'section_sequence'
+    remarks?: string
+  }
+  sections: Array<{
+    code: EsatModuleCode
+    sectionType: 'subject'
+    order: number
+    questions: ProjectQuestionInput[]
+  }>
+  questions?: never
+  modules?: never
+}
+
 export interface FlatPaperJson {
   metadata: PaperMetadata
   questions: QuestionInput[]
@@ -236,6 +316,8 @@ export interface LegacyModuleItemsPaperJson {
 }
 
 export type StandardPaperJson =
+  | TmuaSectionPaperJson
+  | EsatSectionPaperJson
   | FlatPaperJson
   | ModularPaperJson
   | LegacyGroupedPaperJson

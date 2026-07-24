@@ -10,9 +10,23 @@
     </div>
 
     <!-- 内容区：按标准 content_blocks 渲染图文混排题干 -->
-    <div class="question-card__prompt">
+    <div
+      class="question-card__prompt"
+      :class="{ 'question-card__prompt--inline-flow': hasInlineContent }"
+    >
       <template v-for="(block, idx) in contentBlocks" :key="idx">
-        <div v-if="block.type === 'paragraph'" class="question-card__stem">
+        <span
+          v-if="block.type === 'paragraph' && block.inline"
+          class="question-card__stem question-card__stem--inline"
+        >
+          <span v-if="inlineSeparator(idx)">{{ inlineSeparator(idx) }}</span>
+          <LatexText :text="block.text" />
+        </span>
+        <div
+          v-else-if="block.type === 'paragraph'"
+          class="question-card__stem"
+          :class="{ 'question-card__stem--center': block.align === 'center' }"
+        >
           <LatexText :text="block.text" />
         </div>
         <div
@@ -75,7 +89,7 @@
 // 题目渲染卡片（试题库、练习页、试卷预览共用）
 import { computed } from 'vue'
 import LatexText from './LatexText.vue'
-import type { QuestionImage, RenderableQuestion } from '@/types'
+import type { QuestionImage, RenderableQuestion, RichContentBlock } from '@/types'
 
 interface Props {
   question: RenderableQuestion
@@ -98,12 +112,32 @@ const emit = defineEmits<{
 }>()
 
 // 历史题缺少内容块时回退到 title，避免预览和报告出现空题干。
-const contentBlocks = computed(() => {
+const contentBlocks = computed<RichContentBlock[]>(() => {
   if (Array.isArray(props.question.content_blocks) && props.question.content_blocks.length) {
     return props.question.content_blocks
   }
   return [{ type: 'paragraph' as const, text: props.question.title || '' }]
 })
+
+const hasInlineContent = computed(() =>
+  contentBlocks.value.some((block) => block.type === 'paragraph' && block.inline),
+)
+
+// 连续项目块默认补一个空格；标点片段直接衔接前文，避免出现英文标点前空格。
+function inlineSeparator(index: number): string {
+  if (index <= 0) return ''
+  const current = contentBlocks.value[index]
+  const previous = contentBlocks.value[index - 1]
+  if (
+    current?.type !== 'paragraph' ||
+    !current.inline ||
+    previous?.type !== 'paragraph' ||
+    !previous.inline
+  ) {
+    return ''
+  }
+  return /^[,.;:!?)}\]]/.test(current.text.trimStart()) ? '' : ' '
+}
 
 // 根据 image_ref 的 image_id 匹配 images 数组中的图片
 function getImageById(imageId: string | undefined): QuestionImage | null {
@@ -211,6 +245,15 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
     line-height: 1.6;
     background: transparent;
     color: var(--color-ink);
+  }
+
+  .question-card__stem--inline {
+    display: inline;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   .question-card__stem + .question-card__stem {
@@ -361,6 +404,18 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
 }
 
 /* ========== 题干卡 ========== */
+.question-card__prompt--inline-flow {
+  padding: 1.5rem 1.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--color-ink);
+  font-size: 1rem;
+  line-height: 1.75;
+  word-break: break-word;
+}
+
 .question-card__label {
   font-size: 0.875rem;
   font-weight: 500;
@@ -383,6 +438,26 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
 
 .question-card__stem :deep(.latex-text) {
   display: inline;
+}
+
+.question-card__stem--center {
+  text-align: center;
+}
+
+.question-card__stem--center :deep(.latex-text) {
+  display: block;
+}
+
+.question-card__stem--inline {
+  display: inline;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
 }
 
 /* ========== 配图（SVG / PNG） ========== */

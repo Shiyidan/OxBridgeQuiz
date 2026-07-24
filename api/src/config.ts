@@ -37,8 +37,8 @@ const BACKEND_CONFIG_BY_ENV: Record<BackendEnv, BackendEnvConfig> = {
   },
   test: {
     port: 3001,
-    frontendUrl: 'http://8.149.140.115',
-    corsOrigins: ['http://8.149.140.115', ...LOCAL_CORS_ORIGINS],
+    frontendUrl: 'https://test.example.invalid',
+    corsOrigins: ['https://test.example.invalid', ...LOCAL_CORS_ORIGINS],
     refreshCookieSecure: false,
     refreshCookieSameSite: 'lax',
     trustProxy: 1,
@@ -147,9 +147,31 @@ function resolveDatabaseUrl(): string {
   throw new Error('[config] DATABASE_URL is required')
 }
 
-// CORS 只接受明确来源，生产环境统一到唯一正式主域名。
+// 测试与生产地址属于私有部署配置，禁止回退到仓库中的示例地址。
+function resolveFrontendUrl(): string {
+  const value = process.env.FRONTEND_URL?.trim().replace(/\/$/, '')
+  if (!value) {
+    if (BACKEND_ENV !== 'local') {
+      throw new Error(`[config] FRONTEND_URL is required when API_RUNTIME_ENV=${BACKEND_ENV}`)
+    }
+    return backendDefaults.frontendUrl
+  }
+
+  const url = new URL(value)
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new Error('[config] FRONTEND_URL must use HTTP or HTTPS')
+  }
+  return value
+}
+
+// CORS 只接受明确来源，测试与生产来源必须由各自私有配置提供。
 function resolveCorsOrigins(): (string | RegExp)[] {
-  if (!process.env.CORS_ORIGINS) return backendDefaults.corsOrigins
+  if (!process.env.CORS_ORIGINS) {
+    if (BACKEND_ENV !== 'local') {
+      throw new Error(`[config] CORS_ORIGINS is required when API_RUNTIME_ENV=${BACKEND_ENV}`)
+    }
+    return backendDefaults.corsOrigins
+  }
   const origins = process.env.CORS_ORIGINS.split(',')
     .map((origin) => origin.trim().replace(/\/$/, ''))
     .filter(Boolean)
@@ -325,7 +347,7 @@ if (BACKEND_ENV === 'prod' && !refreshCookieSecure) {
 export const config = {
   runtimeEnv: BACKEND_ENV,
   port: parseInt(process.env.API_PORT || String(backendDefaults.port), 10),
-  frontendUrl: process.env.FRONTEND_URL || backendDefaults.frontendUrl,
+  frontendUrl: resolveFrontendUrl(),
   jwtSecret: resolveJwtSecret(),
   jwtIssuer: process.env.JWT_ISSUER || 'quiztest-api',
   jwtAudience: process.env.JWT_AUDIENCE || 'quiztest-web',

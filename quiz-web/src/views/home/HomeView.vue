@@ -359,7 +359,17 @@
           </div>
         </div>
         <div class="footer-bottom">
-          <span class="footer-copy">© 2026 云舟备考 SmartKey. All Rights Reserved.</span>
+          <div class="footer-copy">
+            <span>© 2026 云舟备考 SmartKey. All Rights Reserved.</span>
+            <a
+              class="footer-icp"
+              href="https://beian.miit.gov.cn/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              沪ICP备2026034877号
+            </a>
+          </div>
           <div class="footer-legal">
             <a>用户协议</a>
             <a>隐私政策</a>
@@ -1449,11 +1459,23 @@ const ctaTrust = ['无需注册', '2 个模块约 30 分钟', '即刻获取专�
   }
 
 .footer-copy {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 16px;
   font-size: 12px;
   color: var(--color-ink-muted);
 }
+.footer-icp {
+  color: inherit;
+}
+.footer-icp:hover {
+  color: var(--color-ink);
+}
 .footer-legal {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 24px;
 }
 .footer-legal a {

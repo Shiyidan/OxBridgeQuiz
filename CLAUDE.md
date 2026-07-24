@@ -257,7 +257,7 @@ MembershipPlan, UserMembership, EntitlementConfig
 - `/opt/quiz/api/.env`
 - 线上 RDS MySQL 数据；新生产部署不再依赖 `/opt/quiz/data/prod.db`
 
-部署报告生成到 [deployment-reports/](deployment-reports/)。授权 `agently-cli +me` 为 `solveark@agent.qq.com` 后，deploy 技能会通过 Agent Mail 发送 HTML 报告。
+部署报告仅生成到被 Git 忽略的本地目录中。邮件发送账号、收件人和 SMTP 配置必须来自 `.env.deploy.local`，不得写入仓库；仅在用户明确要求发送时使用。
 
 ## Reference docs
 

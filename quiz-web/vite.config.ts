@@ -5,10 +5,14 @@ import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_')
-  const useTestApi = env.VITE_API_ENV === 'test'
-  const testApiOrigin = env.VITE_TEST_API_ORIGIN || 'http://8.149.140.115'
+  const useTestApi = command === 'serve' && env.VITE_API_ENV === 'test'
+  const testApiOrigin = env.VITE_TEST_API_ORIGIN
+
+  if (useTestApi && !testApiOrigin) {
+    throw new Error('VITE_TEST_API_ORIGIN is required in quiz-web/.env.test.local for dev:test')
+  }
 
   return {
     plugins: [vue()],

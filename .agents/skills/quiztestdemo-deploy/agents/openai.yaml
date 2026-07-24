@@ -1,0 +1,4 @@
+interface:
+  display_name: "QuizTestDemo Deploy"
+  short_description: "Deploy QuizTestDemo to test or production"
+  default_prompt: "Deploy QuizTestDemo after confirming test or prod, deployment scope, and Git branch."

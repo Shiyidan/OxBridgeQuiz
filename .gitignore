@@ -9,6 +9,7 @@ __pycache__/
 *.pyo
 .env
 .env.local
+.env.*.local
 .env.deploy.local
 api/.env.mysql.local
 api/prisma/generated/
@@ -44,3 +45,8 @@ desktop.ini
 # 日志
 *.log
 npm-debug.log*
+
+# 私有部署产物
+.private/
+deployment-reports/
+文档/5. 部署方案/5.6 上线报告/*.html

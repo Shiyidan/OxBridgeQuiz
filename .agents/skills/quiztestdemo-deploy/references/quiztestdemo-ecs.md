@@ -17,7 +17,7 @@ Load host, SSH user, key path, URL, and database from the git-ignored `.env.depl
 - Runtime database: the selected environment's RDS database from `environments.md`
 - Backups: `/opt/quiz/backups`
 - PM2 config: `/opt/quiz/ecosystem.config.cjs`
-- Nginx config: `/etc/nginx/sites-available/quiz`
+- Nginx config: detect the existing environment file; production currently uses `/etc/nginx/sites-available/quiztestdemo`, while older environments may use `/etc/nginx/sites-available/quiz`
 
 ## SSH Pattern
 
@@ -52,7 +52,7 @@ switch ($Environment) {
   }
   "prod" {
     $Prefix = "QUIZ_PROD"
-    $DeploymentDoc = "文档\5. 部署方案\5.5 线上环境部署方案.md"
+    $DeploymentDoc = "文档\5. 部署方案\5.6 线上环境部署记录.md"
   }
   default { throw "Environment must be test or prod." }
 }
@@ -208,7 +208,7 @@ npm run build-only:test
 # prod
 npm run build-only
 
-rsync -a --delete dist/ /opt/quiz/web/dist/
+rsync -a --delete --no-owner --no-group --no-perms --omit-dir-times dist/ /opt/quiz/web/dist/
 ```
 
 Both builds use same-origin `/api`. Never inject the test IP into a production build.
@@ -265,8 +265,8 @@ stat -c '%y %n' \
   /opt/quiz/api/dist/index.js \
   /opt/quiz/web/dist/index.html \
   /opt/quiz/ecosystem.config.cjs \
-  /opt/quiz/ecosystem.config.cjs \
-  /etc/nginx/sites-available/quiz 2>/dev/null || true
+  /etc/nginx/sites-available/quiz \
+  /etc/nginx/sites-available/quiztestdemo 2>/dev/null || true
 
 echo '--- disk ---'
 df -h /
@@ -300,7 +300,7 @@ curl.exe -sS "$PublicUrl/api/health"
 Write the durable deployment record after the result is known:
 
 - `test`: prepend the newest dated record to `文档/5. 部署方案/5.3 测试环境部署记录.md`.
-- `prod`: add a dated production record to `文档/5. 部署方案/5.5 线上环境部署方案.md`.
+- `prod`: insert the newest dated code deployment under `## 二、生产环境部署记录` in `文档/5. 部署方案/5.6 线上环境部署记录.md`; use sections one and three for domain validation and operational changes.
 
 Include the environment, scope, branch, commit, backup manifest, migration result, validations, retries, and remaining risks. Keep actual hosts, database names, local paths, addresses, and raw server evidence out of tracked documents.
 

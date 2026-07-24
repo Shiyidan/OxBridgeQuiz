@@ -43,12 +43,19 @@ echo "--- structure ---"
 find /opt/quiz -maxdepth 2 -type d | sort
 
 echo "--- timestamps ---"
-stat -c '%y %n' \
-  /opt/quiz/repo \
-  /opt/quiz/api/dist/index.js \
-  /opt/quiz/web/dist/index.html \
-  /opt/quiz/ecosystem.config.cjs \
-  /etc/nginx/sites-available/quiz 2>/dev/null || true
+timestamp_targets=(
+  /opt/quiz/repo
+  /opt/quiz/api/dist/index.js
+  /opt/quiz/web/dist/index.html
+  /opt/quiz/ecosystem.config.cjs
+  /etc/nginx/sites-available/quiz
+  /etc/nginx/sites-available/quiztestdemo
+)
+for target in "${timestamp_targets[@]}"; do
+  if [[ -e "$target" ]]; then
+    stat -c '%y %n' "$target"
+  fi
+done
 
 echo "--- health-local-api ---"
 curl -sS http://127.0.0.1:3001/api/health

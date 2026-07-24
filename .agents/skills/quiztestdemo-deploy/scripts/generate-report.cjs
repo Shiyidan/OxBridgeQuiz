@@ -51,7 +51,7 @@ function readDeploymentNotes(file) {
   if (current) sections.push(current)
 
   const datedSections = sections.filter((section) => /^##\s+\d{4}-\d{2}-\d{2}\s+/.test(section.title))
-  const selectedSections = datedSections.length ? datedSections.slice(0, 1) : sections
+  const selectedSections = datedSections.length ? datedSections.slice(-2) : sections
   const notes = []
   for (const section of selectedSections) {
     const body = section.lines.join('\n')

@@ -13,7 +13,7 @@ Use exactly one column for each deployment:
 | Expected RDS database | `QUIZ_TEST_DATABASE` | `QUIZ_PROD_DATABASE` |
 | Expected `API_RUNTIME_ENV` | `test` | `prod` |
 | Frontend build | `npm run build-only:test` | `npm run build-only` |
-| Deployment document | `文档/5. 部署方案/5.3 测试环境部署记录.md` | `文档/5. 部署方案/5.5 线上环境部署方案.md` |
+| Deployment document | `文档/5. 部署方案/5.3 测试环境部署记录.md` | `文档/5. 部署方案/5.6 线上环境部署记录.md` |
 | Report prefix | `quiztestdemo-test-deploy-` | `quiztestdemo-prod-deploy-` |
 
 Shared server paths:
@@ -23,7 +23,7 @@ Shared server paths:
 - frontend runtime: `/opt/quiz/web/dist`
 - backups: `/opt/quiz/backups`
 - PM2 process: `quiz-api`
-- Nginx site: `/etc/nginx/sites-available/quiz`
+- Nginx site: detect the existing environment file; production currently uses `/etc/nginx/sites-available/quiztestdemo`, while older environments may use `/etc/nginx/sites-available/quiz`
 
 Rules:
 

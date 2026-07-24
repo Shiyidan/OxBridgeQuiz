@@ -1,0 +1,16 @@
+[Unit]
+Description=QuizTestDemo logical RDS backup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=deploy
+Group=deploy
+WorkingDirectory=/opt/quiz
+UMask=0077
+Environment=BACKUP_RETENTION_DAYS=14
+ExecStart=/bin/bash /opt/quiz/ops/backup-rds-runtime.sh scheduled
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

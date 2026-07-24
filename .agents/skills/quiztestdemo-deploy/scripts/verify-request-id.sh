@@ -42,6 +42,7 @@ for log_path in "${LOG_PATHS[@]}"; do
   if [[ -f "$log_path" ]] && grep -Fq "$REQUEST_ID" "$log_path"; then
     echo "request_id=$REQUEST_ID"
     echo "runtime_log=$log_path"
+    grep -F "$REQUEST_ID" "$log_path" | tail -n 1
     cat "$BODY_FILE"
     echo
     exit 0

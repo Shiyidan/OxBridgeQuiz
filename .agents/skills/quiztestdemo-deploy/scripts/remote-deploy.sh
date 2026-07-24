@@ -68,6 +68,44 @@ wait_for_health() {
   return 1
 }
 
+run_with_env_file() {
+  local env_file="$1"
+  shift
+
+  node - "$env_file" "$@" <<'NODE'
+const fs = require('fs')
+const { spawnSync } = require('child_process')
+
+const envFile = process.argv[2]
+const [command, ...args] = process.argv.slice(3)
+const values = {}
+
+for (const line of fs.readFileSync(envFile, 'utf8').split(/\r?\n/)) {
+  const trimmed = line.trim()
+  if (!trimmed || trimmed.startsWith('#')) continue
+  const index = trimmed.indexOf('=')
+  if (index <= 0) continue
+  const key = trimmed.slice(0, index).trim()
+  let value = trimmed.slice(index + 1).trim()
+  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    value = value.slice(1, -1)
+  }
+  values[key] = value
+}
+
+const result = spawnSync(command, args, {
+  env: { ...process.env, ...values },
+  stdio: 'inherit',
+})
+
+if (result.error) {
+  console.error(`Failed to start guarded command: ${result.error.message}`)
+  process.exit(1)
+}
+process.exit(result.status ?? 1)
+NODE
+}
+
 assert_target_environment() {
   local env_file="$API_RUNTIME/.env"
 
@@ -156,7 +194,9 @@ if [[ "$SCOPE" == "backend" || "$SCOPE" == "all" ]]; then
   npm ci
 
   step "prisma migration guard"
-  bash "$SCRIPT_DIR/check-prisma-migrations.sh" "$REPO_DIR/api" "/tmp/quiz_migrate_shadow_${STAMP}.db"
+  run_with_env_file \
+    "$API_RUNTIME/.env" \
+    bash "$SCRIPT_DIR/check-prisma-migrations.sh" "$REPO_DIR/api" "/tmp/quiz_migrate_shadow_${STAMP}.db"
 
   step "runtime backup"
   mkdir -p "$BACKUP_DIR"
@@ -194,7 +234,7 @@ if [[ "$SCOPE" == "frontend" || "$SCOPE" == "all" ]]; then
   "${FRONTEND_BUILD_COMMAND[@]}"
 
   step "frontend runtime sync"
-  rsync -a --delete dist/ "$WEB_RUNTIME/"
+  rsync -a --delete --no-owner --no-group --no-perms --omit-dir-times dist/ "$WEB_RUNTIME/"
 fi
 
 step "validation local"

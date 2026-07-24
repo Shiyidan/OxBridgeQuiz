@@ -1,0 +1,11 @@
+[Unit]
+Description=QuizTestDemo local application health check
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=deploy
+Group=deploy
+Environment=HOME=/home/deploy
+Environment=PM2_HOME=/home/deploy/.pm2
+ExecStart=/bin/bash /opt/quiz/ops/quiz-healthcheck.sh

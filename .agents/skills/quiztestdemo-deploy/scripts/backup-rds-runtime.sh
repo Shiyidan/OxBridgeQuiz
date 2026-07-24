@@ -116,6 +116,7 @@ backup_mysql() {
     --default-character-set=utf8mb4 \
     --skip-opt \
     --skip-lock-tables \
+    --single-transaction \
     --no-tablespaces \
     --skip-column-statistics \
     --set-gtid-purged=OFF \
@@ -144,6 +145,7 @@ backup_mysql() {
       --default-character-set=utf8mb4 \
       --skip-opt \
       --skip-lock-tables \
+      --single-transaction \
       --no-tablespaces \
       --skip-column-statistics \
       --set-gtid-purged=OFF \
@@ -190,6 +192,7 @@ backup_config() {
   [[ -f "$API_RUNTIME/.env" ]] && items+=("$API_RUNTIME/.env")
   [[ -f "$QUIZ_ROOT/ecosystem.config.cjs" ]] && items+=("$QUIZ_ROOT/ecosystem.config.cjs")
   [[ -f "/etc/nginx/sites-available/quiz" ]] && items+=("/etc/nginx/sites-available/quiz")
+  [[ -f "/etc/nginx/sites-available/quiztestdemo" ]] && items+=("/etc/nginx/sites-available/quiztestdemo")
 
   if [[ "${#items[@]}" -eq 0 ]]; then
     echo "no config files found"

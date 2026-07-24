@@ -1,0 +1,10 @@
+/var/log/quiz/api-out.log /var/log/quiz/api-error.log /home/deploy/.pm2/logs/quiz-api-out.log /home/deploy/.pm2/logs/quiz-api-error.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    su deploy deploy
+}

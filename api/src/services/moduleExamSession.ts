@@ -135,6 +135,53 @@ function addSeconds(date: Date, seconds: number): Date {
   return new Date(date.getTime() + Math.max(1, seconds) * 1000)
 }
 
+// 暂停态以 phaseStartedAt 记录暂停时刻，并保留原 phaseExpiresAt，据此冻结作答或休息剩余时间。
+export async function resumePausedModuleExam(
+  examRecordId: string,
+  userId: string,
+): Promise<void> {
+  const record = await prisma.examRecord.findFirst({
+    where: {
+      id: examRecordId,
+      userId,
+      status: EXAM_RECORD_STATUS.IN_PROGRESS,
+      phase: { in: [EXAM_PHASE.PAUSED, EXAM_PHASE.BREAK_PAUSED] },
+    },
+    select: {
+      id: true,
+      phase: true,
+      phaseStartedAt: true,
+      phaseExpiresAt: true,
+    },
+  })
+  if (!record?.phaseStartedAt || !record.phaseExpiresAt) return
+
+  const remainingMilliseconds = Math.max(
+    1000,
+    record.phaseExpiresAt.getTime() - record.phaseStartedAt.getTime(),
+  )
+  const resumedAt = new Date()
+  const expiresAt = new Date(resumedAt.getTime() + remainingMilliseconds)
+  await prisma.examRecord.updateMany({
+    where: {
+      id: record.id,
+      userId,
+      status: EXAM_RECORD_STATUS.IN_PROGRESS,
+      phase: record.phase,
+      phaseStartedAt: record.phaseStartedAt,
+      phaseExpiresAt: record.phaseExpiresAt,
+    },
+    data: {
+      phase: record.phase === EXAM_PHASE.BREAK_PAUSED
+        ? EXAM_PHASE.BREAK
+        : EXAM_PHASE.ANSWERING,
+      phaseStartedAt: resumedAt,
+      phaseExpiresAt: expiresAt,
+      expiresAt,
+    },
+  })
+}
+
 // 固定休息到点后由服务端开启下一模块；刷新页面不会获得额外休息时间。
 export async function reconcileModuleBreak(examRecordId: string, userId: string): Promise<void> {
   const record = await prisma.examRecord.findFirst({ where: { id: examRecordId, userId } })
@@ -168,6 +215,113 @@ export async function reconcileModuleBreak(examRecordId: string, userId: string)
   })
 }
 
+// 恢复旧会话时由服务端连续收敛已过期模块和休息，避免前端停留在“已过期但仍可作答”状态。
+export async function reconcileExpiredModuleTimeline(
+  examRecordId: string,
+  userId: string,
+): Promise<void> {
+  for (let transitionCount = 0; transitionCount < 16; transitionCount += 1) {
+    const record = await prisma.examRecord.findFirst({
+      where: { id: examRecordId, userId },
+      select: {
+        id: true,
+        status: true,
+        phase: true,
+        currentModuleIndex: true,
+        phaseStartedAt: true,
+        phaseExpiresAt: true,
+        structureSnapshot: true,
+      },
+    })
+    if (
+      !record
+      || record.status !== EXAM_RECORD_STATUS.IN_PROGRESS
+      || !record.phaseExpiresAt
+      || record.phaseExpiresAt.getTime() > Date.now()
+    ) return
+
+    const snapshot = parseModuleExamSnapshot(record.structureSnapshot)
+    if (!snapshot) return
+
+    if (record.phase === EXAM_PHASE.BREAK) {
+      const nextModule = snapshot.modules[record.currentModuleIndex]
+      if (!nextModule) return
+      const startedAt = record.phaseExpiresAt
+      const expiresAt = addSeconds(startedAt, nextModule.durationSeconds)
+      const updated = await prisma.examRecord.updateMany({
+        where: {
+          id: record.id,
+          userId,
+          status: EXAM_RECORD_STATUS.IN_PROGRESS,
+          phase: EXAM_PHASE.BREAK,
+          currentModuleIndex: record.currentModuleIndex,
+          phaseExpiresAt: record.phaseExpiresAt,
+        },
+        data: {
+          phase: EXAM_PHASE.ANSWERING,
+          phaseStartedAt: startedAt,
+          phaseExpiresAt: expiresAt,
+          expiresAt,
+        },
+      })
+      if (!updated.count) continue
+      continue
+    }
+
+    if (record.phase !== EXAM_PHASE.ANSWERING) return
+    const activeModule = snapshot.modules[record.currentModuleIndex]
+    if (!activeModule) return
+    const endedAt = record.phaseExpiresAt
+    const elapsedSeconds = record.phaseStartedAt
+      ? Math.max(0, Math.round((endedAt.getTime() - record.phaseStartedAt.getTime()) / 1000))
+      : 0
+    const nextModuleIndex = record.currentModuleIndex + 1
+    const nextModule = snapshot.modules[nextModuleIndex]
+    const isLastModule = !nextModule
+    const hasBreak = snapshot.breakDurationSeconds > 0
+    const breakEndsAt = addSeconds(endedAt, snapshot.breakDurationSeconds)
+    const nextModuleExpiresAt = nextModule
+      ? addSeconds(endedAt, nextModule.durationSeconds)
+      : null
+    const updated = await prisma.examRecord.updateMany({
+      where: {
+        id: record.id,
+        userId,
+        status: EXAM_RECORD_STATUS.IN_PROGRESS,
+        phase: EXAM_PHASE.ANSWERING,
+        currentModuleIndex: record.currentModuleIndex,
+        phaseExpiresAt: record.phaseExpiresAt,
+      },
+      data: isLastModule
+        ? {
+            phase: EXAM_PHASE.READY_TO_SUBMIT,
+            phaseStartedAt: null,
+            phaseExpiresAt: null,
+            expiresAt: null,
+            activeDurationSeconds: { increment: elapsedSeconds },
+          }
+        : hasBreak
+          ? {
+              phase: EXAM_PHASE.BREAK,
+              currentModuleIndex: nextModuleIndex,
+              phaseStartedAt: endedAt,
+              phaseExpiresAt: breakEndsAt,
+              expiresAt: breakEndsAt,
+              activeDurationSeconds: { increment: elapsedSeconds },
+            }
+          : {
+              phase: EXAM_PHASE.ANSWERING,
+              currentModuleIndex: nextModuleIndex,
+              phaseStartedAt: endedAt,
+              phaseExpiresAt: nextModuleExpiresAt,
+              expiresAt: nextModuleExpiresAt,
+              activeDurationSeconds: { increment: elapsedSeconds },
+            },
+    })
+    if (!updated.count) continue
+  }
+}
+
 function activeElapsedSeconds(record: {
   phase: string
   phaseStartedAt: Date | null
@@ -187,8 +341,13 @@ function activeElapsedSeconds(record: {
 }
 
 // 会话响应不包含正确答案、解析和未来模块题目。
-export async function getModuleExamSession(examRecordId: string, userId: string) {
-  await reconcileModuleBreak(examRecordId, userId)
+export async function getModuleExamSession(
+  examRecordId: string,
+  userId: string,
+  options: { resumePaused?: boolean } = {},
+) {
+  if (options.resumePaused) await resumePausedModuleExam(examRecordId, userId)
+  await reconcileExpiredModuleTimeline(examRecordId, userId)
   const record = await prisma.examRecord.findFirst({
     where: { id: examRecordId, userId },
     include: {
@@ -208,6 +367,10 @@ export async function getModuleExamSession(examRecordId: string, userId: string)
   if (!snapshot) return null
 
   const now = new Date()
+  const isPaused = (
+    record.phase === EXAM_PHASE.PAUSED
+    || record.phase === EXAM_PHASE.BREAK_PAUSED
+  )
   const currentModule = snapshot.modules[record.currentModuleIndex] || null
   const activeQuestionIds = record.phase === EXAM_PHASE.ANSWERING
     ? currentModule?.questionIds || []
@@ -241,7 +404,8 @@ export async function getModuleExamSession(examRecordId: string, userId: string)
       totalQuestions: module.questionCount,
       status: isCompleted
         ? 'completed'
-        : index === record.currentModuleIndex && record.phase === EXAM_PHASE.ANSWERING
+        : index === record.currentModuleIndex
+            && (record.phase === EXAM_PHASE.ANSWERING || record.phase === EXAM_PHASE.PAUSED)
           ? 'in_progress'
           : 'pending',
     }
@@ -270,9 +434,9 @@ export async function getModuleExamSession(examRecordId: string, userId: string)
     phase: record.status === EXAM_RECORD_STATUS.SUBMITTED ? 'submitted' : record.phase,
     serverNow: now,
     startedAt: record.startedAt,
-    expiresAt: record.phaseExpiresAt,
-    phaseStartedAt: record.phaseStartedAt,
-    phaseExpiresAt: record.phaseExpiresAt,
+    expiresAt: isPaused ? null : record.phaseExpiresAt,
+    phaseStartedAt: isPaused ? null : record.phaseStartedAt,
+    phaseExpiresAt: isPaused ? null : record.phaseExpiresAt,
     currentModuleIndex: record.currentModuleIndex,
     modules,
     currentModule: record.phase === EXAM_PHASE.ANSWERING && currentModule

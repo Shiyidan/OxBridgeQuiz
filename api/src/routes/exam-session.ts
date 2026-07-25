@@ -41,6 +41,7 @@ import {
   getModuleExamSession,
   moduleSnapshotJson,
   parseModuleExamSnapshot,
+  reconcileExpiredModuleTimeline,
   reconcileModuleBreak,
 } from '../services/moduleExamSession.js'
 
@@ -128,7 +129,11 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
         return
       }
       if (isModuleSequence) {
-        const session = await getModuleExamSession(existingRecord.id, req.user!.userId)
+        const session = await getModuleExamSession(
+          existingRecord.id,
+          req.user!.userId,
+          { resumePaused: true },
+        )
         if (!session) {
           res.status(409).json(fail('模块化考试会话结构损坏，无法恢复'))
           return
@@ -429,7 +434,11 @@ examSessionRouter.put('/:id/progress', requireAuth, async (req, res) => {
 // 刷新或重新进入分段诊断页时，以服务端保存的阶段和截止时间恢复。
 examSessionRouter.get('/:id/session', requireAuth, async (req, res) => {
   try {
-    const session = await getModuleExamSession(req.params.id, req.user!.userId)
+    const session = await getModuleExamSession(
+      req.params.id,
+      req.user!.userId,
+      { resumePaused: true },
+    )
     if (!session) {
       res.status(404).json(fail('模块化考试会话不存在'))
       return
@@ -438,6 +447,158 @@ examSessionRouter.get('/:id/session', requireAuth, async (req, res) => {
   } catch (error: any) {
     logRuntimeError('exam.module_session_failed', error)
     res.status(500).json(fail(error.message || '恢复模块化考试失败'))
+  }
+})
+
+// 学生离开诊断页时冻结当前作答或休息剩余时间，继续测试时再恢复服务端截止时间。
+examSessionRouter.post('/:id/pause', requireAuth, async (req, res) => {
+  try {
+    await reconcileExpiredModuleTimeline(req.params.id, req.user!.userId)
+    const record = await prisma.examRecord.findFirst({
+      where: { id: req.params.id, userId: req.user!.userId },
+      select: {
+        id: true,
+        status: true,
+        phase: true,
+        currentModuleIndex: true,
+        phaseStartedAt: true,
+        phaseExpiresAt: true,
+        structureSnapshot: true,
+      },
+    })
+    if (!record) {
+      res.status(404).json(fail('Exam record not found'))
+      return
+    }
+    const snapshot = parseModuleExamSnapshot(record.structureSnapshot)
+    if (!snapshot) {
+      res.status(400).json(fail('当前考试不是模块化诊断测试'))
+      return
+    }
+    if (record.status !== EXAM_RECORD_STATUS.IN_PROGRESS) {
+      res.status(409).json(fail('已交卷记录不能暂停', 'EXAM_ALREADY_SUBMITTED'))
+      return
+    }
+    const isAnswering = record.phase === EXAM_PHASE.ANSWERING
+    const isBreak = record.phase === EXAM_PHASE.BREAK
+    if (!isAnswering && !isBreak) {
+      const session = await getModuleExamSession(record.id, req.user!.userId)
+      res.json(success(session))
+      return
+    }
+
+    const activeModule = snapshot.modules[record.currentModuleIndex]
+    if (!activeModule || !record.phaseStartedAt || !record.phaseExpiresAt) {
+      res.status(409).json(fail('当前考试分段状态不完整，无法暂停'))
+      return
+    }
+    if (record.phaseExpiresAt.getTime() <= Date.now()) {
+      await reconcileExpiredModuleTimeline(record.id, req.user!.userId)
+      const session = await getModuleExamSession(record.id, req.user!.userId)
+      res.json(success(session))
+      return
+    }
+    const requestModuleCode =
+      typeof req.body?.moduleCode === 'string' ? req.body.moduleCode.trim() : ''
+    const responses = isAnswering && requestModuleCode === activeModule.code
+      ? normalizeExamResponses(req.body?.responses)
+      : []
+    const activeQuestionIds = new Set(activeModule.questionIds)
+    if (responses.some((response) => !activeQuestionIds.has(response.questionId))) {
+      res.status(422).json(fail('只能保存当前考试分段内的题目'))
+      return
+    }
+
+    const pausedAt = new Date()
+    const elapsedSeconds = isAnswering
+      ? Math.max(
+          0,
+          Math.round(
+            (Math.min(pausedAt.getTime(), record.phaseExpiresAt.getTime())
+              - record.phaseStartedAt.getTime())
+              / 1000,
+          ),
+        )
+      : 0
+    try {
+      await prisma.$transaction(async (tx) => {
+        const answerUpdates = await Promise.all(responses.map((response) => (
+          tx.answerRecord.updateMany({
+            where: {
+              examRecordId: record.id,
+              questionId: response.questionId,
+              examRecord: {
+                status: EXAM_RECORD_STATUS.IN_PROGRESS,
+                phase: EXAM_PHASE.ANSWERING,
+                currentModuleIndex: record.currentModuleIndex,
+              },
+            },
+            data: {
+              selectedAnswer: response.selectedAnswer,
+              answerState: response.answerState,
+              durationSeconds: response.durationSeconds,
+              answeredAt: response.selectedAnswer ? pausedAt : null,
+            },
+          })
+        )))
+        if (answerUpdates.some((result) => result.count !== 1)) {
+          throw new ExamProgressConflictError('Exam phase changed while pausing')
+        }
+
+        const paused = await tx.examRecord.updateMany({
+          where: {
+            id: record.id,
+            userId: req.user!.userId,
+            status: EXAM_RECORD_STATUS.IN_PROGRESS,
+            phase: record.phase,
+            currentModuleIndex: record.currentModuleIndex,
+            phaseStartedAt: record.phaseStartedAt,
+            phaseExpiresAt: {
+              equals: record.phaseExpiresAt,
+              gt: pausedAt,
+            },
+          },
+          data: isBreak
+            ? {
+                phase: EXAM_PHASE.BREAK_PAUSED,
+                phaseStartedAt: pausedAt,
+                expiresAt: null,
+              }
+            : {
+                phase: EXAM_PHASE.PAUSED,
+                phaseStartedAt: pausedAt,
+                expiresAt: null,
+                activeDurationSeconds: { increment: elapsedSeconds },
+              },
+        })
+        if (paused.count !== 1) {
+          throw new ExamProgressConflictError('Exam phase changed while pausing')
+        }
+      })
+    } catch (error) {
+      if (error instanceof ExamProgressConflictError) {
+        const session = await getModuleExamSession(record.id, req.user!.userId)
+        if (session) {
+          res.json(success(session))
+          return
+        }
+        res.status(409).json(fail('考试状态已变化，请重新进入后继续', 'EXAM_PHASE_CHANGED'))
+        return
+      }
+      throw error
+    }
+
+    setOperationAuditContext(req, {
+      resourceId: record.id,
+      summary: isBreak
+        ? `暂停 ${snapshot.modules[record.currentModuleIndex]?.subject || '下一分段'} 前休息`
+        : `暂停 ${snapshot.modules[record.currentModuleIndex]?.subject || '当前分段'} 作答`,
+    })
+    const session = await getModuleExamSession(record.id, req.user!.userId)
+    res.json(success(session))
+  } catch (error: any) {
+    logRuntimeError('exam.module_pause_failed', error)
+    res.status(500).json(fail(error.message || '暂停诊断测试失败'))
   }
 })
 

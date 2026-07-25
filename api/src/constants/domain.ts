@@ -54,7 +54,9 @@ export type PaperDeliveryMode = (typeof PAPER_DELIVERY_MODES)[number]
 export const EXAM_PHASE = {
   CONTINUOUS: 'continuous',
   ANSWERING: 'answering',
+  PAUSED: 'paused',
   BREAK: 'break',
+  BREAK_PAUSED: 'break_paused',
   READY_TO_SUBMIT: 'ready_to_submit',
 } as const
 

@@ -28,7 +28,14 @@ export interface SubmitParams {
   submissionKey?: string
 }
 
-export type ExamPhase = 'continuous' | 'answering' | 'break' | 'ready_to_submit' | 'submitted'
+export type ExamPhase =
+  | 'continuous'
+  | 'answering'
+  | 'paused'
+  | 'break'
+  | 'break_paused'
+  | 'ready_to_submit'
+  | 'submitted'
 
 export interface ExamModuleState {
   code: string
@@ -471,6 +478,20 @@ export function getModuleExamSession(examId: string) {
     url: `/exams/${examId}/session`,
     method: 'GET',
     isAllData: false,
+  })
+}
+
+/** 离开答题页时保存当前模块快照，并由服务端冻结剩余时间。 */
+export function pauseExamModule(
+  examId: string,
+  moduleCode: string,
+  responses: ExamResponseInput[],
+) {
+  return callApi<StartExamResult>({
+    url: `/exams/${examId}/pause`,
+    method: 'POST',
+    isAllData: false,
+    body: { moduleCode, responses },
   })
 }
 

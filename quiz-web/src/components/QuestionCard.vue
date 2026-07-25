@@ -59,6 +59,7 @@
         type="button"
         class="opt-card"
         :class="optionClass(opt.text, opt.label)"
+        :disabled="disabled"
         :aria-pressed="selectedAnswer === opt.label"
         @click="handleSelect(opt.label)"
       >
@@ -99,12 +100,14 @@ interface Props {
   variant?: 'default' | 'exam'
   metaTags?: string[]
   questionLabel?: string
+  disabled?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   variant: 'default',
   showAnswer: false,
   metaTags: () => [],
+  disabled: false,
 })
 
 const emit = defineEmits<{
@@ -147,6 +150,7 @@ function getImageById(imageId: string | undefined): QuestionImage | null {
 
 // 组件只上报选项标签，答案状态由考试页或预览页维护。
 const handleSelect = (label: string): void => {
+  if (props.disabled) return
   emit('select', label)
 }
 
@@ -440,6 +444,11 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
   display: inline;
 }
 
+/* 试题中的普通文本使用 CSS 数学通用字体族，KaTeX 公式保留自身字体。 */
+.question-card :deep(.latex-text__plain) {
+  font-family: math;
+}
+
 .question-card__stem--center {
   text-align: center;
 }
@@ -526,6 +535,16 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
 
   &:active {
     transform: scale(0.99);
+  }
+
+  &:disabled,
+  &:disabled:hover,
+  &:disabled:active {
+    border-color: var(--color-line);
+    background: var(--color-surface);
+    cursor: not-allowed;
+    opacity: 0.68;
+    transform: none;
   }
 
   &--selected {

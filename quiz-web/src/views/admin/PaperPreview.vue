@@ -51,23 +51,6 @@
               }}</span>
             </div>
           </div>
-          <div class="paper-header__right">
-            <a :href="`${API_URL}/papers/${paper.id}/pdf`" download class="btn-ghost-action">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              下载 PDF
-            </a>
-          </div>
         </div>
 
         <!-- 题目列表 -->
@@ -260,30 +243,6 @@ function statusLabel(s: string) {
   &--archived {
     background: #f1f5f9;
     color: #94a3b8;
-  }
-}
-
-.btn-ghost-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 10px 20px;
-  background: #ffffff;
-  color: #475569;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-decoration: none;
-  svg {
-    width: 16px;
-    height: 16px;
-  }
-  &:hover {
-    background: #f8fafc;
-    border-color: #cbd5e1;
   }
 }
 

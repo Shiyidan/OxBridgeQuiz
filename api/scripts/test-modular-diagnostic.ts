@@ -4,7 +4,12 @@ import crypto from 'node:crypto'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../src/services/prisma.js'
 import { checkMemberAccess } from '../src/services/member.js'
-import { buildModuleExamSnapshot } from '../src/services/moduleExamSession.js'
+import {
+  buildModuleExamSnapshot,
+  moduleSnapshotJson,
+  reconcileExpiredModuleTimeline,
+  resumePausedModuleExam,
+} from '../src/services/moduleExamSession.js'
 import { computeScores, quickEsatScore } from '../src/services/scoring.js'
 import { withQuotaTransaction } from '../src/services/transactionRetry.js'
 import { formatQuestionForAttempt } from '../src/routes/papers-shared.js'
@@ -186,6 +191,89 @@ async function main(): Promise<void> {
       }),
       (error: unknown) => error instanceof Prisma.PrismaClientKnownRequestError
         && error.code === 'P2002',
+    )
+
+    const pausedAt = new Date()
+    const pausedDeadline = new Date(pausedAt.getTime() + 10 * 60 * 1000)
+    await prisma.examRecord.update({
+      where: { id: activeRecord.id },
+      data: {
+        structureSnapshot: moduleSnapshotJson(snapshot),
+        phase: 'paused',
+        currentModuleIndex: 0,
+        phaseStartedAt: pausedAt,
+        phaseExpiresAt: pausedDeadline,
+        expiresAt: null,
+        activeDurationSeconds: 120,
+      },
+    })
+    await resumePausedModuleExam(activeRecord.id, userId)
+    const resumedRecord = await prisma.examRecord.findUniqueOrThrow({
+      where: { id: activeRecord.id },
+    })
+    assert.equal(resumedRecord.phase, 'answering')
+    assert.ok(resumedRecord.phaseStartedAt)
+    assert.ok(resumedRecord.phaseExpiresAt)
+    assert.ok(
+      Math.abs(
+        resumedRecord.phaseExpiresAt.getTime()
+          - resumedRecord.phaseStartedAt.getTime()
+          - 10 * 60 * 1000,
+      ) < 1000,
+      '暂停恢复后必须保留冻结的剩余时间',
+    )
+
+    const breakPausedAt = new Date()
+    const breakPausedDeadline = new Date(breakPausedAt.getTime() + 2 * 60 * 1000)
+    await prisma.examRecord.update({
+      where: { id: activeRecord.id },
+      data: {
+        phase: 'break_paused',
+        currentModuleIndex: 1,
+        phaseStartedAt: breakPausedAt,
+        phaseExpiresAt: breakPausedDeadline,
+        expiresAt: null,
+      },
+    })
+    await resumePausedModuleExam(activeRecord.id, userId)
+    const resumedBreakRecord = await prisma.examRecord.findUniqueOrThrow({
+      where: { id: activeRecord.id },
+    })
+    assert.equal(resumedBreakRecord.phase, 'break')
+    assert.ok(
+      resumedBreakRecord.phaseStartedAt
+        && resumedBreakRecord.phaseExpiresAt
+        && Math.abs(
+          resumedBreakRecord.phaseExpiresAt.getTime()
+            - resumedBreakRecord.phaseStartedAt.getTime()
+            - 2 * 60 * 1000,
+        ) < 1000,
+      '暂停恢复后必须保留冻结的休息剩余时间',
+    )
+
+    const firstModuleExpiredAt = new Date(Date.now() - 5 * 60 * 1000)
+    await prisma.examRecord.update({
+      where: { id: activeRecord.id },
+      data: {
+        phase: 'answering',
+        currentModuleIndex: 0,
+        phaseStartedAt: new Date(firstModuleExpiredAt.getTime() - 40 * 60 * 1000),
+        phaseExpiresAt: firstModuleExpiredAt,
+        expiresAt: firstModuleExpiredAt,
+        activeDurationSeconds: 0,
+      },
+    })
+    await reconcileExpiredModuleTimeline(activeRecord.id, userId)
+    const reconciledRecord = await prisma.examRecord.findUniqueOrThrow({
+      where: { id: activeRecord.id },
+    })
+    assert.equal(reconciledRecord.phase, 'answering')
+    assert.equal(reconciledRecord.currentModuleIndex, 1)
+    assert.equal(reconciledRecord.activeDurationSeconds, 40 * 60)
+    assert.ok(
+      reconciledRecord.phaseExpiresAt
+        && reconciledRecord.phaseExpiresAt.getTime() > Date.now(),
+      '恢复过期会话时应收敛到当前仍有效的模块',
     )
 
     console.log('Modular diagnostic regression checks passed.')

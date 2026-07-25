@@ -13,6 +13,7 @@
       :current-index="currentIndex"
       :total-count="questions.length"
       :section-title="activeModule.label"
+      :pause-on-visibility="true"
       @back="handleBack"
       @answering-paused="handleAnsweringPaused"
       @answering-resumed="handleAnsweringResumed"
@@ -52,6 +53,7 @@
                 :key="question.id"
                 type="button"
                 :class="navItemClass(question, index)"
+                :disabled="interactionLocked"
                 @click="goToQuestion(index)"
               >
                 {{ getQuestionDisplayNumber(question, index) }}
@@ -63,7 +65,7 @@
             <button
               type="button"
               class="question-nav__complete button_cancel"
-              :disabled="transitioning || !questions.length"
+              :disabled="interactionLocked || !questions.length"
               @click="confirmCompleteModule"
             >
               {{ completeSectionLabel }}
@@ -82,6 +84,7 @@
               :question-label="currentQuestionLabel"
               :selected-answer="answers[currentQuestion.id]"
               :meta-tags="currentKnowledgeTags"
+              :disabled="interactionLocked"
               variant="exam"
               @select="handleSelectAnswer"
             />
@@ -89,7 +92,7 @@
               <button
                 type="button"
                 class="button_cancel"
-                :disabled="currentIndex === 0"
+                :disabled="interactionLocked || currentIndex === 0"
                 @click="goToQuestion(currentIndex - 1)"
               >
                 上一题
@@ -97,7 +100,7 @@
               <button
                 type="button"
                 class="button_cancel"
-                :disabled="currentIndex >= questions.length - 1"
+                :disabled="interactionLocked || currentIndex >= questions.length - 1"
                 @click="goToQuestion(currentIndex + 1)"
               >
                 下一题
@@ -158,6 +161,7 @@ import DiagnosticAnalysisDialog from '@/components/DiagnosticAnalysisDialog.vue'
 import {
   completeExamModule,
   getModuleExamSession,
+  pauseExamModule,
   saveExamProgress,
   skipExamBreak,
   startExam,
@@ -196,6 +200,10 @@ let timingPaused = false
 let saveTimer: ReturnType<typeof setInterval> | null = null
 let selectionSaveTimer: ReturnType<typeof setTimeout> | null = null
 let progressSavePromise: Promise<void> | null = null
+let pauseSessionPromise: Promise<void> | null = null
+let resumeSessionPromise: Promise<void> | null = null
+let leaveConfirmationPromise: Promise<boolean> | null = null
+let pendingExpiredModuleCode = ''
 
 interface ApiErrorShape {
   response?: {
@@ -211,6 +219,14 @@ const breakState = computed(() => session.value?.break || null)
 const currentQuestion = computed(() => questions.value[currentIndex.value])
 const answeredCount = computed(() => Object.keys(answers.value).length)
 const moduleMinutes = computed(() => Math.round((activeModule.value?.durationSeconds || 0) / 60))
+const interactionLocked = computed(
+  () =>
+    transitioning.value ||
+    moduleDeadlineReached.value ||
+    Boolean(session.value?.isExpired) ||
+    session.value?.phase === 'paused' ||
+    session.value?.phase === 'break_paused',
+)
 const isFinalModule = computed(
   () => (session.value?.currentModuleIndex || 0) === (session.value?.modules?.length || 1) - 1,
 )
@@ -282,15 +298,17 @@ async function applySession(nextSession: StartExamResult): Promise<void> {
   }
   if (nextSession.phase === 'ready_to_submit') {
     questions.value = []
+    moduleDeadlineReached.value = true
     return
   }
   if (nextSession.phase !== 'answering' || !nextSession.currentModule) {
     questions.value = []
     timingPaused = true
+    moduleDeadlineReached.value = false
     return
   }
 
-  moduleDeadlineReached.value = false
+  moduleDeadlineReached.value = Boolean(nextSession.isExpired)
   questions.value = nextSession.currentModule.questions || nextSession.questions || []
   answers.value = { ...nextSession.answers }
   questionDurations.value = { ...nextSession.questionDurations }
@@ -373,7 +391,12 @@ async function saveProgress(showError = false): Promise<void> {
 
 // 当前分段内切题时结算上一题用时，并记录新题已访问。
 function goToQuestion(index: number): void {
-  if (index < 0 || index >= questions.value.length || index === currentIndex.value) return
+  if (
+    interactionLocked.value ||
+    index < 0 ||
+    index >= questions.value.length ||
+    index === currentIndex.value
+  ) return
   recordCurrentDuration()
   currentIndex.value = index
   if (currentQuestion.value) visitedQuestionIds.value.add(currentQuestion.value.id)
@@ -382,7 +405,7 @@ function goToQuestion(index: number): void {
 
 // 答案只写入当前模块本地快照，保存与锁定均以题目 ID 提交。
 function handleSelectAnswer(label: string): void {
-  if (!currentQuestion.value || transitioning.value || moduleDeadlineReached.value) return
+  if (!currentQuestion.value || interactionLocked.value) return
   answers.value = { ...answers.value, [currentQuestion.value.id]: label }
   if (selectionSaveTimer) clearTimeout(selectionSaveTimer)
   // 选择后短防抖保存，减少刷新、崩溃或恰好到点时尚未落库的答案窗口。
@@ -402,21 +425,19 @@ function navItemClass(question: AttemptQuestion, index: number): Record<string, 
   }
 }
 
-// 页面隐藏时结束当前题活跃计时；服务端科目倒计时不会暂停。
+// 页面隐藏时冻结服务端分段剩余时间，保证标签切换、锁屏和主动退出使用同一计时规则。
 function handleAnsweringPaused(): void {
-  recordCurrentDuration()
-  timingPaused = true
-  void saveProgress()
+  void pauseCurrentModule().catch(() => undefined)
 }
 
-// 页面重新可见后从当前时刻恢复单题活跃计时。
+// 页面重新可见后由服务端基于冻结秒数生成新截止时间。
 function handleAnsweringResumed(): void {
-  timingPaused = false
-  questionEnteredAt = Date.now()
+  void resumePausedModule().catch(() => undefined)
 }
 
 // 分段一旦结束便不可返回，未答题存在时需向学生明确二次确认。
 async function confirmCompleteModule(): Promise<void> {
+  if (interactionLocked.value) return
   const unanswered = questions.value.length - answeredCount.value
   const nextSection = session.value?.modules?.[(session.value?.currentModuleIndex || 0) + 1]
   try {
@@ -467,14 +488,42 @@ async function completeCurrentModule(): Promise<void> {
     }
   } finally {
     transitioning.value = false
+    continuePendingModuleExpiry()
   }
   if (nextSession?.phase === 'ready_to_submit') await finalizeExam()
 }
 
+// 切换请求期间到达的到期事件必须在阶段稳定后重新核对，不能静默丢弃。
+function continuePendingModuleExpiry(): void {
+  const expiredModuleCode = pendingExpiredModuleCode
+  pendingExpiredModuleCode = ''
+  if (
+    expiredModuleCode &&
+    session.value?.phase === 'answering' &&
+    activeModule.value?.code === expiredModuleCode &&
+    (session.value.isExpired || moduleDeadlineReached.value)
+  ) {
+    void handleModuleTimeExpired()
+    return
+  }
+  if (
+    document.hidden &&
+    (session.value?.phase === 'answering' || session.value?.phase === 'break')
+  ) {
+    window.setTimeout(() => void pauseCurrentModule().catch(() => undefined), 0)
+  }
+}
+
 // 分段倒计时归零时直接锁定当前答案，不触发整场考试提前交卷。
 async function handleModuleTimeExpired(): Promise<void> {
-  if (transitioning.value || session.value?.phase !== 'answering') return
+  if (session.value?.phase !== 'answering' || !activeModule.value) return
+  const expiredModuleCode = activeModule.value.code
   moduleDeadlineReached.value = true
+  timingPaused = true
+  if (transitioning.value) {
+    pendingExpiredModuleCode = expiredModuleCode
+    return
+  }
   ElMessage.warning(`当前${sectionNoun.value}时间已结束，答案已锁定`)
   await completeCurrentModule()
 }
@@ -490,6 +539,7 @@ async function advanceFromBreak(): Promise<void> {
     ElMessage.error(getApiError(error)?.data?.errMsg || '开始下一科目失败，请重试')
   } finally {
     transitioning.value = false
+    continuePendingModuleExpiry()
   }
 }
 
@@ -501,6 +551,125 @@ function handleSkipBreak(): void {
 // 休息倒计时自然结束时请求恢复最新会话并开始下一科目。
 function handleBreakElapsed(): void {
   void advanceFromBreak()
+}
+
+// 确认离开答题页时保存完整快照，并由服务端冻结当前分段的剩余秒数。
+async function pauseCurrentModule(): Promise<void> {
+  if (
+    !session.value
+    || (session.value.phase !== 'answering' && session.value.phase !== 'break')
+  ) return
+  if (pauseSessionPromise) {
+    await pauseSessionPromise
+    return
+  }
+  if (transitioning.value) return
+
+  const isAnswering = session.value.phase === 'answering'
+  const examRecordId = session.value.examRecordId
+  const moduleCode = activeModule.value?.code || breakState.value?.nextModuleCode || ''
+  const operation = (async () => {
+    if (isAnswering) recordCurrentDuration()
+    timingPaused = true
+    transitioning.value = true
+    if (selectionSaveTimer) {
+      clearTimeout(selectionSaveTimer)
+      selectionSaveTimer = null
+    }
+    if (progressSavePromise) {
+      try {
+        await progressSavePromise
+      } catch {
+        // 暂停接口携带完整快照，可覆盖失败的增量保存。
+      }
+    }
+
+    let nextSession: StartExamResult | null = null
+    let pauseSucceeded = false
+    try {
+      nextSession = await pauseExamModule(
+        examRecordId,
+        moduleCode,
+        isAnswering ? buildResponses() : [],
+      )
+      await applySession(nextSession)
+      pauseSucceeded = true
+    } catch (error: unknown) {
+      if (!moduleDeadlineReached.value) {
+        timingPaused = false
+        questionEnteredAt = Date.now()
+        timerKey.value = `${timerKey.value}:pause-failed:${Date.now()}`
+      }
+      ElMessage.error(getApiError(error)?.data?.errMsg || '保存诊断测试进度失败，请重试')
+      throw error
+    } finally {
+      transitioning.value = false
+      if (pauseSucceeded) continuePendingModuleExpiry()
+    }
+
+    if (nextSession?.phase === 'ready_to_submit') await finalizeExam()
+  })()
+  pauseSessionPromise = operation
+  try {
+    await operation
+  } finally {
+    if (pauseSessionPromise === operation) pauseSessionPromise = null
+  }
+}
+
+// 暂停请求完成后再恢复，避免快速切出切回造成旧截止时间与新截止时间并存。
+async function resumePausedModule(): Promise<void> {
+  if (pauseSessionPromise) {
+    try {
+      await pauseSessionPromise
+    } catch {
+      return
+    }
+  }
+  if (document.hidden || !session.value || session.value.phase === 'submitted') return
+  if (session.value.phase === 'answering') {
+    timingPaused = false
+    questionEnteredAt = Date.now()
+    timerKey.value = `${timerKey.value}:resume:${Date.now()}`
+    return
+  }
+  if (session.value.phase !== 'paused' && session.value.phase !== 'break_paused') return
+  if (resumeSessionPromise) {
+    await resumeSessionPromise
+    return
+  }
+
+  const examRecordId = session.value.examRecordId
+  const operation = (async () => {
+    transitioning.value = true
+    let nextSession: StartExamResult | null = null
+    try {
+      nextSession = await getModuleExamSession(examRecordId)
+      await applySession(nextSession)
+    } catch (error: unknown) {
+      ElMessage.error(getApiError(error)?.data?.errMsg || '恢复诊断测试失败，请重试')
+      throw error
+    } finally {
+      transitioning.value = false
+      continuePendingModuleExpiry()
+    }
+    if (nextSession?.phase === 'ready_to_submit') await finalizeExam()
+  })()
+  resumeSessionPromise = operation
+  try {
+    await operation
+  } finally {
+    if (resumeSessionPromise === operation) resumeSessionPromise = null
+  }
+}
+
+// ExamVue 在暂停后可能已卸载，由页面级可见性监听负责触发服务端恢复。
+function handleDocumentVisibilityChange(): void {
+  if (document.hidden) {
+    void pauseCurrentModule().catch(() => undefined)
+    return
+  }
+  void resumePausedModule().catch(() => undefined)
 }
 
 // 所有分段均锁定后提交空响应，由后端使用已持久化答案生成诊断结果。
@@ -527,18 +696,43 @@ async function finalizeExam(): Promise<void> {
   }
 }
 
-// 中途返回前保存当前分段，休息阶段可直接返回并在下次恢复倒计时。
-async function handleBack(): Promise<void> {
+// 页面入口和浏览器历史返回共用同一确认流程，只有保存并暂停成功后才允许离开。
+async function confirmAndPauseBeforeLeaving(): Promise<boolean> {
+  if (submitted.value) return true
+  if (transitioning.value) return false
+  if (session.value?.phase !== 'answering' && session.value?.phase !== 'break') return true
+  if (leaveConfirmationPromise) return leaveConfirmationPromise
+
+  const operation = (async () => {
+    try {
+      await ElMessageBox.confirm(
+        `返回诊断中心会保存当前${sectionNoun.value}进度，之后可继续测试。`,
+        '确认返回',
+        {
+          confirmButtonText: '保存并返回',
+          cancelButtonText: '继续答题',
+          closeOnClickModal: false,
+        },
+      )
+      await pauseCurrentModule()
+      return true
+    } catch {
+      // 取消返回或保存失败时留在当前页面。
+      return false
+    }
+  })()
+  leaveConfirmationPromise = operation
   try {
-    await ElMessageBox.confirm(`返回诊断中心会保存当前${sectionNoun.value}进度，之后可继续测试。`, '确认返回', {
-      confirmButtonText: '保存并返回',
-      cancelButtonText: '继续答题',
-      closeOnClickModal: false,
-    })
-    if (session.value?.phase === 'answering') await saveProgress(true)
+    return await operation
+  } finally {
+    if (leaveConfirmationPromise === operation) leaveConfirmationPromise = null
+  }
+}
+
+// 页面内返回入口确认成功后固定回到诊断测试首页。
+async function handleBack(): Promise<void> {
+  if (await confirmAndPauseBeforeLeaving()) {
     await router.push('/assessment')
-  } catch {
-    // 取消返回或保存失败时留在当前页面。
   }
 }
 
@@ -557,23 +751,16 @@ async function handleReturnToAssessment(): Promise<void> {
 onMounted(() => {
   void loadSession()
   saveTimer = setInterval(() => void saveProgress(), 30_000)
+  document.addEventListener('visibilitychange', handleDocumentVisibilityChange)
 })
 
 onBeforeUnmount(() => {
   if (saveTimer) clearInterval(saveTimer)
   if (selectionSaveTimer) clearTimeout(selectionSaveTimer)
+  document.removeEventListener('visibilitychange', handleDocumentVisibilityChange)
 })
 
-onBeforeRouteLeave(async () => {
-  if (submitted.value || transitioning.value || session.value?.phase !== 'answering') return true
-  try {
-    await saveProgress(true)
-    return true
-  } catch {
-    ElMessage.error(`保存当前${sectionNoun.value}进度失败，请重试`)
-    return false
-  }
-})
+onBeforeRouteLeave(async () => confirmAndPauseBeforeLeaving())
 </script>
 
 <style scoped lang="scss">

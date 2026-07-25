@@ -30,7 +30,42 @@
         </div>
       </header>
 
-      <section class="chart-card">
+      <section class="paper-filter-bar" aria-label="诊断试卷筛选">
+        <div class="paper-filter-bar__title">
+          <span>Diagnostic Papers</span>
+          <strong>历年真题诊断卷</strong>
+        </div>
+        <div class="paper-filter-bar__controls">
+          <div class="paper-filter-control">
+            <span>考试类型</span>
+            <el-segmented
+              v-model="activeExamTypeFilter"
+              class="exam-type-filter"
+              :options="examTypeFilterOptions"
+              aria-label="按考试类型筛选诊断试卷"
+            />
+          </div>
+          <div class="paper-filter-control">
+            <span>完成状态</span>
+            <el-segmented
+              v-model="activeStatusFilter"
+              class="status-filter"
+              :options="statusFilterOptions"
+              aria-label="按完成状态筛选诊断试卷"
+            />
+          </div>
+          <div class="paper-filter-control paper-filter-control--chart">
+            <span>分数趋势</span>
+            <el-switch
+              v-model="showScoreTrend"
+              inline-prompt
+              aria-label="显示或隐藏历次诊断测试分数变化折线图"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section v-if="showScoreTrend" class="chart-card">
         <div class="chart-title">
           <div>
             <span>Score Trend</span>
@@ -42,13 +77,29 @@
 
       <section class="paper-grid" aria-label="历年真题">
         <article
-          v-for="item in diagnosticTests"
+          v-for="item in filteredDiagnosticTests"
           :key="item.id"
           class="paper-card"
           :class="{ 'paper-card--unavailable': !isPaperAvailable(item) }"
         >
           <div class="paper-card__heading">
-            <span class="paper-card__badge">{{ paperStatusLabel(item) }}</span>
+            <div class="paper-card__topline">
+              <span
+                class="paper-card__badge"
+                :class="`paper-card__badge--${paperStatusTone(item)}`"
+              >
+                {{ paperStatusLabel(item) }}
+              </span>
+              <div class="paper-card__identity" aria-label="考试类型和年份">
+                <span
+                  class="paper-card__exam-type"
+                  :class="`paper-card__exam-type--${String(item.examType || '').toLowerCase()}`"
+                >
+                  {{ item.examType || 'TMUA' }}
+                </span>
+                <span class="paper-card__year">{{ item.year }}</span>
+              </div>
+            </div>
             <h2 :title="item.title">{{ item.title }}</h2>
             <SubjectModuleTags
               v-if="item.modules?.length"
@@ -92,8 +143,8 @@
       </section>
 
       <div v-if="loading" class="empty-state">加载中...</div>
-      <div v-else-if="!diagnosticTests.length" class="empty-state">
-        暂无已上线真题套卷，请先在后台真题库发布试卷。
+      <div v-else-if="!filteredDiagnosticTests.length" class="empty-state">
+        {{ emptyPaperMessage }}
       </div>
     </main>
   </div>
@@ -101,7 +152,7 @@
 
 <script setup lang="ts">
 // 诊断测试中心：展示模考额度、历史趋势和真题套卷入口。
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
@@ -123,6 +174,44 @@ const startingPaperId = ref('')
 const diagnosticTests = ref<AssessmentPaperItem[]>([])
 const chartRef = ref<HTMLDivElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
+
+type AssessmentExamTypeFilter = 'ALL' | 'ESAT' | 'TMUA'
+type AssessmentStatusFilter = 'ALL' | 'not_started' | 'in_progress' | 'completed'
+
+const activeExamTypeFilter = ref<AssessmentExamTypeFilter>('ALL')
+const activeStatusFilter = ref<AssessmentStatusFilter>('ALL')
+const showScoreTrend = ref(true)
+const examTypeFilterOptions: Array<{ label: string; value: AssessmentExamTypeFilter }> = [
+  { label: '全部', value: 'ALL' },
+  { label: 'ESAT', value: 'ESAT' },
+  { label: 'TMUA', value: 'TMUA' },
+]
+const statusFilterOptions: Array<{ label: string; value: AssessmentStatusFilter }> = [
+  { label: '全部', value: 'ALL' },
+  { label: '待开始', value: 'not_started' },
+  { label: '进行中', value: 'in_progress' },
+  { label: '已完成', value: 'completed' },
+]
+
+// 筛选只改变当前展示集合，额度与进行中测试约束继续读取完整试卷列表。
+const filteredDiagnosticTests = computed(() => {
+  return diagnosticTests.value.filter((paper) => {
+    const matchesExamType =
+      activeExamTypeFilter.value === 'ALL' ||
+      String(paper.examType || '').toUpperCase() === activeExamTypeFilter.value
+    const matchesStatus =
+      activeStatusFilter.value === 'ALL' || paper.testStatus === activeStatusFilter.value
+    return matchesExamType && matchesStatus
+  })
+})
+
+// 空状态区分“尚无任何试卷”和“当前考试类型暂无试卷”，避免误导后台发布状态。
+const emptyPaperMessage = computed(() => {
+  if (activeExamTypeFilter.value === 'ALL' && activeStatusFilter.value === 'ALL') {
+    return '暂无已上线真题套卷，请先在后台真题库发布试卷。'
+  }
+  return '当前筛选条件下暂无诊断试卷。'
+})
 
 const mockScoreTrend = [
   { month: '2023-09', score: 5.2 },
@@ -193,9 +282,21 @@ onBeforeUnmount(() => {
   chartInstance?.dispose()
 })
 
+// 趋势图重新显示时等待容器挂载，隐藏时及时释放 ECharts 实例。
+watch(showScoreTrend, async (visible) => {
+  if (!visible) {
+    chartInstance?.dispose()
+    chartInstance = null
+    return
+  }
+  await nextTick()
+  renderChart()
+})
+
 // mock 折线图先固定趋势数据，后续接真实历史诊断分数接口。
 function renderChart(): void {
   if (!chartRef.value) return
+  chartInstance?.dispose()
   chartInstance = echarts.init(chartRef.value)
   chartInstance.setOption({
     grid: { left: 44, right: 20, top: 24, bottom: 36 },
@@ -350,6 +451,18 @@ function paperStatusLabel(item: AssessmentPaperItem): string {
   return '报告已完成'
 }
 
+// 状态标签使用低饱和语义色，和科目、考试类型的亮色标签形成层级区分。
+function paperStatusTone(
+  item: AssessmentPaperItem,
+): 'pending' | 'progress' | 'completed' | 'failed' | 'unavailable' {
+  if (!isPaperAvailable(item)) return 'unavailable'
+  if (item.testStatus === 'in_progress') return 'progress'
+  if (item.testStatus === 'not_started') return 'pending'
+  if (item.reportStatus === 'failed') return 'failed'
+  if (isReportGenerating(item) || item.reportStatus === 'not_generated') return 'progress'
+  return 'completed'
+}
+
 function paperActionLabel(item: AssessmentPaperItem): string {
   if (!isPaperAvailable(item)) return '正在推进中'
   if (item.testStatus === 'in_progress') return '继续测试→'
@@ -479,6 +592,7 @@ function paperActionLabel(item: AssessmentPaperItem): string {
 }
 
 .chart-card {
+  margin-top: 16px;
   padding: 24px 24px 16px;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-md);
@@ -512,11 +626,79 @@ function paperActionLabel(item: AssessmentPaperItem): string {
   height: 220px;
 }
 
+.paper-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.paper-filter-bar__title span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.paper-filter-bar__title strong {
+  color: var(--color-ink);
+  font-size: var(--text-base);
+}
+
+.paper-filter-bar__controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.paper-filter-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.paper-filter-control > span {
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+  white-space: nowrap;
+}
+
+.paper-filter-control--chart {
+  min-height: var(--height-button);
+  padding-left: 4px;
+}
+
+.exam-type-filter {
+  flex: 0 0 auto;
+  min-width: 252px;
+}
+
+.status-filter {
+  flex: 0 0 auto;
+  min-width: 340px;
+}
+
+.exam-type-filter :deep(.el-segmented__item),
+.status-filter :deep(.el-segmented__item) {
+  min-width: 76px;
+  font-weight: var(--weight-semi);
+}
+
 .paper-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
-  margin-top: 24px;
+  margin-top: 16px;
 }
 
 .paper-card {
@@ -561,7 +743,6 @@ function paperActionLabel(item: AssessmentPaperItem): string {
   display: inline-flex;
   align-items: center;
   height: 24px;
-  margin-bottom: 10px;
   padding: 0 10px;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-pill);
@@ -569,6 +750,82 @@ function paperActionLabel(item: AssessmentPaperItem): string {
   color: var(--color-ink-soft);
   font-size: var(--text-xs);
   font-weight: var(--weight-semi);
+}
+
+.paper-card__badge--pending {
+  border-color: #d5d8dc;
+  background: #f1f2f3;
+  color: #555d66;
+}
+
+.paper-card__badge--progress {
+  border-color: #d6c9b2;
+  background: #f3f0e9;
+  color: #6b5b3e;
+}
+
+.paper-card__badge--completed {
+  border-color: #c8d2cc;
+  background: #edf1ef;
+  color: #435c4d;
+}
+
+.paper-card__badge--failed {
+  border-color: #d8c8c8;
+  background: #f3eeee;
+  color: #775555;
+}
+
+.paper-card__badge--unavailable {
+  border-color: #d4d4d4;
+  border-style: dashed;
+  background: #f4f4f4;
+  color: #737373;
+}
+
+.paper-card__topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.paper-card__identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.paper-card__exam-type,
+.paper-card__year {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+  white-space: nowrap;
+}
+
+.paper-card__exam-type--esat {
+  border-color: #67e8f9;
+  background: #ecfeff;
+  color: #0e7490;
+}
+
+.paper-card__exam-type--tmua {
+  border-color: #ddd6fe;
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.paper-card__year {
+  background: var(--color-surface-alt);
+  color: var(--color-ink-soft);
 }
 
 .paper-card__heading {
@@ -635,5 +892,27 @@ function paperActionLabel(item: AssessmentPaperItem): string {
   background: var(--color-surface);
   color: var(--color-ink-muted);
   text-align: center;
+}
+
+@media (max-width: 760px) {
+  .paper-filter-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .paper-filter-bar__controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .paper-filter-control {
+    justify-content: space-between;
+  }
+
+  .exam-type-filter,
+  .status-filter {
+    width: 100%;
+    min-width: 0;
+  }
 }
 </style>

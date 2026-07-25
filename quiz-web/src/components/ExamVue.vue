@@ -62,6 +62,7 @@ const props = withDefaults(
     currentIndex: number
     totalCount: number
     sectionTitle?: string
+    pauseOnVisibility?: boolean
   }>(),
   {
     mode: 'question-bank',
@@ -72,6 +73,7 @@ const props = withDefaults(
     currentIndex: 0,
     totalCount: 0,
     sectionTitle: '',
+    pauseOnVisibility: false,
   },
 )
 
@@ -192,6 +194,13 @@ function handleVisibilityChange(): void {
     return
   }
   if (!isVisibilityPaused) return
+
+  // 可恢复诊断由父页面调用服务端恢复接口，旧截止时间不能在本组件内直接重启。
+  if (props.pauseOnVisibility) {
+    isVisibilityPaused = false
+    emit('answering-resumed')
+    return
+  }
 
   // 真题与仿真考试按服务端截止时间继续计时，切回后直接恢复单题活跃耗时。
   if (usesContinuousClock.value) {

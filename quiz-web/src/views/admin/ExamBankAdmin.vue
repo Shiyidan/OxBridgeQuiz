@@ -60,12 +60,6 @@
           align="center"
           header-align="center"
         />
-        <el-table-column label="建议时长" width="120" align="center" header-align="center">
-          <template #default="{ row }">{{ row.duration }} 分钟</template>
-        </el-table-column>
-        <el-table-column label="题目数量" width="100" align="center" header-align="center">
-          <template #default="{ row }">{{ row.totalQuestions }} 题</template>
-        </el-table-column>
         <el-table-column label="状态" width="140" align="center" header-align="center">
           <template #default="{ row }">
             <el-dropdown trigger="click" @command="handleStatusCommand(row.id, $event)">
@@ -85,6 +79,12 @@
               </template>
             </el-dropdown>
           </template>
+        </el-table-column>
+        <el-table-column label="题目数量" width="100" align="center" header-align="center">
+          <template #default="{ row }">{{ row.totalQuestions }} 题</template>
+        </el-table-column>
+        <el-table-column label="建议时长" width="120" align="center" header-align="center">
+          <template #default="{ row }">{{ row.duration }} 分钟</template>
         </el-table-column>
         <el-table-column
           label="操作"

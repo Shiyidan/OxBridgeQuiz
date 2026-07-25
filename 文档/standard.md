@@ -150,7 +150,7 @@ TMUA 分卷必须满足：
 - 每题 `questionType = single_choice`，并保留来源稳定题号 `code`。
 - 每题 `source.examType/year/sectionCode/questionNumber` 必须与所属试卷和分卷一致。
 - 分卷名称、`TMUA-P1/TMUA-P2` 内部分组码、75 分钟时长和直接切换策略均由服务端生成；不得在 section 中填写 `name`、`duration`、`durationSeconds` 或 `transitionAfter`。
-- Paper 1 结束后答案永久锁定，不能从 Paper 2 返回修改；刷新或重新进入必须恢复当前卷及其服务端截止时间。
+- Paper 1 结束后答案永久锁定，不能从 Paper 2 返回修改；暂停后刷新或重新进入必须恢复当前卷，并由服务端按冻结的剩余时间生成新截止时间。
 
 ### 2.3 新版题目字段
 

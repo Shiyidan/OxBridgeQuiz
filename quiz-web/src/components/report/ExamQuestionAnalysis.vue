@@ -3,22 +3,38 @@
     <aside class="question-nav" aria-label="题目导航">
       <span class="section-mark" aria-hidden="true"></span>
       <h2 class="question-nav__title">题目导航</h2>
-      <div class="question-grid">
-        <button
-          v-for="item in questionNav"
-          :key="item.number"
-          class="question-grid__item"
-          :class="{
-            'question-grid__item--active': currentIndex === item.number - 1,
-            'question-grid__item--correct': item.status === 'correct',
-            'question-grid__item--wrong': item.status === 'wrong',
-            'question-grid__item--skipped': item.status === 'skipped',
-          }"
-          type="button"
-          @click="goToQuestion(item.number - 1)"
+      <div class="question-nav__groups">
+        <section
+          v-for="group in questionNavGroups"
+          :key="group.key"
+          class="question-nav__group"
+          :aria-label="`${group.label}题目`"
         >
-          {{ item.number }}
-        </button>
+          <div
+            v-if="questionNavGroups.length > 1"
+            class="question-nav__divider"
+            :title="group.fullLabel"
+          >
+            <span>{{ group.label }}</span>
+          </div>
+          <div class="question-grid">
+            <button
+              v-for="item in group.items"
+              :key="item.index"
+              class="question-grid__item"
+              :class="{
+                'question-grid__item--active': currentIndex === item.index,
+                'question-grid__item--correct': item.status === 'correct',
+                'question-grid__item--wrong': item.status === 'wrong',
+                'question-grid__item--skipped': item.status === 'skipped',
+              }"
+              type="button"
+              @click="goToQuestion(item.index)"
+            >
+              {{ item.number }}
+            </button>
+          </div>
+        </section>
       </div>
       <div class="question-legend">
         <span
@@ -107,6 +123,29 @@ import type { ExamQuestion } from '@/api/exam'
 
 type QuestionStatus = 'correct' | 'wrong' | 'skipped'
 type ReportQuestion = ExamQuestion & { id: string }
+interface QuestionNavItem {
+  index: number
+  number: number
+  status: QuestionStatus
+}
+
+interface QuestionNavGroup {
+  key: string
+  identity: string
+  label: string
+  fullLabel: string
+  items: QuestionNavItem[]
+}
+
+const MODULE_LABELS: Record<string, string> = {
+  maths1: 'Mathematics 1',
+  maths2: 'Mathematics 2',
+  physics: 'Physics',
+  chemistry: 'Chemistry',
+  biology: 'Biology',
+  paper1: 'Paper 1',
+  paper2: 'Paper 2',
+}
 
 const props = defineProps<{
   questions: ReportQuestion[]
@@ -123,12 +162,42 @@ const wrongCount = computed(
   () => props.questions.filter((q) => q.selectedAnswer && !q.isCorrect).length,
 )
 const answerText = computed(() => currentQuestion.value?.answer?.join(', ') || '-')
-const questionNav = computed(() =>
-  props.questions.map((q, i) => ({
-    number: i + 1,
-    status: (q.selectedAnswer ? (q.isCorrect ? 'correct' : 'wrong') : 'skipped') as QuestionStatus,
-  })),
-)
+// 模块代码是诊断卷分段的首选依据，旧题缺少代码时回退到 subject，且保持接口返回顺序。
+const questionNavGroups = computed<QuestionNavGroup[]>(() => {
+  const groups: QuestionNavGroup[] = []
+  props.questions.forEach((question, index) => {
+    const moduleCode = String(question.module_code || question.component_code || '')
+      .trim()
+      .toLowerCase()
+    const subject = String(question.subject || '').trim()
+    const groupIdentity = moduleCode || subject.toLowerCase() || 'continuous'
+    const previousGroup = groups[groups.length - 1]
+    const item: QuestionNavItem = {
+      index,
+      number: index + 1,
+      status: question.selectedAnswer
+        ? question.isCorrect
+          ? 'correct'
+          : 'wrong'
+        : 'skipped',
+    }
+
+    if (previousGroup?.identity === groupIdentity) {
+      previousGroup.items.push(item)
+      return
+    }
+
+    const label = MODULE_LABELS[moduleCode] || subject || '试卷题目'
+    groups.push({
+      key: `${groupIdentity}:${index}`,
+      identity: groupIdentity,
+      label,
+      fullLabel: subject || label,
+      items: [item],
+    })
+  })
+  return groups
+})
 const la = computed(() => currentQuestion.value?.learning_analysis)
 const examFocusText = computed(() => la.value?.exam_focus || '')
 const correctSolution = computed(() => la.value?.correct_solution || la.value?.solution || '')
@@ -215,6 +284,44 @@ function noop(): void {}
 .question-nav__title {
   margin: 0 0 16px;
   font-size: 18px;
+}
+
+.question-nav__groups {
+  display: grid;
+  gap: 18px;
+}
+
+.question-nav__group {
+  min-width: 0;
+}
+
+.question-nav__divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin-bottom: 10px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.question-nav__divider::before,
+.question-nav__divider::after {
+  min-width: 20px;
+  height: 1px;
+  flex: 1;
+  background: #cbd5e1;
+  content: '';
+}
+
+.question-nav__divider span {
+  min-width: 0;
+  max-width: calc(100% - 60px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .question-grid {

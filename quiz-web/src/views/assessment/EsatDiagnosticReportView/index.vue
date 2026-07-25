@@ -19,8 +19,6 @@
             题目解析
           </button>
         </header>
-        <div v-if="reportWarning" class="report-warning">{{ reportWarning }}</div>
-
         <EsatEquivalentScore
           :module="activeModule"
           :modules="report.assessment.modules"
@@ -68,7 +66,6 @@ const route = useRoute()
 const router = useRouter()
 const loading = ref(true)
 const errorMessage = ref('')
-const reportWarning = ref('')
 const report = ref<DiagnosticReportSummary | null>(null)
 const activeModuleId = ref('')
 const reportExamRecordId = ref('')
@@ -119,14 +116,12 @@ function viewQuestionAnalysis(): void {
 async function loadReport(): Promise<void> {
   loading.value = true
   errorMessage.value = ''
-  reportWarning.value = ''
   try {
     const data = await getDiagnosticReportSummary(examId.value)
     if (data.report.reportKind !== 'esat') {
       throw new Error('该答卷不是 ESAT 诊断记录')
     }
     report.value = data.report
-    reportWarning.value = data.meta.warning || ''
     reportExamRecordId.value = data.meta.reportExamRecordId || examId.value
     activeModuleId.value = data.report.header.modules[0]?.id || ''
   } catch (error: unknown) {

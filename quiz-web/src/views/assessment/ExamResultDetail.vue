@@ -95,8 +95,6 @@ onMounted(async () => {
       const status = await getDiagnosticReportStatus(examId.value)
       if (status.status === 'completed' && status.reportExamRecordId) {
         await redirectDiagnosticReport(data.examRecord.examType, status.reportExamRecordId)
-      } else if (status.status === 'failed' && status.hasPreviousReport) {
-        await redirectDiagnosticReport(data.examRecord.examType, examId.value)
       } else {
         await router.replace({
           path: '/exam-result',

@@ -1,4 +1,4 @@
-// 诊断报告后台任务：持久化分析阶段、生成报告快照并安全发布当前有效报告。
+// 诊断报告后台任务：持久化分析阶段，并为每次已提交测试独立生成正式报告。
 import { Prisma } from '@prisma/client'
 import { prisma } from './prisma.js'
 import { config } from '../config.js'
@@ -228,46 +228,33 @@ async function publishTaskResult(taskId: string, examRecordId: string): Promise<
     const task = await tx.diagnosticReportTask.findUnique({ where: { id: taskId } })
     if (!task) throw new Error('Diagnostic report task not found')
 
-    const latestExamRecord = await tx.examRecord.findFirst({
-      where: {
+    // 每次正式交卷独立持久化一份报告；重测报告不得覆盖同一试卷的其他历史报告。
+    await tx.diagnosticReport.upsert({
+      where: { examRecordId: task.examRecordId },
+      update: {
+        reportKind: task.reportKind,
+        result: built.report as unknown as Prisma.InputJsonValue,
+        sourceSnapshot: built.sourceSnapshot,
+        reportVersion: REPORT_VERSION,
+        promptVersion: promptVersionForExam(task.reportKind.toUpperCase()),
+        modelName: config.deepseekModel,
+        generationMode: built.generationMode,
+        completedAt: now,
+      },
+      create: {
         userId: task.userId,
         paperId: task.paperId,
-        status: EXAM_RECORD_STATUS.SUBMITTED,
+        examRecordId: task.examRecordId,
+        reportKind: task.reportKind,
+        result: built.report as unknown as Prisma.InputJsonValue,
+        sourceSnapshot: built.sourceSnapshot,
+        reportVersion: REPORT_VERSION,
+        promptVersion: promptVersionForExam(task.reportKind.toUpperCase()),
+        modelName: config.deepseekModel,
+        generationMode: built.generationMode,
+        completedAt: now,
       },
-      orderBy: [{ submittedAt: 'desc' }, { id: 'desc' }],
-      select: { id: true },
     })
-    const isLatestSubmission = latestExamRecord?.id === task.examRecordId
-
-    if (isLatestSubmission) {
-      await tx.diagnosticReport.upsert({
-        where: { userId_paperId: { userId: task.userId, paperId: task.paperId } },
-        update: {
-          examRecordId: task.examRecordId,
-          reportKind: task.reportKind,
-          result: built.report as unknown as Prisma.InputJsonValue,
-          sourceSnapshot: built.sourceSnapshot,
-          reportVersion: REPORT_VERSION,
-          promptVersion: promptVersionForExam(task.reportKind.toUpperCase()),
-          modelName: config.deepseekModel,
-          generationMode: built.generationMode,
-          completedAt: now,
-        },
-        create: {
-          userId: task.userId,
-          paperId: task.paperId,
-          examRecordId: task.examRecordId,
-          reportKind: task.reportKind,
-          result: built.report as unknown as Prisma.InputJsonValue,
-          sourceSnapshot: built.sourceSnapshot,
-          reportVersion: REPORT_VERSION,
-          promptVersion: promptVersionForExam(task.reportKind.toUpperCase()),
-          modelName: config.deepseekModel,
-          generationMode: built.generationMode,
-          completedAt: now,
-        },
-      })
-    }
 
     await tx.diagnosticReportTask.update({
       where: { id: task.id },
@@ -282,8 +269,8 @@ async function publishTaskResult(taskId: string, examRecordId: string): Promise<
         modelName: config.deepseekModel,
         heartbeatAt: now,
         completedAt: now,
-        errorCode: isLatestSubmission ? null : 'SUPERSEDED',
-        errorMessage: isLatestSubmission ? null : 'A newer submitted exam owns the current report.',
+        errorCode: null,
+        errorMessage: null,
       },
     })
   })

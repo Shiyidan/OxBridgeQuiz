@@ -121,17 +121,12 @@ export interface DiagnosticReportStatus {
   message: string
   reportKind: 'esat' | 'tmua' | 'step'
   reportExamRecordId: string | null
-  previousReportExamRecordId: string | null
-  hasPreviousReport: boolean
   errorMessage: string | null
   generationMode: 'full_ai' | 'mixed_fallback' | 'rules_only' | null
 }
 
 export interface DiagnosticReportMeta {
   reportExamRecordId: string
-  requestedExamRecordId: string
-  isPreviousReport: boolean
-  warning: string | null
   generationMode: 'full_ai' | 'mixed_fallback' | 'rules_only'
   completedAt: string
 }

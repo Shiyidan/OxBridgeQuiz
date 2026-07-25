@@ -250,10 +250,10 @@ examResultRouter.get('/:id/diagnostic-report/status', requireAuth, async (req, r
     if (!examRecord.diagnosticReportTask) {
       await ensureDiagnosticReportTask(examRecord.id, req.user!.userId)
     }
-    const [task, currentReport] = await Promise.all([
+    const [task, report] = await Promise.all([
       prisma.diagnosticReportTask.findUnique({ where: { examRecordId: examRecord.id } }),
       prisma.diagnosticReport.findUnique({
-        where: { userId_paperId: { userId: req.user!.userId, paperId: examRecord.paperId } },
+        where: { examRecordId: examRecord.id },
         select: { examRecordId: true },
       }),
     ])
@@ -271,8 +271,6 @@ examResultRouter.get('/:id/diagnostic-report/status', requireAuth, async (req, r
       report_saving: '正在保存诊断报告',
       completed: '诊断报告生成完成',
     }
-    const hasPreviousReport = Boolean(currentReport && currentReport.examRecordId !== examRecord.id)
-
     res.json(success({
       status: task.status,
       stage: task.stage,
@@ -282,10 +280,8 @@ examResultRouter.get('/:id/diagnostic-report/status', requireAuth, async (req, r
         : messageByStage[task.stage] || '正在生成诊断报告',
       reportKind: task.reportKind,
       reportExamRecordId: task.status === DIAGNOSTIC_REPORT_TASK_STATUS.COMPLETED
-        ? currentReport?.examRecordId || null
+        ? report?.examRecordId || null
         : null,
-      previousReportExamRecordId: hasPreviousReport ? currentReport?.examRecordId || null : null,
-      hasPreviousReport,
       errorMessage: task.status === DIAGNOSTIC_REPORT_TASK_STATUS.FAILED ? task.errorMessage : null,
       generationMode: task.generationMode,
     }))
@@ -312,7 +308,7 @@ examResultRouter.post('/:id/diagnostic-report/retry', requireAuth, async (req, r
   }
 })
 
-// 读取已持久化的当前有效诊断报告
+// 按考试记录读取该次测试独立持久化的诊断报告
 examResultRouter.get('/:id/diagnostic-report/summary', requireAuth, async (req, res) => {
   try {
     const examRecord = await prisma.examRecord.findFirst({
@@ -338,13 +334,13 @@ examResultRouter.get('/:id/diagnostic-report/summary', requireAuth, async (req, 
     if (!examRecord.diagnosticReportTask) {
       await ensureDiagnosticReportTask(examRecord.id, req.user!.userId)
     }
-    const [task, currentReport] = await Promise.all([
+    const [task, report] = await Promise.all([
       prisma.diagnosticReportTask.findUnique({ where: { examRecordId: examRecord.id } }),
       prisma.diagnosticReport.findUnique({
-        where: { userId_paperId: { userId: req.user!.userId, paperId: examRecord.paperId } },
+        where: { examRecordId: examRecord.id },
       }),
     ])
-    if (!currentReport) {
+    if (!report) {
       res.status(409).json(fail(
         task?.status === DIAGNOSTIC_REPORT_TASK_STATUS.FAILED
           ? '诊断报告生成失败，请重新分析'
@@ -354,30 +350,18 @@ examResultRouter.get('/:id/diagnostic-report/summary', requireAuth, async (req, 
       return
     }
 
-    const isRequestedReport = currentReport.examRecordId === examRecord.id
-    const warning = isRequestedReport
-      ? null
-      : task?.status === DIAGNOSTIC_REPORT_TASK_STATUS.FAILED
-        ? '最新一次分析失败，当前展示上一次报告'
-        : task?.status === DIAGNOSTIC_REPORT_TASK_STATUS.PENDING || task?.status === DIAGNOSTIC_REPORT_TASK_STATUS.ANALYZING
-          ? '最新一次报告正在生成，当前展示上一次报告'
-          : '当前展示该试卷最新生成的诊断报告'
-
     // 报告正文成功读取才计为一次查看，状态轮询与尚未生成的请求不会进入成功统计。
     setOperationAuditContext(req, {
       summary: `查看 ${examRecord.examType} 诊断分析报告`,
       resourceType: 'ExamRecord',
-      resourceId: currentReport.examRecordId,
+      resourceId: report.examRecordId,
     })
     res.json(success({
-      report: currentReport.result,
+      report: report.result,
       meta: {
-        reportExamRecordId: currentReport.examRecordId,
-        requestedExamRecordId: examRecord.id,
-        isPreviousReport: !isRequestedReport,
-        warning,
-        generationMode: currentReport.generationMode,
-        completedAt: currentReport.completedAt,
+        reportExamRecordId: report.examRecordId,
+        generationMode: report.generationMode,
+        completedAt: report.completedAt,
       },
     }))
   } catch (error: any) {

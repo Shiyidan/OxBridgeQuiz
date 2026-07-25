@@ -9,7 +9,6 @@
         <button type="button" class="button_cancel" @click="loadReport">重新加载</button>
       </div>
       <template v-else-if="report">
-        <div v-if="reportWarning" class="report-warning">{{ reportWarning }}</div>
         <DiagnosticReportSummary :report="report" />
       </template>
     </main>
@@ -27,7 +26,6 @@ import { getApiErrorMessage } from '@/utils/request'
 const route = useRoute()
 const loading = ref(true)
 const errorMessage = ref('')
-const reportWarning = ref('')
 const report = ref<DiagnosticReportSummaryData | null>(null)
 
 // 路由参数是 TMUA 报告接口和权限校验使用的 ExamRecord ID。
@@ -42,14 +40,12 @@ onMounted(() => {
 async function loadReport(): Promise<void> {
   loading.value = true
   errorMessage.value = ''
-  reportWarning.value = ''
   try {
     const data = await getDiagnosticReportSummary(examId.value)
     if (data.report.reportKind !== 'tmua') {
       throw new Error('该答卷不是 TMUA 诊断记录')
     }
     report.value = data.report
-    reportWarning.value = data.meta.warning || ''
   } catch (error: unknown) {
     errorMessage.value = getApiErrorMessage(error, 'TMUA 诊断报告加载失败')
   } finally {
@@ -92,13 +88,4 @@ async function loadReport(): Promise<void> {
   margin: 0 0 16px;
 }
 
-.report-warning {
-  margin: 0 0 24px;
-  padding: 12px 16px;
-  border: 1px solid #f1c56a;
-  border-radius: var(--radius-md);
-  background: #fff8e8;
-  color: #8a5a00;
-  font-size: var(--text-sm);
-}
 </style>

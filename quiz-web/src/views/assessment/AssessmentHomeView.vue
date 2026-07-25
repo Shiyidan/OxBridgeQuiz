@@ -118,6 +118,14 @@
               <span v-if="isReportGenerating(item)">报告 {{ item.reportProgress }}%</span>
               <span v-else>题正确</span>
             </div>
+            <button
+              v-if="item.completedAttemptCount > 0"
+              class="paper-card__history-button"
+              type="button"
+              @click="openPaperHistory(item)"
+            >
+              历次记录（{{ item.completedAttemptCount }}）
+            </button>
 
             <div class="paper-card__actions">
               <button
@@ -147,6 +155,76 @@
         {{ emptyPaperMessage }}
       </div>
     </main>
+
+    <el-dialog
+      v-model="historyDialogVisible"
+      width="860px"
+      class="diagnostic-history-dialog"
+      :title="historyPaper ? `${historyPaper.title} · 历次诊断记录` : '历次诊断记录'"
+      destroy-on-close
+      align-center
+    >
+      <div v-if="historyLoading" class="diagnostic-history__state">正在加载历次记录...</div>
+      <div v-else-if="historyError" class="diagnostic-history__state diagnostic-history__state--error">
+        <p>{{ historyError }}</p>
+        <button type="button" class="button_cancel" @click="loadPaperHistory">重新加载</button>
+      </div>
+      <div v-else-if="!historyRecords.length" class="diagnostic-history__state">
+        暂无已完成的诊断记录
+      </div>
+      <div v-else class="diagnostic-history">
+        <article
+          v-for="record in historyRecords"
+          :key="record.examRecordId"
+          class="diagnostic-history__item"
+        >
+          <div class="diagnostic-history__heading">
+            <strong>第 {{ record.attemptNumber }} 次诊断</strong>
+            <span
+              class="diagnostic-history__status"
+              :class="`diagnostic-history__status--${historyReportTone(record)}`"
+            >
+              {{ historyReportLabel(record) }}
+            </span>
+          </div>
+          <dl class="diagnostic-history__metrics">
+            <div>
+              <dt>交卷时间</dt>
+              <dd>{{ formatDateTime(record.submittedAt) }}</dd>
+            </div>
+            <div>
+              <dt>成绩</dt>
+              <dd>{{ record.correctCount }}/{{ record.totalQuestions }} 题正确</dd>
+            </div>
+            <div>
+              <dt>作答用时</dt>
+              <dd>{{ formatDuration(record.durationSeconds) }}</dd>
+            </div>
+            <div>
+              <dt>报告时间</dt>
+              <dd>{{ formatReportTime(record) }}</dd>
+            </div>
+          </dl>
+          <button
+            type="button"
+            class="diagnostic-history__action"
+            :class="record.hasReport ? 'button_primary' : 'button_cancel'"
+            @click="handleHistoryAction(record)"
+          >
+            {{ historyActionLabel(record) }}
+          </button>
+        </article>
+        <AppPagination
+          :page="historyPage"
+          :page-size="historyPageSize"
+          :page-sizes="[5, 10, 20]"
+          :total="historyTotal"
+          layout="total, sizes, prev, pager, next"
+          @page-change="handleHistoryPageChange"
+          @page-size-change="handleHistoryPageSizeChange"
+        />
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -157,6 +235,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import NavBar from '@/components/NavBar.vue'
+import AppPagination from '@/components/AppPagination.vue'
 import SubjectModuleTags from '@/components/SubjectModuleTags.vue'
 import { checkMemberAccess } from '@/api/member'
 import { useAuthStore } from '@/stores/auth'
@@ -165,13 +244,27 @@ import {
   getExamUnavailableMessage,
   isExamTypeAvailable,
 } from '@/constants/examTypes'
-import { getAssessmentPapersData, type AssessmentPaperItem } from '@/api/papers'
+import {
+  getAssessmentPaperHistory,
+  getAssessmentPapersData,
+  type AssessmentPaperHistoryItem,
+  type AssessmentPaperItem,
+} from '@/api/papers'
+import { getApiErrorMessage } from '@/utils/request'
 
 const router = useRouter()
 const auth = useAuthStore()
 const loading = ref(true)
 const startingPaperId = ref('')
 const diagnosticTests = ref<AssessmentPaperItem[]>([])
+const historyDialogVisible = ref(false)
+const historyLoading = ref(false)
+const historyError = ref('')
+const historyPaper = ref<AssessmentPaperItem | null>(null)
+const historyRecords = ref<AssessmentPaperHistoryItem[]>([])
+const historyPage = ref(1)
+const historyPageSize = ref(5)
+const historyTotal = ref(0)
 const chartRef = ref<HTMLDivElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
 
@@ -347,6 +440,131 @@ function handleUpgradeClick(): void {
   ElMessage.info('会员开通功能即将上线')
 }
 
+// 打开试卷历史时固定当前试卷上下文，分页请求不会和其他卡片的数据混用。
+function openPaperHistory(item: AssessmentPaperItem): void {
+  historyPaper.value = item
+  historyPage.value = 1
+  historyRecords.value = []
+  historyTotal.value = item.completedAttemptCount
+  historyDialogVisible.value = true
+  void loadPaperHistory()
+}
+
+// 历次记录只读取正式交卷 attempt，报告状态和报告时间均由后端关联记录返回。
+async function loadPaperHistory(): Promise<void> {
+  const paperId = historyPaper.value?.paperId
+  if (!paperId) return
+  historyLoading.value = true
+  historyError.value = ''
+  try {
+    const data = await getAssessmentPaperHistory(
+      paperId,
+      historyPage.value,
+      historyPageSize.value,
+    )
+    if (historyPaper.value?.paperId !== paperId) return
+    historyRecords.value = data.list || []
+    historyTotal.value = data.pagination.total
+  } catch (error: unknown) {
+    if (historyPaper.value?.paperId !== paperId) return
+    historyRecords.value = []
+    historyError.value = getApiErrorMessage(error, '历次诊断记录加载失败，请稍后重试。')
+  } finally {
+    if (historyPaper.value?.paperId === paperId) historyLoading.value = false
+  }
+}
+
+// 切换页码后重新读取该页，避免一次性把长期积累的全部历史报告下发到首页。
+function handleHistoryPageChange(page: number): void {
+  historyPage.value = page
+  void loadPaperHistory()
+}
+
+// 每页数量改变时回到第一页，避免原页码超出新的总页数。
+function handleHistoryPageSizeChange(pageSize: number): void {
+  historyPageSize.value = pageSize
+  historyPage.value = 1
+  void loadPaperHistory()
+}
+
+// 历史入口始终以该次 examRecordId 导航，禁止回退到同一试卷的其他报告。
+function handleHistoryAction(record: AssessmentPaperHistoryItem): void {
+  historyDialogVisible.value = false
+  if (record.hasReport) {
+    const reportKind = record.reportKind.toLowerCase()
+    if (reportKind === 'esat' || reportKind === 'tmua') {
+      void router.push(`/exam-result/${record.examRecordId}/${reportKind}`)
+      return
+    }
+    void router.push(`/exam-result/${record.examRecordId}`)
+    return
+  }
+  void router.push({
+    path: '/exam-result',
+    query: {
+      id: record.examRecordId,
+      total: String(record.totalQuestions),
+      correct: String(record.correctCount),
+      source: 'assessment',
+    },
+  })
+}
+
+// 日期按学生浏览器本地时区展示，并统一为便于核对的年月日时分格式。
+function formatDateTime(value: string | null): string {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  const pad = (part: number) => String(part).padStart(2, '0')
+  return [
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
+    `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+  ].join(' ')
+}
+
+// 报告时间只取本次正式报告的 completedAt，任务未完成时不以交卷时间替代。
+function formatReportTime(record: AssessmentPaperHistoryItem): string {
+  if (record.reportCompletedAt) return formatDateTime(record.reportCompletedAt)
+  if (record.reportStatus === 'failed') return '生成失败'
+  return '尚未生成'
+}
+
+// 作答用时按已持久化有效时长展示，ESAT 休息时间不计入其中。
+function formatDuration(durationSeconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(durationSeconds || 0))
+  const hours = Math.floor(safeSeconds / 3600)
+  const minutes = Math.floor((safeSeconds % 3600) / 60)
+  const seconds = safeSeconds % 60
+  if (hours > 0) return `${hours} 小时 ${minutes} 分`
+  if (minutes > 0) return `${minutes} 分 ${seconds} 秒`
+  return `${seconds} 秒`
+}
+
+// 历史状态文案描述该次报告自身，不受同一试卷其他报告影响。
+function historyReportLabel(record: AssessmentPaperHistoryItem): string {
+  if (record.hasReport) return '报告已完成'
+  if (record.reportStatus === 'failed') return '分析失败'
+  if (record.reportStatus === 'analyzing') return `报告生成中 ${record.reportProgress}%`
+  if (record.reportStatus === 'pending') return '等待生成报告'
+  return '待生成报告'
+}
+
+// 历史状态沿用首页的低饱和语义色，避免和考试、科目标签竞争视觉层级。
+function historyReportTone(
+  record: AssessmentPaperHistoryItem,
+): 'completed' | 'progress' | 'failed' {
+  if (record.hasReport) return 'completed'
+  if (record.reportStatus === 'failed') return 'failed'
+  return 'progress'
+}
+
+// 报告尚未完成时，历史记录入口复用本次分析进度或失败重试流程。
+function historyActionLabel(record: AssessmentPaperHistoryItem): string {
+  if (record.hasReport) return '查看该次报告'
+  if (record.reportStatus === 'failed') return '重新分析'
+  return '查看生成进度'
+}
+
 async function handlePaperAction(item: AssessmentPaperItem): Promise<void> {
   if (!isPaperAvailable(item)) {
     ElMessage.info(getExamUnavailableMessage(item.examType))
@@ -429,7 +647,7 @@ function routeToDiagnosticPaper(paper: AssessmentPaperItem, resume: boolean): vo
   router.push({ path: '/practice', query: { paperId: paper.id, mode: 'assessment' } })
 }
 
-// 分析中与待分析统一进入分析弹窗恢复入口，完成或有旧报告时进入报告路由。
+// 分析中与待分析统一进入本次分析弹窗，完成后只进入本次考试记录的报告。
 function isReportGenerating(item: AssessmentPaperItem): boolean {
   return item.reportStatus === 'pending' || item.reportStatus === 'analyzing'
 }
@@ -443,9 +661,7 @@ function paperStatusLabel(item: AssessmentPaperItem): string {
   if (!isPaperAvailable(item)) return '暂未开放'
   if (item.testStatus === 'in_progress') return '进行中'
   if (item.testStatus === 'not_started') return '待开始'
-  if (item.reportStatus === 'failed') {
-    return item.hasReport ? '最新分析失败 · 可看上次报告' : '分析失败'
-  }
+  if (item.reportStatus === 'failed') return '分析失败'
   if (isReportGenerating(item)) return `报告生成中 ${item.reportProgress}%`
   if (item.reportStatus === 'not_generated') return '待生成报告'
   return '报告已完成'
@@ -850,6 +1066,7 @@ function paperActionLabel(item: AssessmentPaperItem): string {
   min-height: var(--height-button);
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 20px;
   padding-top: 16px;
@@ -873,6 +1090,32 @@ function paperActionLabel(item: AssessmentPaperItem): string {
   font-weight: var(--weight-semi);
 }
 
+.paper-card__history-button {
+  flex: 0 0 auto;
+  padding: 4px 2px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--color-ink-soft);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) ease,
+    color var(--duration-fast) ease;
+}
+
+.paper-card__history-button:hover {
+  border-bottom-color: var(--color-ink);
+  color: var(--color-ink);
+}
+
+.paper-card__history-button:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 3px;
+}
+
 .paper-card__actions {
   display: flex;
   align-items: center;
@@ -894,6 +1137,147 @@ function paperActionLabel(item: AssessmentPaperItem): string {
   text-align: center;
 }
 
+:deep(.diagnostic-history-dialog) {
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+}
+
+:deep(.diagnostic-history-dialog .el-dialog__header) {
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+:deep(.diagnostic-history-dialog .el-dialog__title) {
+  color: var(--color-ink);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+}
+
+:deep(.diagnostic-history-dialog .el-dialog__body) {
+  padding: 0;
+}
+
+.diagnostic-history {
+  max-height: min(68vh, 720px);
+  overflow-y: auto;
+  padding: 8px 24px 20px;
+}
+
+.diagnostic-history__state {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  padding: 32px;
+  color: var(--color-ink-muted);
+  text-align: center;
+}
+
+.diagnostic-history__state p {
+  margin: 0;
+}
+
+.diagnostic-history__state--error {
+  color: var(--color-danger);
+}
+
+.diagnostic-history__state button {
+  min-width: 100px;
+  min-height: var(--height-button);
+  border-radius: var(--radius-md);
+}
+
+.diagnostic-history__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 20px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.diagnostic-history__heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  grid-column: 1 / -1;
+}
+
+.diagnostic-history__heading > strong {
+  color: var(--color-ink);
+  font-size: var(--text-base);
+}
+
+.diagnostic-history__status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+}
+
+.diagnostic-history__status--completed {
+  border-color: #c8d2cc;
+  background: #edf1ef;
+  color: #435c4d;
+}
+
+.diagnostic-history__status--progress {
+  border-color: #d6c9b2;
+  background: #f3f0e9;
+  color: #6b5b3e;
+}
+
+.diagnostic-history__status--failed {
+  border-color: #d8c8c8;
+  background: #f3eeee;
+  color: #775555;
+}
+
+.diagnostic-history__metrics {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1.35fr 1fr 1fr 1.35fr;
+  gap: 18px;
+  margin: 0;
+}
+
+.diagnostic-history__metrics div {
+  min-width: 0;
+}
+
+.diagnostic-history__metrics dt {
+  margin-bottom: 5px;
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+}
+
+.diagnostic-history__metrics dd {
+  overflow: hidden;
+  margin: 0;
+  color: var(--color-ink-soft);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diagnostic-history__action {
+  min-width: 118px;
+  height: var(--height-button);
+  align-self: center;
+  border-radius: var(--radius-md);
+}
+
+.diagnostic-history :deep(.app-pagination) {
+  position: sticky;
+  bottom: -20px;
+  padding: 14px 0 0;
+  background: var(--color-surface);
+}
+
 @media (max-width: 760px) {
   .paper-filter-bar {
     align-items: stretch;
@@ -913,6 +1297,22 @@ function paperActionLabel(item: AssessmentPaperItem): string {
   .status-filter {
     width: 100%;
     min-width: 0;
+  }
+
+  :deep(.diagnostic-history-dialog) {
+    width: calc(100% - 32px) !important;
+  }
+
+  .diagnostic-history__item {
+    grid-template-columns: 1fr;
+  }
+
+  .diagnostic-history__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .diagnostic-history__action {
+    width: 100%;
   }
 }
 </style>

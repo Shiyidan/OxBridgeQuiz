@@ -140,6 +140,7 @@ export interface AssessmentPaperItem {
   phaseExpiresAt: string | null
   submittedAt: string | null
   durationSeconds: number | null
+  completedAttemptCount: number
   reportStatus: 'not_generated' | 'pending' | 'analyzing' | 'completed' | 'failed' | null
   reportStage: string | null
   reportProgress: number
@@ -154,10 +155,58 @@ export interface AssessmentPaperResult {
   list: AssessmentPaperItem[]
 }
 
+export interface AssessmentPaperHistoryItem {
+  examRecordId: string
+  attemptNumber: number
+  totalQuestions: number
+  correctCount: number
+  startedAt: string
+  submittedAt: string
+  durationSeconds: number
+  reportStatus: 'not_generated' | 'pending' | 'analyzing' | 'completed' | 'failed'
+  reportStage: string | null
+  reportProgress: number
+  reportErrorMessage: string | null
+  reportKind: 'esat' | 'tmua' | 'step'
+  hasReport: boolean
+  reportCompletedAt: string | null
+  generationMode: 'full_ai' | 'mixed_fallback' | 'rules_only' | null
+}
+
+export interface AssessmentPaperHistoryResult {
+  paper: {
+    id: string
+    title: string
+    examType: string
+    year: number
+  }
+  list: AssessmentPaperHistoryItem[]
+  pagination: {
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+    hasPrev: boolean
+    hasNext: boolean
+  }
+}
+
 /** 获取按试卷聚合的诊断测试列表及当前用户状态。 */
 export function getAssessmentPapersData() {
   return callApi<AssessmentPaperResult>({
     url: '/papers/assessment/papers',
     method: 'GET',
+  })
+}
+
+/** 分页获取同一诊断试卷的历次已交卷记录及各自报告状态。 */
+export function getAssessmentPaperHistory(paperId: string, page = 1, pageSize = 10) {
+  return callApi<AssessmentPaperHistoryResult>({
+    url: `/papers/assessment/papers/${paperId}/history`,
+    method: 'GET',
+    params: {
+      page: String(page),
+      pageSize: String(pageSize),
+    },
   })
 }

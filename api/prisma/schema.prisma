@@ -300,8 +300,8 @@ model DiagnosticReport {
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   paper      Paper      @relation(fields: [paperId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, paperId])
   @@index([userId, completedAt])
+  @@index([userId, paperId, completedAt])
   @@index([paperId])
 }
 

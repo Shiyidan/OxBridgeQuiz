@@ -30,19 +30,9 @@
         <button type="button" class="button_primary" :disabled="retrying" @click="retryAnalysis">
           {{ retrying ? '正在重新发起...' : '重新分析' }}
         </button>
-        <button
-          v-if="previousReportExamRecordId"
-          type="button"
-          class="button_cancel"
-          @click="viewPreviousReport"
-        >
-          查看上一次报告
-        </button>
         <button type="button" class="button_cancel" @click="returnToAssessment">返回诊断测试</button>
       </div>
-      <p v-if="previousReportExamRecordId" class="analysis-state__note">
-        最新一次分析失败，上一份成功报告仍可查看。
-      </p>
+      <p class="analysis-state__note">其他已完成测试的报告可从诊断测试首页“历次记录”查看。</p>
     </section>
 
     <section v-else-if="isAnalyzing" class="analysis-state" aria-live="polite">
@@ -140,7 +130,6 @@ const analysisError = ref('')
 const pollError = ref('')
 const reportKind = ref<DiagnosticReportStatus['reportKind']>('esat')
 const reportExamRecordId = ref('')
-const previousReportExamRecordId = ref('')
 const retrying = ref(false)
 const currentModuleIndex = ref(0)
 let pollTimer: number | undefined
@@ -183,7 +172,6 @@ function initializeAnalysis(): void {
   analysisError.value = ''
   pollError.value = ''
   reportExamRecordId.value = ''
-  previousReportExamRecordId.value = ''
   currentModuleIndex.value = 0
   startModuleCaptions()
   void pollAnalysisStatus()
@@ -202,7 +190,6 @@ async function pollAnalysisStatus(): Promise<void> {
     analysisError.value = status.errorMessage || ''
     reportKind.value = status.reportKind
     reportExamRecordId.value = status.reportExamRecordId || ''
-    previousReportExamRecordId.value = status.previousReportExamRecordId || ''
 
     if (status.status === 'completed' && status.reportExamRecordId) {
       stopAnalysisPolling()
@@ -255,12 +242,6 @@ function reportPath(kind: DiagnosticReportStatus['reportKind'], recordId: string
 function viewCurrentReport(): void {
   const recordId = reportExamRecordId.value || props.examId
   emit('view-report', reportPath(reportKind.value, recordId))
-}
-
-// 最新报告失败时允许查看上一份已成功保存的报告。
-function viewPreviousReport(): void {
-  if (!previousReportExamRecordId.value) return
-  emit('view-report', reportPath(reportKind.value, previousReportExamRecordId.value))
 }
 
 // 返回诊断列表由父页面执行路由跳转，弹窗本身不直接依赖页面路由。

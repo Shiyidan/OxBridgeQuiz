@@ -214,14 +214,6 @@ interface CostForm {
   remark: string
 }
 
-interface ApiFailureShape {
-  response?: {
-    data?: {
-      errMsg?: string
-    }
-  }
-}
-
 const operators = ['S', 'L', 'P', 'SS']
 const reimbursementOptions: Array<{ label: string; value: ReimbursementStatus }> = [
   { label: '未报销', value: 'unreimbursed' },
@@ -364,11 +356,6 @@ function tableIndex(index: number): number {
   return (pagination.page - 1) * pagination.pageSize + index + 1
 }
 
-// 成本页面优先展示后端业务错误，没有响应正文时使用操作场景兜底文案。
-function apiErrorMessage(error: unknown, fallback: string): string {
-  return (error as ApiFailureShape)?.response?.data?.errMsg || fallback
-}
-
 // 表单提交前统一清洗字段，和后端成本 payload 保持一致。
 function buildPayload() {
   return {
@@ -394,10 +381,9 @@ async function getList(): Promise<void> {
     pagination.page = data.pagination.page
     pagination.pageSize = data.pagination.pageSize
     pagination.total = data.pagination.total
-  } catch (error: unknown) {
+  } catch {
     costs.value = []
     pagination.total = 0
-    ElMessage.error(apiErrorMessage(error, '成本数据加载失败'))
   } finally {
     loading.value = false
   }
@@ -433,8 +419,8 @@ async function submitCost(): Promise<void> {
     await getList()
     dialogVisible.value = false
     ElMessage.success(wasEditing ? '成本记录更新成功' : '成本导入成功')
-  } catch (error: unknown) {
-    ElMessage.error(apiErrorMessage(error, wasEditing ? '成本记录更新失败' : '成本导入失败'))
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
   } finally {
     submitting.value = false
   }

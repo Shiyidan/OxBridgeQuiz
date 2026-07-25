@@ -68,29 +68,27 @@ export function sendEmailCode(email: string, purpose: EmailCodePurpose) {
   return callApi<EmailCodeResult>({
     url: '/auth/email-code',
     method: 'POST',
-    isAllData: false,
     body: { email, purpose },
     timeout: 30000,
   })
 }
 
 export function login(params: LoginParams) {
-  return callApi<AuthResult>({ url: '/auth/login', method: 'POST', isAllData: false, body: params })
+  return callApi<AuthResult>({ url: '/auth/login', method: 'POST', body: params })
 }
 
 export function register(params: RegisterParams) {
-  return callApi<AuthResult>({ url: '/auth/register', method: 'POST', isAllData: false, body: params })
+  return callApi<AuthResult>({ url: '/auth/register', method: 'POST', body: params })
 }
 
 export function refreshSession() {
-  return callApi<AuthResult>({ url: '/auth/refresh', method: 'POST', isAllData: false })
+  return callApi<AuthResult>({ url: '/auth/refresh', method: 'POST' })
 }
 
 export function updateProfile(params: UpdateProfileParams) {
   return callApi<{ user: UserInfo }>({
     url: '/auth/profile',
     method: 'PUT',
-    isAllData: false,
     body: params,
   })
 }
@@ -105,7 +103,6 @@ export function resetPassword(params: {
   return callApi<null>({
     url: '/auth/password/reset',
     method: 'POST',
-    isAllData: false,
     body: params,
   })
 }
@@ -118,7 +115,6 @@ export function changePassword(params: {
   return callApi<null>({
     url: '/auth/password/change',
     method: 'POST',
-    isAllData: false,
     body: params,
   })
 }
@@ -127,7 +123,6 @@ export function getSessions() {
   return callApi<{ list: AuthSessionItem[] }>({
     url: '/auth/sessions',
     method: 'GET',
-    isAllData: false,
   })
 }
 
@@ -135,14 +130,13 @@ export function revokeSession(sessionId: string) {
   return callApi<null>({
     url: `/auth/sessions/${sessionId}`,
     method: 'DELETE',
-    isAllData: false,
   })
 }
 
 export function logout() {
-  return callApi<null>({ url: '/auth/logout', method: 'POST', isAllData: false })
+  return callApi<null>({ url: '/auth/logout', method: 'POST' })
 }
 
 export function logoutAll() {
-  return callApi<null>({ url: '/auth/logout-all', method: 'POST', isAllData: false })
+  return callApi<null>({ url: '/auth/logout-all', method: 'POST' })
 }

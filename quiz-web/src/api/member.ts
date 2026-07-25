@@ -75,7 +75,6 @@ export function updateExamPreferences(examPreferences: ExamPreference[]) {
   return callApi<null>({
     url: '/getMember/exam-preferences',
     method: 'PUT',
-    isAllData: false,
     body: { examPreferences },
   })
 }
@@ -85,7 +84,6 @@ export function getMember() {
   return callApi<MemberContext>({
     url: '/getMember',
     method: 'GET',
-    isAllData: false,
   })
 }
 
@@ -98,7 +96,6 @@ export function checkMemberAccess(params: {
   return callApi<MemberAccessResult>({
     url: '/getMember/check-access',
     method: 'POST',
-    isAllData: false,
     body: params,
   })
 }

@@ -9,7 +9,12 @@ import { prisma } from '../services/prisma.js'
 import { requireAuth, optionalAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
 import { formatUserForClient } from '../utils/userPresenter.js'
-import { AUTH_ERROR, EMAIL_CODE_PURPOSE, type EmailCodePurpose } from '../constants/auth.js'
+import {
+  AUTH_ERROR,
+  AUTH_SESSION_EXPIRED_MESSAGE,
+  EMAIL_CODE_PURPOSE,
+  type EmailCodePurpose,
+} from '../constants/auth.js'
 import {
   changePasswordSchema,
   loginSchema,
@@ -114,7 +119,9 @@ authRouter.post('/email-code', emailCodeLimiter, optionalAuth, async (req: Reque
     }
 
     if (purpose === EMAIL_CODE_PURPOSE.CHANGE_EMAIL) {
-      if (!req.user) throw new AuthError(AUTH_ERROR.SESSION_EXPIRED, '请先登录', 401)
+      if (!req.user) {
+        throw new AuthError(AUTH_ERROR.SESSION_EXPIRED, AUTH_SESSION_EXPIRED_MESSAGE, 401)
+      }
       if (input.email === req.user.email) {
         throw new AuthError(AUTH_ERROR.INVALID_INPUT, '新邮箱不能与当前邮箱相同', 422)
       }

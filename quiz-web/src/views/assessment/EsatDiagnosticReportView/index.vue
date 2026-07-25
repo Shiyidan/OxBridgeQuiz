@@ -55,11 +55,14 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
 import { getDiagnosticReportSummary, type DiagnosticReportSummary } from '@/api/exam'
+import { getApiErrorMessage } from '@/utils/request'
 import EsatEquivalentScore from './EsatEquivalentScore.vue'
 import EsatOverallOverview from './EsatOverallOverview.vue'
 import EsatKnowledgeMastery from './EsatKnowledgeMastery.vue'
 import EsatAiImprovementPlan from './EsatAiImprovementPlan.vue'
 import EsatLearningPath from './EsatLearningPath.vue'
+
+defineOptions({ name: 'EsatDiagnosticReportView' })
 
 const route = useRoute()
 const router = useRouter()
@@ -126,8 +129,8 @@ async function loadReport(): Promise<void> {
     reportWarning.value = data.meta.warning || ''
     reportExamRecordId.value = data.meta.reportExamRecordId || examId.value
     activeModuleId.value = data.report.header.modules[0]?.id || ''
-  } catch (error: any) {
-    errorMessage.value = error?.response?.data?.errMsg || error?.message || 'ESAT 诊断报告加载失败'
+  } catch (error: unknown) {
+    errorMessage.value = getApiErrorMessage(error, 'ESAT 诊断报告加载失败')
   } finally {
     loading.value = false
   }

@@ -243,14 +243,6 @@ interface AuditFilters {
   timeRange: [Date, Date] | null
 }
 
-interface ApiFailureShape {
-  response?: {
-    data?: {
-      errMsg?: string
-    }
-  }
-}
-
 const roleOptions = [
   { label: '全部', value: 'all' },
   { label: '管理员操作', value: 'admin' },
@@ -366,11 +358,6 @@ async function copyRequestId(requestId: string): Promise<void> {
   }
 }
 
-// 管理端统一优先展示后端业务错误，没有响应体时使用页面兜底文案。
-function apiErrorMessage(error: unknown, fallback: string): string {
-  return (error as ApiFailureShape)?.response?.data?.errMsg || fallback
-}
-
 // 已应用筛选与草稿筛选隔离，分页时不会带入尚未查询的输入。
 function copyFilters(target: AuditFilters, source: AuditFilters): void {
   target.role = source.role
@@ -422,11 +409,10 @@ async function loadLogs(): Promise<void> {
     pagination.page = data.pagination.page
     pagination.pageSize = data.pagination.pageSize
     pagination.total = data.pagination.total
-  } catch (error) {
+  } catch {
     if (requestId !== latestListRequestId) return
     logs.value = []
     pagination.total = 0
-    ElMessage.error(apiErrorMessage(error, '操作日志加载失败'))
   } finally {
     if (requestId === latestListRequestId) loading.value = false
   }
@@ -514,8 +500,7 @@ async function openDetail(id: string): Promise<void> {
   selectedLog.value = null
   try {
     selectedLog.value = await getOperationLogDetail(id)
-  } catch (error) {
-    ElMessage.error(apiErrorMessage(error, '操作详情加载失败'))
+  } catch {
     detailVisible.value = false
   } finally {
     detailLoading.value = false

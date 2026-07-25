@@ -36,7 +36,6 @@ export function getSyllabusData(examType = DEFAULT_EXAM_TYPE) {
   return callApi<SyllabusNode[]>({
     url: '/papers/syllabus',
     method: 'GET',
-    isAllData: false,
     params: { examType },
   })
 }
@@ -46,7 +45,6 @@ export function getQuestionSummaryData(code: string, examType = DEFAULT_EXAM_TYP
   return callApi<QuestionBankSummary>({
     url: '/papers/question-bank/summary',
     method: 'GET',
-    isAllData: false,
     params: { code, examType },
   })
 }
@@ -60,7 +58,6 @@ export function getQuestionsData(filters: {
   return callApi<{ questions: QuestionBankItem[] }>({
     url: '/papers/question-bank',
     method: 'GET',
-    isAllData: false,
     params: filters,
   }).then((data) => data.questions)
 }

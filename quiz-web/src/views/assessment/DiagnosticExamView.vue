@@ -173,6 +173,7 @@ import {
 import { getMember } from '@/api/member'
 import { useAuthStore } from '@/stores/auth'
 import type { AttemptQuestion } from '@/types'
+import { hasApiErrorCode } from '@/utils/request'
 
 const route = useRoute()
 const router = useRouter()
@@ -204,15 +205,6 @@ let pauseSessionPromise: Promise<void> | null = null
 let resumeSessionPromise: Promise<void> | null = null
 let leaveConfirmationPromise: Promise<boolean> | null = null
 let pendingExpiredModuleCode = ''
-
-interface ApiErrorShape {
-  response?: {
-    data?: {
-      code?: string
-      errMsg?: string
-    }
-  }
-}
 
 const activeModule = computed(() => session.value?.currentModule || null)
 const breakState = computed(() => session.value?.break || null)
@@ -257,12 +249,6 @@ const currentKnowledgeTags = computed(() => {
   return labels.length ? [...new Set(labels)] : [activeModule.value?.label || '综合考点']
 })
 
-// 请求异常统一从标准 API 响应中提取错误码和提示，避免业务流程依赖 any。
-function getApiError(error: unknown): ApiErrorShape['response'] {
-  if (!error || typeof error !== 'object') return undefined
-  return (error as ApiErrorShape).response
-}
-
 // 新规范优先读取 module_question_number，早期 attempt 回退到 component 别名或数组顺序。
 function getQuestionDisplayNumber(question: AttemptQuestion, index: number): number {
   return question.module_question_number || question.component_question_number || index + 1
@@ -280,8 +266,8 @@ async function loadSession(): Promise<void> {
       : await startExam({ paperId })
     await applySession(data)
     if (data.phase === 'ready_to_submit') await finalizeExam()
-  } catch (error: unknown) {
-    ElMessage.error(getApiError(error)?.data?.errMsg || '加载诊断测试失败')
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
   } finally {
     loading.value = false
   }
@@ -379,7 +365,7 @@ async function saveProgress(showError = false): Promise<void> {
   try {
     await request
   } catch (error: unknown) {
-    if (getApiError(error)?.data?.code === 'EXAM_EXPIRED') {
+    if (hasApiErrorCode(error, 'EXAM_EXPIRED')) {
       await handleModuleTimeExpired()
       return
     }
@@ -480,8 +466,7 @@ async function completeCurrentModule(): Promise<void> {
     }
     nextSession = await completeExamModule(session.value.examRecordId, buildResponses())
     await applySession(nextSession)
-  } catch (error: unknown) {
-    ElMessage.error(getApiError(error)?.data?.errMsg || `结束当前${sectionNoun.value}失败，请重试`)
+  } catch {
     if (!moduleDeadlineReached.value) {
       timingPaused = false
       questionEnteredAt = Date.now()
@@ -535,8 +520,8 @@ async function advanceFromBreak(): Promise<void> {
   try {
     const next = await skipExamBreak(session.value.examRecordId)
     await applySession(next)
-  } catch (error: unknown) {
-    ElMessage.error(getApiError(error)?.data?.errMsg || '开始下一科目失败，请重试')
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
   } finally {
     transitioning.value = false
     continuePendingModuleExpiry()
@@ -600,7 +585,6 @@ async function pauseCurrentModule(): Promise<void> {
         questionEnteredAt = Date.now()
         timerKey.value = `${timerKey.value}:pause-failed:${Date.now()}`
       }
-      ElMessage.error(getApiError(error)?.data?.errMsg || '保存诊断测试进度失败，请重试')
       throw error
     } finally {
       transitioning.value = false
@@ -646,9 +630,6 @@ async function resumePausedModule(): Promise<void> {
     try {
       nextSession = await getModuleExamSession(examRecordId)
       await applySession(nextSession)
-    } catch (error: unknown) {
-      ElMessage.error(getApiError(error)?.data?.errMsg || '恢复诊断测试失败，请重试')
-      throw error
     } finally {
       transitioning.value = false
       continuePendingModuleExpiry()
@@ -689,8 +670,8 @@ async function finalizeExam(): Promise<void> {
     } catch {
       // 额度刷新失败不影响已提交的诊断结果。
     }
-  } catch (error: unknown) {
-    ElMessage.error(getApiError(error)?.data?.errMsg || '提交诊断测试失败，请重试')
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
   } finally {
     transitioning.value = false
   }

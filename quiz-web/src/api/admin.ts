@@ -409,7 +409,6 @@ export function getRevenueListData(params: ListParams = {}) {
   return callApi<PageResult<RevenueItem>>({
     url: '/admin/revenue-costs/getList',
     method: 'GET',
-    isAllData: false,
     params: {
       ...(params.page ? { page: String(params.page) } : {}),
       ...(params.pageSize ? { pageSize: String(params.pageSize) } : {}),
@@ -422,7 +421,6 @@ export function updateRevenue(id: string, data: Partial<RevenueItem>) {
   return callApi<RevenueItem>({
     url: `/admin/revenue-costs/${id}`,
     method: 'PUT',
-    isAllData: false,
     body: data,
   })
 }
@@ -432,7 +430,6 @@ export function createRevenue(data: Partial<RevenueItem>) {
   return callApi<RevenueItem>({
     url: '/admin/revenue-costs',
     method: 'POST',
-    isAllData: false,
     body: data,
   })
 }
@@ -444,7 +441,6 @@ export function getUserListData(params: ListParams = {}) {
   return callApi<PageResult<UserItem>>({
     url: '/admin/users',
     method: 'GET',
-    isAllData: false,
     params: {
       ...(params.page ? { page: String(params.page) } : {}),
       ...(params.pageSize ? { pageSize: String(params.pageSize) } : {}),
@@ -457,7 +453,6 @@ export function updateUserRole(userId: string, role: string) {
   return callApi<void>({
     url: `/admin/users/${userId}/role`,
     method: 'PUT',
-    isAllData: false,
     body: { role },
   })
 }
@@ -467,7 +462,6 @@ export function updateUserAccess(userId: string, data: UpdateUserAccessPayload) 
   return callApi<{ user: UserItem | null }>({
     url: `/admin/users/${userId}/access`,
     method: 'PUT',
-    isAllData: false,
     body: data,
   })
 }
@@ -479,7 +473,6 @@ export function getAdminPaymentConfig() {
   return callApi<AdminPaymentConfig>({
     url: '/admin/payment-config',
     method: 'GET',
-    isAllData: false,
   })
 }
 
@@ -490,7 +483,6 @@ export function updateAdminPaymentConfig(
   return callApi<AdminPaymentConfig>({
     url: '/admin/payment-config',
     method: 'PUT',
-    isAllData: false,
     body: data,
   })
 }
@@ -502,7 +494,6 @@ export function getAdminPaymentOrders(
   return callApi<PageResult<AdminPaymentOrder>>({
     url: '/admin/payment-orders',
     method: 'GET',
-    isAllData: false,
     params: {
       ...(params.page ? { page: String(params.page) } : {}),
       ...(params.pageSize ? { pageSize: String(params.pageSize) } : {}),
@@ -517,7 +508,6 @@ export function getAdminPaymentOrderDetail(orderNo: string) {
   return callApi<AdminPaymentOrderDetail>({
     url: `/admin/payment-orders/${encodeURIComponent(orderNo)}`,
     method: 'GET',
-    isAllData: false,
   })
 }
 
@@ -526,7 +516,6 @@ export function createAdminPaymentRefund(orderNo: string, reason: string) {
   return callApi<AdminPaymentRefund>({
     url: `/admin/payment-orders/${encodeURIComponent(orderNo)}/refunds`,
     method: 'POST',
-    isAllData: false,
     body: { reason },
   })
 }
@@ -536,7 +525,6 @@ export function queryAdminPaymentRefund(refundOrderNo: string) {
   return callApi<AdminPaymentRefund>({
     url: `/admin/payment-refunds/${encodeURIComponent(refundOrderNo)}/query`,
     method: 'POST',
-    isAllData: false,
   })
 }
 
@@ -545,7 +533,6 @@ export function getAdminPaymentReconciliationOverview() {
   return callApi<AdminPaymentReconciliationOverview>({
     url: '/admin/payment-reconciliation/overview',
     method: 'GET',
-    isAllData: false,
   })
 }
 
@@ -556,7 +543,6 @@ export function getAdminPaymentReconciliationItems(
   return callApi<PageResult<AdminPaymentReconciliationItem>>({
     url: '/admin/payment-reconciliation/items',
     method: 'GET',
-    isAllData: false,
     params: {
       ...(params.page ? { page: String(params.page) } : {}),
       ...(params.pageSize ? { pageSize: String(params.pageSize) } : {}),
@@ -570,7 +556,6 @@ export function runAdminPaymentReconciliation(businessDate: string) {
   return callApi<AdminPaymentReconciliationRun>({
     url: '/admin/payment-reconciliation/runs',
     method: 'POST',
-    isAllData: false,
     body: { businessDate },
   })
 }
@@ -580,7 +565,6 @@ export function recheckAdminPaymentReconciliationItem(id: string) {
   return callApi<AdminPaymentReconciliationItem>({
     url: `/admin/payment-reconciliation/items/${encodeURIComponent(id)}/recheck`,
     method: 'POST',
-    isAllData: false,
   })
 }
 
@@ -589,7 +573,6 @@ export function resolveAdminPaymentReconciliationItem(id: string, note: string) 
   return callApi<AdminPaymentReconciliationItem>({
     url: `/admin/payment-reconciliation/items/${encodeURIComponent(id)}/resolve`,
     method: 'POST',
-    isAllData: false,
     body: { note },
   })
 }
@@ -601,7 +584,6 @@ export function getBehaviorAnalytics(params: BehaviorAnalyticsParams = {}) {
   return callApi<BehaviorAnalyticsResult>({
     url: '/admin/behavior-analytics',
     method: 'GET',
-    isAllData: false,
     params: {
       startAt: params.startAt,
       endAt: params.endAt,
@@ -615,7 +597,6 @@ export function getOperationLogs(params: OperationLogListParams = {}) {
   return callApi<PageResult<OperationLogItem>>({
     url: '/admin/operation-logs',
     method: 'GET',
-    isAllData: false,
     params: {
       ...(params.page ? { page: String(params.page) } : {}),
       ...(params.pageSize ? { pageSize: String(params.pageSize) } : {}),
@@ -635,6 +616,5 @@ export function getOperationLogDetail(id: string) {
   return callApi<OperationLogDetail>({
     url: `/admin/operation-logs/${encodeURIComponent(id)}`,
     method: 'GET',
-    isAllData: false,
   })
 }

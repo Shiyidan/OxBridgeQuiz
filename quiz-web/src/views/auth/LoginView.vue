@@ -51,8 +51,6 @@
             }}
           </p>
 
-          <div v-if="!isResetMode && auth.error" class="auth-alert">{{ auth.error }}</div>
-
           <el-form
             v-if="!isResetMode"
             ref="formRef"
@@ -338,7 +336,7 @@ const handleSubmit = async (): Promise<void> => {
     }
     await router.replace(redirectAfterAuth.value)
   } catch {
-    // 错误信息已写入 auth.error，模板顶部的 .auth-alert 会展示。
+    // Axios 公共响应处理会展示后端 errMsg。
   }
 }
 
@@ -391,8 +389,8 @@ async function handleSendCode(): Promise<void> {
     resetFormRef.value?.clearValidate('emailCode')
     startCountdown(data.resendAfter)
     ElMessage.success('如果该邮箱已注册，验证码邮件会很快送达')
-  } catch (error: unknown) {
-    ElMessage.error(error instanceof Error ? error.message : '验证码发送失败')
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
   } finally {
     codeSending.value = false
   }
@@ -425,8 +423,8 @@ async function handleReset(): Promise<void> {
     ElMessage.success('密码已重置，请使用新密码登录')
     clearResetState()
     isResetMode.value = false
-  } catch (error: unknown) {
-    ElMessage.error(error instanceof Error ? error.message : '密码重置失败')
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
   } finally {
     resetSubmitting.value = false
   }

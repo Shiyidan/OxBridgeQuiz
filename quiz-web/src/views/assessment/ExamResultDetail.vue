@@ -32,6 +32,7 @@ import NavBar from '@/components/NavBar.vue'
 import ExamQuestionAnalysis from '@/components/report/ExamQuestionAnalysis.vue'
 import { getDiagnosticReportStatus, getExamResultData, type ExamQuestion } from '@/api/exam'
 import { PAPER_TYPE, normalizePaperType } from '@/constants/paperTypes'
+import { getApiErrorMessage } from '@/utils/request'
 
 interface PaperMeta {
   id: string
@@ -119,8 +120,8 @@ onMounted(async () => {
       number: question.number ?? index + 1,
       images: question.images || [],
     }))
-  } catch (error: any) {
-    loadError.value = error?.response?.data?.errMsg || '加载答卷失败，请稍后重试'
+  } catch (error: unknown) {
+    loadError.value = getApiErrorMessage(error, '加载答卷失败，请稍后重试')
   } finally {
     loading.value = false
   }

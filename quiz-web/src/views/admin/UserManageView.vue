@@ -361,8 +361,8 @@ async function saveAccess(): Promise<void> {
     }
     editVisible.value = false
     ElMessage.success('用户权限已更新')
-  } catch (e: any) {
-    ElMessage.error(e.response?.data?.errMsg || '操作失败')
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
   } finally {
     saving.value = false
   }

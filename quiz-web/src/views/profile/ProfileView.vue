@@ -693,6 +693,7 @@ import {
   validatePassword,
   validateUsername,
 } from '@/utils/validation'
+import { getApiErrorMessage } from '@/utils/request'
 
 type SubscriptionFilter = 'all' | 'active' | 'expired' | 'cancelled'
 type PaymentOrderFilter = 'all' | 'pending' | 'paid' | 'closed' | 'refund'
@@ -915,8 +916,8 @@ async function saveExam(): Promise<void> {
     auth.setMemberContext(ctx)
     examEditing.value = false
     ElMessage.success('报考目标已更新')
-  } catch (error: unknown) {
-    ElMessage.error(getApiErrorMessage(error, '更新失败'))
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
   } finally {
     examSaving.value = false
   }
@@ -1231,8 +1232,8 @@ async function saveProfile(): Promise<void> {
     resetPasswordDraft()
     profileEditing.value = false
     ElMessage.success('基础信息已更新')
-  } catch (error: unknown) {
-    ElMessage.error(getApiErrorMessage(error, '更新资料失败'))
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
   } finally {
     profileSaving.value = false
   }
@@ -1276,8 +1277,8 @@ async function sendChangeEmailCode(): Promise<void> {
     emailCode.value = ''
     startEmailCountdown(data.resendAfter)
     ElMessage.success('验证码已发送到新邮箱')
-  } catch (error: unknown) {
-    ElMessage.error(getApiErrorMessage(error, '验证码发送失败'))
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
   } finally {
     emailCodeSending.value = false
   }
@@ -1311,8 +1312,8 @@ async function savePassword(): Promise<void> {
     auth.clearLocalSession()
     ElMessage.success('密码已修改，请使用新密码重新登录')
     await router.replace('/login')
-  } catch (error: unknown) {
-    ElMessage.error(getApiErrorMessage(error, '密码修改失败'))
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
   } finally {
     passwordSaving.value = false
   }
@@ -1475,14 +1476,6 @@ function formatDateTime(value: string | null): string {
   }).format(date)
 }
 
-// 接口异常优先展示后端业务消息，网络异常和未知异常使用调用方兜底文案。
-function getApiErrorMessage(error: unknown, fallback: string): string {
-  const apiError = error as { response?: { data?: { errMsg?: unknown } }; message?: unknown }
-  const responseMessage = apiError.response?.data?.errMsg
-  if (typeof responseMessage === 'string' && responseMessage) return responseMessage
-  if (typeof apiError.message === 'string' && apiError.message) return apiError.message
-  return fallback
-}
 </script>
 
 <style scoped lang="scss">

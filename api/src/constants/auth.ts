@@ -6,6 +6,8 @@ export const EMAIL_CODE_PURPOSE = {
 
 export type EmailCodePurpose = (typeof EMAIL_CODE_PURPOSE)[keyof typeof EMAIL_CODE_PURPOSE]
 
+export const AUTH_SESSION_EXPIRED_MESSAGE = '您已失去登录状态，请重新登录！'
+
 export const AUTH_ERROR = {
   INVALID_INPUT: 'AUTH_INVALID_INPUT',
   INVALID_CREDENTIALS: 'AUTH_INVALID_CREDENTIALS',

@@ -411,7 +411,7 @@ async function startPaper(paper: AssessmentPaperItem): Promise<void> {
     }
     routeToDiagnosticPaper(paper, false)
   } catch {
-    ElMessage.error('权益检查失败，请检查网络后重试')
+    // Axios 公共响应处理会展示后端 errMsg。
   } finally {
     startingPaperId.value = ''
   }

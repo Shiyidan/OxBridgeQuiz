@@ -3,7 +3,7 @@ import type { Request, Response, NextFunction } from 'express'
 import { verifyAccessToken } from '../services/jwt.js'
 import { prisma } from '../services/prisma.js'
 import { fail } from '../utils/response.js'
-import { AUTH_ERROR } from '../constants/auth.js'
+import { AUTH_ERROR, AUTH_SESSION_EXPIRED_MESSAGE } from '../constants/auth.js'
 
 export interface AuthContext {
   userId: string
@@ -50,13 +50,13 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   try {
     const context = await resolveAuthContext(req)
     if (!context) {
-      res.status(401).json(fail('请先登录', AUTH_ERROR.SESSION_EXPIRED))
+      res.status(401).json(fail(AUTH_SESSION_EXPIRED_MESSAGE, AUTH_ERROR.SESSION_EXPIRED))
       return
     }
     req.user = context
     next()
   } catch {
-    res.status(401).json(fail('登录状态已过期，请重新登录', AUTH_ERROR.SESSION_EXPIRED))
+    res.status(401).json(fail(AUTH_SESSION_EXPIRED_MESSAGE, AUTH_ERROR.SESSION_EXPIRED))
   }
 }
 

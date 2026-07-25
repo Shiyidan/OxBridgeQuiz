@@ -41,7 +41,6 @@ export function getPaymentConfig() {
   return callApi<PaymentConfig>({
     url: '/payment/config',
     method: 'GET',
-    isAllData: false,
   })
 }
 
@@ -54,7 +53,6 @@ export function createPaymentOrder(payload: {
   return callApi<CreatePaymentOrderResult>({
     url: '/payment/orders',
     method: 'POST',
-    isAllData: false,
     body: payload,
   })
 }
@@ -64,7 +62,6 @@ export function queryPaymentOrder(orderNo: string) {
   return callApi<PaymentOrder>({
     url: `/payment/orders/${encodeURIComponent(orderNo)}/query`,
     method: 'POST',
-    isAllData: false,
   })
 }
 
@@ -73,7 +70,6 @@ export function closePaymentOrder(orderNo: string) {
   return callApi<PaymentOrder>({
     url: `/payment/orders/${encodeURIComponent(orderNo)}/close`,
     method: 'POST',
-    isAllData: false,
   })
 }
 
@@ -82,6 +78,5 @@ export function getMyPaymentOrders() {
   return callApi<PaymentOrder[]>({
     url: '/payment/orders',
     method: 'GET',
-    isAllData: false,
   })
 }

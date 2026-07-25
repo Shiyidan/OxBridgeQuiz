@@ -1,5 +1,5 @@
-/** Axios封装：内存访问令牌、HttpOnly刷新Cookie和统一响应解包。 */
-import axios, { type AxiosRequestConfig, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
+/** Axios公共客户端：统一认证注入、会话刷新、响应解包和错误提示。 */
+import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import { ElMessage } from 'element-plus'
 import { API_URL } from '../config'
 
@@ -21,12 +21,23 @@ export class ApiError extends Error {
   }
 }
 
-let accessToken: string | null = null
-let refreshPromise: Promise<string> | null = null
+interface RequestAuthBridge {
+  getAccessToken: () => string | null
+  setAccessToken: (token: string) => void
+  clearSession: () => void
+}
 
-// 登录态变化时同步更新后续 API 请求使用的内存访问令牌。
-export function setAccessToken(token: string | null): void {
-  accessToken = token
+let authBridge: RequestAuthBridge | null = null
+let refreshPromise: Promise<string> | null = null
+let authFailureRedirectScheduled = false
+
+const AUTH_FAILURE_REDIRECT_DELAY_MS = 1800
+const AUTH_SESSION_EXPIRED_CODE = 'AUTH_SESSION_EXPIRED'
+const REQUEST_CANCELED_CODE = 'ERR_CANCELED'
+
+// 应用启动时绑定 Pinia 认证状态，确保请求层和界面只使用同一个 Token 数据源。
+export function configureRequestAuth(bridge: RequestAuthBridge): void {
+  authBridge = bridge
 }
 
 const instance = axios.create({
@@ -36,6 +47,7 @@ const instance = axios.create({
 })
 
 instance.interceptors.request.use((request) => {
+  const accessToken = authBridge?.getAccessToken()
   if (accessToken) request.headers.Authorization = `Bearer ${accessToken}`
   return request
 })
@@ -55,7 +67,7 @@ function refreshAccessToken(): Promise<string> {
   refreshPromise = instance
     .post<unknown, AxiosResponse<{ accessToken: string }>>('/auth/refresh')
     .then((response) => {
-      setAccessToken(response.data.accessToken)
+      authBridge?.setAccessToken(response.data.accessToken)
       return response.data.accessToken
     })
     .finally(() => {
@@ -64,11 +76,75 @@ function refreshAccessToken(): Promise<string> {
   return refreshPromise
 }
 
+// 接口异常优先读取标准响应包中的 errMsg，只有非标准响应才退回网络错误文本。
+function toApiError(error: unknown): ApiError {
+  if (error instanceof ApiError) return error
+  const response = (
+    error as {
+      response?: { status?: number; data?: Partial<ApiResponse> }
+      message?: string
+    }
+  )?.response
+  const body = response?.data
+  const message =
+    body?.success === false && typeof body.errMsg === 'string' && body.errMsg
+      ? body.errMsg
+      : (error as { message?: string })?.message || '请求失败'
+  const code = body?.code ?? (error as { code?: number | string })?.code ?? 1
+  return new ApiError(message, code, response?.status)
+}
+
+// 页面需要保留错误状态时统一读取新 ApiError 字段，不再访问 Axios response 兼容结构。
+export function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError && error.message) return error.message
+  if (error instanceof Error && error.message) return error.message
+  return fallback
+}
+
+// 需要分支处理的业务错误直接比较 ApiError.code。
+export function hasApiErrorCode(error: unknown, code: number | string): boolean {
+  return error instanceof ApiError && error.code === code
+}
+
+// 非登录失效类错误统一展示后端 errMsg，并通过 grouping 合并并发产生的相同提示。
+function showApiError(apiError: ApiError): void {
+  ElMessage.error({
+    message: apiError.message,
+    duration: 3000,
+    showClose: true,
+    grouping: true,
+  })
+}
+
+// 只有服务端明确返回会话失效业务码时才退出，避免把登录密码错误等 401 当成掉线。
+function isSessionExpired(apiError: ApiError): boolean {
+  return apiError.status === 401 && apiError.code === AUTH_SESSION_EXPIRED_CODE
+}
+
+// 受保护接口确认失去登录状态后只提示一次，并在提示可见后自动回到公开首页。
+function handleUnauthorized(apiError: ApiError): void {
+  authBridge?.clearSession()
+  if (authFailureRedirectScheduled) return
+  authFailureRedirectScheduled = true
+  ElMessage.error({
+    message: apiError.message,
+    duration: AUTH_FAILURE_REDIRECT_DELAY_MS,
+    showClose: false,
+  })
+  window.setTimeout(() => {
+    window.location.replace('/')
+  }, AUTH_FAILURE_REDIRECT_DELAY_MS)
+}
+
 instance.interceptors.response.use(
   (response) => {
     const body = response.data as ApiResponse
     if (body && typeof body === 'object' && 'success' in body) {
-      if (!body.success) return Promise.reject(new ApiError(body.errMsg || '请求失败', body.code, response.status))
+      if (!body.success) {
+        const apiError = new ApiError(body.errMsg || '请求失败', body.code, response.status)
+        showApiError(apiError)
+        return Promise.reject(apiError)
+      }
       response.data = body.data
     }
     return response
@@ -76,6 +152,7 @@ instance.interceptors.response.use(
   async (error) => {
     const original = error.config as RetryConfig | undefined
     const url = original?.url || ''
+    const isRefreshRequest = url.includes('/auth/refresh')
     const canRefresh =
       error.response?.status === 401 &&
       original &&
@@ -88,43 +165,32 @@ instance.interceptors.response.use(
         const refreshedToken = await refreshAccessToken()
         original.headers.Authorization = `Bearer ${refreshedToken}`
         return instance(original)
-      } catch {
-        // 刷新失败后统一进入未登录状态。
+      } catch (refreshError: unknown) {
+        const apiError = toApiError(refreshError)
+        if (isSessionExpired(apiError)) {
+          handleUnauthorized(apiError)
+          return Promise.reject(apiError)
+        }
+        showApiError(apiError)
+        return Promise.reject(apiError)
       }
     }
 
-    const body = error.response?.data as ApiResponse | undefined
-    const apiError = new ApiError(body?.errMsg || error.message || '请求失败', body?.code, error.response?.status)
-    if (error.response?.status === 401 && !NO_REFRESH_URLS.some((item) => url.includes(item))) {
-      setAccessToken(null)
-      if (!window.location.pathname.startsWith('/login')) {
-        ElMessage.error('登录状态已过期，请重新登录')
-        window.location.href = '/login'
-      }
+    const apiError = toApiError(error)
+    if (isRefreshRequest) return Promise.reject(apiError)
+    if (apiError.code === REQUEST_CANCELED_CODE) return Promise.reject(apiError)
+    if (isSessionExpired(apiError)) {
+      handleUnauthorized(apiError)
+      return Promise.reject(apiError)
     }
+    showApiError(apiError)
     return Promise.reject(apiError)
   },
 )
 
-const request = {
-  get<T = unknown>(url: string, config?: AxiosRequestConfig) {
-    return instance.get(url, config) as Promise<AxiosResponse<T>>
-  },
-  post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) {
-    return instance.post(url, data, config) as Promise<AxiosResponse<T>>
-  },
-  put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) {
-    return instance.put(url, data, config) as Promise<AxiosResponse<T>>
-  },
-  delete<T = unknown>(url: string, config?: AxiosRequestConfig) {
-    return instance.delete(url, config) as Promise<AxiosResponse<T>>
-  },
-}
-
 export interface ApiConfig {
   url: string
   method: 'GET' | 'POST' | 'PUT' | 'DELETE'
-  isAllData: boolean
   params?: Record<string, string | undefined>
   body?: unknown
   timeout?: number
@@ -144,13 +210,11 @@ function buildUrl(path: string, params?: Record<string, string | undefined>): st
 // API 模块通过统一配置发起请求，并按需覆盖全局超时时间。
 export async function callApi<T>(config: ApiConfig): Promise<T> {
   const url = buildUrl(config.url, config.params)
-  const requestConfig = config.timeout === undefined ? undefined : { timeout: config.timeout }
-  let response: AxiosResponse<T>
-  if (config.method === 'POST') response = await request.post<T>(url, config.body, requestConfig)
-  else if (config.method === 'PUT') response = await request.put<T>(url, config.body, requestConfig)
-  else if (config.method === 'DELETE') response = await request.delete<T>(url, requestConfig)
-  else response = await request.get<T>(url, requestConfig)
-  return config.isAllData ? (response as T) : response.data
+  const response = await instance.request<T, AxiosResponse<T>>({
+    url,
+    method: config.method,
+    data: config.body,
+    timeout: config.timeout,
+  })
+  return response.data
 }
-
-export default request

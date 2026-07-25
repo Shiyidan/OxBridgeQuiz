@@ -336,18 +336,11 @@ import {
   operationActionLabel,
   operationModuleLabel,
 } from '@/constants/operationAudit'
+import { getApiErrorMessage } from '@/utils/request'
 
 interface BehaviorFilters {
   dateRange: [Date, Date] | null
   module: string
-}
-
-interface ApiFailureShape {
-  response?: {
-    data?: {
-      errMsg?: string
-    }
-  }
 }
 
 interface ProductMetricCard {
@@ -552,11 +545,6 @@ function exclusiveEnd(value: Date): Date {
   return chinaDayStart(result)
 }
 
-// 接口错误优先展示后端校验信息，网络异常使用页面兜底文案。
-function apiErrorMessage(error: unknown, fallback: string): string {
-  return (error as ApiFailureShape)?.response?.data?.errMsg || fallback
-}
-
 // 页面始终使用已提交筛选读取一份原子统计响应，保证卡片、图表和排行口径一致。
 async function loadAnalytics(): Promise<void> {
   if (!Array.isArray(appliedFilters.dateRange) || appliedFilters.dateRange.length !== 2) return
@@ -574,8 +562,7 @@ async function loadAnalytics(): Promise<void> {
     analytics.value = data
   } catch (error) {
     if (requestId !== latestRequestId) return
-    loadError.value = apiErrorMessage(error, '用户行为统计加载失败')
-    ElMessage.error(loadError.value)
+    loadError.value = getApiErrorMessage(error, '用户行为统计加载失败')
   } finally {
     if (requestId === latestRequestId) loading.value = false
   }

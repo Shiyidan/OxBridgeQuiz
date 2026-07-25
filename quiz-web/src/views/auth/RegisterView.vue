@@ -434,13 +434,8 @@ async function handleSendCode(): Promise<void> {
       showClose: true,
       duration: 3000,
     })
-  } catch (error: unknown) {
-    ElMessage({
-      type: 'error',
-      message: error instanceof Error ? error.message : '验证码发送失败',
-      showClose: true,
-      duration: 4000,
-    })
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
   } finally {
     codeSending.value = false
   }
@@ -582,13 +577,8 @@ const handleSubmit = async (): Promise<void> => {
       emailCode: form.emailCode,
       examPreferences: examPrefs,
     })
-  } catch (error: unknown) {
-    ElMessage({
-      type: 'error',
-      message: error instanceof Error ? error.message : auth.error || '注册失败，请稍后重试',
-      showClose: true,
-      duration: 4000,
-    })
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
     return
   }
 

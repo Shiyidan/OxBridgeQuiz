@@ -107,7 +107,7 @@ npm run format       # Prettier
 }
 ```
 
-成功时使用 `code: 0`，通用失败使用 `code: 1`，业务错误使用可读的字符串错误码，例如 `AUTH_WRONG`。前端 `request.ts` 会解包 `data`，并在收到 401 时重定向到 `/login`。
+成功时使用 `code: 0`，通用失败使用 `code: 1`，业务错误使用可读的字符串错误码，例如 `AUTH_WRONG`。前端 `request.ts` 会解包 `data`；服务端确认登录会话失效时，前端清除认证状态并返回首页。
 
 ### 前端 API 层
 
@@ -117,10 +117,9 @@ API 模块应先定义类型，再定义 API 函数。使用 `src/utils/request.
 
 - `method`
 - `url`
-- `isAllData`
 - 需要时指定 `params` 或 `body`
 
-普通的、已解包的 API 数据使用 `isAllData: false`。仅当调用方需要响应头、状态码或完整 Axios 响应时，才使用 `true`。
+`callApi<T>()` 始终返回统一响应包中已解包的 `data`。业务页面不得访问 Axios 的完整响应或 `error.response`；页面需要保留错误信息或按错误码分支时，使用 `request.ts` 提供的公共错误辅助函数。
 
 ### 分页
 

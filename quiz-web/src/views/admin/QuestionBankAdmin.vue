@@ -203,7 +203,6 @@ async function fetchPapers(): Promise<void> {
   } catch {
     paperList.value = []
     pagination.total = 0
-    ElMessage.error('试题库题目加载失败')
   } finally {
     loading.value = false
   }
@@ -277,7 +276,7 @@ async function changeStatus(id: string, newStatus: string): Promise<void> {
     const item = paperList.value.find((paper) => paper.id === id)
     if (item) item.status = newStatus
   } catch {
-    ElMessage.error('题目状态更新失败')
+    // Axios 公共响应处理会展示后端 errMsg。
   }
 }
 
@@ -313,8 +312,8 @@ async function handleDeletePaper(paper: PaperItem): Promise<void> {
     ElMessage.success(`试题数据已删除，同时清理 ${result.deletedQuestions} 道题目`)
     if (paperList.value.length === 1 && pagination.page > 1) pagination.page -= 1
     await fetchPapers()
-  } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '试题数据删除失败')
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
   } finally {
     deletingPaperId.value = null
   }

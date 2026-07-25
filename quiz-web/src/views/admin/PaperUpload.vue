@@ -645,6 +645,7 @@ import { renderPdfToBase64Pages, type RenderedPage } from '@/utils/pdfRenderer'
 import { DEFAULT_EXAM_TYPE, EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
 import { PAPER_TYPE } from '@/constants/paperTypes'
 import type { PaperMetadata, ProjectQuestionInput, QuestionInput, StandardPaperJson } from '@/types'
+import { getApiErrorMessage, hasApiErrorCode } from '@/utils/request'
 
 const router = useRouter()
 const route = useRoute()
@@ -778,11 +779,53 @@ const SECTION_PREVIEW_PROFILES: Record<
   biology: { subject: 'Biology', duration: 40, sectionType: 'subject' },
 }
 
+interface PreviewDocumentMetadata {
+  code?: unknown
+  title?: unknown
+  paperName?: unknown
+  year?: unknown
+  duration?: unknown
+  examType?: unknown
+  paperType?: unknown
+  deliveryMode?: unknown
+  totalQuestions?: unknown
+  assemblyType?: unknown
+  remarks?: unknown
+}
+
+interface PreviewModuleRow extends Record<string, unknown> {
+  code?: unknown
+  module_code?: unknown
+  component_code?: unknown
+  sectionType?: unknown
+  order?: unknown
+  subject?: unknown
+  subject_code?: unknown
+  duration?: unknown
+  questions?: unknown[]
+  items?: unknown[]
+}
+
+interface PreviewPaperDocument {
+  metadata?: PreviewDocumentMetadata
+  sections?: PreviewModuleRow[]
+  modules?: PreviewModuleRow[]
+  questions?: unknown[]
+}
+
 // 新版 sections 文档不携带计时字段，上传页仅按后端同一考试规则展示派生值。
-function isSectionPaperDocument(raw: unknown): boolean {
+function isSectionPaperDocument(
+  raw: unknown,
+): raw is PreviewPaperDocument & { sections: PreviewModuleRow[] } {
   return Boolean(
     raw && typeof raw === 'object' && Array.isArray((raw as { sections?: unknown }).sections),
   )
+}
+
+// JSON 预览边界先收窄为可检查的文档外形，字段合法性由后续标准校验逐项确认。
+function toPreviewPaperDocument(raw: unknown): PreviewPaperDocument | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  return raw as PreviewPaperDocument
 }
 
 // 上传预览统一转为页面现有题目模型，正式入库仍由后端完成同一字段归一化和校验。
@@ -825,10 +868,11 @@ function normalizeProjectQuestionForPreview(
 }
 
 // 页面编辑表单沿用统一元数据视图；新版文档缺省的时长和题量由 sections 规则派生。
-function readStandardMetadata(raw: any): PaperMetadata | null {
-  const metadata = raw?.metadata
+function readStandardMetadata(raw: unknown): PaperMetadata | null {
+  const document = toPreviewPaperDocument(raw)
+  const metadata = document?.metadata
   if (!metadata || typeof metadata !== 'object') return null
-  if (isSectionPaperDocument(raw)) {
+  if (isSectionPaperDocument(document)) {
     if (!metadata.code || typeof metadata.code !== 'string') return null
     if (!metadata.title || typeof metadata.title !== 'string') return null
     if (typeof metadata.year !== 'number') return null
@@ -836,15 +880,10 @@ function readStandardMetadata(raw: any): PaperMetadata | null {
     if (!isPaperTypeValue(metadata.paperType)) return null
     if (metadata.deliveryMode !== 'section_sequence') return null
     const expectedSectionCount = metadata.examType === 'TMUA' ? 2 : 3
-    if (raw.sections.length !== expectedSectionCount) return null
+    if (document.sections.length !== expectedSectionCount) return null
     const seenCodes = new Set<string>()
     const seenOrders = new Set<number>()
-    const sectionRows = raw.sections as Array<{
-      code?: string
-      sectionType?: string
-      order?: number
-      questions?: unknown[]
-    }>
+    const sectionRows = document.sections
     const validSections = sectionRows.every((section, index) => {
       const profile = SECTION_PREVIEW_PROFILES[String(section?.code)]
       const tmuaOrderIsValid =
@@ -889,8 +928,8 @@ function readStandardMetadata(raw: any): PaperMetadata | null {
       paperType: metadata.paperType,
       totalQuestions,
       deliveryMode: 'section_sequence',
-      assemblyType: metadata.assemblyType,
-      remarks: metadata.remarks,
+      assemblyType: typeof metadata.assemblyType === 'string' ? metadata.assemblyType : undefined,
+      remarks: typeof metadata.remarks === 'string' ? metadata.remarks : undefined,
     }
   }
   if (!metadata.paperName || typeof metadata.paperName !== 'string') return null
@@ -903,33 +942,44 @@ function readStandardMetadata(raw: any): PaperMetadata | null {
 }
 
 // 上传预览接受新版 sections，并兼容 modules[].questions、modules[].items 和扁平 questions。
-function readPaperDocumentPreview(raw: any): {
+function readPaperDocumentPreview(raw: unknown): {
   metadata: PaperMetadata
   questions: QuestionInput[]
   modules: Array<{ code: string; subject: string; duration: number; count: number }>
   isSectionSchema: boolean
 } | null {
-  const metadata = readStandardMetadata(raw)
+  const document = toPreviewPaperDocument(raw)
+  if (!document) return null
+  const metadata = readStandardMetadata(document)
   if (!metadata) return null
 
-  const isSectionSchema = isSectionPaperDocument(raw)
+  const isSectionSchema = isSectionPaperDocument(document)
   const rawModuleRows = isSectionSchema
-    ? raw.sections
-    : Array.isArray(raw?.modules)
-      ? raw.modules
-      : Array.isArray(raw?.questions) &&
-          raw.questions.length > 0 &&
-          raw.questions.every((item: any) => Array.isArray(item?.items))
-        ? raw.questions
+    ? document.sections
+    : Array.isArray(document.modules)
+      ? document.modules
+      : Array.isArray(document.questions) &&
+          document.questions.length > 0 &&
+          document.questions.every(
+            (item) =>
+              Boolean(item) &&
+              typeof item === 'object' &&
+              Array.isArray((item as PreviewModuleRow).items),
+          )
+        ? (document.questions as PreviewModuleRow[])
         : null
   const moduleRows =
-    rawModuleRows?.map((module: any) => ({
+    rawModuleRows?.map((module) => ({
       ...module,
-      questions: Array.isArray(module?.questions) ? module.questions : module?.items,
+      questions: Array.isArray(module.questions)
+        ? module.questions
+        : Array.isArray(module.items)
+          ? module.items
+          : [],
     })) || null
 
   if (moduleRows) {
-    const modules = moduleRows.map((module: any, moduleIndex: number) => ({
+    const modules = moduleRows.map((module, moduleIndex: number) => ({
       code: String(
         module.code ||
           module.module_code ||
@@ -946,27 +996,35 @@ function readPaperDocumentPreview(raw: any): {
         Number(module.duration) || SECTION_PREVIEW_PROFILES[String(module.code)]?.duration || 0,
       count: Array.isArray(module.questions) ? module.questions.length : 0,
     }))
-    const questions = moduleRows.flatMap((module: any, moduleIndex: number) => {
-      const moduleQuestions = Array.isArray(module.questions) ? module.questions : []
-      return moduleQuestions.map((rawQuestion: QuestionInput, itemIndex: number) => {
+    const questions = moduleRows.flatMap((module, moduleIndex: number) => {
+      const moduleQuestions = module.questions as QuestionInput[]
+      const moduleCode = String(
+        module.code || module.module_code || module.component_code || '',
+      ) as QuestionInput['module_code']
+      const moduleSubject = typeof module.subject === 'string' ? module.subject : undefined
+      const moduleSubjectCode =
+        typeof module.subject_code === 'string' || typeof module.subject_code === 'number'
+          ? module.subject_code
+          : ''
+      return moduleQuestions.map((rawQuestion, itemIndex: number) => {
         const question = isSectionSchema
           ? normalizeProjectQuestionForPreview(
               rawQuestion as unknown as ProjectQuestionInput,
-              raw.metadata,
+              metadata,
             )
           : rawQuestion
         return {
           ...question,
           number: questionsBeforeModule(moduleRows, moduleIndex) + itemIndex + 1,
-          module_code: module.code || module.module_code || module.component_code,
+          module_code: moduleCode,
           module_order: Number(module.order) || moduleIndex + 1,
           module_question_number: rawQuestion.number || itemIndex + 1,
           // 预览期保留旧别名，便于早期管理页和已上传数据平滑迁移。
-          component_code: module.code || module.module_code || module.component_code,
+          component_code: moduleCode,
           component_order: Number(module.order) || moduleIndex + 1,
           component_question_number: rawQuestion.number || itemIndex + 1,
-          subject: question.subject || module.subject,
-          subject_code: question.subject_code || String(module.subject_code || ''),
+          subject: question.subject || moduleSubject,
+          subject_code: question.subject_code || moduleSubjectCode,
         }
       })
     })
@@ -974,9 +1032,17 @@ function readPaperDocumentPreview(raw: any): {
     return { metadata, questions, modules, isSectionSchema }
   }
 
-  if (!Array.isArray(raw?.questions) || metadata.totalQuestions !== raw.questions.length)
+  if (
+    !Array.isArray(document.questions) ||
+    metadata.totalQuestions !== document.questions.length
+  )
     return null
-  return { metadata, questions: raw.questions, modules: [], isSectionSchema: false }
+  return {
+    metadata,
+    questions: document.questions as QuestionInput[],
+    modules: [],
+    isSectionSchema: false,
+  }
 }
 
 // Paper 1/2 内题号都会从 1 开始，预览列表使用稳定 code 避免重复 Vue key。
@@ -987,7 +1053,7 @@ function questionPreviewKey(question: QuestionInput): string {
   )
 }
 
-function questionsBeforeModule(modules: any[], targetIndex: number): number {
+function questionsBeforeModule(modules: PreviewModuleRow[], targetIndex: number): number {
   return modules
     .slice(0, targetIndex)
     .reduce(
@@ -1139,11 +1205,11 @@ async function startUpload(): Promise<void> {
     }
 
     cachedPages = pages
-  } catch (e: any) {
+  } catch (e: unknown) {
     rendering.value = false
     parsingFailed.value = true
     const prefix = fileKind.value === 'image' ? '图片处理失败：' : 'PDF 渲染失败：'
-    parseError.value = prefix + (e.message || '未知错误')
+    parseError.value = prefix + getApiErrorMessage(e, '未知错误')
     return
   }
 
@@ -1162,11 +1228,11 @@ async function startUpload(): Promise<void> {
     })
     taskId = createRes.taskId
     paperId.value = createRes.paperId
-  } catch (e: any) {
+  } catch (e: unknown) {
     rendering.value = false
-    if (e?.code !== 'ERR_CANCELED') {
+    if (!hasApiErrorCode(e, 'ERR_CANCELED')) {
       parsingFailed.value = true
-      parseError.value = e.response?.data?.errMsg || e.message || '创建任务失败'
+      parseError.value = getApiErrorMessage(e, '创建任务失败')
     }
     return
   }
@@ -1180,9 +1246,9 @@ async function startUpload(): Promise<void> {
         mimeType: p.mimeType!,
         totalPages: pages.length,
       })
-    } catch (e: any) {
-      if (e?.code === 'ERR_CANCELED') return
-      console.error(`Page ${p.page} upload failed:`, e.message)
+    } catch (e: unknown) {
+      if (hasApiErrorCode(e, 'ERR_CANCELED')) return
+      console.error(`Page ${p.page} upload failed:`, getApiErrorMessage(e, '上传失败'))
     }
 
     renderCurrent.value = p.page
@@ -1192,12 +1258,6 @@ async function startUpload(): Promise<void> {
   rendering.value = false
   uploadDone.value = true
   pollTask()
-}
-
-interface ParseTaskStatus {
-  progress: number
-  status: string
-  error?: string
 }
 
 function pollTask(): void {
@@ -1251,11 +1311,11 @@ async function retryParse(): Promise<void> {
       })
       taskId = createRes.taskId
       paperId.value = createRes.paperId
-    } catch (e: any) {
+    } catch (e: unknown) {
       rendering.value = false
-      if (e?.code !== 'ERR_CANCELED') {
+      if (!hasApiErrorCode(e, 'ERR_CANCELED')) {
         parsingFailed.value = true
-        parseError.value = e.response?.data?.errMsg || e.message || '重试失败'
+        parseError.value = getApiErrorMessage(e, '重试失败')
       }
       return
     }
@@ -1269,9 +1329,9 @@ async function retryParse(): Promise<void> {
           mimeType: p.mimeType!,
           totalPages: cachedPages.length,
         })
-      } catch (e: any) {
-        if (e?.code === 'ERR_CANCELED') return
-        console.error(`Retry page ${p.page} upload failed:`, e.message)
+      } catch (e: unknown) {
+        if (hasApiErrorCode(e, 'ERR_CANCELED')) return
+        console.error(`Retry page ${p.page} upload failed:`, getApiErrorMessage(e, '上传失败'))
       }
       renderCurrent.value = p.page
       renderProgress.value = Math.round((p.page / cachedPages.length) * 100)
@@ -1292,9 +1352,9 @@ async function retryParse(): Promise<void> {
   try {
     await retryParseTask(taskId)
     pollTask()
-  } catch (e: any) {
+  } catch (e: unknown) {
     parsingFailed.value = true
-    parseError.value = e.response?.data?.errMsg || '重试失败'
+    parseError.value = getApiErrorMessage(e, '重试失败')
   }
 }
 
@@ -1414,8 +1474,8 @@ async function importJson(): Promise<void> {
     if (res.warnings?.length) {
       ElMessage.warning(res.warnings.join('；'))
     }
-  } catch (e: any) {
-    jsonError.value = e.response?.data?.errMsg || e.message || '导入失败'
+  } catch (e: unknown) {
+    jsonError.value = getApiErrorMessage(e, '导入失败')
   } finally {
     jsonImporting.value = false
   }
@@ -1562,8 +1622,8 @@ async function importMarkdown(): Promise<void> {
     mdPaperId.value = res.id
     mdWarnings.value = res.warnings || []
     mdDone.value = true
-  } catch (e: any) {
-    mdError.value = e.response?.data?.errMsg || e.message || '导入失败'
+  } catch (e: unknown) {
+    mdError.value = getApiErrorMessage(e, '导入失败')
   } finally {
     mdImporting.value = false
   }

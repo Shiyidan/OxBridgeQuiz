@@ -664,7 +664,7 @@ async function loadConfig(): Promise<void> {
     updatedAt.value = config.updatedAt
     syncSavedForm()
   } catch {
-    ElMessage.error('支付策略加载失败')
+    // Axios 公共响应处理会展示后端 errMsg。
   }
 }
 

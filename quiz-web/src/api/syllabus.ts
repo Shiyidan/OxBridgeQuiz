@@ -19,7 +19,6 @@ export function getSyllabusListData() {
   return callApi<SyllabusItem[]>({
     url: '/papers/syllabus-library',
     method: 'GET',
-    isAllData: false,
   })
 }
 
@@ -31,7 +30,6 @@ export function uploadSyllabusData(payload: {
   return callApi<SyllabusItem>({
     url: '/papers/syllabus-library',
     method: 'POST',
-    isAllData: false,
     body: payload,
   })
 }
@@ -40,7 +38,6 @@ export function getSyllabusDetailData(id: string) {
   return callApi<SyllabusDetail>({
     url: `/papers/syllabus-library/${id}`,
     method: 'GET',
-    isAllData: false,
   })
 }
 
@@ -48,7 +45,6 @@ export function enableSyllabusData(id: string) {
   return callApi<{ id: string; isActive: boolean }>({
     url: `/papers/syllabus-library/${id}/enable`,
     method: 'PUT',
-    isAllData: false,
   })
 }
 
@@ -56,6 +52,5 @@ export function disableSyllabusData(id: string) {
   return callApi<{ id: string; isActive: boolean }>({
     url: `/papers/syllabus-library/${id}/disable`,
     method: 'PUT',
-    isAllData: false,
   })
 }

@@ -457,7 +457,6 @@ export function startExam(params: StartExamParams) {
   return callApi<StartExamResult>({
     url: '/exams/start',
     method: 'POST',
-    isAllData: false,
     body: params,
   })
 }
@@ -467,7 +466,6 @@ export function saveExamProgress(examId: string, responses: ExamResponseInput[])
   return callApi<SaveProgressResult>({
     url: `/exams/${examId}/progress`,
     method: 'PUT',
-    isAllData: false,
     body: { responses },
   })
 }
@@ -477,7 +475,6 @@ export function getModuleExamSession(examId: string) {
   return callApi<StartExamResult>({
     url: `/exams/${examId}/session`,
     method: 'GET',
-    isAllData: false,
   })
 }
 
@@ -490,7 +487,6 @@ export function pauseExamModule(
   return callApi<StartExamResult>({
     url: `/exams/${examId}/pause`,
     method: 'POST',
-    isAllData: false,
     body: { moduleCode, responses },
   })
 }
@@ -500,7 +496,6 @@ export function completeExamModule(examId: string, responses: ExamResponseInput[
   return callApi<StartExamResult>({
     url: `/exams/${examId}/module/complete`,
     method: 'POST',
-    isAllData: false,
     body: { responses },
   })
 }
@@ -510,7 +505,6 @@ export function skipExamBreak(examId: string) {
   return callApi<StartExamResult>({
     url: `/exams/${examId}/break/skip`,
     method: 'POST',
-    isAllData: false,
     body: {},
   })
 }
@@ -520,7 +514,6 @@ export function submitExam(examId: string, params: SubmitParams) {
   return callApi<SubmitResult>({
     url: `/exams/${examId}/submit`,
     method: 'POST',
-    isAllData: false,
     body: params,
   })
 }
@@ -530,7 +523,6 @@ export function getExamResultData(examId: string) {
   return callApi<ExamResult>({
     url: `/exams/${examId}/result`,
     method: 'GET',
-    isAllData: false,
   })
 }
 
@@ -539,7 +531,6 @@ export function getDiagnosticReportSummary(examId: string) {
   return callApi<{ report: DiagnosticReportSummary; meta: DiagnosticReportMeta }>({
     url: `/exams/${examId}/diagnostic-report/summary`,
     method: 'GET',
-    isAllData: false,
   })
 }
 
@@ -548,7 +539,6 @@ export function getDiagnosticReportStatus(examId: string) {
   return callApi<DiagnosticReportStatus>({
     url: `/exams/${examId}/diagnostic-report/status`,
     method: 'GET',
-    isAllData: false,
   })
 }
 
@@ -557,7 +547,6 @@ export function retryDiagnosticReport(examId: string) {
   return callApi<Pick<DiagnosticReportStatus, 'status' | 'stage' | 'progress'>>({
     url: `/exams/${examId}/diagnostic-report/retry`,
     method: 'POST',
-    isAllData: false,
   })
 }
 
@@ -566,7 +555,6 @@ export function getMistakeNotebookData(params: MistakeNotebookParams = {}) {
   return callApi<PageResult<WrongAnswer>>({
     url: '/exams/error-book',
     method: 'GET',
-    isAllData: false,
     params: {
       ...(params.page ? { page: String(params.page) } : {}),
       ...(params.pageSize ? { pageSize: String(params.pageSize) } : {}),
@@ -584,7 +572,6 @@ export function getPracticeRecords() {
   return callApi<{ records: PracticeRecord[] }>({
     url: '/exams/practice-records',
     method: 'GET',
-    isAllData: false,
   })
 }
 
@@ -593,6 +580,5 @@ export function getProfileExamStats() {
   return callApi<{ stats: Record<string, ProfileExamStats> }>({
     url: '/exams/profile-stats',
     method: 'GET',
-    isAllData: false,
   })
 }

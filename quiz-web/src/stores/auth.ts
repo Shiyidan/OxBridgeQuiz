@@ -9,7 +9,6 @@ import {
   register as apiRegister,
   updateProfile as apiUpdateProfile,
 } from '../api/auth'
-import { setAccessToken } from '../utils/request'
 import type { MemberContext } from '../api/member'
 
 export interface User {
@@ -25,7 +24,6 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const token = ref<string | null>(null)
   const loading = ref(false)
-  const error = ref<string | null>(null)
   const memberContext = ref<MemberContext | null>(null)
   const sessionRestored = ref(false)
 
@@ -59,17 +57,20 @@ export const useAuthStore = defineStore('auth', () => {
     })),
   )
 
+  // Auth Store 是访问令牌的唯一数据源，请求层通过启动时绑定读取和更新该值。
+  function setAccessToken(accessToken: string | null): void {
+    token.value = accessToken
+  }
+
   function applyAuth(nextUser: User, accessToken: string): void {
     user.value = nextUser
-    token.value = accessToken
     setAccessToken(accessToken)
   }
 
   function clearAuth(): void {
     user.value = null
-    token.value = null
-    memberContext.value = null
     setAccessToken(null)
+    memberContext.value = null
   }
 
   function clearLocalSession(): void {
@@ -102,13 +103,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login(username: string, password: string): Promise<void> {
     loading.value = true
-    error.value = null
     try {
       const data = await apiLogin({ username, password })
       applyAuth(data.user, data.accessToken)
-    } catch (exception: any) {
-      error.value = exception?.message || '登录失败'
-      throw exception
     } finally {
       loading.value = false
     }
@@ -132,13 +129,9 @@ export const useAuthStore = defineStore('auth', () => {
     }>
   }): Promise<void> {
     loading.value = true
-    error.value = null
     try {
       const data = await apiRegister(input)
       applyAuth(data.user, data.accessToken)
-    } catch (exception: any) {
-      error.value = exception?.message || '注册失败'
-      throw exception
     } finally {
       loading.value = false
     }
@@ -151,14 +144,10 @@ export const useAuthStore = defineStore('auth', () => {
     emailCode?: string
   }): Promise<User> {
     loading.value = true
-    error.value = null
     try {
       const data = await apiUpdateProfile(input)
       setUser(data.user)
       return data.user
-    } catch (exception: any) {
-      error.value = exception?.message || '更新资料失败'
-      throw exception
     } finally {
       loading.value = false
     }
@@ -184,7 +173,6 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     token,
     loading,
-    error,
     memberContext,
     sessionRestored,
     permissions,
@@ -196,6 +184,7 @@ export const useAuthStore = defineStore('auth', () => {
     restoreSession,
     setMemberContext,
     setUser,
+    setAccessToken,
     clearLocalSession,
     login,
     register,

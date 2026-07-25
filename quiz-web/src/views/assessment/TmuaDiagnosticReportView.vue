@@ -22,6 +22,7 @@ import { useRoute } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
 import DiagnosticReportSummary from '@/components/report/DiagnosticReportSummary.vue'
 import { getDiagnosticReportSummary, type DiagnosticReportSummary as DiagnosticReportSummaryData } from '@/api/exam'
+import { getApiErrorMessage } from '@/utils/request'
 
 const route = useRoute()
 const loading = ref(true)
@@ -49,8 +50,8 @@ async function loadReport(): Promise<void> {
     }
     report.value = data.report
     reportWarning.value = data.meta.warning || ''
-  } catch (error: any) {
-    errorMessage.value = error?.response?.data?.errMsg || error?.message || 'TMUA 诊断报告加载失败'
+  } catch (error: unknown) {
+    errorMessage.value = getApiErrorMessage(error, 'TMUA 诊断报告加载失败')
   } finally {
     loading.value = false
   }

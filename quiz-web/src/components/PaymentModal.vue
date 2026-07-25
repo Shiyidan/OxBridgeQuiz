@@ -300,7 +300,7 @@ async function loadPaymentConfig(): Promise<void> {
     configStatus.value = config.status
     providerReady.value = config.providerReady
   } catch {
-    ElMessage.error('支付价格加载失败，请稍后重试')
+    // Axios 公共响应处理会展示后端 errMsg。
   }
 }
 

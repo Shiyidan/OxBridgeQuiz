@@ -63,7 +63,6 @@ export function getPaperListData(params: PaperListParams = {}) {
   return callApi<PaperListResult>({
     url: '/papers',
     method: 'GET',
-    isAllData: false,
     params: {
       page: String(params.page || 1),
       pageSize: String(params.pageSize || 20),
@@ -79,7 +78,6 @@ export function getPaperDetailData(id: string) {
   return callApi<PaperDetail>({
     url: `/papers/${id}`,
     method: 'GET',
-    isAllData: false,
   })
 }
 
@@ -88,7 +86,6 @@ export function updatePaperStatus(id: string, status: string) {
   return callApi<PaperItem>({
     url: `/papers/${id}`,
     method: 'PUT',
-    isAllData: false,
     body: { status },
   })
 }
@@ -98,7 +95,6 @@ export function updatePaperType(id: string, paperType: string) {
   return callApi<PaperItem>({
     url: `/papers/${id}`,
     method: 'PUT',
-    isAllData: false,
     body: { paperType },
   })
 }
@@ -114,7 +110,6 @@ export function deletePaper(id: string) {
   return callApi<DeletePaperResult>({
     url: `/papers/${id}`,
     method: 'DELETE',
-    isAllData: false,
   })
 }
 
@@ -164,6 +159,5 @@ export function getAssessmentPapersData() {
   return callApi<AssessmentPaperResult>({
     url: '/papers/assessment/papers',
     method: 'GET',
-    isAllData: false,
   })
 }

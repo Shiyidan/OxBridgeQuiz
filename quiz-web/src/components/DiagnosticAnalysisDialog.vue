@@ -109,6 +109,7 @@ import {
   retryDiagnosticReport,
   type DiagnosticReportStatus,
 } from '@/api/exam'
+import { getApiErrorMessage } from '@/utils/request'
 
 const STATUS_POLL_MS = 2000
 const MIN_ANALYSIS_DISPLAY_MS = 6000
@@ -224,7 +225,7 @@ async function pollAnalysisStatus(): Promise<void> {
       return
     }
   } catch (error: unknown) {
-    pollError.value = requestErrorMessage(error, '暂时无法获取分析进度，正在重试。')
+    pollError.value = getApiErrorMessage(error, '暂时无法获取分析进度，正在重试。')
   }
   pollTimer = window.setTimeout(() => void pollAnalysisStatus(), STATUS_POLL_MS)
 }
@@ -237,7 +238,7 @@ async function retryAnalysis(): Promise<void> {
     await retryDiagnosticReport(props.examId)
     initializeAnalysis()
   } catch (error: unknown) {
-    analysisError.value = requestErrorMessage(error, '重新分析失败，请稍后重试。')
+    analysisError.value = getApiErrorMessage(error, '重新分析失败，请稍后重试。')
   } finally {
     retrying.value = false
   }
@@ -288,11 +289,6 @@ function stopAnalysisPolling(): void {
   stopModuleCaptions()
 }
 
-function requestErrorMessage(error: unknown, fallback: string): string {
-  const responseMessage = (error as { response?: { data?: { errMsg?: unknown } } })?.response?.data?.errMsg
-  if (typeof responseMessage === 'string' && responseMessage) return responseMessage
-  return error instanceof Error && error.message ? error.message : fallback
-}
 </script>
 
 <style lang="scss">

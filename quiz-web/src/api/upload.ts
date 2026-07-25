@@ -41,7 +41,6 @@ export function createUploadTask(params: {
   return callApi<CreateTaskResult>({
     url: '/upload/paper-pages/create',
     method: 'POST',
-    isAllData: false,
     body: params,
   })
 }
@@ -59,7 +58,6 @@ export function uploadPage(
   return callApi<void>({
     url: `/parse-tasks/${taskId}/pages`,
     method: 'POST',
-    isAllData: false,
     body: data,
   })
 }
@@ -69,7 +67,6 @@ export function getParseTaskStatusData(taskId: string) {
   return callApi<ParseTaskStatus>({
     url: `/parse-tasks/${taskId}`,
     method: 'GET',
-    isAllData: false,
   })
 }
 
@@ -78,7 +75,6 @@ export function retryParseTask(taskId: string) {
   return callApi<void>({
     url: `/parse-tasks/${taskId}/retry`,
     method: 'POST',
-    isAllData: false,
   })
 }
 
@@ -87,7 +83,6 @@ export function importJson(params: StandardPaperJson & { code?: string }) {
   return callApi<ImportedPaperResult>({
     url: '/papers/import-json',
     method: 'POST',
-    isAllData: false,
     body: params,
   })
 }
@@ -97,7 +92,6 @@ export function importMarkdown(params: { markdown: string; code?: string }) {
   return callApi<ImportedPaperResult>({
     url: '/papers/import-markdown',
     method: 'POST',
-    isAllData: false,
     body: params,
   })
 }

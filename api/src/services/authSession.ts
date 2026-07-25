@@ -5,7 +5,7 @@ import type { User } from '@prisma/client'
 import { prisma } from './prisma.js'
 import { config } from '../config.js'
 import { signAccessToken } from './jwt.js'
-import { AUTH_ERROR } from '../constants/auth.js'
+import { AUTH_ERROR, AUTH_SESSION_EXPIRED_MESSAGE } from '../constants/auth.js'
 import { AuthError } from '../utils/authError.js'
 
 export const REFRESH_COOKIE_NAME = 'quiz_refresh'
@@ -92,7 +92,9 @@ export async function createAuthSession(user: User, req: Request, res: Response)
 // 成功刷新视为用户活动，同时轮换秘密并把空闲过期时间顺延七天。
 export async function rotateAuthSession(req: Request, res: Response) {
   const parsed = parseRefreshToken(getRefreshCookie(req))
-  if (!parsed) throw new AuthError(AUTH_ERROR.SESSION_EXPIRED, '登录状态已过期，请重新登录', 401)
+  if (!parsed) {
+    throw new AuthError(AUTH_ERROR.SESSION_EXPIRED, AUTH_SESSION_EXPIRED_MESSAGE, 401)
+  }
 
   const session = await prisma.authSession.findUnique({
     where: { id: parsed.sessionId },
@@ -104,14 +106,14 @@ export async function rotateAuthSession(req: Request, res: Response) {
     : false
   if (!session || session.revokedAt || session.expiresAt <= now || idleExpired) {
     clearRefreshCookie(res)
-    throw new AuthError(AUTH_ERROR.SESSION_EXPIRED, '登录状态已过期，请重新登录', 401)
+    throw new AuthError(AUTH_ERROR.SESSION_EXPIRED, AUTH_SESSION_EXPIRED_MESSAGE, 401)
   }
 
   const suppliedHash = hashRefreshSecret(parsed.secret)
   if (!crypto.timingSafeEqual(Buffer.from(session.refreshTokenHash), Buffer.from(suppliedHash))) {
     await prisma.authSession.update({ where: { id: session.id }, data: { revokedAt: now } })
     clearRefreshCookie(res)
-    throw new AuthError(AUTH_ERROR.SESSION_EXPIRED, '登录状态异常，请重新登录', 401)
+    throw new AuthError(AUTH_ERROR.SESSION_EXPIRED, '登录状态异常，请重新登录！', 401)
   }
 
   const nextSecret = crypto.randomBytes(32).toString('base64url')

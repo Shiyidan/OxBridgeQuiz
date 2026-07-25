@@ -130,6 +130,7 @@ import {
   type ExamType,
 } from '@/constants/examTypes'
 import type { Question } from '@/types'
+import { hasApiErrorCode } from '@/utils/request'
 
 const route = useRoute()
 const router = useRouter()
@@ -194,9 +195,9 @@ const skippedCount = computed(() => {
 const pendingCount = computed(() =>
   Math.max(totalCount.value - answeredCount.value - skippedCount.value, 0),
 )
-const topicTitle = computed(() => (currentQuestion.value as any)?.subject || '')
+const topicTitle = computed(() => currentQuestion.value?.subject || '')
 const currentKnowledgeTags = computed(() => {
-  const question = currentQuestion.value as any
+  const question = currentQuestion.value as (Question & { knowledgePoints?: unknown }) | undefined
   if (!question) return []
   const tags = normalizePointTags(question.knowledge_points || question.knowledgePoints)
   if (tags.length) return tags
@@ -264,7 +265,7 @@ async function loadQuestions(): Promise<void> {
       return
     }
     const qs = (await getQuestionsData({ code, difficulty, examType })) || []
-    const loadedQuestions = qs.map((q: any) => ({
+    const loadedQuestions = qs.map((q) => ({
       ...q,
       id: q.id || `${q._paperId || 'paper'}-${q.number}`,
     }))
@@ -559,7 +560,7 @@ async function flushAssessmentProgress(
   try {
     await request
   } catch (error) {
-    if ((error as any)?.response?.data?.code === 'EXAM_EXPIRED') {
+    if (hasApiErrorCode(error, 'EXAM_EXPIRED')) {
       void handleTimeExpired()
       if (throwOnError) throw error
       return
@@ -638,8 +639,8 @@ async function handleSubmit(): Promise<void> {
         source: 'question-bank',
       },
     })
-  } catch (e: any) {
-    ElMessage.error(e.response?.data?.errMsg || '交卷失败，请重试')
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
   } finally {
     submitting.value = false
   }
@@ -694,11 +695,16 @@ function normalizeExamType(value: unknown): ExamType {
 function normalizePointTags(raw: unknown): string[] {
   if (!Array.isArray(raw)) return []
   const items = raw
-    .map((item: any) => ({
-      code: typeof item?.code === 'string' ? item.code : '',
-      role: typeof item?.role === 'string' ? item.role : '',
-      label: item?.label || item?.name || item?.title || item?.code || '',
-    }))
+    .map((item) => {
+      const record =
+        item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
+      const rawLabel = record.label || record.name || record.title || record.code
+      return {
+        code: typeof record.code === 'string' ? record.code : '',
+        role: typeof record.role === 'string' ? record.role : '',
+        label: typeof rawLabel === 'string' ? rawLabel : '',
+      }
+    })
     .filter((item) => item.label)
     .sort((a, b) => b.code.length - a.code.length)
 
@@ -740,8 +746,7 @@ onBeforeRouteLeave(async () => {
   try {
     await saveCurrentAssessmentProgress()
     return true
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.errMsg || '保存答题进度失败，请重试')
+  } catch {
     return false
   }
 })

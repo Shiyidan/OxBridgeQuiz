@@ -271,11 +271,13 @@ async function handleFileChange(event: Event): Promise<void> {
       examType: inferExamType(file.name, parsed),
     }
     uploadDialogVisible.value = true
-  } catch (e: any) {
+  } catch (e: unknown) {
     await showUploadValidationError(
       e instanceof SyntaxError
         ? '文件内容不是合法 JSON，请检查括号、逗号和引号是否正确。'
-        : e?.message || '请选择有效的 JSON 考纲文件。',
+        : e instanceof Error && e.message
+          ? e.message
+          : '请选择有效的 JSON 考纲文件。',
     )
   }
 }
@@ -311,8 +313,8 @@ async function submitUpload(): Promise<void> {
     ElMessage.success('考纲上传成功')
     closeUploadDialog()
     await fetchSyllabusList()
-  } catch (e: any) {
-    ElMessage.error(e?.message || '考纲上传失败')
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
   } finally {
     submitting.value = false
   }
@@ -325,7 +327,7 @@ async function viewSyllabus(id: string): Promise<void> {
     detailContent.value = detail.content
     detailDialogVisible.value = true
   } catch {
-    ElMessage.error('考纲详情加载失败')
+    // Axios 公共响应处理会展示后端 errMsg。
   }
 }
 
@@ -334,8 +336,8 @@ async function enableSyllabus(item: SyllabusItem): Promise<void> {
     await enableSyllabusData(item.id)
     ElMessage.success('考纲已启用')
     await fetchSyllabusList()
-  } catch (e: any) {
-    ElMessage.error(e?.message || '启用失败')
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
   }
 }
 
@@ -354,8 +356,8 @@ async function disableSyllabus(item: SyllabusItem): Promise<void> {
     await disableSyllabusData(item.id)
     ElMessage.success('考纲已停用')
     await fetchSyllabusList()
-  } catch (e: any) {
-    ElMessage.error(e?.message || '停用失败')
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
   }
 }
 

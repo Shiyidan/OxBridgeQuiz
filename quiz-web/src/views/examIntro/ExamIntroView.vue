@@ -175,8 +175,8 @@ const SectionTitle = defineComponent({
 
 .exam-hero {
   position: relative;
-  min-height: 330px;
-  padding: 64px 0 96px;
+  min-height: 240px;
+  padding: 44px 0 68px;
   overflow: hidden;
   border-bottom: 1px solid var(--color-line);
 }
@@ -201,7 +201,7 @@ const SectionTitle = defineComponent({
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
   color: var(--color-ink-soft);
   font-size: 13px;
   font-weight: var(--weight-medium);
@@ -217,9 +217,9 @@ const SectionTitle = defineComponent({
 
 .exam-hero h1 {
   max-width: 840px;
-  margin: 0 0 22px;
+  margin: 0 0 12px;
   color: var(--color-ink);
-  font-size: clamp(44px, 3.1vw, 60px);
+  font-size: clamp(32px, 2.35vw, 42px);
   font-weight: var(--weight-bold);
   line-height: var(--leading-tight);
   letter-spacing: var(--tracking-tight);
@@ -229,14 +229,14 @@ const SectionTitle = defineComponent({
   max-width: 720px;
   margin: 0;
   color: var(--color-ink-soft);
-  font-size: var(--text-lg);
+  font-size: var(--text-base);
   line-height: var(--leading-relaxed);
 }
 
 .exam-content {
   position: relative;
   z-index: 2;
-  margin-top: -40px;
+  margin-top: -32px;
   padding-bottom: 96px;
 }
 
@@ -244,7 +244,7 @@ const SectionTitle = defineComponent({
   display: flex;
   align-items: stretch;
   gap: 4px;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
   padding: 0 24px;
   overflow: hidden;
   border: 1px solid var(--color-line);

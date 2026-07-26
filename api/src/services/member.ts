@@ -1,13 +1,13 @@
 // 会员权益上下文汇总与权限判定。用于会员接口和考试开始、交卷阶段的额度预检。
 import type { Prisma } from '@prisma/client'
 import { prisma } from './prisma.js'
-import { formatUserForClient } from '../utils/userPresenter.js'
 import { parseJsonArray } from '../utils/jsonField.js'
 import {
   EFFECTIVE_MEMBERSHIP_STATUS,
   EFFECTIVE_PLAN,
   EXAM_TYPES,
   MEMBERSHIP_STATUS,
+  PAPER_ACCESS_TIER,
   QUESTION_BANK_PAPER_TYPES,
   REAL_PAPER_TYPES,
   USER_ROLE,
@@ -67,6 +67,23 @@ async function getActiveMembership(
     orderBy: { endsAt: 'desc' },
   })
   return memberships.find((membership) => isMembershipActive(membership, now)) || null
+}
+
+// 新诊断测试按试卷级访问设置授权；已创建的进行中测试由考试记录本身承接当次授权。
+export async function hasDiagnosticPaperAccess(
+  userId: string,
+  paper: { examType: string; accessTier?: string | null },
+  db: MemberDatabase = prisma,
+): Promise<boolean> {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, role: true },
+  })
+  if (!user) return false
+  if (user.role === USER_ROLE.ADMIN || paper.accessTier === PAPER_ACCESS_TIER.FREE) {
+    return true
+  }
+  return Boolean(await getActiveMembership(userId, paper.examType, new Date(), db))
 }
 
 // 权益配置按考试类型读取，未配置时由调用方使用安全默认额度。
@@ -182,7 +199,6 @@ export async function getMemberContext(userId: string) {
       email: true,
       role: true,
       avatar: true,
-      paymentStatus: true,
       examPreferences: true,
     },
   })
@@ -293,7 +309,7 @@ export async function getMemberContext(userId: string) {
   }
 
   return {
-    user: formatUserForClient(user),
+    user,
     role: user.role,
     isAdmin,
     memberships: membershipList,

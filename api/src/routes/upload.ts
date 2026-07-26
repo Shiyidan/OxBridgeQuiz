@@ -2,7 +2,14 @@ import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 import { success, fail } from '../utils/response.js'
-import { PAPER_TYPE, isExamType, isPaperType, normalizePaperType } from '../constants/domain.js'
+import {
+  PAPER_ACCESS_TIER,
+  PAPER_TYPE,
+  isExamType,
+  isPaperAccessTier,
+  isPaperType,
+  normalizePaperType,
+} from '../constants/domain.js'
 import { createNumericId } from '../utils/id.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { setOperationAuditContext } from '../middleware/operationAudit.js'
@@ -13,7 +20,15 @@ export const uploadRouter = createAsyncRouter()
 // 前端 pdf.js 流式上传：先创建试卷和任务，再由 parse-tasks/:id/pages 逐页提交
 uploadRouter.post('/paper-pages/create', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { title, year, duration, totalPages, paperType, examType = 'TMUA' } = req.body
+    const {
+      title,
+      year,
+      duration,
+      totalPages,
+      paperType,
+      accessTier = PAPER_ACCESS_TIER.MEMBER,
+      examType = 'TMUA',
+    } = req.body
 
     if (!totalPages || totalPages <= 0) {
       res.status(400).json(fail('请提供总页数'))
@@ -28,6 +43,10 @@ uploadRouter.post('/paper-pages/create', requireAuth, requireAdmin, async (req, 
       res.status(422).json(fail('无效的试卷来源类型'))
       return
     }
+    if (!isPaperAccessTier(accessTier)) {
+      res.status(422).json(fail('试卷访问级别必须为 free 或 member'))
+      return
+    }
 
     const paper = await prisma.paper.create({
       data: {
@@ -37,6 +56,7 @@ uploadRouter.post('/paper-pages/create', requireAuth, requireAdmin, async (req, 
         duration: parseInt(duration) || 60,
         examType,
         paperType: paperType ? normalizePaperType(paperType) : PAPER_TYPE.REAL_PAPER,
+        accessTier,
         pdfUrl: null,
         questions: [],
       },

@@ -2,7 +2,7 @@
  * 试卷上传 / 解析 相关 API
  */
 import { callApi } from '@/utils/request'
-import type { Question, StandardPaperJson } from '@/types'
+import type { PaperAccessTier, Question, StandardPaperJson } from '@/types'
 
 export interface CreateTaskResult {
   paperId: string
@@ -37,6 +37,7 @@ export function createUploadTask(params: {
   totalPages: number
   examType?: string
   paperType?: string
+  accessTier?: PaperAccessTier
 }) {
   return callApi<CreateTaskResult>({
     url: '/upload/paper-pages/create',

@@ -7,15 +7,6 @@ export const USER_ROLE = {
 export const USER_ROLES = Object.values(USER_ROLE)
 export type UserRole = (typeof USER_ROLES)[number]
 
-export const USER_PAYMENT_STATUS = {
-  FREE: 'free',
-  PAID: 'paid',
-  EXPIRED: 'expired',
-} as const
-
-export const USER_PAYMENT_STATUSES = Object.values(USER_PAYMENT_STATUS)
-export type UserPaymentStatus = (typeof USER_PAYMENT_STATUSES)[number]
-
 export const EXAM_TYPE = {
   TMUA: 'TMUA',
   ESAT: 'ESAT',
@@ -127,6 +118,14 @@ export const PAPER_TYPE = {
 
 export const PAPER_TYPES = Object.values(PAPER_TYPE)
 export type PaperType = (typeof PAPER_TYPES)[number]
+
+export const PAPER_ACCESS_TIER = {
+  FREE: 'free',
+  MEMBER: 'member',
+} as const
+
+export const PAPER_ACCESS_TIERS = Object.values(PAPER_ACCESS_TIER)
+export type PaperAccessTier = (typeof PAPER_ACCESS_TIERS)[number]
 
 export const REAL_PAPER_TYPES = [PAPER_TYPE.REAL_PAPER] as const
 
@@ -302,6 +301,14 @@ export function isPaperType(value: unknown): value is PaperType {
   return typeof value === 'string' && PAPER_TYPES.includes(value as PaperType)
 }
 
+// 诊断卷访问级别只接受免费或会员两类稳定编码。
+export function isPaperAccessTier(value: unknown): value is PaperAccessTier {
+  return (
+    typeof value === 'string'
+    && PAPER_ACCESS_TIERS.includes(value as PaperAccessTier)
+  )
+}
+
 // 将标准试卷类型展开为数据库兼容值，集中处理历史类型映射。
 export function paperTypeWhereValues(value: unknown): string[] {
   if (!isPaperType(value)) return []
@@ -343,11 +350,4 @@ export function legacyRevenueCostCategory(value: unknown): RevenueCostCategory |
   return DEVELOPMENT_TOOL_COST_ITEMS.has(value.trim().toLowerCase() as RevenueCostItem)
     ? REVENUE_COST_CATEGORY.DEVELOPMENT_TOOLS
     : null
-}
-
-// 旧支付状态缺失或异常时按免费用户处理，避免误授予权益。
-export function normalizeUserPaymentStatus(value: unknown): UserPaymentStatus {
-  return USER_PAYMENT_STATUSES.includes(value as UserPaymentStatus)
-    ? (value as UserPaymentStatus)
-    : USER_PAYMENT_STATUS.FREE
 }

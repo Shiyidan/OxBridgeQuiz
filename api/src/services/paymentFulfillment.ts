@@ -4,7 +4,6 @@ import {
   MEMBERSHIP_PLAN,
   MEMBERSHIP_STATUS,
   PAYMENT_ORDER_STATUS,
-  USER_PAYMENT_STATUS,
 } from '../constants/domain.js'
 import { parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
 import { prisma } from './prisma.js'
@@ -114,10 +113,6 @@ export async function fulfillPaidOrder(
         })
       }
     }
-    await tx.user.update({
-      where: { id: order.userId },
-      data: { paymentStatus: USER_PAYMENT_STATUS.PAID },
-    })
     return tx.paymentOrder.findUnique({ where: { id: order.id } })
   })
 }

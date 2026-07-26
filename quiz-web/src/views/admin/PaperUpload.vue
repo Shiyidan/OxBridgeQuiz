@@ -159,6 +159,21 @@
               <input v-model.number="duration" type="number" class="field-input field-input--sm" />
             </div>
           </div>
+          <div class="meta-row">
+            <div class="meta-field">
+              <label class="field-label">访问级别</label>
+              <select v-model="accessTier" class="field-input field-input--sm">
+                <option
+                  v-for="item in accessTierOptions"
+                  :key="item.value"
+                  :value="item.value"
+                >
+                  {{ item.label }}
+                </option>
+              </select>
+              <p class="field-hint">免费卷对所有学生开放，会员卷仅对对应考试会员开放</p>
+            </div>
+          </div>
 
           <div class="action-bar">
             <button class="btn-secondary-action" @click="clearFile">取消</button>
@@ -332,6 +347,19 @@
                 placeholder="如 ESAT-EQUIV-2023-M1-CHE-M2 或 TMUA-2023"
               />
               <p class="field-hint">用于识别整套试卷及报告展示，不代表学科</p>
+            </div>
+            <div class="meta-field">
+              <label class="field-label">访问级别</label>
+              <select v-model="mdAccessTier" class="field-input field-input--sm">
+                <option
+                  v-for="item in accessTierOptions"
+                  :key="item.value"
+                  :value="item.value"
+                >
+                  {{ item.label }}
+                </option>
+              </select>
+              <p class="field-hint">免费卷可不限次数重测</p>
             </div>
             <div class="meta-field" style="display: flex; align-items: flex-end">
               <span style="font-size: 0.875rem; color: #475569"
@@ -519,6 +547,19 @@
               />
               <p class="field-hint">用于识别整套试卷及报告展示，不代表学科</p>
             </div>
+            <div class="meta-field">
+              <label class="field-label">访问级别</label>
+              <select v-model="jsonAccessTier" class="field-input field-input--sm">
+                <option
+                  v-for="item in accessTierOptions"
+                  :key="item.value"
+                  :value="item.value"
+                >
+                  {{ item.label }}
+                </option>
+              </select>
+              <p class="field-hint">免费卷可不限次数重测</p>
+            </div>
             <div class="meta-field" style="display: flex; align-items: flex-end">
               <span style="font-size: 0.875rem; color: #475569"
                 >共 <b>{{ jsonQuestions.length }}</b> 道题目</span
@@ -643,7 +684,12 @@ import {
 import { ElMessage } from 'element-plus'
 import { renderPdfToBase64Pages, type RenderedPage } from '@/utils/pdfRenderer'
 import { DEFAULT_EXAM_TYPE, EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
-import { PAPER_TYPE } from '@/constants/paperTypes'
+import {
+  PAPER_ACCESS_TIER,
+  PAPER_ACCESS_TIER_OPTIONS,
+  PAPER_TYPE,
+  type PaperAccessTier,
+} from '@/constants/paperTypes'
 import type { PaperMetadata, ProjectQuestionInput, QuestionInput, StandardPaperJson } from '@/types'
 import { getApiErrorMessage, hasApiErrorCode } from '@/utils/request'
 
@@ -672,7 +718,9 @@ const title = ref('')
 const examType = ref(DEFAULT_EXAM_TYPE)
 const year = ref(new Date().getFullYear())
 const duration = ref(75)
+const accessTier = ref<PaperAccessTier>(PAPER_ACCESS_TIER.MEMBER)
 const examTypeOptions = EXAM_TYPE_OPTIONS
+const accessTierOptions = PAPER_ACCESS_TIER_OPTIONS
 
 const PDF_MAX_BYTES = 50 * 1024 * 1024
 const IMG_MAX_BYTES = 10 * 1024 * 1024
@@ -710,6 +758,7 @@ const jsonExamType = ref(DEFAULT_EXAM_TYPE)
 const jsonYear = ref(new Date().getFullYear())
 const jsonDuration = ref(75)
 const jsonCode = ref('')
+const jsonAccessTier = ref<PaperAccessTier>(PAPER_ACCESS_TIER.MEMBER)
 const jsonMetadata = ref<PaperMetadata | null>(null)
 const jsonQuestions = ref<QuestionInput[]>([])
 const jsonDocument = ref<StandardPaperJson | null>(null)
@@ -730,6 +779,7 @@ const mdExamType = ref(DEFAULT_EXAM_TYPE)
 const mdYear = ref(new Date().getFullYear())
 const mdDuration = ref(75)
 const mdCode = ref('')
+const mdAccessTier = ref<PaperAccessTier>(PAPER_ACCESS_TIER.MEMBER)
 const mdMetadata = ref<PaperMetadata | null>(null)
 const mdRawText = ref('')
 const mdQuestions = ref<QuestionInput[]>([])
@@ -787,6 +837,7 @@ interface PreviewDocumentMetadata {
   duration?: unknown
   examType?: unknown
   paperType?: unknown
+  accessTier?: unknown
   deliveryMode?: unknown
   totalQuestions?: unknown
   assemblyType?: unknown
@@ -926,6 +977,10 @@ function readStandardMetadata(raw: unknown): PaperMetadata | null {
       duration,
       examType: metadata.examType,
       paperType: metadata.paperType,
+      accessTier:
+        metadata.accessTier === PAPER_ACCESS_TIER.FREE
+          ? PAPER_ACCESS_TIER.FREE
+          : PAPER_ACCESS_TIER.MEMBER,
       totalQuestions,
       deliveryMode: 'section_sequence',
       assemblyType: typeof metadata.assemblyType === 'string' ? metadata.assemblyType : undefined,
@@ -1116,6 +1171,7 @@ function clearFile(): void {
   file.value = null
   fileKind.value = 'pdf'
   title.value = ''
+  accessTier.value = PAPER_ACCESS_TIER.MEMBER
   if (imagePreviewUrl.value) {
     URL.revokeObjectURL(imagePreviewUrl.value)
     imagePreviewUrl.value = ''
@@ -1132,6 +1188,7 @@ function resetUpload(): void {
   }
   title.value = ''
   examType.value = DEFAULT_EXAM_TYPE
+  accessTier.value = PAPER_ACCESS_TIER.MEMBER
   rendering.value = false
   parsing.value = false
   uploadDone.value = false
@@ -1225,6 +1282,7 @@ async function startUpload(): Promise<void> {
       examType: examType.value,
       totalPages: pages.length,
       paperType: PAPER_TYPE.REAL_PAPER,
+      accessTier: accessTier.value,
     })
     taskId = createRes.taskId
     paperId.value = createRes.paperId
@@ -1308,6 +1366,7 @@ async function retryParse(): Promise<void> {
         examType: examType.value,
         totalPages: cachedPages.length,
         paperType: PAPER_TYPE.REAL_PAPER,
+        accessTier: accessTier.value,
       })
       taskId = createRes.taskId
       paperId.value = createRes.paperId
@@ -1410,6 +1469,10 @@ function processJsonFile(f: File): void {
       jsonYear.value = preview.metadata.year
       jsonDuration.value = preview.metadata.duration
       jsonCode.value = raw.metadata?.code || raw.code || ''
+      jsonAccessTier.value =
+        preview.metadata.accessTier === PAPER_ACCESS_TIER.FREE
+          ? PAPER_ACCESS_TIER.FREE
+          : PAPER_ACCESS_TIER.MEMBER
       jsonFile.value = f
       jsonError.value = ''
     } catch {
@@ -1426,6 +1489,7 @@ function clearJsonFile(): void {
   jsonYear.value = new Date().getFullYear()
   jsonDuration.value = 75
   jsonCode.value = ''
+  jsonAccessTier.value = PAPER_ACCESS_TIER.MEMBER
   jsonMetadata.value = null
   jsonQuestions.value = []
   jsonDocument.value = null
@@ -1465,6 +1529,7 @@ async function importJson(): Promise<void> {
       jsonExamType.value,
       jsonYear.value,
       jsonDuration.value,
+      jsonAccessTier.value,
     )
     const editedDocument = buildEditedPaperDocument(jsonDocument.value, metadata, jsonCode.value)
     const res = await apiImportJson(editedDocument)
@@ -1554,6 +1619,10 @@ function processMdFile(f: File): void {
       mdYear.value = parsedDocument.metadata.year
       mdDuration.value = parsedDocument.metadata.duration
       mdCode.value = parsedSource?.metadata?.code || parsedSource?.code || ''
+      mdAccessTier.value =
+        parsedDocument.metadata.accessTier === PAPER_ACCESS_TIER.FREE
+          ? PAPER_ACCESS_TIER.FREE
+          : PAPER_ACCESS_TIER.MEMBER
       mdFile.value = f
       mdError.value = ''
       mdWarnings.value = []
@@ -1571,6 +1640,7 @@ function clearMdFile(): void {
   mdYear.value = new Date().getFullYear()
   mdDuration.value = 75
   mdCode.value = ''
+  mdAccessTier.value = PAPER_ACCESS_TIER.MEMBER
   mdMetadata.value = null
   mdRawText.value = ''
   mdQuestions.value = []
@@ -1613,6 +1683,7 @@ async function importMarkdown(): Promise<void> {
       mdExamType.value,
       mdYear.value,
       mdDuration.value,
+      mdAccessTier.value,
     )
     const res = await apiImportMarkdown({
       markdown: buildEditedMarkdown(mdRawText.value, metadata, mdCode.value),
@@ -1639,6 +1710,7 @@ function buildEditedMetadata(
   examType: ExamType,
   year: number,
   duration: number,
+  accessTier: PaperAccessTier,
 ): PaperMetadata {
   return {
     ...metadata,
@@ -1646,6 +1718,7 @@ function buildEditedMetadata(
     examType,
     year: Number(year),
     duration: Number(duration),
+    accessTier,
   }
 }
 
@@ -1665,6 +1738,7 @@ function buildEditedPaperDocument(
         examType: metadata.examType,
         year: metadata.year,
         paperType: metadata.paperType,
+        accessTier: metadata.accessTier,
       },
     } as StandardPaperJson
   }

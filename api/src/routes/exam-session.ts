@@ -5,7 +5,7 @@ import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
 import { formatQuestionRow } from '../utils/questionSync.js'
 import { parseJsonField, parseJsonArray } from '../utils/jsonField.js'
-import { checkMemberAccess } from '../services/member.js'
+import { checkMemberAccess, hasDiagnosticPaperAccess } from '../services/member.js'
 import { withQuotaTransaction } from '../services/transactionRetry.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { computeScores } from '../services/scoring.js'
@@ -233,14 +233,23 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
       answer: parseJsonArray<string>(question.answer),
     }))
 
-    const entitlement = await checkMemberAccess(
-      req.user!.userId,
-      isDiagnostic ? 'diagnostic' : 'question-bank',
-      targetExamType,
-      isDiagnostic ? 1 : officialQuestions.length,
-    )
-    if (!entitlement.allowed) {
-      res.status(403).json(fail('当前额度不足，请开通会员后继续'))
+    const accessAllowed = isDiagnostic
+      ? await hasDiagnosticPaperAccess(req.user!.userId, targetPaper)
+      : (
+          await checkMemberAccess(
+            req.user!.userId,
+            'question-bank',
+            targetExamType,
+            officialQuestions.length,
+          )
+        ).allowed
+    if (!accessAllowed) {
+      res.status(403).json(fail(
+        isDiagnostic
+          ? `当前试卷需要开通 ${targetExamType} 会员后才能开始`
+          : '当前额度不足，请开通会员后继续',
+        isDiagnostic ? 'DIAGNOSTIC_PAPER_LOCKED' : 'QUESTION_BANK_ACCESS_DENIED',
+      ))
       return
     }
 
@@ -870,28 +879,13 @@ examSessionRouter.post('/:id/submit', requireAuth, async (req, res) => {
         : Object.values(maps.durations).reduce((sum, value) => sum + Math.max(0, value), 0)
     const result = await withQuotaTransaction(async (tx) => {
       if (isDiagnostic) {
-        // 更新用户行取得数据库行锁，使同一用户的诊断额度校验与交卷串行化。
-        await tx.user.update({
-          where: { id: req.user!.userId },
-          data: { updatedAt: new Date() },
-        })
         const latest = await tx.examRecord.findUnique({ where: { id: record.id } })
         if (latest?.status === EXAM_RECORD_STATUS.SUBMITTED) {
           const existingTask = await tx.diagnosticReportTask.findUnique({
             where: { examRecordId: record.id },
             select: { status: true },
           })
-          return { examRecord: latest, task: existingTask, claimed: false, accessDenied: false }
-        }
-        const entitlement = await checkMemberAccess(
-          req.user!.userId,
-          'diagnostic',
-          record.examType,
-          1,
-          tx,
-        )
-        if (!entitlement.allowed) {
-          return { examRecord: null, task: null, claimed: false, accessDenied: true }
+          return { examRecord: latest, task: existingTask, claimed: false }
         }
       }
 
@@ -916,7 +910,7 @@ examSessionRouter.post('/:id/submit', requireAuth, async (req, res) => {
               select: { status: true },
             })
           : null
-        return { examRecord: existingRecord, task: existingTask, claimed: false, accessDenied: false }
+        return { examRecord: existingRecord, task: existingTask, claimed: false }
       }
 
       if (moduleSnapshot) {
@@ -960,13 +954,8 @@ examSessionRouter.post('/:id/submit', requireAuth, async (req, res) => {
           })
         : null
       const examRecord = await tx.examRecord.findUnique({ where: { id: record.id } })
-      return { examRecord, task, claimed: true, accessDenied: false }
+      return { examRecord, task, claimed: true }
     })
-
-    if (result.accessDenied) {
-      res.status(403).json(fail('当前额度不足，请开通会员后继续'))
-      return
-    }
 
     if (!result.examRecord) {
       res.status(404).json(fail('Exam record not found'))

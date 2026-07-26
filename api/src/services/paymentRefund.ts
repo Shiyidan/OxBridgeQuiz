@@ -5,7 +5,6 @@ import {
   MEMBERSHIP_STATUS,
   PAYMENT_ORDER_STATUS,
   PAYMENT_REFUND_STATUS,
-  USER_PAYMENT_STATUS,
 } from '../constants/domain.js'
 import { parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
 import {
@@ -159,19 +158,6 @@ async function finalizeRefund(
         refundedAmountCents: refund.amountCents,
       },
     })
-    const remainingPaidOrders = await tx.paymentOrder.count({
-      where: {
-        userId: order.userId,
-        id: { not: order.id },
-        status: { in: [PAYMENT_ORDER_STATUS.PAID, PAYMENT_ORDER_STATUS.REFUNDING] },
-      },
-    })
-    if (remainingPaidOrders === 0) {
-      await tx.user.update({
-        where: { id: order.userId },
-        data: { paymentStatus: USER_PAYMENT_STATUS.FREE },
-      })
-    }
     return tx.paymentRefund.update({
       where: { id: refund.id },
       data: {

@@ -7,7 +7,6 @@ import { success, fail } from '../utils/response.js'
 import {
   MEMBERSHIP_PLAN,
   MEMBERSHIP_STATUS,
-  USER_PAYMENT_STATUS,
   USER_ROLE,
   PAYMENT_NOTIFICATION_STATUS,
   PAYMENT_RECONCILIATION_RESOLUTION,
@@ -19,7 +18,6 @@ import {
   legacyRevenueCostCategory,
   normalizeRevenueCostItem,
 } from '../constants/domain.js'
-import { formatUserForClient } from '../utils/userPresenter.js'
 import { PAYMENT_CONFIG_STATUS } from '../constants/domain.js'
 import { getOrCreatePaymentConfig } from './payment.js'
 import { ChinaumsRequestError } from '../services/chinaums.js'
@@ -975,11 +973,10 @@ function buildMembershipEndDate(plan: string, start: Date): Date {
   return end
 }
 
-function formatAdminUserForClient<T extends { role: string; paymentStatus?: string | null; memberships?: any[] }>(user: T) {
-  const formatted = formatUserForClient(user)
-  if (!user.memberships) return formatted
+function formatAdminUserForClient<T extends { role: string; memberships?: any[] }>(user: T) {
+  if (!user.memberships) return user
   return {
-    ...formatted,
+    ...user,
     memberships: user.memberships.map((membership) => ({
       ...membership,
       startsAt: membership.startsAt.getTime(),
@@ -1063,7 +1060,6 @@ adminRouter.get('/users', async (req: Request, res: Response) => {
         username: true,
         email: true,
         role: true,
-        paymentStatus: true,
         diagnosticUsed: true,
         createdAt: true,
         memberships: {
@@ -1119,7 +1115,7 @@ adminRouter.put('/users/:id/role', async (req: Request, res: Response) => {
     const user = await prisma.user.update({
       where: { id: req.params.id },
       data: { role },
-      select: { id: true, username: true, email: true, role: true, paymentStatus: true },
+      select: { id: true, username: true, email: true, role: true },
     })
     setOperationAuditContext(req, {
       summary: `修改用户“${user.username}”的角色`,
@@ -1152,14 +1148,13 @@ adminRouter.put('/users/:id/access', async (req: Request, res: Response) => {
       res.status(422).json(fail('无效的考试类型'))
       return
     }
-    const examTypes = requestedExamTypes as string[]
+    const examTypes = [...new Set(requestedExamTypes as string[])]
 
     const previousUser = await prisma.user.findUnique({
       where: { id: userId },
       select: {
         username: true,
         role: true,
-        paymentStatus: true,
         memberships: {
           select: { examType: true, plan: true, status: true, startsAt: true, endsAt: true },
           orderBy: [{ examType: 'asc' }, { endsAt: 'desc' }],
@@ -1177,15 +1172,38 @@ adminRouter.put('/users/:id/access', async (req: Request, res: Response) => {
     const user = await prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: userId },
+        data: { role },
+      })
+
+      // 当前生效但已被移除的权益截止到保存时刻，历史记录保留用于审计和展示。
+      await tx.userMembership.updateMany({
+        where: {
+          userId,
+          status: MEMBERSHIP_STATUS.ACTIVE,
+          startsAt: { lte: now },
+          endsAt: { gt: now },
+          ...(examTypes.length > 0 ? { examType: { notIn: examTypes } } : {}),
+        },
         data: {
-          role,
-          ...(role === USER_ROLE.STUDENT && examTypes.length > 0
-            ? { paymentStatus: USER_PAYMENT_STATUS.PAID }
-            : {}),
+          status: MEMBERSHIP_STATUS.CANCELLED,
+          endsAt: now,
         },
       })
 
-      // 后台手动授权是追加语义：未选中的现有权益不在本次操作中取消。
+      // 尚未开始且已被移除的预约权益只更新状态，保留原计划日期并避免出现结束早于开始。
+      await tx.userMembership.updateMany({
+        where: {
+          userId,
+          status: MEMBERSHIP_STATUS.ACTIVE,
+          startsAt: { gt: now },
+          endsAt: { gt: now },
+          ...(examTypes.length > 0 ? { examType: { notIn: examTypes } } : {}),
+        },
+        data: {
+          status: MEMBERSHIP_STATUS.CANCELLED,
+        },
+      })
+
       for (const examType of examTypes) {
         const active = await tx.userMembership.findFirst({
           where: {
@@ -1198,6 +1216,16 @@ adminRouter.put('/users/:id/access', async (req: Request, res: Response) => {
           orderBy: { endsAt: 'desc' },
         })
         if (active) {
+          if (active.plan !== plan) {
+            await tx.userMembership.update({
+              where: { id: active.id },
+              data: {
+                plan,
+                startsAt: now,
+                endsAt: endsAt!,
+              },
+            })
+          }
           continue
         }
         await tx.userMembership.create({
@@ -1212,7 +1240,6 @@ adminRouter.put('/users/:id/access', async (req: Request, res: Response) => {
           username: true,
           email: true,
           role: true,
-          paymentStatus: true,
           diagnosticUsed: true,
           createdAt: true,
           memberships: {
@@ -1236,12 +1263,10 @@ adminRouter.put('/users/:id/access', async (req: Request, res: Response) => {
         changes: buildOperationAuditChanges(
           {
             role: previousUser.role,
-            paymentStatus: previousUser.paymentStatus,
             memberships: previousUser.memberships,
           },
           {
             role: user.role,
-            paymentStatus: user.paymentStatus,
             memberships: user.memberships.map((membership) => ({
               examType: membership.examType,
               plan: membership.plan,

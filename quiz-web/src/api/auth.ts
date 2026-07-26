@@ -32,7 +32,6 @@ export interface UserInfo {
   email: string
   role: string
   avatar?: string
-  paymentStatus?: string
 }
 
 export interface AuthResult {

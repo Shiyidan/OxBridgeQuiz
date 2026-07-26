@@ -7,6 +7,18 @@ export const PAPER_TYPE = {
 
 export type PaperType = (typeof PAPER_TYPE)[keyof typeof PAPER_TYPE]
 
+export const PAPER_ACCESS_TIER = {
+  FREE: 'free',
+  MEMBER: 'member',
+} as const
+
+export type PaperAccessTier = (typeof PAPER_ACCESS_TIER)[keyof typeof PAPER_ACCESS_TIER]
+
+export const PAPER_ACCESS_TIER_OPTIONS = [
+  { value: PAPER_ACCESS_TIER.FREE, label: '免费卷' },
+  { value: PAPER_ACCESS_TIER.MEMBER, label: '会员卷' },
+] as const
+
 export const PAPER_TYPE_OPTIONS = [
   { value: PAPER_TYPE.REAL_PAPER, label: '真题卷' },
   { value: PAPER_TYPE.MOCK_PAPER, label: '模考卷' },

@@ -16,6 +16,7 @@ model Paper {
   duration             Int
   totalQuestions       Int      @default(0)
   paperType            String   @default("realPaper") @db.VarChar(32)
+  accessTier           String   @default("member") @db.VarChar(32)
   deliveryMode         String   @default("continuous") @db.VarChar(32)
   breakDurationSeconds Int      @default(0)
   moduleConfig         Json?
@@ -35,6 +36,7 @@ model Paper {
   diagnosticReports     DiagnosticReport[]
 
   @@index([examType])
+  @@index([examType, accessTier, status])
 }
 
 model Question {
@@ -94,7 +96,6 @@ model User {
   emailVerifiedAt   DateTime?
   passwordChangedAt DateTime?
   role              String    @default("student") @db.VarChar(32)
-  paymentStatus     String    @default("free") @db.VarChar(32)
   diagnosticUsed    Boolean   @default(false)
   avatar            String?   @db.Text
   examPreferences   Json?

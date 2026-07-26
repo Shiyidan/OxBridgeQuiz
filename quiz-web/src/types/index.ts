@@ -16,6 +16,8 @@ export type PaperDeliveryMode = 'continuous' | 'module_sequence'
 /** 上传文档可使用新版 section_sequence；module 仅作为历史兼容值。 */
 export type PaperDocumentDeliveryMode = PaperDeliveryMode | 'section_sequence' | 'module'
 
+export type PaperAccessTier = 'free' | 'member'
+
 export interface PaperBreakPolicy {
   durationSeconds: number
   skippable: boolean
@@ -28,6 +30,7 @@ export interface PaperMetadata {
   duration: number
   examType: string
   paperType: 'realPaper' | 'mockPaper' | 'aiPaper'
+  accessTier?: PaperAccessTier
   totalQuestions: number
   deliveryMode?: PaperDocumentDeliveryMode
   /** @deprecated 兼容早期生成文件；新文件使用 breakPolicy。 */
@@ -203,6 +206,7 @@ export interface TmuaSectionPaperJson {
     examType: 'TMUA'
     year: number
     paperType: 'realPaper' | 'mockPaper' | 'aiPaper'
+    accessTier?: PaperAccessTier
     assemblyType: 'original' | string
     deliveryMode: 'section_sequence'
     remarks?: string
@@ -225,6 +229,7 @@ export interface EsatSectionPaperJson {
     examType: 'ESAT'
     year: number
     paperType: 'realPaper' | 'mockPaper' | 'aiPaper'
+    accessTier?: PaperAccessTier
     assemblyType: 'legacy_equivalent' | string
     deliveryMode: 'section_sequence'
     remarks?: string

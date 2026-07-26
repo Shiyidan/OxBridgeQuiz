@@ -1,7 +1,18 @@
 /**
  * Markdown 导入校验器 — 提取 JSON 代码块、结构校验、安全清洗
  */
-import { ESAT_MODULE, ESAT_MODULES, EXAM_TYPE, PAPER_DELIVERY_MODE, TMUA_PAPER, TMUA_PAPERS, isExamType, isPaperType } from '../constants/domain.js'
+import {
+  ESAT_MODULE,
+  ESAT_MODULES,
+  EXAM_TYPE,
+  PAPER_ACCESS_TIER,
+  PAPER_DELIVERY_MODE,
+  TMUA_PAPER,
+  TMUA_PAPERS,
+  isExamType,
+  isPaperAccessTier,
+  isPaperType,
+} from '../constants/domain.js'
 
 export interface PaperBreakPolicy {
   durationSeconds: number
@@ -24,6 +35,7 @@ export interface StandardPaperMetadata {
   duration: number
   examType: string
   paperType: string
+  accessTier: string
   totalQuestions: number
   deliveryMode: string
   breakDurationSeconds: number
@@ -293,6 +305,15 @@ function normalizeSectionPaperDocument(input: any, errors: ValidationError[]): a
       message: 'metadata.paperType 必须为 realPaper、mockPaper 或 aiPaper',
     })
   }
+  if (
+    rawMetadata.accessTier !== undefined
+    && !isPaperAccessTier(rawMetadata.accessTier)
+  ) {
+    errors.push({
+      block: 0,
+      message: 'metadata.accessTier 必须为 free 或 member',
+    })
+  }
   if (typeof rawMetadata.assemblyType !== 'string' || !rawMetadata.assemblyType.trim()) {
     errors.push({
       block: 0,
@@ -527,6 +548,9 @@ function normalizeSectionPaperDocument(input: any, errors: ValidationError[]): a
       duration,
       examType: rawMetadata.examType,
       paperType: rawMetadata.paperType,
+      accessTier: isPaperAccessTier(rawMetadata.accessTier)
+        ? rawMetadata.accessTier
+        : PAPER_ACCESS_TIER.MEMBER,
       totalQuestions,
       deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE,
       breakPolicy: {
@@ -577,6 +601,15 @@ export function validateStandardPaperDocument(input: any): {
       errors.push({
         block: 0,
         message: 'metadata.paperType 必须为 realPaper、mockPaper 或 aiPaper',
+      })
+    }
+    if (
+      rawMetadata.accessTier !== undefined
+      && !isPaperAccessTier(rawMetadata.accessTier)
+    ) {
+      errors.push({
+        block: 0,
+        message: 'metadata.accessTier 必须为 free 或 member',
       })
     }
     if (typeof rawMetadata.totalQuestions !== 'number' || !Number.isFinite(rawMetadata.totalQuestions)) {
@@ -1141,6 +1174,9 @@ export function validateStandardPaperDocument(input: any): {
           duration: rawMetadata.duration,
           examType: rawMetadata.examType,
           paperType: rawMetadata.paperType,
+          accessTier: isPaperAccessTier(rawMetadata.accessTier)
+            ? rawMetadata.accessTier
+            : PAPER_ACCESS_TIER.MEMBER,
           totalQuestions: rawMetadata.totalQuestions,
           deliveryMode: isModular ? PAPER_DELIVERY_MODE.MODULE_SEQUENCE : PAPER_DELIVERY_MODE.CONTINUOUS,
           breakDurationSeconds: normalizedBreakDurationSeconds,

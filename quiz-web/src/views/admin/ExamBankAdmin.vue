@@ -1,3 +1,4 @@
+<!-- 真题库管理页：维护试卷发布状态、访问级别和内容入口。 -->
 <template>
   <div class="exam-bank-page">
     <div class="page-body">
@@ -80,6 +81,30 @@
             </el-dropdown>
           </template>
         </el-table-column>
+        <el-table-column label="访问级别" width="130" align="center" header-align="center">
+          <template #default="{ row }">
+            <el-dropdown trigger="click" @command="handleAccessTierCommand(row.id, $event)">
+              <button
+                class="access-tier-btn"
+                :class="`access-tier-btn--${row.accessTier}`"
+                type="button"
+              >
+                {{ accessTierLabel(row.accessTier) }}
+              </button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item
+                    v-for="item in accessTierOptions"
+                    :key="item.value"
+                    :command="item.value"
+                  >
+                    {{ item.label }}
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </template>
+        </el-table-column>
         <el-table-column label="题目数量" width="100" align="center" header-align="center">
           <template #default="{ row }">{{ row.totalQuestions }} 题</template>
         </el-table-column>
@@ -121,8 +146,19 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
 import SubjectModuleTags from '@/components/SubjectModuleTags.vue'
-import { deletePaper, getPaperListData, updatePaperStatus, type PaperItem } from '@/api/papers'
-import { PAPER_TYPE } from '@/constants/paperTypes'
+import {
+  deletePaper,
+  getPaperListData,
+  updatePaperAccessTier,
+  updatePaperStatus,
+  type PaperItem,
+} from '@/api/papers'
+import {
+  PAPER_ACCESS_TIER,
+  PAPER_ACCESS_TIER_OPTIONS,
+  PAPER_TYPE,
+  type PaperAccessTier,
+} from '@/constants/paperTypes'
 
 const route = useRoute()
 const router = useRouter()
@@ -141,6 +177,7 @@ const statusOptions = [
   { value: 'published', label: '已上线' },
   { value: 'archived', label: '已归档' },
 ]
+const accessTierOptions = PAPER_ACCESS_TIER_OPTIONS
 
 // 考试类型使用稳定样式类，便于在同一列表中快速区分 ESAT 与 TMUA。
 function examTypeClass(examType: unknown): string {
@@ -198,6 +235,11 @@ function statusLabel(status: string): string {
   )
 }
 
+// 访问级别在管理端使用明确中文，数据库继续保存稳定英文编码。
+function accessTierLabel(accessTier: PaperAccessTier): string {
+  return accessTier === PAPER_ACCESS_TIER.FREE ? '免费卷' : '会员卷'
+}
+
 // 状态更新成功后再改本地列表，避免接口失败时提前展示错误状态。
 async function changeStatus(id: string, newStatus: string): Promise<void> {
   try {
@@ -212,6 +254,19 @@ async function changeStatus(id: string, newStatus: string): Promise<void> {
 // Element 下拉菜单只返回 command，这里补上当前行 id 后再复用状态更新逻辑。
 function handleStatusCommand(id: string, command: unknown): void {
   void changeStatus(id, String(command))
+}
+
+// 已上线免费卷的唯一性由后端校验，成功后再更新当前列表行。
+async function handleAccessTierCommand(id: string, command: unknown): Promise<void> {
+  const accessTier = String(command) as PaperAccessTier
+  if (!Object.values(PAPER_ACCESS_TIER).includes(accessTier)) return
+  try {
+    await updatePaperAccessTier(id, accessTier)
+    const item = paperList.value.find((paper) => paper.id === id)
+    if (item) item.accessTier = accessTier
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
+  }
 }
 
 // 录入入口复用真题库上传解析流程，上传时默认写入真题卷来源。
@@ -331,6 +386,7 @@ async function handleDeletePaper(paper: PaperItem): Promise<void> {
 }
 
 .status-btn,
+.access-tier-btn,
 .table-action-link {
   min-width: 72px;
   height: var(--height-button-sm);
@@ -356,6 +412,22 @@ async function handleDeletePaper(paper: PaperItem): Promise<void> {
 
 .status-btn {
   border: 1px solid transparent;
+}
+
+.access-tier-btn {
+  border: 1px solid var(--color-line);
+}
+
+.access-tier-btn--free {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.access-tier-btn--member {
+  border-color: #d4d4d8;
+  background: #f4f4f5;
+  color: #3f3f46;
 }
 
 .status-btn--published {

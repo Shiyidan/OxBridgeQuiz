@@ -229,16 +229,6 @@ async function loadQuestions(): Promise<void> {
         ...q,
         id: q.id || `paper-${paper.id}-${q.number || index + 1}`,
       }))
-      const access = await checkMemberAccess({
-        action: 'diagnostic',
-        examType: activeExamType.value,
-        questionCount: 1,
-      })
-      if (!access.allowed) {
-        ElMessage.warning('当前诊断测试额度不足，请开通会员后继续')
-        router.replace('/assessment')
-        return
-      }
       const examSession = await startExam({
         paperId,
         examType: activeExamType.value,

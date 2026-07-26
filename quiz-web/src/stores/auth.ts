@@ -17,7 +17,6 @@ export interface User {
   email: string
   role: string
   avatar?: string
-  paymentStatus?: string
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -29,7 +28,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isLoggedIn = computed(() => !!token.value && !!user.value)
   const isAdmin = computed(() => user.value?.role === 'admin')
-  const isPaid = computed(() => user.value?.paymentStatus === 'paid')
   const permissions = computed(() => {
     const currentAdmin = memberContext.value?.isAdmin ?? user.value?.role === 'admin'
     return user.value ? { isAdmin: currentAdmin, canAccessAdmin: currentAdmin } : null
@@ -180,7 +178,6 @@ export const useAuthStore = defineStore('auth', () => {
     memberExamTypes,
     isLoggedIn,
     isAdmin,
-    isPaid,
     restoreSession,
     setMemberContext,
     setUser,

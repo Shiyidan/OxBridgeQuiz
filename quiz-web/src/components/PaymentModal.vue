@@ -135,16 +135,16 @@
                         : '待配置支付参数'
                   }}
                 </button>
-                <span v-else-if="paymentStatus === 'paid'" class="qr-demo qr-success"
+                <span v-else-if="orderStatus === 'paid'" class="qr-demo qr-success"
                   >支付成功</span
                 >
               </div>
 
               <p class="scan-tip">
-                <template v-if="createdOrderNo && paymentStatus !== 'paid'">
+                <template v-if="createdOrderNo && orderStatus !== 'paid'">
                   请使用 <strong>{{ activeChannel.name }}</strong> 扫码支付
                 </template>
-                <template v-else-if="paymentStatus === 'paid'">支付成功，会员权益已生效</template>
+                <template v-else-if="orderStatus === 'paid'">支付成功，会员权益已生效</template>
                 <template v-else>生成订单后显示支付二维码</template>
               </p>
 
@@ -202,6 +202,7 @@ import {
 
 interface Props {
   modelValue: boolean
+  defaultExamType?: string
 }
 
 interface PaymentPlan {
@@ -228,7 +229,7 @@ const createdOrderNo = ref('')
 const qrCodeImageUrl = ref('')
 const paymentPageUrl = ref('')
 const orderAmountCents = ref<number | null>(null)
-const paymentStatus = ref('')
+const orderStatus = ref('')
 let pollingTimer: ReturnType<typeof setInterval> | null = null
 const configStatus = ref<'active' | 'inactive'>('active')
 const providerReady = ref(false)
@@ -312,10 +313,10 @@ function stopPaymentPolling(): void {
 
 // 支付弹窗轮询服务端订单，最终状态仍由后端查询银联商务并幂等确认。
 async function refreshPaymentStatus(): Promise<void> {
-  if (!createdOrderNo.value || paymentStatus.value === 'paid') return
+  if (!createdOrderNo.value || orderStatus.value === 'paid') return
   try {
     const order = await queryPaymentOrder(createdOrderNo.value)
-    paymentStatus.value = order.status
+    orderStatus.value = order.status
     if (order.status === 'paid') {
       stopPaymentPolling()
       ElMessage.success('支付成功，会员权益已生效')
@@ -336,9 +337,9 @@ function startPaymentPolling(): void {
 
 async function cancelCurrentOrder(): Promise<void> {
   stopPaymentPolling()
-  if (!createdOrderNo.value || paymentStatus.value !== 'pending') return
+  if (!createdOrderNo.value || orderStatus.value !== 'pending') return
   const orderNo = createdOrderNo.value
-  paymentStatus.value = 'closing'
+  orderStatus.value = 'closing'
   try {
     await closePaymentOrder(orderNo)
   } catch (error) {
@@ -352,7 +353,7 @@ function resetPaymentOrder(): void {
   qrCodeImageUrl.value = ''
   paymentPageUrl.value = ''
   orderAmountCents.value = null
-  paymentStatus.value = ''
+  orderStatus.value = ''
 }
 
 // 银联返回的是收银台网页地址，需要在浏览器端编码为可扫码的二维码图片。
@@ -380,7 +381,7 @@ async function handleCreateOrder(): Promise<void> {
     createdOrderNo.value = result.order.orderNo
     paymentPageUrl.value = result.qrCodeUrl
     orderAmountCents.value = result.order.amountCents
-    paymentStatus.value = result.order.status
+    orderStatus.value = result.order.status
     startPaymentPolling()
     try {
       qrCodeImageUrl.value = await createPaymentQrImage(result.qrCodeUrl)
@@ -404,6 +405,8 @@ watch(
   (visible) => {
     document.body.style.overflow = visible ? 'hidden' : ''
     if (visible) {
+      const defaultExam = examOptions.find((item) => item.value === props.defaultExamType)
+      if (defaultExam) selectedExams.value = [defaultExam.value]
       resetPaymentOrder()
       void loadPaymentConfig()
     } else {

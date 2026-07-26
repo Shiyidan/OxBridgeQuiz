@@ -15,12 +15,14 @@ import { buildOperationAuditChanges, setOperationAuditContext } from '../middlew
 import {
   EXAM_TYPE,
   ESAT_MODULES,
+  PAPER_ACCESS_TIER,
   PAPER_DELIVERY_MODE,
   QUESTION_BANK_PAPER_TYPES,
   REAL_PAPER_TYPES,
   TMUA_PAPER,
   USER_ROLE,
   isExamType,
+  isPaperAccessTier,
   isPaperType,
   isRealPaperType,
   normalizePaperType,
@@ -38,6 +40,35 @@ type PublishablePaper = {
   breakDurationSeconds: number
   moduleConfig: unknown
   totalQuestions: number
+}
+
+// 同一考试类型最多发布一套免费真题诊断卷，避免前端免费入口出现多份内容。
+async function getFreeDiagnosticPaperConflict(
+  paper: {
+    id: string
+    examType: string
+    paperType: string
+    accessTier: string
+    status: string
+  },
+): Promise<{ id: string; title: string } | null> {
+  if (
+    paper.status !== 'published'
+    || paper.accessTier !== PAPER_ACCESS_TIER.FREE
+    || !isRealPaperType(paper.paperType)
+  ) {
+    return null
+  }
+  return prisma.paper.findFirst({
+    where: {
+      id: { not: paper.id },
+      examType: paper.examType,
+      paperType: { in: [...REAL_PAPER_TYPES] },
+      accessTier: PAPER_ACCESS_TIER.FREE,
+      status: 'published',
+    },
+    select: { id: true, title: true },
+  })
 }
 
 // ESAT 与 TMUA 诊断发布前复核数据库结构，避免绕过上传校验发布扁平卷或残缺分段卷。
@@ -140,7 +171,7 @@ paperCrudRouter.get('/', requireAuth, requireAdmin, async (req, res) => {
     where,
     select: {
       id: true, title: true, code: true, examType: true, year: true,
-      duration: true, totalQuestions: true, paperType: true, status: true,
+      duration: true, totalQuestions: true, paperType: true, accessTier: true, status: true,
       deliveryMode: true, breakDurationSeconds: true, moduleConfig: true,
       assemblyType: true, remarks: true, createdAt: true
     },
@@ -195,6 +226,7 @@ paperCrudRouter.get('/:id', requireAuth, async (req, res) => {
       duration: paper.duration,
       totalQuestions: paper.totalQuestions,
       paperType: paper.paperType,
+      accessTier: paper.accessTier,
       deliveryMode: paper.deliveryMode,
       breakDurationSeconds: paper.breakDurationSeconds,
       modules: parseJsonField(paper.moduleConfig, []),
@@ -219,7 +251,17 @@ paperCrudRouter.get('/:id', requireAuth, async (req, res) => {
 
 // 更新试卷
 paperCrudRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
-  const { title, code, examType, year, duration, questions, status, paperType } = req.body
+  const {
+    title,
+    code,
+    examType,
+    year,
+    duration,
+    questions,
+    status,
+    paperType,
+    accessTier,
+  } = req.body
 
   if (examType && !isExamType(examType)) {
     res.status(422).json(fail('无效的考试类型'))
@@ -227,6 +269,10 @@ paperCrudRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   }
   if (paperType && !isPaperType(paperType)) {
     res.status(422).json(fail('无效的试卷来源类型'))
+    return
+  }
+  if (accessTier && !isPaperAccessTier(accessTier)) {
+    res.status(422).json(fail('试卷访问级别必须为 free 或 member'))
     return
   }
 
@@ -250,6 +296,20 @@ paperCrudRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
       res.status(422).json(fail(publishIssue, 'PAPER_STRUCTURE_INVALID'))
       return
     }
+    const freeConflict = await getFreeDiagnosticPaperConflict({
+      ...previousPaper,
+      examType: examType || previousPaper.examType,
+      paperType: paperType ? normalizePaperType(paperType) : previousPaper.paperType,
+      accessTier: accessTier || previousPaper.accessTier,
+      status: nextStatus,
+    })
+    if (freeConflict) {
+      res.status(409).json(fail(
+        `${freeConflict.title} 已是 ${examType || previousPaper.examType} 免费诊断卷，请先将其调整为会员卷`,
+        'FREE_DIAGNOSTIC_PAPER_EXISTS',
+      ))
+      return
+    }
   }
   const paper = await prisma.paper.update({
     where: { id: req.params.id },
@@ -262,6 +322,7 @@ paperCrudRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
       ...(questions && { totalQuestions: questions.length }),
       ...(status && { status }),
       ...(paperType && { paperType: normalizePaperType(paperType) }),
+      ...(accessTier && { accessTier }),
     },
   })
 
@@ -281,6 +342,7 @@ paperCrudRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
         totalQuestions: previousPaper.totalQuestions,
         status: previousPaper.status,
         paperType: previousPaper.paperType,
+        accessTier: previousPaper.accessTier,
       },
       {
         title: paper.title,
@@ -291,6 +353,7 @@ paperCrudRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
         totalQuestions: paper.totalQuestions,
         status: paper.status,
         paperType: paper.paperType,
+        accessTier: paper.accessTier,
       },
     ),
   })
@@ -372,6 +435,17 @@ paperCrudRouter.put('/:id/publish', requireAuth, requireAdmin, async (req, res) 
   const publishIssue = await getDiagnosticPublishIssue(previousPaper)
   if (publishIssue) {
     res.status(422).json(fail(publishIssue, 'PAPER_STRUCTURE_INVALID'))
+    return
+  }
+  const freeConflict = await getFreeDiagnosticPaperConflict({
+    ...previousPaper,
+    status: 'published',
+  })
+  if (freeConflict) {
+    res.status(409).json(fail(
+      `${freeConflict.title} 已是 ${previousPaper.examType} 免费诊断卷，请先将其调整为会员卷`,
+      'FREE_DIAGNOSTIC_PAPER_EXISTS',
+    ))
     return
   }
   const paper = await prisma.paper.update({

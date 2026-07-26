@@ -24,6 +24,7 @@
     "examType": "TMUA",
     "year": 2018,
     "paperType": "realPaper",
+    "accessTier": "member",
     "assemblyType": "original",
     "deliveryMode": "section_sequence",
     "remarks": "Annual TMUA paper."
@@ -49,6 +50,7 @@
 | `year`         | 年份             | 必须为数字，例如 `2023`                                          |
 | `examType`     | 考试类型         | 必须使用系统考试类型，例如 `TMUA`、`ESAT`                        |
 | `paperType`    | 类型             | 必须为 `realPaper`、`mockPaper`、`aiPaper` 之一                  |
+| `accessTier`   | 访问级别         | 可选；`free` 免费卷 / `member` 会员卷，未填写时默认 `member`      |
 | `deliveryMode` | 上传文档交付方式 | 新版分段卷固定为 `section_sequence`                              |
 | `assemblyType` | 组卷来源         | ENGAA/NSAA 真题组合为 `legacy_equivalent`，原始整卷为 `original` |
 | `remarks`      | 诊断适用说明     | 可选；只保存业务说明，不保存解析过程信息                         |
@@ -75,6 +77,7 @@
     "examType": "ESAT",
     "year": 2023,
     "paperType": "realPaper",
+    "accessTier": "member",
     "assemblyType": "legacy_equivalent",
     "deliveryMode": "section_sequence",
     "remarks": "使用历年真题组成的等效诊断卷，并非某位考生的官方 ESAT 原卷。"
@@ -122,6 +125,7 @@ TMUA 的 `sections` 表示两份 Paper。Paper 1 与 Paper 2 均为 20 道单项
     "examType": "TMUA",
     "year": 2018,
     "paperType": "realPaper",
+    "accessTier": "member",
     "assemblyType": "original",
     "deliveryMode": "section_sequence",
     "remarks": "Annual TMUA paper."
@@ -746,6 +750,7 @@ SVG 还原效果不好时，必须保持选项中的 `image_id` 不变，只替�
 - `metadata.year` 必须是数字年份。
 - `metadata.examType` 必须是系统考试类型。
 - `metadata.paperType` 必须为 `realPaper`、`mockPaper`、`aiPaper` 之一。
+- `metadata.accessTier` 如填写，只能为 `free` 或 `member`；未填写时按 `member` 入库。
 - `metadata.deliveryMode` 必须为 `section_sequence`，且不得上传 `duration`、`totalQuestions`、`breakPolicy`。
 - TMUA 必须依次包含 `paper1`、`paper2`，各 20 题，`sectionType = paper`。
 - ESAT 必须包含三个不重复科目且包含 `maths1`，`sectionType = subject`。

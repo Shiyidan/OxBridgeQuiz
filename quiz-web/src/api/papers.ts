@@ -2,7 +2,7 @@
  * 试卷 相关 API
  */
 import { callApi } from '@/utils/request'
-import type { PaperDeliveryMode, Question } from '@/types'
+import type { PaperAccessTier, PaperDeliveryMode, Question } from '@/types'
 
 export interface PaperModuleOutline {
   code: string
@@ -22,6 +22,7 @@ export interface PaperItem {
   totalQuestions: number
   examType?: string
   paperType?: string
+  accessTier: PaperAccessTier
   deliveryMode?: PaperDeliveryMode
   breakDurationSeconds?: number
   modules?: PaperModuleOutline[]
@@ -99,6 +100,15 @@ export function updatePaperType(id: string, paperType: string) {
   })
 }
 
+/** 更新诊断卷的免费或会员访问级别。 */
+export function updatePaperAccessTier(id: string, accessTier: PaperAccessTier) {
+  return callApi<PaperItem>({
+    url: `/papers/${id}`,
+    method: 'PUT',
+    body: { accessTier },
+  })
+}
+
 export interface DeletePaperResult {
   id: string
   deletedQuestions: number
@@ -124,6 +134,7 @@ export interface AssessmentPaperItem {
   totalQuestions: number
   examType?: string
   paperType: string
+  accessTier: PaperAccessTier
   deliveryMode: PaperDeliveryMode
   breakDurationSeconds: number
   modules: PaperModuleOutline[]

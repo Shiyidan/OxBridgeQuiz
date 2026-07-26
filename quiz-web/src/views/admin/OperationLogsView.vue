@@ -257,7 +257,6 @@ const fieldLabels: Record<string, string> = {
   passwordChanged: '密码',
   examPreferences: '备考偏好',
   role: '用户角色',
-  paymentStatus: '付款状态',
   memberships: '会员权益',
   firstMonthlyPriceCents: '首次月付价格（分）',
   monthlyPriceCents: '正常月付价格（分）',

@@ -166,7 +166,7 @@ EntitlementConfig
 - Prisma `Json`/`Json?` 字段必须写入对应的结构化 JSON 值，不要预先 `JSON.stringify`。仅在读取旧数据时使用 `api/src/utils/jsonField.ts` 兼容字符串 JSON。
 - 需要关联数据时优先使用 Prisma 的 `include` 或 `select`，避免 N+1 查询。
 - 角色、状态、套餐和考试类型应复用 `api/src/constants/` 中的集中定义，不要新增散落的硬编码字符串。
-- 不要在一个字段中混合多种语义：`role` 仅表示身份，`paymentStatus` 仅表示旧版学生付款状态，会员与权益通过会员表和权益 API 表示。
+- 不要在一个字段中混合多种语义：`role` 仅表示身份；会员与权益以 `UserMembership` 和权益 API 为唯一依据。
 
 ### Schema 变更
 

@@ -197,7 +197,7 @@ MembershipPlan, UserMembership, EntitlementConfig
 - MySQL JSON 字段（`options` / `answer` / `knowledgePoints` / `syllabusPoints` / `meta` / `examPreferences` / `answers` / `sourceJson` / `result`）：通过 Prisma 写入数组或对象，不再写入 JSON 字符串。读取历史字符串 JSON 时使用 [api/src/utils/jsonField.ts](api/src/utils/jsonField.ts) 做兼容解析。
 - 关联查询用 `include`，不要多次单表查询。
 - 角色、状态、套餐、考试类型等枚举值必须集中定义常量，禁止在业务代码里散落硬编码字符串。
-- 语义不混用：`role` 只表达身份；`paymentStatus` 只保留学生旧付费状态；会员权益走会员表 + 权益接口。
+- 语义不混用：`role` 只表达身份；会员权益以 `UserMembership` 和权益接口为唯一依据。
 
 ### Schema 变更流程
 

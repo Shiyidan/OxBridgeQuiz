@@ -10,7 +10,7 @@ import { syncPaperQuestions, getPaperQuestions, formatQuestionRow } from '../uti
 import { parseJsonArray, parseJsonField } from '../utils/jsonField.js'
 import { createNumericId } from '../utils/id.js'
 import { processMarkdownImport, validateStandardPaperDocument } from '../services/markdownValidator.js'
-import { checkMemberAccess } from '../services/member.js'
+import { checkMemberAccess, hasDiagnosticPaperAccess } from '../services/member.js'
 import {
   EXAM_TYPE,
   QUESTION_BANK_PAPER_TYPES,
@@ -197,25 +197,32 @@ export function formatQuestionForAttempt(row: any) {
   }
 }
 
-// 学生试卷访问统一受试卷类型和会员权益约束，调用方另行隐藏未发布资源的存在性。
+// 真题卷允许免费/会员直接访问，并保留已创建 attempt 的继续作答权限；题库卷仍走次数额度。
 export async function hasStudentPaperEntitlement(
   userId: string,
-  paper: { paperType: string; examType: string },
+  paper: { id?: string; paperType: string; examType: string; accessTier?: string | null },
   questionCount: number,
 ): Promise<boolean> {
   const normalizedPaperType = normalizePaperType(paper.paperType)
-  const action = isRealPaperType(normalizedPaperType)
-    ? 'diagnostic'
-    : QUESTION_BANK_PAPER_TYPES.includes(normalizedPaperType as any)
-      ? 'question-bank'
-      : null
+  if (isRealPaperType(normalizedPaperType)) {
+    if (await hasDiagnosticPaperAccess(userId, paper)) return true
+    if (!paper.id) return false
+    const activeAttempt = await prisma.examRecord.findFirst({
+      where: { userId, paperId: paper.id, status: 'in_progress' },
+      select: { id: true },
+    })
+    return Boolean(activeAttempt)
+  }
+  const action = QUESTION_BANK_PAPER_TYPES.includes(normalizedPaperType as any)
+    ? 'question-bank'
+    : null
   if (!action) return false
 
   const entitlement = await checkMemberAccess(
     userId,
     action,
     paper.examType,
-    action === 'diagnostic' ? 1 : Math.max(1, questionCount),
+    Math.max(1, questionCount),
   )
   return entitlement.allowed
 }

@@ -7,7 +7,6 @@ import {
   MEMBERSHIP_STATUS,
   PAYMENT_ORDER_STATUS,
   PAYMENT_REFUND_STATUS,
-  USER_PAYMENT_STATUS,
 } from '../constants/domain.js'
 import { closePaymentOrder, syncPaymentOrderFromChinaums } from './paymentOrder.js'
 import { runScheduledPaymentReconciliation } from './paymentReconciliation.js'
@@ -176,7 +175,7 @@ async function reconcileProcessingRefunds(now: Date, stats: PaymentLifecycleStat
   }
 }
 
-// 到期权益批量转为 expired，仅在用户没有其他有效会员时回写旧版付款状态。
+// 到期权益批量转为 expired；当前会员状态完全由 UserMembership 记录表达。
 async function expireMemberships(now: Date, stats: PaymentLifecycleStats): Promise<void> {
   const candidates = await prisma.userMembership.findMany({
     where: { status: MEMBERSHIP_STATUS.ACTIVE, endsAt: { lte: now } },
@@ -197,17 +196,7 @@ async function expireMemberships(now: Date, stats: PaymentLifecycleStats): Promi
       },
       data: { status: MEMBERSHIP_STATUS.EXPIRED },
     })
-    const expiredUsers = await tx.user.updateMany({
-      where: {
-        id: { in: userIds },
-        paymentStatus: USER_PAYMENT_STATUS.PAID,
-        memberships: {
-          none: { status: MEMBERSHIP_STATUS.ACTIVE, endsAt: { gt: now } },
-        },
-      },
-      data: { paymentStatus: USER_PAYMENT_STATUS.EXPIRED },
-    })
-    return { expiredMemberships: expiredMemberships.count, expiredUsers: expiredUsers.count }
+    return { expiredMemberships: expiredMemberships.count, expiredUsers: userIds.length }
   })
   stats.membershipsExpired += result.expiredMemberships
   stats.usersExpired += result.expiredUsers

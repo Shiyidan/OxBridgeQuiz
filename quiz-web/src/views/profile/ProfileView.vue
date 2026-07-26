@@ -35,7 +35,7 @@
             class="diagnostic-quota-button button_primary"
             @click="handleUpgradeClick"
           >
-            获取更多模考额度
+            开通会员
           </button>
           <button class="logout-link" type="button" @click="handleLogout">退出登录</button>
         </aside>
@@ -43,11 +43,11 @@
         <section class="learning-overview-panel">
           <div class="diagnostic-quota-panel">
             <div class="diagnostic-quota-heading">
-              <h2>诊断测试额度</h2>
-              <p>各考试类型独立计算额度，互不占用。</p>
+              <h2>诊断测试权益</h2>
+              <p>免费卷可不限次测试，会员可解锁对应考试的全部试卷。</p>
             </div>
             <div class="diagnostic-quota-actions">
-              <div class="diagnostic-quota-list" role="tablist" aria-label="诊断测试额度明细">
+              <div class="diagnostic-quota-list" role="tablist" aria-label="诊断测试权益明细">
                 <button
                   v-for="item in diagnosticQuotaItems"
                   :key="item.examType"
@@ -641,7 +641,7 @@
 
             <div class="record-side">
               <span class="record-status" :class="`record-status--${order.status}`">
-                {{ paymentStatusText(order.status) }}
+                {{ paymentOrderStatusText(order.status) }}
               </span>
             </div>
           </article>
@@ -938,8 +938,8 @@ const userInitial = computed(() => displayName.value.charAt(0).toUpperCase())
 const activeMemberships = computed(() =>
   (auth.memberContext?.memberships || []).filter((item) => item.status === 'active'),
 )
-// 兼容旧支付标识，确保迁移期间已付费用户仍被识别为会员。
-const hasActiveMembership = computed(() => activeMemberships.value.length > 0 || auth.isPaid)
+// 会员展示只读取正式 UserMembership，不再接受用户表上的全局付费标识。
+const hasActiveMembership = computed(() => activeMemberships.value.length > 0)
 // 缺少备考偏好时统一为空数组，简化模板遍历和编辑初始化。
 const examPreferences = computed(() => auth.memberContext?.examPreferences || [])
 // 会员标签由实际生效套餐生成，无有效套餐时明确展示免费版。
@@ -976,33 +976,25 @@ const answeredQuestionText = computed(() =>
 const diagnosticExamText = computed(() =>
   isCurrentExamActive.value ? String(currentExamStats.value.diagnosticExamCount) : '--',
 )
-// 诊断额度完全按后端分考试类型权益计算，不再用历史记录推断状态。
+// 诊断权益只区分免费卷和考试会员，不再展示已停用的次数额度。
 const diagnosticQuotaItems = computed(() => {
   const quotas = auth.memberContext?.quotas || {}
   return EXAM_TYPE_OPTIONS.map((item) => {
     const quota = quotas[item.value]
-    const diagnostic = quota?.diagnostic
-    const isUnlimited = Boolean(quota?.isMember || diagnostic?.unlimited)
     const available = isExamTypeAvailable(item.value)
-    let text = available ? '暂无额度' : '正在推进中'
-
-    if (available && isUnlimited) {
-      text = '会员不限次'
-    } else if (
-      available &&
-      diagnostic &&
-      diagnostic.remaining !== null &&
-      diagnostic.limit !== null
-    ) {
-      text = `剩余 ${diagnostic.remaining}/${diagnostic.limit} 次`
-    }
+    const isMember = Boolean(auth.isAdmin || quota?.isMember)
+    const text = available
+      ? isMember
+        ? '全部试卷已解锁'
+        : '免费卷不限次'
+      : '正在推进中'
 
     return {
       examType: item.value,
       label: item.label,
       text,
       available,
-      isEmpty: !available || (!isUnlimited && (!diagnostic || diagnostic.remaining === 0)),
+      isEmpty: !available,
     }
   })
 })
@@ -1436,7 +1428,7 @@ function findSubscriptionPaymentOrder(examType: string, plan: string): PaymentOr
 }
 
 // 支付状态集中映射，未知状态保持原值以便排查后端扩展状态。
-function paymentStatusText(status: string): string {
+function paymentOrderStatusText(status: string): string {
   const map: Record<string, string> = {
     pending: '待支付',
     paid: '已支付',

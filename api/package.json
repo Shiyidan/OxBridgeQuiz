@@ -13,6 +13,7 @@
     "clear:dev-users": "tsx scripts/clear-dev-user-data.ts",
     "smoke:auth": "tsx scripts/smoke-auth.ts",
     "test:behavior-analytics": "tsx scripts/test-behavior-analytics.ts",
+    "test:admin-user-access": "tsx scripts/test-admin-user-access.ts",
     "test:modular-diagnostic": "tsx scripts/test-modular-diagnostic.ts",
     "verify:chinaums-signature": "tsx scripts/verify-chinaums-signature.ts",
     "smoke:chinaums": "tsx scripts/smoke-chinaums.ts"

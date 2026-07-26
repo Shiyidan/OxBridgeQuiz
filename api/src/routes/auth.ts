@@ -8,7 +8,6 @@ import { ZodError } from 'zod'
 import { prisma } from '../services/prisma.js'
 import { requireAuth, optionalAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
-import { formatUserForClient } from '../utils/userPresenter.js'
 import {
   AUTH_ERROR,
   AUTH_SESSION_EXPIRED_MESSAGE,
@@ -64,14 +63,13 @@ const passwordLimiter = limiter(15 * 60 * 1000, 10)
 const dummyPasswordHash = bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12)
 
 function presentUser(user: User) {
-  return formatUserForClient({
+  return {
     id: user.id,
     username: user.username,
     email: user.email,
     role: user.role,
     avatar: user.avatar,
-    paymentStatus: user.paymentStatus,
-  })
+  }
 }
 
 function handleAuthError(res: Response, error: unknown, event: string): void {

@@ -132,7 +132,11 @@
           </el-form-item>
 
           <el-form-item label="会员套餐">
-            <el-select v-model="editForm.plan" placeholder="请选择会员套餐">
+            <el-select
+              v-model="editForm.plan"
+              placeholder="请选择会员套餐"
+              :disabled="editForm.examTypes.length === 0"
+            >
               <el-option
                 v-for="item in planOptions"
                 :key="item.value"

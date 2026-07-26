@@ -9,7 +9,6 @@ export interface MemberUser {
   email: string
   role: string
   avatar?: string
-  paymentStatus?: string
 }
 
 export interface MemberSubscription {

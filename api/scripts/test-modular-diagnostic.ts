@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../src/services/prisma.js'
-import { checkMemberAccess } from '../src/services/member.js'
+import { hasDiagnosticPaperAccess } from '../src/services/member.js'
 import {
   buildModuleExamSnapshot,
   moduleSnapshotJson,
@@ -11,27 +11,12 @@ import {
   resumePausedModuleExam,
 } from '../src/services/moduleExamSession.js'
 import { computeScores, quickEsatScore } from '../src/services/scoring.js'
-import { withQuotaTransaction } from '../src/services/transactionRetry.js'
 import { formatQuestionForAttempt } from '../src/routes/papers-shared.js'
 import { normalizeTmuaPaperCode } from '../src/services/markdownValidator.js'
 
 const suffix = crypto.randomUUID()
 const userId = `module-test-user-${suffix}`
 const paperIds = [0, 1].map((index) => `module-test-paper-${index}-${suffix}`)
-
-// 与正式交卷相同：先锁用户行，再在同一串行事务中校验额度和认领记录。
-async function claimDiagnostic(recordId: string): Promise<boolean> {
-  return withQuotaTransaction(async (tx) => {
-    await tx.user.update({ where: { id: userId }, data: { updatedAt: new Date() } })
-    const access = await checkMemberAccess(userId, 'diagnostic', 'ESAT', 1, tx)
-    if (!access.allowed) return false
-    const claimed = await tx.examRecord.updateMany({
-      where: { id: recordId, status: 'in_progress' },
-      data: { status: 'submitted', submittedAt: new Date(), activeDiagnosticKey: null },
-    })
-    return claimed.count === 1
-  })
-}
 
 async function main(): Promise<void> {
   const moduleConfig = ['maths1', 'physics', 'maths2'].map((code, index) => ({
@@ -156,10 +141,39 @@ async function main(): Promise<void> {
         year: 2023,
         duration: 120,
         paperType: 'realPaper',
+        accessTier: index === 0 ? 'free' : 'member',
         status: 'published',
       })),
     })
-    const records = await Promise.all(paperIds.map((paperId) => prisma.examRecord.create({
+    const papers = await prisma.paper.findMany({
+      where: { id: { in: paperIds } },
+      orderBy: { accessTier: 'asc' },
+    })
+    const freePaper = papers.find((paper) => paper.accessTier === 'free')
+    const memberPaper = papers.find((paper) => paper.accessTier === 'member')
+    assert.ok(freePaper)
+    assert.ok(memberPaper)
+    assert.equal(await hasDiagnosticPaperAccess(userId, freePaper), true)
+    assert.equal(await hasDiagnosticPaperAccess(userId, memberPaper), false)
+
+    await prisma.userMembership.create({
+      data: {
+        userId,
+        examType: 'ESAT',
+        plan: 'monthly',
+        status: 'active',
+        startsAt: new Date(Date.now() - 60_000),
+        endsAt: new Date(Date.now() + 60_000),
+      },
+    })
+    assert.equal(await hasDiagnosticPaperAccess(userId, memberPaper), true)
+    await prisma.userMembership.updateMany({
+      where: { userId, examType: 'ESAT' },
+      data: { endsAt: new Date(Date.now() - 1_000) },
+    })
+    assert.equal(await hasDiagnosticPaperAccess(userId, memberPaper), false)
+
+    await Promise.all(paperIds.map((paperId) => prisma.examRecord.create({
       data: {
         userId,
         paperId,
@@ -167,9 +181,6 @@ async function main(): Promise<void> {
         startedAt: new Date(),
       },
     })))
-
-    const claimResults = await Promise.all(records.map((record) => claimDiagnostic(record.id)))
-    assert.equal(claimResults.filter(Boolean).length, 1, '并发免费诊断只能有一次提交成功')
 
     const activeRecord = await prisma.examRecord.findFirstOrThrow({
       where: { userId, status: 'in_progress' },
@@ -279,6 +290,7 @@ async function main(): Promise<void> {
     console.log('Modular diagnostic regression checks passed.')
   } finally {
     await prisma.examRecord.deleteMany({ where: { userId } })
+    await prisma.userMembership.deleteMany({ where: { userId } })
     await prisma.paper.deleteMany({ where: { id: { in: paperIds } } })
     await prisma.user.deleteMany({ where: { id: userId } })
   }

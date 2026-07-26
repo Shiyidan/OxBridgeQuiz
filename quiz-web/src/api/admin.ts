@@ -21,7 +21,6 @@ export interface UserItem {
   username: string
   email: string
   role: string
-  paymentStatus?: string
   diagnosticUsed?: boolean
   createdAt: string
   memberships?: UserMembershipItem[]

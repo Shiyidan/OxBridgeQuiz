@@ -10,7 +10,7 @@
           <p>选择历年真题诊断卷，按 ESAT 科目模块或 TMUA Paper 1/2 完成在线测试。</p>
         </div>
         <div class="quota-card">
-          <div class="quota-list" aria-label="诊断测试额度明细">
+          <div class="quota-list" aria-label="诊断测试权益明细">
             <span
               v-for="item in diagnosticQuotaItems"
               :key="item.examType"
@@ -24,8 +24,8 @@
               <span>{{ item.text }}</span>
             </span>
           </div>
-          <button class="quota-button button_primary" type="button" @click="handleUpgradeClick">
-            获取更多模考额度
+          <button class="quota-button button_primary" type="button" @click="handleUpgradeClick()">
+            开通会员
           </button>
         </div>
       </header>
@@ -80,8 +80,40 @@
           v-for="item in filteredDiagnosticTests"
           :key="item.id"
           class="paper-card"
-          :class="{ 'paper-card--unavailable': !isPaperAvailable(item) }"
+          :class="{
+            'paper-card--unavailable': !isPaperAvailable(item),
+            'paper-card--locked': isPaperLocked(item),
+          }"
         >
+          <div
+            v-if="isPaperLocked(item)"
+            class="paper-card__lock-overlay"
+            :aria-label="`${item.examType} 会员专享试卷`"
+            @click.stop
+          >
+            <div class="paper-card__lock-marker">
+              <el-icon><Lock /></el-icon>
+              <!-- <span>会员专享</span> -->
+            </div>
+            <div class="paper-card__lock-actions">
+              <button
+                v-if="item.completedAttemptCount > 0"
+                class="paper-card__locked-history-button"
+                type="button"
+                @click.stop="openPaperHistory(item)"
+              >
+                历次记录（{{ item.completedAttemptCount }}）
+              </button>
+              <button
+                class="paper-card__unlock-button"
+                type="button"
+                @click.stop="handleUpgradeClick(item.examType)"
+              >
+                开通会员
+              </button>
+            </div>
+          </div>
+
           <div class="paper-card__heading">
             <div class="paper-card__topline">
               <span
@@ -118,21 +150,12 @@
               <span v-if="isReportGenerating(item)">报告 {{ item.reportProgress }}%</span>
               <span v-else>题正确</span>
             </div>
-            <button
-              v-if="item.completedAttemptCount > 0"
-              class="paper-card__history-button"
-              type="button"
-              @click="openPaperHistory(item)"
-            >
-              历次记录（{{ item.completedAttemptCount }}）
-            </button>
-
             <div class="paper-card__actions">
               <button
                 v-if="item.testStatus === 'completed'"
                 class="paper-card__button paper-card__button--secondary button_cancel"
                 type="button"
-                :disabled="startingPaperId === item.id"
+                :disabled="isPaperLocked(item) || startingPaperId === item.id"
                 @click="handleRetestPaper(item)"
               >
                 重新测试
@@ -140,7 +163,7 @@
               <button
                 class="paper-card__button button_primary"
                 type="button"
-                :disabled="startingPaperId === item.id"
+                :disabled="isPaperLocked(item) || startingPaperId === item.id"
                 @click="handlePaperAction(item)"
               >
                 {{ startingPaperId === item.id ? '正在检查...' : paperActionLabel(item) }}
@@ -225,25 +248,34 @@
         />
       </div>
     </el-dialog>
+
+    <PaymentModal
+      v-model="paymentVisible"
+      :default-exam-type="paymentExamType"
+      @paid="handlePaymentSuccess"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-// 诊断测试中心：展示模考额度、历史趋势和真题套卷入口。
+// 诊断测试中心：展示试卷权益、历史趋势和真题套卷入口。
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Lock } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import NavBar from '@/components/NavBar.vue'
 import AppPagination from '@/components/AppPagination.vue'
+import PaymentModal from '@/components/PaymentModal.vue'
 import SubjectModuleTags from '@/components/SubjectModuleTags.vue'
-import { checkMemberAccess } from '@/api/member'
+import { getMember } from '@/api/member'
 import { useAuthStore } from '@/stores/auth'
 import {
   EXAM_TYPE_OPTIONS,
   getExamUnavailableMessage,
   isExamTypeAvailable,
 } from '@/constants/examTypes'
+import { PAPER_ACCESS_TIER } from '@/constants/paperTypes'
 import {
   getAssessmentPaperHistory,
   getAssessmentPapersData,
@@ -265,6 +297,8 @@ const historyRecords = ref<AssessmentPaperHistoryItem[]>([])
 const historyPage = ref(1)
 const historyPageSize = ref(5)
 const historyTotal = ref(0)
+const paymentVisible = ref(false)
+const paymentExamType = ref('TMUA')
 const chartRef = ref<HTMLDivElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
 
@@ -329,44 +363,34 @@ const diagnosticQuotaItems = computed(() => {
 
   return [...examTypes].map((examType) => {
     const quota = quotas[examType]
-    const diagnostic = quota?.diagnostic
     const available = isExamTypeAvailable(examType)
-    const isUnlimited = Boolean(quota?.isMember || diagnostic?.unlimited)
-    const hasQuota = Boolean(diagnostic)
-    let text = available ? '暂无额度' : '正在推进中'
-
-    if (available && isUnlimited) {
-      text = '会员不限次'
-    } else if (
-      available &&
-      diagnostic &&
-      diagnostic.remaining !== null &&
-      diagnostic.limit !== null
-    ) {
-      text = `剩余 ${diagnostic.remaining}/${diagnostic.limit} 次`
-    }
+    const isMember = Boolean(auth.isAdmin || quota?.isMember)
+    const text = available
+      ? isMember
+        ? '全部试卷已解锁'
+        : '免费卷不限次'
+      : '正在推进中'
 
     return {
       examType,
       label: examTypeLabelMap.get(examType) || examType,
       text,
       available,
-      isEmpty: !available || (!isUnlimited && (!hasQuota || diagnostic?.remaining === 0)),
+      isEmpty: !available,
     }
   })
 })
 // 进入诊断测试页时读取后端已聚合的试卷状态列表，不在前端拼接考试记录。
 onMounted(async () => {
-  try {
-    const data = await getAssessmentPapersData()
-    diagnosticTests.value = data.list || []
-  } catch {
-    diagnosticTests.value = []
-  } finally {
-    loading.value = false
-    await nextTick()
-    renderChart()
-  }
+  const [papersResult, memberResult] = await Promise.allSettled([
+    getAssessmentPapersData(),
+    getMember(),
+  ])
+  diagnosticTests.value = papersResult.status === 'fulfilled' ? papersResult.value.list || [] : []
+  if (memberResult.status === 'fulfilled') auth.setMemberContext(memberResult.value)
+  loading.value = false
+  await nextTick()
+  renderChart()
   window.addEventListener('resize', resizeChart)
 })
 
@@ -436,8 +460,21 @@ function resizeChart(): void {
   chartInstance?.resize()
 }
 
-function handleUpgradeClick(): void {
-  ElMessage.info('会员开通功能即将上线')
+// 从试卷锁定态进入支付时预选该试卷的考试类型，减少重复选择。
+function handleUpgradeClick(examType = 'TMUA'): void {
+  paymentExamType.value = examType || 'TMUA'
+  paymentVisible.value = true
+}
+
+// 支付完成后立即刷新会员上下文，使当前列表无需刷新页面即可解除遮罩。
+async function handlePaymentSuccess(): Promise<void> {
+  try {
+    const context = await getMember()
+    auth.setMemberContext(context)
+    paymentVisible.value = false
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
+  }
 }
 
 // 打开试卷历史时固定当前试卷上下文，分页请求不会和其他卡片的数据混用。
@@ -574,20 +611,12 @@ async function handlePaperAction(item: AssessmentPaperItem): Promise<void> {
     routeToDiagnosticPaper(item, true)
     return
   }
-  if (item.testStatus === 'completed' && item.examRecordId) {
-    if (isReportGenerating(item) || item.reportStatus === 'not_generated' || !item.hasReport) {
-      router.push({
-        path: '/exam-result',
-        query: {
-          id: item.examRecordId,
-          total: String(item.totalQuestions),
-          correct: String(item.correctCount || 0),
-          source: 'assessment',
-        },
-      })
-      return
-    }
-    router.push(`/exam-result/${item.reportExamRecordId || item.examRecordId}`)
+  if (item.testStatus === 'completed') {
+    openPaperHistory(item)
+    return
+  }
+  if (isPaperLocked(item)) {
+    handleUpgradeClick(item.examType)
     return
   }
   await startPaper(item)
@@ -599,10 +628,14 @@ async function handleRetestPaper(paper: AssessmentPaperItem): Promise<void> {
     ElMessage.info(getExamUnavailableMessage(paper.examType))
     return
   }
+  if (isPaperLocked(paper)) {
+    handleUpgradeClick(paper.examType)
+    return
+  }
   await startPaper(paper)
 }
 
-// 点击套卷前先做权益预检，避免进入答题页后才发现额度不足。
+// 前端只处理明确的锁定交互，创建 attempt 时仍由后端再次校验试卷级权益。
 async function startPaper(paper: AssessmentPaperItem): Promise<void> {
   if (!isPaperAvailable(paper)) {
     ElMessage.info(getExamUnavailableMessage(paper.examType))
@@ -618,18 +651,7 @@ async function startPaper(paper: AssessmentPaperItem): Promise<void> {
   if (startingPaperId.value) return
   startingPaperId.value = paper.id
   try {
-    const access = await checkMemberAccess({
-      action: 'diagnostic',
-      examType: paper.examType || 'TMUA',
-      questionCount: 1,
-    })
-    if (!access.allowed) {
-      ElMessage.warning('当前诊断测试额度不足，请开通会员后继续')
-      return
-    }
     routeToDiagnosticPaper(paper, false)
-  } catch {
-    // Axios 公共响应处理会展示后端 errMsg。
   } finally {
     startingPaperId.value = ''
   }
@@ -655,6 +677,13 @@ function isReportGenerating(item: AssessmentPaperItem): boolean {
 // 诊断列表可展示 STEP 上线预告，但任何开始、继续和重测操作都必须保持关闭。
 function isPaperAvailable(item: AssessmentPaperItem): boolean {
   return isExamTypeAvailable(item.examType || 'TMUA')
+}
+
+// 进行中的 attempt 沿用创建时取得的权限；免费卷、管理员和有效会员不显示锁定态。
+function isPaperLocked(item: AssessmentPaperItem): boolean {
+  if (!isPaperAvailable(item) || item.testStatus === 'in_progress') return false
+  if (item.accessTier === PAPER_ACCESS_TIER.FREE || auth.isAdmin) return false
+  return !auth.memberContext?.quotas?.[item.examType || 'TMUA']?.isMember
 }
 
 function paperStatusLabel(item: AssessmentPaperItem): string {
@@ -918,6 +947,8 @@ function paperActionLabel(item: AssessmentPaperItem): string {
 }
 
 .paper-card {
+  position: relative;
+  overflow: hidden;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -929,6 +960,129 @@ function paperActionLabel(item: AssessmentPaperItem): string {
   transition:
     border-color var(--duration-base) ease,
     transform var(--duration-fast) ease;
+}
+
+.paper-card__lock-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  overflow: hidden;
+  border-radius: inherit;
+  background: linear-gradient(
+    to top,
+    rgb(15 15 15 / 68%) 0%,
+    rgb(20 20 20 / 42%) 38%,
+    rgb(24 24 24 / 18%) 72%,
+    rgb(24 24 24 / 7%) 100%
+  );
+  color: rgb(255 255 255 / 92%);
+  cursor: not-allowed;
+  pointer-events: auto;
+  transition: background var(--duration-base) ease;
+}
+
+.paper-card__lock-marker {
+  position: absolute;
+  top: 66.666%;
+  left: 50%;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  transform: translate(-50%, -50%);
+  text-shadow: 0 1px 10px rgb(0 0 0 / 42%);
+}
+
+.paper-card__lock-marker .el-icon {
+  font-size: 32px;
+}
+
+.paper-card__lock-marker span {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.04em;
+}
+
+.paper-card__lock-actions {
+  position: absolute;
+  bottom: 12px;
+  right: 24px;
+  left: 24px;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+  transition:
+    opacity var(--duration-fast) ease,
+    transform var(--duration-fast) ease;
+}
+
+.paper-card__unlock-button {
+  grid-column: 2;
+  min-width: 112px;
+  height: var(--height-button);
+  padding: 0 22px;
+  border: 1px solid rgb(255 255 255 / 64%);
+  border-radius: var(--radius-md);
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 20%);
+  color: var(--color-ink);
+  font: inherit;
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) ease,
+    background var(--duration-fast) ease,
+    color var(--duration-fast) ease;
+}
+
+.paper-card__locked-history-button {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: end;
+  padding: 5px 1px 3px;
+  border: 0;
+  border-bottom: 1px solid rgb(255 255 255 / 72%);
+  background: transparent;
+  color: rgb(255 255 255 / 94%);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) ease,
+    color var(--duration-fast) ease;
+}
+
+.paper-card__unlock-button:hover {
+  background: var(--color-surface);
+}
+
+.paper-card__locked-history-button:hover {
+  border-bottom-color: rgb(255 255 255);
+  color: rgb(255 255 255);
+}
+
+.paper-card--locked:hover .paper-card__lock-overlay,
+.paper-card--locked:focus-within .paper-card__lock-overlay {
+  background: linear-gradient(
+    to top,
+    rgb(12 12 12 / 74%) 0%,
+    rgb(18 18 18 / 48%) 38%,
+    rgb(22 22 22 / 22%) 72%,
+    rgb(22 22 22 / 9%) 100%
+  );
+}
+
+.paper-card__lock-overlay:hover .paper-card__lock-actions,
+.paper-card__lock-overlay:focus-within .paper-card__lock-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 
 .paper-card:hover {
@@ -1063,6 +1217,8 @@ function paperActionLabel(item: AssessmentPaperItem): string {
 }
 
 .paper-card__footer {
+  position: relative;
+  z-index: 3;
   min-height: var(--height-button);
   display: flex;
   align-items: center;
@@ -1088,32 +1244,6 @@ function paperActionLabel(item: AssessmentPaperItem): string {
   color: var(--color-ink-muted);
   font-size: var(--text-sm);
   font-weight: var(--weight-semi);
-}
-
-.paper-card__history-button {
-  flex: 0 0 auto;
-  padding: 4px 2px;
-  border: 0;
-  border-bottom: 1px solid transparent;
-  background: transparent;
-  color: var(--color-ink-soft);
-  font-family: inherit;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semi);
-  cursor: pointer;
-  transition:
-    border-color var(--duration-fast) ease,
-    color var(--duration-fast) ease;
-}
-
-.paper-card__history-button:hover {
-  border-bottom-color: var(--color-ink);
-  color: var(--color-ink);
-}
-
-.paper-card__history-button:focus-visible {
-  outline: 2px solid var(--color-ink);
-  outline-offset: 3px;
 }
 
 .paper-card__actions {

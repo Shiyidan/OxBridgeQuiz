@@ -111,6 +111,7 @@ model User {
   emailChallenges       EmailVerificationChallenge[]
   paymentOrders         PaymentOrder[]
   operationLogs         OperationLog[]
+  legalAcceptances      UserLegalAcceptance[]
 }
 
 model OperationLog {
@@ -145,6 +146,25 @@ model OperationLog {
   @@index([module, occurredAt])
   @@index([action, occurredAt])
   @@index([resourceType, resourceId, occurredAt])
+}
+
+model UserLegalAcceptance {
+  id              String   @id @default(uuid()) @db.VarChar(191)
+  userId          String   @db.VarChar(191)
+  documentType    String   @db.VarChar(64)
+  documentVersion String   @db.VarChar(32)
+  source          String   @db.VarChar(32)
+  referenceId     String?  @db.VarChar(191)
+  acceptedAt      DateTime @default(now())
+  ipAddress       String?  @db.VarChar(64)
+  userAgent       String?  @db.VarChar(512)
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, documentType, documentVersion])
+  @@index([userId, acceptedAt])
+  @@index([documentType, documentVersion])
 }
 
 model AuthSession {

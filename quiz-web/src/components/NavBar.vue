@@ -6,7 +6,7 @@
           <span class="logo-mark" aria-hidden="true">
             <img :src="brandIconUrl" alt="" class="logo-mark-image" />
           </span>
-          <span class="logo-text">云舟备考</span>
+          <span class="logo-text">AceMock</span>
         </router-link>
         <nav class="nav-links">
           <router-link to="/" class="nav-link" exact-active-class="nav-link--active"

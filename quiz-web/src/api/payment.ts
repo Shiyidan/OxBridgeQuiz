@@ -1,5 +1,6 @@
 /** 支付策略与用户支付订单 API。 */
 import { callApi } from '@/utils/request'
+import type { MembershipLegalVersions } from '@/constants/legal'
 
 export interface PaymentConfig {
   firstMonthlyPriceCents: number
@@ -49,6 +50,7 @@ export function createPaymentOrder(payload: {
   examTypes: string[]
   plan: 'monthly' | 'yearly'
   channel: 'alipay' | 'wechat' | 'unionpay'
+  legalVersions: MembershipLegalVersions
 }) {
   return callApi<CreatePaymentOrderResult>({
     url: '/payment/orders',

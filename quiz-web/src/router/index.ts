@@ -36,6 +36,16 @@ const router = createRouter({
       name: 'register',
       component: lazyRoute(() => import('../views/auth/RegisterView.vue')),
     },
+    // 协议与政策
+    {
+      path: '/legal',
+      redirect: '/legal/user-agreement',
+    },
+    {
+      path: '/legal/:documentType(user-agreement|privacy-policy|membership-service-agreement|membership-purchase-notice)',
+      name: 'legal-document',
+      component: lazyRoute(() => import('../views/legal/LegalDocumentView.vue')),
+    },
     // 个人中心
     {
       path: '/profile',

@@ -2,6 +2,7 @@
 import { z } from 'zod'
 import { EMAIL_CODE_PURPOSE } from '../constants/auth.js'
 import { TARGET_UNIVERSITIES } from '../constants/domain.js'
+import { LEGAL_DOCUMENT_VERSIONS } from '../constants/legal.js'
 
 // 用户名和密码规则作为所有身份接口的唯一后端校验来源。
 const USERNAME_PATTERN =
@@ -33,6 +34,17 @@ const emailCodeFields = {
   challengeId: z.string().uuid('验证码请求无效'),
   emailCode: z.string().regex(/^\d{6}$/, '请输入六位数字验证码'),
 }
+
+const authLegalVersionsSchema = z
+  .object({
+    userAgreement: z.literal(LEGAL_DOCUMENT_VERSIONS.userAgreement, {
+      error: '用户服务协议版本已更新，请刷新页面后重试',
+    }),
+    privacyPolicy: z.literal(LEGAL_DOCUMENT_VERSIONS.privacyPolicy, {
+      error: '隐私政策版本已更新，请刷新页面后重试',
+    }),
+  })
+  .strict()
 
 // 注册和个人中心复用同一份备考目标结构，防止保存出两套数据格式。
 const examPreferenceSchema = z
@@ -73,6 +85,7 @@ export const registerSchema = z
     email: emailSchema,
     password: passwordSchema,
     confirmPassword: z.string(),
+    legalVersions: authLegalVersionsSchema,
     ...emailCodeFields,
     examPreferences: examPreferencesSchema.optional(),
   })
@@ -86,6 +99,7 @@ export const loginSchema = z
   .object({
     username: z.string().trim().min(1, '请输入用户名或邮箱').max(191),
     password: z.string().min(1, '请输入密码').max(128),
+    legalVersions: authLegalVersionsSchema,
   })
   .strict()
 

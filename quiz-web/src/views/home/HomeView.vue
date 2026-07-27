@@ -326,7 +326,7 @@
               <span class="logo-mark" aria-hidden="true">
                 <img :src="brandIconUrl" alt="" class="logo-mark-image" />
               </span>
-              <span>云舟备考</span>
+              <span>AceMock</span>
             </router-link>
             <p>基于真实机考形式和考纲知识点的智能备考系统。精准诊断，让备考的每一步都算数。</p>
           </div>
@@ -353,14 +353,12 @@
             <ul class="footer-col-list">
               <li><a>关于我们</a></li>
               <li><a>联系方式</a></li>
-              <li><a>用户协议</a></li>
-              <li><a>隐私政策</a></li>
             </ul>
           </div>
         </div>
         <div class="footer-bottom">
           <div class="footer-copy">
-            <span>© 2026 云舟备考 SmartKey. All Rights Reserved.</span>
+            <span>© 2026 云舟备考 AceMock. All Rights Reserved.</span>
             <a
               class="footer-icp"
               href="https://beian.miit.gov.cn/"
@@ -371,9 +369,10 @@
             </a>
           </div>
           <div class="footer-legal">
-            <a>用户协议</a>
-            <a>隐私政策</a>
-            <a>联系我们</a>
+            <router-link to="/legal/user-agreement">用户协议</router-link>
+            <router-link to="/legal/privacy-policy">隐私政策</router-link>
+            <router-link to="/legal/membership-service-agreement">会员服务协议</router-link>
+            <router-link to="/legal/membership-purchase-notice">会员购买须知</router-link>
           </div>
         </div>
       </div>

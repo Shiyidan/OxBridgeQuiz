@@ -34,10 +34,13 @@
                 <p class="option-label">请选择您的备考类型：</p>
                 <div class="exam-options">
                   <label v-for="exam in examOptions" :key="exam.value" class="exam-option">
-                    <input v-model="selectedExams" type="checkbox" :value="exam.value" />
-                    <span class="check-box" aria-hidden="true">
-                      <svg viewBox="0 0 16 16"><path d="M3.5 8.2l2.7 2.7 6.3-6.1" /></svg>
-                    </span>
+                    <input
+                      v-model="selectedExam"
+                      type="radio"
+                      name="payment-exam-type"
+                      :value="exam.value"
+                    />
+                    <span class="radio-control" aria-hidden="true"></span>
                     <span>{{ exam.label }}</span>
                   </label>
                 </div>
@@ -64,9 +67,16 @@
                   <span class="plan-name">{{ plan.name }}</span>
                   <span class="plan-price">
                     <span v-if="plan.promo" class="plan-promo">{{ plan.promo }}</span>
-                    <strong>¥{{ plan.price }}</strong
-                    ><small>/月</small>
-                    <del v-if="plan.originalPrice">原价¥{{ plan.originalPrice }}/月</del>
+                    <strong>¥{{ plan.price }}</strong>
+                    <small v-if="!plan.originalPrice">/{{ plan.period }}</small>
+                    <span
+                      v-if="plan.originalPrice"
+                      class="plan-original-group"
+                      :aria-label="`原价${plan.originalPrice}元每月`"
+                    >
+                      <del class="plan-original-price">¥{{ plan.originalPrice }}</del
+                      ><small>/月</small>
+                    </span>
                   </span>
                   <span v-if="selectedPlanId === plan.id" class="plan-selected" aria-hidden="true">
                     <svg viewBox="0 0 16 16"><path d="M3.5 8.2l2.7 2.7 6.3-6.1" /></svg>
@@ -177,10 +187,20 @@
           </div>
 
           <footer class="payment-footer">
-            支付即代表同意
-            <a href="#" @click.prevent>《会员服务协议》</a>
+            支付代表即为同意
+            <router-link
+              to="/legal/membership-service-agreement"
+              target="_blank"
+              rel="noopener noreferrer"
+              >《会员服务协议》</router-link
+            >
             与
-            <a href="#" @click.prevent>《隐私政策》</a>
+            <router-link
+              to="/legal/membership-purchase-notice"
+              target="_blank"
+              rel="noopener noreferrer"
+              >《会员购买须知与权益说明》</router-link
+            >
           </footer>
         </section>
       </div>
@@ -193,6 +213,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import QRCode from 'qrcode'
 import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
+import { MEMBERSHIP_LEGAL_VERSIONS } from '@/constants/legal'
 import {
   closePaymentOrder,
   createPaymentOrder,
@@ -208,9 +229,10 @@ interface Props {
 interface PaymentPlan {
   id: string
   name: string
-  price: number
+  price: string
+  period: '月' | '年'
   promo?: string
-  originalPrice?: number
+  originalPrice?: string
   recommended: boolean
 }
 
@@ -221,7 +243,7 @@ const emit = defineEmits<{
 }>()
 
 const examOptions = EXAM_TYPE_OPTIONS.filter((item) => item.available)
-const selectedExams = ref<string[]>(['TMUA'])
+const selectedExam = ref('TMUA')
 const selectedPlanId = ref('monthly')
 const selectedChannelId = ref('alipay')
 const creatingOrder = ref(false)
@@ -243,14 +265,17 @@ const plans = computed<PaymentPlan[]>(() => [
   {
     id: 'monthly',
     name: '按月订阅',
-    price: priceConfig.value.monthlyPriceCents / 100,
-    promo: `首次订阅¥${formatPrice(priceConfig.value.firstMonthlyPriceCents)}`,
+    price: formatPrice(priceConfig.value.firstMonthlyPriceCents),
+    period: '月',
+    promo: '首次订阅',
+    originalPrice: formatPrice(priceConfig.value.monthlyPriceCents),
     recommended: false,
   },
   {
     id: 'yearly',
     name: '按年订阅',
-    price: priceConfig.value.yearlyPriceCents / 100,
+    price: formatPrice(priceConfig.value.yearlyPriceCents),
+    period: '年',
     recommended: true,
   },
 ])
@@ -367,16 +392,17 @@ async function createPaymentQrImage(checkoutUrl: string): Promise<string> {
 
 // 用户确认当前套餐和渠道后创建支付订单，金额始终由后端重新计算。
 async function handleCreateOrder(): Promise<void> {
-  if (selectedExams.value.length === 0) {
-    ElMessage.warning('请至少选择一个备考类型')
+  if (!selectedExam.value) {
+    ElMessage.warning('请选择一个备考类型')
     return
   }
   creatingOrder.value = true
   try {
     const result = await createPaymentOrder({
-      examTypes: selectedExams.value,
+      examTypes: [selectedExam.value],
       plan: selectedPlanId.value as 'monthly' | 'yearly',
       channel: selectedChannelId.value as 'alipay' | 'wechat' | 'unionpay',
+      legalVersions: { ...MEMBERSHIP_LEGAL_VERSIONS },
     })
     createdOrderNo.value = result.order.orderNo
     paymentPageUrl.value = result.qrCodeUrl
@@ -406,7 +432,7 @@ watch(
     document.body.style.overflow = visible ? 'hidden' : ''
     if (visible) {
       const defaultExam = examOptions.find((item) => item.value === props.defaultExamType)
-      if (defaultExam) selectedExams.value = [defaultExam.value]
+      selectedExam.value = defaultExam?.value || 'TMUA'
       resetPaymentOrder()
       void loadPaymentConfig()
     } else {
@@ -416,12 +442,11 @@ watch(
 )
 
 watch(
-  [selectedExams, selectedPlanId, selectedChannelId],
+  [selectedExam, selectedPlanId, selectedChannelId],
   () => {
     if (createdOrderNo.value) void cancelCurrentOrder()
     resetPaymentOrder()
   },
-  { deep: true },
 )
 
 window.addEventListener('keydown', handleKeydown)
@@ -445,7 +470,7 @@ onBeforeUnmount(() => {
 }
 
 .payment-modal {
-  width: min(1010px, 100%);
+  width: min(970px, 100%);
   overflow: hidden;
   color: #30343b;
   background: #fff;
@@ -499,7 +524,7 @@ onBeforeUnmount(() => {
 .payment-body {
   display: grid;
   grid-template-columns: minmax(0, 56%) minmax(340px, 44%);
-  min-height: 510px;
+  min-height: 490px;
 }
 
 .payment-options {
@@ -539,29 +564,38 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 
-.check-box {
+.radio-control {
   display: grid;
   place-items: center;
   width: 17px;
   height: 17px;
-  color: #fff;
   background: #fff;
   border: 1px solid #ccd2da;
-  border-radius: 3px;
+  border-radius: 50%;
 }
 
-.check-box svg {
-  width: 13px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2;
-}
-
-.exam-option input:checked + .check-box {
+.radio-control::after {
+  width: 9px;
+  height: 9px;
   background: #2f73ff;
+  border-radius: 50%;
+  content: '';
+  transform: scale(0);
+  transition: transform 0.15s ease;
+}
+
+.exam-option input:checked + .radio-control {
+  background: #fff;
   border-color: #2f73ff;
+}
+
+.exam-option input:checked + .radio-control::after {
+  transform: scale(1);
+}
+
+.exam-option input:focus-visible + .radio-control {
+  outline: 2px solid #1a1a1a;
+  outline-offset: 2px;
 }
 
 .exam-option:has(input:checked) {
@@ -612,11 +646,12 @@ onBeforeUnmount(() => {
 
 .plan-price strong {
   color: #2672ff;
-  font-size: 22px;
+  font-size: 26px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
-.plan-price small,
-.plan-price del {
+.plan-price > small {
   color: #7b818a;
   font-size: 13px;
 }
@@ -624,8 +659,39 @@ onBeforeUnmount(() => {
 .plan-promo {
   margin-right: 5px;
   color: #2672ff;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 700;
+}
+
+.plan-original-group {
+  display: inline-flex;
+  align-items: baseline;
+  color: #7b818a;
+  font-size: 15px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-original-price {
+  position: relative;
+  display: inline-block;
+  text-decoration: none;
+}
+
+.plan-original-group small {
+  font-size: 11px;
+}
+
+.plan-original-price::after {
+  position: absolute;
+  top: 50%;
+  right: -2px;
+  left: -2px;
+  height: 1.5px;
+  background: #4f5662;
+  border-radius: 999px;
+  content: '';
+  transform: translateY(-50%);
 }
 
 .recommend-badge {
@@ -961,10 +1027,6 @@ onBeforeUnmount(() => {
     flex-wrap: wrap;
     justify-content: flex-end;
     max-width: 66%;
-  }
-  .plan-price del {
-    width: 100%;
-    text-align: right;
   }
   .payment-checkout {
     padding: 30px 20px;

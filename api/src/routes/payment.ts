@@ -20,6 +20,13 @@ import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { setOperationAuditContext } from '../middleware/operationAudit.js'
 import { logRuntimeError } from '../utils/runtimeLogger.js'
 import {
+  LEGAL_ACCEPTANCE_SOURCE,
+  LEGAL_DOCUMENT_TYPE,
+  LEGAL_DOCUMENT_VERSIONS,
+} from '../constants/legal.js'
+import { recordLegalAcceptances } from '../services/legalAcceptance.js'
+import { normalizeIpAddress } from '../utils/ipAddress.js'
+import {
   EXAM_TYPES,
   MEMBERSHIP_PLAN,
   PAYMENT_CHANNELS,
@@ -220,20 +227,24 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
       res.status(503).json(fail('银联商务参数尚未配置完成', 'PAYMENT_PROVIDER_NOT_CONFIGURED'))
       return
     }
-    const { examTypes, plan, channel } = req.body as {
+    const { examTypes, plan, channel, legalVersions } = req.body as {
       examTypes?: unknown
       plan?: unknown
       channel?: unknown
+      legalVersions?: unknown
     }
+    const normalizedLegalVersions = legalVersions && typeof legalVersions === 'object'
+      ? legalVersions as Record<string, unknown>
+      : null
     const normalizedExamTypes = Array.isArray(examTypes)
       ? [...new Set(examTypes.filter((item): item is string => typeof item === 'string'))]
       : []
 
     if (
-      normalizedExamTypes.length === 0 ||
+      normalizedExamTypes.length !== 1 ||
       normalizedExamTypes.some((item) => !EXAM_TYPES.includes(item as (typeof EXAM_TYPES)[number]))
     ) {
-      res.status(422).json(fail('请选择有效的备考类型'))
+      res.status(422).json(fail('请选择一个有效的备考类型'))
       return
     }
     if (normalizedExamTypes.some((item) => !isStudentExamTypeAvailable(item))) {
@@ -246,6 +257,18 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
     }
     if (typeof channel !== 'string' || !PAYMENT_CHANNELS.includes(channel as (typeof PAYMENT_CHANNELS)[number])) {
       res.status(422).json(fail('请选择有效的支付方式'))
+      return
+    }
+    if (
+      normalizedLegalVersions?.membershipServiceAgreement
+        !== LEGAL_DOCUMENT_VERSIONS.membershipServiceAgreement
+      || normalizedLegalVersions.membershipPurchaseNotice
+        !== LEGAL_DOCUMENT_VERSIONS.membershipPurchaseNotice
+    ) {
+      res.status(422).json(fail(
+        '会员协议版本已更新，请刷新页面后重试',
+        'LEGAL_VERSION_OUTDATED',
+      ))
       return
     }
 
@@ -270,6 +293,7 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
       amountCents = hasPaidMonthlyOrder ? paymentConfig.monthlyPriceCents : paymentConfig.firstMonthlyPriceCents
     }
 
+    const agreementsAcceptedAt = new Date()
     const expiresAt = new Date(Date.now() + config.chinaums.orderExpireMinutes * 60 * 1000)
     const order = await prisma.paymentOrder.create({
       data: {
@@ -285,6 +309,24 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
       },
     })
     createdOrderId = order.id
+    await recordLegalAcceptances(prisma, {
+      userId: req.user!.userId,
+      source: LEGAL_ACCEPTANCE_SOURCE.PAYMENT_ORDER,
+      acceptedAt: agreementsAcceptedAt,
+      ipAddress: normalizeIpAddress(req.ip),
+      userAgent: req.get('user-agent'),
+      referenceId: order.orderNo,
+      documents: [
+        {
+          documentType: LEGAL_DOCUMENT_TYPE.MEMBERSHIP_SERVICE_AGREEMENT,
+          documentVersion: LEGAL_DOCUMENT_VERSIONS.membershipServiceAgreement,
+        },
+        {
+          documentType: LEGAL_DOCUMENT_TYPE.MEMBERSHIP_PURCHASE_NOTICE,
+          documentVersion: LEGAL_DOCUMENT_VERSIONS.membershipPurchaseNotice,
+        },
+      ],
+    })
 
     const qrResponse = await createChinaumsQr({
       orderNo: order.orderNo,

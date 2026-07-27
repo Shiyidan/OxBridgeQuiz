@@ -17,7 +17,6 @@
  *                 │     ├── .auth-sub
  *                 │     └── .auth-features
  *                 └── .auth-card           右侧表单卡片
- *                       ├── .auth-brand
  *                       ├── .auth-title
  *                       ├── .auth-subtitle
  *                       ├── .auth-alert (可选)
@@ -145,21 +144,6 @@
     margin: 0;
   }
 
-
-.auth-brand {
-  display: flex;
-  justify-content: flex-start;
-  margin-bottom: 24px;
-}
-.auth-brand-mark {
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-lg);
-  background: var(--color-ink);
-  color: var(--color-ink-inverse);
-}
 .auth-title {
   font-size: var(--text-2xl);
   font-weight: var(--weight-bold);
@@ -192,6 +176,46 @@
   height: 46px;
   line-height: 46px;
   font-size: var(--text-base);
+}
+
+/* 登录协议确认属于登录表单字段，错误提示由 Element Plus 表单校验统一承载。 */
+.auth-form .auth-legal-row {
+  margin-top: 2px;
+}
+.auth-form .auth-legal-row .el-form-item__content {
+  justify-content: flex-start;
+}
+.auth-legal-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-ink-soft);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+}
+.auth-legal-notice .el-checkbox {
+  height: auto;
+  margin-right: 0;
+}
+.auth-legal-notice .el-checkbox__label {
+  padding-left: 7px;
+  color: var(--color-ink-soft);
+  font-size: var(--text-sm);
+}
+.auth-legal-notice a {
+  color: var(--color-ink);
+  font-weight: var(--weight-medium);
+  text-decoration: underline;
+  text-decoration-color: var(--color-line);
+  text-underline-offset: 3px;
+}
+.auth-legal-notice a:hover {
+  text-decoration-color: currentColor;
+}
+.auth-legal-notice a:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
 }
 
 /* ============ 主提交按钮（全宽 48px，视觉样式走 .button_primary） ============ */

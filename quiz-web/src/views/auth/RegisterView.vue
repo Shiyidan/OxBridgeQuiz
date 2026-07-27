@@ -239,6 +239,25 @@
             </section>
           </div>
 
+          <el-form-item prop="legalAccepted" class="register-legal-row">
+            <div class="register-legal-notice">
+              <el-checkbox v-model="form.legalAccepted">我已阅读并同意</el-checkbox>
+              <router-link
+                to="/legal/user-agreement"
+                target="_blank"
+                rel="noopener noreferrer"
+                >《用户服务协议》</router-link
+              >
+              和
+              <router-link
+                to="/legal/privacy-policy"
+                target="_blank"
+                rel="noopener noreferrer"
+                >《隐私政策》</router-link
+              >
+            </div>
+          </el-form-item>
+
           <el-form-item class="register-submit-row">
             <el-button
               type="primary"
@@ -279,6 +298,7 @@ import {
 } from '@/constants/examTypes'
 import { TARGET_UNIVERSITY_OPTIONS } from '@/constants/universities'
 import { createAuthRouteLocation, getSafeAuthRedirect } from '@/utils/authRedirect'
+import { AUTH_LEGAL_VERSIONS } from '@/constants/legal'
 import {
   validateConfirmPassword,
   EMAIL_CODE_PATTERN,
@@ -305,6 +325,7 @@ const form = reactive({
   emailCode: '',
   password: '',
   confirmPassword: '',
+  legalAccepted: false,
 })
 
 // 复用共享校验规则，确保注册页与后端基础规则保持一致。
@@ -356,6 +377,15 @@ const rules: FormRules = {
         else callback(new Error(result.message))
       },
       trigger: 'blur',
+    },
+  ],
+  legalAccepted: [
+    {
+      validator: (_rule, value: boolean, callback) => {
+        if (value) callback()
+        else callback(new Error('请勾选并同意《用户服务协议》和《隐私政策》'))
+      },
+      trigger: 'change',
     },
   ],
 }
@@ -573,6 +603,7 @@ const handleSubmit = async (): Promise<void> => {
       email: form.email,
       password: form.password,
       confirmPassword: form.confirmPassword,
+      legalVersions: { ...AUTH_LEGAL_VERSIONS },
       challengeId: challengeId.value,
       emailCode: form.emailCode,
       examPreferences: examPrefs,
@@ -767,9 +798,55 @@ const handleSubmit = async (): Promise<void> => {
   width: 100%;
 }
 
+.register-legal-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+
+  :deep(.el-checkbox) {
+    height: auto;
+    margin-right: 0;
+  }
+
+  :deep(.el-checkbox__label) {
+    padding-left: 7px;
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+  }
+
+  a {
+    color: var(--color-text);
+    font-weight: var(--weight-medium);
+    text-decoration: underline;
+    text-decoration-color: var(--color-border);
+    text-underline-offset: 3px;
+  }
+
+  a:hover {
+    text-decoration-color: currentColor;
+  }
+
+  a:focus-visible {
+    outline: 2px solid var(--color-text);
+    outline-offset: 2px;
+  }
+}
+
+.register-legal-row {
+  margin: 28px auto 0;
+
+  :deep(.el-form-item__content) {
+    justify-content: center;
+  }
+}
+
 .register-submit-row {
   max-width: 360px;
-  margin: 32px auto 0;
+  margin: 14px auto 0;
 }
 
 .register-footnote {

@@ -1,11 +1,13 @@
 /** 认证相关API：验证码、密码流程和可撤销会话。 */
 import { callApi } from '@/utils/request'
+import type { AuthLegalVersions } from '@/constants/legal'
 
 export type EmailCodePurpose = 'REGISTER' | 'RESET_PASSWORD' | 'CHANGE_EMAIL'
 
 export interface LoginParams {
   username: string
   password: string
+  legalVersions: AuthLegalVersions
 }
 
 export interface RegisterParams {
@@ -13,6 +15,7 @@ export interface RegisterParams {
   email: string
   password: string
   confirmPassword: string
+  legalVersions: AuthLegalVersions
   challengeId: string
   emailCode: string
   examPreferences?: Array<{

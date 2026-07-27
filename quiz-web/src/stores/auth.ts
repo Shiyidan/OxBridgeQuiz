@@ -10,6 +10,7 @@ import {
   updateProfile as apiUpdateProfile,
 } from '../api/auth'
 import type { MemberContext } from '../api/member'
+import type { AuthLegalVersions } from '../constants/legal'
 
 export interface User {
   id: string
@@ -99,10 +100,14 @@ export const useAuthStore = defineStore('auth', () => {
     if (memberContext.value) memberContext.value = { ...memberContext.value, user: nextUser }
   }
 
-  async function login(username: string, password: string): Promise<void> {
+  async function login(
+    username: string,
+    password: string,
+    legalVersions: AuthLegalVersions,
+  ): Promise<void> {
     loading.value = true
     try {
-      const data = await apiLogin({ username, password })
+      const data = await apiLogin({ username, password, legalVersions })
       applyAuth(data.user, data.accessToken)
     } finally {
       loading.value = false
@@ -114,6 +119,7 @@ export const useAuthStore = defineStore('auth', () => {
     email: string
     password: string
     confirmPassword: string
+    legalVersions: AuthLegalVersions
     challengeId: string
     emailCode: string
     examPreferences?: Array<{

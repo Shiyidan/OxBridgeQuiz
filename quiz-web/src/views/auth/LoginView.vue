@@ -30,18 +30,6 @@
 
         <!-- 右侧表单卡片 -->
         <section class="auth-card">
-          <div class="auth-brand" aria-hidden="true">
-            <span class="auth-brand-mark">
-              <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
-                <path
-                  d="M5 7V4.5C5 3.12 6.12 2 7.5 2H8.5C9.88 2 11 3.12 11 4.5V7M3 7H13L12 14H4L3 7Z"
-                  stroke="currentColor"
-                  stroke-width="1.4"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </span>
-          </div>
           <h2 class="auth-title">{{ isResetMode ? '重置密码' : '欢迎回来' }}</h2>
           <p class="auth-subtitle">
             {{
@@ -79,6 +67,25 @@
               <div class="auth-form-extra">
                 <a class="auth-link auth-link-muted" @click.prevent="handleForgotPassword"
                   >忘记密码？</a
+                >
+              </div>
+            </el-form-item>
+
+            <el-form-item prop="legalAccepted" class="auth-legal-row">
+              <div class="auth-legal-notice">
+                <el-checkbox v-model="form.legalAccepted">我已阅读并同意</el-checkbox>
+                <router-link
+                  to="/legal/user-agreement"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >《用户服务协议》</router-link
+                >
+                和
+                <router-link
+                  to="/legal/privacy-policy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >《隐私政策》</router-link
                 >
               </div>
             </el-form-item>
@@ -190,6 +197,7 @@ import { useAuthStore } from '@/stores/auth'
 import { resetPassword, sendEmailCode } from '@/api/auth'
 import { getMember } from '@/api/member'
 import { createAuthRouteLocation, getSafeAuthRedirect } from '@/utils/authRedirect'
+import { AUTH_LEGAL_VERSIONS } from '@/constants/legal'
 import {
   EMAIL_CODE_PATTERN,
   normalizeEmailCode,
@@ -210,6 +218,7 @@ const isResetMode = ref(false)
 const form = reactive({
   username: '',
   password: '',
+  legalAccepted: true,
 })
 
 const resetForm = reactive({
@@ -239,7 +248,7 @@ const registerLocation = computed(() =>
   createAuthRouteLocation('register', redirectAfterAuth.value),
 )
 
-// 复用共享校验规则，登录页只校验用户名和密码是否可用于提交。
+// 复用共享校验规则，登录时统一校验账号、密码和协议确认状态。
 const rules: FormRules = {
   username: [
     {
@@ -265,6 +274,15 @@ const rules: FormRules = {
         }
       },
       trigger: 'blur',
+    },
+  ],
+  legalAccepted: [
+    {
+      validator: (_rule, value: boolean, callback) => {
+        if (value) callback()
+        else callback(new Error('请勾选并同意《用户服务协议》和《隐私政策》'))
+      },
+      trigger: 'change',
     },
   ],
 }
@@ -327,7 +345,7 @@ const handleSubmit = async (): Promise<void> => {
   }
 
   try {
-    await auth.login(form.username, form.password)
+    await auth.login(form.username, form.password, { ...AUTH_LEGAL_VERSIONS })
     try {
       const memberCtx = await getMember()
       auth.setMemberContext(memberCtx)

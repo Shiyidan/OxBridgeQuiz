@@ -656,6 +656,27 @@
         </div>
       </section>
 
+      <nav class="profile-legal-links" aria-label="协议与政策">
+        <router-link to="/legal/user-agreement" target="_blank" rel="noopener noreferrer"
+          >用户协议</router-link
+        >
+        <router-link to="/legal/privacy-policy" target="_blank" rel="noopener noreferrer"
+          >隐私政策</router-link
+        >
+        <router-link
+          to="/legal/membership-service-agreement"
+          target="_blank"
+          rel="noopener noreferrer"
+          >会员服务协议</router-link
+        >
+        <router-link
+          to="/legal/membership-purchase-notice"
+          target="_blank"
+          rel="noopener noreferrer"
+          >会员购买须知与权益</router-link
+        >
+      </nav>
+
       <p v-if="errorText" class="load-warning">{{ errorText }}</p>
     </main>
   </div>
@@ -1499,6 +1520,30 @@ function formatDateTime(value: string | null): string {
   width: var(--fluid-shell-width);
   margin-left: auto;
   margin-right: auto;
+}
+
+.profile-legal-links {
+  display: flex;
+  justify-content: center;
+  gap: 8px 24px;
+  margin-top: 24px;
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+}
+
+.profile-legal-links a {
+  color: var(--color-ink-soft);
+  text-underline-offset: 3px;
+}
+
+.profile-legal-links a:hover {
+  color: var(--color-ink);
+}
+
+.profile-legal-links a:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
 }
 
 .page-heading {

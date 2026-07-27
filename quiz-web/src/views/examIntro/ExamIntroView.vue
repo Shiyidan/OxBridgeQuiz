@@ -9,7 +9,7 @@
         <div class="exam-shell exam-hero__content">
           <div class="exam-kicker">
             <span class="exam-kicker__dot"></span>
-            SmartKey Exam Intro
+            AceMock Exam Intro
           </div>
           <h1>{{ currentExam.title }}</h1>
           <p>{{ currentExam.subtitle }}</p>

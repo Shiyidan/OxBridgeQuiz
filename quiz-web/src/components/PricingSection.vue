@@ -79,6 +79,22 @@
           </button>
         </article>
       </div>
+      <p class="pricing-legal-links">
+        购买会员前，请阅读
+        <router-link
+          to="/legal/membership-service-agreement"
+          target="_blank"
+          rel="noopener noreferrer"
+          >《会员服务协议》</router-link
+        >
+        和
+        <router-link
+          to="/legal/membership-purchase-notice"
+          target="_blank"
+          rel="noopener noreferrer"
+          >《会员购买须知与权益说明》</router-link
+        >
+      </p>
     </div>
   </section>
   <PaymentModal v-model="paymentVisible" @paid="handlePaymentSuccess" />
@@ -260,6 +276,28 @@ onMounted(() => {
   align-items: stretch;
   max-width: 960px;
   margin: 0 auto;
+}
+
+.pricing-legal-links {
+  margin: 20px auto 0;
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+  text-align: center;
+}
+
+.pricing-legal-links a {
+  color: var(--color-ink-soft);
+  text-underline-offset: 3px;
+}
+
+.pricing-legal-links a:hover {
+  color: var(--color-ink);
+}
+
+.pricing-legal-links a:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
 }
 
   .plan-grid {

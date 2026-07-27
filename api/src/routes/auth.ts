@@ -41,6 +41,12 @@ import {
   setOperationAuditContext,
 } from '../middleware/operationAudit.js'
 import { logRuntimeError } from '../utils/runtimeLogger.js'
+import {
+  LEGAL_ACCEPTANCE_SOURCE,
+  LEGAL_DOCUMENT_TYPE,
+} from '../constants/legal.js'
+import { recordLegalAcceptances } from '../services/legalAcceptance.js'
+import { normalizeIpAddress } from '../utils/ipAddress.js'
 
 export const authRouter = createAsyncRouter()
 
@@ -182,6 +188,9 @@ authRouter.post('/email-code', emailCodeLimiter, optionalAuth, async (req: Reque
 authRouter.post('/register', registerLimiter, async (req: Request, res: Response) => {
   try {
     const input = parseSchema(registerSchema, req.body)
+    const legalAcceptedAt = new Date()
+    const legalIpAddress = normalizeIpAddress(req.ip)
+    const legalUserAgent = req.get('user-agent')
     const [existingEmail, existingUsername] = await Promise.all([
       prisma.user.findUnique({ where: { email: input.email } }),
       prisma.user.findUnique({ where: { username: input.username } }),
@@ -197,7 +206,7 @@ authRouter.post('/register', registerLimiter, async (req: Request, res: Response
         purpose: EMAIL_CODE_PURPOSE.REGISTER,
         code: input.emailCode,
       })
-      return tx.user.create({
+      const createdUser = await tx.user.create({
         data: {
           email: input.email,
           emailVerifiedAt: new Date(),
@@ -206,6 +215,24 @@ authRouter.post('/register', registerLimiter, async (req: Request, res: Response
           examPreferences: input.examPreferences || [],
         },
       })
+      await recordLegalAcceptances(tx, {
+        userId: createdUser.id,
+        source: LEGAL_ACCEPTANCE_SOURCE.REGISTER,
+        acceptedAt: legalAcceptedAt,
+        ipAddress: legalIpAddress,
+        userAgent: legalUserAgent,
+        documents: [
+          {
+            documentType: LEGAL_DOCUMENT_TYPE.USER_AGREEMENT,
+            documentVersion: input.legalVersions.userAgreement,
+          },
+          {
+            documentType: LEGAL_DOCUMENT_TYPE.PRIVACY_POLICY,
+            documentVersion: input.legalVersions.privacyPolicy,
+          },
+        ],
+      })
+      return createdUser
     })
     const session = await createAuthSession(user, req, res)
     setOperationAuditActor(req, user)
@@ -220,6 +247,7 @@ authRouter.post('/register', registerLimiter, async (req: Request, res: Response
 authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
   try {
     const input = parseSchema(loginSchema, req.body)
+    const legalAcceptedAt = new Date()
     const identifier = input.username.includes('@') ? normalizeEmail(input.username) : input.username
     const user = await prisma.user.findFirst({
       where: input.username.includes('@') ? { email: identifier } : { username: identifier },
@@ -231,6 +259,23 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
     const valid = await bcrypt.compare(input.password, user.password)
     if (!valid) throw new AuthError(AUTH_ERROR.INVALID_CREDENTIALS, '用户名、邮箱或密码错误', 401)
 
+    await recordLegalAcceptances(prisma, {
+      userId: user.id,
+      source: LEGAL_ACCEPTANCE_SOURCE.LOGIN,
+      acceptedAt: legalAcceptedAt,
+      ipAddress: normalizeIpAddress(req.ip),
+      userAgent: req.get('user-agent'),
+      documents: [
+        {
+          documentType: LEGAL_DOCUMENT_TYPE.USER_AGREEMENT,
+          documentVersion: input.legalVersions.userAgreement,
+        },
+        {
+          documentType: LEGAL_DOCUMENT_TYPE.PRIVACY_POLICY,
+          documentVersion: input.legalVersions.privacyPolicy,
+        },
+      ],
+    })
     const session = await createAuthSession(user, req, res)
     setOperationAuditActor(req, user)
     setOperationAuditContext(req, { resourceId: user.id })

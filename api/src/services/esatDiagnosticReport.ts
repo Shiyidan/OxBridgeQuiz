@@ -1,5 +1,6 @@
 // ESAT 独立诊断策略：按实际模块分别估分、定位、分析难度并生成模块风险信号。
 import crypto from 'crypto'
+import { BoundedLruCache } from '../utils/boundedLruCache.js'
 import { resolveEsatModule, quickEsatScore, type EsatModule } from './scoring.js'
 import { requestDeepSeekJson } from './deepseek.js'
 import type {
@@ -56,9 +57,15 @@ type ModuleAnalysis = {
   focusSuggestion: string
 }
 
-const moduleAnalysisCache = new Map<string, Record<string, ModuleAnalysis>>()
-const roiCache = new Map<string, Array<{ gapKey: string; priorityReason: string; prerequisiteCheck: string }>>()
-const learningPathCache = new Map<string, unknown>()
+const DIAGNOSTIC_AI_CACHE_MAX_ENTRIES = 128
+const moduleAnalysisCache = new BoundedLruCache<string, Record<string, ModuleAnalysis>>(
+  DIAGNOSTIC_AI_CACHE_MAX_ENTRIES,
+)
+const roiCache = new BoundedLruCache<
+  string,
+  Array<{ gapKey: string; priorityReason: string; prerequisiteCheck: string }>
+>(DIAGNOSTIC_AI_CACHE_MAX_ENTRIES)
+const learningPathCache = new BoundedLruCache<string, unknown>(DIAGNOSTIC_AI_CACHE_MAX_ENTRIES)
 
 // 保留一位小数，统一 ESAT 等效原始分和标准分的展示精度。
 function round1(value: number): number {

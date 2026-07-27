@@ -161,9 +161,9 @@ P5 代码整洁
 
 ### P3-1 试题库全量加载到内存再过滤
 
-- **位置**：[`api/src/routes/papers.ts`](api/src/routes/papers.ts) `/question-bank` 接口
-- **问题**：加载所有已发布试卷 → 逐条 `JSON.parse` → 内存中过滤。试卷数量增长后性能堪忧
-- **方案**：将题目拆分为独立的 `Question` 表，利用数据库索引进行过滤
+- **位置**：[`api/src/routes/questionBank.ts`](../api/src/routes/questionBank.ts) `GET /question-bank`（`prisma.question.findMany()`）
+- **问题**：接口会一次查询符合考试类型与已发布试卷条件的全部题目，再在 Node.js 内存中完成难度、考纲节点等过滤并组装完整响应，且当前无分页。已发布题目持续增长后，数据库传输量、Node.js 堆占用与响应体大小会同步增长，并发请求下存在明显的内存峰值与响应延迟风险
+- **方案**：将可表达的难度、科目及考纲编码条件下推到 Prisma 查询；为题库列表增加数据库分页，只查询当前页需要的字段。难度数量等摘要统计使用独立轻量查询或聚合，不依赖加载完整题目集合
 
 ### P3-2 错题本接口无分页
 

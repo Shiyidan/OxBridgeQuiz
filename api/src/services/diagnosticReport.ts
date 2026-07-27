@@ -1,6 +1,7 @@
 // 新版诊断报告首部分：报告头、模块结构、等效评估分和风险信号。
 import crypto from 'crypto'
 import { EXAM_TYPE } from '../constants/domain.js'
+import { BoundedLruCache } from '../utils/boundedLruCache.js'
 import { quickTmuaPaperScore } from './scoring.js'
 import { requestDeepSeekJson } from './deepseek.js'
 import { buildEsatDiagnosticReportSummary } from './esatDiagnosticReport.js'
@@ -251,7 +252,8 @@ const DIFFICULTY_META: Record<DifficultyLevel, { label: string }> = {
   high: { label: '高难度' },
 }
 
-const riskSignalCache = new Map<string, string>()
+const DIAGNOSTIC_AI_CACHE_MAX_ENTRIES = 128
+const riskSignalCache = new BoundedLruCache<string, string>(DIAGNOSTIC_AI_CACHE_MAX_ENTRIES)
 
 function round1(value: number): number {
   return Math.round(value * 10) / 10

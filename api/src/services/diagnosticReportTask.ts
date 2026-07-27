@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client'
 import { prisma } from './prisma.js'
 import { config } from '../config.js'
 import { parseJsonArray } from '../utils/jsonField.js'
+import { logRuntimeError } from '../utils/runtimeLogger.js'
 import {
   DIAGNOSTIC_REPORT_GENERATION_MODE,
   DIAGNOSTIC_REPORT_TASK_STAGE,
@@ -346,7 +347,9 @@ async function processPendingTasks(): Promise<void> {
 // 新任务提交后立即唤醒执行器，定时轮询只作为进程恢复和漏唤醒保障。
 export function scheduleDiagnosticReportWorker(): void {
   queueMicrotask(() => {
-    void processPendingTasks()
+    void processPendingTasks().catch((error) => {
+      logRuntimeError('diagnostic_report.worker_wakeup_failed', error)
+    })
   })
 }
 

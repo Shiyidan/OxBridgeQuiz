@@ -12,12 +12,13 @@
             {{ returnLabel }}
           </button>
           <i aria-hidden="true"></i>
-          <h1>{{ pageContextTitle }} · 题目逐题解析</h1>
+          <h1>{{ analysisPageTitle }}</h1>
         </header>
         <ExamQuestionAnalysis
           :questions="questions"
           :correct-count="correctCount"
           :initial-question-id="targetQuestionId"
+          :single-question-mode="singleQuestionMode"
         />
       </section>
     </main>
@@ -64,31 +65,50 @@ const isQuestionReview = computed(() => route.name === 'exam-question-review')
 // 题号参数只服务于普通练习结果的逐题定位。
 const targetQuestionId = computed(() => route.query.questionId as string | undefined)
 
+// 错题本使用专用单题模式，不能从当前入口回退为整卷解析。
+const singleQuestionMode = computed(() => Boolean(isQuestionReview.value && targetQuestionId.value))
+
 // 普通练习标题优先使用试卷标题，缺失时回退到题目科目。
 const examTitle = computed(() => paper.value?.title || questions.value[0]?.subject || '题库练习')
 
-// 入口来源优先读取显式路由参数；旧链接缺失参数时再根据答卷类型做稳定回退。
+// 题目业务来源和页面来路分开解析，错题本返回不能被诊断/题库分类覆盖。
 const analysisSource = computed<'diagnostic' | 'question-bank'>(() => {
+  if (route.query.recordSource === 'diagnostic') return 'diagnostic'
+  if (route.query.recordSource === 'question-bank') return 'question-bank'
   if (route.query.from === 'diagnostic') return 'diagnostic'
   if (route.query.from === 'question-bank') return 'question-bank'
   return isDiagnosticRecord.value ? 'diagnostic' : 'question-bank'
 })
 
+// 错题本入口单独决定返回行为，并允许携带已校验的列表筛选地址。
+const cameFromMistakeNotebook = computed(() => route.query.from === 'mistake-notebook')
+
 // 题库练习没有成型套卷，统一使用会话名称；诊断答卷则展示正式试卷名称。
-const pageContextTitle = computed(() => (
-  analysisSource.value === 'question-bank' ? '题库专项练习' : examTitle.value
-))
+const pageContextTitle = computed(() =>
+  analysisSource.value === 'question-bank' ? '题库专项练习' : examTitle.value,
+)
+
+const analysisPageTitle = computed(() =>
+  singleQuestionMode.value
+    ? `${pageContextTitle.value} · 错题解析`
+    : `${pageContextTitle.value} · 题目逐题解析`,
+)
 
 // 返回按钮文案与来源保持一一对应，避免学生从解析页回到错误的业务入口。
-const returnLabel = computed(() => (
-  analysisSource.value === 'diagnostic' ? '返回诊断报告' : '返回试题库'
-))
+const returnLabel = computed(() =>
+  cameFromMistakeNotebook.value
+    ? '返回错题本'
+    : analysisSource.value === 'diagnostic'
+      ? '返回诊断报告'
+      : '返回试题库',
+)
 
 // 页面加载后先识别 paperType 和 examType，诊断记录随即跳到独立考试报告页。
 onMounted(async () => {
   try {
     const data = await getExamResultData(examId.value)
-    const isDiagnostic = normalizePaperType(data.examRecord.paper?.paperType) === PAPER_TYPE.REAL_PAPER
+    const isDiagnostic =
+      normalizePaperType(data.examRecord.paper?.paperType) === PAPER_TYPE.REAL_PAPER
     isDiagnosticRecord.value = isDiagnostic
     recordExamType.value = data.examRecord.examType
     if (isDiagnostic && !isQuestionReview.value) {
@@ -109,15 +129,29 @@ onMounted(async () => {
       return
     }
 
-    correctCount.value = data.examRecord.correctCount
     paper.value = data.examRecord.paper || null
-    questions.value = (data.questions || []).map((question, index) => ({
+    const loadedQuestions = (data.questions || []).map((question, index) => ({
       ...question,
       id: question.id || question.questionId || `result-q-${index + 1}`,
       // 后端已按试卷正式题号排序；仅在历史异常数据缺题号时才使用列表位置兜底。
       number: question.number ?? index + 1,
       images: question.images || [],
     }))
+    if (singleQuestionMode.value) {
+      const target = loadedQuestions.find(
+        (question) =>
+          question.id === targetQuestionId.value || question.questionId === targetQuestionId.value,
+      )
+      if (!target) {
+        loadError.value = '该题不属于本次答卷'
+        return
+      }
+      questions.value = [target]
+      correctCount.value = target.isCorrect ? 1 : 0
+      return
+    }
+    correctCount.value = data.examRecord.correctCount
+    questions.value = loadedQuestions
   } catch (error: unknown) {
     loadError.value = getApiErrorMessage(error, '加载答卷失败，请稍后重试')
   } finally {
@@ -127,11 +161,22 @@ onMounted(async () => {
 
 // 返回目标由来源和考试类型固定决定，不依赖浏览器历史栈，刷新页面后仍能保持正确去向。
 function returnToSource(): void {
+  if (cameFromMistakeNotebook.value) {
+    const returnTo = String(route.query.returnTo || '')
+    const safeReturnTo =
+      returnTo === '/mistake-notebook' || returnTo.startsWith('/mistake-notebook?')
+        ? returnTo
+        : '/mistake-notebook'
+    void router.push(safeReturnTo)
+    return
+  }
   if (analysisSource.value === 'question-bank') {
     void router.push('/question-bank')
     return
   }
-  const reportKind = String(route.query.report || recordExamType.value).trim().toLowerCase()
+  const reportKind = String(route.query.report || recordExamType.value)
+    .trim()
+    .toLowerCase()
   if (reportKind === 'esat') {
     void router.push({ name: 'esat-diagnostic-report', params: { id: examId.value } })
     return
@@ -167,10 +212,9 @@ async function redirectDiagnosticReport(examType: string, reportRecordId: string
 }
 
 .report-main {
-  width: 100%;
-  max-width: var(--shell-max);
+  width: var(--fluid-shell-width);
   margin: 0 auto;
-  padding: 36px var(--container-px-desktop) 72px;
+  padding: 36px 0 72px;
 }
 
 .state-card {

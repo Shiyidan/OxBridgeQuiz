@@ -8,7 +8,6 @@ import {
   EXAM_TYPES,
   MEMBERSHIP_STATUS,
   PAPER_ACCESS_TIER,
-  QUESTION_BANK_PAPER_TYPES,
   REAL_PAPER_TYPES,
   USER_ROLE,
   isStudentExamTypeAvailable,
@@ -126,7 +125,8 @@ async function countQuestionBankUsed(
       examRecord: {
         userId,
         examType,
-        paper: { paperType: { in: [...QUESTION_BANK_PAPER_TYPES] } },
+        status: 'submitted',
+        paperId: 'question-bank',
       },
     },
   })
@@ -244,15 +244,7 @@ export async function getMemberContext(userId: string) {
 
       const [diagnosticUsed, questionBankUsed] = await Promise.all([
         countDiagnosticUsed(userId, examType, prisma),
-        prisma.answerRecord.count({
-          where: {
-            examRecord: {
-              userId,
-              examType,
-              paper: { paperType: { in: [...QUESTION_BANK_PAPER_TYPES] } },
-            },
-          },
-        }),
+        countQuestionBankUsed(userId, examType, prisma),
       ])
 
       const unlimited = isAdmin || !!activeMembership

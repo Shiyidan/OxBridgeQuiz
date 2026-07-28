@@ -113,6 +113,7 @@ import DiagnosticAnalysisDialog from '@/components/DiagnosticAnalysisDialog.vue'
 import { getQuestionsData } from '@/api/questionBank'
 import { getPaperDetailData } from '@/api/papers'
 import {
+  getExamSession,
   saveExamProgress,
   startExam,
   submitExam,
@@ -129,7 +130,7 @@ import {
   isExamTypeAvailable,
   type ExamType,
 } from '@/constants/examTypes'
-import type { Question } from '@/types'
+import type { RenderableQuestion } from '@/types'
 import { hasApiErrorCode } from '@/utils/request'
 
 const route = useRoute()
@@ -137,7 +138,7 @@ const router = useRouter()
 const auth = useAuthStore()
 
 const examNavRef = ref<InstanceType<typeof ExamVue> | null>(null)
-const questions = shallowRef<Question[]>([])
+const questions = shallowRef<RenderableQuestion[]>([])
 const activeExamType = ref<ExamType>(DEFAULT_EXAM_TYPE)
 const loading = ref(true)
 const currentIndex = ref(0)
@@ -163,6 +164,7 @@ let questionEnteredAt = Date.now()
 let isQuestionTimingPaused = false
 let timeExpiredHandling = false
 let progressSaveInterval: ReturnType<typeof setInterval> | null = null
+let selectionSaveTimer: ReturnType<typeof setTimeout> | null = null
 let dirtyVersion = 0
 const dirtyQuestionVersions = new Map<string, number>()
 const persistedQuestionDurations = new Map<string, number>()
@@ -197,7 +199,9 @@ const pendingCount = computed(() =>
 )
 const topicTitle = computed(() => currentQuestion.value?.subject || '')
 const currentKnowledgeTags = computed(() => {
-  const question = currentQuestion.value as (Question & { knowledgePoints?: unknown }) | undefined
+  const question = currentQuestion.value as
+    | (RenderableQuestion & { knowledgePoints?: unknown })
+    | undefined
   if (!question) return []
   const tags = normalizePointTags(question.knowledge_points || question.knowledgePoints)
   if (tags.length) return tags
@@ -208,9 +212,34 @@ const currentKnowledgeTags = computed(() => {
 async function loadQuestions(): Promise<void> {
   loading.value = true
   try {
+    const resumeExamId = String(route.query.examId || '').trim()
     const code = route.query.code as string | undefined
     const difficulty = route.query.difficulty as string | undefined
     const paperId = route.query.paperId as string | undefined
+
+    if (resumeExamId) {
+      const examSession = await getExamSession(resumeExamId)
+      const examType = normalizeExamType(examSession.examType)
+      activeExamType.value = examType
+      if (!isExamTypeAvailable(examType)) {
+        ElMessage.info(getExamUnavailableMessage(examType))
+        router.replace({ path: '/question-bank', query: { examType } })
+        return
+      }
+      const loadedQuestions = (examSession.questions || []).map((question, index) => ({
+        ...question,
+        id: question.id || `session-${resumeExamId}-${index + 1}`,
+      }))
+      if (!loadedQuestions.length) {
+        throw new Error('当前练习没有可恢复的题目')
+      }
+      activeExamRecordId.value = examSession.examRecordId
+      questions.value = loadedQuestions
+      examExpiresAt.value = examSession.expiresAt
+      restoreSavedProgress(examSession, loadedQuestions)
+      if (examSession.isExpired) isQuestionTimingPaused = true
+      return
+    }
 
     if (paperId) {
       const paper = await getPaperDetailData(paperId)
@@ -255,9 +284,9 @@ async function loadQuestions(): Promise<void> {
       return
     }
     const qs = (await getQuestionsData({ code, difficulty, examType })) || []
-    const loadedQuestions = qs.map((q) => ({
+    const loadedQuestions = qs.map((q, index) => ({
       ...q,
-      id: q.id || `${q._paperId || 'paper'}-${q.number}`,
+      id: q.id || `question-bank-${q.code || q.number || index + 1}`,
     }))
     if (!loadedQuestions.length) {
       questions.value = []
@@ -285,8 +314,24 @@ async function loadQuestions(): Promise<void> {
     activeExamRecordId.value = examSession.examRecordId
     questions.value = loadedQuestions
     examExpiresAt.value = examSession.expiresAt
-    resetAnswerState()
+    if (examSession.isResumed) {
+      restoreSavedProgress(examSession, loadedQuestions)
+    } else {
+      resetAnswerState()
+    }
+    await router.replace({
+      path: '/practice',
+      query: { examId: examSession.examRecordId },
+    })
   } catch (e) {
+    if (hasApiErrorCode(e, 'QUESTION_BANK_IN_PROGRESS')) {
+      ElMessage.info('已有未完成练习，请从试题库点击“继续练习”')
+      await router.replace({
+        path: '/question-bank',
+        query: { examType: activeExamType.value },
+      })
+      return
+    }
     console.error('[Practice] 加载失败', e)
     questions.value = []
   } finally {
@@ -312,7 +357,7 @@ function restoreSavedProgress(
     ExamProgress,
     'answers' | 'questionDurations' | 'answerStates' | 'durationSeconds'
   >,
-  loadedQuestions: Question[],
+  loadedQuestions: RenderableQuestion[],
 ): void {
   const questionIds = new Set(loadedQuestions.map((question) => question.id))
   const restoredAnswers: Record<string, string> = {}
@@ -357,13 +402,13 @@ function restoreSavedProgress(
 }
 
 // 根据答案与访问记录区分已答、主动跳过和从未查看。
-function getQuestionAnswerState(question: Question, index: number): AnswerState {
+function getQuestionAnswerState(question: RenderableQuestion, index: number): AnswerState {
   if (answers.value[question.id]) return 'answered'
   return visitedIndexes.value.has(index) ? 'skipped' : 'unseen'
 }
 
 // 逐题响应使用累计耗时，网络重试只会覆盖同一数值，不会重复累加。
-function buildQuestionResponse(question: Question, index: number): ExamResponseInput {
+function buildQuestionResponse(question: RenderableQuestion, index: number): ExamResponseInput {
   return {
     questionId: question.id,
     selectedAnswer: answers.value[question.id] || null,
@@ -407,7 +452,7 @@ function handleAnsweringPaused(): void {
   if (isQuestionTimingPaused) return
   recordCurrentQuestionDuration()
   isQuestionTimingPaused = true
-  void flushAssessmentProgress(false)
+  void flushExamProgress(false)
 }
 
 // 只有导航栏确认可以继续作答后，才重新开始当前题的活跃耗时。
@@ -424,11 +469,11 @@ function goToQuestion(index: number): void {
   currentIndex.value = index
   markVisited(index)
   questionEnteredAt = Date.now()
-  void flushAssessmentProgress(false)
+  void flushExamProgress(false)
 }
 
 // 根据当前题、已答题、已访问状态计算左侧题号样式。
-function navItemClass(question: Question, index: number): Record<string, boolean> {
+function navItemClass(question: RenderableQuestion, index: number): Record<string, boolean> {
   return {
     'question-nav__item--current': currentIndex.value === index,
     'question-nav__item--answered': Boolean(answers.value[question.id]),
@@ -444,6 +489,11 @@ function handleSelectAnswer(label: string): void {
   if (!currentQuestion.value) return
   answers.value = { ...answers.value, [currentQuestion.value.id]: label }
   markQuestionDirty(currentQuestion.value.id)
+  if (selectionSaveTimer) clearTimeout(selectionSaveTimer)
+  selectionSaveTimer = setTimeout(() => {
+    selectionSaveTimer = null
+    void flushExamProgress(false)
+  }, 600)
 }
 
 // 上一题按钮只在非首题时切换，避免越界访问题目数组。
@@ -464,14 +514,14 @@ async function handleBackToQuestionBank(): Promise<void> {
     'mock-exam': { label: '仿真考试', path: '/' },
   }
   const target = backTargets[examMode.value]!
-  const isAssessmentMode = examMode.value === 'assessment'
-  const confirmMessage = isAssessmentMode
-    ? '返回诊断测试会保存当前作答和用时，之后可继续测试，是否返回？'
-    : `返回${target.label}将离开当前答题页面，当前作答不会自动提交，是否返回？`
+  const confirmMessage =
+    examMode.value === 'assessment'
+      ? '返回诊断测试会保存当前作答和用时，之后可继续测试，是否返回？'
+      : '返回试题库会保存当前作答和用时，之后可继续练习，是否返回？'
   try {
     await ElMessageBox.confirm(confirmMessage, '提示', {
       type: 'warning',
-      confirmButtonText: isAssessmentMode ? '保存并返回' : `返回${target.label}`,
+      confirmButtonText: '保存并返回',
       cancelButtonText: '继续答题',
       confirmButtonClass: 'button_primary',
       cancelButtonClass: 'button_cancel',
@@ -485,25 +535,19 @@ async function handleBackToQuestionBank(): Promise<void> {
   }
 }
 
-// 诊断测试中途返回时保存当前答案和每题停留时长，用于下次续答。
-async function saveCurrentAssessmentProgress(): Promise<void> {
+// 中途返回时保存当前答案和每题停留时长，用于题库练习或诊断测试续答。
+async function saveCurrentExamProgress(): Promise<void> {
   if (!activeExamRecordId.value || !questions.value.length) return
-  await flushAssessmentProgress(true, true, true)
+  await flushExamProgress(true, true, true)
 }
 
 // 只提交发生变化的题目；定时保存仅在答案未保存或累计耗时新增满60秒时写入。
-async function flushAssessmentProgress(
+async function flushExamProgress(
   includeCurrentDuration = true,
   throwOnError = false,
   forceCurrentSave = false,
 ): Promise<void> {
-  if (
-    examMode.value !== 'assessment' ||
-    submitting.value ||
-    !activeExamRecordId.value ||
-    !questions.value.length
-  )
-    return
+  if (submitting.value || !activeExamRecordId.value || !questions.value.length) return
   if (includeCurrentDuration) {
     const question = currentQuestion.value
     recordCurrentQuestionDuration(false)
@@ -619,15 +663,7 @@ async function handleSubmit(): Promise<void> {
     }
     await router.push({
       path: '/exam-result',
-      query: {
-        id: data.examRecordId,
-        total: String(data.totalQuestions),
-        correct: String(data.correctCount),
-        wrong: String(data.wrongCount),
-        // 使用 ExamVue 组件的已扣除暂停时长的实际用时
-        time: String(data.durationSeconds),
-        source: 'question-bank',
-      },
+      query: { id: data.examRecordId },
     })
   } catch {
     // Axios 公共响应处理会展示后端 errMsg。
@@ -686,8 +722,7 @@ function normalizePointTags(raw: unknown): string[] {
   if (!Array.isArray(raw)) return []
   const items = raw
     .map((item) => {
-      const record =
-        item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
+      const record = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
       const rawLabel = record.label || record.name || record.title || record.code
       return {
         code: typeof record.code === 'string' ? record.code : '',
@@ -715,26 +750,21 @@ function normalizePointTags(raw: unknown): string[] {
 onMounted(() => {
   loadQuestions()
   progressSaveInterval = setInterval(() => {
-    void flushAssessmentProgress()
+    void flushExamProgress()
   }, 60_000)
 })
 
 // 离开答题页时释放自动保存资源；业务返回按钮会在导航前等待最后一次保存完成。
 onBeforeUnmount(() => {
   if (progressSaveInterval) clearInterval(progressSaveInterval)
+  if (selectionSaveTimer) clearTimeout(selectionSaveTimer)
 })
 
-// 浏览器后退和其他路由跳转同样先保存诊断进度，避免绕过页面内返回按钮。
+// 浏览器后退和其他路由跳转同样先保存进度，避免绕过页面内返回按钮。
 onBeforeRouteLeave(async () => {
-  if (
-    examMode.value !== 'assessment' ||
-    submitting.value ||
-    examSubmitted.value ||
-    !activeExamRecordId.value
-  )
-    return true
+  if (submitting.value || examSubmitted.value || !activeExamRecordId.value) return true
   try {
-    await saveCurrentAssessmentProgress()
+    await saveCurrentExamProgress()
     return true
   } catch {
     return false

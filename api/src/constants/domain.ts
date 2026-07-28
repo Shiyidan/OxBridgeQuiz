@@ -34,6 +34,20 @@ export const EXAM_RECORD_STATUS = {
 export const EXAM_RECORD_STATUSES = Object.values(EXAM_RECORD_STATUS)
 export type ExamRecordStatus = (typeof EXAM_RECORD_STATUSES)[number]
 
+export const QUESTION_STATUS = {
+  DRAFT: 'draft',
+  PUBLISHED: 'published',
+  ARCHIVED: 'archived',
+} as const
+
+export const QUESTION_STATUSES = Object.values(QUESTION_STATUS)
+export type QuestionStatus = (typeof QUESTION_STATUSES)[number]
+
+// 单题发布状态只接受草稿、已发布和已归档三种稳定值。
+export function isQuestionStatus(value: unknown): value is QuestionStatus {
+  return typeof value === 'string' && QUESTION_STATUSES.includes(value as QuestionStatus)
+}
+
 export const PAPER_DELIVERY_MODE = {
   CONTINUOUS: 'continuous',
   MODULE_SEQUENCE: 'module_sequence',

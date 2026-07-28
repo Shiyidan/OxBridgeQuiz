@@ -152,10 +152,19 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
       orderBy: [
         { moduleOrder: 'asc' },
         { moduleQuestionNumber: 'asc' },
+        { paperId: 'asc' },
         { number: 'asc' },
       ],
     })
-    const answerMap = new Map(answers.map((answer) => [answer.questionId, answer]))
+    const storedPositionsAreComplete = answers.every((answer) => Number.isInteger(answer.position))
+      && new Set(answers.map((answer) => answer.position)).size === answers.length
+    const orderedAnswers = storedPositionsAreComplete
+      ? [...answers].sort((left, right) => Number(left.position) - Number(right.position))
+      : questionRows.flatMap((question) => {
+          const answer = answers.find((item) => item.questionId === question.id)
+          return answer ? [answer] : []
+        })
+    const questionMap = new Map(questionRows.map((question) => [question.id, question]))
 
     const needPaperMeta = examRecord.paperId !== 'question-bank'
     const paper = needPaperMeta
@@ -166,15 +175,19 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
       : null
 
     // 逐题解析必须遵循试卷题号，不能受作答先后或未答题的空时间影响。
-    const answeredQuestions = questionRows.map((question) => {
-      const answer = answerMap.get(question.id)
-      return {
+    const answeredQuestions = orderedAnswers.flatMap((answerRecord) => {
+      const question = questionMap.get(answerRecord.questionId)
+      if (!question) return []
+      return [{
         ...formatQuestionRow(question),
+        number: examRecord.paperId === 'question-bank' && Number.isInteger(answerRecord.position)
+          ? Number(answerRecord.position) + 1
+          : question.number,
         questionId: question.id,
-        selectedAnswer: answer?.selectedAnswer ?? null,
-        isCorrect: answer?.isCorrect ?? false,
-        durationSeconds: answer?.durationSeconds ?? 0,
-      }
+        selectedAnswer: answerRecord.selectedAnswer,
+        isCorrect: answerRecord.isCorrect,
+        durationSeconds: answerRecord.durationSeconds,
+      }]
     })
 
     const questionsWithResults: QuestionResult[] = answeredQuestions.map((q: any) => ({
@@ -191,6 +204,7 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
         examType: examRecord.examType,
         totalQuestions: examRecord.totalQuestions,
         correctCount: examRecord.correctCount,
+        durationSeconds: examRecord.durationSeconds,
         startedAt: examRecord.startedAt,
         submittedAt: examRecord.submittedAt,
         status: examRecord.status,

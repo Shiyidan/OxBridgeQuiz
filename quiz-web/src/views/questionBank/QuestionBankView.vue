@@ -57,6 +57,21 @@
             >
           </header>
 
+          <div v-if="activePractice" class="qb-active-practice" role="status">
+            <div>
+              <strong>你有一份 {{ activePractice.examType }} 练习尚未交卷</strong>
+              <span
+                >已答 {{ activePractice.answeredCount }}/{{
+                  activePractice.totalQuestions
+                }}
+                题</span
+              >
+            </div>
+            <button type="button" class="button_primary" @click="handleContinuePractice">
+              继续练习
+            </button>
+          </div>
+
           <div class="qb-difficulty-grid">
             <article
               v-for="diff in difficulties"
@@ -73,7 +88,7 @@
               <button
                 type="button"
                 class="qb-difficulty-card__cta button_primary"
-                :disabled="diff.count === 0"
+                :disabled="diff.count === 0 || Boolean(activePractice)"
                 @click="handleStartPractice(diff)"
               >
                 开始练习
@@ -87,7 +102,7 @@
 </template>
 
 <script setup lang="ts">
-// 试题库浏览页：从已发布试卷汇总真实题目，按难度和学科筛选后进入练习。
+// 试题库首页：按考试、考纲和难度选择题目范围并开始专项练习。
 import { ref, computed, nextTick, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -95,6 +110,7 @@ import type { TreeInstance } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import type { SyllabusNode } from '@/api/questionBank'
 import { getSyllabusData, getQuestionSummaryData } from '@/api/questionBank'
+import { getActiveQuestionBankPractice, type ActiveQuestionBankPractice } from '@/api/exam'
 import { checkMemberAccess } from '@/api/member'
 import {
   DEFAULT_EXAM_TYPE,
@@ -136,6 +152,7 @@ const selectedNodeCode = ref<string>('')
 const selectedNodeLabel = ref<string>('综合考点')
 const totalQuestionCount = ref<number>(0)
 const targetDifficulty = ref<DifficultyId | null>(null)
+const activePractice = ref<ActiveQuestionBankPractice | null>(null)
 
 const difficulties = ref<DifficultyOption[]>([
   {
@@ -218,6 +235,7 @@ onMounted(async () => {
     activeTabId.value = requestedExamType as ExamType
   }
   if (!isActiveExamAvailable.value) {
+    activePractice.value = null
     treeData.value = []
     defaultExpanded.value = []
     selectedNodeCode.value = ''
@@ -254,8 +272,21 @@ onMounted(async () => {
   }
 
   await expandDefaultSyllabusNodes()
-  await loadQuestionSummary()
+  await Promise.all([loadQuestionSummary(), loadActivePractice()])
 })
+
+// 进行中练习由服务端唯一活动键决定，切换考试类型后重新读取对应会话。
+async function loadActivePractice(): Promise<void> {
+  if (!isActiveExamAvailable.value) {
+    activePractice.value = null
+    return
+  }
+  try {
+    activePractice.value = await getActiveQuestionBankPractice(activeExamType.value)
+  } catch {
+    activePractice.value = null
+  }
+}
 
 // 轻量接口只拉题量和难度分布，避免列表页首次加载全量题目。
 async function loadQuestionSummary(): Promise<void> {
@@ -295,6 +326,7 @@ async function handleTabClick(tabId: QbTab['id']): Promise<void> {
   activeTabId.value = tabId
   targetDifficulty.value = null
   if (!isActiveExamAvailable.value) {
+    activePractice.value = null
     treeData.value = []
     defaultExpanded.value = []
     selectedNodeCode.value = ''
@@ -317,13 +349,26 @@ async function handleTabClick(tabId: QbTab['id']): Promise<void> {
     selectedNodeLabel.value = '综合考点'
   }
   await expandDefaultSyllabusNodes()
-  await loadQuestionSummary()
+  await Promise.all([loadQuestionSummary(), loadActivePractice()])
+}
+
+// 续答只携带 ExamRecord ID，题目集合和保存进度全部由服务端会话恢复。
+function handleContinuePractice(): void {
+  if (!activePractice.value) return
+  void router.push({
+    path: '/practice',
+    query: { examId: activePractice.value.examRecordId },
+  })
 }
 
 // 难度卡片进入在线练习页，题目数据由 code 和 difficulty 延迟加载。
 const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
   if (!isActiveExamAvailable.value) {
     ElMessage.info(getExamUnavailableMessage(activeExamType.value))
+    return
+  }
+  if (activePractice.value) {
+    ElMessage.info('请先继续并完成当前练习')
     return
   }
   const access = await checkMemberAccess({
@@ -445,6 +490,33 @@ const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
   grid-template-columns: 260px minmax(0, 1fr);
   gap: 24px;
   align-items: start;
+}
+
+.qb-active-practice,
+.qb-active-practice > div {
+  display: flex;
+  align-items: center;
+}
+
+.qb-active-practice {
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 20px;
+  padding: 16px 18px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+}
+
+.qb-active-practice > div {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.qb-active-practice span {
+  color: var(--color-ink-soft);
+  font-size: var(--text-sm);
 }
 
 .qb-unavailable {
@@ -610,5 +682,19 @@ const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
   height: var(--height-button);
   padding: 0 18px;
   border-radius: var(--radius-md);
+}
+
+@media (max-width: 900px) {
+  .qb-main {
+    grid-template-columns: 1fr;
+  }
+
+  .qb-sidebar {
+    position: static;
+  }
+
+  .qb-difficulty-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

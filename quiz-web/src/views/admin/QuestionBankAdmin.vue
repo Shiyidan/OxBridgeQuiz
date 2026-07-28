@@ -1,138 +1,165 @@
+<!-- 后台试题库入口：按每次上传文件展示导入包，再进入包内管理独立题目。 -->
 <template>
   <div class="question-bank-page">
     <div class="page-body">
       <div class="section-header">
-        <div class="header-text">
-          <h2 class="section-title">试题库题目管理</h2>
-          <p class="section-desc">管理 AI 生成题目及其内容，发布后进入学生端试题库练习范围。</p>
+        <div>
+          <h2 class="section-title">试题库文件</h2>
+          <p class="section-desc">每次导入按原始文件归类展示；进入文件后可逐题审核、发布和归档。</p>
         </div>
-        <el-button type="primary" @click="handleImport">导入题目</el-button>
+        <el-button type="primary" @click="router.push('/admin/core-library/questions/import')">
+          导入 standard2 文件
+        </el-button>
       </div>
 
       <div class="filter-bar">
         <el-input
-          v-model.trim="draftKeyword"
+          v-model.trim="filters.keyword"
           class="search-input"
           clearable
-          placeholder="搜索试卷名称..."
-          @keyup.enter="handleSearch"
+          placeholder="文件名、批次标题或备注"
+          @keyup.enter="applyFilters"
         />
-        <div class="filter-tags">
-          <button
-            v-for="item in examTypeFilters"
+        <el-select v-model="filters.examType" clearable placeholder="考试类型">
+          <el-option
+            v-for="item in EXAM_TYPE_OPTIONS"
             :key="item.value"
-            type="button"
-            class="filter-tag"
-            :class="{ 'filter-tag--active': draftExamType === item.value }"
-            @click="handleExamTypeChange(item.value)"
-          >
-            {{ item.label }}
-          </button>
-        </div>
-        <el-button @click="handleSearch">搜索</el-button>
-        <el-button @click="handleReset">重置</el-button>
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+        <el-select v-model="filters.status" clearable placeholder="题目状态">
+          <el-option v-for="item in statusOptions" :key="item.value" v-bind="item" />
+        </el-select>
+        <el-button @click="applyFilters">筛选</el-button>
+        <el-button @click="resetFilters">重置</el-button>
       </div>
 
       <AdminDataTable
         v-model:page="pagination.page"
         v-model:page-size="pagination.pageSize"
-        :data="paperList"
+        :data="batches"
         :loading="loading"
         :total="pagination.total"
-        empty-text="暂无 AI 生成题目，请点击“导入题目”上传题目文件"
+        empty-text="暂无导入文件，请先导入符合 standard2 的 JSON 或 Markdown 文件"
         max-height="var(--question-table-max-height)"
         show-pagination
-        @page-change="handlePageChange"
-        @page-size-change="handlePageSizeChange"
+        @page-change="changePage"
+        @page-size-change="changePageSize"
       >
-        <el-table-column
-          prop="title"
-          label="题目名称"
-          min-width="240"
-          align="center"
-          header-align="center"
-          show-overflow-tooltip
-        >
+        <el-table-column label="文件名" min-width="260" align="center" header-align="center">
           <template #default="{ row }">
-            <span class="cell-name">{{ row.title }}</span>
+            <el-tooltip :content="row.title" placement="top" :show-after="300">
+              <span class="file-name">{{ row.title }}</span>
+            </el-tooltip>
+          </template>
+        </el-table-column>
+        <el-table-column label="题目数量" width="100" align="center" header-align="center">
+          <template #default="{ row }">
+            <div class="count-cell">
+              <strong>{{ row.currentQuestionCount }} 题</strong>
+              <span v-if="row.currentQuestionCount !== row.actualQuestionCount">
+                导入时 {{ row.actualQuestionCount }} 题
+              </span>
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="考试类型" width="120" align="center" header-align="center">
           <template #default="{ row }">
-            <el-tag class="exam-type-tag" effect="light" round>{{ row.examType || 'TMUA' }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="学科/模块" width="140" align="center" header-align="center">
-          <template #default="{ row }">
-            <el-tag
-              class="subject-tag"
-              :class="`subject-tag--${subjectType(row.code)}`"
-              effect="light"
-              round
-            >
-              {{ subjectLabel(row.code) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="类型" width="130" align="center" header-align="center">
-          <template #default>
-            <el-tag class="paper-type-tag" effect="light" round>AI 生成卷</el-tag>
+            <div class="tag-list tag-list--center">
+              <el-tag
+                v-for="examType in row.examTypes"
+                :key="examType"
+                class="exam-type-tag"
+                :class="examTypeClass(examType)"
+                effect="light"
+                round
+              >
+                {{ examType }}
+              </el-tag>
+            </div>
           </template>
         </el-table-column>
         <el-table-column
-          prop="year"
-          label="年份"
-          width="100"
+          label="科目 / 所属 Part"
+          min-width="400"
           align="center"
           header-align="center"
-        />
-        <el-table-column label="题目数量" width="120" align="center" header-align="center">
-          <template #default="{ row }">{{ row.totalQuestions }} 题</template>
-        </el-table-column>
-        <el-table-column label="状态" width="140" align="center" header-align="center">
+        >
           <template #default="{ row }">
-            <el-dropdown trigger="click" @command="handleStatusCommand(row.id, $event)">
-              <button class="status-btn" :class="`status-btn--${row.status}`" type="button">
-                {{ statusLabel(row.status) }}
-              </button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item
-                    v-for="item in statusOptions"
-                    :key="item.value"
-                    :command="item.value"
-                  >
-                    {{ item.label }}
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
+            <el-tooltip
+              :content="classificationTooltip(row)"
+              placement="top"
+              :disabled="classificationItems(row).length <= visibleClassificationCount"
+              :show-after="300"
+            >
+              <div class="tag-list tag-list--center">
+                <el-tag
+                  v-for="item in visibleClassificationItems(row)"
+                  :key="item.key"
+                  class="classification-tag"
+                  :class="subjectTagClass(item.code, item.label)"
+                  effect="light"
+                  round
+                >
+                  {{ item.displayLabel }}
+                </el-tag>
+                <el-tag
+                  v-if="classificationItems(row).length > visibleClassificationCount"
+                  class="more-tag"
+                  effect="plain"
+                  round
+                >
+                  +{{ classificationItems(row).length - visibleClassificationCount }}
+                </el-tag>
+                <span v-if="!classificationItems(row).length" class="empty-value">—</span>
+              </div>
+            </el-tooltip>
           </template>
+        </el-table-column>
+        <el-table-column label="题目状态" min-width="230" align="center" header-align="center">
+          <template #default="{ row }">
+            <div class="status-summary">
+              <span class="status-chip status-chip--draft">草稿 {{ row.statusCounts.draft }}</span>
+              <span class="status-chip status-chip--published">
+                已发布 {{ row.statusCounts.published }}
+              </span>
+              <span class="status-chip status-chip--archived">
+                已归档 {{ row.statusCounts.archived }}
+              </span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="remarks"
+          label="备注"
+          min-width="220"
+          align="center"
+          header-align="center"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">{{ row.remarks || '—' }}</template>
+        </el-table-column>
+        <el-table-column label="上传时间" width="170" align="center" header-align="center">
+          <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
         </el-table-column>
         <el-table-column
           label="操作"
-          width="190"
+          width="150"
           fixed="right"
           align="center"
           header-align="center"
         >
           <template #default="{ row }">
-            <div class="action-group">
-              <router-link
-                :to="`/admin/core-library/questions/${row.id}`"
-                class="table-action-link"
-              >
-                管理内容
-              </router-link>
-              <button
-                class="table-action-link table-action-link--danger"
-                type="button"
-                :disabled="deletingPaperId === row.id"
-                @click="handleDeletePaper(row)"
-              >
-                {{ deletingPaperId === row.id ? '删除中' : '删除' }}
-              </button>
-            </div>
+            <router-link
+              class="detail-link"
+              :to="{
+                name: 'admin-question-batch-detail',
+                params: { batchId: row.id },
+              }"
+            >
+              查看题目
+            </router-link>
           </template>
         </el-table-column>
       </AdminDataTable>
@@ -141,408 +168,366 @@
 </template>
 
 <script setup lang="ts">
-// 试题库题目管理：按 AI 生成题目文件管理内容和发布状态。
-import { computed, reactive, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
-import { deletePaper, getPaperListData, updatePaperStatus, type PaperItem } from '@/api/papers'
 import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
-import { PAPER_TYPE } from '@/constants/paperTypes'
+import {
+  getQuestionBankImportBatchList,
+  type QuestionBankImportBatch,
+  type QuestionBankStatus,
+} from '@/api/questionBank'
 
-const route = useRoute()
 const router = useRouter()
-const loading = ref(true)
-const deletingPaperId = ref<string | null>(null)
-const draftKeyword = ref('')
-const appliedKeyword = ref('')
-const draftExamType = ref('all')
-const appliedExamType = ref('all')
-const paperList = ref<PaperItem[]>([])
-const pagination = reactive({
-  page: 1,
-  pageSize: 20,
-  total: 0,
-})
-
-const examTypeFilters = computed(() => [
-  { value: 'all', label: '全部' },
-  ...EXAM_TYPE_OPTIONS.map((item) => ({ value: item.value, label: item.label })),
-])
-
-const statusOptions = [
-  { value: 'draft', label: '草稿' },
-  { value: 'review', label: '审核中' },
-  { value: 'published', label: '已上线' },
-  { value: 'archived', label: '已归档' },
+const loading = ref(false)
+const batches = ref<QuestionBankImportBatch[]>([])
+const filters = reactive({ keyword: '', examType: '', status: '' })
+const appliedFilters = reactive({ keyword: '', examType: '', status: '' })
+const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
+const statusOptions: Array<{ value: QuestionBankStatus; label: string }> = [
+  { value: 'draft', label: '包含草稿题' },
+  { value: 'published', label: '包含已发布题' },
+  { value: 'archived', label: '包含已归档题' },
 ]
+const visibleClassificationCount = 4
 
-watch(
-  () => route.path,
-  (path) => {
-    if (path === '/admin/core-library/questions') void fetchPapers()
-  },
-  { immediate: true },
-)
+type BatchClassificationItem = {
+  key: string
+  code: string | null
+  label: string
+  displayLabel: string
+}
 
-// 试题库管理只展示 AI 生成卷来源，和学生端试题库的数据来源保持一致。
-async function fetchPapers(): Promise<void> {
+// 考试类型标签沿用真题库 ESAT、TMUA 的稳定配色类。
+function examTypeClass(examType: unknown): string {
+  return `exam-type-tag--${String(examType || 'TMUA').toLowerCase()}`
+}
+
+// 科目 code 优先映射为真题库的模块颜色，缺失时再根据展示名判断。
+function subjectTagClass(code: string | null, label: string): string {
+  const normalizedCode = String(code || '').toLowerCase()
+  const normalizedLabel = label.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const codeMap: Record<string, string> = {
+    '110000': 'maths1',
+    '120000': 'maths2',
+    '130000': 'physics',
+    '140000': 'chemistry',
+    '150000': 'biology',
+    '210000': 'maths1',
+    '220000': 'maths2',
+  }
+  const type =
+    codeMap[normalizedCode] ||
+    ['maths1', 'maths2', 'physics', 'chemistry', 'biology', 'paper1', 'paper2'].find(
+      (item) => normalizedCode === item || normalizedLabel.startsWith(item),
+    ) ||
+    'general'
+  return `classification-tag--${type}`
+}
+
+// 科目名称沿用真题库的紧凑标签，避免中英文全名撑高表格行。
+function subjectLabel(code: string, label: string): string {
+  const type = subjectTagClass(code, label).replace('classification-tag--', '')
+  const labels: Record<string, string> = {
+    maths1: 'Math 1',
+    maths2: 'Math 2',
+    physics: 'Physics',
+    chemistry: 'Chemistry',
+    biology: 'Biology',
+    paper1: 'Paper 1',
+    paper2: 'Paper 2',
+  }
+  return labels[type] || label
+}
+
+// ESAT/STEP 使用科目，TMUA 使用 Part；后端已按考试类型分别汇总两类数据。
+function classificationItems(batch: QuestionBankImportBatch): BatchClassificationItem[] {
+  return [
+    ...batch.subjects.map((subject) => ({
+      key: `subject-${subject.examType}-${subject.code}`,
+      code: subject.code,
+      label: subject.label,
+      displayLabel: subjectLabel(subject.code, subject.label),
+    })),
+    ...batch.parts.map((part) => ({
+      key: `part-${part.code}`,
+      code: part.code,
+      label: part.label,
+      displayLabel: part.label,
+    })),
+  ]
+}
+
+// 合并列保持单行标签，超过可见数量的内容通过悬浮提示查看。
+function visibleClassificationItems(batch: QuestionBankImportBatch): BatchClassificationItem[] {
+  return classificationItems(batch).slice(0, visibleClassificationCount)
+}
+
+// 悬浮说明明确区分科目和 TMUA Part，兼容同一文件包含多个考试类型。
+function classificationTooltip(batch: QuestionBankImportBatch): string {
+  const groups = [
+    batch.subjects.length
+      ? `科目：${batch.subjects.map((subject) => subject.label).join('、')}`
+      : '',
+    batch.parts.length ? `所属 Part：${batch.parts.map((part) => part.label).join('、')}` : '',
+  ].filter(Boolean)
+  return groups.join('；') || '暂无科目或所属 Part'
+}
+
+// 上传包筛选和分页都交给后端，列表只接收批次级摘要。
+async function loadBatches(): Promise<void> {
   loading.value = true
   try {
-    const data = await getPaperListData({
+    const data = await getQuestionBankImportBatchList({
       page: pagination.page,
       pageSize: pagination.pageSize,
-      paperType: PAPER_TYPE.AI_PAPER,
-      keyword: appliedKeyword.value,
-      examType: appliedExamType.value === 'all' ? undefined : appliedExamType.value,
+      keyword: appliedFilters.keyword || undefined,
+      examType: appliedFilters.examType || undefined,
+      status: appliedFilters.status || undefined,
     })
-    paperList.value = data.list || []
-    pagination.page = data.pagination.page
-    pagination.pageSize = data.pagination.pageSize
-    pagination.total = data.pagination.total
+    batches.value = data.list
+    Object.assign(pagination, data.pagination)
   } catch {
-    paperList.value = []
+    batches.value = []
     pagination.total = 0
   } finally {
     loading.value = false
   }
 }
 
-// 搜索时应用草稿条件并回到第一页，避免只筛当前页数据。
-async function handleSearch(): Promise<void> {
-  appliedKeyword.value = draftKeyword.value
-  appliedExamType.value = draftExamType.value
+// 点击筛选时固化输入条件并从第一页查询上传包。
+async function applyFilters(): Promise<void> {
+  Object.assign(appliedFilters, filters)
   pagination.page = 1
-  await fetchPapers()
+  await loadBatches()
 }
 
-// 重置保留当前 pageSize，清空筛选条件后回到第一页。
-async function handleReset(): Promise<void> {
-  draftKeyword.value = ''
-  appliedKeyword.value = ''
-  draftExamType.value = 'all'
-  appliedExamType.value = 'all'
+// 重置同时清空编辑中与已应用的筛选条件。
+async function resetFilters(): Promise<void> {
+  Object.assign(filters, { keyword: '', examType: '', status: '' })
+  Object.assign(appliedFilters, filters)
   pagination.page = 1
-  await fetchPapers()
+  await loadBatches()
 }
 
-// 考试类型标签是高频筛选项，点击后立即应用并重置页码。
-async function handleExamTypeChange(examType: string): Promise<void> {
-  draftExamType.value = examType
-  appliedExamType.value = examType
-  pagination.page = 1
-  await fetchPapers()
-}
-
-// 试题库分页切换时只更新分页条件，并重新读取当前页数据。
-async function handlePageChange(page: number): Promise<void> {
+// 页码变化时保留已经应用的上传包筛选条件。
+async function changePage(page: number): Promise<void> {
   pagination.page = page
-  await fetchPapers()
+  await loadBatches()
 }
 
-// 修改每页数量后回到第一页，避免请求到不存在的页码。
-async function handlePageSizeChange(pageSize: number): Promise<void> {
+// 每页数量变化后回到第一页，避免页码越界。
+async function changePageSize(pageSize: number): Promise<void> {
   pagination.pageSize = pageSize
   pagination.page = 1
-  await fetchPapers()
+  await loadBatches()
 }
 
-// 后台列表用试卷 code 推断学科展示名，空 code 展示为通用。
-function subjectLabel(code: string | null): string {
-  return code || '通用'
+// 上传时间统一按当前浏览器时区展示到分钟。
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(value))
 }
 
-// 学科类型只影响标签颜色，不参与业务筛选。
-function subjectType(code: string | null): string {
-  if (!code) return 'general'
-  const text = code.toLowerCase()
-  if (text.includes('math')) return 'math'
-  if (text.includes('step') || text.includes('esat')) return 'advanced'
-  if (text.includes('physics') || text.includes('pat')) return 'physics'
-  return 'general'
-}
-
-// 状态值来自后端枚举，前端统一转为中文展示。
-function statusLabel(status: string): string {
-  return (
-    { draft: '草稿', review: '审核中', published: '已上线', archived: '已归档' }[status] || status
-  )
-}
-
-// 发布成功后，该批次题目进入学生端试题库练习范围。
-async function changeStatus(id: string, newStatus: string): Promise<void> {
-  try {
-    await updatePaperStatus(id, newStatus)
-    const item = paperList.value.find((paper) => paper.id === id)
-    if (item) item.status = newStatus
-  } catch {
-    // Axios 公共响应处理会展示后端 errMsg。
-  }
-}
-
-// Element 下拉菜单只返回 command，这里补上当前行 id 后再复用状态更新逻辑。
-function handleStatusCommand(id: string, command: unknown): void {
-  void changeStatus(id, String(command))
-}
-
-// 导入入口复用标准 JSON / Markdown 上传流程，文件内 paperType 决定进入哪个管理列表。
-function handleImport(): void {
-  router.push({ path: '/admin/core-library/exams/upload', query: { source: 'questions' } })
-}
-
-// 删除操作复用试卷数据库删除接口，成功后刷新筛选结果并避免停留在空页。
-async function handleDeletePaper(paper: PaperItem): Promise<void> {
-  try {
-    await ElMessageBox.confirm(
-      `确认删除“${paper.title}”吗？删除后该批次及其全部题目不可恢复。已有学生诊断记录的数据不能删除，只能归档。`,
-      '删除试题数据',
-      {
-        type: 'warning',
-        confirmButtonText: '确认删除',
-        cancelButtonText: '取消',
-      },
-    )
-  } catch {
-    return
-  }
-
-  deletingPaperId.value = paper.id
-  try {
-    const result = await deletePaper(paper.id)
-    ElMessage.success(`试题数据已删除，同时清理 ${result.deletedQuestions} 道题目`)
-    if (paperList.value.length === 1 && pagination.page > 1) pagination.page -= 1
-    await fetchPapers()
-  } catch {
-    // Axios 公共响应处理会展示后端 errMsg。
-  } finally {
-    deletingPaperId.value = null
-  }
-}
+onMounted(loadBatches)
 </script>
 
 <style scoped lang="scss">
 .question-bank-page {
-  --question-table-max-height: calc(100vh - var(--nav-height) - 226px);
-
+  --question-table-max-height: calc(100vh - var(--nav-height) - 220px);
   height: 100%;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
 }
 
 .page-body {
-  flex: 1;
-  min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
   padding: 24px 40px 10px;
-  overflow: hidden;
+}
+
+.section-header,
+.filter-bar,
+.status-summary {
+  display: flex;
+  align-items: center;
 }
 
 .section-header {
-  flex-shrink: 0;
-  display: flex;
-  align-items: flex-end;
   justify-content: space-between;
-  gap: 20px;
+  gap: 24px;
   margin-bottom: 16px;
 }
 
-.header-text {
-  max-width: 620px;
-}
-
 .section-title {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   color: #0f172a;
   font-size: 1.5rem;
-  font-weight: 800;
-  letter-spacing: 0;
 }
 
 .section-desc {
   margin: 0;
   color: #64748b;
   font-size: 0.9rem;
-  line-height: 1.5;
 }
 
 .filter-bar {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .search-input {
-  width: 280px;
-  flex: 0 0 280px;
+  width: 300px;
 }
 
-.filter-tags {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  gap: 8px;
-  min-width: 0;
+.filter-bar .el-select {
+  width: 150px;
 }
 
-.filter-tag {
-  height: var(--height-button-sm);
-  padding: 0 14px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
+.count-cell {
+  display: grid;
+  gap: 4px;
+}
+
+.count-cell span {
   color: #64748b;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  white-space: nowrap;
-  cursor: pointer;
-  transition:
-    background var(--duration-base) ease,
-    border-color var(--duration-base) ease,
-    color var(--duration-base) ease;
+  font-size: 12px;
 }
 
-.filter-tag:hover {
-  border-color: #cbd5e1;
-  background: #f8fafc;
-  color: #0f172a;
-}
-
-.filter-tag--active {
-  border-color: var(--color-ink);
-  background: var(--color-ink);
-  color: var(--color-ink-inverse);
-}
-
-.cell-name {
+.file-name {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
   color: var(--color-ink);
   font-weight: var(--weight-semi);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-list {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tag-list--center {
+  justify-content: center;
 }
 
 .exam-type-tag,
-.subject-tag,
-.paper-type-tag {
+.classification-tag {
+  flex: 0 0 auto;
   border-radius: var(--radius-pill);
   font-weight: var(--weight-semi);
 }
 
-.exam-type-tag {
+.exam-type-tag--esat,
+.classification-tag--maths1 {
   background: #ecfeff !important;
   border-color: #a5f3fc !important;
   color: #0e7490 !important;
 }
 
-.paper-type-tag {
+.exam-type-tag--tmua,
+.classification-tag--maths2 {
   background: #f5f3ff !important;
   border-color: #ddd6fe !important;
-  color: #5b21b6 !important;
+  color: #6d28d9 !important;
 }
 
-.subject-tag--general {
-  background: #f1f5f9 !important;
-  border-color: #cbd5e1 !important;
-  color: #475569 !important;
-}
-
-.subject-tag--math {
-  background: #ecfdf5 !important;
-  border-color: #a7f3d0 !important;
-  color: #047857 !important;
-}
-
-.subject-tag--advanced {
-  background: #eef2ff !important;
-  border-color: #c7d2fe !important;
-  color: #3730a3 !important;
-}
-
-.subject-tag--physics {
+.classification-tag--physics {
   background: #eff6ff !important;
   border-color: #bfdbfe !important;
   color: #1d4ed8 !important;
 }
 
-.status-btn,
-.table-action-link {
-  min-width: 72px;
-  height: var(--height-button-sm);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 10px;
-  border-radius: var(--radius-md);
-  font-family: inherit;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semi);
-  line-height: 1;
-  white-space: nowrap;
-  cursor: pointer;
+.classification-tag--chemistry {
+  background: #fff7ed !important;
+  border-color: #fed7aa !important;
+  color: #c2410c !important;
 }
 
-.action-group {
-  display: flex;
-  align-items: center;
+.classification-tag--biology {
+  background: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+  color: #15803d !important;
+}
+
+.classification-tag--paper1 {
+  background: #eef2ff !important;
+  border-color: #c7d2fe !important;
+  color: #4338ca !important;
+}
+
+.classification-tag--paper2 {
+  background: #fdf4ff !important;
+  border-color: #f0abfc !important;
+  color: #a21caf !important;
+}
+
+.classification-tag--general,
+.more-tag {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #475569 !important;
+}
+
+.empty-value {
+  color: #94a3b8;
+}
+
+.status-summary {
+  flex-wrap: nowrap;
   justify-content: center;
   gap: 6px;
 }
 
-.status-btn {
-  border: 1px solid transparent;
+.status-chip {
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
-.status-btn--published {
-  background: #dcfce7;
-  color: #047857;
-}
-
-.status-btn--draft {
+.status-chip--draft {
   background: #f1f5f9;
   color: #475569;
 }
 
-.status-btn--review {
-  background: #fef3c7;
-  color: #b45309;
+.status-chip--published {
+  background: #dcfce7;
+  color: #047857;
 }
 
-.status-btn--archived {
+.status-chip--archived {
   background: #e5e7eb;
   color: #374151;
 }
 
-.table-action-link {
-  border: 0;
-  background: transparent;
+.detail-link {
+  min-width: 88px;
+  height: var(--height-button-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
   color: var(--color-ink);
+  font-weight: var(--weight-semi);
   text-decoration: none;
-  transition:
-    background var(--duration-base) ease,
-    border-color var(--duration-base) ease,
-    color var(--duration-base) ease;
+  white-space: nowrap;
 }
 
-.table-action-link--danger {
-  color: #dc2626;
-}
-
-.table-action-link:disabled {
-  color: #94a3b8;
-  cursor: not-allowed;
-}
-
-.table-action-link:hover,
-.table-action-link:focus-visible {
+.detail-link:hover,
+.detail-link:focus-visible {
   background: var(--color-hover);
-  color: var(--color-ink);
-}
-
-.table-action-link--danger:not(:disabled):hover,
-.table-action-link--danger:not(:disabled):focus-visible {
-  background: #fef2f2;
-  color: #b91c1c;
 }
 </style>

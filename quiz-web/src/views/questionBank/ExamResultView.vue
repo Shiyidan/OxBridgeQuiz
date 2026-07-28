@@ -12,7 +12,9 @@
     />
 
     <main v-else class="result-main">
-      <div class="result-card">
+      <div v-if="loading" class="result-state">正在加载本次练习结果...</div>
+      <div v-else-if="loadError" class="result-state result-state--error">{{ loadError }}</div>
+      <div v-else class="result-card">
         <div class="result-icon" :class="passClass">
           <svg v-if="passClass === 'pass'" viewBox="0 0 64 64" fill="none">
             <circle cx="32" cy="32" r="28" stroke="#10b981" stroke-width="3" fill="#ecfdf5" />
@@ -81,17 +83,21 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
 import DiagnosticAnalysisDialog from '@/components/DiagnosticAnalysisDialog.vue'
+import { getExamResultData } from '@/api/exam'
+import { getApiErrorMessage } from '@/utils/request'
 
 const route = useRoute()
 const router = useRouter()
 const examId = computed(() => (route.query.id as string) || '')
-const totalCount = computed(() => parseInt(route.query.total as string) || 0)
-const correctCount = computed(() => parseInt(route.query.correct as string) || 0)
-const timeSeconds = computed(() => parseInt(route.query.time as string) || 0)
+const loading = ref(true)
+const loadError = ref('')
+const totalCount = ref(0)
+const correctCount = ref(0)
+const timeSeconds = ref(0)
 const isAssessment = computed(() => route.query.source === 'assessment')
 const accuracy = computed(() =>
   totalCount.value > 0 ? Math.round((correctCount.value / totalCount.value) * 100) : 0,
@@ -101,6 +107,25 @@ const formattedTime = computed(() => {
   const minutes = Math.floor(timeSeconds.value / 60)
   const seconds = timeSeconds.value % 60
   return minutes > 0 ? `${minutes}分${seconds}秒` : `${seconds}秒`
+})
+
+// 结果页只信任服务端已交卷记录，URL 中的统计参数不参与展示。
+onMounted(async () => {
+  if (!examId.value) {
+    loadError.value = '缺少本次练习记录，请返回试题库重新进入'
+    loading.value = false
+    return
+  }
+  try {
+    const data = await getExamResultData(examId.value)
+    totalCount.value = data.examRecord.totalQuestions
+    correctCount.value = data.examRecord.correctCount
+    timeSeconds.value = data.examRecord.durationSeconds
+  } catch (error: unknown) {
+    loadError.value = getApiErrorMessage(error, '加载练习结果失败，请稍后重试')
+  } finally {
+    loading.value = false
+  }
 })
 
 // 诊断分析完成后只响应用户主动查看，不由状态恢复页自动跳转。
@@ -133,6 +158,19 @@ async function handleReturnToAssessment(): Promise<void> {
   background: #fff;
   text-align: center;
   box-shadow: 0 4px 24px rgba(15, 23, 42, 0.04);
+}
+
+.result-state {
+  padding: 40px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #64748b;
+  text-align: center;
+}
+
+.result-state--error {
+  color: var(--color-danger);
 }
 
 .result-icon {

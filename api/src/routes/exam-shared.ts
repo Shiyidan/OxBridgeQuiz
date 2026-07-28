@@ -81,7 +81,7 @@ export function buildAnswerRecordRows(
   includeUnanswered = true,
 ) {
   return questions
-    .map((question) => {
+    .map((question, position) => {
       const key = getQuestionKey(question)
       if (!key) return null
       const selected = answers[key]
@@ -100,6 +100,7 @@ export function buildAnswerRecordRows(
         selectedAnswer: selected || null,
         answerState,
         isCorrect,
+        position,
 
         durationSeconds,
         answeredAt: selected ? new Date() : null,
@@ -206,10 +207,10 @@ export async function replaceAnswerRecords(
   if (rows.length) await client.answerRecord.createMany({ data: rows })
 }
 
-export async function collectSyllabusCodes(codes: string[]): Promise<string[]> {
+export async function collectSyllabusCodes(codes: string[], examType?: string): Promise<string[]> {
   if (!codes.length) return []
   const nodes = await prisma.syllabusNode.findMany({
-    where: { examType: { in: EXAM_TYPES } },
+    where: examType ? { examType } : { examType: { in: EXAM_TYPES } },
     select: { code: true, parentCode: true },
   })
   const childrenMap = new Map<string, string[]>()

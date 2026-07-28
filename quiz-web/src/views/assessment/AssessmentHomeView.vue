@@ -65,11 +65,11 @@
             class="paper-card"
             :class="{
               'paper-card--unavailable': !isPaperAvailable(item),
-              'paper-card--locked': isPaperLocked(item),
+              'paper-card--locked': isPaperLocked(item) && item.testStatus !== 'completed',
             }"
           >
             <div
-              v-if="isPaperLocked(item)"
+              v-if="isPaperLocked(item) && item.testStatus !== 'completed'"
               class="paper-card__lock-overlay"
               role="group"
               :aria-label="`${item.examType} 会员专享试卷`"
@@ -136,7 +136,7 @@
               </div>
               <div class="paper-card__actions">
                 <button
-                  v-if="item.testStatus === 'completed'"
+                  v-if="item.testStatus === 'completed' && isPaperPublished(item)"
                   class="paper-card__button paper-card__button--secondary button_cancel"
                   type="button"
                   :disabled="isPaperLocked(item) || startingPaperId === item.id"
@@ -147,7 +147,10 @@
                 <button
                   class="paper-card__button button_primary"
                   type="button"
-                  :disabled="isPaperLocked(item) || startingPaperId === item.id"
+                  :disabled="
+                    (isPaperLocked(item) && item.testStatus !== 'completed') ||
+                    startingPaperId === item.id
+                  "
                   @click="handlePaperAction(item)"
                 >
                   {{ startingPaperId === item.id ? '正在检查...' : paperActionLabel(item) }}
@@ -647,6 +650,10 @@ async function handleRetestPaper(paper: AssessmentPaperItem): Promise<void> {
     handleUpgradeClick(paper.examType)
     return
   }
+  if (!isPaperPublished(paper)) {
+    ElMessage.info('该诊断卷已下线，只能查看已有记录')
+    return
+  }
   await startPaper(paper)
 }
 
@@ -654,6 +661,10 @@ async function handleRetestPaper(paper: AssessmentPaperItem): Promise<void> {
 async function startPaper(paper: AssessmentPaperItem): Promise<void> {
   if (!isPaperAvailable(paper)) {
     ElMessage.info(getExamUnavailableMessage(paper.examType))
+    return
+  }
+  if (!isPaperPublished(paper)) {
+    ElMessage.info('该诊断卷已下线，不能创建新的测试')
     return
   }
   const activePaper = diagnosticTests.value.find(
@@ -694,6 +705,11 @@ function isPaperAvailable(item: AssessmentPaperItem): boolean {
   return isExamTypeAvailable(item.examType || 'TMUA')
 }
 
+// 发布状态只限制新建和重测，已开始测试与历史记录仍可访问。
+function isPaperPublished(item: AssessmentPaperItem): boolean {
+  return item.publicationStatus === 'published'
+}
+
 // 进行中的 attempt 沿用创建时取得的权限；免费卷、管理员和有效会员不显示锁定态。
 function isPaperLocked(item: AssessmentPaperItem): boolean {
   if (!isPaperAvailable(item) || item.testStatus === 'in_progress') return false
@@ -703,6 +719,8 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
 
 function paperStatusLabel(item: AssessmentPaperItem): string {
   if (!isPaperAvailable(item)) return '暂未开放'
+  if (!isPaperPublished(item) && item.testStatus === 'in_progress') return '已下线 · 进行中'
+  if (!isPaperPublished(item)) return '已下线'
   if (item.testStatus === 'in_progress') return '进行中'
   if (item.testStatus === 'not_started') return '待开始'
   if (item.reportStatus === 'failed') return '分析失败'
@@ -716,6 +734,7 @@ function paperStatusTone(
   item: AssessmentPaperItem,
 ): 'pending' | 'progress' | 'completed' | 'failed' | 'unavailable' {
   if (!isPaperAvailable(item)) return 'unavailable'
+  if (!isPaperPublished(item)) return 'unavailable'
   if (item.testStatus === 'in_progress') return 'progress'
   if (item.testStatus === 'not_started') return 'pending'
   if (item.reportStatus === 'failed') return 'failed'
@@ -726,6 +745,7 @@ function paperStatusTone(
 function paperActionLabel(item: AssessmentPaperItem): string {
   if (!isPaperAvailable(item)) return '正在推进中'
   if (item.testStatus === 'in_progress') return '继续测试→'
+  if (!isPaperPublished(item)) return '历次记录→'
   if (item.testStatus === 'not_started') return '开始测试→'
   if (item.reportStatus === 'failed' && !item.hasReport) return '重新分析→'
   if (isReportGenerating(item) || item.reportStatus === 'not_generated') {

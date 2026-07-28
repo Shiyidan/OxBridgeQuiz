@@ -98,6 +98,14 @@ export interface SaveProgressResult {
   savedQuestionIds: string[]
 }
 
+export interface ActiveQuestionBankPractice {
+  examRecordId: string
+  examType: string
+  totalQuestions: number
+  answeredCount: number
+  startedAt: string
+}
+
 export interface SubmitResult {
   examRecordId: string
   totalQuestions: number
@@ -165,6 +173,7 @@ export interface ExamResult {
     examType: string
     totalQuestions: number
     correctCount: number
+    durationSeconds: number
     startedAt: string
     submittedAt: string
     status: string
@@ -386,8 +395,11 @@ export interface DiagnosticReportSummary {
 export interface WrongAnswer {
   id: string
   questionId: string
+  examType: string
   title: string
   difficulty: string
+  subject: string
+  subjectCode: string
   knowledge_points: { code: string; label: string; role?: string }[]
   selectedAnswer: string | null
   selectedAnswers: string[]
@@ -397,6 +409,7 @@ export interface WrongAnswer {
   answeredAt: string | null
   examRecord?: {
     id: string
+    examType: string
     submittedAt: string
     paper?: {
       paperType: string
@@ -417,13 +430,19 @@ export interface PaginationMeta {
 export interface PageResult<T> {
   list: T[]
   pagination: PaginationMeta
+  dateBounds?: {
+    min: string | null
+    max: string | null
+  }
 }
 
 export interface MistakeNotebookParams {
   page?: number
   pageSize?: number
+  examType?: string
   difficulties?: string[]
   paperTypes?: string[]
+  subjectCodes?: string[]
   syllabusCodes?: string[]
   startDate?: string
   endDate?: string
@@ -456,6 +475,15 @@ export function startExam(params: StartExamParams) {
   })
 }
 
+/** 查询指定考试类型唯一的进行中题库练习。 */
+export function getActiveQuestionBankPractice(examType: string) {
+  return callApi<ActiveQuestionBankPractice | null>({
+    url: '/exams/active-practice',
+    method: 'GET',
+    params: { examType },
+  })
+}
+
 /** 按考试记录保存逐题答案与耗时。 */
 export function saveExamProgress(examId: string, responses: ExamResponseInput[]) {
   return callApi<SaveProgressResult>({
@@ -467,6 +495,14 @@ export function saveExamProgress(examId: string, responses: ExamResponseInput[])
 
 /** 恢复模块化诊断会话；题目范围和阶段均由服务端决定。 */
 export function getModuleExamSession(examId: string) {
+  return callApi<StartExamResult>({
+    url: `/exams/${examId}/session`,
+    method: 'GET',
+  })
+}
+
+/** 按 ExamRecord 恢复普通题库练习或连续考试的冻结题目与进度。 */
+export function getExamSession(examId: string) {
   return callApi<StartExamResult>({
     url: `/exams/${examId}/session`,
     method: 'GET',
@@ -553,8 +589,10 @@ export function getMistakeNotebookData(params: MistakeNotebookParams = {}) {
     params: {
       ...(params.page ? { page: String(params.page) } : {}),
       ...(params.pageSize ? { pageSize: String(params.pageSize) } : {}),
+      ...(params.examType ? { examType: params.examType } : {}),
       ...(params.difficulties?.length ? { difficulty: params.difficulties.join(',') } : {}),
       ...(params.paperTypes?.length ? { paperType: params.paperTypes.join(',') } : {}),
+      ...(params.subjectCodes?.length ? { subjectCode: params.subjectCodes.join(',') } : {}),
       ...(params.syllabusCodes?.length ? { syllabusCode: params.syllabusCodes.join(',') } : {}),
       ...(params.startDate ? { startDate: params.startDate } : {}),
       ...(params.endDate ? { endDate: params.endDate } : {}),

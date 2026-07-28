@@ -171,8 +171,8 @@ async function buildReportForTask(taskId: string, examRecordId: string): Promise
 
   const answerMap = new Map(examRecord.answers.map((answer) => [answer.questionId, answer]))
   const learnerProfile = learnerProfileForExam(examRecord.user.examPreferences, examRecord.examType)
-  const questions = questionRows.map((question) => ({
-    number: question.number,
+  const questions = questionRows.map((question, index) => ({
+    number: question.number ?? index + 1,
     subject: question.subject,
     subjectCode: question.subjectCode,
     moduleCode: question.moduleCode,

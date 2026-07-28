@@ -207,12 +207,23 @@ paperCrudRouter.get('/:id', requireAuth, async (req, res) => {
   const questions = await getPaperQuestions(paper.id)
 
   if (req.user!.role !== USER_ROLE.ADMIN) {
-    if (paper.status !== 'published') {
+    const activeAttempt = await prisma.examRecord.findFirst({
+      where: {
+        userId: req.user!.userId,
+        paperId: paper.id,
+        status: 'in_progress',
+      },
+      select: { id: true },
+    })
+    if (paper.status !== 'published' && !activeAttempt) {
       res.status(404).json(fail('试卷不存在'))
       return
     }
 
-    if (!(await hasStudentPaperEntitlement(req.user!.userId, paper, questions.length))) {
+    if (
+      !activeAttempt
+      && !(await hasStudentPaperEntitlement(req.user!.userId, paper, questions.length))
+    ) {
       res.status(403).json(fail('当前无权访问该试卷', 'PAPER_ACCESS_DENIED'))
       return
     }
@@ -282,7 +293,7 @@ paperCrudRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     return
   }
   const nextStatus = status || previousPaper.status
-  if (nextStatus === 'published' && questions) {
+  if (nextStatus === 'published' && questions !== undefined) {
     res.status(422).json(fail('请先以草稿状态保存题目结构，再单独发布试卷', 'PAPER_STRUCTURE_INVALID'))
     return
   }
@@ -311,24 +322,60 @@ paperCrudRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
       return
     }
   }
-  const paper = await prisma.paper.update({
-    where: { id: req.params.id },
-    data: {
-      ...(title && { title }),
-      ...(code !== undefined && { code }),
-      ...(examType && { examType }),
-      ...(year && { year }),
-      ...(duration && { duration }),
-      ...(questions && { totalQuestions: questions.length }),
-      ...(status && { status }),
-      ...(paperType && { paperType: normalizePaperType(paperType) }),
-      ...(accessTier && { accessTier }),
-    },
-  })
+  const updateResult = await prisma.$transaction(async (tx) => {
+    const currentPaper = await tx.paper.findUnique({ where: { id: req.params.id } })
+    if (!currentPaper) return { paper: null, definitionLocked: false }
+    const normalizedNextPaperType = paperType
+      ? normalizePaperType(paperType)
+      : currentPaper.paperType
+    const definitionChanged = (
+      (examType !== undefined && examType !== currentPaper.examType)
+      || (paperType !== undefined && normalizedNextPaperType !== currentPaper.paperType)
+      || (year !== undefined && Number(year) !== currentPaper.year)
+      || (duration !== undefined && Number(duration) !== currentPaper.duration)
+      || questions !== undefined
+    )
+    if (definitionChanged) {
+      const [directAttemptCount, indirectAnswerCount] = await Promise.all([
+        tx.examRecord.count({ where: { paperId: currentPaper.id } }),
+        tx.answerRecord.count({ where: { question: { paperId: currentPaper.id } } }),
+      ])
+      if (directAttemptCount > 0 || indirectAnswerCount > 0) {
+        return { paper: null, definitionLocked: true }
+      }
+    }
 
-  if (questions) {
-    await syncPaperQuestions(paper.id, questions)
+    const updatedPaper = await tx.paper.update({
+      where: { id: currentPaper.id },
+      data: {
+        ...(title && { title }),
+        ...(code !== undefined && { code }),
+        ...(examType && { examType }),
+        ...(year && { year }),
+        ...(duration && { duration }),
+        ...(questions !== undefined && { totalQuestions: questions.length }),
+        ...(status && { status }),
+        ...(paperType && { paperType: normalizedNextPaperType }),
+        ...(accessTier && { accessTier }),
+      },
+    })
+    if (questions !== undefined) {
+      await syncPaperQuestions(updatedPaper.id, questions, tx)
+    }
+    return { paper: updatedPaper, definitionLocked: false }
+  })
+  if (updateResult.definitionLocked) {
+    res.status(409).json(fail(
+      '该试卷已产生学生作答记录，请新建试卷版本后再调整考试结构',
+      'PAPER_DEFINITION_LOCKED',
+    ))
+    return
   }
+  if (!updateResult.paper) {
+    res.status(404).json(fail('试卷不存在'))
+    return
+  }
+  const paper = updateResult.paper
 
   setOperationAuditContext(req, {
     summary: `修改试卷“${paper.title}”`,
@@ -378,9 +425,12 @@ paperCrudRouter.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
     res.status(404).json(fail('试卷不存在'))
     return
   }
-  if (previousPaper._count.examRecords > 0) {
+  const indirectAnswerCount = await prisma.answerRecord.count({
+    where: { question: { paperId: previousPaper.id } },
+  })
+  if (previousPaper._count.examRecords > 0 || indirectAnswerCount > 0) {
     res.status(409).json(fail(
-      '该试卷已有学生诊断记录，不能删除；请将试卷状态改为“已归档”',
+      '该试卷已有学生作答记录，不能删除；请将试卷状态改为“已归档”',
       'PAPER_HAS_DIAGNOSTIC_HISTORY',
     ))
     return

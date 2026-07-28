@@ -20,7 +20,7 @@ P1 业务逻辑 Bug
 - [ ] P1-3 解析任务内存在服务重启后丢失
 - [ ] P1-4 答题结果中无匹配题目时静默降级
 - [x] P1-5 “重新测试”曾绕过诊断额度
-- [ ] P1-6 诊断真题错题本未直达逐题解析
+- [x] P1-6 诊断真题错题本未直达逐题解析
 
 P2 代码重复 & 规范不一致
 
@@ -31,7 +31,6 @@ P2 代码重复 & 规范不一致
 
 P3 性能 & 可扩展性
 
-- [ ] P3-1 试题库全量加载到内存再过滤
 - [x] P3-2 错题本接口无分页
 - [x] P3-3 用户管理列表无分页
 - [ ] P3-4 逐页解析 fire-and-forget 前端无法感知单页失败
@@ -125,6 +124,7 @@ P5 代码整洁
 - **位置**：[`quiz-web/src/views/mistakeNotebook/MistakeNotebookView.vue`](quiz-web/src/views/mistakeNotebook/MistakeNotebookView.vue) `analysisLink()`、[`quiz-web/src/views/assessment/ExamResultDetail.vue`](quiz-web/src/views/assessment/ExamResultDetail.vue) 诊断报告分流逻辑
 - **问题**：错题本“查看解析”统一跳转 `/exam-result/:id?questionId=xxx`。若记录来自诊断真题，该路由会优先分流到 ESAT/TMUA 诊断报告，`questionId` 无法进入逐题解析页面并定位对应题目
 - **方案**：错题本根据 `paperType` 区分来源；诊断真题改跳转 `/exam-result/:id/questions?questionId=xxx`（`exam-question-review`），普通题库练习保持原结果页路径。复用现有 `ExamQuestionAnalysis` 的 `initialQuestionId` 定位能力，不新增题目解析组件
+- **处理结果**：2026-07-28 已统一使用专用逐题解析路由，并为错题本入口启用单题模式；解析页将题目业务来源与页面来路分开处理，返回时恢复错题本原筛选条件和页码。
 
 ---
 
@@ -158,12 +158,6 @@ P5 代码整洁
 ---
 
 ## P3 — 性能 & 可扩展性（逐步优化）
-
-### P3-1 试题库全量加载到内存再过滤
-
-- **位置**：[`api/src/routes/questionBank.ts`](../api/src/routes/questionBank.ts) `GET /question-bank`（`prisma.question.findMany()`）
-- **问题**：接口会一次查询符合考试类型与已发布试卷条件的全部题目，再在 Node.js 内存中完成难度、考纲节点等过滤并组装完整响应，且当前无分页。已发布题目持续增长后，数据库传输量、Node.js 堆占用与响应体大小会同步增长，并发请求下存在明显的内存峰值与响应延迟风险
-- **方案**：将可表达的难度、科目及考纲编码条件下推到 Prisma 查询；为题库列表增加数据库分页，只查询当前页需要的字段。难度数量等摘要统计使用独立轻量查询或聚合，不依赖加载完整题目集合
 
 ### P3-2 错题本接口无分页
 

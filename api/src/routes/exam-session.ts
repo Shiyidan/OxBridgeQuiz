@@ -27,6 +27,7 @@ import {
   EXAM_PHASE,
   PAPER_DELIVERY_MODE,
   PAPER_TYPE,
+  QUESTION_STATUS,
   QUESTION_BANK_PAPER_TYPES,
   REAL_PAPER_TYPES,
   isExamType,
@@ -44,11 +45,57 @@ import {
   reconcileExpiredModuleTimeline,
   reconcileModuleBreak,
 } from '../services/moduleExamSession.js'
+import { formatQuestionForAttempt } from './papers-shared.js'
 
 import { safeJsonParse, parseQueryList, parseDateBoundary, parsePositiveInt, getQuestionKey, buildAnswerRecordRows, countCorrectAnswers, ExamResponseInput, ExamProgressConflictError, normalizeExamResponses, responseMaps, usesContinuousExamClock, buildExamDeadline, continuousExamDurationSeconds, replaceAnswerRecords, collectSyllabusCodes, jsonPointsHaveCode, calculateNinePointScore } from './exam-shared.js'
 export const examSessionRouter = createAsyncRouter()
 
+class ExamStartBusinessError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code: string,
+  ) {
+    super(message)
+  }
+}
+
+// 题库首页只读取当前考试类型唯一的进行中练习，未开始时返回 null。
+examSessionRouter.get('/active-practice', requireAuth, async (req, res) => {
+  const examType = String(req.query.examType || EXAM_TYPE.TMUA).toUpperCase()
+  if (!isExamType(examType)) {
+    res.status(422).json(fail('无效的考试类型'))
+    return
+  }
+  const record = await prisma.examRecord.findFirst({
+    where: {
+      userId: req.user!.userId,
+      examType,
+      status: EXAM_RECORD_STATUS.IN_PROGRESS,
+      activeQuestionBankKey: `${req.user!.userId}:${examType}`,
+      paperId: 'question-bank',
+    },
+    select: {
+      id: true,
+      examType: true,
+      totalQuestions: true,
+      startedAt: true,
+      _count: { select: { answers: { where: { selectedAnswer: { not: null } } } } },
+    },
+  })
+  res.json(success(record
+    ? {
+        examRecordId: record.id,
+        examType: record.examType,
+        totalQuestions: record.totalQuestions,
+        answeredCount: record._count.answers,
+        startedAt: record.startedAt,
+      }
+    : null))
+})
+
 examSessionRouter.post('/start', requireAuth, async (req, res) => {
+  let startingQuestionBank = false
   try {
 
     const { paperId, examType, questionIds } = req.body as {
@@ -74,29 +121,126 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
       targetDeliveryMode = paper.deliveryMode
       targetDurationMinutes = paper.duration
       targetPaper = paper
-      if (isRealPaperType(targetPaperType) && paper.status !== 'published') {
-        res.status(404).json(fail('试卷不存在或尚未发布'))
-        return
-      }
     }
     if (!isExamType(targetExamType)) {
       res.status(422).json(fail('无效的考试类型'))
       return
     }
 
-    const isDiagnostic = isRealPaperType(targetPaperType)
-    const isModuleSequence = targetDeliveryMode === PAPER_DELIVERY_MODE.MODULE_SEQUENCE
-    if (
-      isDiagnostic
-      && (targetExamType === EXAM_TYPE.ESAT || targetExamType === EXAM_TYPE.TMUA)
-      && !isModuleSequence
-    ) {
-      res.status(422).json(fail(
-        `${targetExamType} 诊断卷必须配置完整分段结构后才能开始`,
-        'PAPER_STRUCTURE_INVALID',
-      ))
+    if (!paperId) {
+      startingQuestionBank = true
+      const requestedQuestionIds = Array.isArray(questionIds)
+        ? [...new Set(questionIds.filter(
+            (value): value is string => typeof value === 'string' && Boolean(value.trim()),
+          ))]
+        : []
+      if (!requestedQuestionIds.length) {
+        res.status(422).json(fail('请至少选择一道题目'))
+        return
+      }
+
+      // 题库练习统一关联稳定的系统占位试卷；考试类型以 ExamRecord 为准，不再反复改写 Paper。
+      await prisma.paper.upsert({
+        where: { id: 'question-bank' },
+        update: { paperType: PAPER_TYPE.AI_PAPER, status: 'published' },
+        create: {
+          id: 'question-bank',
+          title: 'Question bank practice',
+          examType: EXAM_TYPE.TMUA,
+          year: new Date().getFullYear(),
+          duration: 60,
+          paperType: PAPER_TYPE.AI_PAPER,
+          status: 'published',
+        },
+      })
+
+      const examRecord = await withQuotaTransaction(async (tx) => {
+        const serverStartedAt = new Date()
+        // 先占用唯一活动键，再读取已交卷用量；并发 start/submit 会由唯一索引按顺序裁决。
+        const record = await tx.examRecord.create({
+          data: {
+            userId: req.user!.userId,
+            paperId: 'question-bank',
+            examType: targetExamType,
+            totalQuestions: requestedQuestionIds.length,
+            correctCount: 0,
+            startedAt: serverStartedAt,
+            phase: EXAM_PHASE.CONTINUOUS,
+            activeDurationSeconds: 0,
+            durationSeconds: 0,
+            status: EXAM_RECORD_STATUS.IN_PROGRESS,
+            activeQuestionBankKey: `${req.user!.userId}:${targetExamType}`,
+          },
+        })
+
+        const questionRows = await tx.question.findMany({
+          where: {
+            id: { in: requestedQuestionIds },
+            examType: targetExamType,
+            paperId: null,
+            status: QUESTION_STATUS.PUBLISHED,
+            questionType: 'single_choice',
+          },
+          select: { id: true, answer: true },
+        })
+        if (questionRows.length !== requestedQuestionIds.length) {
+          throw new ExamStartBusinessError(
+            '题目不存在、已下架或不属于当前考试类型',
+            422,
+            'QUESTION_SCOPE_INVALID',
+          )
+        }
+        const questionMap = new Map(questionRows.map((question) => [question.id, question]))
+        const officialQuestions = requestedQuestionIds.map((questionId) => {
+          const question = questionMap.get(questionId)!
+          return { id: question.id, answer: parseJsonArray<string>(question.answer) }
+        })
+        const entitlement = await checkMemberAccess(
+          req.user!.userId,
+          'question-bank',
+          targetExamType,
+          officialQuestions.length,
+          tx,
+        )
+        if (!entitlement.allowed) {
+          throw new ExamStartBusinessError(
+            '当前题库额度不足，请开通会员后继续',
+            403,
+            'QUESTION_BANK_ACCESS_DENIED',
+          )
+        }
+        await replaceAnswerRecords(tx, record.id, officialQuestions, {}, {}, {}, true)
+        return record
+      })
+
+      setOperationAuditContext(req, {
+        resourceId: examRecord.id,
+        summary: `开始 ${examRecord.examType} 题库练习`,
+      })
+      res.json(success({
+        examRecordId: examRecord.id,
+        paperId: examRecord.paperId,
+        examType: examRecord.examType,
+        totalQuestions: examRecord.totalQuestions,
+        startedAt: examRecord.startedAt,
+        expiresAt: null,
+        status: examRecord.status,
+        isResumed: false,
+        isExpired: false,
+        answers: {},
+        questionDurations: {},
+        answerStates: {},
+        durationSeconds: 0,
+      }))
       return
     }
+
+    const isDiagnostic = isRealPaperType(targetPaperType)
+    if (!isDiagnostic) {
+      res.status(422).json(fail('当前试卷类型不能从诊断测试入口开始', 'PAPER_TYPE_UNSUPPORTED'))
+      return
+    }
+    const isModuleSequence = targetDeliveryMode === PAPER_DELIVERY_MODE.MODULE_SEQUENCE
     const usesContinuousClock = usesContinuousExamClock(targetPaperType, targetDeliveryMode)
     const existingRecord = isDiagnostic
       ? await prisma.examRecord.findFirst({
@@ -191,22 +335,19 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
       return
     }
 
-    if (!paperId) {
-      await prisma.paper.upsert({
-        where: { id: 'question-bank' },
-        update: { paperType: PAPER_TYPE.AI_PAPER, status: 'published', examType: targetExamType },
-        create: {
-          id: 'question-bank',
-
-          title: 'Question bank practice',
-          examType: targetExamType,
-          year: new Date().getFullYear(),
-          duration: 60,
-          paperType: PAPER_TYPE.AI_PAPER,
-          status: 'published',
-        },
-      })
-      targetPaperId = 'question-bank'
+    if (targetPaper.status !== 'published') {
+      res.status(404).json(fail('试卷不存在或尚未发布'))
+      return
+    }
+    if (
+      (targetExamType === EXAM_TYPE.ESAT || targetExamType === EXAM_TYPE.TMUA)
+      && !isModuleSequence
+    ) {
+      res.status(422).json(fail(
+        `${targetExamType} 诊断卷必须配置完整分段结构后才能开始`,
+        'PAPER_STRUCTURE_INVALID',
+      ))
+      return
     }
 
     const requestedQuestionIds = Array.isArray(questionIds)
@@ -321,7 +462,18 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
       durationSeconds: 0,
     }))
   } catch (error: any) {
+    if (error instanceof ExamStartBusinessError) {
+      res.status(error.status).json(fail(error.message, error.code))
+      return
+    }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      if (startingQuestionBank) {
+        res.status(409).json(fail(
+          '当前考试类型已有一份未完成练习，请先继续并交卷',
+          'QUESTION_BANK_IN_PROGRESS',
+        ))
+        return
+      }
       res.status(409).json(fail(
         '当前考试类型已有一场未完成的诊断测试，请返回诊断中心继续作答',
         'DIAGNOSTIC_IN_PROGRESS',
@@ -440,22 +592,95 @@ examSessionRouter.put('/:id/progress', requireAuth, async (req, res) => {
   }
 })
 
-// 刷新或重新进入分段诊断页时，以服务端保存的阶段和截止时间恢复。
+// 刷新或重新进入答题页时，按 ExamRecord 冻结的题目范围恢复题目、答案和用时。
 examSessionRouter.get('/:id/session', requireAuth, async (req, res) => {
   try {
-    const session = await getModuleExamSession(
-      req.params.id,
-      req.user!.userId,
-      { resumePaused: true },
-    )
-    if (!session) {
-      res.status(404).json(fail('模块化考试会话不存在'))
+    const record = await prisma.examRecord.findFirst({
+      where: { id: req.params.id, userId: req.user!.userId },
+      include: {
+        paper: true,
+        answers: { include: { question: true } },
+      },
+    })
+    if (!record) {
+      res.status(404).json(fail('考试会话不存在'))
       return
     }
-    res.json(success(session))
+    if (parseModuleExamSnapshot(record.structureSnapshot)) {
+      const session = await getModuleExamSession(
+        record.id,
+        req.user!.userId,
+        { resumePaused: true },
+      )
+      if (!session) {
+        res.status(404).json(fail('模块化考试会话不存在'))
+        return
+      }
+      res.json(success(session))
+      return
+    }
+    if (record.status !== EXAM_RECORD_STATUS.IN_PROGRESS) {
+      res.status(409).json(fail('该练习已经交卷', 'EXAM_ALREADY_SUBMITTED'))
+      return
+    }
+    const paperType = normalizePaperType(record.paper.paperType)
+    if (!isRealPaperType(paperType) && !QUESTION_BANK_PAPER_TYPES.includes(paperType as any)) {
+      res.status(422).json(fail('当前考试类型不支持恢复'))
+      return
+    }
+
+    const storedPositionsAreComplete = record.answers.every((answer) =>
+      Number.isInteger(answer.position),
+    ) && new Set(record.answers.map((answer) => answer.position)).size === record.answers.length
+    const orderedAnswers = storedPositionsAreComplete
+      ? [...record.answers].sort((left, right) => Number(left.position) - Number(right.position))
+      : [...record.answers].sort((left, right) => (
+          String(left.question.paperId || '').localeCompare(String(right.question.paperId || ''))
+          || Number(left.question.number || 0) - Number(right.question.number || 0)
+        ))
+    const answers: Record<string, string> = {}
+    const questionDurations: Record<string, number> = {}
+    const answerStates: Record<string, AnswerRecordState> = {}
+    for (const answer of orderedAnswers) {
+      if (answer.selectedAnswer) answers[answer.questionId] = answer.selectedAnswer
+      questionDurations[answer.questionId] = answer.durationSeconds
+      answerStates[answer.questionId] = isAnswerRecordState(answer.answerState)
+        ? answer.answerState
+        : answer.selectedAnswer
+          ? ANSWER_RECORD_STATE.ANSWERED
+          : answer.durationSeconds > 0
+            ? ANSWER_RECORD_STATE.SKIPPED
+            : ANSWER_RECORD_STATE.UNSEEN
+    }
+    const expiresAt = usesContinuousExamClock(record.paper.paperType, record.paper.deliveryMode)
+      ? record.expiresAt || buildExamDeadline(record.startedAt, record.paper.duration)
+      : null
+    const now = new Date()
+    const durationSeconds = expiresAt
+      ? continuousExamDurationSeconds(record.startedAt, expiresAt, now)
+      : Object.values(questionDurations).reduce((sum, value) => sum + value, 0)
+    res.json(success({
+      examRecordId: record.id,
+      paperId: record.paperId,
+      examType: record.examType,
+      totalQuestions: record.totalQuestions,
+      startedAt: record.startedAt,
+      expiresAt,
+      status: record.status,
+      isResumed: true,
+      isExpired: Boolean(expiresAt && expiresAt.getTime() <= now.getTime()),
+      answers,
+      questionDurations,
+      answerStates,
+      durationSeconds,
+      questions: orderedAnswers.map((answer, index) => ({
+        ...formatQuestionForAttempt(answer.question),
+        number: index + 1,
+      })),
+    }))
   } catch (error: any) {
-    logRuntimeError('exam.module_session_failed', error)
-    res.status(500).json(fail(error.message || '恢复模块化考试失败'))
+    logRuntimeError('exam.session_restore_failed', error)
+    res.status(500).json(fail(error.message || '恢复考试会话失败'))
   }
 })
 
@@ -795,6 +1020,7 @@ examSessionRouter.post('/:id/submit', requireAuth, async (req, res) => {
             selectedAnswer: true,
             durationSeconds: true,
             answerState: true,
+            position: true,
           },
         },
         diagnosticReportTask: true,
@@ -859,10 +1085,23 @@ examSessionRouter.post('/:id/submit', requireAuth, async (req, res) => {
       res.status(422).json(fail('当前考试记录没有可提交的正式题目'))
       return
     }
-    const officialQuestions = questionRows.map((question) => ({
-      id: question.id,
-      answer: parseJsonArray<string>(question.answer),
-    }))
+    const questionMap = new Map(questionRows.map((question) => [question.id, question]))
+    const fallbackQuestionOrder = new Map(
+      questionRows.map((question, index) => [question.id, index]),
+    )
+    const orderedAnswers = [...record.answers].sort((left, right) => {
+      if (Number.isInteger(left.position) && Number.isInteger(right.position)) {
+        return Number(left.position) - Number(right.position)
+      }
+      return (fallbackQuestionOrder.get(left.questionId) ?? 0)
+        - (fallbackQuestionOrder.get(right.questionId) ?? 0)
+    })
+    const officialQuestions = orderedAnswers.flatMap((answerRecord) => {
+      const question = questionMap.get(answerRecord.questionId)
+      return question
+        ? [{ id: question.id, answer: parseJsonArray<string>(question.answer) }]
+        : []
+    })
 
     const submissionKey = typeof req.body?.submissionKey === 'string' && req.body.submissionKey.trim()
       ? req.body.submissionKey.trim().slice(0, 191)
@@ -900,6 +1139,7 @@ examSessionRouter.post('/:id/submit', requireAuth, async (req, res) => {
           durationSeconds,
           status: EXAM_RECORD_STATUS.SUBMITTED,
           activeDiagnosticKey: null,
+          activeQuestionBankKey: null,
         },
       })
       if (!claimed.count) {

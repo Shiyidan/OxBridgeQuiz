@@ -13,17 +13,15 @@
 
         <div class="filter-bar" aria-label="错题筛选">
           <label class="filter-field">
-            <span class="filter-field__label">题目难度</span>
+            <span class="filter-field__label">考试类型</span>
             <el-select
-              v-model="draftFilters.difficulties"
-              multiple
-              collapse-tags
-              collapse-tags-tooltip
+              v-model="draftFilters.examType"
               clearable
-              placeholder="请选择"
+              placeholder="全部考试"
+              @change="handleExamTypeChange"
             >
               <el-option
-                v-for="option in difficultyOptions"
+                v-for="option in examTypeOptions"
                 :key="option.value"
                 :label="option.label"
                 :value="option.value"
@@ -32,7 +30,7 @@
           </label>
 
           <label class="filter-field">
-            <span class="filter-field__label">题目来源</span>
+            <span class="filter-field__label">来源</span>
             <el-select
               v-model="draftFilters.sources"
               multiple
@@ -51,25 +49,65 @@
           </label>
 
           <label class="filter-field">
+            <span class="filter-field__label">考试科目</span>
+            <el-select
+              v-model="draftFilters.subjectCodes"
+              multiple
+              collapse-tags
+              collapse-tags-tooltip
+              clearable
+              :disabled="!draftFilters.examType || syllabusLoading || Boolean(syllabusError)"
+              :placeholder="draftFilters.examType ? '全部科目' : '请先选择考试类型'"
+              @change="handleSubjectChange"
+            >
+              <el-option
+                v-for="option in subjectOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </label>
+
+          <label class="filter-field">
             <span class="filter-field__label">知识点</span>
             <el-tree-select
               v-model="draftFilters.knowledgeCodes"
-              :data="syllabusTreeData"
+              :data="knowledgeTreeData"
               :props="treeProps"
               node-key="code"
               multiple
               show-checkbox
-              check-strictly
               collapse-tags
               collapse-tags-tooltip
               clearable
               filterable
-              placeholder="请选择"
+              :disabled="!draftFilters.examType || syllabusLoading || Boolean(syllabusError)"
+              :placeholder="draftFilters.examType ? '全部知识点' : '请先选择考试类型'"
             />
           </label>
 
-          <label class="filter-field filter-field--range">
-            <span class="filter-field__label">提交时间</span>
+          <label class="filter-field">
+            <span class="filter-field__label">难度</span>
+            <el-select
+              v-model="draftFilters.difficulties"
+              multiple
+              collapse-tags
+              collapse-tags-tooltip
+              clearable
+              placeholder="全部难度"
+            >
+              <el-option
+                v-for="option in difficultyOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </label>
+
+          <label class="filter-field">
+            <span class="filter-field__label">收录时间</span>
             <el-date-picker
               v-model="draftFilters.dateRange"
               type="daterange"
@@ -77,22 +115,69 @@
               start-placeholder="开始日期"
               end-placeholder="结束日期"
               value-format="YYYY-MM-DD"
+              :disabled-date="isDateDisabled"
               clearable
             />
           </label>
 
           <div class="filter-actions">
-            <button type="button" class="filter-button button_primary" @click="applyFilters">
+            <button
+              type="button"
+              class="filter-button button_primary"
+              :disabled="wrongLoading"
+              @click="applyFilters"
+            >
               搜索
             </button>
-            <button type="button" class="filter-button button_cancel" @click="resetFilters">
+            <button
+              type="button"
+              class="filter-button button_cancel"
+              :disabled="wrongLoading"
+              @click="resetFilters"
+            >
               重置
             </button>
           </div>
+
+          <p class="filter-hint">
+            日期用于筛出该时段内曾经做错的题；卡片中的错误次数和曾选答案始终按全历史累计。
+          </p>
+          <p v-if="syllabusError" class="filter-message" role="status">
+            {{ syllabusError }}
+          </p>
         </div>
 
-        <div v-if="wrongLoading" class="section-card section-card--empty">
+        <div v-if="wrongError && wrongList.length" class="inline-error" role="alert">
+          <span>{{ wrongError }}，当前仍显示上一次成功加载的结果。</span>
+          <button
+            type="button"
+            class="button_cancel"
+            :disabled="wrongLoading"
+            @click="retryWrongAnswers"
+          >
+            重新加载
+          </button>
+        </div>
+
+        <div v-if="wrongLoading && wrongList.length === 0" class="section-card section-card--empty">
           <p class="loading-text">加载中...</p>
+        </div>
+
+        <div
+          v-else-if="wrongError && wrongList.length === 0"
+          class="section-card section-card--empty section-card--error"
+          role="alert"
+        >
+          <h3>错题加载失败</h3>
+          <p class="empty-desc">{{ wrongError }}</p>
+          <button
+            type="button"
+            class="state-action button_cancel"
+            :disabled="wrongLoading"
+            @click="retryWrongAnswers"
+          >
+            重新加载
+          </button>
         </div>
 
         <div v-else-if="wrongList.length === 0" class="section-card section-card--empty">
@@ -127,20 +212,27 @@
           </p>
         </div>
 
-        <div v-else class="wrong-list">
+        <div v-else class="wrong-list" :aria-busy="wrongLoading">
           <article v-for="item in wrongList" :key="item.id" class="wrong-item">
             <div class="wrong-item__body">
               <div class="wrong-item__meta">
-                <span>{{ formatDate(item.examRecord?.submittedAt) }}</span>
-                <span>{{ formatTime(item.examRecord?.submittedAt) }}</span>
+                <span class="context-tag">{{ examTypeText(item) }}</span>
+                <span class="context-tag">{{ subjectText(item) }}</span>
+                <span
+                  >收录 {{ formatDate(item.examRecord?.submittedAt) }}
+                  {{ formatTime(item.examRecord?.submittedAt) }}</span
+                >
                 <span>{{ formatDuration(item.durationSeconds) }}</span>
                 <span class="difficulty-tag">{{ difficultyText(item) }}</span>
                 <span class="source-tag">{{ sourceText(item) }}</span>
-                <span class="history-tag">错 {{ item.wrongCount }} 次</span>
+                <span class="history-tag">历史错 {{ item.wrongCount }} 次</span>
                 <span v-if="selectedAnswersText(item)" class="history-tag">
-                  曾选 {{ selectedAnswersText(item) }}
+                  历史曾选 {{ selectedAnswersText(item) }}
                 </span>
               </div>
+              <p v-if="knowledgeText(item)" class="wrong-item__knowledge">
+                知识点：{{ knowledgeText(item) }}
+              </p>
               <h2 class="wrong-item__title">
                 <LatexText :text="questionTitle(item)" />
               </h2>
@@ -154,14 +246,20 @@
             >
               查看解析
             </router-link>
-            <button v-else class="wrong-item__action wrong-item__action--disabled" type="button">
+            <button
+              v-else
+              class="wrong-item__action wrong-item__action--disabled"
+              type="button"
+              disabled
+              aria-label="缺少答题记录，暂时无法查看解析"
+            >
               查看解析
             </button>
           </article>
         </div>
 
         <AppPagination
-          v-if="!wrongLoading"
+          v-if="!wrongLoading && !wrongError && pagination.total > 0"
           v-model:page="pagination.page"
           v-model:page-size="pagination.pageSize"
           :total="pagination.total"
@@ -174,18 +272,17 @@
 </template>
 
 <script setup lang="ts">
-// 错题本页面：展示当前用户做错的题目，并支持按难度、来源和大纲知识点筛选。
-import { computed, onMounted, reactive, ref } from 'vue'
+// 错题本页面：按考试体系组织长期错题资产，并在筛选、失败和往返解析时保持上下文一致。
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
 import LatexText from '@/components/LatexText.vue'
 import AppPagination from '@/components/AppPagination.vue'
 import { getMistakeNotebookData, type WrongAnswer } from '@/api/exam'
 import { getSyllabusData, type SyllabusNode } from '@/api/questionBank'
-import {
-  PAPER_TYPE_OPTIONS,
-  normalizePaperType,
-  paperTypeSourceLabel,
-} from '@/constants/paperTypes'
+import { EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
+import { PAPER_TYPE, PAPER_TYPE_OPTIONS, paperTypeSourceLabel } from '@/constants/paperTypes'
+import { getApiErrorMessage } from '@/utils/request'
 
 interface FilterOption {
   label: string
@@ -193,12 +290,16 @@ interface FilterOption {
 }
 
 interface FilterState {
-  difficulties: string[]
+  examType: ExamType | ''
   sources: string[]
+  subjectCodes: string[]
   knowledgeCodes: string[]
+  difficulties: string[]
   dateRange: string[] | null
 }
 
+const route = useRoute()
+const router = useRouter()
 const difficultyLabelMap: Record<string, string> = {
   easy: '难度-低',
   medium: '难度-中',
@@ -209,28 +310,26 @@ const treeProps = { children: 'children', label: 'label', value: 'code' }
 const wrongList = ref<WrongAnswer[]>([])
 const syllabusTreeData = ref<SyllabusNode[]>([])
 const wrongLoading = ref(true)
-const hasActiveQuery = ref(false)
-const draftFilters = reactive<FilterState>({
-  difficulties: [],
-  sources: [],
-  knowledgeCodes: [],
-  dateRange: [],
-})
-const appliedFilters = reactive<FilterState>({
-  difficulties: [],
-  sources: [],
-  knowledgeCodes: [],
-  dateRange: [],
-})
+const wrongError = ref('')
+const syllabusLoading = ref(false)
+const syllabusError = ref('')
+const earliestWrongDate = ref<string | null>(null)
+const draftFilters = reactive<FilterState>(createEmptyFilters())
+const appliedFilters = reactive<FilterState>(createEmptyFilters())
 const pagination = reactive({
   page: 1,
   pageSize: 20,
   total: 0,
   totalPages: 0,
 })
+let wrongRequestSequence = 0
+let syllabusRequestSequence = 0
 
-const difficultyOptions = computed<FilterOption[]>(() =>
-  Object.entries(difficultyLabelMap).map(([value, label]) => ({ value, label })),
+const examTypeOptions = computed<FilterOption[]>(() =>
+  EXAM_TYPE_OPTIONS.filter((item) => item.available).map((item) => ({
+    value: item.value,
+    label: item.label,
+  })),
 )
 const sourceOptions = computed<FilterOption[]>(() =>
   PAPER_TYPE_OPTIONS.map((item) => ({
@@ -238,147 +337,341 @@ const sourceOptions = computed<FilterOption[]>(() =>
     label: paperTypeSourceLabel(item.value),
   })),
 )
+const subjectOptions = computed<FilterOption[]>(() =>
+  syllabusTreeData.value.map((item) => ({ value: item.code, label: item.label })),
+)
+const knowledgeTreeData = computed<SyllabusNode[]>(() => {
+  if (!draftFilters.subjectCodes.length) return syllabusTreeData.value
+  const selectedCodes = new Set(draftFilters.subjectCodes)
+  return syllabusTreeData.value.filter((item) => selectedCodes.has(item.code))
+})
+const difficultyOptions = computed<FilterOption[]>(() =>
+  Object.entries(difficultyLabelMap).map(([value, label]) => ({ value, label })),
+)
+const hasActiveQuery = computed(
+  () =>
+    Boolean(appliedFilters.examType) ||
+    appliedFilters.sources.length > 0 ||
+    appliedFilters.subjectCodes.length > 0 ||
+    appliedFilters.knowledgeCodes.length > 0 ||
+    appliedFilters.difficulties.length > 0 ||
+    Boolean(appliedFilters.dateRange?.length === 2),
+)
 
-// 进入页面后同时加载错题记录和试题库同源大纲树。
+// 首次进入或从解析页返回时，从地址栏恢复已应用条件和分页位置。
 onMounted(async () => {
-  wrongLoading.value = true
-  try {
-    const results = await Promise.allSettled([loadWrongAnswers(), getSyllabusData()])
-    const syllabusResult = results[1]
-    if (syllabusResult.status === 'fulfilled') syllabusTreeData.value = syllabusResult.value
-  } finally {
-    wrongLoading.value = false
-  }
+  restoreStateFromRoute()
+  copyFilters(draftFilters, appliedFilters)
+  await Promise.all([loadWrongAnswers(), loadSyllabusTree(draftFilters.examType)])
 })
 
-// 按已应用筛选条件和分页参数向后端请求错题摘要列表。
-async function loadWrongAnswers(): Promise<void> {
-  const result = await getMistakeNotebookData({
-    page: pagination.page,
-    pageSize: pagination.pageSize,
-    difficulties: appliedFilters.difficulties,
-    paperTypes: appliedFilters.sources,
-    syllabusCodes: appliedFilters.knowledgeCodes,
-    startDate: appliedFilters.dateRange?.[0],
-    endDate: appliedFilters.dateRange?.[1],
-  })
-  wrongList.value = result.list || []
-  pagination.page = result.pagination.page
-  pagination.pageSize = result.pagination.pageSize
-  pagination.total = result.pagination.total
-  pagination.totalPages = result.pagination.totalPages
+// 页面销毁后使仍在飞行的请求失效，避免异步结果继续写回已离开的页面。
+onBeforeUnmount(() => {
+  wrongRequestSequence += 1
+  syllabusRequestSequence += 1
+})
+
+// 创建筛选初始值，避免草稿条件和已应用条件共享数组引用。
+function createEmptyFilters(): FilterState {
+  return {
+    examType: '',
+    sources: [],
+    subjectCodes: [],
+    knowledgeCodes: [],
+    difficulties: [],
+    dateRange: [],
+  }
 }
 
-// 点击搜索时将草稿筛选条件提交为已应用条件，并从第一页重新查询。
+// 地址栏列表值统一使用逗号分隔，兼容路由可能返回的数组形式。
+function queryList(value: unknown): string[] {
+  const values = Array.isArray(value) ? value : [value]
+  return values
+    .flatMap((item) => String(item || '').split(','))
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+// 只恢复当前已开放考试类型，避免旧链接把 STEP 等未开放能力带入错题筛选。
+function restoreStateFromRoute(): void {
+  const requestedExamType = String(route.query.examType || '').toUpperCase()
+  draftFilters.examType = examTypeOptions.value.some((item) => item.value === requestedExamType)
+    ? (requestedExamType as ExamType)
+    : ''
+  draftFilters.sources = queryList(route.query.sources)
+  draftFilters.subjectCodes = draftFilters.examType ? queryList(route.query.subjects) : []
+  draftFilters.knowledgeCodes = draftFilters.examType ? queryList(route.query.knowledge) : []
+  draftFilters.difficulties = queryList(route.query.difficulties)
+  const startDate = String(route.query.startDate || '')
+  const endDate = String(route.query.endDate || '')
+  draftFilters.dateRange = startDate && endDate ? [startDate, endDate] : []
+  pagination.page = positiveRouteNumber(route.query.page, 1)
+  pagination.pageSize = positiveRouteNumber(route.query.pageSize, 20)
+}
+
+// 页码参数只接受正整数，异常链接回退到稳定默认值。
+function positiveRouteNumber(value: unknown, fallback: number): number {
+  const parsed = Number.parseInt(String(value || ''), 10)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback
+}
+
+// 考纲接口带上草稿考试类型；切换过快时只接受最后一次请求结果。
+async function loadSyllabusTree(examType: FilterState['examType']): Promise<void> {
+  const requestId = ++syllabusRequestSequence
+  syllabusError.value = ''
+  if (!examType) {
+    syllabusTreeData.value = []
+    syllabusLoading.value = false
+    return
+  }
+  syllabusLoading.value = true
+  try {
+    const nodes = await getSyllabusData(examType)
+    if (requestId !== syllabusRequestSequence) return
+    const onlyRoot = nodes.length === 1 ? nodes[0] : undefined
+    syllabusTreeData.value = onlyRoot?.children?.length ? onlyRoot.children : nodes
+  } catch (error: unknown) {
+    if (requestId !== syllabusRequestSequence) return
+    syllabusTreeData.value = []
+    syllabusError.value = getApiErrorMessage(error, '考纲加载失败，请重新选择考试类型后重试')
+  } finally {
+    if (requestId === syllabusRequestSequence) syllabusLoading.value = false
+  }
+}
+
+// 错题请求通过序号防止旧搜索覆盖新搜索，并把失败与真正空数据分开呈现。
+async function loadWrongAnswers(): Promise<boolean> {
+  const requestId = ++wrongRequestSequence
+  wrongLoading.value = true
+  wrongError.value = ''
+  try {
+    const result = await getMistakeNotebookData({
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+      examType: appliedFilters.examType,
+      paperTypes: appliedFilters.sources,
+      subjectCodes: appliedFilters.subjectCodes,
+      syllabusCodes: appliedFilters.knowledgeCodes,
+      difficulties: appliedFilters.difficulties,
+      startDate: appliedFilters.dateRange?.[0],
+      endDate: appliedFilters.dateRange?.[1],
+    })
+    if (requestId !== wrongRequestSequence) return false
+    wrongList.value = result.list || []
+    pagination.page = result.pagination.page
+    pagination.pageSize = result.pagination.pageSize
+    pagination.total = result.pagination.total
+    pagination.totalPages = result.pagination.totalPages
+    earliestWrongDate.value = dateOnly(result.dateBounds?.min)
+    return true
+  } catch (error: unknown) {
+    if (requestId !== wrongRequestSequence) return false
+    wrongError.value = getApiErrorMessage(error, '错题加载失败，请稍后重试')
+    return false
+  } finally {
+    if (requestId === wrongRequestSequence) wrongLoading.value = false
+  }
+}
+
+// 考试类型决定科目和知识点树，切换后清空不再属于当前体系的下游条件。
+async function handleExamTypeChange(): Promise<void> {
+  draftFilters.subjectCodes = []
+  draftFilters.knowledgeCodes = []
+  await loadSyllabusTree(draftFilters.examType)
+}
+
+// 科目变化后清空旧知识点，避免隐藏条件继续影响下一次搜索。
+function handleSubjectChange(): void {
+  draftFilters.knowledgeCodes = []
+}
+
+// 搜索失败时恢复上一组已应用条件，页面继续展示与列表一致的旧结果。
 async function applyFilters(): Promise<void> {
+  const previousFilters = cloneFilters(appliedFilters)
+  const previousPage = pagination.page
   copyFilters(draftFilters, appliedFilters)
   pagination.page = 1
-  wrongLoading.value = true
-  hasActiveQuery.value =
-    appliedFilters.difficulties.length > 0 ||
-    appliedFilters.sources.length > 0 ||
-    appliedFilters.knowledgeCodes.length > 0 ||
-    (Array.isArray(appliedFilters.dateRange) && appliedFilters.dateRange.length === 2)
-  try {
-    await loadWrongAnswers()
-  } finally {
-    wrongLoading.value = false
+  const succeeded = await loadWrongAnswers()
+  if (!succeeded) {
+    copyFilters(previousFilters, appliedFilters)
+    pagination.page = previousPage
+    return
   }
+  await syncRouteState()
 }
 
-// 重置筛选条件后重新拉取未过滤的错题列表。
+// 重置失败时同样回滚已应用条件，不让旧列表与新筛选口径错位。
 async function resetFilters(): Promise<void> {
+  const previousDraft = cloneFilters(draftFilters)
+  const previousApplied = cloneFilters(appliedFilters)
+  const previousPage = pagination.page
   clearFilters(draftFilters)
   clearFilters(appliedFilters)
+  await loadSyllabusTree('')
   pagination.page = 1
-  hasActiveQuery.value = false
-  wrongLoading.value = true
-  try {
-    await loadWrongAnswers()
-  } finally {
-    wrongLoading.value = false
+  const succeeded = await loadWrongAnswers()
+  if (!succeeded) {
+    copyFilters(previousDraft, draftFilters)
+    copyFilters(previousApplied, appliedFilters)
+    pagination.page = previousPage
+    await loadSyllabusTree(draftFilters.examType)
+    return
   }
+  await syncRouteState()
 }
 
-// 分页切换使用已应用筛选条件，避免未点击搜索的草稿条件影响当前列表。
+// 分页失败时回到原页，避免页码和保留的列表内容不一致。
 async function handlePageChange(page: number): Promise<void> {
+  const previousPage = pagination.page
   pagination.page = page
-  wrongLoading.value = true
-  try {
-    await loadWrongAnswers()
-  } finally {
-    wrongLoading.value = false
+  const succeeded = await loadWrongAnswers()
+  if (!succeeded) {
+    pagination.page = previousPage
+    return
   }
+  await syncRouteState()
 }
 
-// 切换每页数量时保留已应用筛选条件，并回到第一页。
+// 切换每页数量失败时恢复原分页配置。
 async function handlePageSizeChange(pageSize: number): Promise<void> {
+  const previousPage = pagination.page
+  const previousPageSize = pagination.pageSize
   pagination.pageSize = pageSize
   pagination.page = 1
-  wrongLoading.value = true
-  try {
-    await loadWrongAnswers()
-  } finally {
-    wrongLoading.value = false
+  const succeeded = await loadWrongAnswers()
+  if (!succeeded) {
+    pagination.page = previousPage
+    pagination.pageSize = previousPageSize
+    return
   }
+  await syncRouteState()
 }
 
-// 搜索按钮是草稿条件生效的唯一入口，分页只读取已应用条件。
+// 失败态重试只使用已应用条件，不会把尚未搜索的草稿条件带入列表。
+async function retryWrongAnswers(): Promise<void> {
+  const succeeded = await loadWrongAnswers()
+  if (succeeded) await syncRouteState()
+}
+
+// 已应用条件写入地址栏，使查看解析后的返回能够恢复原筛选和页码。
+async function syncRouteState(): Promise<void> {
+  const query: Record<string, string> = {}
+  if (appliedFilters.examType) query.examType = appliedFilters.examType
+  if (appliedFilters.sources.length) query.sources = appliedFilters.sources.join(',')
+  if (appliedFilters.subjectCodes.length) query.subjects = appliedFilters.subjectCodes.join(',')
+  if (appliedFilters.knowledgeCodes.length)
+    query.knowledge = appliedFilters.knowledgeCodes.join(',')
+  if (appliedFilters.difficulties.length) query.difficulties = appliedFilters.difficulties.join(',')
+  if (appliedFilters.dateRange?.[0]) query.startDate = appliedFilters.dateRange[0]
+  if (appliedFilters.dateRange?.[1]) query.endDate = appliedFilters.dateRange[1]
+  if (pagination.page > 1) query.page = String(pagination.page)
+  if (pagination.pageSize !== 20) query.pageSize = String(pagination.pageSize)
+  await router.replace({ name: 'mistake-notebook', query })
+}
+
+// 草稿条件与已应用条件保持值复制，避免数组引用造成未搜索条件提前生效。
 function copyFilters(source: FilterState, target: FilterState): void {
-  target.difficulties = [...source.difficulties]
+  target.examType = source.examType
   target.sources = [...source.sources]
+  target.subjectCodes = [...source.subjectCodes]
   target.knowledgeCodes = [...source.knowledgeCodes]
+  target.difficulties = [...source.difficulties]
   target.dateRange = source.dateRange ? [...source.dateRange] : []
 }
 
-// 重置时同时清空草稿条件和已应用条件。
-function clearFilters(filters: FilterState): void {
-  filters.difficulties = []
-  filters.sources = []
-  filters.knowledgeCodes = []
-  filters.dateRange = []
+// 快照用于请求失败后的事务式回滚。
+function cloneFilters(source: FilterState): FilterState {
+  const result = createEmptyFilters()
+  copyFilters(source, result)
+  return result
 }
 
-// 跳转到答题报告，并通过 questionId 定位到具体错题解析。
+// 重置所有筛选层级，考试类型清空后科目和知识点也必须同步失效。
+function clearFilters(filters: FilterState): void {
+  copyFilters(createEmptyFilters(), filters)
+}
+
+// 错题解析显式记录“来自错题本”，同时保留题目业务来源和列表返回地址。
 function analysisLink(item: WrongAnswer) {
+  const paperType = item.examRecord?.paper?.paperType
+  const recordSource =
+    paperType === PAPER_TYPE.REAL_PAPER
+      ? 'diagnostic'
+      : paperType === PAPER_TYPE.MOCK_PAPER || paperType === PAPER_TYPE.AI_PAPER
+        ? 'question-bank'
+        : undefined
   return {
-    path: `/exam-result/${item.examRecord?.id}`,
-    query: { questionId: item.questionId },
+    name: 'exam-question-review',
+    params: { id: item.examRecord?.id },
+    query: {
+      questionId: item.questionId,
+      from: 'mistake-notebook',
+      recordSource,
+      returnTo: route.fullPath,
+    },
   }
 }
 
-// 错题卡片优先展示 Question.title，缺失时回退到题目 ID。
+// 错题卡片优先展示正式题目标题，历史异常数据缺标题时回退到题目 ID。
 function questionTitle(item: WrongAnswer): string {
   return item.title || `题目 ${item.questionId}`
 }
 
+// 卡片显示答题记录所属考试体系，缺失时不伪造默认考试类型。
+function examTypeText(item: WrongAnswer): string {
+  return item.examType || item.examRecord?.examType || '考试类型未知'
+}
+
+// 科目名称优先使用题目展示名，历史数据缺失时回退到科目 code。
+function subjectText(item: WrongAnswer): string {
+  return item.subject || item.subjectCode || '科目未标注'
+}
+
+// 知识点摘要最多直接展示两个名称，其余数量以紧凑后缀提示。
+function knowledgeText(item: WrongAnswer): string {
+  const labels = (item.knowledge_points || [])
+    .map((point) => point.label || point.code)
+    .filter(Boolean)
+  if (!labels.length) return ''
+  const visible = labels.slice(0, 2).join(' · ')
+  return labels.length > 2 ? `${visible} +${labels.length - 2}` : visible
+}
+
 // difficulty 已在后端统一为 easy/medium/hard/composite 字符串。
 function difficultyText(item: WrongAnswer): string {
-  return difficultyLabelMap[difficultyValue(item)] || '难度-未标注'
+  return difficultyLabelMap[item.difficulty || ''] || '难度-未标注'
 }
 
-// 难度筛选值统一取固定枚举字符串，缺失题目不进入难度筛选项。
-function difficultyValue(item: WrongAnswer): string {
-  return item.difficulty || ''
-}
-
-// 题目来源筛选值对应规范化后的 Paper.paperType。
-function sourceValue(item: WrongAnswer): string {
-  return normalizePaperType(item.examRecord?.paper?.paperType)
-}
-
-// 题目来源展示沿用 paperType 来源定义。
+// 题目来源保留未知状态，不再把缺失数据伪装成真题。
 function sourceText(item: WrongAnswer): string {
-  return paperTypeSourceLabel(sourceValue(item))
+  return paperTypeSourceLabel(item.examRecord?.paper?.paperType)
 }
 
-// 聚合错题展示历史错误答案，保留用户曾经选错过的选项。
+// 聚合错题展示全历史错误答案，并按首次出现顺序去重。
 function selectedAnswersText(item: WrongAnswer): string {
   if (item.selectedAnswers?.length) return item.selectedAnswers.join('、')
   return item.selectedAnswer || ''
 }
 
-// 错题本按整次答题提交时间确认最近一次错误，避免逐题时间口径混乱。
+// 日期选择范围从第一条正式收录的错题开始，未来日期不可选。
+function isDateDisabled(date: Date): boolean {
+  const candidate = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+  const today = new Date()
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()
+  if (candidate > todayStart) return true
+  if (!earliestWrongDate.value) return false
+  const earliest = new Date(`${earliestWrongDate.value}T00:00:00`).getTime()
+  return Number.isFinite(earliest) && candidate < earliest
+}
+
+// 接口时间边界统一截取日期部分，避免 UTC 时区改变日期选择器下限。
+function dateOnly(value?: string | null): string | null {
+  if (!value) return null
+  const matched = /^(\d{4}-\d{2}-\d{2})/.exec(value)
+  return matched?.[1] || null
+}
+
+// 收录时间使用整次答题提交时间，避免把保存进度时间误认为做错时间。
 function formatDate(dateStr?: string | null): string {
   if (!dateStr) return '-'
   const d = new Date(dateStr)
@@ -388,7 +681,7 @@ function formatDate(dateStr?: string | null): string {
   ).padStart(2, '0')}`
 }
 
-// 提交时间精确到时分，缺失时展示占位符。
+// 收录时间精确到时分，缺失时展示占位符。
 function formatTime(dateStr?: string | null): string {
   if (!dateStr) return '--:--'
   const d = new Date(dateStr)
@@ -396,7 +689,7 @@ function formatTime(dateStr?: string | null): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-// 单题耗时是独立统计字段，不参与错题本最近错误时间排序。
+// 单题耗时是独立统计字段，不参与最近收录时间排序。
 function formatDuration(seconds?: number | null): string {
   if (!seconds) return '用时 -'
   if (seconds < 60) return `用时 ${seconds} 秒`
@@ -486,14 +779,9 @@ function formatDuration(seconds?: number | null): string {
 .filter-field {
   display: grid;
   grid-column: span 4;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 8px;
-  align-items: center;
+  gap: 7px;
+  align-content: start;
   min-width: 0;
-}
-
-.filter-field--range {
-  grid-column: span 6;
 }
 
 .filter-field__label {
@@ -518,9 +806,10 @@ function formatDuration(seconds?: number | null): string {
 
 .filter-actions {
   display: flex;
-  grid-column: span 6;
+  grid-column: span 12;
   gap: 8px;
   align-items: center;
+  justify-content: flex-end;
 }
 
 .filter-button {
@@ -530,6 +819,27 @@ function formatDuration(seconds?: number | null): string {
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   font-weight: var(--weight-semi);
+}
+
+.filter-button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.filter-hint,
+.filter-message {
+  grid-column: 1 / -1;
+  margin: -2px 0 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+}
+
+.filter-hint {
+  color: var(--color-ink-muted);
+}
+
+.filter-message {
+  color: var(--color-danger);
 }
 
 .section-card {
@@ -557,6 +867,41 @@ function formatDuration(seconds?: number | null): string {
 .empty-desc {
   margin: 0;
   color: var(--color-ink-muted);
+}
+
+.section-card--error {
+  gap: 12px;
+}
+
+.state-action {
+  min-width: 96px;
+  min-height: var(--height-button);
+  margin-top: 6px;
+  padding: 0 18px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+}
+
+.inline-error {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 36%, var(--color-line));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-danger) 6%, var(--color-surface));
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+
+  button {
+    flex: none;
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: var(--radius-md);
+  }
 }
 
 .empty-icon {
@@ -606,6 +951,7 @@ function formatDuration(seconds?: number | null): string {
   font-weight: var(--weight-semi);
 }
 
+.context-tag,
 .difficulty-tag,
 .source-tag,
 .history-tag {
@@ -619,12 +965,25 @@ function formatDuration(seconds?: number | null): string {
   color: var(--color-ink-soft);
 }
 
+.context-tag {
+  background: var(--color-ink);
+  color: var(--color-surface);
+}
+
 .source-tag {
   background: var(--color-surface-alt);
 }
 
 .history-tag {
   background: var(--color-surface);
+}
+
+.wrong-item__knowledge {
+  margin: 0 0 8px;
+  color: var(--color-ink-soft);
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+  overflow-wrap: anywhere;
 }
 
 .wrong-item__title {
@@ -666,7 +1025,8 @@ function formatDuration(seconds?: number | null): string {
   }
 
   .filter-field,
-  .filter-field--range {
+  .filter-hint,
+  .filter-message {
     grid-column: auto;
   }
 }
@@ -692,6 +1052,11 @@ function formatDuration(seconds?: number | null): string {
 
   .wrong-item__action {
     justify-self: end;
+  }
+
+  .inline-error {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

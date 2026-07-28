@@ -140,6 +140,7 @@ export interface AssessmentPaperItem {
   modules: PaperModuleOutline[]
   assemblyType: string
   remarks: string | null
+  publicationStatus: 'draft' | 'published' | string
   testStatus: 'not_started' | 'in_progress' | 'completed'
   examRecordId: string | null
   answeredCount: number

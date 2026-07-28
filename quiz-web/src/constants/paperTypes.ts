@@ -34,7 +34,7 @@ const paperTypeLabelMap: Record<PaperType, string> = {
 const paperTypeSourceLabelMap: Record<PaperType, string> = {
   [PAPER_TYPE.REAL_PAPER]: '来源-真题',
   [PAPER_TYPE.MOCK_PAPER]: '来源-模考',
-  [PAPER_TYPE.AI_PAPER]: '来源-AI生成',
+  [PAPER_TYPE.AI_PAPER]: '来源-试题库',
 }
 
 export function normalizePaperType(value?: string | null): PaperType {
@@ -53,5 +53,12 @@ export function paperTypeLabel(value?: string | null): string {
 }
 
 export function paperTypeSourceLabel(value?: string | null): string {
-  return paperTypeSourceLabelMap[normalizePaperType(value)]
+  if (
+    value !== PAPER_TYPE.REAL_PAPER &&
+    value !== PAPER_TYPE.MOCK_PAPER &&
+    value !== PAPER_TYPE.AI_PAPER
+  ) {
+    return '来源-未知'
+  }
+  return paperTypeSourceLabelMap[value]
 }

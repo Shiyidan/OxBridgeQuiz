@@ -1,6 +1,6 @@
 <template>
   <div class="admin-data-table">
-    <div class="admin-data-table__wrap" :style="{ maxHeight }">
+    <div class="admin-data-table__wrap" :style="tableWrapStyle">
       <el-table
         v-loading="loading"
         v-bind="$attrs"
@@ -8,7 +8,7 @@
         class="admin-data-table__table"
         stripe
         :empty-text="emptyText"
-        :max-height="maxHeight"
+        :max-height="resolvedMaxHeight"
       >
         <slot />
       </el-table>
@@ -32,18 +32,20 @@
 <script setup lang="ts" generic="T">
 // 后台通用数据表格：统一 Element Table 外壳、滚动高度和分页器布局；
 // 已用于用户管理、营收与数据、真题库、试题库和大纲管理页面。
+import { computed } from 'vue'
 import AppPagination from '@/components/AppPagination.vue'
 
 defineOptions({
   inheritAttrs: false,
 })
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     data: T[]
     emptyText?: string
     loading?: boolean
     maxHeight?: string
+    autoHeight?: boolean
     showPagination?: boolean
     page?: number
     pageSize?: number
@@ -53,11 +55,20 @@ withDefaults(
     emptyText: '暂无数据',
     loading: false,
     maxHeight: 'var(--admin-table-max-height)',
+    autoHeight: false,
     showPagination: false,
     page: 1,
     pageSize: 20,
     total: 0,
   },
+)
+
+// 自适应模式不向 Element Table 设置最大高度，表格随当前页行数自然撑开。
+const resolvedMaxHeight = computed(() => (props.autoHeight ? undefined : props.maxHeight))
+
+// 外层容器与表格共用相同高度策略，避免空白滚动区域残留。
+const tableWrapStyle = computed(() =>
+  resolvedMaxHeight.value ? { maxHeight: resolvedMaxHeight.value } : undefined,
 )
 
 const emit = defineEmits<{

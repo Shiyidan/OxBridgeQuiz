@@ -230,8 +230,49 @@ export async function hasStudentPaperEntitlement(
 export async function applySyllabusToTree(syllabus: { id: string; examType: string; sourceJson: unknown }) {
   const content = parseSyllabusJson(syllabus.sourceJson)
   const nodes = normalizeSyllabusNodes(content)
+  const nodeDefinitionMap = new Map(nodes.map((node) => [node.code, node]))
 
   await prisma.$transaction(async (tx) => {
+    const standaloneQuestions = await tx.question.findMany({
+      where: { paperId: null, examType: syllabus.examType },
+      select: {
+        id: true,
+        sourceQuestionCode: true,
+        subject: true,
+        subjectCode: true,
+        topic: true,
+        topicCode: true,
+        knowledgePoints: true,
+      },
+    })
+    const linkSnapshots = standaloneQuestions.flatMap((question) => {
+      const subjectNode = question.subjectCode ? nodeDefinitionMap.get(question.subjectCode) : null
+      const topicNode = question.topicCode ? nodeDefinitionMap.get(question.topicCode) : null
+      if (!subjectNode || subjectNode.label !== question.subject) {
+        throw new Error(`新考纲不再匹配题目 ${question.sourceQuestionCode || question.id} 的学科节点`)
+      }
+      if (!topicNode || topicNode.label !== question.topic) {
+        throw new Error(`新考纲不再匹配题目 ${question.sourceQuestionCode || question.id} 的主题节点`)
+      }
+      const points = parseJsonArray<{ code?: unknown; label?: unknown; role?: unknown }>(question.knowledgePoints)
+      return points.map((point) => {
+        const code = typeof point.code === 'string' ? point.code : ''
+        const node = nodeDefinitionMap.get(code)
+        if (!node || node.label !== point.label) {
+          throw new Error(`新考纲不再匹配题目 ${question.sourceQuestionCode || question.id} 的知识点 ${code}`)
+        }
+        return {
+          questionId: question.id,
+          code,
+          role: point.role === 'secondary' ? 'secondary' : 'primary',
+        }
+      })
+    })
+    const previousNodes = await tx.syllabusNode.findMany({
+      where: { examType: syllabus.examType },
+      select: { id: true },
+    })
+
     await tx.syllabus.updateMany({
       where: { examType: syllabus.examType },
       data: { isActive: false },
@@ -240,6 +281,11 @@ export async function applySyllabusToTree(syllabus: { id: string; examType: stri
       where: { id: syllabus.id },
       data: { isActive: true },
     })
+    if (previousNodes.length) {
+      await tx.questionKnowledgePoint.deleteMany({
+        where: { syllabusNodeId: { in: previousNodes.map((node) => node.id) } },
+      })
+    }
     await tx.syllabusNode.deleteMany({ where: { examType: syllabus.examType } })
     await tx.syllabusNode.createMany({
       data: nodes.map((node) => ({
@@ -250,5 +296,19 @@ export async function applySyllabusToTree(syllabus: { id: string; examType: stri
         order: node.order,
       })),
     })
+    if (linkSnapshots.length) {
+      const createdNodes = await tx.syllabusNode.findMany({
+        where: { examType: syllabus.examType },
+        select: { id: true, code: true },
+      })
+      const createdNodeMap = new Map(createdNodes.map((node) => [node.code, node.id]))
+      await tx.questionKnowledgePoint.createMany({
+        data: linkSnapshots.map((link) => ({
+          questionId: link.questionId,
+          syllabusNodeId: createdNodeMap.get(link.code)!,
+          role: link.role,
+        })),
+      })
+    }
   })
 }

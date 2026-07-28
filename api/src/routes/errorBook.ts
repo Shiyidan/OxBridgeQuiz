@@ -24,7 +24,6 @@ import {
   EXAM_TYPES,
   EXAM_RECORD_STATUS,
   PAPER_TYPE,
-  QUESTION_BANK_PAPER_TYPES,
   REAL_PAPER_TYPES,
   isExamType,
   isAnswerRecordState,
@@ -38,9 +37,23 @@ export const errorBookRouter = createAsyncRouter()
 
 errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
   try {
+    const requestedExamType = String(
+      Array.isArray(req.query.examType) ? req.query.examType[0] : req.query.examType || '',
+    ).trim().toUpperCase()
+    if (requestedExamType && !isExamType(requestedExamType)) {
+      res.status(422).json(fail('无效的考试类型'))
+      return
+    }
+    const examType = requestedExamType || undefined
     const difficulties = parseQueryList(req.query.difficulty)
     const paperTypes = parseQueryList(req.query.paperType).flatMap((value) => paperTypeWhereValues(value))
-    const syllabusCodes = await collectSyllabusCodes(parseQueryList(req.query.syllabusCode))
+    const subjectCodes = parseQueryList(req.query.subjectCode)
+    const requestedSyllabusCodes = parseQueryList(req.query.syllabusCode)
+    if (requestedSyllabusCodes.length && !examType) {
+      res.status(422).json(fail('筛选知识点前请先选择考试类型'))
+      return
+    }
+    const syllabusCodes = await collectSyllabusCodes(requestedSyllabusCodes, examType)
     const page = parsePositiveInt(req.query.page, 1)
     const pageSize = parsePositiveInt(req.query.pageSize, 20, 100)
     const startDate = parseDateBoundary(req.query.startDate, 'start')
@@ -50,79 +63,98 @@ errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
       ...(endDate ? { lt: endDate } : {}),
     }
     const hasTimeFilter = Boolean(startDate || endDate)
-    const hasQuestionFilter = difficulties.length > 0 || syllabusCodes.length > 0
-    let questionSummaries: Array<{
-      id: string
-      title: string
-      difficulty: string | null
-      knowledgePoints: unknown
-      subjectCode: string | null
-      topicCode: string | null
-    }> = []
-
-    if (hasQuestionFilter) {
-      const candidates = await prisma.question.findMany({
-        where: difficulties.length ? { difficulty: { in: difficulties } } : {},
+    const baseExamRecordWhere: Prisma.ExamRecordWhereInput = {
+      userId: req.user!.userId,
+      status: 'submitted',
+      ...(examType ? { examType } : {}),
+      ...(paperTypes.length ? { paper: { paperType: { in: paperTypes } } } : {}),
+    }
+    const answerInclude = {
+      examRecord: {
         select: {
           id: true,
-          title: true,
-          difficulty: true,
-          knowledgePoints: true,
-          subjectCode: true,
-          topicCode: true,
+          examType: true,
+          submittedAt: true,
+          paper: { select: { paperType: true, title: true } },
         },
-      })
-      questionSummaries = syllabusCodes.length
-        ? candidates.filter(
-            (question) =>
-              jsonPointsHaveCode(question.knowledgePoints, syllabusCodes) ||
-              (question.subjectCode && syllabusCodes.includes(question.subjectCode)) ||
-              (question.topicCode && syllabusCodes.includes(question.topicCode)),
-          )
-        : candidates
-    }
-
-    const wrongAnswers = await prisma.answerRecord.findMany({
-      where: {
-        examRecord: {
-          userId: req.user!.userId,
-          ...(paperTypes.length ? { paper: { paperType: { in: paperTypes } } } : {}),
-          ...(hasTimeFilter ? { submittedAt: wrongTimeWhere } : {}),
-        },
-        isCorrect: false,
-        ...(hasQuestionFilter
-          ? { questionId: { in: questionSummaries.map((question) => question.id) } }
-          : {}),
       },
-      include: {
+    } as const
 
-        examRecord: {
+    const [matchingWrongAnswers, globalDateBounds] = await Promise.all([
+      prisma.answerRecord.findMany({
+        where: {
+          examRecord: {
+            ...baseExamRecordWhere,
+            ...(hasTimeFilter ? { submittedAt: wrongTimeWhere } : {}),
+          },
+          isCorrect: false,
+        },
+        include: answerInclude,
+      }),
+      prisma.examRecord.aggregate({
+        where: {
+          userId: req.user!.userId,
+          status: 'submitted',
+          submittedAt: { not: null },
+          answers: { some: { isCorrect: false } },
+        },
+        _min: { submittedAt: true },
+        _max: { submittedAt: true },
+      }),
+    ])
+
+    const matchingQuestionIds = [...new Set(matchingWrongAnswers.map((answer) => answer.questionId))]
+    const candidateQuestions = matchingQuestionIds.length
+      ? await prisma.question.findMany({
+          where: {
+            id: { in: matchingQuestionIds },
+            ...(examType ? { examType } : {}),
+            ...(difficulties.length ? { difficulty: { in: difficulties } } : {}),
+            ...(subjectCodes.length ? { subjectCode: { in: subjectCodes } } : {}),
+          },
           select: {
             id: true,
-            submittedAt: true,
-            paper: { select: { paperType: true, title: true } },
+            examType: true,
+            title: true,
+            difficulty: true,
+            subject: true,
+            subjectCode: true,
+            topicCode: true,
+            knowledgePoints: true,
           },
-        },
-      },
-    })
+        })
+      : []
+    const questionRows = syllabusCodes.length
+      ? candidateQuestions.filter(
+          (question) =>
+            jsonPointsHaveCode(question.knowledgePoints, syllabusCodes) ||
+            (question.subjectCode && syllabusCodes.includes(question.subjectCode)) ||
+            (question.topicCode && syllabusCodes.includes(question.topicCode)),
+        )
+      : candidateQuestions
+    const questionMap = new Map(questionRows.map((question) => [question.id, question]))
+    const eligibleQuestionIds = new Set(questionRows.map((question) => question.id))
+    const scopedWrongAnswers = matchingWrongAnswers.filter((answer) => (
+      eligibleQuestionIds.has(answer.questionId)
+    ))
+
+    // 日期范围只决定哪些题进入结果，卡片上的错误次数与历史错选始终按全历史统计。
+    const wrongAnswers = hasTimeFilter && eligibleQuestionIds.size
+      ? await prisma.answerRecord.findMany({
+          where: {
+            examRecord: baseExamRecordWhere,
+            isCorrect: false,
+            questionId: { in: [...eligibleQuestionIds] },
+          },
+          include: answerInclude,
+        })
+      : scopedWrongAnswers
     const sortedWrongAnswers = wrongAnswers.sort((a, b) => {
       const bTime = new Date(b.examRecord.submittedAt || 0).getTime()
       const aTime = new Date(a.examRecord.submittedAt || 0).getTime()
       return bTime - aTime
     })
 
-    const questionRows = hasQuestionFilter
-      ? questionSummaries
-      : await prisma.question.findMany({
-          where: { id: { in: sortedWrongAnswers.map((answer) => answer.questionId) } },
-          select: {
-            id: true,
-            title: true,
-            difficulty: true,
-            knowledgePoints: true,
-          },
-        })
-    const questionMap = new Map(questionRows.map((question) => [question.id, question]))
     const groupedWrongAnswers = new Map<
       string,
       {
@@ -159,8 +191,11 @@ errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
       return {
         id: answer.id,
         questionId: answer.questionId,
+        examType: answer.examRecord.examType || question?.examType || '',
         title: question?.title || '',
         difficulty: question?.difficulty || '',
+        subject: question?.subject || '',
+        subjectCode: question?.subjectCode || '',
         knowledge_points: question ? safeJsonParse(question.knowledgePoints, []) : [],
         selectedAnswer: group.selectedAnswers.join(', ') || answer.selectedAnswer,
         selectedAnswers: group.selectedAnswers,
@@ -186,10 +221,14 @@ errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
         hasPrev: safePage > 1,
         hasNext: totalPages > 0 && safePage < totalPages,
       },
+      dateBounds: {
+        min: globalDateBounds._min.submittedAt,
+        max: globalDateBounds._max.submittedAt,
+      },
     }))
   } catch (e: any) {
     logRuntimeError('error_book.list_failed', e)
-    res.status(500).json(fail(e.message || 'Get error book failed'))
+    res.status(500).json(fail(e.message || '获取错题本失败'))
   }
 })
 
@@ -201,7 +240,7 @@ errorBookRouter.get('/practice-records', requireAuth, async (req, res) => {
       where: {
         userId: req.user!.userId,
         status: 'submitted',
-        paper: { paperType: { in: [...QUESTION_BANK_PAPER_TYPES] } },
+        paperId: 'question-bank',
       },
       orderBy: { submittedAt: 'desc' },
       take: 20,

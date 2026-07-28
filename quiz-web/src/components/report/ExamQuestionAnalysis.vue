@@ -1,6 +1,6 @@
 <template>
-  <div class="question-analysis">
-    <aside class="question-nav" aria-label="题目导航">
+  <div class="question-analysis" :class="{ 'question-analysis--single': singleQuestionMode }">
+    <aside v-if="!singleQuestionMode" class="question-nav" aria-label="题目导航">
       <span class="section-mark" aria-hidden="true"></span>
       <h2 class="question-nav__title">题目导航</h2>
       <div class="question-nav__groups">
@@ -55,7 +55,7 @@
     <section v-if="currentQuestion" class="report-card" aria-label="题目详情">
       <QuestionCard
         :question="currentQuestion"
-        :index="currentIndex"
+        :index="displayQuestionIndex"
         :selected-answer="currentQuestion.selectedAnswer || undefined"
         :show-answer="true"
         variant="exam"
@@ -63,7 +63,9 @@
       />
 
       <div class="answer-summary">
-        <span>你的答案：{{ currentQuestion.selectedAnswer || '未作答' }}</span>
+        <span v-if="showUserAnswer"
+          >你的答案：{{ currentQuestion.selectedAnswer || '未作答' }}</span
+        >
         <span>正确答案：{{ answerText }}</span>
       </div>
 
@@ -86,7 +88,9 @@
               <strong>最终结论：</strong><LatexText :text="finalValue" />
             </p>
             <ul v-if="distractorReasons.length" class="reason-list">
-              <li v-for="(reason, i) in distractorReasons" :key="i"><LatexText :text="reason" /></li>
+              <li v-for="(reason, i) in distractorReasons" :key="i">
+                <LatexText :text="reason" />
+              </li>
             </ul>
           </div>
         </section>
@@ -151,12 +155,22 @@ const props = defineProps<{
   questions: ReportQuestion[]
   correctCount: number
   initialQuestionId?: string
+  singleQuestionMode?: boolean
+  showUserAnswer?: boolean
 }>()
+
+// 作答报告默认显示用户答案，后台单题预览可关闭该项而继续复用完整解析布局。
+const showUserAnswer = computed(() => props.showUserAnswer !== false)
 
 const currentIndex = ref(0)
 const currentQuestion = computed<ReportQuestion | undefined>(
   () => props.questions[currentIndex.value],
 )
+const displayQuestionIndex = computed(() => {
+  if (!props.singleQuestionMode) return currentIndex.value
+  const originalNumber = Number(currentQuestion.value?.number)
+  return Number.isInteger(originalNumber) && originalNumber > 0 ? originalNumber - 1 : 0
+})
 const skippedCount = computed(() => props.questions.filter((q) => !q.selectedAnswer).length)
 const wrongCount = computed(
   () => props.questions.filter((q) => q.selectedAnswer && !q.isCorrect).length,
@@ -174,12 +188,8 @@ const questionNavGroups = computed<QuestionNavGroup[]>(() => {
     const previousGroup = groups[groups.length - 1]
     const item: QuestionNavItem = {
       index,
-      number: index + 1,
-      status: question.selectedAnswer
-        ? question.isCorrect
-          ? 'correct'
-          : 'wrong'
-        : 'skipped',
+      number: Number(question.number) || index + 1,
+      status: question.selectedAnswer ? (question.isCorrect ? 'correct' : 'wrong') : 'skipped',
     }
 
     if (previousGroup?.identity === groupIdentity) {
@@ -252,6 +262,10 @@ function noop(): void {}
   align-items: start;
   max-width: 100%;
   min-width: 0;
+}
+
+.question-analysis--single {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .question-nav,

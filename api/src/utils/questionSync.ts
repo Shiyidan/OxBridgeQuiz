@@ -1,19 +1,26 @@
+// 维护 Question 官方数据源的批量同步、读取与前端结构格式化。
+import type { Prisma } from '@prisma/client'
 import { prisma } from '../services/prisma.js'
 import { parseJsonArray, parseJsonObject } from './jsonField.js'
 import { createQuestionUniqueCode } from './id.js'
 
+// 旧导入数据可能缺少难度或使用非字符串值，写入与输出时统一回退为空字符串。
 function normalizeDifficulty(value: any): string {
   return typeof value === 'string' ? value : ''
 }
 
-/** 将题目数组写入 Question 表，覆盖该试卷下所有已有题目 */
-export async function syncPaperQuestions(paperId: string, questions: any[]): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    const [paper, attemptCount] = await Promise.all([
+// 题目覆盖与试卷更新共用同一事务客户端时，避免结构锁检查和实际写入之间出现竞态。
+async function syncPaperQuestionsWithClient(
+  tx: Prisma.TransactionClient,
+  paperId: string,
+  questions: any[],
+): Promise<void> {
+    const [paper, directAttemptCount, indirectAnswerCount] = await Promise.all([
       tx.paper.findUnique({ where: { id: paperId }, select: { examType: true } }),
       tx.examRecord.count({ where: { paperId } }),
+      tx.answerRecord.count({ where: { question: { paperId } } }),
     ])
-    if (attemptCount > 0) {
+    if (directAttemptCount > 0 || indirectAnswerCount > 0) {
       throw new Error('该试卷已有考试记录，不能覆盖题目结构；请创建新版本')
     }
 
@@ -63,7 +70,19 @@ export async function syncPaperQuestions(paperId: string, questions: any[]): Pro
     })
 
     await tx.question.createMany({ data: rows })
-  })
+}
+
+/** 将题目数组写入 Question 表，覆盖该试卷下所有已有题目 */
+export async function syncPaperQuestions(
+  paperId: string,
+  questions: any[],
+  transactionClient?: Prisma.TransactionClient,
+): Promise<void> {
+  if (transactionClient) {
+    await syncPaperQuestionsWithClient(transactionClient, paperId, questions)
+    return
+  }
+  await prisma.$transaction((tx) => syncPaperQuestionsWithClient(tx, paperId, questions))
 }
 
 /** 从 Question 表读取试卷的题目列表（按 number 排序） */

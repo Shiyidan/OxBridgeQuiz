@@ -40,31 +40,38 @@ model Paper {
 }
 
 model Question {
-  id                   String   @id @default(uuid()) @db.VarChar(191)
-  uniqueCode           String   @unique @db.VarChar(191)
-  sourceQuestionCode   String?  @db.VarChar(191)
-  paperId              String   @db.VarChar(191)
-  examType             String   @default("TMUA") @db.VarChar(32)
-  number               Int
-  moduleCode           String?  @db.VarChar(32)
+  id                   String    @id @default(uuid()) @db.VarChar(191)
+  uniqueCode           String    @unique @db.VarChar(191)
+  sourceQuestionCode   String?   @db.VarChar(191)
+  paperId              String?   @db.VarChar(191)
+  importBatchId        String?   @db.VarChar(191)
+  examType             String    @default("TMUA") @db.VarChar(32)
+  number               Int?
+  moduleCode           String?   @db.VarChar(32)
   moduleOrder          Int?
   moduleQuestionNumber Int?
-  title                String   @db.LongText
+  title                String    @db.LongText
   options              Json
   answer               Json
-  subject              String?  @db.VarChar(100)
-  subjectCode          String?  @db.VarChar(64)
-  questionType         String?  @db.VarChar(64)
-  difficulty           String?  @db.VarChar(32)
-  topic                String?  @db.VarChar(255)
-  topicCode            String?  @db.VarChar(64)
+  subject              String?   @db.VarChar(100)
+  subjectCode          String?   @db.VarChar(64)
+  questionType         String?   @db.VarChar(64)
+  difficulty           String?   @db.VarChar(32)
+  topic                String?   @db.VarChar(255)
+  topicCode            String?   @db.VarChar(64)
   knowledgePoints      Json
   syllabusPoints       Json
   meta                 Json
-  createdAt            DateTime @default(now())
+  status               String    @default("draft") @db.VarChar(32)
+  publishedAt          DateTime?
+  archivedAt           DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @default(now()) @updatedAt
 
-  paper         Paper          @relation(fields: [paperId], references: [id], onDelete: Cascade)
-  answerRecords AnswerRecord[]
+  paper               Paper?                   @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  importBatch         QuestionImportBatch?     @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  knowledgePointLinks QuestionKnowledgePoint[]
+  answerRecords       AnswerRecord[]
 
   @@unique([paperId, number])
   @@index([paperId])
@@ -72,7 +79,37 @@ model Question {
   @@index([subjectCode])
   @@index([number])
   @@index([sourceQuestionCode])
+  @@index([importBatchId])
   @@index([paperId, moduleOrder, moduleQuestionNumber])
+  @@index([status, examType, difficulty])
+  @@index([status, examType, subjectCode])
+  @@index([status, examType, topicCode])
+}
+
+model QuestionImportBatch {
+  id                    String   @id @default(uuid()) @db.VarChar(191)
+  title                 String   @db.VarChar(255)
+  fileName              String?  @db.VarChar(255)
+  declaredQuestionCount Int
+  actualQuestionCount   Int
+  remarks               String?  @db.Text
+  createdAt             DateTime @default(now())
+
+  questions Question[]
+
+  @@index([createdAt])
+}
+
+model QuestionKnowledgePoint {
+  questionId     String @db.VarChar(191)
+  syllabusNodeId String @db.VarChar(191)
+  role           String @db.VarChar(32)
+
+  question     Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  syllabusNode SyllabusNode @relation(fields: [syllabusNodeId], references: [id], onDelete: Restrict)
+
+  @@id([questionId, syllabusNodeId])
+  @@index([syllabusNodeId, questionId])
 }
 
 model ParseTask {
@@ -239,6 +276,7 @@ model ExamRecord {
   durationSeconds       Int       @default(0)
   status                String    @default("in_progress") @db.VarChar(32)
   activeDiagnosticKey   String?   @unique @db.VarChar(191)
+  activeQuestionBankKey String?   @unique @db.VarChar(191)
   submissionKey         String?   @unique @db.VarChar(191)
 
   user                 User                  @relation(fields: [userId], references: [id])
@@ -259,6 +297,7 @@ model AnswerRecord {
   selectedAnswer  String?   @db.VarChar(64)
   answerState     String    @default("unseen") @db.VarChar(16)
   isCorrect       Boolean   @default(false)
+  position        Int?
   durationSeconds Int       @default(0)
   answeredAt      DateTime?
 
@@ -334,6 +373,8 @@ model SyllabusNode {
   parentCode String?  @db.VarChar(100)
   order      Int      @default(0)
   createdAt  DateTime @default(now())
+
+  questionKnowledgePoints QuestionKnowledgePoint[]
 
   @@unique([examType, code])
   @@index([examType])

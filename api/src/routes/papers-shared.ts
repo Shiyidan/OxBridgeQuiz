@@ -156,8 +156,16 @@ export function formatQuestionForAttempt(row: any) {
   const knowledgePoints = Array.isArray(question.knowledge_points)
     ? question.knowledge_points.map((point: any) => ({
         code: typeof point?.code === 'string' ? point.code : '',
-        label: typeof point?.label === 'string' ? point.label : '',
-        ...(typeof point?.role === 'string' ? { role: point.role } : {}),
+        label: typeof point?.label === 'string'
+          ? point.label
+          : typeof point?.name === 'string'
+            ? point.name
+            : '',
+        ...(typeof point?.role === 'string'
+          ? { role: point.role }
+          : typeof point?.is_primary === 'boolean'
+            ? { role: point.is_primary ? 'primary' : 'secondary' }
+            : {}),
       }))
     : []
   const syllabusPoints = Array.isArray(question.syllabus_points)

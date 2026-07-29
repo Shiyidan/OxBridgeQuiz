@@ -1,12 +1,14 @@
 <!-- 题目通用渲染卡：按内容块顺序安全展示文本、公式、题图与选项。 -->
 <template>
   <article :class="['question-card', `question-card--${variant}`]">
-    <!-- 题号小标 -->
-    <div class="question-card__label">{{ questionLabel || `Question ${index + 1}` }}</div>
-    <div v-if="metaTags.length" class="question-card__meta-tags">
-      <span v-for="tag in metaTags" :key="tag" class="question-card__meta-tag">
-        {{ tag }}
-      </span>
+    <div class="question-card__header">
+      <!-- 题号小标 -->
+      <div class="question-card__label">{{ questionLabel || `Question ${index + 1}` }}</div>
+      <div v-if="metaTags.length" class="question-card__meta-tags">
+        <span v-for="tag in metaTags" :key="tag" class="question-card__meta-tag">
+          {{ tag }}
+        </span>
+      </div>
     </div>
 
     <!-- 内容区：按标准 content_blocks 渲染图文混排题干 -->
@@ -203,19 +205,30 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
 .question-card--exam {
   color: var(--color-ink);
 
+  .question-card__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 14px;
+  }
+
   .question-card__label {
-    margin: 0 0 10px;
-    color: var(--color-ink-muted);
+    flex: 0 0 auto;
+    margin: 0;
+    // color: var(--color-ink-muted);
     font-size: var(--text-lg);
-    font-weight: var(--weight-semi);
+    // font-weight: var(--weight-semi);
     letter-spacing: 0;
   }
 
   .question-card__meta-tags {
     display: flex;
+    max-width: 70%;
     flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 8px;
-    margin: -2px 0 14px;
+    margin: 0;
   }
 
   .question-card__meta-tag {
@@ -225,7 +238,7 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
     padding: 0 10px;
     border: 1px solid var(--color-line);
     border-radius: var(--radius-pill);
-    background: var(--color-hover);
+    background: color-mix(in srgb, var(--color-ink) 8%, var(--color-surface));
     color: var(--color-ink-soft);
     font-size: var(--text-xs);
     font-weight: var(--weight-semi);
@@ -235,7 +248,7 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
     min-height: 180px;
     padding: 24px 28px;
     border: 1px solid var(--color-line);
-    border-radius: var(--radius-xl);
+    border-radius: 5px;
     background: var(--color-surface);
     box-shadow: var(--shadow-sm);
   }
@@ -291,7 +304,7 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
 
   .question-card__media-item {
     border: 0;
-    border-radius: var(--radius-lg);
+    border-radius: 5px;
     box-shadow: none;
     padding: 0;
     background: transparent;
@@ -321,7 +334,7 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
     gap: 14px;
     padding: 12px 18px;
     border: 1px solid var(--color-line);
-    border-radius: var(--radius-xl);
+    border-radius: 5px;
     background: var(--color-surface);
     box-shadow: none;
     color: var(--color-ink);
@@ -380,6 +393,7 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
     width: 32px;
     height: 32px;
     border: 0;
+    border-radius: 5px;
     background: var(--color-hover);
     color: var(--color-ink-soft);
     font-size: var(--text-sm);

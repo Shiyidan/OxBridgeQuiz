@@ -25,7 +25,7 @@
       <template v-else-if="session">
         <header class="module-header">
           <div>
-            <span>{{ examEyebrow }}</span>
+            <!-- <span>{{ examEyebrow }}</span> -->
             <h1>{{ activeModule?.label || breakState?.nextModuleLabel || '诊断测试' }}</h1>
           </div>
           <ol class="module-progress" :aria-label="`${sectionNoun}进度`">
@@ -37,16 +37,17 @@
                 'module-progress__item--completed': module.status === 'completed',
               }"
             >
-              <b>{{ index + 1 }}</b>
-              <span>{{ module.label }}</span>
+              <span>{{ displayModuleLabel(module.code, module.label) }}</span>
+              <small>
+                {{ module.totalQuestions }} 题 · {{ formatModuleMinutes(module.durationSeconds) }} 分钟
+              </small>
             </li>
           </ol>
         </header>
 
         <div v-if="session.phase === 'answering'" class="exam-layout">
           <aside class="question-nav" :aria-label="`当前${sectionNoun}题目导航`">
-            <strong>{{ activeModule?.label }}</strong>
-            <small>{{ activeModule?.totalQuestions }} 题 · {{ moduleMinutes }} 分钟</small>
+            <strong>{{ displayModuleLabel(activeModule?.code, activeModule?.label) }}</strong>
             <div class="question-nav__grid">
               <button
                 v-for="(question, index) in questions"
@@ -131,6 +132,16 @@
       </div>
     </main>
 
+    <AppConfirmDialog
+      v-model="confirmDialog.visible"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-text="confirmDialog.confirmText"
+      :cancel-text="confirmDialog.cancelText"
+      @confirm="resolveConfirmDialog(true)"
+      @cancel="resolveConfirmDialog(false)"
+    />
+
     <ExamBreakDialog
       :visible="session?.phase === 'break'"
       :ends-at="breakState?.endsAt || null"
@@ -153,8 +164,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import ExamVue from '@/components/ExamVue.vue'
+import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import ExamBreakDialog from '@/components/ExamBreakDialog.vue'
 import QuestionCard from '@/components/QuestionCard.vue'
 import DiagnosticAnalysisDialog from '@/components/DiagnosticAnalysisDialog.vue'
@@ -192,6 +204,13 @@ const submitted = ref(false)
 const analysisDialogVisible = ref(false)
 const submittedExamRecordId = ref('')
 const timerKey = ref('')
+const confirmDialog = ref({
+  visible: false,
+  title: '',
+  message: '',
+  confirmText: '确认',
+  cancelText: '取消',
+})
 const submissionKey =
   typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
@@ -204,13 +223,13 @@ let progressSavePromise: Promise<void> | null = null
 let pauseSessionPromise: Promise<void> | null = null
 let resumeSessionPromise: Promise<void> | null = null
 let leaveConfirmationPromise: Promise<boolean> | null = null
+let confirmDialogResolver: ((confirmed: boolean) => void) | null = null
 let pendingExpiredModuleCode = ''
 
 const activeModule = computed(() => session.value?.currentModule || null)
 const breakState = computed(() => session.value?.break || null)
 const currentQuestion = computed(() => questions.value[currentIndex.value])
 const answeredCount = computed(() => Object.keys(answers.value).length)
-const moduleMinutes = computed(() => Math.round((activeModule.value?.durationSeconds || 0) / 60))
 const interactionLocked = computed(
   () =>
     transitioning.value ||
@@ -233,20 +252,75 @@ const examEyebrow = computed(() => (
 // 最后一段结束即进入交卷，其余分段只锁定当前答案并继续流程。
 const completeSectionLabel = computed(() => (
   isFinalModule.value
-    ? `结束本${sectionNoun.value}并交卷`
-    : `结束本${sectionNoun.value}`
+    ? '结束本次考试并交卷'
+    : '进入下一节考试'
 ))
+
+// 分段导航统一使用简洁名称，Paper 分卷去掉学术副标题，其他科目沿用服务端名称。
+function displayModuleLabel(code?: string, fallbackLabel?: string): string {
+  const normalizedCode = String(code || '').trim().toLowerCase()
+  const normalizedLabel = String(fallbackLabel || '').toLowerCase()
+  if (normalizedCode === 'paper1' || /paper\s*1/.test(normalizedLabel)) return 'Paper 1'
+  if (normalizedCode === 'paper2' || /paper\s*2/.test(normalizedLabel)) return 'Paper 2'
+  return fallbackLabel || '当前分段'
+}
+
+// 每个分段使用自身配置的时长，避免 ESAT 不同科目的信息相互覆盖。
+function formatModuleMinutes(durationSeconds: number): number {
+  return Math.round(Math.max(0, durationSeconds) / 60)
+}
+
+// 诊断流程的确认操作统一进入项目弹窗组件，并以 Promise 保持原有业务调用顺序。
+function requestConfirmation(options: {
+  title: string
+  message: string
+  confirmText: string
+  cancelText?: string
+}): Promise<boolean> {
+  if (confirmDialogResolver) return Promise.resolve(false)
+  confirmDialog.value = {
+    visible: true,
+    title: options.title,
+    message: options.message,
+    confirmText: options.confirmText,
+    cancelText: options.cancelText || '取消',
+  }
+  return new Promise<boolean>((resolve) => {
+    confirmDialogResolver = resolve
+  })
+}
+
+// 用户确认、取消或关闭弹窗时只结算一次等待中的诊断流程。
+function resolveConfirmDialog(confirmed: boolean): void {
+  confirmDialog.value.visible = false
+  const resolver = confirmDialogResolver
+  confirmDialogResolver = null
+  resolver?.(confirmed)
+}
 
 // 题号展示使用当前分段内题号，数据库全卷序号只作为旧数据兜底。
 const currentQuestionLabel = computed(() => {
   const question = currentQuestion.value
   if (!question) return ''
-  return `${activeModule.value?.label || `当前${sectionNoun.value}`} · Question ${getQuestionDisplayNumber(question, currentIndex.value)}`
+  return `Question ${getQuestionDisplayNumber(question, currentIndex.value)}`
 })
+
+// 知识点按叶子节点、考纲节点、主题依次回退，禁止使用 Paper 或科目名称冒充知识点。
 const currentKnowledgeTags = computed(() => {
-  const points = currentQuestion.value?.knowledge_points || []
-  const labels = points.map((point) => point.label).filter(Boolean)
-  return labels.length ? [...new Set(labels)] : [activeModule.value?.label || '综合考点']
+  const question = currentQuestion.value
+  if (!question) return []
+  const knowledgeLabels = (question.knowledge_points || [])
+    .map((point) => point.label?.trim())
+    .filter((label): label is string => Boolean(label))
+  if (knowledgeLabels.length) return [...new Set(knowledgeLabels)]
+
+  const syllabusLabels = (question.syllabus_points || [])
+    .map((point) => point.label?.trim())
+    .filter((label): label is string => Boolean(label))
+  if (syllabusLabels.length) return [...new Set(syllabusLabels)]
+
+  const topic = question.topic?.trim()
+  return topic ? [topic] : []
 })
 
 // 新规范优先读取 module_question_number，早期 attempt 回退到 component 别名或数组顺序。
@@ -426,27 +500,19 @@ async function confirmCompleteModule(): Promise<void> {
   if (interactionLocked.value) return
   const unanswered = questions.value.length - answeredCount.value
   const nextSection = session.value?.modules?.[(session.value?.currentModuleIndex || 0) + 1]
-  try {
-    await ElMessageBox.confirm(
-      unanswered > 0
-        ? `本${sectionNoun.value}还有 ${unanswered} 题未作答。结束后不能返回修改，是否继续？`
-        : `本${sectionNoun.value}结束后不能返回修改，是否继续？`,
-      isFinalModule.value ? '完成诊断测试' : `结束当前${sectionNoun.value}`,
-      {
-        type: 'warning',
-        confirmButtonText: isFinalModule.value
-          ? '完成并交卷'
-          : isTmua.value
-            ? `结束并开始 ${nextSection?.label || 'Paper 2'}`
-            : '结束并进入休息',
-        cancelButtonText: '继续答题',
-        closeOnClickModal: false,
-      },
-    )
-    await completeCurrentModule()
-  } catch {
-    // 取消时继续当前模块。
-  }
+  const confirmed = await requestConfirmation({
+    message: unanswered > 0
+      ? `本${sectionNoun.value}还有 ${unanswered} 题未作答。结束后不能返回修改，是否继续？`
+      : `本${sectionNoun.value}结束后不能返回修改，是否继续？`,
+    title: isFinalModule.value ? '完成诊断测试' : `结束当前${sectionNoun.value}`,
+    confirmText: isFinalModule.value
+      ? '完成并交卷'
+      : isTmua.value
+        ? `结束并开始 ${displayModuleLabel(nextSection?.code, nextSection?.label || 'Paper 2')}`
+        : '结束并进入休息',
+    cancelText: '继续答题',
+  })
+  if (confirmed) await completeCurrentModule()
 }
 
 // 服务端锁定当前分段后返回休息、下一分段或待交卷阶段，前端不自行推断下一状态。
@@ -686,15 +752,13 @@ async function confirmAndPauseBeforeLeaving(): Promise<boolean> {
 
   const operation = (async () => {
     try {
-      await ElMessageBox.confirm(
-        `返回诊断中心会保存当前${sectionNoun.value}进度，之后可继续测试。`,
-        '确认返回',
-        {
-          confirmButtonText: '保存并返回',
-          cancelButtonText: '继续答题',
-          closeOnClickModal: false,
-        },
-      )
+      const confirmed = await requestConfirmation({
+        title: '确认返回',
+        message: `返回诊断中心会保存当前${sectionNoun.value}进度，之后可继续测试。`,
+        confirmText: '保存并返回',
+        cancelText: '继续答题',
+      })
+      if (!confirmed) return false
       await pauseCurrentModule()
       return true
     } catch {
@@ -738,6 +802,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (saveTimer) clearInterval(saveTimer)
   if (selectionSaveTimer) clearTimeout(selectionSaveTimer)
+  resolveConfirmDialog(false)
   document.removeEventListener('visibilitychange', handleDocumentVisibilityChange)
 })
 
@@ -753,7 +818,7 @@ onBeforeRouteLeave(async () => confirmAndPauseBeforeLeaving())
 .diagnostic-exam-shell {
   width: var(--fluid-shell-width);
   margin: 0 auto;
-  padding: 32px 0 72px;
+  padding: 0 72px;
 }
 
 .module-header {
@@ -761,7 +826,8 @@ onBeforeRouteLeave(async () => confirmAndPauseBeforeLeaving())
   align-items: flex-end;
   justify-content: space-between;
   gap: 32px;
-  margin-bottom: 24px;
+  margin-top: 14px;
+  margin-bottom: 15px;
 }
 
 .module-header > div > span {
@@ -775,6 +841,7 @@ onBeforeRouteLeave(async () => confirmAndPauseBeforeLeaving())
 .module-header h1 {
   margin: 6px 0 0;
   color: var(--color-ink);
+  font-family: math;
   font-size: var(--text-3xl);
 }
 
@@ -788,32 +855,25 @@ onBeforeRouteLeave(async () => confirmAndPauseBeforeLeaving())
 
 .module-progress li {
   display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 12px;
+  min-width: 112px;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 3px;
+  padding: 3px 12px;
   border: 1px solid var(--color-line);
-  border-radius: var(--radius-pill);
+  border-radius: 5px;
   color: var(--color-ink-muted);
   font-size: var(--text-xs);
 }
 
-.module-progress li b {
-  display: grid;
-  width: 20px;
-  height: 20px;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--color-hover);
+.module-progress li small {
+  color: var(--color-ink-muted);
+  font-size: inherit;
 }
 
 .module-progress__item--active {
   border-color: var(--color-ink) !important;
   color: var(--color-ink) !important;
-}
-
-.module-progress__item--completed b {
-  background: var(--color-ink) !important;
-  color: var(--color-ink-inverse);
 }
 
 .exam-layout {
@@ -825,7 +885,7 @@ onBeforeRouteLeave(async () => confirmAndPauseBeforeLeaving())
 .question-nav,
 .question-panel {
   border: 1px solid var(--color-line);
-  border-radius: var(--radius-xl);
+  border-radius: 5px;
   background: var(--color-surface);
 }
 
@@ -834,10 +894,6 @@ onBeforeRouteLeave(async () => confirmAndPauseBeforeLeaving())
   display: grid;
   gap: 8px;
   padding: 20px;
-}
-
-.question-nav small {
-  color: var(--color-ink-muted);
 }
 
 .question-nav__grid {
@@ -850,7 +906,7 @@ onBeforeRouteLeave(async () => confirmAndPauseBeforeLeaving())
 .question-nav__item {
   aspect-ratio: 1;
   border: 1px solid var(--color-line);
-  border-radius: 8px;
+  border-radius: 5px;
   background: var(--color-surface);
   color: var(--color-ink-soft);
   cursor: pointer;
@@ -879,12 +935,12 @@ onBeforeRouteLeave(async () => confirmAndPauseBeforeLeaving())
   min-height: 40px;
   margin-top: 8px;
   border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
+  border-radius: 5px;
   cursor: pointer;
 }
 
 .question-panel {
-  padding: 28px;
+  padding: 20px 28px;
 }
 
 .question-panel--locked :deep(.opt-card) {
@@ -902,7 +958,7 @@ onBeforeRouteLeave(async () => confirmAndPauseBeforeLeaving())
   min-width: 96px;
   min-height: 40px;
   border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
+  border-radius: 5px;
   cursor: pointer;
 }
 

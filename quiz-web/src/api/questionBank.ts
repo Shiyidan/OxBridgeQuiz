@@ -1,4 +1,4 @@
-// 试题库 API：覆盖考纲、学生端独立题目检索、standard2 导入与单题审核。
+// 试题库 API：覆盖考纲与练习选题、standard2 导入及单题审核。
 import { callApi } from '@/utils/request'
 import { DEFAULT_EXAM_TYPE } from '@/constants/examTypes'
 import type { AttemptQuestion, KnowledgePoint, Question } from '@/types'
@@ -25,11 +25,6 @@ export interface PaginationResult {
   page: number
   pageSize: number
   total: number
-}
-
-export interface QuestionBankBrowseResult {
-  list: AttemptQuestion[]
-  pagination: PaginationResult
 }
 
 export type QuestionBankStatus = 'draft' | 'published' | 'archived'
@@ -97,27 +92,6 @@ export function getQuestionSummaryData(code: string, examType = DEFAULT_EXAM_TYP
     url: '/question-library/summary',
     method: 'GET',
     params: { code, examType },
-  })
-}
-
-/** 分页浏览知识点和难度筛选后的已发布题目。 */
-export function getQuestionBrowseData(filters: {
-  code?: string
-  difficulty?: string
-  examType?: string
-  page?: number
-  pageSize?: number
-}) {
-  return callApi<QuestionBankBrowseResult>({
-    url: '/question-library/questions',
-    method: 'GET',
-    params: {
-      code: filters.code,
-      difficulty: filters.difficulty,
-      examType: filters.examType,
-      page: filters.page?.toString(),
-      pageSize: filters.pageSize?.toString(),
-    },
   })
 }
 

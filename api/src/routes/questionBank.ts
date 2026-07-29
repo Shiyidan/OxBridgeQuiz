@@ -6,21 +6,47 @@ import { success, fail } from '../utils/response.js'
 import { parseJsonField } from '../utils/jsonField.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { logRuntimeError } from '../utils/runtimeLogger.js'
+import { computeScores } from '../services/scoring.js'
+import type { QuestionResult } from '../services/scoring.js'
 import {
   EXAM_TYPE,
+  EXAM_RECORD_STATUS,
   PAPER_DELIVERY_MODE,
   REAL_PAPER_TYPES,
+  isExamType,
 } from '../constants/domain.js'
 
 import { parsePositiveInt } from './papers-shared.js'
 export const questionBankRouter = createAsyncRouter()
 
+const BEIJING_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Shanghai',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+// 诊断趋势以北京时间自然日聚合，避免服务器时区改变每日最新记录的归属。
+function formatBeijingDate(date: Date): string {
+  const parts = BEIJING_DATE_FORMATTER.formatToParts(date)
+  const year = parts.find((part) => part.type === 'year')?.value || ''
+  const month = parts.find((part) => part.type === 'month')?.value || ''
+  const day = parts.find((part) => part.type === 'day')?.value || ''
+  return `${year}-${month}-${day}`
+}
+
 // 诊断测试列表按试卷聚合当前用户的最新测试与报告状态。
 questionBankRouter.get('/assessment/papers', requireAuth, async (req, res) => {
   try {
+    const examType = String(req.query.examType || EXAM_TYPE.TMUA).toUpperCase()
+    if (!isExamType(examType)) {
+      res.status(422).json(fail('无效的考试类型'))
+      return
+    }
     const [papers, records] = await Promise.all([
       prisma.paper.findMany({
         where: {
+          examType,
           paperType: { in: [...REAL_PAPER_TYPES] },
           OR: [
             {
@@ -56,6 +82,7 @@ questionBankRouter.get('/assessment/papers', requireAuth, async (req, res) => {
       prisma.examRecord.findMany({
         where: {
           userId: req.user!.userId,
+          examType,
           paper: {
             paperType: { in: [...REAL_PAPER_TYPES] },
           },
@@ -164,6 +191,105 @@ questionBankRouter.get('/assessment/papers', requireAuth, async (req, res) => {
   } catch (e: any) {
     logRuntimeError('assessment_papers.list_failed', e)
     res.status(500).json(fail(e.message || '获取诊断测试套卷失败'))
+  }
+})
+
+// 诊断分数趋势按北京时间每日仅保留最后一次正式交卷，并复用统一评分引擎。
+questionBankRouter.get('/assessment/score-trend', requireAuth, async (req, res) => {
+  try {
+    const examType = String(req.query.examType || EXAM_TYPE.TMUA).toUpperCase()
+    if (!isExamType(examType)) {
+      res.status(422).json(fail('无效的考试类型'))
+      return
+    }
+
+    const submittedRecords = await prisma.examRecord.findMany({
+      where: {
+        userId: req.user!.userId,
+        examType,
+        status: EXAM_RECORD_STATUS.SUBMITTED,
+        submittedAt: { not: null },
+        paper: { paperType: { in: [...REAL_PAPER_TYPES] } },
+      },
+      select: { id: true, submittedAt: true },
+      orderBy: [{ submittedAt: 'desc' }, { id: 'desc' }],
+    })
+
+    const latestRecordByDate = new Map<string, { id: string; submittedAt: Date }>()
+    for (const record of submittedRecords) {
+      if (!record.submittedAt) continue
+      const date = formatBeijingDate(record.submittedAt)
+      if (!latestRecordByDate.has(date)) {
+        latestRecordByDate.set(date, { id: record.id, submittedAt: record.submittedAt })
+      }
+    }
+
+    const dailyRecords = [...latestRecordByDate.entries()]
+      .map(([date, record]) => ({ date, ...record }))
+      .sort((left, right) => left.submittedAt.getTime() - right.submittedAt.getTime())
+
+    if (!dailyRecords.length) {
+      res.json(success({ examType, points: [] }))
+      return
+    }
+
+    const scoreRecords = await prisma.examRecord.findMany({
+      where: { id: { in: dailyRecords.map((record) => record.id) } },
+      select: {
+        id: true,
+        paper: { select: { title: true } },
+        answers: {
+          select: {
+            isCorrect: true,
+            position: true,
+            question: {
+              select: {
+                subject: true,
+                moduleCode: true,
+                number: true,
+              },
+            },
+          },
+          orderBy: [{ position: 'asc' }, { id: 'asc' }],
+        },
+      },
+    })
+    const scoreRecordMap = new Map(scoreRecords.map((record) => [record.id, record]))
+
+    const points = dailyRecords.flatMap((dailyRecord) => {
+      const record = scoreRecordMap.get(dailyRecord.id)
+      if (!record) return []
+      const questionResults: QuestionResult[] = record.answers.map((answer) => ({
+        subject: answer.question.subject,
+        moduleCode: answer.question.moduleCode,
+        isCorrect: answer.isCorrect,
+        number: answer.question.number,
+      }))
+      const scoring = computeScores(examType, questionResults)
+      const scores = examType === EXAM_TYPE.ESAT
+        ? scoring.modules.map((module) => ({
+            key: module.module,
+            label: module.moduleLabel,
+            score: module.scaledScore,
+          }))
+        : scoring.overallScore === null
+          ? []
+          : [{ key: 'overall', label: '综合分数', score: scoring.overallScore }]
+
+      if (!scores.length) return []
+      return [{
+        date: dailyRecord.date,
+        submittedAt: dailyRecord.submittedAt,
+        examRecordId: dailyRecord.id,
+        paperTitle: record.paper.title,
+        scores,
+      }]
+    })
+
+    res.json(success({ examType, points }))
+  } catch (error: any) {
+    logRuntimeError('assessment_score_trend.get_failed', error)
+    res.status(500).json(fail(error.message || '获取诊断分数趋势失败'))
   }
 })
 

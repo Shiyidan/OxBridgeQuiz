@@ -8,32 +8,9 @@
           <h1 class="qb-header__title">试题库</h1>
           <p class="qb-header__subtitle">包含专项试题练习与全真模拟考试系统。</p>
         </div>
-        <div class="qb-tabs" role="tablist">
-          <button
-            v-for="tab in tabs"
-            :key="tab.id"
-            type="button"
-            role="tab"
-            class="qb-tab"
-            :class="{ 'qb-tab--active': activeTabId === tab.id }"
-            :aria-selected="activeTabId === tab.id"
-            @click="handleTabClick(tab.id)"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
       </header>
 
-      <section v-if="!isActiveExamAvailable" class="qb-unavailable" aria-live="polite">
-        <span class="qb-unavailable__badge">STEP · COMING SOON</span>
-        <h2>STEP 试题库正在推进中</h2>
-        <p>STEP 考纲、专项试题与在线练习暂未开放。相关内容准备完成后会在这里统一上线。</p>
-        <button type="button" class="button_primary" @click="handleTabClick(DEFAULT_EXAM_TYPE)">
-          查看 TMUA 试题库
-        </button>
-      </section>
-
-      <section v-else class="qb-main">
+      <section class="qb-main">
         <aside class="qb-sidebar">
           <h3 class="qb-sidebar__title">考点大纲 (SYLLABUS)</h3>
           <el-tree
@@ -103,25 +80,20 @@
 
 <script setup lang="ts">
 // 试题库首页：按考试、考纲和难度选择题目范围并开始专项练习。
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { TreeInstance } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
+import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import type { SyllabusNode } from '@/api/questionBank'
 import { getSyllabusData, getQuestionSummaryData } from '@/api/questionBank'
 import { getActiveQuestionBankPractice, type ActiveQuestionBankPractice } from '@/api/exam'
 import { checkMemberAccess } from '@/api/member'
-import {
-  DEFAULT_EXAM_TYPE,
-  EXAM_TYPE_OPTIONS,
-  getExamUnavailableMessage,
-  isExamTypeAvailable,
-  type ExamType,
-} from '@/constants/examTypes'
 
 const router = useRouter()
 const route = useRoute()
+const auth = useAuthStore()
 
 type TreeNode = SyllabusNode
 type DifficultyId = 'easy' | 'medium' | 'hard' | 'composite'
@@ -134,16 +106,6 @@ interface DifficultyOption {
   count: number
 }
 
-interface QbTab {
-  id: ExamType
-  label: string
-}
-
-const tabs: QbTab[] = EXAM_TYPE_OPTIONS.map((item) => ({
-  id: item.value,
-  label: item.label,
-}))
-const activeTabId = ref<QbTab['id']>(DEFAULT_EXAM_TYPE)
 const treeData = ref<TreeNode[]>([])
 const syllabusTreeRef = ref<TreeInstance>()
 const treeProps = { children: 'children', label: 'label' }
@@ -153,6 +115,10 @@ const selectedNodeLabel = ref<string>('综合考点')
 const totalQuestionCount = ref<number>(0)
 const targetDifficulty = ref<DifficultyId | null>(null)
 const activePractice = ref<ActiveQuestionBankPractice | null>(null)
+let examContentInitialized = false
+let examLoadSequence = 0
+let summaryLoadSequence = 0
+let practiceLoadSequence = 0
 
 const difficulties = ref<DifficultyOption[]>([
   {
@@ -188,11 +154,8 @@ const difficulties = ref<DifficultyOption[]>([
 // 当前考点标题同步反映树选择或学习路径传入的考纲 code。
 const activeTopicTitle = computed<string>(() => `${selectedNodeLabel.value} · 试题`)
 
-// 题库接口统一使用当前 tab 的标准考试类型。
-const activeExamType = computed<ExamType>(() => activeTabId.value)
-
-// STEP 等未开放类型使用专用空状态，不向题库接口发起无意义请求。
-const isActiveExamAvailable = computed(() => isExamTypeAvailable(activeExamType.value))
+// 题库统一读取顶部导航的全局考试类型，不再维护页面级考试选择。
+const activeExamType = computed<ActiveExamType>(() => auth.activeExamType)
 
 // 深层考纲节点查找同时返回祖先 code，便于学习路径入口展开对应树路径。
 function findTreeNode(
@@ -209,7 +172,7 @@ function findTreeNode(
 }
 
 // 考纲包含考试分组层时继续展开首个学科，让 ESAT 与 TMUA 默认显示相同知识点层级。
-function resolveDefaultExpandedCodes(nodes: TreeNode[], examType: ExamType): string[] {
+function resolveDefaultExpandedCodes(nodes: TreeNode[], examType: ActiveExamType): string[] {
   const first = nodes[0]
   if (!first) return []
 
@@ -228,74 +191,38 @@ async function expandDefaultSyllabusNodes(): Promise<void> {
   }
 }
 
-// 首次进入试题库时加载大纲树，并默认查询最外层第一个节点。
-onMounted(async () => {
-  const requestedExamType = String(route.query.examType || '').toUpperCase()
-  if (EXAM_TYPE_OPTIONS.some((item) => item.value === requestedExamType)) {
-    activeTabId.value = requestedExamType as ExamType
-  }
-  if (!isActiveExamAvailable.value) {
-    activePractice.value = null
-    treeData.value = []
-    defaultExpanded.value = []
-    selectedNodeCode.value = ''
-    selectedNodeLabel.value = 'STEP'
-    resetQuestionSummary()
-    return
-  }
-
-  try {
-    const nodes = await getSyllabusData(activeExamType.value)
-    treeData.value = nodes[0]?.children || []
-    const requestedCode = String(route.query.code || '').trim()
-    const requestedNode = requestedCode ? findTreeNode(treeData.value, requestedCode) : null
-    if (requestedCode) {
-      selectedNodeCode.value = requestedCode
-      selectedNodeLabel.value =
-        requestedNode?.node.label || String(route.query.label || requestedCode)
-      if (requestedNode) defaultExpanded.value = requestedNode.parents
-    } else {
-      const first = treeData.value[0]
-      if (first) {
-        defaultExpanded.value = resolveDefaultExpandedCodes(treeData.value, activeExamType.value)
-        selectedNodeCode.value = first.code
-        selectedNodeLabel.value = first.label
-      }
-    }
-    const requestedDifficulty = String(route.query.difficulty || '') as DifficultyId
-    targetDifficulty.value = difficulties.value.some((item) => item.id === requestedDifficulty)
-      ? requestedDifficulty
-      : null
-  } catch {
-    treeData.value = []
-    defaultExpanded.value = []
-  }
-
-  await expandDefaultSyllabusNodes()
-  await Promise.all([loadQuestionSummary(), loadActivePractice()])
-})
-
 // 进行中练习由服务端唯一活动键决定，切换考试类型后重新读取对应会话。
 async function loadActivePractice(): Promise<void> {
-  if (!isActiveExamAvailable.value) {
-    activePractice.value = null
-    return
-  }
+  const requestSequence = ++practiceLoadSequence
+  const requestedExamType = activeExamType.value
+  activePractice.value = null
   try {
-    activePractice.value = await getActiveQuestionBankPractice(activeExamType.value)
+    const practice = await getActiveQuestionBankPractice(requestedExamType)
+    if (requestSequence !== practiceLoadSequence || requestedExamType !== activeExamType.value) {
+      return
+    }
+    activePractice.value = practice
   } catch {
-    activePractice.value = null
+    if (requestSequence === practiceLoadSequence) activePractice.value = null
   }
 }
 
 // 轻量接口只拉题量和难度分布，避免列表页首次加载全量题目。
 async function loadQuestionSummary(): Promise<void> {
-  if (!isActiveExamAvailable.value) {
-    resetQuestionSummary()
-    return
-  }
+  const requestSequence = ++summaryLoadSequence
+  const requestedExamType = activeExamType.value
+  const requestedNodeCode = selectedNodeCode.value
+  resetQuestionSummary()
+  if (!requestedNodeCode) return
   try {
-    const data = await getQuestionSummaryData(selectedNodeCode.value, activeExamType.value)
+    const data = await getQuestionSummaryData(requestedNodeCode, requestedExamType)
+    if (
+      requestSequence !== summaryLoadSequence ||
+      requestedExamType !== activeExamType.value ||
+      requestedNodeCode !== selectedNodeCode.value
+    ) {
+      return
+    }
     totalQuestionCount.value = data.total
     if (data.difficultyCount) {
       difficulties.value = difficulties.value.map((d) => ({
@@ -304,11 +231,11 @@ async function loadQuestionSummary(): Promise<void> {
       }))
     }
   } catch {
-    totalQuestionCount.value = 0
+    if (requestSequence === summaryLoadSequence) resetQuestionSummary()
   }
 }
 
-// 考试类型切换时统一清空旧题量，避免暂未开放页面残留上一类型统计。
+// 汇总筛选变化或请求失败时统一清空总数与各难度数量，使练习按钮同步失效。
 function resetQuestionSummary(): void {
   totalQuestionCount.value = 0
   difficulties.value = difficulties.value.map((item) => ({ ...item, count: 0 }))
@@ -321,36 +248,75 @@ const handleTreeNodeClick = async (node: TreeNode): Promise<void> => {
   await loadQuestionSummary()
 }
 
-// 切换考试类型后重置大纲入口，避免沿用上一考试类型的节点 code。
-async function handleTabClick(tabId: QbTab['id']): Promise<void> {
-  activeTabId.value = tabId
-  targetDifficulty.value = null
-  if (!isActiveExamAvailable.value) {
-    activePractice.value = null
-    treeData.value = []
-    defaultExpanded.value = []
-    selectedNodeCode.value = ''
-    selectedNodeLabel.value = tabId
-    resetQuestionSummary()
-    ElMessage.info(getExamUnavailableMessage(tabId))
-    return
-  }
+// 全局考试类型变化后重置旧考试数据，并只接受本次切换对应的异步响应。
+async function loadExamContent(useRouteContext: boolean): Promise<void> {
+  const requestSequence = ++examLoadSequence
+  const requestedExamType = activeExamType.value
+  summaryLoadSequence += 1
+  practiceLoadSequence += 1
+  treeData.value = []
+  defaultExpanded.value = []
+  selectedNodeCode.value = ''
+  selectedNodeLabel.value = '综合考点'
+  activePractice.value = null
+  resetQuestionSummary()
+  if (!useRouteContext) targetDifficulty.value = null
+
   try {
-    const nodes = await getSyllabusData(activeExamType.value)
-    treeData.value = nodes[0]?.children || []
-    const first = treeData.value[0]
-    defaultExpanded.value = resolveDefaultExpandedCodes(treeData.value, activeExamType.value)
-    selectedNodeCode.value = first?.code || ''
-    selectedNodeLabel.value = first?.label || '综合考点'
+    const nodes = await getSyllabusData(requestedExamType)
+    if (requestSequence !== examLoadSequence || requestedExamType !== activeExamType.value) return
+
+    const nextTreeData = nodes[0]?.children || []
+    treeData.value = nextTreeData
+    const requestedCode = useRouteContext ? String(route.query.code || '').trim() : ''
+    const requestedNode = requestedCode ? findTreeNode(nextTreeData, requestedCode) : null
+    const firstNode = nextTreeData[0]
+    if (requestedNode) {
+      defaultExpanded.value = requestedNode.parents
+      selectedNodeCode.value = requestedNode.node.code
+      selectedNodeLabel.value = requestedNode.node.label
+    } else if (firstNode) {
+      defaultExpanded.value = resolveDefaultExpandedCodes(nextTreeData, requestedExamType)
+      selectedNodeCode.value = firstNode.code
+      selectedNodeLabel.value = firstNode.label
+    }
+
+    if (useRouteContext) {
+      const requestedDifficulty = String(route.query.difficulty || '') as DifficultyId
+      targetDifficulty.value = difficulties.value.some((item) => item.id === requestedDifficulty)
+        ? requestedDifficulty
+        : null
+    }
+
+    await expandDefaultSyllabusNodes()
+    if (requestSequence !== examLoadSequence || requestedExamType !== activeExamType.value) return
+    await Promise.all([loadQuestionSummary(), loadActivePractice()])
   } catch {
+    if (requestSequence !== examLoadSequence || requestedExamType !== activeExamType.value) return
     treeData.value = []
     defaultExpanded.value = []
     selectedNodeCode.value = ''
     selectedNodeLabel.value = '综合考点'
+    resetQuestionSummary()
+    await loadActivePractice()
   }
-  await expandDefaultSyllabusNodes()
-  await Promise.all([loadQuestionSummary(), loadActivePractice()])
 }
+
+// 导航栏切换考试类型时重新查询该考试的大纲、题量统计与进行中练习。
+watch(activeExamType, () => {
+  if (examContentInitialized) void loadExamContent(false)
+})
+
+// 首次进入先完成个人考试偏好初始化，再按最终全局类型加载题库。
+onMounted(async () => {
+  try {
+    await auth.ensureMemberContext()
+  } catch {
+    // 偏好加载失败时继续使用全局默认 TMUA，公共请求层负责错误提示。
+  }
+  examContentInitialized = true
+  await loadExamContent(true)
+})
 
 // 续答只携带 ExamRecord ID，题目集合和保存进度全部由服务端会话恢复。
 function handleContinuePractice(): void {
@@ -363,10 +329,6 @@ function handleContinuePractice(): void {
 
 // 难度卡片进入在线练习页，题目数据由 code 和 difficulty 延迟加载。
 const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
-  if (!isActiveExamAvailable.value) {
-    ElMessage.info(getExamUnavailableMessage(activeExamType.value))
-    return
-  }
   if (activePractice.value) {
     ElMessage.info('请先继续并完成当前练习')
     return
@@ -407,10 +369,6 @@ const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
 }
 
 .qb-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 32px;
-  align-items: flex-end;
   margin-bottom: 24px;
 }
 
@@ -448,43 +406,6 @@ const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
   line-height: var(--leading-relaxed);
 }
 
-.qb-tabs {
-  display: inline-flex;
-  flex: 0 0 auto;
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-alt);
-}
-
-.qb-tab {
-  min-width: 76px;
-  height: var(--height-button);
-  padding: 0 18px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-ink-soft);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semi);
-  cursor: pointer;
-  transition:
-    background var(--duration-base) ease,
-    color var(--duration-base) ease;
-}
-
-.qb-tab:hover:not(.qb-tab--active) {
-  background: var(--color-surface);
-  color: var(--color-ink);
-}
-
-.qb-tab--active {
-  border-color: var(--color-ink);
-  background: var(--color-ink);
-  color: var(--color-ink-inverse);
-}
-
 .qb-main {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
@@ -517,53 +438,6 @@ const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
 .qb-active-practice span {
   color: var(--color-ink-soft);
   font-size: var(--text-sm);
-}
-
-.qb-unavailable {
-  display: grid;
-  justify-items: center;
-  min-height: 420px;
-  padding: 72px 32px;
-  border: 1px dashed var(--color-line);
-  border-radius: var(--radius-md);
-  background:
-    radial-gradient(
-      circle at 20% 10%,
-      color-mix(in srgb, var(--color-report-purple-soft) 48%, transparent),
-      transparent 34%
-    ),
-    linear-gradient(135deg, var(--color-surface), var(--color-surface-alt));
-  text-align: center;
-}
-
-.qb-unavailable__badge {
-  align-self: end;
-  padding: 7px 12px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-pill);
-  background: var(--color-surface);
-  color: var(--color-ink-muted);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semi);
-  letter-spacing: var(--tracking-wide);
-}
-
-.qb-unavailable h2 {
-  margin: 22px 0 0;
-  color: var(--color-ink);
-  font-size: var(--text-2xl);
-  font-weight: var(--weight-bold);
-}
-
-.qb-unavailable p {
-  max-width: 560px;
-  margin: 12px 0 28px;
-  color: var(--color-ink-soft);
-  line-height: var(--leading-relaxed);
-}
-
-.qb-unavailable .button_primary {
-  align-self: start;
 }
 
 .qb-sidebar,

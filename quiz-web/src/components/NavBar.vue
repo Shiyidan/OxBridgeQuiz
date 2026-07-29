@@ -56,6 +56,35 @@
       <div class="nav-right">
         <slot name="actions">
           <template v-if="auth.isLoggedIn && auth.user">
+            <el-dropdown
+              v-if="!auth.isAdmin"
+              trigger="click"
+              placement="bottom-end"
+              popper-class="student-exam-dropdown"
+              @command="handlePreferredExamTypeCommand"
+            >
+              <button
+                type="button"
+                class="exam-preference-chip"
+                :aria-label="`当前备考类型：${preferredExamType}，点击切换`"
+              >
+                <span class="exam-preference-dot" aria-hidden="true"></span>
+                <span>备考 {{ preferredExamType }}</span>
+                <span class="exam-preference-caret" aria-hidden="true">▾</span>
+              </button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item
+                    v-for="exam in studentExamOptions"
+                    :key="exam.value"
+                    :command="exam.value"
+                    :class="{ 'is-current-exam': preferredExamType === exam.value }"
+                  >
+                    {{ exam.label }}
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
             <div
               class="user-chip"
               @mouseenter="showDropdown = true"
@@ -115,9 +144,9 @@
 
 <script setup lang="ts">
 // 全局导航栏：所有前台页面共用，并根据登录状态展示用户入口。
-import { ref, computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 import brandIconUrl from '@/assets/brand/acemock-icon.png'
 
@@ -129,9 +158,16 @@ const examMenuItems = EXAM_TYPE_OPTIONS.map((item) => ({
   type: item.value.toLowerCase(),
   label: item.label,
 }))
+const studentExamOptions = EXAM_TYPE_OPTIONS.filter(
+  (item): item is (typeof EXAM_TYPE_OPTIONS)[number] & { value: ActiveExamType } =>
+    item.value === 'ESAT' || item.value === 'TMUA',
+)
 
 // 根据登录用户身份显示导航栏角色名称。
 const currentRoleLabel = computed(() => (auth.user?.role === 'admin' ? '管理员' : '学生'))
+
+// 当前考试类型由认证 Store 保存，确保导航栏跨前台页面重建后仍保留手动选择。
+const preferredExamType = computed(() => auth.activeExamType)
 
 // 根据登录用户身份切换头像菜单的工作台入口。
 const roleHomeLabel = computed(() => (auth.user?.role === 'admin' ? '后台管理' : '个人中心'))
@@ -145,6 +181,11 @@ const currentExamType = computed(() => String(route.params.examType || '').toLow
 // Element Plus 下拉命令统一切换考试页面，避免手写 hover 浮层产生闪烁。
 function handleExamCommand(examType: string): void {
   router.push(`/exam-intro/${examType}`)
+}
+
+// 顶部考试下拉只切换当前前端会话，不覆盖个人中心的长期备考偏好。
+function handlePreferredExamTypeCommand(command: ActiveExamType): void {
+  auth.setActiveExamType(command)
 }
 
 // 角色入口统一从头像菜单进入，学生和管理员各回到自己的工作台。
@@ -165,6 +206,18 @@ async function handleLogout(): Promise<void> {
   showDropdown.value = false
   router.push('/')
 }
+
+// 导航栏只在学生会员上下文尚未加载时读取一次，供备考类型和后续权益组件共享。
+async function loadStudentExamPreference(): Promise<void> {
+  if (!auth.isLoggedIn || auth.isAdmin || auth.memberContext) return
+  try {
+    await auth.ensureMemberContext()
+  } catch {
+    // 获取失败时按产品规则保留 TMUA 默认值，公共请求层负责错误提示。
+  }
+}
+
+onMounted(() => void loadStudentExamPreference())
 </script>
 
 <style scoped>
@@ -232,6 +285,66 @@ async function handleLogout(): Promise<void> {
 .nav-right {
   flex: 0 0 auto;
   gap: 12px;
+}
+.exam-preference-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 14px;
+  gap: 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color var(--duration-base) ease,
+    background var(--duration-base) ease;
+}
+.exam-preference-chip:hover,
+.exam-preference-chip:focus-visible {
+  border-color: var(--color-active);
+  background: var(--color-hover);
+}
+.exam-preference-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--color-success);
+}
+.exam-preference-caret {
+  color: var(--color-ink-muted);
+  font-size: 12px;
+  line-height: 1;
+}
+:global(.student-exam-dropdown.el-popper) {
+  min-width: 120px;
+  padding: 6px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+:global(.student-exam-dropdown .el-dropdown-menu) {
+  padding: 0;
+}
+:global(.student-exam-dropdown .el-dropdown-menu__item) {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: var(--radius-md);
+  color: var(--color-ink-soft);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+:global(.student-exam-dropdown .el-dropdown-menu__item:hover),
+:global(.student-exam-dropdown .el-dropdown-menu__item:focus),
+:global(.student-exam-dropdown .el-dropdown-menu__item.is-current-exam) {
+  background: var(--color-hover);
+  color: var(--color-ink);
 }
 .nav-link {
   padding: 8px 4px;

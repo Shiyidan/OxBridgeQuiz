@@ -203,11 +203,40 @@ export interface AssessmentPaperHistoryResult {
   }
 }
 
-/** 获取按试卷聚合的诊断测试列表及当前用户状态。 */
-export function getAssessmentPapersData() {
+export interface AssessmentScoreTrendScore {
+  key: string
+  label: string
+  score: number
+}
+
+export interface AssessmentScoreTrendPoint {
+  date: string
+  submittedAt: string
+  examRecordId: string
+  paperTitle: string
+  scores: AssessmentScoreTrendScore[]
+}
+
+export interface AssessmentScoreTrendResult {
+  examType: string
+  points: AssessmentScoreTrendPoint[]
+}
+
+/** 获取当前考试类型下按试卷聚合的诊断测试列表及用户状态。 */
+export function getAssessmentPapersData(examType: string) {
   return callApi<AssessmentPaperResult>({
     url: '/papers/assessment/papers',
     method: 'GET',
+    params: { examType },
+  })
+}
+
+/** 获取当前考试类型下按北京时间自然日聚合的最新诊断分数。 */
+export function getAssessmentScoreTrend(examType: string) {
+  return callApi<AssessmentScoreTrendResult>({
+    url: '/papers/assessment/score-trend',
+    method: 'GET',
+    params: { examType },
   })
 }
 

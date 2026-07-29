@@ -9,7 +9,7 @@ import {
   register as apiRegister,
   updateProfile as apiUpdateProfile,
 } from '../api/auth'
-import type { MemberContext } from '../api/member'
+import { getMember as apiGetMember, type MemberContext } from '../api/member'
 import type { AuthLegalVersions } from '../constants/legal'
 
 export interface User {
@@ -20,12 +20,27 @@ export interface User {
   avatar?: string
 }
 
+export type ActiveExamType = 'ESAT' | 'TMUA'
+
+// 导航默认考试只在用户恰好选择一个有效类型时采用该值，其余情况统一回落 TMUA。
+function resolveDefaultExamType(examPreferences: MemberContext['examPreferences']): ActiveExamType {
+  const examTypes = new Set(
+    examPreferences
+      .map((item) => String(item.examType || '').toUpperCase())
+      .filter((examType) => examType === 'ESAT' || examType === 'TMUA'),
+  )
+  return examTypes.size === 1 && examTypes.has('ESAT') ? 'ESAT' : 'TMUA'
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const token = ref<string | null>(null)
   const loading = ref(false)
   const memberContext = ref<MemberContext | null>(null)
   const sessionRestored = ref(false)
+  const activeExamType = ref<ActiveExamType>('TMUA')
+  const examTypeSelectedManually = ref(false)
+  let memberContextRequest: Promise<MemberContext> | null = null
 
   const isLoggedIn = computed(() => !!token.value && !!user.value)
   const isAdmin = computed(() => user.value?.role === 'admin')
@@ -62,6 +77,12 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function applyAuth(nextUser: User, accessToken: string): void {
+    if (user.value?.id !== nextUser.id) {
+      memberContext.value = null
+      memberContextRequest = null
+      activeExamType.value = 'TMUA'
+      examTypeSelectedManually.value = false
+    }
     user.value = nextUser
     setAccessToken(accessToken)
   }
@@ -70,6 +91,9 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     setAccessToken(null)
     memberContext.value = null
+    memberContextRequest = null
+    activeExamType.value = 'TMUA'
+    examTypeSelectedManually.value = false
   }
 
   function clearLocalSession(): void {
@@ -91,8 +115,36 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function setMemberContext(context: MemberContext): void {
+    const userChanged = user.value?.id !== context.user.id
+    if (userChanged) examTypeSelectedManually.value = false
     memberContext.value = context
     user.value = context.user
+    if (!examTypeSelectedManually.value) {
+      activeExamType.value = resolveDefaultExamType(context.examPreferences || [])
+    }
+  }
+
+  // 全局模块共用同一次会员上下文请求，避免导航栏与业务页面并发重复读取考试偏好。
+  async function ensureMemberContext(): Promise<MemberContext | null> {
+    if (!isLoggedIn.value || !user.value) return null
+    if (memberContext.value) return memberContext.value
+    if (memberContextRequest) return memberContextRequest
+    const requestedUserId = user.value.id
+    memberContextRequest = apiGetMember()
+      .then((context) => {
+        if (user.value?.id === requestedUserId) setMemberContext(context)
+        return context
+      })
+      .finally(() => {
+        memberContextRequest = null
+      })
+    return memberContextRequest
+  }
+
+  // 顶部导航手动切换仅改变当前前端会话，不改写个人中心保存的报考偏好。
+  function setActiveExamType(examType: ActiveExamType): void {
+    activeExamType.value = examType
+    examTypeSelectedManually.value = true
   }
 
   function setUser(nextUser: User): void {
@@ -178,6 +230,7 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     loading,
     memberContext,
+    activeExamType,
     sessionRestored,
     permissions,
     entitlements,
@@ -186,6 +239,8 @@ export const useAuthStore = defineStore('auth', () => {
     isAdmin,
     restoreSession,
     setMemberContext,
+    ensureMemberContext,
+    setActiveExamType,
     setUser,
     setAccessToken,
     clearLocalSession,

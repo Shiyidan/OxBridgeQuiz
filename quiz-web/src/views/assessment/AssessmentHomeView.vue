@@ -7,44 +7,16 @@
         <div class="page-header__lead">
           <span class="page-eyebrow">Diagnostic Assessment</span>
           <h1>诊断测试中心</h1>
-          <p>选择历年真题诊断卷，按 ESAT 科目模块或 TMUA Paper 1/2 完成在线测试。</p>
-        </div>
-        <div class="quota-card">
-          <div class="quota-list" aria-label="诊断测试权益明细">
-            <span
-              v-for="item in diagnosticQuotaItems"
-              :key="item.examType"
-              class="quota-pill"
-              :class="{
-                'quota-pill--empty': item.isEmpty,
-                'quota-pill--unavailable': !item.available,
-              }"
-            >
-              <strong>{{ item.label }}</strong>
-              <span>{{ item.text }}</span>
-            </span>
-          </div>
-          <button class="quota-button button_primary" type="button" @click="handleUpgradeClick()">
-            开通会员
-          </button>
+          <p>{{ assessmentSubtitle }}</p>
         </div>
       </header>
 
       <section class="paper-filter-bar" aria-label="诊断试卷筛选">
         <div class="paper-filter-bar__title">
           <span>Diagnostic Papers</span>
-          <strong>历年真题诊断卷</strong>
+          <strong>{{ activeExamType }} 历年真题诊断卷</strong>
         </div>
         <div class="paper-filter-bar__controls">
-          <div class="paper-filter-control">
-            <span>考试类型</span>
-            <el-segmented
-              v-model="activeExamTypeFilter"
-              class="exam-type-filter"
-              :options="examTypeFilterOptions"
-              aria-label="按考试类型筛选诊断试卷"
-            />
-          </div>
           <div class="paper-filter-control">
             <span>完成状态</span>
             <el-segmented
@@ -69,10 +41,23 @@
         <div class="chart-title">
           <div>
             <span>Score Trend</span>
-            <strong>历次诊断测试分数变化</strong>
+            <strong>{{ scoreTrendTitle }}</strong>
           </div>
         </div>
-        <div ref="chartRef" class="score-chart" aria-label="历次诊断测试分数变化折线图"></div>
+        <div v-if="scoreTrendLoading" class="score-chart-state">正在加载分数趋势...</div>
+        <div v-else-if="scoreTrendError" class="score-chart-state score-chart-state--error">
+          <span>{{ scoreTrendError }}</span>
+          <button type="button" class="button_cancel" @click="loadScoreTrend">重新加载</button>
+        </div>
+        <div v-else-if="!scoreTrend?.points.length" class="score-chart-state">
+          暂无已完成的 {{ activeExamType }} 诊断测试成绩
+        </div>
+        <div
+          v-else
+          ref="chartRef"
+          class="score-chart"
+          :aria-label="`${activeExamType} 诊断测试每日最新分数堆叠折线图`"
+        ></div>
       </section>
 
       <section class="paper-grid" aria-label="历年真题">
@@ -275,18 +260,16 @@ import AppPagination from '@/components/AppPagination.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
 import SubjectModuleTags from '@/components/SubjectModuleTags.vue'
 import { getMember } from '@/api/member'
-import { useAuthStore } from '@/stores/auth'
-import {
-  EXAM_TYPE_OPTIONS,
-  getExamUnavailableMessage,
-  isExamTypeAvailable,
-} from '@/constants/examTypes'
+import { useAuthStore, type ActiveExamType } from '@/stores/auth'
+import { getExamUnavailableMessage, isExamTypeAvailable } from '@/constants/examTypes'
 import { PAPER_ACCESS_TIER } from '@/constants/paperTypes'
 import {
   getAssessmentPaperHistory,
   getAssessmentPapersData,
+  getAssessmentScoreTrend,
   type AssessmentPaperHistoryItem,
   type AssessmentPaperItem,
+  type AssessmentScoreTrendResult,
 } from '@/api/papers'
 import { getApiErrorMessage } from '@/utils/request'
 
@@ -304,21 +287,20 @@ const historyPage = ref(1)
 const historyPageSize = ref(5)
 const historyTotal = ref(0)
 const paymentVisible = ref(false)
-const paymentExamType = ref('TMUA')
+const paymentExamType = ref<string>(auth.activeExamType)
 const chartRef = ref<HTMLDivElement | null>(null)
+const scoreTrend = ref<AssessmentScoreTrendResult | null>(null)
+const scoreTrendLoading = ref(true)
+const scoreTrendError = ref('')
 let chartInstance: echarts.ECharts | null = null
+let assessmentInitialized = false
+let assessmentLoadSequence = 0
+let scoreTrendLoadSequence = 0
 
-type AssessmentExamTypeFilter = 'ALL' | 'ESAT' | 'TMUA'
 type AssessmentStatusFilter = 'ALL' | 'not_started' | 'in_progress' | 'completed'
 
-const activeExamTypeFilter = ref<AssessmentExamTypeFilter>('ALL')
 const activeStatusFilter = ref<AssessmentStatusFilter>('ALL')
 const showScoreTrend = ref(true)
-const examTypeFilterOptions: Array<{ label: string; value: AssessmentExamTypeFilter }> = [
-  { label: '全部', value: 'ALL' },
-  { label: 'ESAT', value: 'ESAT' },
-  { label: 'TMUA', value: 'TMUA' },
-]
 const statusFilterOptions: Array<{ label: string; value: AssessmentStatusFilter }> = [
   { label: '全部', value: 'ALL' },
   { label: '待开始', value: 'not_started' },
@@ -326,12 +308,27 @@ const statusFilterOptions: Array<{ label: string; value: AssessmentStatusFilter 
   { label: '已完成', value: 'completed' },
 ]
 
-// 筛选只改变当前展示集合，额度与进行中测试约束继续读取完整试卷列表。
+// 诊断中心统一读取导航栏的全局考试类型，不再维护页面级考试选择。
+const activeExamType = computed<ActiveExamType>(() => auth.activeExamType)
+
+// ESAT 采用科目独立标准分，TMUA 采用综合分，标题明确两种评分口径。
+const scoreTrendTitle = computed(() =>
+  activeExamType.value === 'ESAT'
+    ? 'ESAT 每日最新诊断测试科目分数变化'
+    : 'TMUA 每日最新诊断测试综合分数变化',
+)
+
+// 页面说明随全局考试类型切换，避免同时描述两套不同的模块结构。
+const assessmentSubtitle = computed(() =>
+  activeExamType.value === 'ESAT'
+    ? '选择 ESAT 历年真题诊断卷，按科目模块完成在线测试。'
+    : '选择 TMUA 历年真题诊断卷，按 Paper 1/2 完成在线测试。',
+)
+
+// 数据源已由后端限定考试类型，页面只保留与考试类型无关的完成状态筛选。
 const filteredDiagnosticTests = computed(() => {
   return diagnosticTests.value.filter((paper) => {
-    const matchesExamType =
-      activeExamTypeFilter.value === 'ALL' ||
-      String(paper.examType || '').toUpperCase() === activeExamTypeFilter.value
+    const matchesExamType = String(paper.examType || '').toUpperCase() === activeExamType.value
     const matchesStatus =
       activeStatusFilter.value === 'ALL' || paper.testStatus === activeStatusFilter.value
     return matchesExamType && matchesStatus
@@ -340,59 +337,73 @@ const filteredDiagnosticTests = computed(() => {
 
 // 空状态区分“尚无任何试卷”和“当前考试类型暂无试卷”，避免误导后台发布状态。
 const emptyPaperMessage = computed(() => {
-  if (activeExamTypeFilter.value === 'ALL' && activeStatusFilter.value === 'ALL') {
-    return '暂无已上线真题套卷，请先在后台真题库发布试卷。'
+  if (activeStatusFilter.value === 'ALL') {
+    return `暂无已上线的 ${activeExamType.value} 诊断试卷，请先在后台真题库发布试卷。`
   }
-  return '当前筛选条件下暂无诊断试卷。'
+  return `${activeExamType.value} 当前完成状态下暂无诊断试卷。`
 })
 
-const mockScoreTrend = [
-  { month: '2023-09', score: 5.2 },
-  { month: '2023-10', score: 5.8 },
-  { month: '2023-11', score: 6.2 },
-  { month: '2023-12', score: 6.5 },
-  { month: '2024-01', score: 6.8 },
-  { month: '2024-02', score: 7.1 },
-  { month: '2024-03', score: 7.5 },
-]
-
-const examTypeLabelMap = new Map<string, string>(
-  EXAM_TYPE_OPTIONS.map((item) => [item.value, item.label]),
-)
-const diagnosticQuotaItems = computed(() => {
-  const quotas = auth.memberContext?.quotas || {}
-  const examTypes = new Set<string>([
-    ...EXAM_TYPE_OPTIONS.map((item) => item.value),
-    ...Object.keys(quotas),
-    ...diagnosticTests.value.map((paper) => paper.examType || '').filter(Boolean),
-  ])
-
-  return [...examTypes].map((examType) => {
-    const quota = quotas[examType]
-    const available = isExamTypeAvailable(examType)
-    const isMember = Boolean(auth.isAdmin || quota?.isMember)
-    const text = available ? (isMember ? '全部试卷已解锁' : '免费卷不限次') : '正在推进中'
-
-    return {
-      examType,
-      label: examTypeLabelMap.get(examType) || examType,
-      text,
-      available,
-      isEmpty: !available,
+// 每次只请求当前全局考试类型，并丢弃快速切换后延迟返回的旧响应。
+async function loadAssessmentPapers(): Promise<void> {
+  const requestSequence = ++assessmentLoadSequence
+  const requestedExamType = activeExamType.value
+  loading.value = true
+  diagnosticTests.value = []
+  try {
+    const data = await getAssessmentPapersData(requestedExamType)
+    if (requestSequence !== assessmentLoadSequence || requestedExamType !== activeExamType.value) {
+      return
     }
-  })
-})
-// 进入诊断测试页时读取后端已聚合的试卷状态列表，不在前端拼接考试记录。
+    diagnosticTests.value = data.list || []
+  } catch {
+    if (requestSequence === assessmentLoadSequence) diagnosticTests.value = []
+  } finally {
+    if (requestSequence === assessmentLoadSequence) loading.value = false
+  }
+}
+
+// 趋势接口独立刷新，并丢弃快速切换考试类型后返回的旧成绩响应。
+async function loadScoreTrend(): Promise<void> {
+  const requestSequence = ++scoreTrendLoadSequence
+  const requestedExamType = activeExamType.value
+  scoreTrendLoading.value = true
+  scoreTrendError.value = ''
+  scoreTrend.value = null
+  chartInstance?.dispose()
+  chartInstance = null
+  try {
+    const data = await getAssessmentScoreTrend(requestedExamType)
+    if (requestSequence !== scoreTrendLoadSequence || requestedExamType !== activeExamType.value) {
+      return
+    }
+    scoreTrend.value = data
+  } catch (error: unknown) {
+    if (requestSequence !== scoreTrendLoadSequence) return
+    scoreTrendError.value = getApiErrorMessage(error, '分数趋势加载失败，请稍后重试。')
+  } finally {
+    if (requestSequence !== scoreTrendLoadSequence) return
+    scoreTrendLoading.value = false
+    if (showScoreTrend.value && scoreTrend.value?.points.length) {
+      await nextTick()
+      renderChart()
+    }
+  }
+}
+
+// 页面进入或全局考试类型变化时并行刷新试卷列表与真实成绩趋势。
+async function refreshAssessmentData(): Promise<void> {
+  await Promise.all([loadAssessmentPapers(), loadScoreTrend()])
+}
+
+// 进入页面时先确定用户默认考试类型，再查询该类型的诊断试卷。
 onMounted(async () => {
-  const [papersResult, memberResult] = await Promise.allSettled([
-    getAssessmentPapersData(),
-    getMember(),
-  ])
-  diagnosticTests.value = papersResult.status === 'fulfilled' ? papersResult.value.list || [] : []
-  if (memberResult.status === 'fulfilled') auth.setMemberContext(memberResult.value)
-  loading.value = false
-  await nextTick()
-  renderChart()
+  try {
+    await auth.ensureMemberContext()
+  } catch {
+    // 偏好加载失败时继续使用全局默认 TMUA，公共请求层负责错误提示。
+  }
+  assessmentInitialized = true
+  await refreshAssessmentData()
   window.addEventListener('resize', resizeChart)
 })
 
@@ -412,16 +423,55 @@ watch(showScoreTrend, async (visible) => {
   renderChart()
 })
 
-// mock 折线图先固定趋势数据，后续接真实历史诊断分数接口。
+// 导航栏切换考试类型时关闭旧上下文，并重新查询对应诊断卷和成绩趋势。
+watch(activeExamType, () => {
+  if (!assessmentInitialized) return
+  startingPaperId.value = ''
+  historyDialogVisible.value = false
+  historyLoading.value = false
+  historyError.value = ''
+  historyPaper.value = null
+  historyRecords.value = []
+  historyTotal.value = 0
+  paymentVisible.value = false
+  paymentExamType.value = activeExamType.value
+  void refreshAssessmentData()
+})
+
+// 图表按接口返回的每日最新成绩构造序列，ESAT 科目和 TMUA 综合分使用同一渲染入口。
 function renderChart(): void {
-  if (!chartRef.value) return
+  const trend = scoreTrend.value
+  if (!chartRef.value || !trend?.points.length) return
+  const seriesMeta = new Map<string, string>()
+  for (const point of trend.points) {
+    for (const score of point.scores) {
+      if (!seriesMeta.has(score.key)) seriesMeta.set(score.key, score.label)
+    }
+  }
+  const seriesEntries = [...seriesMeta.entries()]
+  const stackedMaximum = Math.max(
+    9,
+    ...trend.points.map((point) => point.scores.reduce((sum, score) => sum + score.score, 0)),
+  )
+  const yAxisMaximum = Math.ceil(stackedMaximum / 3) * 3
+  const palette = ['#1a1a1a', '#2f7d78', '#c67a37', '#5576b9', '#8567a8']
+
   chartInstance?.dispose()
   chartInstance = echarts.init(chartRef.value)
   chartInstance.setOption({
-    grid: { left: 44, right: 20, top: 24, bottom: 36 },
+    color: palette,
+    grid: { left: 44, right: 20, top: seriesEntries.length > 1 ? 46 : 24, bottom: 36 },
+    legend: {
+      show: seriesEntries.length > 1,
+      top: 2,
+      right: 4,
+      itemWidth: 18,
+      itemHeight: 8,
+      textStyle: { color: '#666666', fontSize: 12 },
+    },
     xAxis: {
       type: 'category',
-      data: mockScoreTrend.map((item) => item.month),
+      data: trend.points.map((point) => point.date.slice(5).replace('-', '/')),
       boundaryGap: false,
       axisTick: { show: false },
       axisLine: { lineStyle: { color: '#eaeaea' } },
@@ -431,28 +481,47 @@ function renderChart(): void {
     yAxis: {
       type: 'value',
       min: 0,
-      max: 9,
+      max: yAxisMaximum,
       interval: 3,
+      name: '分数',
+      nameTextStyle: { color: '#8a8a8a', padding: [0, 0, 0, -24] },
       axisLabel: { color: '#8a8a8a', fontWeight: 600 },
       splitLine: { lineStyle: { color: '#f0f0f0', type: 'dashed' } },
     },
-    series: [
-      {
+    series: seriesEntries.map(([key, label], index) => ({
+        name: label,
         type: 'line',
-        data: mockScoreTrend.map((item) => item.score),
+        stack: 'diagnostic-score',
+        data: trend.points.map((point) => (
+          point.scores.find((score) => score.key === key)?.score ?? null
+        )),
         smooth: true,
         symbol: 'circle',
-        symbolSize: 8,
-        lineStyle: { width: 3, color: '#1a1a1a' },
-        itemStyle: { color: '#1a1a1a', borderColor: '#ffffff', borderWidth: 2 },
-      },
-    ],
+        symbolSize: 7,
+        lineStyle: { width: 2.5, color: palette[index % palette.length] },
+        itemStyle: {
+          color: palette[index % palette.length],
+          borderColor: '#ffffff',
+          borderWidth: 2,
+        },
+        emphasis: { focus: 'series' },
+        connectNulls: false,
+      })),
     tooltip: {
       trigger: 'axis',
       formatter: (params: unknown) => {
-        const rawItem = Array.isArray(params) ? params[0] : params
-        const item = rawItem as { axisValue?: string | number; data?: string | number }
-        return `${item.axisValue ?? ''}<br/>分数：${item.data ?? ''}`
+        const items = (Array.isArray(params) ? params : [params]) as Array<{
+          dataIndex?: number
+          marker?: string
+          seriesName?: string
+          data?: string | number | null
+        }>
+        const point = trend.points[items[0]?.dataIndex ?? -1]
+        if (!point) return ''
+        const rows = items
+          .filter((item) => item.data !== null && item.data !== undefined)
+          .map((item) => `${item.marker || ''}${item.seriesName || '分数'}：${item.data}`)
+        return [formatDateTime(point.submittedAt), ...rows].join('<br/>')
       },
     },
   })
@@ -463,8 +532,8 @@ function resizeChart(): void {
 }
 
 // 从试卷锁定态进入支付时预选该试卷的考试类型，减少重复选择。
-function handleUpgradeClick(examType = 'TMUA'): void {
-  paymentExamType.value = examType || 'TMUA'
+function handleUpgradeClick(examType?: string): void {
+  paymentExamType.value = examType || activeExamType.value
   paymentVisible.value = true
 }
 
@@ -750,10 +819,6 @@ function paperActionLabel(item: AssessmentPaperItem): string {
 }
 
 .page-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 32px;
   margin: 0 0 24px;
 }
 
@@ -792,63 +857,9 @@ function paperActionLabel(item: AssessmentPaperItem): string {
   content: '';
 }
 
-.quota-card {
-  width: fit-content;
-  max-width: 100%;
-  display: grid;
-  gap: 14px;
-  flex: 0 1 auto;
-  justify-items: stretch;
-  padding: 16px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-}
-
-.quota-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.quota-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 28px;
-  padding: 0 10px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-pill);
-  background: var(--color-hover);
-  color: var(--color-ink-soft);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semi);
-  white-space: nowrap;
-}
-
-.quota-pill strong {
-  color: var(--color-ink);
-}
-
-.quota-pill--empty {
-  background: var(--color-surface-alt);
-  color: var(--color-ink-muted);
-}
-
-.quota-pill--unavailable {
-  border-style: dashed;
-  background: color-mix(in srgb, var(--color-report-purple-soft) 42%, var(--color-surface));
-}
-
-.quota-button,
 .paper-card__button {
   height: var(--height-button);
   border-radius: var(--radius-md);
-}
-
-.quota-button {
-  min-width: 128px;
-  width: 100%;
 }
 
 .chart-card {
@@ -884,6 +895,25 @@ function paperActionLabel(item: AssessmentPaperItem): string {
 .score-chart {
   width: 100%;
   height: 220px;
+}
+
+.score-chart-state {
+  display: flex;
+  min-height: 220px;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+}
+
+.score-chart-state--error {
+  color: var(--color-danger);
+}
+
+.score-chart-state .button_cancel {
+  min-height: 34px;
+  padding: 0 14px;
 }
 
 .paper-filter-bar {
@@ -938,17 +968,11 @@ function paperActionLabel(item: AssessmentPaperItem): string {
   padding-left: 4px;
 }
 
-.exam-type-filter {
-  flex: 0 0 auto;
-  min-width: 252px;
-}
-
 .status-filter {
   flex: 0 0 auto;
   min-width: 340px;
 }
 
-.exam-type-filter :deep(.el-segmented__item),
 .status-filter :deep(.el-segmented__item) {
   min-width: 76px;
   font-weight: var(--weight-semi);
@@ -1438,7 +1462,6 @@ function paperActionLabel(item: AssessmentPaperItem): string {
     justify-content: space-between;
   }
 
-  .exam-type-filter,
   .status-filter {
     width: 100%;
     min-width: 0;

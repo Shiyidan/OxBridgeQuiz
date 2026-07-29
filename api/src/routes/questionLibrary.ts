@@ -235,38 +235,6 @@ questionLibraryRouter.get("/summary", requireAuth, async (req, res) => {
   );
 });
 
-// 学生端首页分页展示当前知识点与难度下的题目摘要，不返回答案和解析。
-questionLibraryRouter.get("/questions", requireAuth, async (req, res) => {
-  const examType = String(req.query.examType || EXAM_TYPE.TMUA).toUpperCase();
-  if (!isExamType(examType)) {
-    res.status(422).json(fail("无效的考试类型"));
-    return;
-  }
-  const difficulty = String(req.query.difficulty || "").trim();
-  if (difficulty && !QUESTION_BANK_DIFFICULTIES.includes(difficulty as any)) {
-    res.status(422).json(fail("无效的难度"));
-    return;
-  }
-  const page = parsePositiveInt(req.query.page, 1);
-  const pageSize = parsePositiveInt(req.query.pageSize, 10, 50);
-  const where = await buildPublishedQuestionWhere(req.query);
-  const [total, rows] = await Promise.all([
-    prisma.question.count({ where }),
-    prisma.question.findMany({
-      where,
-      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-  ]);
-  res.json(
-    success({
-      list: formatAttemptQuestions(rows),
-      pagination: { page, pageSize, total },
-    }),
-  );
-});
-
 // 开始练习前只从数据库限量选择候选题，额度最终仍在创建练习的事务内复核。
 questionLibraryRouter.get("/selection", requireAuth, async (req, res) => {
   const examType = String(req.query.examType || EXAM_TYPE.TMUA).toUpperCase();

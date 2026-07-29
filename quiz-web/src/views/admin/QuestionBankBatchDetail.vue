@@ -122,6 +122,9 @@
         <el-table-column label="难度" width="100" align="center">
           <template #default="{ row }">{{ difficultyLabel(row.difficulty) }}</template>
         </el-table-column>
+        <el-table-column label="质量" width="100" align="center">
+          <template #default="{ row }">{{ qualityTierLabel(row.qualityTier) }}</template>
+        </el-table-column>
         <el-table-column label="状态" width="120" align="center">
           <template #default="{ row }">
             <el-dropdown trigger="click" @command="changeStatus(row, $event)">
@@ -178,6 +181,7 @@ import {
   updateQuestionBankStatus,
   type QuestionBankAdminItem,
   type QuestionBankImportBatch,
+  type QuestionBankQualityTier,
   type QuestionBankStatus,
 } from '@/api/questionBank'
 import type { KnowledgePoint } from '@/types'
@@ -291,6 +295,13 @@ function knowledgePointLabels(points: KnowledgePoint[] | unknown): string {
 // 难度编码在上传包详情中统一转换为中文标签。
 function difficultyLabel(value: string): string {
   return difficultyOptions.find((item) => item.value === value)?.label || value || '—'
+}
+
+// 生成质量等级仅在包内题目列表转换为中文，不参与筛选和其他页面展示。
+function qualityTierLabel(value: QuestionBankQualityTier | null): string {
+  if (value === 'excellent') return '优秀'
+  if (value === 'qualified') return '标准'
+  return '—'
 }
 
 // 单题状态下拉和上传包统计共用稳定状态编码。

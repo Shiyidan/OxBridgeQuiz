@@ -20,6 +20,7 @@ import {
 } from "../services/questionBankDocument.js";
 import { createAsyncRouter } from "../utils/asyncRouter.js";
 import { formatQuestionRow } from "../utils/questionSync.js";
+import { parseJsonObject } from "../utils/jsonField.js";
 import { fail, success } from "../utils/response.js";
 import { formatQuestionForAttempt, parsePositiveInt } from "./papers-shared.js";
 
@@ -107,6 +108,7 @@ function formatAttemptQuestions(rows: any[]): Array<Record<string, unknown>> {
 
 // 管理列表使用普通列和展示快照，避免为列表加载大体积 SVG 与完整解析。
 function formatAdminListItem(row: any): Record<string, unknown> {
+  const meta = parseJsonObject(row.meta);
   return {
     id: row.id,
     code: row.sourceQuestionCode || row.uniqueCode,
@@ -114,6 +116,10 @@ function formatAdminListItem(row: any): Record<string, unknown> {
     examType: row.examType,
     questionType: row.questionType,
     difficulty: row.difficulty,
+    qualityTier:
+      meta.qualityTier === "excellent" || meta.qualityTier === "qualified"
+        ? meta.qualityTier
+        : null,
     subject: row.subject,
     subjectCode: row.subjectCode,
     topic: row.topic,
@@ -464,6 +470,9 @@ questionLibraryRouter.post(
                     question.learningAnalysis.commonErrorCauses,
                   review_guidance: question.learningAnalysis.reviewGuidance,
                 },
+                ...(question.qualityTier
+                  ? { qualityTier: question.qualityTier }
+                  : {}),
                 ...(question.origin ? { origin: question.origin } : {}),
               } as Prisma.InputJsonValue,
               status: QUESTION_STATUS.DRAFT,

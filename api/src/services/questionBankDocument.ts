@@ -11,9 +11,11 @@ export const QUESTION_BANK_ORIGIN_TYPES = [
   "ai_generated",
   "adapted",
 ] as const;
+export const QUESTION_BANK_QUALITY_TIERS = ["qualified", "excellent"] as const;
 
 type Difficulty = (typeof QUESTION_BANK_DIFFICULTIES)[number];
 type OriginType = (typeof QUESTION_BANK_ORIGIN_TYPES)[number];
+type QualityTier = (typeof QUESTION_BANK_QUALITY_TIERS)[number];
 type QuestionBankPart = "part1" | "part2";
 
 export type QuestionBankContentBlock =
@@ -41,6 +43,7 @@ export interface QuestionBankQuestionInput {
   images: QuestionBankImage[];
   questionType: "single_choice";
   difficulty: Difficulty;
+  qualityTier?: QualityTier;
   classification: {
     subject: string;
     subjectCode: string;
@@ -80,6 +83,7 @@ export class QuestionBankDocumentError extends Error {
 const EXAM_TYPES = new Set(["ESAT", "TMUA", "STEP"]);
 const DIFFICULTIES = new Set<string>(QUESTION_BANK_DIFFICULTIES);
 const ORIGIN_TYPES = new Set<string>(QUESTION_BANK_ORIGIN_TYPES);
+const QUALITY_TIERS = new Set<string>(QUESTION_BANK_QUALITY_TIERS);
 const CONTROL_OR_REPLACEMENT = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFD]/;
 const CHINESE_CHARACTER = /[\u3400-\u9FFF]/;
 
@@ -188,6 +192,7 @@ function validateQuestion(
       "images",
       "questionType",
       "difficulty",
+      "qualityTier",
       "classification",
       "learningAnalysis",
       "origin",
@@ -388,6 +393,19 @@ function validateQuestion(
   );
   if (!DIFFICULTIES.has(difficulty))
     issues.push(`${path}.difficulty 不在允许范围内`);
+  let qualityTier: QualityTier | undefined;
+  if (raw.qualityTier !== undefined) {
+    const qualityTierValue = nonEmptyString(
+      raw.qualityTier,
+      `${path}.qualityTier`,
+      issues,
+    );
+    if (!QUALITY_TIERS.has(qualityTierValue)) {
+      issues.push(`${path}.qualityTier 仅允许 qualified 或 excellent`);
+    } else {
+      qualityTier = qualityTierValue as QualityTier;
+    }
+  }
 
   const classificationPath = `${path}.classification`;
   const classification = isObject(raw.classification) ? raw.classification : {};
@@ -543,6 +561,7 @@ function validateQuestion(
     difficulty: (DIFFICULTIES.has(difficulty)
       ? difficulty
       : "medium") as Difficulty,
+    ...(qualityTier ? { qualityTier } : {}),
     classification: {
       subject: nonEmptyString(
         classification.subject,

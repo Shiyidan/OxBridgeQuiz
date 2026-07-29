@@ -120,6 +120,7 @@ metadata 的业务边界：
           ],
           "questionType": "single_choice",
           "difficulty": "medium",
+          "qualityTier": "qualified",
           "classification": {
             "subject": "Physics (物理)",
             "subjectCode": "130000",
@@ -166,6 +167,7 @@ metadata 的业务边界：
 | images | 是 | array | 无图片时使用空数组 |
 | questionType | 是 | string | 当前正式标准固定为 single_choice |
 | difficulty | 是 | string | easy、medium、hard 或 composite |
+| qualityTier | 否 | string | 题目生成质量等级，仅允许 qualified 或 excellent |
 | classification | 是 | object | 学科、主题和考纲知识点 |
 | learningAnalysis | 是 | object | 面向学生展示的中文解析 |
 | origin | 否 | object | 人工、AI 原创或真题变式来源 |
@@ -384,6 +386,17 @@ PNG 或 JPG：
 | composite | 多个知识点或多种能力连续结合 |
 
 difficulty 必须是单个字符串，不得使用数字分数、对象、中文标签或 unknown。
+
+### 12.1 生成质量等级 qualityTier
+
+`qualityTier` 是题目生成或审核流程给出的可选质量标记，允许值：
+
+| 值 | 含义 |
+| --- | --- |
+| qualified | 已达到当前题库的基础质量要求 |
+| excellent | 已达到更高质量要求 |
+
+导入时会校验并将该字段原样保存到题目 `meta` JSON 中。当前版本不使用它进行后台展示、学生端展示、筛选、排序、发布或组卷；缺少该字段的既有文件仍可正常导入。
 
 ## 13. 考纲分类 classification
 
@@ -683,6 +696,7 @@ frontmatter 和 JSON 代码块之外的正文不参与入库，不得从自然�
 - images 中的 id 唯一，所有引用都能找到资源。
 - questionType 等于 single_choice。
 - difficulty 为四个允许值之一。
+- qualityTier 如存在，只能为 qualified 或 excellent。
 - classification 中的 code 和 label 与有效考纲一致。
 - knowledgePoints 至少包含一个 primary。
 - learningAnalysis 四个字段完整且解析与答案一致。

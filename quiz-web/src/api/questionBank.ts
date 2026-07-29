@@ -33,6 +33,7 @@ export interface QuestionBankBrowseResult {
 }
 
 export type QuestionBankStatus = 'draft' | 'published' | 'archived'
+export type QuestionBankQualityTier = 'qualified' | 'excellent'
 
 export interface QuestionBankAdminItem {
   id: string
@@ -41,6 +42,7 @@ export interface QuestionBankAdminItem {
   examType: string
   questionType: string
   difficulty: string
+  qualityTier: QuestionBankQualityTier | null
   subject: string | null
   subjectCode: string | null
   topic: string | null

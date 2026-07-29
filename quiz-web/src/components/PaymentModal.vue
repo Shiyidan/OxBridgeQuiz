@@ -286,10 +286,10 @@ const benefits = [
   '解锁 1000 套模拟卷、试题详细解析与知识点掌握分',
 ]
 
+// 云闪付尚在正式通道审核中，前台暂不提供入口；后端 unionpay 能力保留以便获批后恢复。
 const channels = [
   { id: 'alipay', name: '支付宝', label: '支付宝', mark: '支' },
   { id: 'wechat', name: '微信', label: '微信支付', mark: '微' },
-  { id: 'unionpay', name: '云闪付', label: '云闪付', mark: '云' },
 ] as const
 
 const activeChannel = computed(

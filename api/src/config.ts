@@ -187,7 +187,7 @@ function parseChinaumsEnv(value: string | undefined): ChinaumsEnv {
   throw new Error(`[config] CHINAUMS_ENV must be test or prod, received: ${environment}`)
 }
 
-function validateChinaumsUrl(name: string, value: string, requireHttps: boolean): void {
+function validateChinaumsUrl(name: string, value: string, requireHttps: boolean): URL {
   let url: URL
   try {
     url = new URL(value)
@@ -200,6 +200,16 @@ function validateChinaumsUrl(name: string, value: string, requireHttps: boolean)
   if (requireHttps && url.protocol !== 'https:') {
     throw new Error(`[config] ${name} must use HTTPS in the ChinaUMS production environment`)
   }
+  return url
+}
+
+// 生产通知地址必须可被银联公网回调，显式拦截本机、保留地址和常见私网地址。
+function isPrivateNetworkHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '')
+  if (host === 'localhost' || host === '::1' || host === '0.0.0.0' || host.endsWith('.local')) return true
+  if (/^127\./.test(host) || /^10\./.test(host) || /^192\.168\./.test(host) || /^169\.254\./.test(host)) return true
+  const match = host.match(/^172\.(\d+)\./)
+  return Boolean(match && Number(match[1]) >= 16 && Number(match[1]) <= 31)
 }
 
 function resolveChinaumsConfig() {
@@ -216,6 +226,7 @@ function resolveChinaumsConfig() {
     appId: process.env.CHINAUMS_APP_ID || '',
     appKey: process.env.CHINAUMS_APP_KEY || '',
     mid: process.env.CHINAUMS_MID || '',
+    expectedMid: process.env.CHINAUMS_EXPECTED_MID || '',
     tid: process.env.CHINAUMS_TID || '',
     instMid: process.env.CHINAUMS_INST_MID || 'QRPAYDEFAULT',
     msgSrcId: process.env.CHINAUMS_MSG_SRC_ID || '',
@@ -241,6 +252,7 @@ function resolveChinaumsConfig() {
   ]
   if (productionMode) {
     required.push(
+      ['CHINAUMS_EXPECTED_MID', payment.expectedMid],
       ['CHINAUMS_COMMUNICATION_KEY', payment.communicationKey],
       ['CHINAUMS_NOTIFY_URL', payment.notifyUrl],
     )
@@ -249,8 +261,11 @@ function resolveChinaumsConfig() {
   if (missing.length > 0) {
     throw new Error(`[config] ChinaUMS is enabled but required values are missing: ${missing.join(', ')}`)
   }
-  if (payment.mid.length !== 15) throw new Error('[config] CHINAUMS_MID must contain 15 characters')
-  if (payment.tid.length !== 8) throw new Error('[config] CHINAUMS_TID must contain 8 characters')
+  if (!/^\d{15}$/.test(payment.mid)) throw new Error('[config] CHINAUMS_MID must contain exactly 15 digits')
+  if (payment.expectedMid && payment.expectedMid !== payment.mid) {
+    throw new Error('[config] CHINAUMS_MID does not match CHINAUMS_EXPECTED_MID')
+  }
+  if (!/^\d{8}$/.test(payment.tid)) throw new Error('[config] CHINAUMS_TID must contain exactly 8 digits')
   if (!/^[A-Za-z0-9]{4}$/.test(payment.msgSrcId)) {
     throw new Error('[config] CHINAUMS_MSG_SRC_ID must contain exactly 4 letters or digits')
   }
@@ -263,8 +278,24 @@ function resolveChinaumsConfig() {
   if (payment.orderDescription.length > 128) {
     throw new Error('[config] CHINAUMS_ORDER_DESCRIPTION must not exceed 128 characters')
   }
-  validateChinaumsUrl('CHINAUMS_BASE_URL', payment.baseUrl, true)
-  if (payment.notifyUrl) validateChinaumsUrl('CHINAUMS_NOTIFY_URL', payment.notifyUrl, productionMode)
+  const baseUrl = validateChinaumsUrl('CHINAUMS_BASE_URL', payment.baseUrl, true)
+  if (productionMode && baseUrl.origin !== 'https://api-mop.chinaums.com') {
+    throw new Error('[config] ChinaUMS production must use https://api-mop.chinaums.com')
+  }
+  if (payment.notifyUrl) {
+    const notifyUrl = validateChinaumsUrl('CHINAUMS_NOTIFY_URL', payment.notifyUrl, productionMode)
+    if (productionMode) {
+      if (isPrivateNetworkHost(notifyUrl.hostname)) {
+        throw new Error('[config] CHINAUMS_NOTIFY_URL must use a public production hostname')
+      }
+      if (notifyUrl.pathname.replace(/\/$/, '') !== '/api/payment/notifications/chinaums') {
+        throw new Error('[config] CHINAUMS_NOTIFY_URL must end with /api/payment/notifications/chinaums')
+      }
+      if (notifyUrl.username || notifyUrl.password || notifyUrl.search || notifyUrl.hash) {
+        throw new Error('[config] CHINAUMS_NOTIFY_URL cannot contain credentials, query parameters, or fragments')
+      }
+    }
+  }
   if (payment.returnUrl) validateChinaumsUrl('CHINAUMS_RETURN_URL', payment.returnUrl, productionMode)
   return payment
 }

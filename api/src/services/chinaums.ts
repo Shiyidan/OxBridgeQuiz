@@ -2,6 +2,10 @@
 import crypto from 'crypto'
 import { config } from '../config.js'
 import { createChinaumsAuthorizationHeader } from './chinaumsSignature.js'
+import { verifyChinaumsNotificationSignature } from './chinaumsNotificationSignature.js'
+
+export { normalizeChinaumsNotification } from './chinaumsNotificationSignature.js'
+export { resolveChinaumsPaymentChannel } from './chinaumsChannel.js'
 
 type ChinaumsPayload = Record<string, unknown>
 
@@ -30,6 +34,8 @@ export interface ChinaumsBillResponse extends ChinaumsPayload {
   billQRCode?: string
   qrCodeId?: string
   systemId?: string
+  connectSys?: string
+  targetSys?: string
   totalAmount?: number | string
   billPayment?: ChinaumsBillPayment
   refundOrderId?: string
@@ -52,6 +58,8 @@ export function chinaumsResponseSnapshot(response: ChinaumsBillResponse): Chinau
     billQRCode: response.billQRCode,
     qrCodeId: response.qrCodeId,
     systemId: response.systemId,
+    connectSys: response.connectSys,
+    targetSys: response.targetSys,
     totalAmount: response.totalAmount,
     refundOrderId: response.refundOrderId,
     refundTargetOrderId: response.refundTargetOrderId,
@@ -281,32 +289,6 @@ export function closeChinaumsQr(qrCodeId: string, systemId?: string): Promise<Ch
   })
 }
 
-function normalizeNotificationValue(value: unknown): string {
-  if (Array.isArray(value)) return normalizeNotificationValue(value[value.length - 1])
-  if (value === null || value === undefined) return ''
-  return typeof value === 'string' ? value : JSON.stringify(value)
-}
-
-export function normalizeChinaumsNotification(payload: Record<string, unknown>): Record<string, string> {
-  return Object.fromEntries(Object.entries(payload).map(([key, value]) => [key, normalizeNotificationValue(value)]))
-}
-
 export function verifyChinaumsNotification(payload: Record<string, unknown>): boolean {
-  const normalized = normalizeChinaumsNotification(payload)
-  const receivedSign = normalized.sign?.toUpperCase()
-  if (!receivedSign || !config.chinaums.communicationKey) return false
-  const source = Object.keys(normalized)
-    .filter((key) => key !== 'sign')
-    .sort()
-    .map((key) => `${key}=${normalized[key]}`)
-    .join('&')
-  const algorithm = normalized.signType?.toUpperCase() === 'MD5' ? 'md5' : 'sha256'
-  const expected = crypto
-    .createHash(algorithm)
-    .update(`${source}${config.chinaums.communicationKey}`, 'utf8')
-    .digest('hex')
-    .toUpperCase()
-  const expectedBuffer = Buffer.from(expected)
-  const receivedBuffer = Buffer.from(receivedSign)
-  return expectedBuffer.length === receivedBuffer.length && crypto.timingSafeEqual(expectedBuffer, receivedBuffer)
+  return verifyChinaumsNotificationSignature(payload, config.chinaums.communicationKey)
 }

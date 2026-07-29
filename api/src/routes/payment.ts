@@ -9,6 +9,7 @@ import {
   createChinaumsOrderNo,
   createChinaumsQr,
   normalizeChinaumsNotification,
+  resolveChinaumsPaymentChannel,
   verifyChinaumsNotification,
 } from '../services/chinaums.js'
 import { PaymentFulfillmentError } from '../services/paymentFulfillment.js'
@@ -151,7 +152,7 @@ paymentRouter.get('/config', async (_req, res) => {
 paymentRouter.post('/notifications/chinaums', async (req, res) => {
   const payload = normalizeChinaumsNotification(req.body as Record<string, unknown>)
   const notifyId = notificationId(payload)
-  const orderNo = payload.billNo || null
+  const orderNo = payload.billNo || payload.merOrderId || null
   const signatureValid = verifyChinaumsNotification(payload)
   let notificationRecord: { id: string } | null = null
   try {
@@ -194,6 +195,24 @@ paymentRouter.post('/notifications/chinaums', async (req, res) => {
       await refreshPaymentRefund(refundOrderNo)
     } else if (order.status !== PAYMENT_ORDER_STATUS.PAID) {
       await syncPaymentOrderFromChinaums(order)
+    }
+    // 订单确认成功后用通知中的 targetSys 覆盖最初选择值，报表展示真实付款钱包。
+    const actualChannel = resolveChinaumsPaymentChannel({
+      targetSys: payload.targetSys,
+      connectSys: payload.connectSys,
+    })
+    if (actualChannel) {
+      await prisma.paymentOrder.updateMany({
+        where: {
+          id: order.id,
+          status: { in: [
+            PAYMENT_ORDER_STATUS.PAID,
+            PAYMENT_ORDER_STATUS.REFUNDING,
+            PAYMENT_ORDER_STATUS.REFUNDED,
+          ] },
+        },
+        data: { channel: actualChannel },
+      })
     }
     await prisma.paymentNotification.update({
       where: { id: notificationRecord.id },
@@ -341,6 +360,7 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
       where: { id: order.id },
       data: {
         providerPayload: jsonValue({
+          requestedChannel: channel,
           qrCode: {
             billDate: qrResponse.billDate,
             billQRCode: qrResponse.billQRCode,

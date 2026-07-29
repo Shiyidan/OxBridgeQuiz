@@ -195,6 +195,7 @@ export const PAYMENT_CHANNEL = {
 } as const
 
 export const PAYMENT_CHANNELS = Object.values(PAYMENT_CHANNEL)
+export type PaymentChannel = (typeof PAYMENT_CHANNELS)[number]
 
 export const PAYMENT_PRICE_TYPE = {
   FIRST_MONTHLY: 'first_monthly',

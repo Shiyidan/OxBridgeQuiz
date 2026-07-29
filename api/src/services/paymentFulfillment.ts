@@ -7,7 +7,11 @@ import {
 } from '../constants/domain.js'
 import { parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
 import { prisma } from './prisma.js'
-import { chinaumsResponseSnapshot, type ChinaumsBillResponse } from './chinaums.js'
+import {
+  chinaumsResponseSnapshot,
+  resolveChinaumsPaymentChannel,
+  type ChinaumsBillResponse,
+} from './chinaums.js'
 
 export class PaymentFulfillmentError extends Error {
   constructor(message: string, readonly code: string) {
@@ -49,6 +53,7 @@ export async function fulfillPaidOrder(
     throw new PaymentFulfillmentError('银联商务尚未确认该订单支付成功', 'PAYMENT_NOT_PAID')
   }
   const payment = response.billPayment
+  const actualChannel = resolveChinaumsPaymentChannel(response)
   if (payment?.status && payment.status !== 'TRADE_SUCCESS') {
     throw new PaymentFulfillmentError('银联商务支付流水不是成功状态', 'PAYMENT_TRADE_NOT_SUCCESS')
   }
@@ -73,6 +78,7 @@ export async function fulfillPaidOrder(
       },
       data: {
         status: PAYMENT_ORDER_STATUS.PAID,
+        ...(actualChannel ? { channel: actualChannel } : {}),
         providerOrderNo: payment?.targetOrderId || payment?.merOrderId || order.providerOrderNo,
         providerPayload: mergeProviderPayload(order.providerPayload, source, response),
         failureCode: null,

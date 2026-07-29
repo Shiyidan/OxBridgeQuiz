@@ -7,12 +7,22 @@ import { verifyMailTransport } from '../src/services/mail.js'
 async function main(): Promise<void> {
   await prisma.user.count()
   await verifyMailTransport()
+  const chinaums = config.chinaums.enabled
+    ? {
+        enabled: true,
+        environment: config.chinaums.environment,
+        baseHost: new URL(config.chinaums.baseUrl).host,
+        merchantId: `${'*'.repeat(Math.max(0, config.chinaums.mid.length - 4))}${config.chinaums.mid.slice(-4)}`,
+        notificationHost: config.chinaums.notifyUrl ? new URL(config.chinaums.notifyUrl).host : null,
+      }
+    : { enabled: false }
   console.log(
     JSON.stringify({
       runtimeEnv: config.runtimeEnv,
       frontendUrl: config.frontendUrl,
       database: 'reachable',
       smtp: 'authenticated',
+      chinaums,
     }),
   )
 }

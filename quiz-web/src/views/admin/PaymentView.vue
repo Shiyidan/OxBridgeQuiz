@@ -56,8 +56,8 @@
       <section class="reconciliation-card">
         <div class="orders-toolbar">
           <div>
-            <h2>每日交易对账与异常处理</h2>
-            <p>每日自动核对前一天订单，也可选择日期立即执行；对账只记录异常，不自动修改订单。</p>
+            <h2>交易状态核对与财务清算对账</h2>
+            <p>系统逐笔查询本地订单并记录异常，不会自动修改订单；财务清算结果需在银联商户平台复核。</p>
           </div>
           <div class="toolbar-actions">
             <el-date-picker
@@ -106,6 +106,16 @@
           show-icon
           title="定时对账和立即对账只发现并记录异常，不会自动修改订单、退款或会员；所有修复均需管理员在异常明细中显式确认。"
         />
+
+        <div class="settlement-guide">
+          <div>
+            <strong>银联清算报表复核</strong>
+            <span>进入“账务中心 → 对账查询 → 明细查询”，应用类型选择“公共支付”，按清算时间核对明细或汇总并下载 XLS/CSV。</span>
+          </div>
+          <el-link href="https://service.chinaums.com/uisportal/" target="_blank" rel="noopener noreferrer" type="primary">
+            打开银联商务商户平台
+          </el-link>
+        </div>
 
         <div class="anomaly-toolbar">
           <div>
@@ -936,6 +946,11 @@ onMounted(() => {
 .metric-item small { color: #94a3b8; font-size: 0.72rem; }
 .metric-warning strong { color: #d97706; }
 .reconciliation-note { width: auto; margin: 14px 24px 4px; }
+.settlement-guide { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin: 14px 24px 4px; padding: 14px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 9px; }
+.settlement-guide > div { display: grid; gap: 4px; }
+.settlement-guide strong { color: #334155; font-size: 0.82rem; }
+.settlement-guide span { color: #718096; font-size: 0.75rem; line-height: 1.5; }
+.settlement-guide :deep(.el-link) { flex: 0 0 auto; }
 .anomaly-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding: 20px 24px 14px; }
 .anomaly-toolbar h3 { margin: 0 0 5px; color: #263245; font-size: 0.96rem; }
 .anomaly-toolbar span { color: #8b97a8; font-size: 0.75rem; }
@@ -978,6 +993,7 @@ onMounted(() => {
   .page-heading, .orders-toolbar { align-items: stretch; flex-direction: column; }
   .toolbar-actions { align-items: stretch; flex-direction: column; }
   .toolbar-actions :deep(.el-input), .toolbar-actions :deep(.el-select), .toolbar-actions :deep(.el-date-editor) { width: 100%; }
+  .settlement-guide { align-items: flex-start; flex-direction: column; }
   .reconciliation-metrics { grid-template-columns: 1fr; }
   .anomaly-toolbar { align-items: stretch; flex-direction: column; }
   .detail-section :deep(.el-descriptions) { --el-descriptions-table-border: 1px solid #e5eaf1; }

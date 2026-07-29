@@ -7,6 +7,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "validate:runtime": "tsx scripts/validate-runtime-config.ts",
+    "validate:chinaums:prod": "tsx scripts/validate-chinaums-production.ts",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "backfill:questions": "tsx scripts/backfill-paper-questions.ts",
@@ -16,6 +17,7 @@
     "test:admin-user-access": "tsx scripts/test-admin-user-access.ts",
     "test:modular-diagnostic": "tsx scripts/test-modular-diagnostic.ts",
     "verify:chinaums-signature": "tsx scripts/verify-chinaums-signature.ts",
+    "verify:chinaums-notification": "tsx scripts/verify-chinaums-notification.ts",
     "smoke:chinaums": "tsx scripts/smoke-chinaums.ts"
   },
   "dependencies": {

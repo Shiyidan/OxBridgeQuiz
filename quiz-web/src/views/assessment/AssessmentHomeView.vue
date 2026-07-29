@@ -2,7 +2,7 @@
 <template>
   <div class="assessment-page">
     <NavBar />
-    <main class="assessment-shell" :aria-busy="loading">
+    <main class="assessment-shell">
       <header class="page-header">
         <div class="page-header__lead">
           <span class="page-eyebrow">Diagnostic Assessment</span>
@@ -30,166 +30,156 @@
         </div>
       </header>
 
-      <section class="paper-catalog" aria-labelledby="paper-catalog-title">
-        <div class="paper-filter-bar" aria-label="诊断试卷筛选">
-          <div class="paper-filter-bar__title">
-            <span>Diagnostic Papers</span>
-            <h2 id="paper-catalog-title">历年真题诊断卷</h2>
-          </div>
-          <div class="paper-filter-bar__controls">
-            <div class="paper-filter-control">
-              <span>考试类型</span>
-              <el-segmented
-                v-model="activeExamTypeFilter"
-                class="exam-type-filter"
-                :options="examTypeFilterOptions"
-                aria-label="按考试类型筛选诊断试卷"
-              />
-            </div>
-            <div class="paper-filter-control">
-              <span>完成状态</span>
-              <el-segmented
-                v-model="activeStatusFilter"
-                class="status-filter"
-                :options="statusFilterOptions"
-                aria-label="按完成状态筛选诊断试卷"
-              />
-            </div>
-          </div>
+      <section class="paper-filter-bar" aria-label="诊断试卷筛选">
+        <div class="paper-filter-bar__title">
+          <span>Diagnostic Papers</span>
+          <strong>历年真题诊断卷</strong>
         </div>
-
-        <div class="paper-grid" aria-label="历年真题" :aria-busy="loading">
-          <article
-            v-for="item in filteredDiagnosticTests"
-            :key="item.id"
-            class="paper-card"
-            :class="{
-              'paper-card--unavailable': !isPaperAvailable(item),
-              'paper-card--locked': isPaperLocked(item) && item.testStatus !== 'completed',
-            }"
-          >
-            <div
-              v-if="isPaperLocked(item) && item.testStatus !== 'completed'"
-              class="paper-card__lock-overlay"
-              role="group"
-              :aria-label="`${item.examType} 会员专享试卷`"
-              @click.stop
-            >
-              <div class="paper-card__lock-marker">
-                <el-icon aria-hidden="true"><Lock /></el-icon>
-                <span>会员专享</span>
-              </div>
-              <div class="paper-card__lock-actions">
-                <button
-                  v-if="item.completedAttemptCount > 0"
-                  class="paper-card__locked-history-button"
-                  type="button"
-                  @click.stop="openPaperHistory(item)"
-                >
-                  历次记录（{{ item.completedAttemptCount }}）
-                </button>
-                <button
-                  class="paper-card__unlock-button"
-                  type="button"
-                  @click.stop="handleUpgradeClick(item.examType)"
-                >
-                  开通会员
-                </button>
-              </div>
-            </div>
-
-            <div class="paper-card__heading">
-              <div class="paper-card__topline">
-                <span
-                  class="paper-card__badge"
-                  :class="`paper-card__badge--${paperStatusTone(item)}`"
-                >
-                  {{ paperStatusLabel(item) }}
-                </span>
-                <div class="paper-card__identity" aria-label="考试类型和年份">
-                  <span
-                    class="paper-card__exam-type"
-                    :class="`paper-card__exam-type--${String(item.examType || '').toLowerCase()}`"
-                  >
-                    {{ item.examType || 'TMUA' }}
-                  </span>
-                  <span class="paper-card__year">{{ item.year }}</span>
-                </div>
-              </div>
-              <h3 :title="item.title">{{ item.title }}</h3>
-              <SubjectModuleTags
-                v-if="item.modules?.length"
-                class="paper-card__subject-tags"
-                :modules="item.modules"
-                align="start"
-              />
-            </div>
-
-            <div class="paper-card__footer">
-              <div
-                v-if="item.testStatus === 'completed' && item.correctCount !== null"
-                class="paper-card__score"
-              >
-                <strong>{{ item.correctCount }}/{{ item.totalQuestions }}</strong>
-                <span v-if="isReportGenerating(item)">报告 {{ item.reportProgress }}%</span>
-                <span v-else>题正确</span>
-              </div>
-              <div class="paper-card__actions">
-                <button
-                  v-if="item.testStatus === 'completed' && isPaperPublished(item)"
-                  class="paper-card__button paper-card__button--secondary button_cancel"
-                  type="button"
-                  :disabled="isPaperLocked(item) || startingPaperId === item.id"
-                  @click="handleRetestPaper(item)"
-                >
-                  重新测试
-                </button>
-                <button
-                  class="paper-card__button button_primary"
-                  type="button"
-                  :disabled="
-                    (isPaperLocked(item) && item.testStatus !== 'completed') ||
-                    startingPaperId === item.id
-                  "
-                  @click="handlePaperAction(item)"
-                >
-                  {{ startingPaperId === item.id ? '正在检查...' : paperActionLabel(item) }}
-                </button>
-              </div>
-            </div>
-          </article>
-        </div>
-
-        <div v-if="loading" class="empty-state" role="status">加载中...</div>
-        <div v-else-if="!filteredDiagnosticTests.length" class="empty-state">
-          {{ emptyPaperMessage }}
+        <div class="paper-filter-bar__controls">
+          <div class="paper-filter-control">
+            <span>考试类型</span>
+            <el-segmented
+              v-model="activeExamTypeFilter"
+              class="exam-type-filter"
+              :options="examTypeFilterOptions"
+              aria-label="按考试类型筛选诊断试卷"
+            />
+          </div>
+          <div class="paper-filter-control">
+            <span>完成状态</span>
+            <el-segmented
+              v-model="activeStatusFilter"
+              class="status-filter"
+              :options="statusFilterOptions"
+              aria-label="按完成状态筛选诊断试卷"
+            />
+          </div>
+          <div class="paper-filter-control paper-filter-control--chart">
+            <span>分数趋势</span>
+            <el-switch
+              v-model="showScoreTrend"
+              inline-prompt
+              aria-label="显示或隐藏历次诊断测试分数变化折线图"
+            />
+          </div>
         </div>
       </section>
 
-      <section
-        class="chart-card"
-        :class="{ 'chart-card--collapsed': !showScoreTrend }"
-        aria-labelledby="score-trend-title"
-      >
+      <section v-if="showScoreTrend" class="chart-card">
         <div class="chart-title">
           <div>
-            <span>Score Trend · 示例数据</span>
-            <h2 id="score-trend-title">历次诊断测试分数变化</h2>
+            <span>Score Trend</span>
+            <strong>历次诊断测试分数变化</strong>
           </div>
-          <el-switch
-            v-model="showScoreTrend"
-            inline-prompt
-            aria-label="显示或隐藏历次诊断测试分数变化折线图"
-          />
         </div>
-        <div
-          v-if="showScoreTrend"
-          ref="chartRef"
-          class="score-chart"
-          role="img"
-          aria-label="历次诊断测试分数变化折线图，当前为示例数据"
-        ></div>
+        <div ref="chartRef" class="score-chart" aria-label="历次诊断测试分数变化折线图"></div>
       </section>
+
+      <section class="paper-grid" aria-label="历年真题">
+        <article
+          v-for="item in filteredDiagnosticTests"
+          :key="item.id"
+          class="paper-card"
+          :class="{
+            'paper-card--unavailable': !isPaperAvailable(item),
+            'paper-card--locked': isPaperLocked(item) && item.testStatus !== 'completed',
+          }"
+        >
+          <div
+            v-if="isPaperLocked(item) && item.testStatus !== 'completed'"
+            class="paper-card__lock-overlay"
+            :aria-label="`${item.examType} 会员专享试卷`"
+            @click.stop
+          >
+            <div class="paper-card__lock-marker">
+              <el-icon><Lock /></el-icon>
+              <!-- <span>会员专享</span> -->
+            </div>
+            <div class="paper-card__lock-actions">
+              <button
+                v-if="item.completedAttemptCount > 0"
+                class="paper-card__locked-history-button"
+                type="button"
+                @click.stop="openPaperHistory(item)"
+              >
+                历次记录（{{ item.completedAttemptCount }}）
+              </button>
+              <button
+                class="paper-card__unlock-button"
+                type="button"
+                @click.stop="handleUpgradeClick(item.examType)"
+              >
+                开通会员
+              </button>
+            </div>
+          </div>
+
+          <div class="paper-card__heading">
+            <div class="paper-card__topline">
+              <span
+                class="paper-card__badge"
+                :class="`paper-card__badge--${paperStatusTone(item)}`"
+              >
+                {{ paperStatusLabel(item) }}
+              </span>
+              <div class="paper-card__identity" aria-label="考试类型和年份">
+                <span
+                  class="paper-card__exam-type"
+                  :class="`paper-card__exam-type--${String(item.examType || '').toLowerCase()}`"
+                >
+                  {{ item.examType || 'TMUA' }}
+                </span>
+                <span class="paper-card__year">{{ item.year }}</span>
+              </div>
+            </div>
+            <h2 :title="item.title">{{ item.title }}</h2>
+            <SubjectModuleTags
+              v-if="item.modules?.length"
+              class="paper-card__subject-tags"
+              :modules="item.modules"
+              align="start"
+            />
+          </div>
+
+          <div class="paper-card__footer">
+            <div
+              v-if="item.testStatus === 'completed' && item.correctCount !== null"
+              class="paper-card__score"
+            >
+              <strong>{{ item.correctCount }}/{{ item.totalQuestions }}</strong>
+              <span v-if="isReportGenerating(item)">报告 {{ item.reportProgress }}%</span>
+              <span v-else>题正确</span>
+            </div>
+            <div class="paper-card__actions">
+              <button
+                v-if="item.testStatus === 'completed' && isPaperPublished(item)"
+                class="paper-card__button paper-card__button--secondary button_cancel"
+                type="button"
+                :disabled="isPaperLocked(item) || startingPaperId === item.id"
+                @click="handleRetestPaper(item)"
+              >
+                重新测试
+              </button>
+              <button
+                class="paper-card__button button_primary"
+                type="button"
+                :disabled="
+                  (isPaperLocked(item) && item.testStatus !== 'completed') ||
+                  startingPaperId === item.id
+                "
+                @click="handlePaperAction(item)"
+              >
+                {{ startingPaperId === item.id ? '正在检查...' : paperActionLabel(item) }}
+              </button>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <div v-if="loading" class="empty-state">加载中...</div>
+      <div v-else-if="!filteredDiagnosticTests.length" class="empty-state">
+        {{ emptyPaperMessage }}
+      </div>
     </main>
 
     <el-dialog
@@ -425,36 +415,26 @@ watch(showScoreTrend, async (visible) => {
 // mock 折线图先固定趋势数据，后续接真实历史诊断分数接口。
 function renderChart(): void {
   if (!chartRef.value) return
-  const rootStyles = window.getComputedStyle(document.documentElement)
-  const chartInk = rootStyles.getPropertyValue('--color-ink').trim() || '#1a1a1a'
-  const chartInkSoft = rootStyles.getPropertyValue('--color-ink-soft').trim() || '#4a4a4a'
-  const chartLine = rootStyles.getPropertyValue('--color-line').trim() || '#eaeaea'
-  const chartLineSoft = rootStyles.getPropertyValue('--color-line-soft').trim() || '#f0f0f0'
-  const chartSurface = rootStyles.getPropertyValue('--color-surface').trim() || '#ffffff'
   chartInstance?.dispose()
   chartInstance = echarts.init(chartRef.value)
   chartInstance.setOption({
-    aria: {
-      enabled: true,
-      description: '示例数据：展示 2023 年 9 月至 2024 年 3 月的诊断测试分数变化。',
-    },
     grid: { left: 44, right: 20, top: 24, bottom: 36 },
     xAxis: {
       type: 'category',
       data: mockScoreTrend.map((item) => item.month),
       boundaryGap: false,
       axisTick: { show: false },
-      axisLine: { lineStyle: { color: chartLine } },
-      axisLabel: { color: chartInkSoft, fontWeight: 600 },
-      splitLine: { show: true, lineStyle: { color: chartLineSoft, type: 'dashed' } },
+      axisLine: { lineStyle: { color: '#eaeaea' } },
+      axisLabel: { color: '#8a8a8a', fontWeight: 600 },
+      splitLine: { show: true, lineStyle: { color: '#f0f0f0', type: 'dashed' } },
     },
     yAxis: {
       type: 'value',
       min: 0,
       max: 9,
       interval: 3,
-      axisLabel: { color: chartInkSoft, fontWeight: 600 },
-      splitLine: { lineStyle: { color: chartLineSoft, type: 'dashed' } },
+      axisLabel: { color: '#8a8a8a', fontWeight: 600 },
+      splitLine: { lineStyle: { color: '#f0f0f0', type: 'dashed' } },
     },
     series: [
       {
@@ -463,8 +443,8 @@ function renderChart(): void {
         smooth: true,
         symbol: 'circle',
         symbolSize: 8,
-        lineStyle: { width: 3, color: chartInk },
-        itemStyle: { color: chartInk, borderColor: chartSurface, borderWidth: 2 },
+        lineStyle: { width: 3, color: '#1a1a1a' },
+        itemStyle: { color: '#1a1a1a', borderColor: '#ffffff', borderWidth: 2 },
       },
     ],
     tooltip: {
@@ -766,49 +746,30 @@ function paperActionLabel(item: AssessmentPaperItem): string {
 .assessment-shell {
   width: var(--fluid-shell-width);
   margin: 0 auto;
-  padding: 32px 0 96px;
+  padding: 40px 0 96px;
 }
 
 .page-header {
-  position: relative;
-  isolation: isolate;
-  min-height: 304px;
-  display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(340px, 0.72fr);
-  align-items: stretch;
-  gap: 0;
-  overflow: hidden;
-  margin: 0 0 20px;
-  border-radius: var(--radius-xl);
-  background: var(--color-ink);
-  color: var(--color-ink-inverse);
-  animation: assessment-header-reveal 520ms var(--ease-out) both;
-}
-
-.page-header__lead {
-  min-width: 0;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 46px 48px 48px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  margin: 0 0 24px;
 }
 
 .page-header h1 {
   margin: 0;
-  color: var(--color-ink-inverse);
-  font-size: clamp(var(--text-5xl), 3.7vw, 3.5rem);
+  color: var(--color-ink);
+  font-size: var(--text-4xl);
   font-weight: var(--weight-bold);
-  line-height: 1.04;
-  letter-spacing: -0.03em;
-  text-wrap: balance;
+  letter-spacing: 0;
   white-space: nowrap;
 }
 
 .page-header__lead p {
-  max-width: 620px;
-  margin: 18px 0 0;
-  color: rgb(255 255 255 / 84%);
-  font-size: var(--text-lg);
+  max-width: 560px;
+  margin: 10px 0 0;
+  color: var(--color-ink-soft);
   line-height: var(--leading-relaxed);
 }
 
@@ -816,9 +777,8 @@ function paperActionLabel(item: AssessmentPaperItem): string {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  width: fit-content;
-  margin-bottom: 22px;
-  color: var(--color-ink-inverse);
+  margin-bottom: 12px;
+  color: var(--color-ink-muted);
   font-size: var(--text-xs);
   font-weight: var(--weight-semi);
   letter-spacing: var(--tracking-wide);
@@ -826,61 +786,58 @@ function paperActionLabel(item: AssessmentPaperItem): string {
 }
 
 .page-eyebrow::before {
-  width: 32px;
+  width: 24px;
   height: 1px;
-  background: currentcolor;
+  background: var(--color-ink);
   content: '';
 }
 
 .quota-card {
-  width: auto;
-  min-width: 0;
+  width: fit-content;
+  max-width: 100%;
   display: grid;
-  align-content: space-between;
-  gap: 24px;
-  margin: 16px;
-  padding: 24px;
-  border-radius: var(--radius-lg);
+  gap: 14px;
+  flex: 0 1 auto;
+  justify-items: stretch;
+  padding: 16px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
-  color: var(--color-ink);
 }
 
 .quota-list {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .quota-pill {
-  min-width: 0;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  min-height: 54px;
-  padding: 0 2px;
-  border: 0;
-  border-bottom: 1px solid var(--color-line);
-  border-radius: 0;
-  background: transparent;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: var(--color-hover);
   color: var(--color-ink-soft);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: var(--weight-semi);
-}
-
-.quota-pill:first-child {
-  border-top: 1px solid var(--color-line);
+  white-space: nowrap;
 }
 
 .quota-pill strong {
   color: var(--color-ink);
-  font-size: var(--text-base);
 }
 
 .quota-pill--empty {
-  color: var(--color-ink-soft);
+  background: var(--color-surface-alt);
+  color: var(--color-ink-muted);
 }
 
 .quota-pill--unavailable {
   border-style: dashed;
+  background: color-mix(in srgb, var(--color-report-purple-soft) 42%, var(--color-surface));
 }
 
 .quota-button,
@@ -890,19 +847,15 @@ function paperActionLabel(item: AssessmentPaperItem): string {
 }
 
 .quota-button {
-  min-width: 0;
+  min-width: 128px;
   width: 100%;
-  height: var(--height-button-lg);
-  font-size: var(--text-base);
 }
 
 .chart-card {
-  min-height: 0;
-  margin-top: 20px;
-  padding: 0;
-  overflow: hidden;
+  margin-top: 16px;
+  padding: 24px 24px 16px;
   border: 1px solid var(--color-line);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
 }
 
@@ -910,144 +863,118 @@ function paperActionLabel(item: AssessmentPaperItem): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--color-line);
-  background: var(--color-surface-alt);
-}
-
-.chart-title > div {
-  display: flex;
-  flex-direction: column-reverse;
-  gap: 5px;
+  margin-bottom: 4px;
 }
 
 .chart-title span {
   display: block;
+  margin-bottom: 4px;
   color: var(--color-ink-muted);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: var(--weight-semi);
-  letter-spacing: 0;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
 }
 
-.chart-title h2 {
-  margin: 0;
+.chart-title strong {
   color: var(--color-ink);
-  font-size: var(--text-xl);
-  line-height: var(--leading-snug);
-  letter-spacing: var(--tracking-tight);
-}
-
-.chart-card--collapsed .chart-title {
-  border-bottom: 0;
+  font-size: var(--text-lg);
 }
 
 .score-chart {
   width: 100%;
-  height: 230px;
+  height: 220px;
 }
 
 .paper-filter-bar {
-  display: grid;
-  grid-template-columns: 190px minmax(0, 1fr);
-  align-items: stretch;
-  gap: 24px;
-  padding: 20px 24px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-}
-
-.paper-filter-bar__title {
-  min-width: 0;
   display: flex;
-  flex-direction: column-reverse;
-  justify-content: center;
-  gap: 6px;
-  padding-right: 24px;
-  border-right: 1px solid var(--color-line);
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
 }
 
 .paper-filter-bar__title span {
   display: block;
+  margin-bottom: 3px;
   color: var(--color-ink-muted);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: var(--weight-semi);
-  letter-spacing: 0;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
 }
 
-.paper-filter-bar__title h2 {
-  margin: 0;
+.paper-filter-bar__title strong {
   color: var(--color-ink);
-  font-size: var(--text-xl);
-  line-height: var(--leading-snug);
+  font-size: var(--text-base);
 }
 
 .paper-filter-bar__controls {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(228px, 0.8fr) minmax(316px, 1fr);
-  align-items: end;
-  gap: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 
 .paper-filter-control {
-  min-width: 0;
-  display: grid;
-  align-content: end;
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
 }
 
 .paper-filter-control > span {
-  color: var(--color-ink-soft);
+  color: var(--color-ink-muted);
   font-size: var(--text-xs);
   font-weight: var(--weight-semi);
   white-space: nowrap;
 }
 
+.paper-filter-control--chart {
+  min-height: var(--height-button);
+  padding-left: 4px;
+}
+
 .exam-type-filter {
-  width: 100%;
-  min-width: 0;
+  flex: 0 0 auto;
+  min-width: 252px;
 }
 
 .status-filter {
-  width: 100%;
-  min-width: 0;
-}
-
-.exam-type-filter :deep(.el-segmented),
-.status-filter :deep(.el-segmented) {
-  width: 100%;
+  flex: 0 0 auto;
+  min-width: 340px;
 }
 
 .exam-type-filter :deep(.el-segmented__item),
 .status-filter :deep(.el-segmented__item) {
-  min-width: 0;
+  min-width: 76px;
   font-weight: var(--weight-semi);
 }
 
 .paper-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
-  margin-top: 20px;
+  gap: 16px;
+  margin-top: 16px;
 }
 
 .paper-card {
   position: relative;
   overflow: hidden;
   min-width: 0;
-  min-height: 238px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 28px 28px 24px;
+  gap: 18px;
+  padding: 24px;
   border: 1px solid var(--color-line);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   transition:
     border-color var(--duration-base) ease,
-    transform var(--duration-base) var(--ease-out);
+    transform var(--duration-fast) ease;
 }
 
 .paper-card__lock-overlay {
@@ -1056,61 +983,62 @@ function paperActionLabel(item: AssessmentPaperItem): string {
   z-index: 10;
   overflow: hidden;
   border-radius: inherit;
-  background: rgb(255 255 255 / 24%);
-  color: var(--color-ink-inverse);
+  background: linear-gradient(
+    to top,
+    rgb(15 15 15 / 68%) 0%,
+    rgb(20 20 20 / 42%) 38%,
+    rgb(24 24 24 / 18%) 72%,
+    rgb(24 24 24 / 7%) 100%
+  );
+  color: rgb(255 255 255 / 92%);
   cursor: not-allowed;
   pointer-events: auto;
   transition: background var(--duration-base) ease;
 }
 
-.paper-card__lock-overlay::before {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 82px;
-  background: var(--color-ink);
-  content: '';
-}
-
 .paper-card__lock-marker {
   position: absolute;
-  bottom: 29px;
-  left: 24px;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 7px;
+  top: 66.666%;
+  left: 50%;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  transform: translate(-50%, -50%);
+  text-shadow: 0 1px 10px rgb(0 0 0 / 42%);
 }
 
 .paper-card__lock-marker .el-icon {
-  font-size: 19px;
+  font-size: 32px;
 }
 
 .paper-card__lock-marker span {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: var(--weight-bold);
-  letter-spacing: 0;
-  white-space: nowrap;
+  letter-spacing: 0.04em;
 }
 
 .paper-card__lock-actions {
   position: absolute;
+  bottom: 12px;
   right: 24px;
-  bottom: 19px;
-  left: 136px;
-  z-index: 2;
-  display: flex;
+  left: 24px;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  opacity: 1;
-  pointer-events: auto;
+  column-gap: 10px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+  transition:
+    opacity var(--duration-fast) ease,
+    transform var(--duration-fast) ease;
 }
 
 .paper-card__unlock-button {
+  grid-column: 2;
   min-width: 112px;
-  height: 44px;
+  height: var(--height-button);
   padding: 0 22px;
   border: 1px solid rgb(255 255 255 / 64%);
   border-radius: var(--radius-md);
@@ -1127,10 +1055,12 @@ function paperActionLabel(item: AssessmentPaperItem): string {
 }
 
 .paper-card__locked-history-button {
-  min-height: 44px;
-  padding: 0 14px;
-  border: 1px solid rgb(255 255 255 / 48%);
-  border-radius: var(--radius-md);
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: end;
+  padding: 5px 1px 3px;
+  border: 0;
+  border-bottom: 1px solid rgb(255 255 255 / 72%);
   background: transparent;
   color: rgb(255 255 255 / 94%);
   font: inherit;
@@ -1148,25 +1078,42 @@ function paperActionLabel(item: AssessmentPaperItem): string {
 }
 
 .paper-card__locked-history-button:hover {
-  border-color: rgb(255 255 255);
+  border-bottom-color: rgb(255 255 255);
   color: rgb(255 255 255);
 }
 
 .paper-card--locked:hover .paper-card__lock-overlay,
 .paper-card--locked:focus-within .paper-card__lock-overlay {
-  background: rgb(255 255 255 / 16%);
+  background: linear-gradient(
+    to top,
+    rgb(12 12 12 / 74%) 0%,
+    rgb(18 18 18 / 48%) 38%,
+    rgb(22 22 22 / 22%) 72%,
+    rgb(22 22 22 / 9%) 100%
+  );
+}
+
+.paper-card__lock-overlay:hover .paper-card__lock-actions,
+.paper-card__lock-overlay:focus-within .paper-card__lock-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 
 .paper-card:hover {
   border-color: var(--color-ink);
-  transform: translateY(-3px);
+  transform: translateY(-1px);
 }
 
 .paper-card--unavailable,
 .paper-card--unavailable:hover {
   border-color: var(--color-line);
   border-style: dashed;
-  background: var(--color-surface-alt);
+  background: linear-gradient(
+    135deg,
+    var(--color-surface),
+    color-mix(in srgb, var(--color-report-purple-soft) 44%, var(--color-surface))
+  );
   transform: none;
 }
 
@@ -1226,7 +1173,7 @@ function paperActionLabel(item: AssessmentPaperItem): string {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
 }
 
 .paper-card__identity {
@@ -1267,38 +1214,33 @@ function paperActionLabel(item: AssessmentPaperItem): string {
 }
 
 .paper-card__heading {
-  position: relative;
-  z-index: 1;
   min-width: 0;
 }
 
-.paper-card__heading h3 {
+.paper-card__heading h2 {
   overflow: hidden;
   margin: 0;
   color: var(--color-ink);
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   font-weight: var(--weight-bold);
-  line-height: var(--leading-snug);
-  letter-spacing: var(--tracking-tight);
-  text-wrap: balance;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .paper-card__subject-tags {
-  margin-top: 14px;
-  flex-wrap: wrap;
+  margin-top: 10px;
 }
 
 .paper-card__footer {
   position: relative;
-  z-index: 1;
+  z-index: 3;
   min-height: var(--height-button);
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 20px;
-  margin-top: auto;
-  padding-top: 20px;
+  padding-top: 16px;
   border-top: 1px solid var(--color-line);
 }
 
@@ -1309,14 +1251,12 @@ function paperActionLabel(item: AssessmentPaperItem): string {
 
 .paper-card__score strong {
   color: var(--color-ink);
-  font-size: var(--text-3xl);
+  font-size: var(--text-2xl);
   font-weight: var(--weight-bold);
-  letter-spacing: var(--tracking-tight);
 }
 
 .paper-card__score span {
-  margin-left: 5px;
-  color: var(--color-ink-soft);
+  color: var(--color-ink-muted);
   font-size: var(--text-sm);
   font-weight: var(--weight-semi);
 }
@@ -1334,39 +1274,12 @@ function paperActionLabel(item: AssessmentPaperItem): string {
 
 .empty-state {
   margin-top: 24px;
-  min-height: 180px;
-  display: grid;
-  place-items: center;
-  padding: 40px;
+  padding: 32px;
   border: 1px dashed var(--color-line);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
-  color: var(--color-ink-soft);
+  color: var(--color-ink-muted);
   text-align: center;
-}
-
-@keyframes assessment-header-reveal {
-  from {
-    clip-path: inset(0 0 12% 0 round var(--radius-xl));
-    filter: blur(3px);
-    transform: translateY(8px);
-  }
-
-  to {
-    clip-path: inset(0 round var(--radius-xl));
-    filter: blur(0);
-    transform: translateY(0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .page-header {
-    animation: none;
-  }
-
-  .paper-card {
-    transition: none;
-  }
 }
 
 :deep(.diagnostic-history-dialog) {
@@ -1511,6 +1424,26 @@ function paperActionLabel(item: AssessmentPaperItem): string {
 }
 
 @media (max-width: 760px) {
+  .paper-filter-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .paper-filter-bar__controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .paper-filter-control {
+    justify-content: space-between;
+  }
+
+  .exam-type-filter,
+  .status-filter {
+    width: 100%;
+    min-width: 0;
+  }
+
   :deep(.diagnostic-history-dialog) {
     width: calc(100% - 32px) !important;
   }

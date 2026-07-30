@@ -21,6 +21,11 @@ export interface QuestionBankSummary {
   difficultyCount: DifficultyCount
 }
 
+export interface KnowledgePointQuestionCounts {
+  counts: Record<string, number>
+  total: number
+}
+
 export interface PaginationResult {
   page: number
   pageSize: number
@@ -92,6 +97,15 @@ export function getQuestionSummaryData(code: string, examType = DEFAULT_EXAM_TYP
     url: '/question-library/summary',
     method: 'GET',
     params: { code, examType },
+  })
+}
+
+/** 批量获取叶子知识点各自题量和跨知识点去重后的已发布题目总数。 */
+export function getKnowledgePointQuestionCounts(codes: string[], examType = DEFAULT_EXAM_TYPE) {
+  return callApi<KnowledgePointQuestionCounts>({
+    url: '/question-library/knowledge-point-counts',
+    method: 'GET',
+    params: { codes: codes.join(','), examType },
   })
 }
 

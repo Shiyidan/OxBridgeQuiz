@@ -55,6 +55,7 @@ const questions = ref<ReportQuestion[]>([])
 const paper = ref<PaperMeta | null>(null)
 const isDiagnosticRecord = ref(false)
 const recordExamType = ref('')
+const practiceNotebookName = ref('')
 
 // 当前答卷 ID 用于读取结果并决定后续进入哪一种报告页面。
 const examId = computed(() => String(route.params.id || ''))
@@ -82,11 +83,13 @@ const analysisSource = computed<'diagnostic' | 'question-bank'>(() => {
 
 // 错题本入口单独决定返回行为，并允许携带已校验的列表筛选地址。
 const cameFromMistakeNotebook = computed(() => route.query.from === 'mistake-notebook')
+const cameFromPracticeNotebook = computed(() => route.query.from === 'practice-notebook')
 
-// 题库练习没有成型套卷，统一使用会话名称；诊断答卷则展示正式试卷名称。
-const pageContextTitle = computed(() =>
-  analysisSource.value === 'question-bank' ? '题库专项练习' : examTitle.value,
-)
+// 练习本解析使用交卷时保存的名称快照，临时题库练习和诊断答卷沿用各自默认标题。
+const pageContextTitle = computed(() => {
+  if (analysisSource.value !== 'question-bank') return examTitle.value
+  return practiceNotebookName.value || '题库专项练习'
+})
 
 const analysisPageTitle = computed(() =>
   singleQuestionMode.value
@@ -98,9 +101,11 @@ const analysisPageTitle = computed(() =>
 const returnLabel = computed(() =>
   cameFromMistakeNotebook.value
     ? '返回错题本'
-    : analysisSource.value === 'diagnostic'
-      ? '返回诊断报告'
-      : '返回试题库',
+    : cameFromPracticeNotebook.value
+      ? '返回练习本'
+      : analysisSource.value === 'diagnostic'
+        ? '返回诊断报告'
+        : '返回试题库',
 )
 
 // 页面加载后先识别 paperType 和 examType，诊断记录随即跳到独立考试报告页。
@@ -111,6 +116,7 @@ onMounted(async () => {
       normalizePaperType(data.examRecord.paper?.paperType) === PAPER_TYPE.REAL_PAPER
     isDiagnosticRecord.value = isDiagnostic
     recordExamType.value = data.examRecord.examType
+    practiceNotebookName.value = data.examRecord.practiceNotebookName?.trim() || ''
     if (isDiagnostic && !isQuestionReview.value) {
       const status = await getDiagnosticReportStatus(examId.value)
       if (status.status === 'completed' && status.reportExamRecordId) {
@@ -168,6 +174,10 @@ function returnToSource(): void {
         ? returnTo
         : '/mistake-notebook'
     void router.push(safeReturnTo)
+    return
+  }
+  if (cameFromPracticeNotebook.value) {
+    void router.push('/practice-notebook')
     return
   }
   if (analysisSource.value === 'question-bank') {

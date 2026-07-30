@@ -18,6 +18,7 @@ import { operationAuditMiddleware } from './middleware/operationAudit.js'
 import { requestContextMiddleware } from './utils/requestContext.js'
 import { requestLoggingMiddleware } from './middleware/requestLogging.js'
 import { questionLibraryRouter } from './routes/questionLibrary.js'
+import { practiceNotebookRouter } from './routes/practiceNotebooks.js'
 
 const app = express()
 
@@ -54,6 +55,7 @@ app.use('/api/exams', examRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/papers', papersRouter)
 app.use('/api/question-library', questionLibraryRouter)
+app.use('/api/practice-notebooks', practiceNotebookRouter)
 app.use('/api/parse-tasks', parseRouter)
 app.use('/api/upload', uploadRouter)
 

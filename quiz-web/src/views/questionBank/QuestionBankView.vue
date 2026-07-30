@@ -1,6 +1,5 @@
 ﻿<template>
   <div class="question-bank">
-    <NavBar />
     <main class="qb-container">
       <header class="qb-header">
         <div class="qb-header__lead">
@@ -8,6 +7,19 @@
           <h1 class="qb-header__title">试题库</h1>
           <p class="qb-header__subtitle">包含专项试题练习与全真模拟考试系统。</p>
         </div>
+        <button type="button" class="qb-notebook-entry" @click="handleOpenPracticeNotebook">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M5 4.75A1.75 1.75 0 0 1 6.75 3H19v16H6.75A1.75 1.75 0 0 0 5 20.75v-16Z"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linejoin="round"
+            />
+            <path d="M5 18.75h14M8.5 7h7" stroke="currentColor" stroke-width="1.6" />
+          </svg>
+          <span>练习本</span>
+          <span aria-hidden="true">→</span>
+        </button>
       </header>
 
       <section class="qb-main">
@@ -84,7 +96,6 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { TreeInstance } from 'element-plus'
-import NavBar from '@/components/NavBar.vue'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import type { SyllabusNode } from '@/api/questionBank'
 import { getSyllabusData, getQuestionSummaryData } from '@/api/questionBank'
@@ -318,6 +329,11 @@ onMounted(async () => {
   await loadExamContent(true)
 })
 
+// 练习本作为同一学习工作区的下一页，由外层布局提供向左滑动切换。
+function handleOpenPracticeNotebook(): void {
+  void router.push('/practice-notebook')
+}
+
 // 续答只携带 ExamRecord ID，题目集合和保存进度全部由服务端会话恢复。
 function handleContinuePractice(): void {
   if (!activePractice.value) return
@@ -356,7 +372,7 @@ const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
 
 <style scoped lang="scss">
 .question-bank {
-  min-height: 100vh;
+  min-height: calc(100vh - var(--nav-height));
   min-width: var(--fluid-page-min-width);
   background: var(--color-bg);
   color: var(--color-ink);
@@ -369,7 +385,44 @@ const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
 }
 
 .qb-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
   margin-bottom: 24px;
+}
+
+.qb-notebook-entry {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 148px;
+  height: 46px;
+  padding: 0 16px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-weight: var(--weight-semi);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-base) ease,
+    background var(--duration-base) ease,
+    transform var(--duration-fast) ease;
+}
+
+.qb-notebook-entry:hover,
+.qb-notebook-entry:focus-visible {
+  border-color: var(--color-ink);
+  background: var(--color-hover);
+  transform: translateX(2px);
+}
+
+.qb-notebook-entry svg {
+  width: 20px;
+  height: 20px;
 }
 
 .page-eyebrow {
@@ -559,6 +612,10 @@ const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
 }
 
 @media (max-width: 900px) {
+  .qb-header {
+    align-items: flex-start;
+  }
+
   .qb-main {
     grid-template-columns: 1fr;
   }

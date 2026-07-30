@@ -47,6 +47,19 @@ const emptyDifficultyCount = (): DifficultyCount => ({
   composite: 0,
 });
 
+// 批量知识点统计参数兼容逗号分隔和重复 query，并在数据库查询前统一去重。
+function parseKnowledgePointCodes(value: unknown): string[] {
+  const rawValues = Array.isArray(value) ? value : [value];
+  return [
+    ...new Set(
+      rawValues
+        .flatMap((item) => String(item || "").split(","))
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+
 // 父级考纲筛选先解析成节点 id，题目筛选和统计再通过关联表在数据库中完成。
 async function collectDescendantNodeIds(
   code: string,
@@ -234,6 +247,70 @@ questionLibraryRouter.get("/summary", requireAuth, async (req, res) => {
     }),
   );
 });
+
+// 练习本按一批叶子知识点返回各自题量及去重后的可选题目总数。
+questionLibraryRouter.get(
+  "/knowledge-point-counts",
+  requireAuth,
+  async (req, res) => {
+    const examType = String(req.query.examType || EXAM_TYPE.TMUA).toUpperCase();
+    if (!isExamType(examType)) {
+      res.status(422).json(fail("无效的考试类型"));
+      return;
+    }
+    const codes = parseKnowledgePointCodes(req.query.codes);
+    if (codes.length > 200) {
+      res.status(422).json(fail("单次最多统计 200 个知识点"));
+      return;
+    }
+    if (!codes.length) {
+      res.json(success({ counts: {}, total: 0 }));
+      return;
+    }
+
+    const nodes = await prisma.syllabusNode.findMany({
+      where: { examType, code: { in: codes } },
+      select: { id: true, code: true },
+    });
+    const nodeIds = nodes.map((node) => node.id);
+    const publishedQuestionWhere: Prisma.QuestionWhereInput = {
+      paperId: null,
+      status: QUESTION_STATUS.PUBLISHED,
+      examType,
+    };
+    const [groups, total] = nodeIds.length
+      ? await Promise.all([
+          prisma.questionKnowledgePoint.groupBy({
+            by: ["syllabusNodeId"],
+            where: {
+              syllabusNodeId: { in: nodeIds },
+              question: publishedQuestionWhere,
+            },
+            _count: { questionId: true },
+          }),
+          prisma.question.count({
+            where: {
+              ...publishedQuestionWhere,
+              knowledgePointLinks: {
+                some: { syllabusNodeId: { in: nodeIds } },
+              },
+            },
+          }),
+        ])
+      : [[], 0];
+    const countByNodeId = new Map(
+      groups.map((group) => [group.syllabusNodeId, group._count.questionId]),
+    );
+    const counts = Object.fromEntries(
+      codes.map((code) => {
+        const node = nodes.find((item) => item.code === code);
+        return [code, node ? countByNodeId.get(node.id) || 0 : 0];
+      }),
+    );
+
+    res.json(success({ counts, total }));
+  },
+);
 
 // 开始练习前只从数据库限量选择候选题，额度最终仍在创建练习的事务内复核。
 questionLibraryRouter.get("/selection", requireAuth, async (req, res) => {

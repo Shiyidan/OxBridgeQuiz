@@ -22,14 +22,24 @@ export interface User {
 
 export type ActiveExamType = 'ESAT' | 'TMUA'
 
-// 导航默认考试只在用户恰好选择一个有效类型时采用该值，其余情况统一回落 TMUA。
-function resolveDefaultExamType(examPreferences: MemberContext['examPreferences']): ActiveExamType {
-  const examTypes = new Set(
-    examPreferences
+// 导航默认考试先采用唯一有效会员权益；权益无法唯一确定时，再按备考倾向和 TMUA 兜底。
+function resolveDefaultExamType(context: MemberContext): ActiveExamType {
+  const memberExamTypes = new Set(
+    Object.entries(context.quotas || {})
+      .filter(([, quota]) => quota.isMember)
+      .map(([examType]) => String(examType || '').toUpperCase())
+      .filter((examType) => examType === 'ESAT' || examType === 'TMUA'),
+  )
+  if (memberExamTypes.size === 1) {
+    return memberExamTypes.has('ESAT') ? 'ESAT' : 'TMUA'
+  }
+
+  const preferredExamTypes = new Set(
+    (context.examPreferences || [])
       .map((item) => String(item.examType || '').toUpperCase())
       .filter((examType) => examType === 'ESAT' || examType === 'TMUA'),
   )
-  return examTypes.size === 1 && examTypes.has('ESAT') ? 'ESAT' : 'TMUA'
+  return preferredExamTypes.size === 1 && preferredExamTypes.has('ESAT') ? 'ESAT' : 'TMUA'
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -120,7 +130,7 @@ export const useAuthStore = defineStore('auth', () => {
     memberContext.value = context
     user.value = context.user
     if (!examTypeSelectedManually.value) {
-      activeExamType.value = resolveDefaultExamType(context.examPreferences || [])
+      activeExamType.value = resolveDefaultExamType(context)
     }
   }
 

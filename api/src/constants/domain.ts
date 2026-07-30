@@ -96,6 +96,27 @@ export const ANSWER_RECORD_STATE = {
 export const ANSWER_RECORD_STATES = Object.values(ANSWER_RECORD_STATE)
 export type AnswerRecordState = (typeof ANSWER_RECORD_STATES)[number]
 
+export const PRACTICE_NOTEBOOK_STATUS = {
+  ACTIVE: 'active',
+  ARCHIVED: 'archived',
+} as const
+
+export const PRACTICE_NOTEBOOK_DIFFICULTY = {
+  EASY: 'easy',
+  MEDIUM: 'medium',
+  HARD: 'hard',
+  MIXED: 'mixed',
+} as const
+
+export const PRACTICE_NOTEBOOK_DIFFICULTIES = Object.values(PRACTICE_NOTEBOOK_DIFFICULTY)
+export type PracticeNotebookDifficulty = (typeof PRACTICE_NOTEBOOK_DIFFICULTIES)[number]
+
+export const PRACTICE_SOURCE = {
+  DIRECT: 'direct',
+  FREE_ASSEMBLY: 'free_assembly',
+  NOTEBOOK: 'notebook',
+} as const
+
 // 将外部状态值收窄为答题记录允许的状态，供接口边界安全复用。
 export function isAnswerRecordState(value: unknown): value is AnswerRecordState {
   return typeof value === 'string' && ANSWER_RECORD_STATES.includes(value as AnswerRecordState)

@@ -5,7 +5,7 @@ import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
 import { formatQuestionRow } from '../utils/questionSync.js'
-import { parseJsonField, parseJsonArray } from '../utils/jsonField.js'
+import { parseJsonField, parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
 import { checkMemberAccess } from '../services/member.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { computeScores } from '../services/scoring.js'
@@ -197,6 +197,10 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
       number: q.number ?? null,
     }))
     const scoring = computeScores(examRecord.examType, questionsWithResults)
+    const practiceSnapshot = parseJsonObject(examRecord.practiceSnapshot)
+    const notebookName = typeof practiceSnapshot.notebookName === 'string'
+      ? practiceSnapshot.notebookName.trim()
+      : ''
 
     res.json(success({
       examRecord: {
@@ -208,6 +212,7 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
         startedAt: examRecord.startedAt,
         submittedAt: examRecord.submittedAt,
         status: examRecord.status,
+        practiceNotebookName: notebookName || null,
         paper: examRecord.paperId === 'question-bank'
           ? {
               id: 'question-bank',

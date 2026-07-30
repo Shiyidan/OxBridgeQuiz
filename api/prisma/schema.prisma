@@ -149,6 +149,7 @@ model User {
   paymentOrders         PaymentOrder[]
   operationLogs         OperationLog[]
   legalAcceptances      UserLegalAcceptance[]
+  practiceNotebooks     PracticeNotebook[]
 }
 
 model OperationLog {
@@ -278,16 +279,43 @@ model ExamRecord {
   activeDiagnosticKey   String?   @unique @db.VarChar(191)
   activeQuestionBankKey String?   @unique @db.VarChar(191)
   submissionKey         String?   @unique @db.VarChar(191)
+  practiceNotebookId    String?   @db.VarChar(191)
+  practiceSource        String?   @db.VarChar(32)
+  practiceSnapshot      Json?
 
   user                 User                  @relation(fields: [userId], references: [id])
   paper                Paper                 @relation(fields: [paperId], references: [id])
+  practiceNotebook     PracticeNotebook?     @relation(fields: [practiceNotebookId], references: [id], onDelete: SetNull)
   answers              AnswerRecord[]
   diagnosticReportTask DiagnosticReportTask?
   diagnosticReport     DiagnosticReport?
 
   @@index([userId, examType])
   @@index([userId, paperId, status])
+  @@index([practiceNotebookId, status, submittedAt])
   @@index([examType])
+}
+
+model PracticeNotebook {
+  id                     String   @id @default(uuid()) @db.VarChar(191)
+  userId                 String   @db.VarChar(191)
+  examType               String   @db.VarChar(32)
+  name                   String   @db.VarChar(100)
+  knowledgePointCodes    Json
+  knowledgePointSnapshot Json
+  questionCount          Int
+  difficultyMode         String   @db.VarChar(32)
+  durationMinutes        Int?
+  unseenFirst            Boolean  @default(true)
+  status                 String   @default("active") @db.VarChar(32)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examRecords ExamRecord[]
+
+  @@index([userId, examType, status, updatedAt])
+  @@index([userId, status])
 }
 
 model AnswerRecord {
@@ -445,7 +473,7 @@ model EntitlementConfig {
   id                String   @id @default(uuid()) @db.VarChar(191)
   examType          String   @unique @db.VarChar(32)
   diagnosticLimit   Int      @default(1)
-  questionBankLimit Int      @default(1)
+  questionBankLimit Int      @default(100)
   status            String   @default("active") @db.VarChar(32)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

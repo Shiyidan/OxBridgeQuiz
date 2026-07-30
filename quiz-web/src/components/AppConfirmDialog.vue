@@ -7,6 +7,7 @@
     class="app-confirm-dialog"
     :close-on-click-modal="false"
     :close-on-press-escape="false"
+    :show-close="showClose"
     :append-to-body="true"
     align-center
     @close="handleDialogClose"
@@ -42,11 +43,13 @@ const props = withDefaults(
     confirmText?: string
     cancelText?: string
     tone?: 'warning' | 'default'
+    showClose?: boolean
   }>(),
   {
     confirmText: '确认',
     cancelText: '取消',
     tone: 'warning',
+    showClose: true,
   },
 )
 

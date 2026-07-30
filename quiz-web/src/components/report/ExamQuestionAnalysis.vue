@@ -176,7 +176,7 @@ const wrongCount = computed(
   () => props.questions.filter((q) => q.selectedAnswer && !q.isCorrect).length,
 )
 const answerText = computed(() => currentQuestion.value?.answer?.join(', ') || '-')
-// 模块代码是诊断卷分段的首选依据，旧题缺少代码时回退到 subject，且保持接口返回顺序。
+// 模块代码是分组首选依据，旧题缺少代码时回退到 subject；同一科目或 Part 即使不连续也只展示一组。
 const questionNavGroups = computed<QuestionNavGroup[]>(() => {
   const groups: QuestionNavGroup[] = []
   props.questions.forEach((question, index) => {
@@ -185,21 +185,21 @@ const questionNavGroups = computed<QuestionNavGroup[]>(() => {
       .toLowerCase()
     const subject = String(question.subject || '').trim()
     const groupIdentity = moduleCode || subject.toLowerCase() || 'continuous'
-    const previousGroup = groups[groups.length - 1]
+    const existingGroup = groups.find((group) => group.identity === groupIdentity)
     const item: QuestionNavItem = {
       index,
       number: Number(question.number) || index + 1,
       status: question.selectedAnswer ? (question.isCorrect ? 'correct' : 'wrong') : 'skipped',
     }
 
-    if (previousGroup?.identity === groupIdentity) {
-      previousGroup.items.push(item)
+    if (existingGroup) {
+      existingGroup.items.push(item)
       return
     }
 
     const label = MODULE_LABELS[moduleCode] || subject || '试卷题目'
     groups.push({
-      key: `${groupIdentity}:${index}`,
+      key: groupIdentity,
       identity: groupIdentity,
       label,
       fullLabel: subject || label,

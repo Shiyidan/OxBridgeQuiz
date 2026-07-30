@@ -11,6 +11,7 @@
       :initial-elapsed-seconds="initialElapsedSeconds"
       :current-index="currentIndex"
       :total-count="totalCount"
+      :back-label-override="cameFromPracticeNotebook ? '返回练习本' : ''"
       @back="handleBackToQuestionBank"
       @answering-paused="handleAnsweringPaused"
       @answering-resumed="handleAnsweringResumed"
@@ -99,6 +100,17 @@
       @view-report="handleViewDiagnosticReport"
       @return-assessment="handleReturnToAssessment"
     />
+    <AppConfirmDialog
+      v-model="practiceResultDialogVisible"
+      title="练习已交卷"
+      :message="practiceResultMessage"
+      confirm-text="查看解析"
+      :cancel-text="practiceReturnLabel"
+      tone="default"
+      :show-close="false"
+      @confirm="handleViewPracticeAnalysis"
+      @cancel="handleReturnAfterPractice"
+    />
   </div>
 </template>
 
@@ -110,6 +122,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import QuestionCard from '@/components/QuestionCard.vue'
 import ExamVue from '@/components/ExamVue.vue'
 import DiagnosticAnalysisDialog from '@/components/DiagnosticAnalysisDialog.vue'
+import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import { getQuestionsData } from '@/api/questionBank'
 import { getPaperDetailData } from '@/api/papers'
 import {
@@ -154,6 +167,7 @@ const confirmingSubmit = ref(false)
 const examSubmitted = ref(false)
 const activeExamRecordId = ref('')
 const analysisDialogVisible = ref(false)
+const practiceResultDialogVisible = ref(false)
 const submittedExamRecordId = ref('')
 const submissionKey = ref(
   typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -176,6 +190,16 @@ const examMode = computed(() => {
   // 后续仿真考试入口可在此扩展
   return 'question-bank'
 })
+const cameFromPracticeNotebook = computed(() => route.query.from === 'practice-notebook')
+const practiceReturnPath = computed(() =>
+  cameFromPracticeNotebook.value ? '/practice-notebook' : '/question-bank',
+)
+const practiceReturnLabel = computed(() =>
+  cameFromPracticeNotebook.value ? '返回练习册首页' : '返回试题库首页',
+)
+const practiceResultMessage = computed(
+  () => `本次练习已成功提交。你可以${practiceReturnLabel.value}，或查看本次答题解析。`,
+)
 const totalCount = computed(() => questions.value.length)
 const currentQuestion = computed(() => questions.value[currentIndex.value])
 const isLastQuestion = computed(
@@ -236,6 +260,16 @@ async function loadQuestions(): Promise<void> {
       activeExamRecordId.value = examSession.examRecordId
       questions.value = loadedQuestions
       examExpiresAt.value = examSession.expiresAt
+      countdownDurationSeconds.value = examSession.expiresAt
+        ? Math.max(
+            1,
+            Math.round(
+              (new Date(examSession.expiresAt).getTime() -
+                new Date(examSession.startedAt).getTime()) /
+                1000,
+            ),
+          )
+        : 0
       restoreSavedProgress(examSession, loadedQuestions)
       if (examSession.isExpired) isQuestionTimingPaused = true
       return
@@ -513,11 +547,13 @@ async function handleBackToQuestionBank(): Promise<void> {
     assessment: { label: '诊断测试', path: '/assessment' },
     'mock-exam': { label: '仿真考试', path: '/' },
   }
-  const target = backTargets[examMode.value]!
+  const target = cameFromPracticeNotebook.value
+    ? { label: '练习本', path: '/practice-notebook' }
+    : backTargets[examMode.value]!
   const confirmMessage =
     examMode.value === 'assessment'
       ? '返回诊断测试会保存当前作答和用时，之后可继续测试，是否返回？'
-      : '返回试题库会保存当前作答和用时，之后可继续练习，是否返回？'
+      : `返回${target.label}会保存当前作答和用时，之后可继续练习，是否返回？`
   try {
     await ElMessageBox.confirm(confirmMessage, '提示', {
       type: 'warning',
@@ -633,7 +669,7 @@ async function confirmSubmitExam(): Promise<void> {
   }
 }
 
-// 诊断测试交卷后在当前页打开分析弹窗，题库练习仍进入普通结果页。
+// 诊断测试继续打开分析任务弹窗；题库练习与练习本在当前答题页选择返回或查看解析。
 async function handleSubmit(): Promise<void> {
   if (submitting.value) return
   submitting.value = true
@@ -656,20 +692,40 @@ async function handleSubmit(): Promise<void> {
     // 后端已经交卷后禁止路由守卫再次保存进度，否则会被 submitted 状态拒绝。
     examSubmitted.value = true
     void refreshMemberContextAfterSubmit()
+    submittedExamRecordId.value = data.examRecordId
     if (examMode.value === 'assessment') {
-      submittedExamRecordId.value = data.examRecordId
       analysisDialogVisible.value = true
       return
     }
-    await router.push({
-      path: '/exam-result',
-      query: { id: data.examRecordId },
-    })
+    practiceResultDialogVisible.value = true
   } catch {
     // Axios 公共响应处理会展示后端 errMsg。
   } finally {
     submitting.value = false
   }
+}
+
+// 题库练习交卷后直接进入本次逐题解析，不再经过已废弃的结果汇总页。
+async function handleViewPracticeAnalysis(): Promise<void> {
+  if (!submittedExamRecordId.value) return
+  practiceResultDialogVisible.value = false
+  await router.push({
+    name: 'exam-result-detail',
+    params: { id: submittedExamRecordId.value },
+    query: {
+      from: cameFromPracticeNotebook.value ? 'practice-notebook' : 'question-bank',
+      recordSource: 'question-bank',
+    },
+  })
+}
+
+// 返回按钮根据开始练习的业务入口回到试题库或练习册首页。
+async function handleReturnAfterPractice(): Promise<void> {
+  practiceResultDialogVisible.value = false
+  await router.push({
+    path: practiceReturnPath.value,
+    query: cameFromPracticeNotebook.value ? undefined : { examType: activeExamType.value },
+  })
 }
 
 // 交卷后的会员额度刷新不阻断已成功提交的诊断分析流程。

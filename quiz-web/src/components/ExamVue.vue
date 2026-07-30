@@ -61,8 +61,10 @@ const props = withDefaults(
     initialElapsedSeconds?: number
     currentIndex: number
     totalCount: number
+    answeredCount?: number
     sectionTitle?: string
     pauseOnVisibility?: boolean
+    backLabelOverride?: string
   }>(),
   {
     mode: 'question-bank',
@@ -74,6 +76,7 @@ const props = withDefaults(
     totalCount: 0,
     sectionTitle: '',
     pauseOnVisibility: false,
+    backLabelOverride: '',
   },
 )
 
@@ -86,16 +89,18 @@ const emit = defineEmits<{
 
 // 当前模式对应的配置（计时方向、返回文案）
 const config = computed(() => MODE_CONFIG[props.mode])
-const isCountdown = computed(() => config.value.isCountdown)
-const usesContinuousClock = computed(() => props.mode !== 'question-bank')
-const backLabel = computed(() => config.value.backLabel)
+const isCountdown = computed(
+  () =>
+    config.value.isCountdown ||
+    (props.mode === 'question-bank' && props.countdownDurationSeconds > 0),
+)
+const usesContinuousClock = computed(() => isCountdown.value)
+const backLabel = computed(() => props.backLabelOverride || config.value.backLabel)
 
 // 页面初始化时打点，后续 tick 基于此时间戳与 wall clock 对比
 const expiresAtTimestamp = props.expiresAt ? new Date(props.expiresAt).getTime() : Number.NaN
 const hasServerDeadline = Number.isFinite(expiresAtTimestamp)
-const serverClockOffsetMs = props.serverNow
-  ? new Date(props.serverNow).getTime() - Date.now()
-  : 0
+const serverClockOffsetMs = props.serverNow ? new Date(props.serverNow).getTime() - Date.now() : 0
 const startedAt = hasServerDeadline
   ? expiresAtTimestamp - Math.max(0, props.countdownDurationSeconds) * 1000
   : Date.now() - Math.max(0, props.initialElapsedSeconds) * 1000
@@ -133,10 +138,13 @@ const headerText = computed(() => {
   return `${label}${section}（第${props.currentIndex + 1}/${props.totalCount}题）`
 })
 
-// 进度条百分比
-const progressPercent = computed(() =>
-  props.totalCount ? `${((props.currentIndex + 1) / props.totalCount) * 100}%` : '0%',
-)
+// 诊断测试按当前分段已作答题量展示进度，其他答题模式保留按当前题号计算的兼容逻辑。
+const progressPercent = computed(() => {
+  if (!props.totalCount) return '0%'
+  const completedCount = props.answeredCount ?? props.currentIndex + 1
+  const boundedCount = Math.min(Math.max(completedCount, 0), props.totalCount)
+  return `${(boundedCount / props.totalCount) * 100}%`
+})
 
 // 每次 tick 基于 wall clock 计算实际经过的秒数，扣除暂停时长
 function tick(): void {

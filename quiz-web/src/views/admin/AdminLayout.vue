@@ -4,14 +4,25 @@
     <div class="admin-wrapper">
       <div class="admin-layout">
         <aside class="sidebar" :class="{ 'sidebar--collapsed': sidebarCollapsed }">
-          <button
-            class="sidebar-toggle"
-            type="button"
-            :aria-label="sidebarCollapsed ? '展开后台导航' : '收起后台导航'"
-            @click="sidebarCollapsed = !sidebarCollapsed"
-          >
-            {{ sidebarCollapsed ? '›' : '‹' }}
-          </button>
+          <div class="sidebar-control">
+            <el-tooltip
+              :content="sidebarCollapsed ? '展开菜单' : '收起菜单'"
+              placement="right"
+            >
+              <button
+                class="sidebar-toggle"
+                type="button"
+                :aria-label="sidebarCollapsed ? '展开后台导航' : '收起后台导航'"
+                :aria-expanded="!sidebarCollapsed"
+                @click="toggleSidebar"
+              >
+                <el-icon :size="18">
+                  <Expand v-if="sidebarCollapsed" />
+                  <Fold v-else />
+                </el-icon>
+              </button>
+            </el-tooltip>
+          </div>
 
           <div class="sidebar-header">
             <h1 class="sidebar-title">超级管理控制台</h1>
@@ -21,18 +32,23 @@
           </div>
 
           <nav class="sidebar-nav">
-            <router-link
+            <el-tooltip
               v-for="item in navItems"
               :key="item.path"
-              :to="item.path"
-              class="nav-item"
-              active-class="nav-item--active"
-              :title="item.label"
-              @click="handleNavClick"
+              :content="item.label"
+              placement="right"
+              :disabled="!sidebarCollapsed"
             >
-              <span class="nav-icon" v-html="item.icon"></span>
-              <span class="nav-label">{{ item.label }}</span>
-            </router-link>
+              <router-link
+                :to="item.path"
+                class="nav-item"
+                active-class="nav-item--active"
+                @click="handleNavClick"
+              >
+                <span class="nav-icon" v-html="item.icon"></span>
+                <span class="nav-label">{{ item.label }}</span>
+              </router-link>
+            </el-tooltip>
           </nav>
         </aside>
 
@@ -46,13 +62,14 @@
 
 <script setup lang="ts">
 // 管理后台整体布局：NavBar、左侧导航栏和右侧 RouterView。
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { Expand, Fold } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import NavBar from '@/components/NavBar.vue'
 
 const auth = useAuthStore()
 const userName = computed(() => auth.user?.username || '管理员')
-const sidebarCollapsed = ref(true)
+const sidebarCollapsed = ref(false)
 
 interface NavItem {
   path: string
@@ -98,12 +115,22 @@ const navItems: NavItem[] = [
   },
 ]
 
+// 折叠状态只改变后台布局宽度，当前路由和各管理页面状态保持不变。
+function toggleSidebar(): void {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+}
+
 // 手机端点击导航后自动收起侧栏，给内容区留出更多横向空间。
 function handleNavClick(): void {
   if (window.matchMedia('(max-width: 768px)').matches) {
     sidebarCollapsed.value = true
   }
 }
+
+// 手机端初次进入后台默认使用图标侧栏，避免遮挡主要管理内容。
+onMounted(() => {
+  if (window.matchMedia('(max-width: 768px)').matches) sidebarCollapsed.value = true
+})
 </script>
 
 <style scoped lang="scss">
@@ -138,16 +165,49 @@ function handleNavClick(): void {
   border-right: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
-  padding: 32px 0;
+  padding: 18px 0 32px;
+  overflow-x: hidden;
   overflow-y: auto;
+  transition: width 0.2s ease;
+}
+
+.sidebar-control {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  padding: 0 14px 12px;
 }
 
 .sidebar-toggle {
-  display: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  background: #fff;
+  color: #64748b;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.sidebar-toggle:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.sidebar-toggle:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
 }
 
 .sidebar-header {
-  padding: 0 28px 28px;
+  padding: 4px 28px 28px;
   border-bottom: 1px solid #f1f5f9;
   margin-bottom: 8px;
 }
@@ -175,6 +235,8 @@ function handleNavClick(): void {
 }
 
 .nav-item {
+  width: 100%;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -218,6 +280,34 @@ function handleNavClick(): void {
   }
 }
 
+.sidebar--collapsed {
+  width: 72px;
+
+  .sidebar-control {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .sidebar-header,
+  .nav-label {
+    display: none;
+  }
+
+  .sidebar-nav {
+    padding-inline: 8px;
+  }
+
+  .nav-item {
+    justify-content: center;
+    gap: 0;
+    padding-inline: 0;
+  }
+
+  .nav-icon {
+    opacity: 0.85;
+  }
+}
+
 .main-content {
   flex: 1;
   min-width: 0;
@@ -239,53 +329,11 @@ function handleNavClick(): void {
 
   .sidebar {
     width: 236px;
-    padding: 18px 0;
-    transition: width 0.2s ease;
-    overflow-x: hidden;
+    padding-bottom: 18px;
   }
 
   .sidebar--collapsed {
     width: 64px;
-
-    .sidebar-header {
-      padding: 0 10px 12px;
-      border-bottom-color: transparent;
-    }
-
-    .sidebar-title,
-    .sidebar-subtitle,
-    .nav-label {
-      display: none;
-    }
-
-    .sidebar-nav {
-      padding: 8px 8px;
-    }
-
-    .nav-item {
-      justify-content: center;
-      padding: 12px 0;
-      gap: 0;
-    }
-  }
-
-  .sidebar-toggle {
-    display: grid;
-    place-items: center;
-    position: absolute;
-    top: 10px;
-    right: -15px;
-    z-index: 2;
-    width: 30px;
-    height: 30px;
-    border: 1px solid #e2e8f0;
-    border-radius: 50%;
-    background: #ffffff;
-    color: #475569;
-    font-size: 20px;
-    font-weight: 800;
-    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
-    cursor: pointer;
   }
 
   .sidebar-header {

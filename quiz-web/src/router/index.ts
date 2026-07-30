@@ -23,6 +23,10 @@ function lazyRoute<T>(loader: () => Promise<T>): () => Promise<T> {
   }
 }
 
+const learningWorkspaceRoute = lazyRoute(
+  () => import('../views/questionBank/LearningWorkspaceView.vue'),
+)
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -56,7 +60,25 @@ const router = createRouter({
     {
       path: '/question-bank',
       name: 'question-bank',
-      component: lazyRoute(() => import('../views/questionBank/QuestionBankView.vue')),
+      component: learningWorkspaceRoute,
+    },
+    // 练习本占位页
+    {
+      path: '/practice-notebook',
+      name: 'practice-notebook',
+      component: learningWorkspaceRoute,
+    },
+    // 新建练习本
+    {
+      path: '/practice-notebook/new',
+      name: 'practice-notebook-new',
+      component: learningWorkspaceRoute,
+    },
+    // 编辑练习本
+    {
+      path: '/practice-notebook/:id/edit',
+      name: 'practice-notebook-edit',
+      component: learningWorkspaceRoute,
     },
     // 诊断测试
     {
@@ -194,12 +216,6 @@ const router = createRouter({
               name: 'admin-question-batch-detail',
               component: lazyRoute(() => import('../views/admin/QuestionBankBatchDetail.vue')),
             },
-            // 试题库内容预览
-            {
-              path: 'questions/:id',
-              name: 'admin-questions-detail',
-              component: lazyRoute(() => import('../views/admin/QuestionBankQuestionDetail.vue')),
-            },
             // 教材库
             {
               path: 'textbooks',
@@ -272,6 +288,7 @@ router.beforeEach((to, _from) => {
   const requiresAuth =
     to.path.startsWith('/profile') ||
     to.path.startsWith('/question-bank') ||
+    to.path.startsWith('/practice-notebook') ||
     to.path.startsWith('/practice') ||
     to.path.startsWith('/assessment') ||
     to.path.startsWith('/exam-result') ||

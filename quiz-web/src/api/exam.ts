@@ -177,6 +177,7 @@ export interface ExamResult {
     startedAt: string
     submittedAt: string
     status: string
+    practiceNotebookName?: string | null
     paper?: {
       id: string
       title: string

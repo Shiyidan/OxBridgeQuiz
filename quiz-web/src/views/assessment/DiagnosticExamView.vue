@@ -12,6 +12,7 @@
       :initial-elapsed-seconds="0"
       :current-index="currentIndex"
       :total-count="questions.length"
+      :answered-count="answeredCount"
       :section-title="activeModule.label"
       :pause-on-visibility="true"
       @back="handleBack"
@@ -229,7 +230,10 @@ let pendingExpiredModuleCode = ''
 const activeModule = computed(() => session.value?.currentModule || null)
 const breakState = computed(() => session.value?.break || null)
 const currentQuestion = computed(() => questions.value[currentIndex.value])
-const answeredCount = computed(() => Object.keys(answers.value).length)
+// 当前分段的完成数量只统计实际选择了答案的题目，访问后跳过的题目不计入进度。
+const answeredCount = computed(() =>
+  questions.value.filter((question) => Boolean(answers.value[question.id])).length,
+)
 const interactionLocked = computed(
   () =>
     transitioning.value ||

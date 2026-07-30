@@ -27,6 +27,7 @@ import {
   EXAM_PHASE,
   PAPER_DELIVERY_MODE,
   PAPER_TYPE,
+  PRACTICE_SOURCE,
   QUESTION_STATUS,
   QUESTION_BANK_PAPER_TYPES,
   REAL_PAPER_TYPES,
@@ -60,19 +61,13 @@ class ExamStartBusinessError extends Error {
   }
 }
 
-// 题库首页只读取当前考试类型唯一的进行中练习，未开始时返回 null。
+// 所有题库入口共享唯一进行中练习，切换考试类型后仍能返回并继续原记录。
 examSessionRouter.get('/active-practice', requireAuth, async (req, res) => {
-  const examType = String(req.query.examType || EXAM_TYPE.TMUA).toUpperCase()
-  if (!isExamType(examType)) {
-    res.status(422).json(fail('无效的考试类型'))
-    return
-  }
   const record = await prisma.examRecord.findFirst({
     where: {
       userId: req.user!.userId,
-      examType,
       status: EXAM_RECORD_STATUS.IN_PROGRESS,
-      activeQuestionBankKey: `${req.user!.userId}:${examType}`,
+      activeQuestionBankKey: { not: null },
       paperId: 'question-bank',
     },
     select: {
@@ -156,6 +151,22 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
 
       const examRecord = await withQuotaTransaction(async (tx) => {
         const serverStartedAt = new Date()
+        const existingActive = await tx.examRecord.findFirst({
+          where: {
+            userId: req.user!.userId,
+            paperId: 'question-bank',
+            status: EXAM_RECORD_STATUS.IN_PROGRESS,
+            activeQuestionBankKey: { not: null },
+          },
+          select: { id: true },
+        })
+        if (existingActive) {
+          throw new ExamStartBusinessError(
+            '已有未完成练习，请先继续并交卷',
+            409,
+            'QUESTION_BANK_IN_PROGRESS',
+          )
+        }
         // 先占用唯一活动键，再读取已交卷用量；并发 start/submit 会由唯一索引按顺序裁决。
         const record = await tx.examRecord.create({
           data: {
@@ -169,7 +180,12 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
             activeDurationSeconds: 0,
             durationSeconds: 0,
             status: EXAM_RECORD_STATUS.IN_PROGRESS,
-            activeQuestionBankKey: `${req.user!.userId}:${targetExamType}`,
+            activeQuestionBankKey: req.user!.userId,
+            practiceSource: PRACTICE_SOURCE.DIRECT,
+            practiceSnapshot: {
+              source: PRACTICE_SOURCE.DIRECT,
+              questionCount: requestedQuestionIds.length,
+            },
           },
         })
 
@@ -652,9 +668,12 @@ examSessionRouter.get('/:id/session', requireAuth, async (req, res) => {
             ? ANSWER_RECORD_STATE.SKIPPED
             : ANSWER_RECORD_STATE.UNSEEN
     }
+    const usesPracticeDeadline = record.paperId === 'question-bank' && Boolean(record.expiresAt)
     const expiresAt = usesContinuousExamClock(record.paper.paperType, record.paper.deliveryMode)
       ? record.expiresAt || buildExamDeadline(record.startedAt, record.paper.duration)
-      : null
+      : usesPracticeDeadline
+        ? record.expiresAt
+        : null
     const now = new Date()
     const durationSeconds = expiresAt
       ? continuousExamDurationSeconds(record.startedAt, expiresAt, now)
@@ -1033,10 +1052,10 @@ examSessionRouter.post('/:id/submit', requireAuth, async (req, res) => {
 
     const isDiagnostic = isRealPaperType(record.paper.paperType)
     const moduleSnapshot = parseModuleExamSnapshot(record.structureSnapshot)
-    const usesContinuousClock = usesContinuousExamClock(
+    const usesTimedSession = usesContinuousExamClock(
       record.paper.paperType,
       record.paper.deliveryMode,
-    )
+    ) || (record.paperId === 'question-bank' && Boolean(record.expiresAt))
     if (record.status === EXAM_RECORD_STATUS.SUBMITTED) {
       const task = isDiagnostic
         ? await ensureDiagnosticReportTask(record.id, req.user!.userId)
@@ -1108,7 +1127,7 @@ examSessionRouter.post('/:id/submit', requireAuth, async (req, res) => {
       : record.submissionKey
     const correctCount = countCorrectAnswers(officialQuestions, maps.answers)
     const submittedAt = new Date()
-    const expiresAt = usesContinuousClock
+    const expiresAt = usesTimedSession
       ? record.expiresAt || buildExamDeadline(record.startedAt, record.paper.duration)
       : null
     const durationSeconds = expiresAt

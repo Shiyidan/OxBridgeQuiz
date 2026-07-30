@@ -2,23 +2,39 @@
   <header class="navbar">
     <div class="nav-inner">
       <div class="nav-left">
-        <router-link to="/" class="logo">
+        <router-link to="/" class="logo" @click="handleHomeNavigation">
           <span class="logo-mark" aria-hidden="true">
             <img :src="brandIconUrl" alt="" class="logo-mark-image" />
           </span>
           <span class="logo-text">AceMock</span>
         </router-link>
         <nav class="nav-links">
-          <router-link to="/" class="nav-link" exact-active-class="nav-link--active"
+          <router-link
+            to="/"
+            class="nav-link"
+            exact-active-class="nav-link--active"
+            @click="handleHomeNavigation"
             >首页</router-link
           >
-          <router-link to="/assessment" class="nav-link" active-class="nav-link--active"
+          <router-link
+            to="/assessment"
+            class="nav-link"
+            active-class="nav-link--active"
+            @click="handleRouteNavigation($event, '/assessment')"
             >诊断测试</router-link
           >
-          <router-link to="/question-bank" class="nav-link" active-class="nav-link--active"
+          <router-link
+            to="/question-bank"
+            class="nav-link"
+            active-class="nav-link--active"
+            @click="handleRouteNavigation($event, '/question-bank')"
             >试题库</router-link
           >
-          <router-link to="/mistake-notebook" class="nav-link" active-class="nav-link--active"
+          <router-link
+            :to="mistakeNotebookPath"
+            class="nav-link"
+            active-class="nav-link--active"
+            @click="handleRouteNavigation($event, mistakeNotebookPath)"
             >错题本</router-link
           >
           <el-dropdown
@@ -57,6 +73,7 @@
         <slot name="actions">
           <template v-if="auth.isLoggedIn && auth.user">
             <el-dropdown
+              ref="preferredExamDropdown"
               v-if="!auth.isAdmin"
               trigger="click"
               placement="bottom-end"
@@ -69,7 +86,7 @@
                 :aria-label="`当前备考类型：${preferredExamType}，点击切换`"
               >
                 <span class="exam-preference-dot" aria-hidden="true"></span>
-                <span>备考 {{ preferredExamType }}</span>
+                <span>{{ noGoal ? '选择备考目标' : `备考 ${preferredExamType}` }}</span>
                 <span class="exam-preference-caret" aria-hidden="true">▾</span>
               </button>
               <template #dropdown>
@@ -150,10 +167,35 @@ import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 import brandIconUrl from '@/assets/brand/acemock-icon.png'
 
+interface NavBarProps {
+  delegateNavigation?: boolean
+  delegateExamSelection?: boolean
+  mistakeExamType?: ActiveExamType | null
+  noGoal?: boolean
+}
+
+interface PreferredExamDropdownExpose {
+  handleOpen: () => void
+}
+
+const props = withDefaults(defineProps<NavBarProps>(), {
+  delegateNavigation: false,
+  delegateExamSelection: false,
+  mistakeExamType: null,
+  noGoal: false,
+})
+
+const emit = defineEmits<{
+  home: []
+  navigate: [path: string]
+  'select-exam': [examType: ActiveExamType]
+}>()
+
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const showDropdown = ref(false)
+const preferredExamDropdown = ref<PreferredExamDropdownExpose | null>(null)
 const examMenuItems = EXAM_TYPE_OPTIONS.map((item) => ({
   type: item.value.toLowerCase(),
   label: item.label,
@@ -169,6 +211,13 @@ const currentRoleLabel = computed(() => (auth.user?.role === 'admin' ? '管理�
 // 当前考试类型由认证 Store 保存，确保导航栏跨前台页面重建后仍保留手动选择。
 const preferredExamType = computed(() => auth.activeExamType)
 
+// 首页委托模式下为错题本携带当前考试，其他页面保持原来的通用入口。
+const mistakeNotebookPath = computed(() =>
+  props.mistakeExamType
+    ? `/mistake-notebook?examType=${encodeURIComponent(props.mistakeExamType)}`
+    : '/mistake-notebook',
+)
+
 // 根据登录用户身份切换头像菜单的工作台入口。
 const roleHomeLabel = computed(() => (auth.user?.role === 'admin' ? '后台管理' : '个人中心'))
 
@@ -180,13 +229,37 @@ const currentExamType = computed(() => String(route.params.examType || '').toLow
 
 // Element Plus 下拉命令统一切换考试页面，避免手写 hover 浮层产生闪烁。
 function handleExamCommand(examType: string): void {
-  router.push(`/exam-intro/${examType}`)
+  const path = `/exam-intro/${examType}`
+  if (props.delegateNavigation) emit('navigate', path)
+  else router.push(path)
 }
 
 // 顶部考试下拉只切换当前前端会话，不覆盖个人中心的长期备考偏好。
 function handlePreferredExamTypeCommand(command: ActiveExamType): void {
-  auth.setActiveExamType(command)
+  if (props.delegateExamSelection) emit('select-exam', command)
+  else auth.setActiveExamType(command)
 }
+
+// 首页品牌在委托模式下回到当前首页首屏，其他页面沿用 RouterLink 导航。
+function handleHomeNavigation(event: MouseEvent): void {
+  if (!props.delegateNavigation) return
+  event.preventDefault()
+  emit('home')
+}
+
+// 首页委托模式保留登录分流与 no-goal 引导，普通页面仍由 RouterLink 直接导航。
+function handleRouteNavigation(event: MouseEvent, path: string): void {
+  if (!props.delegateNavigation) return
+  event.preventDefault()
+  emit('navigate', path)
+}
+
+// no-goal 功能入口可复用原导航的备考类型下拉，不额外创建首页专属菜单。
+function openExamMenu(): void {
+  preferredExamDropdown.value?.handleOpen()
+}
+
+defineExpose({ openExamMenu })
 
 // 角色入口统一从头像菜单进入，学生和管理员各回到自己的工作台。
 function goToRoleHome(): void {

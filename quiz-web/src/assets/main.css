@@ -1,13 +1,11 @@
 /* 全局样式入口
  *
- *   base.css              —— 设计令牌（颜色/间距/字号/圆角/阴影/字体），唯一定义源
- *   old.css               —— 旧 Vue 变量到新 tokens 的桥接层 + 全局 reset（过渡期用）
+ *   base.css              —— 设计令牌、兼容变量与全局基础样式，唯一定义源
  *   element-overrides.css —— Element Plus 全局主题：色系、按钮、input、autofill、表格、分页、弹窗等
  *
  * 页面专属样式（例如认证页布局）不在此挂载，由页面 SFC 用 <style src="..."> 按需引入。 */
 
 @import './base.css';
-@import './old.css';
 @import './element-overrides.css';
 
 #app {

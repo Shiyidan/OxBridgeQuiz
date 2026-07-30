@@ -135,6 +135,10 @@
               <span v-if="isReportGenerating(item)">报告 {{ item.reportProgress }}%</span>
               <span v-else>题正确</span>
             </div>
+            <div v-else-if="item.testStatus === 'in_progress'" class="paper-card__progress">
+              <span>当前进度：</span>
+              <strong>{{ currentProgressLabel(item) }}</strong>
+            </div>
             <div class="paper-card__actions">
               <button
                 v-if="item.testStatus === 'completed' && isPaperPublished(item)"
@@ -802,6 +806,19 @@ function paperActionLabel(item: AssessmentPaperItem): string {
   }
   return '查看诊断报告→'
 }
+
+// 进行中卡片按当前模块索引展示 ESAT 科目或 TMUA Paper，避免沿用过长的试卷副标题。
+function currentProgressLabel(item: AssessmentPaperItem): string {
+  const moduleIndex = Math.max(0, item.currentModuleIndex ?? 0)
+  const currentModule = item.modules?.[moduleIndex]
+  if (String(item.examType || '').toUpperCase() === 'TMUA') {
+    const moduleIdentity = `${currentModule?.code || ''} ${currentModule?.subject || ''}`
+    if (/paper[\s_-]*2/i.test(moduleIdentity)) return 'Paper 2'
+    if (/paper[\s_-]*1/i.test(moduleIdentity)) return 'Paper 1'
+    return `Paper ${moduleIndex + 1}`
+  }
+  return currentModule?.subject || currentModule?.code || `第 ${moduleIndex + 1} 科目`
+}
 </script>
 
 <style scoped lang="scss">
@@ -1282,6 +1299,21 @@ function paperActionLabel(item: AssessmentPaperItem): string {
 .paper-card__score span {
   color: var(--color-ink-muted);
   font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+}
+
+.paper-card__progress {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  padding: 0 4px;
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.paper-card__progress strong {
+  color: var(--color-ink);
   font-weight: var(--weight-semi);
 }
 

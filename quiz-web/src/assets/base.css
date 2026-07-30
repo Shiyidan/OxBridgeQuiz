@@ -151,3 +151,27 @@ body {
   outline: 2px solid var(--color-ink);
   outline-offset: 2px;
 }
+
+/* 历史变量兼容层：保留既有变量解析结果，避免迁移全局样式文件时产生视觉变化。 */
+:root {
+  --color-background: var(--color-bg);
+  --color-background-soft: var(--color-surface-alt);
+  --color-background-mute: var(--color-hover);
+
+  --color-border: var(--color-line);
+  --color-border-hover: var(--color-line);
+
+  --color-heading: var(--color-ink);
+  --color-text: var(--color-ink);
+
+  --section-gap: 160px;
+}
+
+/* 全局重置：保持普通元素与伪元素的既有盒模型、间距和字重行为。 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  font-weight: normal;
+}

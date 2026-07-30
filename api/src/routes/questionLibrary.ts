@@ -192,7 +192,7 @@ function formatImportBatch(row: any): Record<string, unknown> {
     ) {
       partMap.set(question.moduleCode, {
         code: question.moduleCode,
-        label: question.moduleCode === TMUA_PAPER.PAPER_1 ? "Part 1" : "Part 2",
+        label: question.moduleCode === TMUA_PAPER.PAPER_1 ? "Paper 1" : "Paper 2",
         subjectCode: null,
       });
     }
@@ -487,9 +487,9 @@ questionLibraryRouter.post(
               examType: question.examType,
               number: null,
               moduleCode:
-                question.part === "part1"
+                question.part === TMUA_PAPER.PAPER_1
                   ? TMUA_PAPER.PAPER_1
-                  : question.part === "part2"
+                  : question.part === TMUA_PAPER.PAPER_2
                     ? TMUA_PAPER.PAPER_2
                     : null,
               title: question.title,

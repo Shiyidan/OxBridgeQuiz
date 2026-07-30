@@ -3,9 +3,9 @@
 本文规定试题库题目的正式导入结构。该结构参考现有真题题目中的题干、选项、图片、考纲分类和中文解析字段，但不沿用试卷、分卷、题号或固定顺序。
 
 > 文档状态：正式确定版  
-> 文档版本：V1.1  
-> 确定日期：2026年7月28日  
-> 当前实现：导入校验、批次追溯、独立题目入库以及 TMUA Part 映射均已启用。
+> 文档版本：V1.2
+> 确定日期：2026年7月31日
+> 当前实现：导入校验、批次追溯、独立题目入库以及 TMUA Paper 分类均已启用。
 
 ## 1. 设计目标
 
@@ -159,7 +159,7 @@ metadata 的业务边界：
 | --- | --- | --- | --- |
 | code | 是 | string | 题库全局唯一且不可变的业务代码 |
 | examType | 是 | string | TMUA、ESAT 或 STEP |
-| part | 条件必需 | string | TMUA 题目必须为 part1 或 part2；ESAT、STEP 不填写 |
+| part | 条件必需 | string | TMUA 题目必须为 paper1 或 paper2；ESAT、STEP 不填写 |
 | title | 是 | string | 与 contentBlocks 中第一段题干文字保持一致 |
 | contentBlocks | 是 | array | 按真实阅读顺序保存题干段落和图片引用 |
 | options | 是 | array | 当前必须提供至少两个单选选项 |
@@ -210,26 +210,26 @@ examType 是单题固有属性，不再从外层试卷 metadata 继承。
 
 不得使用 ENGAA、NSAA 等来源考试作为 examType。历史来源只允许写入可选的 origin。
 
-### 6.1 TMUA 所属 Part
+### 6.1 TMUA 所属 Paper
 
-TMUA 每道独立题目必须声明所属 Part：
+TMUA 每道独立题目必须声明所属 Paper：
 
     "examType": "TMUA",
-    "part": "part1"
+    "part": "paper1"
 
 允许值：
 
 | 值 | 后台展示 | 数据库存储 |
 | --- | --- | --- |
-| part1 | Part 1 | Question.moduleCode = paper1 |
-| part2 | Part 2 | Question.moduleCode = paper2 |
+| paper1 | Paper 1 | Question.moduleCode = paper1 |
+| paper2 | Paper 2 | Question.moduleCode = paper2 |
 
 约束规则：
 
 - examType 为 TMUA 时 part 必填。
 - examType 为 ESAT 或 STEP 时不得填写 part。
 - part 是单题分类，不形成固定试卷、题序或 sections 结构。
-- 后台文件列表使用同一列“科目 / 所属 Part”：ESAT 展示科目，TMUA 展示 Part 1 / Part 2。
+- 后台文件列表使用同一列“科目 / 所属 Paper”：ESAT 展示科目，TMUA 展示 Paper 1 / Paper 2。
 
 ## 7. 题干 title 与 contentBlocks
 
@@ -734,7 +734,7 @@ metadata 与上传上下文应独立保存为导入批次记录，建议包含�
 - status
 - questionType
 - difficulty
-- moduleCode（由 TMUA part 入库映射，上传文件不直接填写）
+- moduleCode（由 TMUA part 的 paper1 / paper2 值原样入库，上传文件不直接填写）
 - subjectCode
 - topicCode
 

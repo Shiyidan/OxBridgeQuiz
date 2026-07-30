@@ -1,4 +1,5 @@
 // 校验并归一化 standard2 试题库批量导入文档，供独立题库导入接口使用。
+import { TMUA_PAPER, type TmuaPaperCode } from "../constants/domain.js";
 
 export const QUESTION_BANK_DIFFICULTIES = [
   "easy",
@@ -16,7 +17,7 @@ export const QUESTION_BANK_QUALITY_TIERS = ["qualified", "excellent"] as const;
 type Difficulty = (typeof QUESTION_BANK_DIFFICULTIES)[number];
 type OriginType = (typeof QUESTION_BANK_ORIGIN_TYPES)[number];
 type QualityTier = (typeof QUESTION_BANK_QUALITY_TIERS)[number];
-type QuestionBankPart = "part1" | "part2";
+type QuestionBankPart = TmuaPaperCode;
 
 export type QuestionBankContentBlock =
   | { type: "paragraph"; text: string; align?: "center" }
@@ -224,10 +225,17 @@ function validateQuestion(
   let part: QuestionBankPart | undefined;
   if (examType === "TMUA") {
     const partValue = nonEmptyString(raw.part, `${path}.part`, issues);
-    if (partValue && partValue !== "part1" && partValue !== "part2") {
-      issues.push(`${path}.part 在 TMUA 题目中仅允许 part1 或 part2`);
+    if (
+      partValue &&
+      partValue !== TMUA_PAPER.PAPER_1 &&
+      partValue !== TMUA_PAPER.PAPER_2
+    ) {
+      issues.push(`${path}.part 在 TMUA 题目中仅允许 paper1 或 paper2`);
     }
-    part = partValue === "part2" ? "part2" : "part1";
+    part =
+      partValue === TMUA_PAPER.PAPER_2
+        ? TMUA_PAPER.PAPER_2
+        : TMUA_PAPER.PAPER_1;
   } else if (raw.part !== undefined) {
     issues.push(`${path}.part 仅允许用于 TMUA 题目`);
   }

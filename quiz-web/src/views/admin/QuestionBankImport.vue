@@ -22,7 +22,7 @@
           <li>支持严格 JSON，或只读取第一个 fenced json 代码块的 Markdown。</li>
           <li>metadata.questionCount 必须与 questions.length 完全一致。</li>
           <li>题目 code 必须全局唯一，考纲 code 和 label 必须匹配当前考纲。</li>
-          <li>TMUA 题目必须填写 part1 或 part2；ESAT、STEP 题目不得填写 part。</li>
+          <li>TMUA 题目的 part 必须填写 paper1 或 paper2；ESAT、STEP 题目不得填写 part。</li>
           <li>整批校验、整批提交；任意一题失败都不会写入数据。</li>
           <li>导入后的题目统一为草稿，需要逐题审核发布。</li>
         </ul>

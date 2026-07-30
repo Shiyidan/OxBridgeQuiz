@@ -30,7 +30,7 @@
             <span>考试类型</span><strong>{{ batch.examTypes.join('、') || '—' }}</strong>
           </div>
           <div>
-            <span>科目 / 所属 Part</span>
+            <span>科目 / 所属 Paper</span>
             <strong>{{ batchClassificationLabel }}</strong>
           </div>
           <div>
@@ -303,7 +303,7 @@ const statusOptions: Array<{ value: QuestionBankStatus; label: string }> = [
   { value: 'archived', label: '已归档' },
 ]
 
-// ESAT/STEP 显示科目，TMUA 显示 Part；混合文件按两类内容依次汇总。
+// ESAT/STEP 显示科目，TMUA 显示 Paper；混合文件按两类内容依次汇总。
 const batchClassificationLabel = computed(() => {
   if (!batch.value) return '—'
   return (

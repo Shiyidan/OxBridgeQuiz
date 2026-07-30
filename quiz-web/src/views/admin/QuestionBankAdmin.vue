@@ -81,7 +81,7 @@
           </template>
         </el-table-column>
         <el-table-column
-          label="科目 / 所属 Part"
+          label="科目 / 所属 Paper"
           min-width="400"
           align="center"
           header-align="center"
@@ -240,7 +240,7 @@ function subjectLabel(code: string, label: string): string {
   return labels[type] || label
 }
 
-// ESAT/STEP 使用科目，TMUA 使用 Part；后端已按考试类型分别汇总两类数据。
+// ESAT/STEP 使用科目，TMUA 使用 Paper；后端已按考试类型分别汇总两类数据。
 function classificationItems(batch: QuestionBankImportBatch): BatchClassificationItem[] {
   return [
     ...batch.subjects.map((subject) => ({
@@ -263,15 +263,15 @@ function visibleClassificationItems(batch: QuestionBankImportBatch): BatchClassi
   return classificationItems(batch).slice(0, visibleClassificationCount)
 }
 
-// 悬浮说明明确区分科目和 TMUA Part，兼容同一文件包含多个考试类型。
+// 悬浮说明明确区分科目和 TMUA Paper，兼容同一文件包含多个考试类型。
 function classificationTooltip(batch: QuestionBankImportBatch): string {
   const groups = [
     batch.subjects.length
       ? `科目：${batch.subjects.map((subject) => subject.label).join('、')}`
       : '',
-    batch.parts.length ? `所属 Part：${batch.parts.map((part) => part.label).join('、')}` : '',
+    batch.parts.length ? `所属 Paper：${batch.parts.map((part) => part.label).join('、')}` : '',
   ].filter(Boolean)
-  return groups.join('；') || '暂无科目或所属 Part'
+  return groups.join('；') || '暂无科目或所属 Paper'
 }
 
 // 上传包筛选和分页都交给后端，列表只接收批次级摘要。

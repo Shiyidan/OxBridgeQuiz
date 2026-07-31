@@ -66,8 +66,8 @@ function Resolve-SafeTransientDirectory {
     ) {
         throw "Refusing to remove a path outside a child of $transientRoot"
     }
-    if ((Split-Path -Leaf $resolved) -notmatch '^quiz-deploy-[0-9]{8}[-_][0-9]{6}$') {
-        throw 'Local cleanup is limited to .tmp/quiz-deploy-YYYYMMDD-HHMMSS.'
+    if ((Split-Path -Leaf $resolved) -notmatch '^quiz-deploy-(?:test|prod)-[0-9]{8}[-_][0-9]{6}$') {
+        throw 'Local cleanup is limited to .tmp/quiz-deploy-<environment>-YYYYMMDD-HHMMSS.'
     }
     return $resolved
 }

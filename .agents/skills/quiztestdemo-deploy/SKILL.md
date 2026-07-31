@@ -51,6 +51,7 @@ Prefer the bundled scripts in `scripts/` instead of writing ad hoc deployment sc
 - `scripts/send-deployment-report.cjs`: optional local SMTP sender. Do not run it unless the user explicitly asks to email a report.
 - `scripts/cleanup-transient.ps1`: mandatory finalizer that preserves a sanitized HTML result, deletes the exact remote deployment directory, and deletes its local raw-evidence directory.
 - `scripts/bootstrap-repository.sh`: explicit fallback for converting a legacy source package into a commit-verified Git checkout; do not use it during routine updates.
+- `scripts/bootstrap-ecs.sh`: idempotently prepares a new Ubuntu ECS host with Node.js 20, Nginx, PM2, runtime directories, deploy user and swap; it never creates application secrets or changes firewall rules.
 - `scripts/audit-operations.sh`: read-only deploy-user or root operational audit.
 - `scripts/install-ops-baseline.sh`: installs the versioned `ops/` health check, backup timer, log rotation, and limited Nginx operation after explicit root authorization.
 - `scripts/verify-ops-baseline.sh`: read-only verification of the installed operational baseline.
@@ -71,6 +72,21 @@ High-level scripted flow:
 12. Run `cleanup-transient.ps1` with the confirmed environment, exact local evidence directory, exact remote directory, report path, and final result. The script must delete both raw-evidence directories and must reject paths outside the timestamped deployment locations.
 13. Do not leave deploy logs, copied responses, uploaded scripts, Git bundles, built assets, screenshots, or ad hoc repair scripts below `.tmp/` after the finalizer. `.tmp/` is a scratch area, is Git-ignored, and must never be staged or committed.
 14. Do not send email reports by default.
+
+## New ECS Bootstrap
+
+Use this flow only when the selected ECS is a newly created host without the standard `/opt/quiz` runtime. It is a first-deployment extension, not a substitute for ordinary deployment.
+
+1. Confirm `test|prod`, scope and branch as usual; inspect the selected host identity and free disk space.
+2. Obtain explicit root authorization. Upload and run `scripts/bootstrap-ecs.sh <environment>` as root. For a 2 GB test ECS, keep the default `QUIZ_SWAP_GIB=2`; do not add swap blindly when `/swapfile` already exists but is inactive.
+3. Reconnect as the non-root deployment user and verify Node 20, PM2, `/opt/quiz` ownership, and swap. Do not grant unrestricted passwordless sudo.
+4. Create a clean Git checkout at `/opt/quiz/repo` from the exact approved branch and commit. Prefer the approved origin; use the guarded bundle fallback only when origin access fails.
+5. Provision `/opt/quiz/api/.env` through a private runtime-config file or a verified migration from the existing environment. The file must contain the selected `API_RUNTIME_ENV`, selected RDS database URL, stable `JWT_SECRET` and `EMAIL_CODE_SECRET`, SMTP settings, and the selected frontend/CORS URL. Never paste, print, commit or reconstruct credentials from placeholders.
+6. For a new **test** ECS, run `ops/scripts/quiz-nginx-bootstrap.sh test /opt/quiz/repo` as root. It installs the versioned HTTP-only test site only when no QuizTestDemo Nginx site exists. For production, use the separately approved TLS/Nginx process.
+7. Run `install-ops-baseline.sh <environment>` as root only after the repository checkout exists, then reconnect as `deploy` and run the normal guarded deployment. `remote-deploy.sh` starts `quiz-api` from the versioned PM2 template on its first backend deployment and reloads it thereafter.
+8. Run the complete validation, report and transient cleanup phases. Record the first deployment, runtime-config migration source, and any rollback path without recording secret values or real addresses in tracked documentation.
+
+Missing private runtime configuration remains a hard stop. A new server may be initialized, but it must not be treated as a working test or production environment until `validate:runtime` and the database/SMTP checks pass.
 
 ## Safety Rules
 

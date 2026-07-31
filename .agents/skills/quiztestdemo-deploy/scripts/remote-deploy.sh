@@ -64,6 +64,8 @@ REPO_DIR="/opt/quiz/repo"
 API_RUNTIME="/opt/quiz/api"
 WEB_RUNTIME="/opt/quiz/web/dist"
 BACKUP_DIR="/opt/quiz/backups"
+PM2_CONFIG_SOURCE="$REPO_DIR/ops/pm2/quiz-api.ecosystem.cjs"
+PM2_CONFIG="/opt/quiz/ecosystem.config.cjs"
 STAMP="$(date +%Y%m%d_%H%M%S)"
 
 step() {
@@ -254,7 +256,17 @@ if [[ "$SCOPE" == "backend" || "$SCOPE" == "all" ]]; then
   if [[ -d prompts ]]; then
     rsync -a --delete prompts/ "$API_RUNTIME/prompts/"
   fi
-  pm2 reload quiz-api --update-env
+  [[ -f "$PM2_CONFIG_SOURCE" ]] || {
+    echo "PM2 configuration template is missing: $PM2_CONFIG_SOURCE" >&2
+    exit 47
+  }
+  install -m 0644 "$PM2_CONFIG_SOURCE" "$PM2_CONFIG"
+  if pm2 describe quiz-api >/dev/null 2>&1; then
+    pm2 reload "$PM2_CONFIG" --only quiz-api --update-env
+  else
+    pm2 start "$PM2_CONFIG" --only quiz-api --update-env
+  fi
+  pm2 save
 fi
 
 if [[ "$SCOPE" == "frontend" || "$SCOPE" == "all" ]]; then

@@ -20,6 +20,11 @@ if sudo -n true 2>/dev/null; then
 fi
 echo "unexpected_broad_passwordless_sudo=no"
 
+echo "--- pm2 recovery ---"
+systemctl is-enabled quiz-api.service
+test -s /home/deploy/.pm2/dump.pm2
+runuser -u deploy -- env PM2_HOME=/home/deploy/.pm2 /usr/bin/pm2 status --no-color
+
 echo "--- timers ---"
 systemctl is-enabled quiz-rds-backup.timer quiz-healthcheck.timer
 systemctl is-active quiz-rds-backup.timer quiz-healthcheck.timer
@@ -52,4 +57,3 @@ echo
 curl -fsS http://127.0.0.1/api/health
 echo
 echo "ops_baseline=verified environment=$ENVIRONMENT"
-

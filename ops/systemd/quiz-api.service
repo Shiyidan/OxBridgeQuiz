@@ -1,0 +1,19 @@
+[Unit]
+Description=QuizTestDemo API PM2 recovery
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+User=deploy
+Group=deploy
+Environment=PM2_HOME=/home/deploy/.pm2
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+PIDFile=/home/deploy/.pm2/pm2.pid
+ExecStart=/usr/bin/pm2 resurrect
+ExecReload=/usr/bin/pm2 reload all
+ExecStop=/usr/bin/pm2 kill
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

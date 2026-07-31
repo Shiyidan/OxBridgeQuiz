@@ -39,6 +39,7 @@ install -m 0644 -o root -g root \
   /etc/logrotate.d/quiz-pm2
 
 for unit in \
+  quiz-api.service \
   quiz-rds-backup.service \
   quiz-rds-backup.timer \
   quiz-healthcheck.service \
@@ -66,6 +67,9 @@ chmod 0440 /etc/sudoers.d/quiz-deploy-ops
 
 /usr/sbin/logrotate -d /etc/logrotate.conf >/dev/null
 /usr/bin/systemctl daemon-reload
+# The running API remains under the current deploy user's PM2 daemon. Enable only so
+# the saved process list is restored by systemd after the next reboot, without a duplicate start now.
+/usr/bin/systemctl enable quiz-api.service
 /usr/bin/systemctl enable --now quiz-rds-backup.timer quiz-healthcheck.timer
 
 echo "ops_baseline=installed environment=$ENVIRONMENT"

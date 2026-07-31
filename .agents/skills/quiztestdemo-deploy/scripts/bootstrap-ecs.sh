@@ -31,7 +31,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 # Install the operating-system and Node.js prerequisites needed by guarded deployment.
 apt-get update
-apt-get install -y ca-certificates curl gnupg git nginx rsync
+apt-get install -y ca-certificates curl default-mysql-client gnupg git nginx rsync
 install -d -m 0755 /etc/apt/keyrings
 if [[ ! -s /etc/apt/keyrings/nodesource.gpg ]]; then
   curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg

@@ -1,0 +1,2113 @@
+<!--
+THESIS: 把国际生备考社区做成一张持续更新的学习讨论台，拒绝泛社交瀑布流和以热度替代质量的排列。
+OWN-WORLD: 日光下的系统浅灰底、白色工作面、石墨文字、单一系统蓝；界面由细分隔线、方正面板和克制的 0–4px 圆角组成。
+STORY: 学生先按考试与学科定位问题，阅读可信讨论，再通过微信身份低摩擦地回复、收藏或发起提问。
+FIRST VIEWPORT: 顶部是小程序导航与考试筛选，中部直接呈现可发起的问题入口和高信息密度讨论列表，底部保留四个稳定目的地。
+FORM: Operate 模式的“学习讨论台”，结构候选首选；采用用户明确指定的 Apple 式克制方向，key: pinned-user-brief。
+-->
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f5f5f7" />
+    <title>云舟社区 · 微信小程序原型</title>
+    <style>
+      :root {
+        --ink: #1d1d1f;
+        --secondary: #5f5f64;
+        --tertiary: #85858b;
+        --line: #d9d9de;
+        --line-soft: #e8e8ed;
+        --canvas: #ececef;
+        --surface: #ffffff;
+        --surface-soft: #f5f5f7;
+        --blue: #0066cc;
+        --blue-deep: #004f9f;
+        --blue-soft: #edf5ff;
+        --green: #16805b;
+        --orange: #9a5a00;
+        --danger: #c9342e;
+        --shadow: 0 24px 70px rgba(25, 25, 28, 0.16);
+        --radius: 4px;
+        --safe-bottom: max(10px, env(safe-area-inset-bottom));
+        font-family:
+          -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue",
+          "Microsoft YaHei", Arial, sans-serif;
+        color: var(--ink);
+        background: var(--canvas);
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-width: 320px;
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        min-height: 100vh;
+        min-height: 100dvh;
+        overflow: hidden;
+        background: var(--canvas);
+      }
+
+      button,
+      input,
+      textarea {
+        font: inherit;
+      }
+
+      button {
+        color: inherit;
+      }
+
+      button,
+      [role="button"] {
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      button:focus-visible,
+      input:focus-visible,
+      textarea:focus-visible,
+      [tabindex]:focus-visible {
+        outline: 3px solid rgba(0, 102, 204, 0.24);
+        outline-offset: 2px;
+      }
+
+      svg {
+        display: block;
+      }
+
+      .prototype-stage {
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 16px;
+      }
+
+      .device {
+        position: relative;
+        width: min(390px, calc(100vw - 24px));
+        height: min(844px, calc(100vh - 32px));
+        height: min(844px, calc(100dvh - 32px));
+        min-height: 620px;
+        overflow: hidden;
+        border: 1px solid #c7c7cc;
+        border-radius: 5px;
+        background: var(--surface-soft);
+        box-shadow: var(--shadow);
+        isolation: isolate;
+      }
+
+      .screen {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-rows: auto auto auto 1fr auto;
+        background: var(--surface-soft);
+      }
+
+      .status-bar {
+        height: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 5px 14px 0;
+        background: rgba(245, 245, 247, 0.96);
+        font-size: 11px;
+        font-weight: 650;
+        letter-spacing: 0.01em;
+      }
+
+      .status-icons {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .app-bar {
+        position: relative;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 12px;
+        border-bottom: 1px solid var(--line-soft);
+        background: rgba(245, 245, 247, 0.96);
+      }
+
+      .app-bar h1 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 650;
+        letter-spacing: -0.012em;
+      }
+
+      .brand-mark {
+        position: absolute;
+        left: 14px;
+        display: grid;
+        width: 28px;
+        height: 28px;
+        place-items: center;
+        border: 1px solid #1d1d1f;
+        border-radius: 3px;
+        background: #1d1d1f;
+        color: #fff;
+        font-size: 10px;
+        font-weight: 750;
+        letter-spacing: -0.02em;
+      }
+
+      .mini-actions {
+        position: absolute;
+        right: 6px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        border: 1px solid #c7c7cc;
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.7);
+      }
+
+      .mini-action {
+        width: 43px;
+        height: 42px;
+        display: grid;
+        place-items: center;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+      }
+
+      .mini-action + .mini-action {
+        border-left: 1px solid var(--line);
+      }
+
+      .context-tabs {
+        height: 46px;
+        display: flex;
+        align-items: stretch;
+        gap: 20px;
+        padding: 0 8px 0 16px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface);
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+
+      .context-tabs::-webkit-scrollbar {
+        display: none;
+      }
+
+      .context-tab {
+        position: relative;
+        flex: none;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: var(--secondary);
+        font-size: 13px;
+        font-weight: 560;
+        cursor: pointer;
+      }
+
+      .context-tab.active {
+        color: var(--ink);
+        font-weight: 680;
+      }
+
+      .context-tab.active::after {
+        content: "";
+        position: absolute;
+        right: 0;
+        bottom: -1px;
+        left: 0;
+        height: 2px;
+        background: var(--ink);
+      }
+
+      .context-search {
+        width: 44px;
+        height: 44px;
+        display: grid;
+        place-items: center;
+        flex: none;
+        margin-left: auto;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: var(--secondary);
+        cursor: pointer;
+      }
+
+      .subject-tabs {
+        min-height: 40px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 16px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+
+      .subject-tabs::-webkit-scrollbar {
+        display: none;
+      }
+
+      .subject-tab {
+        min-height: 27px;
+        flex: none;
+        padding: 0 8px;
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        background: var(--surface);
+        color: var(--secondary);
+        font-size: 10px;
+        cursor: pointer;
+      }
+
+      .subject-tab.active {
+        border-color: var(--ink);
+        background: var(--ink);
+        color: #fff;
+        font-weight: 650;
+      }
+
+      .views {
+        position: relative;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .view {
+        position: absolute;
+        inset: 0;
+        display: none;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-width: none;
+      }
+
+      .view::-webkit-scrollbar {
+        display: none;
+      }
+
+      .view.active {
+        display: block;
+        animation: view-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      @keyframes view-in {
+        from {
+          opacity: 0.5;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .composer-entry {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 30px 1fr auto;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 16px;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .avatar {
+        display: grid;
+        place-items: center;
+        flex: none;
+        overflow: hidden;
+        border-radius: 3px;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 720;
+      }
+
+      .avatar.small {
+        width: 30px;
+        height: 30px;
+      }
+
+      .avatar.medium {
+        width: 34px;
+        height: 34px;
+      }
+
+      .avatar.large {
+        width: 50px;
+        height: 50px;
+        font-size: 16px;
+      }
+
+      .avatar.blue {
+        background: #315f8f;
+      }
+
+      .avatar.green {
+        background: #2b7665;
+      }
+
+      .avatar.violet {
+        background: #675a8a;
+      }
+
+      .avatar.orange {
+        background: #9a6130;
+      }
+
+      .avatar.slate {
+        background: #4d5966;
+      }
+
+      .composer-prompt {
+        min-width: 0;
+        color: var(--tertiary);
+        font-size: 13px;
+      }
+
+      .text-link {
+        padding: 5px 0;
+        border: 0;
+        background: transparent;
+        color: var(--blue);
+        font-size: 12px;
+        font-weight: 650;
+        cursor: pointer;
+      }
+
+      .featured-strip {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 16px;
+        padding: 16px;
+        border-bottom: 1px solid var(--line);
+        background: #f1f6fb;
+      }
+
+      .featured-kicker {
+        display: block;
+        margin: 0 0 6px;
+        color: var(--blue-deep);
+        font-size: 11px;
+        font-weight: 680;
+      }
+
+      .featured-title {
+        display: block;
+        margin: 0;
+        color: var(--ink);
+        font-size: 15px;
+        font-weight: 690;
+        line-height: 1.42;
+        letter-spacing: -0.01em;
+      }
+
+      .featured-meta {
+        display: block;
+        margin: 7px 0 0;
+        color: var(--secondary);
+        font-size: 11px;
+      }
+
+      .featured-arrow {
+        align-self: center;
+        color: var(--blue);
+      }
+
+      .feed-label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 17px 16px 9px;
+        background: var(--surface);
+      }
+
+      .feed-label h2 {
+        margin: 0;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .feed-label span {
+        color: var(--tertiary);
+        font-size: 10px;
+      }
+
+      .post {
+        display: block;
+        width: 100%;
+        padding: 15px 16px 13px;
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        background: var(--surface);
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .post:hover {
+        background: #fbfbfd;
+      }
+
+      .post-head {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+
+      .post-author {
+        min-width: 0;
+        flex: 1;
+      }
+
+      .post-author strong {
+        display: block;
+        overflow: hidden;
+        color: var(--ink);
+        font-size: 12px;
+        font-weight: 650;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .post-author span {
+        display: block;
+        margin-top: 2px;
+        color: var(--tertiary);
+        font-size: 10px;
+      }
+
+      .trust-mark {
+        padding: 3px 5px;
+        border: 1px solid #b7c8dc;
+        border-radius: 2px;
+        color: #315f8f;
+        font-size: 9px;
+        font-weight: 650;
+      }
+
+      .post-title {
+        margin: 11px 0 5px;
+        color: var(--ink);
+        font-size: 15px;
+        font-weight: 680;
+        line-height: 1.44;
+        letter-spacing: -0.012em;
+      }
+
+      .post-excerpt {
+        display: -webkit-box;
+        overflow: hidden;
+        margin: 0;
+        color: var(--secondary);
+        font-size: 12px;
+        line-height: 1.58;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+      }
+
+      .post-bottom {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 11px;
+      }
+
+      .tags {
+        min-width: 0;
+        display: flex;
+        gap: 5px;
+        overflow: hidden;
+      }
+
+      .tag {
+        flex: none;
+        padding: 3px 5px;
+        border: 1px solid var(--line);
+        border-radius: 2px;
+        background: var(--surface-soft);
+        color: var(--secondary);
+        font-size: 9px;
+        white-space: nowrap;
+      }
+
+      .engagement {
+        flex: none;
+        color: var(--tertiary);
+        font-size: 10px;
+        white-space: nowrap;
+      }
+
+      .tab-bar {
+        position: relative;
+        z-index: 10;
+        min-height: 61px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        padding: 5px 8px var(--safe-bottom);
+        border-top: 1px solid var(--line);
+        background: rgba(250, 250, 252, 0.97);
+      }
+
+      .nav-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        padding: 3px 0 0;
+        border: 0;
+        background: transparent;
+        color: var(--tertiary);
+        font-size: 9px;
+        cursor: pointer;
+      }
+
+      .nav-item svg {
+        width: 21px;
+        height: 21px;
+        stroke-width: 1.65;
+      }
+
+      .nav-item.active {
+        color: var(--blue);
+        font-weight: 650;
+      }
+
+      .page-intro {
+        padding: 20px 16px 14px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+      }
+
+      .page-intro h2 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 730;
+        letter-spacing: -0.03em;
+      }
+
+      .page-intro p {
+        max-width: 31em;
+        margin: 7px 0 0;
+        color: var(--secondary);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .section-title {
+        margin: 0;
+        padding: 18px 16px 9px;
+        color: var(--secondary);
+        font-size: 11px;
+        font-weight: 650;
+      }
+
+      .circle-row,
+      .message-row,
+      .settings-row {
+        width: 100%;
+        display: grid;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        border: 0;
+        border-top: 1px solid var(--line-soft);
+        background: var(--surface);
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .circle-row {
+        grid-template-columns: 38px 1fr auto;
+      }
+
+      .message-row {
+        grid-template-columns: 34px 1fr auto;
+      }
+
+      .settings-row {
+        grid-template-columns: 24px 1fr auto;
+      }
+
+      .circle-row:last-child,
+      .message-row:last-child,
+      .settings-row:last-child {
+        border-bottom: 1px solid var(--line-soft);
+      }
+
+      .circle-icon {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        border-radius: 3px;
+        font-size: 15px;
+        font-weight: 740;
+      }
+
+      .circle-icon.math {
+        background: #e8f0fa;
+        color: #285b93;
+      }
+
+      .circle-icon.physics {
+        background: #e8f3ef;
+        color: #1f6c56;
+      }
+
+      .circle-icon.apply {
+        background: #f4ede5;
+        color: #875728;
+      }
+
+      .row-copy {
+        min-width: 0;
+      }
+
+      .row-copy strong {
+        display: block;
+        color: var(--ink);
+        font-size: 13px;
+        font-weight: 640;
+      }
+
+      .row-copy span {
+        display: block;
+        overflow: hidden;
+        margin-top: 3px;
+        color: var(--tertiary);
+        font-size: 10px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .row-meta {
+        color: var(--tertiary);
+        font-size: 10px;
+        white-space: nowrap;
+      }
+
+      .unread {
+        min-width: 17px;
+        height: 17px;
+        display: inline-grid;
+        place-items: center;
+        padding: 0 4px;
+        border-radius: 5px;
+        background: var(--blue);
+        color: #fff;
+        font-size: 9px;
+      }
+
+      .login-prompt {
+        margin: 0;
+        padding: 34px 20px 30px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+        text-align: center;
+      }
+
+      .login-prompt svg {
+        margin: 0 auto 14px;
+        color: var(--tertiary);
+      }
+
+      .login-prompt h2 {
+        margin: 0;
+        font-size: 19px;
+        font-weight: 690;
+      }
+
+      .login-prompt p {
+        margin: 8px auto 18px;
+        color: var(--secondary);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .primary-button,
+      .secondary-button {
+        min-height: 42px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 18px;
+        border-radius: 4px;
+        font-size: 13px;
+        font-weight: 650;
+        cursor: pointer;
+      }
+
+      .primary-button {
+        border: 1px solid var(--blue);
+        background: var(--blue);
+        color: #fff;
+      }
+
+      .primary-button:hover {
+        background: var(--blue-deep);
+      }
+
+      .primary-button:disabled {
+        border-color: #a9c8e8;
+        background: #a9c8e8;
+        cursor: not-allowed;
+      }
+
+      .secondary-button {
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--ink);
+      }
+
+      .profile-head {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        padding: 23px 16px 19px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+      }
+
+      .profile-copy {
+        min-width: 0;
+        flex: 1;
+      }
+
+      .profile-copy h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 690;
+      }
+
+      .profile-copy p {
+        margin: 5px 0 0;
+        color: var(--secondary);
+        font-size: 11px;
+      }
+
+      .profile-badge {
+        padding: 4px 6px;
+        border: 1px solid #bad0e6;
+        border-radius: 2px;
+        color: var(--blue-deep);
+        font-size: 9px;
+        font-weight: 650;
+      }
+
+      .profile-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+      }
+
+      .profile-stat {
+        padding: 14px 8px;
+        text-align: center;
+      }
+
+      .profile-stat + .profile-stat {
+        border-left: 1px solid var(--line-soft);
+      }
+
+      .profile-stat strong {
+        display: block;
+        font-size: 17px;
+        font-weight: 690;
+      }
+
+      .profile-stat span {
+        display: block;
+        margin-top: 3px;
+        color: var(--tertiary);
+        font-size: 9px;
+      }
+
+      .settings-icon {
+        color: var(--secondary);
+      }
+
+      .chevron {
+        color: #a1a1a6;
+      }
+
+      .layer {
+        position: absolute;
+        z-index: 30;
+        inset: 0;
+        display: grid;
+        grid-template-rows: auto auto 1fr;
+        background: var(--surface-soft);
+        transform: translateX(102%);
+        transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      .layer.open {
+        transform: translateX(0);
+      }
+
+      .layer-bar {
+        height: 48px;
+        display: grid;
+        grid-template-columns: 70px 1fr 70px;
+        align-items: center;
+        border-bottom: 1px solid var(--line);
+        background: rgba(250, 250, 252, 0.98);
+      }
+
+      .layer-bar h2 {
+        margin: 0;
+        text-align: center;
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .layer-action {
+        height: 100%;
+        padding: 0 14px;
+        border: 0;
+        background: transparent;
+        color: var(--blue);
+        font-size: 13px;
+        cursor: pointer;
+      }
+
+      .layer-action:first-child {
+        text-align: left;
+      }
+
+      .layer-action:last-child {
+        text-align: right;
+      }
+
+      .layer-action.strong {
+        font-weight: 680;
+      }
+
+      .thread-scroll,
+      .compose-scroll {
+        min-height: 0;
+        overflow-y: auto;
+        scrollbar-width: none;
+      }
+
+      .thread-scroll::-webkit-scrollbar,
+      .compose-scroll::-webkit-scrollbar {
+        display: none;
+      }
+
+      .thread-main {
+        padding: 17px 16px 15px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+      }
+
+      .thread-main h3 {
+        margin: 15px 0 8px;
+        font-size: 19px;
+        font-weight: 720;
+        line-height: 1.42;
+        letter-spacing: -0.02em;
+      }
+
+      .thread-main p {
+        margin: 0;
+        color: #35353a;
+        font-size: 13px;
+        line-height: 1.72;
+      }
+
+      .formula {
+        margin: 14px 0;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        background: var(--surface-soft);
+        color: var(--ink);
+        font-family: "Times New Roman", serif;
+        font-size: 17px;
+        text-align: center;
+      }
+
+      .thread-actions {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+      }
+
+      .thread-action {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border: 0;
+        background: transparent;
+        color: var(--secondary);
+        font-size: 11px;
+        cursor: pointer;
+      }
+
+      .thread-action + .thread-action {
+        border-left: 1px solid var(--line-soft);
+      }
+
+      .thread-action.active {
+        color: var(--blue);
+        font-weight: 650;
+      }
+
+      .answer {
+        padding: 15px 16px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+      }
+
+      .answer-copy {
+        margin: 11px 0 0 43px;
+        color: #35353a;
+        font-size: 12px;
+        line-height: 1.68;
+      }
+
+      .answer-helpful {
+        margin: 9px 0 0 43px;
+        color: var(--tertiary);
+        font-size: 10px;
+      }
+
+      .reply-bar {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        padding: 9px 12px var(--safe-bottom);
+        border-top: 1px solid var(--line);
+        background: rgba(250, 250, 252, 0.98);
+      }
+
+      .reply-placeholder {
+        min-height: 36px;
+        padding: 0 11px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        background: var(--surface);
+        color: var(--tertiary);
+        font-size: 12px;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .reply-button {
+        min-width: 54px;
+        border: 1px solid var(--blue);
+        border-radius: 4px;
+        background: var(--blue);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 650;
+        cursor: pointer;
+      }
+
+      .compose-scroll {
+        padding-bottom: 24px;
+        background: var(--surface);
+      }
+
+      .compose-field {
+        padding: 17px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .compose-label {
+        display: block;
+        margin-bottom: 9px;
+        color: var(--secondary);
+        font-size: 11px;
+        font-weight: 650;
+      }
+
+      .subject-options {
+        display: flex;
+        gap: 7px;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+
+      .subject-options::-webkit-scrollbar {
+        display: none;
+      }
+
+      .subject-option {
+        flex: none;
+        min-height: 32px;
+        padding: 0 10px;
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        background: var(--surface);
+        color: var(--secondary);
+        font-size: 11px;
+        cursor: pointer;
+      }
+
+      .subject-option.active {
+        border-color: var(--ink);
+        background: var(--ink);
+        color: #fff;
+      }
+
+      .title-input {
+        width: 100%;
+        padding: 1px 0 12px;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        border-radius: 0;
+        color: var(--ink);
+        font-size: 17px;
+        font-weight: 650;
+      }
+
+      .body-input {
+        width: 100%;
+        min-height: 190px;
+        padding: 13px 0;
+        resize: none;
+        border: 0;
+        border-radius: 0;
+        color: var(--ink);
+        font-size: 13px;
+        line-height: 1.65;
+      }
+
+      .title-input::placeholder,
+      .body-input::placeholder {
+        color: #85858b;
+      }
+
+      .title-input:focus,
+      .body-input:focus {
+        outline-offset: 0;
+      }
+
+      .compose-tools {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-top: 10px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .tool-buttons {
+        display: flex;
+        gap: 6px;
+      }
+
+      .tool-button {
+        width: 34px;
+        height: 32px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        background: var(--surface);
+        color: var(--secondary);
+        cursor: pointer;
+      }
+
+      .compose-hint {
+        color: var(--tertiary);
+        font-size: 9px;
+      }
+
+      .field-error {
+        display: none;
+        margin: 10px 0 0;
+        color: var(--danger);
+        font-size: 11px;
+      }
+
+      .field-error.visible {
+        display: block;
+      }
+
+      .search-panel {
+        position: absolute;
+        z-index: 25;
+        top: 74px;
+        right: 0;
+        left: 0;
+        display: none;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+        box-shadow: 0 10px 24px rgba(29, 29, 31, 0.09);
+      }
+
+      .search-panel.open {
+        display: block;
+      }
+
+      .search-input-wrap {
+        display: grid;
+        grid-template-columns: 20px 1fr auto;
+        align-items: center;
+        gap: 6px;
+        min-height: 38px;
+        padding: 0 10px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        background: var(--surface-soft);
+      }
+
+      .search-input {
+        min-width: 0;
+        border: 0;
+        background: transparent;
+        color: var(--ink);
+        font-size: 12px;
+      }
+
+      .search-input:focus {
+        outline: 0;
+      }
+
+      .search-close {
+        padding: 4px;
+        border: 0;
+        background: transparent;
+        color: var(--blue);
+        font-size: 11px;
+        cursor: pointer;
+      }
+
+      .modal-backdrop {
+        position: absolute;
+        z-index: 50;
+        inset: 0;
+        display: none;
+        place-items: end center;
+        background: rgba(0, 0, 0, 0.34);
+      }
+
+      .modal-backdrop.open {
+        display: grid;
+      }
+
+      .auth-sheet {
+        width: 100%;
+        padding: 22px 18px calc(18px + var(--safe-bottom));
+        border-top: 1px solid var(--line);
+        background: var(--surface);
+        box-shadow: 0 -18px 48px rgba(29, 29, 31, 0.18);
+        animation: sheet-up 240ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      @keyframes sheet-up {
+        from {
+          opacity: 0.6;
+          transform: translateY(16px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .auth-icon {
+        width: 38px;
+        height: 38px;
+        display: grid;
+        place-items: center;
+        margin-bottom: 15px;
+        border-radius: 4px;
+        background: #07c160;
+        color: #fff;
+      }
+
+      .auth-sheet h2 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 720;
+        letter-spacing: -0.02em;
+      }
+
+      .auth-sheet > p {
+        margin: 8px 0 17px;
+        color: var(--secondary);
+        font-size: 12px;
+        line-height: 1.62;
+      }
+
+      .privacy-note {
+        padding: 11px;
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        background: var(--surface-soft);
+        color: var(--secondary);
+        font-size: 10px;
+        line-height: 1.55;
+      }
+
+      .auth-actions {
+        display: grid;
+        gap: 8px;
+        margin-top: 16px;
+      }
+
+      .auth-actions .primary-button,
+      .auth-actions .secondary-button {
+        width: 100%;
+      }
+
+      .toast {
+        position: absolute;
+        z-index: 70;
+        top: 88px;
+        left: 50%;
+        min-width: 150px;
+        max-width: 80%;
+        padding: 10px 12px;
+        border: 1px solid #404044;
+        border-radius: 4px;
+        background: rgba(29, 29, 31, 0.94);
+        color: #fff;
+        font-size: 11px;
+        text-align: center;
+        opacity: 0;
+        pointer-events: none;
+        transform: translate(-50%, -8px);
+        transition:
+          opacity 180ms ease,
+          transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      .toast.show {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      @media (max-width: 600px) {
+        .prototype-stage {
+          display: block;
+          min-height: 100dvh;
+          padding: 0;
+        }
+
+        .device {
+          width: 100vw;
+          height: 100vh;
+          height: 100dvh;
+          min-height: 0;
+          border: 0;
+          border-radius: 0;
+          box-shadow: none;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="prototype-stage">
+      <section class="device" aria-label="云舟社区微信小程序交互原型">
+        <div class="screen">
+          <div class="status-bar" aria-hidden="true">
+            <span>9:41</span>
+            <span class="status-icons">
+              <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
+                <path d="M1 8.5h1.5v-2H1v2Zm3.25 0h1.5v-4h-1.5v4Zm3.25 0H9v-6H7.5v6Zm3.25 0h1.5v-8h-1.5v8Z" fill="currentColor" />
+              </svg>
+              <svg width="13" height="10" viewBox="0 0 13 10" fill="none">
+                <path d="M1 3.8a7.9 7.9 0 0 1 11 0M3 5.8a5 5 0 0 1 7 0M5.2 8a1.9 1.9 0 0 1 2.6 0" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+              </svg>
+              <svg width="20" height="10" viewBox="0 0 20 10" fill="none">
+                <rect x=".5" y=".5" width="16" height="9" rx="2" stroke="currentColor" />
+                <rect x="2" y="2" width="12" height="6" rx="1" fill="currentColor" />
+                <path d="M18 3.2v3.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+            </span>
+          </div>
+
+          <header class="app-bar">
+            <span class="brand-mark" aria-hidden="true">云舟</span>
+            <h1 id="page-title">社区</h1>
+            <div class="mini-actions" aria-label="小程序操作">
+              <button class="mini-action" type="button" aria-label="小程序菜单">
+                <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true">
+                  <circle cx="3.5" cy="8.5" r="1.25" fill="currentColor" />
+                  <circle cx="8.5" cy="8.5" r="1.25" fill="currentColor" />
+                  <circle cx="13.5" cy="8.5" r="1.25" fill="currentColor" />
+                </svg>
+              </button>
+              <button class="mini-action" type="button" aria-label="关闭小程序">
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                  <circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.8" />
+                </svg>
+              </button>
+            </div>
+          </header>
+
+          <div class="search-panel" id="search-panel">
+            <label class="search-input-wrap">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="1.8" />
+                <path d="m15.5 15.5 5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+              </svg>
+              <input class="search-input" id="search-input" type="search" placeholder="搜索题目、知识点或学校" />
+              <button class="search-close" id="search-close" type="button">取消</button>
+            </label>
+          </div>
+
+          <nav class="context-tabs" id="context-tabs" aria-label="考试筛选">
+            <button class="context-tab active" type="button" data-filter="all">推荐</button>
+            <button class="context-tab" type="button" data-filter="ESAT">ESAT</button>
+            <button class="context-tab" type="button" data-filter="TMUA">TMUA</button>
+            <button class="context-tab" type="button" data-filter="申请">申请交流</button>
+            <button class="context-search" id="search-button" type="button" aria-label="搜索讨论">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="1.8" />
+                <path d="m15.5 15.5 5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+              </svg>
+            </button>
+          </nav>
+
+          <div class="views">
+            <section class="view active" id="view-community" aria-label="社区讨论">
+              <div class="subject-tabs hidden" id="subject-tabs" aria-label="学科筛选"></div>
+              <button class="composer-entry" type="button" data-auth-action="compose">
+                <span class="avatar small slate" aria-hidden="true">我</span>
+                <span class="composer-prompt">你正在攻克哪一道题？</span>
+                <span class="text-link">发起讨论</span>
+              </button>
+
+              <button class="featured-strip" type="button" data-open-thread data-category="ESAT" data-subject="Mathematics 1">
+                <span>
+                  <span class="featured-kicker">本周共学 · ESAT Mathematics 1</span>
+                  <span class="featured-title">参数方程里，怎样快速判断轨迹与交点数量？</span>
+                  <span class="featured-meta">26 人正在讨论 · 3 条高质量解答</span>
+                </span>
+                <svg class="featured-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="m9 5 7 7-7 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+
+              <div class="feed-label">
+                <h2>值得讨论</h2>
+                <span>完整解法与验证优先</span>
+              </div>
+
+              <article class="post" tabindex="0" role="button" data-open-thread data-category="ESAT" data-subject="Mathematics 1">
+                <div class="post-head">
+                  <span class="avatar medium blue" aria-hidden="true">JL</span>
+                  <span class="post-author">
+                    <strong>Juno · Year 12</strong>
+                    <span>8 分钟前 · Imperial 目标</span>
+                  </span>
+                  <span class="trust-mark">已验证解答</span>
+                </div>
+                <h3 class="post-title">这道参数方程为什么不能直接消去 t？</h3>
+                <p class="post-excerpt">我得到的笛卡尔方程包含了多余的点。是不是因为 t 的取值范围在消元时丢失了？</p>
+                <div class="post-bottom">
+                  <span class="tags">
+                    <span class="tag">ESAT</span>
+                    <span class="tag">Mathematics 1</span>
+                  </span>
+                  <span class="engagement">12 回复 · 38 有帮助</span>
+                </div>
+              </article>
+
+              <article class="post" tabindex="0" role="button" data-open-thread data-category="TMUA" data-subject="Logic">
+                <div class="post-head">
+                  <span class="avatar medium green" aria-hidden="true">SK</span>
+                  <span class="post-author">
+                    <strong>Sean K.</strong>
+                    <span>24 分钟前 · Cambridge 目标</span>
+                  </span>
+                  <span class="trust-mark">2 条完整解法</span>
+                </div>
+                <h3 class="post-title">TMUA Paper 2 的必要条件和充分条件总是绕晕</h3>
+                <p class="post-excerpt">有没有一套检查方法，可以在做逻辑推理题时快速排除把逆命题当原命题的选项？</p>
+                <div class="post-bottom">
+                  <span class="tags">
+                    <span class="tag">TMUA</span>
+                    <span class="tag">Logic</span>
+                  </span>
+                  <span class="engagement">9 回复 · 21 收藏</span>
+                </div>
+              </article>
+
+              <article class="post" tabindex="0" role="button" data-open-thread data-category="申请" data-subject="备考规划">
+                <div class="post-head">
+                  <span class="avatar medium violet" aria-hidden="true">AY</span>
+                  <span class="post-author">
+                    <strong>Amber Y.</strong>
+                    <span>1 小时前 · UCL 目标</span>
+                  </span>
+                  <span class="trust-mark">经验已归纳</span>
+                </div>
+                <h3 class="post-title">学校模考和真题诊断差距很大，应该以哪个为准？</h3>
+                <p class="post-excerpt">两次成绩方向完全相反，想知道如何判断是知识点问题、时间分配，还是卷面难度差异。</p>
+                <div class="post-bottom">
+                  <span class="tags">
+                    <span class="tag">备考规划</span>
+                    <span class="tag">诊断报告</span>
+                  </span>
+                  <span class="engagement">7 回复 · 16 有帮助</span>
+                </div>
+              </article>
+            </section>
+
+            <section class="view" id="view-circles" aria-label="备考圈子">
+              <div class="page-intro">
+                <h2>备考圈子</h2>
+                <p>按考试、科目与申请目标进入更聚焦的讨论。加入后可在首页优先看到相关内容。</p>
+              </div>
+              <h3 class="section-title">你的考试</h3>
+              <button class="circle-row" type="button">
+                <span class="circle-icon math" aria-hidden="true">M1</span>
+                <span class="row-copy">
+                  <strong>ESAT Mathematics 1</strong>
+                  <span>参数方程错题串讲正在进行</span>
+                </span>
+                <span class="row-meta">1.2k 讨论</span>
+              </button>
+              <button class="circle-row" type="button">
+                <span class="circle-icon physics" aria-hidden="true">P</span>
+                <span class="row-copy">
+                  <strong>ESAT Physics</strong>
+                  <span>本周主题：电路与实验误差</span>
+                </span>
+                <span class="row-meta">846 讨论</span>
+              </button>
+              <h3 class="section-title">申请同行</h3>
+              <button class="circle-row" type="button">
+                <span class="circle-icon apply" aria-hidden="true">IC</span>
+                <span class="row-copy">
+                  <strong>Imperial 申请交流</strong>
+                  <span>笔试安排、面试准备与时间线</span>
+                </span>
+                <span class="row-meta">536 人</span>
+              </button>
+              <button class="circle-row" type="button">
+                <span class="circle-icon apply" aria-hidden="true">CA</span>
+                <span class="row-copy">
+                  <strong>Cambridge 申请交流</strong>
+                  <span>学院选择、TMUA 与面试讨论</span>
+                </span>
+                <span class="row-meta">724 人</span>
+              </button>
+            </section>
+
+            <section class="view" id="view-messages" aria-label="消息">
+              <div id="messages-logged-out">
+                <div class="login-prompt">
+                  <svg width="38" height="38" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M4 5.5h16v11H8l-4 3v-14Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+                    <path d="M8 10h8M8 13h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                  </svg>
+                  <h2>登录后查看消息</h2>
+                  <p>回复、收藏和圈子动态将集中出现在这里。</p>
+                  <button class="primary-button" type="button" data-auth-action="login">微信快捷登录</button>
+                </div>
+              </div>
+              <div id="messages-logged-in" class="hidden">
+                <div class="page-intro">
+                  <h2>消息</h2>
+                  <p>只保留与你的提问、回复和关注圈子有关的更新。</p>
+                </div>
+                <h3 class="section-title">最近</h3>
+                <button class="message-row" type="button" data-open-thread>
+                  <span class="avatar medium blue" aria-hidden="true">JL</span>
+                  <span class="row-copy">
+                    <strong>Juno 回复了你的讨论</strong>
+                    <span>“需要保留 t 的定义域，否则会引入额外轨迹……”</span>
+                  </span>
+                  <span class="unread">1</span>
+                </button>
+                <button class="message-row" type="button">
+                  <span class="avatar medium green" aria-hidden="true">圈</span>
+                  <span class="row-copy">
+                    <strong>ESAT Physics 圈子</strong>
+                    <span>本周共学主题已更新：电路与实验误差</span>
+                  </span>
+                  <span class="row-meta">昨天</span>
+                </button>
+              </div>
+            </section>
+
+            <section class="view" id="view-profile" aria-label="我的">
+              <div id="profile-logged-out">
+                <div class="login-prompt">
+                  <svg width="42" height="42" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" stroke-width="1.5" />
+                    <path d="M4.5 21a7.5 7.5 0 0 1 15 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                  </svg>
+                  <h2>微信登录，继续讨论</h2>
+                  <p>登录后同步你的提问、收藏和关注圈子。不会自动公开微信好友关系。</p>
+                  <button class="primary-button" type="button" data-auth-action="login">微信快捷登录</button>
+                </div>
+              </div>
+              <div id="profile-logged-in" class="hidden">
+                <div class="profile-head">
+                  <span class="avatar large slate" aria-hidden="true">LY</span>
+                  <span class="profile-copy">
+                    <h2>林屿</h2>
+                    <p>Year 12 · Imperial Computing</p>
+                  </span>
+                  <span class="profile-badge">微信已绑定</span>
+                </div>
+                <div class="profile-stats" aria-label="社区数据">
+                  <span class="profile-stat"><strong>3</strong><span>提问</span></span>
+                  <span class="profile-stat"><strong>12</strong><span>回复</span></span>
+                  <span class="profile-stat"><strong>28</strong><span>收藏</span></span>
+                </div>
+                <h3 class="section-title">学习内容</h3>
+                <button class="settings-row" type="button">
+                  <svg class="settings-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" />
+                  </svg>
+                  <span class="row-copy"><strong>我的讨论</strong><span>提问、回复和草稿</span></span>
+                  <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="m9 5 7 7-7 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+                <button class="settings-row" type="button">
+                  <svg class="settings-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="m12 4 2.5 5 5.5.8-4 3.9.9 5.5-4.9-2.6-4.9 2.6.9-5.5-4-3.9 5.5-.8L12 4Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+                  </svg>
+                  <span class="row-copy"><strong>我的收藏</strong><span>题目讨论与备考经验</span></span>
+                  <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="m9 5 7 7-7 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+                <h3 class="section-title">账户与安全</h3>
+                <button class="settings-row" type="button">
+                  <svg class="settings-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M12 3 5 6v5c0 4.6 2.8 8 7 10 4.2-2 7-5.4 7-10V6l-7-3Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+                  </svg>
+                  <span class="row-copy"><strong>隐私与社区安全</strong><span>屏蔽、举报记录与授权管理</span></span>
+                  <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="m9 5 7 7-7 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </div>
+            </section>
+          </div>
+
+          <nav class="tab-bar" aria-label="主要导航">
+            <button class="nav-item active" type="button" data-screen="community">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 5h16v11H8l-4 3V5Z" stroke="currentColor" stroke-linejoin="round" />
+                <path d="M8 9h8M8 12.5h6" stroke="currentColor" stroke-linecap="round" />
+              </svg>
+              <span>社区</span>
+            </button>
+            <button class="nav-item" type="button" data-screen="circles">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 8h16M4 16h16M8 4v16M16 4v16" stroke="currentColor" stroke-linecap="round" />
+              </svg>
+              <span>圈子</span>
+            </button>
+            <button class="nav-item" type="button" data-screen="messages">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M5 4h14v13H9l-4 3V4Z" stroke="currentColor" stroke-linejoin="round" />
+                <path d="M8 8h8M8 12h5" stroke="currentColor" stroke-linecap="round" />
+              </svg>
+              <span>消息</span>
+            </button>
+            <button class="nav-item" type="button" data-screen="profile">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="8" r="4" stroke="currentColor" />
+                <path d="M5 21a7 7 0 0 1 14 0" stroke="currentColor" stroke-linecap="round" />
+              </svg>
+              <span>我的</span>
+            </button>
+          </nav>
+        </div>
+
+        <section class="layer" id="thread-layer" aria-label="讨论详情" aria-hidden="true">
+          <div class="status-bar" aria-hidden="true">
+            <span>9:41</span>
+            <span class="status-icons">
+              <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
+                <path d="M1 8.5h1.5v-2H1v2Zm3.25 0h1.5v-4h-1.5v4Zm3.25 0H9v-6H7.5v6Zm3.25 0h1.5v-8h-1.5v8Z" fill="currentColor" />
+              </svg>
+              <svg width="13" height="10" viewBox="0 0 13 10" fill="none">
+                <path d="M1 3.8a7.9 7.9 0 0 1 11 0M3 5.8a5 5 0 0 1 7 0M5.2 8a1.9 1.9 0 0 1 2.6 0" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+              </svg>
+              <svg width="20" height="10" viewBox="0 0 20 10" fill="none">
+                <rect x=".5" y=".5" width="16" height="9" rx="2" stroke="currentColor" />
+                <rect x="2" y="2" width="12" height="6" rx="1" fill="currentColor" />
+                <path d="M18 3.2v3.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+            </span>
+          </div>
+          <header class="layer-bar">
+            <button class="layer-action" type="button" data-close-layer="thread-layer">返回</button>
+            <h2>讨论</h2>
+            <button class="layer-action" type="button" id="thread-more">•••</button>
+          </header>
+          <div class="thread-scroll">
+            <article class="thread-main">
+              <div class="post-head">
+                <span class="avatar medium blue" aria-hidden="true">JL</span>
+                <span class="post-author">
+                  <strong>Juno · Year 12</strong>
+                  <span>8 分钟前 · Imperial 目标</span>
+                </span>
+                <span class="trust-mark">已验证学生</span>
+              </div>
+              <h3>这道参数方程为什么不能直接消去 t？</h3>
+              <p>我得到的笛卡尔方程包含了多余的点。是不是因为在消元时丢失了参数的取值范围？题目给的是：</p>
+              <div class="formula">x = 2t + 1, &nbsp; y = t² − 4, &nbsp; −1 ≤ t ≤ 2</div>
+              <p>如果直接写成 y = ((x − 1) / 2)² − 4，看起来 x 可以取任意实数。考试中怎样最稳妥地保留限制？</p>
+              <div class="post-bottom">
+                <span class="tags">
+                  <span class="tag">ESAT</span>
+                  <span class="tag">Mathematics 1</span>
+                  <span class="tag">参数方程</span>
+                </span>
+                <span class="engagement">浏览 126</span>
+              </div>
+            </article>
+            <div class="thread-actions">
+              <button class="thread-action" type="button" data-auth-action="like">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M7 10v10H4V10h3Zm0 9h10.2a2 2 0 0 0 2-1.7l1-6A2 2 0 0 0 18.2 9H14l.6-3.2A2.4 2.4 0 0 0 12.2 3L7 10Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+                </svg>
+                <span>有帮助 38</span>
+              </button>
+              <button class="thread-action" type="button" data-auth-action="save">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M6 4h12v17l-6-4-6 4V4Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+                </svg>
+                <span>收藏</span>
+              </button>
+              <button class="thread-action" type="button" id="share-button">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M12 3v12m0-12L7 8m5-5 5 5M5 13v7h14v-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>微信分享</span>
+              </button>
+            </div>
+            <h3 class="section-title">12 条回复 · 按帮助度排序</h3>
+            <article class="answer">
+              <div class="post-head">
+                <span class="avatar medium green" aria-hidden="true">SK</span>
+                <span class="post-author">
+                  <strong>Sean K.</strong>
+                  <span>Cambridge Mathematics · 2 年答题者</span>
+                </span>
+                <span class="trust-mark">高质量解答</span>
+              </div>
+              <p class="answer-copy">你的判断是对的。消元只解决了“点满足什么方程”，没有自动保留“哪些参数被允许”。先由 −1 ≤ t ≤ 2 得到 −1 ≤ x ≤ 5，再把这个定义域和笛卡尔方程一起写出，轨迹才等价。</p>
+              <p class="answer-helpful">42 人认为有帮助 · 回复 3</p>
+            </article>
+            <article class="answer">
+              <div class="post-head">
+                <span class="avatar medium orange" aria-hidden="true">MR</span>
+                <span class="post-author">
+                  <strong>Mira</strong>
+                  <span>ESAT Mathematics 1 学习者</span>
+                </span>
+              </div>
+              <p class="answer-copy">我会在草稿上固定写两行：① 消元后的关系式；② 参数范围映射后的 x 或 y 范围。这样限时状态下不容易漏。</p>
+              <p class="answer-helpful">18 人认为有帮助 · 回复 1</p>
+            </article>
+          </div>
+          <div class="reply-bar">
+            <button class="reply-placeholder" type="button" data-auth-action="reply">写下你的解法或追问…</button>
+            <button class="reply-button" type="button" data-auth-action="reply">回复</button>
+          </div>
+        </section>
+
+        <section class="layer" id="compose-layer" aria-label="发起讨论" aria-hidden="true">
+          <div class="status-bar" aria-hidden="true">
+            <span>9:41</span>
+            <span class="status-icons">
+              <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
+                <path d="M1 8.5h1.5v-2H1v2Zm3.25 0h1.5v-4h-1.5v4Zm3.25 0H9v-6H7.5v6Zm3.25 0h1.5v-8h-1.5v8Z" fill="currentColor" />
+              </svg>
+              <svg width="13" height="10" viewBox="0 0 13 10" fill="none">
+                <path d="M1 3.8a7.9 7.9 0 0 1 11 0M3 5.8a5 5 0 0 1 7 0M5.2 8a1.9 1.9 0 0 1 2.6 0" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+              </svg>
+              <svg width="20" height="10" viewBox="0 0 20 10" fill="none">
+                <rect x=".5" y=".5" width="16" height="9" rx="2" stroke="currentColor" />
+                <rect x="2" y="2" width="12" height="6" rx="1" fill="currentColor" />
+                <path d="M18 3.2v3.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+            </span>
+          </div>
+          <header class="layer-bar">
+            <button class="layer-action" type="button" data-close-layer="compose-layer">取消</button>
+            <h2>发起讨论</h2>
+            <button class="layer-action strong" id="publish-button" type="button">发布</button>
+          </header>
+          <div class="compose-scroll">
+            <div class="compose-field">
+              <span class="compose-label">讨论所属</span>
+              <div class="subject-options" role="group" aria-label="选择考试或主题">
+                <button class="subject-option active" type="button">ESAT</button>
+                <button class="subject-option" type="button">TMUA</button>
+                <button class="subject-option" type="button">STEP</button>
+                <button class="subject-option" type="button">申请交流</button>
+              </div>
+            </div>
+            <div class="compose-field">
+              <label class="compose-label" for="compose-title">一句话说清你想讨论什么</label>
+              <input class="title-input" id="compose-title" maxlength="50" placeholder="例如：参数范围为什么会在消元时丢失？" />
+              <textarea class="body-input" id="compose-body" maxlength="1000" placeholder="补充题目条件、你的思路和具体卡点。清楚的上下文更容易得到高质量回复。"></textarea>
+              <div class="compose-tools">
+                <div class="tool-buttons">
+                  <button class="tool-button" type="button" aria-label="添加题目图片">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M4 5h16v14H4V5Z" stroke="currentColor" stroke-width="1.5" />
+                      <circle cx="9" cy="10" r="2" stroke="currentColor" stroke-width="1.5" />
+                      <path d="m5 18 5-5 3 3 2-2 4 4" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+                    </svg>
+                  </button>
+                  <button class="tool-button" type="button" aria-label="添加公式">
+                    <span aria-hidden="true">∑</span>
+                  </button>
+                  <button class="tool-button" type="button" aria-label="关联题目">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M7 5h10v14H7zM10 9h4M10 13h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                    </svg>
+                  </button>
+                </div>
+                <span class="compose-hint">公开讨论 · 发布后可编辑</span>
+              </div>
+              <p class="field-error" id="compose-error">请至少填写一个 8 字以上的标题。</p>
+            </div>
+          </div>
+        </section>
+
+        <div class="modal-backdrop" id="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+          <section class="auth-sheet">
+            <div class="auth-icon" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M9.6 5.5c-3.2 0-5.8 2.1-5.8 4.8 0 1.5.8 2.8 2.1 3.7l-.6 2.1 2.4-1.2c.6.2 1.2.3 1.9.3 3.2 0 5.8-2.2 5.8-4.9S12.8 5.5 9.6 5.5Z" fill="currentColor" />
+                <path d="M15.1 10.4c2.8 0 5.1 1.9 5.1 4.2 0 1.3-.7 2.4-1.8 3.2l.5 1.8-2.1-1c-.5.2-1.1.3-1.7.3-2.8 0-5.1-1.9-5.1-4.3s2.3-4.2 5.1-4.2Z" fill="currentColor" opacity=".78" />
+              </svg>
+            </div>
+            <h2 id="auth-title">微信快捷登录</h2>
+            <p>登录后可参与讨论、收藏内容并同步消息。浏览社区无需登录。</p>
+            <div class="privacy-note">本原型仅演示授权流程。正式版本应在授权前展示隐私政策，并只申请完成社区功能所必需的信息。</div>
+            <div class="auth-actions">
+              <button class="primary-button" id="confirm-login" type="button">允许并登录</button>
+              <button class="secondary-button" id="cancel-login" type="button">暂不登录</button>
+            </div>
+          </section>
+        </div>
+
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <script>
+      const appState = {
+        isLoggedIn: false,
+        pendingAction: null,
+        activeScreen: "community",
+        activeFilter: "all",
+        activeSubject: "all",
+        searchQuery: "",
+      };
+
+      const pageTitles = {
+        community: "社区",
+        circles: "圈子",
+        messages: "消息",
+        profile: "我的",
+      };
+
+      const contextTabs = document.getElementById("context-tabs");
+      const pageTitle = document.getElementById("page-title");
+      const authModal = document.getElementById("auth-modal");
+      const toast = document.getElementById("toast");
+      const subjectTabs = document.getElementById("subject-tabs");
+      let toastTimer;
+
+      // 在主导航之间切换，并只在社区首页保留考试筛选。
+      function switchScreen(screenName) {
+        appState.activeScreen = screenName;
+        document.querySelectorAll(".view").forEach((view) => {
+          view.classList.toggle("active", view.id === `view-${screenName}`);
+        });
+        document.querySelectorAll(".nav-item").forEach((item) => {
+          item.classList.toggle("active", item.dataset.screen === screenName);
+        });
+        pageTitle.textContent = pageTitles[screenName];
+        contextTabs.classList.toggle("hidden", screenName !== "community");
+      }
+
+      // 以短时系统提示反馈原型中的轻量操作结果。
+      function showToast(message) {
+        window.clearTimeout(toastTimer);
+        toast.textContent = message;
+        toast.classList.add("show");
+        toastTimer = window.setTimeout(() => toast.classList.remove("show"), 1900);
+      }
+
+      // 打开覆盖式任务页，并同步无障碍状态。
+      function openLayer(id) {
+        const layer = document.getElementById(id);
+        layer.classList.add("open");
+        layer.setAttribute("aria-hidden", "false");
+      }
+
+      // 关闭覆盖式任务页，并将其移出键盘和读屏焦点。
+      function closeLayer(id) {
+        const layer = document.getElementById(id);
+        layer.classList.remove("open");
+        layer.setAttribute("aria-hidden", "true");
+      }
+
+      // 更新登录前后可见内容，模拟微信身份绑定完成后的状态。
+      function renderAuthState() {
+        document.getElementById("messages-logged-out").classList.toggle("hidden", appState.isLoggedIn);
+        document.getElementById("messages-logged-in").classList.toggle("hidden", !appState.isLoggedIn);
+        document.getElementById("profile-logged-out").classList.toggle("hidden", appState.isLoggedIn);
+        document.getElementById("profile-logged-in").classList.toggle("hidden", !appState.isLoggedIn);
+      }
+
+      // 只有写入型操作需要身份，浏览和分享保持开放。
+      function requireAuth(action) {
+        if (appState.isLoggedIn) {
+          performProtectedAction(action);
+          return;
+        }
+        appState.pendingAction = action;
+        authModal.classList.add("open");
+        document.getElementById("confirm-login").focus();
+      }
+
+      // 登录完成后续接用户刚才的操作，避免授权打断任务意图。
+      function performProtectedAction(action) {
+        if (action === "compose") {
+          openLayer("compose-layer");
+          return;
+        }
+        if (action === "reply") {
+          showToast("回复输入区已准备好");
+          return;
+        }
+        if (action === "like") {
+          const button = document.querySelector('[data-auth-action="like"]');
+          button.classList.toggle("active");
+          button.querySelector("span").textContent = button.classList.contains("active")
+            ? "有帮助 39"
+            : "有帮助 38";
+          return;
+        }
+        if (action === "save") {
+          const button = document.querySelector('[data-auth-action="save"]');
+          button.classList.toggle("active");
+          button.querySelector("span").textContent = button.classList.contains("active") ? "已收藏" : "收藏";
+          return;
+        }
+        if (action === "login") {
+          switchScreen("profile");
+        }
+      }
+
+      // 依据当前考试、学科与搜索词统一计算信息流，避免多个入口互相覆盖状态。
+      function filterPosts() {
+        document.querySelectorAll("[data-category]").forEach((item) => {
+          const matchesExam =
+            appState.activeFilter === "all" || item.dataset.category === appState.activeFilter;
+          const matchesSubject =
+            appState.activeSubject === "all" || item.dataset.subject === appState.activeSubject;
+          const matchesSearch =
+            !appState.searchQuery || item.textContent.toLowerCase().includes(appState.searchQuery);
+          item.classList.toggle("hidden", !(matchesExam && matchesSubject && matchesSearch));
+        });
+      }
+
+      // 考试选择后只暴露对应学科，保持筛选轻量且与当前上下文一致。
+      function renderSubjectFilters() {
+        const subjectMap = {
+          ESAT: ["全部学科", "Mathematics 1", "Physics", "Chemistry"],
+          TMUA: ["全部内容", "Paper 1", "Logic"],
+        };
+        const subjects = subjectMap[appState.activeFilter];
+        if (!subjects) {
+          subjectTabs.replaceChildren();
+          subjectTabs.classList.add("hidden");
+          appState.activeSubject = "all";
+          return;
+        }
+
+        subjectTabs.classList.remove("hidden");
+        subjectTabs.innerHTML = subjects
+          .map(
+            (subject, index) =>
+              `<button class="subject-tab${index === 0 ? " active" : ""}" type="button" data-subject-filter="${index === 0 ? "all" : subject}">${subject}</button>`,
+          )
+          .join("");
+        subjectTabs.querySelectorAll(".subject-tab").forEach((tab) => {
+          tab.addEventListener("click", () => {
+            subjectTabs.querySelectorAll(".subject-tab").forEach((item) => item.classList.remove("active"));
+            tab.classList.add("active");
+            appState.activeSubject = tab.dataset.subjectFilter;
+            filterPosts();
+          });
+        });
+      }
+
+      document.querySelectorAll(".nav-item").forEach((item) => {
+        item.addEventListener("click", () => switchScreen(item.dataset.screen));
+      });
+
+      document.querySelectorAll(".context-tab").forEach((tab) => {
+        tab.addEventListener("click", () => {
+          document.querySelectorAll(".context-tab").forEach((item) => item.classList.remove("active"));
+          tab.classList.add("active");
+          appState.activeFilter = tab.dataset.filter;
+          appState.activeSubject = "all";
+          renderSubjectFilters();
+          filterPosts();
+        });
+      });
+
+      document.querySelectorAll("[data-open-thread]").forEach((item) => {
+        item.addEventListener("click", () => openLayer("thread-layer"));
+        item.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            openLayer("thread-layer");
+          }
+        });
+      });
+
+      document.querySelectorAll("[data-close-layer]").forEach((button) => {
+        button.addEventListener("click", () => closeLayer(button.dataset.closeLayer));
+      });
+
+      document.querySelectorAll("[data-auth-action]").forEach((button) => {
+        button.addEventListener("click", () => requireAuth(button.dataset.authAction));
+      });
+
+      document.getElementById("confirm-login").addEventListener("click", () => {
+        appState.isLoggedIn = true;
+        authModal.classList.remove("open");
+        renderAuthState();
+        showToast("微信登录成功");
+        if (appState.pendingAction) {
+          const nextAction = appState.pendingAction;
+          appState.pendingAction = null;
+          window.setTimeout(() => performProtectedAction(nextAction), 180);
+        }
+      });
+
+      document.getElementById("cancel-login").addEventListener("click", () => {
+        authModal.classList.remove("open");
+        appState.pendingAction = null;
+      });
+
+      authModal.addEventListener("click", (event) => {
+        if (event.target === authModal) {
+          authModal.classList.remove("open");
+          appState.pendingAction = null;
+        }
+      });
+
+      document.querySelectorAll(".subject-option").forEach((option) => {
+        option.addEventListener("click", () => {
+          document.querySelectorAll(".subject-option").forEach((item) => item.classList.remove("active"));
+          option.classList.add("active");
+        });
+      });
+
+      document.getElementById("publish-button").addEventListener("click", () => {
+        const titleInput = document.getElementById("compose-title");
+        const error = document.getElementById("compose-error");
+        const title = titleInput.value.trim();
+        if (title.length < 8) {
+          error.classList.add("visible");
+          titleInput.focus();
+          return;
+        }
+        error.classList.remove("visible");
+        closeLayer("compose-layer");
+        titleInput.value = "";
+        document.getElementById("compose-body").value = "";
+        showToast("讨论已发布");
+      });
+
+      document.getElementById("share-button").addEventListener("click", () => {
+        showToast("已唤起微信分享预览");
+      });
+
+      document.getElementById("thread-more").addEventListener("click", () => {
+        showToast("可在正式版中举报或屏蔽内容");
+      });
+
+      document.getElementById("search-button").addEventListener("click", () => {
+        document.getElementById("search-panel").classList.add("open");
+        document.getElementById("search-input").focus();
+      });
+
+      document.getElementById("search-close").addEventListener("click", () => {
+        document.getElementById("search-panel").classList.remove("open");
+        document.getElementById("search-input").value = "";
+        appState.searchQuery = "";
+        filterPosts();
+      });
+
+      document.getElementById("search-input").addEventListener("input", (event) => {
+        appState.searchQuery = event.target.value.trim().toLowerCase();
+        filterPosts();
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") return;
+        if (authModal.classList.contains("open")) {
+          authModal.classList.remove("open");
+          return;
+        }
+        const openLayerElement = document.querySelector(".layer.open");
+        if (openLayerElement) closeLayer(openLayerElement.id);
+      });
+
+      renderAuthState();
+    </script>
+  </body>
+</html>

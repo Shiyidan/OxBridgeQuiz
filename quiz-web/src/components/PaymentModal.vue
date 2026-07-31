@@ -131,31 +131,33 @@
                   </g>
                 </svg>
                 <button
-                  v-if="!createdOrderNo"
+                  v-if="orderCreationFailed && providerReady && configStatus === 'active'"
                   class="qr-demo qr-action"
                   type="button"
-                  :disabled="creatingOrder || configStatus !== 'active' || !providerReady"
+                  :disabled="creatingOrder"
                   @click="handleCreateOrder"
                 >
-                  {{
-                    creatingOrder
-                      ? '正在创建订单…'
-                      : providerReady
-                        ? '生成支付订单'
-                        : '待配置支付参数'
-                  }}
+                  {{ creatingOrder ? '正在重新生成…' : '重新生成二维码' }}
                 </button>
+                <span v-else-if="creatingOrder" class="qr-demo qr-loading">正在生成二维码…</span>
+                <span
+                  v-else-if="!providerReady || configStatus !== 'active'"
+                  class="qr-demo qr-unavailable"
+                  >支付暂不可用</span
+                >
                 <span v-else-if="orderStatus === 'paid'" class="qr-demo qr-success"
                   >支付成功</span
                 >
               </div>
 
               <p class="scan-tip">
-                <template v-if="createdOrderNo && orderStatus !== 'paid'">
+                <template v-if="creatingOrder">正在为您生成支付二维码，请稍候</template>
+                <template v-else-if="orderCreationFailed">二维码生成失败，请点击上方按钮重试</template>
+                <template v-else-if="createdOrderNo && orderStatus !== 'paid'">
                   请使用 <strong>{{ activeChannel.name }}</strong> 扫码支付
                 </template>
                 <template v-else-if="orderStatus === 'paid'">支付成功，会员权益已生效</template>
-                <template v-else>生成订单后显示支付二维码</template>
+                <template v-else>正在准备支付服务</template>
               </p>
 
               <div class="channel-tabs" role="tablist" aria-label="支付方式">
@@ -247,12 +249,15 @@ const selectedExam = ref('TMUA')
 const selectedPlanId = ref('monthly')
 const selectedChannelId = ref('alipay')
 const creatingOrder = ref(false)
+const orderCreationFailed = ref(false)
 const createdOrderNo = ref('')
 const qrCodeImageUrl = ref('')
 const paymentPageUrl = ref('')
 const orderAmountCents = ref<number | null>(null)
 const orderStatus = ref('')
 let pollingTimer: ReturnType<typeof setInterval> | null = null
+let orderGeneration = 0
+let initializingPayment = false
 const configStatus = ref<'active' | 'inactive'>('active')
 const providerReady = ref(false)
 const priceConfig = ref({
@@ -315,7 +320,7 @@ function formatPrice(valueCents: number): string {
     : (valueCents / 100).toFixed(2)
 }
 
-async function loadPaymentConfig(): Promise<void> {
+async function loadPaymentConfig(): Promise<boolean> {
   try {
     const config = await getPaymentConfig()
     priceConfig.value = {
@@ -325,8 +330,10 @@ async function loadPaymentConfig(): Promise<void> {
     }
     configStatus.value = config.status
     providerReady.value = config.providerReady
+    return config.status === 'active' && config.providerReady
   } catch {
     // Axios 公共响应处理会展示后端 errMsg。
+    return false
   }
 }
 
@@ -373,7 +380,10 @@ async function cancelCurrentOrder(): Promise<void> {
 }
 
 function resetPaymentOrder(): void {
+  orderGeneration += 1
   stopPaymentPolling()
+  creatingOrder.value = false
+  orderCreationFailed.value = false
   createdOrderNo.value = ''
   qrCodeImageUrl.value = ''
   paymentPageUrl.value = ''
@@ -390,13 +400,15 @@ async function createPaymentQrImage(checkoutUrl: string): Promise<string> {
   })
 }
 
-// 用户确认当前套餐和渠道后创建支付订单，金额始终由后端重新计算。
+// 弹窗打开或支付选项变化后自动创建订单，金额始终由后端重新计算。
 async function handleCreateOrder(): Promise<void> {
   if (!selectedExam.value) {
     ElMessage.warning('请选择一个备考类型')
     return
   }
+  const currentGeneration = ++orderGeneration
   creatingOrder.value = true
+  orderCreationFailed.value = false
   try {
     const result = await createPaymentOrder({
       examTypes: [selectedExam.value],
@@ -404,6 +416,12 @@ async function handleCreateOrder(): Promise<void> {
       channel: selectedChannelId.value as 'alipay' | 'wechat' | 'unionpay',
       legalVersions: { ...MEMBERSHIP_LEGAL_VERSIONS },
     })
+    if (currentGeneration !== orderGeneration || !props.modelValue) {
+      void closePaymentOrder(result.order.orderNo).catch((error) => {
+        console.warn('[PaymentModal] 关闭已失效的新建订单失败', error)
+      })
+      return
+    }
     createdOrderNo.value = result.order.orderNo
     paymentPageUrl.value = result.qrCodeUrl
     orderAmountCents.value = result.order.amountCents
@@ -417,9 +435,47 @@ async function handleCreateOrder(): Promise<void> {
       return
     }
     ElMessage.success(result.message)
+  } catch {
+    if (currentGeneration === orderGeneration) orderCreationFailed.value = true
   } finally {
-    creatingOrder.value = false
+    if (currentGeneration === orderGeneration) creatingOrder.value = false
   }
+}
+
+// 打开弹窗时先同步实时价格和支付可用状态，再直接生成首个可扫码订单。
+async function initializePaymentModal(): Promise<void> {
+  initializingPayment = true
+  const defaultExam = examOptions.find((item) => item.value === props.defaultExamType)
+  selectedExam.value = defaultExam?.value || 'TMUA'
+  resetPaymentOrder()
+  const currentInitialization = orderGeneration
+  creatingOrder.value = true
+  const ready = await loadPaymentConfig()
+  if (currentInitialization !== orderGeneration || !props.modelValue) return
+  initializingPayment = false
+  if (!ready) {
+    creatingOrder.value = false
+    orderCreationFailed.value = true
+    return
+  }
+  await handleCreateOrder()
+}
+
+// 用户切换考试、套餐或渠道时关闭旧订单，并自动生成与新选择一致的二维码。
+async function regeneratePaymentOrder(): Promise<void> {
+  if (!props.modelValue || initializingPayment) return
+  const previousOrderNo = createdOrderNo.value
+  const shouldClosePreviousOrder = previousOrderNo && orderStatus.value === 'pending'
+  resetPaymentOrder()
+  if (shouldClosePreviousOrder) {
+    try {
+      await closePaymentOrder(previousOrderNo)
+    } catch (error) {
+      console.warn('[PaymentModal] 关闭已切换选项的订单失败，等待后端过期处理', error)
+    }
+  }
+  if (!props.modelValue) return
+  if (configStatus.value === 'active' && providerReady.value) await handleCreateOrder()
 }
 
 function handleKeydown(event: KeyboardEvent): void {
@@ -431,12 +487,10 @@ watch(
   (visible) => {
     document.body.style.overflow = visible ? 'hidden' : ''
     if (visible) {
-      const defaultExam = examOptions.find((item) => item.value === props.defaultExamType)
-      selectedExam.value = defaultExam?.value || 'TMUA'
-      resetPaymentOrder()
-      void loadPaymentConfig()
+      void initializePaymentModal()
     } else {
-      stopPaymentPolling()
+      initializingPayment = false
+      resetPaymentOrder()
     }
   },
 )
@@ -444,8 +498,7 @@ watch(
 watch(
   [selectedExam, selectedPlanId, selectedChannelId],
   () => {
-    if (createdOrderNo.value) void cancelCurrentOrder()
-    resetPaymentOrder()
+    void regeneratePaymentOrder()
   },
 )
 
@@ -860,6 +913,17 @@ onBeforeUnmount(() => {
   color: #8a9099;
   background: #eef1f5;
   cursor: not-allowed;
+}
+
+.qr-loading {
+  color: #2672ff;
+  font-weight: 700;
+  background: rgb(239 245 255 / 96%);
+}
+
+.qr-unavailable {
+  color: #8a9099;
+  background: rgb(245 246 248 / 96%);
 }
 
 .qr-success {

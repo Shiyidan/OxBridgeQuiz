@@ -364,7 +364,7 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
       orderNo: order.orderNo,
       amountCents,
       expiresAt,
-      description: `${config.chinaums.orderDescription}-${plan === MEMBERSHIP_PLAN.YEARLY ? '年度' : '月度'}`,
+      description: `${config.chinaums.orderDescription}-${plan === MEMBERSHIP_PLAN.YEARLY ? 'Annual' : 'Monthly'}`,
     })
     if (!qrResponse.billQRCode || !qrResponse.billDate) {
       throw new ChinaumsRequestError('银联商务未返回有效二维码', 'CHINAUMS_QR_MISSING', qrResponse)

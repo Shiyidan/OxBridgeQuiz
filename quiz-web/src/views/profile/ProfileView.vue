@@ -679,6 +679,12 @@
 
       <p v-if="errorText" class="load-warning">{{ errorText }}</p>
     </main>
+
+    <PaymentModal
+      v-model="paymentVisible"
+      :default-exam-type="currentExamType"
+      @paid="handlePaymentSuccess"
+    />
   </div>
 </template>
 
@@ -688,6 +694,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
+import PaymentModal from '@/components/PaymentModal.vue'
 import { getMember, updateExamPreferences, type ExamPreference } from '@/api/member'
 import { getProfileExamStats, type ProfileExamStats } from '@/api/exam'
 import { getMyPaymentOrders, type PaymentOrder } from '@/api/payment'
@@ -749,6 +756,7 @@ const paymentFilter = ref<PaymentOrderFilter>('all')
 const paymentOrders = ref<PaymentOrder[]>([])
 const paymentOrdersLoading = ref(true)
 const paymentOrdersError = ref('')
+const paymentVisible = ref(false)
 const paymentFilters: { label: string; value: PaymentOrderFilter }[] = [
   { label: '全部订单', value: 'all' },
   { label: '待支付', value: 'pending' },
@@ -1158,13 +1166,22 @@ function cancelEditProfile(): void {
   profileEditing.value = false
 }
 
-// 升级入口保留当前考试类型上下文，便于后续接入支付流程。
+// 个人中心所有升级入口统一打开支付弹窗，并预选当前查看的考试类型。
 function handleUpgradeClick(): void {
   if (!isExamTypeAvailable(currentExamType.value)) {
     ElMessage.info(getExamUnavailableMessage(currentExamType.value))
     return
   }
-  ElMessage.info(`即将开通 ${currentExamType.value} 会员`)
+  paymentVisible.value = true
+}
+
+// 支付完成后刷新会员与订单数据，使个人中心立即展示新权益和支付记录。
+async function handlePaymentSuccess(): Promise<void> {
+  paymentVisible.value = false
+  const [memberResult] = await Promise.allSettled([getMember(), loadPaymentOrders()])
+  if (memberResult.status === 'fulfilled') {
+    auth.setMemberContext(memberResult.value)
+  }
 }
 
 // 历史 STEP 订阅只保留记录展示，续费入口按当前开放状态给出明确说明。

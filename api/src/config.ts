@@ -244,7 +244,7 @@ function resolveChinaumsConfig() {
     communicationKey: process.env.CHINAUMS_COMMUNICATION_KEY || '',
     notifyUrl: process.env.CHINAUMS_NOTIFY_URL || '',
     returnUrl: process.env.CHINAUMS_RETURN_URL || '',
-    orderDescription: process.env.CHINAUMS_ORDER_DESCRIPTION || 'AceMock 在线会员订阅',
+    orderDescription: process.env.CHINAUMS_ORDER_DESCRIPTION || 'AceMock Membership',
     timeoutMs: parseInt(process.env.CHINAUMS_TIMEOUT_MS || '10000', 10),
     orderExpireMinutes: parseInt(process.env.CHINAUMS_ORDER_EXPIRE_MINUTES || '15', 10),
   }
@@ -290,6 +290,9 @@ function resolveChinaumsConfig() {
   }
   if (payment.orderDescription.length > 128) {
     throw new Error('[config] CHINAUMS_ORDER_DESCRIPTION must not exceed 128 characters')
+  }
+  if (!/^[A-Za-z0-9][A-Za-z0-9 ._()\/-]*$/.test(payment.orderDescription)) {
+    throw new Error('[config] CHINAUMS_ORDER_DESCRIPTION must use payment-page-safe ASCII characters')
   }
   const baseUrl = validateChinaumsUrl('CHINAUMS_BASE_URL', payment.baseUrl, true)
   if (productionMode && baseUrl.origin !== 'https://api-mop.chinaums.com') {

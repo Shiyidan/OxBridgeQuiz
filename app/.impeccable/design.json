@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-31T16:55:00+08:00",
+  "title": "Design System: 云舟社区小程序",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "系统蓝",
+        "canonical": "#0066cc",
+        "tonalRamp": ["#001a33", "#003366", "#004d99", "#0066cc", "#3385d6", "#66a3e0", "#b3d1f0", "#e6f0fa"]
+      },
+      "primary-deep": {
+        "role": "primary",
+        "displayName": "深系统蓝",
+        "canonical": "#004f9f",
+        "tonalRamp": ["#001426", "#00284d", "#003b77", "#004f9f", "#3474b2", "#6899c6", "#b4cce2", "#e7f0f7"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "石墨",
+        "canonical": "#1d1d1f",
+        "tonalRamp": ["#171719", "#2f2f32", "#47474b", "#5f5f64", "#77777c", "#a1a1a6", "#d2d2d7", "#f5f5f7"]
+      },
+      "text-secondary": {
+        "role": "neutral",
+        "displayName": "次级石墨",
+        "canonical": "#5f5f64",
+        "tonalRamp": ["#19191b", "#323235", "#49494d", "#5f5f64", "#78787d", "#a1a1a6", "#d2d2d7", "#f5f5f7"]
+      },
+      "text-tertiary": {
+        "role": "neutral",
+        "displayName": "雾灰",
+        "canonical": "#85858b",
+        "tonalRamp": ["#202022", "#3b3b3f", "#57575c", "#727278", "#85858b", "#acacb1", "#d6d6da", "#f4f4f6"]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "预览画布",
+        "canonical": "#ececef",
+        "tonalRamp": ["#242426", "#454548", "#68686c", "#8d8d91", "#b4b4b8", "#d0d0d4", "#ececef", "#f7f7f8"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "工作面",
+        "canonical": "#ffffff",
+        "tonalRamp": ["#262626", "#4d4d4d", "#737373", "#999999", "#bfbfbf", "#d9d9d9", "#f2f2f2", "#ffffff"]
+      },
+      "surface-soft": {
+        "role": "neutral",
+        "displayName": "系统浅灰",
+        "canonical": "#f5f5f7",
+        "tonalRamp": ["#242425", "#474749", "#6b6b6e", "#929296", "#b9b9bd", "#d5d5d8", "#ececef", "#f5f5f7"]
+      },
+      "divider": {
+        "role": "neutral",
+        "displayName": "细分隔线",
+        "canonical": "#d9d9de",
+        "tonalRamp": ["#242426", "#48484b", "#6c6c70", "#929297", "#b8b8bd", "#cdcdD2", "#d9d9de", "#f3f3f5"]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "恢复提示红",
+        "canonical": "#c9342e",
+        "tonalRamp": ["#330d0b", "#661a17", "#992722", "#c9342e", "#d75d58", "#e58a86", "#f2c4c2", "#faeceb"]
+      }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "页面标题", "purpose": "页面级名称与少量任务标题。" },
+      "title": { "displayName": "讨论标题", "purpose": "帖子、共学主题和详情标题。" },
+      "body": { "displayName": "讨论正文", "purpose": "摘要、回答和辅助说明。" },
+      "label": { "displayName": "界面标签", "purpose": "筛选、时间、状态和底部导航。" }
+    },
+    "shadows": [
+      {
+        "name": "device-preview",
+        "value": "0 24px 70px rgba(25, 25, 28, 0.16)",
+        "purpose": "仅用于桌面环境中的设备预览边界。"
+      },
+      {
+        "name": "protected-task",
+        "value": "0 -18px 48px rgba(29, 29, 31, 0.18)",
+        "purpose": "仅用于需要保护焦点的微信授权任务层。"
+      }
+    ],
+    "motion": [
+      {
+        "name": "task-enter",
+        "value": "260ms cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "讨论详情与发帖任务页进入。"
+      },
+      {
+        "name": "light-feedback",
+        "value": "180ms ease",
+        "purpose": "短时提示与轻量状态反馈。"
+      }
+    ],
+    "breakpoints": [
+      { "name": "mobile-fill", "value": "600px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "需要明确完成动作时使用。",
+      "html": "<button class=\"ds-button-primary\">允许并登录</button>",
+      "css": ".ds-button-primary{min-height:42px;padding:0 18px;border:1px solid #0066cc;border-radius:4px;background:#0066cc;color:#fff;font:650 13px -apple-system,BlinkMacSystemFont,\"PingFang SC\",sans-serif;cursor:pointer}.ds-button-primary:hover{background:#004f9f}.ds-button-primary:focus-visible{outline:3px solid rgba(0,102,204,.24);outline-offset:2px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "取消或低优先级操作。",
+      "html": "<button class=\"ds-button-secondary\">暂不登录</button>",
+      "css": ".ds-button-secondary{min-height:42px;padding:0 18px;border:1px solid #d9d9de;border-radius:4px;background:#fff;color:#1d1d1f;font:650 13px -apple-system,BlinkMacSystemFont,\"PingFang SC\",sans-serif;cursor:pointer}.ds-button-secondary:hover{background:#f5f5f7}.ds-button-secondary:focus-visible{outline:3px solid rgba(0,102,204,.24);outline-offset:2px}"
+    },
+    {
+      "name": "Subject Filter",
+      "kind": "chip",
+      "refersTo": "filter-active",
+      "description": "考试上下文内的学科级筛选。",
+      "html": "<div class=\"ds-filter\"><button>全部学科</button><button class=\"is-active\">Mathematics 1</button><button>Physics</button></div>",
+      "css": ".ds-filter{display:flex;gap:6px}.ds-filter button{min-height:27px;padding:0 8px;border:1px solid #d9d9de;border-radius:3px;background:#fff;color:#5f5f64;font:400 10px -apple-system,BlinkMacSystemFont,\"PingFang SC\",sans-serif}.ds-filter button.is-active{border-color:#1d1d1f;background:#1d1d1f;color:#fff;font-weight:650}.ds-filter button:focus-visible{outline:3px solid rgba(0,102,204,.24);outline-offset:2px}"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "搜索题目、知识点或学校的紧凑输入面。",
+      "html": "<label class=\"ds-search\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"10.5\" cy=\"10.5\" r=\"6.5\"/><path d=\"m15.5 15.5 5 5\"/></svg><input placeholder=\"搜索题目、知识点或学校\"></label>",
+      "css": ".ds-search{min-height:38px;display:grid;grid-template-columns:20px 1fr;align-items:center;gap:6px;padding:0 10px;border:1px solid #d9d9de;border-radius:4px;background:#f5f5f7;color:#5f5f64}.ds-search svg{width:15px;fill:none;stroke:currentColor;stroke-width:1.8}.ds-search input{min-width:0;border:0;outline:0;background:transparent;color:#1d1d1f;font:400 12px -apple-system,BlinkMacSystemFont,\"PingFang SC\",sans-serif}.ds-search:focus-within{outline:3px solid rgba(0,102,204,.24);outline-offset:2px}"
+    },
+    {
+      "name": "Discussion Item",
+      "kind": "card",
+      "description": "没有浮起卡片外壳的高密度讨论列表项。",
+      "html": "<article class=\"ds-post\"><div><strong>Juno · Year 12</strong><span>已验证解答</span></div><h3>这道参数方程为什么不能直接消去 t？</h3><p>是不是因为在消元时丢失了参数的取值范围？</p><small>ESAT · Mathematics 1</small></article>",
+      "css": ".ds-post{padding:15px 16px 13px;border-top:1px solid #e8e8ed;background:#fff;color:#1d1d1f;font-family:-apple-system,BlinkMacSystemFont,\"PingFang SC\",sans-serif}.ds-post div{display:flex;justify-content:space-between;font-size:12px}.ds-post div span{padding:3px 5px;border:1px solid #b7c8dc;border-radius:2px;color:#315f8f;font-size:9px}.ds-post h3{margin:11px 0 5px;font-size:15px;line-height:1.44}.ds-post p{margin:0;color:#5f5f64;font-size:12px;line-height:1.58}.ds-post small{display:block;margin-top:11px;color:#85858b}"
+    }
+  ],
+  "narrative": {
+    "northStar": "安静的学习讨论台",
+    "overview": "界面服务于学生在复习间隙快速定位问题、判断回答质量并继续讨论。视觉保持低噪声、高信息密度：内容直接落在白色工作面上，以字号、字重、色阶和细分隔线建立秩序，不依赖大面积卡片或装饰。",
+    "keyCharacteristics": [
+      "系统浅灰画布与白色内容面。",
+      "石墨文字加单一系统蓝动作色。",
+      "扁平列表、细分隔线和紧凑标签。",
+      "所有 CSS 圆角不超过 5px。"
+    ],
+    "rules": [
+      { "name": "The Single Accent Rule", "body": "蓝色只表达操作、选中和可信质量信号，不作为装饰背景到处散布。", "section": "colors" },
+      { "name": "The Quiet Hierarchy Rule", "body": "不使用全大写眉题或夸张展示字体；层级来自真实阅读优先级。", "section": "typography" },
+      { "name": "The Divider Before Elevation Rule", "body": "静态列表与内容面优先使用分隔线；没有空间层级变化时不得添加阴影。", "section": "elevation" },
+      { "name": "The Five Pixel Ceiling Rule", "body": "任何 CSS border-radius 都不得超过 5px，头像也保持方形识别块。", "section": "shapes" }
+    ],
+    "dos": [
+      "Do 让考试、学科、可信度与具体卡点先于社交热度出现。",
+      "Do 用分隔线、色阶、字号与字重组织高密度内容。",
+      "Do 让浏览保持开放，只在回复、收藏和发帖时请求身份。"
+    ],
+    "donts": [
+      "Don't 使用超过 5px 的 CSS 圆角、胶囊标签或大面积圆角卡片。",
+      "Don't 用渐变、玻璃、装饰阴影或多种强调色制造氛围。",
+      "Don't 把回复数、收藏数或浏览数当作唯一的内容质量信号。"
+    ]
+  }
+}

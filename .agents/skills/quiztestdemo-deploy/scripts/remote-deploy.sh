@@ -260,7 +260,18 @@ if [[ "$SCOPE" == "backend" || "$SCOPE" == "all" ]]; then
     echo "PM2 configuration template is missing: $PM2_CONFIG_SOURCE" >&2
     exit 47
   }
-  install -m 0644 "$PM2_CONFIG_SOURCE" "$PM2_CONFIG"
+  # A fresh ECS pre-creates this file as deploy-owned while /opt/quiz remains root-owned.
+  # Overwrite an existing writable file in place so deployment does not require directory write access.
+  if [[ -e "$PM2_CONFIG" ]]; then
+    [[ -w "$PM2_CONFIG" ]] || {
+      echo "PM2 configuration is not writable by the deployment user: $PM2_CONFIG" >&2
+      exit 47
+    }
+    cat "$PM2_CONFIG_SOURCE" > "$PM2_CONFIG"
+    chmod 0644 "$PM2_CONFIG"
+  else
+    install -m 0644 "$PM2_CONFIG_SOURCE" "$PM2_CONFIG"
+  fi
   if pm2 describe quiz-api >/dev/null 2>&1; then
     pm2 reload "$PM2_CONFIG" --only quiz-api --update-env
   else

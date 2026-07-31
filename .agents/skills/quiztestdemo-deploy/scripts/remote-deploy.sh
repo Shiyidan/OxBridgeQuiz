@@ -5,6 +5,8 @@ ENVIRONMENT="${1:-}"
 SCOPE="${2:-}"
 BRANCH="${3:-}"
 EXPECTED_DATABASE="${4:-}"
+SOURCE_BUNDLE="${DEPLOY_SOURCE_BUNDLE:-}"
+EXPECTED_COMMIT="${DEPLOY_EXPECTED_COMMIT:-}"
 
 if [[ -z "$ENVIRONMENT" || -z "$SCOPE" || -z "$BRANCH" || -z "$EXPECTED_DATABASE" ]]; then
   echo "Usage: bash remote-deploy.sh <test|prod> <frontend|backend|all> <git-branch> <expected-database>" >&2
@@ -40,6 +42,21 @@ fi
 if [[ ! "$EXPECTED_DATABASE" =~ ^[A-Za-z0-9_-]+$ ]]; then
   echo "Invalid expected database name." >&2
   exit 2
+fi
+
+if [[ -n "$SOURCE_BUNDLE" || -n "$EXPECTED_COMMIT" ]]; then
+  [[ -n "$SOURCE_BUNDLE" && -n "$EXPECTED_COMMIT" ]] || {
+    echo "DEPLOY_SOURCE_BUNDLE and DEPLOY_EXPECTED_COMMIT must be provided together." >&2
+    exit 2
+  }
+  [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]] || {
+    echo "DEPLOY_EXPECTED_COMMIT must be a full lowercase Git commit hash." >&2
+    exit 2
+  }
+  [[ -f "$SOURCE_BUNDLE" ]] || {
+    echo "Deployment source bundle not found: $SOURCE_BUNDLE" >&2
+    exit 2
+  }
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -183,9 +200,22 @@ if [[ -n "$(git status --porcelain)" ]]; then
   git status --short >&2
   exit 45
 fi
-git fetch origin "$BRANCH"
-git checkout "$BRANCH"
-git pull --ff-only origin "$BRANCH"
+if [[ -n "$SOURCE_BUNDLE" ]]; then
+  git bundle verify "$SOURCE_BUNDLE"
+  git fetch "$SOURCE_BUNDLE" "refs/heads/$BRANCH"
+  git checkout "$BRANCH"
+  git merge --ff-only FETCH_HEAD
+  ACTUAL_COMMIT="$(git rev-parse HEAD)"
+  if [[ "$ACTUAL_COMMIT" != "$EXPECTED_COMMIT" ]]; then
+    echo "Bundle deployment commit mismatch: expected=$EXPECTED_COMMIT actual=$ACTUAL_COMMIT" >&2
+    exit 46
+  fi
+  echo "Verified bundle commit: $ACTUAL_COMMIT"
+else
+  git fetch origin "$BRANCH"
+  git checkout "$BRANCH"
+  git pull --ff-only origin "$BRANCH"
+fi
 git rev-parse --short HEAD
 
 if [[ "$SCOPE" == "backend" || "$SCOPE" == "all" ]]; then

@@ -101,6 +101,12 @@ git rev-parse --short HEAD
 If checkout fails because of local changes, inspect before changing anything. Do not reset production without explicit approval.
 The bundled deploy runner now checks repository cleanliness before fetch/checkout and exits with status 45 before deployment work if local changes exist.
 
+If the server's direct origin fetch fails repeatedly at the HTTP/TLS transport layer while the
+existing checkout remains clean, create a Git bundle from the confirmed branch and pass its remote
+temporary path through `DEPLOY_SOURCE_BUNDLE` plus the full commit through
+`DEPLOY_EXPECTED_COMMIT`. The runner verifies the bundle, requires a fast-forward and checks the
+exact commit without changing `origin`.
+
 ## Scripted Deployment Pattern
 
 Use bundled scripts from the skill directory. Avoid recreating inline scripts unless a script itself must be patched.

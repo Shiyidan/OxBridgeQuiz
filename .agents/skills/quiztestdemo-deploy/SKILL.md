@@ -98,6 +98,12 @@ Routine deployment requires `/opt/quiz/repo` to be a Git-managed checkout. If a 
 
 Use `clone` mode when the server can access the approved Git origin. Use `bundle` mode only when direct Git access is unavailable. In either mode, supply the exact approved branch and commit, retain the generated source archive, verify the activated commit, and remove the uploaded bundle through the normal transient finalizer.
 
+For an existing clean Git checkout, when the approved origin fetch fails repeatedly because the
+server cannot maintain the network/TLS connection, the guarded deploy runner may use
+`DEPLOY_SOURCE_BUNDLE` together with the full `DEPLOY_EXPECTED_COMMIT`. Generate the bundle from the
+confirmed branch, upload it only to the timestamped deployment directory, require a fast-forward,
+verify the exact commit, keep `origin` unchanged, and remove the bundle in the normal finalizer.
+
 ## Operational Baseline
 
 The repository `ops/` directory is the canonical source for health-check, SSH, logrotate, systemd, and production Nginx baseline files. The production Nginx file is not a test-environment template. Do not recreate these files from heredocs in a temporary deployment script.

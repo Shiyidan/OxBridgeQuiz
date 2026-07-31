@@ -161,6 +161,11 @@ The remote runner exits with status `49` before Git changes when the selected en
 10. Sync backend runtime files to `/opt/quiz/api`.
 11. Reload `quiz-api` with PM2.
 
+When a confirmed payment rollout also requires changing existing payment runtime values, upload
+`merge-payment-runtime-config.sh` with the other deployment scripts and pipe only the private
+payment overlay to it before the routine deployment. The script must use the confirmed environment,
+back up the current runtime `.env`, reject non-payment keys, and never print values.
+
 For reference, the migration guard is:
 
 ```bash

@@ -8,10 +8,16 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_')
   const useTestApi = command === 'serve' && env.VITE_API_ENV === 'test'
+  const useOnlineApi = command === 'serve' && env.VITE_API_ENV === 'prod'
   const testApiOrigin = env.VITE_TEST_API_ORIGIN
+  const onlineApiOrigin = env.VITE_ONLINE_API_ORIGIN
+  const remoteApiOrigin = useTestApi ? testApiOrigin : useOnlineApi ? onlineApiOrigin : ''
 
   if (useTestApi && !testApiOrigin) {
     throw new Error('VITE_TEST_API_ORIGIN is required in quiz-web/.env.test.local for dev:test')
+  }
+  if (useOnlineApi && !onlineApiOrigin) {
+    throw new Error('VITE_ONLINE_API_ORIGIN is required in quiz-web/.env.online.local for dev:online')
   }
 
   return {
@@ -26,11 +32,27 @@ export default defineConfig(({ command, mode }) => {
       port: 5173,
       strictPort: false,
       open: false,
-      proxy: useTestApi
+      proxy: remoteApiOrigin
         ? {
             '/api': {
-              target: testApiOrigin,
+              target: remoteApiOrigin,
               changeOrigin: true,
+              secure: true,
+              cookieDomainRewrite: '',
+              configure(proxy) {
+                if (!useOnlineApi) return
+                proxy.on('proxyReq', (proxyRequest) => {
+                  proxyRequest.setHeader('origin', onlineApiOrigin)
+                  proxyRequest.setHeader('referer', `${onlineApiOrigin}/`)
+                })
+                proxy.on('proxyRes', (proxyResponse) => {
+                  const cookies = proxyResponse.headers['set-cookie']
+                  if (!cookies) return
+                  proxyResponse.headers['set-cookie'] = cookies.map((cookie) =>
+                    cookie.replace(/;\s*Secure/gi, ''),
+                  )
+                })
+              },
             },
           }
         : undefined,

@@ -58,6 +58,9 @@ install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0755 \
   /opt/quiz/web/dist \
   /opt/quiz/uploads \
   /opt/quiz/backups
+if [[ ! -e /opt/quiz/ecosystem.config.cjs ]]; then
+  install -m 0644 -o "$DEPLOY_USER" -g "$DEPLOY_USER" /dev/null /opt/quiz/ecosystem.config.cjs
+fi
 install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0775 /var/log/quiz
 
 # Add swap only when the standard file is not already active; never overwrite an existing swap file.

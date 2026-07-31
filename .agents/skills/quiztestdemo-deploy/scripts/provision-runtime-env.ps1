@@ -77,8 +77,14 @@ function New-RandomHex {
   param([int]$ByteCount = 48)
 
   $bytes = [byte[]]::new($ByteCount)
-  [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
-  return ([Convert]::ToHexString($bytes)).ToLowerInvariant()
+  $generator = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+  try {
+    $generator.GetBytes($bytes)
+  }
+  finally {
+    $generator.Dispose()
+  }
+  return ([BitConverter]::ToString($bytes)).Replace('-', '').ToLowerInvariant()
 }
 
 function ConvertFrom-SecureStringValue {

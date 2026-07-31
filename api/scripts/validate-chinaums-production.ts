@@ -37,6 +37,12 @@ function main(): void {
     notificationHost: new URL(config.chinaums.notifyUrl).host,
     requestAuthentication: 'OPEN-BODY-SIG ready',
     notificationAuthentication: 'communication key configured',
+    paymentPurchaseAccess: config.paymentAccess.purchaseAllowedEmails.length > 0
+      ? {
+          mode: 'allowlist',
+          allowedAccountCount: config.paymentAccess.purchaseAllowedEmails.length,
+        }
+      : { mode: 'unrestricted' },
   }))
 }
 

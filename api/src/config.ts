@@ -180,6 +180,17 @@ function resolveCorsOrigins(): (string | RegExp)[] {
   return origins
 }
 
+// 支付购买白名单按邮箱去重并统一为小写；配置为空时不限制购买账号。
+function parsePaymentPurchaseAllowedEmails(value: string | undefined): string[] {
+  if (!value?.trim()) return []
+  const emails = [...new Set(value.split(',').map((email) => email.trim().toLowerCase()).filter(Boolean))]
+  const invalidEmail = emails.find((email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+  if (invalidEmail) {
+    throw new Error('[config] PAYMENT_PURCHASE_ALLOWED_EMAILS contains an invalid email address')
+  }
+  return emails
+}
+
 function parseChinaumsEnv(value: string | undefined): ChinaumsEnv {
   const fallback = BACKEND_ENV === 'prod' ? 'prod' : 'test'
   const environment = value || fallback
@@ -265,7 +276,9 @@ function resolveChinaumsConfig() {
   if (payment.expectedMid && payment.expectedMid !== payment.mid) {
     throw new Error('[config] CHINAUMS_MID does not match CHINAUMS_EXPECTED_MID')
   }
-  if (!/^\d{8}$/.test(payment.tid)) throw new Error('[config] CHINAUMS_TID must contain exactly 8 digits')
+  if (!/^[A-Za-z0-9]{8}$/.test(payment.tid)) {
+    throw new Error('[config] CHINAUMS_TID must contain exactly 8 letters or digits')
+  }
   if (!/^[A-Za-z0-9]{4}$/.test(payment.msgSrcId)) {
     throw new Error('[config] CHINAUMS_MSG_SRC_ID must contain exactly 4 letters or digits')
   }
@@ -406,5 +419,10 @@ export const config = {
   deepseekBaseUrl: (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/$/, ''),
   deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash',
   chinaums: resolveChinaumsConfig(),
+  paymentAccess: {
+    purchaseAllowedEmails: parsePaymentPurchaseAllowedEmails(
+      process.env.PAYMENT_PURCHASE_ALLOWED_EMAILS,
+    ),
+  },
   paymentLifecycle: resolvePaymentLifecycleConfig(),
 }

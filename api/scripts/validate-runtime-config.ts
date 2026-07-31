@@ -23,6 +23,12 @@ async function main(): Promise<void> {
       database: 'reachable',
       smtp: 'authenticated',
       chinaums,
+      paymentPurchaseAccess: config.paymentAccess.purchaseAllowedEmails.length > 0
+        ? {
+            mode: 'allowlist',
+            allowedAccountCount: config.paymentAccess.purchaseAllowedEmails.length,
+          }
+        : { mode: 'unrestricted' },
     }),
   )
 }

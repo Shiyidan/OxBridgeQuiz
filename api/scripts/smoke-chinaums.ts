@@ -1,4 +1,4 @@
-// 银联商务测试环境冒烟：创建1分钱一次性二维码、查询状态并立即关闭。
+// 银联商务连接冒烟：创建1分钱一次性二维码、查询状态并立即关闭，生产环境需显式确认商户号。
 import { config } from '../src/config.js'
 import {
   closeChinaumsQr,
@@ -24,8 +24,11 @@ async function main(): Promise<void> {
   if (!config.chinaums.enabled) {
     throw new Error('Set CHINAUMS_ENABLED=true before running the ChinaUMS smoke test.')
   }
-  if (config.chinaums.environment !== 'test') {
-    throw new Error('The smoke script only runs with CHINAUMS_ENV=test.')
+  if (
+    config.chinaums.environment === 'prod'
+    && process.env.CHINAUMS_PRODUCTION_SMOKE_ACK !== config.chinaums.expectedMid
+  ) {
+    throw new Error('Production smoke test requires CHINAUMS_PRODUCTION_SMOKE_ACK to match the approved merchant ID.')
   }
 
   const createdAt = new Date()

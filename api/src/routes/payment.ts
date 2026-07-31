@@ -118,6 +118,12 @@ function notificationId(payload: Record<string, string>): string {
   return crypto.createHash('sha256').update(canonical).digest('hex')
 }
 
+// 正式支付验证期可通过服务端邮箱白名单限制真实下单；空白名单表示对全部登录用户开放。
+function isPaymentPurchaseAllowed(email: string): boolean {
+  const allowedEmails = config.paymentAccess.purchaseAllowedEmails
+  return allowedEmails.length === 0 || allowedEmails.includes(email.trim().toLowerCase())
+}
+
 function requestErrorDetails(error: unknown) {
   if (error instanceof ChinaumsRequestError) {
     return { code: error.code, message: error.message, response: error.response }
@@ -244,6 +250,13 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
   try {
     if (!config.chinaums.enabled) {
       res.status(503).json(fail('银联商务参数尚未配置完成', 'PAYMENT_PROVIDER_NOT_CONFIGURED'))
+      return
+    }
+    if (!isPaymentPurchaseAllowed(req.user!.email)) {
+      res.status(403).json(fail(
+        '支付功能正在进行正式验证，当前账号暂不可发起支付',
+        'PAYMENT_PURCHASE_RESTRICTED',
+      ))
       return
     }
     const { examTypes, plan, channel, legalVersions } = req.body as {

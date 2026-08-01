@@ -21,8 +21,10 @@ export interface RegisterParams {
   examPreferences?: Array<{
     examType: string
     subjects: string[]
+    targetRegions?: string
     targetUniversities?: string[]
     targetMajor?: string
+    entrySeason?: string
     targetScore?: number
     examDate?: string
     weeklyHours?: number
@@ -63,6 +65,12 @@ export interface AuthSessionItem {
   lastUsedAt: string
   expiresAt: string
   isCurrent: boolean
+  ipLocation?: {
+    country: string
+    region: string
+    city: string
+    label: string
+  } | null
 }
 
 // 验证码发送允许覆盖 SMTP 的正常响应窗口，不放宽其他 API 的全局超时。

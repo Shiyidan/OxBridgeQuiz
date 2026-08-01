@@ -295,8 +295,10 @@ export function useHomeDashboard(): UseHomeDashboardReturn {
   // 用户的备考目标只读取服务端会员上下文，不从已有答题记录反推。
   const goals = computed(() => normalizeGoals(auth.memberContext?.examPreferences || []))
 
-  // 当前考试必须属于已保存目标；没有目标时显式返回 null 进入选择状态。
-  const currentExam = computed(() => resolveCurrentExam(goals.value, auth.activeExamType))
+  // 管理员可直接选择工作考试；学生当前考试仍必须属于已保存备考目标。
+  const currentExam = computed(() =>
+    auth.isAdmin ? auth.activeExamType : resolveCurrentExam(goals.value, auth.activeExamType),
+  )
 
   // 当前目标保留科目和备考信息，供首页按 ESAT/TMUA 上下文生成文案。
   const currentGoal = computed(
@@ -385,7 +387,9 @@ export function useHomeDashboard(): UseHomeDashboardReturn {
       if (!memberContext) throw new Error('无法读取登录用户的备考信息，请重新登录后再试。')
 
       const requestedGoals = normalizeGoals(memberContext.examPreferences || [])
-      const requestedExam = resolveCurrentExam(requestedGoals, auth.activeExamType)
+      const requestedExam = memberContext.isAdmin
+        ? auth.activeExamType
+        : resolveCurrentExam(requestedGoals, auth.activeExamType)
       if (!requestedExam) return
 
       const currentAssessmentResult = await getAssessmentPapersData(requestedExam)

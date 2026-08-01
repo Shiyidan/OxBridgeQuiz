@@ -75,7 +75,6 @@
           <template v-if="auth.isLoggedIn && auth.user">
             <el-dropdown
               ref="preferredExamDropdown"
-              v-if="!auth.isAdmin"
               trigger="click"
               placement="bottom-end"
               popper-class="student-exam-dropdown"
@@ -286,7 +285,7 @@ async function handleLogout(): Promise<void> {
   router.push('/')
 }
 
-// 导航栏只在学生会员上下文尚未加载时读取一次，供备考类型和后续权益组件共享。
+// 导航栏仅为学生预加载长期备考偏好；管理员直接使用当前会话的考试上下文。
 async function loadStudentExamPreference(): Promise<void> {
   if (!auth.isLoggedIn || auth.isAdmin || auth.memberContext) return
   try {

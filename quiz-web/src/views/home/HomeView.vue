@@ -173,8 +173,13 @@ function scrollToHome(): void {
   firstScreen?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
-// 已保存目标直接切换；首次选择某考试时先完成必要科目配置。
+// 管理员直接切换考试工作上下文；学生首次选择时仍需完成必要科目配置。
 function handleExamSelection(examType: ActiveExamType): void {
+  if (auth.isAdmin) {
+    if (auth.activeExamType !== examType) auth.setActiveExamType(examType)
+    rememberExam(examType)
+    return
+  }
   const existingGoal = goals.value.find((goal) => goal.examType === examType)
   if (!existingGoal) {
     pendingGoalExam.value = examType
@@ -286,13 +291,14 @@ watch(
     const remembered = key ? window.localStorage.getItem(key) : null
     if (
       (remembered === 'ESAT' || remembered === 'TMUA') &&
-      availableGoals.some((goal) => goal.examType === remembered) &&
+      (auth.isAdmin || availableGoals.some((goal) => goal.examType === remembered)) &&
       auth.activeExamType !== remembered
     ) {
       auth.setActiveExamType(remembered)
       return
     }
     if (
+      !auth.isAdmin &&
       availableGoals.length &&
       !availableGoals.some((goal) => goal.examType === auth.activeExamType)
     ) {

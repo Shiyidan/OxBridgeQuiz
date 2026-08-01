@@ -15,7 +15,7 @@
           aria-labelledby="payment-modal-title"
         >
           <header class="payment-header">
-            <h2 id="payment-modal-title">选择会员套餐</h2>
+            <h2 id="payment-modal-title">{{ resumeOrderNo ? '继续支付订单' : '选择会员套餐' }}</h2>
             <button
               class="payment-close"
               type="button"
@@ -39,6 +39,7 @@
                       type="radio"
                       name="payment-exam-type"
                       :value="exam.value"
+                      :disabled="resumedExistingOrder"
                     />
                     <span class="radio-control" aria-hidden="true"></span>
                     <span>{{ exam.label }}</span>
@@ -54,6 +55,7 @@
                   class="plan-option"
                   :class="{ 'plan-option--active': selectedPlanId === plan.id }"
                   type="button"
+                  :disabled="resumedExistingOrder"
                   @click="selectedPlanId = plan.id"
                 >
                   <span v-if="plan.recommended" class="recommend-badge">
@@ -145,14 +147,14 @@
                   class="qr-demo qr-unavailable"
                   >支付暂不可用</span
                 >
-                <span v-else-if="orderStatus === 'paid'" class="qr-demo qr-success"
-                  >支付成功</span
-                >
+                <span v-else-if="orderStatus === 'paid'" class="qr-demo qr-success">支付成功</span>
               </div>
 
               <p class="scan-tip">
                 <template v-if="creatingOrder">正在为您生成支付二维码，请稍候</template>
-                <template v-else-if="orderCreationFailed">二维码生成失败，请点击上方按钮重试</template>
+                <template v-else-if="orderCreationFailed"
+                  >二维码生成失败，请点击上方按钮重试</template
+                >
                 <template v-else-if="createdOrderNo && orderStatus !== 'paid'">
                   请使用 <strong>{{ activeChannel.name }}</strong> 扫码支付
                 </template>
@@ -169,6 +171,7 @@
                   type="button"
                   role="tab"
                   :aria-selected="selectedChannelId === channel.id"
+                  :disabled="resumedExistingOrder"
                   @click="selectedChannelId = channel.id"
                 >
                   <span class="channel-logo" :class="`channel-logo--${channel.id}`">{{
@@ -221,11 +224,13 @@ import {
   createPaymentOrder,
   getPaymentConfig,
   queryPaymentOrder,
+  resumePaymentOrder,
 } from '@/api/payment'
 
 interface Props {
   modelValue: boolean
   defaultExamType?: string
+  resumeOrderNo?: string
 }
 
 interface PaymentPlan {
@@ -255,6 +260,7 @@ const qrCodeImageUrl = ref('')
 const paymentPageUrl = ref('')
 const orderAmountCents = ref<number | null>(null)
 const orderStatus = ref('')
+const resumedExistingOrder = ref(false)
 let pollingTimer: ReturnType<typeof setInterval> | null = null
 let orderGeneration = 0
 let initializingPayment = false
@@ -264,16 +270,23 @@ const priceConfig = ref({
   firstMonthlyPriceCents: 7800,
   monthlyPriceCents: 7900,
   yearlyPriceCents: 39800,
+  firstMonthlyEligible: true,
 })
 
 const plans = computed<PaymentPlan[]>(() => [
   {
     id: 'monthly',
     name: '按月订阅',
-    price: formatPrice(priceConfig.value.firstMonthlyPriceCents),
+    price: formatPrice(
+      priceConfig.value.firstMonthlyEligible
+        ? priceConfig.value.firstMonthlyPriceCents
+        : priceConfig.value.monthlyPriceCents,
+    ),
     period: '月',
-    promo: '首次订阅',
-    originalPrice: formatPrice(priceConfig.value.monthlyPriceCents),
+    promo: priceConfig.value.firstMonthlyEligible ? '首次订阅' : undefined,
+    originalPrice: priceConfig.value.firstMonthlyEligible
+      ? formatPrice(priceConfig.value.monthlyPriceCents)
+      : undefined,
     recommended: false,
   },
   {
@@ -304,7 +317,9 @@ const displayAmount = computed(() =>
   formatPrice(
     orderAmountCents.value ??
       (selectedPlanId.value === 'monthly'
-        ? priceConfig.value.firstMonthlyPriceCents
+        ? priceConfig.value.firstMonthlyEligible
+          ? priceConfig.value.firstMonthlyPriceCents
+          : priceConfig.value.monthlyPriceCents
         : priceConfig.value.yearlyPriceCents),
   ),
 )
@@ -327,6 +342,7 @@ async function loadPaymentConfig(): Promise<boolean> {
       firstMonthlyPriceCents: config.firstMonthlyPriceCents,
       monthlyPriceCents: config.monthlyPriceCents,
       yearlyPriceCents: config.yearlyPriceCents,
+      firstMonthlyEligible: config.firstMonthlyEligible,
     }
     configStatus.value = config.status
     providerReady.value = config.providerReady
@@ -355,6 +371,8 @@ async function refreshPaymentStatus(): Promise<void> {
       emit('paid', order.orderNo)
     } else if (['closed', 'failed', 'refunded'].includes(order.status)) {
       stopPaymentPolling()
+      resumedExistingOrder.value = false
+      orderCreationFailed.value = true
       ElMessage.warning('当前支付订单已结束，请重新生成订单')
     }
   } catch (error) {
@@ -369,6 +387,7 @@ function startPaymentPolling(): void {
 
 async function cancelCurrentOrder(): Promise<void> {
   stopPaymentPolling()
+  if (resumedExistingOrder.value) return
   if (!createdOrderNo.value || orderStatus.value !== 'pending') return
   const orderNo = createdOrderNo.value
   orderStatus.value = 'closing'
@@ -389,6 +408,7 @@ function resetPaymentOrder(): void {
   paymentPageUrl.value = ''
   orderAmountCents.value = null
   orderStatus.value = ''
+  resumedExistingOrder.value = false
 }
 
 // 银联返回的是收银台网页地址，需要在浏览器端编码为可扫码的二维码图片。
@@ -407,6 +427,7 @@ async function handleCreateOrder(): Promise<void> {
     return
   }
   const currentGeneration = ++orderGeneration
+  resumedExistingOrder.value = false
   creatingOrder.value = true
   orderCreationFailed.value = false
   try {
@@ -442,6 +463,38 @@ async function handleCreateOrder(): Promise<void> {
   }
 }
 
+// 历史待支付订单恢复原二维码、金额和选项，不重新创建或关闭订单。
+async function resumeExistingPaymentOrder(orderNo: string): Promise<void> {
+  const currentGeneration = orderGeneration
+  creatingOrder.value = true
+  orderCreationFailed.value = false
+  try {
+    const result = await resumePaymentOrder(orderNo)
+    if (currentGeneration !== orderGeneration || !props.modelValue) return
+    const order = result.order
+    selectedExam.value = order.examTypes[0] || props.defaultExamType || 'TMUA'
+    selectedPlanId.value = order.plan
+    selectedChannelId.value = order.channel
+    createdOrderNo.value = order.orderNo
+    paymentPageUrl.value = result.qrCodeUrl
+    orderAmountCents.value = order.amountCents
+    orderStatus.value = order.status
+    resumedExistingOrder.value = order.status === 'pending'
+    if (order.status === 'paid') {
+      ElMessage.success(result.message)
+      emit('paid', order.orderNo)
+      return
+    }
+    qrCodeImageUrl.value = await createPaymentQrImage(result.qrCodeUrl)
+    startPaymentPolling()
+    ElMessage.success(result.message)
+  } catch {
+    if (currentGeneration === orderGeneration) orderCreationFailed.value = true
+  } finally {
+    if (currentGeneration === orderGeneration) creatingOrder.value = false
+  }
+}
+
 // 打开弹窗时先同步实时价格和支付可用状态，再直接生成首个可扫码订单。
 async function initializePaymentModal(): Promise<void> {
   initializingPayment = true
@@ -458,12 +511,16 @@ async function initializePaymentModal(): Promise<void> {
     orderCreationFailed.value = true
     return
   }
+  if (props.resumeOrderNo) {
+    await resumeExistingPaymentOrder(props.resumeOrderNo)
+    return
+  }
   await handleCreateOrder()
 }
 
 // 用户切换考试、套餐或渠道时关闭旧订单，并自动生成与新选择一致的二维码。
 async function regeneratePaymentOrder(): Promise<void> {
-  if (!props.modelValue || initializingPayment) return
+  if (!props.modelValue || initializingPayment || resumedExistingOrder.value) return
   const previousOrderNo = createdOrderNo.value
   const shouldClosePreviousOrder = previousOrderNo && orderStatus.value === 'pending'
   resetPaymentOrder()
@@ -495,12 +552,9 @@ watch(
   },
 )
 
-watch(
-  [selectedExam, selectedPlanId, selectedChannelId],
-  () => {
-    void regeneratePaymentOrder()
-  },
-)
+watch([selectedExam, selectedPlanId, selectedChannelId], () => {
+  void regeneratePaymentOrder()
+})
 
 window.addEventListener('keydown', handleKeydown)
 onBeforeUnmount(() => {
@@ -655,6 +709,12 @@ onBeforeUnmount(() => {
   color: #2f73ff;
 }
 
+.exam-option:has(input:disabled),
+.plan-option:disabled,
+.channel-tab:disabled {
+  cursor: default;
+}
+
 .plan-section {
   display: grid;
   gap: 14px;
@@ -683,6 +743,10 @@ onBeforeUnmount(() => {
   background: #f7faff;
   border: 1.5px solid #3478ff;
   box-shadow: 0 0 0 1px rgb(52 120 255 / 4%);
+}
+
+.plan-option:disabled {
+  opacity: 1;
 }
 
 .plan-name {
@@ -977,6 +1041,10 @@ onBeforeUnmount(() => {
   height: 2px;
   background: #2672ff;
   content: '';
+}
+
+.channel-tab:disabled {
+  opacity: 1;
 }
 
 .channel-logo {

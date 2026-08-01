@@ -2,7 +2,7 @@
 import crypto from 'crypto'
 import { Prisma } from '@prisma/client'
 import { config } from '../config.js'
-import { requireAuth } from '../middleware/auth.js'
+import { optionalAuth, requireAuth } from '../middleware/auth.js'
 import {
   ChinaumsRequestError,
   chinaumsResponseSnapshot,
@@ -27,6 +27,7 @@ import {
 } from '../constants/legal.js'
 import { recordLegalAcceptances } from '../services/legalAcceptance.js'
 import { normalizeIpAddress } from '../utils/ipAddress.js'
+import { parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
 import {
   EXAM_TYPES,
   MEMBERSHIP_PLAN,
@@ -48,21 +49,44 @@ const DEFAULT_CONFIG = {
   yearlyPriceCents: 39800,
 }
 
-function formatConfig(paymentConfig: {
-  firstMonthlyPriceCents: number
-  monthlyPriceCents: number
-  yearlyPriceCents: number
-  status: string
-  updatedAt: Date
-}) {
+function formatConfig(
+  paymentConfig: {
+    firstMonthlyPriceCents: number
+    monthlyPriceCents: number
+    yearlyPriceCents: number
+    status: string
+    updatedAt: Date
+  },
+  firstMonthlyEligible = true,
+) {
   return {
     firstMonthlyPriceCents: paymentConfig.firstMonthlyPriceCents,
     monthlyPriceCents: paymentConfig.monthlyPriceCents,
     yearlyPriceCents: paymentConfig.yearlyPriceCents,
     status: paymentConfig.status,
     providerReady: config.chinaums.enabled,
+    firstMonthlyEligible,
     updatedAt: paymentConfig.updatedAt.toISOString(),
   }
+}
+
+// 首月优惠只允许使用一次，已退款订单仍代表用户曾成功完成过月度订阅。
+async function isFirstMonthlyPurchaseEligible(userId: string): Promise<boolean> {
+  const previousMonthlyPurchase = await prisma.paymentOrder.findFirst({
+    where: {
+      userId,
+      plan: MEMBERSHIP_PLAN.MONTHLY,
+      status: {
+        in: [
+          PAYMENT_ORDER_STATUS.PAID,
+          PAYMENT_ORDER_STATUS.REFUNDING,
+          PAYMENT_ORDER_STATUS.REFUNDED,
+        ],
+      },
+    },
+    select: { id: true },
+  })
+  return !previousMonthlyPurchase
 }
 
 function formatOrder<T extends {
@@ -81,6 +105,20 @@ function formatOrder<T extends {
     paidAt: order.paidAt?.toISOString() || null,
     closedAt: order.closedAt?.toISOString() || null,
   }
+}
+
+// 待支付订单只向所属用户恢复已脱敏保存的收银台地址，不返回完整渠道响应。
+function paymentQrCodeUrl(providerPayload: unknown): string | null {
+  const payload = parseJsonObject(providerPayload)
+  const qrCode = parseJsonObject(payload.qrCode)
+  return typeof qrCode.billQRCode === 'string' && qrCode.billQRCode.trim()
+    ? qrCode.billQRCode
+    : null
+}
+
+// 会员状态在读取时结合到期时间归一，避免未执行定时任务时仍显示为进行中。
+function effectiveMembershipStatus(status: string, endsAt: Date, now: Date): string {
+  return status === 'active' && endsAt.getTime() <= now.getTime() ? 'expired' : status
 }
 
 function jsonValue(value: unknown): Prisma.InputJsonValue {
@@ -144,10 +182,13 @@ export async function getOrCreatePaymentConfig() {
 }
 
 // 当前生效的支付价格策略
-paymentRouter.get('/config', async (_req, res) => {
+paymentRouter.get('/config', optionalAuth, async (req, res) => {
   try {
     const paymentConfig = await getOrCreatePaymentConfig()
-    res.json(success(formatConfig(paymentConfig)))
+    const firstMonthlyEligible = req.user
+      ? await isFirstMonthlyPurchaseEligible(req.user.userId)
+      : true
+    res.json(success(formatConfig(paymentConfig, firstMonthlyEligible)))
   } catch (error) {
     logRuntimeError('payment.config.read_failed', error)
     res.status(500).json(fail('获取支付策略失败'))
@@ -313,16 +354,11 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
     let priceType: string = PAYMENT_PRICE_TYPE.YEARLY
     let amountCents = paymentConfig.yearlyPriceCents
     if (plan === MEMBERSHIP_PLAN.MONTHLY) {
-      const hasPaidMonthlyOrder = await prisma.paymentOrder.findFirst({
-        where: {
-          userId: req.user!.userId,
-          plan: MEMBERSHIP_PLAN.MONTHLY,
-          status: { in: [PAYMENT_ORDER_STATUS.PAID, PAYMENT_ORDER_STATUS.REFUNDING] },
-        },
-        select: { id: true },
-      })
-      priceType = hasPaidMonthlyOrder ? PAYMENT_PRICE_TYPE.MONTHLY : PAYMENT_PRICE_TYPE.FIRST_MONTHLY
-      amountCents = hasPaidMonthlyOrder ? paymentConfig.monthlyPriceCents : paymentConfig.firstMonthlyPriceCents
+      const firstMonthlyEligible = await isFirstMonthlyPurchaseEligible(req.user!.userId)
+      priceType = firstMonthlyEligible ? PAYMENT_PRICE_TYPE.FIRST_MONTHLY : PAYMENT_PRICE_TYPE.MONTHLY
+      amountCents = firstMonthlyEligible
+        ? paymentConfig.firstMonthlyPriceCents
+        : paymentConfig.monthlyPriceCents
     }
 
     const agreementsAcceptedAt = new Date()
@@ -416,6 +452,71 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
   }
 })
 
+// 当前用户订阅与支付总览：汇总值基于完整数据集，列表不使用前端假数据补齐。
+paymentRouter.get('/records', requireAuth, async (req, res) => {
+  try {
+    const [memberships, orders] = await Promise.all([
+      prisma.userMembership.findMany({
+        where: { userId: req.user!.userId },
+        orderBy: { endsAt: 'desc' },
+      }),
+      prisma.paymentOrder.findMany({
+        where: { userId: req.user!.userId },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ])
+    const now = new Date()
+    const formattedMemberships = memberships.map((membership) => ({
+      id: membership.id,
+      examType: membership.examType,
+      plan: membership.plan,
+      status: effectiveMembershipStatus(membership.status, membership.endsAt, now),
+      startsAt: membership.startsAt.toISOString(),
+      endsAt: membership.endsAt.toISOString(),
+      createdAt: membership.createdAt.toISOString(),
+      updatedAt: membership.updatedAt.toISOString(),
+    }))
+    const paidStatuses = new Set<string>([
+      PAYMENT_ORDER_STATUS.PAID,
+      PAYMENT_ORDER_STATUS.REFUNDING,
+      PAYMENT_ORDER_STATUS.REFUNDED,
+    ])
+    const netPaidCents = orders.reduce(
+      (total, order) =>
+        paidStatuses.has(order.status)
+          ? total + Math.max(0, order.amountCents - order.refundedAmountCents)
+          : total,
+      0,
+    )
+    const successfulOrders = orders.filter((order) => paidStatuses.has(order.status))
+    const subscribedExamTypes = [
+      ...new Set(
+        successfulOrders.flatMap((order) =>
+          parseJsonArray<string>(order.examTypes).filter(
+            (examType) => typeof examType === 'string' && examType.trim(),
+          ),
+        ),
+      ),
+    ]
+
+    res.json(success({
+      summary: {
+        totalSubscriptions: successfulOrders.length,
+        activeEntitlements: formattedMemberships.filter((item) => item.status === 'active').length,
+        totalOrders: orders.length,
+        netPaidCents,
+        currency: 'CNY',
+        subscribedExamTypes,
+      },
+      memberships: formattedMemberships,
+      orders: orders.map(formatOrder),
+    }))
+  } catch (error) {
+    logRuntimeError('payment.records.list_failed', error)
+    res.status(500).json(fail('获取订阅与支付记录失败'))
+  }
+})
+
 // 当前用户支付订单列表
 paymentRouter.get('/orders', requireAuth, async (req, res) => {
   try {
@@ -450,6 +551,59 @@ paymentRouter.post('/orders/:orderNo/query', requireAuth, async (req, res) => {
   } catch (error) {
     const detail = requestErrorDetails(error)
     logRuntimeError('payment.order.query_failed', error)
+    const status = error instanceof ChinaumsRequestError ? 502 : 500
+    res.status(status).json(fail(detail.message, detail.code))
+  }
+})
+
+// 恢复仍在有效期内的待支付订单，继续使用原银联商务二维码并重新进入状态轮询。
+paymentRouter.post('/orders/:orderNo/resume', requireAuth, async (req, res) => {
+  try {
+    const order = await prisma.paymentOrder.findFirst({
+      where: { orderNo: req.params.orderNo, userId: req.user!.userId },
+    })
+    if (!order) {
+      res.status(404).json(fail('支付订单不存在'))
+      return
+    }
+    const synced = await syncPaymentOrderFromChinaums(order)
+    if (!synced) {
+      res.status(404).json(fail('支付订单不存在'))
+      return
+    }
+    if (synced.status === PAYMENT_ORDER_STATUS.PAID) {
+      res.json(success({
+        order: formatOrder(synced),
+        paymentReady: false,
+        qrCodeUrl: '',
+        message: '订单已支付，会员权益已生效',
+      }))
+      return
+    }
+    if (synced.status !== PAYMENT_ORDER_STATUS.PENDING) {
+      res.status(409).json(fail('该订单已结束，请重新创建支付订单', 'PAYMENT_ORDER_FINISHED'))
+      return
+    }
+    if (synced.expiresAt.getTime() <= Date.now()) {
+      await closePaymentOrder(synced, 'lifecycle')
+      res.status(409).json(fail('支付二维码已过期，请重新创建订单', 'PAYMENT_ORDER_EXPIRED'))
+      return
+    }
+    const qrCodeUrl = paymentQrCodeUrl(synced.providerPayload)
+    if (!qrCodeUrl) {
+      res.status(409).json(fail('该订单缺少可恢复的支付二维码，请重新创建订单', 'PAYMENT_QR_MISSING'))
+      return
+    }
+
+    res.json(success({
+      order: formatOrder(synced),
+      paymentReady: true,
+      qrCodeUrl,
+      message: '已恢复待支付订单，请在有效期内完成支付',
+    }))
+  } catch (error) {
+    const detail = requestErrorDetails(error)
+    logRuntimeError('payment.order.resume_failed', error)
     const status = error instanceof ChinaumsRequestError ? 502 : 500
     res.status(status).json(fail(detail.message, detail.code))
   }

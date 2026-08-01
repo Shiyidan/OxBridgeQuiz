@@ -8,6 +8,7 @@ export interface PaymentConfig {
   yearlyPriceCents: number
   status: 'active' | 'inactive'
   providerReady: boolean
+  firstMonthlyEligible: boolean
   updatedAt: string
 }
 
@@ -18,6 +19,7 @@ export interface PaymentOrder {
   plan: 'monthly' | 'yearly'
   priceType: 'first_monthly' | 'monthly' | 'yearly'
   amountCents: number
+  refundedAmountCents: number
   currency: string
   channel: 'alipay' | 'wechat' | 'unionpay'
   status: string
@@ -35,6 +37,30 @@ export interface CreatePaymentOrderResult {
   paymentReady: boolean
   qrCodeUrl: string
   message: string
+}
+
+export interface BillingMembershipRecord {
+  id: string
+  examType: string
+  plan: string
+  status: string
+  startsAt: string
+  endsAt: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface BillingOverview {
+  summary: {
+    totalSubscriptions: number
+    activeEntitlements: number
+    totalOrders: number
+    netPaidCents: number
+    currency: string
+    subscribedExamTypes: string[]
+  }
+  memberships: BillingMembershipRecord[]
+  orders: PaymentOrder[]
 }
 
 /** 获取支付弹窗使用的最新价格策略。 */
@@ -67,6 +93,14 @@ export function queryPaymentOrder(orderNo: string) {
   })
 }
 
+/** 恢复仍在有效期内的待支付订单及原支付二维码。 */
+export function resumePaymentOrder(orderNo: string) {
+  return callApi<CreatePaymentOrderResult>({
+    url: `/payment/orders/${encodeURIComponent(orderNo)}/resume`,
+    method: 'POST',
+  })
+}
+
 /** 用户取消支付时关闭尚未使用的一次性二维码。 */
 export function closePaymentOrder(orderNo: string) {
   return callApi<PaymentOrder>({
@@ -79,6 +113,14 @@ export function closePaymentOrder(orderNo: string) {
 export function getMyPaymentOrders() {
   return callApi<PaymentOrder[]>({
     url: '/payment/orders',
+    method: 'GET',
+  })
+}
+
+/** 获取当前用户完整订阅、订单列表及后端汇总。 */
+export function getBillingOverview() {
+  return callApi<BillingOverview>({
+    url: '/payment/records',
     method: 'GET',
   })
 }

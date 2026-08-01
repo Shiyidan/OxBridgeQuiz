@@ -187,8 +187,10 @@ export const useAuthStore = defineStore('auth', () => {
     examPreferences?: Array<{
       examType: string
       subjects: string[]
+      targetRegions?: string
       targetUniversities?: string[]
       targetMajor?: string
+      entrySeason?: string
       targetScore?: number
       examDate?: string
       weeklyHours?: number

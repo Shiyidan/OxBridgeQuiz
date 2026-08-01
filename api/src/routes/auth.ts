@@ -47,6 +47,7 @@ import {
 } from '../constants/legal.js'
 import { recordLegalAcceptances } from '../services/legalAcceptance.js'
 import { normalizeIpAddress } from '../utils/ipAddress.js'
+import { resolveIpLocation } from '../services/ipGeolocation.js'
 
 export const authRouter = createAsyncRouter()
 
@@ -451,10 +452,13 @@ authRouter.get('/sessions', requireAuth, async (req: Request, res: Response) => 
       expiresAt: true,
     },
   })
+  const currentSession = sessions.find((session) => session.id === req.user!.sessionId)
+  const currentIpLocation = await resolveIpLocation(currentSession?.ipAddress)
   res.json(success({
     list: sessions.map((session) => ({
       ...session,
       isCurrent: session.id === req.user!.sessionId,
+      ipLocation: session.id === req.user!.sessionId ? currentIpLocation : null,
     })),
   }))
 })

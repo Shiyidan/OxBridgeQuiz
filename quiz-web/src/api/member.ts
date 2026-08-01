@@ -41,8 +41,10 @@ export interface ExamQuota {
 export interface ExamPreference {
   examType: string
   subjects: string[]
+  targetRegions?: string
   targetUniversities?: string[]
   targetMajor?: string
+  entrySeason?: string
   targetScore?: number
   examDate?: string
   weeklyHours?: number

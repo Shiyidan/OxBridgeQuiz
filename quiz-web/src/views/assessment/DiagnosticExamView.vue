@@ -230,6 +230,24 @@ let pendingExpiredModuleCode = ''
 const activeModule = computed(() => session.value?.currentModule || null)
 const breakState = computed(() => session.value?.break || null)
 const currentQuestion = computed(() => questions.value[currentIndex.value])
+
+// 当前题目按考试记录和分段隔离保存，标签切换或同标签刷新后仍回到离开前查看的题目。
+function currentQuestionStorageKey(examRecordId: string, moduleCode: string): string {
+  return `diagnostic-current-question:${examRecordId}:${moduleCode}`
+}
+
+// 浏览器会话存储只保存题目 ID，不保存题目或答案内容。
+function readStoredCurrentQuestionId(examRecordId: string, moduleCode: string): string {
+  return sessionStorage.getItem(currentQuestionStorageKey(examRecordId, moduleCode)) || ''
+}
+
+// 切题和暂停前同步当前位置，服务端会话重新装载时以题目 ID 恢复而不依赖数组下标。
+function persistCurrentQuestion(questionId = currentQuestion.value?.id || ''): void {
+  const examRecordId = session.value?.examRecordId || ''
+  const moduleCode = activeModule.value?.code || ''
+  if (!examRecordId || !moduleCode || !questionId) return
+  sessionStorage.setItem(currentQuestionStorageKey(examRecordId, moduleCode), questionId)
+}
 // 当前分段的完成数量只统计实际选择了答案的题目，访问后跳过的题目不计入进度。
 const answeredCount = computed(() =>
   questions.value.filter((question) => Boolean(answers.value[question.id])).length,
@@ -353,6 +371,8 @@ async function loadSession(): Promise<void> {
 
 // 切换分段时只保留服务端下发的当前作答状态，已完成分段不会再暴露。
 async function applySession(nextSession: StartExamResult): Promise<void> {
+  const previousQuestionId = currentQuestion.value?.id || ''
+  if (previousQuestionId) persistCurrentQuestion(previousQuestionId)
   session.value = nextSession
   if (nextSession.phase === 'submitted') {
     submitted.value = true
@@ -387,10 +407,21 @@ async function applySession(nextSession: StartExamResult): Promise<void> {
       })
       .map((question) => question.id),
   )
+  const storedQuestionId = readStoredCurrentQuestionId(
+    nextSession.examRecordId,
+    nextSession.currentModule.code,
+  )
+  const restoredQuestionIndex = questions.value.findIndex(
+    (question) => question.id === (previousQuestionId || storedQuestionId),
+  )
   const firstUnanswered = questions.value.findIndex((question) => !answers.value[question.id])
-  currentIndex.value =
-    firstUnanswered >= 0 ? firstUnanswered : Math.max(questions.value.length - 1, 0)
+  currentIndex.value = restoredQuestionIndex >= 0
+    ? restoredQuestionIndex
+    : firstUnanswered >= 0
+      ? firstUnanswered
+      : Math.max(questions.value.length - 1, 0)
   if (currentQuestion.value) visitedQuestionIds.value.add(currentQuestion.value.id)
+  persistCurrentQuestion()
   timingPaused = false
   questionEnteredAt = Date.now()
   timerKey.value = `${nextSession.examRecordId}:${nextSession.currentModule.code}:${nextSession.currentModule.expiresAt}`
@@ -464,6 +495,7 @@ function goToQuestion(index: number): void {
   recordCurrentDuration()
   currentIndex.value = index
   if (currentQuestion.value) visitedQuestionIds.value.add(currentQuestion.value.id)
+  persistCurrentQuestion()
   questionEnteredAt = Date.now()
 }
 

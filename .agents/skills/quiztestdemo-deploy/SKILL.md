@@ -41,6 +41,7 @@ An environment mismatch is a hard stop. Do not rewrite the server `.env` to make
 Prefer the bundled scripts in `scripts/` instead of writing ad hoc deployment scripts:
 
 - `scripts/remote-deploy.sh`: guarded server-side deploy runner for `test` or `prod` and `frontend`, `backend`, or `all`.
+- `scripts/deploy-test-local-build.ps1`: required test-environment orchestrator; verifies a clean, pushed commit, builds frontend and API artifacts locally, verifies them with a manifest and SHA-256, uploads them with the source bundle, validates the result, reports, and cleans temporary evidence.
 - `scripts/check-prisma-migrations.sh`: server-side Prisma schema/migration guard, called by `remote-deploy.sh`.
 - `scripts/check-runtime-config.sh`: compares runtime `.env` keys with `.env.example`, merges only an explicit allowlist of non-secret defaults after backup, and never prints values; deployment then runs the repository runtime validator.
 - `scripts/merge-payment-runtime-config.sh`: after explicit environment confirmation, backs up the runtime `.env` and merges only an allowlisted private payment overlay from stdin without printing values.
@@ -57,9 +58,31 @@ Prefer the bundled scripts in `scripts/` instead of writing ad hoc deployment sc
 - `scripts/install-ops-baseline.sh`: installs the versioned `ops/` health check, backup timer, log rotation, and limited Nginx operation after explicit root authorization.
 - `scripts/verify-ops-baseline.sh`: read-only verification of the installed operational baseline.
 
-High-level scripted flow:
+## Test local-artifact deployment
 
-1. Load `.env.deploy.local` and resolve the selected environment keys from `references/environments.md`.
+For every `test` deployment, use `scripts/deploy-test-local-build.ps1`; do not invoke `remote-deploy.sh test` directly. The test ECS must never run `npm ci` for frontend, Vite, TypeScript, or backend compilation.
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\.agents\skills\quiztestdemo-deploy\scripts\deploy-test-local-build.ps1 `
+  -Scope <frontend|backend|all> `
+  -Branch <confirmed-branch>
+```
+
+The script rejects a dirty worktree, an unpushed commit, a dirty server worktree, a non-fast-forward source update, or any artifact manifest/checksum mismatch. It builds artifacts from the selected commit:
+
+- frontend: local `npm ci` + `npm run build-only:test`, then `dist` archive;
+- backend: local `npm ci` + Prisma generation + `npm run build`, then `dist` archive;
+- server: receives only archives and source bundle; runs `npm ci --omit=dev` only if API package files changed, then runs Prisma generation/migration, runtime validation and PM2 reload.
+
+`prisma` remains a production dependency because the server must run `prisma generate` and `prisma migrate deploy` without TypeScript development dependencies. The server rejects artifacts whose test environment, scope, branch, commit or SHA-256 values differ from the selected deployment.
+
+## Production server-build deployment
+
+Production retains the server-build flow below. Do not use the test artifact script for `prod`.
+
+High-level production scripted flow:
+
+1. Load `.env.deploy.local` and resolve the selected production environment keys from `references/environments.md`.
 2. Verify the selected SSH key exists and run a read-only identity check against that environment's host.
 3. Create a unique remote directory such as `/tmp/quiz-deploy-YYYYMMDD-HHMMSS`.
 4. Upload `remote-deploy.sh`, `check-prisma-migrations.sh`, `check-runtime-config.sh`, `backup-rds-runtime.sh`, `verify-request-id.sh`, and `collect-report.sh` into that directory with `scp`.
@@ -92,6 +115,8 @@ Missing private runtime configuration remains a hard stop. A new server may be i
 ## Safety Rules
 
 - The local environment selection and the remote runtime/database guard must agree before Git operations. If they differ, stop; never edit `.env` or switch hosts automatically.
+- Test deployment requires `DEPLOY_TEST_ARTIFACT_DIR` from `deploy-test-local-build.ps1`; reject it if the directory is not the timestamped remote artifact directory or its manifest does not match the activated commit and checksums.
+- Do not allow the test ECS to fall back to Vite or TypeScript builds. Local artifact deployment must fail closed instead.
 - Never overwrite `/opt/quiz/api/.env`.
 - After the backup and before migration, compare `/opt/quiz/api/.env` keys with the checked-out `api/.env.example`. The script may append only its explicit allowlist of non-secret defaults; it must stop and list key names for secrets or environment-specific settings. Never print values.
 - Before migration and PM2 reload, run `API_ENV_FILE=/opt/quiz/api/.env npm run validate:runtime`; database and SMTP validation must both pass.
@@ -129,7 +154,7 @@ Installing or changing the operational baseline is not implied by a normal code 
 
 ## Frontend Build Selection
 
-- `test`: run `npm run build-only:test`.
+- `test`: `deploy-test-local-build.ps1` runs local `npm run build-only:test` and uploads a verified `dist` archive; the ECS only unpacks and synchronizes it.
 - `prod`: run `npm run build-only`.
 
 Both builds use same-origin `/api` at runtime. Do not inject the test IP into a production build.

@@ -7,6 +7,8 @@ BRANCH="${3:-}"
 EXPECTED_DATABASE="${4:-}"
 SOURCE_BUNDLE="${DEPLOY_SOURCE_BUNDLE:-}"
 EXPECTED_COMMIT="${DEPLOY_EXPECTED_COMMIT:-}"
+TEST_ARTIFACT_DIR="${DEPLOY_TEST_ARTIFACT_DIR:-}"
+ARTIFACT_STAGE=""
 
 if [[ -z "$ENVIRONMENT" || -z "$SCOPE" || -z "$BRANCH" || -z "$EXPECTED_DATABASE" ]]; then
   echo "Usage: bash remote-deploy.sh <test|prod> <frontend|backend|all> <git-branch> <expected-database>" >&2
@@ -15,7 +17,14 @@ fi
 
 case "$ENVIRONMENT" in
   test)
-    FRONTEND_BUILD_COMMAND=(npm run build-only:test)
+    [[ -n "$TEST_ARTIFACT_DIR" ]] || {
+      echo "Test deployment requires DEPLOY_TEST_ARTIFACT_DIR from the local artifact builder." >&2
+      exit 2
+    }
+    [[ "$TEST_ARTIFACT_DIR" =~ ^/tmp/quiz-deploy-[0-9]{8}[-_][0-9]{6}/artifacts$ ]] || {
+      echo "DEPLOY_TEST_ARTIFACT_DIR must be a timestamped deployment artifact directory." >&2
+      exit 2
+    }
     ;;
   prod)
     FRONTEND_BUILD_COMMAND=(npm run build-only)
@@ -186,6 +195,108 @@ console.log(`Target guard passed: environment=${actualEnvironment}, database=${a
 NODE
 }
 
+cleanup_artifact_stage() {
+  [[ -n "$ARTIFACT_STAGE" && -d "$ARTIFACT_STAGE" ]] && rm -rf -- "$ARTIFACT_STAGE"
+}
+trap cleanup_artifact_stage EXIT
+
+validate_test_artifacts() {
+  [[ "$ENVIRONMENT" == "test" ]] || return 0
+  [[ -d "$TEST_ARTIFACT_DIR" ]] || {
+    echo "Test artifact directory is missing: $TEST_ARTIFACT_DIR" >&2
+    exit 50
+  }
+
+  node - "$TEST_ARTIFACT_DIR/manifest.json" "$SCOPE" "$BRANCH" "$ACTUAL_COMMIT" <<'NODE'
+const crypto = require('crypto')
+const fs = require('fs')
+const path = require('path')
+
+const [manifestFile, scope, branch, commit] = process.argv.slice(2)
+if (!fs.existsSync(manifestFile)) throw new Error('Test artifact manifest is missing.')
+const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'))
+if (manifest.schemaVersion !== 1 || manifest.environment !== 'test') {
+  throw new Error('Test artifact manifest does not target the test environment.')
+}
+if (manifest.scope !== scope || manifest.branch !== branch || manifest.commit !== commit) {
+  throw new Error('Test artifact manifest does not match the selected scope, branch, or commit.')
+}
+
+const required = []
+if (scope === 'backend' || scope === 'all') required.push('api-dist.tar.gz')
+if (scope === 'frontend' || scope === 'all') required.push('web-dist.tar.gz')
+for (const name of required) {
+  const expected = manifest.files?.[name]?.sha256
+  if (!/^[a-f0-9]{64}$/.test(expected || '')) throw new Error(`Missing checksum for ${name}.`)
+  const file = path.join(path.dirname(manifestFile), name)
+  const actual = crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')
+  if (actual !== expected) throw new Error(`Checksum mismatch for ${name}.`)
+}
+console.log(`Verified local test artifacts for commit ${commit}.`)
+NODE
+}
+
+extract_test_artifact() {
+  local archive="$1"
+  local destination="$2"
+  local entries
+
+  entries="$(tar -tzf "$archive")"
+  if grep -Eq '(^/|(^|/)\.\.(/|$))' <<<"$entries"; then
+    echo "Unsafe archive path detected: $archive" >&2
+    exit 51
+  fi
+  mkdir -p "$destination"
+  tar -xzf "$archive" -C "$destination"
+}
+
+prepare_test_artifact_stage() {
+  [[ "$ENVIRONMENT" == "test" ]] || return 0
+  ARTIFACT_STAGE="$(mktemp -d "/tmp/quiz-test-artifacts-${STAMP}.XXXXXX")"
+
+  if [[ "$SCOPE" == "backend" || "$SCOPE" == "all" ]]; then
+    extract_test_artifact "$TEST_ARTIFACT_DIR/api-dist.tar.gz" "$ARTIFACT_STAGE/api"
+    [[ -f "$ARTIFACT_STAGE/api/dist/index.js" ]] || {
+      echo "API artifact does not contain dist/index.js." >&2
+      exit 51
+    }
+  fi
+  if [[ "$SCOPE" == "frontend" || "$SCOPE" == "all" ]]; then
+    extract_test_artifact "$TEST_ARTIFACT_DIR/web-dist.tar.gz" "$ARTIFACT_STAGE/web"
+    [[ -f "$ARTIFACT_STAGE/web/dist/index.html" ]] || {
+      echo "Web artifact does not contain dist/index.html." >&2
+      exit 51
+    }
+  fi
+}
+
+ensure_test_runtime_dependencies() {
+  [[ "$ENVIRONMENT" == "test" ]] || return 0
+  local package_changed=false
+  if [[ ! -d "$API_RUNTIME/node_modules" || ! -f "$API_RUNTIME/package.json" || ! -f "$API_RUNTIME/package-lock.json" ]]; then
+    package_changed=true
+  elif ! cmp -s "$REPO_DIR/api/package.json" "$API_RUNTIME/package.json" || ! cmp -s "$REPO_DIR/api/package-lock.json" "$API_RUNTIME/package-lock.json"; then
+    package_changed=true
+  fi
+
+  if [[ "$package_changed" == true ]]; then
+    step "test runtime dependencies changed"
+    cp "$REPO_DIR/api/package.json" "$REPO_DIR/api/package-lock.json" "$API_RUNTIME/"
+    (
+      cd "$API_RUNTIME"
+      npm ci --omit=dev --ignore-scripts
+    )
+  else
+    step "test runtime dependencies unchanged"
+    echo "Reusing existing production dependency set."
+  fi
+
+  [[ -x "$API_RUNTIME/node_modules/.bin/prisma" ]] || {
+    echo "Test runtime Prisma CLI is unavailable; prisma must remain a production dependency." >&2
+    exit 52
+  }
+}
+
 step "deploy start"
 echo "environment=${ENVIRONMENT}"
 echo "scope=${SCOPE}"
@@ -218,17 +329,29 @@ else
   git checkout "$BRANCH"
   git pull --ff-only origin "$BRANCH"
 fi
+ACTUAL_COMMIT="$(git rev-parse HEAD)"
 git rev-parse --short HEAD
 
+step "test artifact guard"
+validate_test_artifacts
+prepare_test_artifact_stage
+
 if [[ "$SCOPE" == "backend" || "$SCOPE" == "all" ]]; then
-  step "backend dependencies"
-  cd "$REPO_DIR/api"
-  npm ci
+  if [[ "$ENVIRONMENT" == "test" ]]; then
+    ensure_test_runtime_dependencies
+    TEST_PRISMA_BIN="$API_RUNTIME/node_modules/.bin/prisma"
+    ln -sfn "$API_RUNTIME/node_modules" "$ARTIFACT_STAGE/api/node_modules"
+  else
+    step "backend dependencies"
+    cd "$REPO_DIR/api"
+    npm ci
+    TEST_PRISMA_BIN=""
+  fi
 
   step "prisma migration guard"
   run_with_env_file \
     "$API_RUNTIME/.env" \
-    bash "$SCRIPT_DIR/check-prisma-migrations.sh" "$REPO_DIR/api" "/tmp/quiz_migrate_shadow_${STAMP}.db"
+    bash "$SCRIPT_DIR/check-prisma-migrations.sh" "$REPO_DIR/api" "/tmp/quiz_migrate_shadow_${STAMP}.db" "$TEST_PRISMA_BIN"
 
   step "runtime backup"
   mkdir -p "$BACKUP_DIR"
@@ -241,20 +364,37 @@ if [[ "$SCOPE" == "backend" || "$SCOPE" == "all" ]]; then
 
   step "runtime config guard"
   bash "$SCRIPT_DIR/check-runtime-config.sh" "$REPO_DIR/api/.env.example" "$API_RUNTIME/.env" --merge-safe-defaults
-  cp "$API_RUNTIME/.env" .env
-  API_ENV_FILE="$API_RUNTIME/.env" npm run validate:runtime
 
-  step "backend migrate and build"
-  npx prisma migrate deploy
-  npx prisma generate
-  npm run build
+  if [[ "$ENVIRONMENT" == "test" ]]; then
+    step "test runtime validate and migrate"
+    run_with_env_file \
+      "$API_RUNTIME/.env" \
+      "$TEST_PRISMA_BIN" generate --schema "$REPO_DIR/api/prisma/schema.prisma"
+    run_with_env_file \
+      "$API_RUNTIME/.env" \
+      node "$REPO_DIR/api/scripts/validate-runtime-config.mjs" "$ARTIFACT_STAGE/api"
+    run_with_env_file \
+      "$API_RUNTIME/.env" \
+      "$TEST_PRISMA_BIN" migrate deploy --schema "$REPO_DIR/api/prisma/schema.prisma"
+  else
+    cd "$REPO_DIR/api"
+    cp "$API_RUNTIME/.env" .env
+    step "backend migrate and build"
+    npx prisma migrate deploy
+    npx prisma generate
+    npm run build
+  fi
 
   step "backend runtime sync"
-  rsync -a --delete dist/ "$API_RUNTIME/dist/"
-  rsync -a --delete node_modules/ "$API_RUNTIME/node_modules/"
-  cp package.json package-lock.json "$API_RUNTIME/"
-  if [[ -d prompts ]]; then
-    rsync -a --delete prompts/ "$API_RUNTIME/prompts/"
+  if [[ "$ENVIRONMENT" == "test" ]]; then
+    rsync -a --delete "$ARTIFACT_STAGE/api/dist/" "$API_RUNTIME/dist/"
+  else
+    rsync -a --delete "$REPO_DIR/api/dist/" "$API_RUNTIME/dist/"
+    rsync -a --delete "$REPO_DIR/api/node_modules/" "$API_RUNTIME/node_modules/"
+    cp "$REPO_DIR/api/package.json" "$REPO_DIR/api/package-lock.json" "$API_RUNTIME/"
+  fi
+  if [[ -d "$REPO_DIR/api/prompts" ]]; then
+    rsync -a --delete "$REPO_DIR/api/prompts/" "$API_RUNTIME/prompts/"
   fi
   [[ -f "$PM2_CONFIG_SOURCE" ]] || {
     echo "PM2 configuration template is missing: $PM2_CONFIG_SOURCE" >&2
@@ -281,13 +421,22 @@ if [[ "$SCOPE" == "backend" || "$SCOPE" == "all" ]]; then
 fi
 
 if [[ "$SCOPE" == "frontend" || "$SCOPE" == "all" ]]; then
-  step "frontend build"
-  cd "$REPO_DIR/quiz-web"
-  npm ci
-  "${FRONTEND_BUILD_COMMAND[@]}"
+  if [[ "$ENVIRONMENT" == "test" ]]; then
+    step "test frontend artifact"
+    echo "Using the verified frontend artifact built outside the ECS."
+  else
+    step "frontend build"
+    cd "$REPO_DIR/quiz-web"
+    npm ci
+    "${FRONTEND_BUILD_COMMAND[@]}"
+  fi
 
   step "frontend runtime sync"
-  rsync -a --delete --no-owner --no-group --no-perms --omit-dir-times dist/ "$WEB_RUNTIME/"
+  if [[ "$ENVIRONMENT" == "test" ]]; then
+    rsync -a --delete --no-owner --no-group --no-perms --omit-dir-times "$ARTIFACT_STAGE/web/dist/" "$WEB_RUNTIME/"
+  else
+    rsync -a --delete --no-owner --no-group --no-perms --omit-dir-times dist/ "$WEB_RUNTIME/"
+  fi
 fi
 
 step "validation local"

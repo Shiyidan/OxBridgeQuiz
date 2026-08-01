@@ -3,6 +3,7 @@ set -euo pipefail
 
 API_DIR="${1:-/opt/quiz/repo/api}"
 SHADOW_DB="${2:-/tmp/quiz_migrate_shadow.db}"
+PRISMA_BIN="${3:-}"
 DIFF_OUT="$(mktemp)"
 
 cleanup() {
@@ -14,11 +15,23 @@ cd "$API_DIR"
 
 echo "=== prisma migration guard ==="
 
-npx prisma validate
+run_prisma() {
+  if [[ -n "$PRISMA_BIN" ]]; then
+    [[ -x "$PRISMA_BIN" ]] || {
+      echo "Configured Prisma binary is not executable: $PRISMA_BIN" >&2
+      exit 2
+    }
+    "$PRISMA_BIN" "$@"
+    return
+  fi
+  npx prisma "$@"
+}
+
+run_prisma validate
 
 if grep -q 'provider = "mysql"' prisma/schema.prisma; then
   if [[ -n "${SHADOW_DATABASE_URL:-}" ]]; then
-    npx prisma migrate diff \
+    run_prisma migrate diff \
       --from-migrations prisma/migrations \
       --to-schema-datamodel prisma/schema.prisma \
       --shadow-database-url "$SHADOW_DATABASE_URL" \
@@ -30,7 +43,7 @@ if grep -q 'provider = "mysql"' prisma/schema.prisma; then
   fi
 else
   rm -f "$SHADOW_DB"
-  npx prisma migrate diff \
+  run_prisma migrate diff \
     --from-migrations prisma/migrations \
     --to-schema-datamodel prisma/schema.prisma \
     --shadow-database-url "file:${SHADOW_DB}" \

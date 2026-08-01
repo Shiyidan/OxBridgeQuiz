@@ -111,6 +111,18 @@ exact commit without changing `origin`.
 
 Use bundled scripts from the skill directory. Avoid recreating inline scripts unless a script itself must be patched.
 
+For `test`, run the local artifact orchestrator instead of manually uploading and calling the server runner:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\.agents\skills\quiztestdemo-deploy\scripts\deploy-test-local-build.ps1 `
+  -Scope <frontend|backend|all> `
+  -Branch <branch>
+```
+
+It performs test-environment preflight, local builds, source bundle/artifact upload, guarded server activation, validation, report generation and cleanup. It rejects dirty or unpushed source. The test server only installs `--omit=dev` runtime dependencies after API package files change, plus Prisma generation/migration and process reload.
+
+For `prod`, use the server-build outline below.
+
 PowerShell outline:
 
 ```powershell
@@ -147,6 +159,8 @@ node "$skill\scripts\generate-report.cjs" `
 The remote runner exits with status `49` before Git changes when the selected environment does not match `API_RUNTIME_ENV` or the configured database name. Never edit the server `.env` to bypass this guard.
 
 ## Backend Deploy
+
+For `test`, TypeScript compilation is local. The server receives an API `dist` archive, retains the private runtime `.env`, and uses the runtime Prisma CLI for validation, `migrate deploy` and `generate`; it does not run `tsc`.
 
 `remote-deploy.sh` runs this flow for backend or all deployments:
 
@@ -209,6 +223,8 @@ If `npx prisma migrate deploy` fails because production already has a table or c
 4. Record the metadata repair in the HTML deployment report and the selected environment's deployment document.
 
 ## Frontend Deploy
+
+For `test`, Vite runs locally through `deploy-test-local-build.ps1`; the ECS only verifies and synchronizes the `dist` archive.
 
 ```bash
 cd /opt/quiz/repo/quiz-web

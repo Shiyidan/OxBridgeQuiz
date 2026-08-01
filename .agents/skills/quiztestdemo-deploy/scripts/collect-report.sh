@@ -114,5 +114,9 @@ NODE
 
 echo "--- migrations-status ---"
 cd /opt/quiz/repo/api
-cp /opt/quiz/api/.env .env
-npx prisma migrate status
+if [[ -x /opt/quiz/api/node_modules/.bin/prisma ]]; then
+  /opt/quiz/api/node_modules/.bin/prisma migrate status --schema prisma/schema.prisma
+else
+  cp /opt/quiz/api/.env .env
+  npx prisma migrate status
+fi

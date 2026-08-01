@@ -160,7 +160,8 @@ try {
         files = $files
     }
     $manifestPath = Join-Path $artifactDir 'manifest.json'
-    $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $manifestPath -Encoding utf8
+    $manifestJson = $manifest | ConvertTo-Json -Depth 5
+    [System.IO.File]::WriteAllText($manifestPath, $manifestJson, [System.Text.UTF8Encoding]::new($false))
 
     Invoke-Checked -Name 'Test SSH identity check' -Command { ssh.exe -i $sshKey -o IdentitiesOnly=yes $target "printf 'connected\n'; hostname; whoami" }
     $remoteDirty = @(& ssh.exe -i $sshKey -o IdentitiesOnly=yes $target 'cd /opt/quiz/repo && git status --porcelain')

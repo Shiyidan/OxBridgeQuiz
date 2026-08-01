@@ -23,7 +23,6 @@ $reportPath = Join-Path $repoRoot ".private\deployment-reports\quiztestdemo-test
 $result = 'failed'
 $remoteCreated = $false
 $buildWorktreeCreated = $false
-$ErrorActionPreference = 'Stop'
 
 function Read-DotEnv {
     param([Parameter(Mandatory = $true)][string]$Path)
@@ -246,7 +245,7 @@ try {
             -LocalDirectory $localDir `
             -RemoteDirectory $remoteDir `
             -ReportPath $reportPath `
-            -Result $result `
+            -Result $result
         if ($LASTEXITCODE -ne 0) { throw 'Transient deployment cleanup failed.' }
     } elseif (Test-Path -LiteralPath $localDir) {
         Remove-Item -LiteralPath $localDir -Recurse -Force

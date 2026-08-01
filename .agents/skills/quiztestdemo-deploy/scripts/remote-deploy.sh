@@ -8,6 +8,7 @@ EXPECTED_DATABASE="${4:-}"
 SOURCE_BUNDLE="${DEPLOY_SOURCE_BUNDLE:-}"
 EXPECTED_COMMIT="${DEPLOY_EXPECTED_COMMIT:-}"
 TEST_ARTIFACT_DIR="${DEPLOY_TEST_ARTIFACT_DIR:-}"
+PREFLIGHT_ONLY="${DEPLOY_PREFLIGHT_ONLY:-false}"
 ARTIFACT_STAGE=""
 
 if [[ -z "$ENVIRONMENT" || -z "$SCOPE" || -z "$BRANCH" || -z "$EXPECTED_DATABASE" ]]; then
@@ -17,14 +18,16 @@ fi
 
 case "$ENVIRONMENT" in
   test)
-    [[ -n "$TEST_ARTIFACT_DIR" ]] || {
-      echo "Test deployment requires DEPLOY_TEST_ARTIFACT_DIR from the local artifact builder." >&2
-      exit 2
-    }
-    [[ "$TEST_ARTIFACT_DIR" =~ ^/tmp/quiz-deploy-[0-9]{8}[-_][0-9]{6}/artifacts$ ]] || {
-      echo "DEPLOY_TEST_ARTIFACT_DIR must be a timestamped deployment artifact directory." >&2
-      exit 2
-    }
+    if [[ "$PREFLIGHT_ONLY" != "true" ]]; then
+      [[ -n "$TEST_ARTIFACT_DIR" ]] || {
+        echo "Test deployment requires DEPLOY_TEST_ARTIFACT_DIR from the local artifact builder." >&2
+        exit 2
+      }
+      [[ "$TEST_ARTIFACT_DIR" =~ ^/tmp/quiz-deploy-[0-9]{8}[-_][0-9]{6}/artifacts$ ]] || {
+        echo "DEPLOY_TEST_ARTIFACT_DIR must be a timestamped deployment artifact directory." >&2
+        exit 2
+      }
+    fi
     ;;
   prod)
     FRONTEND_BUILD_COMMAND=(npm run build-only)
@@ -34,6 +37,11 @@ case "$ENVIRONMENT" in
     exit 2
     ;;
 esac
+
+if [[ "$PREFLIGHT_ONLY" != "true" && "$PREFLIGHT_ONLY" != "false" ]]; then
+  echo "DEPLOY_PREFLIGHT_ONLY must be true or false." >&2
+  exit 2
+fi
 
 case "$SCOPE" in
   frontend|backend|all) ;;
@@ -76,8 +84,21 @@ BACKUP_DIR="/opt/quiz/backups"
 PM2_CONFIG_SOURCE="$REPO_DIR/ops/pm2/quiz-api.ecosystem.cjs"
 PM2_CONFIG="/opt/quiz/ecosystem.config.cjs"
 STAMP="$(date +%Y%m%d_%H%M%S)"
+DEPLOY_STARTED_AT="$(date +%s)"
+PREVIOUS_STEP_STARTED_AT="$DEPLOY_STARTED_AT"
+PREVIOUS_STEP_NAME=""
 
 step() {
+  local now
+  now="$(date +%s)"
+  if [[ -n "$PREVIOUS_STEP_NAME" ]]; then
+    printf 'remote_timing stage=%s seconds=%d total_seconds=%d\n' \
+      "$PREVIOUS_STEP_NAME" \
+      "$((now - PREVIOUS_STEP_STARTED_AT))" \
+      "$((now - DEPLOY_STARTED_AT))"
+  fi
+  PREVIOUS_STEP_STARTED_AT="$now"
+  PREVIOUS_STEP_NAME="$1"
   echo
   echo "=== $1 ==="
 }
@@ -196,18 +217,22 @@ NODE
 }
 
 cleanup_artifact_stage() {
-  [[ -n "$ARTIFACT_STAGE" && -d "$ARTIFACT_STAGE" ]] && rm -rf -- "$ARTIFACT_STAGE"
+  if [[ -n "$ARTIFACT_STAGE" && -d "$ARTIFACT_STAGE" ]]; then
+    rm -rf -- "$ARTIFACT_STAGE"
+  fi
+  return 0
 }
 trap cleanup_artifact_stage EXIT
 
 validate_test_artifacts() {
   [[ "$ENVIRONMENT" == "test" ]] || return 0
+  local artifact_commit="${1:-}"
   [[ -d "$TEST_ARTIFACT_DIR" ]] || {
     echo "Test artifact directory is missing: $TEST_ARTIFACT_DIR" >&2
     exit 50
   }
 
-  node - "$TEST_ARTIFACT_DIR/manifest.json" "$SCOPE" "$BRANCH" "$ACTUAL_COMMIT" <<'NODE'
+  node - "$TEST_ARTIFACT_DIR/manifest.json" "$SCOPE" "$BRANCH" "$artifact_commit" <<'NODE'
 const crypto = require('crypto')
 const fs = require('fs')
 const path = require('path')
@@ -306,6 +331,26 @@ echo "stamp=${STAMP}"
 step "target environment guard"
 assert_target_environment
 
+if [[ "$PREFLIGHT_ONLY" == "true" ]]; then
+  step "repository preflight"
+  [[ -d "$REPO_DIR/.git" ]] || {
+    echo "Repository checkout not found: $REPO_DIR" >&2
+    exit 45
+  }
+  cd "$REPO_DIR"
+  if [[ -n "$(git status --porcelain)" ]]; then
+    echo "Repository has local changes; inspect and preserve them before deployment." >&2
+    git status --short >&2
+    exit 45
+  fi
+  echo "preflight=passed current_commit=$(git rev-parse HEAD)"
+  exit 0
+fi
+
+step "test artifact guard"
+validate_test_artifacts "$EXPECTED_COMMIT"
+prepare_test_artifact_stage
+
 step "git update"
 cd "$REPO_DIR"
 if [[ -n "$(git status --porcelain)" ]]; then
@@ -331,10 +376,6 @@ else
 fi
 ACTUAL_COMMIT="$(git rev-parse HEAD)"
 git rev-parse --short HEAD
-
-step "test artifact guard"
-validate_test_artifacts
-prepare_test_artifact_stage
 
 if [[ "$SCOPE" == "backend" || "$SCOPE" == "all" ]]; then
   if [[ "$ENVIRONMENT" == "test" ]]; then
@@ -451,3 +492,4 @@ pm2 status --no-color
 bash "$SCRIPT_DIR/verify-request-id.sh" http://127.0.0.1/api/health quiz-api
 
 step "deploy done"
+echo "remote_timing total_seconds=$(($(date +%s) - DEPLOY_STARTED_AT))"

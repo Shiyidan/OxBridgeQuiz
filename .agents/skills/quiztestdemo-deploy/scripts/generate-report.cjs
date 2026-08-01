@@ -33,6 +33,7 @@ function readText(file) {
   return buffer.toString('utf8')
 }
 
+// Read the newest deployment processing notes from the environment-specific tracked record.
 function readDeploymentNotes(file) {
   const text = readText(file)
   if (!text) return ''
@@ -51,7 +52,7 @@ function readDeploymentNotes(file) {
   if (current) sections.push(current)
 
   const datedSections = sections.filter((section) => /^##\s+\d{4}-\d{2}-\d{2}\s+/.test(section.title))
-  const selectedSections = datedSections.length ? datedSections.slice(-2) : sections
+  const selectedSections = datedSections.length ? datedSections.slice(0, 2) : sections.slice(0, 2)
   const notes = []
   for (const section of selectedSections) {
     const body = section.lines.join('\n')
@@ -108,6 +109,42 @@ function pre(title, value) {
     </section>`
 }
 
+// Extract machine-readable local and remote stage timings from the sanitized deployment log.
+function parseTimings(text) {
+  const timings = []
+  const pattern = /^(local_timing|remote_timing)(?:\s+stage=([^\s]+)\s+seconds=([0-9.]+))?\s+total_seconds=([0-9.]+)$/gm
+  for (const match of text.matchAll(pattern)) {
+    timings.push({
+      source: match[1] === 'local_timing' ? '本地编排' : '远端执行',
+      stage: match[2] || '总计',
+      seconds: match[3] || match[4],
+      totalSeconds: match[4],
+    })
+  }
+  return timings
+}
+
+// Render a compact timing table so future deployment regressions can be located without raw evidence.
+function timingTable(timings) {
+  if (!timings.length) return pre('部署阶段耗时', '当前报告未采集到阶段耗时。')
+  const rows = timings.map((timing) => `
+          <tr>
+            <td>${escapeHtml(timing.source)}</td>
+            <td><code>${escapeHtml(timing.stage)}</code></td>
+            <td>${escapeHtml(timing.seconds)} 秒</td>
+            <td>${escapeHtml(timing.totalSeconds)} 秒</td>
+          </tr>`).join('')
+  return `
+    <section>
+      <h2>部署阶段耗时</h2>
+      <table>
+        <thead><tr><th>来源</th><th>阶段</th><th>阶段耗时</th><th>累计耗时</th></tr></thead>
+        <tbody>${rows}
+        </tbody>
+      </table>
+    </section>`
+}
+
 const args = parseArgs(process.argv)
 const environment = args.environment || 'unknown'
 if (!['test', 'prod'].includes(environment)) {
@@ -141,6 +178,16 @@ const healthOk = /"status"\s*:\s*"ok"/.test(publicHealth)
 const databaseReadOk = /HTTP\/1\.1 200 OK/.test(databaseRead) && /"success"\s*:\s*true/.test(databaseRead)
 const requestIdRuntimeOk = /http\.request\.completed/.test(requestIdRuntime) && /requestId/.test(requestIdRuntime)
 const resultClass = result === 'success' ? 'ok' : result === 'failed' ? 'bad' : 'warn'
+const deploymentTimings = parseTimings(deployLog)
+const deploymentContent = environment === 'test'
+  ? [
+      '测试环境后端与前端在本地隔离工作树中构建，服务器仅校验并同步构建产物。',
+      '后端范围包含运行时配置检查、备份、Prisma 迁移和 PM2 重载；前端范围包含静态资源同步。',
+    ]
+  : [
+      '后端范围包含依赖安装、迁移检查、RDS 迁移、构建和 PM2 重载。',
+      '前端范围包含依赖安装、Vite 生产构建和静态资源同步。',
+    ]
 
 const html = `<!doctype html>
 <html lang="zh-CN">
@@ -182,8 +229,7 @@ const html = `<!doctype html>
         <li>目标环境：<code>${escapeHtml(environment)}</code></li>
         <li>执行范围：<code>${escapeHtml(scope)}</code></li>
         <li>代码分支：<code>${escapeHtml(branch)}</code></li>
-        <li>后端范围包含依赖安装、迁移检查、RDS 迁移、构建和 PM2 重载。</li>
-        <li>前端范围包含依赖安装、Vite 生产构建和静态资源同步。</li>
+        ${deploymentContent.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
       </ul>
     </section>
 
@@ -202,6 +248,8 @@ const html = `<!doctype html>
         </tbody>
       </table>
     </section>
+
+    ${timingTable(deploymentTimings)}
 
     ${pre('三、服务器目录结构', data.structure)}
     ${pre('四、更新时间', data.timestamps)}

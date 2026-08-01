@@ -76,6 +76,14 @@ The script rejects a dirty worktree, an unpushed commit, a dirty server worktree
 
 Local dependency installation and both builds run in a temporary detached Git worktree at the exact selected commit. This prevents a local API process from locking Prisma's Windows engine file and keeps the developer's working `node_modules` untouched. The worktree is removed in the mandatory cleanup phase.
 
+Before creating that worktree, the orchestrator uploads the guarded runner and executes `DEPLOY_PREFLIGHT_ONLY=true`. This validates the selected runtime environment, expected database, repository existence and repository cleanliness before local dependency installation or builds begin. A failed target preflight must stop without building or changing the server checkout.
+
+For `scope=all`, the isolated API and frontend dependency-install/build tasks run in parallel. Successfully packaged archives are cached under the Git-ignored `.private/deployment-cache/test/v1/` directory using the exact Commit, scope, Node.js version and npm version. A retry of the same build identity may reuse the cache only after rechecking every archive SHA-256; any missing field, version mismatch or checksum mismatch is a cache miss and triggers a clean rebuild. The deployment manifest is always regenerated for the current branch and deployment attempt.
+
+Both the local orchestrator and remote runner emit machine-readable `local_timing` / `remote_timing` lines for major stages. Preserve these lines in the sanitized HTML report so slow builds, uploads, backups, migration checks and validations can be distinguished without retaining raw temporary evidence.
+
+The remote runner validates the uploaded manifest and archive checksums before updating the server Git checkout. A malformed, mismatched or corrupt artifact must therefore fail before repository mutation, migration, runtime sync or PM2 reload.
+
 `prisma` remains a production dependency because the server must run `prisma generate` and `prisma migrate deploy` without TypeScript development dependencies. The server rejects artifacts whose test environment, scope, branch, commit or SHA-256 values differ from the selected deployment.
 
 ## Production server-build deployment

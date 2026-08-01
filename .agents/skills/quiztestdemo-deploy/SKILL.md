@@ -74,6 +74,8 @@ The script rejects a dirty worktree, an unpushed commit, a dirty server worktree
 - backend: local `npm ci` + Prisma generation + `npm run build`, then `dist` archive;
 - server: receives only archives and source bundle; runs `npm ci --omit=dev` only if API package files changed, then runs Prisma generation/migration, runtime validation and PM2 reload.
 
+Local dependency installation and both builds run in a temporary detached Git worktree at the exact selected commit. This prevents a local API process from locking Prisma's Windows engine file and keeps the developer's working `node_modules` untouched. The worktree is removed in the mandatory cleanup phase.
+
 `prisma` remains a production dependency because the server must run `prisma generate` and `prisma migrate deploy` without TypeScript development dependencies. The server rejects artifacts whose test environment, scope, branch, commit or SHA-256 values differ from the selected deployment.
 
 ## Production server-build deployment

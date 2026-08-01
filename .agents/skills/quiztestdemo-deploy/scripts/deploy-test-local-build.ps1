@@ -17,10 +17,13 @@ $privateConfig = Join-Path $repoRoot '.env.deploy.local'
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $localDir = Join-Path $repoRoot ".tmp\quiz-deploy-test-$stamp"
 $artifactDir = Join-Path $localDir 'artifacts'
+$buildWorktree = Join-Path $localDir 'source'
 $remoteDir = "/tmp/quiz-deploy-$stamp"
 $reportPath = Join-Path $repoRoot ".private\deployment-reports\quiztestdemo-test-deploy-$stamp.html"
 $result = 'failed'
 $remoteCreated = $false
+$buildWorktreeCreated = $false
+$ErrorActionPreference = 'Stop'
 
 function Read-DotEnv {
     param([Parameter(Mandatory = $true)][string]$Path)
@@ -111,8 +114,16 @@ New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
 $target = "$sshUser@$hostName"
 
 try {
+    # 在独立的固定提交 worktree 中安装依赖与构建，避免占用开发中的 Prisma 引擎文件。
+    Invoke-Checked -Name 'Temporary source worktree creation' -Command {
+    # Keep the following command separate for Windows PowerShell source decoding.
+    Invoke-Checked -Name 'Temporary source worktree creation' -Command {
+        git -C $repoRoot worktree add --detach $buildWorktree $commit
+    }
+    $buildWorktreeCreated = $true
+
     if ($Scope -eq 'backend' -or $Scope -eq 'all') {
-        Push-Location (Join-Path $repoRoot 'api')
+        Push-Location (Join-Path $buildWorktree 'api')
         try {
             Invoke-Checked -Name 'Local API dependency install' -Command { npm.cmd ci }
             Invoke-Checked -Name 'Local Prisma client generation' -Command { .\node_modules\.bin\prisma.cmd generate --schema prisma\schema.prisma }
@@ -121,11 +132,11 @@ try {
             Pop-Location
         }
         $apiArchive = Join-Path $artifactDir 'api-dist.tar.gz'
-        Invoke-Checked -Name 'API artifact packaging' -Command { tar.exe -czf $apiArchive -C (Join-Path $repoRoot 'api') dist }
+        Invoke-Checked -Name 'API artifact packaging' -Command { tar.exe -czf $apiArchive -C (Join-Path $buildWorktree 'api') dist }
     }
 
     if ($Scope -eq 'frontend' -or $Scope -eq 'all') {
-        Push-Location (Join-Path $repoRoot 'quiz-web')
+        Push-Location (Join-Path $buildWorktree 'quiz-web')
         try {
             Invoke-Checked -Name 'Local web dependency install' -Command { npm.cmd ci }
             Invoke-Checked -Name 'Local test web build' -Command { npm.cmd run build-only:test }
@@ -133,7 +144,7 @@ try {
             Pop-Location
         }
         $webArchive = Join-Path $artifactDir 'web-dist.tar.gz'
-        Invoke-Checked -Name 'Web artifact packaging' -Command { tar.exe -czf $webArchive -C (Join-Path $repoRoot 'quiz-web') dist }
+        Invoke-Checked -Name 'Web artifact packaging' -Command { tar.exe -czf $webArchive -C (Join-Path $buildWorktree 'quiz-web') dist }
     }
 
     $files = [ordered]@{}
@@ -224,6 +235,10 @@ try {
     if ($result -ne 'success') {
         $failureMessage = if ($failure) { $failure } else { 'Deployment stopped before completion.' }
         Write-FallbackReport -Outcome $result -Message $failureMessage
+    }
+    if ($buildWorktreeCreated -and (Test-Path -LiteralPath $buildWorktree)) {
+        & git -C $repoRoot worktree remove --force $buildWorktree
+        if ($LASTEXITCODE -ne 0) { throw 'Temporary source worktree cleanup failed.' }
     }
     if ($remoteCreated) {
         & powershell.exe -ExecutionPolicy Bypass -File (Join-Path $skillRoot 'scripts\cleanup-transient.ps1') `

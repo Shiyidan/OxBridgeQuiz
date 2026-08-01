@@ -367,11 +367,13 @@ if [[ "$SCOPE" == "backend" || "$SCOPE" == "all" ]]; then
 
   if [[ "$ENVIRONMENT" == "test" ]]; then
     step "test runtime validate and migrate"
+    mkdir -p "$API_RUNTIME/prisma"
+    cp "$REPO_DIR/api/prisma/schema.prisma" "$API_RUNTIME/prisma/schema.prisma"
     (
       cd "$API_RUNTIME"
       run_with_env_file \
         "$API_RUNTIME/.env" \
-        "$TEST_PRISMA_BIN" generate --schema "$REPO_DIR/api/prisma/schema.prisma"
+        "$TEST_PRISMA_BIN" generate --schema "$API_RUNTIME/prisma/schema.prisma"
     )
     run_with_env_file \
       "$API_RUNTIME/.env" \

@@ -62,6 +62,33 @@ function Invoke-Checked {
     }
 }
 
+# Preserve native command diagnostics in a log while treating only its process exit code as failure.
+function Invoke-NativeLogged {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][scriptblock]$Command,
+        [Parameter(Mandatory = $true)][string]$LogPath,
+        [switch]$Append
+    )
+
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        if ($Append) {
+            & $Command 2>&1 | Tee-Object -FilePath $LogPath -Append
+        } else {
+            & $Command 2>&1 | Tee-Object -FilePath $LogPath
+        }
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    if ($exitCode -ne 0) {
+        throw "$Name failed with exit code $exitCode."
+    }
+}
+
 # Record stage and cumulative durations in the sanitized deployment log.
 function Write-DeploymentTiming {
     param([Parameter(Mandatory = $true)][string]$Stage)
@@ -352,20 +379,26 @@ try {
     Write-DeploymentTiming -Stage 'bundle_and_upload'
 
     $remoteDeploy = "DEPLOY_SOURCE_BUNDLE=$remoteDir/source.bundle DEPLOY_EXPECTED_COMMIT=$commit DEPLOY_TEST_ARTIFACT_DIR=$remoteDir/artifacts bash $remoteDir/remote-deploy.sh test $Scope $Branch $expectedDatabase"
-    & ssh.exe -i $sshKey -o IdentitiesOnly=yes $target $remoteDeploy 2>&1 | Tee-Object -FilePath $deployLog -Append
-    if ($LASTEXITCODE -ne 0) { throw "Remote test deployment failed with exit code $LASTEXITCODE." }
+    Invoke-NativeLogged -Name 'Remote test deployment' -LogPath $deployLog -Append -Command {
+        ssh.exe -i $sshKey -o IdentitiesOnly=yes $target $remoteDeploy
+    }
     Write-DeploymentTiming -Stage 'remote_deploy'
 
-    & ssh.exe -i $sshKey -o IdentitiesOnly=yes $target "bash $remoteDir/collect-report.sh test $Scope $Branch $expectedDatabase $publicUrl" 2>&1 | Tee-Object -FilePath (Join-Path $localDir 'server-report.log')
-    if ($LASTEXITCODE -ne 0) { throw 'Remote report collection failed.' }
-    & curl.exe -I "$publicUrl/" 2>&1 | Tee-Object -FilePath (Join-Path $localDir 'public-home.log')
-    if ($LASTEXITCODE -ne 0) { throw 'Public homepage validation failed.' }
-    & curl.exe -fsS "$publicUrl/api/health" 2>&1 | Tee-Object -FilePath (Join-Path $localDir 'public-health.log')
-    if ($LASTEXITCODE -ne 0) { throw 'Public health validation failed.' }
-    & curl.exe -fsS "$publicUrl/api/payment/config" 2>&1 | Tee-Object -FilePath (Join-Path $localDir 'database-read.log')
-    if ($LASTEXITCODE -ne 0) { throw 'Database-dependent GET validation failed.' }
-    & ssh.exe -i $sshKey -o IdentitiesOnly=yes $target "bash $remoteDir/verify-request-id.sh http://127.0.0.1/api/health quiz-api" 2>&1 | Tee-Object -FilePath (Join-Path $localDir 'request-id-runtime.log')
-    if ($LASTEXITCODE -ne 0) { throw 'Request ID runtime log validation failed.' }
+    Invoke-NativeLogged -Name 'Remote report collection' -LogPath (Join-Path $localDir 'server-report.log') -Command {
+        ssh.exe -i $sshKey -o IdentitiesOnly=yes $target "bash $remoteDir/collect-report.sh test $Scope $Branch $expectedDatabase $publicUrl"
+    }
+    Invoke-NativeLogged -Name 'Public homepage validation' -LogPath (Join-Path $localDir 'public-home.log') -Command {
+        curl.exe -I "$publicUrl/"
+    }
+    Invoke-NativeLogged -Name 'Public health validation' -LogPath (Join-Path $localDir 'public-health.log') -Command {
+        curl.exe -fsS "$publicUrl/api/health"
+    }
+    Invoke-NativeLogged -Name 'Database-dependent GET validation' -LogPath (Join-Path $localDir 'database-read.log') -Command {
+        curl.exe -fsS "$publicUrl/api/payment/config"
+    }
+    Invoke-NativeLogged -Name 'Request ID runtime log validation' -LogPath (Join-Path $localDir 'request-id-runtime.log') -Command {
+        ssh.exe -i $sshKey -o IdentitiesOnly=yes $target "bash $remoteDir/verify-request-id.sh http://127.0.0.1/api/health quiz-api"
+    }
     Write-DeploymentTiming -Stage 'post_deploy_validation'
 
     Invoke-Checked -Name 'Deployment report generation' -Command {

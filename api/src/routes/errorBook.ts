@@ -32,9 +32,10 @@ import {
   paperTypeWhereValues,
 } from '../constants/domain.js'
 
-import { safeJsonParse, parseQueryList, parseDateBoundary, parsePositiveInt, getQuestionKey, buildAnswerRecordRows, countCorrectAnswers, ExamResponseInput, normalizeExamResponses, responseMaps, usesContinuousExamClock, buildExamDeadline, continuousExamDurationSeconds, replaceAnswerRecords, collectSyllabusCodes, jsonPointsHaveCode, calculateNinePointScore } from './exam-shared.js'
+import { safeJsonParse, parseQueryList, parseDateBoundary, parsePositiveInt, getQuestionKey, buildAnswerRecordRows, countCorrectAnswers, ExamResponseInput, normalizeExamResponses, responseMaps, usesContinuousExamClock, buildExamDeadline, continuousExamDurationSeconds, replaceAnswerRecords, collectSyllabusCodes, calculateNinePointScore } from './exam-shared.js'
 export const errorBookRouter = createAsyncRouter()
 
+// 错题本
 errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
   try {
     const requestedExamType = String(
@@ -58,161 +59,132 @@ errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
     const pageSize = parsePositiveInt(req.query.pageSize, 20, 100)
     const startDate = parseDateBoundary(req.query.startDate, 'start')
     const endDate = parseDateBoundary(req.query.endDate, 'end')
-    const wrongTimeWhere = {
+    const wrongTimeWhere: Prisma.DateTimeFilter = {
       ...(startDate ? { gte: startDate } : {}),
       ...(endDate ? { lt: endDate } : {}),
     }
     const hasTimeFilter = Boolean(startDate || endDate)
-    const baseExamRecordWhere: Prisma.ExamRecordWhereInput = {
-      userId: req.user!.userId,
-      status: 'submitted',
-      ...(examType ? { examType } : {}),
-      ...(paperTypes.length ? { paper: { paperType: { in: paperTypes } } } : {}),
+    const attemptWhere: Prisma.WrongQuestionAttemptWhereInput = {
+      ...(paperTypes.length ? { paperType: { in: paperTypes } } : {}),
+      ...(hasTimeFilter ? { submittedAt: wrongTimeWhere } : {}),
     }
-    const answerInclude = {
-      examRecord: {
-        select: {
-          id: true,
-          examType: true,
-          submittedAt: true,
-          paper: { select: { paperType: true, title: true } },
-        },
-      },
-    } as const
+    const questionWhere: Prisma.QuestionWhereInput = {
+      ...(examType ? { examType } : {}),
+      ...(difficulties.length ? { difficulty: { in: difficulties } } : {}),
+      ...(subjectCodes.length ? { subjectCode: { in: subjectCodes } } : {}),
+      ...(syllabusCodes.length
+        ? {
+            OR: [
+              {
+                knowledgePointLinks: {
+                  some: { syllabusNode: { code: { in: syllabusCodes } } },
+                },
+              },
+              { subjectCode: { in: syllabusCodes } },
+              { topicCode: { in: syllabusCodes } },
+            ],
+          }
+        : {}),
+    }
+    const summaryWhere: Prisma.WrongQuestionSummaryWhereInput = {
+      userId: req.user!.userId,
+      ...(examType ? { examType } : {}),
+      ...(paperTypes.length || hasTimeFilter ? { attempts: { some: attemptWhere } } : {}),
+      question: questionWhere,
+    }
 
-    const [matchingWrongAnswers, globalDateBounds] = await Promise.all([
-      prisma.answerRecord.findMany({
-        where: {
-          examRecord: {
-            ...baseExamRecordWhere,
-            ...(hasTimeFilter ? { submittedAt: wrongTimeWhere } : {}),
-          },
-          isCorrect: false,
-        },
-        include: answerInclude,
-      }),
-      prisma.examRecord.aggregate({
-        where: {
-          userId: req.user!.userId,
-          status: 'submitted',
-          submittedAt: { not: null },
-          answers: { some: { isCorrect: false } },
-        },
+    const [total, globalDateBounds] = await Promise.all([
+      prisma.wrongQuestionSummary.count({ where: summaryWhere }),
+      prisma.wrongQuestionAttempt.aggregate({
+        where: { userId: req.user!.userId },
         _min: { submittedAt: true },
         _max: { submittedAt: true },
       }),
     ])
-
-    const matchingQuestionIds = [...new Set(matchingWrongAnswers.map((answer) => answer.questionId))]
-    const candidateQuestions = matchingQuestionIds.length
-      ? await prisma.question.findMany({
-          where: {
-            id: { in: matchingQuestionIds },
-            ...(examType ? { examType } : {}),
-            ...(difficulties.length ? { difficulty: { in: difficulties } } : {}),
-            ...(subjectCodes.length ? { subjectCode: { in: subjectCodes } } : {}),
-          },
+    const totalPages = Math.ceil(total / pageSize)
+    const safePage = totalPages > 0 ? Math.min(page, totalPages) : 1
+    const summaries = await prisma.wrongQuestionSummary.findMany({
+      where: summaryWhere,
+      orderBy: [{ latestWrongAt: 'desc' }, { id: 'asc' }],
+      skip: (safePage - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        questionId: true,
+        examType: true,
+        wrongCount: true,
+        latestWrongAt: true,
+        latestAnswerRecordId: true,
+        latestExamRecordId: true,
+        latestSelectedAnswer: true,
+        latestDurationSeconds: true,
+        latestAnsweredAt: true,
+        latestPaperType: true,
+        latestPaperTitle: true,
+        question: {
           select: {
-            id: true,
             examType: true,
             title: true,
             difficulty: true,
             subject: true,
             subjectCode: true,
-            topicCode: true,
             knowledgePoints: true,
           },
+        },
+      },
+    })
+    const summaryIds = summaries.map((summary) => summary.id)
+    const selectedAnswerGroups = summaryIds.length
+      ? await prisma.wrongQuestionAttempt.groupBy({
+          by: ['summaryId', 'selectedAnswer'],
+          where: {
+            summaryId: { in: summaryIds },
+            selectedAnswer: { not: null },
+          },
+          _min: { submittedAt: true },
+          orderBy: [{ _min: { submittedAt: 'asc' } }, { selectedAnswer: 'asc' }],
         })
       : []
-    const questionRows = syllabusCodes.length
-      ? candidateQuestions.filter(
-          (question) =>
-            jsonPointsHaveCode(question.knowledgePoints, syllabusCodes) ||
-            (question.subjectCode && syllabusCodes.includes(question.subjectCode)) ||
-            (question.topicCode && syllabusCodes.includes(question.topicCode)),
-        )
-      : candidateQuestions
-    const questionMap = new Map(questionRows.map((question) => [question.id, question]))
-    const eligibleQuestionIds = new Set(questionRows.map((question) => question.id))
-    const scopedWrongAnswers = matchingWrongAnswers.filter((answer) => (
-      eligibleQuestionIds.has(answer.questionId)
-    ))
-
-    // 日期范围只决定哪些题进入结果，卡片上的错误次数与历史错选始终按全历史统计。
-    const wrongAnswers = hasTimeFilter && eligibleQuestionIds.size
-      ? await prisma.answerRecord.findMany({
-          where: {
-            examRecord: baseExamRecordWhere,
-            isCorrect: false,
-            questionId: { in: [...eligibleQuestionIds] },
-          },
-          include: answerInclude,
-        })
-      : scopedWrongAnswers
-    const sortedWrongAnswers = wrongAnswers.sort((a, b) => {
-      const bTime = new Date(b.examRecord.submittedAt || 0).getTime()
-      const aTime = new Date(a.examRecord.submittedAt || 0).getTime()
-      return bTime - aTime
-    })
-
-    const groupedWrongAnswers = new Map<
-      string,
-      {
-        latest: (typeof sortedWrongAnswers)[number]
-        wrongCount: number
-        selectedAnswers: string[]
-      }
-    >()
-
-    for (const answer of sortedWrongAnswers) {
-      const group = groupedWrongAnswers.get(answer.questionId)
-      if (group) {
-        group.wrongCount += 1
-      } else {
-        groupedWrongAnswers.set(answer.questionId, {
-          latest: answer,
-          wrongCount: 1,
-          selectedAnswers: [],
-        })
-      }
+    const selectedAnswersBySummary = new Map<string, string[]>()
+    for (const group of selectedAnswerGroups) {
+      const selectedAnswer = group.selectedAnswer?.trim()
+      if (!selectedAnswer) continue
+      const answers = selectedAnswersBySummary.get(group.summaryId) || []
+      answers.push(selectedAnswer)
+      selectedAnswersBySummary.set(group.summaryId, answers)
     }
 
-    for (const answer of [...sortedWrongAnswers].reverse()) {
-      const selectedAnswer = answer.selectedAnswer?.trim()
-      const group = groupedWrongAnswers.get(answer.questionId)
-      if (selectedAnswer && group && !group.selectedAnswers.includes(selectedAnswer)) {
-        group.selectedAnswers.push(selectedAnswer)
-      }
-    }
-
-    const allItems = Array.from(groupedWrongAnswers.values()).map((group) => {
-      const answer = group.latest
-      const question = questionMap.get(answer.questionId)
+    const list = summaries.map((summary) => {
+      const selectedAnswers = selectedAnswersBySummary.get(summary.id) || []
       return {
-        id: answer.id,
-        questionId: answer.questionId,
-        examType: answer.examRecord.examType || question?.examType || '',
-        title: question?.title || '',
-        difficulty: question?.difficulty || '',
-        subject: question?.subject || '',
-        subjectCode: question?.subjectCode || '',
-        knowledge_points: question ? safeJsonParse(question.knowledgePoints, []) : [],
-        selectedAnswer: group.selectedAnswers.join(', ') || answer.selectedAnswer,
-        selectedAnswers: group.selectedAnswers,
-        wrongCount: group.wrongCount,
-        isCorrect: answer.isCorrect,
-        durationSeconds: answer.durationSeconds,
-        answeredAt: answer.answeredAt,
-        examRecord: answer.examRecord,
+        id: summary.latestAnswerRecordId,
+        questionId: summary.questionId,
+        examType: summary.examType || summary.question.examType || '',
+        title: summary.question.title || '',
+        difficulty: summary.question.difficulty || '',
+        subject: summary.question.subject || '',
+        subjectCode: summary.question.subjectCode || '',
+        knowledge_points: safeJsonParse(summary.question.knowledgePoints, []),
+        selectedAnswer: selectedAnswers.join(', ') || summary.latestSelectedAnswer,
+        selectedAnswers,
+        wrongCount: summary.wrongCount,
+        isCorrect: false,
+        durationSeconds: summary.latestDurationSeconds,
+        answeredAt: summary.latestAnsweredAt,
+        examRecord: {
+          id: summary.latestExamRecordId,
+          examType: summary.examType,
+          submittedAt: summary.latestWrongAt,
+          paper: {
+            paperType: summary.latestPaperType,
+            title: summary.latestPaperTitle,
+          },
+        },
       }
     })
-    const total = allItems.length
-    const totalPages = Math.ceil(total / pageSize)
-    const safePage = totalPages > 0 ? Math.min(page, totalPages) : 1
-    const startIndex = (safePage - 1) * pageSize
 
     res.json(success({
-      list: allItems.slice(startIndex, startIndex + pageSize),
+      list,
       pagination: {
         page: safePage,
         pageSize,

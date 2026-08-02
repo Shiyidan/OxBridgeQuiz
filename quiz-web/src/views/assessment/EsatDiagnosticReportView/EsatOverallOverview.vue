@@ -72,8 +72,8 @@
             <strong>{{ timingAttemptedCount(overview.timing) }}/{{ overview.totalQuestions }}</strong>
           </div>
           <div>
-            <span>已记录题时</span>
-            <strong>{{ timingRecordedCount(overview.timing) }}/{{ overview.totalQuestions }}</strong>
+            <span>已记录题平均耗时</span>
+            <strong>{{ formatAverageDuration(overview.timing.averageDurationSeconds) }}</strong>
           </div>
           <div>
             <span>计时覆盖率</span>
@@ -82,22 +82,6 @@
         </div>
 
         <template v-if="hasTimingAnalysis(overview.timing)">
-          <div v-if="timingAnalysisLevel(overview.timing) === 'complete'" class="timing-analysis-state">
-            <strong>{{ timingAnalysisLabel() }}</strong>
-            <span>{{ timingAnalysisDescription() }}</span>
-          </div>
-
-          <dl v-if="overview.timing.detailedTimingReliable" class="timing-key-metrics">
-            <div>
-              <dt>已记录题平均耗时</dt>
-              <dd>{{ formatAverageDuration(overview.timing.averageDurationSeconds) }}</dd>
-            </div>
-            <div>
-              <dt>超出目标题时</dt>
-              <dd>{{ overview.timing.overtimeQuestionCount }} 题</dd>
-            </div>
-          </dl>
-
           <section class="efficiency-block">
             <div class="timing-block-heading">
               <strong>时间效率四象限</strong>
@@ -110,8 +94,10 @@
                 class="efficiency-cell"
                 :class="`efficiency-cell--${quadrant.id}`"
               >
-                <span>{{ quadrant.label }}</span>
-                <strong>{{ quadrant.count }} 题</strong>
+                <div class="efficiency-cell__heading">
+                  <span>{{ quadrant.label }}</span>
+                  <strong>{{ quadrant.count }} 题</strong>
+                </div>
                 <small>{{ quadrant.description }}</small>
               </article>
             </div>
@@ -193,7 +179,7 @@ function pacingStatusLabel(timing: TimingOverview): string {
   return labels[pacingStatus(timing)]
 }
 
-// 作答覆盖兼容旧报告：缺失时回退为已记录题时数量，避免展示空白分子。
+// 作答覆盖兼容旧报告：缺失时回退为已记录耗时的题目数量，避免展示空白分子。
 function timingAttemptedCount(timing: TimingOverview): number {
   return timing.attemptedQuestionCount ?? timing.timedQuestionCount ?? 0
 }
@@ -206,16 +192,6 @@ function timingRecordedCount(timing: TimingOverview): number {
 // 覆盖率按记录题数计算，旧报告没有覆盖率字段时按零处理并显示不完整提示。
 function formatCoverage(timing: TimingOverview): string {
   return `${Math.round((timing.timingCoverage || 0) * 100)}%`
-}
-
-// 可靠性说明仅在完整分析时展示，参考样本直接呈现数据，不额外插入提示条。
-function timingAnalysisLabel(): string {
-  return '完整时间分析'
-}
-
-// 完整分析表示逐题耗时覆盖与总用时交叉校验均通过，可用于形成稳定时间结论。
-function timingAnalysisDescription(): string {
-  return '逐题耗时覆盖与总用时校验均通过，可作为本次完整时间画像。'
 }
 
 // 四象限按“是否超过该题难度目标用时 × 是否答对”分类，所有计数均来自已答且有耗时的题目。
@@ -539,56 +515,6 @@ function difficultyToneClass(accuracy: number | null, total: number): string {
   font-size: var(--text-sm);
 }
 
-.timing-analysis-state {
-  display: grid;
-  gap: 4px;
-  margin-top: 16px;
-  padding: 11px 13px;
-  border: 1px solid #bfdbfe;
-  border-radius: var(--radius-sm);
-  background: var(--color-info-bg);
-}
-
-.timing-analysis-state strong {
-  color: var(--color-report-blue);
-  font-size: var(--text-sm);
-}
-
-.timing-analysis-state span {
-  color: var(--color-ink-muted);
-  font-size: var(--text-xs);
-  line-height: var(--leading-normal);
-}
-
-.timing-key-metrics {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin: 12px 0 0;
-}
-
-.timing-key-metrics > div {
-  padding: 10px 12px;
-  border: 1px solid var(--color-line-soft);
-  border-radius: var(--radius-sm);
-}
-
-.timing-key-metrics dt,
-.timing-key-metrics dd {
-  margin: 0;
-}
-
-.timing-key-metrics dt {
-  color: var(--color-ink-muted);
-  font-size: var(--text-xs);
-}
-
-.timing-key-metrics dd {
-  margin-top: 4px;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semi);
-}
-
 .efficiency-block {
   margin-top: 18px;
 }
@@ -598,7 +524,7 @@ function difficultyToneClass(accuracy: number | null, total: number): string {
   gap: 12px;
   align-items: baseline;
   flex-wrap: nowrap;
-  margin-bottom: 9px;
+  margin-bottom: 15px;
 }
 
 .timing-block-heading strong {
@@ -629,12 +555,19 @@ function difficultyToneClass(accuracy: number | null, total: number): string {
   border-radius: var(--radius-sm);
 }
 
-.efficiency-cell > span {
+.efficiency-cell__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.efficiency-cell__heading > span {
   font-size: var(--text-xs);
   font-weight: var(--weight-medium);
 }
 
-.efficiency-cell > strong {
+.efficiency-cell__heading > strong {
   font-size: var(--text-lg);
   line-height: var(--leading-tight);
 }

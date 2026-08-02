@@ -11,6 +11,7 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "backfill:questions": "tsx scripts/backfill-paper-questions.ts",
+    "backfill:wrong-questions": "tsx scripts/backfill-wrong-question-summaries.ts",
     "clear:dev-users": "tsx scripts/clear-dev-user-data.ts",
     "reset:test-business-data": "tsx scripts/reset-test-business-data.ts",
     "smoke:auth": "tsx scripts/smoke-auth.ts",

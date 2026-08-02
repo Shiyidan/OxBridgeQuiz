@@ -8,6 +8,7 @@ import { parseJsonField, parseJsonArray } from '../utils/jsonField.js'
 import { checkMemberAccess, hasDiagnosticPaperAccess } from '../services/member.js'
 import { verifyQuestionBankSelection } from '../services/questionBankSelection.js'
 import { withQuotaTransaction } from '../services/transactionRetry.js'
+import { syncSubmittedWrongQuestions } from '../services/wrongQuestionSummary.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { computeScores } from '../services/scoring.js'
 import { setOperationAuditContext } from '../middleware/operationAudit.js'
@@ -1254,6 +1255,7 @@ examSessionRouter.post('/:id/submit', requireAuth, async (req, res) => {
           true,
         )
       }
+      await syncSubmittedWrongQuestions(tx, record.id)
       const task = isDiagnostic
         ? await tx.diagnosticReportTask.upsert({
             where: { examRecordId: record.id },

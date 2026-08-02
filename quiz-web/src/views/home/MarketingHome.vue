@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { Connection, DocumentChecked, MagicStick } from '@element-plus/icons-vue'
+import esatDiagnosticReportOverviewUrl from '@/assets/home/esat-diagnostic-report-overview.png'
 import tmuaDiagnosticQuestion03Url from '@/assets/home/tmua-diagnostic-question-03.png'
 import tmuaDiagnosticQuestion05Url from '@/assets/home/tmua-diagnostic-question-05.png'
 import tmuaDiagnosticQuestion07Url from '@/assets/home/tmua-diagnostic-question-07.png'
@@ -219,98 +220,96 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section
-      id="home-question-model"
-      class="home-section home-snap-screen home-story-screen home-model-screen"
-      aria-labelledby="home-model-title"
-    >
-      <div class="home-model-backdrop" aria-hidden="true">
-        <div class="home-model-backdrop-track">
-          <span class="home-model-backdrop-image home-model-backdrop-image--campus"></span>
-          <span class="home-model-backdrop-image home-model-backdrop-image--chapel"></span>
-          <span class="home-model-backdrop-image home-model-backdrop-image--campus"></span>
-          <span class="home-model-backdrop-image home-model-backdrop-image--chapel"></span>
-        </div>
-      </div>
-      <div class="home-page home-story-layout home-story-layout--reverse home-motion-content">
-        <div class="home-story-copy">
-          <div class="home-story-index">01 · 真题命题模型</div>
-          <h2 id="home-model-title">
-            <span class="home-story-title-line">真题做完以后，</span>
-            <span class="home-story-title-line">还有同路数的新题可练</span>
-          </h2>
-          <p>系统整理真题中的考点、题型、推理方式和难度，再把这些边界用于专项练习。</p>
-          <ul class="home-story-points">
-            <li>不跨出当前 ESAT 考纲</li>
-            <li>按科目、知识点与难度组合</li>
-            <li>练习结果继续回到个人记录</li>
-          </ul>
-        </div>
+    <div class="home-marketing-story-background">
+      <section
+        id="home-question-model"
+        class="home-section home-snap-screen home-story-screen home-model-screen"
+        aria-labelledby="home-model-title"
+      >
+        <div class="home-page home-story-layout home-story-layout--reverse home-motion-content">
+          <div class="home-story-copy">
+            <div class="home-story-index">01 · 真题命题模型</div>
+            <h2 id="home-model-title">
+              <span class="home-story-title-line">真题做完以后，</span>
+              <span class="home-story-title-line">还有同路数的新题可练</span>
+            </h2>
+            <p>系统整理真题中的考点、题型、推理方式和难度，再把这些边界用于专项练习。</p>
+            <ul class="home-story-points">
+              <li>不跨出当前 ESAT 考纲</li>
+              <li>按科目、知识点与难度组合</li>
+              <li>练习结果继续回到个人记录</li>
+            </ul>
+          </div>
 
-        <div class="home-story-visual home-model-visual" aria-label="从真题到专项练习">
-          <article>
-            <span class="home-model-step">01</span>
-            <el-icon class="home-model-stage-icon" aria-hidden="true">
-              <DocumentChecked />
-            </el-icon>
-            <strong class="home-model-stage-title">真题拆解</strong>
-            <span class="home-model-stage-subtitle">ENGAA / NSAA 可用历史题</span>
-            <p>提取：知识点 · 题型 · 推理路径 · 难度</p>
-          </article>
-          <i class="home-flow-arrow" aria-hidden="true">→</i>
-          <article class="home-model-stage--emphasis">
-            <span class="home-model-step">02</span>
-            <el-icon class="home-model-stage-icon" aria-hidden="true">
-              <Connection />
-            </el-icon>
-            <strong class="home-model-stage-title">规律建模</strong>
-            <span class="home-model-stage-subtitle">建立四维命题画像</span>
-            <p>考点权重 · 任务类型 · 干扰项 · 难度梯度</p>
-          </article>
-          <i class="home-flow-arrow" aria-hidden="true">→</i>
-          <article>
-            <span class="home-model-step">03</span>
-            <el-icon class="home-model-stage-icon" aria-hidden="true">
-              <MagicStick />
-            </el-icon>
-            <strong class="home-model-stage-title">同源生成</strong>
-            <span class="home-model-stage-subtitle">ESAT 专项练习</span>
-            <p>按考纲、知识点与难度生成同路数新题</p>
-          </article>
+          <div class="home-story-visual home-model-visual" aria-label="从真题到专项练习">
+            <article>
+              <span class="home-model-step">01</span>
+              <el-icon class="home-model-stage-icon" aria-hidden="true">
+                <DocumentChecked />
+              </el-icon>
+              <strong class="home-model-stage-title">真题拆解</strong>
+              <span class="home-model-stage-subtitle">ENGAA / NSAA 可用历史题</span>
+              <p>提取：知识点 · 题型 · 推理路径 · 难度</p>
+            </article>
+            <i class="home-flow-arrow" aria-hidden="true">→</i>
+            <article class="home-model-stage--emphasis">
+              <span class="home-model-step">02</span>
+              <el-icon class="home-model-stage-icon" aria-hidden="true">
+                <Connection />
+              </el-icon>
+              <strong class="home-model-stage-title">规律建模</strong>
+              <span class="home-model-stage-subtitle">建立四维命题画像</span>
+              <p>考点权重 · 任务类型 · 干扰项 · 难度梯度</p>
+            </article>
+            <i class="home-flow-arrow" aria-hidden="true">→</i>
+            <article>
+              <span class="home-model-step">03</span>
+              <el-icon class="home-model-stage-icon" aria-hidden="true">
+                <MagicStick />
+              </el-icon>
+              <strong class="home-model-stage-title">同源生成</strong>
+              <span class="home-model-stage-subtitle">ESAT 专项练习</span>
+              <p>按考纲、知识点与难度生成同路数新题</p>
+            </article>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section
-      id="home-learning-loop"
-      class="home-section home-snap-screen home-loop-screen home-marketing-loop-screen"
-      aria-labelledby="home-loop-title"
-    >
-      <div class="home-page home-loop-layout home-motion-content">
-        <header class="home-loop-heading">
-          <p class="home-story-index">02 · 完整学习闭环</p>
-          <h2 id="home-loop-title" class="home-section-title">做完一套题，下一步练什么就清楚了</h2>
-          <p class="home-section-desc">
-            每一步都承接上一阶段的真实作答记录，从定位问题到验证是否掌握，形成可回看的备考闭环。
-          </p>
-        </header>
+      <section
+        id="home-learning-loop"
+        class="home-section home-snap-screen home-loop-screen home-marketing-loop-screen"
+        aria-labelledby="home-loop-title"
+      >
+        <div class="home-page home-loop-layout home-motion-content">
+          <header class="home-loop-heading">
+            <p class="home-story-index">02 · 完整学习闭环</p>
+            <h2 id="home-loop-title" class="home-section-title">
+              做完一套题，下一步练什么就清楚了
+            </h2>
+            <p class="home-section-desc">
+              每一步都承接上一阶段的真实作答记录，从定位问题到验证是否掌握，形成可回看的备考闭环。
+            </p>
+          </header>
 
-        <div class="home-story-visual home-loop-visual" aria-label="诊断、练习和错题流程">
-          <article>
-            <span>01</span>
-            <div><small>真题诊断</small><strong>用历年真题看清当前成绩、知识点和用时</strong></div>
-          </article>
-          <article>
-            <span>02</span>
-            <div><small>专项练习</small><strong>围绕薄弱知识点练习同路数新题</strong></div>
-          </article>
-          <article>
-            <span>03</span>
-            <div><small>错题本</small><strong>保存真实错题、解析与知识点</strong></div>
-          </article>
+          <div class="home-story-visual home-loop-visual" aria-label="诊断、练习和错题流程">
+            <article>
+              <span>01</span>
+              <div>
+                <small>真题诊断</small><strong>用历年真题看清当前成绩、知识点和用时</strong>
+              </div>
+            </article>
+            <article>
+              <span>02</span>
+              <div><small>专项练习</small><strong>围绕薄弱知识点练习同路数新题</strong></div>
+            </article>
+            <article>
+              <span>03</span>
+              <div><small>错题本</small><strong>保存真实错题、解析与知识点</strong></div>
+            </article>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
 
     <section
       id="home-diagnostic-preview"
@@ -399,77 +398,19 @@ onBeforeUnmount(() => {
               查看诊断报告示例
               <span class="home-arrow" aria-hidden="true">→</span>
             </button>
-            <span class="home-growth-note">首页仅展示演示数据，不读取真实学生记录</span>
           </div>
         </header>
 
-        <div class="home-report-card-grid" aria-label="诊断报告核心内容演示">
-          <article class="home-report-card home-report-card-score">
-            <div class="home-report-card-head">
-              <span>综合得分</span>
-              <span class="home-demo-badge home-demo-badge-dark">演示</span>
-            </div>
-            <strong class="home-report-card-value">78</strong>
-            <dl class="home-report-metrics">
-              <div class="home-report-metric">
-                <dt>正确率</dt>
-                <dd>78%</dd>
-              </div>
-              <div class="home-report-metric">
-                <dt>用时</dt>
-                <dd>55:32</dd>
-              </div>
-            </dl>
-          </article>
-
-          <article class="home-report-card">
-            <div class="home-report-card-head">
-              <span>知识点掌握度</span>
-              <span class="home-demo-badge home-demo-badge-dark">演示</span>
-            </div>
-            <div class="home-mastery-list home-mastery-list-dark">
-              <div class="home-mastery-item">
-                <div class="home-mastery-head"><span>Algebra</span><b>84%</b></div>
-                <div class="home-progress home-progress-strong" aria-hidden="true">
-                  <i class="home-progress-fill"></i>
-                </div>
-              </div>
-              <div class="home-mastery-item">
-                <div class="home-mastery-head"><span>Functions &amp; Graphs</span><b>48%</b></div>
-                <div class="home-progress home-progress-weak" aria-hidden="true">
-                  <i class="home-progress-fill"></i>
-                </div>
-              </div>
-              <div class="home-mastery-item">
-                <div class="home-mastery-head"><span>Number Theory</span><b>69%</b></div>
-                <div class="home-progress home-progress-medium" aria-hidden="true">
-                  <i class="home-progress-fill"></i>
-                </div>
-              </div>
-            </div>
-          </article>
-
-          <article class="home-report-card home-report-card-next">
-            <div class="home-report-card-head">
-              <span>下一步建议</span>
-              <span class="home-demo-badge home-demo-badge-dark">演示</span>
-            </div>
-            <ol class="home-next-list">
-              <li class="home-next-item">
-                <span>优先训练</span>
-                <strong>Functions &amp; Graphs · 中等</strong>
-              </li>
-              <li class="home-next-item">
-                <span>关联错题</span>
-                <strong>先复习 4 道演示错题</strong>
-              </li>
-              <li class="home-next-item">
-                <span>阶段诊断</span>
-                <strong>做稳后再完成一次同范围诊断</strong>
-              </li>
-            </ol>
-          </article>
-        </div>
+        <figure class="home-report-showcase" aria-label="ESAT 专属诊断报告长图演示">
+          <div class="home-report-showcase-viewport">
+            <img
+              class="home-report-showcase-image"
+              :src="esatDiagnosticReportOverviewUrl"
+              alt="ESAT 诊断报告演示，包含等效评估分、水平定位、知识点掌握度与学习路径"
+              loading="lazy"
+            />
+          </div>
+        </figure>
       </div>
     </section>
 

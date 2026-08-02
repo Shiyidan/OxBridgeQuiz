@@ -70,10 +70,11 @@ model Question {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @default(now()) @updatedAt
 
-  paper               Paper?                   @relation(fields: [paperId], references: [id], onDelete: Cascade)
-  importBatch         QuestionImportBatch?     @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
-  knowledgePointLinks QuestionKnowledgePoint[]
-  answerRecords       AnswerRecord[]
+  paper                  Paper?                   @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  importBatch            QuestionImportBatch?     @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  knowledgePointLinks    QuestionKnowledgePoint[]
+  answerRecords          AnswerRecord[]
+  wrongQuestionSummaries WrongQuestionSummary[]
 
   @@unique([paperId, number])
   @@index([paperId])
@@ -141,17 +142,18 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  examRecords           ExamRecord[]
-  diagnosticSession     DiagnosticSession[]
-  memberships           UserMembership[]
-  diagnosticReportTasks DiagnosticReportTask[]
-  diagnosticReports     DiagnosticReport[]
-  authSessions          AuthSession[]
-  emailChallenges       EmailVerificationChallenge[]
-  paymentOrders         PaymentOrder[]
-  operationLogs         OperationLog[]
-  legalAcceptances      UserLegalAcceptance[]
-  practiceNotebooks     PracticeNotebook[]
+  examRecords            ExamRecord[]
+  diagnosticSession      DiagnosticSession[]
+  memberships            UserMembership[]
+  diagnosticReportTasks  DiagnosticReportTask[]
+  diagnosticReports      DiagnosticReport[]
+  authSessions           AuthSession[]
+  emailChallenges        EmailVerificationChallenge[]
+  paymentOrders          PaymentOrder[]
+  operationLogs          OperationLog[]
+  legalAcceptances       UserLegalAcceptance[]
+  practiceNotebooks      PracticeNotebook[]
+  wrongQuestionSummaries WrongQuestionSummary[]
 }
 
 model OperationLog {
@@ -335,6 +337,54 @@ model AnswerRecord {
   question   Question   @relation(fields: [questionId], references: [id])
 
   @@unique([examRecordId, questionId])
+  @@index([questionId])
+}
+
+model WrongQuestionSummary {
+  id                    String    @id @default(uuid()) @db.VarChar(191)
+  userId                String    @db.VarChar(191)
+  questionId            String    @db.VarChar(191)
+  examType              String    @db.VarChar(32)
+  wrongCount            Int       @default(1)
+  firstWrongAt          DateTime
+  latestWrongAt         DateTime
+  latestAnswerRecordId  String    @db.VarChar(191)
+  latestExamRecordId    String    @db.VarChar(191)
+  latestSelectedAnswer  String?   @db.VarChar(64)
+  latestDurationSeconds Int       @default(0)
+  latestAnsweredAt      DateTime?
+  latestPaperType       String    @db.VarChar(32)
+  latestPaperTitle      String    @db.VarChar(255)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user     User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question               @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  attempts WrongQuestionAttempt[]
+
+  @@unique([userId, questionId])
+  @@index([userId, examType, latestWrongAt, id])
+  @@index([questionId])
+}
+
+model WrongQuestionAttempt {
+  id             String   @id @default(uuid()) @db.VarChar(191)
+  summaryId      String   @db.VarChar(191)
+  userId         String   @db.VarChar(191)
+  questionId     String   @db.VarChar(191)
+  answerRecordId String   @unique @db.VarChar(191)
+  examRecordId   String   @db.VarChar(191)
+  examType       String   @db.VarChar(32)
+  paperType      String   @db.VarChar(32)
+  submittedAt    DateTime
+  selectedAnswer String?  @db.VarChar(64)
+  createdAt      DateTime @default(now())
+
+  summary WrongQuestionSummary @relation(fields: [summaryId], references: [id], onDelete: Cascade)
+
+  @@index([summaryId, paperType, submittedAt])
+  @@index([userId, submittedAt])
+  @@index([examRecordId])
   @@index([questionId])
 }
 

@@ -19,6 +19,8 @@ async function collectDataCounts(): Promise<DataCounts> {
     practiceNotebooks,
     examRecords,
     answerRecords,
+    wrongQuestionSummaries,
+    wrongQuestionAttempts,
     diagnosticReportTasks,
     diagnosticReports,
     papers,
@@ -46,6 +48,8 @@ async function collectDataCounts(): Promise<DataCounts> {
     prisma.practiceNotebook.count(),
     prisma.examRecord.count(),
     prisma.answerRecord.count(),
+    prisma.wrongQuestionSummary.count(),
+    prisma.wrongQuestionAttempt.count(),
     prisma.diagnosticReportTask.count(),
     prisma.diagnosticReport.count(),
     prisma.paper.count(),
@@ -75,6 +79,8 @@ async function collectDataCounts(): Promise<DataCounts> {
     practiceNotebooks,
     examRecords,
     answerRecords,
+    wrongQuestionSummaries,
+    wrongQuestionAttempts,
     diagnosticReportTasks,
     diagnosticReports,
     papers,
@@ -104,6 +110,8 @@ async function clearBusinessData(): Promise<DataCounts> {
     const paymentNotifications = await tx.paymentNotification.deleteMany()
     const revenueCosts = await tx.revenueCost.deleteMany()
 
+    const wrongQuestionAttempts = await tx.wrongQuestionAttempt.deleteMany()
+    const wrongQuestionSummaries = await tx.wrongQuestionSummary.deleteMany()
     const answerRecords = await tx.answerRecord.deleteMany()
     const diagnosticReports = await tx.diagnosticReport.deleteMany()
     const diagnosticReportTasks = await tx.diagnosticReportTask.deleteMany()
@@ -144,6 +152,8 @@ async function clearBusinessData(): Promise<DataCounts> {
       practiceNotebooks: practiceNotebooks.count,
       examRecords: examRecords.count,
       answerRecords: answerRecords.count,
+      wrongQuestionSummaries: wrongQuestionSummaries.count,
+      wrongQuestionAttempts: wrongQuestionAttempts.count,
       diagnosticReportTasks: diagnosticReportTasks.count,
       diagnosticReports: diagnosticReports.count,
       papers: papers.count,

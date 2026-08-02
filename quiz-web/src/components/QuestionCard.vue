@@ -53,46 +53,59 @@
       </template>
     </div>
 
-    <!-- 选项 2 栏栅格 -->
-    <div class="question-card__options">
-      <button
-        v-for="opt in question.options"
-        :key="opt.label"
-        type="button"
-        class="opt-card"
-        :class="optionClass(opt.text, opt.label)"
-        :disabled="disabled"
-        :aria-pressed="selectedAnswer === opt.label"
-        @click="handleSelect(opt.label)"
+    <!-- 整道题统一采用双列或单列，避免同一组选项出现混杂布局。 -->
+    <div
+      ref="optionsContainer"
+      class="question-card__options"
+      :class="{ 'question-card__options--single': useSingleColumnOptions }"
+    >
+      <div
+        v-for="row in optionRows"
+        :key="row.map((option) => option.label).join('-')"
+        class="question-card__option-row"
+        :class="{ 'question-card__option-row--single': row.length === 1 }"
       >
-        <span class="opt-card__bullet">{{ opt.label }}</span>
-        <span class="opt-card__text">
-          <LatexText v-if="opt.text" :text="opt.text" />
-          <span v-if="opt.image_id && getImageById(opt.image_id)" class="opt-card__media">
-            <img
-              v-if="isSvgImage(opt.image_id)"
-              class="opt-card__svg"
-              :src="getSvgImageSrc(opt.image_id)"
-              :alt="getImageAlt(opt.image_id)"
-            />
-            <img
-              v-else
-              :src="getRasterImageSrc(opt.image_id)"
-              :alt="getImageAlt(opt.image_id)"
-              class="opt-card__img"
-            />
+        <button
+          v-for="opt in row"
+          :key="opt.label"
+          type="button"
+          class="opt-card"
+          :class="optionClass(opt.label)"
+          :disabled="disabled"
+          :aria-pressed="selectedAnswer === opt.label"
+          @click="handleSelect(opt.label)"
+        >
+          <span class="opt-card__bullet">{{ opt.label }}</span>
+          <span class="opt-card__text">
+            <LatexText v-if="opt.text" :text="opt.text" />
+            <span v-if="opt.image_id && getImageById(opt.image_id)" class="opt-card__media">
+              <img
+                v-if="isSvgImage(opt.image_id)"
+                class="opt-card__svg"
+                :src="getSvgImageSrc(opt.image_id)"
+                :alt="getImageAlt(opt.image_id)"
+                @load="scheduleOptionLayoutMeasure"
+              />
+              <img
+                v-else
+                :src="getRasterImageSrc(opt.image_id)"
+                :alt="getImageAlt(opt.image_id)"
+                class="opt-card__img"
+                @load="scheduleOptionLayoutMeasure"
+              />
+            </span>
           </span>
-        </span>
-      </button>
+        </button>
+      </div>
     </div>
   </article>
 </template>
 
 <script setup lang="ts">
 // 题目渲染卡片（试题库、练习页、试卷预览共用）
-import { computed } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import LatexText from './LatexText.vue'
-import type { QuestionImage, RenderableQuestion, RichContentBlock } from '@/types'
+import type { Option, QuestionImage, RenderableQuestion, RichContentBlock } from '@/types'
 
 interface Props {
   question: RenderableQuestion
@@ -115,6 +128,22 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   (e: 'select', label: string): void
 }>()
+
+const optionsContainer = ref<HTMLElement | null>(null)
+const useSingleColumnOptions = ref(false)
+let optionResizeObserver: ResizeObserver | null = null
+let optionMeasureFrame: number | null = null
+let optionMeasureVersion = 0
+let observedOptionsWidth = 0
+
+// 相邻选项先按双列候选布局分组，再由整组选项的实际尺寸统一决定列数。
+const optionRows = computed<Option[][]>(() => {
+  const rows: Option[][] = []
+  for (let index = 0; index < props.question.options.length; index += 2) {
+    rows.push(props.question.options.slice(index, index + 2))
+  }
+  return rows
+})
 
 // 历史题缺少内容块时回退到 title，避免预览和报告出现空题干。
 const contentBlocks = computed<RichContentBlock[]>(() => {
@@ -185,16 +214,93 @@ function getSvgImageSrc(imageId: string | undefined): string {
 
 const answerSet = computed<Set<string>>(() => new Set(props.question.answer || []))
 
-function optionClass(text: string | undefined, label: string): Record<string, boolean> {
-  const normalizedText = (text || '').replace(/\$+/g, '').replace(/\s+/g, ' ').trim()
+function optionClass(label: string): Record<string, boolean> {
   return {
     'opt-card--selected': props.selectedAnswer === label,
     'opt-card--correct': props.showAnswer && answerSet.value.has(label),
     'opt-card--wrong':
       props.showAnswer && props.selectedAnswer === label && !answerSet.value.has(label),
-    'opt-card--wide': props.variant === 'exam' && normalizedText.length > 42,
   }
 }
+
+// 半列内发生换行、公式溢出或图片需要明显缩小时，整道题改用单列选项。
+function optionNeedsSingleColumn(card: HTMLElement): boolean {
+  const latexText = card.querySelector<HTMLElement>('.latex-text')
+  const textContainer = card.querySelector<HTMLElement>('.opt-card__text')
+  if (latexText && textContainer) {
+    const textStyle = window.getComputedStyle(latexText)
+    const fontSize = Number.parseFloat(textStyle.fontSize) || 16
+    const lineHeight = Number.parseFloat(textStyle.lineHeight) || fontSize * 1.5
+    if (latexText.getBoundingClientRect().height > lineHeight * 1.5) return true
+    if (textContainer.scrollWidth > textContainer.clientWidth + 1) return true
+
+    const displayFormula = latexText.querySelector<HTMLElement>('.katex-display')
+    if (displayFormula && displayFormula.scrollWidth > textContainer.clientWidth + 1) return true
+  }
+
+  const media = card.querySelector<HTMLElement>('.opt-card__media')
+  const image = media?.querySelector<HTMLImageElement>('img')
+  if (!media || !image || !image.complete) return false
+  const availableWidth = media.clientWidth
+  return (
+    (availableWidth > 0 && image.naturalWidth > availableWidth * 1.15) ||
+    image.naturalHeight > 180
+  )
+}
+
+// 每次先恢复双列测量，再把最终列数统一应用到整道题的全部选项。
+async function measureOptionLayout(): Promise<void> {
+  const container = optionsContainer.value
+  if (!container || props.variant !== 'exam') {
+    useSingleColumnOptions.value = false
+    return
+  }
+  const version = ++optionMeasureVersion
+  useSingleColumnOptions.value = false
+  await nextTick()
+  if (version !== optionMeasureVersion || optionsContainer.value !== container) return
+
+  const cards = container.querySelectorAll<HTMLElement>('.opt-card')
+  useSingleColumnOptions.value = [...cards].some(optionNeedsSingleColumn)
+}
+
+// 图片加载、题目切换和容器宽度变化共用一次动画帧内的布局测量。
+function scheduleOptionLayoutMeasure(): void {
+  if (optionMeasureFrame !== null) window.cancelAnimationFrame(optionMeasureFrame)
+  optionMeasureFrame = window.requestAnimationFrame(() => {
+    optionMeasureFrame = null
+    void measureOptionLayout()
+  })
+}
+
+watch(
+  () => [props.question.id, props.question.options, props.variant],
+  () => {
+    observedOptionsWidth = 0
+    useSingleColumnOptions.value = false
+    scheduleOptionLayoutMeasure()
+  },
+  { flush: 'post' },
+)
+
+onMounted(() => {
+  if (optionsContainer.value && typeof ResizeObserver !== 'undefined') {
+    optionResizeObserver = new ResizeObserver(([entry]) => {
+      const nextWidth = entry?.contentRect.width || 0
+      if (Math.abs(nextWidth - observedOptionsWidth) < 1) return
+      observedOptionsWidth = nextWidth
+      scheduleOptionLayoutMeasure()
+    })
+    optionResizeObserver.observe(optionsContainer.value)
+  }
+  scheduleOptionLayoutMeasure()
+})
+
+onBeforeUnmount(() => {
+  optionMeasureVersion += 1
+  optionResizeObserver?.disconnect()
+  if (optionMeasureFrame !== null) window.cancelAnimationFrame(optionMeasureFrame)
+})
 </script>
 
 <style scoped lang="scss">
@@ -325,8 +431,11 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
 
   .question-card__options {
     margin-top: 18px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px 16px;
+    gap: 12px;
+  }
+
+  .question-card__option-row {
+    gap: 16px;
   }
 
   .opt-card {
@@ -384,9 +493,6 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
       }
     }
 
-    &--wide {
-      grid-column: 1 / -1;
-    }
   }
 
   .opt-card__bullet {
@@ -517,9 +623,23 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
 /* ========== 选项栅格 ========== */
 .question-card__options {
   margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.question-card__option-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.875rem 1rem;
+  gap: 1rem;
+}
+
+.question-card__option-row--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.question-card__options--single .question-card__option-row {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .opt-card {
@@ -611,14 +731,18 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
 }
 
 .opt-card__media {
-  display: block;
+  display: flex;
+  justify-content: flex-start;
+  max-width: 100%;
   margin-top: 4px;
 }
 
 .opt-card__svg {
   display: block;
+  width: auto;
   max-width: 100%;
-  height: auto;
+  height: 180px;
+  object-fit: contain;
 }
 
 .opt-card__img {
@@ -631,5 +755,11 @@ function optionClass(text: string | undefined, label: string): Record<string, bo
 /* 选项中的 katex 公式略微下移以与字母对齐 */
 .opt-card__text :deep(.katex) {
   font-size: 1em;
+}
+
+@media (max-width: 760px) {
+  .question-card__option-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

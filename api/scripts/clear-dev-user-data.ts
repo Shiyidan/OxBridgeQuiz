@@ -8,6 +8,8 @@ if (config.runtimeEnv === 'prod') {
 
 async function main(): Promise<void> {
   const result = await prisma.$transaction(async (tx) => {
+    const wrongQuestionAttempts = await tx.wrongQuestionAttempt.deleteMany()
+    const wrongQuestionSummaries = await tx.wrongQuestionSummary.deleteMany()
     const answerRecords = await tx.answerRecord.deleteMany()
     const diagnosticReports = await tx.diagnosticReport.deleteMany()
     const diagnosticReportTasks = await tx.diagnosticReportTask.deleteMany()
@@ -25,6 +27,8 @@ async function main(): Promise<void> {
       memberships: memberships.count,
       examRecords: examRecords.count,
       answerRecords: answerRecords.count,
+      wrongQuestionSummaries: wrongQuestionSummaries.count,
+      wrongQuestionAttempts: wrongQuestionAttempts.count,
       diagnosticSessions: diagnosticSessions.count,
       diagnosticReportTasks: diagnosticReportTasks.count,
       diagnosticReports: diagnosticReports.count,

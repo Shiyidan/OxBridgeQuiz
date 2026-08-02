@@ -81,7 +81,25 @@ body.home-dialog-open {
 
 .home-marketing {
   overflow-x: clip;
-  background: var(--home-paper);
+  background-color: var(--home-paper);
+  background-image:
+    linear-gradient(
+      90deg,
+      rgba(247, 249, 250, 0.76) 0%,
+      rgba(247, 249, 250, 0.48) 48%,
+      rgba(247, 249, 250, 0.66) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(247, 249, 250, 0.08) 0%,
+      rgba(247, 249, 250, 0.38) 52%,
+      rgba(247, 249, 250, 0.14) 100%
+    ),
+    url('../../assets/banner/campus-ucl-sketch.webp');
+  background-attachment: fixed;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .home-visually-hidden {
@@ -127,7 +145,6 @@ body.home-dialog-open {
 /* 共用标题、按钮与演示标识 */
 .home-section {
   position: relative;
-  border-top: 1px solid var(--home-line);
 }
 
 .home-section:first-child {
@@ -387,7 +404,6 @@ body.home-dialog-open {
 .home-report-preview-head,
 .home-report-preview-heading,
 .home-mastery-head,
-.home-report-card-head,
 .home-practice-board-heading,
 .home-knowledge-heading,
 .home-mistake-toolbar-heading {
@@ -718,7 +734,12 @@ body.home-dialog-open {
 
 /* 深色报告区 */
 .home-growth-screen {
-  background: var(--home-navy);
+  --home-growth-background-offset: clamp(132px, 16vh, 150px);
+  background: linear-gradient(
+    to bottom,
+    transparent 0 var(--home-growth-background-offset),
+    var(--home-navy) var(--home-growth-background-offset) 100%
+  );
   color: #fff;
 }
 
@@ -745,115 +766,38 @@ body.home-dialog-open {
   margin-top: 27px;
 }
 
-.home-growth-note {
-  max-width: 250px;
-  color: #92a4b4;
-  font-size: 9px;
-  line-height: 1.55;
-}
-
-.home-report-card-grid {
-  display: grid;
-  grid-template-columns: 0.7fr 1fr 1.1fr;
-  align-items: stretch;
-  padding: 24px;
-  background: #fff;
-  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.2);
-  color: var(--home-ink);
-}
-
-.home-report-card {
+.home-report-showcase {
   min-width: 0;
-  padding: 21px;
-  border: 1px solid var(--home-line);
-  border-left: 0;
-}
-
-.home-report-card-score {
-  background: #fff;
-}
-
-.home-report-card:first-child {
-  border-left: 1px solid var(--home-line);
-}
-
-.home-report-card-head {
-  justify-content: space-between;
-  gap: 12px;
-  color: var(--home-teal);
-  font-size: 9px;
-  font-weight: 850;
-}
-
-.home-report-card-value {
-  display: block;
-  margin: 25px 0 18px;
-  font-size: 58px;
-  line-height: 1;
-  letter-spacing: -0.05em;
-}
-
-.home-report-metrics {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
   margin: 0;
-  border-top: 1px solid var(--home-line);
 }
 
-.home-report-metric {
-  padding: 13px 8px 0 0;
+.home-report-showcase-viewport {
+  border-radius: 5px;
+  height: 550px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: #f7f7f7;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.28);
 }
 
-.home-report-metric + .home-report-metric {
-  padding-left: 12px;
-  border-left: 1px solid var(--home-line);
-}
-
-.home-report-metric dt {
-  color: var(--home-muted);
-  font-size: 9px;
-}
-
-.home-report-metric dd {
-  margin: 6px 0 0;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.home-mastery-list-dark {
-  margin-top: 24px;
-}
-
-.home-report-card-next {
-  background: var(--home-navy);
-  color: #fff;
-}
-
-.home-report-card-next .home-report-card-head {
-  color: #8ed2cc;
-}
-
-.home-next-list {
-  margin: 18px 0 0;
-}
-
-.home-next-item {
-  padding: 12px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.home-next-item span {
+.home-report-showcase-image {
   display: block;
-  color: #8ed2cc;
-  font-size: 8px;
+  width: 100%;
+  height: auto;
+  animation: home-report-showcase-scroll 10s linear infinite;
+  will-change: transform;
 }
 
-.home-next-item strong {
-  display: block;
-  margin-top: 6px;
-  color: #e4ebf1;
-  font-size: 10px;
-  line-height: 1.45;
+@keyframes home-report-showcase-scroll {
+  0%,
+  8% {
+    transform: translateY(0);
+  }
+
+  92%,
+  100% {
+    transform: translateY(calc(-100% + 550px));
+  }
 }
 
 /* 专项练习 */
@@ -1130,99 +1074,178 @@ body.home-dialog-open {
 .home-pricing-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
+  gap: 22px;
   align-items: stretch;
-  background: #fff;
   color: var(--home-ink);
-  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.2);
 }
 
 .home-price-card {
   position: relative;
   min-width: 0;
+  min-height: 520px;
   display: flex;
   flex-direction: column;
-  padding: 28px;
-}
-
-.home-price-card + .home-price-card {
-  border-left: 1px solid var(--home-line);
+  padding: 36px;
+  overflow: hidden;
+  border: 1px solid rgba(220, 227, 235, 0.9);
+  border-radius: 28px;
+  box-shadow: 0 18px 40px rgba(7, 18, 30, 0.14);
+  transition:
+    transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 280ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .home-price-card-member {
-  border-top: 4px solid var(--home-teal);
-  background: #f8fbfa;
+  padding-top: 76px;
+  border-color: rgba(151, 193, 195, 0.32);
+  background: linear-gradient(145deg, #315f67 0%, #294c55 100%);
+  color: #fff;
+}
+
+.home-price-card-member::after {
+  position: absolute;
+  top: -92px;
+  right: -72px;
+  width: 210px;
+  height: 210px;
+  border-radius: 50%;
+  background: rgba(142, 210, 204, 0.1);
+  content: '';
+  pointer-events: none;
+}
+
+.home-price-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .home-price-card-free {
   background: #fff;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .home-price-card:hover {
+    z-index: 1;
+    box-shadow: 0 30px 62px rgba(5, 16, 29, 0.26);
+    transform: translateY(-10px);
+  }
+}
+
+.home-price-card:focus-within {
+  z-index: 1;
+  box-shadow: 0 30px 62px rgba(5, 16, 29, 0.26);
+  transform: translateY(-6px);
+}
+
 .home-price-recommended {
   position: absolute;
-  top: 15px;
-  right: 18px;
-  color: var(--home-teal);
-  font-size: 9px;
+  top: 30px;
+  left: 36px;
+  width: fit-content;
+  padding: 5px 10px;
+  border: 1px solid rgba(216, 245, 242, 0.28);
+  border-radius: 6px;
+  background: rgba(216, 245, 242, 0.12);
+  color: #d8f5f2;
+  font-size: 10px;
   font-weight: 850;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
 }
 
 .home-price-card-heading span {
   display: block;
   color: var(--home-teal);
-  font-size: 10px;
+  font-size: 15px;
   font-weight: 850;
 }
 
 .home-price-card-heading strong {
   display: block;
-  margin-top: 10px;
-  font-size: 31px;
+  margin-top: 18px;
+  font-size: 42px;
   letter-spacing: -0.035em;
+  line-height: 1;
 }
 
 .home-price-card-head p {
-  min-height: 50px;
-  margin: 14px 0 0;
+  min-height: 52px;
+  margin: 16px 0 0;
   color: var(--home-muted);
-  font-size: 10px;
+  font-size: 14px;
   line-height: 1.65;
+}
+
+.home-price-card-member .home-price-card-heading span {
+  color: #d8f5f2;
+}
+
+.home-price-card-member .home-price-card-head p {
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .home-benefit-list {
   display: grid;
-  margin: 21px 0 24px;
-  border-top: 1px solid var(--home-line);
+  gap: 4px;
+  margin: 24px 0 30px;
+  padding: 0;
+  list-style: none;
 }
 
 .home-benefit-item {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 11px 0;
-  border-bottom: 1px solid var(--home-line);
+  gap: 12px;
+  padding: 9px 0;
   color: #536074;
-  font-size: 10px;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .home-benefit-item::before {
-  width: 7px;
-  height: 7px;
+  width: 14px;
   flex: none;
-  border-radius: 50%;
-  background: var(--home-teal);
-  content: '';
+  color: var(--home-teal);
+  content: '✓';
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+}
+
+.home-price-card-member .home-benefit-item {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.home-price-card-member .home-benefit-item::before {
+  color: #8edbd3;
 }
 
 .home-price-card .home-btn {
+  min-height: 54px;
   margin-top: auto;
+  border-radius: 14px;
+  font-size: 14px;
+}
+
+.home-price-card-member .home-btn-primary {
+  border-color: #fff;
+  background: #fff;
+  color: #294c55 !important;
+}
+
+.home-price-card-member .home-btn-primary:hover:not(:disabled) {
+  border-color: #e5f3f1;
+  background: #e5f3f1;
+  color: #203f47 !important;
 }
 
 .home-pricing-note {
-  grid-column: 1 / -1;
+  grid-column: 2;
+  width: 100%;
+  justify-self: center;
   margin: -40px 0 0;
   color: #8999a9;
-  text-align: right;
+  text-align: center;
   font-size: 9px;
   line-height: 1.6;
 }
@@ -1661,17 +1684,13 @@ body.home-dialog-open {
   .home-section-title {
     font-size: 40px;
   }
-
-  .home-report-card-grid {
-    padding: 18px;
-  }
-
-  .home-report-card {
-    padding: 17px;
-  }
 }
 
 @media (max-width: 860px), (max-height: 699px) {
+  .home-growth-screen {
+    background: var(--home-navy);
+  }
+
   .home-snap-screen {
     min-height: 0;
     display: block;
@@ -1696,8 +1715,9 @@ body.home-dialog-open {
   }
 
   .home-pricing-note {
+    grid-column: 1;
     margin: 0;
-    text-align: left;
+    text-align: center;
   }
 }
 
@@ -1751,20 +1771,6 @@ body.home-dialog-open {
 
   .home-growth-layout {
     color: #fff;
-  }
-
-  .home-report-card-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .home-report-card,
-  .home-report-card:first-child {
-    border: 1px solid var(--home-line);
-    border-top: 0;
-  }
-
-  .home-report-card:first-child {
-    border-top: 1px solid var(--home-line);
   }
 
   .home-practice-workspace {
@@ -1861,11 +1867,26 @@ body.home-dialog-open {
 
   .home-pricing-grid {
     grid-template-columns: 1fr;
+    gap: 18px;
   }
 
   .home-price-card + .home-price-card {
-    border-top: 1px solid var(--home-line);
-    border-left: 0;
+    border-left: 1px solid rgba(151, 193, 195, 0.32);
+  }
+
+  .home-price-card {
+    min-height: 460px;
+    padding: 28px;
+    border-radius: 22px;
+  }
+
+  .home-price-card-member {
+    padding-top: 70px;
+  }
+
+  .home-price-recommended {
+    top: 26px;
+    left: 28px;
   }
 
   .home-practice-workspace {
@@ -2811,20 +2832,16 @@ body.home-dialog-open {
   display: block;
 }
 
-.home-student .home-model-screen .home-story-copy > p,
-.home-student .home-model-screen .home-story-points,
 .home-marketing .home-model-screen .home-story-copy > p,
 .home-marketing .home-model-screen .home-story-points {
   max-width: 500px;
 }
 
-.home-student .home-model-screen .home-story-copy > p,
 .home-marketing .home-model-screen .home-story-copy > p {
   margin-top: 18px;
   font-size: 13px;
 }
 
-.home-student .home-model-screen .home-story-points,
 .home-marketing .home-model-screen .home-story-points {
   margin-top: 20px;
 }
@@ -3014,140 +3031,12 @@ body.home-dialog-open {
   font-style: normal;
 }
 
-.home-student .home-model-screen,
-.home-marketing .home-model-screen,
-.home-student .home-loop-screen,
-.home-marketing .home-marketing-loop-screen {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  background: #f5f7f9;
+.home-marketing-story-background {
+  background: transparent;
 }
 
-.home-student .home-model-screen::after,
-.home-marketing .home-model-screen::after,
-.home-student .home-loop-screen::before,
-.home-student .home-loop-screen::after,
-.home-marketing .home-marketing-loop-screen::before,
-.home-marketing .home-marketing-loop-screen::after {
-  position: absolute;
-  pointer-events: none;
-  content: '';
-}
-
-.home-model-backdrop {
-  position: absolute;
-  z-index: 0;
-  overflow: hidden;
-  inset: 0;
-  pointer-events: none;
-}
-
-.home-model-backdrop-track {
-  width: max-content;
-  height: 100%;
-  display: flex;
-  animation: home-model-campus-scroll 72s linear infinite;
-  animation-play-state: paused;
-}
-
-.home-model-backdrop-image {
-  width: 100vw;
-  height: 100%;
-  flex: 0 0 100vw;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: cover;
-}
-
-.home-model-backdrop-image--campus {
-  background-image: url('../../assets/banner/campus-ucl-sketch.webp');
-}
-
-.home-model-backdrop-image--chapel {
-  background-image: url('../../assets/banner/campus-chapel-sketch.webp');
-}
-
-.home-student .home-model-screen::after,
-.home-marketing .home-model-screen::after {
-  z-index: 0;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(247, 249, 250, 0.58) 0%,
-    rgba(247, 249, 250, 0.38) 48%,
-    rgba(247, 249, 250, 0.52) 100%
-  );
-}
-
-.home-student .home-model-screen.home-student-screen--current .home-model-backdrop-track {
-  animation-play-state: running;
-  will-change: transform;
-}
-
-.home-marketing .home-model-screen .home-model-backdrop-track {
-  animation-play-state: running;
-  will-change: transform;
-}
-
-.home-student .home-model-screen > .home-story-layout,
-.home-marketing .home-model-screen > .home-story-layout,
-.home-student .home-loop-screen > .home-story-layout,
-.home-marketing .home-marketing-loop-screen > .home-loop-layout {
-  position: relative;
-  z-index: 1;
-}
-
-@keyframes home-model-campus-scroll {
-  from {
-    transform: translate3d(0, 0, 0);
-  }
-
-  to {
-    transform: translate3d(-50%, 0, 0);
-  }
-}
-
-.home-student .home-loop-screen::before,
-.home-marketing .home-marketing-loop-screen::before {
-  z-index: 0;
-  inset: -7% -5%;
-  background: url('../../assets/banner/ucl-watercolor-campus.webp') center / cover no-repeat;
-  animation: home-loop-campus-drift 26s cubic-bezier(0.42, 0, 0.58, 1) infinite alternate;
-  animation-play-state: paused;
-  transform: translate3d(-2%, -1.5%, 0) scale(1.04);
-}
-
-.home-student .home-loop-screen::after,
-.home-marketing .home-marketing-loop-screen::after {
-  z-index: 0;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(247, 249, 250, 0.92) 0%,
-    rgba(247, 249, 250, 0.76) 44%,
-    rgba(247, 249, 250, 0.5) 100%
-  );
-}
-
-.home-student .home-loop-screen.home-student-screen--current::before {
-  animation-play-state: running;
-  will-change: transform;
-}
-
-.home-marketing .home-marketing-loop-screen::before {
-  animation-play-state: running;
-  will-change: transform;
-}
-
-@keyframes home-loop-campus-drift {
-  from {
-    transform: translate3d(-2%, -1.5%, 0) scale(1.04);
-  }
-
-  to {
-    transform: translate3d(2.5%, 1.5%, 0) scale(1.08);
-  }
+.home-marketing-story-background > .home-section {
+  background: transparent;
 }
 
 .home-loop-visual {
@@ -3571,13 +3460,6 @@ body.home-dialog-open {
 
   .home-loop-visual article:hover,
   .home-loop-visual article:hover strong {
-    transform: none;
-  }
-
-  .home-model-backdrop-track,
-  .home-student .home-loop-screen::before,
-  .home-marketing .home-marketing-loop-screen::before {
-    animation: none;
     transform: none;
   }
 }

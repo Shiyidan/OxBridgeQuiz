@@ -248,8 +248,10 @@ try {
 
         $apiBuildTask = {
             param([string]$SourceRoot)
-            $ErrorActionPreference = 'Stop'
-            Set-Location (Join-Path $SourceRoot 'api')
+            # Windows PowerShell turns native stderr (including npm warnings) into ErrorRecord objects inside jobs.
+            # Keep native warnings non-terminating and determine command success only from each checked exit code.
+            $ErrorActionPreference = 'Continue'
+            Set-Location (Join-Path $SourceRoot 'api') -ErrorAction Stop
             & npm.cmd ci --prefer-offline --no-audit --no-fund
             if ($LASTEXITCODE -ne 0) { throw "Local API dependency install failed with exit code $LASTEXITCODE." }
             & .\node_modules\.bin\prisma.cmd generate --schema prisma\schema.prisma
@@ -259,8 +261,9 @@ try {
         }
         $webBuildTask = {
             param([string]$SourceRoot)
-            $ErrorActionPreference = 'Stop'
-            Set-Location (Join-Path $SourceRoot 'quiz-web')
+            # See the API task: peer-dependency notices on stderr are diagnostics, not build failures.
+            $ErrorActionPreference = 'Continue'
+            Set-Location (Join-Path $SourceRoot 'quiz-web') -ErrorAction Stop
             & npm.cmd ci --prefer-offline --no-audit --no-fund
             if ($LASTEXITCODE -ne 0) { throw "Local web dependency install failed with exit code $LASTEXITCODE." }
             & npm.cmd run build-only:test

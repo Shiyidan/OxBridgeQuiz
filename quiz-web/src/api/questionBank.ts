@@ -115,7 +115,7 @@ export function getQuestionsData(filters: {
   difficulty?: string
   examType?: string
 }) {
-  return callApi<{ questions: AttemptQuestion[]; total: number }>({
+  return callApi<{ questions: AttemptQuestion[]; total: number; selectionToken: string | null }>({
     url: '/question-library/selection',
     method: 'GET',
     params: {
@@ -123,7 +123,7 @@ export function getQuestionsData(filters: {
       difficulty: filters.difficulty,
       examType: filters.examType,
     },
-  }).then((data) => data.questions)
+  })
 }
 
 /** 后台按单题分页获取试题库内容。 */

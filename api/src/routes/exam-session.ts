@@ -6,6 +6,7 @@ import { success, fail } from '../utils/response.js'
 import { formatQuestionRow } from '../utils/questionSync.js'
 import { parseJsonField, parseJsonArray } from '../utils/jsonField.js'
 import { checkMemberAccess, hasDiagnosticPaperAccess } from '../services/member.js'
+import { verifyQuestionBankSelection } from '../services/questionBankSelection.js'
 import { withQuotaTransaction } from '../services/transactionRetry.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { computeScores } from '../services/scoring.js'
@@ -46,7 +47,7 @@ import {
   reconcileExpiredModuleTimeline,
   reconcileModuleBreak,
 } from '../services/moduleExamSession.js'
-import { formatQuestionForAttempt } from './papers-shared.js'
+import { attemptQuestionSelect, formatQuestionForAttempt } from './papers-shared.js'
 
 import { safeJsonParse, parseQueryList, parseDateBoundary, parsePositiveInt, getQuestionKey, buildAnswerRecordRows, countCorrectAnswers, ExamResponseInput, ExamProgressConflictError, normalizeExamResponses, responseMaps, usesContinuousExamClock, buildExamDeadline, continuousExamDurationSeconds, replaceAnswerRecords, collectSyllabusCodes, jsonPointsHaveCode, calculateNinePointScore } from './exam-shared.js'
 export const examSessionRouter = createAsyncRouter()
@@ -93,10 +94,11 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
   let startingQuestionBank = false
   try {
 
-    const { paperId, examType, questionIds } = req.body as {
+    const { paperId, examType, questionIds, selectionToken } = req.body as {
       paperId?: string
       examType?: string
       questionIds?: unknown
+      selectionToken?: unknown
     }
     let targetPaperId = paperId || 'question-bank'
     let targetExamType = examType || EXAM_TYPE.TMUA
@@ -106,7 +108,20 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
     let targetPaper: any = null
 
     if (paperId) {
-      const paper = await prisma.paper.findUnique({ where: { id: paperId } })
+      const paper = await prisma.paper.findUnique({
+        where: { id: paperId },
+        select: {
+          id: true,
+          examType: true,
+          duration: true,
+          paperType: true,
+          accessTier: true,
+          deliveryMode: true,
+          breakDurationSeconds: true,
+          moduleConfig: true,
+          status: true,
+        },
+      })
       if (!paper) {
         res.status(404).json(fail('Paper not found'))
         return
@@ -124,15 +139,25 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
 
     if (!paperId) {
       startingQuestionBank = true
-      const requestedQuestionIds = Array.isArray(questionIds)
-        ? [...new Set(questionIds.filter(
-            (value): value is string => typeof value === 'string' && Boolean(value.trim()),
-          ))]
-        : []
-      if (!requestedQuestionIds.length) {
-        res.status(422).json(fail('请至少选择一道题目'))
-        return
+      if (typeof selectionToken !== 'string') {
+        throw new ExamStartBusinessError(
+          '选题凭证缺失，请返回试题库重新选择',
+          422,
+          'QUESTION_SELECTION_INVALID',
+        )
       }
+      let verifiedSelection
+      try {
+        verifiedSelection = verifyQuestionBankSelection(selectionToken, req.user!.userId)
+      } catch {
+        throw new ExamStartBusinessError(
+          '选题凭证已失效，请返回试题库重新选择',
+          422,
+          'QUESTION_SELECTION_INVALID',
+        )
+      }
+      targetExamType = verifiedSelection.examType
+      const requestedQuestionIds = verifiedSelection.questionIds
 
       // 题库练习统一关联稳定的系统占位试卷；考试类型以 ExamRecord 为准，不再反复改写 Paper。
       await prisma.paper.upsert({
@@ -611,20 +636,17 @@ examSessionRouter.put('/:id/progress', requireAuth, async (req, res) => {
 // 刷新或重新进入答题页时，按 ExamRecord 冻结的题目范围恢复题目、答案和用时。
 examSessionRouter.get('/:id/session', requireAuth, async (req, res) => {
   try {
-    const record = await prisma.examRecord.findFirst({
+    const sessionScope = await prisma.examRecord.findFirst({
       where: { id: req.params.id, userId: req.user!.userId },
-      include: {
-        paper: true,
-        answers: { include: { question: true } },
-      },
+      select: { id: true, structureSnapshot: true },
     })
-    if (!record) {
+    if (!sessionScope) {
       res.status(404).json(fail('考试会话不存在'))
       return
     }
-    if (parseModuleExamSnapshot(record.structureSnapshot)) {
+    if (parseModuleExamSnapshot(sessionScope.structureSnapshot)) {
       const session = await getModuleExamSession(
-        record.id,
+        sessionScope.id,
         req.user!.userId,
         { resumePaused: true },
       )
@@ -633,6 +655,39 @@ examSessionRouter.get('/:id/session', requireAuth, async (req, res) => {
         return
       }
       res.json(success(session))
+      return
+    }
+    const record = await prisma.examRecord.findFirst({
+      where: { id: sessionScope.id, userId: req.user!.userId },
+      select: {
+        id: true,
+        paperId: true,
+        examType: true,
+        totalQuestions: true,
+        startedAt: true,
+        expiresAt: true,
+        status: true,
+        paper: {
+          select: {
+            paperType: true,
+            deliveryMode: true,
+            duration: true,
+          },
+        },
+        answers: {
+          select: {
+            questionId: true,
+            selectedAnswer: true,
+            durationSeconds: true,
+            answerState: true,
+            position: true,
+            question: { select: attemptQuestionSelect },
+          },
+        },
+      },
+    })
+    if (!record) {
+      res.status(404).json(fail('考试会话不存在'))
       return
     }
     if (record.status !== EXAM_RECORD_STATUS.IN_PROGRESS) {

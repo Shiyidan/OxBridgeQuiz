@@ -166,6 +166,16 @@
         </button>
       </section>
     </main>
+
+    <AppConfirmDialog
+      v-model="quotaDialogVisible"
+      title="免费练习题量不足"
+      :message="quotaDialogMessage"
+      confirm-text="开始练习"
+      cancel-text="取消"
+      @confirm="handleConfirmReducedPractice"
+      @cancel="handleCancelReducedPractice"
+    />
   </div>
 </template>
 
@@ -173,8 +183,10 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import AppPagination from '@/components/AppPagination.vue'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
+import { checkMemberAccess } from '@/api/member'
 import {
   getPracticeNotebookHistory,
   getPracticeNotebooks,
@@ -190,6 +202,8 @@ import { getApiErrorMessage, hasApiErrorCode } from '@/utils/request'
 interface DisplayRow {
   id: string
   kind: 'notebook' | 'temporary'
+  examType: ActiveExamType
+  questionCount: number
   title: string
   scope: string
   knowledge: string
@@ -226,6 +240,9 @@ const listLoading = ref(true)
 const listError = ref('')
 const expandedRowId = ref('')
 const startingNotebookId = ref('')
+const quotaDialogVisible = ref(false)
+const quotaDialogMessage = ref('')
+const pendingNotebookStart = ref<{ notebookId: string } | null>(null)
 const histories = reactive<Record<string, HistoryState>>({})
 let listRequestSequence = 0
 let initialized = false
@@ -248,6 +265,8 @@ function formatNotebookRow(notebook: PracticeNotebookSummary): DisplayRow {
   return {
     id: notebook.id,
     kind: 'notebook',
+    examType: notebook.examType,
+    questionCount: notebook.questionCount,
     title: notebook.name,
     scope: `${notebook.examType} · ${subjects.join(' + ') || '综合知识点'}`,
     knowledge,
@@ -266,6 +285,8 @@ function formatTemporaryRow(summary: TemporaryPracticeSummary): DisplayRow {
   return {
     id: summary.id,
     kind: 'temporary',
+    examType: summary.examType,
+    questionCount: 0,
     title: summary.name,
     scope: `${summary.examType} · 试题库专项与一次性组卷`,
     knowledge: '按每次选择的考纲与难度生成',
@@ -379,7 +400,20 @@ function getPrimaryActionLabel(row: DisplayRow): string {
   return row.kind === 'temporary' ? '前往试题库' : '开始练习'
 }
 
-// 开始操作由后端原子处理选题、额度与唯一进行中约束。
+// 后端根据练习本配置和事务内剩余额度确定最终题量，客户端不再传入可修改的数量。
+async function startNotebookPractice(notebookId: string): Promise<void> {
+  startingNotebookId.value = notebookId
+  try {
+    const result = await startPracticeNotebook(notebookId)
+    await continuePractice(result.examRecordId)
+  } catch (error: unknown) {
+    if (hasApiErrorCode(error, 'QUESTION_BANK_IN_PROGRESS')) await loadNotebookList()
+  } finally {
+    startingNotebookId.value = ''
+  }
+}
+
+// 开始操作先预检计划题量，免费额度部分不足时不直接创建，等待用户确认缩量练习。
 async function handlePrimaryAction(row: DisplayRow): Promise<void> {
   if (isActiveRow(row) && activePractice.value) {
     await continuePractice(activePractice.value.examRecordId)
@@ -393,15 +427,46 @@ async function handlePrimaryAction(row: DisplayRow): Promise<void> {
     ElMessage.info(`已有一份 ${activePractice.value.examType} 练习尚未交卷，请先继续完成`)
     return
   }
+
   startingNotebookId.value = row.id
   try {
-    const result = await startPracticeNotebook(row.id)
-    await continuePractice(result.examRecordId)
-  } catch (error: unknown) {
-    if (hasApiErrorCode(error, 'QUESTION_BANK_IN_PROGRESS')) await loadNotebookList()
+    const access = await checkMemberAccess({
+      action: 'question-bank',
+      examType: row.examType,
+      questionCount: row.questionCount,
+    })
+    if (access.allowed) {
+      await startNotebookPractice(row.id)
+      return
+    }
+
+    const remaining = Math.max(0, access.remaining ?? 0)
+    if (remaining === 0) {
+      ElMessage.warning('当前免费练习题量已用完，请开通会员后继续')
+      return
+    }
+
+    pendingNotebookStart.value = { notebookId: row.id }
+    quotaDialogMessage.value = `当前免费练习题量不足，还可免费练习${remaining}道，是否开始`
+    quotaDialogVisible.value = true
+  } catch {
+    // 公共请求层已统一展示网络或服务端错误，此处只阻止按钮事件产生未处理异常。
   } finally {
     startingNotebookId.value = ''
   }
+}
+
+// 用户确认后以剩余额度作为本次练习题量，不改写练习本原有的固定题量设置。
+function handleConfirmReducedPractice(): void {
+  const pending = pendingNotebookStart.value
+  pendingNotebookStart.value = null
+  if (!pending) return
+  void startNotebookPractice(pending.notebookId)
+}
+
+// 取消缩量开始只清理待确认状态，练习本配置保持不变。
+function handleCancelReducedPractice(): void {
+  pendingNotebookStart.value = null
 }
 
 // 练习本入口通过来源参数让交卷结果和逐题解析返回本页。

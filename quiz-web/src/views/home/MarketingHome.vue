@@ -1,40 +1,63 @@
 <!-- 访客营销首页：按 PRD 展示公开演示内容，并把注册、登录与功能跳转交给首页容器处理。 -->
 <script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { Connection, DocumentChecked, MagicStick } from '@element-plus/icons-vue'
+import tmuaDiagnosticQuestion03Url from '@/assets/home/tmua-diagnostic-question-03.png'
+import tmuaDiagnosticQuestion05Url from '@/assets/home/tmua-diagnostic-question-05.png'
+import tmuaDiagnosticQuestion07Url from '@/assets/home/tmua-diagnostic-question-07.png'
+import HomeFooter from './HomeFooter.vue'
+
 interface MarketingHomeProps {
   memberPriceLabel?: string
   memberPriceAvailable?: boolean
+  includeHero?: boolean
+  authenticated?: boolean
 }
 
 // 会员价格与购买可用性由首页容器根据真实权益上下文传入，组件不自行推断。
 const props = withDefaults(defineProps<MarketingHomeProps>(), {
   memberPriceLabel: '¥79/月',
   memberPriceAvailable: true,
+  includeHero: true,
+  authenticated: false,
 })
+
+const diagnosticGalleryRef = ref<HTMLElement | null>(null)
+const diagnosticGalleryActive = ref(false)
+let diagnosticGalleryObserver: IntersectionObserver | null = null
+let diagnosticGalleryInView = false
+
+// 轮播仅在模块可见且页面处于前台时运行，避免后台持续消耗渲染资源。
+function syncDiagnosticGalleryMotion(): void {
+  diagnosticGalleryActive.value = diagnosticGalleryInView && document.visibilityState === 'visible'
+}
 
 // 营销页只表达用户意图，登录态分流、路由与支付流程由父级统一处理。
 const emit = defineEmits<{
   register: [targetPath: string]
   login: [targetPath: string]
-  navigate: [path: string]
+  navigate: [targetPath: string]
   'open-report-demo': []
   'open-payment': []
-  unsupported: [label: string]
   'scroll-top': []
 }>()
 
 // 注册入口携带完成注册后的目标页，确保主转化路径能继续到诊断中心。
 function requestRegistration(targetPath: string) {
+  if (props.authenticated) {
+    emit('navigate', targetPath)
+    return
+  }
   emit('register', targetPath)
 }
 
 // 受保护功能入口携带登录后的回跳地址，不在演示组件内判断会话状态。
 function requestLogin(targetPath: string) {
+  if (props.authenticated) {
+    emit('navigate', targetPath)
+    return
+  }
   emit('login', targetPath)
-}
-
-// 公开页面交由父级导航，避免营销组件直接依赖路由实例。
-function requestNavigation(path: string) {
-  emit('navigate', path)
 }
 
 // 两处报告示例入口共享同一公开演示，避免出现不同版本的示例内容。
@@ -48,27 +71,49 @@ function requestPayment() {
   emit('open-payment')
 }
 
-// 尚未提供正式静态页的公开链接使用统一提示，不伪造不存在的页面。
-function requestUnsupported(label: string) {
-  emit('unsupported', label)
-}
-
 // 页脚产品入口回到营销首页顶部，由父级兼容滚动容器实现。
 function requestScrollTop() {
   emit('scroll-top')
 }
+
+onMounted(() => {
+  const gallery = diagnosticGalleryRef.value
+  if (!gallery) return
+
+  document.addEventListener('visibilitychange', syncDiagnosticGalleryMotion)
+  if (!('IntersectionObserver' in window)) {
+    diagnosticGalleryInView = true
+    syncDiagnosticGalleryMotion()
+    return
+  }
+
+  diagnosticGalleryObserver = new IntersectionObserver(
+    ([entry]) => {
+      diagnosticGalleryInView = Boolean(entry?.isIntersecting)
+      syncDiagnosticGalleryMotion()
+    },
+    { threshold: 0.25 },
+  )
+  diagnosticGalleryObserver.observe(gallery)
+})
+
+onBeforeUnmount(() => {
+  diagnosticGalleryObserver?.disconnect()
+  document.removeEventListener('visibilitychange', syncDiagnosticGalleryMotion)
+})
 </script>
 
 <template>
-  <main class="home-marketing" aria-label="云舟备考产品介绍">
+  <div class="home-marketing">
     <!--
       THESIS: 用可追溯的真题诊断证明“测清楚再练”，拒绝以空泛功能卡堆砌价值。
       OWN-WORLD: 黑白高对比编辑式页面、编号叙事、数据台账与深色报告面板。
-      STORY: 访客先理解真题来源，再看诊断、报告、训练与错题如何形成闭环，最后选择注册或会员。
+      STORY: 访客先理解真题命题模型，再看诊断、报告、训练与错题如何形成闭环，最后选择注册或会员。
       FIRST VIEWPORT: 左侧一句主张和双行动，右侧放大一张标注为演示数据的诊断报告。
       FORM: 绑定参考 HTML 的纵向分屏叙事；营销说服模式；视觉结构由用户给定参考确定。
     -->
     <section
+      v-if="props.includeHero"
       id="home-marketing-hero"
       class="home-section home-snap-screen home-hero-screen"
       aria-labelledby="home-hero-title"
@@ -175,184 +220,64 @@ function requestScrollTop() {
     </section>
 
     <section
-      id="home-esat-library"
-      class="home-section home-snap-screen home-story-screen home-source-screen"
-      aria-labelledby="home-source-title"
-    >
-      <div class="home-page home-story-layout home-motion-content">
-        <div class="home-story-copy">
-          <p class="home-story-index">01 · ESAT 专属题库工程</p>
-          <h2 id="home-source-title" class="home-section-title">
-            ESAT 真题有限，我们把可用的历史试题按学科重新整理好了
-          </h2>
-          <p class="home-section-desc">
-            将 ENGAA 与 NSAA 历年试题逐题对照现行 ESAT
-            考纲，剔除超纲内容，再按五个考试模块重新分类组卷。
-          </p>
-
-          <ul class="home-trust-list" aria-label="题库整理标准">
-            <li class="home-trust-item">历史来源可追溯</li>
-            <li class="home-trust-item">逐题对照现行考纲</li>
-            <li class="home-trust-item">超纲内容已剔除</li>
-          </ul>
-
-          <button
-            class="home-btn home-btn-primary"
-            type="button"
-            @click="requestRegistration('/assessment')"
-          >
-            注册免费试做历史试题
-            <span class="home-arrow" aria-hidden="true">→</span>
-          </button>
-        </div>
-
-        <div class="home-story-visual home-source-visual" aria-label="ESAT 历史试题重组流程">
-          <article class="home-source-stage">
-            <span class="home-source-stage-no">01</span>
-            <strong>ENGAA / NSAA</strong>
-            <p>历史题源</p>
-          </article>
-          <span class="home-flow-arrow" aria-hidden="true">→</span>
-          <article class="home-source-stage home-source-stage-focus">
-            <span class="home-source-stage-no">02</span>
-            <strong>逐题对照考纲</strong>
-            <p>筛选与剔除超纲内容</p>
-          </article>
-          <span class="home-flow-arrow" aria-hidden="true">→</span>
-          <article class="home-source-stage">
-            <span class="home-source-stage-no">03</span>
-            <strong>ESAT 五个模块</strong>
-            <p>按学科重新分类组卷</p>
-          </article>
-
-          <div class="home-subject-list" aria-label="ESAT 五个考试模块">
-            <span class="home-subject-item">Mathematics 1</span>
-            <span class="home-subject-item">Mathematics 2</span>
-            <span class="home-subject-item">Physics</span>
-            <span class="home-subject-item">Chemistry</span>
-            <span class="home-subject-item">Biology</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section
       id="home-question-model"
       class="home-section home-snap-screen home-story-screen home-model-screen"
       aria-labelledby="home-model-title"
     >
-      <div class="home-page home-model-layout home-motion-content">
-        <header class="home-model-heading">
-          <p class="home-story-index">02 · 真题命题模型</p>
-          <h2 id="home-model-title" class="home-section-title">
-            不是随机生成，而是复用真题的考点边界、推理方式与难度逻辑
+      <div class="home-model-backdrop" aria-hidden="true">
+        <div class="home-model-backdrop-track">
+          <span class="home-model-backdrop-image home-model-backdrop-image--campus"></span>
+          <span class="home-model-backdrop-image home-model-backdrop-image--chapel"></span>
+          <span class="home-model-backdrop-image home-model-backdrop-image--campus"></span>
+          <span class="home-model-backdrop-image home-model-backdrop-image--chapel"></span>
+        </div>
+      </div>
+      <div class="home-page home-story-layout home-story-layout--reverse home-motion-content">
+        <div class="home-story-copy">
+          <div class="home-story-index">01 · 真题命题模型</div>
+          <h2 id="home-model-title">
+            <span class="home-story-title-line">真题做完以后，</span>
+            <span class="home-story-title-line">还有同路数的新题可练</span>
           </h2>
-          <p class="home-section-desc">
-            从官方真题样本中拆出可核验的命题结构，再生成同知识点、同任务类型且分难度的专项练习。
-          </p>
-        </header>
-
-        <div class="home-model-grid" aria-label="从真题到专项练习的演示流程">
-          <article class="home-model-card">
-            <div class="home-model-card-head">
-              <span class="home-model-card-no">01</span>
-              <span class="home-demo-badge">演示内容</span>
-            </div>
-            <p class="home-model-card-kicker">真题样本</p>
-            <h3>TMUA 2023 · Paper 1</h3>
-            <div class="home-model-question">
-              <span>Functions &amp; Graphs</span>
-              <p>保留原题的考点范围、任务要求、选项结构与完整答案。</p>
-              <div class="home-model-options" aria-hidden="true">
-                <i class="home-model-option">A</i>
-                <i class="home-model-option">B</i>
-                <i class="home-model-option">C</i>
-                <i class="home-model-option">D</i>
-              </div>
-            </div>
-          </article>
-
-          <article class="home-model-card home-model-card-focus">
-            <div class="home-model-card-head">
-              <span class="home-model-card-no">02</span>
-              <span class="home-demo-badge">结构化示例</span>
-            </div>
-            <p class="home-model-card-kicker">结构化分析</p>
-            <h3>把“为什么难”拆清楚</h3>
-            <dl class="home-analysis-list">
-              <div class="home-analysis-item">
-                <dt>考纲范围</dt>
-                <dd>Functions</dd>
-              </div>
-              <div class="home-analysis-item">
-                <dt>知识点</dt>
-                <dd>图像与参数</dd>
-              </div>
-              <div class="home-analysis-item">
-                <dt>任务类型</dt>
-                <dd>条件推断</dd>
-              </div>
-              <div class="home-analysis-item">
-                <dt>推理结构</dt>
-                <dd>分区间判断</dd>
-              </div>
-              <div class="home-analysis-item">
-                <dt>难度来源</dt>
-                <dd>临界值遗漏</dd>
-              </div>
-              <div class="home-analysis-item">
-                <dt>干扰项设计</dt>
-                <dd>端点条件</dd>
-              </div>
-              <div class="home-analysis-item">
-                <dt>题型结构</dt>
-                <dd>单项选择</dd>
-              </div>
-            </dl>
-          </article>
-
-          <article class="home-model-card">
-            <div class="home-model-card-head">
-              <span class="home-model-card-no">03</span>
-              <span class="home-demo-badge">演示内容</span>
-            </div>
-            <p class="home-model-card-kicker">专项练习输出</p>
-            <h3>同考点、同任务类型</h3>
-            <p class="home-model-output-copy">
-              围绕函数图像与参数范围，按相近推理结构生成分层练习，并逐题校验答案与选项。
-            </p>
-            <ul class="home-validation-list">
-              <li class="home-validation-item">符合现行考纲</li>
-              <li class="home-validation-item">相近推理结构</li>
-              <li class="home-validation-item">难度分层生成</li>
-              <li class="home-validation-item">答案与选项已校验</li>
-            </ul>
-          </article>
+          <p>系统整理真题中的考点、题型、推理方式和难度，再把这些边界用于专项练习。</p>
+          <ul class="home-story-points">
+            <li>不跨出当前 ESAT 考纲</li>
+            <li>按科目、知识点与难度组合</li>
+            <li>练习结果继续回到个人记录</li>
+          </ul>
         </div>
 
-        <div class="home-model-linkage">
-          <div class="home-model-linkage-item">
-            <span>学生诊断结果 · 演示</span>
-            <strong>Functions &amp; Graphs 正确率 48%</strong>
-          </div>
-          <span class="home-model-linkage-arrow" aria-hidden="true">→</span>
-          <div class="home-model-linkage-item">
-            <span>推荐专项练习 · 演示</span>
-            <strong>15 道 · 分难度训练</strong>
-          </div>
-          <button
-            class="home-btn home-btn-primary"
-            type="button"
-            @click="requestLogin('/question-bank')"
-          >
-            注册免费试用专项练习
-            <span class="home-arrow" aria-hidden="true">→</span>
-          </button>
+        <div class="home-story-visual home-model-visual" aria-label="从真题到专项练习">
+          <article>
+            <span class="home-model-step">01</span>
+            <el-icon class="home-model-stage-icon" aria-hidden="true">
+              <DocumentChecked />
+            </el-icon>
+            <strong class="home-model-stage-title">真题拆解</strong>
+            <span class="home-model-stage-subtitle">ENGAA / NSAA 可用历史题</span>
+            <p>提取：知识点 · 题型 · 推理路径 · 难度</p>
+          </article>
+          <i class="home-flow-arrow" aria-hidden="true">→</i>
+          <article class="home-model-stage--emphasis">
+            <span class="home-model-step">02</span>
+            <el-icon class="home-model-stage-icon" aria-hidden="true">
+              <Connection />
+            </el-icon>
+            <strong class="home-model-stage-title">规律建模</strong>
+            <span class="home-model-stage-subtitle">建立四维命题画像</span>
+            <p>考点权重 · 任务类型 · 干扰项 · 难度梯度</p>
+          </article>
+          <i class="home-flow-arrow" aria-hidden="true">→</i>
+          <article>
+            <span class="home-model-step">03</span>
+            <el-icon class="home-model-stage-icon" aria-hidden="true">
+              <MagicStick />
+            </el-icon>
+            <strong class="home-model-stage-title">同源生成</strong>
+            <span class="home-model-stage-subtitle">ESAT 专项练习</span>
+            <p>按考纲、知识点与难度生成同路数新题</p>
+          </article>
         </div>
-
-        <blockquote class="home-model-quote">
-          不是随机生成题目，而是复用真题的考点边界、推理方式与难度逻辑。
-        </blockquote>
       </div>
     </section>
 
@@ -363,7 +288,7 @@ function requestScrollTop() {
     >
       <div class="home-page home-loop-layout home-motion-content">
         <header class="home-loop-heading">
-          <p class="home-story-index">03 · 完整学习闭环</p>
+          <p class="home-story-index">02 · 完整学习闭环</p>
           <h2 id="home-loop-title" class="home-section-title">做完一套题，下一步练什么就清楚了</h2>
           <p class="home-section-desc">
             每一步都承接上一阶段的真实作答记录，从定位问题到验证是否掌握，形成可回看的备考闭环。
@@ -394,7 +319,7 @@ function requestScrollTop() {
     >
       <div class="home-page home-public-layout home-motion-content">
         <div class="home-public-copy">
-          <p class="home-public-index">04 · 真题诊断</p>
+          <p class="home-public-index">03 · 真题诊断</p>
           <h2 id="home-diagnostic-title" class="home-section-title">从任意一套真实试卷开始</h2>
           <p class="home-section-desc">
             选择考试、年份与试卷，按照正式机考方式完成测试。系统自动保存进度并生成专属报告。
@@ -414,41 +339,43 @@ function requestScrollTop() {
           </button>
         </div>
 
-        <div class="home-public-visual home-diagnostic-console" aria-label="静态真题作答界面演示">
-          <div class="home-console-head">
-            <div class="home-console-heading">
-              <b>ESAT Mathematics 1 · 2024 Practice</b>
-              <span>静态答题界面演示</span>
-            </div>
-            <span class="home-demo-badge">演示数据</span>
-          </div>
-
-          <div class="home-console-meta">
-            <span>Question 8 / 27</span>
-            <strong aria-label="演示倒计时 42 分 18 秒，计时不会走动">42:18</strong>
-          </div>
-          <div class="home-console-progress" aria-hidden="true">
-            <i class="home-console-progress-fill"></i>
-          </div>
-
-          <div class="home-paper-question">
-            <small>QUESTION 8 · SINGLE CHOICE</small>
-            <h3>
-              If the graph of y = f(x) satisfies the conditions shown, which statement must be true?
-            </h3>
-            <div class="home-answer-grid" role="list" aria-label="演示选项，不可作答">
-              <span class="home-answer-option" role="listitem"><b>A</b> Statement one</span>
-              <span class="home-answer-option" role="listitem"><b>B</b> Statement two</span>
-              <span class="home-answer-option" role="listitem"><b>C</b> Statement three</span>
-              <span class="home-answer-option" role="listitem"><b>D</b> Statement four</span>
-            </div>
-          </div>
-
-          <div class="home-paper-footer">
-            <button class="home-paper-nav" type="button" disabled>上一题</button>
-            <span class="home-paper-static-note">选项不可作答 · 计时不会走动</span>
-            <button class="home-paper-nav" type="button" disabled>下一题</button>
-          </div>
+        <div
+          ref="diagnosticGalleryRef"
+          class="home-public-visual home-diagnostic-gallery"
+          :class="{ 'home-diagnostic-gallery--active': diagnosticGalleryActive }"
+          role="img"
+          aria-label="TMUA Paper 1 第 3 题、第 5 题和第 7 题真实作答界面轮播演示"
+        >
+          <figure class="home-diagnostic-shot home-diagnostic-shot--question-03" aria-hidden="true">
+            <img
+              :src="tmuaDiagnosticQuestion03Url"
+              alt=""
+              width="1375"
+              height="880"
+              loading="lazy"
+              decoding="async"
+            />
+          </figure>
+          <figure class="home-diagnostic-shot home-diagnostic-shot--question-05" aria-hidden="true">
+            <img
+              :src="tmuaDiagnosticQuestion05Url"
+              alt=""
+              width="1440"
+              height="800"
+              loading="lazy"
+              decoding="async"
+            />
+          </figure>
+          <figure class="home-diagnostic-shot home-diagnostic-shot--question-07" aria-hidden="true">
+            <img
+              :src="tmuaDiagnosticQuestion07Url"
+              alt=""
+              width="1375"
+              height="880"
+              loading="lazy"
+              decoding="async"
+            />
+          </figure>
         </div>
       </div>
     </section>
@@ -460,7 +387,7 @@ function requestScrollTop() {
     >
       <div class="home-page home-growth-layout home-motion-content">
         <header class="home-growth-copy">
-          <p class="home-public-index">05 · 专属诊断报告</p>
+          <p class="home-public-index">04 · 专属诊断报告</p>
           <h2 id="home-growth-title" class="home-section-title">
             不只告诉你得了多少分，还告诉你下一步练什么
           </h2>
@@ -553,7 +480,7 @@ function requestScrollTop() {
     >
       <div class="home-page home-practice-layout home-motion-content">
         <header class="home-practice-heading">
-          <p class="home-public-index">06 · 专项练习</p>
+          <p class="home-public-index">05 · 专项练习</p>
           <h2 id="home-practice-title" class="home-section-title">诊断以后，只练真正薄弱的部分</h2>
           <p class="home-section-desc">
             按考试、学科、知识点、任务类型和难度组合训练，也可以直接完成系统根据诊断结果推荐的练习。
@@ -645,7 +572,7 @@ function requestScrollTop() {
     >
       <div class="home-page home-mistake-layout home-motion-content">
         <header class="home-mistake-heading">
-          <p class="home-public-index">07 · 个人错题库</p>
+          <p class="home-public-index">06 · 个人错题库</p>
           <h2 id="home-mistake-title" class="home-section-title">
             每一道错题，都成为下一次提分的依据
           </h2>
@@ -792,45 +719,6 @@ function requestScrollTop() {
       </div>
     </section>
 
-    <footer class="home-marketing-footer" aria-label="网站页脚">
-      <div class="home-page home-footer-layout">
-        <div class="home-footer-brand">
-          <button class="home-footer-brand-button" type="button" @click="requestScrollTop">
-            <span class="home-footer-brand-mark" aria-hidden="true">YZ</span>
-            <strong>云舟备考</strong>
-          </button>
-          <p>基于真题诊断与考纲知识点的智能备考系统。</p>
-        </div>
-
-        <nav class="home-footer-links" aria-label="页脚公开链接">
-          <div class="home-footer-link-group">
-            <strong>产品</strong>
-            <button type="button" @click="requestScrollTop">产品首页</button>
-            <button type="button" @click="requestNavigation('/exam-intro')">考试介绍</button>
-          </div>
-          <div class="home-footer-link-group">
-            <strong>支持</strong>
-            <button type="button" @click="requestUnsupported('帮助中心')">帮助中心</button>
-            <button type="button" @click="requestUnsupported('关于我们')">关于我们</button>
-          </div>
-          <div class="home-footer-link-group">
-            <strong>协议</strong>
-            <button type="button" @click="requestNavigation('/legal/user-agreement')">
-              用户协议
-            </button>
-            <button type="button" @click="requestNavigation('/legal/privacy-policy')">
-              隐私政策
-            </button>
-          </div>
-        </nav>
-      </div>
-
-      <div class="home-footer-bottom">
-        <div class="home-page home-footer-bottom-inner">
-          <span>© 2026 云舟备考 SmartKey</span>
-          <span>公开预览使用演示数据，不展示任何真实学生记录。</span>
-        </div>
-      </div>
-    </footer>
-  </main>
+    <HomeFooter @scroll-top="requestScrollTop" />
+  </div>
 </template>

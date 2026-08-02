@@ -63,6 +63,7 @@ const props = withDefaults(
     totalCount: number
     answeredCount?: number
     sectionTitle?: string
+    headerTitle?: string
     pauseOnVisibility?: boolean
     backLabelOverride?: string
   }>(),
@@ -75,6 +76,7 @@ const props = withDefaults(
     currentIndex: 0,
     totalCount: 0,
     sectionTitle: '',
+    headerTitle: '',
     pauseOnVisibility: false,
     backLabelOverride: '',
   },
@@ -130,12 +132,13 @@ const timerText = computed(() => {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 })
 
-// 模块化考试在考试类型后补充当前科目，旧答题流程保持原有标题。
+// 页面可传入业务标题覆盖默认考试类型；未传时兼容原有考试类型与分段标题。
 const headerText = computed(() => {
   const label =
     EXAM_TYPE_OPTIONS.find((item) => item.value === props.examType)?.label || props.examType
   const section = props.sectionTitle ? ` · ${props.sectionTitle}` : ''
-  return `${label}${section}（第${props.currentIndex + 1}/${props.totalCount}题）`
+  const title = props.headerTitle || `${label}${section}`
+  return `${title}（第${props.currentIndex + 1}/${props.totalCount}题）`
 })
 
 // 诊断测试按当前分段已作答题量展示进度，其他答题模式保留按当前题号计算的兼容逻辑。

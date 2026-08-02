@@ -1,7 +1,7 @@
-<!-- 登录后首页：用学生真实记录驱动首屏状态，并以五个分屏承接诊断、练习与错题闭环。 -->
+<!-- 登录后首页首屏：仅用学生真实记录驱动当前任务，后续内容由公开首页模块统一承接。 -->
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ArrowRight, Connection, DocumentChecked, MagicStick } from '@element-plus/icons-vue'
+import { computed } from 'vue'
+import { ArrowRight } from '@element-plus/icons-vue'
 import type { ActiveQuestionBankPractice } from '@/api/exam'
 import type { AssessmentPaperItem } from '@/api/papers'
 import type { ActiveExamType } from '@/stores/auth'
@@ -10,7 +10,6 @@ import type {
   HomeDashboardReportSignal,
   HomeDashboardState,
   HomeDiagnosticProgress,
-  HomeMemberStatus,
   HomeOtherGoalSummary,
   HomeTrendScore,
 } from './useHomeDashboard'
@@ -28,7 +27,6 @@ interface StudentHomeProps {
   trendScores?: HomeTrendScore[]
   mistakeTotal?: number | null
   practice?: ActiveQuestionBankPractice | null
-  memberStatus?: HomeMemberStatus | null
   otherGoalSummary?: HomeOtherGoalSummary | null
   reportSignal?: HomeDashboardReportSignal | null
 }
@@ -67,28 +65,6 @@ interface ProgressRow {
   state: 'done' | 'current' | 'pending'
 }
 
-interface StoryContent {
-  sourceKicker: string
-  sourceTitle: string
-  sourceDescription: string
-  sourcePoints: string[]
-  modelTitleLines: string[]
-  modelDescription: string
-  modelPoints: string[]
-  modelInput: string
-  modelOutput: string
-  loopTitle: string
-  loopDescription: string
-  loopPoints: string[]
-  loopDiagnostic: string
-  loopPractice: string
-}
-
-interface ScreenDefinition {
-  id: string
-  label: string
-}
-
 const props = withDefaults(defineProps<StudentHomeProps>(), {
   loading: false,
   error: '',
@@ -102,7 +78,6 @@ const props = withDefaults(defineProps<StudentHomeProps>(), {
   trendScores: () => [],
   mistakeTotal: null,
   practice: null,
-  memberStatus: null,
   otherGoalSummary: null,
   reportSignal: null,
 })
@@ -111,24 +86,8 @@ const emit = defineEmits<{
   navigate: [path: string]
   'select-exam': [exam: ActiveExamType]
   retry: []
-  'open-payment': []
   'manage-goals': []
 }>()
-
-const screenDefinitions: ScreenDefinition[] = [
-  { id: 'home-overview', label: '我的首页' },
-  { id: 'home-source-screen', label: '真题来源' },
-  { id: 'home-model-screen', label: '专项练习' },
-  { id: 'home-loop-screen', label: '诊断闭环' },
-  { id: 'home-action-screen', label: '继续备考' },
-]
-
-const studentRoot = ref<HTMLElement | null>(null)
-const activeScreenIndex = ref(0)
-let scrollFrame = 0
-let lastPagingKeyAt = 0
-let desktopPagingMedia: MediaQueryList | null = null
-let reducedMotionMedia: MediaQueryList | null = null
 
 // 考试名称在未选择目标时保持中性，避免从缓存或历史记录猜测当前考试。
 const examLabel = computed(() => props.currentExam ?? 'ESAT / TMUA')
@@ -439,110 +398,6 @@ const progressRows = computed<ProgressRow[]>(() => {
   })
 })
 
-// 三个说明分屏随当前考试切换文案，未选择目标时使用不混用记录的通用说明。
-const storyContent = computed<StoryContent>(() => {
-  if (props.currentExam === 'ESAT') {
-    return {
-      sourceKicker: 'ESAT 真题来源',
-      sourceTitle: '可用的历史试题，按现行考纲重新整理',
-      sourceDescription:
-        'ENGAA 与 NSAA 中仍符合现行 ESAT 范围的题目，按当前备考科目筛选、剔除超纲内容并重新组成诊断卷。',
-      sourcePoints: ['历史来源可追溯', '逐题对照现行考纲', '三个科目分别诊断、独立评分'],
-      modelTitleLines: ['真题做完以后，', '还有同路数的新题可练'],
-      modelDescription: '系统整理真题中的考点、题型、推理方式和难度，再把这些边界用于专项练习。',
-      modelPoints: ['不跨出当前 ESAT 考纲', '按科目、知识点与难度组合', '练习结果继续回到个人记录'],
-      modelInput: 'ENGAA / NSAA 可用历史题',
-      modelOutput: 'ESAT 专项练习',
-      loopTitle: '做完一套题，三科接下来练什么就清楚了',
-      loopDescription:
-        '诊断分别看三科的失分与用时，专项练习补具体知识点，错题本继续记录是否在同一处出错。',
-      loopPoints: ['三科结果互不合计', '练习依据来自真实诊断', '错题与解析持续保留'],
-      loopDiagnostic: '三科分别看成绩、知识点和用时',
-      loopPractice: '只练当前没有做稳的内容',
-    }
-  }
-
-  if (props.currentExam === 'TMUA') {
-    return {
-      sourceKicker: 'TMUA 两卷结构',
-      sourceTitle: 'Paper 1 与 Paper 2 保持完整考试关系',
-      sourceDescription:
-        'Paper 1 关注数学知识应用，Paper 2 关注数学推理；两卷记录分别保留，并共同换算一个综合分。',
-      sourcePoints: ['两卷答题记录分别保存', '完成两卷后统一生成报告', '正式结果使用两卷综合分'],
-      modelTitleLines: ['从两卷真题中整理不同的推理任务'],
-      modelDescription:
-        '专项练习保留 Paper 1 与 Paper 2 的任务差异，再按知识点和难度组织新的训练。',
-      modelPoints: ['区分数学应用与数学推理', '按知识点和难度组合', '练习记录只进入 TMUA 上下文'],
-      modelInput: 'TMUA Paper 1 ＋ Paper 2',
-      modelOutput: 'TMUA 专项练习',
-      loopTitle: '两卷完成后，从综合结果回到具体题型',
-      loopDescription:
-        '诊断先形成一个综合分，再回到两卷的正确题数、知识点和用时，最后衔接专项练习与错题复习。',
-      loopPoints: [
-        '综合分由两卷共同换算',
-        '问题仍定位到具体试卷与知识点',
-        '错题与练习记录保持同一考试上下文',
-      ],
-      loopDiagnostic: '两卷共同生成综合结果',
-      loopPractice: '回到具体试卷与知识点练习',
-    }
-  }
-
-  return {
-    sourceKicker: '两项考试独立整理',
-    sourceTitle: 'ESAT 与 TMUA 使用各自的真题结构',
-    sourceDescription:
-      '两项考试的试卷来源、评分方式和学习记录分开管理；选择目标后，首页只显示该考试的真实上下文。',
-    sourcePoints: ['ESAT 按所选三科重组', 'TMUA 保留两卷结构', '诊断与练习记录互不混用'],
-    modelTitleLines: ['专项练习遵循对应考试的命题边界'],
-    modelDescription:
-      '先确认考试，再从该考试真题中整理考点、推理方式与难度，不把两项考试的题目混在一起。',
-    modelPoints: ['先按考试隔离题目', '再按知识点与难度组合', '结果回写对应考试记录'],
-    modelInput: 'ESAT / TMUA 各自真题',
-    modelOutput: '对应考试专项练习',
-    loopTitle: '每一项考试都有自己的诊断闭环',
-    loopDescription:
-      '选择目标后，诊断、专项练习和错题本只承接该考试的数据，切换目标不会覆盖另一边记录。',
-    loopPoints: ['先选择当前查看目标', '再从真实诊断进入练习', '错题持续回到对应考试'],
-    loopDiagnostic: '按当前考试读取真实记录',
-    loopPractice: '只进入对应考试的练习',
-  }
-})
-
-// 收尾区沿用首屏主行动，并把当前状态压缩为三个不含虚构统计的提示。
-const finalPoints = computed(() => {
-  const points: Record<HomeDashboardState, string[]> = {
-    'no-goal': ['两项考试记录分开', '以后可以新增另一目标', '选择结果同步到个人信息'],
-    new: ['完成一套真实诊断', '查看对应考试结果', '再决定下一步练什么'],
-    progress: ['从已保存位置继续', '已完成内容无需重做', '全部完成后生成报告'],
-    report: ['查看本次真实结果', '定位具体失分', '从报告继续练习'],
-    active: ['恢复当前练习进度', '完成剩余题目', '提交后再决定下一步'],
-    idle: ['重新完成诊断', '选择知识点练习', '回看已收录错题'],
-  }
-  return points[props.state]
-})
-
-// 权益卡只陈述当前真实身份，不从页面状态推断具体额度或到期时间。
-const accessContent = computed(() => {
-  if (props.memberStatus?.isMember) {
-    return {
-      badge: props.memberStatus.label,
-      title: `${examLabel.value} 会员权益已生效`,
-      points: ['诊断记录与报告', '专项练习题库', '错题复习与解析'],
-      note:
-        props.memberStatus.remainingDays === null
-          ? '具体权益与有效期以会员中心为准。'
-          : `当前权益剩余 ${props.memberStatus.remainingDays} 天。`,
-    }
-  }
-  return {
-    badge: props.memberStatus?.label ?? '免费用户',
-    title: '先从当前真实任务开始',
-    points: ['诊断测试入口', '学习记录', '按需选择会员考试类型'],
-    note: '会员按考试类型独立生效，具体权益以购买弹窗为准。',
-  }
-})
-
 // 分数保留接口返回精度，整数不额外补小数位。
 function formatScore(score: number): string {
   return Number.isInteger(score) ? String(score) : String(Number(score.toFixed(2)))
@@ -597,144 +452,17 @@ function handleOtherGoalSelection(): void {
   if (props.otherGoalSummary) emit('select-exam', props.otherGoalSummary.examType)
 }
 
-// 会员入口由首页容器负责读取价格、选择考试类型和回写支付结果。
-function handleMembershipSelection(): void {
-  emit('open-payment')
-}
-
-// 当前分屏集合始终按 PRD 的五屏顺序读取，用于定位器、滚动判定与键盘翻页。
-function getScreenElements(): HTMLElement[] {
-  return screenDefinitions
-    .map((screen) => document.getElementById(screen.id))
-    .filter((screen): screen is HTMLElement => Boolean(screen))
-}
-
-// 桌面宽高同时满足且未开启减弱动态效果时才启用整屏行为。
-function isPagingEnabled(): boolean {
-  return Boolean(
-    desktopPagingMedia?.matches && !reducedMotionMedia?.matches && !props.loading && !props.error,
-  )
-}
-
-// 视口模式变化时同步根节点标记；超高板块仍在自身范围内滚动后吸附到下一屏。
-function updatePagingMode(): void {
-  const pagingEnabled = isPagingEnabled()
-  document.documentElement.classList.toggle('home-student-snap-enabled', pagingEnabled)
-  scheduleActiveScreenUpdate()
-}
-
-// 当前屏以可见高度最大的板块为准，避免只根据滚动位置在边界处跳动。
-function updateActiveScreen(): void {
-  scrollFrame = 0
-  const screens = getScreenElements()
-  if (!screens.length) return
-  const viewportTop =
-    document.querySelector<HTMLElement>('.home-shell > .navbar')?.getBoundingClientRect().height ??
-    72
-  const viewportBottom = window.innerHeight
-  let bestIndex = 0
-  let bestVisibleHeight = -1
-  screens.forEach((screen, index) => {
-    const rect = screen.getBoundingClientRect()
-    const visibleHeight = Math.max(
-      0,
-      Math.min(rect.bottom, viewportBottom) - Math.max(rect.top, viewportTop),
-    )
-    if (visibleHeight > bestVisibleHeight) {
-      bestVisibleHeight = visibleHeight
-      bestIndex = index
-    }
-  })
-  activeScreenIndex.value = bestIndex
-}
-
-// 高频滚动事件合并到下一帧，避免定位器更新影响页面滚动。
-function scheduleActiveScreenUpdate(): void {
-  if (scrollFrame) return
-  scrollFrame = window.requestAnimationFrame(updateActiveScreen)
-}
-
-// 定位器与键盘共用同一滚动入口，减弱动态效果下使用即时定位。
-function scrollToScreen(index: number): void {
-  const screens = getScreenElements()
-  const targetIndex = Math.min(Math.max(index, 0), screens.length - 1)
-  const target = screens[targetIndex]
-  if (!target) return
-  activeScreenIndex.value = targetIndex
-  target.scrollIntoView({
-    behavior: reducedMotionMedia?.matches ? 'auto' : 'smooth',
+// 登录态首屏向下入口定位到公共首页首个内容模块，并遵循系统的减弱动态效果设置。
+function scrollToSharedContent(): void {
+  document.getElementById('home-question-model')?.scrollIntoView({
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
     block: 'start',
   })
 }
-
-// 翻页键只在桌面整屏模式生效，并避开输入控件、菜单与对话框的键盘交互。
-function handlePagingKeydown(event: KeyboardEvent): void {
-  if (
-    !isPagingEnabled() ||
-    event.defaultPrevented ||
-    event.repeat ||
-    event.altKey ||
-    event.ctrlKey ||
-    event.metaKey
-  )
-    return
-  const target = event.target instanceof Element ? event.target : document.body
-  if (
-    target.closest(
-      'input, textarea, select, [contenteditable="true"], [role="menu"], [role="dialog"]',
-    ) ||
-    document.body.classList.contains('home-dialog-open') ||
-    document.documentElement.classList.contains('home-menu-open')
-  )
-    return
-
-  const direction =
-    event.key === 'PageDown' || event.key === 'ArrowDown'
-      ? 1
-      : event.key === 'PageUp' || event.key === 'ArrowUp'
-        ? -1
-        : 0
-  if (!direction) return
-  const now = window.performance.now()
-  if (now - lastPagingKeyAt < 360) return
-  lastPagingKeyAt = now
-  event.preventDefault()
-  scrollToScreen(activeScreenIndex.value + direction)
-}
-
-// 数据加载结束或考试状态切换后重新读取五屏位置，不沿用旧上下文的高亮点。
-watch(
-  () => [props.loading, props.error, props.state, props.currentExam],
-  async () => {
-    await nextTick()
-    updatePagingMode()
-  },
-)
-
-onMounted(() => {
-  desktopPagingMedia = window.matchMedia('(min-width: 861px) and (min-height: 700px)')
-  reducedMotionMedia = window.matchMedia('(prefers-reduced-motion: reduce)')
-  desktopPagingMedia.addEventListener('change', updatePagingMode)
-  reducedMotionMedia.addEventListener('change', updatePagingMode)
-  window.addEventListener('scroll', scheduleActiveScreenUpdate, { passive: true })
-  window.addEventListener('resize', updatePagingMode, { passive: true })
-  document.addEventListener('keydown', handlePagingKeydown)
-  updatePagingMode()
-})
-
-onBeforeUnmount(() => {
-  desktopPagingMedia?.removeEventListener('change', updatePagingMode)
-  reducedMotionMedia?.removeEventListener('change', updatePagingMode)
-  window.removeEventListener('scroll', scheduleActiveScreenUpdate)
-  window.removeEventListener('resize', updatePagingMode)
-  document.removeEventListener('keydown', handlePagingKeydown)
-  document.documentElement.classList.remove('home-student-snap-enabled')
-  if (scrollFrame) window.cancelAnimationFrame(scrollFrame)
-})
 </script>
 
 <template>
-  <main ref="studentRoot" class="home-student" aria-label="我的首页">
+  <div class="home-student">
     <section v-if="loading" class="home-student-feedback" aria-live="polite" aria-busy="true">
       <span class="home-feedback-index">MY HOME</span>
       <h1>正在读取你的备考记录</h1>
@@ -759,8 +487,7 @@ onBeforeUnmount(() => {
     <template v-else>
       <section
         id="home-overview"
-        class="home-snap-screen home-student-screen home-student-overview"
-        :class="{ 'home-student-screen--current': activeScreenIndex === 0 }"
+        class="home-snap-screen home-student-screen home-student-overview home-student-screen--current"
         aria-labelledby="home-student-title"
       >
         <div class="home-page home-student-overview-inner home-motion-content">
@@ -1084,254 +811,11 @@ onBeforeUnmount(() => {
           </section>
         </div>
 
-        <button class="home-scroll-cue" type="button" @click="scrollToScreen(1)">
-          <span>继续往下，看看诊断卷和练习题是怎么来的</span>
+        <button class="home-scroll-cue" type="button" @click="scrollToSharedContent">
+          <span>继续往下，了解真题命题模型</span>
           <i aria-hidden="true">↓</i>
         </button>
       </section>
-
-      <section
-        id="home-source-screen"
-        class="home-snap-screen home-student-screen home-story-screen home-source-screen"
-        :class="{ 'home-student-screen--current': activeScreenIndex === 1 }"
-        aria-labelledby="home-source-title"
-      >
-        <div class="home-page home-story-layout home-motion-content">
-          <div class="home-story-copy">
-            <div class="home-story-index">01 · {{ storyContent.sourceKicker }}</div>
-            <h2 id="home-source-title">{{ storyContent.sourceTitle }}</h2>
-            <p>{{ storyContent.sourceDescription }}</p>
-            <ul class="home-story-points">
-              <li v-for="point in storyContent.sourcePoints" :key="point">{{ point }}</li>
-            </ul>
-          </div>
-          <div class="home-story-visual home-source-visual" aria-label="真题来源与整理方式">
-            <template v-if="currentExam === 'ESAT'">
-              <div class="home-source-origins">
-                <article><strong>ENGAA</strong><span>工程类历史试题</span></article>
-                <article><strong>NSAA</strong><span>科学类历史试题</span></article>
-              </div>
-              <div class="home-source-filter">
-                <span>逐题筛选</span><b>现行 ESAT 考纲</b><small>来源、科目与范围逐题核对</small>
-              </div>
-              <div class="home-source-output">
-                <span>当前备考科目</span><strong>{{ subjectSummary }}</strong>
-              </div>
-            </template>
-            <template v-else-if="currentExam === 'TMUA'">
-              <div class="home-paper-pair">
-                <article>
-                  <span>PAPER 1</span><strong>数学知识应用</strong><small>答题记录独立保存</small>
-                </article>
-                <i aria-hidden="true">＋</i>
-                <article>
-                  <span>PAPER 2</span><strong>数学推理</strong><small>答题记录独立保存</small>
-                </article>
-              </div>
-              <div class="home-source-output">
-                <span>完成两卷后</span><strong>共同生成一个 TMUA 综合结果</strong>
-              </div>
-            </template>
-            <template v-else>
-              <div class="home-source-origins home-source-origins--exams">
-                <article><strong>ESAT</strong><span>按所选三科整理</span></article>
-                <article><strong>TMUA</strong><span>保留 Paper 1 / 2</span></article>
-              </div>
-              <div class="home-source-filter">
-                <span>记录隔离</span><b>诊断 · 练习 · 错题</b
-                ><small>选择目标后只读取对应考试</small>
-              </div>
-            </template>
-          </div>
-        </div>
-      </section>
-
-      <section
-        id="home-model-screen"
-        class="home-snap-screen home-student-screen home-story-screen home-model-screen"
-        :class="{ 'home-student-screen--current': activeScreenIndex === 2 }"
-        aria-labelledby="home-model-title"
-      >
-        <div class="home-model-backdrop" aria-hidden="true">
-          <div class="home-model-backdrop-track">
-            <span class="home-model-backdrop-image home-model-backdrop-image--campus"></span>
-            <span class="home-model-backdrop-image home-model-backdrop-image--chapel"></span>
-            <span class="home-model-backdrop-image home-model-backdrop-image--campus"></span>
-            <span class="home-model-backdrop-image home-model-backdrop-image--chapel"></span>
-          </div>
-        </div>
-        <div class="home-page home-story-layout home-story-layout--reverse home-motion-content">
-          <div class="home-story-copy">
-            <div class="home-story-index">02 · 真题命题模型</div>
-            <h2 id="home-model-title">
-              <span
-                v-for="titleLine in storyContent.modelTitleLines"
-                :key="titleLine"
-                class="home-story-title-line"
-              >
-                {{ titleLine }}
-              </span>
-            </h2>
-            <p>{{ storyContent.modelDescription }}</p>
-            <ul class="home-story-points">
-              <li v-for="point in storyContent.modelPoints" :key="point">{{ point }}</li>
-            </ul>
-          </div>
-          <div class="home-story-visual home-model-visual" aria-label="从真题到专项练习">
-            <article>
-              <span class="home-model-step">01</span>
-              <el-icon class="home-model-stage-icon" aria-hidden="true">
-                <DocumentChecked />
-              </el-icon>
-              <strong class="home-model-stage-title">真题拆解</strong>
-              <span class="home-model-stage-subtitle">{{ storyContent.modelInput }}</span>
-              <p>提取：知识点 · 题型 · 推理路径 · 难度</p>
-            </article>
-            <i class="home-flow-arrow" aria-hidden="true">→</i>
-            <article class="home-model-stage--emphasis">
-              <span class="home-model-step">02</span>
-              <el-icon class="home-model-stage-icon" aria-hidden="true">
-                <Connection />
-              </el-icon>
-              <strong class="home-model-stage-title">规律建模</strong>
-              <span class="home-model-stage-subtitle">建立四维命题画像</span>
-              <p>考点权重 · 任务类型 · 干扰项 · 难度梯度</p>
-            </article>
-            <i class="home-flow-arrow" aria-hidden="true">→</i>
-            <article>
-              <span class="home-model-step">03</span>
-              <el-icon class="home-model-stage-icon" aria-hidden="true">
-                <MagicStick />
-              </el-icon>
-              <strong class="home-model-stage-title">同源生成</strong>
-              <span class="home-model-stage-subtitle">{{ storyContent.modelOutput }}</span>
-              <p>按考纲、知识点与难度生成同路数新题</p>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section
-        id="home-loop-screen"
-        class="home-snap-screen home-student-screen home-story-screen home-loop-screen"
-        :class="{ 'home-student-screen--current': activeScreenIndex === 3 }"
-        aria-labelledby="home-loop-title"
-      >
-        <div class="home-page home-story-layout home-motion-content">
-          <div class="home-story-copy">
-            <div class="home-story-index">03 · 从诊断到练习</div>
-            <h2 id="home-loop-title">{{ storyContent.loopTitle }}</h2>
-            <p>{{ storyContent.loopDescription }}</p>
-            <ul class="home-story-points">
-              <li v-for="point in storyContent.loopPoints" :key="point">{{ point }}</li>
-            </ul>
-          </div>
-          <div class="home-story-visual home-loop-visual" aria-label="诊断、练习和错题流程">
-            <article>
-              <span>01</span>
-              <div>
-                <small>真题诊断</small><strong>{{ storyContent.loopDiagnostic }}</strong>
-              </div>
-            </article>
-            <article>
-              <span>02</span>
-              <div>
-                <small>专项练习</small><strong>{{ storyContent.loopPractice }}</strong>
-              </div>
-            </article>
-            <article>
-              <span>03</span>
-              <div><small>错题本</small><strong>保存真实错题、解析与知识点</strong></div>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section
-        id="home-action-screen"
-        class="home-snap-screen home-student-screen home-action-screen"
-        :class="{ 'home-student-screen--current': activeScreenIndex === 4 }"
-        aria-labelledby="home-action-title"
-      >
-        <div class="home-page home-action-layout home-motion-content">
-          <div class="home-action-copy">
-            <div class="home-action-kicker">回到现在最重要的一步</div>
-            <h2 id="home-action-title">{{ heroContent.title }}</h2>
-            <p>{{ heroContent.description }}</p>
-            <div class="home-action-points">
-              <span v-for="point in finalPoints" :key="point">{{ point }}</span>
-            </div>
-            <div v-if="state === 'no-goal'" class="home-action-buttons home-goal-actions">
-              <button
-                class="home-btn home-btn--light"
-                type="button"
-                @click="emit('select-exam', 'ESAT')"
-              >
-                选择 ESAT <span aria-hidden="true">→</span>
-              </button>
-              <button
-                class="home-btn home-btn--outline-light"
-                type="button"
-                @click="emit('select-exam', 'TMUA')"
-              >
-                选择 TMUA
-              </button>
-            </div>
-            <div v-else class="home-action-buttons">
-              <button class="home-btn home-btn--light" type="button" @click="handlePrimaryAction">
-                {{ heroContent.primary }} <span aria-hidden="true">→</span>
-              </button>
-              <button
-                class="home-btn home-btn--outline-light"
-                type="button"
-                @click="scrollToScreen(0)"
-              >
-                回到我的首页
-              </button>
-            </div>
-          </div>
-
-          <aside class="home-access-card" aria-label="当前账户权益">
-            <div class="home-access-card-top">
-              <span>{{ accessContent.badge }}</span>
-              <small>{{ examLabel }}</small>
-            </div>
-            <strong>{{ accessContent.title }}</strong>
-            <div class="home-access-benefits">
-              <span v-for="point in accessContent.points" :key="point">{{ point }}</span>
-            </div>
-            <p>{{ accessContent.note }}</p>
-            <button
-              v-if="currentExam && !memberStatus?.isMember"
-              class="home-access-action"
-              type="button"
-              @click="handleMembershipSelection"
-            >
-              查看当前考试会员权益 →
-            </button>
-          </aside>
-        </div>
-
-        <footer class="home-student-footer">
-          <div class="home-page home-student-footer-inner">
-            <span>云舟备考 · ESAT &amp; TMUA 模考系统</span>
-            <span>当前考试、测试进度和报告状态始终来自真实记录。</span>
-          </div>
-        </footer>
-      </section>
-
-      <nav class="home-screen-indicator" aria-label="首页分屏定位">
-        <button
-          v-for="(screen, index) in screenDefinitions"
-          :key="screen.id"
-          type="button"
-          :aria-label="screen.label"
-          :aria-current="activeScreenIndex === index ? 'step' : undefined"
-          @click="scrollToScreen(index)"
-        >
-          <span>{{ screen.label }}</span>
-        </button>
-      </nav>
     </template>
-  </main>
+  </div>
 </template>

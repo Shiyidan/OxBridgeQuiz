@@ -113,6 +113,10 @@ async function main(): Promise<void> {
     topicCode: null,
     knowledgePoints: [],
     syllabusPoints: [],
+    attemptPayload: {
+      content_blocks: [{ type: 'paragraph', text: 'Question' }],
+      images: [],
+    },
     meta: {
       content_blocks: [{ type: 'paragraph', text: 'Question', solution: 'secret' }],
       images: [],

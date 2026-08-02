@@ -5,6 +5,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { setOperationAuditContext } from "../middleware/operationAudit.js";
 import {
   EXAM_TYPE,
+  QUESTION_BANK_DIRECT_PRACTICE_COUNT,
   QUESTION_STATUS,
   TMUA_PAPER,
   isExamType,
@@ -12,6 +13,7 @@ import {
 } from "../constants/domain.js";
 import { checkMemberAccess } from "../services/member.js";
 import { prisma } from "../services/prisma.js";
+import { signQuestionBankSelection } from "../services/questionBankSelection.js";
 import {
   QUESTION_BANK_DIFFICULTIES,
   QuestionBankDocumentError,
@@ -20,9 +22,12 @@ import {
 } from "../services/questionBankDocument.js";
 import { createAsyncRouter } from "../utils/asyncRouter.js";
 import { formatQuestionRow } from "../utils/questionSync.js";
-import { parseJsonObject } from "../utils/jsonField.js";
 import { fail, success } from "../utils/response.js";
-import { formatQuestionForAttempt, parsePositiveInt } from "./papers-shared.js";
+import {
+  attemptQuestionSelect,
+  formatQuestionForAttempt,
+  parsePositiveInt,
+} from "./papers-shared.js";
 
 export const questionLibraryRouter = createAsyncRouter();
 
@@ -38,6 +43,29 @@ type BatchQuestionSummary = {
   subject: string | null;
   subjectCode: string | null;
 };
+
+// 后台列表保留筛选、预览摘要和状态操作所需字段，不读取选项、答案及完整详情列。
+const adminQuestionListSelect = {
+  id: true,
+  uniqueCode: true,
+  sourceQuestionCode: true,
+  title: true,
+  examType: true,
+  questionType: true,
+  difficulty: true,
+  qualityTier: true,
+  subject: true,
+  subjectCode: true,
+  topic: true,
+  topicCode: true,
+  knowledgePoints: true,
+  status: true,
+  publishedAt: true,
+  archivedAt: true,
+  createdAt: true,
+  updatedAt: true,
+  importBatch: { select: { id: true, title: true } },
+} satisfies Prisma.QuestionSelect;
 
 // 各接口共享完整难度键，避免无题难度在响应中缺失。
 const emptyDifficultyCount = (): DifficultyCount => ({
@@ -121,7 +149,6 @@ function formatAttemptQuestions(rows: any[]): Array<Record<string, unknown>> {
 
 // 管理列表使用普通列和展示快照，避免为列表加载大体积 SVG 与完整解析。
 function formatAdminListItem(row: any): Record<string, unknown> {
-  const meta = parseJsonObject(row.meta);
   return {
     id: row.id,
     code: row.sourceQuestionCode || row.uniqueCode,
@@ -130,8 +157,8 @@ function formatAdminListItem(row: any): Record<string, unknown> {
     questionType: row.questionType,
     difficulty: row.difficulty,
     qualityTier:
-      meta.qualityTier === "excellent" || meta.qualityTier === "qualified"
-        ? meta.qualityTier
+      row.qualityTier === "excellent" || row.qualityTier === "qualified"
+        ? row.qualityTier
         : null,
     subject: row.subject,
     subjectCode: row.subjectCode,
@@ -324,10 +351,32 @@ questionLibraryRouter.get("/selection", requireAuth, async (req, res) => {
     res.status(422).json(fail("无效的难度"));
     return;
   }
-  const requestedCount = parsePositiveInt(req.query.questionCount, 10, 100);
   const where = await buildPublishedQuestionWhere(req.query);
   const total = await prisma.question.count({ where });
-  const take = Math.min(total, requestedCount);
+  const plannedCount = Math.min(total, QUESTION_BANK_DIRECT_PRACTICE_COUNT);
+  let take = plannedCount;
+  if (plannedCount > 0) {
+    const entitlement = await checkMemberAccess(
+      req.user!.userId,
+      "question-bank",
+      examType,
+      plannedCount,
+    );
+    if (!entitlement.allowed) {
+      take = Math.min(plannedCount, Math.max(0, entitlement.remaining ?? 0));
+      if (take === 0) {
+        res
+          .status(403)
+          .json(
+            fail(
+              "当前题库额度不足，请开通会员后继续",
+              "QUESTION_BANK_ACCESS_DENIED",
+            ),
+          );
+        return;
+      }
+    }
+  }
   const skip = take > 0 ? Math.floor(Math.random() * (total - take + 1)) : 0;
   const rows =
     take > 0
@@ -336,28 +385,17 @@ questionLibraryRouter.get("/selection", requireAuth, async (req, res) => {
           orderBy: [{ id: "asc" }],
           skip,
           take,
+          select: attemptQuestionSelect,
         })
       : [];
-  if (rows.length) {
-    const entitlement = await checkMemberAccess(
-      req.user!.userId,
-      "question-bank",
-      examType,
-      rows.length,
-    );
-    if (!entitlement.allowed) {
-      res
-        .status(403)
-        .json(
-          fail(
-            "当前题库额度不足，请开通会员后继续",
-            "QUESTION_BANK_ACCESS_DENIED",
-          ),
-        );
-      return;
-    }
-  }
-  res.json(success({ questions: formatAttemptQuestions(rows), total }));
+  const selectionToken = rows.length
+    ? signQuestionBankSelection(
+        req.user!.userId,
+        examType,
+        rows.map((row) => row.id),
+      )
+    : null;
+  res.json(success({ questions: formatAttemptQuestions(rows), total, selectionToken }));
 });
 
 // standard2 文件先完成全量校验，再在单个事务内创建批次、题目和考纲关联。
@@ -499,11 +537,17 @@ questionLibraryRouter.post(
               subjectCode: classification.subjectCode,
               questionType: question.questionType,
               difficulty: question.difficulty,
+              qualityTier: question.qualityTier || null,
               topic: classification.topic,
               topicCode: classification.topicCode,
               knowledgePoints:
                 classification.knowledgePoints as unknown as Prisma.InputJsonValue,
               syllabusPoints: [] as Prisma.InputJsonValue,
+              attemptPayload: {
+                code: question.code,
+                content_blocks: question.contentBlocks,
+                images: question.images,
+              } as Prisma.InputJsonValue,
               meta: {
                 code: question.code,
                 content_blocks: question.contentBlocks,
@@ -693,7 +737,7 @@ questionLibraryRouter.get(
       prisma.question.count({ where }),
       prisma.question.findMany({
         where,
-        include: { importBatch: { select: { id: true, title: true } } },
+        select: adminQuestionListSelect,
         orderBy: [{ uniqueCode: "asc" }, { id: "asc" }],
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -742,7 +786,7 @@ questionLibraryRouter.get(
       prisma.question.count({ where }),
       prisma.question.findMany({
         where,
-        include: { importBatch: { select: { id: true, title: true } } },
+        select: adminQuestionListSelect,
         orderBy: [{ createdAt: "desc" }, { id: "asc" }],
         skip: (page - 1) * pageSize,
         take: pageSize,

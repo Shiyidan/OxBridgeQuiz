@@ -117,6 +117,9 @@ export const PRACTICE_SOURCE = {
   NOTEBOOK: 'notebook',
 } as const
 
+// 题库难度卡片生成固定五题练习；题目不足或免费额度不足时由服务端向下取实际数量。
+export const QUESTION_BANK_DIRECT_PRACTICE_COUNT = 5
+
 // 将外部状态值收窄为答题记录允许的状态，供接口边界安全复用。
 export function isAnswerRecordState(value: unknown): value is AnswerRecordState {
   return typeof value === 'string' && ANSWER_RECORD_STATES.includes(value as AnswerRecordState)

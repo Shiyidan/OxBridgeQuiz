@@ -317,7 +317,8 @@ async function loadQuestions(): Promise<void> {
       router.replace({ path: '/question-bank', query: { examType } })
       return
     }
-    const qs = (await getQuestionsData({ code, difficulty, examType })) || []
+    const selection = await getQuestionsData({ code, difficulty, examType })
+    const qs = selection.questions || []
     const loadedQuestions = qs.map((q, index) => ({
       ...q,
       id: q.id || `question-bank-${q.code || q.number || index + 1}`,
@@ -325,6 +326,11 @@ async function loadQuestions(): Promise<void> {
     if (!loadedQuestions.length) {
       questions.value = []
       resetAnswerState()
+      return
+    }
+    if (!selection.selectionToken) {
+      ElMessage.error('选题凭证生成失败，请返回试题库重试')
+      await router.replace('/question-bank')
       return
     }
     if (loadedQuestions.length > 0) {
@@ -341,8 +347,7 @@ async function loadQuestions(): Promise<void> {
       }
     }
     const examSession = await startExam({
-      examType,
-      questionIds: loadedQuestions.map((question) => question.id),
+      selectionToken: selection.selectionToken,
       startedAt: new Date().toISOString(),
     })
     activeExamRecordId.value = examSession.examRecordId

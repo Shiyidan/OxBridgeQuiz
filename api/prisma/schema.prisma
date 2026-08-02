@@ -57,10 +57,12 @@ model Question {
   subjectCode          String?   @db.VarChar(64)
   questionType         String?   @db.VarChar(64)
   difficulty           String?   @db.VarChar(32)
+  qualityTier          String?   @db.VarChar(32)
   topic                String?   @db.VarChar(255)
   topicCode            String?   @db.VarChar(64)
   knowledgePoints      Json
   syllabusPoints       Json
+  attemptPayload       Json?
   meta                 Json
   status               String    @default("draft") @db.VarChar(32)
   publishedAt          DateTime?
@@ -473,7 +475,7 @@ model EntitlementConfig {
   id                String   @id @default(uuid()) @db.VarChar(191)
   examType          String   @unique @db.VarChar(32)
   diagnosticLimit   Int      @default(1)
-  questionBankLimit Int      @default(100)
+  questionBankLimit Int      @default(25)
   status            String   @default("active") @db.VarChar(32)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

@@ -435,6 +435,23 @@ practiceNotebookRouter.post('/:id/start', requireAuth, async (req, res) => {
           { examRecordId: existingActive.id },
         )
       }
+      const plannedEntitlement = await checkMemberAccess(
+        req.user!.userId,
+        'question-bank',
+        notebook.examType,
+        notebook.questionCount,
+        tx,
+      )
+      const resolvedQuestionCount = plannedEntitlement.allowed
+        ? notebook.questionCount
+        : Math.max(0, plannedEntitlement.remaining ?? 0)
+      if (resolvedQuestionCount === 0) {
+        throw new PracticeNotebookBusinessError(
+          '当前题库额度不足，请开通会员后继续',
+          403,
+          'QUESTION_BANK_ACCESS_DENIED',
+        )
+      }
       await tx.paper.upsert({
         where: { id: 'question-bank' },
         update: { paperType: PAPER_TYPE.AI_PAPER, status: 'published' },
@@ -454,7 +471,8 @@ practiceNotebookRouter.post('/:id/start', requireAuth, async (req, res) => {
         notebookId: notebook.id,
         notebookName: notebook.name,
         knowledgePoints: parseJsonArray(notebook.knowledgePointSnapshot),
-        questionCount: notebook.questionCount,
+        questionCount: resolvedQuestionCount,
+        configuredQuestionCount: notebook.questionCount,
         difficultyMode: notebook.difficultyMode,
         durationMinutes: notebook.durationMinutes,
         unseenFirst: notebook.unseenFirst,
@@ -464,7 +482,7 @@ practiceNotebookRouter.post('/:id/start', requireAuth, async (req, res) => {
           userId: req.user!.userId,
           paperId: 'question-bank',
           examType: notebook.examType,
-          totalQuestions: notebook.questionCount,
+          totalQuestions: resolvedQuestionCount,
           correctCount: 0,
           startedAt,
           expiresAt: notebook.durationMinutes
@@ -480,7 +498,10 @@ practiceNotebookRouter.post('/:id/start', requireAuth, async (req, res) => {
           practiceSnapshot: snapshot as unknown as Prisma.InputJsonValue,
         },
       })
-      const selection = await selectPracticeQuestions(tx, req.user!.userId, notebook)
+      const selection = await selectPracticeQuestions(tx, req.user!.userId, {
+        ...notebook,
+        questionCount: resolvedQuestionCount,
+      })
       const entitlement = await checkMemberAccess(
         req.user!.userId,
         'question-bank',

@@ -39,6 +39,30 @@ export type FlatSyllabusNode = {
   order: number
 }
 
+// 作答页只读取渲染题目和恢复顺序所需字段，避免加载答案、解析及管理元数据。
+export const attemptQuestionSelect = {
+  id: true,
+  uniqueCode: true,
+  sourceQuestionCode: true,
+  paperId: true,
+  examType: true,
+  number: true,
+  moduleCode: true,
+  moduleOrder: true,
+  moduleQuestionNumber: true,
+  title: true,
+  options: true,
+  subject: true,
+  subjectCode: true,
+  questionType: true,
+  difficulty: true,
+  topic: true,
+  topicCode: true,
+  knowledgePoints: true,
+  syllabusPoints: true,
+  attemptPayload: true,
+} satisfies Prisma.QuestionSelect
+
 export function levelOf(d: string | null | undefined): string | null {
   return typeof d === 'string' && d ? d : null
 }
@@ -104,7 +128,11 @@ export function parsePositiveInt(value: unknown, fallback: number, max?: number)
 
 // 学生作答数据不得提前下发正确答案或题目解析，完整结构仅供管理员预览和交卷后报告使用。
 export function formatQuestionForAttempt(row: any) {
-  const question = formatQuestionRow(row)
+  const question = formatQuestionRow({
+    ...row,
+    answer: [],
+    meta: row.attemptPayload,
+  })
   const contentBlocks: Array<Record<string, unknown>> = Array.isArray(question.content_blocks)
     ? question.content_blocks.flatMap((block: any): Array<Record<string, unknown>> => {
         if (block?.type === 'paragraph' && typeof block.text === 'string') {

@@ -1,6 +1,6 @@
-<!-- 官网首页容器：按认证状态分流公开产品叙事与真实学生工作台。 -->
+<!-- 官网首页容器：登录态首屏承接真实学习状态，后续产品叙事由访客与学生共同复用。 -->
 <template>
-  <div class="home-shell" :class="{ 'home-shell--student': auth.isLoggedIn }">
+  <div class="home-shell">
     <!--
       THESIS: 以可追溯的真题诊断为起点，让学生先看清水平，再进入有依据的训练。
       OWN-WORLD: 编辑式大标题、编号叙事、数据台账和深色报告面板共同构成产品世界。
@@ -19,42 +19,42 @@
       @select-exam="handleExamSelection"
     />
 
-    <MarketingHome
-      v-if="!auth.isLoggedIn"
-      :member-price-label="marketingPriceLabel"
-      :member-price-available="marketingPriceAvailable"
-      @register="(targetPath) => openAuthPage('register', targetPath)"
-      @login="(targetPath) => openAuthPage('login', targetPath)"
-      @navigate="handleNavigation"
-      @open-report-demo="reportDemoOpen = true"
-      @open-payment="openPayment"
-      @unsupported="showUnavailableNotice"
-      @scroll-top="scrollToHome"
-    />
+    <main class="home-main" aria-label="AceMock 首页内容">
+      <StudentHome
+        v-if="auth.isLoggedIn"
+        :loading="loading"
+        :error="error"
+        :username="auth.user?.username || '同学'"
+        :current-exam="currentExam"
+        :current-goal="currentGoal"
+        :state="state"
+        :paper="paper"
+        :progress="progress"
+        :completed-attempt-count="completedAttemptCount"
+        :trend-scores="trendScores"
+        :mistake-total="mistakeTotal"
+        :practice="practice"
+        :report-signal="reportSignal"
+        :other-goal-summary="otherGoalSummary"
+        @navigate="handleNavigation"
+        @select-exam="handleExamSelection"
+        @retry="reload"
+        @manage-goals="handleNavigation('/profile')"
+      />
 
-    <StudentHome
-      v-else
-      :loading="loading"
-      :error="error"
-      :username="auth.user?.username || '同学'"
-      :current-exam="currentExam"
-      :current-goal="currentGoal"
-      :state="state"
-      :paper="paper"
-      :progress="progress"
-      :completed-attempt-count="completedAttemptCount"
-      :trend-scores="trendScores"
-      :mistake-total="mistakeTotal"
-      :practice="practice"
-      :member-status="memberStatus"
-      :report-signal="reportSignal"
-      :other-goal-summary="otherGoalSummary"
-      @navigate="handleNavigation"
-      @select-exam="handleExamSelection"
-      @retry="reload"
-      @open-payment="openPayment"
-      @manage-goals="handleNavigation('/profile')"
-    />
+      <MarketingHome
+        :include-hero="!auth.isLoggedIn"
+        :authenticated="auth.isLoggedIn"
+        :member-price-label="marketingPriceLabel"
+        :member-price-available="marketingPriceAvailable"
+        @register="(targetPath) => openAuthPage('register', targetPath)"
+        @login="(targetPath) => openAuthPage('login', targetPath)"
+        @navigate="handleNavigation"
+        @open-report-demo="reportDemoOpen = true"
+        @open-payment="openPayment"
+        @scroll-top="scrollToHome"
+      />
+    </main>
 
     <HomeReportDemoDialog v-model="reportDemoOpen" @register="handleReportDemoRegistration" />
     <HomeGoalDialog
@@ -113,7 +113,6 @@ const {
   trendScores,
   mistakeTotal,
   practice,
-  memberStatus,
   reportSignal,
   otherGoalSummary,
   loading,
@@ -256,11 +255,6 @@ async function handlePaymentPaid(): Promise<void> {
 function handleReportDemoRegistration(): void {
   reportDemoOpen.value = false
   openAuthPage('register', '/assessment')
-}
-
-// 尚未配置正式公开页面的入口明确告知状态，不导航到不存在的地址。
-function showUnavailableNotice(label: string): void {
-  ElMessage.info(`${label}正在完善中`)
 }
 
 // 营销价格读取公开支付配置；读取失败时保持购买不可用，避免显示虚假可购状态。

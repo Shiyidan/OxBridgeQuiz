@@ -18,7 +18,7 @@ export interface ExamResponseInput {
 export interface StartExamParams {
   paperId?: string
   examType?: string
-  questionIds?: string[]
+  selectionToken?: string
   startedAt?: string
 }
 
@@ -66,6 +66,8 @@ export interface ExamBreakState {
 export interface ExamProgress {
   id: string
   paperId: string
+  paperTitle?: string
+  paperYear?: number
   examType?: string
   totalQuestions: number
   startedAt: string

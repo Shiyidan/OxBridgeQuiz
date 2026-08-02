@@ -7,19 +7,24 @@
           <h1 class="qb-header__title">试题库</h1>
           <p class="qb-header__subtitle">包含专项试题练习与全真模拟考试系统。</p>
         </div>
-        <button type="button" class="qb-notebook-entry" @click="handleOpenPracticeNotebook">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path
-              d="M5 4.75A1.75 1.75 0 0 1 6.75 3H19v16H6.75A1.75 1.75 0 0 0 5 20.75v-16Z"
-              stroke="currentColor"
-              stroke-width="1.6"
-              stroke-linejoin="round"
-            />
-            <path d="M5 18.75h14M8.5 7h7" stroke="currentColor" stroke-width="1.6" />
-          </svg>
-          <span>练习本</span>
-          <span aria-hidden="true">→</span>
-        </button>
+        <div class="qb-header__actions">
+          <span v-if="questionBankQuota && !questionBankQuota.unlimited" class="qb-usage-count">
+            已练习（{{ questionBankQuota.used }}/{{ questionBankQuota.limit ?? 25 }}）
+          </span>
+          <button type="button" class="qb-notebook-entry" @click="handleOpenPracticeNotebook">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M5 4.75A1.75 1.75 0 0 1 6.75 3H19v16H6.75A1.75 1.75 0 0 0 5 20.75v-16Z"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linejoin="round"
+              />
+              <path d="M5 18.75h14M8.5 7h7" stroke="currentColor" stroke-width="1.6" />
+            </svg>
+            <span>练习本</span>
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
       </header>
 
       <section class="qb-main">
@@ -77,7 +82,9 @@
               <button
                 type="button"
                 class="qb-difficulty-card__cta button_primary"
-                :disabled="diff.count === 0 || Boolean(activePractice)"
+                :disabled="
+                  diff.count === 0 || Boolean(activePractice) || startingDifficultyId === diff.id
+                "
                 @click="handleStartPractice(diff)"
               >
                 开始练习
@@ -87,6 +94,27 @@
         </section>
       </section>
     </main>
+
+    <AppConfirmDialog
+      v-model="selectionDialogVisible"
+      title="确认开始练习"
+      :message="selectionDialogMessage"
+      confirm-text="开始练习"
+      cancel-text="取消"
+      tone="default"
+      @confirm="handleConfirmSelectedPractice"
+      @cancel="handleCancelSelectedPractice"
+    />
+
+    <AppConfirmDialog
+      v-model="quotaDialogVisible"
+      title="免费练习题量不足"
+      :message="quotaDialogMessage"
+      confirm-text="开始练习"
+      cancel-text="取消"
+      @confirm="handleConfirmReducedPractice"
+      @cancel="handleCancelReducedPractice"
+    />
   </div>
 </template>
 
@@ -96,6 +124,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { TreeInstance } from 'element-plus'
+import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import type { SyllabusNode } from '@/api/questionBank'
 import { getSyllabusData, getQuestionSummaryData } from '@/api/questionBank'
@@ -117,6 +146,13 @@ interface DifficultyOption {
   count: number
 }
 
+interface PendingDirectPractice {
+  difficulty: DifficultyId
+  questionCount: number
+}
+
+const DIRECT_PRACTICE_QUESTION_COUNT = 5
+
 const treeData = ref<TreeNode[]>([])
 const syllabusTreeRef = ref<TreeInstance>()
 const treeProps = { children: 'children', label: 'label' }
@@ -126,6 +162,12 @@ const selectedNodeLabel = ref<string>('综合考点')
 const totalQuestionCount = ref<number>(0)
 const targetDifficulty = ref<DifficultyId | null>(null)
 const activePractice = ref<ActiveQuestionBankPractice | null>(null)
+const startingDifficultyId = ref<DifficultyId | null>(null)
+const selectionDialogVisible = ref(false)
+const selectionDialogMessage = ref('')
+const quotaDialogVisible = ref(false)
+const quotaDialogMessage = ref('')
+const pendingDirectPractice = ref<PendingDirectPractice | null>(null)
 let examContentInitialized = false
 let examLoadSequence = 0
 let summaryLoadSequence = 0
@@ -167,6 +209,11 @@ const activeTopicTitle = computed<string>(() => `${selectedNodeLabel.value} · �
 
 // 题库统一读取顶部导航的全局考试类型，不再维护页面级考试选择。
 const activeExamType = computed<ActiveExamType>(() => auth.activeExamType)
+
+// 免费额度展示沿用服务端会员上下文，题库专项与练习本的已交卷题量共用同一统计结果。
+const questionBankQuota = computed(
+  () => auth.memberContext?.quotas?.[activeExamType.value]?.questionBank || null,
+)
 
 // 深层考纲节点查找同时返回祖先 code，便于学习路径入口展开对应树路径。
 function findTreeNode(
@@ -343,30 +390,84 @@ function handleContinuePractice(): void {
   })
 }
 
-// 难度卡片进入在线练习页，题目数据由 code 和 difficulty 延迟加载。
-const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
+// 答题页只接收范围条件，正式题量和冻结题目由服务端选题凭证决定。
+function navigateToPractice(difficulty: DifficultyId): void {
+  void router.push({
+    path: '/practice',
+    query: {
+      code: selectedNodeCode.value || '',
+      difficulty,
+      examType: activeExamType.value,
+    },
+  })
+}
+
+// 难度卡片先确认知识点和默认五题计划，匹配不足时展示实际可生成题量。
+function handleStartPractice(diff: DifficultyOption): void {
   if (activePractice.value) {
     ElMessage.info('请先继续并完成当前练习')
     return
   }
-  const access = await checkMemberAccess({
-    action: 'question-bank',
-    examType: activeExamType.value,
-    questionCount: diff.count,
-  })
-  if (!access.allowed) {
-    const remainingText = access.remaining === null ? '0' : String(access.remaining)
-    ElMessage.warning(`当前试题库额度不足，剩余 ${remainingText} 题，请开通会员后继续`)
-    return
+
+  const plannedQuestionCount = Math.min(diff.count, DIRECT_PRACTICE_QUESTION_COUNT)
+  pendingDirectPractice.value = {
+    difficulty: diff.id,
+    questionCount: plannedQuestionCount,
   }
-  router.push({
-    path: '/practice',
-    query: {
-      code: selectedNodeCode.value || '',
-      difficulty: diff.id,
+  selectionDialogMessage.value = `您已选择${selectedNodeLabel.value}，${plannedQuestionCount}道题，开始练习？`
+  selectionDialogVisible.value = true
+}
+
+// 用户确认所选范围后再预检额度，部分不足时进入第二层缩量确认。
+async function handleConfirmSelectedPractice(): Promise<void> {
+  const pending = pendingDirectPractice.value
+  if (!pending) return
+  startingDifficultyId.value = pending.difficulty
+  try {
+    const access = await checkMemberAccess({
+      action: 'question-bank',
       examType: activeExamType.value,
-    },
-  })
+      questionCount: pending.questionCount,
+    })
+    if (access.allowed) {
+      pendingDirectPractice.value = null
+      navigateToPractice(pending.difficulty)
+      return
+    }
+
+    const remaining = Math.max(0, access.remaining ?? 0)
+    if (remaining === 0) {
+      pendingDirectPractice.value = null
+      ElMessage.warning('当前免费练习题量已用完，请开通会员后继续')
+      return
+    }
+
+    pendingDirectPractice.value = { difficulty: pending.difficulty, questionCount: remaining }
+    quotaDialogMessage.value = `当前免费练习题量不足，还可免费练习${remaining}道，是否开始`
+    quotaDialogVisible.value = true
+  } catch {
+    // 公共请求层已统一展示网络或服务端错误，此处只阻止按钮事件产生未处理异常。
+  } finally {
+    startingDifficultyId.value = null
+  }
+}
+
+// 取消首次确认时清理冻结的知识点和难度计划。
+function handleCancelSelectedPractice(): void {
+  pendingDirectPractice.value = null
+}
+
+// 确认后按服务端返回的剩余额度缩量进入练习，创建时仍由后端事务再次校验。
+function handleConfirmReducedPractice(): void {
+  const pending = pendingDirectPractice.value
+  pendingDirectPractice.value = null
+  if (!pending) return
+  navigateToPractice(pending.difficulty)
+}
+
+// 取消缩量练习时只清理本次待开始参数，不改变已有选择。
+function handleCancelReducedPractice(): void {
+  pendingDirectPractice.value = null
 }
 </script>
 
@@ -390,6 +491,19 @@ const handleStartPractice = async (diff: DifficultyOption): Promise<void> => {
   justify-content: space-between;
   gap: 24px;
   margin-bottom: 24px;
+}
+
+.qb-header__actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 16px;
+}
+
+.qb-usage-count {
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
 }
 
 .qb-notebook-entry {

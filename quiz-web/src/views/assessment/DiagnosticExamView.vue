@@ -14,6 +14,7 @@
       :total-count="questions.length"
       :answered-count="answeredCount"
       :section-title="activeModule.label"
+      :header-title="paperProgressTitle"
       :pause-on-visibility="true"
       @back="handleBack"
       @answering-paused="handleAnsweringPaused"
@@ -230,6 +231,13 @@ let pendingExpiredModuleCode = ''
 const activeModule = computed(() => session.value?.currentModule || null)
 const breakState = computed(() => session.value?.break || null)
 const currentQuestion = computed(() => questions.value[currentIndex.value])
+
+// 顶部时间轴使用整张诊断试卷名称，当前科目或 Paper 仍由正文分段导航展示。
+const paperProgressTitle = computed(() => {
+  const examType = session.value?.examType || 'TMUA'
+  const year = session.value?.paperYear
+  return year ? `${examType}真题-${year}年` : session.value?.paperTitle || `${examType}真题`
+})
 
 // 当前题目按考试记录和分段隔离保存，标签切换或同标签刷新后仍回到离开前查看的题目。
 function currentQuestionStorageKey(examRecordId: string, moduleCode: string): string {

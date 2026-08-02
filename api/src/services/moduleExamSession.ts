@@ -10,7 +10,7 @@ import {
 } from '../constants/domain.js'
 import { prisma } from './prisma.js'
 import { parseJsonField } from '../utils/jsonField.js'
-import { formatQuestionForAttempt } from '../routes/papers-shared.js'
+import { attemptQuestionSelect, formatQuestionForAttempt } from '../routes/papers-shared.js'
 
 export interface StoredExamModule {
   code: string
@@ -350,8 +350,25 @@ export async function getModuleExamSession(
   await reconcileExpiredModuleTimeline(examRecordId, userId)
   const record = await prisma.examRecord.findFirst({
     where: { id: examRecordId, userId },
-    include: {
-      paper: true,
+    select: {
+      id: true,
+      paperId: true,
+      examType: true,
+      totalQuestions: true,
+      status: true,
+      phase: true,
+      startedAt: true,
+      phaseStartedAt: true,
+      phaseExpiresAt: true,
+      currentModuleIndex: true,
+      structureSnapshot: true,
+      activeDurationSeconds: true,
+      paper: {
+        select: {
+          title: true,
+          year: true,
+        },
+      },
       answers: {
         select: {
           questionId: true,
@@ -376,9 +393,10 @@ export async function getModuleExamSession(
     ? currentModule?.questionIds || []
     : []
   const questionRows = activeQuestionIds.length
-    ? await prisma.question.findMany({
+      ? await prisma.question.findMany({
         where: { id: { in: activeQuestionIds } },
         orderBy: [{ moduleOrder: 'asc' }, { moduleQuestionNumber: 'asc' }, { number: 'asc' }],
+        select: attemptQuestionSelect,
       })
     : []
   const activeQuestionSet = new Set(activeQuestionIds)
@@ -427,6 +445,8 @@ export async function getModuleExamSession(
   return {
     examRecordId: record.id,
     paperId: record.paperId,
+    paperTitle: record.paper.title,
+    paperYear: record.paper.year,
     examType: record.examType,
     totalQuestions: record.totalQuestions,
     status: record.status,

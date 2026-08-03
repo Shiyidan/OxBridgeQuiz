@@ -35,7 +35,6 @@
         :mistake-total="mistakeTotal"
         :practice="practice"
         :report-signal="reportSignal"
-        :other-goal-summary="otherGoalSummary"
         @navigate="handleNavigation"
         @select-exam="handleExamSelection"
         @retry="reload"
@@ -108,7 +107,6 @@ const {
   mistakeTotal,
   practice,
   reportSignal,
-  otherGoalSummary,
   loading,
   error,
   reload,

@@ -2,7 +2,7 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from './prisma.js'
 import { config } from '../config.js'
-import { parseJsonArray } from '../utils/jsonField.js'
+import { parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
 import { logRuntimeError } from '../utils/runtimeLogger.js'
 import {
   DIAGNOSTIC_REPORT_GENERATION_MODE,
@@ -19,8 +19,8 @@ import {
   type LearnerProfileInput,
 } from './diagnosticReport.js'
 
-const REPORT_VERSION = 'diagnostic-report-v1'
-const ESAT_PROMPT_VERSION = 'esat-diagnostic-v1'
+const REPORT_VERSION = 'diagnostic-report-v4'
+const ESAT_PROMPT_VERSION = 'esat-diagnostic-v4'
 const GENERIC_PROMPT_VERSION = 'diagnostic-summary-v1'
 const POLL_INTERVAL_MS = 2_000
 const STALE_TASK_MS = 5 * 60_000
@@ -28,6 +28,12 @@ const MAX_AUTOMATIC_RETRIES = 1
 
 let workerRunning = false
 let workerTimer: NodeJS.Timeout | null = null
+
+interface StoredLearningAnalysis extends Record<string, unknown> {
+  exam_focus?: unknown
+  review_guidance?: unknown
+  common_error_causes?: unknown
+}
 
 type TaskStage = (typeof DIAGNOSTIC_REPORT_TASK_STAGE)[keyof typeof DIAGNOSTIC_REPORT_TASK_STAGE]
 
@@ -39,6 +45,35 @@ const STAGE_PROGRESS: Record<TaskStage, number> = {
   path_analyzing: 82,
   report_saving: 96,
   completed: 100,
+}
+
+// 题库内已有的受控学习分析只提取报告可安全引用的字段，完整解答不进入诊断模型输入。
+function learningAnalysisForReport(rawMeta: unknown): {
+  examFocus: string | null
+  reviewGuidance: string[]
+  commonErrorCauses: string[]
+} | undefined {
+  const meta = parseJsonObject(rawMeta)
+  const analysis = parseJsonObject<StoredLearningAnalysis>(meta.learning_analysis)
+  const examFocus = typeof analysis.exam_focus === 'string' ? analysis.exam_focus.trim() : ''
+  const reviewGuidance = typeof analysis.review_guidance === 'string'
+    ? analysis.review_guidance
+        .split(/\r?\n/)
+        .map((item) => item.replace(/^复习建议[:：]?\s*/, '').replace(/^\d+[.、]\s*/, '').trim())
+        .filter(Boolean)
+    : []
+  const commonErrorCauses = Array.isArray(analysis.common_error_causes)
+    ? analysis.common_error_causes
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : []
+  if (!examFocus && !reviewGuidance.length && !commonErrorCauses.length) return undefined
+  return {
+    examFocus: examFocus || null,
+    reviewGuidance: reviewGuidance.slice(0, 3),
+    commonErrorCauses: commonErrorCauses.slice(0, 3),
+  }
 }
 
 // 学习路径只读取当前考试类型的结构化备考资料，缺失项由报告策略显式降级。
@@ -84,7 +119,7 @@ function promptVersionForExam(examType: string): string {
 
 // 报告质量与生命周期分开记录，模型降级不会把一份可用报告误标为失败。
 function generationModeForReport(report: DiagnosticReportSummary): string {
-  const sources: Array<'deepseek' | 'fallback'> = []
+  const sources: Array<'deepseek' | 'mixed' | 'fallback'> = []
   for (const module of report.assessment.modules) {
     if (module.diagnosticAnalysis?.source) sources.push(module.diagnosticAnalysis.source)
     if (module.positioning?.analysisSource) sources.push(module.positioning.analysisSource)
@@ -159,6 +194,7 @@ async function buildReportForTask(taskId: string, examRecordId: string): Promise
         topicCode: true,
         knowledgePoints: true,
         difficulty: true,
+        meta: true,
       },
     }),
     prisma.syllabusNode.findMany({
@@ -186,6 +222,7 @@ async function buildReportForTask(taskId: string, examRecordId: string): Promise
     isAnswered: Boolean(answerMap.get(question.id)?.selectedAnswer?.trim()),
     answerState: answerMap.get(question.id)?.answerState as 'unseen' | 'skipped' | 'answered' | undefined,
     durationSeconds: answerMap.get(question.id)?.durationSeconds ?? null,
+    learningAnalysis: learningAnalysisForReport(question.meta),
   }))
 
   const report = await buildDiagnosticReportSummary({
@@ -397,6 +434,37 @@ export async function retryDiagnosticReportTask(examRecordId: string, userId: st
       status: DIAGNOSTIC_REPORT_TASK_STATUS.PENDING,
       stage: DIAGNOSTIC_REPORT_TASK_STAGE.ANSWERS_SAVED,
       progress: 10,
+      retryCount: { increment: 1 },
+      errorCode: null,
+      errorMessage: null,
+      lockedAt: null,
+      heartbeatAt: null,
+      startedAt: null,
+      completedAt: null,
+    },
+  })
+  scheduleDiagnosticReportWorker()
+}
+
+// 已完成报告可按当前版本重新生成；旧报告在新快照成功保存前继续可读，避免升级失败造成数据丢失。
+export async function regenerateDiagnosticReportTask(examRecordId: string, userId: string): Promise<void> {
+  await ensureDiagnosticReportTask(examRecordId, userId)
+  const task = await prisma.diagnosticReportTask.findUnique({ where: { examRecordId } })
+  if (!task) throw new Error('Diagnostic report task not found')
+  if (
+    task.status === DIAGNOSTIC_REPORT_TASK_STATUS.PENDING
+    || task.status === DIAGNOSTIC_REPORT_TASK_STATUS.ANALYZING
+  ) return
+
+  await prisma.diagnosticReportTask.update({
+    where: { id: task.id },
+    data: {
+      status: DIAGNOSTIC_REPORT_TASK_STATUS.PENDING,
+      stage: DIAGNOSTIC_REPORT_TASK_STAGE.ANSWERS_SAVED,
+      progress: 10,
+      reportVersion: REPORT_VERSION,
+      promptVersion: task.reportKind === 'esat' ? ESAT_PROMPT_VERSION : GENERIC_PROMPT_VERSION,
+      modelName: config.deepseekModel,
       retryCount: { increment: 1 },
       errorCode: null,
       errorMessage: null,

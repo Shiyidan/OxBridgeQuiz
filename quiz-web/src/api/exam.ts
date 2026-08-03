@@ -138,6 +138,7 @@ export interface DiagnosticReportStatus {
 export interface DiagnosticReportMeta {
   reportExamRecordId: string
   generationMode: 'full_ai' | 'mixed_fallback' | 'rules_only'
+  reportVersion?: string
   completedAt: string
 }
 
@@ -223,7 +224,7 @@ export interface DiagnosticAssessmentModule {
     strength: string
     keyIssue: string
     focusSuggestion: string
-    source: 'deepseek' | 'fallback'
+    source: 'deepseek' | 'mixed' | 'fallback'
   }
 }
 
@@ -327,6 +328,10 @@ export interface DiagnosticAiImprovementPlan {
     priorityReason: string
     suggestedHours: string
     prerequisiteCheck: string
+    examFocus?: string[]
+    questionNumbers?: number[]
+    reviewGuidance?: string[]
+    possibleErrorPatterns?: string[]
     analysisSource: 'deepseek' | 'fallback'
   }>
   analysisStatus: 'generated' | 'fallback' | 'not-needed'
@@ -341,16 +346,20 @@ export interface DiagnosticLearningPath {
     examDate: string | null
     weeklyHours: number | null
     missingFields: string[]
+    declaredSubjects?: string[]
+    subjectMismatch?: boolean
   }
   summary: {
     planningWeeks: number
     weeklyHours: number
     totalHours: number
-    mode: 'Standard' | 'Intensive' | 'Extended'
+    mode: 'Starter' | 'Standard' | 'Intensive' | 'Extended'
     modeReason: string
     dataSourceNote: string
-    analysisSource: 'deepseek' | 'fallback'
+    analysisSource: 'deepseek' | 'mixed' | 'fallback'
+    planningScope?: 'starter' | 'full'
   }
+  starterPlan?: DiagnosticStarterPlan | null
   phases: Array<{
     id: 'foundation' | 'improvement' | 'sprint'
     title: string
@@ -366,6 +375,69 @@ export interface DiagnosticLearningPath {
     }>
     activities: string[]
   }>
+}
+
+export type DiagnosticStarterPlanDayRole =
+  | 'evidence_audit'
+  | 'method_rebuild'
+  | 'retrieval_practice'
+  | 'secondary_transfer'
+  | 'third_or_deepen'
+  | 'interleaved_timed'
+  | 'weekly_retest'
+
+export interface DiagnosticStarterPlanDay {
+  day: 1 | 2 | 3 | 4 | 5 | 6 | 7
+  role: DiagnosticStarterPlanDayRole
+  title: string
+  focus: Array<{
+    gapKey: string
+    moduleLabel: string
+    topicCode: string
+    topicLabel: string
+    difficultyLabel: string
+  }>
+  durationMinutes: number
+  diagnosticRationale: string
+  steps: Array<{ action: string; output: string }>
+  deliverable: string
+  successCriteria: string
+  ifNotMet: string
+  evidenceRefs: string[]
+}
+
+export interface DiagnosticStarterPlan {
+  version: 'starter-plan-v2'
+  weeklyBudgetMinutes: number
+  totalPlannedMinutes: number
+  budgetSource: 'profile' | 'default'
+  analysisSource: 'deepseek' | 'mixed' | 'fallback'
+  evidenceBoundary: string
+  days: DiagnosticStarterPlanDay[]
+}
+
+export interface DiagnosticNextAction {
+  actionType: 'targeted_practice' | 'calibration_test' | 'review_wrong'
+  title: string
+  moduleId: string
+  moduleLabel: string
+  topicCode: string
+  topicLabel: string
+  difficulty: 'low' | 'medium' | 'high'
+  difficultyLabel: string
+  evidence: {
+    correct: number
+    total: number
+    accuracy: number | null
+    confidence: 'high' | 'medium' | 'low'
+    questionNumbers: number[]
+  }
+  whyNow: string
+  suggestedMinutes: number
+  suggestedQuestionCount: number
+  successCriteria: string
+  reviewGuidance: string[]
+  possibleErrorPatterns: string[]
 }
 
 export interface DiagnosticReportSummary {
@@ -393,6 +465,7 @@ export interface DiagnosticReportSummary {
   knowledgeMastery?: DiagnosticKnowledgeMastery
   aiImprovementPlan?: DiagnosticAiImprovementPlan
   learningPath?: DiagnosticLearningPath
+  nextAction?: DiagnosticNextAction | null
 }
 
 export interface WrongAnswer {
@@ -580,6 +653,14 @@ export function getDiagnosticReportStatus(examId: string) {
 export function retryDiagnosticReport(examId: string) {
   return callApi<Pick<DiagnosticReportStatus, 'status' | 'stage' | 'progress'>>({
     url: `/exams/${examId}/diagnostic-report/retry`,
+    method: 'POST',
+  })
+}
+
+/** 按当前报告版本重新分析已提交答卷，成功前保留旧报告快照。 */
+export function regenerateDiagnosticReport(examId: string) {
+  return callApi<Pick<DiagnosticReportStatus, 'status' | 'stage' | 'progress'>>({
+    url: `/exams/${examId}/diagnostic-report/regenerate`,
     method: 'POST',
   })
 }

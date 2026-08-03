@@ -14,6 +14,7 @@ import { logRuntimeError } from '../utils/runtimeLogger.js'
 import { setOperationAuditContext } from '../middleware/operationAudit.js'
 import {
   ensureDiagnosticReportTask,
+  regenerateDiagnosticReportTask,
   retryDiagnosticReportTask,
   scheduleDiagnosticReportWorker,
 } from '../services/diagnosticReportTask.js'
@@ -327,6 +328,22 @@ examResultRouter.post('/:id/diagnostic-report/retry', requireAuth, async (req, r
   }
 })
 
+// 升级已完成诊断报告
+examResultRouter.post('/:id/diagnostic-report/regenerate', requireAuth, async (req, res) => {
+  try {
+    await regenerateDiagnosticReportTask(req.params.id, req.user!.userId)
+    const task = await prisma.diagnosticReportTask.findUnique({ where: { examRecordId: req.params.id } })
+    res.json(success({
+      status: task?.status || DIAGNOSTIC_REPORT_TASK_STATUS.PENDING,
+      stage: task?.stage || 'answers_saved',
+      progress: task?.progress ?? 10,
+    }))
+  } catch (error: any) {
+    logRuntimeError('diagnostic_report.regenerate_failed', error)
+    res.status(500).json(fail(error.message || '升级诊断报告失败'))
+  }
+})
+
 // 按考试记录读取该次测试独立持久化的诊断报告
 examResultRouter.get('/:id/diagnostic-report/summary', requireAuth, async (req, res) => {
   try {
@@ -380,6 +397,7 @@ examResultRouter.get('/:id/diagnostic-report/summary', requireAuth, async (req, 
       meta: {
         reportExamRecordId: report.examRecordId,
         generationMode: report.generationMode,
+        reportVersion: report.reportVersion,
         completedAt: report.completedAt,
       },
     }))

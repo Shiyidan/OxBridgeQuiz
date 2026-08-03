@@ -92,36 +92,21 @@
           </div>
         </div>
 
-        <div class="calculation-panel">
-          <div class="calculation-panel__heading">
-            <strong>等效分换算过程</strong>
-            <span>根据本模块正确率计算，不做题目难度加权</span>
-          </div>
-          <div class="calculation-formula" aria-label="等效评估分计算过程">
-            <span>
-              <small>原始作答</small>
-              <strong>{{ module.correct }} ÷ {{ module.total }}</strong>
-            </span>
-            <i aria-hidden="true">=</i>
-            <span>
-              <small>原始正确率</small>
-              <strong>{{ formatRawAccuracy(module.correct, module.total) }}</strong>
-            </span>
-            <i aria-hidden="true">× 27 =</i>
-            <span class="calculation-formula__result">
-              <small>/27 等效原始分</small>
-              <strong>{{ formatEquivalentRaw(module.equivalentRawScore) }}</strong>
-            </span>
-          </div>
-        </div>
-
         <p v-if="module.notice" class="normalization-hint">
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <circle cx="10" cy="10" r="8"></circle>
             <path d="M10 9v5"></path>
             <circle cx="10" cy="6" r=".7"></circle>
           </svg>
-          <span>{{ module.notice }}</span>
+          <span>
+            {{ module.notice }}
+            <span class="normalization-calculation">
+              换算过程：{{ module.correct }} ÷ {{ module.total }} =
+              {{ formatRawAccuracy(module.correct, module.total) }}，
+              {{ formatRawAccuracy(module.correct, module.total) }} × 27 =
+              {{ formatEquivalentRaw(module.equivalentRawScore) }}。
+            </span>
+          </span>
         </p>
       </div>
 
@@ -177,9 +162,9 @@
             <strong>{{ module.label }} 模块诊断分析</strong>
             <span
               class="analysis-source"
-              :class="{ 'analysis-source--ai': module.diagnosticAnalysis.source === 'deepseek' }"
+              :class="{ 'analysis-source--ai': module.diagnosticAnalysis.source !== 'fallback' }"
             >
-              {{ module.diagnosticAnalysis.source === 'deepseek' ? 'AI 分析' : '规则分析' }}
+              {{ diagnosticAnalysisSourceLabel(module.diagnosticAnalysis.source) }}
             </span>
           </div>
           <small>依据当前模块的分数、正确率与难度表现生成</small>
@@ -228,8 +213,15 @@ const emit = defineEmits<{
 const referencePercentile = computed(() => estimateEsatPercentile(props.module.id, props.module.score))
 const referencePercentileLabel = computed(() => {
   if (referencePercentile.value === null) return '暂无参考'
-  return `Top ${Math.max(1, 100 - referencePercentile.value)}%`
+  return `约第 ${referencePercentile.value} 百分位`
 })
+
+// 混合来源表示部分模型字段被规则补齐，页面需如实区分全量 AI 与纯规则结果。
+function diagnosticAnalysisSourceLabel(source: 'deepseek' | 'mixed' | 'fallback'): string {
+  if (source === 'deepseek') return 'AI 分析'
+  if (source === 'mixed') return 'AI + 规则'
+  return '规则分析'
+}
 
 // 模块卡片只允许提交实际存在的模块 ID，避免页面科目状态越界。
 function selectModule(moduleId: string): void {
@@ -521,83 +513,19 @@ function positioningToneClass(value: number | null): string {
   font-weight: var(--weight-semi);
 }
 
-.calculation-panel {
-  margin-top: 14px;
-  padding: 14px 16px 16px;
-  border: 1px solid var(--color-warning);
-  border-radius: var(--radius-md);
-  background: var(--color-warning-bg);
-}
-
-.calculation-panel__heading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.calculation-panel__heading strong {
-  color: var(--color-report-orange);
-  font-size: var(--text-sm);
-}
-
-.calculation-panel__heading span {
-  color: var(--color-ink-muted);
-  font-size: var(--text-xs);
-}
-
-.calculation-formula {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  margin-top: 10px;
-  padding: 10px 4px 4px;
-  overflow-x: auto;
-  white-space: nowrap;
-}
-
-.calculation-formula > span {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.calculation-formula small {
-  color: var(--color-ink-muted);
-  font-size: var(--text-xs);
-}
-
-.calculation-formula strong {
-  color: var(--color-ink);
-  font-size: var(--text-xl);
-}
-
-.calculation-formula > i {
-  color: var(--color-report-orange);
-  font-size: var(--text-lg);
-  font-weight: var(--weight-semi);
-  font-style: normal;
-}
-
-.calculation-formula__result {
-  padding: 5px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--color-report-purple-soft);
-}
-
-.calculation-formula__result strong {
-  color: var(--color-report-purple);
-}
-
 .normalization-hint {
   display: flex;
   gap: 6px;
-  align-items: center;
-  margin: 7px 4px 0;
+  align-items: flex-start;
+  margin: 10px 4px 0;
   color: var(--color-ink-muted);
   font-size: var(--text-xs);
   line-height: var(--leading-relaxed);
+}
+
+.normalization-calculation {
+  margin-left: 4px;
+  color: var(--color-ink-soft);
 }
 
 .normalization-hint svg {
@@ -783,7 +711,7 @@ function positioningToneClass(value: number | null): string {
 .diagnostic-summary {
   margin: 14px 0 0;
   padding: 12px 14px;
-  border-left: 3px solid var(--color-report-blue);
+  border: 1px solid var(--color-line-soft);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-ink-soft);
@@ -854,12 +782,6 @@ function positioningToneClass(value: number | null): string {
     min-width: 0;
     flex: 1;
     padding: 0 8px;
-  }
-
-  .calculation-panel__heading {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 3px;
   }
 
   .module-identity {

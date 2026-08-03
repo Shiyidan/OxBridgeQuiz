@@ -236,7 +236,6 @@
                 aria-label="查看试题解析"
               >
                 <span>查看解析</span>
-                <b aria-hidden="true">›</b>
               </router-link>
               <button
                 v-else
@@ -246,7 +245,6 @@
                 aria-label="缺少答题记录，暂时无法查看解析"
               >
                 <span>查看解析</span>
-                <b aria-hidden="true">›</b>
               </button>
             </article>
           </div>
@@ -998,11 +996,9 @@ function dateOnly(value?: string | null): string | null {
 }
 
 .wrong-item__action {
-  display: grid;
-  grid-template-columns: auto 18px;
-  gap: 16px;
+  display: inline-grid;
   align-items: center;
-  min-width: 126px;
+  min-width: 0;
   color: var(--color-ink);
   border: 0;
   background: transparent;
@@ -1021,12 +1017,6 @@ function dateOnly(value?: string | null): string | null {
   border: 1px solid var(--color-line);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
-}
-
-.wrong-item__action > b {
-  font-size: 24px;
-  font-weight: var(--weight-regular);
-  line-height: 1;
 }
 
 .wrong-item__action:hover > span,

@@ -10,7 +10,6 @@ import type {
   HomeDashboardReportSignal,
   HomeDashboardState,
   HomeDiagnosticProgress,
-  HomeOtherGoalSummary,
   HomeTrendScore,
 } from './useHomeDashboard'
 
@@ -27,7 +26,6 @@ interface StudentHomeProps {
   trendScores?: HomeTrendScore[]
   mistakeTotal?: number | null
   practice?: ActiveQuestionBankPractice | null
-  otherGoalSummary?: HomeOtherGoalSummary | null
   reportSignal?: HomeDashboardReportSignal | null
 }
 
@@ -69,7 +67,6 @@ const props = withDefaults(defineProps<StudentHomeProps>(), {
   trendScores: () => [],
   mistakeTotal: null,
   practice: null,
-  otherGoalSummary: null,
   reportSignal: null,
 })
 
@@ -236,7 +233,7 @@ const heroContent = computed<HeroContent>(() => {
   }
 })
 
-// 三个固定入口展示真实进度；数量接口缺失或为零时使用中性提示而非“0 数据”面板。
+// 三个固定入口展示真实进度；已确认的零值明确展示，接口缺失时才使用中性占位。
 const homeEntries = computed<HomeEntry[]>(() => {
   if (props.state === 'no-goal') {
     return [
@@ -328,7 +325,7 @@ const homeEntries = computed<HomeEntry[]>(() => {
           title: '错题本',
           description: props.mistakeTotal === null ? '错题数量暂未载入' : '做题后会自动收录错题',
           actionLabel: '进入错题本',
-          mark: '—',
+          mark: props.mistakeTotal === null ? '…' : '0',
           tone: 'default',
           path: mistakeNotebookPath.value,
         }
@@ -384,9 +381,9 @@ function handleScopeAction(): void {
   } else emit('manage-goals')
 }
 
-// 双备考提示只切换到另一项真实待办，由父级刷新对应考试上下文。
-function handleOtherGoalSelection(): void {
-  if (props.otherGoalSummary) emit('select-exam', props.otherGoalSummary.examType)
+// 进行中诊断的目标调整统一进入个人中心，避免首页直接切换考试打断当前进度语义。
+function handleGoalSettingsNavigation(): void {
+  emit('navigate', '/profile')
 }
 
 // 登录态首屏向下入口定位到公共首页首个内容模块，并遵循系统的减弱动态效果设置。
@@ -471,11 +468,6 @@ function scrollToSharedContent(): void {
                 </button>
               </div>
 
-              <div v-if="otherGoalSummary" class="home-other-goal" role="status">
-                <button type="button" @click="handleOtherGoalSelection">
-                  切换到 {{ otherGoalSummary.examType }} →
-                </button>
-              </div>
             </div>
 
             <aside class="home-context-panel" aria-label="当前备考状态">
@@ -509,6 +501,11 @@ function scrollToSharedContent(): void {
                   {{ heroContent.scopeAction }}
                 </button>
               </div>
+              <div v-if="state === 'progress'" class="home-context-goal-link">
+                <button type="button" @click="handleGoalSettingsNavigation">
+                  调整备考目标 <span aria-hidden="true">→</span>
+                </button>
+              </div>
             </aside>
           </div>
 
@@ -534,7 +531,7 @@ function scrollToSharedContent(): void {
           </div>
 
           <section
-            v-if="state !== 'progress'"
+            v-if="state !== 'progress' && state !== 'new'"
             class="home-state-detail"
             :data-state="state"
             aria-labelledby="home-detail-title"
@@ -668,48 +665,6 @@ function scrollToSharedContent(): void {
               </div>
             </template>
 
-            <template v-else>
-              <div class="home-detail-title-row">
-                <div>
-                  <span class="home-detail-eyebrow">FIRST DIAGNOSTIC</span>
-                  <h2 id="home-detail-title">第一次诊断怎么开始</h2>
-                </div>
-                <p>完成后，这里会换成你的真实记录。</p>
-              </div>
-              <div class="home-onboarding-steps">
-                <article>
-                  <span>01</span>
-                  <strong>{{ currentExam === 'TMUA' ? '确认当前考试' : '确认三门科目' }}</strong>
-                  <p>
-                    {{
-                      currentExam === 'TMUA'
-                        ? '诊断保留 Paper 1 与 Paper 2 的完整结构。'
-                        : subjectSummary
-                    }}
-                  </p>
-                </article>
-                <article>
-                  <span>02</span>
-                  <strong>完成测试</strong>
-                  <p>答案会自动保存；中途退出后可从服务端记录继续。</p>
-                </article>
-                <article>
-                  <span>03</span>
-                  <strong>查看结果</strong>
-                  <p>
-                    {{
-                      currentExam === 'TMUA'
-                        ? '两卷共同换算综合分，并分别保留答题情况。'
-                        : '各科独立评分，并查看知识点与用时。'
-                    }}
-                  </p>
-                </article>
-              </div>
-              <div class="home-detail-note">
-                <strong>完成后显示真实记录</strong>
-                <span>首页不会用“测试 0 次”“错题 0 道”填充尚未发生的学习数据。</span>
-              </div>
-            </template>
           </section>
         </div>
       </section>

@@ -1,4 +1,4 @@
-<!-- ESAT 三阶段学习路径模块：结合学生目标资料、能力缺口和可用时间生成滚动计划。 -->
+<!-- ESAT 学习路径模块：资料完整时展示阶段路线，资料不足时降级为 7 天启动计划。 -->
 <template>
   <section class="path-section">
     <div class="section-title">
@@ -11,14 +11,15 @@
         </svg>
       </span>
       <div>
-        <h2>AI 定制三阶段学习路径</h2>
-        <p>依据备考资料、本次能力矩阵与高 ROI 缺口生成</p>
+        <h2>{{ pathTitle }}</h2>
+        <p>{{ pathSubtitle }}</p>
       </div>
+      <small class="path-source">{{ pathSourceLabel }}</small>
     </div>
 
     <article class="path-card">
       <header class="path-overview">
-        <div class="phase-track" aria-hidden="true">
+        <div v-if="!hasStructuredStarterPlan" class="phase-track" aria-hidden="true">
           <i
             v-for="phase in path.phases"
             :key="phase.id"
@@ -26,7 +27,12 @@
             :style="{ width: phasePercent(phase.durationWeeks) }"
           ></i>
         </div>
-        <div class="phase-labels">
+        <div
+          v-if="!hasStructuredStarterPlan"
+          class="phase-labels"
+          :class="{ 'phase-labels--single': path.phases.length === 1 }"
+          :style="{ gridTemplateColumns: `repeat(${Math.max(path.phases.length, 1)}, minmax(0, 1fr))` }"
+        >
           <span v-for="phase in path.phases" :key="phase.id">
             {{ phase.title }}（{{ phase.durationWeeks }}周）
           </span>
@@ -35,12 +41,12 @@
           规划周期：<strong>{{ path.summary.planningWeeks }} 周</strong>
           · 每周投入：<strong>{{ path.summary.weeklyHours }} 小时</strong>
           · 总可投入时长：<strong>{{ path.summary.totalHours }} 小时</strong>
-          · 当前模式：<strong>{{ path.summary.mode }}</strong>
+          · 当前模式：<strong>{{ modeLabel }}</strong>
         </p>
         <p class="mode-reason"><b>模式判定依据</b>{{ path.summary.modeReason }}</p>
 
         <div class="profile-source">
-          <span><b>备考科目</b>{{ path.profile.subjects.join('、') || '未设置' }}</span>
+          <span><b>本次规划科目</b>{{ path.profile.subjects.join('、') || '未设置' }}</span>
           <span><b>目标院校</b>{{ path.profile.targetUniversities.join('、') || '未设置' }}</span>
           <span><b>目标专业</b>{{ path.profile.targetMajor || '未设置' }}</span>
           <span><b>目标分数</b>{{ path.profile.targetScore ? `${path.profile.targetScore.toFixed(1)} / 9.0` : '未设置' }}</span>
@@ -54,38 +60,20 @@
           <router-link v-if="path.profile.missingFields.length" to="/profile">前往个人中心补充</router-link>
         </div>
 
-        <section v-if="timingModules.length" class="path-timing-analysis">
-          <div class="path-timing-analysis__heading">
-            <div>
-              <h3>模块时间效率</h3>
-              <p>已作为限时训练与整卷节奏安排的分析依据</p>
-            </div>
-            <small>1.0× 为模块目标题时</small>
-          </div>
-          <div class="path-timing-analysis__grid">
-            <article v-for="module in timingModules" :key="module.id">
-              <div>
-                <strong>{{ module.label }}</strong>
-                <em :class="timingEfficiencyToneClass(module.timeEfficiencyIndex ?? null)">
-                  {{ formatEfficiencyIndex(module.timeEfficiencyIndex ?? null) }}
-                </em>
-              </div>
-              <p>
-                已记录 {{ module.timedQuestionCount ?? 0 }}/{{ module.totalQuestions ?? 0 }} 题
-                · 正确率 {{ formatAccuracy(module.accuracy ?? null) }}
-              </p>
-              <small>{{ timingModuleSuggestion(module) }}</small>
-            </article>
-          </div>
-        </section>
       </header>
 
-      <section
-        v-for="phase in path.phases"
-        :key="phase.id"
-        class="phase-section"
-        :class="`phase-section--${phase.id}`"
-      >
+      <EsatStarterPlan
+        v-if="hasStructuredStarterPlan && path.starterPlan"
+        :plan="path.starterPlan"
+      />
+
+      <template v-if="!hasStructuredStarterPlan">
+        <section
+          v-for="phase in path.phases"
+          :key="phase.id"
+          class="phase-section"
+          :class="`phase-section--${phase.id}`"
+        >
         <h3>{{ phase.title }}</h3>
         <small class="week-label">{{ phase.weekLabel }}</small>
 
@@ -121,7 +109,7 @@
           </div>
         </div>
 
-        <div v-if="phase.activities.length" class="task-list">
+        <div v-if="phase.activities.length && !isStarterPlan" class="task-list">
           <div
             v-for="(activity, activityIndex) in phase.activities"
             :key="activity"
@@ -144,26 +132,52 @@
           </div>
         </div>
 
-      </section>
+        </section>
+      </template>
     </article>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { DiagnosticLearningPath, DiagnosticReportOverview } from '@/api/exam'
+import type { DiagnosticLearningPath } from '@/api/exam'
+import EsatStarterPlan from './EsatStarterPlan.vue'
 
 const props = defineProps<{
   path: DiagnosticLearningPath
-  timing?: DiagnosticReportOverview['timing']
 }>()
 
-type TimingModule = DiagnosticReportOverview['timing']['modules'][number]
+// 缺少考试日期或每周时长时只提供可立即执行的一周启动方案，避免制造虚假的长期精确感。
+const isStarterPlan = computed(
+  () => props.path.summary.planningScope === 'starter' || props.path.summary.mode === 'Starter',
+)
 
-// 只有新版报告且存在模块耗时指数时，才将其作为学习路径的节奏训练依据。
-const timingModules = computed(() => {
-  if (props.timing?.analysisLevel === undefined || props.timing.analysisLevel === 'unavailable') return []
-  return props.timing.modules.filter((module) => module.timeEfficiencyIndex !== null && module.timeEfficiencyIndex !== undefined)
+// 新版启动计划使用独立七日结构，避免再被通用阶段任务压缩成重复的“本周”卡片。
+const hasStructuredStarterPlan = computed(
+  () => isStarterPlan.value && props.path.starterPlan?.days.length === 7,
+)
+
+// 路径标题明确表达方案范围，不再把所有规则回退结果统一称为 AI 定制。
+const pathTitle = computed(() => (isStarterPlan.value ? '7 天启动计划' : '阶段备考路线'))
+const pathSubtitle = computed(() =>
+  isStarterPlan.value
+    ? '资料尚未完整时，先执行一周，再补充考试日期与每周时长生成完整路线'
+    : '依据备考资料、本次能力矩阵与优先补弱项组织',
+)
+const pathSourceLabel = computed(() =>
+  props.path.summary.analysisSource === 'deepseek'
+    ? 'AI 辅助组织'
+    : props.path.summary.analysisSource === 'mixed'
+      ? 'AI + 规则校验'
+      : '规则计划',
+)
+
+// 英文模式名保留在接口层，页面使用更容易理解的中文标签。
+const modeLabel = computed(() => {
+  if (props.path.summary.mode === 'Starter') return '启动'
+  if (props.path.summary.mode === 'Intensive') return '强化'
+  if (props.path.summary.mode === 'Extended') return '长期'
+  return '标准'
 })
 
 // 阶段色条严格按规划周数占比绘制，保证总长度始终为百分之百。
@@ -183,37 +197,6 @@ function activityContent(activity: string): string {
   return activity.replace(/^([^：:]{1,20})[：:]\s*/, '').trim()
 }
 
-// 时间效率指数以 1.0× 为目标，供学生判断当前模块更需要限时训练还是速度保持。
-function formatEfficiencyIndex(value: number | null): string {
-  return value === null ? '—' : `${value.toFixed(1)}×`
-}
-
-// 时间效率颜色只表达相对速度，不直接评价知识掌握水平。
-function timingEfficiencyToneClass(value: number | null): string {
-  if (value === null) return 'path-timing-analysis__value--empty'
-  if (value > 1.25) return 'path-timing-analysis__value--slow'
-  if (value < 0.75) return 'path-timing-analysis__value--fast'
-  return 'path-timing-analysis__value--target'
-}
-
-// 时间效率建议同时参考速度和模块正确率，避免只因做得快就被误判为优势。
-function timingModuleSuggestion(module: TimingModule): string {
-  const efficiency = module.timeEfficiencyIndex ?? null
-  const accuracy = module.accuracy ?? null
-  if (efficiency !== null && efficiency > 1.25 && accuracy !== null && accuracy < 0.7) {
-    return '优先安排限时专项与错题复盘。'
-  }
-  if (efficiency !== null && efficiency > 1.25) return '安排限时模块训练，提升解题熟练度。'
-  if (efficiency !== null && efficiency < 0.75 && accuracy !== null && accuracy < 0.7) {
-    return '速度较快但正确率待提升，复盘审题与计算检查。'
-  }
-  return '当前节奏可用，后续模考持续观察。'
-}
-
-// 模块正确率统一保留一位小数，和诊断报告的其他作答统计保持一致。
-function formatAccuracy(value: number | null): string {
-  return value === null ? '-' : `${(value * 100).toFixed(1)}%`
-}
 </script>
 
 <style scoped lang="scss">
@@ -262,6 +245,16 @@ function formatAccuracy(value: number | null): string {
   margin-top: 3px;
   color: var(--color-ink-muted);
   font-size: var(--text-sm);
+}
+
+.path-source {
+  margin-left: auto;
+  padding: 6px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
 }
 
 .path-card {
@@ -315,6 +308,10 @@ function formatAccuracy(value: number | null): string {
 
 .phase-labels span:last-child {
   text-align: right;
+}
+
+.phase-labels--single span:last-child {
+  text-align: left;
 }
 
 .time-summary {
@@ -389,113 +386,10 @@ function formatAccuracy(value: number | null): string {
   font-weight: var(--weight-semi);
 }
 
-.path-timing-analysis {
-  margin-top: 16px;
-  padding: 15px 16px;
-  border: 1px solid var(--color-line-soft);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-alt);
-}
-
-.path-timing-analysis__heading {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.path-timing-analysis__heading h3,
-.path-timing-analysis__heading p {
-  margin: 0;
-}
-
-.path-timing-analysis__heading h3 {
-  font-size: var(--text-sm);
-}
-
-.path-timing-analysis__heading p,
-.path-timing-analysis__heading > small {
-  color: var(--color-ink-muted);
-  font-size: var(--text-xs);
-}
-
-.path-timing-analysis__heading p {
-  margin-top: 3px;
-}
-
-.path-timing-analysis__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 9px;
-  margin-top: 11px;
-}
-
-.path-timing-analysis__grid article {
-  padding: 11px 12px;
-  border: 1px solid var(--color-line-soft);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-}
-
-.path-timing-analysis__grid article > div {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.path-timing-analysis__grid article strong {
-  font-size: var(--text-sm);
-}
-
-.path-timing-analysis__grid article em {
-  font-size: var(--text-sm);
-  font-style: normal;
-  font-weight: var(--weight-semi);
-}
-
-.path-timing-analysis__grid article p,
-.path-timing-analysis__grid article > small {
-  display: block;
-  margin: 6px 0 0;
-  color: var(--color-ink-muted);
-  font-size: var(--text-xs);
-  line-height: var(--leading-normal);
-}
-
-.path-timing-analysis__grid article > small {
-  color: var(--color-ink-soft);
-}
-
-.path-timing-analysis__value--fast {
-  color: var(--color-report-green);
-}
-
-.path-timing-analysis__value--target {
-  color: var(--color-report-blue);
-}
-
-.path-timing-analysis__value--slow {
-  color: var(--color-report-red);
-}
-
-.path-timing-analysis__value--empty {
-  color: var(--color-report-slate);
-}
-
 .phase-section {
   position: relative;
   padding: 26px 28px 28px;
   border-top: 1px solid var(--color-line-soft);
-  border-left: 4px solid var(--color-report-purple);
-}
-
-.phase-section--improvement {
-  border-left-color: var(--color-report-blue);
-}
-
-.phase-section--sprint {
-  border-left-color: var(--color-report-orange);
 }
 
 .phase-section h3 {
@@ -635,6 +529,37 @@ function formatAccuracy(value: number | null): string {
   background: var(--color-info-bg);
   color: var(--color-report-blue);
   font-weight: var(--weight-semi);
+}
+
+@media (max-width: 760px) {
+  .section-title {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .path-source {
+    width: 100%;
+    margin-left: 46px;
+  }
+
+  .path-overview,
+  .phase-section {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .profile-source {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .task-row {
+    grid-template-columns: 1fr;
+  }
+
+  .task-row > strong {
+    margin-left: 0;
+    padding-top: 0;
+  }
 }
 
 </style>

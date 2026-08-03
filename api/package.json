@@ -13,6 +13,7 @@
     "backfill:questions": "tsx scripts/backfill-paper-questions.ts",
     "backfill:wrong-questions": "tsx scripts/backfill-wrong-question-summaries.ts",
     "clear:dev-users": "tsx scripts/clear-dev-user-data.ts",
+    "clear:local-user-content": "tsx scripts/clear-local-user-and-content-data.ts",
     "reset:test-business-data": "tsx scripts/reset-test-business-data.ts",
     "smoke:auth": "tsx scripts/smoke-auth.ts",
     "test:behavior-analytics": "tsx scripts/test-behavior-analytics.ts",

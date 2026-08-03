@@ -30,6 +30,11 @@ export interface ReportQuestionInput {
   isAnswered?: boolean
   answerState?: 'unseen' | 'skipped' | 'answered'
   durationSeconds?: number | null
+  learningAnalysis?: {
+    examFocus: string | null
+    reviewGuidance: string[]
+    commonErrorCauses: string[]
+  }
 }
 
 export interface PaperInput {
@@ -142,24 +147,95 @@ export interface ReportAiImprovementPlan {
     priorityReason: string
     suggestedHours: string
     prerequisiteCheck: string
+    examFocus: string[]
+    questionNumbers: number[]
+    reviewGuidance: string[]
+    possibleErrorPatterns: string[]
     analysisSource: 'deepseek' | 'fallback'
   }>
   analysisStatus: 'generated' | 'fallback' | 'not-needed'
 }
 
+export interface ReportNextAction {
+  actionType: 'targeted_practice' | 'calibration_test' | 'review_wrong'
+  title: string
+  moduleId: string
+  moduleLabel: string
+  topicCode: string
+  topicLabel: string
+  difficulty: DifficultyLevel
+  difficultyLabel: string
+  evidence: {
+    correct: number
+    total: number
+    accuracy: number | null
+    confidence: 'high' | 'medium' | 'low'
+    questionNumbers: number[]
+  }
+  whyNow: string
+  suggestedMinutes: number
+  suggestedQuestionCount: number
+  successCriteria: string
+  reviewGuidance: string[]
+  possibleErrorPatterns: string[]
+}
+
+export type StarterPlanDayRole =
+  | 'evidence_audit'
+  | 'method_rebuild'
+  | 'retrieval_practice'
+  | 'secondary_transfer'
+  | 'third_or_deepen'
+  | 'interleaved_timed'
+  | 'weekly_retest'
+
+export interface ReportStarterPlanDay {
+  day: 1 | 2 | 3 | 4 | 5 | 6 | 7
+  role: StarterPlanDayRole
+  title: string
+  focus: Array<{
+    gapKey: string
+    moduleLabel: string
+    topicCode: string
+    topicLabel: string
+    difficultyLabel: string
+  }>
+  durationMinutes: number
+  diagnosticRationale: string
+  steps: Array<{ action: string; output: string }>
+  deliverable: string
+  successCriteria: string
+  ifNotMet: string
+  evidenceRefs: string[]
+}
+
+export interface ReportStarterPlan {
+  version: 'starter-plan-v2'
+  weeklyBudgetMinutes: number
+  totalPlannedMinutes: number
+  budgetSource: 'profile' | 'default'
+  analysisSource: 'deepseek' | 'mixed' | 'fallback'
+  evidenceBoundary: string
+  days: ReportStarterPlanDay[]
+}
+
 export interface ReportLearningPath {
   profile: LearnerProfileInput & {
     missingFields: string[]
+    declaredSubjects: string[]
+    subjectMismatch: boolean
   }
   summary: {
     planningWeeks: number
     weeklyHours: number
     totalHours: number
-    mode: 'Standard' | 'Intensive' | 'Extended'
+    mode: 'Starter' | 'Standard' | 'Intensive' | 'Extended'
     modeReason: string
     dataSourceNote: string
-    analysisSource: 'deepseek' | 'fallback'
+    analysisSource: 'deepseek' | 'mixed' | 'fallback'
+    planningScope: 'starter' | 'full'
   }
+  starterPlan?: ReportStarterPlan | null
   phases: Array<{
     id: 'foundation' | 'improvement' | 'sprint'
     title: string
@@ -215,7 +291,7 @@ export interface AssessmentModule {
     strength: string
     keyIssue: string
     focusSuggestion: string
-    source: 'deepseek' | 'fallback'
+    source: 'deepseek' | 'mixed' | 'fallback'
   }
 }
 
@@ -244,6 +320,7 @@ export interface DiagnosticReportSummary {
   knowledgeMastery?: ReportKnowledgeMastery
   aiImprovementPlan?: ReportAiImprovementPlan
   learningPath?: ReportLearningPath
+  nextAction?: ReportNextAction | null
 }
 
 const DIFFICULTY_META: Record<DifficultyLevel, { label: string }> = {

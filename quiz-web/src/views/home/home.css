@@ -1973,25 +1973,11 @@ body.home-dialog-open {
   align-items: stretch;
 }
 
-.home-other-goal {
-  max-width: 690px;
-  margin-top: 26px;
-  padding: 28px 0 0;
-}
-
-.home-other-goal button {
-  padding: 8px 0;
-  border: 0;
-  background: transparent;
-  color: var(--home-teal);
-  font-size: 12px;
-  font-weight: 760;
-  cursor: pointer;
-}
-
 .home-context-panel {
   position: relative;
   min-height: 346px;
+  display: flex;
+  flex-direction: column;
   padding: 32px 34px 28px;
   overflow: hidden;
   border-top: 4px solid var(--home-navy);
@@ -2157,6 +2143,33 @@ body.home-dialog-open {
   cursor: pointer;
 }
 
+.home-context-goal-link {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto;
+  padding-top: 18px;
+}
+
+.home-context-goal-link button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 0;
+  border: 0;
+  background: transparent;
+  color: var(--home-teal);
+  font-size: 12px;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.home-context-goal-link button span {
+  font-size: 15px;
+  line-height: 1;
+}
+
 .home-entry-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2206,15 +2219,18 @@ body.home-dialog-open {
 }
 
 .home-entry-index {
-  grid-row: 1 / span 2;
+  grid-row: 1;
+  align-self: center;
   color: var(--home-muted);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 780;
+  line-height: 1.3;
   letter-spacing: 0.08em;
 }
 
 .home-entry > strong {
   grid-column: 2;
+  align-self: center;
   font-size: 19px;
   font-weight: 760;
 }
@@ -2375,28 +2391,6 @@ body.home-dialog-open {
   background: var(--home-teal);
 }
 
-.home-detail-note {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  margin-top: 16px;
-  padding: 15px 18px;
-  border-left: 4px solid var(--home-teal);
-  background: var(--home-soft);
-}
-
-.home-detail-note strong {
-  flex: none;
-  font-size: 12px;
-  font-weight: 760;
-}
-
-.home-detail-note span {
-  color: var(--home-muted);
-  font-size: 11px;
-  line-height: 1.55;
-}
-
 .home-score-list,
 .home-report-guide,
 .home-current-practice {
@@ -2495,43 +2489,37 @@ body.home-dialog-open {
   margin-top: 6px;
 }
 
-.home-idle-options,
-.home-onboarding-steps {
+.home-idle-options {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   border-top: 1px solid var(--home-ink);
   border-bottom: 1px solid var(--home-line);
 }
 
-.home-idle-options article,
-.home-onboarding-steps article {
+.home-idle-options article {
   min-height: 150px;
   padding: 24px;
   border-right: 1px solid var(--home-line);
 }
 
-.home-idle-options article:last-child,
-.home-onboarding-steps article:last-child {
+.home-idle-options article:last-child {
   border-right: 0;
 }
 
-.home-idle-options span,
-.home-onboarding-steps span {
+.home-idle-options span {
   color: var(--home-teal);
   font-size: 11px;
   font-weight: 820;
 }
 
-.home-idle-options strong,
-.home-onboarding-steps strong {
+.home-idle-options strong {
   display: block;
   margin-top: 18px;
   font-size: 17px;
   font-weight: 760;
 }
 
-.home-idle-options p,
-.home-onboarding-steps p {
+.home-idle-options p {
   margin: 8px 0 0;
   color: var(--home-muted);
   font-size: 11px;
@@ -3046,8 +3034,7 @@ body.home-dialog-open {
     width: 100%;
   }
 
-  .home-detail-title-row,
-  .home-detail-note {
+  .home-detail-title-row {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -3086,22 +3073,19 @@ body.home-dialog-open {
   .home-goal-card-grid,
   .home-report-detail-grid,
   .home-practice-detail-grid,
-  .home-idle-options,
-  .home-onboarding-steps {
+  .home-idle-options {
     grid-template-columns: 1fr;
   }
 
   .home-goal-card,
   .home-score-list,
-  .home-idle-options article,
-  .home-onboarding-steps article {
+  .home-idle-options article {
     border-right: 0;
     border-bottom: 1px solid var(--home-line);
   }
 
   .home-goal-card:last-child,
-  .home-idle-options article:last-child,
-  .home-onboarding-steps article:last-child {
+  .home-idle-options article:last-child {
     border-bottom: 0;
   }
 

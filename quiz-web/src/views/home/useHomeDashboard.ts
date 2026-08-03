@@ -76,13 +76,6 @@ export interface HomeDashboardReportSignal {
   reportCompletedAt: string
 }
 
-export interface HomeOtherGoalSummary {
-  examType: ActiveExamType
-  state: 'progress'
-  paper: AssessmentPaperItem
-  progress: HomeDiagnosticProgress
-}
-
 export interface UseHomeDashboardReturn {
   currentExam: ComputedRef<ActiveExamType | null>
   goals: ComputedRef<HomeDashboardGoal[]>
@@ -98,7 +91,6 @@ export interface UseHomeDashboardReturn {
   practice: Ref<ActiveQuestionBankPractice | null>
   memberStatus: ComputedRef<HomeMemberStatus | null>
   reportSignal: Ref<HomeDashboardReportSignal | null>
-  otherGoalSummary: ComputedRef<HomeOtherGoalSummary | null>
   loading: Ref<boolean>
   error: Ref<string>
   reload: () => Promise<void>
@@ -341,24 +333,6 @@ export function useHomeDashboard(): UseHomeDashboardReturn {
     return 'idle'
   })
 
-  // 另一目标提示只暴露该考试的真实进行中诊断，不借报告完成状态猜测未读待办。
-  const otherGoalSummary = computed<HomeOtherGoalSummary | null>(() => {
-    const otherGoal = goals.value.find((goal) => goal.examType !== currentExam.value)
-    if (!otherGoal) return null
-    const otherPapers = (assessmentPapersByExam.value[otherGoal.examType] || []).filter(
-      (item) => normalizeExamType(item.examType) === otherGoal.examType,
-    )
-    const otherPaper = findLatestInProgressPaper(otherPapers)
-    const otherProgress = otherPaper ? buildDiagnosticProgress(otherPaper) : null
-    if (!otherPaper || !otherProgress) return null
-    return {
-      examType: otherGoal.examType,
-      state: 'progress',
-      paper: otherPaper,
-      progress: otherProgress,
-    }
-  })
-
   // 切换考试或重试时先清空可选字段，避免旧考试数据在加载期间短暂串入。
   function resetLoadedData(): void {
     assessmentPapersByExam.value = {}
@@ -471,7 +445,6 @@ export function useHomeDashboard(): UseHomeDashboardReturn {
     practice,
     memberStatus,
     reportSignal,
-    otherGoalSummary,
     loading,
     error,
     reload,

@@ -34,9 +34,6 @@
           <div class="profile-name-line">
             <h2 id="profile-student-name">{{ displayName }}</h2>
             <span class="profile-membership-chip">{{ membershipTags.join(' · ') }}</span>
-            <button class="profile-logout-link" type="button" @click="handleLogout">
-              退出登录
-            </button>
           </div>
           <ul class="profile-identity-list">
             <li>
@@ -1039,12 +1036,6 @@ onMounted(async () => {
   if (hasFailure) errorText.value = '部分学习数据暂时无法加载，请稍后刷新。'
 })
 
-// 顶部退出入口撤销当前登录态并返回首页。
-async function handleLogout(): Promise<void> {
-  await auth.logout()
-  router.push('/')
-}
-
 // 个人中心所有升级入口统一打开支付弹窗，并预选当前查看的考试类型。
 function handleUpgradeClick(): void {
   if (!isExamTypeAvailable(currentExamType.value)) {
@@ -1524,25 +1515,6 @@ function formatDateTime(value: string | null): string {
     height: 100%;
     object-fit: cover;
   }
-}
-
-.logout-link {
-  align-self: end;
-  width: 100%;
-  padding-top: 12px;
-  border: 0;
-  border-top: 1px solid var(--color-line-soft);
-  background: transparent;
-  color: var(--color-ink-soft);
-  font-family: inherit;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semi);
-  cursor: pointer;
-  transition: color var(--duration-base) ease;
-}
-
-.logout-link:hover {
-  color: var(--color-ink);
 }
 
 .free-upgrade-panel {
@@ -2628,10 +2600,6 @@ function formatDateTime(value: string | null): string {
   color: color-mix(in srgb, var(--color-report-blue) 58%, var(--color-ink-soft));
 }
 
-.logout-link:hover {
-  color: var(--color-report-red);
-}
-
 .diagnostic-quota-panel {
   background: linear-gradient(
     115deg,
@@ -2895,7 +2863,6 @@ function formatDateTime(value: string | null): string {
 }
 
 .profile-inline-action:focus-visible,
-.profile-logout-link:focus-visible,
 .membership-plan-action:focus-visible,
 .membership-exam-switch button:focus-visible {
   outline: 2px solid var(--profile-lilac);
@@ -2934,21 +2901,6 @@ function formatDateTime(value: string | null): string {
   color: var(--profile-lilac-dark);
   font-size: 11px;
   font-weight: 680;
-}
-
-.profile-logout-link {
-  margin-left: auto;
-  padding: 5px 0;
-  border: 0;
-  background: transparent;
-  color: #9a9fb0;
-  font-family: inherit;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.profile-logout-link:hover {
-  color: #d25468;
 }
 
 .profile-identity-list {

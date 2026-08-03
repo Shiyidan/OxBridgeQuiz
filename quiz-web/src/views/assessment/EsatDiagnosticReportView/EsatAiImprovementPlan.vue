@@ -1,6 +1,6 @@
 <!-- ESAT AI 提升规划模块：展示确定性能力矩阵和受约束生成的高 ROI 缺口清单。 -->
 <template>
-  <section class="plan-section">
+  <section id="esat-priority-evidence" class="plan-section" aria-labelledby="esat-priority-title">
     <div class="section-title">
       <span aria-hidden="true">
         <svg viewBox="0 0 24 24">
@@ -9,9 +9,10 @@
         </svg>
       </span>
       <div>
-        <h2>AI 提升规划表</h2>
-        <p>能力矩阵由固定规则计算，高 ROI 说明由受约束分析生成</p>
+        <h2 id="esat-priority-title">提升优先级</h2>
+        <p>先看作答证据，再看建议顺序；样本不足只标记为待校准</p>
       </div>
+      <small class="analysis-source">{{ analysisSourceLabel }}</small>
     </div>
 
     <article class="plan-card">
@@ -22,22 +23,27 @@
           </svg>
           <div>
             <h3>能力缺口矩阵</h3>
-            <p>灰色表示样本量不足 3 题，不作为高 ROI 缺口候选</p>
+            <p>按考试模块汇总知识主题；少量作答仅作为初步信号，不直接判定为能力缺口</p>
           </div>
+        </div>
+
+        <div v-if="displayMatrix.length" class="matrix-summary" aria-label="能力矩阵覆盖情况">
+          <span>已覆盖 {{ matrixCoverage.covered }}/{{ matrixCoverage.total }} 个模块难度区间</span>
+          <span v-if="matrixCoverage.preliminary">{{ matrixCoverage.preliminary }} 个区间仍待补充作答</span>
         </div>
 
         <div class="matrix-table">
           <div class="matrix-header">
-            <span>知识点大类</span>
+            <span>能力领域</span>
             <span>低难度</span>
             <span>中难度</span>
             <span>高难度</span>
           </div>
           <div class="matrix-body">
-            <div v-for="row in plan.matrix" :key="`${row.moduleId}:${row.code}`" class="matrix-row">
+            <div v-for="row in displayMatrix" :key="row.moduleId" class="matrix-row">
               <div class="matrix-topic" :title="row.label">
                 <strong>{{ row.label }}</strong>
-                <small>{{ row.moduleLabel }}</small>
+                <small>汇总 {{ row.topicCount }} 个知识主题</small>
               </div>
               <div
                 v-for="cell in row.cells"
@@ -45,12 +51,22 @@
                 class="matrix-cell"
                 :class="`matrix-cell--${cell.status}`"
               >
-                <strong>{{ cell.correct }}/{{ cell.total }}（{{ formatAccuracy(cell.accuracy) }}）</strong>
-                <small>n={{ cell.total }}<template v-if="cell.total < 3"> · 样本不足</template></small>
+                <template v-if="cell.status === 'uncovered'">
+                  <strong>未覆盖</strong>
+                  <small>本次试卷无相关题目</small>
+                </template>
+                <template v-else-if="cell.status === 'preliminary'">
+                  <strong>初步信号 · {{ formatAccuracy(cell.accuracy) }}</strong>
+                  <small>n={{ cell.total }} · 暂不判定缺口</small>
+                </template>
+                <template v-else>
+                  <strong>{{ cell.correct }}/{{ cell.total }}（{{ formatAccuracy(cell.accuracy) }}）</strong>
+                  <small>n={{ cell.total }}</small>
+                </template>
               </div>
             </div>
-            <div v-if="plan.matrix.length === 0" class="matrix-empty">
-              本次试卷没有可用于能力矩阵的二级知识点。
+            <div v-if="displayMatrix.length === 0" class="matrix-empty">
+              本次试卷没有可用于能力矩阵的作答数据。
             </div>
           </div>
         </div>
@@ -64,14 +80,14 @@
             <circle cx="12" cy="12" r="1"></circle>
           </svg>
           <div>
-            <h3>高 ROI 缺口清单</h3>
-            <p>仅从 n≥3 且正确率不高于 70% 的格子中筛选，最多展示 5 项</p>
+            <h3>优先补弱项</h3>
+            <p>从 n≥3 且正确率不高于 70% 的格子中排序，最多展示 5 项</p>
           </div>
         </div>
 
         <div v-if="plan.highRoiGaps.length" class="roi-grid">
           <article v-for="gap in plan.highRoiGaps" :key="`${gap.moduleId}:${gap.topicCode}:${gap.difficulty}`">
-            <span class="rank-badge">Top {{ gap.rank }}</span>
+            <span class="rank-badge">优先级 {{ gap.rank }}</span>
             <small class="module-label">{{ gap.moduleLabel }}</small>
             <h4>{{ gap.topicLabel }} × {{ gap.difficultyLabel }} = {{ formatAccuracy(gap.accuracy) }}</h4>
             <dl>
@@ -91,7 +107,7 @@
                   <path d="M12 9v4"></path>
                   <circle cx="12" cy="17" r=".7"></circle>
                 </svg>
-                <span><b>优先原因：</b>{{ gap.priorityReason }}</span>
+                <span><b>优先原因：</b><LatexText :text="gap.priorityReason" /></span>
               </p>
               <p>
                 <svg class="advice-icon advice-icon--time" viewBox="0 0 24 24" aria-hidden="true">
@@ -105,13 +121,20 @@
                   <path d="M4 5h6a3 3 0 0 1 3 3v11a3 3 0 0 0-3-3H4z"></path>
                   <path d="M20 5h-4a3 3 0 0 0-3 3v11a3 3 0 0 1 3-3h4z"></path>
                 </svg>
-                <span><b>前置检查：</b>{{ gap.prerequisiteCheck }}</span>
+                <span><b>前置检查：</b><LatexText :text="gap.prerequisiteCheck" /></span>
+              </p>
+              <p v-if="gap.reviewGuidance?.[0]">
+                <svg class="advice-icon advice-icon--check" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 5h6a3 3 0 0 1 3 3v11a3 3 0 0 0-3-3H4z"></path>
+                  <path d="M20 5h-4a3 3 0 0 0-3 3v11a3 3 0 0 1 3-3h4z"></path>
+                </svg>
+                <span><b>复习提示：</b><LatexText :text="gap.reviewGuidance[0]" /></span>
               </p>
             </div>
           </article>
         </div>
         <div v-else class="roi-empty">
-          本次没有同时满足样本量与缺口阈值的格子，暂不生成高 ROI 清单。
+          本次没有同时满足样本量与缺口阈值的格子；建议先完成小规模校准训练，再确定补弱顺序。
         </div>
       </section>
     </article>
@@ -119,11 +142,87 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { DiagnosticAiImprovementPlan } from '@/api/exam'
+import LatexText from '@/components/LatexText.vue'
 
-defineProps<{ plan: DiagnosticAiImprovementPlan }>()
+const props = defineProps<{ plan: DiagnosticAiImprovementPlan }>()
 
-// 矩阵和缺口卡片统一显示整数百分比，样本不足状态由颜色和文案单独说明。
+type MatrixCell = DiagnosticAiImprovementPlan['matrix'][number]['cells'][number]
+type DisplayMatrixStatus = Exclude<MatrixCell['status'], 'insufficient'> | 'preliminary' | 'uncovered'
+type DisplayMatrixCell = Omit<MatrixCell, 'status'> & { status: DisplayMatrixStatus }
+
+interface DisplayMatrixRow {
+  moduleId: string
+  label: string
+  topicCount: number
+  cells: DisplayMatrixCell[]
+}
+
+// 分析来源由报告任务的真实状态决定，不把规则回退结果包装成大模型生成。
+const analysisSourceLabel = computed(() => {
+  if (props.plan.analysisStatus === 'generated') return '规则证据 + AI 辅助解释'
+  if (props.plan.analysisStatus === 'fallback') return '规则证据 + 回退建议'
+  return '规则证据'
+})
+
+// 主矩阵按考试模块汇总细粒度主题，降低 ESAT 单卷在“主题 × 难度”交叉统计中的稀疏程度。
+const displayMatrix = computed<DisplayMatrixRow[]>(() => {
+  const moduleRows = new Map<string, DisplayMatrixRow>()
+
+  for (const row of props.plan.matrix) {
+    const current = moduleRows.get(row.moduleId) || {
+      moduleId: row.moduleId,
+      label: row.moduleLabel,
+      topicCount: 0,
+      cells: row.cells.map((cell) => ({ ...cell, correct: 0, total: 0, accuracy: null, status: 'uncovered' })),
+    }
+    current.topicCount += 1
+    current.cells = current.cells.map((cell) => {
+      const source = row.cells.find((candidate) => candidate.difficulty === cell.difficulty)
+      if (!source) return cell
+      return {
+        ...cell,
+        correct: cell.correct + source.correct,
+        total: cell.total + source.total,
+      }
+    })
+    moduleRows.set(row.moduleId, current)
+  }
+
+  return Array.from(moduleRows.values()).map((row) => ({
+    ...row,
+    cells: row.cells.map((cell) => {
+      const accuracy = cell.total ? cell.correct / cell.total : null
+      return {
+        ...cell,
+        accuracy,
+        status: displayMatrixStatus(cell.total, accuracy),
+      }
+    }),
+  }))
+})
+
+// 覆盖摘要只统计实际出现过题目的模块难度区间，并单独提示尚处于初步观察阶段的区间。
+const matrixCoverage = computed(() => {
+  const cells = displayMatrix.value.flatMap((row) => row.cells)
+  return {
+    total: cells.length,
+    covered: cells.filter((cell) => cell.total > 0).length,
+    preliminary: cells.filter((cell) => cell.status === 'preliminary').length,
+  }
+})
+
+// 聚合后仍少于三题时只输出初步信号，避免将偶然结果解释为稳定优势或能力缺口。
+function displayMatrixStatus(total: number, accuracy: number | null): DisplayMatrixStatus {
+  if (total === 0 || accuracy === null) return 'uncovered'
+  if (total < 3) return 'preliminary'
+  if (accuracy > 0.7) return 'strong'
+  if (accuracy >= 0.4) return 'medium'
+  return 'weak'
+}
+
+// 矩阵和缺口卡片统一显示整数百分比，未覆盖数据不伪造百分比。
 function formatAccuracy(value: number | null): string {
   return value === null ? '-' : `${Math.round(value * 100)}%`
 }
@@ -132,6 +231,7 @@ function formatAccuracy(value: number | null): string {
 <style scoped lang="scss">
 .plan-section {
   margin-bottom: 28px;
+  scroll-margin-top: 24px;
 }
 
 .section-title,
@@ -143,6 +243,16 @@ function formatAccuracy(value: number | null): string {
 
 .section-title {
   margin-bottom: 16px;
+}
+
+.analysis-source {
+  margin-left: auto;
+  padding: 6px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
 }
 
 .section-title > span {
@@ -200,6 +310,22 @@ function formatAccuracy(value: number | null): string {
 
 .block-title {
   margin-bottom: 20px;
+}
+
+.matrix-summary {
+  display: flex;
+  gap: 8px;
+  margin: -6px 0 14px 34px;
+  flex-wrap: wrap;
+}
+
+.matrix-summary span {
+  padding: 5px 9px;
+  border: 1px solid var(--color-line-soft);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-alt);
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
 }
 
 .block-title > svg {
@@ -324,6 +450,17 @@ function formatAccuracy(value: number | null): string {
 .matrix-cell--insufficient {
   background: var(--color-report-cell-insufficient);
   color: var(--color-report-slate);
+}
+
+.matrix-cell--preliminary {
+  border: 1px dashed var(--color-line);
+  background: var(--color-surface-alt);
+  color: var(--color-ink-soft);
+}
+
+.matrix-cell--uncovered {
+  background: transparent;
+  color: var(--color-ink-muted);
 }
 
 .matrix-empty,
@@ -465,6 +602,28 @@ function formatAccuracy(value: number | null): string {
 
 .advice-icon--check {
   color: var(--color-report-purple);
+}
+
+@media (max-width: 680px) {
+  .section-title {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .analysis-source {
+    width: 100%;
+    margin-left: 46px;
+  }
+
+  .matrix-block,
+  .roi-block {
+    padding: 22px 18px 24px;
+  }
+
+  .matrix-summary {
+    margin-left: 0;
+  }
+
 }
 
 </style>

@@ -46,17 +46,14 @@
         :include-hero="!auth.isLoggedIn"
         :authenticated="auth.isLoggedIn"
         :member-price-label="marketingPriceLabel"
-        :member-price-available="marketingPriceAvailable"
         @register="(targetPath) => openAuthPage('register', targetPath)"
         @login="(targetPath) => openAuthPage('login', targetPath)"
         @navigate="handleNavigation"
-        @open-report-demo="reportDemoOpen = true"
         @open-payment="openPayment"
         @scroll-top="scrollToHome"
       />
     </main>
 
-    <HomeReportDemoDialog v-model="reportDemoOpen" @register="handleReportDemoRegistration" />
     <HomeGoalDialog
       v-model="goalDialogOpen"
       :exam-type="pendingGoalExam"
@@ -82,7 +79,6 @@ import { getMember, updateExamPreferences, type ExamPreference } from '@/api/mem
 import { getPaymentConfig } from '@/api/payment'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import HomeGoalDialog from './HomeGoalDialog.vue'
-import HomeReportDemoDialog from './HomeReportDemoDialog.vue'
 import MarketingHome from './MarketingHome.vue'
 import StudentHome from './StudentHome.vue'
 import { useHomeDashboard } from './useHomeDashboard'
@@ -92,7 +88,6 @@ type AuthPage = 'login' | 'register'
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
-const reportDemoOpen = ref(false)
 const navBarRef = ref<InstanceType<typeof NavBar> | null>(null)
 const paymentOpen = ref(false)
 const goalDialogOpen = ref(false)
@@ -100,7 +95,6 @@ const goalSaving = ref(false)
 const pendingGoalExam = ref<ActiveExamType | null>(null)
 const pendingNavigationPath = ref<string | null>(null)
 const marketingPriceLabel = ref('¥79/月')
-const marketingPriceAvailable = ref(false)
 
 const {
   currentExam,
@@ -251,20 +245,13 @@ async function handlePaymentPaid(): Promise<void> {
   }
 }
 
-// 报告公开示例的注册行动继续指向诊断中心。
-function handleReportDemoRegistration(): void {
-  reportDemoOpen.value = false
-  openAuthPage('register', '/assessment')
-}
-
-// 营销价格读取公开支付配置；读取失败时保持购买不可用，避免显示虚假可购状态。
+// 营销价格读取公开支付配置；读取失败时保留默认展示价格，不阻断登录与支付入口。
 async function loadMarketingPrice(): Promise<void> {
   try {
     const config = await getPaymentConfig()
     marketingPriceLabel.value = `¥${(config.monthlyPriceCents / 100).toFixed(0)}/月`
-    marketingPriceAvailable.value = config.status === 'active' && config.providerReady
   } catch {
-    marketingPriceAvailable.value = false
+    // 默认价格只用于营销展示，最终金额和服务可用性由支付弹窗的实时接口确认。
   }
 }
 

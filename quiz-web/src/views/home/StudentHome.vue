@@ -34,16 +34,16 @@ interface StudentHomeProps {
 interface HeroContent {
   kicker: string
   title: string
-  description: string
+  description?: string
   primary: string
-  secondary: string
+  secondary?: string
   goodTitle: string
   goodDetail: string
   focusTitle: string
   focusDetail: string
   scopeTitle: string
   scopeText: string
-  scopeAction: string
+  scopeAction?: string
 }
 
 interface HomeEntry {
@@ -54,15 +54,6 @@ interface HomeEntry {
   mark: string
   tone: 'teal' | 'amber' | 'violet' | 'default'
   path: string | null
-}
-
-interface ProgressRow {
-  key: string
-  label: string
-  savedLabel: string
-  percent: number
-  status: string
-  state: 'done' | 'current' | 'pending'
 }
 
 const props = withDefaults(defineProps<StudentHomeProps>(), {
@@ -152,17 +143,10 @@ const heroContent = computed<HeroContent>(() => {
   }
 
   if (props.state === 'progress' && props.progress) {
-    const currentPart = props.progress.currentModuleLabel
-      ? `继续完成 ${props.progress.currentModuleLabel}`
-      : '继续完成这份诊断'
     return {
-      kicker: '测试未完成',
-      title: `${currentPart}，完成后再生成完整报告`,
-      description: `${props.progress.answeredCount} / ${props.progress.totalQuestions} 道题的进度已保存，目前还剩 ${props.progress.remainingCount} 道题。`,
-      primary: props.progress.currentModuleLabel
-        ? `继续 ${props.progress.currentModuleLabel}`
-        : '继续未完成测试',
-      secondary: '查看试卷详情',
+      kicker: `${props.progress.answeredCount} / ${props.progress.totalQuestions} 道题的进度已保存，目前还剩 ${props.progress.remainingCount} 道题。`,
+      title: `继续完成 ${props.progress.paperTitle}`,
+      primary: `继续 ${props.progress.paperTitle}`,
       goodTitle: props.progress.totalModuleCount
         ? `${props.progress.completedModuleCount} / ${props.progress.totalModuleCount} 个模块已完成`
         : `${props.progress.answeredCount} 道题已保存`,
@@ -171,7 +155,6 @@ const heroContent = computed<HeroContent>(() => {
       focusDetail: '全部完成并提交后，系统才会生成本次诊断报告。',
       scopeTitle: '当前诊断',
       scopeText: props.progress.paperTitle,
-      scopeAction: '查看试卷',
     }
   }
 
@@ -353,51 +336,6 @@ const homeEntries = computed<HomeEntry[]>(() => {
   return [diagnosticEntry, practiceEntry, mistakeEntry]
 })
 
-// 模块进度由试卷模块题量和累计已答数派生，无法定位模块时只展示整卷真实进度。
-const progressRows = computed<ProgressRow[]>(() => {
-  if (!props.progress || !props.paper) return []
-  if (!props.paper.modules.length || props.progress.currentModuleIndex === null) {
-    return [
-      {
-        key: props.progress.paperId,
-        label: props.progress.paperTitle,
-        savedLabel: `${props.progress.answeredCount} / ${props.progress.totalQuestions} 已保存`,
-        percent: props.progress.completionPercent,
-        status: `还剩 ${props.progress.remainingCount} 题`,
-        state: 'current',
-      },
-    ]
-  }
-
-  let precedingQuestionCount = 0
-  return props.paper.modules.map((module, index) => {
-    const answeredInModule = Math.min(
-      module.questionCount,
-      Math.max(0, props.progress!.answeredCount - precedingQuestionCount),
-    )
-    precedingQuestionCount += module.questionCount
-    const percent = module.questionCount
-      ? Math.round((answeredInModule / module.questionCount) * 100)
-      : 0
-    const isDone =
-      index < props.progress!.currentModuleIndex! ||
-      (index === props.progress!.currentModuleIndex && props.progress!.phase === 'ready_to_submit')
-    const isCurrent = index === props.progress!.currentModuleIndex && !isDone
-    return {
-      key: module.code || `${index}`,
-      label: module.subject || module.code,
-      savedLabel: `${answeredInModule} / ${module.questionCount} ${isDone ? '已提交' : '已保存'}`,
-      percent: isDone ? 100 : percent,
-      status: isDone
-        ? '已完成'
-        : isCurrent
-          ? `还剩 ${Math.max(0, module.questionCount - answeredInModule)} 题`
-          : '待完成',
-      state: isDone ? 'done' : isCurrent ? 'current' : 'pending',
-    }
-  })
-})
-
 // 分数保留接口返回精度，整数不额外补小数位。
 function formatScore(score: number): string {
   return Number.isInteger(score) ? String(score) : String(Number(score.toFixed(2)))
@@ -423,7 +361,7 @@ function handlePrimaryAction(): void {
 function handleSecondaryAction(): void {
   if (props.state === 'report') emit('navigate', mistakeNotebookPath.value)
   else if (props.state === 'active') emit('navigate', '/question-bank')
-  else if (props.state === 'progress' || props.state === 'idle') emit('navigate', '/assessment')
+  else if (props.state === 'idle') emit('navigate', '/assessment')
   else if (props.currentExam) emit('navigate', `/exam-intro/${props.currentExam.toLowerCase()}`)
 }
 
@@ -439,8 +377,7 @@ function handleEntrySelection(entry: HomeEntry): void {
 
 // 状态面板的范围操作按当前任务进入最相关页面，目标管理仍由父级统一处理。
 function handleScopeAction(): void {
-  if (props.state === 'progress') emit('navigate', '/assessment')
-  else if (props.state === 'report') emit('navigate', reportPath.value || '/assessment')
+  if (props.state === 'report') emit('navigate', reportPath.value || '/assessment')
   else if (props.state === 'active') emit('navigate', '/question-bank')
   else if (props.state === 'new' && props.currentExam === 'TMUA') {
     emit('navigate', '/exam-intro/tmua')
@@ -496,7 +433,9 @@ function scrollToSharedContent(): void {
               <p class="home-hello">欢迎回来，{{ username }}</p>
               <p class="home-hero-kicker">{{ heroContent.kicker }}</p>
               <h1 id="home-student-title">{{ heroContent.title }}</h1>
-              <p class="home-student-hero-description">{{ heroContent.description }}</p>
+              <p v-if="heroContent.description" class="home-student-hero-description">
+                {{ heroContent.description }}
+              </p>
 
               <div v-if="state === 'no-goal'" class="home-hero-actions home-goal-actions">
                 <button
@@ -523,6 +462,7 @@ function scrollToSharedContent(): void {
                   {{ heroContent.primary }} <span aria-hidden="true">→</span>
                 </button>
                 <button
+                  v-if="state !== 'progress' && heroContent.secondary"
                   class="home-btn home-btn--secondary"
                   type="button"
                   @click="handleSecondaryAction"
@@ -532,16 +472,6 @@ function scrollToSharedContent(): void {
               </div>
 
               <div v-if="otherGoalSummary" class="home-other-goal" role="status">
-                <div>
-                  <span>另一目标 · {{ otherGoalSummary.examType }}</span>
-                  <strong>{{ otherGoalSummary.progress.paperTitle }}</strong>
-                  <small>
-                    已答 {{ otherGoalSummary.progress.answeredCount }}/{{
-                      otherGoalSummary.progress.totalQuestions
-                    }}
-                    题， 还剩 {{ otherGoalSummary.progress.remainingCount }} 题
-                  </small>
-                </div>
                 <button type="button" @click="handleOtherGoalSelection">
                   切换到 {{ otherGoalSummary.examType }} →
                 </button>
@@ -574,7 +504,7 @@ function scrollToSharedContent(): void {
                 <strong>{{ heroContent.focusTitle }}</strong>
                 <p>{{ heroContent.focusDetail }}</p>
               </div>
-              <div class="home-context-scope">
+              <div v-if="heroContent.scopeAction" class="home-context-scope">
                 <button type="button" @click="handleScopeAction">
                   {{ heroContent.scopeAction }}
                 </button>
@@ -604,6 +534,7 @@ function scrollToSharedContent(): void {
           </div>
 
           <section
+            v-if="state !== 'progress'"
             class="home-state-detail"
             :data-state="state"
             aria-labelledby="home-detail-title"
@@ -629,35 +560,6 @@ function scrollToSharedContent(): void {
                   <p>两卷记录分别保存，共同换算一个 TMUA 综合分。</p>
                   <i>选择 TMUA →</i>
                 </button>
-              </div>
-            </template>
-
-            <template v-else-if="state === 'progress' && progress">
-              <div class="home-detail-title-row">
-                <div>
-                  <span class="home-detail-eyebrow">SAVED PROGRESS</span>
-                  <h2 id="home-detail-title">这份诊断做到这里</h2>
-                </div>
-                <p>{{ progress.paperTitle }}</p>
-              </div>
-              <div class="home-progress-list">
-                <div
-                  v-for="row in progressRows"
-                  :key="row.key"
-                  class="home-progress-row"
-                  :data-progress-state="row.state"
-                >
-                  <strong>{{ row.label }}</strong>
-                  <span>{{ row.savedLabel }}</span>
-                  <div class="home-progress-track" aria-hidden="true">
-                    <i :style="{ width: `${row.percent}%` }"></i>
-                  </div>
-                  <b>{{ row.status }}</b>
-                </div>
-              </div>
-              <div class="home-detail-note">
-                <strong>不需要重新开始</strong>
-                <span>已保存的答案、作答位置与用时会由测试页面从服务端记录恢复。</span>
               </div>
             </template>
 
@@ -810,11 +712,6 @@ function scrollToSharedContent(): void {
             </template>
           </section>
         </div>
-
-        <button class="home-scroll-cue" type="button" @click="scrollToSharedContent">
-          <span>继续往下，了解真题命题模型</span>
-          <i aria-hidden="true">↓</i>
-        </button>
       </section>
     </template>
   </div>

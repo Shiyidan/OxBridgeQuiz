@@ -764,13 +764,15 @@ onMounted(async () => {
 
 .notebook-row__actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 10px;
 }
 
 .notebook-row__actions button {
-  min-width: 76px;
+  min-width: 0;
   height: 44px;
+  padding-inline: 14px;
+  white-space: nowrap;
 }
 
 .notebook-history {

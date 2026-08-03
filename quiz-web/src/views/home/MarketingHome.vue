@@ -3,6 +3,8 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { Connection, DocumentChecked, MagicStick } from '@element-plus/icons-vue'
 import esatDiagnosticReportOverviewUrl from '@/assets/home/esat-diagnostic-report-overview.png'
+import practiceNotebookPreviewUrl from '@/assets/home/practice-notebook-preview.png'
+import questionBankPracticePreviewUrl from '@/assets/home/question-bank-practice-preview.png'
 import tmuaDiagnosticQuestion03Url from '@/assets/home/tmua-diagnostic-question-03.png'
 import tmuaDiagnosticQuestion05Url from '@/assets/home/tmua-diagnostic-question-05.png'
 import tmuaDiagnosticQuestion07Url from '@/assets/home/tmua-diagnostic-question-07.png'
@@ -10,27 +12,30 @@ import HomeFooter from './HomeFooter.vue'
 
 interface MarketingHomeProps {
   memberPriceLabel?: string
-  memberPriceAvailable?: boolean
   includeHero?: boolean
   authenticated?: boolean
 }
 
-// 会员价格与购买可用性由首页容器根据真实权益上下文传入，组件不自行推断。
+// 会员价格由首页容器根据公开支付配置传入，购买入口始终交给父级完成认证分流。
 const props = withDefaults(defineProps<MarketingHomeProps>(), {
   memberPriceLabel: '¥79/月',
-  memberPriceAvailable: true,
   includeHero: true,
   authenticated: false,
 })
 
 const diagnosticGalleryRef = ref<HTMLElement | null>(null)
 const diagnosticGalleryActive = ref(false)
+const practiceGalleryRef = ref<HTMLElement | null>(null)
+const practiceGalleryActive = ref(false)
 let diagnosticGalleryObserver: IntersectionObserver | null = null
+let practiceGalleryObserver: IntersectionObserver | null = null
 let diagnosticGalleryInView = false
+let practiceGalleryInView = false
 
-// 轮播仅在模块可见且页面处于前台时运行，避免后台持续消耗渲染资源。
-function syncDiagnosticGalleryMotion(): void {
+// 两组轮播仅在各自模块可见且页面处于前台时运行，避免后台持续消耗渲染资源。
+function syncGalleryMotion(): void {
   diagnosticGalleryActive.value = diagnosticGalleryInView && document.visibilityState === 'visible'
+  practiceGalleryActive.value = practiceGalleryInView && document.visibilityState === 'visible'
 }
 
 // 营销页只表达用户意图，登录态分流、路由与支付流程由父级统一处理。
@@ -38,7 +43,6 @@ const emit = defineEmits<{
   register: [targetPath: string]
   login: [targetPath: string]
   navigate: [targetPath: string]
-  'open-report-demo': []
   'open-payment': []
   'scroll-top': []
 }>()
@@ -61,14 +65,8 @@ function requestLogin(targetPath: string) {
   emit('login', targetPath)
 }
 
-// 两处报告示例入口共享同一公开演示，避免出现不同版本的示例内容。
-function requestReportDemo() {
-  emit('open-report-demo')
-}
-
 // 购买入口由父级处理登录分流、考试类型选择与支付结果回写。
 function requestPayment() {
-  if (!props.memberPriceAvailable) return
   emit('open-payment')
 }
 
@@ -78,29 +76,45 @@ function requestScrollTop() {
 }
 
 onMounted(() => {
-  const gallery = diagnosticGalleryRef.value
-  if (!gallery) return
+  const diagnosticGallery = diagnosticGalleryRef.value
+  const practiceGallery = practiceGalleryRef.value
+  if (!diagnosticGallery && !practiceGallery) return
 
-  document.addEventListener('visibilitychange', syncDiagnosticGalleryMotion)
+  document.addEventListener('visibilitychange', syncGalleryMotion)
   if (!('IntersectionObserver' in window)) {
-    diagnosticGalleryInView = true
-    syncDiagnosticGalleryMotion()
+    diagnosticGalleryInView = Boolean(diagnosticGallery)
+    practiceGalleryInView = Boolean(practiceGallery)
+    syncGalleryMotion()
     return
   }
 
-  diagnosticGalleryObserver = new IntersectionObserver(
-    ([entry]) => {
-      diagnosticGalleryInView = Boolean(entry?.isIntersecting)
-      syncDiagnosticGalleryMotion()
-    },
-    { threshold: 0.25 },
-  )
-  diagnosticGalleryObserver.observe(gallery)
+  if (diagnosticGallery) {
+    diagnosticGalleryObserver = new IntersectionObserver(
+      ([entry]) => {
+        diagnosticGalleryInView = Boolean(entry?.isIntersecting)
+        syncGalleryMotion()
+      },
+      { threshold: 0.25 },
+    )
+    diagnosticGalleryObserver.observe(diagnosticGallery)
+  }
+
+  if (practiceGallery) {
+    practiceGalleryObserver = new IntersectionObserver(
+      ([entry]) => {
+        practiceGalleryInView = Boolean(entry?.isIntersecting)
+        syncGalleryMotion()
+      },
+      { threshold: 0.25 },
+    )
+    practiceGalleryObserver.observe(practiceGallery)
+  }
 })
 
 onBeforeUnmount(() => {
   diagnosticGalleryObserver?.disconnect()
-  document.removeEventListener('visibilitychange', syncDiagnosticGalleryMotion)
+  practiceGalleryObserver?.disconnect()
+  document.removeEventListener('visibilitychange', syncGalleryMotion)
 })
 </script>
 
@@ -138,9 +152,6 @@ onBeforeUnmount(() => {
             >
               免费注册并开始诊断
               <span class="home-arrow" aria-hidden="true">→</span>
-            </button>
-            <button class="home-btn home-btn-secondary" type="button" @click="requestReportDemo">
-              查看诊断报告示例
             </button>
           </div>
 
@@ -393,12 +404,6 @@ onBeforeUnmount(() => {
           <p class="home-section-desc">
             每一道题都与知识点和能力要求关联，帮助你发现持续失分的原因。
           </p>
-          <div class="home-growth-actions">
-            <button class="home-btn home-btn-light" type="button" @click="requestReportDemo">
-              查看诊断报告示例
-              <span class="home-arrow" aria-hidden="true">→</span>
-            </button>
-          </div>
         </header>
 
         <figure class="home-report-showcase" aria-label="ESAT 专属诊断报告长图演示">
@@ -428,83 +433,44 @@ onBeforeUnmount(() => {
           </p>
         </header>
 
-        <div class="home-practice-workspace">
-          <aside class="home-knowledge-tree" aria-label="ESAT Mathematics 1 知识点树演示">
-            <div class="home-knowledge-head">
-              <div class="home-knowledge-heading">
-                <span class="home-demo-badge">演示数据</span>
-                <strong>ESAT Mathematics 1</strong>
-              </div>
-              <span>知识点树</span>
-            </div>
-            <ul class="home-knowledge-list">
-              <li class="home-knowledge-item home-knowledge-item-active">
-                <span>代数与函数</span><b>当前关注</b>
-              </li>
-              <li class="home-knowledge-item home-knowledge-item-weak">
-                <span>数论与组合</span><b>薄弱</b>
-              </li>
-              <li class="home-knowledge-item"><span>几何与测量</span><b>查看</b></li>
-              <li class="home-knowledge-item"><span>统计与概率</span><b>查看</b></li>
-              <li class="home-knowledge-item"><span>逻辑与证明</span><b>查看</b></li>
-            </ul>
-          </aside>
-
-          <div class="home-practice-board" aria-label="根据诊断结果推荐的专项练习演示">
-            <div class="home-practice-board-head">
-              <div class="home-practice-board-heading">
-                <span class="home-demo-badge">演示数据</span>
-                <strong>根据诊断结果推荐</strong>
-              </div>
-              <span>入口不会携带演示参数</span>
-            </div>
-
-            <article class="home-practice-row home-practice-row-highlight">
-              <div class="home-practice-name">
-                <small>最近正确率 48%</small>
-                <strong>Functions &amp; Graphs</strong>
-              </div>
-              <span class="home-practice-level">中等</span>
-              <button
-                class="home-practice-action"
-                type="button"
-                @click="requestLogin('/question-bank')"
-              >
-                开始练习
-              </button>
-            </article>
-            <article class="home-practice-row">
-              <div class="home-practice-name">
-                <small>关联错题 4 道</small>
-                <strong>Number Theory</strong>
-              </div>
-              <span class="home-practice-level">基础</span>
-              <button
-                class="home-practice-action"
-                type="button"
-                @click="requestLogin('/question-bank')"
-              >
-                加入计划
-              </button>
-            </article>
-            <article class="home-practice-row">
-              <div class="home-practice-name">
-                <small>最近正确率 71%</small>
-                <strong>Geometry &amp; Measure</strong>
-              </div>
-              <span class="home-practice-level">进阶</span>
-              <button
-                class="home-practice-action"
-                type="button"
-                @click="requestLogin('/question-bank')"
-              >
-                查看题组
-              </button>
-            </article>
-          </div>
+        <div
+          ref="practiceGalleryRef"
+          class="home-practice-preview"
+          :class="{ 'home-practice-preview--active': practiceGalleryActive }"
+          role="img"
+          aria-label="试题库与练习本页面自动轮换演示"
+        >
+          <figure
+            class="home-practice-preview-shot home-practice-preview-shot--question-bank"
+            aria-hidden="true"
+          >
+            <img
+              :src="questionBankPracticePreviewUrl"
+              alt=""
+              width="1514"
+              height="845"
+              loading="lazy"
+              decoding="async"
+            />
+          </figure>
+          <figure
+            class="home-practice-preview-shot home-practice-preview-shot--notebook"
+            aria-hidden="true"
+          >
+            <img
+              :src="practiceNotebookPreviewUrl"
+              alt=""
+              width="1539"
+              height="734"
+              loading="lazy"
+              decoding="async"
+            />
+          </figure>
         </div>
       </div>
     </section>
+
+    <div class="home-school-view-gap" aria-hidden="true"></div>
 
     <section
       id="home-mistake-preview"
@@ -646,16 +612,15 @@ onBeforeUnmount(() => {
             <button
               class="home-btn home-btn-primary home-btn-block"
               type="button"
-              :disabled="!props.memberPriceAvailable"
               @click="requestPayment"
             >
-              {{ props.memberPriceAvailable ? '开通会员' : '会员服务暂未开放' }}
+              开通会员
             </button>
           </article>
         </div>
 
         <p class="home-pricing-note">
-          随时查看学习记录与诊断报告 · 会员权益以实际产品说明为准 · ESAT 与 TMUA 会员权益互不通用
+          会员权益以实际产品说明为准
         </p>
       </div>
     </section>

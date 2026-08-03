@@ -167,6 +167,19 @@ export interface AssessmentPaperResult {
   list: AssessmentPaperItem[]
 }
 
+export interface AssessmentYearSummary {
+  year: number
+  paperCount: number
+  totalQuestions: number
+  completedPaperCount: number
+  inProgressPaperCount: number
+  completedAttemptCount: number
+}
+
+export interface AssessmentYearResult {
+  list: AssessmentYearSummary[]
+}
+
 export interface AssessmentPaperHistoryItem {
   examRecordId: string
   attemptNumber: number
@@ -222,12 +235,21 @@ export interface AssessmentScoreTrendResult {
   points: AssessmentScoreTrendPoint[]
 }
 
-/** 获取当前考试类型下按试卷聚合的诊断测试列表及用户状态。 */
-export function getAssessmentPapersData(examType: string) {
+/** 获取当前考试类型下可见诊断卷的年份聚合及用户完成状态。 */
+export function getAssessmentYearsData(examType: string) {
+  return callApi<AssessmentYearResult>({
+    url: '/papers/assessment/years',
+    method: 'GET',
+    params: { examType },
+  })
+}
+
+/** 获取当前考试类型及可选年份下按试卷聚合的诊断测试列表及用户状态。 */
+export function getAssessmentPapersData(examType: string, year?: number) {
   return callApi<AssessmentPaperResult>({
     url: '/papers/assessment/papers',
     method: 'GET',
-    params: { examType },
+    params: { examType, ...(year ? { year: String(year) } : {}) },
   })
 }
 

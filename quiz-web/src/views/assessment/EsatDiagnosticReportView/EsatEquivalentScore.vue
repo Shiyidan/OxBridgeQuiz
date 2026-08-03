@@ -51,9 +51,6 @@
               </button>
             </el-tooltip>
           </div>
-          <span class="scoring-badge">
-            {{ module.scoringBasis === 'normalized' ? '非标准题量归一' : '标准27题模块' }}
-          </span>
         </div>
 
         <div class="score-overview">
@@ -389,14 +386,6 @@ function positioningToneClass(value: number | null): string {
 .score-heading > div > span {
   color: var(--color-ink-soft);
   font-weight: var(--weight-medium);
-}
-
-.scoring-badge {
-  padding: 5px 9px;
-  border-radius: var(--radius-pill);
-  background: var(--color-report-purple-soft);
-  color: var(--color-report-purple);
-  font-size: var(--text-xs);
 }
 
 .info-trigger {

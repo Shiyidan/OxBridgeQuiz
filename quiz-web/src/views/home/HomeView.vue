@@ -77,6 +77,10 @@ import PaymentModal from '@/components/PaymentModal.vue'
 import { getMember, updateExamPreferences, type ExamPreference } from '@/api/member'
 import { getPaymentConfig } from '@/api/payment'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
+import {
+  MEMBERSHIP_PURCHASE_ENABLED,
+  MEMBERSHIP_PURCHASE_PENDING_MESSAGE,
+} from '@/constants/membershipPurchase'
 import HomeGoalDialog from './HomeGoalDialog.vue'
 import MarketingHome from './MarketingHome.vue'
 import StudentHome from './StudentHome.vue'
@@ -224,6 +228,10 @@ async function saveGoal(value: { examType: ActiveExamType; subjects: string[] })
 
 // 访客购买先完成认证，登录返回首页后再打开正式支付流程。
 function openPayment(): void {
+  if (!MEMBERSHIP_PURCHASE_ENABLED) {
+    ElMessage.info(MEMBERSHIP_PURCHASE_PENDING_MESSAGE)
+    return
+  }
   if (!auth.isLoggedIn) {
     openAuthPage('login', '/?purchase=1')
     return

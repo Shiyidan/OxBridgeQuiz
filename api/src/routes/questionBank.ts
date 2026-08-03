@@ -35,6 +35,94 @@ function formatBeijingDate(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
+// 年份筛选只接受合理的四位年份，避免隐式 Number 转换把空值或小数带入 Prisma 查询。
+function parseAssessmentYear(value: unknown): number | null {
+  const text = String(value ?? '').trim()
+  if (!text) return null
+  const year = Number(text)
+  return Number.isInteger(year) && year >= 2000 && year <= 2100 ? year : Number.NaN
+}
+
+// 诊断年份首页由数据库直接聚合可见试卷及当前用户状态，前端不再加载全部试卷后内存分组。
+questionBankRouter.get('/assessment/years', requireAuth, async (req, res) => {
+  try {
+    const examType = String(req.query.examType || EXAM_TYPE.ESAT).toUpperCase()
+    if (!isExamType(examType)) {
+      res.status(422).json(fail('无效的考试类型'))
+      return
+    }
+
+    const papers = await prisma.paper.findMany({
+      where: {
+        examType,
+        paperType: { in: [...REAL_PAPER_TYPES] },
+        OR: [
+          {
+            status: 'published',
+            OR: [
+              { examType: { not: EXAM_TYPE.ESAT } },
+              { deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE },
+            ],
+          },
+          { examRecords: { some: { userId: req.user!.userId } } },
+        ],
+      },
+      select: {
+        id: true,
+        year: true,
+        totalQuestions: true,
+        createdAt: true,
+        examRecords: {
+          where: { userId: req.user!.userId },
+          select: { status: true, startedAt: true },
+          orderBy: { startedAt: 'desc' },
+        },
+      },
+      orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
+    })
+
+    const yearMap = new Map<number, {
+      year: number
+      paperCount: number
+      totalQuestions: number
+      completedPaperCount: number
+      inProgressPaperCount: number
+      completedAttemptCount: number
+    }>()
+
+    for (const paper of papers) {
+      const summary = yearMap.get(paper.year) || {
+        year: paper.year,
+        paperCount: 0,
+        totalQuestions: 0,
+        completedPaperCount: 0,
+        inProgressPaperCount: 0,
+        completedAttemptCount: 0,
+      }
+      const latestRecord = paper.examRecords[0]
+      const completedAttemptCount = paper.examRecords.filter(
+        (record) => record.status === EXAM_RECORD_STATUS.SUBMITTED,
+      ).length
+
+      summary.paperCount += 1
+      summary.totalQuestions += paper.totalQuestions
+      summary.completedAttemptCount += completedAttemptCount
+      if (completedAttemptCount > 0) summary.completedPaperCount += 1
+      if (latestRecord?.status === EXAM_RECORD_STATUS.IN_PROGRESS) {
+        summary.inProgressPaperCount += 1
+      }
+      yearMap.set(paper.year, summary)
+    }
+
+    res.json(success({
+      list: [...yearMap.values()].sort((a, b) => b.year - a.year),
+    }))
+  } catch (error: any) {
+    logRuntimeError('assessment_years.list_failed', error)
+    res.status(500).json(fail(error.message || '获取诊断年份失败'))
+  }
+})
+
 // 诊断测试列表按试卷聚合当前用户的最新测试与报告状态。
 questionBankRouter.get('/assessment/papers', requireAuth, async (req, res) => {
   try {
@@ -43,10 +131,16 @@ questionBankRouter.get('/assessment/papers', requireAuth, async (req, res) => {
       res.status(422).json(fail('无效的考试类型'))
       return
     }
+    const year = parseAssessmentYear(req.query.year)
+    if (Number.isNaN(year)) {
+      res.status(422).json(fail('无效的试卷年份'))
+      return
+    }
     const [papers, records] = await Promise.all([
       prisma.paper.findMany({
         where: {
           examType,
+          ...(year === null ? {} : { year }),
           paperType: { in: [...REAL_PAPER_TYPES] },
           OR: [
             {
@@ -85,6 +179,7 @@ questionBankRouter.get('/assessment/papers', requireAuth, async (req, res) => {
           examType,
           paper: {
             paperType: { in: [...REAL_PAPER_TYPES] },
+            ...(year === null ? {} : { year }),
           },
         },
         select: {

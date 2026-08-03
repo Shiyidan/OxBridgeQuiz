@@ -1,7 +1,12 @@
 // ESAT 独立诊断策略：按实际模块分别估分、定位、分析难度并生成模块风险信号。
 import crypto from 'crypto'
 import { BoundedLruCache } from '../utils/boundedLruCache.js'
-import { resolveEsatModule, quickEsatScore, type EsatModule } from './scoring.js'
+import {
+  resolveEsatModule,
+  quickEsatScore,
+  quickTmuaPaperScore,
+  type EsatModule,
+} from './scoring.js'
 import { requestDeepSeekJson } from './deepseek.js'
 import type {
   AssessmentModule,
@@ -43,6 +48,12 @@ const MODULE_LABELS: Record<string, string> = {
   unclassified: '未分类模块',
 }
 const MODULE_ORDER = ['maths1', 'maths2', 'physics', 'chemistry', 'biology', 'unclassified']
+const TMUA_MODULE_LABELS: Record<string, string> = {
+  paper1: 'Paper 1 · 数学知识应用',
+  paper2: 'Paper 2 · 数学推理',
+  unclassified: '未分类分卷',
+}
+const TMUA_MODULE_ORDER = ['paper1', 'paper2', 'unclassified']
 const ESAT_SCORE_BINS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9]
 const ESAT_DISTRIBUTION_PERCENTAGES: Record<string, number[]> = {
   maths1: [0.4, 0.7, 2.2, 3.5, 11.2, 11.8, 15.4, 17.2, 10.2, 8.7, 5.5, 4.9, 2.8, 2.0, 0.4, 1.5, 1.7],
@@ -58,6 +69,43 @@ type ModuleAnalysis = Partial<{
   keyIssue: string
   focusSuggestion: string
 }>
+
+type DiagnosticExamContext = {
+  examType: 'ESAT' | 'TMUA'
+  moduleNoun: '科目' | '分卷'
+  moduleLabels: Record<string, string>
+  moduleOrder: string[]
+  resolveModule: (question: ReportQuestionInput, index: number, total: number) => string
+}
+
+const ESAT_CONTEXT: DiagnosticExamContext = {
+  examType: 'ESAT',
+  moduleNoun: '科目',
+  moduleLabels: MODULE_LABELS,
+  moduleOrder: MODULE_ORDER,
+  resolveModule: (question) => resolveEsatModule(
+    question.moduleCode ?? question.componentCode,
+    question.subject,
+  ) || 'unclassified',
+}
+
+const TMUA_CONTEXT: DiagnosticExamContext = {
+  examType: 'TMUA',
+  moduleNoun: '分卷',
+  moduleLabels: TMUA_MODULE_LABELS,
+  moduleOrder: TMUA_MODULE_ORDER,
+  resolveModule: (question, index, total) => {
+    const source = [
+      question.moduleCode,
+      question.componentCode,
+      question.subjectCode,
+      question.subject,
+    ].filter(Boolean).join(' ').toLowerCase()
+    if (/paper\s*2|paper2|p2|reasoning|推理/.test(source)) return 'paper2'
+    if (/paper\s*1|paper1|p1|thinking|应用/.test(source)) return 'paper1'
+    return index < Math.ceil(total / 2) ? 'paper1' : 'paper2'
+  },
+}
 
 const DIAGNOSTIC_AI_CACHE_MAX_ENTRIES = 128
 const moduleAnalysisCache = new BoundedLruCache<string, Record<string, ModuleAnalysis>>(
@@ -327,9 +375,10 @@ export function validateModulePositioningInsight(
   return scoreEvidence && (overallEvidence || difficultyEvidence) ? insight : null
 }
 
-const MODULE_POSITIONING_PROMPT = [
-  '你是 ESAT 模块诊断分析师，请只输出 JSON，不要输出分析过程或 Markdown。',
-  '为输入中的每个模块生成一条科目整体评价。',
+function modulePositioningPrompt(context: DiagnosticExamContext): string {
+  return [
+  `你是 ${context.examType} ${context.moduleNoun}诊断分析师，请只输出 JSON，不要输出分析过程或 Markdown。`,
+  `为输入中的每个${context.moduleNoun}生成一条整体评价。`,
   '在输出前依次完成以下判断：',
   '1. 根据预估分、表现等级和总正确数确定当前整体表现；后端提供的分数、等级和百分位只能引用，不得重算。',
   '2. 比较有题的难度层，同时考虑正确率、题量和 sampleNote；少量题目的偶然正确不得视为稳定优势。',
@@ -339,23 +388,26 @@ const MODULE_POSITIONING_PROMPT = [
   '只能描述输入事实，不得虚构知识点、错误类型、心理、能力成因、院校结论或具体学习任务。',
   '语气客观中性，禁止使用“极弱”“严重不足”“系统性缺失”“完全没有能力”等绝对化表述。',
   '禁止单独使用“仍有提升空间”“加强练习”“继续努力”等无证据结论。',
-  '输出 JSON 格式示例：{"moduleAnalyses":[{"moduleId":"maths1","positioningInsight":"数学1预估分为4.5，本次答对12/20题；中难度8/14是当前稳定得分来源，高难度1/4仍限制分数上限。下一阶段应优先提高高难度题得分率。"}]}',
-].join('\n')
+  '输出 JSON 格式示例：{"moduleAnalyses":[{"moduleId":"paper1","positioningInsight":"Paper 1参考分为4.5，本次答对12/20题；中难度8/14是当前稳定得分来源，高难度1/4仍限制分数上限。下一阶段应优先提高高难度题得分率。"}]}',
+  ].join('\n')
+}
 
 // 执行一次整体评价专用请求，并逐模块接受合格结果。
 async function requestModulePositioningInsights(
   modules: AssessmentModule[],
+  context: DiagnosticExamContext,
 ): Promise<Record<string, string>> {
+  const prompt = modulePositioningPrompt(context)
   const response = await requestDeepSeekJson<{ moduleAnalyses?: unknown }>(
-    MODULE_POSITIONING_PROMPT,
+    prompt,
     {
-      examType: 'ESAT',
-      task: '生成各科目的整体评价',
+      examType: context.examType,
+      task: `生成各${context.moduleNoun}的整体评价`,
       modules: modules.map(positioningPayloadForModule),
     },
     { maxTokens: 900 },
   )
-  if (!Array.isArray(response.data.moduleAnalyses)) throw new Error('Invalid ESAT positioning moduleAnalyses')
+  if (!Array.isArray(response.data.moduleAnalyses)) throw new Error(`Invalid ${context.examType} positioning moduleAnalyses`)
   const moduleMap = new Map(modules.map((module) => [module.id, module]))
   const insights: Record<string, string> = {}
   for (const item of response.data.moduleAnalyses as Array<Record<string, unknown>>) {
@@ -365,7 +417,8 @@ async function requestModulePositioningInsights(
     const insight = validateModulePositioningInsight(module, item.positioningInsight)
     if (insight) insights[moduleId] = insight
   }
-  console.info('[esat-diagnostic] module positioning generated', {
+  console.info('[diagnostic-report] module positioning generated', {
+    examType: context.examType,
     model: response.model,
     accepted: Object.keys(insights).length,
     requested: modules.length,
@@ -377,27 +430,29 @@ async function requestModulePositioningInsights(
 // 批量生成后只补偿缺失模块，兼顾跨模块区分度与单模块失败隔离。
 export async function generateModulePositioningInsights(
   modules: AssessmentModule[],
+  context: DiagnosticExamContext = ESAT_CONTEXT,
 ): Promise<Record<string, string>> {
   const payload = modules.map(positioningPayloadForModule)
+  const prompt = modulePositioningPrompt(context)
   const cacheKey = crypto.createHash('sha256')
-    .update(JSON.stringify({ prompt: MODULE_POSITIONING_PROMPT, payload }))
+    .update(JSON.stringify({ prompt, payload }))
     .digest('hex')
   const cached = modulePositioningCache.get(cacheKey)
   if (cached) return cached
 
   const insights: Record<string, string> = {}
   try {
-    Object.assign(insights, await requestModulePositioningInsights(modules))
+    Object.assign(insights, await requestModulePositioningInsights(modules, context))
   } catch (error) {
-    console.error('[esat-diagnostic] module positioning batch unavailable:', error)
+    console.error(`[${context.examType.toLowerCase()}-diagnostic] module positioning batch unavailable:`, error)
   }
 
   const missingModules = modules.filter((module) => !insights[module.id])
   if (missingModules.length) {
     try {
-      Object.assign(insights, await requestModulePositioningInsights(missingModules))
+      Object.assign(insights, await requestModulePositioningInsights(missingModules, context))
     } catch (error) {
-      console.error('[esat-diagnostic] module positioning repair unavailable:', error)
+      console.error(`[${context.examType.toLowerCase()}-diagnostic] module positioning repair unavailable:`, error)
     }
   }
 
@@ -406,7 +461,10 @@ export async function generateModulePositioningInsights(
 }
 
 // 辅助诊断仍使用一次批量调用，但每个字段独立验收，任一字段无效不再丢弃整模块结果。
-async function generateModuleAnalyses(modules: AssessmentModule[]): Promise<Record<string, ModuleAnalysis>> {
+async function generateModuleAnalyses(
+  modules: AssessmentModule[],
+  context: DiagnosticExamContext = ESAT_CONTEXT,
+): Promise<Record<string, ModuleAnalysis>> {
   const payload = modules.map((module) => ({
     moduleId: module.id,
     moduleLabel: module.label,
@@ -417,14 +475,14 @@ async function generateModuleAnalyses(modules: AssessmentModule[]): Promise<Reco
     scoringBasis: module.scoringBasis,
     difficultyMastery: module.difficultyMastery,
   }))
-  const cacheKey = crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex')
+  const cacheKey = crypto.createHash('sha256').update(JSON.stringify({ examType: context.examType, payload })).digest('hex')
   const cached = moduleAnalysisCache.get(cacheKey)
   if (cached) return cached
 
   try {
     const response = await requestDeepSeekJson<{ moduleAnalyses?: unknown }>(
       [
-        '你是 ESAT 模块诊断分析师，请只输出 JSON。',
+        `你是 ${context.examType} ${context.moduleNoun}诊断分析师，请只输出 JSON。`,
         '输出 moduleAnalyses 数组，每项包含 moduleId、riskSignal、summary、strength、keyIssue 和 focusSuggestion。',
         'riskSignal 不超过80字，用一句中文指出该模块最需要关注的风险。',
         'summary 不超过100字，概括模块预估分、作答正确率和难度表现；strength 不超过80字，只描述数据中真实存在的相对优势，没有优势时必须明确说明样本未显示稳定优势。',
@@ -433,10 +491,10 @@ async function generateModuleAnalyses(modules: AssessmentModule[]): Promise<Reco
         '语气客观中性，禁止使用“严重不足”“系统性缺失”等绝对化表达。',
         '不得生成新分数、百分位、院校结论、错误类型或具体学习任务。',
       ].join('\n'),
-      { examType: 'ESAT', modules: payload },
+      { examType: context.examType, modules: payload },
       { maxTokens: 1500 },
     )
-    if (!Array.isArray(response.data.moduleAnalyses)) throw new Error('Invalid ESAT moduleAnalyses')
+    if (!Array.isArray(response.data.moduleAnalyses)) throw new Error(`Invalid ${context.examType} moduleAnalyses`)
     const allowedIds = new Set(modules.map((module) => module.id))
     const analyses: Record<string, ModuleAnalysis> = {}
     for (const item of response.data.moduleAnalyses as Array<Record<string, unknown>>) {
@@ -458,13 +516,14 @@ async function generateModuleAnalyses(modules: AssessmentModule[]): Promise<Reco
       if (Object.keys(analysis).length) analyses[moduleId] = analysis
     }
     moduleAnalysisCache.set(cacheKey, analyses)
-    console.info('[esat-diagnostic] module analyses generated', {
+    console.info('[diagnostic-report] module analyses generated', {
+      examType: context.examType,
       model: response.model,
       totalTokens: response.usage.totalTokens,
     })
     return analyses
   } catch (error) {
-    console.error('[esat-diagnostic] module analyses unavailable:', error)
+    console.error(`[${context.examType.toLowerCase()}-diagnostic] module analyses unavailable:`, error)
     return {}
   }
 }
@@ -501,11 +560,80 @@ function buildTitle(paper: PaperInput): string {
   return `${title} · 成绩报告`
 }
 
+// TMUA 综合定位只使用 UAT-UK 已公开的 4.5 典型分与 7.0 高分锚点，不插值虚构中间百分位。
+function buildTmuaOverallPositioning(score: number): AssessmentPositioning {
+  const aboveTopDecileAnchor = score > 7
+  const atOrAboveTypical = score >= 4.5
+  return {
+    percentileValue: null,
+    percentileLabel: aboveTopDecileAnchor ? '约前 10% 区间' : '官方未公布精确排名',
+    performanceLevel: aboveTopDecileAnchor
+      ? '高于官方 7.0 锚点'
+      : atOrAboveTypical
+        ? '达到或高于典型分'
+        : '低于典型分锚点',
+    competitiveness: `当前综合参考分为 ${score.toFixed(1)}；需要结合 Paper 1 与 Paper 2 的作答证据判断下一步优先项。`,
+    cohortReference: 'UAT-UK 2025/26：典型考生约 4.5 分，约 10% 考生高于 7.0 分；官方不提供其他分数的精确百分位。',
+    limitedData: true,
+  }
+}
+
+// UAT-UK 不发布分卷成绩，Paper 1/2 只保留平台诊断定位，不映射官方百分位。
+function buildTmuaPaperPositioning(score: number): AssessmentPositioning {
+  return {
+    percentileValue: null,
+    percentileLabel: '不提供分卷排名',
+    performanceLevel: '平台分卷诊断',
+    competitiveness: `当前分卷诊断参考分为 ${score.toFixed(1)}，仅用于比较两卷表现与定位训练重点。`,
+    cohortReference: 'UAT-UK 正式成绩只报告 Paper 1 与 Paper 2 联合等值后的单一综合分。',
+    limitedData: true,
+  }
+}
+
+// TMUA 分卷按实际题量归一到标准 20 题后换算，诊断分析仍保留原始正确数作为证据。
+function buildTmuaModule(id: string, questions: ReportQuestionInput[]): AssessmentModule {
+  const paper = id === 'paper2' ? 'paper2' : 'paper1'
+  const correct = questions.filter((question) => question.isCorrect).length
+  const score = quickTmuaPaperScore(paper, correct, questions.length)
+  const range = ratioRange(correct, questions.length)
+  const scoreRange: [number, number] = [
+    quickTmuaPaperScore(paper, range[0] * questions.length, questions.length),
+    quickTmuaPaperScore(paper, range[1] * questions.length, questions.length),
+  ]
+  const scoringBasis = questions.length === 20 ? 'standard' as const : 'normalized' as const
+  return {
+    id,
+    label: TMUA_MODULE_LABELS[id] || id,
+    correct,
+    total: questions.length,
+    score,
+    scoreRange,
+    scaleLabel: '/ 9.0',
+    summary: `本卷答对 ${correct}/${questions.length} 题，诊断参考分 ${score.toFixed(1)}。`,
+    positioning: buildTmuaPaperPositioning(score),
+    difficultyMastery: buildDifficultyMastery(questions),
+    scoringBasis,
+    equivalentRawScore: questions.length ? round1((correct / questions.length) * 20) : 0,
+    notice: scoringBasis === 'normalized'
+      ? `本卷为 ${questions.length} 题非标准题量，已按正确率归一为 /20 等效原始分。`
+      : null,
+  }
+}
+
+// TMUA 报告标题保持考试名称、试卷元数据和年份一致。
+function buildTmuaTitle(paper: PaperInput): string {
+  let title = paper.title.trim()
+  if (!title.toUpperCase().includes('TMUA')) title = `TMUA ${title}`
+  if (!title.includes(String(paper.year))) title = `${title} ${paper.year}`
+  return `${title} · 诊断报告`
+}
+
 // 总体概览以完成节奏、时间效率和模块效率组织，所有数值均由答题记录确定性计算。
 function buildOverview(
   questions: ReportQuestionInput[],
   paper: PaperInput,
   elapsedDurationSeconds: number | null | undefined,
+  context: DiagnosticExamContext = ESAT_CONTEXT,
 ): ReportOverview {
   const totalQuestions = questions.length
   const correct = questions.filter((question) => question.isCorrect).length
@@ -569,7 +697,7 @@ function buildOverview(
   }
   const moduleGroups = new Map<string, Array<{ question: ReportQuestionInput; expectedDurationSeconds: number }>>()
 
-  for (const question of questions) {
+  for (const [index, question] of questions.entries()) {
     const expectedDurationSeconds = expectedDurationFor(question)
     const durationSeconds = Math.max(0, question.durationSeconds || 0)
     if (durationSeconds > 0 && question.isAnswered && expectedDurationSeconds > 0) {
@@ -578,10 +706,7 @@ function buildOverview(
       const quadrantKey = `${speed}_${outcome}` as keyof typeof quadrantCounts
       quadrantCounts[quadrantKey] += 1
     }
-    const moduleId = resolveEsatModule(
-      question.moduleCode ?? question.componentCode,
-      question.subject,
-    ) || 'unclassified'
+    const moduleId = context.resolveModule(question, index, questions.length)
     const group = moduleGroups.get(moduleId) || []
     group.push({ question, expectedDurationSeconds })
     moduleGroups.set(moduleId, group)
@@ -606,7 +731,7 @@ function buildOverview(
         : null
       return {
         id,
-        label: MODULE_LABELS[id] || id,
+        label: context.moduleLabels[id] || id,
         actualDurationSeconds: Math.round(actualDurationSeconds),
         plannedDurationSeconds: Math.round(plannedDurationSecondsForModule),
         totalQuestions: items.length,
@@ -618,7 +743,7 @@ function buildOverview(
           : null,
       }
     })
-    .sort((a, b) => MODULE_ORDER.indexOf(a.id) - MODULE_ORDER.indexOf(b.id))
+    .sort((a, b) => context.moduleOrder.indexOf(a.id) - context.moduleOrder.indexOf(b.id))
 
   return {
     totalQuestions,
@@ -660,14 +785,12 @@ function buildOverview(
 function buildKnowledgeMastery(
   questions: ReportQuestionInput[],
   syllabusNodes: Array<{ code: string; label: string }>,
+  context: DiagnosticExamContext = ESAT_CONTEXT,
 ): ReportKnowledgeMastery {
   const syllabusLabels = new Map(syllabusNodes.map((node) => [node.code, node.label]))
   const moduleGroups = new Map<string, ReportQuestionInput[]>()
-  for (const question of questions) {
-    const moduleId = resolveEsatModule(
-      question.moduleCode ?? question.componentCode,
-      question.subject,
-    ) || 'unclassified'
+  for (const [index, question] of questions.entries()) {
+    const moduleId = context.resolveModule(question, index, questions.length)
     const group = moduleGroups.get(moduleId) || []
     group.push(question)
     moduleGroups.set(moduleId, group)
@@ -723,7 +846,7 @@ function buildKnowledgeMastery(
       const correct = moduleQuestions.filter((question) => question.isCorrect).length
       return {
         id: moduleId,
-        label: MODULE_LABELS[moduleId] || moduleId,
+        label: context.moduleLabels[moduleId] || moduleId,
         knowledgePointCount: new Set(topics.flatMap((topic) => topic.children.map((child) => child.code))).size,
         correct,
         total: moduleQuestions.length,
@@ -731,7 +854,7 @@ function buildKnowledgeMastery(
         topics,
       }
     })
-    .sort((a, b) => MODULE_ORDER.indexOf(a.id) - MODULE_ORDER.indexOf(b.id))
+    .sort((a, b) => context.moduleOrder.indexOf(a.id) - context.moduleOrder.indexOf(b.id))
 
   return { modules }
 }
@@ -764,14 +887,12 @@ function matrixStatus(total: number, accuracy: number | null): AiMatrixRow['cell
 function buildAbilityMatrix(
   questions: ReportQuestionInput[],
   syllabusNodes: Array<{ code: string; label: string }>,
+  context: DiagnosticExamContext = ESAT_CONTEXT,
 ): ReportAiImprovementPlan['matrix'] {
   const syllabusLabels = new Map(syllabusNodes.map((node) => [node.code, node.label]))
   const topicGroups = new Map<string, { moduleId: string; label: string; questions: ReportQuestionInput[] }>()
-  for (const question of questions) {
-    const moduleId = resolveEsatModule(
-      question.moduleCode ?? question.componentCode,
-      question.subject,
-    ) || 'unclassified'
+  for (const [index, question] of questions.entries()) {
+    const moduleId = context.resolveModule(question, index, questions.length)
     const topicCode = question.topicCode?.trim() || `${moduleId}-unmapped`
     const key = `${moduleId}:${topicCode}`
     const group = topicGroups.get(key) || {
@@ -803,12 +924,12 @@ function buildAbilityMatrix(
         code: topicCode,
         label: group.label,
         moduleId: group.moduleId,
-        moduleLabel: MODULE_LABELS[group.moduleId] || group.moduleId,
+        moduleLabel: context.moduleLabels[group.moduleId] || group.moduleId,
         cells,
       }
     })
     .sort((a, b) => {
-      const moduleDiff = MODULE_ORDER.indexOf(a.moduleId) - MODULE_ORDER.indexOf(b.moduleId)
+      const moduleDiff = context.moduleOrder.indexOf(a.moduleId) - context.moduleOrder.indexOf(b.moduleId)
       return moduleDiff || a.code.localeCompare(b.code)
     })
 }
@@ -862,7 +983,10 @@ function fallbackPriorityReason(candidate: RoiCandidate): string {
 }
 
 // DeepSeek 只润色已选候选项的原因和前置检查，不参与分数、排序或投入时长计算。
-async function generateRoiNarratives(candidates: RoiCandidate[]): Promise<Map<string, {
+async function generateRoiNarratives(
+  candidates: RoiCandidate[],
+  context: DiagnosticExamContext = ESAT_CONTEXT,
+): Promise<Map<string, {
   priorityReason: string
   prerequisiteCheck: string
 }>> {
@@ -877,7 +1001,7 @@ async function generateRoiNarratives(candidates: RoiCandidate[]): Promise<Map<st
     accuracyPercent: Math.round(candidate.accuracy * 100),
     requiredCitation: `正确率 ${Math.round(candidate.accuracy * 100)}%，样本量 n=${candidate.total}`,
   }))
-  const cacheKey = crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex')
+  const cacheKey = crypto.createHash('sha256').update(JSON.stringify({ examType: context.examType, payload })).digest('hex')
   const cached = roiCache.get(cacheKey)
   let generated = cached
 
@@ -885,7 +1009,7 @@ async function generateRoiNarratives(candidates: RoiCandidate[]): Promise<Map<st
     try {
       const response = await requestDeepSeekJson<{ recommendations?: unknown }>(
         [
-          '你是 ESAT 诊断报告分析师，请只输出 JSON。',
+          `你是 ${context.examType} 诊断报告分析师，请只输出 JSON。`,
           '输出 recommendations 数组，每项只能包含 gapKey、priorityReason、prerequisiteCheck。',
           '必须逐项使用输入中的 gapKey，不得新增、删除或改变候选项。',
           'priorityReason 不超过90字，必须原样包含 requiredCitation，并客观说明该格子为何优先。',
@@ -893,7 +1017,7 @@ async function generateRoiNarratives(candidates: RoiCandidate[]): Promise<Map<st
           '不得生成分数、样本量、学习时长、院校结论、心理归因或新的知识点名称。',
           '不得声称存在知识点依赖关系。',
         ].join('\n'),
-        { examType: 'ESAT', candidates: payload },
+        { examType: context.examType, candidates: payload },
         { maxTokens: 900 },
       )
       if (!Array.isArray(response.data.recommendations)) throw new Error('Invalid ROI recommendations')
@@ -904,12 +1028,13 @@ async function generateRoiNarratives(candidates: RoiCandidate[]): Promise<Map<st
           prerequisiteCheck: typeof item.prerequisiteCheck === 'string' ? item.prerequisiteCheck.trim() : '',
         }))
       roiCache.set(cacheKey, generated)
-      console.info('[esat-diagnostic] ROI narratives generated', {
+      console.info('[diagnostic-report] ROI narratives generated', {
+        examType: context.examType,
         model: response.model,
         totalTokens: response.usage.totalTokens,
       })
     } catch (error) {
-      console.error('[esat-diagnostic] ROI narratives unavailable:', error)
+      console.error(`[${context.examType.toLowerCase()}-diagnostic] ROI narratives unavailable:`, error)
       generated = []
     }
   }
@@ -938,12 +1063,13 @@ async function generateRoiNarratives(candidates: RoiCandidate[]): Promise<Map<st
 async function buildAiImprovementPlan(
   questions: ReportQuestionInput[],
   syllabusNodes: Array<{ code: string; label: string }>,
+  context: DiagnosticExamContext = ESAT_CONTEXT,
 ): Promise<ReportAiImprovementPlan> {
-  const matrix = buildAbilityMatrix(questions, syllabusNodes)
+  const matrix = buildAbilityMatrix(questions, syllabusNodes, context)
   const candidates = selectRoiCandidates(matrix)
   if (!candidates.length) return { matrix, highRoiGaps: [], analysisStatus: 'not-needed' }
 
-  const narratives = await generateRoiNarratives(candidates)
+  const narratives = await generateRoiNarratives(candidates, context)
   const highRoiGaps = candidates.map((candidate, index) => {
     const narrative = narratives.get(candidate.gapKey)
     const learningInsights = learningInsightsForTopic(
@@ -951,6 +1077,7 @@ async function buildAiImprovementPlan(
       candidate.moduleId,
       candidate.topicCode,
       candidate.difficulty,
+      context,
     )
     return {
       rank: index + 1,
@@ -986,10 +1113,11 @@ function learningInsightsForTopic(
   moduleId: string,
   topicCode: string,
   difficulty: DifficultyLevel,
+  context: DiagnosticExamContext = ESAT_CONTEXT,
 ): { examFocus: string[]; reviewGuidance: string[]; possibleErrorPatterns: string[]; questionNumbers: number[] } {
-  const matched = questions.filter((question) => (
+  const matched = questions.filter((question, index) => (
     !question.isCorrect
-    && (resolveEsatModule(question.moduleCode ?? question.componentCode, question.subject) || 'unclassified') === moduleId
+    && context.resolveModule(question, index, questions.length) === moduleId
     && (question.topicCode?.trim() || `${moduleId}-unmapped`) === topicCode
     && normalizeDifficulty(question.difficulty) === difficulty
   ))
@@ -1021,6 +1149,7 @@ type ActionCandidate = {
 export function buildEsatNextAction(
   plan: ReportAiImprovementPlan,
   questions: ReportQuestionInput[],
+  context: DiagnosticExamContext = ESAT_CONTEXT,
 ): ReportNextAction | null {
   const primaryGap = plan.highRoiGaps[0]
   let candidate: ActionCandidate | null = primaryGap
@@ -1071,6 +1200,7 @@ export function buildEsatNextAction(
     candidate.moduleId,
     candidate.topicCode,
     candidate.difficulty,
+    context,
   )
   const accuracyPercent = candidate.accuracy === null ? null : Math.round(candidate.accuracy * 100)
   const confidence = candidate.total >= 5 ? 'high' : candidate.total >= 3 ? 'medium' : 'low'
@@ -1271,7 +1401,7 @@ async function personalizeLearningPath(input: {
   profile: LearnerProfileInput
   summary: Omit<ReportLearningPath['summary'], 'analysisSource'>
   timing: ReportOverview['timing']
-}): Promise<{ phases: ReportLearningPath['phases']; source: 'deepseek' | 'fallback' }> {
+}, context: DiagnosticExamContext = ESAT_CONTEXT): Promise<{ phases: ReportLearningPath['phases']; source: 'deepseek' | 'fallback' }> {
   const allowedGaps = new Map(input.focusGaps.map((gap) => [gap.gapKey, gap]))
   const payload = {
     profile: {
@@ -1320,13 +1450,13 @@ async function personalizeLearningPath(input: {
             })),
         },
   }
-  const cacheKey = crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex')
+  const cacheKey = crypto.createHash('sha256').update(JSON.stringify({ examType: context.examType, payload })).digest('hex')
   let generated = learningPathCache.get(cacheKey) as { phases?: unknown } | undefined
   if (!generated) {
     try {
       const response = await requestDeepSeekJson<{ phases?: unknown }>(
         [
-          '你是 ESAT 个性化学习路径规划师，请只输出 JSON。',
+          `你是 ${context.examType} 个性化学习路径规划师，请只输出 JSON。`,
           '输出 phases 数组，必须且只能包含 foundation、improvement、sprint 三项。',
           '每项包含 id、goal、strategy、tasks、activities。goal 与 strategy 各不超过100字。',
           'foundation.tasks 只能引用输入 focusGaps 的 gapKey，每项包含 gapKey、title、completionLabel；不得新增知识点。',
@@ -1342,12 +1472,13 @@ async function personalizeLearningPath(input: {
       )
       generated = response.data
       learningPathCache.set(cacheKey, generated)
-      console.info('[esat-diagnostic] learning path generated', {
+      console.info('[diagnostic-report] learning path generated', {
+        examType: context.examType,
         model: response.model,
         totalTokens: response.usage.totalTokens,
       })
     } catch (error) {
-      console.error('[esat-diagnostic] learning path unavailable:', error)
+      console.error(`[${context.examType.toLowerCase()}-diagnostic] learning path unavailable:`, error)
       return { phases: input.phases, source: 'fallback' }
     }
   }
@@ -1548,11 +1679,11 @@ export function buildFallbackStarterPlan(input: {
   weeklyHours: number
   budgetSource: 'profile' | 'default'
   timing: ReportOverview['timing']
-}): { starterPlan: ReportStarterPlan; sources: StarterFocusSource[] } {
+}, context: DiagnosticExamContext = ESAT_CONTEXT): { starterPlan: ReportStarterPlan; sources: StarterFocusSource[] } {
   const sources = starterFocusSources(input.plan, input.nextAction)
   const primary = sources[0] || {
-    gapKey: 'esat:diagnostic:review',
-    moduleLabel: 'ESAT',
+    gapKey: `${context.examType.toLowerCase()}:diagnostic:review`,
+    moduleLabel: context.examType,
     topicCode: 'diagnostic-review',
     topicLabel: '本次诊断错题',
     difficultyLabel: '当前难度',
@@ -1787,6 +1918,7 @@ export function buildFallbackStarterPlan(input: {
 async function personalizeStarterPlan(
   fallback: ReportStarterPlan,
   sources: StarterFocusSource[],
+  context: DiagnosticExamContext = ESAT_CONTEXT,
 ): Promise<ReportStarterPlan> {
   const payload = {
     evidenceBoundary: fallback.evidenceBoundary,
@@ -1807,13 +1939,13 @@ async function personalizeStarterPlan(
     })),
     fixedDays: fallback.days,
   }
-  const cacheKey = crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex')
+  const cacheKey = crypto.createHash('sha256').update(JSON.stringify({ examType: context.examType, payload })).digest('hex')
   let generated = starterPlanCache.get(cacheKey) as { days?: unknown } | undefined
   if (!generated) {
     try {
       const response = await requestDeepSeekJson<{ days?: unknown }>(
         [
-          '你是 ESAT 诊断型学习规划师，只输出 JSON。',
+          `你是 ${context.examType} 诊断型学习规划师，只输出 JSON。`,
           '输出 days 数组且必须恰好7项；day、role、durationMinutes 必须与 fixedDays 完全一致。',
           '你只能改写 title、diagnosticRationale、steps、deliverable、successCriteria、ifNotMet；不得新增焦点或改变 evidenceRefs。',
           '七天必须分别承担：证据核对、方法重建、无提示检索、第二项迁移、第三项或深化、交错训练、周末复测决策。',
@@ -1829,12 +1961,13 @@ async function personalizeStarterPlan(
       )
       generated = response.data
       starterPlanCache.set(cacheKey, generated)
-      console.info('[esat-diagnostic] starter plan generated', {
+      console.info('[diagnostic-report] starter plan generated', {
+        examType: context.examType,
         model: response.model,
         totalTokens: response.usage.totalTokens,
       })
     } catch (error) {
-      console.error('[esat-diagnostic] starter plan unavailable:', error)
+      console.error(`[${context.examType.toLowerCase()}-diagnostic] starter plan unavailable:`, error)
       return fallback
     }
   }
@@ -1889,6 +2022,7 @@ async function buildLearningPath(
   learnerProfile: LearnerProfileInput | undefined,
   timing: ReportOverview['timing'],
   nextAction: ReportNextAction | null,
+  context: DiagnosticExamContext = ESAT_CONTEXT,
 ): Promise<ReportLearningPath> {
   const profile: LearnerProfileInput = {
     subjects: learnerProfile?.subjects?.filter(Boolean) || [],
@@ -1911,7 +2045,9 @@ async function buildLearningPath(
     profile.weeklyHours === null ? '每周可投入时长' : '',
   ].filter(Boolean)
   const declaredSubjects = [...profile.subjects]
-  const planningSubjects = resolveEsatPlanningSubjects(plan.matrix, declaredSubjects)
+  const planningSubjects = context.examType === 'TMUA'
+    ? { subjects: ['数学'], subjectMismatch: false }
+    : resolveEsatPlanningSubjects(plan.matrix, declaredSubjects)
   const planningScope: ReportLearningPath['summary']['planningScope'] = (
     profile.examDate && profile.weeklyHours !== null
   ) ? 'full' : 'starter'
@@ -1931,7 +2067,7 @@ async function buildLearningPath(
       }
     : fullModeDecision
   const [foundationWeeks, improvementWeeks, sprintWeeks] = allocatePhaseWeeks(modeDecision.weeks)
-  const majorModules = majorPreferredModules(profile.targetMajor)
+  const majorModules = context.examType === 'TMUA' ? [] : majorPreferredModules(profile.targetMajor)
   const subjects = planningSubjects.subjects
   const rankedGaps: LearningFocusGap[] = plan.highRoiGaps
     .map((gap) => ({
@@ -2003,10 +2139,11 @@ async function buildLearningPath(
       weeklyHours,
       budgetSource: profile.weeklyHours === null ? 'default' : 'profile',
       timing,
-    })
+    }, context)
     const starterPlan = await personalizeStarterPlan(
       fallbackStarter.starterPlan,
       fallbackStarter.sources,
+      context,
     )
     return {
       profile: {
@@ -2082,7 +2219,7 @@ async function buildLearningPath(
     profile: { ...profile, subjects },
     summary: summaryBase,
     timing,
-  })
+  }, context)
   return {
     profile: {
       ...profile,
@@ -2185,6 +2322,135 @@ export async function buildEsatDiagnosticReportSummary(input: {
     },
     overview,
     knowledgeMastery: buildKnowledgeMastery(input.questions, input.syllabusNodes || []),
+    aiImprovementPlan,
+    learningPath,
+    nextAction,
+  }
+}
+
+// 构建 TMUA 完整诊断报告：综合分按两卷参考分合并，其他分析沿用与 ESAT 相同的证据和容错框架。
+export async function buildTmuaDiagnosticReportSummary(input: {
+  examType: string
+  paper: PaperInput
+  questions: ReportQuestionInput[]
+  elapsedDurationSeconds?: number | null
+  syllabusNodes?: Array<{ code: string; label: string }>
+  learnerProfile?: LearnerProfileInput
+  onStage?: (stage: DiagnosticBuildStage) => void | Promise<void>
+}): Promise<DiagnosticReportSummary> {
+  const sortedQuestions = [...input.questions].sort((left, right) => left.number - right.number)
+  const groups = new Map<string, ReportQuestionInput[]>()
+  for (const [index, question] of sortedQuestions.entries()) {
+    const moduleId = TMUA_CONTEXT.resolveModule(question, index, sortedQuestions.length)
+    const group = groups.get(moduleId) || []
+    group.push(question)
+    groups.set(moduleId, group)
+  }
+  const modules = Array.from(groups.entries())
+    .map(([id, questions]) => buildTmuaModule(id, questions))
+    .sort((left, right) => TMUA_MODULE_ORDER.indexOf(left.id) - TMUA_MODULE_ORDER.indexOf(right.id))
+
+  await input.onStage?.('module_analyzing')
+  const moduleAnalysisPromise = Promise.all([
+    generateModuleAnalyses(modules, TMUA_CONTEXT),
+    generateModulePositioningInsights(modules, TMUA_CONTEXT),
+  ]).then(async (result) => {
+    await input.onStage?.('roi_analyzing')
+    return result
+  })
+  const [[moduleAnalyses, modulePositioningInsights], aiImprovementPlan] = await Promise.all([
+    moduleAnalysisPromise,
+    buildAiImprovementPlan(sortedQuestions, input.syllabusNodes || [], TMUA_CONTEXT),
+  ])
+  const modulesWithRisks = modules.map((module) => {
+    const analysis = moduleAnalyses[module.id]
+    const mergedDiagnostic = mergeModuleDiagnosticAnalysis(module, analysis)
+    const positioningInsight = modulePositioningInsights[module.id]
+    return {
+      ...module,
+      positioning: module.positioning
+        ? {
+            ...module.positioning,
+            competitiveness: positioningInsight || buildFallbackModulePositioningInsight(module),
+            analysisSource: positioningInsight ? 'deepseek' as const : 'fallback' as const,
+          }
+        : null,
+      riskSignal: mergedDiagnostic.riskSignal,
+      diagnosticAnalysis: mergedDiagnostic.diagnosticAnalysis,
+    }
+  })
+  const combinedScore = modulesWithRisks.length
+    ? round1(modulesWithRisks.reduce((sum, module) => sum + (module.score || 0), 0) / modulesWithRisks.length)
+    : null
+  const rangedModules = modulesWithRisks.filter(
+    (module): module is typeof module & { scoreRange: [number, number] } => module.scoreRange !== null,
+  )
+  const combinedRange: [number, number] | null = rangedModules.length
+    ? [
+        round1(rangedModules.reduce((sum, module) => sum + module.scoreRange[0], 0) / rangedModules.length),
+        round1(rangedModules.reduce((sum, module) => sum + module.scoreRange[1], 0) / rangedModules.length),
+      ]
+    : null
+  const overallPositioning = combinedScore === null ? null : buildTmuaOverallPositioning(combinedScore)
+  if (overallPositioning && combinedScore !== null && modulesWithRisks.length) {
+    const moduleEvidence = modulesWithRisks
+      .map((module) => `${module.label} ${module.score?.toFixed(1)}（${module.correct}/${module.total}）`)
+      .join('；')
+    const weakestModule = [...modulesWithRisks].sort(
+      (left, right) => (left.score || 0) - (right.score || 0),
+    )[0]
+    overallPositioning.competitiveness = `综合参考分 ${combinedScore.toFixed(1)}；${moduleEvidence}。当前优先检查 ${weakestModule.label} 的失分结构与限时表现。`
+  }
+
+  const difficultyMastery = buildDifficultyMastery(sortedQuestions)
+  const overview = buildOverview(
+    sortedQuestions,
+    input.paper,
+    input.elapsedDurationSeconds,
+    TMUA_CONTEXT,
+  )
+  const nextAction = buildEsatNextAction(aiImprovementPlan, sortedQuestions, TMUA_CONTEXT)
+  await input.onStage?.('path_analyzing')
+  const learningPath = await buildLearningPath(
+    aiImprovementPlan,
+    modulesWithRisks,
+    input.learnerProfile,
+    overview.timing,
+    nextAction,
+    TMUA_CONTEXT,
+  )
+
+  return {
+    reportKind: 'tmua',
+    header: {
+      title: buildTmuaTitle(input.paper),
+      examType: 'TMUA',
+      year: input.paper.year,
+      modules: modulesWithRisks.map((module) => ({ id: module.id, label: module.label })),
+    },
+    assessment: {
+      score: combinedScore,
+      scoreRange: combinedRange,
+      scaleLabel: '/ 9.0',
+      basedOnQuestions: sortedQuestions.length,
+      methodNote: '基于历史真题正确率与参考曲线估算；正式 UAT-UK 成绩使用 Rasch 模型将两卷联合等值，最终分数以官方结果为准',
+      referenceVersion: 'tmua-uat-uk-2025-26-anchor-v1',
+      positioning: overallPositioning,
+      modules: modulesWithRisks,
+      difficultyMastery,
+      riskSignal: modulesWithRisks
+        .slice()
+        .sort((left, right) => (left.score || 0) - (right.score || 0))[0]?.riskSignal || null,
+      riskStatus: Object.values(moduleAnalyses).some((analysis) => analysis.riskSignal)
+        ? 'generated'
+        : 'unavailable',
+    },
+    overview,
+    knowledgeMastery: buildKnowledgeMastery(
+      sortedQuestions,
+      input.syllabusNodes || [],
+      TMUA_CONTEXT,
+    ),
     aiImprovementPlan,
     learningPath,
     nextAction,

@@ -3,7 +3,7 @@
   <Teleport to="body">
     <Transition name="payment-fade">
       <div
-        v-if="modelValue"
+        v-if="modelValue && MEMBERSHIP_PURCHASE_ENABLED"
         class="payment-overlay"
         role="presentation"
         @mousedown.self="closeModal"
@@ -219,6 +219,10 @@ import { ElMessage } from 'element-plus'
 import QRCode from 'qrcode'
 import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 import { MEMBERSHIP_LEGAL_VERSIONS } from '@/constants/legal'
+import {
+  MEMBERSHIP_PURCHASE_ENABLED,
+  MEMBERSHIP_PURCHASE_PENDING_MESSAGE,
+} from '@/constants/membershipPurchase'
 import {
   closePaymentOrder,
   createPaymentOrder,
@@ -542,6 +546,12 @@ function handleKeydown(event: KeyboardEvent): void {
 watch(
   () => props.modelValue,
   (visible) => {
+    if (visible && !MEMBERSHIP_PURCHASE_ENABLED) {
+      document.body.style.overflow = ''
+      ElMessage.info(MEMBERSHIP_PURCHASE_PENDING_MESSAGE)
+      emit('update:modelValue', false)
+      return
+    }
     document.body.style.overflow = visible ? 'hidden' : ''
     if (visible) {
       void initializePaymentModal()

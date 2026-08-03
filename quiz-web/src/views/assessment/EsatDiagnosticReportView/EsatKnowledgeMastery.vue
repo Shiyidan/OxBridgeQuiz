@@ -1,4 +1,4 @@
-<!-- ESAT 知识点掌握度模块：按考试模块、二级 topic、三级 knowledge point 展示考纲映射表现。 -->
+<!-- 诊断报告知识点掌握度模块：按考试模块、二级 topic、三级 knowledge point 展示考纲映射表现。 -->
 <template>
   <section class="knowledge-section">
     <div class="section-title">
@@ -10,7 +10,7 @@
       </span>
       <div>
         <h2>知识点掌握度</h2>
-        <p>按 ESAT 考纲二级知识点汇总，展开可查看三级知识点</p>
+        <p>按 {{ examType }} 考纲二级知识点汇总，展开可查看三级知识点</p>
       </div>
     </div>
 
@@ -100,7 +100,12 @@
 import { ref } from 'vue'
 import type { DiagnosticKnowledgeMastery } from '@/api/exam'
 
-const props = defineProps<{ knowledgeMastery: DiagnosticKnowledgeMastery }>()
+const props = withDefaults(defineProps<{
+  knowledgeMastery: DiagnosticKnowledgeMastery
+  examType?: 'ESAT' | 'TMUA'
+}>(), {
+  examType: 'ESAT',
+})
 const expandedModuleIds = ref<string[]>(props.knowledgeMastery.modules[0]?.id ? [props.knowledgeMastery.modules[0].id] : [])
 const expandedTopicKeys = ref<string[]>([])
 
@@ -143,6 +148,8 @@ function moduleBadge(moduleId: string, index: number): string {
     physics: 'PH',
     chemistry: 'CH',
     biology: 'BI',
+    paper1: 'P1',
+    paper2: 'P2',
   }
   return badges[moduleId] || `P${index + 1}`
 }

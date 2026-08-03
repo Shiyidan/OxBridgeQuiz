@@ -560,6 +560,7 @@ onBeforeUnmount(() => {
       id="home-pricing"
       class="home-section home-snap-screen home-action-screen"
       aria-labelledby="home-pricing-title"
+      v-if="false"
     >
       <div class="home-page home-pricing-layout home-motion-content">
         <header class="home-pricing-heading">

@@ -4,7 +4,10 @@ import { EXAM_TYPE } from '../constants/domain.js'
 import { BoundedLruCache } from '../utils/boundedLruCache.js'
 import { quickTmuaPaperScore } from './scoring.js'
 import { requestDeepSeekJson } from './deepseek.js'
-import { buildEsatDiagnosticReportSummary } from './esatDiagnosticReport.js'
+import {
+  buildEsatDiagnosticReportSummary,
+  buildTmuaDiagnosticReportSummary,
+} from './esatDiagnosticReport.js'
 
 type DifficultyLevel = 'low' | 'medium' | 'high'
 
@@ -529,6 +532,9 @@ export async function buildDiagnosticReportSummary(input: {
 }): Promise<DiagnosticReportSummary> {
   if (input.examType === EXAM_TYPE.ESAT) {
     return buildEsatDiagnosticReportSummary(input)
+  }
+  if (input.examType === EXAM_TYPE.TMUA) {
+    return buildTmuaDiagnosticReportSummary(input)
   }
 
   await input.onStage?.('module_analyzing')

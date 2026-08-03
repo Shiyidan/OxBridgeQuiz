@@ -690,7 +690,7 @@ function startEditExam(): void {
   const savedUniversities = [...new Set(prefs.flatMap((p) => p.targetUniversities || []))]
   editTargetUniversities.value = savedUniversities.length
     ? savedUniversities.slice(0, 2)
-    : [...TARGET_UNIVERSITY_OPTIONS.slice(2, 4)]
+    : TARGET_UNIVERSITY_OPTIONS.slice(2, 4)
   editTargetMajor.value = prefs.find((p) => p.targetMajor)?.targetMajor || '数学与统计、计算机科学'
   targetRegionsDraft.value = prefs.find((p) => p.targetRegions)?.targetRegions || '英国、美国'
   entrySeasonDraft.value = prefs.find((p) => p.entrySeason)?.entrySeason || '2026 年秋季'

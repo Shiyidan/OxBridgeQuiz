@@ -19,8 +19,11 @@ import {
   type LearnerProfileInput,
 } from './diagnosticReport.js'
 
-const REPORT_VERSION = 'diagnostic-report-v4'
+const ESAT_REPORT_VERSION = 'diagnostic-report-v4'
+const TMUA_REPORT_VERSION = 'diagnostic-report-v5'
+const GENERIC_REPORT_VERSION = 'diagnostic-report-v1'
 const ESAT_PROMPT_VERSION = 'esat-diagnostic-v4'
+const TMUA_PROMPT_VERSION = 'tmua-diagnostic-v2'
 const GENERIC_PROMPT_VERSION = 'diagnostic-summary-v1'
 const POLL_INTERVAL_MS = 2_000
 const STALE_TASK_MS = 5 * 60_000
@@ -114,7 +117,16 @@ function reportKindForExam(examType: string): 'esat' | 'tmua' | 'step' {
 }
 
 function promptVersionForExam(examType: string): string {
-  return examType === EXAM_TYPE.ESAT ? ESAT_PROMPT_VERSION : GENERIC_PROMPT_VERSION
+  if (examType === EXAM_TYPE.ESAT) return ESAT_PROMPT_VERSION
+  if (examType === EXAM_TYPE.TMUA) return TMUA_PROMPT_VERSION
+  return GENERIC_PROMPT_VERSION
+}
+
+// 报告版本按考试类型独立演进，避免 TMUA 升级导致已完成的 ESAT 报告被误判为旧版。
+function reportVersionForExam(examType: string): string {
+  if (examType === EXAM_TYPE.ESAT) return ESAT_REPORT_VERSION
+  if (examType === EXAM_TYPE.TMUA) return TMUA_REPORT_VERSION
+  return GENERIC_REPORT_VERSION
 }
 
 // 报告质量与生命周期分开记录，模型降级不会把一份可用报告误标为失败。
@@ -265,6 +277,7 @@ async function publishTaskResult(taskId: string, examRecordId: string): Promise<
   await prisma.$transaction(async (tx) => {
     const task = await tx.diagnosticReportTask.findUnique({ where: { id: taskId } })
     if (!task) throw new Error('Diagnostic report task not found')
+    const reportVersion = reportVersionForExam(task.reportKind.toUpperCase())
 
     // 每次正式交卷独立持久化一份报告；重测报告不得覆盖同一试卷的其他历史报告。
     await tx.diagnosticReport.upsert({
@@ -273,7 +286,7 @@ async function publishTaskResult(taskId: string, examRecordId: string): Promise<
         reportKind: task.reportKind,
         result: built.report as unknown as Prisma.InputJsonValue,
         sourceSnapshot: built.sourceSnapshot,
-        reportVersion: REPORT_VERSION,
+        reportVersion,
         promptVersion: promptVersionForExam(task.reportKind.toUpperCase()),
         modelName: config.deepseekModel,
         generationMode: built.generationMode,
@@ -286,7 +299,7 @@ async function publishTaskResult(taskId: string, examRecordId: string): Promise<
         reportKind: task.reportKind,
         result: built.report as unknown as Prisma.InputJsonValue,
         sourceSnapshot: built.sourceSnapshot,
-        reportVersion: REPORT_VERSION,
+        reportVersion,
         promptVersion: promptVersionForExam(task.reportKind.toUpperCase()),
         modelName: config.deepseekModel,
         generationMode: built.generationMode,
@@ -302,7 +315,7 @@ async function publishTaskResult(taskId: string, examRecordId: string): Promise<
         progress: 100,
         result: built.report as unknown as Prisma.InputJsonValue,
         generationMode: built.generationMode,
-        reportVersion: REPORT_VERSION,
+        reportVersion,
         promptVersion: promptVersionForExam(task.reportKind.toUpperCase()),
         modelName: config.deepseekModel,
         heartbeatAt: now,
@@ -412,7 +425,7 @@ export async function ensureDiagnosticReportTask(examRecordId: string, userId: s
       userId,
       paperId: examRecord.paperId,
       reportKind: reportKindForExam(examRecord.examType),
-      reportVersion: REPORT_VERSION,
+      reportVersion: reportVersionForExam(examRecord.examType),
       promptVersion: promptVersionForExam(examRecord.examType),
       modelName: config.deepseekModel,
     },
@@ -462,8 +475,8 @@ export async function regenerateDiagnosticReportTask(examRecordId: string, userI
       status: DIAGNOSTIC_REPORT_TASK_STATUS.PENDING,
       stage: DIAGNOSTIC_REPORT_TASK_STAGE.ANSWERS_SAVED,
       progress: 10,
-      reportVersion: REPORT_VERSION,
-      promptVersion: task.reportKind === 'esat' ? ESAT_PROMPT_VERSION : GENERIC_PROMPT_VERSION,
+      reportVersion: reportVersionForExam(task.reportKind.toUpperCase()),
+      promptVersion: promptVersionForExam(task.reportKind.toUpperCase()),
       modelName: config.deepseekModel,
       retryCount: { increment: 1 },
       errorCode: null,

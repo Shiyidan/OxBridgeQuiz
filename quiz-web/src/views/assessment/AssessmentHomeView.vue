@@ -11,10 +11,67 @@
         </div>
       </header>
 
+      <section v-if="isEsatYearOverview" class="assessment-year-overview" aria-labelledby="assessment-year-title">
+        <div class="assessment-year-overview__heading">
+          <div>
+            <span>ESAT Collections</span>
+            <h2 id="assessment-year-title">按年份选择 ESAT 诊断试卷</h2>
+          </div>
+          <p>每个年份统一收纳当年的组合诊断卷，进入后可查看全部套卷与个人进度。</p>
+        </div>
+
+        <div v-if="yearLoading" class="empty-state">正在加载 ESAT 试卷年份...</div>
+        <div v-else-if="yearError" class="assessment-year-state assessment-year-state--error">
+          <span>{{ yearError }}</span>
+          <button type="button" class="button_cancel" @click="loadAssessmentYears">重新加载</button>
+        </div>
+        <div v-else-if="!assessmentYears.length" class="empty-state">
+          暂无已上线的 ESAT 诊断试卷年份，请先在后台发布组合诊断卷。
+        </div>
+        <div v-else class="assessment-year-grid">
+          <button
+            v-for="item in assessmentYears"
+            :key="item.year"
+            class="assessment-year-card"
+            type="button"
+            @click="handleYearSelection(item.year)"
+          >
+            <span class="assessment-year-card__visual" aria-hidden="true">
+              <span class="assessment-year-card__topline">
+                <i>AceMock</i>
+              </span>
+              <span class="assessment-year-card__cover-copy">
+                <strong>ESAT {{ item.year }}</strong>
+                <small>Equivalent assessment</small>
+              </span>
+            </span>
+            <span class="assessment-year-card__body">
+              <span class="assessment-year-card__info">
+                <strong>ESAT {{ item.year }} 年诊断卷</strong>
+                <span class="assessment-year-card__summary">
+                  <b>{{ item.paperCount }} 套试卷</b>
+                  <em :data-state="yearStatusTone(item)">已完成</em>
+                </span>
+              </span>
+              <span class="assessment-year-card__action">查看 <i>→</i></span>
+            </span>
+          </button>
+        </div>
+      </section>
+
+      <template v-else>
       <section class="paper-filter-bar" aria-label="诊断试卷筛选">
         <div class="paper-filter-bar__title">
+          <button
+            v-if="activeExamType === 'ESAT' && selectedEsatYear !== null"
+            class="paper-filter-bar__back"
+            type="button"
+            @click="handleBackToYears"
+          >
+            ← 返回年份
+          </button>
           <span>Diagnostic Papers</span>
-          <strong>{{ activeExamType }} 历年真题诊断卷</strong>
+          <strong>{{ paperListTitle }}</strong>
         </div>
         <div class="paper-filter-bar__controls">
           <div class="paper-filter-control">
@@ -169,6 +226,7 @@
       <div v-else-if="!filteredDiagnosticTests.length" class="empty-state">
         {{ emptyPaperMessage }}
       </div>
+      </template>
     </main>
 
     <el-dialog
@@ -268,12 +326,14 @@ import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import { getExamUnavailableMessage, isExamTypeAvailable } from '@/constants/examTypes'
 import { PAPER_ACCESS_TIER } from '@/constants/paperTypes'
 import {
+  getAssessmentYearsData,
   getAssessmentPaperHistory,
   getAssessmentPapersData,
   getAssessmentScoreTrend,
   type AssessmentPaperHistoryItem,
   type AssessmentPaperItem,
   type AssessmentScoreTrendResult,
+  type AssessmentYearSummary,
 } from '@/api/papers'
 import { getApiErrorMessage } from '@/utils/request'
 
@@ -282,6 +342,10 @@ const auth = useAuthStore()
 const loading = ref(true)
 const startingPaperId = ref('')
 const diagnosticTests = ref<AssessmentPaperItem[]>([])
+const assessmentYears = ref<AssessmentYearSummary[]>([])
+const selectedEsatYear = ref<number | null>(null)
+const yearLoading = ref(false)
+const yearError = ref('')
 const historyDialogVisible = ref(false)
 const historyLoading = ref(false)
 const historyError = ref('')
@@ -315,6 +379,18 @@ const statusFilterOptions: Array<{ label: string; value: AssessmentStatusFilter 
 // 诊断中心统一读取导航栏的全局考试类型，不再维护页面级考试选择。
 const activeExamType = computed<ActiveExamType>(() => auth.activeExamType)
 
+// ESAT 在未选择年份时展示聚合入口，TMUA 保持原有扁平试卷列表。
+const isEsatYearOverview = computed(
+  () => activeExamType.value === 'ESAT' && selectedEsatYear.value === null,
+)
+
+// 试卷列表标题明确当前选中的 ESAT 年份，避免进入二级后失去上下文。
+const paperListTitle = computed(() =>
+  activeExamType.value === 'ESAT' && selectedEsatYear.value !== null
+    ? `ESAT ${selectedEsatYear.value} 年诊断卷`
+    : `${activeExamType.value} 历年真题诊断卷`,
+)
+
 // ESAT 采用科目独立标准分，TMUA 采用综合分，标题明确两种评分口径。
 const scoreTrendTitle = computed(() =>
   activeExamType.value === 'ESAT'
@@ -342,10 +418,38 @@ const filteredDiagnosticTests = computed(() => {
 // 空状态区分“尚无任何试卷”和“当前考试类型暂无试卷”，避免误导后台发布状态。
 const emptyPaperMessage = computed(() => {
   if (activeStatusFilter.value === 'ALL') {
+    if (activeExamType.value === 'ESAT' && selectedEsatYear.value !== null) {
+      return `ESAT ${selectedEsatYear.value} 年暂无已上线的诊断试卷。`
+    }
     return `暂无已上线的 ${activeExamType.value} 诊断试卷，请先在后台真题库发布试卷。`
   }
   return `${activeExamType.value} 当前完成状态下暂无诊断试卷。`
 })
+
+// 年份状态色只承载进行中、完成和默认三类稳定语义。
+function yearStatusTone(item: AssessmentYearSummary): 'progress' | 'completed' | 'idle' {
+  if (item.inProgressPaperCount > 0) return 'progress'
+  if (item.completedPaperCount > 0) return 'completed'
+  return 'idle'
+}
+
+// ESAT 首层只请求数据库聚合后的年份摘要，避免下载全部试卷再由浏览器分组。
+async function loadAssessmentYears(): Promise<void> {
+  const requestSequence = ++assessmentLoadSequence
+  yearLoading.value = true
+  yearError.value = ''
+  assessmentYears.value = []
+  try {
+    const data = await getAssessmentYearsData('ESAT')
+    if (requestSequence !== assessmentLoadSequence || activeExamType.value !== 'ESAT') return
+    assessmentYears.value = data.list || []
+  } catch (error: unknown) {
+    if (requestSequence !== assessmentLoadSequence) return
+    yearError.value = getApiErrorMessage(error, 'ESAT 试卷年份加载失败，请稍后重试。')
+  } finally {
+    if (requestSequence === assessmentLoadSequence) yearLoading.value = false
+  }
+}
 
 // 每次只请求当前全局考试类型，并丢弃快速切换后延迟返回的旧响应。
 async function loadAssessmentPapers(): Promise<void> {
@@ -354,10 +458,12 @@ async function loadAssessmentPapers(): Promise<void> {
   loading.value = true
   diagnosticTests.value = []
   try {
-    const data = await getAssessmentPapersData(requestedExamType)
+    const requestedYear = requestedExamType === 'ESAT' ? selectedEsatYear.value ?? undefined : undefined
+    const data = await getAssessmentPapersData(requestedExamType, requestedYear)
     if (requestSequence !== assessmentLoadSequence || requestedExamType !== activeExamType.value) {
       return
     }
+    if (requestedExamType === 'ESAT' && requestedYear !== selectedEsatYear.value) return
     diagnosticTests.value = data.list || []
   } catch {
     if (requestSequence === assessmentLoadSequence) diagnosticTests.value = []
@@ -396,7 +502,35 @@ async function loadScoreTrend(): Promise<void> {
 
 // 页面进入或全局考试类型变化时并行刷新试卷列表与真实成绩趋势。
 async function refreshAssessmentData(): Promise<void> {
+  if (isEsatYearOverview.value) {
+    scoreTrendLoadSequence += 1
+    loading.value = false
+    diagnosticTests.value = []
+    scoreTrend.value = null
+    scoreTrendLoading.value = false
+    scoreTrendError.value = ''
+    chartInstance?.dispose()
+    chartInstance = null
+    await loadAssessmentYears()
+    return
+  }
   await Promise.all([loadAssessmentPapers(), loadScoreTrend()])
+}
+
+// 选择年份后进入该年份现有试卷列表，原试卷卡片与考试流程保持不变。
+async function handleYearSelection(year: number): Promise<void> {
+  selectedEsatYear.value = year
+  activeStatusFilter.value = 'ALL'
+  await refreshAssessmentData()
+}
+
+// 返回年份层时清空二级试卷和趋势上下文，并重新读取最新年份聚合。
+async function handleBackToYears(): Promise<void> {
+  selectedEsatYear.value = null
+  startingPaperId.value = ''
+  historyDialogVisible.value = false
+  diagnosticTests.value = []
+  await refreshAssessmentData()
 }
 
 // 进入页面时先确定用户默认考试类型，再查询该类型的诊断试卷。
@@ -439,6 +573,9 @@ watch(activeExamType, () => {
   historyTotal.value = 0
   paymentVisible.value = false
   paymentExamType.value = activeExamType.value
+  selectedEsatYear.value = null
+  assessmentYears.value = []
+  yearError.value = ''
   void refreshAssessmentData()
 })
 
@@ -874,6 +1011,261 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
   content: '';
 }
 
+.assessment-year-overview {
+  padding: 24px;
+  border: 1px solid var(--color-line);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--color-surface) 94%, #edf5f4);
+}
+
+.assessment-year-overview__heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.assessment-year-overview__heading span {
+  display: block;
+  margin-bottom: 7px;
+  color: #238c88;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.assessment-year-overview__heading h2 {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 24px;
+  line-height: 1.35;
+}
+
+.assessment-year-overview__heading p {
+  max-width: 480px;
+  margin: 0;
+  color: var(--color-ink-soft);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  text-align: right;
+}
+
+.assessment-year-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.assessment-year-card {
+  min-width: 0;
+  display: block;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid rgba(24, 54, 67, 0.12);
+  border-radius: 24px;
+  background: var(--color-surface);
+  box-shadow: 0 18px 42px rgba(25, 51, 64, 0.13);
+  color: var(--color-ink);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 260ms ease,
+    border-color 180ms ease;
+}
+
+.assessment-year-card:hover,
+.assessment-year-card:focus-visible {
+  border-color: rgba(35, 140, 136, 0.42);
+  box-shadow: 0 28px 58px rgba(25, 51, 64, 0.2);
+  transform: translateY(-8px);
+}
+
+.assessment-year-card__visual {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  height: 150px;
+  overflow: hidden;
+  background:
+    linear-gradient(145deg, rgba(231, 242, 239, 0.9), rgba(156, 191, 195, 0.75) 46%, #243b4b),
+    #cadbd9;
+}
+
+.assessment-year-card__visual::before {
+  position: absolute;
+  z-index: -1;
+  inset: 38px -55px 42px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 45%, rgba(243, 196, 118, 0.88), transparent 31%),
+    radial-gradient(circle at 62% 28%, rgba(96, 91, 181, 0.9), transparent 34%),
+    radial-gradient(circle at 72% 67%, rgba(39, 142, 138, 0.92), transparent 38%);
+  filter: blur(22px);
+  content: '';
+  transform: scale(1.16);
+}
+
+.assessment-year-card__visual::after {
+  position: absolute;
+  z-index: -1;
+  inset: 42% 0 0;
+  background: linear-gradient(180deg, transparent, rgba(12, 25, 34, 0.88));
+  content: '';
+}
+
+.assessment-year-card__topline {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  left: 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+}
+
+.assessment-year-card__topline > i {
+  width: auto;
+  min-width: 68px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  padding: 0 10px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: var(--weight-bold);
+  letter-spacing: normal;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+}
+
+.assessment-year-card__cover-copy {
+  position: absolute;
+  right: 20px;
+  bottom: 14px;
+  left: 20px;
+  color: #fff;
+}
+
+.assessment-year-card__cover-copy small {
+  display: block;
+  margin-top: 4px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.assessment-year-card__cover-copy strong {
+  display: block;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 23px;
+  font-weight: 500;
+  line-height: 0.96;
+  letter-spacing: -0.03em;
+  transform: translateY(-6px);
+  white-space: nowrap;
+}
+
+.assessment-year-card__body {
+  min-height: 132px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+}
+
+.assessment-year-card__info {
+  min-width: 0;
+  display: block;
+}
+
+.assessment-year-card__summary {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.assessment-year-card__summary b {
+  color: #238c88;
+  font-size: 11px;
+}
+
+.assessment-year-card__summary em {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #f0f2f3;
+  color: var(--color-ink-muted);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: var(--weight-semi);
+}
+
+.assessment-year-card__summary em[data-state='progress'] {
+  background: #fff2dd;
+  color: #ad671b;
+}
+
+.assessment-year-card__summary em[data-state='completed'] {
+  background: #e7f6f2;
+  color: #187b71;
+}
+
+.assessment-year-card__info > strong {
+  display: block;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.assessment-year-card__action {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 13px;
+  border-radius: 11px;
+  background: #172538;
+  color: #fff;
+  font-size: 12px;
+  font-weight: var(--weight-semi);
+}
+
+.assessment-year-card__action i {
+  font-size: 15px;
+  font-style: normal;
+}
+
+.assessment-year-state {
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: var(--color-ink-muted);
+}
+
+.assessment-year-state--error {
+  color: var(--color-danger);
+}
+
+@media (max-width: 1100px) {
+  .assessment-year-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .paper-card__button {
   height: var(--height-button);
   border-radius: var(--radius-md);
@@ -957,6 +1349,19 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
 .paper-filter-bar__title strong {
   color: var(--color-ink);
   font-size: var(--text-base);
+}
+
+.paper-filter-bar__back {
+  display: block;
+  margin: 0 0 7px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #238c88;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: var(--weight-semi);
+  cursor: pointer;
 }
 
 .paper-filter-bar__controls {
@@ -1480,6 +1885,28 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
 }
 
 @media (max-width: 760px) {
+  .assessment-year-overview {
+    padding: 18px;
+  }
+
+  .assessment-year-overview__heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .assessment-year-overview__heading p {
+    text-align: left;
+  }
+
+  .assessment-year-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .assessment-year-card__visual {
+    height: 180px;
+  }
+
   .paper-filter-bar {
     align-items: stretch;
     flex-direction: column;

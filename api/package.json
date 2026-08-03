@@ -19,6 +19,7 @@
     "test:behavior-analytics": "tsx scripts/test-behavior-analytics.ts",
     "test:admin-user-access": "tsx scripts/test-admin-user-access.ts",
     "test:modular-diagnostic": "tsx scripts/test-modular-diagnostic.ts",
+    "test:tmua-diagnostic": "tsx scripts/test-tmua-diagnostic-report.ts",
     "verify:chinaums-signature": "tsx scripts/verify-chinaums-signature.ts",
     "verify:chinaums-notification": "tsx scripts/verify-chinaums-notification.ts",
     "smoke:chinaums": "tsx scripts/smoke-chinaums.ts"

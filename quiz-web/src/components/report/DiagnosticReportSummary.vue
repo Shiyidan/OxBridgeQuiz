@@ -68,6 +68,34 @@
         </div>
       </div>
 
+      <div v-if="activeModule?.diagnosticAnalysis" class="module-diagnostic">
+        <div class="module-diagnostic__heading">
+          <div>
+            <span>{{ activeModule.label }}</span>
+            <h3>分卷诊断分析</h3>
+          </div>
+          <small>{{ analysisSourceLabel }}</small>
+        </div>
+        <div class="module-diagnostic__grid">
+          <article>
+            <span>整体结论</span>
+            <p>{{ activeModule.diagnosticAnalysis.summary }}</p>
+          </article>
+          <article>
+            <span>当前优势</span>
+            <p>{{ activeModule.diagnosticAnalysis.strength }}</p>
+          </article>
+          <article>
+            <span>核心问题</span>
+            <p>{{ activeModule.diagnosticAnalysis.keyIssue }}</p>
+          </article>
+          <article>
+            <span>优先方向</span>
+            <p>{{ activeModule.diagnosticAnalysis.focusSuggestion }}</p>
+          </article>
+        </div>
+      </div>
+
       <div class="difficulty-block">
         <div class="difficulty-heading">
           <div>
@@ -103,16 +131,15 @@
         </div>
       </div>
 
-      <div v-if="report.assessment.riskSignal" class="risk-signal">
+      <div v-if="displayRiskSignal" class="risk-signal">
         <span aria-hidden="true">•</span>
-        <p>{{ report.assessment.riskSignal }}</p>
+        <p>{{ displayRiskSignal }}</p>
       </div>
       <div v-else class="risk-signal risk-signal--unavailable">
         <p>风险信号暂未生成，不影响本页固定计算结果。</p>
       </div>
     </article>
 
-    <div class="next-part-placeholder">总体成绩概览将在下一阶段开发</div>
   </section>
 </template>
 
@@ -193,7 +220,22 @@ const moduleContextName = computed(() =>
 const scoreLabel = computed(() =>
   usesModuleScore.value && activeModule.value
     ? `${activeModule.value.label} 等效评估分`
-    : '等效评估分',
+    : props.report.header.examType === 'TMUA'
+      ? 'TMUA 综合评估分'
+      : '等效评估分',
+)
+
+// 分卷分析明确模型与规则的来源，字段级降级时不把混合结果包装成纯 AI 结论。
+const analysisSourceLabel = computed(() => {
+  const source = activeModule.value?.diagnosticAnalysis?.source
+  if (source === 'deepseek') return 'AI 深度分析'
+  if (source === 'mixed') return 'AI + 规则补全'
+  return '规则诊断'
+})
+
+// 风险提示跟随当前分卷切换；旧报告缺少分卷风险时再回退到综合风险。
+const displayRiskSignal = computed(() =>
+  activeModule.value?.riskSignal || props.report.assessment.riskSignal,
 )
 
 // 正确率只保留整数百分比，避免样本较少时产生伪精确。
@@ -333,9 +375,53 @@ function difficultyClass(value: number | null): string {
 
 .positioning-block,
 .module-performance,
+.module-diagnostic,
 .difficulty-block {
   padding: 28px 32px;
   border-top: 1px solid var(--color-line-soft);
+}
+
+.module-diagnostic__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.module-diagnostic__heading span,
+.module-diagnostic__heading small,
+.module-diagnostic article span {
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+}
+
+.module-diagnostic__heading h3 {
+  margin: 4px 0 0;
+  font-size: var(--text-base);
+}
+
+.module-diagnostic__heading small {
+  padding: 4px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--color-info-bg);
+}
+
+.module-diagnostic__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.module-diagnostic article {
+  padding: 16px;
+  border: 1px solid var(--color-line-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+}
+
+.module-diagnostic article p {
+  margin: 7px 0 0;
+  line-height: var(--leading-relaxed);
 }
 
 .positioning-block h3,

@@ -1,7 +1,6 @@
 <!-- 登录后首页首屏：仅用学生真实记录驱动当前任务，后续内容由公开首页模块统一承接。 -->
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ArrowRight } from '@element-plus/icons-vue'
 import type { ActiveQuestionBankPractice } from '@/api/exam'
 import type { AssessmentPaperItem } from '@/api/papers'
 import type { ActiveExamType } from '@/stores/auth'
@@ -79,11 +78,6 @@ const emit = defineEmits<{
 
 // 考试名称在未选择目标时保持中性，避免从缓存或历史记录猜测当前考试。
 const examLabel = computed(() => props.currentExam ?? 'ESAT / TMUA')
-
-// 空闲状态已有诊断记录时提供直达入口，不与“继续未完成测试”的恢复行动混淆。
-const showIdleDiagnosticLink = computed(
-  () => props.state === 'idle' && props.completedAttemptCount > 0,
-)
 
 // 当前科目仅展示服务端备考目标中实际保存的内容，字段缺失时不补演示科目。
 const subjectSummary = computed(() => {
@@ -362,11 +356,6 @@ function handleSecondaryAction(): void {
   else if (props.currentExam) emit('navigate', `/exam-intro/${props.currentExam.toLowerCase()}`)
 }
 
-// 空闲状态卡片的快捷入口直接进入诊断测试中心，由该页面继续处理试卷选择。
-function handleIdleDiagnosticLink(): void {
-  emit('navigate', '/assessment')
-}
-
 // 固定入口只上报已有目标下的有效路径，no-goal 状态不会误入功能页。
 function handleEntrySelection(entry: HomeEntry): void {
   if (entry.path) emit('navigate', entry.path)
@@ -477,18 +466,7 @@ function scrollToSharedContent(): void {
               </div>
               <div class="home-context-signal home-context-signal--good">
                 <span>已经准备好</span>
-                <div class="home-context-signal-title-row">
-                  <strong>{{ heroContent.goodTitle }}</strong>
-                  <button
-                    v-if="showIdleDiagnosticLink"
-                    class="home-context-diagnostic-link"
-                    type="button"
-                    @click="handleIdleDiagnosticLink"
-                  >
-                    前往诊断测试
-                    <el-icon aria-hidden="true"><ArrowRight /></el-icon>
-                  </button>
-                </div>
+                <strong>{{ heroContent.goodTitle }}</strong>
                 <p>{{ heroContent.goodDetail }}</p>
               </div>
               <div class="home-context-signal home-context-signal--focus">
@@ -531,7 +509,7 @@ function scrollToSharedContent(): void {
           </div>
 
           <section
-            v-if="state !== 'progress' && state !== 'new'"
+            v-if="state !== 'progress' && state !== 'new' && state !== 'idle'"
             class="home-state-detail"
             :data-state="state"
             aria-labelledby="home-detail-title"
@@ -637,30 +615,6 @@ function scrollToSharedContent(): void {
                     ></i>
                   </div>
                   <button type="button" @click="handlePrimaryAction">继续当前练习 →</button>
-                </article>
-              </div>
-            </template>
-
-            <template v-else-if="state === 'idle'">
-              <div class="home-detail-title-row">
-                <div>
-                  <span class="home-detail-eyebrow">YOUR OWN PACE</span>
-                  <h2 id="home-detail-title">当前没有必须完成的任务</h2>
-                </div>
-                <p>不展示空统计，也不替你安排固定天数。</p>
-              </div>
-              <div class="home-idle-options">
-                <article>
-                  <span>01</span><strong>重新诊断</strong>
-                  <p>选择一套真实试卷，再次查看当前水平。</p>
-                </article>
-                <article>
-                  <span>02</span><strong>选择知识点</strong>
-                  <p>按当前考试、知识点与难度自主练习。</p>
-                </article>
-                <article>
-                  <span>03</span><strong>回看错题</strong>
-                  <p>从已经收录的真实错题继续复习。</p>
                 </article>
               </div>
             </template>

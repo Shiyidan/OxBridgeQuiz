@@ -2070,53 +2070,6 @@ body.home-dialog-open {
   line-height: 1.42;
 }
 
-.home-context-signal-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.home-context-signal-title-row strong {
-  min-width: 0;
-}
-
-.home-context-diagnostic-link {
-  flex: none;
-  min-height: 32px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 0;
-  border: 0;
-  background: transparent;
-  color: var(--home-teal);
-  font-size: 11px;
-  font-weight: 760;
-  cursor: pointer;
-  transition: color 150ms ease;
-}
-
-.home-context-diagnostic-link .el-icon {
-  font-size: 13px;
-  transition: transform 150ms ease;
-}
-
-.home-context-diagnostic-link:hover,
-.home-context-diagnostic-link:focus-visible {
-  color: var(--home-navy);
-}
-
-.home-context-diagnostic-link:hover .el-icon,
-.home-context-diagnostic-link:focus-visible .el-icon {
-  transform: translateX(2px);
-}
-
-.home-context-diagnostic-link:focus-visible {
-  outline: 2px solid var(--home-teal);
-  outline-offset: 3px;
-}
-
 .home-context-signal p {
   margin: 6px 0 0;
   color: var(--home-muted);
@@ -2487,43 +2440,6 @@ body.home-dialog-open {
 
 .home-practice-meter {
   margin-top: 6px;
-}
-
-.home-idle-options {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-top: 1px solid var(--home-ink);
-  border-bottom: 1px solid var(--home-line);
-}
-
-.home-idle-options article {
-  min-height: 150px;
-  padding: 24px;
-  border-right: 1px solid var(--home-line);
-}
-
-.home-idle-options article:last-child {
-  border-right: 0;
-}
-
-.home-idle-options span {
-  color: var(--home-teal);
-  font-size: 11px;
-  font-weight: 820;
-}
-
-.home-idle-options strong {
-  display: block;
-  margin-top: 18px;
-  font-size: 17px;
-  font-weight: 760;
-}
-
-.home-idle-options p {
-  margin: 8px 0 0;
-  color: var(--home-muted);
-  font-size: 11px;
-  line-height: 1.65;
 }
 
 .home-scroll-cue {
@@ -3043,12 +2959,6 @@ body.home-dialog-open {
     padding: 27px 22px 24px;
   }
 
-  .home-context-signal-title-row {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 4px;
-  }
-
   .home-entry {
     grid-template-columns: auto 1fr;
   }
@@ -3072,20 +2982,17 @@ body.home-dialog-open {
 
   .home-goal-card-grid,
   .home-report-detail-grid,
-  .home-practice-detail-grid,
-  .home-idle-options {
+  .home-practice-detail-grid {
     grid-template-columns: 1fr;
   }
 
   .home-goal-card,
-  .home-score-list,
-  .home-idle-options article {
+  .home-score-list {
     border-right: 0;
     border-bottom: 1px solid var(--home-line);
   }
 
-  .home-goal-card:last-child,
-  .home-idle-options article:last-child {
+  .home-goal-card:last-child {
     border-bottom: 0;
   }
 

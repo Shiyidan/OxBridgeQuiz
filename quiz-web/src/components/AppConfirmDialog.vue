@@ -9,6 +9,7 @@
     :close-on-press-escape="false"
     :show-close="showClose"
     :append-to-body="true"
+    :class="{ 'app-confirm-dialog--no-divider': !showHeaderDivider }"
     align-center
     @close="handleDialogClose"
   >
@@ -16,7 +17,9 @@
       <span v-if="tone === 'warning'" class="app-confirm-dialog__warning" aria-hidden="true">
         !
       </span>
-      <p>{{ message }}</p>
+      <slot name="content">
+        <p>{{ message }}</p>
+      </slot>
     </div>
 
     <template #footer>
@@ -44,12 +47,14 @@ const props = withDefaults(
     cancelText?: string
     tone?: 'warning' | 'default'
     showClose?: boolean
+    showHeaderDivider?: boolean
   }>(),
   {
     confirmText: '确认',
     cancelText: '取消',
     tone: 'warning',
     showClose: true,
+    showHeaderDivider: true,
   },
 )
 
@@ -103,6 +108,10 @@ function handleDialogClose(): void {
   margin: 0;
   padding: 18px 24px 14px;
   border-bottom: 1px solid var(--color-line-soft);
+}
+
+:global(.app-confirm-dialog--no-divider .el-dialog__header) {
+  border-bottom: 0;
 }
 
 :global(.app-confirm-dialog .el-dialog__title) {

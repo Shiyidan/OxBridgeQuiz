@@ -1,5 +1,5 @@
-
 // 提供诊断试卷列表及其历史记录接口；独立试题库由 questionLibraryRouter 负责。
+import type { Prisma } from '@prisma/client'
 import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
@@ -8,13 +8,7 @@ import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { logRuntimeError } from '../utils/runtimeLogger.js'
 import { computeScores } from '../services/scoring.js'
 import type { QuestionResult } from '../services/scoring.js'
-import {
-  EXAM_TYPE,
-  EXAM_RECORD_STATUS,
-  PAPER_DELIVERY_MODE,
-  REAL_PAPER_TYPES,
-  isExamType,
-} from '../constants/domain.js'
+import { EXAM_TYPE, EXAM_RECORD_STATUS, PAPER_DELIVERY_MODE, REAL_PAPER_TYPES, isExamType } from '../constants/domain.js'
 
 import { parsePositiveInt } from './papers-shared.js'
 export const questionBankRouter = createAsyncRouter()
@@ -59,10 +53,7 @@ questionBankRouter.get('/assessment/years', requireAuth, async (req, res) => {
         OR: [
           {
             status: 'published',
-            OR: [
-              { examType: { not: EXAM_TYPE.ESAT } },
-              { deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE },
-            ],
+            OR: [{ examType: { not: EXAM_TYPE.ESAT } }, { deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE }],
           },
           { examRecords: { some: { userId: req.user!.userId } } },
         ],
@@ -81,14 +72,17 @@ questionBankRouter.get('/assessment/years', requireAuth, async (req, res) => {
       orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
     })
 
-    const yearMap = new Map<number, {
-      year: number
-      paperCount: number
-      totalQuestions: number
-      completedPaperCount: number
-      inProgressPaperCount: number
-      completedAttemptCount: number
-    }>()
+    const yearMap = new Map<
+      number,
+      {
+        year: number
+        paperCount: number
+        totalQuestions: number
+        completedPaperCount: number
+        inProgressPaperCount: number
+        completedAttemptCount: number
+      }
+    >()
 
     for (const paper of papers) {
       const summary = yearMap.get(paper.year) || {
@@ -100,9 +94,7 @@ questionBankRouter.get('/assessment/years', requireAuth, async (req, res) => {
         completedAttemptCount: 0,
       }
       const latestRecord = paper.examRecords[0]
-      const completedAttemptCount = paper.examRecords.filter(
-        (record) => record.status === EXAM_RECORD_STATUS.SUBMITTED,
-      ).length
+      const completedAttemptCount = paper.examRecords.filter((record) => record.status === EXAM_RECORD_STATUS.SUBMITTED).length
 
       summary.paperCount += 1
       summary.totalQuestions += paper.totalQuestions
@@ -114,9 +106,11 @@ questionBankRouter.get('/assessment/years', requireAuth, async (req, res) => {
       yearMap.set(paper.year, summary)
     }
 
-    res.json(success({
-      list: [...yearMap.values()].sort((a, b) => b.year - a.year),
-    }))
+    res.json(
+      success({
+        list: [...yearMap.values()].sort((a, b) => b.year - a.year),
+      }),
+    )
   } catch (error: any) {
     logRuntimeError('assessment_years.list_failed', error)
     res.status(500).json(fail(error.message || '获取诊断年份失败'))
@@ -145,10 +139,7 @@ questionBankRouter.get('/assessment/papers', requireAuth, async (req, res) => {
           OR: [
             {
               status: 'published',
-              OR: [
-                { examType: { not: EXAM_TYPE.ESAT } },
-                { deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE },
-              ],
+              OR: [{ examType: { not: EXAM_TYPE.ESAT } }, { deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE }],
             },
             { examRecords: { some: { userId: req.user!.userId } } },
           ],
@@ -199,7 +190,12 @@ questionBankRouter.get('/assessment/papers', requireAuth, async (req, res) => {
             select: { answers: { where: { selectedAnswer: { not: null } } } },
           },
           diagnosticReportTask: {
-            select: { status: true, stage: true, progress: true, errorMessage: true },
+            select: {
+              status: true,
+              stage: true,
+              progress: true,
+              errorMessage: true,
+            },
           },
           diagnosticReport: {
             select: {
@@ -218,71 +214,61 @@ questionBankRouter.get('/assessment/papers', requireAuth, async (req, res) => {
     for (const record of records) {
       if (!latestRecordMap.has(record.paperId)) latestRecordMap.set(record.paperId, record)
       if (record.status === 'submitted') {
-        completedAttemptCountMap.set(
-          record.paperId,
-          (completedAttemptCountMap.get(record.paperId) || 0) + 1,
-        )
+        completedAttemptCountMap.set(record.paperId, (completedAttemptCountMap.get(record.paperId) || 0) + 1)
       }
     }
 
-    res.json(success({
-      list: papers.map((paper) => {
-        const record = latestRecordMap.get(paper.id)
-        const report = record?.diagnosticReport
-        const testStatus = record?.status === 'in_progress'
-          ? 'in_progress'
-          : record?.status === 'submitted'
-            ? 'completed'
-            : 'not_started'
-        const reportStatus = record?.status === 'submitted'
-          ? report
-            ? 'completed'
-            : record.diagnosticReportTask?.status || 'not_generated'
-          : null
+    res.json(
+      success({
+        list: papers.map((paper) => {
+          const record = latestRecordMap.get(paper.id)
+          const report = record?.diagnosticReport
+          const testStatus = record?.status === 'in_progress' ? 'in_progress' : record?.status === 'submitted' ? 'completed' : 'not_started'
+          const reportStatus = record?.status === 'submitted' ? (report ? 'completed' : record.diagnosticReportTask?.status || 'not_generated') : null
 
-        return {
-          id: paper.id,
-          paperId: paper.id,
-          paperName: paper.title,
-          title: paper.title,
-          code: paper.code,
-          examType: paper.examType,
-          year: paper.year,
-          duration: paper.duration,
-          totalQuestions: paper.totalQuestions,
-          paperType: paper.paperType,
-          accessTier: paper.accessTier,
-          deliveryMode: paper.deliveryMode,
-          breakDurationSeconds: paper.breakDurationSeconds,
-          modules: parseJsonField(paper.moduleConfig, []),
-          assemblyType: paper.assemblyType,
-          remarks: paper.remarks,
-          publicationStatus: paper.status,
-          testStatus,
-          examRecordId: record?.id || null,
-          answeredCount: record?._count.answers || 0,
-          correctCount: record?.status === 'submitted' ? record.correctCount : null,
-          startedAt: record?.startedAt || null,
-          expiresAt: record?.expiresAt || null,
-          phase: record?.phase || null,
-          currentModuleIndex: record?.currentModuleIndex ?? null,
-          phaseExpiresAt: record?.phaseExpiresAt || null,
-          submittedAt: record?.submittedAt || null,
-          durationSeconds: record?.status === 'submitted' ? record.durationSeconds : null,
-          completedAttemptCount: completedAttemptCountMap.get(paper.id) || 0,
-          reportStatus,
+          return {
+            id: paper.id,
+            paperId: paper.id,
+            paperName: paper.title,
+            title: paper.title,
+            code: paper.code,
+            examType: paper.examType,
+            year: paper.year,
+            duration: paper.duration,
+            totalQuestions: paper.totalQuestions,
+            paperType: paper.paperType,
+            accessTier: paper.accessTier,
+            deliveryMode: paper.deliveryMode,
+            breakDurationSeconds: paper.breakDurationSeconds,
+            modules: parseJsonField(paper.moduleConfig, []),
+            assemblyType: paper.assemblyType,
+            remarks: paper.remarks,
+            publicationStatus: paper.status,
+            testStatus,
+            examRecordId: record?.id || null,
+            answeredCount: record?._count.answers || 0,
+            correctCount: record?.status === 'submitted' ? record.correctCount : null,
+            startedAt: record?.startedAt || null,
+            expiresAt: record?.expiresAt || null,
+            phase: record?.phase || null,
+            currentModuleIndex: record?.currentModuleIndex ?? null,
+            phaseExpiresAt: record?.phaseExpiresAt || null,
+            submittedAt: record?.submittedAt || null,
+            durationSeconds: record?.status === 'submitted' ? record.durationSeconds : null,
+            completedAttemptCount: completedAttemptCountMap.get(paper.id) || 0,
+            reportStatus,
 
-          reportStage: record?.diagnosticReportTask?.stage || null,
-          reportProgress: record?.diagnosticReportTask?.progress
-            ?? (report ? 100 : 0),
-          reportErrorMessage: record?.diagnosticReportTask?.errorMessage || null,
-          hasReport: Boolean(report),
-          reportExamRecordId: report?.examRecordId || null,
-          generationMode: report?.generationMode || null,
-          reportCompletedAt: report?.completedAt || null,
-        }
+            reportStage: record?.diagnosticReportTask?.stage || null,
+            reportProgress: record?.diagnosticReportTask?.progress ?? (report ? 100 : 0),
+            reportErrorMessage: record?.diagnosticReportTask?.errorMessage || null,
+            hasReport: Boolean(report),
+            reportExamRecordId: report?.examRecordId || null,
+            generationMode: report?.generationMode || null,
+            reportCompletedAt: report?.completedAt || null,
+          }
+        }),
       }),
-    }))
+    )
   } catch (e: any) {
     logRuntimeError('assessment_papers.list_failed', e)
     res.status(500).json(fail(e.message || '获取诊断测试套卷失败'))
@@ -315,7 +301,10 @@ questionBankRouter.get('/assessment/score-trend', requireAuth, async (req, res) 
       if (!record.submittedAt) continue
       const date = formatBeijingDate(record.submittedAt)
       if (!latestRecordByDate.has(date)) {
-        latestRecordByDate.set(date, { id: record.id, submittedAt: record.submittedAt })
+        latestRecordByDate.set(date, {
+          id: record.id,
+          submittedAt: record.submittedAt,
+        })
       }
     }
 
@@ -361,30 +350,147 @@ questionBankRouter.get('/assessment/score-trend', requireAuth, async (req, res) 
         number: answer.question.number,
       }))
       const scoring = computeScores(examType, questionResults)
-      const scores = examType === EXAM_TYPE.ESAT
-        ? scoring.modules.map((module) => ({
-            key: module.module,
-            label: module.moduleLabel,
-            score: module.scaledScore,
-          }))
-        : scoring.overallScore === null
-          ? []
-          : [{ key: 'overall', label: '综合分数', score: scoring.overallScore }]
+      const scores =
+        examType === EXAM_TYPE.ESAT
+          ? scoring.modules.map((module) => ({
+              key: module.module,
+              label: module.moduleLabel,
+              score: module.scaledScore,
+            }))
+          : scoring.overallScore === null
+            ? []
+            : [
+                {
+                  key: 'overall',
+                  label: '综合分数',
+                  score: scoring.overallScore,
+                },
+              ]
 
       if (!scores.length) return []
-      return [{
-        date: dailyRecord.date,
-        submittedAt: dailyRecord.submittedAt,
-        examRecordId: dailyRecord.id,
-        paperTitle: record.paper.title,
-        scores,
-      }]
+      return [
+        {
+          date: dailyRecord.date,
+          submittedAt: dailyRecord.submittedAt,
+          examRecordId: dailyRecord.id,
+          paperTitle: record.paper.title,
+          scores,
+        },
+      ]
     })
 
     res.json(success({ examType, points }))
   } catch (error: any) {
     logRuntimeError('assessment_score_trend.get_failed', error)
     res.status(500).json(fail(error.message || '获取诊断分数趋势失败'))
+  }
+})
+
+// 年份历史跨该年所有组合卷汇总，用于年份卡片直接查看过往诊断。
+questionBankRouter.get('/assessment/years/:year/history', requireAuth, async (req, res) => {
+  try {
+    const examType = String(req.query.examType || EXAM_TYPE.ESAT).toUpperCase()
+    if (!isExamType(examType)) {
+      res.status(422).json(fail('无效的考试类型'))
+      return
+    }
+    const year = parseAssessmentYear(req.params.year)
+    if (year === null || Number.isNaN(year)) {
+      res.status(422).json(fail('无效的试卷年份'))
+      return
+    }
+    const page = parsePositiveInt(req.query.page, 1)
+    const pageSize = parsePositiveInt(req.query.pageSize, 10, 50)
+    const where: Prisma.ExamRecordWhereInput = {
+      userId: req.user!.userId,
+      examType,
+      status: EXAM_RECORD_STATUS.SUBMITTED,
+      paper: {
+        year,
+        examType,
+        paperType: { in: [...REAL_PAPER_TYPES] },
+      },
+    }
+    const [total, records] = await Promise.all([
+      prisma.examRecord.count({ where }),
+      prisma.examRecord.findMany({
+        where,
+        select: {
+          id: true,
+          totalQuestions: true,
+          correctCount: true,
+          startedAt: true,
+          submittedAt: true,
+          durationSeconds: true,
+          paper: {
+            select: {
+              id: true,
+              title: true,
+              examType: true,
+              moduleConfig: true,
+            },
+          },
+          diagnosticReportTask: {
+            select: {
+              status: true,
+              stage: true,
+              progress: true,
+              errorMessage: true,
+              reportKind: true,
+            },
+          },
+          diagnosticReport: {
+            select: {
+              examRecordId: true,
+              generationMode: true,
+              completedAt: true,
+            },
+          },
+        },
+        orderBy: [{ submittedAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ])
+    const totalPages = Math.ceil(total / pageSize)
+
+    res.json(
+      success({
+        year,
+        examType,
+        list: records.map((record, index) => ({
+          examRecordId: record.id,
+          paperId: record.paper.id,
+          paperTitle: record.paper.title,
+          modules: parseJsonField(record.paper.moduleConfig, []),
+          attemptNumber: total - (page - 1) * pageSize - index,
+          totalQuestions: record.totalQuestions,
+          correctCount: record.correctCount,
+          startedAt: record.startedAt,
+          submittedAt: record.submittedAt,
+          durationSeconds: record.durationSeconds,
+          reportStatus: record.diagnosticReport ? 'completed' : record.diagnosticReportTask?.status || 'not_generated',
+          reportStage: record.diagnosticReportTask?.stage || null,
+          reportProgress: record.diagnosticReportTask?.progress ?? (record.diagnosticReport ? 100 : 0),
+          reportErrorMessage: record.diagnosticReportTask?.errorMessage || null,
+          reportKind: record.diagnosticReportTask?.reportKind || record.paper.examType.toLowerCase(),
+          hasReport: Boolean(record.diagnosticReport),
+          reportCompletedAt: record.diagnosticReport?.completedAt || null,
+          generationMode: record.diagnosticReport?.generationMode || null,
+        })),
+        pagination: {
+          page,
+          pageSize,
+          total,
+          totalPages,
+          hasPrev: page > 1,
+          hasNext: page < totalPages,
+        },
+      }),
+    )
+  } catch (error: any) {
+    logRuntimeError('assessment_years.history_failed', error)
+    res.status(500).json(fail(error.message || '获取年份诊断记录失败'))
   }
 })
 
@@ -445,37 +551,36 @@ questionBankRouter.get('/assessment/papers/:paperId/history', requireAuth, async
     ])
     const totalPages = Math.ceil(total / pageSize)
 
-    res.json(success({
-      paper,
-      list: records.map((record, index) => ({
-        examRecordId: record.id,
-        attemptNumber: total - (page - 1) * pageSize - index,
-        totalQuestions: record.totalQuestions,
-        correctCount: record.correctCount,
-        startedAt: record.startedAt,
-        submittedAt: record.submittedAt,
-        durationSeconds: record.durationSeconds,
-        reportStatus: record.diagnosticReport
-          ? 'completed'
-          : record.diagnosticReportTask?.status || 'not_generated',
-        reportStage: record.diagnosticReportTask?.stage || null,
-        reportProgress: record.diagnosticReportTask?.progress
-          ?? (record.diagnosticReport ? 100 : 0),
-        reportErrorMessage: record.diagnosticReportTask?.errorMessage || null,
-        reportKind: record.diagnosticReportTask?.reportKind || paper.examType.toLowerCase(),
-        hasReport: Boolean(record.diagnosticReport),
-        reportCompletedAt: record.diagnosticReport?.completedAt || null,
-        generationMode: record.diagnosticReport?.generationMode || null,
-      })),
-      pagination: {
-        page,
-        pageSize,
-        total,
-        totalPages,
-        hasPrev: page > 1,
-        hasNext: page < totalPages,
-      },
-    }))
+    res.json(
+      success({
+        paper,
+        list: records.map((record, index) => ({
+          examRecordId: record.id,
+          attemptNumber: total - (page - 1) * pageSize - index,
+          totalQuestions: record.totalQuestions,
+          correctCount: record.correctCount,
+          startedAt: record.startedAt,
+          submittedAt: record.submittedAt,
+          durationSeconds: record.durationSeconds,
+          reportStatus: record.diagnosticReport ? 'completed' : record.diagnosticReportTask?.status || 'not_generated',
+          reportStage: record.diagnosticReportTask?.stage || null,
+          reportProgress: record.diagnosticReportTask?.progress ?? (record.diagnosticReport ? 100 : 0),
+          reportErrorMessage: record.diagnosticReportTask?.errorMessage || null,
+          reportKind: record.diagnosticReportTask?.reportKind || paper.examType.toLowerCase(),
+          hasReport: Boolean(record.diagnosticReport),
+          reportCompletedAt: record.diagnosticReport?.completedAt || null,
+          generationMode: record.diagnosticReport?.generationMode || null,
+        })),
+        pagination: {
+          page,
+          pageSize,
+          total,
+          totalPages,
+          hasPrev: page > 1,
+          hasNext: page < totalPages,
+        },
+      }),
+    )
   } catch (error: any) {
     logRuntimeError('assessment_papers.history_failed', error)
     res.status(500).json(fail(error.message || '获取历次诊断记录失败'))

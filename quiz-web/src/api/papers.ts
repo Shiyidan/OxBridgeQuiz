@@ -182,6 +182,9 @@ export interface AssessmentYearResult {
 
 export interface AssessmentPaperHistoryItem {
   examRecordId: string
+  paperId?: string
+  paperTitle?: string
+  modules?: PaperModuleOutline[]
   attemptNumber: number
   totalQuestions: number
   correctCount: number
@@ -214,6 +217,13 @@ export interface AssessmentPaperHistoryResult {
     hasPrev: boolean
     hasNext: boolean
   }
+}
+
+export interface AssessmentYearHistoryResult {
+  year: number
+  examType: string
+  list: AssessmentPaperHistoryItem[]
+  pagination: AssessmentPaperHistoryResult['pagination']
 }
 
 export interface AssessmentScoreTrendScore {
@@ -268,6 +278,19 @@ export function getAssessmentPaperHistory(paperId: string, page = 1, pageSize = 
     url: `/papers/assessment/papers/${paperId}/history`,
     method: 'GET',
     params: {
+      page: String(page),
+      pageSize: String(pageSize),
+    },
+  })
+}
+
+/** 分页获取某一考试年份下跨组合卷汇总的已交卷诊断记录。 */
+export function getAssessmentYearHistory(examType: string, year: number, page = 1, pageSize = 10) {
+  return callApi<AssessmentYearHistoryResult>({
+    url: `/papers/assessment/years/${year}/history`,
+    method: 'GET',
+    params: {
+      examType,
       page: String(page),
       pageSize: String(pageSize),
     },

@@ -1,6 +1,13 @@
 <!-- 诊断测试首页：按试卷交付方式进入连续作答或分段诊断流程。 -->
 <template>
-  <div class="assessment-page">
+  <div
+    class="assessment-page"
+    :class="{
+      'assessment-page--year-overview': isYearOverview,
+      'assessment-page--esat': activeExamType === 'ESAT',
+      'assessment-page--tmua': activeExamType === 'TMUA',
+    }"
+  >
     <NavBar />
     <main class="assessment-shell">
       <header class="page-header">
@@ -11,229 +18,378 @@
         </div>
       </header>
 
-      <section v-if="isEsatYearOverview" class="assessment-year-overview" aria-labelledby="assessment-year-title">
+      <section
+        v-if="isYearOverview"
+        class="assessment-year-overview"
+        aria-labelledby="assessment-year-title"
+      >
         <div class="assessment-year-overview__heading">
           <div>
-            <span>ESAT Collections</span>
-            <h2 id="assessment-year-title">按年份选择 ESAT 诊断试卷</h2>
+            <span>{{ activeExamType }} Collections</span>
+            <h2 id="assessment-year-title">按年份选择 {{ activeExamType }} 诊断试卷</h2>
           </div>
-          <p>每个年份统一收纳当年的组合诊断卷，进入后可查看全部套卷与个人进度。</p>
+          <p>{{ yearOverviewDescription }}</p>
         </div>
 
-        <div v-if="yearLoading" class="empty-state">正在加载 ESAT 试卷年份...</div>
+        <div v-if="yearLoading" class="empty-state">
+          正在加载 {{ activeExamType }} 试卷年份...
+        </div>
         <div v-else-if="yearError" class="assessment-year-state assessment-year-state--error">
           <span>{{ yearError }}</span>
           <button type="button" class="button_cancel" @click="loadAssessmentYears">重新加载</button>
         </div>
         <div v-else-if="!assessmentYears.length" class="empty-state">
-          暂无已上线的 ESAT 诊断试卷年份，请先在后台发布组合诊断卷。
+          暂无已上线的 {{ activeExamType }} 诊断试卷年份，请先在后台发布诊断卷。
         </div>
         <div v-else class="assessment-year-grid">
-          <button
-            v-for="item in assessmentYears"
-            :key="item.year"
-            class="assessment-year-card"
-            type="button"
-            @click="handleYearSelection(item.year)"
-          >
-            <span class="assessment-year-card__visual" aria-hidden="true">
-              <span class="assessment-year-card__topline">
-                <i>AceMock</i>
-              </span>
-              <span class="assessment-year-card__cover-copy">
-                <strong>ESAT {{ item.year }}</strong>
-                <small>Equivalent assessment</small>
-              </span>
-            </span>
-            <span class="assessment-year-card__body">
-              <span class="assessment-year-card__info">
-                <strong>ESAT {{ item.year }} 年诊断卷</strong>
-                <span class="assessment-year-card__summary">
-                  <b>{{ item.paperCount }} 套试卷</b>
-                  <em :data-state="yearStatusTone(item)">已完成</em>
+          <div v-for="item in assessmentYears" :key="item.year" class="assessment-year-card-stack">
+            <article class="assessment-year-card">
+              <button
+                class="assessment-year-card__primary"
+                type="button"
+                :aria-label="`选择 ${activeExamType} ${item.year} 年诊断测试`"
+                :disabled="openingYear !== null"
+                @click="handleYearSelection(item.year)"
+              >
+                <span class="assessment-year-card__visual" aria-hidden="true">
+                  <span class="assessment-year-card__topline">
+                    <i>AceMock</i>
+                  </span>
+                  <span class="assessment-year-card__cover-copy">
+                    <strong>{{ activeExamType }} {{ item.year }}</strong>
+                    <small>Equivalent assessment</small>
+                  </span>
                 </span>
-              </span>
-              <span class="assessment-year-card__action">查看 <i>→</i></span>
-            </span>
-          </button>
-        </div>
-      </section>
-
-      <template v-else>
-      <section class="paper-filter-bar" aria-label="诊断试卷筛选">
-        <div class="paper-filter-bar__title">
-          <button
-            v-if="activeExamType === 'ESAT' && selectedEsatYear !== null"
-            class="paper-filter-bar__back"
-            type="button"
-            @click="handleBackToYears"
-          >
-            ← 返回年份
-          </button>
-          <span>Diagnostic Papers</span>
-          <strong>{{ paperListTitle }}</strong>
-        </div>
-        <div class="paper-filter-bar__controls">
-          <div class="paper-filter-control">
-            <span>完成状态</span>
-            <el-segmented
-              v-model="activeStatusFilter"
-              class="status-filter"
-              :options="statusFilterOptions"
-              aria-label="按完成状态筛选诊断试卷"
-            />
-          </div>
-          <div class="paper-filter-control paper-filter-control--chart">
-            <span>分数趋势</span>
-            <el-switch
-              v-model="showScoreTrend"
-              inline-prompt
-              aria-label="显示或隐藏历次诊断测试分数变化折线图"
-            />
+                <span class="assessment-year-card__body">
+                  <span class="assessment-year-card__info">
+                    <strong>{{ activeExamType }} {{ item.year }} 年诊断卷</strong>
+                    <span class="assessment-year-card__summary">
+                      <b>{{ yearCardConfigurationLabel }}</b>
+                      <em :data-state="yearStatusTone(item)">
+                        {{ yearStatusLabel(item) }}
+                      </em>
+                    </span>
+                  </span>
+                  <span class="assessment-year-card__action" aria-hidden="true">
+                    <el-icon><Right /></el-icon>
+                  </span>
+                </span>
+              </button>
+              <button
+                class="assessment-year-card__history"
+                type="button"
+                :disabled="item.completedAttemptCount === 0"
+                @click="openYearHistory(item)"
+              >
+                <span>
+                  历史记录{{ item.completedAttemptCount > 0 ? `（${item.completedAttemptCount}）` : '' }}
+                </span>
+              </button>
+            </article>
           </div>
         </div>
       </section>
 
-      <section v-if="showScoreTrend" class="chart-card">
-        <div class="chart-title">
-          <div>
-            <span>Score Trend</span>
-            <strong>{{ scoreTrendTitle }}</strong>
+      <div
+        v-else
+        class="assessment-paper-overview"
+        :class="{ 'assessment-paper-overview--tmua': activeExamType === 'TMUA' }"
+      >
+        <section class="paper-filter-bar" aria-label="诊断试卷筛选">
+          <div class="paper-filter-bar__title">
+            <span>Diagnostic Papers</span>
+            <strong>{{ paperListTitle }}</strong>
           </div>
-        </div>
-        <div v-if="scoreTrendLoading" class="score-chart-state">正在加载分数趋势...</div>
-        <div v-else-if="scoreTrendError" class="score-chart-state score-chart-state--error">
-          <span>{{ scoreTrendError }}</span>
-          <button type="button" class="button_cancel" @click="loadScoreTrend">重新加载</button>
-        </div>
-        <div v-else-if="!scoreTrend?.points.length" class="score-chart-state">
-          暂无已完成的 {{ activeExamType }} 诊断测试成绩
-        </div>
-        <div
-          v-else
-          ref="chartRef"
-          class="score-chart"
-          :aria-label="`${activeExamType} 诊断测试每日最新分数堆叠折线图`"
-        ></div>
-      </section>
+          <div class="paper-filter-bar__controls">
+            <div class="paper-filter-control">
+              <span>完成状态</span>
+              <el-segmented
+                v-model="activeStatusFilter"
+                class="status-filter"
+                :options="statusFilterOptions"
+                aria-label="按完成状态筛选诊断试卷"
+              />
+            </div>
+            <div class="paper-filter-control paper-filter-control--chart">
+              <span>分数趋势</span>
+              <el-switch
+                v-model="showScoreTrend"
+                inline-prompt
+                aria-label="显示或隐藏历次诊断测试分数变化折线图"
+              />
+            </div>
+          </div>
+        </section>
 
-      <section class="paper-grid" aria-label="历年真题">
-        <article
-          v-for="item in filteredDiagnosticTests"
-          :key="item.id"
-          class="paper-card"
-          :class="{
-            'paper-card--unavailable': !isPaperAvailable(item),
-            'paper-card--locked': isPaperLocked(item) && item.testStatus !== 'completed',
-          }"
-        >
+        <section v-if="showScoreTrend" class="chart-card">
+          <div class="chart-title">
+            <div>
+              <span>Score Trend</span>
+              <strong>{{ scoreTrendTitle }}</strong>
+            </div>
+          </div>
+          <div v-if="scoreTrendLoading" class="score-chart-state">正在加载分数趋势...</div>
+          <div v-else-if="scoreTrendError" class="score-chart-state score-chart-state--error">
+            <span>{{ scoreTrendError }}</span>
+            <button type="button" class="button_cancel" @click="loadScoreTrend">重新加载</button>
+          </div>
+          <div v-else-if="!scoreTrend?.points.length" class="score-chart-state">
+            暂无已完成的 {{ activeExamType }} 诊断测试成绩
+          </div>
           <div
-            v-if="isPaperLocked(item) && item.testStatus !== 'completed'"
-            class="paper-card__lock-overlay"
-            :aria-label="`${item.examType} 会员专享试卷`"
-            @click.stop
-          >
-            <div class="paper-card__lock-marker">
-              <el-icon><Lock /></el-icon>
-              <!-- <span>会员专享</span> -->
-            </div>
-            <div class="paper-card__lock-actions">
-              <button
-                v-if="item.completedAttemptCount > 0"
-                class="paper-card__locked-history-button"
-                type="button"
-                @click.stop="openPaperHistory(item)"
-              >
-                历次记录（{{ item.completedAttemptCount }}）
-              </button>
-              <button
-                class="paper-card__unlock-button"
-                type="button"
-                @click.stop="handleUpgradeClick(item.examType)"
-              >
-                开通会员
-              </button>
-            </div>
-          </div>
+            v-else
+            ref="chartRef"
+            class="score-chart"
+            :aria-label="`${activeExamType} 诊断测试每日最新分数堆叠折线图`"
+          ></div>
+        </section>
 
-          <div class="paper-card__heading">
-            <div class="paper-card__topline">
-              <span
-                class="paper-card__badge"
-                :class="`paper-card__badge--${paperStatusTone(item)}`"
-              >
-                {{ paperStatusLabel(item) }}
-              </span>
-              <div class="paper-card__identity" aria-label="考试类型和年份">
-                <span
-                  class="paper-card__exam-type"
-                  :class="`paper-card__exam-type--${String(item.examType || '').toLowerCase()}`"
+        <section class="paper-grid" aria-label="历年真题">
+          <article
+            v-for="item in filteredDiagnosticTests"
+            :key="item.id"
+            class="paper-card"
+            :class="{
+              'paper-card--unavailable': !isPaperAvailable(item),
+              'paper-card--locked': isPaperLocked(item) && item.testStatus !== 'completed',
+            }"
+          >
+            <div
+              v-if="isPaperLocked(item) && item.testStatus !== 'completed'"
+              class="paper-card__lock-overlay"
+              :aria-label="`${item.examType} 会员专享试卷`"
+              @click.stop
+            >
+              <div class="paper-card__lock-marker">
+                <el-icon><Lock /></el-icon>
+                <!-- <span>会员专享</span> -->
+              </div>
+              <div class="paper-card__lock-actions">
+                <button
+                  v-if="item.completedAttemptCount > 0"
+                  class="paper-card__locked-history-button"
+                  type="button"
+                  @click.stop="openPaperHistory(item)"
                 >
-                  {{ item.examType || 'TMUA' }}
-                </span>
-                <span class="paper-card__year">{{ item.year }}</span>
+                  历次记录（{{ item.completedAttemptCount }}）
+                </button>
+                <button
+                  class="paper-card__unlock-button"
+                  type="button"
+                  @click.stop="handleUpgradeClick(item.examType)"
+                >
+                  开通会员
+                </button>
               </div>
             </div>
-            <h2 :title="item.title">{{ item.title }}</h2>
-            <SubjectModuleTags
-              v-if="item.modules?.length"
-              class="paper-card__subject-tags"
-              :modules="item.modules"
-              align="start"
-            />
-          </div>
 
-          <div class="paper-card__footer">
-            <div
-              v-if="item.testStatus === 'completed' && item.correctCount !== null"
-              class="paper-card__score"
-            >
-              <strong>{{ item.correctCount }}/{{ item.totalQuestions }}</strong>
-              <span v-if="isReportGenerating(item)">报告 {{ item.reportProgress }}%</span>
-              <span v-else>题正确</span>
+            <div class="paper-card__heading">
+              <div class="paper-card__topline">
+                <span
+                  class="paper-card__badge"
+                  :class="`paper-card__badge--${paperStatusTone(item)}`"
+                >
+                  {{ paperStatusLabel(item) }}
+                </span>
+                <div class="paper-card__identity" aria-label="考试类型和年份">
+                  <span
+                    class="paper-card__exam-type"
+                    :class="`paper-card__exam-type--${String(item.examType || '').toLowerCase()}`"
+                  >
+                    {{ item.examType || 'TMUA' }}
+                  </span>
+                  <span class="paper-card__year">{{ item.year }}</span>
+                </div>
+              </div>
+              <h2 :title="item.title">{{ item.title }}</h2>
+              <SubjectModuleTags
+                v-if="item.modules?.length"
+                class="paper-card__subject-tags"
+                :modules="item.modules"
+                align="start"
+              />
             </div>
-            <div v-else-if="item.testStatus === 'in_progress'" class="paper-card__progress">
-              <span>当前进度：</span>
-              <strong>{{ currentProgressLabel(item) }}</strong>
-            </div>
-            <div class="paper-card__actions">
-              <button
-                v-if="item.testStatus === 'completed' && isPaperPublished(item)"
-                class="paper-card__button paper-card__button--secondary button_cancel"
-                type="button"
-                :disabled="isPaperLocked(item) || startingPaperId === item.id"
-                @click="handleRetestPaper(item)"
-              >
-                重新测试
-              </button>
-              <button
-                class="paper-card__button button_primary"
-                type="button"
-                :disabled="
-                  (isPaperLocked(item) && item.testStatus !== 'completed') ||
-                  startingPaperId === item.id
-                "
-                @click="handlePaperAction(item)"
-              >
-                {{ startingPaperId === item.id ? '正在检查...' : paperActionLabel(item) }}
-              </button>
-            </div>
-          </div>
-        </article>
-      </section>
 
-      <div v-if="loading" class="empty-state">加载中...</div>
-      <div v-else-if="!filteredDiagnosticTests.length" class="empty-state">
-        {{ emptyPaperMessage }}
+            <div class="paper-card__footer">
+              <div
+                v-if="item.testStatus === 'completed' && item.correctCount !== null"
+                class="paper-card__score"
+              >
+                <strong>{{ item.correctCount }}/{{ item.totalQuestions }}</strong>
+                <span v-if="isReportGenerating(item)">报告 {{ item.reportProgress }}%</span>
+                <span v-else>题正确</span>
+              </div>
+              <div v-else-if="item.testStatus === 'in_progress'" class="paper-card__progress">
+                <span>当前进度：</span>
+                <strong>{{ currentProgressLabel(item) }}</strong>
+              </div>
+              <div class="paper-card__actions">
+                <button
+                  v-if="item.testStatus === 'completed' && isPaperPublished(item)"
+                  class="paper-card__button paper-card__button--secondary button_cancel"
+                  type="button"
+                  :disabled="isPaperLocked(item) || startingPaperId === item.id"
+                  @click="handleRetestPaper(item)"
+                >
+                  重新测试
+                </button>
+                <button
+                  class="paper-card__button button_primary"
+                  type="button"
+                  :disabled="
+                    (isPaperLocked(item) && item.testStatus !== 'completed') ||
+                    startingPaperId === item.id
+                  "
+                  @click="handlePaperAction(item)"
+                >
+                  {{ startingPaperId === item.id ? '正在检查...' : paperActionLabel(item) }}
+                </button>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <div v-if="loading" class="empty-state">加载中...</div>
+        <div v-else-if="!filteredDiagnosticTests.length" class="empty-state">
+          {{ emptyPaperMessage }}
+        </div>
       </div>
-      </template>
     </main>
+
+    <AppConfirmDialog
+      v-model="resumeDialogVisible"
+      title="继续诊断测试"
+      message="您还有未做完的诊断测试，是否继续完成？"
+      confirm-text="确认继续"
+      cancel-text="取消"
+      tone="default"
+      :show-header-divider="false"
+      @confirm="confirmResumeDiagnostic"
+      @cancel="clearPendingResumePaper"
+    />
+
+    <AppConfirmDialog
+      v-model="tmuaPaperDialogVisible"
+      :title="tmuaSelectionYear ? `TMUA ${tmuaSelectionYear} 年 · 确认诊断试卷` : '确认 TMUA 诊断试卷'"
+      message="本次诊断包含 Paper 1 和 Paper 2，确认开始答题吗？"
+      confirm-text="确认开始"
+      cancel-text="取消"
+      tone="default"
+      :show-header-divider="false"
+      @confirm="startSelectedTmuaPaper"
+      @cancel="clearTmuaPaperSelection"
+    >
+      <template #content>
+        <div class="tmua-paper-confirmation">
+          <p>本次诊断包含以下两个 Paper，确认开始答题吗？</p>
+          <div class="tmua-paper-confirmation__options" aria-label="TMUA 必做试卷">
+            <div>
+              <span aria-hidden="true">✓</span>
+              <strong>Paper 1</strong>
+              <small>数学知识应用</small>
+              <em>必做</em>
+            </div>
+            <div>
+              <span aria-hidden="true">✓</span>
+              <strong>Paper 2</strong>
+              <small>数学推理</small>
+              <em>必做</em>
+            </div>
+          </div>
+        </div>
+      </template>
+    </AppConfirmDialog>
+
+    <el-dialog
+      v-model="subjectDialogVisible"
+      width="680px"
+      class="esat-subject-dialog"
+      :title="
+        subjectSelectionYear ? `ESAT ${subjectSelectionYear} 年 · 选择诊断科目` : '选择诊断科目'
+      "
+      destroy-on-close
+      align-center
+    >
+      <div class="esat-subject-dialog__intro">
+        <div>
+          <strong>选择 3 个科目</strong>
+          <p>Mathematics 1 为 ESAT 必考科目，再从其余 4 科中选择 2 科。</p>
+        </div>
+        <span>{{ selectedEsatSubjects.length }}/3</span>
+      </div>
+
+      <div v-if="subjectPapersLoading" class="esat-subject-dialog__state">
+        正在读取该年份可选科目...
+      </div>
+      <div
+        v-else-if="subjectPapersError"
+        class="esat-subject-dialog__state esat-subject-dialog__state--error"
+      >
+        <p>{{ subjectPapersError }}</p>
+        <button type="button" class="button_cancel" @click="loadSubjectSelectionPapers">
+          重新加载
+        </button>
+      </div>
+      <div v-else class="esat-subject-options" role="group" aria-label="ESAT 诊断科目">
+        <button
+          v-for="subject in esatSubjectOptions"
+          :key="subject.code"
+          type="button"
+          class="esat-subject-option"
+          :class="{
+            'esat-subject-option--selected': selectedEsatSubjects.includes(subject.code),
+            'esat-subject-option--required': subject.required,
+          }"
+          :aria-pressed="selectedEsatSubjects.includes(subject.code)"
+          :aria-disabled="subject.required"
+          @click="toggleEsatSubject(subject.code)"
+        >
+          <span class="esat-subject-option__check" aria-hidden="true">
+            {{ selectedEsatSubjects.includes(subject.code) ? '✓' : '' }}
+          </span>
+          <span>
+            <strong>{{ subject.label }}</strong>
+            <small>{{ subject.englishLabel }}</small>
+          </span>
+          <em v-if="subject.required">必选</em>
+        </button>
+      </div>
+
+      <div v-if="selectedPaperPreview" class="esat-subject-dialog__match">
+        <span>已匹配诊断卷</span>
+        <strong>{{ selectedPaperPreview.title }}</strong>
+        <small
+          >{{ selectedPaperPreview.totalQuestions }} 题 ·
+          {{ selectedPaperPreview.duration }} 分钟</small
+        >
+      </div>
+      <p
+        v-else-if="selectedEsatSubjects.length === 3 && !subjectPapersLoading"
+        class="esat-subject-dialog__unmatched"
+      >
+        该年份暂无所选科目组合的已发布诊断卷。
+      </p>
+
+      <template #footer>
+        <button type="button" class="button_cancel" @click="subjectDialogVisible = false">
+          取消
+        </button>
+        <button
+          type="button"
+          class="button_primary esat-subject-dialog__start"
+          :disabled="!selectedPaperPreview || Boolean(startingPaperId)"
+          @click="startSelectedEsatPaper"
+        >
+          {{ startingPaperId ? '正在检查...' : '开始诊断测试' }}
+        </button>
+      </template>
+    </el-dialog>
 
     <el-dialog
       v-model="historyDialogVisible"
       width="860px"
       class="diagnostic-history-dialog"
-      :title="historyPaper ? `${historyPaper.title} · 历次诊断记录` : '历次诊断记录'"
+      :title="historyDialogTitle"
       destroy-on-close
       align-center
     >
@@ -255,7 +411,10 @@
           class="diagnostic-history__item"
         >
           <div class="diagnostic-history__heading">
-            <strong>第 {{ record.attemptNumber }} 次诊断</strong>
+            <div>
+              <strong>{{ historyRecordTitle(record) }}</strong>
+              <small>第 {{ record.attemptNumber }} 次诊断</small>
+            </div>
             <span
               class="diagnostic-history__status"
               :class="`diagnostic-history__status--${historyReportTone(record)}`"
@@ -315,10 +474,11 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Lock } from '@element-plus/icons-vue'
+import { Lock, Right } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import NavBar from '@/components/NavBar.vue'
 import AppPagination from '@/components/AppPagination.vue'
+import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
 import SubjectModuleTags from '@/components/SubjectModuleTags.vue'
 import { getMember } from '@/api/member'
@@ -330,10 +490,12 @@ import {
   getAssessmentPaperHistory,
   getAssessmentPapersData,
   getAssessmentScoreTrend,
+  getAssessmentYearHistory,
   type AssessmentPaperHistoryItem,
   type AssessmentPaperItem,
   type AssessmentScoreTrendResult,
   type AssessmentYearSummary,
+  type PaperModuleOutline,
 } from '@/api/papers'
 import { getApiErrorMessage } from '@/utils/request'
 
@@ -343,13 +505,24 @@ const loading = ref(true)
 const startingPaperId = ref('')
 const diagnosticTests = ref<AssessmentPaperItem[]>([])
 const assessmentYears = ref<AssessmentYearSummary[]>([])
-const selectedEsatYear = ref<number | null>(null)
 const yearLoading = ref(false)
 const yearError = ref('')
+const openingYear = ref<number | null>(null)
+const resumeDialogVisible = ref(false)
+const pendingResumePaper = ref<AssessmentPaperItem | null>(null)
+const tmuaPaperDialogVisible = ref(false)
+const tmuaSelectionYear = ref<number | null>(null)
+const selectedTmuaPaper = ref<AssessmentPaperItem | null>(null)
+const subjectDialogVisible = ref(false)
+const subjectSelectionYear = ref<number | null>(null)
+const subjectSelectionPapers = ref<AssessmentPaperItem[]>([])
+const subjectPapersLoading = ref(false)
+const subjectPapersError = ref('')
 const historyDialogVisible = ref(false)
 const historyLoading = ref(false)
 const historyError = ref('')
 const historyPaper = ref<AssessmentPaperItem | null>(null)
+const historyYear = ref<number | null>(null)
 const historyRecords = ref<AssessmentPaperHistoryItem[]>([])
 const historyPage = ref(1)
 const historyPageSize = ref(5)
@@ -364,8 +537,17 @@ let chartInstance: echarts.ECharts | null = null
 let assessmentInitialized = false
 let assessmentLoadSequence = 0
 let scoreTrendLoadSequence = 0
+let subjectPapersLoadSequence = 0
 
 type AssessmentStatusFilter = 'ALL' | 'not_started' | 'in_progress' | 'completed'
+type EsatSubjectCode = 'maths1' | 'maths2' | 'physics' | 'chemistry' | 'biology'
+
+interface EsatSubjectOption {
+  code: EsatSubjectCode
+  label: string
+  englishLabel: string
+  required: boolean
+}
 
 const activeStatusFilter = ref<AssessmentStatusFilter>('ALL')
 const showScoreTrend = ref(true)
@@ -375,21 +557,59 @@ const statusFilterOptions: Array<{ label: string; value: AssessmentStatusFilter 
   { label: '进行中', value: 'in_progress' },
   { label: '已完成', value: 'completed' },
 ]
+const esatSubjectOptions: EsatSubjectOption[] = [
+  { code: 'maths1', label: '数学 1', englishLabel: 'Mathematics 1', required: true },
+  { code: 'maths2', label: '数学 2', englishLabel: 'Mathematics 2', required: false },
+  { code: 'physics', label: '物理', englishLabel: 'Physics', required: false },
+  { code: 'chemistry', label: '化学', englishLabel: 'Chemistry', required: false },
+  { code: 'biology', label: '生物', englishLabel: 'Biology', required: false },
+]
+const selectedEsatSubjects = ref<EsatSubjectCode[]>(['maths1'])
 
 // 诊断中心统一读取导航栏的全局考试类型，不再维护页面级考试选择。
 const activeExamType = computed<ActiveExamType>(() => auth.activeExamType)
 
-// ESAT 在未选择年份时展示聚合入口，TMUA 保持原有扁平试卷列表。
-const isEsatYearOverview = computed(
-  () => activeExamType.value === 'ESAT' && selectedEsatYear.value === null,
+// ESAT 与 TMUA 都从年份卡片进入，避免直接暴露底层组合卷列表。
+const isYearOverview = computed(
+  () => activeExamType.value === 'ESAT' || activeExamType.value === 'TMUA',
+)
+
+// 年份页说明分别对应 ESAT 选科和 TMUA 双 Paper 确认两种流程。
+const yearOverviewDescription = computed(() =>
+  activeExamType.value === 'ESAT'
+    ? '选择年份后直接确定三个测试科目，系统会匹配对应诊断卷。'
+    : '选择年份后确认 Paper 1 与 Paper 2，即可开始完整 TMUA 诊断。',
+)
+
+// 卡片摘要只说明该考试的必要组成，不再显示内部试卷数量。
+const yearCardConfigurationLabel = computed(() =>
+  activeExamType.value === 'ESAT' ? '5 科选 3 科' : 'Paper 1 + Paper 2',
 )
 
 // 试卷列表标题明确当前选中的 ESAT 年份，避免进入二级后失去上下文。
-const paperListTitle = computed(() =>
-  activeExamType.value === 'ESAT' && selectedEsatYear.value !== null
-    ? `ESAT ${selectedEsatYear.value} 年诊断卷`
-    : `${activeExamType.value} 历年真题诊断卷`,
-)
+const paperListTitle = computed(() => `${activeExamType.value} 历年真题诊断卷`)
+
+// 科目选满三项后以模块代码集合匹配已有六种 ESAT 合法组合卷。
+const selectedPaperPreview = computed(() => {
+  if (selectedEsatSubjects.value.length !== 3) return null
+  const selectedKey = [...selectedEsatSubjects.value].sort().join('|')
+  return (
+    subjectSelectionPapers.value.find(
+      (paper) =>
+        (isPaperPublished(paper) || paper.testStatus === 'in_progress') &&
+        esatPaperSubjectKey(paper) === selectedKey,
+    ) || null
+  )
+})
+
+// 同一历史弹窗同时承载单卷和年份聚合两种上下文。
+const historyDialogTitle = computed(() => {
+  if (historyPaper.value) return `${historyPaper.value.title} · 历次诊断记录`
+  if (historyYear.value) {
+    return `${activeExamType.value} ${historyYear.value} 年 · 历史诊断记录`
+  }
+  return '历次诊断记录'
+})
 
 // ESAT 采用科目独立标准分，TMUA 采用综合分，标题明确两种评分口径。
 const scoreTrendTitle = computed(() =>
@@ -418,9 +638,6 @@ const filteredDiagnosticTests = computed(() => {
 // 空状态区分“尚无任何试卷”和“当前考试类型暂无试卷”，避免误导后台发布状态。
 const emptyPaperMessage = computed(() => {
   if (activeStatusFilter.value === 'ALL') {
-    if (activeExamType.value === 'ESAT' && selectedEsatYear.value !== null) {
-      return `ESAT ${selectedEsatYear.value} 年暂无已上线的诊断试卷。`
-    }
     return `暂无已上线的 ${activeExamType.value} 诊断试卷，请先在后台真题库发布试卷。`
   }
   return `${activeExamType.value} 当前完成状态下暂无诊断试卷。`
@@ -433,19 +650,87 @@ function yearStatusTone(item: AssessmentYearSummary): 'progress' | 'completed' |
   return 'idle'
 }
 
-// ESAT 首层只请求数据库聚合后的年份摘要，避免下载全部试卷再由浏览器分组。
+// 年份卡片只展示当前诊断状态，历史次数仅保留在独立历史入口。
+function yearStatusLabel(item: AssessmentYearSummary): string {
+  if (item.inProgressPaperCount > 0) return '进行中'
+  if (item.completedPaperCount > 0) return '已完成'
+  return '未完成'
+}
+
+// 模块代码优先，并兼容旧数据中的英文科目名。
+function normalizeEsatSubject(module: PaperModuleOutline): EsatSubjectCode | null {
+  const identity = [module.code, module.subjectCode, module.subject]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+  if (identity.includes('maths1') || identity.includes('mathematics1')) return 'maths1'
+  if (identity.includes('maths2') || identity.includes('mathematics2')) return 'maths2'
+  if (identity.includes('physics')) return 'physics'
+  if (identity.includes('chemistry')) return 'chemistry'
+  if (identity.includes('biology')) return 'biology'
+  return null
+}
+
+// 组合卷匹配不依赖模块展示顺序，只比较三科集合。
+function esatPaperSubjectKey(paper: AssessmentPaperItem): string {
+  return [
+    ...new Set(
+      (paper.modules || [])
+        .map(normalizeEsatSubject)
+        .filter((code): code is EsatSubjectCode => Boolean(code)),
+    ),
+  ]
+    .sort()
+    .join('|')
+}
+
+// TMUA 年份入口只匹配同时包含 Paper 1 与 Paper 2 的完整组合卷。
+function isTmuaCompositePaper(paper: AssessmentPaperItem): boolean {
+  const moduleIdentities = (paper.modules || []).map((module) =>
+    [module.code, module.subjectCode, module.subject]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, ''),
+  )
+  return (
+    moduleIdentities.some((identity) => identity.includes('paper1')) &&
+    moduleIdentities.some((identity) => identity.includes('paper2'))
+  )
+}
+
+// Mathematics 1 始终必选；其余科目最多再选两项。
+function toggleEsatSubject(code: EsatSubjectCode): void {
+  if (code === 'maths1') return
+  if (selectedEsatSubjects.value.includes(code)) {
+    selectedEsatSubjects.value = selectedEsatSubjects.value.filter((item) => item !== code)
+    return
+  }
+  if (selectedEsatSubjects.value.length >= 3) {
+    ElMessage.info('已选满 3 个科目，请先取消一个选项')
+    return
+  }
+  selectedEsatSubjects.value = [...selectedEsatSubjects.value, code]
+}
+
+// 年份首层只请求当前考试的数据库聚合摘要，避免下载全部试卷再由浏览器分组。
 async function loadAssessmentYears(): Promise<void> {
   const requestSequence = ++assessmentLoadSequence
+  const requestedExamType = activeExamType.value
   yearLoading.value = true
   yearError.value = ''
   assessmentYears.value = []
   try {
-    const data = await getAssessmentYearsData('ESAT')
-    if (requestSequence !== assessmentLoadSequence || activeExamType.value !== 'ESAT') return
+    const data = await getAssessmentYearsData(requestedExamType)
+    if (requestSequence !== assessmentLoadSequence || activeExamType.value !== requestedExamType) return
     assessmentYears.value = data.list || []
   } catch (error: unknown) {
     if (requestSequence !== assessmentLoadSequence) return
-    yearError.value = getApiErrorMessage(error, 'ESAT 试卷年份加载失败，请稍后重试。')
+    yearError.value = getApiErrorMessage(
+      error,
+      `${requestedExamType} 试卷年份加载失败，请稍后重试。`,
+    )
   } finally {
     if (requestSequence === assessmentLoadSequence) yearLoading.value = false
   }
@@ -458,12 +743,10 @@ async function loadAssessmentPapers(): Promise<void> {
   loading.value = true
   diagnosticTests.value = []
   try {
-    const requestedYear = requestedExamType === 'ESAT' ? selectedEsatYear.value ?? undefined : undefined
-    const data = await getAssessmentPapersData(requestedExamType, requestedYear)
+    const data = await getAssessmentPapersData(requestedExamType)
     if (requestSequence !== assessmentLoadSequence || requestedExamType !== activeExamType.value) {
       return
     }
-    if (requestedExamType === 'ESAT' && requestedYear !== selectedEsatYear.value) return
     diagnosticTests.value = data.list || []
   } catch {
     if (requestSequence === assessmentLoadSequence) diagnosticTests.value = []
@@ -491,18 +774,19 @@ async function loadScoreTrend(): Promise<void> {
     if (requestSequence !== scoreTrendLoadSequence) return
     scoreTrendError.value = getApiErrorMessage(error, '分数趋势加载失败，请稍后重试。')
   } finally {
-    if (requestSequence !== scoreTrendLoadSequence) return
-    scoreTrendLoading.value = false
-    if (showScoreTrend.value && scoreTrend.value?.points.length) {
-      await nextTick()
-      renderChart()
+    if (requestSequence === scoreTrendLoadSequence) {
+      scoreTrendLoading.value = false
+      if (showScoreTrend.value && scoreTrend.value?.points.length) {
+        await nextTick()
+        renderChart()
+      }
     }
   }
 }
 
 // 页面进入或全局考试类型变化时并行刷新试卷列表与真实成绩趋势。
 async function refreshAssessmentData(): Promise<void> {
-  if (isEsatYearOverview.value) {
+  if (isYearOverview.value) {
     scoreTrendLoadSequence += 1
     loading.value = false
     diagnosticTests.value = []
@@ -517,20 +801,111 @@ async function refreshAssessmentData(): Promise<void> {
   await Promise.all([loadAssessmentPapers(), loadScoreTrend()])
 }
 
-// 选择年份后进入该年份现有试卷列表，原试卷卡片与考试流程保持不变。
-async function handleYearSelection(year: number): Promise<void> {
-  selectedEsatYear.value = year
-  activeStatusFilter.value = 'ALL'
-  await refreshAssessmentData()
+// 年份弹窗只读取当年组合卷用于匹配，不再暴露底层试卷列表。
+async function loadSubjectSelectionPapers(): Promise<boolean> {
+  const requestedYear = subjectSelectionYear.value
+  const requestedExamType = activeExamType.value
+  if (!requestedYear) return false
+  const requestSequence = ++subjectPapersLoadSequence
+  subjectPapersLoading.value = true
+  subjectPapersError.value = ''
+  subjectSelectionPapers.value = []
+  try {
+    const data = await getAssessmentPapersData(requestedExamType, requestedYear)
+    if (
+      requestSequence !== subjectPapersLoadSequence ||
+      requestedYear !== subjectSelectionYear.value ||
+      requestedExamType !== activeExamType.value
+    ) {
+      return false
+    }
+    subjectSelectionPapers.value = data.list || []
+    return true
+  } catch (error: unknown) {
+    if (requestSequence !== subjectPapersLoadSequence) return false
+    subjectPapersError.value = getApiErrorMessage(error, '该年份诊断卷加载失败，请稍后重试。')
+    return false
+  } finally {
+    if (requestSequence === subjectPapersLoadSequence) subjectPapersLoading.value = false
+  }
 }
 
-// 返回年份层时清空二级试卷和趋势上下文，并重新读取最新年份聚合。
-async function handleBackToYears(): Promise<void> {
-  selectedEsatYear.value = null
-  startingPaperId.value = ''
-  historyDialogVisible.value = false
-  diagnosticTests.value = []
-  await refreshAssessmentData()
+// 若任一年份存在未完成测试，优先定位该 attempt 并询问是否继续，不打开选科弹窗。
+async function handleYearSelection(year: number): Promise<void> {
+  if (openingYear.value !== null) return
+  const inProgressYear = assessmentYears.value.find((item) => item.inProgressPaperCount > 0)
+  if (inProgressYear) {
+    openingYear.value = year
+    subjectSelectionYear.value = inProgressYear.year
+    selectedEsatSubjects.value = ['maths1']
+    subjectSelectionPapers.value = []
+    subjectPapersError.value = ''
+    try {
+      const loaded = await loadSubjectSelectionPapers()
+      if (!loaded) {
+        ElMessage.error(subjectPapersError.value || '未完成诊断测试加载失败，请稍后重试。')
+        return
+      }
+      const inProgressPaper = subjectSelectionPapers.value.find(
+        (paper) => paper.testStatus === 'in_progress',
+      )
+      if (inProgressPaper) {
+        pendingResumePaper.value = inProgressPaper
+        resumeDialogVisible.value = true
+        return
+      }
+      await loadAssessmentYears()
+    } finally {
+      openingYear.value = null
+    }
+  }
+
+  subjectSelectionYear.value = year
+  selectedEsatSubjects.value = ['maths1']
+  subjectSelectionPapers.value = []
+  subjectPapersError.value = ''
+  if (activeExamType.value === 'ESAT') {
+    subjectDialogVisible.value = true
+    void loadSubjectSelectionPapers()
+    return
+  }
+
+  openingYear.value = year
+  try {
+    const loaded = await loadSubjectSelectionPapers()
+    if (!loaded) {
+      ElMessage.error(subjectPapersError.value || 'TMUA 诊断试卷加载失败，请稍后重试。')
+      return
+    }
+    const paper = subjectSelectionPapers.value.find(
+      (item) =>
+        (isPaperPublished(item) || item.testStatus === 'in_progress') &&
+        isTmuaCompositePaper(item),
+    )
+    if (!paper) {
+      ElMessage.warning(`TMUA ${year} 年暂无已发布的 Paper 1 + Paper 2 诊断卷`)
+      return
+    }
+    selectedTmuaPaper.value = paper
+    tmuaSelectionYear.value = year
+    tmuaPaperDialogVisible.value = true
+  } finally {
+    openingYear.value = null
+  }
+}
+
+// 确认后携带原 examRecordId 进入分段作答页，保留原答题进度和剩余时间。
+function confirmResumeDiagnostic(): void {
+  const paper = pendingResumePaper.value
+  if (!paper) return
+  resumeDialogVisible.value = false
+  pendingResumePaper.value = null
+  routeToDiagnosticPaper(paper, true)
+}
+
+// 关闭确认框后清理旧试卷引用，避免下次快速点击误恢复上一次测试。
+function clearPendingResumePaper(): void {
+  pendingResumePaper.value = null
 }
 
 // 进入页面时先确定用户默认考试类型，再查询该类型的诊断试卷。
@@ -565,15 +940,26 @@ watch(showScoreTrend, async (visible) => {
 watch(activeExamType, () => {
   if (!assessmentInitialized) return
   startingPaperId.value = ''
+  openingYear.value = null
+  resumeDialogVisible.value = false
+  pendingResumePaper.value = null
+  tmuaPaperDialogVisible.value = false
+  tmuaSelectionYear.value = null
+  selectedTmuaPaper.value = null
+  subjectDialogVisible.value = false
+  subjectPapersLoadSequence += 1
+  subjectSelectionYear.value = null
+  subjectSelectionPapers.value = []
+  selectedEsatSubjects.value = ['maths1']
   historyDialogVisible.value = false
   historyLoading.value = false
   historyError.value = ''
   historyPaper.value = null
+  historyYear.value = null
   historyRecords.value = []
   historyTotal.value = 0
   paymentVisible.value = false
   paymentExamType.value = activeExamType.value
-  selectedEsatYear.value = null
   assessmentYears.value = []
   yearError.value = ''
   void refreshAssessmentData()
@@ -630,24 +1016,24 @@ function renderChart(): void {
       splitLine: { lineStyle: { color: '#f0f0f0', type: 'dashed' } },
     },
     series: seriesEntries.map(([key, label], index) => ({
-        name: label,
-        type: 'line',
-        stack: 'diagnostic-score',
-        data: trend.points.map((point) => (
-          point.scores.find((score) => score.key === key)?.score ?? null
-        )),
-        smooth: true,
-        symbol: 'circle',
-        symbolSize: 7,
-        lineStyle: { width: 2.5, color: palette[index % palette.length] },
-        itemStyle: {
-          color: palette[index % palette.length],
-          borderColor: '#ffffff',
-          borderWidth: 2,
-        },
-        emphasis: { focus: 'series' },
-        connectNulls: false,
-      })),
+      name: label,
+      type: 'line',
+      stack: 'diagnostic-score',
+      data: trend.points.map(
+        (point) => point.scores.find((score) => score.key === key)?.score ?? null,
+      ),
+      smooth: true,
+      symbol: 'circle',
+      symbolSize: 7,
+      lineStyle: { width: 2.5, color: palette[index % palette.length] },
+      itemStyle: {
+        color: palette[index % palette.length],
+        borderColor: '#ffffff',
+        borderWidth: 2,
+      },
+      emphasis: { focus: 'series' },
+      connectNulls: false,
+    })),
     tooltip: {
       trigger: 'axis',
       formatter: (params: unknown) => {
@@ -692,6 +1078,7 @@ async function handlePaymentSuccess(): Promise<void> {
 // 打开试卷历史时固定当前试卷上下文，分页请求不会和其他卡片的数据混用。
 function openPaperHistory(item: AssessmentPaperItem): void {
   historyPaper.value = item
+  historyYear.value = null
   historyPage.value = 1
   historyRecords.value = []
   historyTotal.value = item.completedAttemptCount
@@ -699,24 +1086,62 @@ function openPaperHistory(item: AssessmentPaperItem): void {
   void loadPaperHistory()
 }
 
-// 历次记录只读取正式交卷 attempt，报告状态和报告时间均由后端关联记录返回。
+// 年份卡片历史入口汇总该年所有科目组合，不要求学生先选中某套卷。
+function openYearHistory(item: AssessmentYearSummary): void {
+  if (item.completedAttemptCount === 0) return
+  historyPaper.value = null
+  historyYear.value = item.year
+  historyPage.value = 1
+  historyRecords.value = []
+  historyTotal.value = item.completedAttemptCount
+  historyDialogVisible.value = true
+  void loadPaperHistory()
+}
+
+// 历次记录只读取正式交卷 attempt，并按当前单卷或年份上下文选择接口。
 async function loadPaperHistory(): Promise<void> {
   const paperId = historyPaper.value?.paperId
-  if (!paperId) return
+  const year = historyYear.value
+  if (!paperId && !year) return
+  const historyContextKey = paperId ? `paper:${paperId}` : `year:${year}`
   historyLoading.value = true
   historyError.value = ''
   try {
-    const data = await getAssessmentPaperHistory(paperId, historyPage.value, historyPageSize.value)
-    if (historyPaper.value?.paperId !== paperId) return
+    const data = paperId
+      ? await getAssessmentPaperHistory(paperId, historyPage.value, historyPageSize.value)
+      : await getAssessmentYearHistory(
+          activeExamType.value,
+          year!,
+          historyPage.value,
+          historyPageSize.value,
+        )
+    const currentContextKey = historyPaper.value?.paperId
+      ? `paper:${historyPaper.value.paperId}`
+      : `year:${historyYear.value}`
+    if (currentContextKey !== historyContextKey) return
     historyRecords.value = data.list || []
     historyTotal.value = data.pagination.total
   } catch (error: unknown) {
-    if (historyPaper.value?.paperId !== paperId) return
+    const currentContextKey = historyPaper.value?.paperId
+      ? `paper:${historyPaper.value.paperId}`
+      : `year:${historyYear.value}`
+    if (currentContextKey !== historyContextKey) return
     historyRecords.value = []
     historyError.value = getApiErrorMessage(error, '历次诊断记录加载失败，请稍后重试。')
   } finally {
-    if (historyPaper.value?.paperId === paperId) historyLoading.value = false
+    const currentContextKey = historyPaper.value?.paperId
+      ? `paper:${historyPaper.value.paperId}`
+      : `year:${historyYear.value}`
+    if (currentContextKey === historyContextKey) historyLoading.value = false
   }
+}
+
+// 历史记录以真实试卷名称作为主标题；缺少旧数据标题时按当前考试与年份生成兜底名称。
+function historyRecordTitle(record: AssessmentPaperHistoryItem): string {
+  if (record.paperTitle) return record.paperTitle
+  return historyYear.value
+    ? `${activeExamType.value} ${historyYear.value} 年诊断卷`
+    : `${activeExamType.value} 诊断卷`
 }
 
 // 切换页码后重新读取该页，避免一次性把长期积累的全部历史报告下发到首页。
@@ -808,6 +1233,66 @@ function historyActionLabel(record: AssessmentPaperHistoryItem): string {
   if (record.hasReport) return '查看该次报告'
   if (record.reportStatus === 'failed') return '重新分析'
   return '查看生成进度'
+}
+
+// TMUA 确认后直接新建或重测当年双 Paper 诊断，不再经过试卷卡片页。
+async function startSelectedTmuaPaper(): Promise<void> {
+  const paper = selectedTmuaPaper.value
+  if (!paper) {
+    ElMessage.warning('当前 TMUA 诊断试卷已不可用，请重新选择年份')
+    return
+  }
+  if (paper.testStatus === 'in_progress') {
+    clearTmuaPaperSelection()
+    routeToDiagnosticPaper(paper, true)
+    return
+  }
+  if (isPaperLocked(paper)) {
+    handleUpgradeClick(paper.examType)
+    return
+  }
+  if (paper.testStatus === 'completed') {
+    await handleRetestPaper(paper)
+  } else {
+    await startPaper(paper)
+  }
+  clearTmuaPaperSelection()
+}
+
+// 取消或完成 TMUA 确认后清空年份和试卷引用。
+function clearTmuaPaperSelection(): void {
+  tmuaPaperDialogVisible.value = false
+  tmuaSelectionYear.value = null
+  selectedTmuaPaper.value = null
+}
+
+// 科目组合确认后直接继续或新建对应试卷 attempt，不再经过试卷列表。
+async function startSelectedEsatPaper(): Promise<void> {
+  const paper = selectedPaperPreview.value
+  if (!paper) {
+    ElMessage.warning('请先选择可用的三科组合')
+    return
+  }
+  const activePaper = subjectSelectionPapers.value.find((item) => item.testStatus === 'in_progress')
+  if (activePaper && activePaper.id !== paper.id) {
+    ElMessage.warning(`请先完成正在进行的“${activePaper.title}”`)
+    return
+  }
+  if (paper.testStatus === 'in_progress') {
+    subjectDialogVisible.value = false
+    routeToDiagnosticPaper(paper, true)
+    return
+  }
+  if (isPaperLocked(paper)) {
+    handleUpgradeClick(paper.examType)
+    return
+  }
+  if (paper.testStatus === 'completed') {
+    await handleRetestPaper(paper)
+  } else {
+    await startPaper(paper)
+  }
+  subjectDialogVisible.value = false
 }
 
 async function handlePaperAction(item: AssessmentPaperItem): Promise<void> {
@@ -966,6 +1451,22 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
   color: var(--color-ink);
 }
 
+.assessment-page--esat,
+.assessment-page--tmua {
+  background-color: rgb(238, 233, 226);
+  background-position: top center;
+  background-repeat: no-repeat;
+  background-size: auto;
+}
+
+.assessment-page--esat {
+  background-image: url('../../assets/banner/campus-cambridge-sketch.webp');
+}
+
+.assessment-page--tmua {
+  background-image: url('../../assets/banner/campus-oxford-sketch.webp');
+}
+
 .assessment-shell {
   width: var(--fluid-shell-width);
   margin: 0 auto;
@@ -1015,7 +1516,14 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
   padding: 24px;
   border: 1px solid var(--color-line);
   border-radius: 20px;
-  background: color-mix(in srgb, var(--color-surface) 94%, #edf5f4);
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.assessment-paper-overview--tmua {
+  padding: 24px;
+  border: 1px solid var(--color-line);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .assessment-year-overview__heading {
@@ -1060,7 +1568,38 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
   margin-top: 24px;
 }
 
+.assessment-year-card-stack {
+  position: relative;
+  min-width: 0;
+  padding-top: 18px;
+}
+
+.assessment-year-card-stack::before,
+.assessment-year-card-stack::after {
+  position: absolute;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 24px;
+  box-shadow: 0 12px 30px rgba(25, 51, 64, 0.1);
+  content: '';
+  pointer-events: none;
+}
+
+.assessment-year-card-stack::before {
+  z-index: 0;
+  inset: 0 32px 18px;
+  background: linear-gradient(145deg, rgba(211, 224, 241, 0.92), rgba(71, 155, 192, 0.82));
+}
+
+.assessment-year-card-stack::after {
+  z-index: 1;
+  inset: 9px 16px 9px;
+  background: linear-gradient(145deg, rgba(218, 237, 232, 0.94), rgba(66, 142, 158, 0.84));
+}
+
 .assessment-year-card {
+  position: relative;
+  z-index: 2;
+  width: 100%;
   min-width: 0;
   display: block;
   overflow: hidden;
@@ -1072,7 +1611,6 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
   color: var(--color-ink);
   font-family: inherit;
   text-align: left;
-  cursor: pointer;
   transition:
     transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 260ms ease,
@@ -1080,10 +1618,33 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
 }
 
 .assessment-year-card:hover,
-.assessment-year-card:focus-visible {
+.assessment-year-card:has(.assessment-year-card__primary:focus-visible),
+.assessment-year-card:has(.assessment-year-card__history:focus-visible) {
   border-color: rgba(35, 140, 136, 0.42);
   box-shadow: 0 28px 58px rgba(25, 51, 64, 0.2);
   transform: translateY(-8px);
+}
+
+.assessment-year-card__primary {
+  width: 100%;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.assessment-year-card__primary:focus-visible,
+.assessment-year-card__history:focus-visible {
+  outline: 3px solid rgba(35, 140, 136, 0.38);
+  outline-offset: -3px;
+}
+
+.assessment-year-card__primary:disabled {
+  cursor: wait;
 }
 
 .assessment-year-card__visual {
@@ -1177,12 +1738,12 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
 }
 
 .assessment-year-card__body {
-  min-height: 132px;
+  min-height: 154px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 96px;
+  grid-template-columns: minmax(0, 1fr) 48px;
   align-items: center;
   gap: 16px;
-  padding: 18px;
+  padding: 18px 18px 56px;
 }
 
 .assessment-year-card__info {
@@ -1230,11 +1791,12 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
 }
 
 .assessment-year-card__action {
+  width: 48px;
   min-height: 40px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 13px;
+  justify-content: center;
+  padding: 0;
   border-radius: 11px;
   background: #172538;
   color: #fff;
@@ -1242,9 +1804,39 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
   font-weight: var(--weight-semi);
 }
 
-.assessment-year-card__action i {
+.assessment-year-card__action .el-icon {
   font-size: 15px;
-  font-style: normal;
+}
+
+.assessment-year-card__history {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 3;
+  padding: 0 0 3px;
+  border: 0;
+  border-bottom: 1px solid currentcolor;
+  border-radius: 0;
+  background: transparent;
+  color: #405064;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: var(--weight-semi);
+  cursor: pointer;
+  transition: color var(--duration-fast) ease;
+}
+
+.assessment-year-card__history:hover:not(:disabled) {
+  color: #187b71;
+}
+
+.assessment-year-card__history:disabled {
+  color: #a6adb5;
+  cursor: not-allowed;
+}
+
+.assessment-year-card__history:focus-visible {
+  outline-offset: 3px;
 }
 
 .assessment-year-state {
@@ -1349,19 +1941,6 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
 .paper-filter-bar__title strong {
   color: var(--color-ink);
   font-size: var(--text-base);
-}
-
-.paper-filter-bar__back {
-  display: block;
-  margin: 0 0 7px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #238c88;
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: var(--weight-semi);
-  cursor: pointer;
 }
 
 .paper-filter-bar__controls {
@@ -1743,6 +2322,295 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
   text-align: center;
 }
 
+.tmua-paper-confirmation {
+  width: 100%;
+}
+
+.tmua-paper-confirmation > p {
+  margin: 0 0 16px;
+  color: var(--color-ink-soft);
+  line-height: var(--leading-relaxed);
+}
+
+.tmua-paper-confirmation__options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tmua-paper-confirmation__options > div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 3px 10px;
+  padding: 13px 14px;
+  border: 1px solid rgba(35, 140, 136, 0.42);
+  border-radius: var(--radius-md);
+  background: #f0f8f6;
+}
+
+.tmua-paper-confirmation__options span {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  grid-row: 1 / 3;
+  place-items: center;
+  border-radius: 7px;
+  background: #238c88;
+  color: #fff;
+  font-size: 13px;
+  font-weight: var(--weight-bold);
+}
+
+.tmua-paper-confirmation__options strong {
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+}
+
+.tmua-paper-confirmation__options small {
+  overflow: hidden;
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tmua-paper-confirmation__options em {
+  grid-column: 1 / -1;
+  justify-self: end;
+  color: #187b71;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: var(--weight-bold);
+}
+
+:deep(.esat-subject-dialog) {
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+}
+
+:deep(.esat-subject-dialog .el-dialog__header) {
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+:deep(.esat-subject-dialog .el-dialog__title) {
+  color: var(--color-ink);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+}
+
+:deep(.esat-subject-dialog .el-dialog__body) {
+  padding: 22px 24px 8px;
+}
+
+:deep(.esat-subject-dialog .el-dialog__footer) {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px 22px;
+}
+
+:deep(.esat-subject-dialog .el-dialog__footer button) {
+  min-height: var(--height-button);
+  padding: 0 20px;
+  border-radius: var(--radius-md);
+}
+
+.esat-subject-dialog__intro {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+
+.esat-subject-dialog__intro strong {
+  color: var(--color-ink);
+  font-size: var(--text-base);
+}
+
+.esat-subject-dialog__intro p {
+  margin: 6px 0 0;
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+}
+
+.esat-subject-dialog__intro > span {
+  min-width: 48px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: #e7f6f2;
+  color: #187b71;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+.esat-subject-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.esat-subject-option {
+  min-width: 0;
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) ease,
+    background var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease;
+}
+
+.esat-subject-option:first-child {
+  grid-column: 1 / -1;
+}
+
+.esat-subject-option:hover,
+.esat-subject-option:focus-visible {
+  border-color: rgba(35, 140, 136, 0.46);
+}
+
+.esat-subject-option:focus-visible {
+  outline: 3px solid rgba(35, 140, 136, 0.2);
+  outline-offset: 2px;
+}
+
+.esat-subject-option--selected {
+  border-color: rgba(35, 140, 136, 0.6);
+  background: #f0f8f6;
+  box-shadow: 0 0 0 1px rgba(35, 140, 136, 0.08);
+}
+
+.esat-subject-option--required {
+  cursor: default;
+}
+
+.esat-subject-option__check {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #b9c2c8;
+  border-radius: 7px;
+  background: #fff;
+  color: #fff;
+  font-size: 13px;
+  font-weight: var(--weight-bold);
+}
+
+.esat-subject-option--selected .esat-subject-option__check {
+  border-color: #238c88;
+  background: #238c88;
+}
+
+.esat-subject-option strong,
+.esat-subject-option small {
+  display: block;
+}
+
+.esat-subject-option strong {
+  font-size: var(--text-sm);
+}
+
+.esat-subject-option small {
+  overflow: hidden;
+  margin-top: 4px;
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.esat-subject-option em {
+  padding: 3px 7px;
+  border-radius: var(--radius-pill);
+  background: #dcefea;
+  color: #187b71;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: var(--weight-bold);
+}
+
+.esat-subject-dialog__state {
+  min-height: 236px;
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  color: var(--color-ink-muted);
+  text-align: center;
+}
+
+.esat-subject-dialog__state p {
+  margin: 0;
+}
+
+.esat-subject-dialog__state--error,
+.esat-subject-dialog__unmatched {
+  color: var(--color-danger);
+}
+
+.esat-subject-dialog__state button {
+  min-height: var(--height-button);
+  border-radius: var(--radius-md);
+}
+
+.esat-subject-dialog__match {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 16px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid #cce2dd;
+  border-radius: var(--radius-md);
+  background: #f4faf8;
+}
+
+.esat-subject-dialog__match span {
+  grid-column: 1 / -1;
+  color: #187b71;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+}
+
+.esat-subject-dialog__match strong {
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.esat-subject-dialog__match small {
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.esat-subject-dialog__unmatched {
+  margin: 14px 0 0;
+  font-size: var(--text-xs);
+}
+
+.esat-subject-dialog__start:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 :deep(.diagnostic-history-dialog) {
   overflow: hidden;
   border-radius: var(--radius-lg);
@@ -1803,14 +2671,30 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
 
 .diagnostic-history__heading {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   grid-column: 1 / -1;
 }
 
-.diagnostic-history__heading > strong {
+.diagnostic-history__heading > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.diagnostic-history__heading strong {
+  font-weight: 700;
   color: var(--color-ink);
   font-size: var(--text-base);
+}
+
+.diagnostic-history__heading small {
+  overflow: hidden;
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .diagnostic-history__status {
@@ -1885,7 +2769,8 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
 }
 
 @media (max-width: 760px) {
-  .assessment-year-overview {
+  .assessment-year-overview,
+  .assessment-paper-overview--tmua {
     padding: 18px;
   }
 
@@ -1928,6 +2813,38 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
 
   :deep(.diagnostic-history-dialog) {
     width: calc(100% - 32px) !important;
+  }
+
+  :deep(.esat-subject-dialog) {
+    width: calc(100% - 32px) !important;
+  }
+
+  :deep(.esat-subject-dialog .el-dialog__body) {
+    padding: 18px 18px 6px;
+  }
+
+  :deep(.esat-subject-dialog .el-dialog__footer) {
+    padding: 14px 18px 18px;
+  }
+
+  .esat-subject-options {
+    grid-template-columns: 1fr;
+  }
+
+  .tmua-paper-confirmation__options {
+    grid-template-columns: 1fr;
+  }
+
+  .esat-subject-option:first-child {
+    grid-column: auto;
+  }
+
+  .esat-subject-dialog__match {
+    grid-template-columns: 1fr;
+  }
+
+  .esat-subject-dialog__match span {
+    grid-column: auto;
   }
 
   .diagnostic-history__item {

@@ -87,7 +87,9 @@
               >
                 <span class="exam-preference-dot" aria-hidden="true"></span>
                 <span>{{ noGoal ? '选择备考目标' : `备考 ${preferredExamType}` }}</span>
-                <span class="exam-preference-caret" aria-hidden="true">▾</span>
+                <el-icon class="exam-preference-caret" aria-hidden="true">
+                  <ArrowDown />
+                </el-icon>
               </button>
               <template #dropdown>
                 <el-dropdown-menu>
@@ -163,6 +165,7 @@
 // 全局导航栏：所有前台页面共用，并根据登录状态展示用户入口。
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ArrowDown } from '@element-plus/icons-vue'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 import brandIconUrl from '@/assets/brand/acemock-icon.png'
@@ -368,25 +371,20 @@ onMounted(() => void loadStudentExamPreference())
   display: inline-flex;
   align-items: center;
   height: 44px;
-  padding: 0 14px;
-  gap: 10px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
+  padding: 0 4px;
+  gap: 8px;
+  border: 0;
+  background: transparent;
   color: var(--color-ink);
   font-family: inherit;
   font-size: var(--text-sm);
   font-weight: var(--weight-semi);
   white-space: nowrap;
   cursor: pointer;
-  transition:
-    border-color var(--duration-base) ease,
-    background var(--duration-base) ease;
 }
-.exam-preference-chip:hover,
 .exam-preference-chip:focus-visible {
-  border-color: var(--color-active);
-  background: var(--color-hover);
+  outline: 2px solid var(--color-active);
+  outline-offset: 4px;
 }
 .exam-preference-dot {
   width: 8px;
@@ -397,22 +395,27 @@ onMounted(() => void loadStudentExamPreference())
 }
 .exam-preference-caret {
   color: var(--color-ink-muted);
-  font-size: 12px;
-  line-height: 1;
+  font-size: 13px;
 }
 :global(.student-exam-dropdown.el-popper) {
-  min-width: 120px;
+  width: 88px !important;
+  min-width: 88px !important;
+  box-sizing: border-box;
   padding: 6px;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
 }
 :global(.student-exam-dropdown .el-dropdown-menu) {
+  width: 100%;
+  min-width: 0;
   padding: 0;
 }
 :global(.student-exam-dropdown .el-dropdown-menu__item) {
   min-height: 40px;
   padding: 0 14px;
+  justify-content: center;
+  text-align: center;
   border-radius: var(--radius-md);
   color: var(--color-ink-soft);
   font-size: var(--text-sm);

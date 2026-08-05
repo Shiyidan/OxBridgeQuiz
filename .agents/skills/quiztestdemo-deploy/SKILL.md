@@ -44,6 +44,7 @@ Prefer the bundled scripts in `scripts/` instead of writing ad hoc deployment sc
 - `scripts/deploy-test-local-build.ps1`: required test-environment orchestrator; verifies a clean, pushed commit, builds frontend and API artifacts locally, verifies them with a manifest and SHA-256, uploads them with the source bundle, validates the result, reports, and cleans temporary evidence.
 - `scripts/check-prisma-migrations.sh`: server-side Prisma schema/migration guard, called by `remote-deploy.sh`.
 - `scripts/check-runtime-config.sh`: compares runtime `.env` keys with `.env.example`, merges only an explicit allowlist of non-secret defaults after backup, and never prints values; deployment then runs the repository runtime validator.
+- `scripts/merge-visitor-runtime-config.sh`: after explicit environment confirmation, backs up the runtime `.env` and generates the stable visitor analytics HMAC secret only when it is missing, without printing the value.
 - `scripts/merge-payment-runtime-config.sh`: after explicit environment confirmation, backs up the runtime `.env` and merges only an allowlisted private payment overlay from stdin without printing values.
 - `scripts/backup-rds-runtime.sh`: server-side backup runner for transaction-consistent InnoDB RDS MySQL dumps, uploads, runtime config, manifests, checksums, and retention cleanup.
 - `scripts/collect-report.sh`: environment-labelled server-side status and resource collector.

@@ -361,8 +361,16 @@ fi
 if [[ -n "$SOURCE_BUNDLE" ]]; then
   git bundle verify "$SOURCE_BUNDLE"
   git fetch "$SOURCE_BUNDLE" "refs/heads/$BRANCH"
-  git checkout "$BRANCH"
-  git merge --ff-only FETCH_HEAD
+  if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+    git checkout "$BRANCH"
+    git merge --ff-only FETCH_HEAD
+  else
+    if ! git merge-base --is-ancestor HEAD FETCH_HEAD; then
+      echo "Bundle branch cannot be created because the current server commit is not its ancestor." >&2
+      exit 46
+    fi
+    git checkout -b "$BRANCH" FETCH_HEAD
+  fi
   ACTUAL_COMMIT="$(git rev-parse HEAD)"
   if [[ "$ACTUAL_COMMIT" != "$EXPECTED_COMMIT" ]]; then
     echo "Bundle deployment commit mismatch: expected=$EXPECTED_COMMIT actual=$ACTUAL_COMMIT" >&2

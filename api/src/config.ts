@@ -92,6 +92,19 @@ function resolveEmailCodeSecret(): string {
   return crypto.randomBytes(64).toString('hex')
 }
 
+// 访客 IP 使用独立 HMAC 密钥生成不可逆摘要，避免与认证签名共享密钥域。
+function resolveVisitorIpHashSecret(): string {
+  const value = process.env.VISITOR_IP_HASH_SECRET?.trim()
+  if (value) return value
+  if (BACKEND_ENV !== 'local') {
+    throw new Error(`[config] VISITOR_IP_HASH_SECRET is required when API_RUNTIME_ENV=${BACKEND_ENV}`)
+  }
+  console.warn(
+    '[config] VISITOR_IP_HASH_SECRET is missing. Local visitor IP deduplication will reset after restart.',
+  )
+  return crypto.randomBytes(64).toString('hex')
+}
+
 // 注册依赖邮件验证码，测试与线上环境缺少 SMTP 凭据时应在启动阶段直接失败。
 function resolveMailValue(name: 'SMTP_USER' | 'SMTP_PASS' | 'MAIL_FROM'): string {
   const value = process.env[name]?.trim()
@@ -403,6 +416,7 @@ export const config = {
   refreshCookieSecure,
   refreshCookieSameSite,
   emailCodeSecret: resolveEmailCodeSecret(),
+  visitorIpHashSecret: resolveVisitorIpHashSecret(),
   emailCodeTtlSeconds: parseInt(process.env.EMAIL_CODE_TTL_SECONDS || '600', 10),
   emailCodeResendSeconds: parseInt(process.env.EMAIL_CODE_RESEND_SECONDS || '60', 10),
   emailCodeMaxAttempts: parseInt(process.env.EMAIL_CODE_MAX_ATTEMPTS || '5', 10),

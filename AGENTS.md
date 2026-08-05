@@ -207,6 +207,6 @@ cd /opt/quiz/repo/api
 API_ENV_FILE=/opt/quiz/api/.env npm run validate:runtime
 ```
 
-该命令必须成功验证目标运行环境、数据库连接和 SMTP 登录后，才能执行 PM2 重载。测试和线上环境必须显式提供 `API_RUNTIME_ENV`、`JWT_SECRET`、`EMAIL_CODE_SECRET`、`SMTP_USER`、`SMTP_PASS` 和 `MAIL_FROM`；不得依赖本地默认值。部署完成后还需验证 `/api/health` 和至少一条依赖数据库的只读接口。
+该命令必须成功验证目标运行环境、数据库连接和 SMTP 登录后，才能执行 PM2 重载。测试和线上环境必须显式提供 `API_RUNTIME_ENV`、`JWT_SECRET`、`EMAIL_CODE_SECRET`、`VISITOR_IP_HASH_SECRET`、`SMTP_USER`、`SMTP_PASS` 和 `MAIL_FROM`；不得依赖本地默认值。部署完成后还需验证 `/api/health` 和至少一条依赖数据库的只读接口。
 
 部署报告仅生成到被 Git 忽略的本地目录中。邮件发送账号、收件人和 SMTP 配置必须来自 `.env.deploy.local`，不得写入仓库；仅在用户明确要求发送时使用。

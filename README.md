@@ -81,7 +81,7 @@ npm install
 npx prisma migrate dev
 
 # 配置环境变量（复制 .env 并根据需要修改）
-# JWT_SECRET、API_PORT、DATABASE_URL 等
+# JWT_SECRET、EMAIL_CODE_SECRET、VISITOR_IP_HASH_SECRET、API_PORT、DATABASE_URL 等
 
 # 启动开发服务器（http://localhost:3001）
 npm run dev

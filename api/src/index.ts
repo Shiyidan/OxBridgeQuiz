@@ -19,6 +19,7 @@ import { requestContextMiddleware } from './utils/requestContext.js'
 import { requestLoggingMiddleware } from './middleware/requestLogging.js'
 import { questionLibraryRouter } from './routes/questionLibrary.js'
 import { practiceNotebookRouter } from './routes/practiceNotebooks.js'
+import { trafficRouter } from './routes/traffic.js'
 
 const app = express()
 
@@ -48,6 +49,7 @@ app.use(express.urlencoded({ extended: false, limit: '1mb' }))
 app.use(express.json({ limit: '50mb' }))
 app.use(operationAuditMiddleware)
 
+app.use('/api/traffic', trafficRouter)
 app.use('/api/auth', authRouter)
 app.use('/api/getMember', memberRouter)
 app.use('/api/payment', paymentRouter)

@@ -190,6 +190,20 @@ model OperationLog {
   @@index([resourceType, resourceId, occurredAt])
 }
 
+model WebsiteVisitDaily {
+  id           String   @id @default(uuid()) @db.VarChar(191)
+  businessDate DateTime @db.Date
+  ipHash       String   @db.Char(64)
+  visitCount   Int      @default(1)
+  firstSeenAt  DateTime @default(now())
+  lastSeenAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([businessDate, ipHash])
+  @@index([businessDate])
+}
+
 model UserLegalAcceptance {
   id              String   @id @default(uuid()) @db.VarChar(191)
   userId          String   @db.VarChar(191)

@@ -50,6 +50,11 @@ import {
   defaultBehaviorAnalyticsPeriod,
   getStudentBehaviorAnalytics,
 } from '../services/behaviorAnalytics.js'
+import {
+  WEBSITE_TRAFFIC_MAX_RANGE_DAYS,
+  defaultWebsiteTrafficPeriod,
+  getWebsiteTrafficAnalytics,
+} from '../services/websiteTraffic.js'
 
 export const adminRouter = createAsyncRouter()
 
@@ -116,6 +121,37 @@ function parseOperationLogDate(value: unknown): Date | null | undefined {
   const parsed = new Date(String(value))
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
+
+// 网站访问分析
+adminRouter.get('/traffic-analytics', async (req, res) => {
+  const requestedStartAt = parseOperationLogDate(req.query.startAt)
+  const requestedEndAt = parseOperationLogDate(req.query.endAt)
+
+  if (requestedStartAt === null || requestedEndAt === null) {
+    res.status(422).json(fail('无效的时间范围'))
+    return
+  }
+  if ((requestedStartAt === undefined) !== (requestedEndAt === undefined)) {
+    res.status(422).json(fail('开始时间和结束时间必须同时提供'))
+    return
+  }
+
+  const defaults = defaultWebsiteTrafficPeriod()
+  const startAt = requestedStartAt || defaults.startAt
+  const endAt = requestedEndAt || defaults.endAt
+  const durationMs = endAt.getTime() - startAt.getTime()
+  const maxDurationMs = WEBSITE_TRAFFIC_MAX_RANGE_DAYS * 24 * 60 * 60 * 1000
+  if (durationMs <= 0) {
+    res.status(422).json(fail('结束时间必须晚于开始时间'))
+    return
+  }
+  if (durationMs > maxDurationMs) {
+    res.status(422).json(fail(`统计时间范围不能超过 ${WEBSITE_TRAFFIC_MAX_RANGE_DAYS} 天`))
+    return
+  }
+
+  res.json(success(await getWebsiteTrafficAnalytics({ startAt, endAt })))
+})
 
 // 学生行为分析
 adminRouter.get('/behavior-analytics', async (req, res) => {

@@ -3,6 +3,16 @@ import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from 'axio
 import { ElMessage } from 'element-plus'
 import { API_URL } from '../config'
 
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    silent?: boolean
+  }
+
+  interface InternalAxiosRequestConfig {
+    silent?: boolean
+  }
+}
+
 export interface ApiResponse<T = unknown> {
   success: boolean
   code: number | string
@@ -142,7 +152,7 @@ instance.interceptors.response.use(
     if (body && typeof body === 'object' && 'success' in body) {
       if (!body.success) {
         const apiError = new ApiError(body.errMsg || '请求失败', body.code, response.status)
-        showApiError(apiError)
+        if (!response.config.silent) showApiError(apiError)
         return Promise.reject(apiError)
       }
       response.data = body.data
@@ -151,6 +161,7 @@ instance.interceptors.response.use(
   },
   async (error) => {
     const original = error.config as RetryConfig | undefined
+    const silent = Boolean(original?.silent)
     const url = original?.url || ''
     const isRefreshRequest = url.includes('/auth/refresh')
     const canRefresh =
@@ -171,7 +182,7 @@ instance.interceptors.response.use(
           handleUnauthorized(apiError)
           return Promise.reject(apiError)
         }
-        showApiError(apiError)
+        if (!silent) showApiError(apiError)
         return Promise.reject(apiError)
       }
     }
@@ -183,7 +194,7 @@ instance.interceptors.response.use(
       handleUnauthorized(apiError)
       return Promise.reject(apiError)
     }
-    showApiError(apiError)
+    if (!silent) showApiError(apiError)
     return Promise.reject(apiError)
   },
 )
@@ -194,6 +205,7 @@ export interface ApiConfig {
   params?: Record<string, string | undefined>
   body?: unknown
   timeout?: number
+  silent?: boolean
 }
 
 // 统一过滤空查询参数，避免各 API 模块重复拼接 URL。
@@ -215,6 +227,7 @@ export async function callApi<T>(config: ApiConfig): Promise<T> {
     method: config.method,
     data: config.body,
     timeout: config.timeout,
+    silent: config.silent,
   })
   return response.data
 }

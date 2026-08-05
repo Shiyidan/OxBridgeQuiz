@@ -10,6 +10,7 @@ import App from './App.vue'
 import router from './router'
 import { useAuthStore } from './stores/auth'
 import { configureRequestAuth } from './utils/request'
+import { recordWebsiteVisit } from './api/traffic'
 
 const app = createApp(App)
 
@@ -27,3 +28,6 @@ await auth.restoreSession()
 
 app.use(router)
 app.mount('#app')
+
+// 管理员内部访问不进入公开流量；匿名访客和学生每次完整加载应用上报一次访问。
+if (auth.user?.role !== 'admin') void recordWebsiteVisit().catch(() => undefined)

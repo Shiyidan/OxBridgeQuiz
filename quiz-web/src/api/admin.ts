@@ -103,6 +103,57 @@ export interface BehaviorAnalyticsParams {
   module?: string
 }
 
+export interface TrafficAnalyticsParams {
+  startAt?: string
+  endAt?: string
+}
+
+export interface TrafficAnalyticsTrendItem {
+  date: string
+  uniqueIpCount: number
+  visitCount: number
+  registrationCount: number
+}
+
+export interface TrafficRegistrationLocationItem {
+  location: string
+  registrationCount: number
+  percentage: number
+}
+
+export interface TrafficAnalyticsResult {
+  scope: {
+    timezone: 'Asia/Shanghai'
+    uniqueIpDefinition: 'period_distinct_hmac'
+    registrationRole: 'student'
+  }
+  period: {
+    startAt: string
+    endAt: string
+    previousStartAt: string
+    previousEndAt: string
+    endExclusive: true
+  }
+  overview: {
+    uniqueIpCount: number
+    uniqueIpChangeRate: number | null
+    visitCount: number
+    visitCountChangeRate: number | null
+    registrationCount: number
+    registrationCountChangeRate: number | null
+  }
+  trend: TrafficAnalyticsTrendItem[]
+  locationDistribution: {
+    source: 'registration_ip'
+    precision: 'country_region'
+    totalRegistrationCount: number
+    resolvedRegistrationCount: number
+    unknownRegistrationCount: number
+    items: TrafficRegistrationLocationItem[]
+  }
+  generatedAt: string
+}
+
 export interface BehaviorAnalyticsOverview {
   activeUsers: number
   activeUsersChangeRate: number | null
@@ -577,6 +628,19 @@ export function resolveAdminPaymentReconciliationItem(id: string, note: string) 
 }
 
 // ---- 操作审计 ----
+
+/** 查询匿名网站访问与学生注册趋势，按北京时间自然日聚合。 */
+export function getTrafficAnalytics(params: TrafficAnalyticsParams = {}) {
+  return callApi<TrafficAnalyticsResult>({
+    url: '/admin/traffic-analytics',
+    method: 'GET',
+    silent: true,
+    params: {
+      startAt: params.startAt,
+      endAt: params.endAt,
+    },
+  })
+}
 
 /** 查询学生学习产品偏好与操作审计统计，不接收角色参数。 */
 export function getBehaviorAnalytics(params: BehaviorAnalyticsParams = {}) {

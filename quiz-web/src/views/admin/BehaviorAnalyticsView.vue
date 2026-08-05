@@ -1,312 +1,375 @@
-<!-- 学生用户行为分析页：展示核心学习产品偏好、操作排行、趋势及日志下钻。 -->
+<!-- 用户分析页：通过用户访问、产品使用和操作审计三类视角组织运营数据。 -->
 <template>
+  <!--
+  THESIS: 同一路由以清晰 Tab 区分匿名流量、学习产品使用和操作审计，拒绝把不同口径堆进一条长页面。
+  OWN-WORLD: 延续后台白色数据面板、浅灰工作区与靛蓝交互色，注册数据使用克制的青绿色语义色。
+  STORY: 管理员先判断访问和注册走势，再切换到产品偏好与操作质量定位变化原因。
+  FIRST VIEWPORT: 标题与统计口径在上，三个 Tab 紧随其后，首个 Tab 直接呈现日期筛选和三项核心指标。
+  FORM: 既有后台数据工作台的分层扩展；用户指定 Tab 顺序，首项固定为用户访问。
+  -->
   <div class="behavior-analytics-page">
     <div class="page-heading">
       <div>
         <h2 class="page-title">用户行为分析</h2>
-        <p class="page-desc">对比诊断、题库和模考使用偏好，并结合关键操作定位产品优化方向。</p>
+        <p class="page-desc">查看网站访问与注册变化，并结合学习产品使用和关键操作定位优化方向。</p>
       </div>
       <div class="scope-badge">
         <span class="scope-badge__dot"></span>
-        仅统计普通学生用户
+        {{ activeTab === 'traffic' ? '匿名访问与学生注册' : '仅统计普通学生用户' }}
       </div>
     </div>
 
-    <section class="filter-card">
-      <div class="quick-ranges" aria-label="统计时间快捷选择">
-        <span>快捷范围</span>
-        <button
-          v-for="days in quickRangeOptions"
-          :key="days"
-          type="button"
-          :class="['quick-range', { 'quick-range--active': activeQuickRange === days }]"
-          @click="selectQuickRange(days)"
-        >
-          最近 {{ days }} 天
-        </button>
-      </div>
+    <div class="analytics-tabs" role="tablist" aria-label="用户分析视角">
+      <button
+        v-for="tab in analyticsTabs"
+        :id="`analytics-tab-${tab.name}`"
+        :key="tab.name"
+        class="analytics-tab"
+        :class="{ 'analytics-tab--active': activeTab === tab.name }"
+        type="button"
+        role="tab"
+        :aria-selected="activeTab === tab.name"
+        :aria-controls="`analytics-panel-${tab.name}`"
+        :tabindex="activeTab === tab.name ? 0 : -1"
+        @click="activeTab = tab.name"
+        @keydown="handleTabKeydown($event, tab.name)"
+      >
+        {{ tab.label }}
+      </button>
+    </div>
 
-      <div class="filter-row">
-        <div class="filter-field filter-field--date">
-          <label>统计时间</label>
-          <el-date-picker
-            v-model="draftFilters.dateRange"
-            type="daterange"
-            unlink-panels
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            :disabled-date="disableFutureDate"
-            @change="handleDateRangeChange"
-          />
-        </div>
-        <div class="filter-field">
-          <label>操作模块（仅筛选下方审计）</label>
-          <el-select v-model="draftFilters.module" clearable placeholder="全部操作模块">
-            <el-option
-              v-for="option in studentModuleOptions"
-              :key="option.value"
-              :label="option.label"
-              :value="option.value"
-            />
-          </el-select>
-        </div>
-        <div class="filter-actions">
-          <el-button type="primary" @click="applyFilters">查询</el-button>
-          <el-button @click="resetFilters">重置</el-button>
-        </div>
-      </div>
-    </section>
+    <div
+      v-show="activeTab === 'traffic'"
+      id="analytics-panel-traffic"
+      class="analytics-tab-panel"
+      role="tabpanel"
+      aria-labelledby="analytics-tab-traffic"
+      tabindex="0"
+    >
+      <WebsiteTrafficPanel />
+    </div>
 
-    <div v-loading="loading" class="analytics-content">
-      <el-alert v-if="loadError" type="error" :closable="false" show-icon :title="loadError" />
-
-      <section class="panel product-panel" aria-label="学生产品使用偏好">
-        <div class="panel-heading product-panel__heading">
-          <div>
-            <h3>产品使用偏好</h3>
-            <p>练习次数按成功提交记录去重；分析报告只统计成功打开正文，不包含生成状态轮询。</p>
-          </div>
-          <span class="panel-count">{{ periodText }}</span>
-        </div>
-
-        <div class="product-metrics-grid">
-          <article
-            v-for="card in productMetricCards"
-            :key="card.key"
-            class="product-metric-card"
-            :style="{ '--product-color': card.color }"
+    <div
+      v-show="activeTab !== 'traffic'"
+      :id="`analytics-panel-${activeTab}`"
+      class="analytics-tab-panel"
+      role="tabpanel"
+      :aria-labelledby="`analytics-tab-${activeTab}`"
+      tabindex="0"
+    >
+      <section class="filter-card">
+        <div class="quick-ranges" aria-label="统计时间快捷选择">
+          <span>快捷范围</span>
+          <button
+            v-for="days in quickRangeOptions"
+            :key="days"
+            type="button"
+            :class="['quick-range', { 'quick-range--active': activeQuickRange === days }]"
+            @click="selectQuickRange(days)"
           >
-            <div class="product-metric-card__label">{{ card.label }}</div>
-            <strong>{{ formatInteger(card.value) }}</strong>
-            <div class="product-metric-card__meta">
-              <span>{{ card.detail }}</span>
-              <span :class="changeClass(card.changeRate)">
-                {{ productChangeText(card) }}
-              </span>
-            </div>
-          </article>
+            最近 {{ days }} 天
+          </button>
         </div>
 
-        <div class="product-insights-grid">
-          <article class="product-insight-card">
-            <div class="product-insight-card__heading">
-              <div>
-                <h4>学习活动使用占比</h4>
-                <p>仅比较已完成的诊断、题库与模考活动</p>
-              </div>
-              <strong
-                >{{ formatInteger(productUsage?.overview.completedActivityCount || 0) }} 次</strong
-              >
-            </div>
-            <div class="usage-share-list">
-              <div
-                v-for="item in productUsage?.modules || []"
-                :key="item.module"
-                class="usage-share-row"
-              >
-                <div class="usage-share-row__meta">
-                  <span>{{ productUsageModuleLabel(item.module) }}</span>
-                  <span
-                    >{{ item.completionCount }} 次 · {{ formatPercent(item.completionShare) }}</span
-                  >
-                </div>
-                <el-progress
-                  :percentage="item.completionShare * 100"
-                  :stroke-width="9"
-                  :show-text="false"
-                  :color="PRODUCT_USAGE_MODULE_META[item.module].color"
-                />
-                <div class="usage-share-row__hint">
-                  {{ item.userCount }} 名学生，人均 {{ item.averageCompletions.toFixed(1) }} 次
-                </div>
-              </div>
-            </div>
-          </article>
-
-          <article class="product-insight-card">
-            <div class="product-insight-card__heading">
-              <div>
-                <h4>学生偏好分布</h4>
-                <p>
-                  少于
-                  {{
-                    productUsage?.scope.preferenceMinimumCompletions || 3
-                  }}
-                  次归为数据不足，并列最高归为混合使用
-                </p>
-              </div>
-              <strong>{{ formatInteger(productUsage?.overview.activeUsers || 0) }} 人</strong>
-            </div>
-            <div class="preference-list">
-              <div
-                v-for="item in productUsage?.preferences || []"
-                :key="item.preference"
-                class="preference-row"
-              >
-                <span
-                  class="preference-row__dot"
-                  :style="{ backgroundColor: PRODUCT_PREFERENCE_META[item.preference].color }"
-                ></span>
-                <span class="preference-row__label">{{
-                  productPreferenceLabel(item.preference)
-                }}</span>
-                <strong>{{ item.userCount }} 人</strong>
-                <span>{{ formatPercent(item.userRate) }}</span>
-              </div>
-            </div>
-          </article>
-        </div>
-
-        <div class="product-trend-block">
-          <div class="product-insight-card__heading">
-            <div>
-              <h4>每日产品使用趋势</h4>
-              <p>按北京时间自然日对比四项核心行为</p>
-            </div>
+        <div class="filter-row" :class="{ 'filter-row--compact': activeTab === 'product' }">
+          <div class="filter-field filter-field--date">
+            <label>统计时间</label>
+            <el-date-picker
+              v-model="draftFilters.dateRange"
+              type="daterange"
+              unlink-panels
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              :disabled-date="disableFutureDate"
+              @change="handleDateRangeChange"
+            />
           </div>
-          <BehaviorProductTrendChart :items="productUsage?.trend || []" />
+          <div v-if="activeTab === 'audit'" class="filter-field">
+            <label>操作模块（仅筛选下方审计）</label>
+            <el-select v-model="draftFilters.module" clearable placeholder="全部操作模块">
+              <el-option
+                v-for="option in studentModuleOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </div>
+          <div class="filter-actions">
+            <el-button type="primary" @click="applyFilters">查询</el-button>
+            <el-button @click="resetFilters">重置</el-button>
+          </div>
         </div>
       </section>
 
-      <div class="subsection-heading">
-        <div>
-          <h3>操作审计概览</h3>
-          <p>统计学生关键操作、失败情况及操作模块渗透</p>
-        </div>
+      <div v-loading="loading" class="analytics-content">
+        <el-alert v-if="loadError" type="error" :closable="false" show-icon :title="loadError" />
+
+        <section
+          v-if="activeTab === 'product'"
+          class="panel product-panel"
+          aria-label="学生产品使用偏好"
+        >
+          <div class="panel-heading product-panel__heading">
+            <div>
+              <h3>产品使用偏好</h3>
+              <p>练习次数按成功提交记录去重；分析报告只统计成功打开正文，不包含生成状态轮询。</p>
+            </div>
+            <span class="panel-count">{{ periodText }}</span>
+          </div>
+
+          <div class="product-metrics-grid">
+            <article
+              v-for="card in productMetricCards"
+              :key="card.key"
+              class="product-metric-card"
+              :style="{ '--product-color': card.color }"
+            >
+              <div class="product-metric-card__label">{{ card.label }}</div>
+              <strong>{{ formatInteger(card.value) }}</strong>
+              <div class="product-metric-card__meta">
+                <span>{{ card.detail }}</span>
+                <span :class="changeClass(card.changeRate)">
+                  {{ productChangeText(card) }}
+                </span>
+              </div>
+            </article>
+          </div>
+
+          <div class="product-insights-grid">
+            <article class="product-insight-card">
+              <div class="product-insight-card__heading">
+                <div>
+                  <h4>学习活动使用占比</h4>
+                  <p>仅比较已完成的诊断、题库与模考活动</p>
+                </div>
+                <strong
+                  >{{
+                    formatInteger(productUsage?.overview.completedActivityCount || 0)
+                  }}
+                  次</strong
+                >
+              </div>
+              <div class="usage-share-list">
+                <div
+                  v-for="item in productUsage?.modules || []"
+                  :key="item.module"
+                  class="usage-share-row"
+                >
+                  <div class="usage-share-row__meta">
+                    <span>{{ productUsageModuleLabel(item.module) }}</span>
+                    <span
+                      >{{ item.completionCount }} 次 ·
+                      {{ formatPercent(item.completionShare) }}</span
+                    >
+                  </div>
+                  <el-progress
+                    :percentage="item.completionShare * 100"
+                    :stroke-width="9"
+                    :show-text="false"
+                    :color="PRODUCT_USAGE_MODULE_META[item.module].color"
+                  />
+                  <div class="usage-share-row__hint">
+                    {{ item.userCount }} 名学生，人均 {{ item.averageCompletions.toFixed(1) }} 次
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="product-insight-card">
+              <div class="product-insight-card__heading">
+                <div>
+                  <h4>学生偏好分布</h4>
+                  <p>
+                    少于
+                    {{ productUsage?.scope.preferenceMinimumCompletions || 3 }}
+                    次归为数据不足，并列最高归为混合使用
+                  </p>
+                </div>
+                <strong>{{ formatInteger(productUsage?.overview.activeUsers || 0) }} 人</strong>
+              </div>
+              <div class="preference-list">
+                <div
+                  v-for="item in productUsage?.preferences || []"
+                  :key="item.preference"
+                  class="preference-row"
+                >
+                  <span
+                    class="preference-row__dot"
+                    :style="{ backgroundColor: PRODUCT_PREFERENCE_META[item.preference].color }"
+                  ></span>
+                  <span class="preference-row__label">{{
+                    productPreferenceLabel(item.preference)
+                  }}</span>
+                  <strong>{{ item.userCount }} 人</strong>
+                  <span>{{ formatPercent(item.userRate) }}</span>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <div class="product-trend-block">
+            <div class="product-insight-card__heading">
+              <div>
+                <h4>每日产品使用趋势</h4>
+                <p>按北京时间自然日对比四项核心行为</p>
+              </div>
+            </div>
+            <BehaviorProductTrendChart :items="productUsage?.trend || []" />
+          </div>
+        </section>
+
+        <template v-if="activeTab === 'audit'">
+          <div class="subsection-heading">
+            <div>
+              <h3>操作审计概览</h3>
+              <p>统计学生关键操作、失败情况及操作模块渗透</p>
+            </div>
+          </div>
+
+          <section class="metrics-grid" aria-label="学生行为核心指标">
+            <article class="metric-card">
+              <div class="metric-card__label">活跃学生</div>
+              <strong>{{ formatInteger(overview.activeUsers) }}</strong>
+              <span :class="changeClass(overview.activeUsersChangeRate)">
+                {{ changeText(overview.activeUsersChangeRate) }}
+              </span>
+            </article>
+            <article class="metric-card">
+              <div class="metric-card__label">关键操作次数</div>
+              <strong>{{ formatInteger(overview.operationCount) }}</strong>
+              <span :class="changeClass(overview.operationCountChangeRate)">
+                {{ changeText(overview.operationCountChangeRate) }}
+              </span>
+            </article>
+            <article class="metric-card">
+              <div class="metric-card__label">人均操作次数</div>
+              <strong>{{ overview.averageOperations.toFixed(1) }}</strong>
+              <span :class="changeClass(overview.averageOperationsChangeRate)">
+                {{ changeText(overview.averageOperationsChangeRate) }}
+              </span>
+            </article>
+            <article class="metric-card">
+              <div class="metric-card__label">使用模块数</div>
+              <strong>{{ overview.moduleCount }}</strong>
+              <span class="metric-card__hint">当前范围内有学生使用</span>
+            </article>
+            <article class="metric-card">
+              <div class="metric-card__label">操作失败率</div>
+              <strong>{{ formatPercent(overview.failureRate) }}</strong>
+              <span :class="failureChangeClass">
+                {{ failureChangeText }}
+              </span>
+            </article>
+          </section>
+
+          <el-alert
+            v-if="analytics?.dataQuality.unattributedOperationCount"
+            class="quality-alert"
+            type="warning"
+            :closable="false"
+            show-icon
+            :title="`${analytics.dataQuality.unattributedOperationCount} 条历史操作缺少用户标识，已计入总次数但未计入活跃人数与人均次数`"
+          />
+
+          <section class="charts-grid">
+            <article class="panel panel--trend">
+              <div class="panel-heading">
+                <div>
+                  <h3>每日使用趋势</h3>
+                  <p>{{ periodText }} · 北京时间自然日</p>
+                </div>
+              </div>
+              <BehaviorTrendChart :items="analytics?.trend || []" />
+            </article>
+
+            <article class="panel">
+              <div class="panel-heading">
+                <div>
+                  <h3>操作模块排行</h3>
+                  <p>点击柱形可直接筛选该操作模块</p>
+                </div>
+              </div>
+              <BehaviorModuleChart
+                :items="analytics?.modules || []"
+                @select="selectModuleFromChart"
+              />
+            </article>
+          </section>
+
+          <section class="panel action-panel">
+            <div class="panel-heading panel-heading--table">
+              <div>
+                <h3>高频行为排行</h3>
+                <p>按使用人数优先、操作次数次优展示前 20 项</p>
+              </div>
+              <span class="panel-count">{{ topActions.length }} 项行为</span>
+            </div>
+
+            <AdminDataTable
+              :data="topActions"
+              :loading="loading"
+              empty-text="当前范围暂无学生关键行为"
+              max-height="560px"
+            >
+              <el-table-column label="行为" min-width="190">
+                <template #default="{ row }">
+                  <div class="action-cell">
+                    <strong>{{ operationActionLabel(row.action) }}</strong>
+                    <code>{{ row.action }}</code>
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="模块" width="112" align="center">
+                <template #default="{ row }">{{ operationModuleLabel(row.module) }}</template>
+              </el-table-column>
+              <el-table-column prop="userCount" label="使用人数" width="104" align="right" />
+              <el-table-column prop="operationCount" label="操作次数" width="104" align="right" />
+              <el-table-column label="人均次数" width="104" align="right">
+                <template #default="{ row }">{{ row.averageOperations.toFixed(1) }}</template>
+              </el-table-column>
+              <el-table-column label="活跃渗透率" width="118" align="right">
+                <template #default="{ row }">{{ formatPercent(row.penetrationRate) }}</template>
+              </el-table-column>
+              <el-table-column label="重复使用率" width="118" align="right">
+                <template #default="{ row }">{{ formatPercent(row.repeatedUserRate) }}</template>
+              </el-table-column>
+              <el-table-column label="失败率" width="96" align="right">
+                <template #default="{ row }">
+                  <span :class="{ 'failure-value': row.failureRate > 0 }">
+                    {{ formatPercent(row.failureRate) }}
+                  </span>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作环比" width="112" align="right">
+                <template #default="{ row }">
+                  <span :class="changeClass(row.operationChangeRate)">
+                    {{ compactChangeText(row.operationChangeRate) }}
+                  </span>
+                </template>
+              </el-table-column>
+              <el-table-column label="明细" width="92" fixed="right" align="center">
+                <template #default="{ row }">
+                  <el-button link type="primary" @click="openOperationLogs(row)"
+                    >查看日志</el-button
+                  >
+                </template>
+              </el-table-column>
+            </AdminDataTable>
+          </section>
+        </template>
       </div>
 
-      <section class="metrics-grid" aria-label="学生行为核心指标">
-        <article class="metric-card">
-          <div class="metric-card__label">活跃学生</div>
-          <strong>{{ formatInteger(overview.activeUsers) }}</strong>
-          <span :class="changeClass(overview.activeUsersChangeRate)">
-            {{ changeText(overview.activeUsersChangeRate) }}
-          </span>
-        </article>
-        <article class="metric-card">
-          <div class="metric-card__label">关键操作次数</div>
-          <strong>{{ formatInteger(overview.operationCount) }}</strong>
-          <span :class="changeClass(overview.operationCountChangeRate)">
-            {{ changeText(overview.operationCountChangeRate) }}
-          </span>
-        </article>
-        <article class="metric-card">
-          <div class="metric-card__label">人均操作次数</div>
-          <strong>{{ overview.averageOperations.toFixed(1) }}</strong>
-          <span :class="changeClass(overview.averageOperationsChangeRate)">
-            {{ changeText(overview.averageOperationsChangeRate) }}
-          </span>
-        </article>
-        <article class="metric-card">
-          <div class="metric-card__label">使用模块数</div>
-          <strong>{{ overview.moduleCount }}</strong>
-          <span class="metric-card__hint">当前范围内有学生使用</span>
-        </article>
-        <article class="metric-card">
-          <div class="metric-card__label">操作失败率</div>
-          <strong>{{ formatPercent(overview.failureRate) }}</strong>
-          <span :class="failureChangeClass">
-            {{ failureChangeText }}
-          </span>
-        </article>
-      </section>
-
-      <el-alert
-        v-if="analytics?.dataQuality.unattributedOperationCount"
-        class="quality-alert"
-        type="warning"
-        :closable="false"
-        show-icon
-        :title="`${analytics.dataQuality.unattributedOperationCount} 条历史操作缺少用户标识，已计入总次数但未计入活跃人数与人均次数`"
-      />
-
-      <section class="charts-grid">
-        <article class="panel panel--trend">
-          <div class="panel-heading">
-            <div>
-              <h3>每日使用趋势</h3>
-              <p>{{ periodText }} · 北京时间自然日</p>
-            </div>
-          </div>
-          <BehaviorTrendChart :items="analytics?.trend || []" />
-        </article>
-
-        <article class="panel">
-          <div class="panel-heading">
-            <div>
-              <h3>操作模块排行</h3>
-              <p>点击柱形可直接筛选该操作模块</p>
-            </div>
-          </div>
-          <BehaviorModuleChart :items="analytics?.modules || []" @select="selectModuleFromChart" />
-        </article>
-      </section>
-
-      <section class="panel action-panel">
-        <div class="panel-heading panel-heading--table">
-          <div>
-            <h3>高频行为排行</h3>
-            <p>按使用人数优先、操作次数次优展示前 20 项</p>
-          </div>
-          <span class="panel-count">{{ topActions.length }} 项行为</span>
-        </div>
-
-        <AdminDataTable
-          :data="topActions"
-          :loading="loading"
-          empty-text="当前范围暂无学生关键行为"
-          max-height="560px"
-        >
-          <el-table-column label="行为" min-width="190">
-            <template #default="{ row }">
-              <div class="action-cell">
-                <strong>{{ operationActionLabel(row.action) }}</strong>
-                <code>{{ row.action }}</code>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="模块" width="112" align="center">
-            <template #default="{ row }">{{ operationModuleLabel(row.module) }}</template>
-          </el-table-column>
-          <el-table-column prop="userCount" label="使用人数" width="104" align="right" />
-          <el-table-column prop="operationCount" label="操作次数" width="104" align="right" />
-          <el-table-column label="人均次数" width="104" align="right">
-            <template #default="{ row }">{{ row.averageOperations.toFixed(1) }}</template>
-          </el-table-column>
-          <el-table-column label="活跃渗透率" width="118" align="right">
-            <template #default="{ row }">{{ formatPercent(row.penetrationRate) }}</template>
-          </el-table-column>
-          <el-table-column label="重复使用率" width="118" align="right">
-            <template #default="{ row }">{{ formatPercent(row.repeatedUserRate) }}</template>
-          </el-table-column>
-          <el-table-column label="失败率" width="96" align="right">
-            <template #default="{ row }">
-              <span :class="{ 'failure-value': row.failureRate > 0 }">
-                {{ formatPercent(row.failureRate) }}
-              </span>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作环比" width="112" align="right">
-            <template #default="{ row }">
-              <span :class="changeClass(row.operationChangeRate)">
-                {{ compactChangeText(row.operationChangeRate) }}
-              </span>
-            </template>
-          </el-table-column>
-          <el-table-column label="明细" width="92" fixed="right" align="center">
-            <template #default="{ row }">
-              <el-button link type="primary" @click="openOperationLogs(row)">查看日志</el-button>
-            </template>
-          </el-table-column>
-        </AdminDataTable>
-      </section>
+      <p v-if="activeTab === 'product'" class="data-note">
+        学习活动次数来自已提交考试记录，报告查看来自成功的正文读取；管理员账号不计入统计。最多查询
+        90 天，历史报告查看次数无法补回。
+      </p>
+      <p v-if="activeTab === 'audit'" class="data-note">
+        操作审计仅覆盖普通学生的关键业务行为，不统计管理员账号、认证登录和高频自动保存。最多查询 90
+        天。
+      </p>
     </div>
-
-    <p class="data-note">
-      学习活动次数来自已提交考试记录，报告查看和其他关键行为来自操作审计日志；管理员账号和认证登录行为不计入统计。最多查询
-      90 天。报告查看仅覆盖本次采集功能上线后的成功正文读取，历史查看次数无法补回。
-    </p>
   </div>
 </template>
 
@@ -325,6 +388,7 @@ import AdminDataTable from '@/components/admin/AdminDataTable.vue'
 import BehaviorModuleChart from '@/components/admin/BehaviorModuleChart.vue'
 import BehaviorProductTrendChart from '@/components/admin/BehaviorProductTrendChart.vue'
 import BehaviorTrendChart from '@/components/admin/BehaviorTrendChart.vue'
+import WebsiteTrafficPanel from '@/components/admin/WebsiteTrafficPanel.vue'
 import {
   PRODUCT_PREFERENCE_META,
   PRODUCT_USAGE_MODULE_META,
@@ -343,6 +407,13 @@ interface BehaviorFilters {
   module: string
 }
 
+type AnalyticsTab = 'traffic' | 'product' | 'audit'
+
+interface AnalyticsTabOption {
+  name: AnalyticsTab
+  label: string
+}
+
 interface ProductMetricCard {
   key: string
   label: string
@@ -355,13 +426,38 @@ interface ProductMetricCard {
 const DAY_MS = 24 * 60 * 60 * 1000
 const CHINA_TIMEZONE_OFFSET_MS = 8 * 60 * 60 * 1000
 const quickRangeOptions = [7, 30, 90] as const
+const analyticsTabs: AnalyticsTabOption[] = [
+  { name: 'traffic', label: '用户访问' },
+  { name: 'product', label: '产品使用' },
+  { name: 'audit', label: '操作审计' },
+]
 const studentModuleOptions = STUDENT_BEHAVIOR_MODULE_OPTIONS
 const router = useRouter()
+const activeTab = ref<AnalyticsTab>('traffic')
 const analytics = ref<BehaviorAnalyticsResult | null>(null)
 const loading = ref(false)
 const loadError = ref('')
 let latestRequestId = 0
 const activeQuickRange = ref<(typeof quickRangeOptions)[number] | null>(30)
+
+// 方向键、Home 和 End 在三个分析视角间移动并立即激活，补齐标准 Tab 键盘行为。
+function handleTabKeydown(event: KeyboardEvent, current: AnalyticsTab): void {
+  const currentIndex = analyticsTabs.findIndex((tab) => tab.name === current)
+  let nextIndex = currentIndex
+  if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % analyticsTabs.length
+  else if (event.key === 'ArrowLeft') {
+    nextIndex = (currentIndex - 1 + analyticsTabs.length) % analyticsTabs.length
+  } else if (event.key === 'Home') nextIndex = 0
+  else if (event.key === 'End') nextIndex = analyticsTabs.length - 1
+  else return
+
+  event.preventDefault()
+  const nextTab = analyticsTabs[nextIndex]
+  if (!nextTab) return
+
+  activeTab.value = nextTab.name
+  document.getElementById(`analytics-tab-${nextTab.name}`)?.focus()
+}
 
 // 最近天数按北京时间自然日生成，接口统一将结束日转换为半开区间。
 function recentDateRange(days: number): [Date, Date] {
@@ -683,6 +779,51 @@ onMounted(() => {
   background: #6366f1;
 }
 
+.analytics-tabs {
+  display: flex;
+  margin-bottom: -6px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.analytics-tab {
+  position: relative;
+  height: 42px;
+  padding: 0 22px;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.analytics-tab:hover,
+.analytics-tab--active {
+  color: #4f46e5;
+}
+
+.analytics-tab--active::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: #4f46e5;
+  content: '';
+}
+
+.analytics-tab:focus-visible,
+.analytics-tab-panel:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+.analytics-tab-panel {
+  min-width: 0;
+}
+
 .filter-card {
   padding: 18px 20px;
   border: 1px solid #e2e8f0;
@@ -728,6 +869,10 @@ onMounted(() => {
   grid-template-columns: minmax(300px, 1.5fr) minmax(160px, 0.7fr) max-content;
   gap: 16px;
   align-items: end;
+}
+
+.filter-row--compact {
+  grid-template-columns: minmax(300px, 1fr) max-content;
 }
 
 .filter-field {
@@ -791,9 +936,9 @@ onMounted(() => {
 .product-metric-card::before {
   position: absolute;
   top: 0;
-  bottom: 0;
   left: 0;
-  width: 4px;
+  right: 0;
+  height: 3px;
   background: var(--product-color);
   content: '';
 }

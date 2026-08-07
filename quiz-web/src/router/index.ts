@@ -4,6 +4,8 @@ import { ElMessageBox } from 'element-plus'
 import HomeView from '../views/home/HomeView.vue'
 import LoginView from '../views/auth/LoginView.vue'
 import { useAuthStore } from '../stores/auth'
+import { createLoginRequiredRouteLocation } from '../utils/authRedirect'
+import { applyRouteSeo } from './seo'
 
 class RouteResourceLoadError extends Error {
   constructor(public readonly cause: unknown) {
@@ -280,28 +282,33 @@ router.onError((error) => {
     })
 })
 
-// 受保护页面统一先进入登录流程，并携带原地址供认证成功后返回。
+// 导航完成后统一同步页面标题、摘要、规范网址与索引策略。
+router.afterEach((to) => {
+  applyRouteSeo(to)
+})
+
+// 浏览型首页允许游客查看；开始作答、个人数据和管理页面统一要求登录并保留回跳地址。
 router.beforeEach((to, _from) => {
   const auth = useAuthStore()
   const isLoggedIn = auth.isLoggedIn
 
   const requiresAuth =
     to.path.startsWith('/profile') ||
-    to.path.startsWith('/question-bank') ||
-    to.path.startsWith('/practice-notebook') ||
-    to.path.startsWith('/practice') ||
-    to.path.startsWith('/assessment') ||
+    to.path.startsWith('/practice-notebook/') ||
+    to.path === '/practice' ||
+    to.path.startsWith('/practice/') ||
+    to.path.startsWith('/assessment/exam/') ||
     to.path.startsWith('/exam-result') ||
     to.path.startsWith('/mistake-notebook')
 
   const requiresAdmin = to.path.startsWith('/admin')
 
   if (requiresAuth && !isLoggedIn) {
-    return { name: 'login', query: { redirect: to.fullPath } }
+    return createLoginRequiredRouteLocation(to.fullPath)
   }
 
   if (requiresAdmin) {
-    if (!isLoggedIn) return { name: 'login', query: { redirect: to.fullPath } }
+    if (!isLoggedIn) return createLoginRequiredRouteLocation(to.fullPath)
     if (!auth.isAdmin) return '/'
   }
 

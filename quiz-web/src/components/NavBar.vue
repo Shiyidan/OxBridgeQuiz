@@ -6,7 +6,9 @@
           <span class="logo-mark" aria-hidden="true">
             <img :src="brandIconUrl" alt="" class="logo-mark-image" />
           </span>
-          <span class="logo-text">AceMock</span>
+          <span class="logo-text">
+            AceMock
+          </span>
         </router-link>
         <nav class="nav-links">
           <router-link
@@ -74,7 +76,6 @@
         <slot name="actions">
           <template v-if="auth.isLoggedIn && auth.user">
             <el-dropdown
-              ref="preferredExamDropdown"
               trigger="click"
               placement="bottom-end"
               popper-class="student-exam-dropdown"
@@ -177,10 +178,6 @@ interface NavBarProps {
   noGoal?: boolean
 }
 
-interface PreferredExamDropdownExpose {
-  handleOpen: () => void
-}
-
 const props = withDefaults(defineProps<NavBarProps>(), {
   delegateNavigation: false,
   delegateExamSelection: false,
@@ -198,7 +195,6 @@ const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const showDropdown = ref(false)
-const preferredExamDropdown = ref<PreferredExamDropdownExpose | null>(null)
 const examMenuItems = EXAM_TYPE_OPTIONS.map((item) => ({
   type: item.value.toLowerCase(),
   label: item.label,
@@ -261,13 +257,6 @@ function handleRouteNavigation(event: MouseEvent, path: string): void {
   event.preventDefault()
   emit('navigate', path)
 }
-
-// no-goal 功能入口可复用原导航的备考类型下拉，不额外创建首页专属菜单。
-function openExamMenu(): void {
-  preferredExamDropdown.value?.handleOpen()
-}
-
-defineExpose({ openExamMenu })
 
 // 角色入口统一从头像菜单进入，学生和管理员各回到自己的工作台。
 function goToRoleHome(): void {
@@ -358,6 +347,12 @@ onMounted(() => void loadStudentExamPreference())
   height: 100%;
   object-fit: contain;
   transform: scale(1.45);
+}
+.logo-text {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;
 }
 .nav-links {
   min-width: 0;

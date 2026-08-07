@@ -43,7 +43,38 @@
         </div>
         <div v-else class="assessment-year-grid">
           <div v-for="item in assessmentYears" :key="item.year" class="assessment-year-card-stack">
-            <article class="assessment-year-card">
+            <article
+              class="assessment-year-card"
+              :class="{ 'assessment-year-card--locked': isYearLocked(item) }"
+            >
+              <div
+                v-if="isYearLocked(item)"
+                class="paper-card__lock-overlay assessment-year-card__lock-overlay"
+                :aria-label="`${activeExamType} ${item.year} 年会员专享诊断卷`"
+                @click.stop
+              >
+                <div class="paper-card__lock-marker">
+                  <el-icon><Lock /></el-icon>
+                  <span>会员专享</span>
+                </div>
+                <div class="paper-card__lock-actions">
+                  <button
+                    v-if="item.completedAttemptCount > 0"
+                    class="paper-card__locked-history-button"
+                    type="button"
+                    @click.stop="openYearHistory(item)"
+                  >
+                    历史记录（{{ item.completedAttemptCount }}）
+                  </button>
+                  <button
+                    class="paper-card__unlock-button"
+                    type="button"
+                    @click.stop="handleUpgradeClick(activeExamType)"
+                  >
+                    开通会员
+                  </button>
+                </div>
+              </div>
               <button
                 class="assessment-year-card__primary"
                 type="button"
@@ -76,14 +107,12 @@
                 </span>
               </button>
               <button
+                v-if="item.completedAttemptCount > 0 && !isYearLocked(item)"
                 class="assessment-year-card__history"
                 type="button"
-                :disabled="item.completedAttemptCount === 0"
                 @click="openYearHistory(item)"
               >
-                <span>
-                  历史记录{{ item.completedAttemptCount > 0 ? `（${item.completedAttemptCount}）` : '' }}
-                </span>
+                <span>历史记录（{{ item.completedAttemptCount }}）</span>
               </button>
             </article>
           </div>
@@ -286,13 +315,13 @@
             <div>
               <span aria-hidden="true">✓</span>
               <strong>Paper 1</strong>
-              <small>数学知识应用</small>
+              <small>{{ formatModuleSubtitle(tmuaModuleQuestionCounts.paper1, '数学知识应用') }}</small>
               <em>必做</em>
             </div>
             <div>
               <span aria-hidden="true">✓</span>
               <strong>Paper 2</strong>
-              <small>数学推理</small>
+              <small>{{ formatModuleSubtitle(tmuaModuleQuestionCounts.paper2, '数学推理') }}</small>
               <em>必做</em>
             </div>
           </div>
@@ -349,14 +378,22 @@
           </span>
           <span>
             <strong>{{ subject.label }}</strong>
-            <small>{{ subject.englishLabel }}</small>
+            <small>
+              {{ formatModuleSubtitle(esatSubjectQuestionCounts[subject.code], subject.englishLabel) }}
+            </small>
           </span>
           <em v-if="subject.required">必选</em>
         </button>
       </div>
 
       <div v-if="selectedPaperPreview" class="esat-subject-dialog__match">
-        <span>已匹配诊断卷</span>
+        <span>
+          已匹配诊断卷
+          <em v-if="isPaperLocked(selectedPaperPreview)">
+            <el-icon><Lock /></el-icon>
+            会员专享
+          </em>
+        </span>
         <strong>{{ selectedPaperPreview.title }}</strong>
         <small
           >{{ selectedPaperPreview.totalQuestions }} 题 ·
@@ -380,7 +417,13 @@
           :disabled="!selectedPaperPreview || Boolean(startingPaperId)"
           @click="startSelectedEsatPaper"
         >
-          {{ startingPaperId ? '正在检查...' : '开始诊断测试' }}
+          {{
+            startingPaperId
+              ? '正在检查...'
+              : selectedPaperPreview && isPaperLocked(selectedPaperPreview)
+                ? '开通会员'
+                : '开始诊断测试'
+          }}
         </button>
       </template>
     </el-dialog>
@@ -498,6 +541,7 @@ import {
   type PaperModuleOutline,
 } from '@/api/papers'
 import { getApiErrorMessage } from '@/utils/request'
+import { createLoginRequiredRouteLocation } from '@/utils/authRedirect'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -566,6 +610,13 @@ const esatSubjectOptions: EsatSubjectOption[] = [
 ]
 const selectedEsatSubjects = ref<EsatSubjectCode[]>(['maths1'])
 
+// 游客可以浏览诊断年份与科目，但真正开始或重测前必须先完成登录。
+function requireLoginForDiagnosticAction(): boolean {
+  if (auth.isLoggedIn) return false
+  void router.push(createLoginRequiredRouteLocation('/assessment'))
+  return true
+}
+
 // 诊断中心统一读取导航栏的全局考试类型，不再维护页面级考试选择。
 const activeExamType = computed<ActiveExamType>(() => auth.activeExamType)
 
@@ -600,6 +651,32 @@ const selectedPaperPreview = computed(() => {
         esatPaperSubjectKey(paper) === selectedKey,
     ) || null
   )
+})
+
+// TMUA 确认弹窗从已匹配组合卷读取双 Paper 题量，不根据总题量进行推算。
+const tmuaModuleQuestionCounts = computed<{ paper1: number | null; paper2: number | null }>(
+  () => {
+    const result = { paper1: null as number | null, paper2: null as number | null }
+    for (const module of selectedTmuaPaper.value?.modules || []) {
+      const paperKey = normalizeTmuaModule(module)
+      if (paperKey && module.questionCount > 0) result[paperKey] = module.questionCount
+    }
+    return result
+  },
+)
+
+// ESAT 选科发生在组合卷匹配前，因此按该年份已加载试卷汇总各科的模块题量。
+const esatSubjectQuestionCounts = computed<Partial<Record<EsatSubjectCode, number>>>(() => {
+  const result: Partial<Record<EsatSubjectCode, number>> = {}
+  for (const paper of subjectSelectionPapers.value) {
+    for (const module of paper.modules || []) {
+      const subjectCode = normalizeEsatSubject(module)
+      if (subjectCode && module.questionCount > 0 && result[subjectCode] === undefined) {
+        result[subjectCode] = module.questionCount
+      }
+    }
+  }
+  return result
 })
 
 // 同一历史弹窗同时承载单卷和年份聚合两种上下文。
@@ -657,6 +734,13 @@ function yearStatusLabel(item: AssessmentYearSummary): string {
   return '未完成'
 }
 
+// 全部可用卷均为会员卷时锁定年份入口；进行中的测试继续沿用创建时取得的权限。
+function isYearLocked(item: AssessmentYearSummary): boolean {
+  if (item.inProgressPaperCount > 0 || auth.isAdmin) return false
+  if (item.memberPaperCount === 0 || item.freePaperCount > 0) return false
+  return !auth.memberContext?.quotas?.[activeExamType.value]?.isMember
+}
+
 // 模块代码优先，并兼容旧数据中的英文科目名。
 function normalizeEsatSubject(module: PaperModuleOutline): EsatSubjectCode | null {
   const identity = [module.code, module.subjectCode, module.subject]
@@ -670,6 +754,23 @@ function normalizeEsatSubject(module: PaperModuleOutline): EsatSubjectCode | nul
   if (identity.includes('chemistry')) return 'chemistry'
   if (identity.includes('biology')) return 'biology'
   return null
+}
+
+// TMUA 模块身份兼容代码、科目代码和旧版展示名称，用于关联 Paper 题量。
+function normalizeTmuaModule(module: PaperModuleOutline): 'paper1' | 'paper2' | null {
+  const identity = [module.code, module.subjectCode, module.subject]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+  if (identity.includes('paper1')) return 'paper1'
+  if (identity.includes('paper2')) return 'paper2'
+  return null
+}
+
+// 旧卷缺少可靠模块题量时仅显示模块名，避免用总题数猜测单模块数量。
+function formatModuleSubtitle(questionCount: number | null | undefined, label: string): string {
+  return questionCount && questionCount > 0 ? `${questionCount} 题 · ${label}` : label
 }
 
 // 组合卷匹配不依赖模块展示顺序，只比较三科集合。
@@ -687,17 +788,8 @@ function esatPaperSubjectKey(paper: AssessmentPaperItem): string {
 
 // TMUA 年份入口只匹配同时包含 Paper 1 与 Paper 2 的完整组合卷。
 function isTmuaCompositePaper(paper: AssessmentPaperItem): boolean {
-  const moduleIdentities = (paper.modules || []).map((module) =>
-    [module.code, module.subjectCode, module.subject]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, ''),
-  )
-  return (
-    moduleIdentities.some((identity) => identity.includes('paper1')) &&
-    moduleIdentities.some((identity) => identity.includes('paper2'))
-  )
+  const moduleKeys = new Set((paper.modules || []).map(normalizeTmuaModule))
+  return moduleKeys.has('paper1') && moduleKeys.has('paper2')
 }
 
 // Mathematics 1 始终必选；其余科目最多再选两项。
@@ -832,6 +924,7 @@ async function loadSubjectSelectionPapers(): Promise<boolean> {
 
 // 若任一年份存在未完成测试，优先定位该 attempt 并询问是否继续，不打开选科弹窗。
 async function handleYearSelection(year: number): Promise<void> {
+  if (requireLoginForDiagnosticAction()) return
   if (openingYear.value !== null) return
   const inProgressYear = assessmentYears.value.find((item) => item.inProgressPaperCount > 0)
   if (inProgressYear) {
@@ -860,6 +953,12 @@ async function handleYearSelection(year: number): Promise<void> {
     }
   }
 
+  const selectedYear = assessmentYears.value.find((item) => item.year === year)
+  if (selectedYear && isYearLocked(selectedYear)) {
+    handleUpgradeClick(activeExamType.value)
+    return
+  }
+
   subjectSelectionYear.value = year
   selectedEsatSubjects.value = ['maths1']
   subjectSelectionPapers.value = []
@@ -884,6 +983,10 @@ async function handleYearSelection(year: number): Promise<void> {
     )
     if (!paper) {
       ElMessage.warning(`TMUA ${year} 年暂无已发布的 Paper 1 + Paper 2 诊断卷`)
+      return
+    }
+    if (isPaperLocked(paper)) {
+      handleUpgradeClick(paper.examType)
       return
     }
     selectedTmuaPaper.value = paper
@@ -1237,6 +1340,7 @@ function historyActionLabel(record: AssessmentPaperHistoryItem): string {
 
 // TMUA 确认后直接新建或重测当年双 Paper 诊断，不再经过试卷卡片页。
 async function startSelectedTmuaPaper(): Promise<void> {
+  if (requireLoginForDiagnosticAction()) return
   const paper = selectedTmuaPaper.value
   if (!paper) {
     ElMessage.warning('当前 TMUA 诊断试卷已不可用，请重新选择年份')
@@ -1268,6 +1372,7 @@ function clearTmuaPaperSelection(): void {
 
 // 科目组合确认后直接继续或新建对应试卷 attempt，不再经过试卷列表。
 async function startSelectedEsatPaper(): Promise<void> {
+  if (requireLoginForDiagnosticAction()) return
   const paper = selectedPaperPreview.value
   if (!paper) {
     ElMessage.warning('请先选择可用的三科组合')
@@ -1296,6 +1401,7 @@ async function startSelectedEsatPaper(): Promise<void> {
 }
 
 async function handlePaperAction(item: AssessmentPaperItem): Promise<void> {
+  if (requireLoginForDiagnosticAction()) return
   if (!isPaperAvailable(item)) {
     ElMessage.info(getExamUnavailableMessage(item.examType))
     return
@@ -1317,6 +1423,7 @@ async function handlePaperAction(item: AssessmentPaperItem): Promise<void> {
 
 // 重新测试走正式权益校验并创建新的 attempt，不再提供客户端调试绕过参数。
 async function handleRetestPaper(paper: AssessmentPaperItem): Promise<void> {
+  if (requireLoginForDiagnosticAction()) return
   if (!isPaperAvailable(paper)) {
     ElMessage.info(getExamUnavailableMessage(paper.examType))
     return
@@ -1555,7 +1662,7 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
 .assessment-year-overview__heading p {
   max-width: 480px;
   margin: 0;
-  color: var(--color-ink-soft);
+  color: #fff;
   font-size: var(--text-sm);
   line-height: var(--leading-relaxed);
   text-align: right;
@@ -1597,6 +1704,8 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
 }
 
 .assessment-year-card {
+  --assessment-year-cover-height: 150px;
+
   position: relative;
   z-index: 2;
   width: 100%;
@@ -1651,7 +1760,7 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
   position: relative;
   isolation: isolate;
   display: block;
-  height: 150px;
+  height: var(--assessment-year-cover-height);
   overflow: hidden;
   background:
     linear-gradient(145deg, rgba(231, 242, 239, 0.9), rgba(156, 191, 195, 0.75) 46%, #243b4b),
@@ -1728,7 +1837,7 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
 
 .assessment-year-card__cover-copy strong {
   display: block;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: math;
   font-size: 23px;
   font-weight: 500;
   line-height: 0.96;
@@ -1826,13 +1935,8 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
   transition: color var(--duration-fast) ease;
 }
 
-.assessment-year-card__history:hover:not(:disabled) {
+.assessment-year-card__history:hover {
   color: #187b71;
-}
-
-.assessment-year-card__history:disabled {
-  color: #a6adb5;
-  cursor: not-allowed;
 }
 
 .assessment-year-card__history:focus-visible {
@@ -2021,6 +2125,11 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
   transition: background var(--duration-base) ease;
 }
 
+.assessment-year-card__lock-overlay {
+  top: var(--assessment-year-cover-height);
+  border-radius: 0 0 24px 24px;
+}
+
 .paper-card__lock-marker {
   position: absolute;
   top: 66.666%;
@@ -2108,7 +2217,9 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
 }
 
 .paper-card--locked:hover .paper-card__lock-overlay,
-.paper-card--locked:focus-within .paper-card__lock-overlay {
+.paper-card--locked:focus-within .paper-card__lock-overlay,
+.assessment-year-card--locked:hover .assessment-year-card__lock-overlay,
+.assessment-year-card--locked:focus-within .assessment-year-card__lock-overlay {
   background: linear-gradient(
     to top,
     rgb(12 12 12 / 74%) 0%,
@@ -2587,6 +2698,18 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
   font-weight: var(--weight-semi);
 }
 
+.esat-subject-dialog__match span em {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  background: #dcefea;
+  font-size: 10px;
+  font-style: normal;
+}
+
 .esat-subject-dialog__match strong {
   overflow: hidden;
   color: var(--color-ink);
@@ -2788,8 +2911,8 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
     grid-template-columns: 1fr;
   }
 
-  .assessment-year-card__visual {
-    height: 180px;
+  .assessment-year-card {
+    --assessment-year-cover-height: 180px;
   }
 
   .paper-filter-bar {

@@ -9,7 +9,6 @@
       FORM: 严格采用参考 HTML 的纵向分屏与克制工程感，交互状态以 PRD 和真实接口为准。
     -->
     <NavBar
-      ref="navBarRef"
       :delegate-navigation="true"
       :delegate-exam-selection="true"
       :mistake-exam-type="currentExam"
@@ -69,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
@@ -77,6 +76,10 @@ import PaymentModal from '@/components/PaymentModal.vue'
 import { getMember, updateExamPreferences, type ExamPreference } from '@/api/member'
 import { getPaymentConfig } from '@/api/payment'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
+import {
+  createAuthRouteLocation,
+  createLoginRequiredRouteLocation,
+} from '@/utils/authRedirect'
 import {
   MEMBERSHIP_PURCHASE_ENABLED,
   MEMBERSHIP_PURCHASE_PENDING_MESSAGE,
@@ -91,12 +94,10 @@ type AuthPage = 'login' | 'register'
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
-const navBarRef = ref<InstanceType<typeof NavBar> | null>(null)
 const paymentOpen = ref(false)
 const goalDialogOpen = ref(false)
 const goalSaving = ref(false)
 const pendingGoalExam = ref<ActiveExamType | null>(null)
-const pendingNavigationPath = ref<string | null>(null)
 const marketingPriceLabel = ref('¥79/月')
 
 const {
@@ -129,34 +130,16 @@ function rememberExam(examType: ActiveExamType): void {
 
 // 登录或注册入口携带站内回跳地址，保证营销页主行动能够继续原任务。
 function openAuthPage(page: AuthPage, targetPath: string): void {
-  void router.push({ name: page, query: { redirect: targetPath || '/' } })
+  const redirect = targetPath || '/'
+  void router.push(
+    page === 'login'
+      ? createLoginRequiredRouteLocation(redirect)
+      : createAuthRouteLocation('register', redirect),
+  )
 }
 
-// 受保护入口在访客态进入登录流程，公开入口和登录态入口直接导航。
+// 页面访问权限统一交给全局路由守卫，首页不再根据备考目标阻断功能入口。
 function handleNavigation(path: string): void {
-  const protectedPrefixes = [
-    '/assessment',
-    '/question-bank',
-    '/practice',
-    '/mistake-notebook',
-    '/exam-result',
-    '/profile',
-  ]
-  if (!auth.isLoggedIn && protectedPrefixes.some((prefix) => path.startsWith(prefix))) {
-    openAuthPage('login', path)
-    return
-  }
-  if (
-    auth.isLoggedIn &&
-    state.value === 'no-goal' &&
-    protectedPrefixes.slice(0, 4).some((prefix) => path.startsWith(prefix))
-  ) {
-    pendingNavigationPath.value = path
-    scrollToHome()
-    ElMessage.info('请先选择 ESAT 或 TMUA 备考目标，保存后将继续进入刚才的功能。')
-    void nextTick(() => navBarRef.value?.openExamMenu())
-    return
-  }
   void router.push(path)
 }
 
@@ -216,9 +199,6 @@ async function saveGoal(value: { examType: ActiveExamType; subjects: string[] })
     pendingGoalExam.value = null
     if (!examChanged) await reload()
     ElMessage.success('备考目标已保存')
-    const destination = pendingNavigationPath.value
-    pendingNavigationPath.value = null
-    if (destination) await router.push(destination)
   } catch {
     // 公共请求层负责展示服务端业务错误，弹窗保留当前选择供用户重试。
   } finally {
@@ -305,11 +285,10 @@ watch(
   },
 )
 
-// 用户主动关闭目标弹窗时取消此前暂存的功能跳转，避免下次选择被旧意图劫持。
+// 用户主动关闭目标弹窗时清理未完成的考试选择，避免下次打开沿用旧类型。
 watch(goalDialogOpen, (visible, previousVisible) => {
   if (!visible && previousVisible && !goalSaving.value) {
     pendingGoalExam.value = null
-    pendingNavigationPath.value = null
   }
 })
 

@@ -187,6 +187,7 @@ import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import AppPagination from '@/components/AppPagination.vue'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import { checkMemberAccess } from '@/api/member'
+import { createLoginRequiredRouteLocation } from '@/utils/authRedirect'
 import {
   getPracticeNotebookHistory,
   getPracticeNotebooks,
@@ -246,6 +247,13 @@ const pendingNotebookStart = ref<{ notebookId: string } | null>(null)
 const histories = reactive<Record<string, HistoryState>>({})
 let listRequestSequence = 0
 let initialized = false
+
+// 练习本首页允许游客查看入口，涉及个人配置和作答时再要求登录。
+function requireLoginForNotebookAction(targetPath: string): boolean {
+  if (auth.isLoggedIn) return false
+  void router.push(createLoginRequiredRouteLocation(targetPath))
+  return true
+}
 
 const activeExamType = computed<ActiveExamType>(() => auth.activeExamType)
 
@@ -415,6 +423,7 @@ async function startNotebookPractice(notebookId: string): Promise<void> {
 
 // 开始操作先预检计划题量，免费额度部分不足时不直接创建，等待用户确认缩量练习。
 async function handlePrimaryAction(row: DisplayRow): Promise<void> {
+  if (requireLoginForNotebookAction('/practice-notebook')) return
   if (isActiveRow(row) && activePractice.value) {
     await continuePractice(activePractice.value.examRecordId)
     return
@@ -521,6 +530,7 @@ function handleBackToQuestionBank(): void {
 
 // 新建入口进入空白配置页。
 function handleCreateNotebook(): void {
+  if (requireLoginForNotebookAction('/practice-notebook/new')) return
   void router.push('/practice-notebook/new')
 }
 
@@ -529,11 +539,20 @@ watch(activeExamType, () => {
   if (!initialized) return
   expandedRowId.value = ''
   Object.keys(histories).forEach((key) => delete histories[key])
+  if (!auth.isLoggedIn) {
+    listLoading.value = false
+    return
+  }
   void loadNotebookList()
 })
 
 // 首次进入先完成会员和默认考试初始化，再读取最终考试类型的数据。
 onMounted(async () => {
+  if (!auth.isLoggedIn) {
+    initialized = true
+    listLoading.value = false
+    return
+  }
   try {
     await auth.ensureMemberContext()
   } catch {

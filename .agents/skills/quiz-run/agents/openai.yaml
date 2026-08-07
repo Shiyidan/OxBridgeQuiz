@@ -1,0 +1,4 @@
+interface:
+  display_name: "Quiz Run"
+  short_description: "一键重启并切换 QuizTestDemo 的开发、测试和线上联调环境"
+  default_prompt: "Use $quiz-run to start the QuizTestDemo development environment."

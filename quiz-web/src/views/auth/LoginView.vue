@@ -189,14 +189,18 @@
 
 <script setup lang="ts">
 // 登录页：承载登录和密码重置模块，认证后返回用户原先访问的受保护页面。
-import { computed, onBeforeUnmount, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { resetPassword, sendEmailCode } from '@/api/auth'
 import { getMember } from '@/api/member'
-import { createAuthRouteLocation, getSafeAuthRedirect } from '@/utils/authRedirect'
+import {
+  AUTH_LOGIN_REQUIRED_REASON,
+  createAuthRouteLocation,
+  getSafeAuthRedirect,
+} from '@/utils/authRedirect'
 import { AUTH_LEGAL_VERSIONS } from '@/constants/legal'
 import {
   EMAIL_CODE_PATTERN,
@@ -214,6 +218,13 @@ const auth = useAuthStore()
 const formRef = ref<FormInstance>()
 const resetFormRef = ref<FormInstance>()
 const isResetMode = ref(false)
+
+// 受保护操作主动送达登录页时说明原因，普通登录和会话过期流程不重复提示。
+onMounted(() => {
+  if (route.query.reason === AUTH_LOGIN_REQUIRED_REASON) {
+    ElMessage.info('请先登录后继续使用该功能')
+  }
+})
 
 const form = reactive({
   username: '',

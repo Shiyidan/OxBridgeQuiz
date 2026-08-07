@@ -1,14 +1,21 @@
 // 提供诊断试卷列表及其历史记录接口；独立试题库由 questionLibraryRouter 负责。
 import type { Prisma } from '@prisma/client'
 import { prisma } from '../services/prisma.js'
-import { requireAuth } from '../middleware/auth.js'
+import { optionalAuth, requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
 import { parseJsonField } from '../utils/jsonField.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { logRuntimeError } from '../utils/runtimeLogger.js'
 import { computeScores } from '../services/scoring.js'
 import type { QuestionResult } from '../services/scoring.js'
-import { EXAM_TYPE, EXAM_RECORD_STATUS, PAPER_DELIVERY_MODE, REAL_PAPER_TYPES, isExamType } from '../constants/domain.js'
+import {
+  EXAM_TYPE,
+  EXAM_RECORD_STATUS,
+  PAPER_ACCESS_TIER,
+  PAPER_DELIVERY_MODE,
+  REAL_PAPER_TYPES,
+  isExamType,
+} from '../constants/domain.js'
 
 import { parsePositiveInt } from './papers-shared.js'
 export const questionBankRouter = createAsyncRouter()
@@ -38,33 +45,48 @@ function parseAssessmentYear(value: unknown): number | null {
 }
 
 // 诊断年份首页由数据库直接聚合可见试卷及当前用户状态，前端不再加载全部试卷后内存分组。
-questionBankRouter.get('/assessment/years', requireAuth, async (req, res) => {
+questionBankRouter.get('/assessment/years', optionalAuth, async (req, res) => {
   try {
     const examType = String(req.query.examType || EXAM_TYPE.ESAT).toUpperCase()
     if (!isExamType(examType)) {
       res.status(422).json(fail('无效的考试类型'))
       return
     }
+    const userId = req.user?.userId
+    const visibilityWhere: Prisma.PaperWhereInput = userId
+      ? {
+          OR: [
+            {
+              status: 'published',
+              OR: [
+                { examType: { not: EXAM_TYPE.ESAT } },
+                { deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE },
+              ],
+            },
+            { examRecords: { some: { userId } } },
+          ],
+        }
+      : {
+          status: 'published',
+          ...(examType === EXAM_TYPE.ESAT
+            ? { deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE }
+            : {}),
+        }
 
     const papers = await prisma.paper.findMany({
       where: {
         examType,
         paperType: { in: [...REAL_PAPER_TYPES] },
-        OR: [
-          {
-            status: 'published',
-            OR: [{ examType: { not: EXAM_TYPE.ESAT } }, { deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE }],
-          },
-          { examRecords: { some: { userId: req.user!.userId } } },
-        ],
+        ...visibilityWhere,
       },
       select: {
         id: true,
         year: true,
         totalQuestions: true,
+        accessTier: true,
         createdAt: true,
         examRecords: {
-          where: { userId: req.user!.userId },
+          where: { userId: userId || '__anonymous__' },
           select: { status: true, startedAt: true },
           orderBy: { startedAt: 'desc' },
         },
@@ -81,6 +103,8 @@ questionBankRouter.get('/assessment/years', requireAuth, async (req, res) => {
         completedPaperCount: number
         inProgressPaperCount: number
         completedAttemptCount: number
+        freePaperCount: number
+        memberPaperCount: number
       }
     >()
 
@@ -92,6 +116,8 @@ questionBankRouter.get('/assessment/years', requireAuth, async (req, res) => {
         completedPaperCount: 0,
         inProgressPaperCount: 0,
         completedAttemptCount: 0,
+        freePaperCount: 0,
+        memberPaperCount: 0,
       }
       const latestRecord = paper.examRecords[0]
       const completedAttemptCount = paper.examRecords.filter((record) => record.status === EXAM_RECORD_STATUS.SUBMITTED).length
@@ -99,6 +125,8 @@ questionBankRouter.get('/assessment/years', requireAuth, async (req, res) => {
       summary.paperCount += 1
       summary.totalQuestions += paper.totalQuestions
       summary.completedAttemptCount += completedAttemptCount
+      if (paper.accessTier === PAPER_ACCESS_TIER.MEMBER) summary.memberPaperCount += 1
+      else summary.freePaperCount += 1
       if (completedAttemptCount > 0) summary.completedPaperCount += 1
       if (latestRecord?.status === EXAM_RECORD_STATUS.IN_PROGRESS) {
         summary.inProgressPaperCount += 1
@@ -118,7 +146,7 @@ questionBankRouter.get('/assessment/years', requireAuth, async (req, res) => {
 })
 
 // 诊断测试列表按试卷聚合当前用户的最新测试与报告状态。
-questionBankRouter.get('/assessment/papers', requireAuth, async (req, res) => {
+questionBankRouter.get('/assessment/papers', optionalAuth, async (req, res) => {
   try {
     const examType = String(req.query.examType || EXAM_TYPE.TMUA).toUpperCase()
     if (!isExamType(examType)) {
@@ -130,19 +158,33 @@ questionBankRouter.get('/assessment/papers', requireAuth, async (req, res) => {
       res.status(422).json(fail('无效的试卷年份'))
       return
     }
+    const userId = req.user?.userId
+    const visibilityWhere: Prisma.PaperWhereInput = userId
+      ? {
+          OR: [
+            {
+              status: 'published',
+              OR: [
+                { examType: { not: EXAM_TYPE.ESAT } },
+                { deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE },
+              ],
+            },
+            { examRecords: { some: { userId } } },
+          ],
+        }
+      : {
+          status: 'published',
+          ...(examType === EXAM_TYPE.ESAT
+            ? { deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE }
+            : {}),
+        }
     const [papers, records] = await Promise.all([
       prisma.paper.findMany({
         where: {
           examType,
           ...(year === null ? {} : { year }),
           paperType: { in: [...REAL_PAPER_TYPES] },
-          OR: [
-            {
-              status: 'published',
-              OR: [{ examType: { not: EXAM_TYPE.ESAT } }, { deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE }],
-            },
-            { examRecords: { some: { userId: req.user!.userId } } },
-          ],
+          ...visibilityWhere,
         },
         select: {
           id: true,
@@ -164,49 +206,51 @@ questionBankRouter.get('/assessment/papers', requireAuth, async (req, res) => {
         },
         orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
       }),
-      prisma.examRecord.findMany({
-        where: {
-          userId: req.user!.userId,
-          examType,
-          paper: {
-            paperType: { in: [...REAL_PAPER_TYPES] },
-            ...(year === null ? {} : { year }),
-          },
-        },
-        select: {
-          id: true,
-          paperId: true,
-          status: true,
-          totalQuestions: true,
-          correctCount: true,
-          startedAt: true,
-          expiresAt: true,
-          phase: true,
-          currentModuleIndex: true,
-          phaseExpiresAt: true,
-          submittedAt: true,
-          durationSeconds: true,
-          _count: {
-            select: { answers: { where: { selectedAnswer: { not: null } } } },
-          },
-          diagnosticReportTask: {
+      userId
+        ? prisma.examRecord.findMany({
+            where: {
+              userId,
+              examType,
+              paper: {
+                paperType: { in: [...REAL_PAPER_TYPES] },
+                ...(year === null ? {} : { year }),
+              },
+            },
             select: {
+              id: true,
+              paperId: true,
               status: true,
-              stage: true,
-              progress: true,
-              errorMessage: true,
+              totalQuestions: true,
+              correctCount: true,
+              startedAt: true,
+              expiresAt: true,
+              phase: true,
+              currentModuleIndex: true,
+              phaseExpiresAt: true,
+              submittedAt: true,
+              durationSeconds: true,
+              _count: {
+                select: { answers: { where: { selectedAnswer: { not: null } } } },
+              },
+              diagnosticReportTask: {
+                select: {
+                  status: true,
+                  stage: true,
+                  progress: true,
+                  errorMessage: true,
+                },
+              },
+              diagnosticReport: {
+                select: {
+                  examRecordId: true,
+                  generationMode: true,
+                  completedAt: true,
+                },
+              },
             },
-          },
-          diagnosticReport: {
-            select: {
-              examRecordId: true,
-              generationMode: true,
-              completedAt: true,
-            },
-          },
-        },
-        orderBy: { startedAt: 'desc' },
-      }),
+            orderBy: { startedAt: 'desc' },
+          })
+        : Promise.resolve([]),
     ])
 
     const latestRecordMap = new Map<string, (typeof records)[number]>()

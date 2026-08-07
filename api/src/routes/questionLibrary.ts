@@ -245,7 +245,7 @@ function formatImportBatch(row: any): Record<string, unknown> {
 }
 
 // 学生端概览按数据库 groupBy 汇总难度，不读取完整题目内容。
-questionLibraryRouter.get("/summary", requireAuth, async (req, res) => {
+questionLibraryRouter.get("/summary", async (req, res) => {
   const examType = String(req.query.examType || EXAM_TYPE.TMUA).toUpperCase();
   if (!isExamType(examType)) {
     res.status(422).json(fail("无效的考试类型"));

@@ -130,6 +130,7 @@ import type { SyllabusNode } from '@/api/questionBank'
 import { getSyllabusData, getQuestionSummaryData } from '@/api/questionBank'
 import { getActiveQuestionBankPractice, type ActiveQuestionBankPractice } from '@/api/exam'
 import { checkMemberAccess } from '@/api/member'
+import { createLoginRequiredRouteLocation } from '@/utils/authRedirect'
 
 const router = useRouter()
 const route = useRoute()
@@ -152,6 +153,13 @@ interface PendingDirectPractice {
 }
 
 const DIRECT_PRACTICE_QUESTION_COUNT = 5
+
+// 游客可浏览考纲与题量，开始专项练习时再进入登录并回到试题库。
+function requireLoginForPracticeAction(): boolean {
+  if (auth.isLoggedIn) return false
+  void router.push(createLoginRequiredRouteLocation('/question-bank'))
+  return true
+}
 
 const treeData = ref<TreeNode[]>([])
 const syllabusTreeRef = ref<TreeInstance>()
@@ -254,6 +262,7 @@ async function loadActivePractice(): Promise<void> {
   const requestSequence = ++practiceLoadSequence
   const requestedExamType = activeExamType.value
   activePractice.value = null
+  if (!auth.isLoggedIn) return
   try {
     const practice = await getActiveQuestionBankPractice(requestedExamType)
     if (requestSequence !== practiceLoadSequence || requestedExamType !== activeExamType.value) {
@@ -404,6 +413,7 @@ function navigateToPractice(difficulty: DifficultyId): void {
 
 // 难度卡片先确认知识点和默认五题计划，匹配不足时展示实际可生成题量。
 function handleStartPractice(diff: DifficultyOption): void {
+  if (requireLoginForPracticeAction()) return
   if (activePractice.value) {
     ElMessage.info('请先继续并完成当前练习')
     return
@@ -420,6 +430,7 @@ function handleStartPractice(diff: DifficultyOption): void {
 
 // 用户确认所选范围后再预检额度，部分不足时进入第二层缩量确认。
 async function handleConfirmSelectedPractice(): Promise<void> {
+  if (requireLoginForPracticeAction()) return
   const pending = pendingDirectPractice.value
   if (!pending) return
   startingDifficultyId.value = pending.difficulty

@@ -383,6 +383,16 @@ body.home-dialog-open {
   border-top: 4px solid var(--home-navy);
   background: linear-gradient(145deg, #f2f6f6 0%, #fff 74%);
   box-shadow: 0 22px 58px rgba(31, 48, 66, 0.09);
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .home-report-preview:hover {
+    transform: translateY(-7px);
+    box-shadow: 0 28px 60px rgba(31, 48, 66, 0.14);
+  }
 }
 
 .home-report-preview::after {
@@ -440,8 +450,7 @@ body.home-dialog-open {
   padding: 22px 0 20px;
 }
 
-.home-report-score-label,
-.home-report-score-note {
+.home-report-score-label {
   color: var(--home-muted);
   font-size: 10px;
 }
@@ -615,7 +624,7 @@ body.home-dialog-open {
   align-items: flex-start;
   gap: 10px;
   color: #415064;
-  font-size: 11px;
+  font-size: 14px;
   line-height: 1.55;
 }
 
@@ -2489,7 +2498,6 @@ body.home-dialog-open {
   max-width: 620px;
   margin: 21px 0 0;
   color: #536074;
-  font-size: 14px;
   line-height: 1.85;
 }
 
@@ -2510,7 +2518,6 @@ body.home-dialog-open {
 
 .home-marketing .home-model-screen .home-story-copy > p {
   margin-top: 18px;
-  font-size: 13px;
 }
 
 .home-marketing .home-model-screen .home-story-points {

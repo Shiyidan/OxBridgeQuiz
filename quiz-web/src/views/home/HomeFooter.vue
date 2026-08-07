@@ -29,7 +29,7 @@ const emit = defineEmits<{
           <span class="home-footer-brand-mark" aria-hidden="true">
             <img :src="brandIconUrl" alt="" class="home-footer-brand-logo" />
           </span>
-          <strong>AceMock</strong>
+          <strong>AceMock 云舟备考</strong>
         </button>
         <p>基于真题诊断与考纲知识点的智能备考系统。</p>
       </div>
@@ -52,7 +52,7 @@ const emit = defineEmits<{
 
     <div class="home-footer-bottom">
       <div class="home-page home-footer-bottom-inner">
-        <span>© 2026 AceMock · 上海解航云舟科技有限公司</span>
+        <span>© 2026 AceMock 云舟备考 · 上海解航云舟科技有限公司</span>
         <a
           class="home-footer-registration"
           href="https://beian.miit.gov.cn/"

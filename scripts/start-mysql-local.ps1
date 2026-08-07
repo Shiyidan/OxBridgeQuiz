@@ -4,6 +4,9 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $mysqld = 'C:\Program Files\MySQL\MySQL Server 8.4\bin\mysqld.exe'
 $config = Join-Path $repoRoot '.mysql\my.ini'
+$logDirectory = Join-Path $repoRoot '.mysql\logs'
+$stdoutPath = Join-Path $logDirectory 'startup.out.log'
+$stderrPath = Join-Path $logDirectory 'startup.err.log'
 $port = 3307
 
 if (-not (Test-Path $mysqld)) {
@@ -16,7 +19,21 @@ if ($ready) {
   exit 0
 }
 
-$proc = Start-Process -WindowStyle Hidden -FilePath $mysqld -ArgumentList "--defaults-file=$config", "--console" -PassThru
+New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
+$processEnvironment = [System.Environment]::GetEnvironmentVariables()
+$pathKeys = @($processEnvironment.Keys | Where-Object { $_ -ieq 'Path' })
+if ($pathKeys.Count -gt 1) {
+  $pathValues = @($pathKeys | ForEach-Object { [string]$processEnvironment[$_] })
+  [System.Environment]::SetEnvironmentVariable('PATH', $null, 'Process')
+  [System.Environment]::SetEnvironmentVariable('Path', ($pathValues -join ';'), 'Process')
+}
+
+$proc = Start-Process -WindowStyle Hidden `
+  -FilePath $mysqld `
+  -ArgumentList "--defaults-file=$config", '--console' `
+  -RedirectStandardOutput $stdoutPath `
+  -RedirectStandardError $stderrPath `
+  -PassThru
 Start-Sleep -Seconds 5
 
 $ready = Test-NetConnection -ComputerName 127.0.0.1 -Port $port -InformationLevel Quiet

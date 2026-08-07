@@ -124,7 +124,7 @@ onBeforeUnmount(() => {
       THESIS: 用可追溯的真题诊断证明“测清楚再练”，拒绝以空泛功能卡堆砌价值。
       OWN-WORLD: 黑白高对比编辑式页面、编号叙事、数据台账与深色报告面板。
       STORY: 访客先理解真题命题模型，再看诊断、报告、训练与错题如何形成闭环，最后选择注册或会员。
-      FIRST VIEWPORT: 左侧一句主张和双行动，右侧放大一张标注为演示数据的诊断报告。
+      FIRST VIEWPORT: 左侧一句主张和双行动，右侧放大一张诊断报告预览。
       FORM: 绑定参考 HTML 的纵向分屏叙事；营销说服模式；视觉结构由用户给定参考确定。
     -->
     <section
@@ -135,7 +135,7 @@ onBeforeUnmount(() => {
     >
       <div class="home-page home-hero-layout home-motion-content">
         <div class="home-hero-copy">
-          <p class="home-hello">ESAT &amp; TMUA 智能备考系统</p>
+          <p class="home-hello">AceMock 云舟备考 · ESAT &amp; TMUA 智能备考系统</p>
           <p class="home-hero-kicker">免费真题诊断</p>
           <h1 id="home-hero-title" class="home-hero-title">
             用一套真题，看清你的 ESAT / TMUA 真实水平
@@ -171,10 +171,9 @@ onBeforeUnmount(() => {
           </ul>
         </div>
 
-        <aside class="home-report-preview" aria-label="ESAT Mathematics 1 诊断报告演示">
+        <aside class="home-report-preview" aria-label="ESAT Mathematics 1 诊断报告预览">
           <div class="home-report-preview-head">
             <div class="home-report-preview-heading">
-              <span class="home-demo-badge">演示数据</span>
               <strong>ESAT Mathematics 1</strong>
             </div>
             <span class="home-report-preview-type">诊断报告</span>
@@ -183,10 +182,9 @@ onBeforeUnmount(() => {
           <div class="home-report-score">
             <span class="home-report-score-label">综合得分</span>
             <strong class="home-report-score-value">78</strong>
-            <span class="home-report-score-note">示例结果，不对应真实学生</span>
           </div>
 
-          <div class="home-mastery-list" aria-label="知识点掌握度演示">
+          <div class="home-mastery-list" aria-label="知识点掌握度">
             <div class="home-mastery-item">
               <div class="home-mastery-head"><span>代数与函数</span><b>82%</b></div>
               <div
@@ -239,16 +237,20 @@ onBeforeUnmount(() => {
       >
         <div class="home-page home-story-layout home-story-layout--reverse home-motion-content">
           <div class="home-story-copy">
-            <div class="home-story-index">01 · 真题命题模型</div>
+            <div class="home-story-index">01 · AceMock 自研命题模型</div>
             <h2 id="home-model-title">
-              <span class="home-story-title-line">真题做完以后，</span>
-              <span class="home-story-title-line">还有同路数的新题可练</span>
+              <span class="home-story-title-line">我们不只整理真题，</span>
+              <span class="home-story-title-line">还把命题规律做成了模型</span>
             </h2>
-            <p>系统整理真题中的考点、题型、推理方式和难度，再把这些边界用于专项练习。</p>
+            <p class="home-section-desc">
+              AceMock
+              从历年真题中拆解考点结构、推理链路、难度梯度与干扰项规律，并将其沉淀为自研命题模型，持续生成贴合
+              ESAT 考纲与真实考试思路的专项新题。
+            </p>
             <ul class="home-story-points">
-              <li>不跨出当前 ESAT 考纲</li>
-              <li>按科目、知识点与难度组合</li>
-              <li>练习结果继续回到个人记录</li>
+              <li>从真题中提炼命题规律，不是简单改写题面</li>
+              <li>按科目、知识点与难度精准生成专项练习</li>
+              <li>保留真实考试所要求的推理路径与能力结构</li>
             </ul>
           </div>
 
@@ -259,8 +261,8 @@ onBeforeUnmount(() => {
                 <DocumentChecked />
               </el-icon>
               <strong class="home-model-stage-title">真题拆解</strong>
-              <span class="home-model-stage-subtitle">ENGAA / NSAA 可用历史题</span>
-              <p>提取：知识点 · 题型 · 推理路径 · 难度</p>
+              <span class="home-model-stage-subtitle">提取考点、题型与推理路径</span>
+              <p>知识点 · 题型 · 推理链路 · 难度</p>
             </article>
             <i class="home-flow-arrow" aria-hidden="true">→</i>
             <article class="home-model-stage--emphasis">
@@ -268,8 +270,8 @@ onBeforeUnmount(() => {
               <el-icon class="home-model-stage-icon" aria-hidden="true">
                 <Connection />
               </el-icon>
-              <strong class="home-model-stage-title">规律建模</strong>
-              <span class="home-model-stage-subtitle">建立四维命题画像</span>
+              <strong class="home-model-stage-title">命题建模</strong>
+              <span class="home-model-stage-subtitle">沉淀难度、干扰项与能力结构</span>
               <p>考点权重 · 任务类型 · 干扰项 · 难度梯度</p>
             </article>
             <i class="home-flow-arrow" aria-hidden="true">→</i>
@@ -278,9 +280,9 @@ onBeforeUnmount(() => {
               <el-icon class="home-model-stage-icon" aria-hidden="true">
                 <MagicStick />
               </el-icon>
-              <strong class="home-model-stage-title">同源生成</strong>
-              <span class="home-model-stage-subtitle">ESAT 专项练习</span>
-              <p>按考纲、知识点与难度生成同路数新题</p>
+              <strong class="home-model-stage-title">同构生成</strong>
+              <span class="home-model-stage-subtitle">生成同考纲、同能力要求的新题</span>
+              <p>按科目 · 知识点 · 能力结构 · 难度</p>
             </article>
           </div>
         </div>
@@ -620,9 +622,7 @@ onBeforeUnmount(() => {
           </article>
         </div>
 
-        <p class="home-pricing-note">
-          会员权益以实际产品说明为准
-        </p>
+        <p class="home-pricing-note">会员权益以实际产品说明为准</p>
       </div>
     </section>
 

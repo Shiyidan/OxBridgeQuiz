@@ -1,10 +1,60 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/src/assets/brand/acemock-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>在线答题系统</title>
+    <title>AceMock 云舟备考｜ESAT 与 TMUA 真题诊断</title>
+    <meta
+      name="description"
+      content="AceMock 云舟备考基于历年真题和考试大纲，提供 ESAT、TMUA 水平诊断、知识点分析、专项练习与错题复习，帮助学生针对薄弱项高效备考。"
+    />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <link rel="canonical" href="https://acemock.cn/" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:site_name" content="AceMock 云舟备考" />
+    <meta property="og:title" content="AceMock 云舟备考｜ESAT 与 TMUA 真题诊断" />
+    <meta
+      property="og:description"
+      content="基于历年真题和考试大纲，提供 ESAT、TMUA 水平诊断、知识点分析、专项练习与错题复习。"
+    />
+    <meta property="og:url" content="https://acemock.cn/" />
+
+    <script id="website-structured-data" type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "AceMock 云舟备考",
+        "alternateName": ["AceMock", "云舟备考", "acemock.cn"],
+        "url": "https://acemock.cn/"
+      }
+    </script>
+    <script>
+      ;(() => {
+        const publicPaths = new Set([
+          '/',
+          '/exam-intro/esat',
+          '/exam-intro/tmua',
+          '/exam-intro/step',
+        ])
+        const path =
+          window.location.pathname !== '/'
+            ? window.location.pathname.replace(/\/$/, '')
+            : window.location.pathname
+        if (publicPaths.has(path)) return
+
+        document.title = 'AceMock 云舟备考'
+        document
+          .querySelector('meta[name="robots"]')
+          ?.setAttribute('content', 'noindex, nofollow, noarchive, nosnippet')
+        document.querySelector('meta[name="description"]')?.remove()
+        document.querySelector('link[rel="canonical"]')?.remove()
+        document.querySelectorAll('meta[property^="og:"]').forEach((element) => element.remove())
+        document.getElementById('website-structured-data')?.remove()
+      })()
+    </script>
   </head>
   <body>
     <div id="app"></div>

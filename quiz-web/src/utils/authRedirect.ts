@@ -3,6 +3,8 @@ import type { LocationQueryValue, RouteLocationRaw } from 'vue-router'
 
 type AuthRouteName = 'login' | 'register'
 
+export const AUTH_LOGIN_REQUIRED_REASON = 'login-required'
+
 // 仅接受站内绝对路径，避免认证完成后跳转到外部地址。
 export function getSafeAuthRedirect(
   value: LocationQueryValue | LocationQueryValue[] | undefined,
@@ -22,4 +24,15 @@ export function getSafeAuthRedirect(
 // 在认证相关页面之间传递有效目标地址，没有目标时保持普通路由。
 export function createAuthRouteLocation(name: AuthRouteName, redirect: string): RouteLocationRaw {
   return redirect === '/' ? { name } : { name, query: { redirect } }
+}
+
+// 功能入口要求认证时同时携带回跳地址和提示原因，登录页据此只展示一次明确引导。
+export function createLoginRequiredRouteLocation(redirect: string): RouteLocationRaw {
+  return {
+    name: 'login',
+    query: {
+      ...(redirect === '/' ? {} : { redirect }),
+      reason: AUTH_LOGIN_REQUIRED_REASON,
+    },
+  }
 }

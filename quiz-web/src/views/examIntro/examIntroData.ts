@@ -33,17 +33,17 @@ export interface ExamIntroDocument {
 const examMetadata: Record<ExamType, { code: string; title: string; subtitle: string }> = {
   tmua: {
     code: 'TMUA',
-    title: 'TMUA 考试深度解析',
+    title: 'TMUA 考试介绍与备考指南',
     subtitle: '基于官方大纲与历年机考真题提炼的知识框架与备考策略',
   },
   esat: {
     code: 'ESAT',
-    title: 'ESAT 考试深度解析',
+    title: 'ESAT 考试介绍与备考指南',
     subtitle: '基于官方大纲与历年机考真题提炼的知识框架与备考策略',
   },
   step: {
     code: 'STEP',
-    title: 'STEP 考试深度解析',
+    title: 'STEP 考试介绍与备考指南',
     subtitle: '基于官方大纲与历年考卷提炼的知识框架与备考策略',
   },
 }

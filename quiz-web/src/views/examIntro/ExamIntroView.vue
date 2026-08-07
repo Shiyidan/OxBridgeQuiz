@@ -9,7 +9,7 @@
         <div class="exam-shell exam-hero__content">
           <div class="exam-kicker">
             <span class="exam-kicker__dot"></span>
-            AceMock Exam Intro
+            AceMock 云舟备考 · Exam Intro
           </div>
           <h1>{{ currentExam.title }}</h1>
           <p>{{ currentExam.subtitle }}</p>
@@ -17,6 +17,17 @@
       </section>
 
       <div class="exam-shell exam-content">
+        <nav class="exam-switcher" aria-label="考试介绍页面">
+          <router-link
+            v-for="exam in examLinks"
+            :key="exam.type"
+            :to="`/exam-intro/${exam.type}`"
+            :aria-current="examType === exam.type ? 'page' : undefined"
+          >
+            {{ exam.label }}
+          </router-link>
+        </nav>
+
         <nav class="exam-tabs" aria-label="考试介绍内容">
           <button
             v-for="tab in tabs"
@@ -119,6 +130,11 @@ const tabs: Array<{ id: TabId; label: string }> = [
   { id: 'faq', label: '常见问题' },
   { id: 'comparison', label: '考试对比' },
 ]
+const examLinks: Array<{ type: ExamType; label: string }> = [
+  { type: 'esat', label: 'ESAT 考试介绍' },
+  { type: 'tmua', label: 'TMUA 考试介绍' },
+  { type: 'step', label: 'STEP 考试介绍' },
+]
 
 const examType = computed<ExamType>(() => {
   const value = String(route.params.examType || '').toLowerCase()
@@ -171,6 +187,33 @@ const SectionTitle = defineComponent({
 .exam-shell {
   width: var(--fluid-shell-width);
   margin: 0 auto;
+}
+
+.exam-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.exam-switcher a {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-ink-soft);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+  text-decoration: none;
+}
+
+.exam-switcher a:hover,
+.exam-switcher a[aria-current='page'] {
+  border-color: var(--color-ink);
+  color: var(--color-ink);
 }
 
 .exam-hero {

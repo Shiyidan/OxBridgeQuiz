@@ -174,6 +174,8 @@ export interface AssessmentYearSummary {
   completedPaperCount: number
   inProgressPaperCount: number
   completedAttemptCount: number
+  freePaperCount: number
+  memberPaperCount: number
 }
 
 export interface AssessmentYearResult {

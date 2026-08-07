@@ -52,7 +52,7 @@ const authLegalVersionsSchema = z
   })
   .strict();
 
-// 注册和个人中心复用同一份备考目标结构，防止保存出两套数据格式。
+// 注册沿用按考试类型收集的原始结构，个人中心通过独立全局结构保存后再做兼容转换。
 const examPreferenceSchema = z
   .object({
     examType: z.string().trim().min(1).max(32),
@@ -72,13 +72,50 @@ const examPreferenceSchema = z
     examDate: z
       .string()
       .trim()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, "考试日期格式不正确")
+      .regex(/^\d{4}-\d{2}(?:-\d{2})?$/, "考试日期格式不正确")
       .optional(),
     weeklyHours: z.number().int().min(1).max(80).optional(),
   })
   .strict();
 
 export const examPreferencesSchema = z.array(examPreferenceSchema).max(10);
+
+const PROFILE_EXAM_DATES = [
+  "2026-10",
+  "2027-01",
+  "2027-10",
+  "2028-01",
+  "2028-10",
+] as const;
+const PROFILE_ESAT_SUBJECTS = [
+  "数学1",
+  "数学2",
+  "物理",
+  "化学",
+  "生物",
+] as const;
+
+// 个人中心只提交一份账户级学习偏好，避免按考试类型重复传递相同字段。
+export const profileStudyPreferencesSchema = z
+  .object({
+    examTypes: z
+      .array(z.enum(["ESAT", "TMUA"]))
+      .min(1, "请至少选择一个目标考试")
+      .max(2)
+      .refine((values) => new Set(values).size === values.length, "目标考试不能重复"),
+    esatSubjects: z
+      .array(z.enum(PROFILE_ESAT_SUBJECTS))
+      .min(1, "请至少选择一个 ESAT 备考科目")
+      .max(5),
+    targetRegions: z.string().trim().max(191),
+    targetUniversities: z
+      .array(z.enum(TARGET_UNIVERSITIES))
+      .max(2, "目标院校最多选择 2 个"),
+    targetMajor: z.string().trim().max(191),
+    examDate: z.enum(PROFILE_EXAM_DATES),
+    weeklyHours: z.number().int().min(10).max(50),
+  })
+  .strict();
 
 export const sendEmailCodeSchema = z
   .object({

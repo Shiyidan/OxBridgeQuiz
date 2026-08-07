@@ -1292,15 +1292,17 @@ export function resolveEsatPlanningSubjects(
   }
 }
 
-// 学习模式综合时间、投入能力、模块分数、缺口压力和目标差距固定计算，保证结果稳定可解释。
+// 学习模式综合考试时间、投入能力、模块分数与缺口压力固定计算，保证结果稳定可解释。
 function decideLearningMode(input: {
   examDate: string | null
   weeklyHours: number
-  targetScore: number | null
   modules: AssessmentModule[]
   highRoiGaps: ReportAiImprovementPlan['highRoiGaps']
 }): { weeks: number; mode: ReportLearningPath['summary']['mode']; reason: string } {
-  const targetDate = input.examDate ? new Date(`${input.examDate}T00:00:00Z`) : null
+  const normalizedExamDate = input.examDate && /^\d{4}-\d{2}$/.test(input.examDate)
+    ? `${input.examDate}-01`
+    : input.examDate
+  const targetDate = normalizedExamDate ? new Date(`${normalizedExamDate}T00:00:00Z`) : null
   const remainingWeeks = targetDate && !Number.isNaN(targetDate.getTime())
     ? Math.max(1, Math.ceil((targetDate.getTime() - Date.now()) / 86_400_000 / 7))
     : null
@@ -1311,10 +1313,6 @@ function decideLearningMode(input: {
     ? moduleScores.reduce((sum, score) => sum + score, 0) / moduleScores.length
     : null
   const severeGapCount = input.highRoiGaps.filter((gap) => gap.accuracy < 0.4).length
-  const targetGap = averageScore !== null && input.targetScore !== null
-    ? Math.max(0, input.targetScore - averageScore)
-    : 0
-
   let pressure = 0
   if (averageScore !== null) {
     if (averageScore < 4) pressure += 3
@@ -1325,9 +1323,6 @@ function decideLearningMode(input: {
   else if (input.highRoiGaps.length >= 3) pressure += 1
   if (severeGapCount >= 3) pressure += 2
   else if (severeGapCount >= 1) pressure += 1
-  if (targetGap >= 3) pressure += 3
-  else if (targetGap >= 1.5) pressure += 2
-  else if (targetGap > 0.5) pressure += 1
   if (remainingWeeks !== null) {
     if (remainingWeeks <= 4) pressure += 4
     else if (remainingWeeks <= 8) pressure += 2
@@ -1360,9 +1355,6 @@ function decideLearningMode(input: {
     `每周可投入 ${input.weeklyHours} 小时`,
     averageScore === null ? '暂无模块预估分' : `模块平均预估分 ${averageScore.toFixed(1)}`,
     `高 ROI 缺口 ${input.highRoiGaps.length} 项（其中低于40%共 ${severeGapCount} 项）`,
-    input.targetScore === null
-      ? '目标分数未设置'
-      : `目标 ${input.targetScore.toFixed(1)} 分${averageScore === null ? '' : `，当前差距 ${targetGap.toFixed(1)} 分`}`,
   ]
   return {
     weeks,
@@ -1407,10 +1399,9 @@ async function personalizeLearningPath(input: {
     profile: {
       subjects: input.profile.subjects,
       targetMajor: input.profile.targetMajor,
-      targetScore: input.profile.targetScore,
+      targetUniversities: input.profile.targetUniversities,
       examDate: input.profile.examDate,
       weeklyHours: input.summary.weeklyHours,
-      targetUniversityCount: input.profile.targetUniversities.length,
     },
     schedule: {
       planningWeeks: input.summary.planningWeeks,
@@ -1462,7 +1453,7 @@ async function personalizeLearningPath(input: {
           'foundation.tasks 只能引用输入 focusGaps 的 gapKey，每项包含 gapKey、title、completionLabel；不得新增知识点。',
           'title 不超过50字；completionLabel 不超过70字，且必须原样包含该缺口的 suggestedHours。',
           'improvement 与 sprint 的 activities 各输出2条，每条不超过70字；不得改变阶段周数和总投入时长。',
-          '必须结合备考科目、目标专业、目标分数、考试日期、每周投入和固定模式判定依据；缺失资料不得猜测。',
+          '必须结合备考科目、目标院校、目标专业、考试日期、每周投入和固定模式判定依据组织规划；还要结合能力矩阵、高 ROI 缺口与时间效率，明确训练优先级和周投入分配。缺失资料不得猜测。',
           '若 timingAnalysis.available 为 true，可将其中模块时间效率用于限时训练或整卷节奏安排；不得创造未提供的耗时、比例或时间问题。',
           '所有百分比只能使用输入中的 accuracyPercent、targetPercent 或40%阶段阈值，不得创造其他提分指标。',
           '不得生成院校录取线、录取概率、心理归因、知识点依赖或输入中不存在的分数。',
@@ -2028,9 +2019,6 @@ async function buildLearningPath(
     subjects: learnerProfile?.subjects?.filter(Boolean) || [],
     targetUniversities: learnerProfile?.targetUniversities?.filter(Boolean) || [],
     targetMajor: learnerProfile?.targetMajor?.trim() || null,
-    targetScore: learnerProfile?.targetScore && learnerProfile.targetScore >= 1 && learnerProfile.targetScore <= 9
-      ? learnerProfile.targetScore
-      : null,
     examDate: learnerProfile?.examDate || null,
     weeklyHours: learnerProfile?.weeklyHours && learnerProfile.weeklyHours > 0
       ? learnerProfile.weeklyHours
@@ -2040,7 +2028,6 @@ async function buildLearningPath(
     !profile.subjects.length ? '备考科目' : '',
     !profile.targetUniversities.length ? '目标院校' : '',
     !profile.targetMajor ? '目标专业' : '',
-    profile.targetScore === null ? '目标分数' : '',
     !profile.examDate ? '考试日期' : '',
     profile.weeklyHours === null ? '每周可投入时长' : '',
   ].filter(Boolean)
@@ -2055,7 +2042,6 @@ async function buildLearningPath(
   const fullModeDecision = decideLearningMode({
     examDate: profile.examDate,
     weeklyHours,
-    targetScore: profile.targetScore,
     modules,
     highRoiGaps: plan.highRoiGaps,
   })

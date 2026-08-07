@@ -19,6 +19,36 @@ const DEFAULT_QUESTION_BANK_LIMIT = 25;
 export type EntitlementAction = "diagnostic" | "question-bank";
 type MemberDatabase = typeof prisma | Prisma.TransactionClient;
 
+export interface ExamPreferenceRecord {
+  examType: string;
+  subjects: string[];
+  targetRegions?: string;
+  targetUniversities?: string[];
+  targetMajor?: string;
+  entrySeason?: string;
+  targetScore?: number;
+  examDate?: string;
+  weeklyHours?: number;
+}
+
+export interface StudyPreferences {
+  examTypes: string[];
+  esatSubjects: string[];
+  targetRegions: string;
+  targetUniversities: string[];
+  targetMajor: string;
+  examDate: string;
+  weeklyHours: number;
+}
+
+const PROFILE_EXAM_DATES = new Set([
+  "2026-10",
+  "2027-01",
+  "2027-10",
+  "2028-01",
+  "2028-10",
+]);
+
 // 剩余天数按自然日向上取整，避免未到期会员提前显示为零天。
 function daysUntil(date: Date, now: Date): number {
   return Math.max(0, Math.ceil((date.getTime() - now.getTime()) / 86400000));
@@ -339,37 +369,71 @@ export async function getMemberContext(userId: string) {
     quotas[examType] = rest;
   }
 
+  const examPreferences = safeParseExamPreferences(user.examPreferences);
+
   return {
     user,
     role: user.role,
     isAdmin,
     memberships: membershipList,
     quotas,
-    examPreferences: safeParseExamPreferences(user.examPreferences),
+    examPreferences,
+    studyPreferences: buildStudyPreferences(examPreferences),
   };
 }
 
 // 读取历史或空偏好时统一返回数组，避免会员上下文输出不稳定结构。
-function safeParseExamPreferences(raw: unknown): Array<{
-  examType: string;
-  subjects: string[];
-  targetRegions?: string;
-  targetUniversities?: string[];
-  targetMajor?: string;
-  entrySeason?: string;
-  targetScore?: number;
-  examDate?: string;
-  weeklyHours?: number;
-}> {
-  return parseJsonArray<{
-    examType: string;
-    subjects: string[];
-    targetRegions?: string;
-    targetUniversities?: string[];
-    targetMajor?: string;
-    entrySeason?: string;
-    targetScore?: number;
-    examDate?: string;
-    weeklyHours?: number;
-  }>(raw);
+function safeParseExamPreferences(raw: unknown): ExamPreferenceRecord[] {
+  return parseJsonArray<ExamPreferenceRecord>(raw);
+}
+
+// 历史申请季和完整日期统一映射到个人中心支持的考试月份。
+function resolveStudyExamDate(preferences: ExamPreferenceRecord[]): string {
+  const savedDate = preferences.find((item) => item.examDate)?.examDate?.slice(0, 7);
+  if (savedDate && PROFILE_EXAM_DATES.has(savedDate)) return savedDate;
+
+  const entrySeason = preferences.find((item) => item.entrySeason)?.entrySeason || "";
+  const entryYear = entrySeason.match(/^\s*(\d{4})/u)?.[1];
+  const migratedDate = entryYear
+    ? `${entryYear}-${entrySeason.includes("春季") ? "01" : "10"}`
+    : "";
+  return PROFILE_EXAM_DATES.has(migratedDate) ? migratedDate : "2026-10";
+}
+
+// 会员上下文提供单一账户级偏好，前端无需理解底层按考试兼容存储。
+export function buildStudyPreferences(preferences: ExamPreferenceRecord[]): StudyPreferences {
+  const esatPreference = preferences.find((item) => item.examType.toUpperCase() === "ESAT");
+  const firstWith = <T>(selector: (item: ExamPreferenceRecord) => T | undefined): T | undefined =>
+    preferences.map(selector).find((value) => value !== undefined);
+  const weeklyHours = firstWith((item) => item.weeklyHours);
+
+  return {
+    examTypes: [
+      ...new Set(
+        preferences
+          .map((item) => item.examType.toUpperCase())
+          .filter((examType) => examType === "ESAT" || examType === "TMUA"),
+      ),
+    ],
+    esatSubjects: esatPreference?.subjects || [],
+    targetRegions: firstWith((item) => item.targetRegions) || "",
+    targetUniversities: firstWith((item) => item.targetUniversities) || [],
+    targetMajor: firstWith((item) => item.targetMajor) || "",
+    examDate: resolveStudyExamDate(preferences),
+    weeklyHours:
+      weeklyHours && weeklyHours >= 10 && weeklyHours <= 50 ? weeklyHours : 20,
+  };
+}
+
+// 全局偏好在数据库写入前转换为报告链路仍在使用的按考试记录。
+export function expandStudyPreferences(preferences: StudyPreferences): ExamPreferenceRecord[] {
+  return preferences.examTypes.map((examType) => ({
+    examType,
+    subjects: examType === "ESAT" ? [...preferences.esatSubjects] : ["数学"],
+    targetRegions: preferences.targetRegions,
+    targetUniversities: [...preferences.targetUniversities],
+    targetMajor: preferences.targetMajor,
+    examDate: preferences.examDate,
+    weeklyHours: preferences.weeklyHours,
+  }));
 }

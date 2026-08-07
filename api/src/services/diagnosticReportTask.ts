@@ -19,11 +19,11 @@ import {
   type LearnerProfileInput,
 } from './diagnosticReport.js'
 
-const ESAT_REPORT_VERSION = 'diagnostic-report-v4'
-const TMUA_REPORT_VERSION = 'diagnostic-report-v5'
+const ESAT_REPORT_VERSION = 'diagnostic-report-v5'
+const TMUA_REPORT_VERSION = 'diagnostic-report-v6'
 const GENERIC_REPORT_VERSION = 'diagnostic-report-v1'
-const ESAT_PROMPT_VERSION = 'esat-diagnostic-v4'
-const TMUA_PROMPT_VERSION = 'tmua-diagnostic-v2'
+const ESAT_PROMPT_VERSION = 'esat-diagnostic-v5'
+const TMUA_PROMPT_VERSION = 'tmua-diagnostic-v3'
 const GENERIC_PROMPT_VERSION = 'diagnostic-summary-v1'
 const POLL_INTERVAL_MS = 2_000
 const STALE_TASK_MS = 5 * 60_000
@@ -84,7 +84,6 @@ function learnerProfileForExam(raw: unknown, examType: string): LearnerProfileIn
   const preferences = parseJsonArray<Record<string, unknown>>(raw)
   const preference = preferences.find((item) => String(item.examType || '').toUpperCase() === examType.toUpperCase())
   const weeklyHoursValue = Number(preference?.weeklyHours)
-  const targetScoreValue = Number(preference?.targetScore)
   const examDateValue = typeof preference?.examDate === 'string' ? preference.examDate.trim() : ''
   const targetUniversities = Array.isArray(preference?.targetUniversities)
     ? preference.targetUniversities.filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
@@ -100,10 +99,7 @@ function learnerProfileForExam(raw: unknown, examType: string): LearnerProfileIn
     targetMajor: typeof preference?.targetMajor === 'string' && preference.targetMajor.trim()
       ? preference.targetMajor.trim()
       : null,
-    targetScore: Number.isFinite(targetScoreValue) && targetScoreValue >= 1 && targetScoreValue <= 9
-      ? targetScoreValue
-      : null,
-    examDate: /^\d{4}-\d{2}-\d{2}$/.test(examDateValue) ? examDateValue : null,
+    examDate: /^\d{4}-\d{2}(?:-\d{2})?$/.test(examDateValue) ? examDateValue : null,
     weeklyHours: Number.isFinite(weeklyHoursValue) && weeklyHoursValue >= 1 && weeklyHoursValue <= 80
       ? weeklyHoursValue
       : null,

@@ -76,6 +76,7 @@
         <slot name="actions">
           <template v-if="auth.isLoggedIn && auth.user">
             <el-dropdown
+              v-if="props.showExamSwitcher"
               trigger="click"
               placement="bottom-end"
               popper-class="student-exam-dropdown"
@@ -176,6 +177,7 @@ interface NavBarProps {
   delegateExamSelection?: boolean
   mistakeExamType?: ActiveExamType | null
   noGoal?: boolean
+  showExamSwitcher?: boolean
 }
 
 const props = withDefaults(defineProps<NavBarProps>(), {
@@ -183,6 +185,7 @@ const props = withDefaults(defineProps<NavBarProps>(), {
   delegateExamSelection: false,
   mistakeExamType: null,
   noGoal: false,
+  showExamSwitcher: true,
 })
 
 const emit = defineEmits<{

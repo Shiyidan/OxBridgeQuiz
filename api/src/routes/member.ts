@@ -1,10 +1,16 @@
 // 会员权益查询、额度预检与备考偏好更新接口。
 import { prisma } from '../services/prisma.js'
+import type { Prisma } from '@prisma/client'
 import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
-import { checkMemberAccess, getMemberContext, type EntitlementAction } from '../services/member.js'
+import {
+  checkMemberAccess,
+  expandStudyPreferences,
+  getMemberContext,
+  type EntitlementAction,
+} from '../services/member.js'
 import { isExamType } from '../constants/domain.js'
-import { examPreferencesSchema } from '../utils/authSchemas.js'
+import { profileStudyPreferencesSchema } from '../utils/authSchemas.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { buildOperationAuditChanges, setOperationAuditContext } from '../middleware/operationAudit.js'
 import { logRuntimeError } from '../utils/runtimeLogger.js'
@@ -64,14 +70,15 @@ memberRouter.post('/check-access', requireAuth, async (req, res) => {
   }
 })
 
-// 更新备考偏好
-memberRouter.put('/exam-preferences', requireAuth, async (req, res) => {
+// 更新账户级学习偏好
+memberRouter.put('/study-preferences', requireAuth, async (req, res) => {
   try {
-    const parsed = examPreferencesSchema.safeParse(req.body.examPreferences)
+    const parsed = profileStudyPreferencesSchema.safeParse(req.body.studyPreferences)
     if (!parsed.success) {
       res.status(422).json(fail(parsed.error.issues[0]?.message || '备考偏好格式不正确'))
       return
     }
+    const examPreferences = expandStudyPreferences(parsed.data)
 
     const previousUser = await prisma.user.findUnique({
       where: { id: req.user!.userId },
@@ -83,20 +90,20 @@ memberRouter.put('/exam-preferences', requireAuth, async (req, res) => {
     }
     await prisma.user.update({
       where: { id: req.user!.userId },
-      data: { examPreferences: parsed.data },
+      data: { examPreferences: examPreferences as unknown as Prisma.InputJsonValue },
     })
 
     setOperationAuditContext(req, {
       resourceId: req.user!.userId,
       changes: buildOperationAuditChanges(
         { examPreferences: previousUser.examPreferences },
-        { examPreferences: parsed.data },
+        { examPreferences },
       ),
     })
 
     res.json(success(null))
   } catch (err) {
-    logRuntimeError('member.exam_preferences.update_failed', err)
+    logRuntimeError('member.study_preferences.update_failed', err)
     res.status(500).json(fail('服务器错误'))
   }
 })

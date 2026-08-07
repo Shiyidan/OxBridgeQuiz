@@ -73,7 +73,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
-import { getMember, updateExamPreferences, type ExamPreference } from '@/api/member'
+import { getMember, updateStudyPreferences, type StudyPreferences } from '@/api/member'
 import { getPaymentConfig } from '@/api/payment'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import {
@@ -174,22 +174,23 @@ async function saveGoal(value: { examType: ActiveExamType; subjects: string[] })
   if (goalSaving.value) return
   goalSaving.value = true
   try {
-    const existingPreferences = auth.memberContext?.examPreferences || []
-    const nextPreference: ExamPreference = {
-      examType: value.examType,
-      subjects: value.subjects,
+    const existingPreferences = auth.memberContext?.studyPreferences
+    const nextPreferences: StudyPreferences = {
+      examTypes: Array.from(
+        new Set([...(existingPreferences?.examTypes || []), value.examType]),
+      ),
+      esatSubjects:
+        value.examType === 'ESAT'
+          ? [...value.subjects]
+          : [...(existingPreferences?.esatSubjects || ['数学1'])],
+      targetRegions: existingPreferences?.targetRegions || '英国、美国',
+      targetUniversities: [...(existingPreferences?.targetUniversities || [])],
+      targetMajor: existingPreferences?.targetMajor || '数学与统计、计算机科学',
+      examDate: existingPreferences?.examDate || '2026-10',
+      weeklyHours: existingPreferences?.weeklyHours || 20,
     }
-    const nextPreferences = existingPreferences.some(
-      (preference) => String(preference.examType).toUpperCase() === value.examType,
-    )
-      ? existingPreferences.map((preference) =>
-          String(preference.examType).toUpperCase() === value.examType
-            ? { ...preference, subjects: value.subjects }
-            : preference,
-        )
-      : [...existingPreferences, nextPreference]
 
-    await updateExamPreferences(nextPreferences)
+    await updateStudyPreferences(nextPreferences)
     const context = await getMember()
     auth.setMemberContext(context)
     const examChanged = auth.activeExamType !== value.examType

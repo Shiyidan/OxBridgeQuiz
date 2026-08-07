@@ -50,6 +50,16 @@ export interface ExamPreference {
   weeklyHours?: number
 }
 
+export interface StudyPreferences {
+  examTypes: string[]
+  esatSubjects: string[]
+  targetRegions: string
+  targetUniversities: string[]
+  targetMajor: string
+  examDate: string
+  weeklyHours: number
+}
+
 export interface MemberContext {
   user: MemberUser
   role: string
@@ -57,6 +67,7 @@ export interface MemberContext {
   memberships: MemberSubscription[]
   quotas: Record<string, ExamQuota>
   examPreferences: ExamPreference[]
+  studyPreferences: StudyPreferences
 }
 
 export interface MemberAccessResult {
@@ -71,12 +82,12 @@ export interface MemberAccessResult {
   unlimited: boolean
 }
 
-/** 更新备考偏好 */
-export function updateExamPreferences(examPreferences: ExamPreference[]) {
+/** 更新账户级学习偏好 */
+export function updateStudyPreferences(studyPreferences: StudyPreferences) {
   return callApi<null>({
-    url: '/getMember/exam-preferences',
+    url: '/getMember/study-preferences',
     method: 'PUT',
-    body: { examPreferences },
+    body: { studyPreferences },
   })
 }
 

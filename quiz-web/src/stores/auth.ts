@@ -35,8 +35,8 @@ function resolveDefaultExamType(context: MemberContext): ActiveExamType {
   }
 
   const preferredExamTypes = new Set(
-    (context.examPreferences || [])
-      .map((item) => String(item.examType || '').toUpperCase())
+    (context.studyPreferences?.examTypes || [])
+      .map((examType) => String(examType || '').toUpperCase())
       .filter((examType) => examType === 'ESAT' || examType === 'TMUA'),
   )
   return preferredExamTypes.size === 1 && preferredExamTypes.has('ESAT') ? 'ESAT' : 'TMUA'

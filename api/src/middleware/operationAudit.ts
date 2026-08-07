@@ -59,7 +59,7 @@ const OPERATION_DEFINITIONS: OperationDefinition[] = [
   { method: 'POST', pattern: /^\/api\/auth\/logout$/, module: OPERATION_AUDIT_MODULE.AUTH, action: 'auth.logout', summary: '退出当前设备', resourceType: 'User' },
   { method: 'POST', pattern: /^\/api\/auth\/logout-all$/, module: OPERATION_AUDIT_MODULE.AUTH, action: 'auth.logout_all', summary: '退出全部设备', resourceType: 'User' },
   { method: 'DELETE', pattern: /^\/api\/auth\/sessions\/([^/]+)$/, module: OPERATION_AUDIT_MODULE.AUTH, action: 'auth.session.revoke', summary: '移除登录设备', resourceType: 'AuthSession', resourceIdGroup: 1 },
-  { method: 'PUT', pattern: /^\/api\/getMember\/exam-preferences$/, module: OPERATION_AUDIT_MODULE.PROFILE, action: 'profile.exam_preferences.update', summary: '修改备考偏好', resourceType: 'User' },
+  { method: 'PUT', pattern: /^\/api\/getMember\/study-preferences$/, module: OPERATION_AUDIT_MODULE.PROFILE, action: 'profile.study_preferences.update', summary: '修改全局学习偏好', resourceType: 'User' },
   { method: 'POST', pattern: /^\/api\/exams\/start$/, module: OPERATION_AUDIT_MODULE.EXAM, action: 'exam.start', summary: '开始考试', resourceType: 'ExamRecord' },
   { method: 'POST', pattern: /^\/api\/exams\/([^/]+)\/submit$/, module: OPERATION_AUDIT_MODULE.EXAM, action: 'exam.submit', summary: '提交考试', resourceType: 'ExamRecord', resourceIdGroup: 1 },
   { method: 'GET', pattern: /^\/api\/exams\/([^/]+)\/diagnostic-report\/summary$/, module: OPERATION_AUDIT_MODULE.EXAM, action: 'diagnostic_report.view', summary: '查看诊断分析报告', resourceType: 'ExamRecord', resourceIdGroup: 1 },

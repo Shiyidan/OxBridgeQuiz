@@ -342,7 +342,6 @@ export interface DiagnosticLearningPath {
     subjects: string[]
     targetUniversities: string[]
     targetMajor: string | null
-    targetScore: number | null
     examDate: string | null
     weeklyHours: number | null
     missingFields: string[]

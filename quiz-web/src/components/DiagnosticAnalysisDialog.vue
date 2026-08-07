@@ -43,7 +43,14 @@
       <h2>{{ analysisMessage }}</h2>
       <p class="analysis-state__description">正在根据本次作答生成个性化诊断结果，请稍候。</p>
 
-      <div class="analysis-progress">
+      <div
+        class="analysis-progress"
+        role="progressbar"
+        aria-label="诊断报告分析进度"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        :aria-valuenow="analysisProgress"
+      >
         <div class="analysis-progress__meta">
           <span>分析进度</span>
           <strong>{{ analysisProgress }}%</strong>
@@ -102,8 +109,10 @@ import {
 import { getApiErrorMessage } from '@/utils/request'
 
 const STATUS_POLL_MS = 2000
-const MIN_ANALYSIS_DISPLAY_MS = 6000
-const MODULE_CAPTION_MS = 1000
+const VISUAL_PROGRESS_DURATION_MS = 12000
+const VISUAL_PROGRESS_START = 8
+const VISUAL_PROGRESS_LIMIT = 99
+const VISUAL_PROGRESS_TICK_MS = 80
 const ANALYSIS_MODULES = [
   '等效评估分',
   '总体成绩概览',
@@ -123,7 +132,7 @@ const emit = defineEmits<{
   'return-assessment': []
 }>()
 
-const analysisProgress = ref(10)
+const visualProgress = ref(VISUAL_PROGRESS_START)
 const analysisStatus = ref<DiagnosticReportStatus['status']>('pending')
 const analysisMessage = ref('正在准备诊断分析')
 const analysisError = ref('')
@@ -131,16 +140,22 @@ const pollError = ref('')
 const reportKind = ref<DiagnosticReportStatus['reportKind']>('esat')
 const reportExamRecordId = ref('')
 const retrying = ref(false)
-const currentModuleIndex = ref(0)
 let pollTimer: number | undefined
 let completionTimer: number | undefined
-let moduleCaptionTimer: number | undefined
-let analysisDisplayStartedAt = 0
+let visualProgressTimer: number | undefined
+let visualProgressStartedAt = 0
+let reportReady = false
 
 const isAnalyzing = computed(
   () => analysisStatus.value === 'pending' || analysisStatus.value === 'analyzing',
 )
 const analysisFailed = computed(() => analysisStatus.value === 'failed')
+const analysisProgress = computed(() => Math.floor(visualProgress.value))
+// 六个分析模块按照单向视觉进度依次展示，到最后一项后停留，不再循环。
+const currentModuleIndex = computed(() => Math.min(
+  ANALYSIS_MODULES.length - 1,
+  Math.floor((analysisProgress.value / VISUAL_PROGRESS_LIMIT) * ANALYSIS_MODULES.length),
+))
 const currentAnalysisModule = computed(() => ANALYSIS_MODULES[currentModuleIndex.value]!)
 
 // 弹窗每次绑定新的考试记录时重置展示状态，并读取对应后台任务进度。
@@ -165,15 +180,15 @@ onBeforeUnmount(() => {
 // 新一次交卷从最低进度开始，确保旧报告状态不会短暂闪现在当前弹窗。
 function initializeAnalysis(): void {
   stopAnalysisPolling()
-  analysisDisplayStartedAt = Date.now()
-  analysisProgress.value = 10
+  visualProgress.value = VISUAL_PROGRESS_START
+  visualProgressStartedAt = Date.now()
+  reportReady = false
   analysisStatus.value = 'pending'
   analysisMessage.value = '正在准备诊断分析'
   analysisError.value = ''
   pollError.value = ''
   reportExamRecordId.value = ''
-  currentModuleIndex.value = 0
-  startModuleCaptions()
+  startVisualProgress()
   void pollAnalysisStatus()
 }
 
@@ -185,30 +200,22 @@ async function pollAnalysisStatus(): Promise<void> {
     if (!props.modelValue) return
     pollError.value = ''
     analysisStatus.value = status.status
-    analysisProgress.value = Math.max(0, Math.min(100, status.progress))
     analysisMessage.value = status.message
     analysisError.value = status.errorMessage || ''
     reportKind.value = status.reportKind
     reportExamRecordId.value = status.reportExamRecordId || ''
 
     if (status.status === 'completed' && status.reportExamRecordId) {
-      stopAnalysisPolling()
-      startModuleCaptions()
+      stopStatusPolling()
       analysisStatus.value = 'analyzing'
-      analysisProgress.value = 100
       analysisMessage.value = '诊断报告已生成，正在整理六大模块'
-      const remainingDisplayMs = Math.max(
-        0,
-        MIN_ANALYSIS_DISPLAY_MS - (Date.now() - analysisDisplayStartedAt),
-      )
-      completionTimer = window.setTimeout(() => {
-        analysisStatus.value = 'completed'
-        stopModuleCaptions()
-      }, remainingDisplayMs)
+      reportReady = true
+      advanceVisualProgress()
       return
     }
     if (status.status === 'failed') {
-      stopAnalysisPolling()
+      stopStatusPolling()
+      stopVisualProgress()
       return
     }
   } catch (error: unknown) {
@@ -249,25 +256,46 @@ function returnToAssessment(): void {
   emit('return-assessment')
 }
 
-// 六大模块字幕只承担等待反馈，不表示后端当前正在执行的精确阶段。
-function startModuleCaptions(): void {
-  stopModuleCaptions()
-  moduleCaptionTimer = window.setInterval(() => {
-    currentModuleIndex.value = (currentModuleIndex.value + 1) % ANALYSIS_MODULES.length
-  }, MODULE_CAPTION_MS)
+// 视觉进度在固定时长内匀速走到 99%；后台未完成时保持 99%，完成后才进入 100%。
+function startVisualProgress(): void {
+  stopVisualProgress()
+  visualProgressTimer = window.setInterval(advanceVisualProgress, VISUAL_PROGRESS_TICK_MS)
+  advanceVisualProgress()
 }
 
-function stopModuleCaptions(): void {
-  if (moduleCaptionTimer) window.clearInterval(moduleCaptionTimer)
-  moduleCaptionTimer = undefined
+// 后端完成得较快时仍保持匀速走完；若已经停在 99%，收到完成状态后立即收尾。
+function advanceVisualProgress(): void {
+  const elapsed = Math.max(0, Date.now() - visualProgressStartedAt)
+  const ratio = Math.min(1, elapsed / VISUAL_PROGRESS_DURATION_MS)
+  const nextProgress = VISUAL_PROGRESS_START
+    + (VISUAL_PROGRESS_LIMIT - VISUAL_PROGRESS_START) * ratio
+  visualProgress.value = Math.max(visualProgress.value, nextProgress)
+
+  if (!reportReady || visualProgress.value < VISUAL_PROGRESS_LIMIT) return
+  visualProgress.value = 100
+  stopVisualProgress()
+  if (completionTimer) return
+  completionTimer = window.setTimeout(() => {
+    analysisStatus.value = 'completed'
+    completionTimer = undefined
+  }, 420)
+}
+
+function stopVisualProgress(): void {
+  if (visualProgressTimer) window.clearInterval(visualProgressTimer)
+  visualProgressTimer = undefined
+}
+
+function stopStatusPolling(): void {
+  if (pollTimer) window.clearTimeout(pollTimer)
+  pollTimer = undefined
 }
 
 function stopAnalysisPolling(): void {
-  if (pollTimer) window.clearTimeout(pollTimer)
+  stopStatusPolling()
   if (completionTimer) window.clearTimeout(completionTimer)
-  pollTimer = undefined
   completionTimer = undefined
-  stopModuleCaptions()
+  stopVisualProgress()
 }
 
 </script>
@@ -393,7 +421,7 @@ function stopAnalysisPolling(): void {
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, #7c3aed, #3b82f6);
-  transition: width 0.35s ease;
+  transition: width 0.08s linear;
 }
 
 .analysis-module-ticker {

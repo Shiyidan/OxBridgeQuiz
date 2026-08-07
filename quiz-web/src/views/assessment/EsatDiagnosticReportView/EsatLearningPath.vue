@@ -49,8 +49,8 @@
           <span><b>本次规划科目</b>{{ path.profile.subjects.join('、') || '未设置' }}</span>
           <span><b>目标院校</b>{{ path.profile.targetUniversities.join('、') || '未设置' }}</span>
           <span><b>目标专业</b>{{ path.profile.targetMajor || '未设置' }}</span>
-          <span><b>目标分数</b>{{ path.profile.targetScore ? `${path.profile.targetScore.toFixed(1)} / 9.0` : '未设置' }}</span>
-          <span><b>考试日期</b>{{ path.profile.examDate || '未设置' }}</span>
+          <span><b>每周可投入时长</b>{{ path.profile.weeklyHours ? `${path.profile.weeklyHours} 小时` : '未设置' }}</span>
+          <span><b>考试日期</b>{{ formatExamDate(path.profile.examDate) }}</span>
         </div>
         <div
           class="source-note"
@@ -146,6 +146,13 @@ import EsatStarterPlan from './EsatStarterPlan.vue'
 const props = defineProps<{
   path: DiagnosticLearningPath
 }>()
+
+// 个人中心按考试月份保存，报告统一转换为便于阅读的年月文案。
+function formatExamDate(value: string | null): string {
+  if (!value) return '未设置'
+  const matched = value.match(/^(\d{4})-(\d{2})/)
+  return matched ? `${matched[1]} 年 ${Number(matched[2])} 月` : value
+}
 
 // 缺少考试日期或每周时长时只提供可立即执行的一周启动方案，避免制造虚假的长期精确感。
 const isStarterPlan = computed(

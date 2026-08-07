@@ -8,7 +8,7 @@
       FIRST VIEWPORT: 标题下是一张横向个人档案，下一行并列会员权益与目标偏好。
       FORM: 依据用户截图重建的桌面档案仪表板，保留导航栏同宽的流体外壳。
     -->
-    <NavBar />
+    <NavBar :show-exam-switcher="false" />
 
     <main class="profile-shell">
       <header class="page-heading">
@@ -231,8 +231,6 @@
                   class="profile-target-row-select"
                   multiple
                   :multiple-limit="2"
-                  collapse-tags
-                  collapse-tags-tooltip
                   aria-label="目标院校层级"
                   placeholder="请选择目标院校"
                 >
@@ -276,11 +274,8 @@
                   v-model="editExamTypes"
                   class="profile-target-row-select"
                   multiple
-                  collapse-tags
-                  collapse-tags-tooltip
                   aria-label="目标考试"
                   placeholder="请选择目标考试"
-                  @change="syncEditExamDrafts"
                 >
                   <el-option
                     v-for="item in examTypes"
@@ -297,25 +292,71 @@
             </div>
             <div>
               <dt>
-                <el-icon aria-hidden="true"><Calendar /></el-icon>预计入学年份
+                <el-icon aria-hidden="true"><Document /></el-icon>备考科目
               </dt>
               <dd>
                 <el-select
                   v-if="examEditing"
-                  v-model="entrySeasonDraft"
+                  v-model="editEsatSubjects"
                   class="profile-target-row-select"
-                  aria-label="预计入学年份"
-                  placeholder="请选择入学年份"
+                  multiple
+                  aria-label="ESAT 备考科目"
+                  placeholder="请选择备考科目"
                 >
                   <el-option
-                    v-for="season in ENTRY_SEASON_OPTIONS"
-                    :key="season"
-                    :label="season"
-                    :value="season"
+                    v-for="subject in ESAT_SUBJECT_OPTIONS"
+                    :key="subject"
+                    :label="subject"
+                    :value="subject"
                   />
                 </el-select>
                 <template v-else>
-                  {{ profileEntrySeasonText }}
+                  {{ profileEsatSubjectsText }}
+                </template>
+              </dd>
+            </div>
+            <div>
+              <dt>
+                <el-icon aria-hidden="true"><Clock /></el-icon>每周可投入时长
+              </dt>
+              <dd>
+                <el-input-number
+                  v-if="examEditing"
+                  v-model="weeklyHoursDraft"
+                  class="profile-target-row-number"
+                  :min="10"
+                  :max="50"
+                  :step="1"
+                  :precision="0"
+                  controls-position="right"
+                  aria-label="每周可投入时长"
+                />
+                <template v-else>
+                  {{ profileWeeklyHoursText }}
+                </template>
+              </dd>
+            </div>
+            <div>
+              <dt>
+                <el-icon aria-hidden="true"><Calendar /></el-icon>考试日期
+              </dt>
+              <dd>
+                <el-select
+                  v-if="examEditing"
+                  v-model="examDateDraft"
+                  class="profile-target-row-select"
+                  aria-label="考试日期"
+                  placeholder="请选择考试日期"
+                >
+                  <el-option
+                    v-for="option in EXAM_DATE_OPTIONS"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+                <template v-else>
+                  {{ profileExamDateText }}
                 </template>
               </dd>
             </div>
@@ -522,6 +563,7 @@ import {
   Aim,
   Calendar,
   CircleCheck,
+  Clock,
   CollectionTag,
   Connection,
   Document,
@@ -537,7 +579,7 @@ import {
 } from '@element-plus/icons-vue'
 import NavBar from '@/components/NavBar.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
-import { getMember, updateExamPreferences, type ExamPreference } from '@/api/member'
+import { getMember, updateStudyPreferences, type StudyPreferences } from '@/api/member'
 import { getProfileExamStats, type ProfileExamStats } from '@/api/exam'
 import { getBillingOverview, type BillingOverview, type PaymentOrder } from '@/api/payment'
 import { useAuthStore } from '@/stores/auth'
@@ -581,14 +623,6 @@ interface BillingRecord {
   order: PaymentOrder | null
 }
 
-interface ExamGoalDraft {
-  targetUniversities: string[]
-  targetMajor: string
-  targetScore: string
-  examDate: string
-  weeklyHours: string
-}
-
 const router = useRouter()
 const auth = useAuthStore()
 const errorText = ref('')
@@ -617,83 +651,44 @@ const profileIpLocationText = computed(() => {
 const examEditing = ref(false)
 const examSaving = ref(false)
 const editExamTypes = ref<string[]>([])
-const editSubjects = ref<Record<string, string[]>>({})
-const editGoals = ref<Record<string, ExamGoalDraft>>({})
 const editTargetUniversities = ref<string[]>([])
 const editTargetMajor = ref('')
+const editEsatSubjects = ref<string[]>(['数学1'])
+const weeklyHoursDraft = ref(20)
 const targetRegionsDraft = ref('英国、美国')
-const entrySeasonDraft = ref('2026 年秋季')
-const ENTRY_SEASON_OPTIONS = [
-  '2025 年秋季',
-  '2026 年春季',
-  '2026 年秋季',
-  '2027 年春季',
-  '2027 年秋季',
-  '2028 年秋季',
+const examDateDraft = ref('2026-10')
+const ESAT_SUBJECT_OPTIONS = ['数学1', '数学2', '物理', '化学', '生物'] as const
+const EXAM_DATE_OPTIONS = [
+  { label: '2026 年 10 月', value: '2026-10' },
+  { label: '2027 年 1 月', value: '2027-01' },
+  { label: '2027 年 10 月', value: '2027-10' },
+  { label: '2028 年 1 月', value: '2028-01' },
+  { label: '2028 年 10 月', value: '2028-10' },
 ] as const
 
 const examTypes = EXAM_TYPE_OPTIONS
-
-const examRequiredSubjects: Record<string, string[]> = {
-  ESAT: ['数学1'],
-  TMUA: ['数学'],
-  STEP: ['数学'],
-}
 
 // 考试类型展示名从统一选项读取，避免页面直接展示内部值。
 function examTypeLabel(value: string): string {
   return examTypes.find((e) => e.value === value)?.label || value
 }
 
-// 新增考试类型时创建完整空白资料，保证模板中的双向绑定始终有目标对象。
-function emptyExamGoal(): ExamGoalDraft {
-  return {
-    targetUniversities: [],
-    targetMajor: '',
-    targetScore: '',
-    examDate: '',
-    weeklyHours: '',
-  }
-}
-
-// 下拉切换考试时只补齐新增考试的必需草稿，并清理已经取消的考试资料。
-function syncEditExamDrafts(values: string[]): void {
-  const selected = new Set(values)
-  for (const examType of values) {
-    editSubjects.value[examType] ||= [...(examRequiredSubjects[examType] || [])]
-    editGoals.value[examType] ||= emptyExamGoal()
-  }
-  for (const examType of Object.keys(editGoals.value)) {
-    if (selected.has(examType)) continue
-    delete editGoals.value[examType]
-    delete editSubjects.value[examType]
-  }
-}
-
 // 进入编辑模式时把所有已保存偏好复制为当前卡片内的可撤销草稿。
 function startEditExam(): void {
-  const prefs = auth.memberContext?.examPreferences || []
-  editExamTypes.value = prefs.length ? prefs.map((p) => p.examType) : ['ESAT', 'TMUA']
-  editSubjects.value = {}
-  editGoals.value = {}
-  for (const p of prefs) {
-    editSubjects.value[p.examType] = [...p.subjects]
-    editGoals.value[p.examType] = {
-      targetUniversities: [...(p.targetUniversities || [])],
-      targetMajor: p.targetMajor || '',
-      targetScore: p.targetScore ? String(p.targetScore) : '',
-      examDate: p.examDate || '',
-      weeklyHours: p.weeklyHours ? String(p.weeklyHours) : '',
-    }
-  }
-  syncEditExamDrafts(editExamTypes.value)
-  const savedUniversities = [...new Set(prefs.flatMap((p) => p.targetUniversities || []))]
-  editTargetUniversities.value = savedUniversities.length
-    ? savedUniversities.slice(0, 2)
+  const preferences = auth.memberContext?.studyPreferences
+  editExamTypes.value = preferences?.examTypes.length
+    ? [...preferences.examTypes]
+    : ['ESAT', 'TMUA']
+  editTargetUniversities.value = preferences?.targetUniversities.length
+    ? [...preferences.targetUniversities]
     : TARGET_UNIVERSITY_OPTIONS.slice(2, 4)
-  editTargetMajor.value = prefs.find((p) => p.targetMajor)?.targetMajor || '数学与统计、计算机科学'
-  targetRegionsDraft.value = prefs.find((p) => p.targetRegions)?.targetRegions || '英国、美国'
-  entrySeasonDraft.value = prefs.find((p) => p.entrySeason)?.entrySeason || '2026 年秋季'
+  editTargetMajor.value = preferences?.targetMajor || '数学与统计、计算机科学'
+  editEsatSubjects.value = preferences?.esatSubjects.length
+    ? [...preferences.esatSubjects]
+    : ['数学1']
+  weeklyHoursDraft.value = preferences?.weeklyHours || 20
+  targetRegionsDraft.value = preferences?.targetRegions || '英国、美国'
+  examDateDraft.value = preferences?.examDate || EXAM_DATE_OPTIONS[0].value
   examEditing.value = true
 }
 
@@ -701,10 +696,12 @@ function startEditExam(): void {
 function cancelEditExam(): void {
   editTargetUniversities.value = []
   editTargetMajor.value = ''
+  editEsatSubjects.value = ['数学1']
+  weeklyHoursDraft.value = 20
   examEditing.value = false
 }
 
-// 保存前验证目标分数与周投入范围，并将目标资料写回对应考试类型的 JSON 偏好。
+// 保存前验证全局备考信息与周投入范围，再通过账户级偏好接口统一持久化。
 async function saveExam(): Promise<void> {
   if (!editExamTypes.value.length) {
     ElMessage.warning('请至少选择一个目标考试')
@@ -724,56 +721,34 @@ async function saveExam(): Promise<void> {
     ElMessage.warning('请输入目标专业方向')
     return
   }
-  syncEditExamDrafts(editExamTypes.value)
-  for (const et of editExamTypes.value) {
-    editGoals.value[et]!.targetUniversities = [...editTargetUniversities.value]
-    editGoals.value[et]!.targetMajor = editTargetMajor.value.trim()
+  if (!editEsatSubjects.value.length) {
+    ElMessage.warning('请至少选择一个 ESAT 备考科目')
+    return
   }
-  for (const et of editExamTypes.value) {
-    if ((editGoals.value[et]?.targetUniversities.length || 0) > 2) {
-      ElMessage.warning(`${et} 目标院校最多选择 2 个`)
-      return
-    }
-    const targetScoreText = editGoals.value[et]?.targetScore.trim() || ''
-    const targetScore = Number(targetScoreText)
-    if (
-      et === 'ESAT' &&
-      targetScoreText &&
-      (!Number.isFinite(targetScore) || targetScore < 1 || targetScore > 9)
-    ) {
-      ElMessage.warning('ESAT 目标分数需为 1.0-9.0')
-      return
-    }
-    const weeklyHoursText = editGoals.value[et]?.weeklyHours.trim() || ''
-    const weeklyHours = Number(weeklyHoursText)
-    if (weeklyHoursText && (!Number.isFinite(weeklyHours) || weeklyHours < 1 || weeklyHours > 80)) {
-      ElMessage.warning(`${et} 每周可投入时长需为 1-80 小时`)
-      return
-    }
+  if (
+    !Number.isInteger(weeklyHoursDraft.value) ||
+    weeklyHoursDraft.value < 10 ||
+    weeklyHoursDraft.value > 50
+  ) {
+    ElMessage.warning('每周可投入时长需为 10-50 小时')
+    return
+  }
+  if (!EXAM_DATE_OPTIONS.some((option) => option.value === examDateDraft.value)) {
+    ElMessage.warning('请选择有效的考试日期')
+    return
   }
   examSaving.value = true
   try {
-    const prefs: ExamPreference[] = editExamTypes.value.map((et) => {
-      const goal = editGoals.value[et] || emptyExamGoal()
-      const weeklyHours = Number(goal.weeklyHours)
-      const targetScore = Number(goal.targetScore)
-      return {
-        examType: et,
-        subjects: editSubjects.value[et] || [],
-        targetRegions,
-        ...(goal.targetUniversities.length
-          ? { targetUniversities: [...goal.targetUniversities] }
-          : {}),
-        targetMajor,
-        entrySeason: entrySeasonDraft.value,
-        ...(et === 'ESAT' && goal.targetScore && Number.isFinite(targetScore)
-          ? { targetScore }
-          : {}),
-        ...(goal.examDate ? { examDate: goal.examDate } : {}),
-        ...(goal.weeklyHours && Number.isFinite(weeklyHours) ? { weeklyHours } : {}),
-      }
-    })
-    await updateExamPreferences(prefs)
+    const preferences: StudyPreferences = {
+      examTypes: [...editExamTypes.value],
+      esatSubjects: [...editEsatSubjects.value],
+      targetRegions,
+      targetUniversities: [...editTargetUniversities.value],
+      targetMajor,
+      examDate: examDateDraft.value,
+      weeklyHours: weeklyHoursDraft.value,
+    }
+    await updateStudyPreferences(preferences)
     // 刷新 memberContext 以同步界面
     const ctx = await getMember()
     auth.setMemberContext(ctx)
@@ -804,33 +779,34 @@ const activeMemberships = computed(() =>
 )
 // 会员展示只读取正式 UserMembership，不再接受用户表上的全局付费标识。
 const hasActiveMembership = computed(() => activeMemberships.value.length > 0)
-// 缺少备考偏好时统一为空数组，简化模板遍历和编辑初始化。
-const examPreferences = computed(() => auth.memberContext?.examPreferences || [])
-// 国家地区读取服务端保存值，历史账号缺少该字段时使用可直接编辑的初始值。
+// 个人中心只消费后端归一后的账户级偏好，不再自行聚合按考试兼容数据。
+const studyPreferences = computed(() => auth.memberContext?.studyPreferences)
 const profileTargetRegionsText = computed(
-  () => examPreferences.value.find((item) => item.targetRegions)?.targetRegions || '英国、美国',
+  () => studyPreferences.value?.targetRegions || '英国、美国',
 )
-// 多考试目标院校去重后合并展示，避免同一院校重复占用摘要空间。
 const profileTargetSchoolsText = computed(() => {
-  const schools = [
-    ...new Set(examPreferences.value.flatMap((item) => item.targetUniversities || [])),
-  ]
+  const schools = studyPreferences.value?.targetUniversities || []
   return schools.length ? schools.join('、') : 'UCL、帝国理工、LSE'
 })
-// 目标专业读取真实偏好；历史账号尚未填写时使用可编辑的初始方向。
-const profileTargetMajorText = computed(() => {
-  const majors = [...new Set(examPreferences.value.map((item) => item.targetMajor).filter(Boolean))]
-  return majors.length ? majors.join('、') : '数学与统计、计算机科学'
-})
-// 目标考试从已保存考试偏好生成，空状态展示当前产品支持的初始组合。
-const profileExamTypesText = computed(() => {
-  const exams = [...new Set(examPreferences.value.map((item) => examTypeLabel(item.examType)))]
-  return exams.length ? exams.join('、') : 'ESAT、TMUA'
-})
-// 入学年份读取服务端保存值，历史账号缺少该字段时使用初始申请季。
-const profileEntrySeasonText = computed(
-  () => examPreferences.value.find((item) => item.entrySeason)?.entrySeason || '2026 年秋季',
+const profileTargetMajorText = computed(
+  () => studyPreferences.value?.targetMajor || '数学与统计、计算机科学',
 )
+const profileExamTypesText = computed(() => {
+  const exams = studyPreferences.value?.examTypes || []
+  return exams.length ? exams.map(examTypeLabel).join('、') : 'ESAT、TMUA'
+})
+const profileEsatSubjectsText = computed(() => {
+  const subjects = studyPreferences.value?.esatSubjects || []
+  return subjects.length ? subjects.join('、') : '数学1'
+})
+const profileWeeklyHoursText = computed(
+  () => `${studyPreferences.value?.weeklyHours || 20} 小时/周`,
+)
+// 考试日期展示产品约定的月份标签。
+const profileExamDateText = computed(() => {
+  const value = studyPreferences.value?.examDate || EXAM_DATE_OPTIONS[0].value
+  return EXAM_DATE_OPTIONS.find((option) => option.value === value)?.label || '2026 年 10 月'
+})
 // 管理员只展示身份，不重复罗列其天然拥有的各考试管理权益。
 const membershipTags = computed(() => {
   if (auth.isAdmin) return ['管理员']
@@ -1008,11 +984,12 @@ onMounted(async () => {
 
   if (memberResult.status === 'fulfilled') {
     auth.setMemberContext(memberResult.value)
-    // 优先用注册时选的备考偏好，其次用已开通会员的考试类型
-    const prefs = memberResult.value.examPreferences || []
-    const firstPreference = prefs.find((item) => isExamTypeAvailable(item.examType))
+    // 优先用账户级备考偏好，其次用已开通会员的考试类型。
+    const firstPreference = memberResult.value.studyPreferences.examTypes.find((examType) =>
+      isExamTypeAvailable(examType),
+    )
     if (firstPreference) {
-      currentExamType.value = normalizeExamType(firstPreference.examType)
+      currentExamType.value = normalizeExamType(firstPreference)
     } else {
       const firstActive = memberResult.value.memberships.find(
         (item) => item.status === 'active' && isExamTypeAvailable(item.examType),
@@ -3274,11 +3251,9 @@ function formatDateTime(value: string | null): string {
 }
 
 .profile-target-row-select :deep(.el-select__wrapper) {
-  height: 28px;
+  height: auto;
   min-height: 28px;
-  max-height: 28px;
-  overflow: hidden;
-  padding: 0 9px;
+  padding: 3px 9px;
   border-radius: 5px;
   box-shadow: 0 0 0 1px var(--profile-line) inset;
 }
@@ -3300,6 +3275,27 @@ function formatDateTime(value: string | null): string {
   font-size: 9px;
 }
 
+.profile-target-row-number {
+  width: 100%;
+}
+
+.profile-target-row-number :deep(.el-input__wrapper) {
+  height: 28px;
+  padding: 0 32px 0 9px;
+  border-radius: 5px;
+  box-shadow: 0 0 0 1px var(--profile-line) inset;
+}
+
+.profile-target-row-number :deep(.el-input__inner) {
+  font-size: 10px;
+  text-align: left;
+}
+
+.profile-target-row-number :deep(.el-input-number__increase),
+.profile-target-row-number :deep(.el-input-number__decrease) {
+  width: 24px;
+}
+
 .profile-target-list {
   overflow: hidden;
   margin: 0;
@@ -3308,7 +3304,7 @@ function formatDateTime(value: string | null): string {
 }
 
 .profile-target-list > div {
-  height: 42px;
+  height: auto;
   min-height: 42px;
   display: grid;
   grid-template-columns: minmax(145px, 0.85fr) minmax(0, 1.15fr);

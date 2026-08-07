@@ -237,15 +237,13 @@ onBeforeUnmount(() => {
       >
         <div class="home-page home-story-layout home-story-layout--reverse home-motion-content">
           <div class="home-story-copy">
-            <div class="home-story-index">01 · AceMock 自研命题模型</div>
-            <h2 id="home-model-title">
-              <span class="home-story-title-line">我们不只整理真题，</span>
-              <span class="home-story-title-line">还把命题规律做成了模型</span>
+            <div class="home-story-index">01 · 命题模型</div>
+            <h2 id="home-model-title" class="home-section-title">
+              <span class="home-story-title-line home-section-title">不只整理真题，</span>
+              <span class="home-story-title-line home-section-title">我们把命题规律做成了模型</span>
             </h2>
             <p class="home-section-desc">
-              AceMock
-              从历年真题中拆解考点结构、推理链路、难度梯度与干扰项规律，并将其沉淀为自研命题模型，持续生成贴合
-              ESAT 考纲与真实考试思路的专项新题。
+              从历年真题中提炼命题规律，通过自研模型生成贴合 ESAT 考纲的专项新题。
             </p>
             <ul class="home-story-points">
               <li>从真题中提炼命题规律，不是简单改写题面</li>
@@ -296,8 +294,11 @@ onBeforeUnmount(() => {
         <div class="home-page home-loop-layout home-motion-content">
           <header class="home-loop-heading">
             <p class="home-story-index">02 · 完整学习闭环</p>
-            <h2 id="home-loop-title" class="home-section-title">
-              做完一套题，下一步练什么就清楚了
+            <h2 id="home-loop-title" class="home-story-title-line home-section-title">
+              做完一套题
+            </h2>
+            <h2 id="home-loop-title" class="home-story-title-line home-section-title">
+              下一步练什么就清楚了
             </h2>
             <p class="home-section-desc">
               每一步都承接上一阶段的真实作答记录，从定位问题到验证是否掌握，形成可回看的备考闭环。
@@ -400,8 +401,11 @@ onBeforeUnmount(() => {
       <div class="home-page home-growth-layout home-motion-content">
         <header class="home-growth-copy">
           <p class="home-public-index">04 · 专属诊断报告</p>
-          <h2 id="home-growth-title" class="home-section-title">
-            不只告诉你得了多少分，还告诉你下一步练什么
+          <h2 id="home-growth-title" class="home-story-title-line home-section-title">
+            不只告诉你得了多少分
+          </h2>
+          <h2 id="home-growth-title" class="home-story-title-line home-section-title">
+            还进行诊断分析
           </h2>
           <p class="home-section-desc">
             每一道题都与知识点和能力要求关联，帮助你发现持续失分的原因。
@@ -482,8 +486,11 @@ onBeforeUnmount(() => {
       <div class="home-page home-mistake-layout home-motion-content">
         <header class="home-mistake-heading">
           <p class="home-public-index">06 · 个人错题库</p>
-          <h2 id="home-mistake-title" class="home-section-title">
-            每一道错题，都成为下一次提分的依据
+          <h2 id="home-mistake-title" class="home-story-title-line home-section-title">
+            每一道错题
+          </h2>
+          <h2 id="home-mistake-title" class="home-story-title-line home-section-title">
+            都成为下一次提分的依据
           </h2>
           <p class="home-section-desc">
             保留原题、作答答案、正确答案、知识点和详细中文解析，支持重新练习并记录掌握状态。

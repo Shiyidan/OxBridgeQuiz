@@ -7,7 +7,7 @@
   - 验证结果：完整品牌名称、首页推荐标题、首页摘要和目标搜索结果已经在本方案中固化，后续实现均以此为准。
 - [x] 2. 完善首页基础元数据：配置 `title`、`description`、canonical、Open Graph、`WebSite` 结构化数据和稳定 favicon。
   - 完成日期：2026-08-07
-  - 验证结果：首页标题、摘要、robots、canonical、Open Graph、`WebSite` JSON-LD 和 `/favicon.ico` 已写入并通过静态检查，结构化数据可正常解析。
+  - 验证结果：首页标题、摘要、robots、canonical、Open Graph、`WebSite` JSON-LD 和 AceMock 品牌 favicon 已写入并通过静态检查；生产构建使用内容哈希后的品牌图标资源，结构化数据可正常解析。
 - [x] 3. 建立路由级 SEO 管理：为公开页面配置独立标题、摘要和 canonical，为登录及业务私有页面配置 `noindex`。
   - 完成日期：2026-08-07
   - 验证结果：新增集中式路由 SEO 管理，首页及三个考试介绍页使用独立搜索信息，其余路由默认执行私有页 `noindex` 策略；前端类型检查通过。

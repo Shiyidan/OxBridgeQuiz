@@ -2486,12 +2486,9 @@ body.home-dialog-open {
 }
 
 .home-marketing .home-model-screen .home-story-copy h2 {
-  max-width: 610px;
+  max-width: 560px;
   margin: 13px 0 0;
-  font-size: clamp(38px, 3.8vw, 54px);
   font-weight: 760;
-  line-height: 1.17;
-  letter-spacing: -0.045em;
 }
 
 .home-marketing .home-model-screen .home-story-copy > p {
@@ -2499,12 +2496,6 @@ body.home-dialog-open {
   margin: 21px 0 0;
   color: #536074;
   line-height: 1.85;
-}
-
-.home-marketing .home-model-screen .home-story-copy h2 {
-  max-width: 560px;
-  font-size: clamp(36px, 3vw, 48px);
-  line-height: 1.16;
 }
 
 .home-story-title-line {
@@ -2928,10 +2919,6 @@ body.home-dialog-open {
     font-size: 40px;
   }
 
-  .home-marketing .home-model-screen .home-story-copy h2 {
-    font-size: 34px;
-  }
-
   .home-marketing .home-model-screen .home-story-copy {
     min-width: 0;
   }
@@ -2940,8 +2927,6 @@ body.home-dialog-open {
     width: 100%;
     max-width: 100%;
     overflow-wrap: anywhere;
-    font-size: 32px;
-    letter-spacing: -0.035em;
     white-space: normal;
     word-break: break-word;
   }

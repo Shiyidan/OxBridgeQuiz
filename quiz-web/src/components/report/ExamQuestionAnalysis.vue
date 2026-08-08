@@ -87,7 +87,10 @@
             <p v-if="showStructuredSolution && finalValue" class="analysis-final">
               <strong>最终结论：</strong><LatexText :text="finalValue" />
             </p>
-            <ul v-if="distractorReasons.length" class="reason-list">
+            <ul
+              v-if="showStructuredSolution && distractorReasons.length"
+              class="reason-list"
+            >
               <li v-for="(reason, i) in distractorReasons" :key="i">
                 <LatexText :text="reason" />
               </li>
@@ -214,7 +217,7 @@ const correctSolution = computed(() => la.value?.correct_solution || la.value?.s
 const solutionSteps = computed(() => la.value?.solution_trace?.steps || [])
 const finalValue = computed(() => la.value?.solution_trace?.final_value || '')
 
-// 完整解析已覆盖推导步骤和结论时不再重复展示结构化链路，缺失时才使用结构化内容兜底。
+// 完整解析已覆盖推导步骤、结论和选项分析时不再重复展示结构化链路，缺失时才使用结构化内容兜底。
 const showStructuredSolution = computed(() => !correctSolution.value)
 
 // 解析文件使用选项与原因对象数组，展示前过滤不完整的异常项。

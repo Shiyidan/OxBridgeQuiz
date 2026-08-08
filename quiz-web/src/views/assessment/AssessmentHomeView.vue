@@ -1668,6 +1668,10 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
   text-align: right;
 }
 
+.assessment-page--esat .assessment-year-overview__heading p {
+  color: #291616;
+}
+
 .assessment-year-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

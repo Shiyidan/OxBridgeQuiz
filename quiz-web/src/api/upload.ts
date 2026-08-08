@@ -85,6 +85,7 @@ export function importJson(params: StandardPaperJson & { code?: string }) {
     url: '/papers/import-json',
     method: 'POST',
     body: params,
+    timeout: 0,
   })
 }
 

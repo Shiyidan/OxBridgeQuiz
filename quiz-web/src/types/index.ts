@@ -86,6 +86,12 @@ export interface KnowledgePoint {
   role: 'primary' | 'secondary'
 }
 
+/** 错误选项解析：兼容解析文件使用的选项与原因对象。 */
+export interface DistractorReason {
+  option: string
+  reason: string
+}
+
 /** 学习解析：入库后的题目解析、反馈和复习建议。 */
 export interface LearningAnalysis {
   solution_trace?: {
@@ -95,7 +101,7 @@ export interface LearningAnalysis {
     steps?: string[]
     final_value?: string
     correct_answer?: string[]
-    distractors?: Record<string, string>
+    distractors?: DistractorReason[]
   }
   answer_feedback_mode?: 'precomputed'
   exam_focus?: string

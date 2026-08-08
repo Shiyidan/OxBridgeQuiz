@@ -79,6 +79,7 @@ export function getPaperDetailData(id: string) {
   return callApi<PaperDetail>({
     url: `/papers/${id}`,
     method: 'GET',
+    timeout: 0,
   })
 }
 

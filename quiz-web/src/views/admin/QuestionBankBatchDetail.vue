@@ -1,267 +1,133 @@
-<!-- 后台试题库上传包详情：展示一次文件导入的元数据，并分页管理包内独立题目。 -->
+<!-- 后台试题包查看页：从文件列表进入后按前台解析样式逐题查看，并保留吸顶管理操作。 -->
 <template>
-  <div class="batch-detail-page">
-    <header class="detail-header">
-      <div>
-        <button
-          type="button"
-          class="back-link"
-          @click="router.push('/admin/core-library/questions')"
-        >
-          ← 返回文件列表
-        </button>
-        <el-tooltip :content="batch?.title || '文件详情'" placement="top">
-          <h2>{{ batch?.title || '文件详情' }}</h2>
-        </el-tooltip>
-        <p>试题库文件详情</p>
-      </div>
-    </header>
-
-    <section v-loading="batchLoading" class="package-card">
-      <template v-if="batch">
-        <div class="package-meta">
-          <div>
-            <span>当前题量</span><strong>{{ batch.currentQuestionCount }} 题</strong>
-          </div>
-          <div>
-            <span>导入题量</span><strong>{{ batch.actualQuestionCount }} 题</strong>
-          </div>
-          <div>
-            <span>考试类型</span><strong>{{ batch.examTypes.join('、') || '—' }}</strong>
-          </div>
-          <div>
-            <span>科目 / 所属 Paper</span>
-            <strong>{{ batchClassificationLabel }}</strong>
-          </div>
-          <div>
-            <span>上传时间</span><strong>{{ formatDate(batch.createdAt) }}</strong>
-          </div>
-          <div class="package-status-meta">
-            <span>题目状态</span>
-            <div class="package-status">
-              <span class="status-chip status-chip--draft"
-                >草稿 {{ batch.statusCounts.draft }}</span
-              >
-              <span class="status-chip status-chip--published">
-                已发布 {{ batch.statusCounts.published }}
-              </span>
-              <span class="status-chip status-chip--archived">
-                已归档 {{ batch.statusCounts.archived }}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="package-footer">
-          <el-tooltip :content="batch.remarks || '暂无上传备注'" placement="top">
-            <p class="remarks">{{ batch.remarks || '暂无上传备注' }}</p>
+  <div v-loading="loading" class="batch-review-page">
+    <section v-if="batch" class="sticky-admin-panel">
+      <div class="batch-toolbar">
+        <div class="batch-heading">
+          <button type="button" class="back-link" @click="returnToBatchList">← 返回文件列表</button>
+          <el-tooltip :content="batch.title" placement="bottom">
+            <h2>{{ batch.title }}</h2>
           </el-tooltip>
         </div>
-      </template>
-    </section>
 
-    <section ref="questionSectionRef" class="question-section">
-      <div class="section-title-row">
-        <div>
-          <h3>文件内题目</h3>
-          <p>导入文件仅用于归类和追溯，题目仍可独立审核、发布、归档和组卷。</p>
+        <div class="batch-overview" aria-label="试题包概括">
+          <span
+            ><strong>{{ batch.currentQuestionCount }}</strong> 题</span
+          >
+          <span>{{ batch.examTypes.join('、') || '—' }}</span>
+          <span :title="batchClassificationLabel">{{ batchClassificationLabel }}</span>
+          <span>草稿 {{ batch.statusCounts.draft }}</span>
+          <span>已发布 {{ batch.statusCounts.published }}</span>
+          <span>已归档 {{ batch.statusCounts.archived }}</span>
+          <span>{{ formatDate(batch.createdAt) }}</span>
+        </div>
+
+        <div class="batch-actions" aria-label="试题包操作">
+          <button
+            type="button"
+            class="action-button action-button--publish"
+            :disabled="batchActionDisabled('published')"
+            @click="changeBatchStatus('published')"
+          >
+            {{ batchActionLabel('published', '上线') }}
+          </button>
+          <button
+            type="button"
+            :disabled="batchActionDisabled('archived')"
+            @click="changeBatchStatus('archived')"
+          >
+            {{ batchActionLabel('archived', '归档') }}
+          </button>
+          <button
+            type="button"
+            class="action-button--danger"
+            :disabled="Boolean(batchOperatingAction)"
+            @click="deleteBatch"
+          >
+            {{ batchActionLabel('delete', '删除') }}
+          </button>
         </div>
       </div>
 
-      <div class="filter-bar">
-        <el-input
-          v-model.trim="filters.keyword"
-          class="search-input"
-          clearable
-          placeholder="题目 code、题干、学科或主题"
-          @keyup.enter="applyFilters"
-        />
-        <el-select v-model="filters.examType" clearable placeholder="考试类型">
-          <el-option
-            v-for="item in EXAM_TYPE_OPTIONS"
-            :key="item.value"
-            :label="item.label"
-            :value="item.value"
-          />
-        </el-select>
-        <el-select v-model="filters.difficulty" clearable placeholder="难度">
-          <el-option v-for="item in difficultyOptions" :key="item.value" v-bind="item" />
-        </el-select>
-        <el-select v-model="filters.status" clearable placeholder="状态">
-          <el-option v-for="item in statusOptions" :key="item.value" v-bind="item" />
-        </el-select>
-        <el-button @click="applyFilters">筛选</el-button>
-        <el-button @click="resetFilters">重置</el-button>
-      </div>
-
-      <div v-if="stickyPreviewVisible && activePreviewRow" class="sticky-preview-anchor">
-        <div class="sticky-preview-row">
-          <span :title="activePreviewRow.code">{{ activePreviewRow.code }}</span>
-          <span :title="activePreviewRow.title">{{ activePreviewRow.title }}</span>
-          <span>{{ activePreviewRow.examType }}</span>
-          <div class="sticky-preview-classification">
-            <strong>{{ activePreviewRow.subject || '—' }}</strong>
-            <span>{{ activePreviewRow.topic || '—' }}</span>
-          </div>
-          <span>{{ difficultyLabel(activePreviewRow.difficulty) }}</span>
-          <span>{{ qualityTierLabel(activePreviewRow.qualityTier) }}</span>
-          <el-dropdown trigger="click" @command="changeStatus(activePreviewRow, $event)">
-            <button
-              type="button"
-              class="status-btn"
-              :class="`status-btn--${activePreviewRow.status}`"
-            >
-              {{ statusLabel(activePreviewRow.status) }}
-            </button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item
-                  v-for="item in statusOptions"
-                  :key="item.value"
-                  :command="item.value"
-                >
-                  {{ item.label }}
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-          <span :title="knowledgePointLabels(activePreviewRow.knowledgePoints)">
-            {{ knowledgePointLabels(activePreviewRow.knowledgePoints) }}
-          </span>
-          <div class="action-group sticky-preview-actions">
-            <button type="button" class="preview-button" @click="collapseQuestionPreview">
-              收起
-            </button>
-            <button
-              type="button"
-              :disabled="deletingId === activePreviewRow.id"
-              @click="deleteQuestion(activePreviewRow)"
-            >
-              {{ deletingId === activePreviewRow.id ? '删除中' : '删除' }}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <AdminDataTable
-        v-model:page="pagination.page"
-        v-model:page-size="pagination.pageSize"
-        :data="questions"
-        row-key="id"
-        :expand-row-keys="expandedQuestionId ? [expandedQuestionId] : []"
-        :row-class-name="questionRowClassName"
-        :loading="questionsLoading"
-        :total="pagination.total"
-        empty-text="该文件内暂无符合条件的题目"
-        auto-height
-        show-pagination
-        @page-change="changePage"
-        @page-size-change="changePageSize"
-      >
-        <el-table-column
-          type="expand"
-          width="1"
-          class-name="inline-preview-expander"
-          label-class-name="inline-preview-expander"
+      <div v-if="activeQuestion" class="question-toolbar" aria-label="当前题目管理操作">
+        <span :title="activeQuestion.code">{{ activeQuestion.code }}</span>
+        <span class="question-title" :title="activeQuestion.title">
+          {{ activeQuestion.title }}
+        </span>
+        <span>{{ activeQuestion.examType }}</span>
+        <span :title="questionClassificationLabel(activeQuestion)">
+          {{ questionClassificationLabel(activeQuestion) }}
+        </span>
+        <span>{{ difficultyLabel(activeQuestion.difficulty) }}</span>
+        <span>{{ qualityTierLabel(activeQuestion.qualityTier) }}</span>
+        <el-dropdown trigger="click" @command="changeQuestionStatus">
+          <button
+            type="button"
+            class="status-button"
+            :class="`status-button--${activeQuestion.status}`"
+          >
+            {{ statusLabel(activeQuestion.status) }}
+          </button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item
+                v-for="item in statusOptions"
+                :key="item.value"
+                :command="item.value"
+              >
+                {{ item.label }}
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+        <span :title="knowledgePointLabels(activeQuestion.knowledgePoints)">
+          {{ knowledgePointLabels(activeQuestion.knowledgePoints) }}
+        </span>
+        <button
+          type="button"
+          class="question-delete-button"
+          :disabled="deletingQuestion"
+          @click="deleteActiveQuestion"
         >
-          <template #default="{ row }">
-            <div class="inline-preview">
-              <div v-if="previewLoading && expandedQuestionId === row.id" class="preview-state">
-                <span class="preview-spinner" aria-hidden="true"></span>
-                正在加载题目详情…
-              </div>
-              <div
-                v-else-if="previewError && expandedQuestionId === row.id"
-                class="preview-state preview-state--error"
-              >
-                <span>题目详情加载失败。</span>
-                <button type="button" @click="loadQuestionPreview(row.id)">重新加载</button>
-              </div>
-              <template v-else-if="previewDetail?.id === row.id">
-                <ExamQuestionAnalysis
-                  :questions="previewAnalysisQuestions"
-                  :correct-count="0"
-                  :show-user-answer="false"
-                  single-question-mode
-                />
-              </template>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="code" label="题目 code" min-width="190" show-overflow-tooltip />
-        <el-table-column prop="title" label="题干" min-width="300" show-overflow-tooltip />
-        <el-table-column prop="examType" label="考试" width="90" align="center" />
-        <el-table-column label="分类" min-width="190" show-overflow-tooltip>
-          <template #default="{ row }">
-            <div class="classification-cell">
-              <strong>{{ row.subject || '—' }}</strong>
-              <span>{{ row.topic || '—' }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="难度" width="100" align="center">
-          <template #default="{ row }">{{ difficultyLabel(row.difficulty) }}</template>
-        </el-table-column>
-        <el-table-column label="质量" width="100" align="center">
-          <template #default="{ row }">{{ qualityTierLabel(row.qualityTier) }}</template>
-        </el-table-column>
-        <el-table-column label="状态" width="120" align="center">
-          <template #default="{ row }">
-            <el-dropdown trigger="click" @command="changeStatus(row, $event)">
-              <button type="button" class="status-btn" :class="`status-btn--${row.status}`">
-                {{ statusLabel(row.status) }}
-              </button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item
-                    v-for="item in statusOptions"
-                    :key="item.value"
-                    :command="item.value"
-                  >
-                    {{ item.label }}
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-          </template>
-        </el-table-column>
-        <el-table-column label="知识点" min-width="220" show-overflow-tooltip>
-          <template #default="{ row }">{{ knowledgePointLabels(row.knowledgePoints) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right" align="center">
-          <template #default="{ row }">
-            <div class="action-group">
-              <button
-                type="button"
-                class="preview-button"
-                :aria-expanded="expandedQuestionId === row.id"
-                @click="toggleQuestionPreview(row)"
-              >
-                {{ expandedQuestionId === row.id ? '收起' : '预览' }}
-              </button>
-              <button type="button" :disabled="deletingId === row.id" @click="deleteQuestion(row)">
-                {{ deletingId === row.id ? '删除中' : '删除' }}
-              </button>
-            </div>
-          </template>
-        </el-table-column>
-      </AdminDataTable>
+          {{ deletingQuestion ? '删除中' : '删除题目' }}
+        </button>
+      </div>
     </section>
+
+    <section v-if="loadFailed" class="page-state page-state--error">
+      <p>试题包内容加载失败。</p>
+      <el-button @click="loadReview">重新加载</el-button>
+    </section>
+
+    <section v-else-if="!loading && !analysisQuestions.length" class="page-state">
+      <p>该试题包当前没有可查看的题目。</p>
+    </section>
+
+    <main v-else-if="analysisQuestions.length" class="analysis-view">
+      <ExamQuestionAnalysis
+        :key="reviewVersion"
+        :questions="analysisQuestions"
+        :correct-count="0"
+        :initial-question-id="activeQuestionId"
+        :show-user-answer="false"
+        @question-change="handleQuestionChange"
+      />
+    </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import AdminDataTable from '@/components/admin/AdminDataTable.vue'
 import ExamQuestionAnalysis from '@/components/report/ExamQuestionAnalysis.vue'
-import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 import type { ExamQuestion } from '@/api/exam'
 import {
+  deleteQuestionBankImportBatch,
   deleteQuestionBankQuestion,
-  getQuestionBankAdminDetail,
   getQuestionBankImportBatchDetail,
-  getQuestionBankImportBatchQuestions,
+  getQuestionBankImportBatchReview,
+  updateQuestionBankImportBatchStatus,
   updateQuestionBankStatus,
   type QuestionBankAdminDetail,
   type QuestionBankAdminItem,
@@ -274,33 +140,25 @@ import type { KnowledgePoint } from '@/types'
 const route = useRoute()
 const router = useRouter()
 const batchId = String(route.params.batchId)
-const batchLoading = ref(false)
-const questionsLoading = ref(false)
-const deletingId = ref('')
-const expandedQuestionId = ref('')
-const previewLoading = ref(false)
-const previewError = ref(false)
-const previewDetail = ref<QuestionBankAdminDetail | null>(null)
-const questionSectionRef = ref<HTMLElement | null>(null)
-const stickyPreviewVisible = ref(false)
-let previewRequestSequence = 0
-let previewScrollContainer: HTMLElement | null = null
-let stickyPreviewFrame = 0
+const loading = ref(false)
+const loadFailed = ref(false)
+const deletingQuestion = ref(false)
+const batchOperatingAction = ref<'published' | 'archived' | 'delete' | ''>('')
 const batch = ref<QuestionBankImportBatch | null>(null)
-const questions = ref<QuestionBankAdminItem[]>([])
-const filters = reactive({ keyword: '', examType: '', difficulty: '', status: '' })
-const appliedFilters = reactive({ keyword: '', examType: '', difficulty: '', status: '' })
-const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
+const questionDetails = ref<QuestionBankAdminDetail[]>([])
+const activeQuestionIndex = ref(0)
+const activeQuestionId = ref('')
+const reviewVersion = ref(0)
+const statusOptions: Array<{ value: QuestionBankStatus; label: string }> = [
+  { value: 'draft', label: '草稿' },
+  { value: 'published', label: '已发布' },
+  { value: 'archived', label: '已归档' },
+]
 const difficultyOptions = [
   { value: 'easy', label: '简单' },
   { value: 'medium', label: '中等' },
   { value: 'hard', label: '困难' },
   { value: 'composite', label: '复合' },
-]
-const statusOptions: Array<{ value: QuestionBankStatus; label: string }> = [
-  { value: 'draft', label: '草稿' },
-  { value: 'published', label: '已发布' },
-  { value: 'archived', label: '已归档' },
 ]
 
 // ESAT/STEP 显示科目，TMUA 显示 Paper；混合文件按两类内容依次汇总。
@@ -314,195 +172,70 @@ const batchClassificationLabel = computed(() => {
   )
 })
 
-// 公共解析组件接收报告题目数组，行内预览将当前独立题目包装为单题数据源。
-const previewAnalysisQuestions = computed<Array<ExamQuestion & { id: string }>>(() => {
-  if (!previewDetail.value) return []
-  return [
-    {
-      ...previewDetail.value.question,
-      id: previewDetail.value.question.id || previewDetail.value.id,
-      questionId: previewDetail.value.id,
-    },
-  ]
-})
-
-// 吸顶摘要始终来自当前页原题目行，不复制详情接口中的另一份元数据。
-const activePreviewRow = computed(
-  () => questions.value.find((row) => row.id === expandedQuestionId.value) || null,
+// 整包完整题目转换为公共解析组件的数据结构，数据库题目 id 作为稳定导航标识。
+const analysisQuestions = computed<Array<ExamQuestion & { id: string }>>(() =>
+  questionDetails.value.map((detail, index) => ({
+    ...detail.question,
+    id: detail.question.id || detail.id,
+    questionId: detail.id,
+    number: index + 1,
+  })),
 )
 
-// 页面滚动时只在原题目行离开顶部、且详情尚未结束的区间显示吸顶摘要。
-function updateStickyPreviewVisibility(): void {
-  if (!expandedQuestionId.value || !previewScrollContainer || !questionSectionRef.value) {
-    stickyPreviewVisible.value = false
-    return
-  }
-  const activeRow = questionSectionRef.value.querySelector<HTMLElement>(
-    '.el-table__body-wrapper .question-row--active-preview',
-  )
-  const expandedCell = questionSectionRef.value.querySelector<HTMLElement>(
-    '.el-table__expanded-cell',
-  )
-  if (!activeRow || !expandedCell) {
-    stickyPreviewVisible.value = false
-    return
-  }
-  const viewportTop = previewScrollContainer.getBoundingClientRect().top
-  const rowRect = activeRow.getBoundingClientRect()
-  const detailRect = expandedCell.getBoundingClientRect()
-  stickyPreviewVisible.value =
-    rowRect.top < viewportTop && detailRect.bottom > viewportTop + rowRect.height
+// 顶部管理栏始终对应解析组件当前选中的题目。
+const activeQuestion = computed<QuestionBankAdminDetail | null>(
+  () => questionDetails.value[activeQuestionIndex.value] || null,
+)
+
+// 从查看页返回上传文件列表，不保留内部逐题状态。
+async function returnToBatchList(): Promise<void> {
+  await router.push('/admin/core-library/questions')
 }
 
-// 滚动监听合并到动画帧执行，避免长题目滚动时持续触发同步布局计算。
-function scheduleStickyPreviewUpdate(): void {
-  if (stickyPreviewFrame) return
-  stickyPreviewFrame = window.requestAnimationFrame(() => {
-    stickyPreviewFrame = 0
-    updateStickyPreviewVisibility()
-  })
-}
-
-// 展开题目后监听后台主内容滚动容器，侧栏滚动不参与题目吸顶计算。
-function startStickyPreviewTracking(): void {
-  previewScrollContainer = questionSectionRef.value?.closest<HTMLElement>('.main-content') || null
-  previewScrollContainer?.addEventListener('scroll', scheduleStickyPreviewUpdate, { passive: true })
-  window.addEventListener('resize', scheduleStickyPreviewUpdate)
-  scheduleStickyPreviewUpdate()
-}
-
-// 收起、翻页或离开页面时释放滚动监听和动画帧。
-function stopStickyPreviewTracking(): void {
-  previewScrollContainer?.removeEventListener('scroll', scheduleStickyPreviewUpdate)
-  window.removeEventListener('resize', scheduleStickyPreviewUpdate)
-  previewScrollContainer = null
-  if (stickyPreviewFrame) window.cancelAnimationFrame(stickyPreviewFrame)
-  stickyPreviewFrame = 0
-  stickyPreviewVisible.value = false
-}
-
-// 列表刷新前关闭展开行，避免分页或筛选后保留已经不在当前页的题目详情。
-function collapseQuestionPreview(): void {
-  stopStickyPreviewTracking()
-  previewRequestSequence += 1
-  expandedQuestionId.value = ''
-  previewLoading.value = false
-  previewError.value = false
-  previewDetail.value = null
-}
-
-// 当前展开题目获得稳定行类名，使题目摘要在详情内部滚动期间保持在可视区顶部。
-function questionRowClassName({ row }: { row: QuestionBankAdminItem }): string {
-  return row.id === expandedQuestionId.value ? 'question-row--active-preview' : ''
-}
-
-// 展开后将当前题目行对齐到管理内容区顶部，随后只滚动行下方的完整详情。
-async function focusExpandedQuestionRow(): Promise<void> {
-  await nextTick()
-  const activeRow = questionSectionRef.value?.querySelector<HTMLElement>(
-    '.el-table__body-wrapper .question-row--active-preview',
-  )
-  activeRow?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  startStickyPreviewTracking()
-}
-
-// 详情按需加载；请求序号用于忽略管理员快速切题时较晚返回的旧请求。
-async function loadQuestionPreview(questionId: string): Promise<void> {
-  const requestSequence = ++previewRequestSequence
-  previewLoading.value = true
-  previewError.value = false
-  previewDetail.value = null
+// 初次进入一次加载批次摘要和全部完整题目，失败时保留明确的重试入口。
+async function loadReview(): Promise<void> {
+  loading.value = true
+  loadFailed.value = false
   try {
-    const detail = await getQuestionBankAdminDetail(questionId)
-    if (requestSequence === previewRequestSequence && expandedQuestionId.value === questionId) {
-      previewDetail.value = detail
-    }
-  } catch {
-    if (requestSequence === previewRequestSequence && expandedQuestionId.value === questionId) {
-      previewError.value = true
-    }
-  } finally {
-    if (requestSequence === previewRequestSequence) previewLoading.value = false
-    await nextTick()
-    scheduleStickyPreviewUpdate()
-  }
-}
-
-// 预览按钮在当前行执行展开/收起，并保证同一时间只展示一道题。
-async function toggleQuestionPreview(row: QuestionBankAdminItem): Promise<void> {
-  if (expandedQuestionId.value === row.id) {
-    collapseQuestionPreview()
-    return
-  }
-  expandedQuestionId.value = row.id
-  await focusExpandedQuestionRow()
-  await loadQuestionPreview(row.id)
-}
-
-// 上传包卡片单独读取实时题量和状态汇总。
-async function loadBatch(): Promise<void> {
-  batchLoading.value = true
-  try {
-    batch.value = await getQuestionBankImportBatchDetail(batchId)
+    const [batchData, reviewData] = await Promise.all([
+      getQuestionBankImportBatchDetail(batchId),
+      getQuestionBankImportBatchReview(batchId),
+    ])
+    batch.value = batchData
+    questionDetails.value = reviewData.questions
+    const targetIndex = activeQuestionId.value
+      ? questionDetails.value.findIndex((question) => question.id === activeQuestionId.value)
+      : 0
+    activeQuestionIndex.value = targetIndex >= 0 ? targetIndex : 0
+    activeQuestionId.value = questionDetails.value[activeQuestionIndex.value]?.id || ''
+    reviewVersion.value += 1
   } catch {
     batch.value = null
+    questionDetails.value = []
+    loadFailed.value = true
   } finally {
-    batchLoading.value = false
+    loading.value = false
   }
 }
 
-// 包内题目只按当前上传包 id 查询，避免退回全库单题列表。
-async function loadQuestions(): Promise<void> {
-  collapseQuestionPreview()
-  questionsLoading.value = true
-  try {
-    const data = await getQuestionBankImportBatchQuestions(batchId, {
-      page: pagination.page,
-      pageSize: pagination.pageSize,
-      keyword: appliedFilters.keyword || undefined,
-      examType: appliedFilters.examType || undefined,
-      difficulty: appliedFilters.difficulty || undefined,
-      status: appliedFilters.status || undefined,
-    })
-    questions.value = data.list
-    Object.assign(pagination, data.pagination)
-  } catch {
-    questions.value = []
-    pagination.total = 0
-  } finally {
-    questionsLoading.value = false
-  }
+// 整包状态操作后只重载批次汇总，完整题目内容无需再次传输。
+async function refreshBatch(): Promise<void> {
+  batch.value = await getQuestionBankImportBatchDetail(batchId)
 }
 
-// 点击筛选后固定包内题目条件并回到第一页。
-async function applyFilters(): Promise<void> {
-  Object.assign(appliedFilters, filters)
-  pagination.page = 1
-  await loadQuestions()
+// 公共解析组件切题时同步当前题目概括和管理员操作目标。
+function handleQuestionChange(index: number): void {
+  if (!questionDetails.value[index]) return
+  activeQuestionIndex.value = index
+  activeQuestionId.value = questionDetails.value[index].id
 }
 
-// 清空包内题目的全部筛选条件并重新查询。
-async function resetFilters(): Promise<void> {
-  Object.assign(filters, { keyword: '', examType: '', difficulty: '', status: '' })
-  Object.assign(appliedFilters, filters)
-  pagination.page = 1
-  await loadQuestions()
+// 当前题目的科目与主题合并为吸顶栏中的紧凑分类信息。
+function questionClassificationLabel(question: QuestionBankAdminItem): string {
+  return [question.subject, question.topic].filter(Boolean).join(' / ') || '—'
 }
 
-// 页码变化时沿用已经应用的包内筛选条件。
-async function changePage(page: number): Promise<void> {
-  pagination.page = page
-  await loadQuestions()
-}
-
-// 每页数量变化后回到第一页，避免页码越界。
-async function changePageSize(pageSize: number): Promise<void> {
-  pagination.pageSize = pageSize
-  pagination.page = 1
-  await loadQuestions()
-}
-
-// 知识点快照用于表格摘要，实际筛选仍由数据库关联表负责。
+// 知识点快照只用于当前题目的概括展示。
 function knowledgePointLabels(points: KnowledgePoint[] | unknown): string {
   return Array.isArray(points)
     ? points
@@ -512,60 +245,145 @@ function knowledgePointLabels(points: KnowledgePoint[] | unknown): string {
     : '—'
 }
 
-// 难度编码在上传包详情中统一转换为中文标签。
+// 难度编码在管理查看页统一转换为中文标签。
 function difficultyLabel(value: string): string {
   return difficultyOptions.find((item) => item.value === value)?.label || value || '—'
 }
 
-// 生成质量等级仅在包内题目列表转换为中文，不参与筛选和其他页面展示。
+// 生成质量等级转换为管理员可读标签。
 function qualityTierLabel(value: QuestionBankQualityTier | null): string {
   if (value === 'excellent') return '优秀'
   if (value === 'qualified') return '标准'
   return '—'
 }
 
-// 单题状态下拉和上传包统计共用稳定状态编码。
+// 题目状态使用统一中文标签，并与下拉选项保持一致。
 function statusLabel(value: QuestionBankStatus): string {
   return statusOptions.find((item) => item.value === value)?.label || value
 }
 
-// 单题状态变更后同步刷新上传包汇总，包本身不拥有独立发布状态。
-async function changeStatus(row: QuestionBankAdminItem, command: unknown): Promise<void> {
+// 单题状态变更后同步顶部题目状态和批次状态数量。
+async function changeQuestionStatus(command: unknown): Promise<void> {
+  const question = activeQuestion.value
   const status = String(command) as QuestionBankStatus
-  if (status === row.status) return
+  if (!question || status === question.status) return
   try {
-    await updateQuestionBankStatus(row.id, status)
-    row.status = status
-    if (previewDetail.value?.id === row.id) previewDetail.value.status = status
-    await loadBatch()
+    await updateQuestionBankStatus(question.id, status)
+    question.status = status
+    await refreshBatch()
     ElMessage.success(`题目已设为${statusLabel(status)}`)
   } catch {
     // 公共请求层展示后端错误。
   }
 }
 
-// 删除仍遵循单题历史记录保护，成功后同时刷新上传包题量和当前页。
-async function deleteQuestion(row: QuestionBankAdminItem): Promise<void> {
+// 删除当前题目前记录相邻题目，成功后继续停留在最接近的位置。
+async function deleteActiveQuestion(): Promise<void> {
+  const question = activeQuestion.value
+  if (!question) return
   try {
     await ElMessageBox.confirm(
-      `确认从该导入文件删除题目 ${row.code} 吗？已有答题记录的题目不能删除。`,
+      `确认删除题目 ${question.code} 吗？已有答题或错题记录的题目不能删除，只能归档。`,
       '删除题目',
       { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消' },
     )
   } catch {
     return
   }
-  deletingId.value = row.id
+  deletingQuestion.value = true
+  const nextQuestion =
+    questionDetails.value[activeQuestionIndex.value + 1] ||
+    questionDetails.value[activeQuestionIndex.value - 1] ||
+    null
   try {
-    await deleteQuestionBankQuestion(row.id)
+    await deleteQuestionBankQuestion(question.id)
+    questionDetails.value.splice(activeQuestionIndex.value, 1)
+    activeQuestionId.value = nextQuestion?.id || ''
+    const nextIndex = nextQuestion
+      ? questionDetails.value.findIndex((item) => item.id === nextQuestion.id)
+      : 0
+    activeQuestionIndex.value = nextIndex >= 0 ? nextIndex : 0
+    reviewVersion.value += 1
+    await refreshBatch()
     ElMessage.success('题目已删除')
-    if (expandedQuestionId.value === row.id) collapseQuestionPreview()
-    if (questions.value.length === 1 && pagination.page > 1) pagination.page -= 1
-    await Promise.all([loadBatch(), loadQuestions()])
   } catch {
     // 公共请求层展示后端错误。
   } finally {
-    deletingId.value = ''
+    deletingQuestion.value = false
+  }
+}
+
+// 已全部处于目标状态或正在执行其他整包操作时禁用重复操作。
+function batchActionDisabled(
+  status: Extract<QuestionBankStatus, 'published' | 'archived'>,
+): boolean {
+  return Boolean(
+    batchOperatingAction.value ||
+    !batch.value?.currentQuestionCount ||
+    batch.value.statusCounts[status] === batch.value.currentQuestionCount,
+  )
+}
+
+// 整包操作按钮在请求期间显示进行中状态。
+function batchActionLabel(action: 'published' | 'archived' | 'delete', fallback: string): string {
+  return batchOperatingAction.value === action ? `${fallback}中` : fallback
+}
+
+// 整包上线或归档前明确告知对学生新练习和历史记录的影响。
+async function changeBatchStatus(
+  status: Extract<QuestionBankStatus, 'published' | 'archived'>,
+): Promise<void> {
+  if (!batch.value) return
+  const actionName = status === 'published' ? '上线' : '归档'
+  const impactMessage =
+    status === 'published'
+      ? `上线后，包内 ${batch.value.currentQuestionCount} 道题将进入学生端新练习的选题范围。`
+      : '归档后，包内题目不再进入学生端新练习，但进行中作答、历史记录和错题本会继续保留。'
+  try {
+    await ElMessageBox.confirm(
+      `${impactMessage}确认${actionName}试题包“${batch.value.title}”吗？`,
+      `${actionName}试题包`,
+      { type: 'warning', confirmButtonText: `确认${actionName}`, cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  batchOperatingAction.value = status
+  try {
+    const result = await updateQuestionBankImportBatchStatus(batchId, status)
+    questionDetails.value.forEach((question) => {
+      question.status = status
+    })
+    await refreshBatch()
+    ElMessage.success(`试题包已${actionName}，共更新 ${result.updatedQuestions} 道题`)
+  } catch {
+    // 公共请求层展示后端错误。
+  } finally {
+    batchOperatingAction.value = ''
+  }
+}
+
+// 整包删除沿用答题历史保护，成功后返回文件列表。
+async function deleteBatch(): Promise<void> {
+  if (!batch.value) return
+  try {
+    await ElMessageBox.confirm(
+      `确认删除试题包“${batch.value.title}”及其中 ${batch.value.currentQuestionCount} 道题吗？删除不可恢复；已有学生作答或错题记录时不能删除，只能归档。`,
+      '删除试题包',
+      { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  batchOperatingAction.value = 'delete'
+  try {
+    await deleteQuestionBankImportBatch(batchId)
+    ElMessage.success('试题包已删除')
+    await returnToBatchList()
+  } catch {
+    // 公共请求层展示后端错误。
+  } finally {
+    batchOperatingAction.value = ''
   }
 }
 
@@ -581,36 +399,54 @@ function formatDate(value: string): string {
   }).format(new Date(value))
 }
 
-onMounted(() => Promise.all([loadBatch(), loadQuestions()]))
-onBeforeUnmount(stopStickyPreviewTracking)
+onMounted(loadReview)
 </script>
 
 <style scoped lang="scss">
-.batch-detail-page {
+.batch-review-page {
   min-height: 100%;
-  padding: 24px 40px 40px;
+  padding: 0 40px 40px;
+  background: #f8fafc;
 }
 
-.detail-header,
-.package-footer,
-.package-status,
-.filter-bar,
-.action-group {
-  display: flex;
+.sticky-admin-panel {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  margin: 0 -40px 24px;
+  border-bottom: 1px solid #dbe3ee;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(8px);
+}
+
+.batch-toolbar,
+.question-toolbar {
+  display: grid;
   align-items: center;
+  gap: 16px;
+  padding-inline: 40px;
 }
 
-.detail-header {
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 16px;
+.batch-toolbar {
+  min-height: 72px;
+  grid-template-columns: minmax(220px, 1.1fr) minmax(0, 2fr) auto;
+  border-bottom: 1px solid #e2e8f0;
 }
 
-.detail-header > div {
+.batch-heading,
+.batch-overview,
+.batch-actions {
   min-width: 0;
 }
 
+.batch-heading {
+  display: grid;
+  gap: 5px;
+}
+
 .back-link {
+  width: fit-content;
   padding: 0;
   border: 0;
   background: transparent;
@@ -618,206 +454,99 @@ onBeforeUnmount(stopStickyPreviewTracking)
   cursor: pointer;
 }
 
-.detail-header h2 {
-  max-width: min(720px, 70vw);
-  margin: 12px 0 5px;
-  color: #0f172a;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.detail-header p,
-.section-title-row p,
-.remarks {
+.batch-heading h2 {
   margin: 0;
-  color: #64748b;
-}
-
-.package-card {
-  min-height: 0;
-  margin-bottom: 14px;
-  padding: 14px 18px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-}
-
-.package-meta {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.package-meta > div {
-  display: grid;
-  gap: 2px;
-}
-
-.package-meta span {
-  color: #64748b;
-  font-size: 12px;
-}
-
-.package-meta strong {
   overflow: hidden;
+  color: #0f172a;
+  font-size: 19px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.package-footer {
-  min-width: 0;
-  gap: 16px;
-  margin-top: 10px;
-}
-
-.package-status {
-  flex: 0 0 auto;
-  flex-wrap: nowrap;
-  gap: 8px;
-}
-
-.status-chip {
-  padding: 4px 9px;
-  border-radius: 5px;
-  font-size: 12px;
-}
-
-.status-chip--draft {
-  background: #f1f5f9;
-  color: #475569;
-}
-
-.status-chip--published {
-  background: #dcfce7;
-  color: #047857;
-}
-
-.status-chip--archived {
-  background: #e5e7eb;
-  color: #374151;
-}
-
-.remarks {
-  min-width: 0;
-  flex: 1;
+.batch-overview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
   overflow: hidden;
-  line-height: 1.6;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.question-section {
-  min-height: 0;
-  container-type: inline-size;
-}
-
-.section-title-row {
-  margin-bottom: 12px;
-}
-
-.section-title-row h3 {
-  margin: 0 0 5px;
-}
-
-.section-title-row p {
+  color: #64748b;
   font-size: 13px;
 }
 
-.filter-bar {
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 12px;
+.batch-overview span {
+  flex: 0 0 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.search-input {
-  width: 300px;
+.batch-overview span:nth-child(3) {
+  min-width: 0;
+  flex: 1;
 }
 
-.filter-bar .el-select {
-  width: 130px;
+.batch-overview strong {
+  color: #0f172a;
 }
 
-.classification-cell {
-  display: grid;
-  gap: 3px;
-}
-
-.classification-cell span {
-  color: #64748b;
-  font-size: 12px;
-}
-
-.inline-preview {
-  position: sticky;
-  left: 0;
-  width: 100cqw;
-  max-width: 100cqw;
-  box-sizing: border-box;
-  padding: 18px 20px 24px;
-  overflow-x: hidden;
-  background: #f8fafc;
-}
-
-.preview-state {
-  min-height: 120px;
+.batch-actions {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
-  color: #64748b;
+  gap: 14px;
 }
 
-.preview-state--error button {
-  padding: 6px 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 5px;
-  background: #fff;
-  color: #0f172a;
+.batch-actions button,
+.question-delete-button {
+  padding: 5px 0;
+  border: 0;
+  background: transparent;
+  color: #111827;
+  font: inherit;
   cursor: pointer;
 }
 
-.preview-spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid #cbd5e1;
-  border-top-color: #0f766e;
-  border-radius: 50%;
-  animation: preview-spin 0.7s linear infinite;
+.batch-actions .action-button--publish {
+  color: #047857;
 }
 
-.inline-preview :deep(.report-card) {
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-  border-radius: 5px;
+.batch-actions .action-button--danger,
+.question-delete-button {
+  color: #dc2626;
 }
 
-.inline-preview :deep(.question-analysis),
-.inline-preview :deep(.question-card),
-.inline-preview :deep(.question-card__stem),
-.inline-preview :deep(.question-card__options),
-.inline-preview :deep(.opt-card) {
+.batch-actions button:disabled,
+.question-delete-button:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.question-toolbar {
+  min-height: 58px;
+  grid-template-columns:
+    minmax(120px, 1.1fr)
+    minmax(180px, 1.8fr)
+    70px
+    minmax(130px, 1.25fr)
+    64px
+    64px
+    88px
+    minmax(130px, 1.4fr)
+    72px;
+  color: #334155;
+  font-size: 14px;
+}
+
+.question-toolbar > span {
   min-width: 0;
-  max-width: 100%;
-  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.inline-preview :deep(.question-card__stem),
-.inline-preview :deep(.opt-card__text),
-.inline-preview :deep(.latex-text__plain) {
-  overflow-wrap: anywhere;
-  white-space: normal;
-  word-break: break-word;
+.question-title {
+  color: #0f172a;
 }
 
-.inline-preview :deep(img),
-.inline-preview :deep(svg) {
-  max-width: 100%;
-  height: auto;
-}
-
-.status-btn {
+.status-button {
   min-width: 74px;
   height: 30px;
   border: 0;
@@ -825,135 +554,99 @@ onBeforeUnmount(stopStickyPreviewTracking)
   cursor: pointer;
 }
 
-.status-btn--draft {
+.status-button--draft {
   background: #f1f5f9;
   color: #475569;
 }
 
-.status-btn--published {
+.status-button--published {
   background: #dcfce7;
   color: #047857;
 }
 
-.status-btn--archived {
+.status-button--archived {
   background: #e5e7eb;
   color: #374151;
 }
 
-.action-group {
-  justify-content: center;
+.analysis-view {
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+}
+
+.analysis-view :deep(.question-nav) {
+  top: 154px;
+}
+
+.analysis-view :deep(.latex-text__plain) {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.analysis-view :deep(img) {
+  max-width: 100%;
+  height: auto;
+}
+
+.page-state {
+  min-height: 360px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
   gap: 12px;
-}
-
-.action-group a,
-.action-group button {
-  border: 0;
-  background: transparent;
-  color: #111827;
-  font: inherit;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.action-group .preview-button {
-  color: #111827;
-}
-
-.action-group button {
-  color: #dc2626;
-}
-
-.action-group button:disabled {
-  color: #94a3b8;
-}
-
-.sticky-preview-anchor {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  height: 0;
-  pointer-events: none;
-}
-
-.sticky-preview-row {
-  min-height: var(--height-table-row);
-  display: grid;
-  grid-template-columns:
-    minmax(0, 1.15fr)
-    minmax(0, 1.8fr)
-    70px
-    minmax(0, 1.25fr)
-    70px
-    70px
-    90px
-    minmax(0, 1.35fr)
-    120px;
-  align-items: center;
-  gap: 16px;
-  box-sizing: border-box;
-  padding: 12px 16px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
-  color: #111827;
-  pointer-events: auto;
-}
-
-.sticky-preview-row > span,
-.sticky-preview-classification {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sticky-preview-classification {
-  display: grid;
-  gap: 3px;
-}
-
-.sticky-preview-classification span {
-  overflow: hidden;
   color: #64748b;
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.sticky-preview-actions {
-  justify-content: flex-end;
+.page-state--error {
+  color: #b91c1c;
 }
 
-.question-section :deep(.inline-preview-expander) {
-  width: 0 !important;
-  padding: 0 !important;
-  border-right: 0;
-}
+@media (max-width: 1200px) {
+  .batch-overview span:nth-last-child(-n + 4) {
+    display: none;
+  }
 
-.question-section :deep(.inline-preview-expander .cell) {
-  width: 0;
-  padding: 0;
-  overflow: hidden;
-}
+  .question-toolbar {
+    grid-template-columns: minmax(120px, 1fr) minmax(180px, 2fr) 70px 110px 88px 72px;
+  }
 
-.question-section :deep(.el-table__expanded-cell) {
-  padding: 0 !important;
-  background: #f8fafc;
-}
-
-@keyframes preview-spin {
-  to {
-    transform: rotate(360deg);
+  .question-toolbar > :nth-child(4),
+  .question-toolbar > :nth-child(6),
+  .question-toolbar > :nth-child(8) {
+    display: none;
   }
 }
 
 @media (max-width: 900px) {
-  .batch-detail-page {
+  .batch-review-page {
     padding-inline: 20px;
   }
 
-  .package-meta {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .sticky-admin-panel {
+    margin-inline: -20px;
+  }
+
+  .batch-toolbar,
+  .question-toolbar {
+    padding-inline: 20px;
+  }
+
+  .batch-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .batch-overview {
+    display: none;
+  }
+
+  .analysis-view :deep(.question-analysis) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .analysis-view :deep(.question-nav) {
+    position: static;
   }
 }
 </style>

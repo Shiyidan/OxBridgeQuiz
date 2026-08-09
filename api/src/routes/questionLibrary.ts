@@ -219,7 +219,8 @@ function formatImportBatch(row: any): Record<string, unknown> {
     ) {
       partMap.set(question.moduleCode, {
         code: question.moduleCode,
-        label: question.moduleCode === TMUA_PAPER.PAPER_1 ? "Paper 1" : "Paper 2",
+        label:
+          question.moduleCode === TMUA_PAPER.PAPER_1 ? "Paper 1" : "Paper 2",
         subjectCode: null,
       });
     }
@@ -395,7 +396,9 @@ questionLibraryRouter.get("/selection", requireAuth, async (req, res) => {
         rows.map((row) => row.id),
       )
     : null;
-  res.json(success({ questions: formatAttemptQuestions(rows), total, selectionToken }));
+  res.json(
+    success({ questions: formatAttemptQuestions(rows), total, selectionToken }),
+  );
 });
 
 // standard2 文件先完成全量校验，再在单个事务内创建批次、题目和考纲关联。
@@ -691,6 +694,169 @@ questionLibraryRouter.get(
       return;
     }
     res.json(success(formatImportBatch(row)));
+  },
+);
+
+// 整包查看一次返回完整题目，供后台逐题导航复用前台解析组件，避免逐题请求造成 N+1。
+questionLibraryRouter.get(
+  "/admin/batches/:id/review",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    const batch = await prisma.questionImportBatch.findUnique({
+      where: { id: req.params.id },
+      select: { id: true },
+    });
+    if (!batch) {
+      res.status(404).json(fail("上传包不存在"));
+      return;
+    }
+    const rows = await prisma.question.findMany({
+      where: { importBatchId: batch.id, paperId: null },
+      include: {
+        importBatch: {
+          select: {
+            id: true,
+            title: true,
+            fileName: true,
+            remarks: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    });
+    res.json(
+      success({
+        questions: rows.map((row, index) => ({
+          ...formatAdminListItem(row),
+          question: { ...formatQuestionRow(row), number: index + 1 },
+        })),
+      }),
+    );
+  },
+);
+
+// 上传包级上线或归档会统一更新包内题目；归档题不再进入新练习，但历史作答关系保持不变。
+questionLibraryRouter.put(
+  "/admin/batches/:id/status",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    const status = req.body?.status;
+    if (
+      status !== QUESTION_STATUS.PUBLISHED &&
+      status !== QUESTION_STATUS.ARCHIVED
+    ) {
+      res.status(422).json(fail("上传包状态仅允许 published 或 archived"));
+      return;
+    }
+    const batch = await prisma.questionImportBatch.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, title: true },
+    });
+    if (!batch) {
+      res.status(404).json(fail("上传包不存在"));
+      return;
+    }
+    const questionWhere: Prisma.QuestionWhereInput = {
+      importBatchId: batch.id,
+      paperId: null,
+    };
+    const questionCount = await prisma.question.count({ where: questionWhere });
+    if (!questionCount) {
+      res.status(422).json(fail("上传包内没有可操作的题目"));
+      return;
+    }
+    const updated = await prisma.question.updateMany({
+      where: { ...questionWhere, status: { not: status } },
+      data: {
+        status,
+        publishedAt:
+          status === QUESTION_STATUS.PUBLISHED ? new Date() : undefined,
+        archivedAt: status === QUESTION_STATUS.ARCHIVED ? new Date() : null,
+      },
+    });
+    setOperationAuditContext(req, {
+      resourceId: batch.id,
+      summary: `${status === QUESTION_STATUS.PUBLISHED ? "上线" : "归档"}试题包“${batch.title}”，共影响 ${updated.count} 题`,
+    });
+    res.json(
+      success({
+        id: batch.id,
+        status,
+        questionCount,
+        updatedQuestions: updated.count,
+      }),
+    );
+  },
+);
+
+// 仅允许物理删除没有答题和错题历史的上传包，避免破坏学习记录中的题目关联。
+questionLibraryRouter.delete(
+  "/admin/batches/:id",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    const batch = await prisma.questionImportBatch.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, title: true },
+    });
+    if (!batch) {
+      res.status(404).json(fail("上传包不存在"));
+      return;
+    }
+    const questionWhere: Prisma.QuestionWhereInput = {
+      importBatchId: batch.id,
+      paperId: null,
+    };
+    const [questionCount, answerRecordCount, wrongQuestionCount] =
+      await Promise.all([
+        prisma.question.count({ where: questionWhere }),
+        prisma.answerRecord.count({ where: { question: questionWhere } }),
+        prisma.wrongQuestionSummary.count({
+          where: { question: questionWhere },
+        }),
+      ]);
+    if (answerRecordCount > 0 || wrongQuestionCount > 0) {
+      res
+        .status(409)
+        .json(
+          fail(
+            "试题包内已有学生作答或错题记录，不能删除；请改为归档",
+            "QUESTION_BATCH_HAS_LEARNING_HISTORY",
+          ),
+        );
+      return;
+    }
+
+    try {
+      await prisma.$transaction([
+        prisma.question.deleteMany({ where: questionWhere }),
+        prisma.questionImportBatch.delete({ where: { id: batch.id } }),
+      ]);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2003"
+      ) {
+        res
+          .status(409)
+          .json(
+            fail(
+              "试题包已产生关联学习数据，不能删除；请刷新列表后改为归档",
+              "QUESTION_BATCH_DELETE_CONFLICT",
+            ),
+          );
+        return;
+      }
+      throw error;
+    }
+    setOperationAuditContext(req, {
+      resourceId: batch.id,
+      summary: `删除试题包“${batch.title}”，同时删除 ${questionCount} 题`,
+    });
+    res.json(success({ id: batch.id, deletedQuestions: questionCount }));
   },
 );
 

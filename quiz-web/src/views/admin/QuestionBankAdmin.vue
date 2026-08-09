@@ -1,4 +1,4 @@
-<!-- 后台试题库入口：按每次上传文件展示导入包，再进入包内管理独立题目。 -->
+<!-- 后台试题包列表：按导入文件汇总题目并提供整包上线、归档、删除和查看入口。 -->
 <template>
   <div class="question-bank-page">
     <div class="page-body">
@@ -145,21 +145,47 @@
         </el-table-column>
         <el-table-column
           label="操作"
-          width="150"
+          width="260"
           fixed="right"
           align="center"
           header-align="center"
         >
           <template #default="{ row }">
-            <router-link
-              class="detail-link"
-              :to="{
-                name: 'admin-question-batch-detail',
-                params: { batchId: row.id },
-              }"
-            >
-              查看题目
-            </router-link>
+            <div class="action-group">
+              <button
+                type="button"
+                class="table-action table-action--danger"
+                :disabled="Boolean(operatingBatchId)"
+                @click="handleDeleteBatch(row)"
+              >
+                {{ actionLabel(row.id, 'delete', '删除') }}
+              </button>
+              <button
+                type="button"
+                class="table-action table-action--publish"
+                :disabled="isStatusActionDisabled(row, 'published')"
+                @click="handleBatchStatus(row, 'published')"
+              >
+                {{ actionLabel(row.id, 'published', '上线') }}
+              </button>
+              <button
+                type="button"
+                class="table-action table-action--archive"
+                :disabled="isStatusActionDisabled(row, 'archived')"
+                @click="handleBatchStatus(row, 'archived')"
+              >
+                {{ actionLabel(row.id, 'archived', '归档') }}
+              </button>
+              <router-link
+                class="table-action"
+                :to="{
+                  name: 'admin-question-batch-detail',
+                  params: { batchId: row.id },
+                }"
+              >
+                查看
+              </router-link>
+            </div>
           </template>
         </el-table-column>
       </AdminDataTable>
@@ -170,10 +196,13 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
 import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 import {
+  deleteQuestionBankImportBatch,
   getQuestionBankImportBatchList,
+  updateQuestionBankImportBatchStatus,
   type QuestionBankImportBatch,
   type QuestionBankStatus,
 } from '@/api/questionBank'
@@ -181,6 +210,8 @@ import {
 const router = useRouter()
 const loading = ref(false)
 const batches = ref<QuestionBankImportBatch[]>([])
+const operatingBatchId = ref('')
+const operatingAction = ref<'delete' | 'published' | 'archived' | ''>('')
 const filters = reactive({ keyword: '', examType: '', status: '' })
 const appliedFilters = reactive({ keyword: '', examType: '', status: '' })
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
@@ -321,6 +352,98 @@ async function changePageSize(pageSize: number): Promise<void> {
   pagination.pageSize = pageSize
   pagination.page = 1
   await loadBatches()
+}
+
+// 同一上传包已全部处于目标状态时禁用重复操作，空包也不能上线或归档。
+function isStatusActionDisabled(
+  batch: QuestionBankImportBatch,
+  status: Extract<QuestionBankStatus, 'published' | 'archived'>,
+): boolean {
+  return (
+    Boolean(operatingBatchId.value) ||
+    batch.currentQuestionCount === 0 ||
+    batch.statusCounts[status] === batch.currentQuestionCount
+  )
+}
+
+// 批量操作执行期间在当前按钮上显示处理中状态，避免管理员重复提交。
+function actionLabel(
+  batchId: string,
+  action: 'delete' | 'published' | 'archived',
+  fallback: string,
+): string {
+  return operatingBatchId.value === batchId && operatingAction.value === action
+    ? `${fallback}中`
+    : fallback
+}
+
+// 整包上线或归档前明确学生端影响，成功后重新读取状态汇总。
+async function handleBatchStatus(
+  batch: QuestionBankImportBatch,
+  status: Extract<QuestionBankStatus, 'published' | 'archived'>,
+): Promise<void> {
+  const isPublish = status === 'published'
+  const actionName = isPublish ? '上线' : '归档'
+  const impactMessage = isPublish
+    ? `上线后，包内 ${batch.currentQuestionCount} 道题将进入学生端新练习的选题范围。`
+    : '归档后，包内题目不再进入学生端新练习，但进行中作答、历史记录和错题本会继续保留。'
+  try {
+    await ElMessageBox.confirm(
+      `${impactMessage}确认${actionName}试题包“${batch.title}”吗？`,
+      `${actionName}试题包`,
+      {
+        type: 'warning',
+        confirmButtonText: `确认${actionName}`,
+        cancelButtonText: '取消',
+      },
+    )
+  } catch {
+    return
+  }
+
+  operatingBatchId.value = batch.id
+  operatingAction.value = status
+  try {
+    const result = await updateQuestionBankImportBatchStatus(batch.id, status)
+    ElMessage.success(`试题包已${actionName}，共更新 ${result.updatedQuestions} 道题`)
+    await loadBatches()
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
+  } finally {
+    operatingBatchId.value = ''
+    operatingAction.value = ''
+  }
+}
+
+// 删除仅适用于没有学习历史的上传包，后端会再次检查答题和错题关联。
+async function handleDeleteBatch(batch: QuestionBankImportBatch): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除试题包“${batch.title}”及其中 ${batch.currentQuestionCount} 道题吗？删除不可恢复；已有学生作答或错题记录时不能删除，只能归档。`,
+      '删除试题包',
+      {
+        type: 'warning',
+        confirmButtonText: '确认删除',
+        cancelButtonText: '取消',
+      },
+    )
+  } catch {
+    return
+  }
+
+  operatingBatchId.value = batch.id
+  operatingAction.value = 'delete'
+  try {
+    const result = await deleteQuestionBankImportBatch(batch.id)
+    ElMessage.success(`试题包已删除，同时清理 ${result.deletedQuestions} 道题`)
+    if (batches.value.length === 1 && pagination.page > 1) pagination.page -= 1
+    await loadBatches()
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
+  } finally {
+    operatingBatchId.value = ''
+    operatingAction.value = ''
+  }
 }
 
 // 上传时间统一按当前浏览器时区展示到分钟。
@@ -513,21 +636,50 @@ onMounted(loadBatches)
   color: #374151;
 }
 
-.detail-link {
-  min-width: 88px;
+.action-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.table-action {
+  min-width: 44px;
   height: var(--height-button-sm);
+  padding: 0 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  border: 0;
   border-radius: var(--radius-md);
+  background: transparent;
   color: var(--color-ink);
   font-weight: var(--weight-semi);
   text-decoration: none;
   white-space: nowrap;
+  cursor: pointer;
 }
 
-.detail-link:hover,
-.detail-link:focus-visible {
+.table-action--danger {
+  color: #dc2626;
+}
+
+.table-action--publish {
+  color: #047857;
+}
+
+.table-action--archive {
+  color: #475569;
+}
+
+.table-action:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.table-action:not(:disabled):hover,
+.table-action:not(:disabled):focus-visible {
   background: var(--color-hover);
 }
 </style>

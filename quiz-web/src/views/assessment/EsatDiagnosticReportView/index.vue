@@ -101,7 +101,7 @@ const upgradeProgress = ref(0)
 const upgradeMessage = ref('')
 const reportVersion = ref('')
 let upgradeRequestId = 0
-const CURRENT_ESAT_REPORT_VERSION = 'diagnostic-report-v4'
+const CURRENT_ESAT_REPORT_VERSION = 'diagnostic-report-v5'
 
 // 路由参数是 ESAT 报告接口和权限校验使用的 ExamRecord ID。
 const examId = computed(() => String(route.params.id || ''))

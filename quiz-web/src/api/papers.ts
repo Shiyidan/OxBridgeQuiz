@@ -92,6 +92,15 @@ export function updatePaperStatus(id: string, status: string) {
   })
 }
 
+/** 更新试卷标题。 */
+export function updatePaperTitle(id: string, title: string) {
+  return callApi<PaperItem>({
+    url: `/papers/${id}`,
+    method: 'PUT',
+    body: { title },
+  })
+}
+
 /** 更新试卷类型 */
 export function updatePaperType(id: string, paperType: string) {
   return callApi<PaperItem>({

@@ -87,10 +87,7 @@
             <p v-if="showStructuredSolution && finalValue" class="analysis-final">
               <strong>最终结论：</strong><LatexText :text="finalValue" />
             </p>
-            <ul
-              v-if="showStructuredSolution && distractorReasons.length"
-              class="reason-list"
-            >
+            <ul v-if="showStructuredSolution && distractorReasons.length" class="reason-list">
               <li v-for="(reason, i) in distractorReasons" :key="i">
                 <LatexText :text="reason" />
               </li>
@@ -161,8 +158,11 @@ const props = defineProps<{
   singleQuestionMode?: boolean
   showUserAnswer?: boolean
 }>()
+const emit = defineEmits<{
+  questionChange: [index: number]
+}>()
 
-// 作答报告默认显示用户答案，后台单题预览可关闭该项而继续复用完整解析布局。
+// 作答报告默认显示用户答案，后台逐题查看可关闭该项而继续复用完整解析布局。
 const showUserAnswer = computed(() => props.showUserAnswer !== false)
 
 const currentIndex = ref(0)
@@ -255,14 +255,26 @@ const hasReviewGuide = computed(() =>
 watch(
   () => [props.questions, props.initialQuestionId] as const,
   ([questions, questionId]) => {
-    if (!questionId || !questions.length) return
-    const targetIndex = questions.findIndex(
-      (q) => q.id === questionId || q.questionId === questionId,
-    )
-    if (targetIndex >= 0) currentIndex.value = targetIndex
+    if (!questions.length) {
+      currentIndex.value = 0
+      return
+    }
+    if (questionId) {
+      const targetIndex = questions.findIndex(
+        (q) => q.id === questionId || q.questionId === questionId,
+      )
+      if (targetIndex >= 0) {
+        currentIndex.value = targetIndex
+        return
+      }
+    }
+    if (currentIndex.value >= questions.length) currentIndex.value = questions.length - 1
   },
   { immediate: true },
 )
+
+// 当前题号同步给管理侧吸顶操作栏，报告页面无需监听也不受影响。
+watch(currentIndex, (index) => emit('questionChange', index), { immediate: true })
 
 // 左侧题号导航只切换当前题，不重新请求报告数据。
 function goToQuestion(index: number): void {

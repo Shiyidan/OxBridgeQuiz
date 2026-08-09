@@ -26,7 +26,32 @@
       <template v-else-if="paper">
         <div class="paper-header">
           <div class="paper-header__left">
-            <h2 class="paper-title">{{ paper.title }}</h2>
+            <div class="paper-title-row">
+              <el-input
+                v-if="editingTitle"
+                ref="titleInputRef"
+                v-model="titleDraft"
+                class="paper-title-input"
+                maxlength="200"
+                :disabled="savingTitle"
+                @blur="saveTitle"
+                @keydown.enter.prevent="finishTitleEditing"
+                @keydown.esc.prevent="cancelTitleEditing"
+              />
+              <template v-else>
+                <h2 class="paper-title">{{ paper.title }}</h2>
+                <button
+                  v-if="paper.status === 'draft'"
+                  type="button"
+                  class="title-edit-button"
+                  aria-label="编辑试卷标题"
+                  title="编辑试卷标题"
+                  @click="startTitleEditing"
+                >
+                  <el-icon aria-hidden="true"><EditPen /></el-icon>
+                </button>
+              </template>
+            </div>
             <div class="paper-meta">
               <span>年份：{{ paper.year }}</span>
               <span class="meta-sep">·</span>
@@ -53,30 +78,14 @@
           </div>
         </div>
 
-        <!-- 题目列表 -->
-        <p v-if="paper.assemblyType === 'legacy_equivalent'" class="assembly-notice">
-          本卷为历年官方真题重组的 ESAT 等效诊断卷，并非某一场官方原版试卷。
-        </p>
-        <div v-if="questions.length" class="questions-list">
-          <section v-for="group in questionGroups" :key="group.code" class="module-group">
-            <header v-if="paper.deliveryMode === 'module_sequence'" class="module-group__header">
-              <div>
-                <span>{{ paper.examType === 'TMUA' ? `Paper ${group.order}` : `Module ${group.order}` }}</span>
-                <h3>{{ group.label }}</h3>
-              </div>
-              <strong>{{ group.questions.length }} 题</strong>
-            </header>
-            <QuestionCard
-              v-for="(q, i) in group.questions"
-              :key="q.id || i"
-              :question="q"
-              :index="i"
-              :question-label="`${group.label} · Question ${q.module_question_number || q.component_question_number || i + 1}`"
-              :show-answer="true"
-              variant="exam"
-            />
-          </section>
-        </div>
+        <!-- 题目解析 -->
+        <ExamQuestionAnalysis
+          v-if="analysisQuestions.length"
+          class="paper-analysis"
+          :questions="analysisQuestions"
+          :correct-count="0"
+          :show-user-answer="false"
+        />
         <div v-else class="empty-card">暂无题目数据</div>
       </template>
 
@@ -86,40 +95,34 @@
 </template>
 
 <script setup lang="ts">
-// 试卷详情预览（逐题渲染解析结果，复用 QuestionCard 组件）
-import { computed, ref, onMounted } from 'vue'
+// 试卷详情预览复用诊断报告逐题解析组件，保证真题与前台报告展示一致。
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import QuestionCard from '@/components/QuestionCard.vue'
+import { ElMessage } from 'element-plus'
+import { EditPen } from '@element-plus/icons-vue'
+import ExamQuestionAnalysis from '@/components/report/ExamQuestionAnalysis.vue'
+import type { ExamQuestion } from '@/api/exam'
 import type { Question } from '@/types'
 
-import { getPaperDetailData, type PaperDetail } from '@/api/papers'
-import { API_URL } from '@/config'
+import { getPaperDetailData, updatePaperTitle, type PaperDetail } from '@/api/papers'
 
 const route = useRoute()
 const paper = ref<PaperDetail | null>(null)
 const questions = ref<Question[]>([])
 const loading = ref(true)
+const editingTitle = ref(false)
+const savingTitle = ref(false)
+const titleDraft = ref('')
+const titleInputRef = ref<{ focus: () => void; blur: () => void } | null>(null)
 
-// 分段卷按稳定代码和顺序分组；扁平卷归入单一连续分组。
-const questionGroups = computed(() => {
-  const groups = new Map<string, { code: string; label: string; order: number; questions: Question[] }>()
-  for (const question of questions.value) {
-    const code = question.module_code || question.component_code || 'continuous'
-    const order = question.module_order || question.component_order || 1
-    const configuredSection = paper.value?.modules?.find((module) => (
-      module.code === code && module.order === order
-    ))
-    const existing = groups.get(code) || {
-      code,
-      label: configuredSection?.subject || question.subject || (code === 'continuous' ? '试卷题目' : code),
-      order,
-      questions: [],
-    }
-    existing.questions.push(question)
-    groups.set(code, existing)
-  }
-  return [...groups.values()].sort((a, b) => a.order - b.order)
-})
+// 完整真题转换为报告组件的数据结构，题目 id 同时用于左侧导航的稳定定位。
+const analysisQuestions = computed<Array<ExamQuestion & { id: string }>>(() =>
+  questions.value.map((question, index) => ({
+    ...question,
+    id: question.id || `q-${index}`,
+    questionId: question.id || `q-${index}`,
+  })),
+)
 
 // 路由来源决定预览页返回试题库或真题库管理。
 const isQuestionBankPreview = computed(() => route.path.includes('/core-library/questions/'))
@@ -131,6 +134,56 @@ const backPath = computed(() =>
 const backLabel = computed(() =>
   isQuestionBankPreview.value ? '返回试题库管理' : '返回真题库列表',
 )
+
+// 点击编辑图标后使用当前标题初始化输入框，并在渲染完成后自动聚焦。
+async function startTitleEditing(): Promise<void> {
+  if (!paper.value || paper.value.status !== 'draft' || savingTitle.value) return
+  titleDraft.value = paper.value.title
+  editingTitle.value = true
+  await nextTick()
+  titleInputRef.value?.focus()
+}
+
+// 回车通过触发失焦复用统一保存流程，避免发送两次更新请求。
+function finishTitleEditing(): void {
+  titleInputRef.value?.blur()
+}
+
+// Esc 放弃本次修改并恢复当前已保存标题。
+function cancelTitleEditing(): void {
+  titleDraft.value = paper.value?.title || ''
+  editingTitle.value = false
+}
+
+// 输入框失焦时校验并保存标题；失败时恢复服务端最近一次成功值。
+async function saveTitle(): Promise<void> {
+  if (!paper.value || !editingTitle.value || savingTitle.value) return
+  const previousTitle = paper.value.title
+  const nextTitle = titleDraft.value.trim()
+  if (!nextTitle) {
+    titleDraft.value = previousTitle
+    editingTitle.value = false
+    ElMessage.warning('试卷标题不能为空')
+    return
+  }
+  if (nextTitle === previousTitle) {
+    editingTitle.value = false
+    return
+  }
+  savingTitle.value = true
+  try {
+    const updatedPaper = await updatePaperTitle(paper.value.id, nextTitle)
+    paper.value.title = updatedPaper.title
+    titleDraft.value = updatedPaper.title
+    editingTitle.value = false
+    ElMessage.success('试卷标题已保存')
+  } catch {
+    titleDraft.value = previousTitle
+    editingTitle.value = false
+  } finally {
+    savingTitle.value = false
+  }
+}
 
 onMounted(async () => {
   try {
@@ -202,12 +255,47 @@ function statusLabel(s: string) {
 .paper-header__left {
   min-width: 0;
 }
+.paper-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin-bottom: 10px;
+}
 .paper-title {
   font-size: 1.5rem;
   font-weight: 800;
   color: #0f172a;
   letter-spacing: -0.02em;
-  margin: 0 0 10px;
+  margin: 0;
+}
+.paper-title-input {
+  width: min(900px, 72vw);
+}
+.paper-title-input :deep(.el-input__wrapper) {
+  padding: 4px 12px;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.title-edit-button {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+.title-edit-button:hover {
+  background: #e2e8f0;
+  color: #0f172a;
 }
 .paper-meta {
   display: flex;
@@ -246,57 +334,21 @@ function statusLabel(s: string) {
   }
 }
 
-/* 题目列表 */
-.questions-list {
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
-  max-width: 820px;
-}
-.module-group {
-  display: grid;
-  gap: 28px;
-}
-.module-group__header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 18px 20px;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  background: #f8fafc;
-}
-.module-group__header span {
-  color: #94a3b8;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.module-group__header h3 {
-  margin: 4px 0 0;
-  color: #0f172a;
-}
-.module-group__header strong {
-  color: #64748b;
-  font-size: 0.82rem;
-}
-.assembly-notice {
-  max-width: 820px;
-  padding: 12px 16px;
-  border: 1px solid #fde68a;
-  border-radius: 10px;
-  background: #fffbeb;
-  color: #92400e;
-  font-size: 0.82rem;
+.paper-analysis {
+  width: 100%;
+  max-width: 1480px;
 }
 
-/* SVG 兜底：Qwen 偶发忘记输出 width/height，用 CSS 补位 */
-.questions-list :deep(.question-card__svg svg) {
-  width: 100%;
+.paper-analysis :deep(.latex-text__plain) {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.paper-analysis :deep(img) {
+  max-width: 100%;
   height: auto;
 }
-
 .empty-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
@@ -316,6 +368,14 @@ function statusLabel(s: string) {
   }
   .paper-header {
     flex-direction: column;
+  }
+
+  .paper-analysis :deep(.question-analysis) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .paper-analysis :deep(.question-nav) {
+    position: static;
   }
 }
 </style>

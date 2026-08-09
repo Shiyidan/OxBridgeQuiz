@@ -96,7 +96,7 @@ const upgradeInProgress = ref(false)
 const upgradeProgress = ref(0)
 const upgradeMessage = ref('')
 let upgradeRequestId = 0
-const CURRENT_TMUA_REPORT_VERSION = 'diagnostic-report-v5'
+const CURRENT_TMUA_REPORT_VERSION = 'diagnostic-report-v6'
 
 // 路由参数是 TMUA 报告接口和权限校验使用的 ExamRecord ID。
 const examId = computed(() => String(route.params.id || ''))

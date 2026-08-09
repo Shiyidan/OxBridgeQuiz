@@ -28,6 +28,9 @@
             />
             <span v-else>{{ userInitial }}</span>
           </div>
+          <button type="button" class="profile-account-edit" @click="openAccountDialog">
+            修改信息
+          </button>
         </div>
 
         <div class="profile-identity-copy">
@@ -551,12 +554,125 @@
       :resume-order-no="paymentResumeOrderNo || undefined"
       @paid="handlePaymentSuccess"
     />
+
+    <el-dialog
+      v-model="accountDialogVisible"
+      class="profile-account-dialog"
+      title="修改信息"
+      width="560px"
+      align-center
+      destroy-on-close
+      @closed="resetAccountDialog"
+    >
+      <div class="account-dialog-content">
+        <section class="account-dialog-section" aria-labelledby="change-email-title">
+          <header class="account-dialog-heading">
+            <span aria-hidden="true">1</span>
+            <div>
+              <h3 id="change-email-title">修改邮箱</h3>
+              <p>当前邮箱：{{ auth.user?.email || '尚未绑定邮箱' }}</p>
+            </div>
+          </header>
+
+          <el-input
+            v-model="emailForm.email"
+            type="email"
+            autocomplete="off"
+            maxlength="191"
+            placeholder="请输入新邮箱"
+            :disabled="emailSaving"
+            @input="resetEmailVerification"
+          />
+
+          <div class="account-email-verification">
+            <el-input
+              v-model="emailCode"
+              maxlength="6"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              autocomplete="off"
+              placeholder="六位验证码"
+              :disabled="emailSaving"
+              @input="handleChangeEmailCodeInput"
+            />
+            <div class="account-email-actions">
+              <button
+                type="button"
+                class="button_cancel account-code-button"
+                :disabled="emailSaving || emailCodeSending || emailCountdown > 0"
+                @click="sendChangeEmailCode"
+              >
+                {{ emailCountdown > 0 ? `${emailCountdown}秒后重发` : '获取验证码' }}
+              </button>
+              <button
+                type="button"
+                class="button_primary"
+                :disabled="emailSaving || !accountEmailChanged"
+                @click="saveEmail"
+              >
+                {{ emailSaving ? '保存中...' : '保存新邮箱' }}
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="account-dialog-section" aria-labelledby="change-password-title">
+          <header class="account-dialog-heading">
+            <span aria-hidden="true">2</span>
+            <div>
+              <h3 id="change-password-title">修改密码</h3>
+              <p>验证当前密码后更新；修改成功后需要重新登录。</p>
+            </div>
+          </header>
+
+          <div class="account-password-form password-form">
+            <el-input
+              v-model="passwordForm.currentPassword"
+              type="password"
+              autocomplete="off"
+              placeholder="当前密码"
+              :disabled="passwordSaving"
+              show-password
+            />
+            <el-input
+              v-model="passwordForm.newPassword"
+              type="password"
+              autocomplete="new-password"
+              maxlength="12"
+              placeholder="新密码（8-12位，英文+数字，可使用 !@#$%）"
+              :disabled="passwordSaving"
+              show-password
+            />
+            <el-input
+              v-model="passwordForm.confirmPassword"
+              type="password"
+              autocomplete="new-password"
+              maxlength="12"
+              placeholder="确认新密码"
+              :disabled="passwordSaving"
+              show-password
+            />
+          </div>
+
+          <div class="account-dialog-actions">
+            <button
+              type="button"
+              class="button_primary"
+              :disabled="passwordSaving"
+              @click="savePassword"
+            >
+              {{ passwordSaving ? '修改中...' : '修改密码' }}
+            </button>
+          </div>
+        </section>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 // 学生个人中心：展示会员权益、学习统计、登录网络、订阅和支付记录。
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
@@ -591,7 +707,13 @@ import {
   type ExamType,
 } from '@/constants/examTypes'
 import { TARGET_UNIVERSITY_OPTIONS } from '@/constants/universities'
-import { getSessions, type AuthSessionItem } from '@/api/auth'
+import { changePassword, getSessions, sendEmailCode, type AuthSessionItem } from '@/api/auth'
+import {
+  EMAIL_CODE_PATTERN,
+  normalizeEmailCode,
+  validateConfirmPassword,
+  validatePassword,
+} from '@/utils/validation'
 import { getApiErrorMessage } from '@/utils/request'
 
 type BillingFilter = 'all' | 'active' | 'expired' | 'failed' | 'refund'
@@ -636,6 +758,26 @@ const billingError = ref('')
 const paymentVisible = ref(false)
 const paymentResumeOrderNo = ref('')
 const sessions = ref<AuthSessionItem[]>([])
+const accountDialogVisible = ref(false)
+const emailSaving = ref(false)
+const emailForm = reactive({ email: '' })
+const emailCode = ref('')
+const emailChallengeId = ref('')
+const emailCodeSending = ref(false)
+const emailCountdown = ref(0)
+let emailTimer: number | undefined
+const passwordSaving = ref(false)
+const passwordForm = reactive({
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+})
+// 只有输入的新邮箱与当前账号邮箱不同时，才展示并校验验证码流程。
+const accountEmailChanged = computed(
+  () =>
+    Boolean(emailForm.email.trim()) &&
+    emailForm.email.trim().toLowerCase() !== (auth.user?.email || '').toLowerCase(),
+)
 // 顶部资料卡只展示本次登录会话，避免其他设备信息干扰身份概览。
 const currentSession = computed(() => sessions.value.find((item) => item.isCurrent) || null)
 // 回环地址统一为熟悉的 IPv4 写法，公网地址保持服务端记录的原值。
@@ -972,6 +1114,145 @@ const billingNetPaidText = computed(() => {
   const summary = billingOverview.value?.summary
   return summary ? formatPaymentAmount(summary.netPaidCents, summary.currency) : '—'
 })
+
+// 打开弹窗时从最新账户状态初始化邮箱，并清空上一次未提交的敏感信息。
+function openAccountDialog(): void {
+  resetAccountDialog()
+  accountDialogVisible.value = true
+}
+
+// 弹窗关闭后丢弃未提交的邮箱和密码草稿，避免敏感信息残留。
+function resetAccountDialog(): void {
+  emailForm.email = ''
+  resetEmailVerification()
+  resetPasswordDraft()
+}
+
+// 邮箱验证码倒计时沿用服务端返回间隔，避免前端重发时间与接口限流不一致。
+function startEmailCountdown(seconds: number): void {
+  if (emailTimer) window.clearInterval(emailTimer)
+  emailCountdown.value = seconds
+  emailTimer = window.setInterval(() => {
+    emailCountdown.value -= 1
+    if (emailCountdown.value <= 0 && emailTimer) {
+      window.clearInterval(emailTimer)
+      emailTimer = undefined
+    }
+  }, 1000)
+}
+
+// 新邮箱再次变化时废弃旧挑战，防止验证码被用于不同邮箱。
+function resetEmailVerification(): void {
+  emailChallengeId.value = ''
+  emailCode.value = ''
+}
+
+// 验证码输入始终归一为前六位数字，兼容键盘输入和粘贴。
+function handleChangeEmailCodeInput(value: string): void {
+  emailCode.value = normalizeEmailCode(value)
+}
+
+// 修改邮箱验证码只发送至当前输入的新地址，并保存与该邮箱绑定的挑战标识。
+async function sendChangeEmailCode(): Promise<void> {
+  const email = emailForm.email.trim()
+  if (!accountEmailChanged.value) {
+    ElMessage.warning('请输入与当前邮箱不同的新邮箱')
+    return
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    ElMessage.warning('请输入有效的新邮箱地址')
+    return
+  }
+  emailCodeSending.value = true
+  try {
+    const data = await sendEmailCode(email, 'CHANGE_EMAIL')
+    emailChallengeId.value = data.challengeId
+    emailCode.value = ''
+    startEmailCountdown(data.resendAfter)
+    ElMessage.success('验证码已发送到新邮箱')
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
+  } finally {
+    emailCodeSending.value = false
+  }
+}
+
+// 保存邮箱时保留现有用户名，并消费发送至新邮箱的验证码挑战。
+async function saveEmail(): Promise<void> {
+  const email = emailForm.email.trim()
+  if (!accountEmailChanged.value) {
+    ElMessage.warning('请输入与当前邮箱不同的新邮箱')
+    return
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    ElMessage.warning('请输入有效的新邮箱地址')
+    return
+  }
+  if (!emailChallengeId.value || !EMAIL_CODE_PATTERN.test(emailCode.value)) {
+    ElMessage.warning('请先获取验证码并输入新邮箱收到的六位验证码')
+    return
+  }
+
+  emailSaving.value = true
+  try {
+    await auth.updateProfile({
+      username: auth.user?.username || '',
+      email,
+      challengeId: emailChallengeId.value,
+      emailCode: emailCode.value,
+    })
+    emailForm.email = auth.user?.email || email
+    resetEmailVerification()
+    ElMessage.success('邮箱已更新')
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
+  } finally {
+    emailSaving.value = false
+  }
+}
+
+// 密码修改成功后清除本地会话并要求重新登录，避免旧凭据继续使用。
+async function savePassword(): Promise<void> {
+  if (!accountDialogVisible.value) return
+  const passwordResult = validatePassword(passwordForm.newPassword)
+  const confirmResult = validateConfirmPassword(
+    passwordForm.newPassword,
+    passwordForm.confirmPassword,
+  )
+  if (!passwordForm.currentPassword) {
+    ElMessage.warning('请输入当前密码')
+    return
+  }
+  if (!passwordResult.valid) {
+    ElMessage.warning(passwordResult.message)
+    return
+  }
+  if (!confirmResult.valid) {
+    ElMessage.warning(confirmResult.message)
+    return
+  }
+
+  passwordSaving.value = true
+  try {
+    await changePassword(passwordForm)
+    resetPasswordDraft()
+    auth.clearLocalSession()
+    ElMessage.success('密码已修改，请使用新密码重新登录')
+    await router.replace('/login')
+  } catch {
+    // Axios 公共响应处理会展示后端 errMsg。
+  } finally {
+    passwordSaving.value = false
+  }
+}
+
+// 密码草稿不持久化，每次退出弹窗后立即清空。
+function resetPasswordDraft(): void {
+  passwordForm.currentPassword = ''
+  passwordForm.newPassword = ''
+  passwordForm.confirmPassword = ''
+}
+
 // 进入个人中心并行加载权益、统计、设备会话和完整账单总览，局部失败不阻塞其他区域。
 onMounted(async () => {
   errorText.value = ''
@@ -1220,6 +1501,11 @@ function formatDateTime(value: string | null): string {
     hour12: false,
   }).format(date)
 }
+
+// 页面离开时释放邮箱验证码倒计时，避免卸载后继续更新组件状态。
+onBeforeUnmount(() => {
+  if (emailTimer) window.clearInterval(emailTimer)
+})
 </script>
 
 <style scoped lang="scss">
@@ -2826,6 +3112,9 @@ function formatDateTime(value: string | null): string {
 .profile-avatar-wrap {
   position: relative;
   z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 9px;
   justify-self: start;
 }
 
@@ -2837,6 +3126,167 @@ function formatDateTime(value: string | null): string {
   box-shadow: none;
   color: #fff;
   font-size: 38px;
+}
+
+.profile-account-edit {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #9a9fb0;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.profile-account-edit:hover {
+  color: #4938e9;
+  transform: translateY(-1px);
+}
+
+.profile-account-edit:focus-visible {
+  outline: 2px solid var(--profile-lilac);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+:global(.profile-account-dialog) {
+  display: flex;
+  flex-direction: column;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  overflow: hidden;
+  border-radius: 14px;
+  box-shadow: 0 24px 64px rgba(44, 49, 86, 0.2);
+}
+
+:global(.profile-account-dialog .el-dialog__header) {
+  margin-right: 0;
+  padding: 22px 24px 16px;
+  border-bottom: 1px solid #eceef5;
+}
+
+:global(.profile-account-dialog .el-dialog__title) {
+  color: #25283b;
+  font-size: 19px;
+  font-weight: 750;
+}
+
+:global(.profile-account-dialog .el-dialog__body) {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 24px 24px;
+}
+
+.account-dialog-content {
+  display: grid;
+}
+
+.account-dialog-section {
+  display: grid;
+  gap: 14px;
+  padding: 24px 0;
+}
+
+.account-dialog-section + .account-dialog-section {
+  border-top: 1px solid #eceef5;
+}
+
+.account-dialog-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+.account-dialog-heading > span {
+  display: grid;
+  place-items: center;
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #eeedff;
+  color: #5d4dff;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.account-dialog-heading > div {
+  display: grid;
+  gap: 3px;
+}
+
+.account-dialog-heading h3 {
+  margin: 0;
+  color: #25283b;
+  font-size: 15px;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
+.account-dialog-heading p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #858aa0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.account-dialog-section :deep(.el-input__wrapper) {
+  min-height: 42px;
+  padding: 0 13px;
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px #dfe2ec inset;
+}
+
+.account-dialog-section :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #7769f8 inset;
+}
+
+.account-email-verification {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.account-email-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 128px);
+  gap: 10px;
+}
+
+.account-code-button {
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+}
+
+.account-password-form {
+  grid-template-columns: 1fr;
+  gap: 10px;
+  max-width: none;
+}
+
+.account-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.account-dialog-actions .button_primary,
+.account-email-actions .button_primary {
+  min-width: 120px;
+  height: 40px;
+  padding: 0 20px;
+}
+
+.account-dialog-section button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .profile-inline-action:focus-visible,
@@ -3829,6 +4279,26 @@ function formatDateTime(value: string | null): string {
 }
 
 @media (max-width: 620px) {
+  :global(.profile-account-dialog .el-dialog__header) {
+    padding: 18px 18px 14px;
+  }
+
+  :global(.profile-account-dialog .el-dialog__body) {
+    padding: 0 18px 18px;
+  }
+
+  .account-dialog-section {
+    padding: 20px 0;
+  }
+
+  .account-email-verification {
+    grid-template-columns: 1fr;
+  }
+
+  .account-email-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .billing-panel {
     padding: 18px 14px;
   }

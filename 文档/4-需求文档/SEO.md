@@ -27,7 +27,14 @@
   - 完成日期：2026-08-07
   - 验证结果：Prettier 检查、`vue-tsc`、完整 `npm run build` 和 `git diff --check` 均通过；本地 HTTP 成功返回 4 个预渲染 HTML、`robots.txt` 与 `sitemap.xml`，Sitemap 含 4 个公开网址。构建仅保留原有的大分块体积警告，不影响本次验收。
 - [ ] 9. 完成生产发布与 Search Console 配置：验证 `acemock.cn`、提交 Sitemap、测试实际网址并请求重新编入索引。
-- [ ] 10. 复查收录结果：跟踪品牌名称、标题、摘要、错误页面退出索引及站点子链接变化，并根据数据继续优化。
+  - [x] SEO 前端代码、预渲染页面、`robots.txt` 与 `sitemap.xml` 已发布至 `https://acemock.cn`。
+  - [x] 已在 Google Search Console 添加 `acemock.cn` 网域资源，并于 2026-08-08 通过 DNS TXT 记录完成所有权验证；验证记录需长期保留。
+  - [ ] 确认 `https://acemock.cn/sitemap.xml` 在 Search Console 中显示“成功”。首次仅填写 `sitemap.xml` 时因网域资源不自动补全域名而提示地址无效，已改为要求提交完整网址，但尚缺成功状态截图或记录。
+  - [x] 首页已完成“测试实际网址”，确认页面可以编入索引，并于 2026-08-08 成功请求重新编入索引。
+  - [ ] 分别测试并请求重新编入索引：`/exam-intro/esat`、`/exam-intro/tmua`、`/exam-intro/step`。
+  - [ ] 确认生产 Nginx 对私有路径返回 `X-Robots-Tag`。当前前端 `noindex` 已上线，但此前线上检查未发现该响应头，仍需在后续生产发布中补齐并验证。
+- [ ] 10. 建设目标站点链接候选页：新增“诊断测试、试题库、错题本”三个公开功能介绍页，加入主要导航、内部链接、Sitemap 与预渲染范围。
+- [ ] 11. 复查收录结果：跟踪品牌名称、标题、摘要、旧 `/question-bank` 退出索引及目标站点链接变化，并根据 Search Console 数据继续优化。
 
 > 使用方式：每完成并验证一项，将对应的 `- [ ]` 更新为 `- [x]`，同时在该项下补充完成日期和验证结果。代码完成但尚未发布或验证时，不视为最终完成。
 
@@ -55,7 +62,18 @@ https://acemock.cn
 AceMock 云舟备考｜ESAT 与 TMUA 真题诊断
 AceMock 云舟备考基于历年真题和考试大纲，提供 ESAT、TMUA 水平诊断、
 知识点分析、专项练习与错题复习，帮助学生针对薄弱项高效备考。
+
+诊断测试
+通过历年真题诊断 ESAT、TMUA 当前水平，获得知识点和能力分析。
+
+试题库
+按考试、科目、知识点和难度进行专项练习。
+
+错题本
+集中复习真实错题、中文解析与相关知识点。
 ```
+
+其中最上方主搜索结果本身就是首页，因此不要求 Google 在下方再次生成“首页”站点链接。期望的站点链接候选为“诊断测试、试题库、错题本”；Google 是否展示、展示数量及版式仍由算法决定，网站不能直接指定。
 
 推荐首页文案基线：
 
@@ -123,7 +141,15 @@ AceMock 云舟备考基于历年真题和考试大纲，提供 ESAT、TMUA 水�
 | 管理后台 | `/admin*` | `noindex` | 内部页面，不参与公开搜索 |
 | 协议页面 | `/legal*` | 默认 `noindex` | 保留直接访问能力，不占用主要品牌搜索结果 |
 
-如果未来希望“免费诊断”或“试题库”出现在站点子链接中，应新增不要求登录的公开介绍页，再从介绍页引导用户登录或注册，而不是直接开放当前业务页面索引。
+第二阶段为目标站点链接新增以下公开功能介绍页：
+
+| 站点链接名称 | 公开介绍页 | 索引策略 | 实际功能入口 | 说明 |
+| --- | --- | --- | --- | --- |
+| 诊断测试 | `/features/diagnostic-test` | `index` | `/assessment` | 介绍诊断流程、支持考试、报告内容与公开示例，开始测试时再进入业务流程 |
+| 试题库 | `/features/question-bank` | `index` | `/question-bank` | 介绍题库范围、筛选维度与练习方式，不直接暴露用户学习状态 |
+| 错题本 | `/features/mistake-notebook` | `index` | `/mistake-notebook` | 介绍错题收录、解析和复习机制，登录后才能查看个人错题 |
+
+公开介绍页与实际业务页必须保持不同职责：介绍页可匿名访问、具备稳定正文并允许索引；实际业务页继续执行权限控制和 `noindex`，避免搜索引擎抓取登录流程、空状态或个人数据。
 
 ### 3. 错误收录治理
 
@@ -144,15 +170,26 @@ AceMock 云舟备考基于历年真题和考试大纲，提供 ESAT、TMUA 水�
 
 - 首页导航和页脚使用真实的 `<a href>` 或 `<router-link>` 指向重要公开页面。
 - 公开页面具有简洁、独立且能准确说明内容的标题和一级标题。
-- 首页、ESAT、TMUA、STEP 页面之间建立清晰的内部链接关系。
+- 首页、三个公开功能介绍页及考试介绍页之间建立清晰的内部链接关系。
 - 不让登录、注册、后台等页面占据公开导航的主要层级。
 - 页面正文避免只使用图片或按钮表达关键信息。
+
+第二阶段站点链接建设要求：
+
+- 顶部导航和页脚使用一致、简洁的可抓取链接文字：“首页”“诊断测试”“试题库”“错题本”。
+- “诊断测试”“试题库”“错题本”分别指向对应 `/features/*` 公开介绍页，不直接指向登录后个人业务页。
+- 每个公开介绍页必须具有唯一的 `title`、`description`、canonical、H1 和正文，页面标题建议分别使用：
+  - `诊断测试｜AceMock 云舟备考`
+  - `试题库｜AceMock 云舟备考`
+  - `错题本｜AceMock 云舟备考`
+- 介绍页中的主按钮再根据登录状态进入实际功能或登录注册流程。
+- ESAT、TMUA、STEP 页面继续保留索引价值，但品牌首页的主要导航与内部链接优先突出三个产品功能页，使其成为品牌搜索下更明确的站点链接候选。
 
 ### 5. robots.txt 与 sitemap.xml
 
 `robots.txt` 用于说明爬虫可以访问哪些资源，并提供 Sitemap 地址；`sitemap.xml` 用于列出希望搜索引擎发现和收录的规范网址。
 
-第一阶段 Sitemap 只建议包含：
+第一阶段 Sitemap 当前包含：
 
 ```text
 https://acemock.cn/
@@ -162,6 +199,16 @@ https://acemock.cn/exam-intro/step
 ```
 
 登录页、注册页、用户业务页、报告页和后台页面不得加入 Sitemap。Sitemap 是发现提示，不代表其中的页面一定会被收录。
+
+完成第二阶段公开功能介绍页后，Sitemap 应新增：
+
+```text
+https://acemock.cn/features/diagnostic-test
+https://acemock.cn/features/question-bank
+https://acemock.cn/features/mistake-notebook
+```
+
+实际业务路径 `/assessment`、`/question-bank`、`/mistake-notebook` 继续保留 `noindex`，不得因为名称相同而加入 Sitemap。
 
 ### 6. 公开页面预渲染
 
@@ -173,6 +220,9 @@ https://acemock.cn/exam-intro/step
 - ESAT 介绍 `/exam-intro/esat`
 - TMUA 介绍 `/exam-intro/tmua`
 - STEP 介绍 `/exam-intro/step`
+- 诊断测试介绍 `/features/diagnostic-test`
+- 试题库介绍 `/features/question-bank`
+- 错题本介绍 `/features/mistake-notebook`
 
 预渲染后的页面在不执行 JavaScript 时也应包含页面标题、摘要、canonical、主要标题、核心正文和内部链接。
 
@@ -182,14 +232,14 @@ Google Search Console 是 Google 提供的网站搜索管理工具，用于查�
 
 发布 SEO 改造后，需要完成：
 
-1. 在 Search Console 添加 `acemock.cn` 网域资源。
-2. 通过 DNS TXT 记录验证域名所有权。
-3. 提交 `https://acemock.cn/sitemap.xml`。
-4. 使用“网址检查”测试首页及三个考试介绍页。
-5. 确认 Google 读取到正确的标题、正文、canonical 和索引状态。
-6. 请求重新编入索引。
-7. 检查 `/question-bank` 等旧页面是否逐步退出索引。
-8. 后续查看搜索词、曝光、点击率和平均排名。
+1. [x] 在 Search Console 添加 `acemock.cn` 网域资源。
+2. [x] 通过 DNS TXT 记录验证域名所有权，并长期保留该记录。
+3. [ ] 提交完整地址 `https://acemock.cn/sitemap.xml`，确认状态显示“成功”。
+4. [x] 使用“网址检查”测试首页，确认实际页面可以编入索引并请求重新抓取。
+5. [ ] 使用“网址检查”测试三个考试介绍页并请求编入索引。
+6. [ ] 第二阶段功能介绍页发布后，重新提交 Sitemap，并测试三个 `/features/*` 页面。
+7. [ ] 检查 `/question-bank` 等旧页面是否读取到 `noindex` 并逐步退出索引；必要时使用临时移除功能加速隐藏。
+8. [ ] 后续查看品牌搜索词、曝光、点击率、平均排名和站点链接变化。
 
 域名验证需要域名 DNS 管理权限，生产发布需要对应部署权限，这两部分需要网站负责人配合完成。
 
@@ -211,9 +261,12 @@ Google Search Console 是 Google 提供的网站搜索管理工具，用于查�
 - Search Console 域名验证完成。
 - Sitemap 成功提交且无格式错误。
 - 首页和考试介绍页允许编入索引。
+- 三个公开功能介绍页允许编入索引，且分别具有独立的标题、摘要、canonical、H1 和可抓取正文。
+- 顶部导航、首页正文和页脚对“诊断测试、试题库、错题本”使用一致的链接名称并指向对应公开介绍页。
 - `/question-bank` 等私有页面显示为不允许编入索引或逐步从结果中移除。
 - Google 重新抓取后，首页标题和摘要不再使用“在线答题系统”及登录提示文案。
 - 网站名称逐步显示为“AceMock 云舟备考”或搜索引擎接受的品牌别名。
+- 品牌搜索结果优先将“诊断测试、试题库、错题本”识别为站点链接候选；最终是否展示不作为可强制验收项。
 
 ## 五、时间与非保证项
 

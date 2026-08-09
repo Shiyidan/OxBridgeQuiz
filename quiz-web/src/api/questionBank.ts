@@ -178,6 +178,39 @@ export function getQuestionBankImportBatchDetail(id: string) {
   })
 }
 
+/** 后台一次读取上传包内全部完整题目，用于逐题解析查看。 */
+export function getQuestionBankImportBatchReview(id: string) {
+  return callApi<{ questions: QuestionBankAdminDetail[] }>({
+    url: `/question-library/admin/batches/${id}/review`,
+    method: 'GET',
+  })
+}
+
+/** 后台将上传包内全部题目统一上线或归档。 */
+export function updateQuestionBankImportBatchStatus(
+  id: string,
+  status: Extract<QuestionBankStatus, 'published' | 'archived'>,
+) {
+  return callApi<{
+    id: string
+    status: QuestionBankStatus
+    questionCount: number
+    updatedQuestions: number
+  }>({
+    url: `/question-library/admin/batches/${id}/status`,
+    method: 'PUT',
+    body: { status },
+  })
+}
+
+/** 删除没有任何答题或错题历史的上传包及包内题目。 */
+export function deleteQuestionBankImportBatch(id: string) {
+  return callApi<{ id: string; deletedQuestions: number }>({
+    url: `/question-library/admin/batches/${id}`,
+    method: 'DELETE',
+  })
+}
+
 /** 后台分页读取指定上传包内的独立题目。 */
 export function getQuestionBankImportBatchQuestions(
   id: string,

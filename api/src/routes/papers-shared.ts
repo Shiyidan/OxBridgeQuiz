@@ -267,6 +267,17 @@ export async function applySyllabusToTree(syllabus: { id: string; examType: stri
   const content = parseSyllabusJson(syllabus.sourceJson)
   const nodes = normalizeSyllabusNodes(content)
   const nodeDefinitionMap = new Map(nodes.map((node) => [node.code, node]))
+  // 分类归属沿考纲 code 父链判断，名称调整不会改变原有映射身份。
+  const hasAncestor = (nodeCode: string, ancestorCode: string): boolean => {
+    let current = nodeDefinitionMap.get(nodeCode)
+    const visited = new Set<string>()
+    while (current?.parentCode && !visited.has(current.code)) {
+      if (current.parentCode === ancestorCode) return true
+      visited.add(current.code)
+      current = nodeDefinitionMap.get(current.parentCode)
+    }
+    return false
+  }
 
   await prisma.$transaction(async (tx) => {
     const standaloneQuestions = await tx.question.findMany({
@@ -281,29 +292,48 @@ export async function applySyllabusToTree(syllabus: { id: string; examType: stri
         knowledgePoints: true,
       },
     })
-    const linkSnapshots = standaloneQuestions.flatMap((question) => {
+    const questionClassifications = standaloneQuestions.map((question) => {
       const subjectNode = question.subjectCode ? nodeDefinitionMap.get(question.subjectCode) : null
       const topicNode = question.topicCode ? nodeDefinitionMap.get(question.topicCode) : null
-      if (!subjectNode || subjectNode.label !== question.subject) {
+      if (!subjectNode) {
         throw new Error(`新考纲不再匹配题目 ${question.sourceQuestionCode || question.id} 的学科节点`)
       }
-      if (!topicNode || topicNode.label !== question.topic) {
+      if (!topicNode || !question.subjectCode || !hasAncestor(topicNode.code, question.subjectCode)) {
         throw new Error(`新考纲不再匹配题目 ${question.sourceQuestionCode || question.id} 的主题节点`)
       }
-      const points = parseJsonArray<{ code?: unknown; label?: unknown; role?: unknown }>(question.knowledgePoints)
-      return points.map((point) => {
+      const points = parseJsonArray<
+        Record<string, unknown> & { code?: unknown; label?: unknown; role?: unknown }
+      >(question.knowledgePoints)
+      let knowledgePointLabelChanged = false
+      const syncedPoints = points.map((point) => {
         const code = typeof point.code === 'string' ? point.code : ''
         const node = nodeDefinitionMap.get(code)
-        if (!node || node.label !== point.label) {
+        if (!node || !question.topicCode || !hasAncestor(code, question.topicCode)) {
           throw new Error(`新考纲不再匹配题目 ${question.sourceQuestionCode || question.id} 的知识点 ${code}`)
         }
+        if (point.label !== node.label) knowledgePointLabelChanged = true
         return {
-          questionId: question.id,
-          code,
-          role: point.role === 'secondary' ? 'secondary' : 'primary',
+          ...point,
+          label: node.label,
         }
       })
+      return {
+        questionId: question.id,
+        subjectLabel: subjectNode.label,
+        topicLabel: topicNode.label,
+        syncedPoints,
+        labelChanged:
+          question.subject !== subjectNode.label
+          || question.topic !== topicNode.label
+          || knowledgePointLabelChanged,
+        links: syncedPoints.map((point) => ({
+          questionId: question.id,
+          code: typeof point.code === 'string' ? point.code : '',
+          role: point.role === 'secondary' ? 'secondary' : 'primary',
+        })),
+      }
     })
+    const linkSnapshots = questionClassifications.flatMap((classification) => classification.links)
     const previousNodes = await tx.syllabusNode.findMany({
       where: { examType: syllabus.examType },
       select: { id: true },
@@ -317,6 +347,18 @@ export async function applySyllabusToTree(syllabus: { id: string; examType: stri
       where: { id: syllabus.id },
       data: { isActive: true },
     })
+    // 节点 code 是分类身份；考纲换名时同步题目中的冗余展示文案，不改变题目归属。
+    for (const classification of questionClassifications) {
+      if (!classification.labelChanged) continue
+      await tx.question.update({
+        where: { id: classification.questionId },
+        data: {
+          subject: classification.subjectLabel,
+          topic: classification.topicLabel,
+          knowledgePoints: classification.syncedPoints as Prisma.InputJsonValue,
+        },
+      })
+    }
     if (previousNodes.length) {
       await tx.questionKnowledgePoint.deleteMany({
         where: { syllabusNodeId: { in: previousNodes.map((node) => node.id) } },

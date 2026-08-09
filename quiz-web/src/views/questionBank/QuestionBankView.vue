@@ -175,6 +175,8 @@ interface DifficultyOption {
 }
 
 interface PendingDirectPractice {
+  code: string
+  label: string
   difficulty: DifficultyId
   questionCount: number
 }
@@ -419,13 +421,13 @@ function handleContinuePractice(): void {
   })
 }
 
-// 答题页只接收范围条件，正式题量和冻结题目由服务端选题凭证决定。
-function navigateToPractice(difficulty: DifficultyId): void {
+// 答题页使用点击卡片时冻结的范围，确认弹窗期间切换树节点不会改变本次练习归属。
+function navigateToPractice(practice: PendingDirectPractice): void {
   void router.push({
     path: '/practice',
     query: {
-      code: selectedNodeCode.value || '',
-      difficulty,
+      code: practice.code,
+      difficulty: practice.difficulty,
       examType: activeExamType.value,
     },
   })
@@ -441,13 +443,15 @@ function handleStartPractice(diff: DifficultyOption): void {
 
   const plannedQuestionCount = Math.min(diff.count, DIRECT_PRACTICE_QUESTION_COUNT)
   pendingDirectPractice.value = {
+    code: selectedNodeCode.value,
+    label: selectedNodeLabel.value,
     difficulty: diff.id,
     questionCount: plannedQuestionCount,
   }
   const practiceCountMessage = diff.count > plannedQuestionCount
     ? `题库共${diff.count}题，本次随机练习${plannedQuestionCount}题`
     : `本次练习全部${plannedQuestionCount}题`
-  selectionDialogMessage.value = `您已选择${selectedNodeLabel.value}，${practiceCountMessage}，开始练习？`
+  selectionDialogMessage.value = `您已选择${pendingDirectPractice.value.label}，${practiceCountMessage}，开始练习？`
   selectionDialogVisible.value = true
 }
 
@@ -465,7 +469,7 @@ async function handleConfirmSelectedPractice(): Promise<void> {
     })
     if (access.allowed) {
       pendingDirectPractice.value = null
-      navigateToPractice(pending.difficulty)
+      navigateToPractice(pending)
       return
     }
 
@@ -476,7 +480,7 @@ async function handleConfirmSelectedPractice(): Promise<void> {
       return
     }
 
-    pendingDirectPractice.value = { difficulty: pending.difficulty, questionCount: remaining }
+    pendingDirectPractice.value = { ...pending, questionCount: remaining }
     quotaDialogMessage.value = `当前免费练习题量不足，还可免费练习${remaining}道，是否开始`
     quotaDialogVisible.value = true
   } catch {
@@ -496,7 +500,7 @@ function handleConfirmReducedPractice(): void {
   const pending = pendingDirectPractice.value
   pendingDirectPractice.value = null
   if (!pending) return
-  navigateToPractice(pending.difficulty)
+  navigateToPractice(pending)
 }
 
 // 取消缩量练习时只清理本次待开始参数，不改变已有选择。

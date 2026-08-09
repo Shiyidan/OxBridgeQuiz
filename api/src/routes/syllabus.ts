@@ -140,15 +140,10 @@ syllabusRouter.put('/syllabus-library/:id/disable', requireAuth, requireAdmin, a
       return
     }
 
-    await prisma.$transaction(async (tx) => {
-      await tx.syllabus.update({
-        where: { id: item.id },
-        data: { isActive: false },
-      })
-      if (item.isActive) {
-
-        await tx.syllabusNode.deleteMany({ where: { examType: item.examType } })
-      }
+    // 停用只改变当前版本的可用状态，保留题目正在引用的节点与知识点关系。
+    await prisma.syllabus.update({
+      where: { id: item.id },
+      data: { isActive: false },
     })
 
     setOperationAuditContext(req, {
@@ -169,6 +164,14 @@ syllabusRouter.get('/syllabus', async (req, res) => {
     const examType = (req.query.examType as string) || EXAM_TYPE.TMUA
     if (!isExamType(examType)) {
       res.status(422).json(fail('无效的考试类型'))
+      return
+    }
+    const activeSyllabus = await prisma.syllabus.findFirst({
+      where: { examType, isActive: true },
+      select: { id: true },
+    })
+    if (!activeSyllabus) {
+      res.json(success([]))
       return
     }
     const nodes = await prisma.syllabusNode.findMany({

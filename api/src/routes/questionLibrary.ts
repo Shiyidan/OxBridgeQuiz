@@ -552,14 +552,14 @@ questionLibraryRouter.post(
           const topic = nodeMap.get(
             `${question.examType}:${classification.topicCode}`,
           );
-          if (!subject || subject.label !== classification.subject) {
+          if (!subject) {
             syllabusIssues.push(
-              `${question.code}: subjectCode/subject 与当前 ${question.examType} 考纲不一致`,
+              `${question.code}: subjectCode ${classification.subjectCode} 不存在于当前 ${question.examType} 考纲`,
             );
           }
-          if (!topic || topic.label !== classification.topic) {
+          if (!topic) {
             syllabusIssues.push(
-              `${question.code}: topicCode/topic 与当前 ${question.examType} 考纲不一致`,
+              `${question.code}: topicCode ${classification.topicCode} 不存在于当前 ${question.examType} 考纲`,
             );
           } else if (
             !hasAncestor(
@@ -574,9 +574,9 @@ questionLibraryRouter.post(
           }
           for (const point of classification.knowledgePoints) {
             const node = nodeMap.get(`${question.examType}:${point.code}`);
-            if (!node || node.label !== point.label) {
+            if (!node) {
               syllabusIssues.push(
-                `${question.code}: 知识点 ${point.code}/${point.label} 与当前考纲不一致`,
+                `${question.code}: 知识点 code ${point.code} 不存在于当前考纲`,
               );
             } else if (
               !hasAncestor(
@@ -594,6 +594,32 @@ questionLibraryRouter.post(
         if (syllabusIssues.length)
           throw new QuestionBankDocumentError(syllabusIssues);
 
+        // 分类 code 是入库身份；上传文件中的旧 label 统一替换为当前考纲展示名称。
+        const canonicalClassifications = new Map(
+          document.questions.map((question) => {
+            const classification = question.classification;
+            const subject = nodeMap.get(
+              `${question.examType}:${classification.subjectCode}`,
+            )!;
+            const topic = nodeMap.get(
+              `${question.examType}:${classification.topicCode}`,
+            )!;
+            return [
+              question.code,
+              {
+                subject: subject.label,
+                subjectCode: classification.subjectCode,
+                topic: topic.label,
+                topicCode: classification.topicCode,
+                knowledgePoints: classification.knowledgePoints.map((point) => ({
+                  ...point,
+                  label: nodeMap.get(`${question.examType}:${point.code}`)!.label,
+                })),
+              },
+            ] as const;
+          }),
+        );
+
         const batch = await tx.questionImportBatch.create({
           data: {
             title: document.metadata.title,
@@ -604,7 +630,7 @@ questionLibraryRouter.post(
           },
         });
         for (const [questionIndex, question] of document.questions.entries()) {
-          const classification = question.classification;
+          const classification = canonicalClassifications.get(question.code)!;
           const created = await tx.question.create({
             data: {
               uniqueCode: question.code,

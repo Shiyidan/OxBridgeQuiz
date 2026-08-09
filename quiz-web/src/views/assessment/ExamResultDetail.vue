@@ -19,6 +19,7 @@
           :correct-count="correctCount"
           :initial-question-id="targetQuestionId"
           :single-question-mode="singleQuestionMode"
+          :group-by="analysisSource === 'question-bank' ? 'syllabus' : 'module'"
         />
       </section>
     </main>

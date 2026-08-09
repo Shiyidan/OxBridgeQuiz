@@ -11,7 +11,7 @@
           :aria-label="`${group.label}题目`"
         >
           <div
-            v-if="questionNavGroups.length > 1"
+            v-if="showQuestionGroupLabels"
             class="question-nav__divider"
             :title="group.fullLabel"
           >
@@ -157,6 +157,7 @@ const props = defineProps<{
   initialQuestionId?: string
   singleQuestionMode?: boolean
   showUserAnswer?: boolean
+  groupBy?: 'module' | 'syllabus'
 }>()
 const emit = defineEmits<{
   questionChange: [index: number]
@@ -179,15 +180,19 @@ const wrongCount = computed(
   () => props.questions.filter((q) => q.selectedAnswer && !q.isCorrect).length,
 )
 const answerText = computed(() => currentQuestion.value?.answer?.join(', ') || '-')
-// 模块代码是分组首选依据，旧题缺少代码时回退到 subject；同一科目或 Part 即使不连续也只展示一组。
+// 题库解析按考纲学科分组，诊断和管理预览继续按考试模块分组。
 const questionNavGroups = computed<QuestionNavGroup[]>(() => {
   const groups: QuestionNavGroup[] = []
   props.questions.forEach((question, index) => {
     const moduleCode = String(question.module_code || question.component_code || '')
       .trim()
       .toLowerCase()
+    const subjectCode = String(question.subject_code || '').trim().toLowerCase()
     const subject = String(question.subject || '').trim()
-    const groupIdentity = moduleCode || subject.toLowerCase() || 'continuous'
+    const usesSyllabusGrouping = props.groupBy === 'syllabus'
+    const groupIdentity = usesSyllabusGrouping
+      ? subjectCode || subject.toLowerCase() || 'syllabus'
+      : moduleCode || subject.toLowerCase() || 'continuous'
     const existingGroup = groups.find((group) => group.identity === groupIdentity)
     const item: QuestionNavItem = {
       index,
@@ -200,7 +205,9 @@ const questionNavGroups = computed<QuestionNavGroup[]>(() => {
       return
     }
 
-    const label = MODULE_LABELS[moduleCode] || subject || '试卷题目'
+    const label = usesSyllabusGrouping
+      ? subject || '考纲题目'
+      : MODULE_LABELS[moduleCode] || subject || '试卷题目'
     groups.push({
       key: groupIdentity,
       identity: groupIdentity,
@@ -211,6 +218,10 @@ const questionNavGroups = computed<QuestionNavGroup[]>(() => {
   })
   return groups
 })
+// 题库解析即使只有一个考纲分组也展示名称，避免左侧只剩题号而看不到所属范围。
+const showQuestionGroupLabels = computed(
+  () => props.groupBy === 'syllabus' || questionNavGroups.value.length > 1,
+)
 const la = computed(() => currentQuestion.value?.learning_analysis)
 const examFocusText = computed(() => la.value?.exam_focus || '')
 const correctSolution = computed(() => la.value?.correct_solution || la.value?.solution || '')

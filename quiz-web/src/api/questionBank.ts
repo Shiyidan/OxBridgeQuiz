@@ -9,12 +9,9 @@ export interface SyllabusNode {
   children?: SyllabusNode[]
 }
 
-export interface DifficultyCount {
-  easy: number
-  medium: number
-  hard: number
-  composite: number
-}
+export type QuestionDifficulty = 'easy' | 'medium' | 'hard'
+
+export type DifficultyCount = Record<QuestionDifficulty, number>
 
 export interface QuestionBankSummary {
   total: number
@@ -41,7 +38,7 @@ export interface QuestionBankAdminItem {
   title: string
   examType: string
   questionType: string
-  difficulty: string
+  difficulty: QuestionDifficulty
   qualityTier: QuestionBankQualityTier | null
   subject: string | null
   subjectCode: string | null

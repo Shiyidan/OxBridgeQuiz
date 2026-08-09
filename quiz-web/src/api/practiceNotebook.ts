@@ -1,6 +1,7 @@
 // 练习本 API：集中定义配置、首页汇总、历史分页和开始练习请求。
 import { callApi } from '@/utils/request'
 import type { ActiveExamType } from '@/stores/auth'
+import type { QuestionDifficulty } from '@/api/questionBank'
 
 export type PracticeDifficultyMode = 'easy' | 'medium' | 'hard' | 'mixed'
 export type PracticeSource = 'direct' | 'free_assembly' | 'notebook'
@@ -59,7 +60,7 @@ export interface TemporaryPracticeSnapshot extends PracticeHistorySnapshot {
   source: Exclude<PracticeSource, 'notebook'>
   subject: PracticeScopeNode
   knowledgePoint: PracticeScopeNode & { path: PracticeScopeNode[] }
-  difficulty: string
+  difficulty: QuestionDifficulty
   plannedQuestionCount: number
   questionCount: number
 }

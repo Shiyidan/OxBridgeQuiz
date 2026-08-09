@@ -1,7 +1,13 @@
 // 题库选题凭证：冻结服务端选出的题目与题量，防止客户端绕过页面改变练习规模。
 import jwt from 'jsonwebtoken'
 import { config } from '../config.js'
-import { PRACTICE_SOURCE, isExamType, type ExamType } from '../constants/domain.js'
+import {
+  PRACTICE_SOURCE,
+  isExamType,
+  isQuestionDifficulty,
+  type ExamType,
+  type QuestionDifficulty,
+} from '../constants/domain.js'
 
 export interface QuestionBankSelectionScopeNode {
   code: string
@@ -14,7 +20,7 @@ export interface QuestionBankPracticeSnapshot {
   knowledgePoint: (QuestionBankSelectionScopeNode & {
     path: QuestionBankSelectionScopeNode[]
   }) | null
-  difficulty: string | null
+  difficulty: QuestionDifficulty | null
   plannedQuestionCount: number
   questionCount: number
 }
@@ -80,7 +86,7 @@ function isPracticeSnapshot(value: unknown, questionCount: number): value is Que
   return snapshot.source === PRACTICE_SOURCE.DIRECT
     && (snapshot.subject === null || isScopeNode(snapshot.subject))
     && validKnowledgePoint
-    && (snapshot.difficulty === null || typeof snapshot.difficulty === 'string')
+    && (snapshot.difficulty === null || isQuestionDifficulty(snapshot.difficulty))
     && Number.isInteger(snapshot.plannedQuestionCount)
     && Number(snapshot.plannedQuestionCount) >= questionCount
     && Number.isInteger(snapshot.questionCount)

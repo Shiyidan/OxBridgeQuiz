@@ -24,7 +24,9 @@ import {
   EXAM_TYPES,
   EXAM_RECORD_STATUS,
   PAPER_TYPE,
+  type QuestionDifficulty,
   REAL_PAPER_TYPES,
+  isQuestionDifficulty,
   isExamType,
   isAnswerRecordState,
   isRealPaperType,
@@ -34,7 +36,6 @@ import {
 
 import { safeJsonParse, parseQueryList, parseDateBoundary, parsePositiveInt, getQuestionKey, buildAnswerRecordRows, countCorrectAnswers, ExamResponseInput, normalizeExamResponses, responseMaps, usesContinuousExamClock, buildExamDeadline, continuousExamDurationSeconds, replaceAnswerRecords, collectSyllabusCodes, calculateNinePointScore } from './exam-shared.js'
 export const errorBookRouter = createAsyncRouter()
-const errorBookFilterDifficulties = new Set<string>(['easy', 'medium', 'hard'])
 
 // 错题本
 errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
@@ -48,10 +49,11 @@ errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
     }
     const examType = requestedExamType || undefined
     const difficulties = parseQueryList(req.query.difficulty)
-    if (difficulties.some((difficulty) => !errorBookFilterDifficulties.has(difficulty))) {
+    if (difficulties.some((difficulty) => !isQuestionDifficulty(difficulty))) {
       res.status(422).json(fail('无效的错题难度，仅支持低、中、高'))
       return
     }
+    const validDifficulties = difficulties as QuestionDifficulty[]
     const paperTypes = parseQueryList(req.query.paperType).flatMap((value) => paperTypeWhereValues(value))
     const subjectCodes = parseQueryList(req.query.subjectCode)
     const requestedSyllabusCodes = parseQueryList(req.query.syllabusCode)
@@ -75,7 +77,7 @@ errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
     }
     const questionWhere: Prisma.QuestionWhereInput = {
       ...(examType ? { examType } : {}),
-      ...(difficulties.length ? { difficulty: { in: difficulties } } : {}),
+      ...(validDifficulties.length ? { difficulty: { in: validDifficulties } } : {}),
       ...(subjectCodes.length ? { subjectCode: { in: subjectCodes } } : {}),
       ...(syllabusCodes.length
         ? {

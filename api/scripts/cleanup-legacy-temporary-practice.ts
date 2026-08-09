@@ -1,6 +1,10 @@
 // 审计并清理缺少完整快照的历史临时练习，供严格新格式上线前一次性执行。
 import { Prisma } from '@prisma/client'
-import { EXAM_RECORD_STATUS, PRACTICE_SOURCE } from '../src/constants/domain.js'
+import {
+  EXAM_RECORD_STATUS,
+  PRACTICE_SOURCE,
+  isQuestionDifficulty,
+} from '../src/constants/domain.js'
 import { prisma } from '../src/services/prisma.js'
 
 const APPLY_CONFIRMATION = 'DELETE_LEGACY_TEMPORARY_PRACTICE'
@@ -80,7 +84,7 @@ function missingSnapshotFields(
     }
   }
 
-  if (typeof snapshotValue.difficulty !== 'string' || !snapshotValue.difficulty.trim()) {
+  if (!isQuestionDifficulty(snapshotValue.difficulty)) {
     missing.push('difficulty')
   }
   if (!Number.isInteger(snapshotValue.plannedQuestionCount)

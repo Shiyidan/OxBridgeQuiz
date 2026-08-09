@@ -166,7 +166,7 @@ metadata 的业务边界：
 | answer | 是 | string[] | 当前必须且只能包含一个正确选项标签 |
 | images | 是 | array | 无图片时使用空数组 |
 | questionType | 是 | string | 当前正式标准固定为 single_choice |
-| difficulty | 是 | string | easy、medium、hard 或 composite |
+| difficulty | 是 | string | easy、medium 或 hard |
 | qualityTier | 否 | string | 题目生成质量等级，仅允许 qualified 或 excellent |
 | classification | 是 | object | 学科、主题和考纲知识点 |
 | learningAnalysis | 是 | object | 面向学生展示的中文解析 |
@@ -383,7 +383,6 @@ PNG 或 JPG：
 | easy | 基础知识或直接公式应用 |
 | medium | 多步推导或基础公式的灵活变形 |
 | hard | 复杂场景转换、生僻考点或较高认知负荷 |
-| composite | 多个知识点或多种能力连续结合 |
 
 difficulty 必须是单个字符串，不得使用数字分数、对象、中文标签或 unknown。
 

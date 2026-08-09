@@ -1,12 +1,20 @@
 // 维护 Question 官方数据源的批量同步、读取与前端结构格式化。
 import type { Prisma } from '@prisma/client'
+import {
+  isQuestionDifficulty,
+  type QuestionDifficulty,
+} from '../constants/domain.js'
 import { prisma } from '../services/prisma.js'
 import { parseJsonArray, parseJsonObject } from './jsonField.js'
 import { createQuestionUniqueCode } from './id.js'
 
-// 旧导入数据可能缺少难度或使用非字符串值，写入与输出时统一回退为空字符串。
-function normalizeDifficulty(value: any): string {
-  return typeof value === 'string' ? value : ''
+// 仅缺失值和标准 unknown 可落为空；其他非三档难度直接拒绝，不兼容旧难度枚举。
+function normalizeDifficulty(value: unknown): QuestionDifficulty | null {
+  if (value === undefined || value === null || value === '' || value === 'unknown') return null
+  if (!isQuestionDifficulty(value)) {
+    throw new Error('题目难度仅支持 easy、medium、hard 或 unknown')
+  }
+  return value
 }
 
 // 题目覆盖与试卷更新共用同一事务客户端时，避免结构锁检查和实际写入之间出现竞态。

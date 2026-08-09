@@ -205,14 +205,13 @@ function formatScopePath(record: TemporaryPracticeHistoryRecord): string {
 }
 
 // 难度枚举转换为学生端短标签，未知值保留原文便于兼容后续扩展。
-function formatDifficulty(value: string): string {
-  const labels: Record<string, string> = {
+function formatDifficulty(value: TemporaryPracticeHistoryRecord['snapshot']['difficulty']): string {
+  const labels: Record<TemporaryPracticeHistoryRecord['snapshot']['difficulty'], string> = {
     easy: '简单',
     medium: '中等',
     hard: '困难',
-    composite: '复合',
   }
-  return labels[value] || value
+  return labels[value]
 }
 
 // 额度缩量时同时展示原计划题量和实际题量，题量相同时不重复提示。

@@ -4,12 +4,15 @@ import { requireAdmin } from "../middleware/admin.js";
 import { requireAuth } from "../middleware/auth.js";
 import { setOperationAuditContext } from "../middleware/operationAudit.js";
 import {
-    EXAM_TYPE,
-    PRACTICE_SOURCE,
-    QUESTION_BANK_DIRECT_PRACTICE_COUNT,
+  EXAM_TYPE,
+  PRACTICE_SOURCE,
+  QUESTION_DIFFICULTIES,
+  QUESTION_BANK_DIRECT_PRACTICE_COUNT,
+  type QuestionDifficulty,
   QUESTION_STATUS,
   TMUA_PAPER,
   isExamType,
+  isQuestionDifficulty,
   isQuestionStatus,
 } from "../constants/domain.js";
 import { checkMemberAccess } from "../services/member.js";
@@ -20,7 +23,6 @@ import {
   type QuestionBankSelectionScopeNode,
 } from "../services/questionBankSelection.js";
 import {
-  QUESTION_BANK_DIFFICULTIES,
   QuestionBankDocumentError,
   parseQuestionBankDocumentText,
   validateQuestionBankDocument,
@@ -37,7 +39,7 @@ import {
 export const questionLibraryRouter = createAsyncRouter();
 
 type DifficultyCount = Record<
-  (typeof QUESTION_BANK_DIFFICULTIES)[number],
+  (typeof QUESTION_DIFFICULTIES)[number],
   number
 >;
 
@@ -77,7 +79,6 @@ const emptyDifficultyCount = (): DifficultyCount => ({
   easy: 0,
   medium: 0,
   hard: 0,
-  composite: 0,
 });
 
 // 批量知识点统计参数兼容逗号分隔和重复 query，并在数据库查询前统一去重。
@@ -126,7 +127,7 @@ async function collectDescendantNodeIds(
 async function buildDirectPracticeSnapshot(
   examType: string,
   code: string,
-  difficulty: string,
+  difficulty: QuestionDifficulty,
   plannedQuestionCount: number,
   rows: Array<{
     subject: string | null;
@@ -184,7 +185,7 @@ async function buildDirectPracticeSnapshot(
     source: PRACTICE_SOURCE.DIRECT,
     subject,
     knowledgePoint,
-    difficulty: difficulty || null,
+    difficulty,
     plannedQuestionCount,
     questionCount: rows.length,
   };
@@ -202,7 +203,7 @@ async function buildPublishedQuestionWhere(
     status: QUESTION_STATUS.PUBLISHED,
     examType,
   };
-  if (difficulty) where.difficulty = difficulty;
+  if (isQuestionDifficulty(difficulty)) where.difficulty = difficulty;
   if (code) {
     const nodeIds = await collectDescendantNodeIds(code, examType);
     where.knowledgePointLinks = nodeIds.length
@@ -325,6 +326,11 @@ questionLibraryRouter.get("/summary", async (req, res) => {
     res.status(422).json(fail("无效的考试类型"));
     return;
   }
+  const difficulty = String(req.query.difficulty || "").trim();
+  if (difficulty && !isQuestionDifficulty(difficulty)) {
+    res.status(422).json(fail("无效的难度"));
+    return;
+  }
   const where = await buildPublishedQuestionWhere(req.query);
   const groups = await prisma.question.groupBy({
     by: ["difficulty"],
@@ -421,8 +427,8 @@ questionLibraryRouter.get("/selection", requireAuth, async (req, res) => {
     return;
   }
   const difficulty = String(req.query.difficulty || "").trim();
-  if (difficulty && !QUESTION_BANK_DIFFICULTIES.includes(difficulty as any)) {
-    res.status(422).json(fail("无效的难度"));
+  if (!isQuestionDifficulty(difficulty)) {
+    res.status(422).json(fail("请选择简单、中等或困难难度"));
     return;
   }
   const where = await buildPublishedQuestionWhere(req.query);

@@ -289,11 +289,9 @@ async function selectFromScope(
   return [...unseenIds, ...oldIds]
 }
 
-// 困难模式同时接纳 hard 与 composite，其他难度保持一一对应。
+// 三档题目难度与练习本难度桶保持一一对应。
 function difficultyWhere(bucket: DifficultyBucket): Prisma.QuestionWhereInput {
-  return bucket === 'hard'
-    ? { difficulty: { in: ['hard', 'composite'] } }
-    : { difficulty: bucket }
+  return { difficulty: bucket }
 }
 
 // 动态组卷在难度目标内尽量平均覆盖知识点，短缺只在用户已选范围内重分配。

@@ -70,7 +70,7 @@ watch(
 .learning-workspace {
   min-height: 100vh;
   min-width: var(--fluid-page-min-width);
-  overflow-x: hidden;
+  overflow-x: clip;
   background: var(--color-bg);
 }
 

@@ -2,6 +2,12 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum QuestionDifficulty {
+  easy
+  medium
+  hard
+}
+
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
@@ -40,35 +46,35 @@ model Paper {
 }
 
 model Question {
-  id                   String    @id @default(uuid()) @db.VarChar(191)
-  uniqueCode           String    @unique @db.VarChar(191)
-  sourceQuestionCode   String?   @db.VarChar(191)
-  paperId              String?   @db.VarChar(191)
-  importBatchId        String?   @db.VarChar(191)
-  examType             String    @default("TMUA") @db.VarChar(32)
+  id                   String              @id @default(uuid()) @db.VarChar(191)
+  uniqueCode           String              @unique @db.VarChar(191)
+  sourceQuestionCode   String?             @db.VarChar(191)
+  paperId              String?             @db.VarChar(191)
+  importBatchId        String?             @db.VarChar(191)
+  examType             String              @default("TMUA") @db.VarChar(32)
   number               Int?
-  moduleCode           String?   @db.VarChar(32)
+  moduleCode           String?             @db.VarChar(32)
   moduleOrder          Int?
   moduleQuestionNumber Int?
-  title                String    @db.LongText
+  title                String              @db.LongText
   options              Json
   answer               Json
-  subject              String?   @db.VarChar(100)
-  subjectCode          String?   @db.VarChar(64)
-  questionType         String?   @db.VarChar(64)
-  difficulty           String?   @db.VarChar(32)
-  qualityTier          String?   @db.VarChar(32)
-  topic                String?   @db.VarChar(255)
-  topicCode            String?   @db.VarChar(64)
+  subject              String?             @db.VarChar(100)
+  subjectCode          String?             @db.VarChar(64)
+  questionType         String?             @db.VarChar(64)
+  difficulty           QuestionDifficulty?
+  qualityTier          String?             @db.VarChar(32)
+  topic                String?             @db.VarChar(255)
+  topicCode            String?             @db.VarChar(64)
   knowledgePoints      Json
   syllabusPoints       Json
   attemptPayload       Json?
   meta                 Json
-  status               String    @default("draft") @db.VarChar(32)
+  status               String              @default("draft") @db.VarChar(32)
   publishedAt          DateTime?
   archivedAt           DateTime?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @default(now()) @updatedAt
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @default(now()) @updatedAt
 
   paper                  Paper?                   @relation(fields: [paperId], references: [id], onDelete: Cascade)
   importBatch            QuestionImportBatch?     @relation(fields: [importBatchId], references: [id], onDelete: SetNull)

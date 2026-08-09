@@ -43,6 +43,21 @@ export const QUESTION_STATUS = {
 export const QUESTION_STATUSES = Object.values(QUESTION_STATUS)
 export type QuestionStatus = (typeof QUESTION_STATUSES)[number]
 
+export const QUESTION_DIFFICULTY = {
+  EASY: 'easy',
+  MEDIUM: 'medium',
+  HARD: 'hard',
+} as const
+
+export const QUESTION_DIFFICULTIES = Object.values(QUESTION_DIFFICULTY)
+export type QuestionDifficulty = (typeof QUESTION_DIFFICULTIES)[number]
+
+// 题目难度只接受简单、中等和困难三档，接口与导入流程共用同一判断。
+export function isQuestionDifficulty(value: unknown): value is QuestionDifficulty {
+  return typeof value === 'string'
+    && QUESTION_DIFFICULTIES.includes(value as QuestionDifficulty)
+}
+
 // 单题发布状态只接受草稿、已发布和已归档三种稳定值。
 export function isQuestionStatus(value: unknown): value is QuestionStatus {
   return typeof value === 'string' && QUESTION_STATUSES.includes(value as QuestionStatus)

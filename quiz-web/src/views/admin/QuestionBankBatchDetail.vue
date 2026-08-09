@@ -158,7 +158,6 @@ const difficultyOptions = [
   { value: 'easy', label: '简单' },
   { value: 'medium', label: '中等' },
   { value: 'hard', label: '困难' },
-  { value: 'composite', label: '复合' },
 ]
 
 // ESAT/STEP 显示科目，TMUA 显示 Paper；混合文件按两类内容依次汇总。

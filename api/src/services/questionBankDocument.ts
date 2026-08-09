@@ -1,12 +1,11 @@
 // 校验并归一化 standard2 试题库批量导入文档，供独立题库导入接口使用。
-import { TMUA_PAPER, type TmuaPaperCode } from "../constants/domain.js";
+import {
+  QUESTION_DIFFICULTIES,
+  TMUA_PAPER,
+  type QuestionDifficulty,
+  type TmuaPaperCode,
+} from "../constants/domain.js";
 
-export const QUESTION_BANK_DIFFICULTIES = [
-  "easy",
-  "medium",
-  "hard",
-  "composite",
-] as const;
 export const QUESTION_BANK_ORIGIN_TYPES = [
   "manual",
   "ai_generated",
@@ -14,7 +13,7 @@ export const QUESTION_BANK_ORIGIN_TYPES = [
 ] as const;
 export const QUESTION_BANK_QUALITY_TIERS = ["qualified", "excellent"] as const;
 
-type Difficulty = (typeof QUESTION_BANK_DIFFICULTIES)[number];
+type Difficulty = QuestionDifficulty;
 type OriginType = (typeof QUESTION_BANK_ORIGIN_TYPES)[number];
 type QualityTier = (typeof QUESTION_BANK_QUALITY_TIERS)[number];
 type QuestionBankPart = TmuaPaperCode;
@@ -82,7 +81,7 @@ export class QuestionBankDocumentError extends Error {
 }
 
 const EXAM_TYPES = new Set(["ESAT", "TMUA", "STEP"]);
-const DIFFICULTIES = new Set<string>(QUESTION_BANK_DIFFICULTIES);
+const DIFFICULTIES = new Set<string>(QUESTION_DIFFICULTIES);
 const ORIGIN_TYPES = new Set<string>(QUESTION_BANK_ORIGIN_TYPES);
 const QUALITY_TIERS = new Set<string>(QUESTION_BANK_QUALITY_TIERS);
 const CONTROL_OR_REPLACEMENT = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFD]/;

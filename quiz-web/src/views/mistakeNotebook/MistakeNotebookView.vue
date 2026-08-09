@@ -300,7 +300,6 @@ const difficultyLabelMap = {
   easy: '低',
   medium: '中',
   hard: '高',
-  composite: '复合',
 } as const
 const mistakeNotebookDifficultyValues: readonly MistakeNotebookDifficulty[] = [
   'easy',
@@ -625,7 +624,7 @@ function knowledgeText(item: WrongAnswer): string {
   return labels.length > 2 ? `${visible} +${labels.length - 2}` : visible
 }
 
-// 卡片兼容展示题目现有难度；错题筛选本身只提供低、中、高。
+// 卡片与筛选统一展示低、中、高三档题目难度。
 function difficultyText(item: WrongAnswer): string {
   const difficulty = item.difficulty || ''
   return difficulty in difficultyLabelMap
@@ -638,7 +637,6 @@ function difficultyToneClass(difficulty?: string | null): string {
   if (difficulty === 'easy') return 'wrong-item__difficulty--easy'
   if (difficulty === 'medium') return 'wrong-item__difficulty--medium'
   if (difficulty === 'hard') return 'wrong-item__difficulty--hard'
-  if (difficulty === 'composite') return 'wrong-item__difficulty--composite'
   return 'wrong-item__difficulty--unknown'
 }
 
@@ -999,11 +997,6 @@ function dateOnly(value?: string | null): string | null {
 .wrong-item__difficulty--hard {
   background: var(--color-danger-bg);
   color: var(--color-danger);
-}
-
-.wrong-item__difficulty--composite {
-  background: var(--color-report-purple-soft);
-  color: var(--color-report-purple);
 }
 
 .wrong-item__difficulty--unknown {

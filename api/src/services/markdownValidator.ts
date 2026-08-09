@@ -7,6 +7,7 @@ import {
   EXAM_TYPE,
   PAPER_ACCESS_TIER,
   PAPER_DELIVERY_MODE,
+  QUESTION_DIFFICULTIES,
   TMUA_PAPER,
   TMUA_PAPERS,
   isExamType,
@@ -406,10 +407,11 @@ function normalizeSectionPaperDocument(input: any, errors: ValidationError[]): a
       const classification = question?.classification
       const learningAnalysis = question?.learningAnalysis
 
-      if (question?.difficulty !== undefined && !['easy', 'medium', 'hard', 'composite', 'unknown'].includes(question.difficulty)) {
+      if (question?.difficulty !== undefined
+        && ![...QUESTION_DIFFICULTIES, 'unknown'].includes(question.difficulty)) {
         errors.push({
           block: 0,
-          message: `${questionLabel}：difficulty 必须为 easy、medium、hard、composite 或 unknown`,
+          message: `${questionLabel}：difficulty 必须为 easy、medium、hard 或 unknown`,
         })
       }
 

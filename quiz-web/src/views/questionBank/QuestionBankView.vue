@@ -33,25 +33,28 @@
       <section class="qb-main">
         <aside class="qb-sidebar">
           <h3 class="qb-sidebar__title">考点大纲 (SYLLABUS)</h3>
-          <el-tree
-            ref="syllabusTreeRef"
-            :key="activeExamType"
-            :data="treeData"
-            :props="treeProps"
-            node-key="code"
-            :default-expanded-keys="defaultExpanded"
-            :current-node-key="selectedNodeCode"
-            highlight-current
-            @node-click="handleTreeNodeClick"
-          />
+          <div class="qb-sidebar__tree-scroll">
+            <el-tree
+              ref="syllabusTreeRef"
+              :key="activeExamType"
+              :data="treeData"
+              :props="treeProps"
+              node-key="code"
+              :default-expanded-keys="defaultExpanded"
+              :current-node-key="selectedNodeCode"
+              highlight-current
+              @node-click="handleTreeNodeClick"
+            />
+          </div>
         </aside>
 
         <section class="qb-content">
           <header class="qb-content__header">
             <h2 class="qb-content__title">{{ activeTopicTitle }}</h2>
-            <span class="qb-content__hint"
-              >选择难度以生成测试卷 (共 {{ totalQuestionCount }} 题)</span
-            >
+            <span class="qb-content__hint">
+              当前范围共 {{ totalQuestionCount }} 题，每次随机练习最多
+              {{ DIRECT_PRACTICE_QUESTION_COUNT }} 题
+            </span>
           </header>
 
           <div v-if="activePractice" class="qb-active-practice" role="status">
@@ -77,21 +80,42 @@
               :class="{ 'qb-difficulty-card--target': targetDifficulty === diff.id }"
               :data-theme="diff.id"
             >
-              <h3 class="qb-difficulty-card__title">
-                {{ diff.label }} ({{ diff.englishLabel }})
-                <span class="qb-difficulty-card__count">{{ diff.count }} 题</span>
-              </h3>
-              <p class="qb-difficulty-card__desc">{{ diff.description }}</p>
-              <button
-                type="button"
-                class="qb-difficulty-card__cta button_primary"
-                :disabled="
-                  diff.count === 0 || Boolean(activePractice) || startingDifficultyId === diff.id
-                "
-                @click="handleStartPractice(diff)"
-              >
-                开始练习
-              </button>
+              <div class="qb-difficulty-card__visual">
+                <span class="qb-difficulty-card__english">{{ diff.englishLabel }}</span>
+                <h3 class="qb-difficulty-card__title">{{ diff.label }}难度</h3>
+                <span class="qb-difficulty-card__count">题库共 {{ diff.count }} 题</span>
+                <button
+                  type="button"
+                  class="qb-difficulty-card__cta"
+                  :disabled="
+                    diff.count === 0 ||
+                    Boolean(activePractice) ||
+                    startingDifficultyId === diff.id
+                  "
+                  @click="handleStartPractice(diff)"
+                >
+                  <span v-if="startingDifficultyId === diff.id">正在生成</span>
+                  <span v-else-if="diff.count === 0">暂无题目</span>
+                  <span v-else>立即练习</span>
+                  <span aria-hidden="true">→</span>
+                </button>
+              </div>
+              <div class="qb-difficulty-card__body">
+                <span class="qb-difficulty-card__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path d="m7.5 16.5 9-9M9 7.5h7.5V15" stroke="currentColor" stroke-width="1.8" />
+                    <path
+                      d="M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                    />
+                  </svg>
+                </span>
+                <div>
+                  <strong>{{ diff.label }}练习</strong>
+                  <p class="qb-difficulty-card__desc">{{ diff.description }}</p>
+                </div>
+              </div>
             </article>
           </div>
         </section>
@@ -129,7 +153,7 @@ import { ElMessage } from 'element-plus'
 import type { TreeInstance } from 'element-plus'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
-import type { SyllabusNode } from '@/api/questionBank'
+import type { QuestionDifficulty, SyllabusNode } from '@/api/questionBank'
 import { getSyllabusData, getQuestionSummaryData } from '@/api/questionBank'
 import { getActiveQuestionBankPractice, type ActiveQuestionBankPractice } from '@/api/exam'
 import { checkMemberAccess } from '@/api/member'
@@ -140,7 +164,7 @@ const route = useRoute()
 const auth = useAuthStore()
 
 type TreeNode = SyllabusNode
-type DifficultyId = 'easy' | 'medium' | 'hard' | 'composite'
+type DifficultyId = QuestionDifficulty
 
 interface DifficultyOption {
   id: DifficultyId
@@ -205,13 +229,6 @@ const difficulties = ref<DifficultyOption[]>([
     englishLabel: 'Hard',
     count: 0,
     description: '包含复杂场景变换与严谨证明，适合冲刺高分段。',
-  },
-  {
-    id: 'composite',
-    label: '复合',
-    englishLabel: 'Composite',
-    count: 0,
-    description: '跨章节综合题型，考察知识点串联能力。',
   },
 ])
 
@@ -427,7 +444,10 @@ function handleStartPractice(diff: DifficultyOption): void {
     difficulty: diff.id,
     questionCount: plannedQuestionCount,
   }
-  selectionDialogMessage.value = `您已选择${selectedNodeLabel.value}，${plannedQuestionCount}道题，开始练习？`
+  const practiceCountMessage = diff.count > plannedQuestionCount
+    ? `题库共${diff.count}题，本次随机练习${plannedQuestionCount}题`
+    : `本次练习全部${plannedQuestionCount}题`
+  selectionDialogMessage.value = `您已选择${selectedNodeLabel.value}，${practiceCountMessage}，开始练习？`
   selectionDialogVisible.value = true
 }
 
@@ -653,9 +673,10 @@ function handleCancelReducedPractice(): void {
   background: var(--color-surface);
 }
 
-.qb-sidebar {
+.qb-content {
   position: sticky;
   top: calc(var(--nav-height) + 24px);
+  z-index: 1;
 }
 
 .qb-sidebar__title {
@@ -667,21 +688,54 @@ function handleCancelReducedPractice(): void {
   text-transform: uppercase;
 }
 
-.qb-sidebar :deep(.el-tree) {
+.qb-sidebar__tree-scroll {
+  width: 100%;
+  padding-bottom: 8px;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-muted) var(--color-line-soft);
+}
+
+.qb-sidebar__tree-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.qb-sidebar__tree-scroll::-webkit-scrollbar-track {
+  border-radius: var(--radius-pill);
+  background: var(--color-line-soft);
+}
+
+.qb-sidebar__tree-scroll::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-pill);
+  background: var(--color-ink-muted);
+}
+
+.qb-sidebar__tree-scroll :deep(.el-tree) {
+  display: inline-block;
+  width: max-content;
+  min-width: 100%;
   background: transparent;
   color: var(--color-ink-soft);
 }
 
-.qb-sidebar :deep(.el-tree-node__content) {
+.qb-sidebar__tree-scroll :deep(.el-tree-node),
+.qb-sidebar__tree-scroll :deep(.el-tree-node__content) {
+  width: max-content;
+  min-width: 100%;
+}
+
+.qb-sidebar__tree-scroll :deep(.el-tree-node__content) {
   min-height: 36px;
+  padding-right: 12px;
   border-radius: var(--radius-sm);
 }
 
-.qb-sidebar :deep(.el-tree-node__content:hover) {
+.qb-sidebar__tree-scroll :deep(.el-tree-node__content:hover) {
   background: var(--color-hover);
 }
 
-.qb-sidebar :deep(.el-tree-node.is-current > .el-tree-node__content) {
+.qb-sidebar__tree-scroll :deep(.el-tree-node.is-current > .el-tree-node__content) {
   background: var(--color-surface-alt);
   color: var(--color-ink);
   font-weight: var(--weight-semi);
@@ -708,59 +762,210 @@ function handleCancelReducedPractice(): void {
 
 .qb-difficulty-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
 }
 
 .qb-difficulty-card {
-  min-height: 190px;
-  padding: 20px;
+  --difficulty-accent: #3483f7;
+  --difficulty-accent-dark: #2368d1;
+  --difficulty-gradient-start: #86b8ff;
+  --difficulty-gradient-end: #e9f3ff;
+  --difficulty-glow: rgb(255 255 255 / 68%);
+
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
   border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
+  border-radius: 16px;
   background: var(--color-surface);
+  box-shadow: 0 10px 26px rgb(15 23 42 / 7%);
   transition:
     border-color var(--duration-base) ease,
-    transform var(--duration-fast) ease;
+    box-shadow var(--duration-base) ease,
+    transform var(--duration-base) ease;
+}
+
+.qb-difficulty-card[data-theme='medium'] {
+  --difficulty-accent: #7068eb;
+  --difficulty-accent-dark: #5148cb;
+  --difficulty-gradient-start: #b2abff;
+  --difficulty-gradient-end: #eeedff;
+  --difficulty-glow: rgb(255 255 255 / 62%);
+}
+
+.qb-difficulty-card[data-theme='hard'] {
+  --difficulty-accent: #e25f62;
+  --difficulty-accent-dark: #c34449;
+  --difficulty-gradient-start: #f1a09e;
+  --difficulty-gradient-end: #fff0eb;
+  --difficulty-glow: rgb(255 255 255 / 60%);
 }
 
 .qb-difficulty-card:hover {
-  border-color: var(--color-ink);
-  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--difficulty-accent) 48%, var(--color-line));
+  box-shadow: 0 16px 34px rgb(15 23 42 / 12%);
+  transform: translateY(-3px);
 }
 
 .qb-difficulty-card--target {
-  border-color: var(--color-ink);
-  box-shadow: 0 0 0 2px var(--color-hover);
+  border-color: var(--difficulty-accent);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--difficulty-accent) 24%, transparent),
+    0 14px 32px rgb(15 23 42 / 11%);
+}
+
+.qb-difficulty-card__visual {
+  position: relative;
+  min-height: 178px;
+  padding: 24px 22px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 84% 25%, var(--difficulty-glow) 0 12%, transparent 36%),
+    linear-gradient(118deg, var(--difficulty-gradient-start), var(--difficulty-gradient-end));
+  isolation: isolate;
+}
+
+.qb-difficulty-card__visual::before,
+.qb-difficulty-card__visual::after {
+  position: absolute;
+  z-index: -1;
+  border: 1px solid rgb(255 255 255 / 46%);
+  border-radius: 28px;
+  background: rgb(255 255 255 / 14%);
+  content: '';
+  transform: rotate(24deg);
+}
+
+.qb-difficulty-card__visual::before {
+  width: 128px;
+  height: 128px;
+  top: -56px;
+  right: -36px;
+}
+
+.qb-difficulty-card__visual::after {
+  width: 80px;
+  height: 80px;
+  right: 34px;
+  bottom: -52px;
+}
+
+.qb-difficulty-card__english {
+  display: block;
+  margin-bottom: 7px;
+  color: color-mix(in srgb, var(--difficulty-accent-dark) 76%, var(--color-ink));
+  font-size: 11px;
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
 }
 
 .qb-difficulty-card__title {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 0 0 12px;
-  color: var(--color-ink);
-  font-size: var(--text-lg);
+  margin: 0;
+  color: #fff;
+  font-size: clamp(25px, 2.2vw, 34px);
   font-weight: var(--weight-bold);
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  text-shadow: 0 2px 5px rgb(41 68 120 / 28%);
 }
 
 .qb-difficulty-card__count {
-  color: var(--color-ink-muted);
-  font-size: var(--text-sm);
+  display: inline-flex;
+  margin-top: 14px;
+  padding: 5px 9px;
+  border: 1px solid rgb(255 255 255 / 55%);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 56%);
+  color: var(--difficulty-accent-dark);
+  font-size: var(--text-xs);
   font-weight: var(--weight-semi);
-}
-
-.qb-difficulty-card__desc {
-  min-height: 48px;
-  margin: 0 0 24px;
-  color: var(--color-ink-soft);
-  line-height: var(--leading-relaxed);
+  line-height: 1;
+  backdrop-filter: blur(5px);
 }
 
 .qb-difficulty-card__cta {
-  min-width: 112px;
-  height: var(--height-button);
-  padding: 0 18px;
-  border-radius: var(--radius-md);
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 126px;
+  height: 43px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--difficulty-accent);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--difficulty-accent) 32%, transparent);
+  color: #fff;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+  cursor: pointer;
+  transition:
+    background var(--duration-base) ease,
+    box-shadow var(--duration-base) ease,
+    transform var(--duration-fast) ease;
+}
+
+.qb-difficulty-card__cta:not(:disabled):hover,
+.qb-difficulty-card__cta:not(:disabled):focus-visible {
+  background: var(--difficulty-accent-dark);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--difficulty-accent) 42%, transparent);
+  transform: translateY(-1px);
+}
+
+.qb-difficulty-card__cta:disabled {
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.54;
+}
+
+.qb-difficulty-card__body {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  min-height: 128px;
+  padding: 22px;
+  background: var(--color-surface);
+}
+
+.qb-difficulty-card__icon {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--difficulty-accent);
+  color: #fff;
+}
+
+.qb-difficulty-card__icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.qb-difficulty-card__body strong {
+  display: block;
+  margin: 3px 0 7px;
+  color: var(--color-ink);
+  font-size: var(--text-base);
+}
+
+.qb-difficulty-card__desc {
+  margin: 0;
+  color: var(--color-ink-soft);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+}
+
+@media (max-width: 1200px) {
+  .qb-difficulty-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 900px) {
@@ -772,7 +977,7 @@ function handleCancelReducedPractice(): void {
     grid-template-columns: 1fr;
   }
 
-  .qb-sidebar {
+  .qb-content {
     position: static;
   }
 

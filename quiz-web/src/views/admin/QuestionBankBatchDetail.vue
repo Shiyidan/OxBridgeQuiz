@@ -174,11 +174,10 @@ const batchClassificationLabel = computed(() => {
 
 // 整包完整题目转换为公共解析组件的数据结构，数据库题目 id 作为稳定导航标识。
 const analysisQuestions = computed<Array<ExamQuestion & { id: string }>>(() =>
-  questionDetails.value.map((detail, index) => ({
+  questionDetails.value.map((detail) => ({
     ...detail.question,
     id: detail.question.id || detail.id,
     questionId: detail.id,
-    number: index + 1,
   })),
 )
 

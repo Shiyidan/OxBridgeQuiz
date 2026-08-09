@@ -511,11 +511,13 @@ export interface PageResult<T> {
   }
 }
 
+export type MistakeNotebookDifficulty = 'easy' | 'medium' | 'hard'
+
 export interface MistakeNotebookParams {
   page?: number
   pageSize?: number
   examType?: string
-  difficulties?: string[]
+  difficulties?: MistakeNotebookDifficulty[]
   paperTypes?: string[]
   subjectCodes?: string[]
   syllabusCodes?: string[]

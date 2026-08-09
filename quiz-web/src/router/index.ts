@@ -70,6 +70,12 @@ const router = createRouter({
       name: 'practice-notebook',
       component: learningWorkspaceRoute,
     },
+    // 试题库临时练习记录
+    {
+      path: '/practice-records',
+      name: 'practice-records',
+      component: learningWorkspaceRoute,
+    },
     // 新建练习本
     {
       path: '/practice-notebook/new',
@@ -295,6 +301,7 @@ router.beforeEach((to, _from) => {
   const requiresAuth =
     to.path.startsWith('/profile') ||
     to.path.startsWith('/practice-notebook/') ||
+    to.path === '/practice-records' ||
     to.path === '/practice' ||
     to.path.startsWith('/practice/') ||
     to.path.startsWith('/assessment/exam/') ||

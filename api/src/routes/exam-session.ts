@@ -29,7 +29,6 @@ import {
   EXAM_PHASE,
   PAPER_DELIVERY_MODE,
   PAPER_TYPE,
-  PRACTICE_SOURCE,
   QUESTION_STATUS,
   QUESTION_BANK_PAPER_TYPES,
   REAL_PAPER_TYPES,
@@ -207,11 +206,8 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
             durationSeconds: 0,
             status: EXAM_RECORD_STATUS.IN_PROGRESS,
             activeQuestionBankKey: req.user!.userId,
-            practiceSource: PRACTICE_SOURCE.DIRECT,
-            practiceSnapshot: {
-              source: PRACTICE_SOURCE.DIRECT,
-              questionCount: requestedQuestionIds.length,
-            },
+            practiceSource: verifiedSelection.practiceSnapshot.source,
+            practiceSnapshot: verifiedSelection.practiceSnapshot as unknown as Prisma.InputJsonValue,
           },
         })
 

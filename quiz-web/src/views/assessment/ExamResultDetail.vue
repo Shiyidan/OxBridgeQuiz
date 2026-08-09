@@ -84,6 +84,7 @@ const analysisSource = computed<'diagnostic' | 'question-bank'>(() => {
 // 错题本入口单独决定返回行为，并允许携带已校验的列表筛选地址。
 const cameFromMistakeNotebook = computed(() => route.query.from === 'mistake-notebook')
 const cameFromPracticeNotebook = computed(() => route.query.from === 'practice-notebook')
+const cameFromPracticeRecords = computed(() => route.query.from === 'practice-records')
 
 // 练习本解析使用交卷时保存的名称快照，临时题库练习和诊断答卷沿用各自默认标题。
 const pageContextTitle = computed(() => {
@@ -103,9 +104,11 @@ const returnLabel = computed(() =>
     ? '返回错题本'
     : cameFromPracticeNotebook.value
       ? '返回练习本'
-      : analysisSource.value === 'diagnostic'
-        ? '返回诊断报告'
-        : '返回试题库',
+      : cameFromPracticeRecords.value
+        ? '返回练习记录'
+        : analysisSource.value === 'diagnostic'
+          ? '返回诊断报告'
+          : '返回试题库',
 )
 
 // 页面加载后先识别 paperType 和 examType，诊断记录随即跳到独立考试报告页。
@@ -178,6 +181,10 @@ function returnToSource(): void {
   }
   if (cameFromPracticeNotebook.value) {
     void router.push('/practice-notebook')
+    return
+  }
+  if (cameFromPracticeRecords.value) {
+    void router.push('/practice-records')
     return
   }
   if (analysisSource.value === 'question-bank') {

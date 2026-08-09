@@ -4,8 +4,9 @@ import { requireAdmin } from "../middleware/admin.js";
 import { requireAuth } from "../middleware/auth.js";
 import { setOperationAuditContext } from "../middleware/operationAudit.js";
 import {
-  EXAM_TYPE,
-  QUESTION_BANK_DIRECT_PRACTICE_COUNT,
+    EXAM_TYPE,
+    PRACTICE_SOURCE,
+    QUESTION_BANK_DIRECT_PRACTICE_COUNT,
   QUESTION_STATUS,
   TMUA_PAPER,
   isExamType,
@@ -13,7 +14,11 @@ import {
 } from "../constants/domain.js";
 import { checkMemberAccess } from "../services/member.js";
 import { prisma } from "../services/prisma.js";
-import { signQuestionBankSelection } from "../services/questionBankSelection.js";
+import {
+  signQuestionBankSelection,
+  type QuestionBankPracticeSnapshot,
+  type QuestionBankSelectionScopeNode,
+} from "../services/questionBankSelection.js";
 import {
   QUESTION_BANK_DIFFICULTIES,
   QuestionBankDocumentError,
@@ -115,6 +120,74 @@ async function collectDescendantNodeIds(
     }
   }
   return nodes.filter((node) => codes.has(node.code)).map((node) => node.id);
+}
+
+// 临时练习范围由服务端考纲和实际选题生成，随签名凭证冻结后再写入答卷快照。
+async function buildDirectPracticeSnapshot(
+  examType: string,
+  code: string,
+  difficulty: string,
+  plannedQuestionCount: number,
+  rows: Array<{
+    subject: string | null;
+    subjectCode: string | null;
+  }>,
+): Promise<QuestionBankPracticeSnapshot> {
+  let subject: QuestionBankSelectionScopeNode | null = null;
+  let knowledgePoint: QuestionBankPracticeSnapshot["knowledgePoint"] = null;
+  if (code) {
+    const nodes = await prisma.syllabusNode.findMany({
+      where: { examType },
+      select: { code: true, label: true, parentCode: true },
+    });
+    const nodeMap = new Map(nodes.map((node) => [node.code, node]));
+    const requestedNode = nodeMap.get(code);
+    if (requestedNode) {
+      const lineage = [requestedNode];
+      const visited = new Set([requestedNode.code]);
+      let current = requestedNode.parentCode
+        ? nodeMap.get(requestedNode.parentCode)
+        : undefined;
+      while (current && !visited.has(current.code)) {
+        lineage.unshift(current);
+        visited.add(current.code);
+        current = current.parentCode ? nodeMap.get(current.parentCode) : undefined;
+      }
+      const scopedLineage =
+        lineage.length > 1 && lineage[0]?.parentCode === null
+          ? lineage.slice(1)
+          : lineage;
+      const path = (scopedLineage.length ? scopedLineage : [requestedNode]).map(
+        (node) => ({ code: node.code, label: node.label }),
+      );
+      subject = path[0] || null;
+      knowledgePoint = {
+        code: requestedNode.code,
+        label: requestedNode.label,
+        path,
+      };
+    }
+  }
+
+  if (!subject) {
+    const subjects = new Map<string, QuestionBankSelectionScopeNode>();
+    for (const row of rows) {
+      const label = String(row.subject || "").trim();
+      if (!label) continue;
+      const subjectCode = String(row.subjectCode || label).trim();
+      subjects.set(subjectCode, { code: subjectCode, label });
+    }
+    if (subjects.size === 1) subject = [...subjects.values()][0] || null;
+  }
+
+  return {
+    source: PRACTICE_SOURCE.DIRECT,
+    subject,
+    knowledgePoint,
+    difficulty: difficulty || null,
+    plannedQuestionCount,
+    questionCount: rows.length,
+  };
 }
 
 // 学生端查询只允许命中已发布的独立题目，并按可选考纲节点和难度缩小范围。
@@ -394,6 +467,13 @@ questionLibraryRouter.get("/selection", requireAuth, async (req, res) => {
         req.user!.userId,
         examType,
         rows.map((row) => row.id),
+        await buildDirectPracticeSnapshot(
+          examType,
+          String(req.query.code || "").trim(),
+          difficulty,
+          plannedCount,
+          rows,
+        ),
       )
     : null;
   res.json(
@@ -517,7 +597,7 @@ questionLibraryRouter.post(
             remarks: document.metadata.remarks || null,
           },
         });
-        for (const question of document.questions) {
+        for (const [questionIndex, question] of document.questions.entries()) {
           const classification = question.classification;
           const created = await tx.question.create({
             data: {
@@ -526,7 +606,7 @@ questionLibraryRouter.post(
               paperId: null,
               importBatchId: batch.id,
               examType: question.examType,
-              number: null,
+              number: questionIndex + 1,
               moduleCode:
                 question.part === TMUA_PAPER.PAPER_1
                   ? TMUA_PAPER.PAPER_1
@@ -724,13 +804,28 @@ questionLibraryRouter.get(
           },
         },
       },
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      orderBy: [{ number: "asc" }, { id: "asc" }],
     });
+    const invalidOrder = rows.some(
+      (row) => !Number.isInteger(row.number) || Number(row.number) < 1,
+    );
+    const orderValues = rows.map((row) => Number(row.number));
+    if (invalidOrder || new Set(orderValues).size !== orderValues.length) {
+      res
+        .status(409)
+        .json(
+          fail(
+            "试题包缺少 standard2 原始题序，请使用原 JSON 重建题序后再查看",
+            "QUESTION_BATCH_ORDER_MISSING",
+          ),
+        );
+      return;
+    }
     res.json(
       success({
-        questions: rows.map((row, index) => ({
+        questions: rows.map((row) => ({
           ...formatAdminListItem(row),
-          question: { ...formatQuestionRow(row), number: index + 1 },
+          question: formatQuestionRow(row),
         })),
       }),
     );
@@ -857,146 +952,6 @@ questionLibraryRouter.delete(
       summary: `删除试题包“${batch.title}”，同时删除 ${questionCount} 题`,
     });
     res.json(success({ id: batch.id, deletedQuestions: questionCount }));
-  },
-);
-
-// 上传包内仍按独立题目分页、筛选和审核，不把批次转换为试卷结构。
-questionLibraryRouter.get(
-  "/admin/batches/:id/questions",
-  requireAuth,
-  requireAdmin,
-  async (req, res) => {
-    const page = parsePositiveInt(req.query.page, 1);
-    const pageSize = parsePositiveInt(req.query.pageSize, 20, 100);
-    const keyword = String(req.query.keyword || "").trim();
-    const examType = String(req.query.examType || "")
-      .trim()
-      .toUpperCase();
-    const difficulty = String(req.query.difficulty || "").trim();
-    const status = String(req.query.status || "").trim();
-    const batch = await prisma.questionImportBatch.findUnique({
-      where: { id: req.params.id },
-      select: { id: true },
-    });
-    if (!batch) {
-      res.status(404).json(fail("上传包不存在"));
-      return;
-    }
-    const where: Prisma.QuestionWhereInput = {
-      paperId: null,
-      importBatchId: batch.id,
-      ...(keyword
-        ? {
-            OR: [
-              { uniqueCode: { contains: keyword } },
-              { title: { contains: keyword } },
-              { subject: { contains: keyword } },
-              { topic: { contains: keyword } },
-            ],
-          }
-        : {}),
-      ...(examType ? { examType } : {}),
-      ...(difficulty ? { difficulty } : {}),
-      ...(status ? { status } : {}),
-    };
-    const [total, rows] = await Promise.all([
-      prisma.question.count({ where }),
-      prisma.question.findMany({
-        where,
-        select: adminQuestionListSelect,
-        orderBy: [{ uniqueCode: "asc" }, { id: "asc" }],
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-    ]);
-    res.json(
-      success({
-        list: rows.map(formatAdminListItem),
-        pagination: { page, pageSize, total },
-      }),
-    );
-  },
-);
-
-// 后台全量单题查询保留给管理侧检索，试题库入口改由上传包列表承载。
-questionLibraryRouter.get(
-  "/admin/questions",
-  requireAuth,
-  requireAdmin,
-  async (req, res) => {
-    const page = parsePositiveInt(req.query.page, 1);
-    const pageSize = parsePositiveInt(req.query.pageSize, 20, 100);
-    const keyword = String(req.query.keyword || "").trim();
-    const examType = String(req.query.examType || "")
-      .trim()
-      .toUpperCase();
-    const difficulty = String(req.query.difficulty || "").trim();
-    const status = String(req.query.status || "").trim();
-    const where: Prisma.QuestionWhereInput = {
-      paperId: null,
-      ...(keyword
-        ? {
-            OR: [
-              { uniqueCode: { contains: keyword } },
-              { title: { contains: keyword } },
-              { subject: { contains: keyword } },
-              { topic: { contains: keyword } },
-            ],
-          }
-        : {}),
-      ...(examType ? { examType } : {}),
-      ...(difficulty ? { difficulty } : {}),
-      ...(status ? { status } : {}),
-    };
-    const [total, rows] = await Promise.all([
-      prisma.question.count({ where }),
-      prisma.question.findMany({
-        where,
-        select: adminQuestionListSelect,
-        orderBy: [{ createdAt: "desc" }, { id: "asc" }],
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-    ]);
-    res.json(
-      success({
-        list: rows.map(formatAdminListItem),
-        pagination: { page, pageSize, total },
-      }),
-    );
-  },
-);
-
-// 单题详情返回完整内容供后台审核，学生端不使用此接口。
-questionLibraryRouter.get(
-  "/admin/questions/:id",
-  requireAuth,
-  requireAdmin,
-  async (req, res) => {
-    const row = await prisma.question.findFirst({
-      where: { id: req.params.id, paperId: null },
-      include: {
-        importBatch: {
-          select: {
-            id: true,
-            title: true,
-            fileName: true,
-            remarks: true,
-            createdAt: true,
-          },
-        },
-      },
-    });
-    if (!row) {
-      res.status(404).json(fail("题目不存在"));
-      return;
-    }
-    res.json(
-      success({
-        ...formatAdminListItem(row),
-        question: formatQuestionRow(row),
-      }),
-    );
   },
 );
 

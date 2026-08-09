@@ -11,6 +11,9 @@
           <span v-if="questionBankQuota && !questionBankQuota.unlimited" class="qb-usage-count">
             已练习（{{ questionBankQuota.used }}/{{ questionBankQuota.limit ?? 25 }}）
           </span>
+          <router-link to="/practice-records" class="qb-records-entry">
+            <span>练习记录</span>
+          </router-link>
           <button type="button" class="qb-notebook-entry" @click="handleOpenPracticeNotebook">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path
@@ -508,6 +511,8 @@ function handleCancelReducedPractice(): void {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 16px;
 }
 
@@ -515,6 +520,28 @@ function handleCancelReducedPractice(): void {
   color: var(--color-ink-muted);
   font-size: var(--text-sm);
   white-space: nowrap;
+}
+
+.qb-records-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 2px 6px;
+  border-bottom: 1px solid currentColor;
+  color: var(--color-ink-soft);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    color var(--duration-base) ease,
+    transform var(--duration-fast) ease;
+}
+
+.qb-records-entry:hover,
+.qb-records-entry:focus-visible {
+  color: var(--color-ink);
+  transform: translateX(2px);
 }
 
 .qb-notebook-entry {

@@ -124,16 +124,8 @@ const analysisQuestions = computed<Array<ExamQuestion & { id: string }>>(() =>
   })),
 )
 
-// 路由来源决定预览页返回试题库或真题库管理。
-const isQuestionBankPreview = computed(() => route.path.includes('/core-library/questions/'))
-// 返回路径与当前管理入口保持一致。
-const backPath = computed(() =>
-  isQuestionBankPreview.value ? '/admin/core-library/questions' : '/admin/core-library/exams',
-)
-// 返回按钮文案与目标管理页面对应。
-const backLabel = computed(() =>
-  isQuestionBankPreview.value ? '返回试题库管理' : '返回真题库列表',
-)
+const backPath = '/admin/core-library/exams'
+const backLabel = '返回真题库列表'
 
 // 点击编辑图标后使用当前标题初始化输入框，并在渲染完成后自动聚焦。
 async function startTitleEditing(): Promise<void> {

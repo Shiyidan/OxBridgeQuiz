@@ -11,7 +11,7 @@
       :initial-elapsed-seconds="initialElapsedSeconds"
       :current-index="currentIndex"
       :total-count="totalCount"
-      :back-label-override="cameFromPracticeNotebook ? '返回练习本' : ''"
+      :back-label-override="practiceBackLabel"
       @back="handleBackToQuestionBank"
       @answering-paused="handleAnsweringPaused"
       @answering-resumed="handleAnsweringResumed"
@@ -190,12 +190,30 @@ const examMode = computed(() => {
   // 后续仿真考试入口可在此扩展
   return 'question-bank'
 })
+
+// 题库答卷来源决定中途返回、交卷结果和逐题解析的稳定回跳目标。
 const cameFromPracticeNotebook = computed(() => route.query.from === 'practice-notebook')
+const cameFromPracticeRecords = computed(() => route.query.from === 'practice-records')
 const practiceReturnPath = computed(() =>
-  cameFromPracticeNotebook.value ? '/practice-notebook' : '/question-bank',
+  cameFromPracticeNotebook.value
+    ? '/practice-notebook'
+    : cameFromPracticeRecords.value
+      ? '/practice-records'
+      : '/question-bank',
 )
 const practiceReturnLabel = computed(() =>
-  cameFromPracticeNotebook.value ? '返回练习册首页' : '返回试题库首页',
+  cameFromPracticeNotebook.value
+    ? '返回练习本'
+    : cameFromPracticeRecords.value
+      ? '返回练习记录'
+      : '返回试题库首页',
+)
+const practiceBackLabel = computed(() =>
+  cameFromPracticeNotebook.value
+    ? '返回练习本'
+    : cameFromPracticeRecords.value
+      ? '返回练习记录'
+      : '',
 )
 const practiceResultMessage = computed(
   () => `本次练习已成功提交。你可以${practiceReturnLabel.value}，或查看本次答题解析。`,
@@ -554,7 +572,9 @@ async function handleBackToQuestionBank(): Promise<void> {
   }
   const target = cameFromPracticeNotebook.value
     ? { label: '练习本', path: '/practice-notebook' }
-    : backTargets[examMode.value]!
+    : cameFromPracticeRecords.value
+      ? { label: '练习记录', path: '/practice-records' }
+      : backTargets[examMode.value]!
   const confirmMessage =
     examMode.value === 'assessment'
       ? '返回诊断测试会保存当前作答和用时，之后可继续测试，是否返回？'
@@ -718,7 +738,11 @@ async function handleViewPracticeAnalysis(): Promise<void> {
     name: 'exam-result-detail',
     params: { id: submittedExamRecordId.value },
     query: {
-      from: cameFromPracticeNotebook.value ? 'practice-notebook' : 'question-bank',
+      from: cameFromPracticeNotebook.value
+        ? 'practice-notebook'
+        : cameFromPracticeRecords.value
+          ? 'practice-records'
+          : 'question-bank',
       recordSource: 'question-bank',
     },
   })
@@ -729,7 +753,10 @@ async function handleReturnAfterPractice(): Promise<void> {
   practiceResultDialogVisible.value = false
   await router.push({
     path: practiceReturnPath.value,
-    query: cameFromPracticeNotebook.value ? undefined : { examType: activeExamType.value },
+    query:
+      cameFromPracticeNotebook.value || cameFromPracticeRecords.value
+        ? undefined
+        : { examType: activeExamType.value },
   })
 }
 

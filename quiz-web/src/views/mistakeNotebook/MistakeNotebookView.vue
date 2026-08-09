@@ -270,7 +270,11 @@ import { useRoute, useRouter } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
 import LatexText from '@/components/LatexText.vue'
 import AppPagination from '@/components/AppPagination.vue'
-import { getMistakeNotebookData, type WrongAnswer } from '@/api/exam'
+import {
+  getMistakeNotebookData,
+  type MistakeNotebookDifficulty,
+  type WrongAnswer,
+} from '@/api/exam'
 import { getSyllabusData, type SyllabusNode } from '@/api/questionBank'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import { PAPER_TYPE, PAPER_TYPE_OPTIONS, type PaperType } from '@/constants/paperTypes'
@@ -285,19 +289,29 @@ interface FilterState {
   sources: string[]
   subjectCodes: string[]
   knowledgeCodes: string[]
-  difficulties: string[]
+  difficulties: MistakeNotebookDifficulty[]
   dateRange: string[] | null
 }
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
-const difficultyLabelMap: Record<string, string> = {
+const difficultyLabelMap = {
   easy: '低',
   medium: '中',
   hard: '高',
   composite: '复合',
-}
+} as const
+const mistakeNotebookDifficultyValues: readonly MistakeNotebookDifficulty[] = [
+  'easy',
+  'medium',
+  'hard',
+]
+const difficultyOptions: FilterOption[] = mistakeNotebookDifficultyValues.map((value) => ({
+  value,
+  label: difficultyLabelMap[value],
+}))
+const difficultyFilterValues = new Set<string>(mistakeNotebookDifficultyValues)
 const sourceLabelMap: Record<PaperType, string> = {
   [PAPER_TYPE.REAL_PAPER]: '真题',
   [PAPER_TYPE.MOCK_PAPER]: '模考',
@@ -339,9 +353,6 @@ const knowledgeTreeData = computed<SyllabusNode[]>(() => {
   const selectedCodes = new Set(draftFilters.subjectCodes)
   return syllabusTreeData.value.filter((item) => selectedCodes.has(item.code))
 })
-const difficultyOptions = computed<FilterOption[]>(() =>
-  Object.entries(difficultyLabelMap).map(([value, label]) => ({ value, label })),
-)
 const hasActiveQuery = computed(
   () =>
     appliedFilters.sources.length > 0 ||
@@ -402,7 +413,9 @@ function restoreStateFromRoute(): void {
   draftFilters.sources = queryList(route.query.sources)
   draftFilters.subjectCodes = queryList(route.query.subjects)
   draftFilters.knowledgeCodes = queryList(route.query.knowledge)
-  draftFilters.difficulties = queryList(route.query.difficulties)
+  draftFilters.difficulties = queryList(route.query.difficulties).filter(
+    (value): value is MistakeNotebookDifficulty => difficultyFilterValues.has(value),
+  )
   const startDate = String(route.query.startDate || '')
   const endDate = String(route.query.endDate || '')
   draftFilters.dateRange = startDate && endDate ? [startDate, endDate] : []
@@ -612,9 +625,12 @@ function knowledgeText(item: WrongAnswer): string {
   return labels.length > 2 ? `${visible} +${labels.length - 2}` : visible
 }
 
-// difficulty 已在后端统一为 easy/medium/hard/composite 字符串。
+// 卡片兼容展示题目现有难度；错题筛选本身只提供低、中、高。
 function difficultyText(item: WrongAnswer): string {
-  return difficultyLabelMap[item.difficulty || ''] || '未标注'
+  const difficulty = item.difficulty || ''
+  return difficulty in difficultyLabelMap
+    ? difficultyLabelMap[difficulty as keyof typeof difficultyLabelMap]
+    : '未标注'
 }
 
 // 难度颜色只编码题目复杂度，不影响列表排序与筛选状态。

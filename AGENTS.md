@@ -209,4 +209,6 @@ API_ENV_FILE=/opt/quiz/api/.env npm run validate:runtime
 
 该命令必须成功验证目标运行环境、数据库连接和 SMTP 登录后，才能执行 PM2 重载。测试和线上环境必须显式提供 `API_RUNTIME_ENV`、`JWT_SECRET`、`EMAIL_CODE_SECRET`、`VISITOR_IP_HASH_SECRET`、`SMTP_USER`、`SMTP_PASS` 和 `MAIL_FROM`；不得依赖本地默认值。部署完成后还需验证 `/api/health` 和至少一条依赖数据库的只读接口。
 
+严格临时练习快照版本上线前，必须在目标数据库执行 `npm run cleanup:legacy-temporary-practice -- --dry-run`。如果发现旧格式记录，先完成生产数据库备份并向用户报告答卷数、影响用户数和考试类型分布；只有在用户明确批准删除后，才能执行带固定确认短语的 `--apply` 命令。该操作会删除旧临时练习答卷并同步重算相关错题汇总，不得在部署过程中静默执行或跳过审计。
+
 部署报告仅生成到被 Git 忽略的本地目录中。邮件发送账号、收件人和 SMTP 配置必须来自 `.env.deploy.local`，不得写入仓库；仅在用户明确要求发送时使用。

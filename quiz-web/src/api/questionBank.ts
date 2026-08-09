@@ -126,29 +126,6 @@ export function getQuestionsData(filters: {
   })
 }
 
-/** 后台按单题分页获取试题库内容。 */
-export function getQuestionBankAdminList(params: {
-  page: number
-  pageSize: number
-  keyword?: string
-  examType?: string
-  difficulty?: string
-  status?: string
-}) {
-  return callApi<{ list: QuestionBankAdminItem[]; pagination: PaginationResult }>({
-    url: '/question-library/admin/questions',
-    method: 'GET',
-    params: {
-      page: params.page.toString(),
-      pageSize: params.pageSize.toString(),
-      keyword: params.keyword,
-      examType: params.examType,
-      difficulty: params.difficulty,
-      status: params.status,
-    },
-  })
-}
-
 /** 后台按上传文件批次分页读取试题库入口列表。 */
 export function getQuestionBankImportBatchList(params: {
   page: number
@@ -208,40 +185,6 @@ export function deleteQuestionBankImportBatch(id: string) {
   return callApi<{ id: string; deletedQuestions: number }>({
     url: `/question-library/admin/batches/${id}`,
     method: 'DELETE',
-  })
-}
-
-/** 后台分页读取指定上传包内的独立题目。 */
-export function getQuestionBankImportBatchQuestions(
-  id: string,
-  params: {
-    page: number
-    pageSize: number
-    keyword?: string
-    examType?: string
-    difficulty?: string
-    status?: string
-  },
-) {
-  return callApi<{ list: QuestionBankAdminItem[]; pagination: PaginationResult }>({
-    url: `/question-library/admin/batches/${id}/questions`,
-    method: 'GET',
-    params: {
-      page: params.page.toString(),
-      pageSize: params.pageSize.toString(),
-      keyword: params.keyword,
-      examType: params.examType,
-      difficulty: params.difficulty,
-      status: params.status,
-    },
-  })
-}
-
-/** 后台读取单题完整内容供审核。 */
-export function getQuestionBankAdminDetail(id: string) {
-  return callApi<QuestionBankAdminDetail>({
-    url: `/question-library/admin/questions/${id}`,
-    method: 'GET',
   })
 }
 

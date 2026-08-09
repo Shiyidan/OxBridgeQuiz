@@ -226,9 +226,12 @@ const roleHomeLabel = computed(() => (auth.user?.role === 'admin' ? '后台管�
 // 考试介绍子路由共享同一个导航激活状态。
 const isExamIntroRoute = computed(() => route.path.startsWith('/exam-intro'))
 
-// 练习本属于试题库学习工作区，进入占位页后继续高亮试题库导航。
+// 练习本与练习记录属于试题库学习工作区，进入后继续高亮试题库导航。
 const isLearningWorkspaceRoute = computed(
-  () => route.path.startsWith('/question-bank') || route.path.startsWith('/practice-notebook'),
+  () =>
+    route.path.startsWith('/question-bank') ||
+    route.path.startsWith('/practice-notebook') ||
+    route.path.startsWith('/practice-records'),
 )
 
 // 从路由参数派生当前考试类型，用于标记下拉菜单选中项。

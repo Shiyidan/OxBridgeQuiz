@@ -14,20 +14,20 @@
         </button>
       </header>
 
-      <section
-        v-if="activePractice && activePractice.examType !== activeExamType"
-        class="notebook-active-other"
-      >
+      <section v-if="unlistedActivePractice" class="notebook-active-other">
         <div>
-          <strong>你有一份 {{ activePractice.examType }} 练习尚未交卷</strong>
+          <strong>你有一份 {{ unlistedActivePractice.examType }} 练习尚未交卷</strong>
           <span
-            >已答 {{ activePractice.answeredCount }}/{{ activePractice.totalQuestions }} 题</span
+            >已答 {{ unlistedActivePractice.answeredCount }}/{{
+              unlistedActivePractice.totalQuestions
+            }}
+            题</span
           >
         </div>
         <button
           type="button"
           class="button_primary"
-          @click="continuePractice(activePractice.examRecordId)"
+          @click="continuePractice(unlistedActivePractice.examRecordId)"
         >
           继续练习
         </button>
@@ -81,12 +81,7 @@
               <small>累计{{ row.completedQuestions }}题</small>
             </div>
             <div class="notebook-row__actions" @click.stop @keydown.stop>
-              <button
-                v-if="row.kind === 'notebook'"
-                type="button"
-                class="button_cancel"
-                @click="handleEditNotebook(row.id)"
-              >
+              <button type="button" class="button_cancel" @click="handleEditNotebook(row.id)">
                 编辑
               </button>
               <button
@@ -191,18 +186,15 @@ import { createLoginRequiredRouteLocation } from '@/utils/authRedirect'
 import {
   getPracticeNotebookHistory,
   getPracticeNotebooks,
-  getTemporaryPracticeHistory,
   startPracticeNotebook,
   type ActiveNotebookPractice,
   type PracticeHistoryRecord,
   type PracticeNotebookSummary,
-  type TemporaryPracticeSummary,
 } from '@/api/practiceNotebook'
 import { getApiErrorMessage, hasApiErrorCode } from '@/utils/request'
 
 interface DisplayRow {
   id: string
-  kind: 'notebook' | 'temporary'
   examType: ActiveExamType
   questionCount: number
   title: string
@@ -235,7 +227,6 @@ const DIFFICULTY_LABELS: Record<string, string> = {
 const router = useRouter()
 const auth = useAuthStore()
 const notebooks = ref<PracticeNotebookSummary[]>([])
-const temporaryPractice = ref<TemporaryPracticeSummary | null>(null)
 const activePractice = ref<ActiveNotebookPractice | null>(null)
 const listLoading = ref(true)
 const listError = ref('')
@@ -257,11 +248,16 @@ function requireLoginForNotebookAction(targetPath: string): boolean {
 
 const activeExamType = computed<ActiveExamType>(() => auth.activeExamType)
 
-// 页面行由真实练习本和可选临时练习系统分组共同组成。
-const displayRows = computed<DisplayRow[]>(() => {
-  const rows = notebooks.value.map(formatNotebookRow)
-  if (temporaryPractice.value) rows.push(formatTemporaryRow(temporaryPractice.value))
-  return rows
+// 练习本页只展示用户保存的可复用组卷规则，临时练习由独立记录页承接。
+const displayRows = computed<DisplayRow[]>(() => notebooks.value.map(formatNotebookRow))
+
+// 不属于当前可见练习本的活动答卷单独提示，避免临时练习阻塞新练习却没有反馈。
+const unlistedActivePractice = computed(() => {
+  const practice = activePractice.value
+  if (!practice) return null
+  return notebooks.value.some((notebook) => notebook.id === practice.practiceNotebookId)
+    ? null
+    : practice
 })
 
 // 练习本知识点快照用于稳定显示学科和规则摘要，不依赖考纲后续改名。
@@ -272,7 +268,6 @@ function formatNotebookRow(notebook: PracticeNotebookSummary): DisplayRow {
     notebook.durationMinutes === null ? '不限时' : `总时间${notebook.durationMinutes}分钟`
   return {
     id: notebook.id,
-    kind: 'notebook',
     examType: notebook.examType,
     questionCount: notebook.questionCount,
     title: notebook.name,
@@ -285,26 +280,6 @@ function formatNotebookRow(notebook: PracticeNotebookSummary): DisplayRow {
     latestLabel: notebook.latestRecord ? '最近一次' : '尚未练习',
     completedGroups: notebook.completedGroups,
     completedQuestions: notebook.completedQuestions,
-  }
-}
-
-// 临时练习聚合题库专项和一次性组卷，不伪造固定知识点配置。
-function formatTemporaryRow(summary: TemporaryPracticeSummary): DisplayRow {
-  return {
-    id: summary.id,
-    kind: 'temporary',
-    examType: summary.examType,
-    questionCount: 0,
-    title: summary.name,
-    scope: `${summary.examType} · 试题库专项与一次性组卷`,
-    knowledge: '按每次选择的考纲与难度生成',
-    settings: '未保存为练习本的练习记录',
-    latestScore: summary.latestRecord
-      ? `${summary.latestRecord.correctCount} / ${summary.latestRecord.totalQuestions}`
-      : '—',
-    latestLabel: summary.latestRecord ? '最近一次' : '进行中',
-    completedGroups: summary.completedGroups,
-    completedQuestions: summary.completedQuestions,
   }
 }
 
@@ -335,12 +310,10 @@ async function loadNotebookList(): Promise<void> {
     if (requestSequence !== listRequestSequence || requestedExamType !== activeExamType.value)
       return
     notebooks.value = data.notebooks
-    temporaryPractice.value = data.temporaryPractice
     activePractice.value = data.activePractice
   } catch (error: unknown) {
     if (requestSequence !== listRequestSequence) return
     notebooks.value = []
-    temporaryPractice.value = null
     activePractice.value = null
     listError.value = getApiErrorMessage(error, '练习本加载失败，请稍后重试')
   } finally {
@@ -359,16 +332,13 @@ async function toggleHistory(row: DisplayRow): Promise<void> {
   if (!state.loaded && !state.loading) await loadHistory(row, 1)
 }
 
-// 普通练习本和临时练习调用各自接口，但返回同一分页结构。
+// 展开练习本时按练习本 ID 读取独立历史分页。
 async function loadHistory(row: DisplayRow, page: number): Promise<void> {
   const state = historyState(row.id)
   state.loading = true
   state.error = ''
   try {
-    const data =
-      row.kind === 'temporary'
-        ? await getTemporaryPracticeHistory(activeExamType.value, page, state.pageSize)
-        : await getPracticeNotebookHistory(row.id, page, state.pageSize)
+    const data = await getPracticeNotebookHistory(row.id, page, state.pageSize)
     state.records = data.list
     state.page = data.pagination.page
     state.pageSize = data.pagination.pageSize
@@ -396,16 +366,13 @@ function handleHistoryPageSizeChange(row: DisplayRow, pageSize: number): void {
 // 行是否承接唯一进行中记录决定高亮和“继续练习”文案。
 function isActiveRow(row: DisplayRow): boolean {
   if (!activePractice.value) return false
-  return row.kind === 'temporary'
-    ? !activePractice.value.practiceNotebookId &&
-        activePractice.value.examType === activeExamType.value
-    : activePractice.value.practiceNotebookId === row.id
+  return activePractice.value.practiceNotebookId === row.id
 }
 
-// 进行中行继续原答卷，普通练习本开始新答卷，临时分组返回试题库选择范围。
+// 进行中行继续原答卷，其余练习本按保存配置开始新答卷。
 function getPrimaryActionLabel(row: DisplayRow): string {
   if (isActiveRow(row)) return '继续练习'
-  return row.kind === 'temporary' ? '前往试题库' : '开始练习'
+  return '开始练习'
 }
 
 // 后端根据练习本配置和事务内剩余额度确定最终题量，客户端不再传入可修改的数量。
@@ -426,10 +393,6 @@ async function handlePrimaryAction(row: DisplayRow): Promise<void> {
   if (requireLoginForNotebookAction('/practice-notebook')) return
   if (isActiveRow(row) && activePractice.value) {
     await continuePractice(activePractice.value.examRecordId)
-    return
-  }
-  if (row.kind === 'temporary') {
-    await router.push('/question-bank')
     return
   }
   if (activePractice.value) {
@@ -478,11 +441,16 @@ function handleCancelReducedPractice(): void {
   pendingNotebookStart.value = null
 }
 
-// 练习本入口通过来源参数让交卷结果和逐题解析返回本页。
+// 临时活动答卷返回练习记录，其余练习本答卷保持返回当前页面。
 async function continuePractice(examRecordId: string): Promise<void> {
+  const isTemporaryActivePractice =
+    activePractice.value?.examRecordId === examRecordId && !activePractice.value.practiceNotebookId
   await router.push({
     path: '/practice',
-    query: { examId: examRecordId, from: 'practice-notebook' },
+    query: {
+      examId: examRecordId,
+      from: isTemporaryActivePractice ? 'practice-records' : 'practice-notebook',
+    },
   })
 }
 

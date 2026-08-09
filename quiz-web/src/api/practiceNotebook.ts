@@ -3,6 +3,22 @@ import { callApi } from '@/utils/request'
 import type { ActiveExamType } from '@/stores/auth'
 
 export type PracticeDifficultyMode = 'easy' | 'medium' | 'hard' | 'mixed'
+export type PracticeSource = 'direct' | 'free_assembly' | 'notebook'
+
+export interface PracticeScopeNode {
+  code: string
+  label: string
+}
+
+export interface PracticeHistorySnapshot {
+  [key: string]: unknown
+  source?: PracticeSource
+  subject?: PracticeScopeNode | null
+  knowledgePoint?: (PracticeScopeNode & { path: PracticeScopeNode[] }) | null
+  difficulty?: string | null
+  plannedQuestionCount?: number
+  questionCount?: number
+}
 
 export interface PracticeKnowledgePoint {
   code: string
@@ -35,8 +51,23 @@ export interface PracticeHistoryRecord {
   durationSeconds: number
   startedAt: string
   submittedAt: string | null
-  source: 'direct' | 'free_assembly' | 'notebook'
-  snapshot: Record<string, unknown>
+  source: PracticeSource
+  snapshot: PracticeHistorySnapshot
+}
+
+export interface TemporaryPracticeSnapshot extends PracticeHistorySnapshot {
+  source: Exclude<PracticeSource, 'notebook'>
+  subject: PracticeScopeNode
+  knowledgePoint: PracticeScopeNode & { path: PracticeScopeNode[] }
+  difficulty: string
+  plannedQuestionCount: number
+  questionCount: number
+}
+
+export interface TemporaryPracticeHistoryRecord
+  extends Omit<PracticeHistoryRecord, 'source' | 'snapshot'> {
+  source: Exclude<PracticeSource, 'notebook'>
+  snapshot: TemporaryPracticeSnapshot
 }
 
 export interface PracticeNotebookSummary extends PracticeNotebookConfig {
@@ -70,8 +101,8 @@ export interface PracticeNotebookListResult {
   temporaryPractice: TemporaryPracticeSummary | null
 }
 
-export interface PracticeHistoryResult {
-  list: PracticeHistoryRecord[]
+export interface PracticeHistoryResult<TRecord extends PracticeHistoryRecord = PracticeHistoryRecord> {
+  list: TRecord[]
   pagination: {
     page: number
     pageSize: number
@@ -156,7 +187,7 @@ export function getTemporaryPracticeHistory(
   page: number,
   pageSize: number,
 ) {
-  return callApi<PracticeHistoryResult>({
+  return callApi<PracticeHistoryResult<TemporaryPracticeHistoryRecord>>({
     url: '/practice-notebooks/temporary/history',
     method: 'GET',
     params: { examType, page: String(page), pageSize: String(pageSize) },

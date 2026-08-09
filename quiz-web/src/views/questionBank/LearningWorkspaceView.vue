@@ -1,4 +1,4 @@
-<!-- 试题学习工作区：固定全局导航，并为试题库与练习本提供有方向的页面切换。 -->
+<!-- 试题学习工作区：固定全局导航，并为试题库、练习本与练习记录提供页面切换。 -->
 <template>
   <div class="learning-workspace">
     <NavBar />
@@ -19,6 +19,7 @@ import NavBar from '@/components/NavBar.vue'
 import QuestionBankView from './QuestionBankView.vue'
 import PracticeNotebookView from './PracticeNotebookView.vue'
 import PracticeNotebookCreateView from './PracticeNotebookCreateView.vue'
+import PracticeRecordsView from './PracticeRecordsView.vue'
 
 const route = useRoute()
 const transitionName = ref('workspace-slide-forward')
@@ -27,9 +28,10 @@ const activeViewKey = computed(() => {
   if (route.name === 'practice-notebook-edit') return 'practice-notebook-edit'
   if (route.name === 'practice-notebook-new') return 'practice-notebook-new'
   if (route.name === 'practice-notebook') return 'practice-notebook'
+  if (route.name === 'practice-records') return 'practice-records'
   return 'question-bank'
 })
-// 工作区视图按试题库、练习本列表、新建练习本的顺序装载。
+// 工作区视图按路由装载试题库、练习本、练习记录或练习本配置页。
 const activeView = computed(() => {
   if (
     activeViewKey.value === 'practice-notebook-new' ||
@@ -37,6 +39,7 @@ const activeView = computed(() => {
   )
     return PracticeNotebookCreateView
   if (activeViewKey.value === 'practice-notebook') return PracticeNotebookView
+  if (activeViewKey.value === 'practice-records') return PracticeRecordsView
   return QuestionBankView
 })
 
@@ -45,6 +48,7 @@ function getWorkspaceRouteOrder(routeName: unknown): number {
   if (routeName === 'practice-notebook-edit') return 2
   if (routeName === 'practice-notebook-new') return 2
   if (routeName === 'practice-notebook') return 1
+  if (routeName === 'practice-records') return 1
   return 0
 }
 

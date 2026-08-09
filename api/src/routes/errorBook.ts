@@ -34,6 +34,7 @@ import {
 
 import { safeJsonParse, parseQueryList, parseDateBoundary, parsePositiveInt, getQuestionKey, buildAnswerRecordRows, countCorrectAnswers, ExamResponseInput, normalizeExamResponses, responseMaps, usesContinuousExamClock, buildExamDeadline, continuousExamDurationSeconds, replaceAnswerRecords, collectSyllabusCodes, calculateNinePointScore } from './exam-shared.js'
 export const errorBookRouter = createAsyncRouter()
+const errorBookFilterDifficulties = new Set<string>(['easy', 'medium', 'hard'])
 
 // 错题本
 errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
@@ -47,6 +48,10 @@ errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
     }
     const examType = requestedExamType || undefined
     const difficulties = parseQueryList(req.query.difficulty)
+    if (difficulties.some((difficulty) => !errorBookFilterDifficulties.has(difficulty))) {
+      res.status(422).json(fail('无效的错题难度，仅支持低、中、高'))
+      return
+    }
     const paperTypes = parseQueryList(req.query.paperType).flatMap((value) => paperTypeWhereValues(value))
     const subjectCodes = parseQueryList(req.query.subjectCode)
     const requestedSyllabusCodes = parseQueryList(req.query.syllabusCode)

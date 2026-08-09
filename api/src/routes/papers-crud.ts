@@ -18,7 +18,6 @@ import {
   PAPER_ACCESS_TIER,
   PAPER_DELIVERY_MODE,
   QUESTION_BANK_PAPER_TYPES,
-  REAL_PAPER_TYPES,
   TMUA_PAPER,
   USER_ROLE,
   isExamType,
@@ -40,35 +39,6 @@ type PublishablePaper = {
   breakDurationSeconds: number
   moduleConfig: unknown
   totalQuestions: number
-}
-
-// 同一考试类型最多发布一套免费真题诊断卷，避免前端免费入口出现多份内容。
-async function getFreeDiagnosticPaperConflict(
-  paper: {
-    id: string
-    examType: string
-    paperType: string
-    accessTier: string
-    status: string
-  },
-): Promise<{ id: string; title: string } | null> {
-  if (
-    paper.status !== 'published'
-    || paper.accessTier !== PAPER_ACCESS_TIER.FREE
-    || !isRealPaperType(paper.paperType)
-  ) {
-    return null
-  }
-  return prisma.paper.findFirst({
-    where: {
-      id: { not: paper.id },
-      examType: paper.examType,
-      paperType: { in: [...REAL_PAPER_TYPES] },
-      accessTier: PAPER_ACCESS_TIER.FREE,
-      status: 'published',
-    },
-    select: { id: true, title: true },
-  })
 }
 
 // ESAT 与 TMUA 诊断发布前复核数据库结构，避免绕过上传校验发布扁平卷或残缺分段卷。
@@ -307,20 +277,6 @@ paperCrudRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
       res.status(422).json(fail(publishIssue, 'PAPER_STRUCTURE_INVALID'))
       return
     }
-    const freeConflict = await getFreeDiagnosticPaperConflict({
-      ...previousPaper,
-      examType: examType || previousPaper.examType,
-      paperType: paperType ? normalizePaperType(paperType) : previousPaper.paperType,
-      accessTier: accessTier || previousPaper.accessTier,
-      status: nextStatus,
-    })
-    if (freeConflict) {
-      res.status(409).json(fail(
-        `${freeConflict.title} 已是 ${examType || previousPaper.examType} 免费诊断卷，请先将其调整为会员卷`,
-        'FREE_DIAGNOSTIC_PAPER_EXISTS',
-      ))
-      return
-    }
   }
   const updateResult = await prisma.$transaction(async (tx) => {
     const currentPaper = await tx.paper.findUnique({ where: { id: req.params.id } })
@@ -485,17 +441,6 @@ paperCrudRouter.put('/:id/publish', requireAuth, requireAdmin, async (req, res) 
   const publishIssue = await getDiagnosticPublishIssue(previousPaper)
   if (publishIssue) {
     res.status(422).json(fail(publishIssue, 'PAPER_STRUCTURE_INVALID'))
-    return
-  }
-  const freeConflict = await getFreeDiagnosticPaperConflict({
-    ...previousPaper,
-    status: 'published',
-  })
-  if (freeConflict) {
-    res.status(409).json(fail(
-      `${freeConflict.title} 已是 ${previousPaper.examType} 免费诊断卷，请先将其调整为会员卷`,
-      'FREE_DIAGNOSTIC_PAPER_EXISTS',
-    ))
     return
   }
   const paper = await prisma.paper.update({

@@ -590,7 +590,7 @@ onBeforeUnmount(() => {
               <p>先用真实试卷完成诊断，确认产品是否适合你。</p>
             </div>
             <ul class="home-benefit-list">
-              <li class="home-benefit-item">每种考试 1 套免费诊断卷，不限次测试</li>
+              <li class="home-benefit-item">平台开放的免费诊断卷，不限次测试</li>
               <li class="home-benefit-item">诊断报告与学习记录</li>
               <li class="home-benefit-item">基础专项练习</li>
               <li class="home-benefit-item">基础错题收录</li>

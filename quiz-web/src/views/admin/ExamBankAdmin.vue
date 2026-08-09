@@ -256,7 +256,7 @@ function handleStatusCommand(id: string, command: unknown): void {
   void changeStatus(id, String(command))
 }
 
-// 已上线免费卷的唯一性由后端校验，成功后再更新当前列表行。
+// 访问级别保存成功后同步当前列表行，确保筛选与标签立即反映最新设置。
 async function handleAccessTierCommand(id: string, command: unknown): Promise<void> {
   const accessTier = String(command) as PaperAccessTier
   if (!Object.values(PAPER_ACCESS_TIER).includes(accessTier)) return

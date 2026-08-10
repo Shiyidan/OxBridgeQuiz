@@ -1,6 +1,7 @@
 <!-- 首页共享页脚：在访客与登录态首页统一展示品牌、考试入口、协议和备案信息。 -->
 <script setup lang="ts">
 import brandIconUrl from '@/assets/brand/acemock-icon.png'
+import contactQrUrl from '@/assets/home/contact-qr.png'
 
 withDefaults(
   defineProps<{
@@ -33,6 +34,12 @@ const emit = defineEmits<{
         </button>
         <p>基于真题诊断与考纲知识点的智能备考系统。</p>
       </div>
+
+      <section class="home-footer-contact" aria-labelledby="home-footer-contact-title">
+        <h2 id="home-footer-contact-title" class="home-footer-group-title">联系我们</h2>
+        <img :src="contactQrUrl" alt="AceMock 联系方式二维码" class="home-footer-contact-qr" />
+        <p>小红书扫码进群获取更多优惠</p>
+      </section>
 
       <nav class="home-footer-links" aria-label="页脚公开链接">
         <div class="home-footer-link-group">

@@ -34,10 +34,6 @@
 
 <script setup lang="ts">
 // 核心资料库首页（ESAT 专业资料库 · 四卡片入口）
-import { useRouter } from 'vue-router'
-
-const router = useRouter()
-
 interface LibraryCard {
   key: string
   title: string
@@ -91,7 +87,6 @@ const libraryCards: LibraryCard[] = [
     path: '/admin/core-library/exams',
   },
 ]
-
 </script>
 
 <style scoped lang="scss">

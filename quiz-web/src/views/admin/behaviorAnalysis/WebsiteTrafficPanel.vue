@@ -114,13 +114,36 @@
       <section class="panel table-panel">
         <div class="panel-heading">
           <div>
-            <h3>每日数据明细</h3>
+            <div class="panel-title-row">
+              <h3>每日数据明细</h3>
+              <el-tooltip placement="top" effect="light" :show-after="150">
+                <template #content>
+                  <div class="traffic-definition-tooltip">
+                    <p>
+                      <strong>独立 IP：</strong>当天访问网站的去重 IP 数量；同一 IP 当天访问多次只算
+                      1 个。
+                    </p>
+                    <p>
+                      <strong>访问次数：</strong>当天网站被完整加载的总次数；同一 IP
+                      多次访问会累计。
+                    </p>
+                  </div>
+                </template>
+                <button
+                  class="definition-tooltip-trigger"
+                  type="button"
+                  aria-label="查看每日数据指标说明"
+                >
+                  <QuestionFilled />
+                </button>
+              </el-tooltip>
+            </div>
             <p>精确值用于核对图表变化，不展示或导出具体 IP 摘要</p>
           </div>
           <span>{{ analytics?.trend.length || 0 }} 个自然日</span>
         </div>
         <AdminDataTable
-          :data="analytics?.trend || []"
+          :data="dailyDetailItems"
           :loading="loading"
           empty-text="当前范围暂无网站访问与注册数据"
           max-height="480px"
@@ -153,7 +176,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Refresh } from '@element-plus/icons-vue'
+import { QuestionFilled, Refresh } from '@element-plus/icons-vue'
 import {
   getTrafficAnalytics,
   type TrafficAnalyticsResult,
@@ -161,8 +184,8 @@ import {
 } from '@/api/admin'
 import { getApiErrorMessage } from '@/utils/request'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
-import RegistrationLocationChart from '@/components/admin/RegistrationLocationChart.vue'
-import WebsiteTrafficTrendChart from '@/components/admin/WebsiteTrafficTrendChart.vue'
+import RegistrationLocationChart from './RegistrationLocationChart.vue'
+import WebsiteTrafficTrendChart from './WebsiteTrafficTrendChart.vue'
 
 interface OverviewMetric {
   key: string
@@ -175,7 +198,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
 const CHINA_TIMEZONE_OFFSET_MS = 8 * 60 * 60 * 1000
 const AUTO_REFRESH_MS = 5 * 60 * 1000
 const quickRangeOptions = [7, 30, 90] as const
-const LOCATION_VISIBLE_LIMIT = 6
+const LOCATION_VISIBLE_LOCATION_LIMIT = 8
 
 const analytics = ref<TrafficAnalyticsResult | null>(null)
 const loading = ref(false)
@@ -245,13 +268,18 @@ const overviewMetrics = computed<OverviewMetric[]>(() => [
   },
 ])
 
-// 地址列表保留前五项，其余合并为“其他地区”，防止长尾地区撑高整页。
+// 每日明细使用趋势数据的副本按日期倒序展示，同时保留图表所需的正序趋势。
+const dailyDetailItems = computed(() =>
+  [...(analytics.value?.trend || [])].sort((left, right) => right.date.localeCompare(left.date)),
+)
+
+// 地址列表保留前八项，其余合并为“其他地区”，兼顾地区明细与图表可读性。
 const locationItems = computed<TrafficRegistrationLocationItem[]>(() => {
   const items = analytics.value?.locationDistribution.items || []
-  if (items.length <= LOCATION_VISIBLE_LIMIT) return items
+  if (items.length <= LOCATION_VISIBLE_LOCATION_LIMIT) return items
 
-  const leadingItems = items.slice(0, LOCATION_VISIBLE_LIMIT - 1)
-  const remainingItems = items.slice(LOCATION_VISIBLE_LIMIT - 1)
+  const leadingItems = items.slice(0, LOCATION_VISIBLE_LOCATION_LIMIT)
+  const remainingItems = items.slice(LOCATION_VISIBLE_LOCATION_LIMIT)
   return [
     ...leadingItems,
     {
@@ -639,6 +667,52 @@ onBeforeUnmount(() => {
 .panel-heading h3 {
   color: #1e293b;
   font-size: 1rem;
+}
+
+.panel-title-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.definition-tooltip-trigger {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #fff;
+  color: #64748b;
+  cursor: help;
+}
+
+.definition-tooltip-trigger:hover,
+.definition-tooltip-trigger:focus-visible {
+  border-color: #818cf8;
+  color: #4f46e5;
+}
+
+.definition-tooltip-trigger:focus-visible {
+  outline: 2px solid #c7d2fe;
+  outline-offset: 2px;
+}
+
+.traffic-definition-tooltip {
+  max-width: 360px;
+  color: #334155;
+  line-height: 1.6;
+}
+
+.traffic-definition-tooltip p {
+  margin: 0;
+}
+
+.traffic-definition-tooltip p + p {
+  margin-top: 8px;
 }
 
 .panel-heading p {

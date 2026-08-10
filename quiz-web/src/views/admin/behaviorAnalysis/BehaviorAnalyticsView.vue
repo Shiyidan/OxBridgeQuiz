@@ -385,10 +385,10 @@ import {
   type ProductUsageModuleCode,
 } from '@/api/admin'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
-import BehaviorModuleChart from '@/components/admin/BehaviorModuleChart.vue'
-import BehaviorProductTrendChart from '@/components/admin/BehaviorProductTrendChart.vue'
-import BehaviorTrendChart from '@/components/admin/BehaviorTrendChart.vue'
-import WebsiteTrafficPanel from '@/components/admin/WebsiteTrafficPanel.vue'
+import BehaviorModuleChart from './BehaviorModuleChart.vue'
+import BehaviorProductTrendChart from './BehaviorProductTrendChart.vue'
+import BehaviorTrendChart from './BehaviorTrendChart.vue'
+import WebsiteTrafficPanel from './WebsiteTrafficPanel.vue'
 import {
   PRODUCT_PREFERENCE_META,
   PRODUCT_USAGE_MODULE_META,

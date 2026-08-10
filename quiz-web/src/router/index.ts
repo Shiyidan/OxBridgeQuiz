@@ -174,7 +174,7 @@ const router = createRouter({
         {
           path: 'users',
           name: 'admin-users',
-          component: lazyRoute(() => import('../views/admin/UserManageView.vue')),
+          component: lazyRoute(() => import('../views/admin/userManagement/UserManageView.vue')),
         },
         // 付费策略与订阅
         {
@@ -186,79 +186,89 @@ const router = createRouter({
         {
           path: 'behavior-analytics',
           name: 'admin-behavior-analytics',
-          component: lazyRoute(() => import('../views/admin/BehaviorAnalyticsView.vue')),
+          component: lazyRoute(
+            () => import('../views/admin/behaviorAnalysis/BehaviorAnalyticsView.vue'),
+          ),
         },
         // 操作日志
         {
           path: 'operation-logs',
           name: 'admin-operation-logs',
-          component: lazyRoute(() => import('../views/admin/OperationLogsView.vue')),
+          component: lazyRoute(() => import('../views/admin/operationLogs/OperationLogsView.vue')),
         },
 
         // 核心资料库
         {
           path: 'core-library',
-          component: lazyRoute(() => import('../views/admin/CoreLibraryLayout.vue')),
+          component: lazyRoute(() => import('../views/admin/coreLibrary/CoreLibraryLayout.vue')),
           children: [
             // 首页
             {
               path: '',
               name: 'admin-core-library',
-              component: lazyRoute(() => import('../views/admin/CoreLibraryView.vue')),
+              component: lazyRoute(() => import('../views/admin/coreLibrary/CoreLibraryView.vue')),
             },
             // 试题库
             {
               path: 'questions',
               name: 'admin-questions',
-              component: lazyRoute(() => import('../views/admin/QuestionBankAdmin.vue')),
+              component: lazyRoute(
+                () => import('../views/admin/coreLibrary/QuestionBankAdmin.vue'),
+              ),
             },
             // 试题库 standard2 批量导入
             {
               path: 'questions/import',
               name: 'admin-questions-import',
-              component: lazyRoute(() => import('../views/admin/QuestionBankImport.vue')),
+              component: lazyRoute(
+                () => import('../views/admin/coreLibrary/QuestionBankImport.vue'),
+              ),
             },
             // 试题库上传包详情
             {
               path: 'questions/batches/:batchId',
               name: 'admin-question-batch-detail',
-              component: lazyRoute(() => import('../views/admin/QuestionBankBatchDetail.vue')),
+              component: lazyRoute(
+                () => import('../views/admin/coreLibrary/QuestionBankBatchDetail.vue'),
+              ),
             },
             // 教材库
             {
               path: 'textbooks',
               name: 'admin-textbooks',
-              component: lazyRoute(() => import('../views/admin/TextbookAdmin.vue')),
+              component: lazyRoute(() => import('../views/admin/coreLibrary/TextbookAdmin.vue')),
             },
             // 大纲库
             {
               path: 'syllabus',
               name: 'admin-syllabus',
-              component: lazyRoute(() => import('../views/admin/SyllabusAdmin.vue')),
+              component: lazyRoute(() => import('../views/admin/coreLibrary/SyllabusAdmin.vue')),
             },
 
             // 真题库
             {
               path: 'exams',
-              component: lazyRoute(() => import('../views/admin/ExamBankLayout.vue')),
+              component: lazyRoute(() => import('../views/admin/coreLibrary/ExamBankLayout.vue')),
               children: [
                 // 列表
                 {
                   path: '',
                   name: 'admin-exams',
-                  component: lazyRoute(() => import('../views/admin/ExamBankAdmin.vue')),
+                  component: lazyRoute(
+                    () => import('../views/admin/coreLibrary/ExamBankAdmin.vue'),
+                  ),
                 },
                 // 上传解析
                 {
                   path: 'upload',
                   name: 'admin-exams-upload',
-                  component: lazyRoute(() => import('../views/admin/PaperUpload.vue')),
+                  component: lazyRoute(() => import('../views/admin/coreLibrary/PaperUpload.vue')),
                 },
                 // 试卷预览
                 {
                   path: ':id',
                   name: 'admin-exams-detail',
-                  component: lazyRoute(() => import('../views/admin/PaperPreview.vue')),
+                  component: lazyRoute(() => import('../views/admin/coreLibrary/PaperPreview.vue')),
                 },
               ],
             },

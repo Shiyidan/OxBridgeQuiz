@@ -163,11 +163,7 @@
             <div class="meta-field">
               <label class="field-label">访问级别</label>
               <select v-model="accessTier" class="field-input field-input--sm">
-                <option
-                  v-for="item in accessTierOptions"
-                  :key="item.value"
-                  :value="item.value"
-                >
+                <option v-for="item in accessTierOptions" :key="item.value" :value="item.value">
                   {{ item.label }}
                 </option>
               </select>
@@ -351,11 +347,7 @@
             <div class="meta-field">
               <label class="field-label">访问级别</label>
               <select v-model="mdAccessTier" class="field-input field-input--sm">
-                <option
-                  v-for="item in accessTierOptions"
-                  :key="item.value"
-                  :value="item.value"
-                >
+                <option v-for="item in accessTierOptions" :key="item.value" :value="item.value">
                   {{ item.label }}
                 </option>
               </select>
@@ -550,11 +542,7 @@
             <div class="meta-field">
               <label class="field-label">访问级别</label>
               <select v-model="jsonAccessTier" class="field-input field-input--sm">
-                <option
-                  v-for="item in accessTierOptions"
-                  :key="item.value"
-                  :value="item.value"
-                >
+                <option v-for="item in accessTierOptions" :key="item.value" :value="item.value">
                   {{ item.label }}
                 </option>
               </select>
@@ -1087,10 +1075,7 @@ function readPaperDocumentPreview(raw: unknown): {
     return { metadata, questions, modules, isSectionSchema }
   }
 
-  if (
-    !Array.isArray(document.questions) ||
-    metadata.totalQuestions !== document.questions.length
-  )
+  if (!Array.isArray(document.questions) || metadata.totalQuestions !== document.questions.length)
     return null
   return {
     metadata,

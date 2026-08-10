@@ -38,12 +38,7 @@
         </el-table-column>
         <el-table-column label="考试类型" width="120" align="center" header-align="center">
           <template #default="{ row }">
-            <el-tag
-              class="exam-type-tag"
-              :class="examTypeClass(row.examType)"
-              effect="light"
-              round
-            >
+            <el-tag class="exam-type-tag" :class="examTypeClass(row.examType)" effect="light" round>
               {{ row.examType || 'TMUA' }}
             </el-tag>
           </template>
@@ -302,7 +297,6 @@ async function handleDeletePaper(paper: PaperItem): Promise<void> {
     deletingPaperId.value = null
   }
 }
-
 </script>
 
 <style scoped lang="scss">

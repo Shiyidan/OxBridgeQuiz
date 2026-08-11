@@ -2,11 +2,13 @@
 import { Prisma } from '@prisma/client'
 import {
   MEMBERSHIP_PLAN,
+  MEMBERSHIP_SOURCE,
   MEMBERSHIP_STATUS,
   PAYMENT_ORDER_STATUS,
 } from '../constants/domain.js'
 import { parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
 import { prisma } from './prisma.js'
+import { fulfillInvitationRewardsForPaidOrder } from './invitation.js'
 import {
   chinaumsResponseSnapshot,
   resolveChinaumsPaymentChannel,
@@ -71,6 +73,7 @@ export async function fulfillPaidOrder(
       return order
     }
 
+    const paidAt = paymentTimeFromProvider(payment?.payTime)
     const updated = await tx.paymentOrder.updateMany({
       where: {
         id: order.id,
@@ -83,42 +86,46 @@ export async function fulfillPaidOrder(
         providerPayload: mergeProviderPayload(order.providerPayload, source, response),
         failureCode: null,
         failureMessage: null,
-        paidAt: paymentTimeFromProvider(payment?.payTime),
+        paidAt,
         closedAt: null,
       },
     })
     if (updated.count === 0) return tx.paymentOrder.findUnique({ where: { id: order.id } })
 
-    const now = new Date()
+    const now = paidAt
     const examTypes = [...new Set(parseJsonArray<string>(order.examTypes))]
     for (const examType of examTypes) {
-      const active = await tx.userMembership.findFirst({
-        where: {
-          userId: order.userId,
-          examType,
-          status: MEMBERSHIP_STATUS.ACTIVE,
-          endsAt: { gt: now },
-        },
-        orderBy: { endsAt: 'desc' },
+      const existingOrderMembership = await tx.userMembership.findFirst({
+        where: { paymentOrderId: order.id, examType },
       })
-      if (active) {
-        await tx.userMembership.update({
-          where: { id: active.id },
-          data: { plan: order.plan, endsAt: extendMembership(order.plan, active.endsAt) },
+      if (!existingOrderMembership) {
+        const latest = await tx.userMembership.findFirst({
+          where: {
+            userId: order.userId,
+            examType,
+            status: MEMBERSHIP_STATUS.ACTIVE,
+            endsAt: { gt: now },
+          },
+          orderBy: { endsAt: 'desc' },
         })
-      } else {
+        const startsAt = latest && latest.endsAt > now ? latest.endsAt : now
         await tx.userMembership.create({
           data: {
             userId: order.userId,
+            paymentOrderId: order.id,
             examType,
             plan: order.plan,
+            sourceType: MEMBERSHIP_SOURCE.PAYMENT,
+            sourceId: order.id,
             status: MEMBERSHIP_STATUS.ACTIVE,
-            startsAt: now,
-            endsAt: extendMembership(order.plan, now),
+            startsAt,
+            endsAt: extendMembership(order.plan, startsAt),
           },
         })
       }
+      // 订单权益与赠送权益独立保存，支付履约完成后再在同一事务内发放双边周卡。
+      await fulfillInvitationRewardsForPaidOrder(tx, order, examType, paidAt)
     }
     return tx.paymentOrder.findUnique({ where: { id: order.id } })
-  })
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
 }

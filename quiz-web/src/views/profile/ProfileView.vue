@@ -98,10 +98,13 @@
 
       <div class="profile-dashboard-grid">
         <section class="profile-membership-panel" aria-labelledby="profile-membership-title">
-          <header class="profile-card-heading">
-            <h2 id="profile-membership-title">当前会员权益</h2>
-            <span>真实权益与学习记录</span>
-          </header>
+          <ProfileModuleHeading
+            class="profile-card-heading"
+            kicker="MEMBERSHIP BENEFITS"
+            title="当前会员权益"
+            description="真实权益与学习记录"
+            title-id="profile-membership-title"
+          />
 
           <div
             class="membership-plan-banner"
@@ -178,9 +181,18 @@
           </div>
         </section>
 
-        <section class="profile-target-panel" aria-labelledby="profile-target-title">
-          <header class="profile-card-heading">
-            <h2 id="profile-target-title">目标偏好</h2>
+        <section
+          ref="profileTargetPanel"
+          class="profile-target-panel"
+          aria-labelledby="profile-target-title"
+        >
+          <ProfileModuleHeading
+            class="profile-card-heading"
+            kicker="TARGET & PREFERENCES"
+            title="目标偏好"
+            description="管理备考考试、科目与考试日期"
+            title-id="profile-target-title"
+          >
             <button
               v-if="!examEditing"
               type="button"
@@ -202,27 +214,9 @@
                 {{ examSaving ? '保存中...' : '保存修改' }}
               </button>
             </div>
-          </header>
+          </ProfileModuleHeading>
 
           <dl class="profile-target-list">
-            <div>
-              <dt>
-                <el-icon aria-hidden="true"><Location /></el-icon>目标国家/地区
-              </dt>
-              <dd>
-                <input
-                  v-if="examEditing"
-                  v-model="targetRegionsDraft"
-                  class="profile-target-row-input"
-                  type="text"
-                  aria-label="目标国家或地区"
-                  placeholder="例如：英国、美国"
-                />
-                <template v-else>
-                  {{ profileTargetRegionsText }}
-                </template>
-              </dd>
-            </div>
             <div>
               <dt>
                 <el-icon aria-hidden="true"><OfficeBuilding /></el-icon>目标院校层级
@@ -267,55 +261,81 @@
                 </template>
               </dd>
             </div>
-            <div>
+            <div class="profile-target-exam-row">
               <dt>
                 <el-icon aria-hidden="true"><Aim /></el-icon>目标考试
               </dt>
-              <dd>
-                <el-select
-                  v-if="examEditing"
-                  v-model="editExamTypes"
-                  class="profile-target-row-select"
-                  multiple
-                  aria-label="目标考试"
-                  placeholder="请选择目标考试"
-                >
-                  <el-option
+              <dd class="profile-target-exam-content">
+                <div v-if="examEditing" class="profile-exam-editor">
+                  <div class="profile-exam-type-group" role="group" aria-label="目标考试">
+                    <button
                     v-for="item in examTypes"
                     :key="item.value"
-                    :label="item.label"
-                    :value="item.value"
+                    class="profile-exam-choice"
+                    :class="{
+                      'is-active': editExamTypes.includes(item.value),
+                      'is-unavailable': !item.available,
+                    }"
+                    type="button"
                     :disabled="!item.available"
-                  />
-                </el-select>
-                <template v-else>
-                  {{ profileExamTypesText }}
-                </template>
-              </dd>
-            </div>
-            <div>
-              <dt>
-                <el-icon aria-hidden="true"><Document /></el-icon>备考科目
-              </dt>
-              <dd>
-                <el-select
-                  v-if="examEditing"
-                  v-model="editEsatSubjects"
-                  class="profile-target-row-select"
-                  multiple
-                  aria-label="ESAT 备考科目"
-                  placeholder="请选择备考科目"
-                >
-                  <el-option
-                    v-for="subject in ESAT_SUBJECT_OPTIONS"
-                    :key="subject"
-                    :label="subject"
-                    :value="subject"
-                  />
-                </el-select>
-                <template v-else>
-                  {{ profileEsatSubjectsText }}
-                </template>
+                    @click="toggleProfileExamType(item.value)"
+                    >
+                      {{ item.label }}
+                      <small v-if="!item.available">推进中</small>
+                    </button>
+                  </div>
+
+                  <div v-if="editExamTypes.length" class="profile-exam-subject-editor">
+                    <section v-if="editExamTypes.includes('ESAT')">
+                      <span class="profile-exam-editor-label">ESAT（五选三）</span>
+                      <div class="profile-exam-subject-choices">
+                        <button
+                          v-for="subject in ESAT_SUBJECT_OPTIONS"
+                          :key="subject"
+                          class="profile-exam-subject-choice"
+                          :class="{
+                            'is-active': editEsatSubjects.includes(subject),
+                            'is-required': subject === '数学1',
+                          }"
+                          type="button"
+                          :disabled="isProfileEsatSubjectDisabled(subject)"
+                          @click="toggleProfileEsatSubject(subject)"
+                        >
+                          {{ subject }}
+                        </button>
+                      </div>
+                    </section>
+
+                    <section v-if="editExamTypes.includes('TMUA')">
+                      <span class="profile-exam-editor-label">TMUA（固定科目）</span>
+                      <div class="profile-exam-subject-choices">
+                        <span class="profile-exam-subject-choice is-active is-required">Paper 1</span>
+                        <span class="profile-exam-subject-choice is-active is-required">Paper 2</span>
+                      </div>
+                    </section>
+                  </div>
+                  <span v-else class="profile-exam-editor-hint">选择考试后设置对应科目</span>
+                </div>
+
+                <div v-else class="profile-target-subjects">
+                  <div
+                    v-if="displayedTargetExamTypes.includes('ESAT')"
+                    class="profile-subject-group"
+                  >
+                    <span class="profile-subject-exam">ESAT</span>
+                    <span>{{ profileEsatSubjectsText }}</span>
+                  </div>
+                  <div
+                    v-if="displayedTargetExamTypes.includes('TMUA')"
+                    class="profile-subject-group"
+                  >
+                    <span class="profile-subject-exam">TMUA</span>
+                    <span>Paper 1、Paper 2</span>
+                  </div>
+                  <span v-if="!displayedTargetExamTypes.length">
+                    尚未设置
+                  </span>
+                </div>
               </dd>
             </div>
             <div>
@@ -367,11 +387,19 @@
         </section>
       </div>
 
+      <InvitationPanel
+        @membership-changed="handleInvitationMembershipChanged"
+        @edit-goals="handleInvitationEditGoals"
+      />
+
       <section class="billing-panel" aria-labelledby="billing-title">
-        <header class="billing-heading">
-          <h2 id="billing-title">订阅与支付记录</h2>
-          <p>统一查看会员订阅状态、订单支付信息与续费情况</p>
-        </header>
+        <ProfileModuleHeading
+          class="billing-heading"
+          kicker="BILLING & ORDERS"
+          title="订阅与支付记录"
+          description="统一查看会员订阅状态、订单支付信息与续费情况"
+          title-id="billing-title"
+        />
 
         <div class="billing-summary-grid" aria-label="订阅与支付汇总">
           <article>
@@ -673,7 +701,7 @@
 <script setup lang="ts">
 // 学生个人中心：展示会员权益、学习统计、登录网络、订阅和支付记录。
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   Aim,
@@ -695,6 +723,8 @@ import {
 } from '@element-plus/icons-vue'
 import NavBar from '@/components/NavBar.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
+import InvitationPanel from '@/components/InvitationPanel.vue'
+import ProfileModuleHeading from '@/components/ProfileModuleHeading.vue'
 import { getMember, updateStudyPreferences, type StudyPreferences } from '@/api/member'
 import { getProfileExamStats, type ProfileExamStats } from '@/api/exam'
 import { getBillingOverview, type BillingOverview, type PaymentOrder } from '@/api/payment'
@@ -719,6 +749,7 @@ import { getApiErrorMessage } from '@/utils/request'
 type BillingFilter = 'all' | 'active' | 'expired' | 'failed' | 'refund'
 type BillingStatus =
   | 'active'
+  | 'queued'
   | 'expired'
   | 'cancelled'
   | 'pending'
@@ -746,6 +777,7 @@ interface BillingRecord {
 }
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 const errorText = ref('')
 const profileStats = ref<Record<string, ProfileExamStats>>({})
@@ -792,12 +824,12 @@ const profileIpLocationText = computed(() => {
 // 报考目标编辑
 const examEditing = ref(false)
 const examSaving = ref(false)
+const profileTargetPanel = ref<HTMLElement | null>(null)
 const editExamTypes = ref<string[]>([])
 const editTargetUniversities = ref<string[]>([])
 const editTargetMajor = ref('')
 const editEsatSubjects = ref<string[]>(['数学1'])
 const weeklyHoursDraft = ref(20)
-const targetRegionsDraft = ref('英国、美国')
 const examDateDraft = ref('2026-10')
 const ESAT_SUBJECT_OPTIONS = ['数学1', '数学2', '物理', '化学', '生物'] as const
 const EXAM_DATE_OPTIONS = [
@@ -808,11 +840,48 @@ const EXAM_DATE_OPTIONS = [
   { label: '2028 年 10 月', value: '2028-10' },
 ] as const
 
-const examTypes = EXAM_TYPE_OPTIONS
+const examTypes = EXAM_TYPE_OPTIONS.filter((item) => item.available)
+const displayedTargetExamTypes = computed(() =>
+  examEditing.value
+    ? editExamTypes.value
+    : auth.memberContext?.studyPreferences.examTypes || [],
+)
 
-// 考试类型展示名从统一选项读取，避免页面直接展示内部值。
-function examTypeLabel(value: string): string {
-  return examTypes.find((e) => e.value === value)?.label || value
+// 个人中心沿用注册页的考试卡片交互，选中考试后再展开对应科目。
+function toggleProfileExamType(examType: string): void {
+  const option = examTypes.find((item) => item.value === examType)
+  if (!option?.available) return
+
+  const index = editExamTypes.value.indexOf(examType)
+  if (index >= 0) {
+    editExamTypes.value.splice(index, 1)
+    if (examType === 'ESAT') editEsatSubjects.value = ['数学1']
+    return
+  }
+
+  editExamTypes.value.push(examType)
+  editExamTypes.value.sort(
+    (left, right) =>
+      examTypes.findIndex((item) => item.value === left) -
+      examTypes.findIndex((item) => item.value === right),
+  )
+  if (examType === 'ESAT' && !editEsatSubjects.value.includes('数学1')) {
+    editEsatSubjects.value.unshift('数学1')
+  }
+}
+
+// 数学1不可取消，已选满三科时锁定其余未选科目。
+function isProfileEsatSubjectDisabled(subject: string): boolean {
+  if (subject === '数学1') return true
+  return editEsatSubjects.value.length >= 3 && !editEsatSubjects.value.includes(subject)
+}
+
+// ESAT 科目卡片只处理四个可选科目，数学1由业务规则固定保留。
+function toggleProfileEsatSubject(subject: string): void {
+  if (isProfileEsatSubjectDisabled(subject)) return
+  const index = editEsatSubjects.value.indexOf(subject)
+  if (index >= 0) editEsatSubjects.value.splice(index, 1)
+  else editEsatSubjects.value.push(subject)
 }
 
 // 进入编辑模式时把所有已保存偏好复制为当前卡片内的可撤销草稿。
@@ -820,16 +889,14 @@ function startEditExam(): void {
   const preferences = auth.memberContext?.studyPreferences
   editExamTypes.value = preferences?.examTypes.length
     ? [...preferences.examTypes]
-    : ['ESAT', 'TMUA']
+    : []
   editTargetUniversities.value = preferences?.targetUniversities.length
     ? [...preferences.targetUniversities]
     : TARGET_UNIVERSITY_OPTIONS.slice(2, 4)
   editTargetMajor.value = preferences?.targetMajor || '数学与统计、计算机科学'
-  editEsatSubjects.value = preferences?.esatSubjects.length
-    ? [...preferences.esatSubjects]
-    : ['数学1']
+  const savedEsatSubjects = preferences?.esatSubjects || []
+  editEsatSubjects.value = Array.from(new Set(['数学1', ...savedEsatSubjects])).slice(0, 3)
   weeklyHoursDraft.value = preferences?.weeklyHours || 20
-  targetRegionsDraft.value = preferences?.targetRegions || '英国、美国'
   examDateDraft.value = preferences?.examDate || EXAM_DATE_OPTIONS[0].value
   examEditing.value = true
 }
@@ -849,11 +916,6 @@ async function saveExam(): Promise<void> {
     ElMessage.warning('请至少选择一个目标考试')
     return
   }
-  const targetRegions = targetRegionsDraft.value.trim()
-  if (!targetRegions) {
-    ElMessage.warning('请输入目标国家或地区')
-    return
-  }
   if (!editTargetUniversities.value.length) {
     ElMessage.warning('请至少选择一所目标院校')
     return
@@ -863,8 +925,11 @@ async function saveExam(): Promise<void> {
     ElMessage.warning('请输入目标专业方向')
     return
   }
-  if (!editEsatSubjects.value.length) {
-    ElMessage.warning('请至少选择一个 ESAT 备考科目')
+  if (
+    editExamTypes.value.includes('ESAT') &&
+    (editEsatSubjects.value.length !== 3 || !editEsatSubjects.value.includes('数学1'))
+  ) {
+    ElMessage.warning('ESAT 需选择 3 个科目，且数学1为必选科目')
     return
   }
   if (
@@ -883,8 +948,8 @@ async function saveExam(): Promise<void> {
   try {
     const preferences: StudyPreferences = {
       examTypes: [...editExamTypes.value],
-      esatSubjects: [...editEsatSubjects.value],
-      targetRegions,
+      esatSubjects: editExamTypes.value.includes('ESAT') ? [...editEsatSubjects.value] : [],
+      targetRegions: auth.memberContext?.studyPreferences.targetRegions || '',
       targetUniversities: [...editTargetUniversities.value],
       targetMajor,
       examDate: examDateDraft.value,
@@ -923,9 +988,6 @@ const activeMemberships = computed(() =>
 const hasActiveMembership = computed(() => activeMemberships.value.length > 0)
 // 个人中心只消费后端归一后的账户级偏好，不再自行聚合按考试兼容数据。
 const studyPreferences = computed(() => auth.memberContext?.studyPreferences)
-const profileTargetRegionsText = computed(
-  () => studyPreferences.value?.targetRegions || '英国、美国',
-)
 const profileTargetSchoolsText = computed(() => {
   const schools = studyPreferences.value?.targetUniversities || []
   return schools.length ? schools.join('、') : 'UCL、帝国理工、LSE'
@@ -933,13 +995,9 @@ const profileTargetSchoolsText = computed(() => {
 const profileTargetMajorText = computed(
   () => studyPreferences.value?.targetMajor || '数学与统计、计算机科学',
 )
-const profileExamTypesText = computed(() => {
-  const exams = studyPreferences.value?.examTypes || []
-  return exams.length ? exams.map(examTypeLabel).join('、') : 'ESAT、TMUA'
-})
 const profileEsatSubjectsText = computed(() => {
   const subjects = studyPreferences.value?.esatSubjects || []
-  return subjects.length ? subjects.join('、') : '数学1'
+  return subjects.length ? subjects.join('、') : '尚未设置'
 })
 const profileWeeklyHoursText = computed(
   () => `${studyPreferences.value?.weeklyHours || 20} 小时/周`,
@@ -953,7 +1011,7 @@ const profileExamDateText = computed(() => {
 const membershipTags = computed(() => {
   if (auth.isAdmin) return ['管理员']
   if (!activeMemberships.value.length) return ['免费版']
-  return activeMemberships.value.map((item) => `${item.examType} ${planName(item.plan)}`)
+  return activeMemberships.value.map((item) => `${item.examType}会员`)
 })
 // 未开通的考试类型保留 tab 入口，但统计值按产品要求隐藏为占位符。
 const isCurrentExamActive = computed(() =>
@@ -967,18 +1025,18 @@ const currentMembership = computed(() =>
     (item) => normalizeExamType(item.examType) === currentExamType.value,
   ),
 )
-// 会员主标题由真实套餐生成，未开通时明确回落为免费版。
+// 会员主标题只区分考试权益是否生效，具体付费周期留在账单记录中展示。
 const membershipPlanTitle = computed(() => {
   const membership = currentMembership.value
   return membership
-    ? `${currentExamType.value} ${planName(membership.plan)}`
+    ? `${currentExamType.value}会员`
     : `${currentExamType.value} 免费版`
 })
 // 会员周期优先展示真实到期日，免费状态改为说明实际可用的诊断权益。
 const membershipPeriodText = computed(() => {
   const membership = currentMembership.value
-  return membership?.endsAt
-    ? `到期时间：${formatTimestamp(membership.endsAt)}`
+  return membership?.entitlementEndsAt
+    ? `到期时间：${formatTimestamp(membership.entitlementEndsAt)}`
     : '免费诊断卷可不限次测试'
 })
 // 后端按考试类型返回统计，前端兜底可避免接口缺项导致模板分支复杂化。
@@ -1086,7 +1144,7 @@ const billingRecords = computed<BillingRecord[]>(() => {
 const filteredBillingRecords = computed(() => {
   const records = billingRecords.value.filter((record) => {
     if (billingFilter.value === 'all') return true
-    if (billingFilter.value === 'active') return ['active', 'pending'].includes(record.status)
+    if (billingFilter.value === 'active') return ['active', 'queued', 'pending'].includes(record.status)
     if (billingFilter.value === 'expired') {
       return ['expired', 'cancelled', 'closed'].includes(record.status)
     }
@@ -1292,6 +1350,7 @@ onMounted(async () => {
     (result) => result.status === 'rejected',
   )
   if (hasFailure) errorText.value = '部分学习数据暂时无法加载，请稍后刷新。'
+  if (route.query.purchase === '1') paymentVisible.value = true
 })
 
 // 个人中心所有升级入口统一打开支付弹窗，并预选当前查看的考试类型。
@@ -1323,6 +1382,20 @@ async function handlePaymentSuccess(): Promise<void> {
   }
 }
 
+// 邀请周卡启用后刷新会员与账单，保持主权益卡和奖励面板的时间一致。
+async function handleInvitationMembershipChanged(): Promise<void> {
+  const [memberResult] = await Promise.allSettled([getMember(), loadBillingOverview()])
+  if (memberResult.status === 'fulfilled') auth.setMemberContext(memberResult.value)
+}
+
+// 周卡缺少推荐依据时进入目标编辑，并把视口定位到个人中心的备考目标卡片。
+function handleInvitationEditGoals(): void {
+  startEditExam()
+  window.requestAnimationFrame(() => {
+    profileTargetPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  })
+}
+
 // 记录操作根据真实状态恢复待支付订单，或进入对应考试的重新购买流程。
 function handleBillingAction(record: BillingRecord): void {
   const examType = record.order?.examTypes[0] || record.examType.split('、')[0] || ''
@@ -1341,6 +1414,7 @@ function billingActionLabel(record: BillingRecord): string {
   if (record.status === 'refunding' || record.status === 'refunded') return ''
   if (record.kind === 'subscription') {
     if (record.planText === '管理员权益') return ''
+    if (record.status === 'queued') return ''
     return record.status === 'active' ? '续费' : '重新开通'
   }
   if (record.status === 'pending') return '继续支付'
@@ -1400,6 +1474,7 @@ function planName(plan: string): string {
   if (plan === 'yearly') return '专业版'
   if (plan === 'monthly') return '月度版'
   if (plan === 'admin') return '管理员权益'
+  if (plan === 'weekly_reward') return '七天邀请会员卡'
   return '免费版'
 }
 
@@ -1407,6 +1482,7 @@ function planName(plan: string): string {
 function normalizeBillingStatus(status: string): BillingStatus {
   const statuses: BillingStatus[] = [
     'active',
+    'queued',
     'expired',
     'cancelled',
     'pending',
@@ -1423,6 +1499,7 @@ function normalizeBillingStatus(status: string): BillingStatus {
 function billingStatusText(status: BillingStatus): string {
   const map: Record<BillingStatus, string> = {
     active: '进行中',
+    queued: '排队生效',
     expired: '已过期',
     cancelled: '已取消',
     pending: '待支付',
@@ -1450,6 +1527,7 @@ function membershipPlanText(plan: string): string {
   if (plan === 'yearly') return '年度套餐'
   if (plan === 'monthly') return '月度套餐'
   if (plan === 'admin') return '管理员权益'
+  if (plan === 'weekly_reward') return '七天邀请会员卡'
   return planName(plan)
 }
 
@@ -3700,6 +3778,139 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
+.profile-target-exam-content {
+  display: grid;
+  gap: 7px;
+}
+
+.profile-exam-editor,
+.profile-exam-subject-editor {
+  display: grid;
+  gap: 7px;
+}
+
+.profile-exam-type-group,
+.profile-exam-subject-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.profile-exam-choice,
+.profile-exam-subject-choice {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--profile-line);
+  border-radius: 6px;
+  background: #fff;
+  color: #5f6578;
+  font-family: inherit;
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.profile-exam-choice {
+  min-width: 52px;
+  height: 25px;
+  padding: 0 9px;
+  gap: 5px;
+}
+
+.profile-exam-choice small {
+  font-size: 8px;
+}
+
+.profile-exam-subject-choice {
+  min-height: 23px;
+  padding: 0 6px;
+}
+
+.profile-exam-subject-choices {
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.profile-exam-choice:hover:not(:disabled),
+.profile-exam-subject-choice:hover:not(:disabled) {
+  border-color: rgba(105, 85, 255, 0.55);
+  background: rgba(105, 85, 255, 0.035);
+  color: var(--profile-lilac);
+}
+
+.profile-exam-choice.is-active,
+.profile-exam-subject-choice.is-active {
+  border-color: rgba(105, 85, 255, 0.42);
+  background: rgba(105, 85, 255, 0.1);
+  color: var(--profile-lilac);
+  font-weight: 700;
+}
+
+.profile-exam-choice.is-unavailable {
+  border-style: dashed;
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.profile-exam-subject-choice:disabled {
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.profile-exam-subject-editor section {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.profile-exam-editor-label {
+  display: block;
+  color: #72788c;
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.profile-exam-editor-hint {
+  color: #979cad;
+  font-size: 9px;
+}
+
+.profile-target-subjects {
+  display: grid;
+  gap: 6px;
+}
+
+.profile-subject-group {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+  min-width: 0;
+}
+
+.profile-subject-group + .profile-subject-group {
+  border-top: 0;
+}
+
+.profile-subject-exam {
+  color: var(--profile-lilac);
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: 0.02em;
+}
+
+.profile-target-subjects > span {
+  color: #8a8fa1;
+}
+
 .profile-target-row-select :deep(.el-select__wrapper) {
   height: auto;
   min-height: 28px;
@@ -3761,6 +3972,14 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 14px;
   padding: 6px 13px;
+}
+
+.profile-target-list > .profile-target-exam-row {
+  align-items: start;
+}
+
+.profile-target-exam-row dt {
+  padding-top: 7px;
 }
 
 .profile-target-list > div + div {
@@ -3852,21 +4071,6 @@ onBeforeUnmount(() => {
 
 .billing-heading {
   margin-bottom: 20px;
-}
-
-.billing-heading h2 {
-  margin: 0;
-  color: var(--profile-text);
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.35;
-}
-
-.billing-heading p {
-  margin: 6px 0 0;
-  color: #737a90;
-  font-size: 13px;
-  line-height: 1.6;
 }
 
 .billing-summary-grid {
@@ -4279,6 +4483,15 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 620px) {
+  .profile-exam-subject-editor section {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
+  .profile-exam-subject-choices {
+    flex-wrap: wrap;
+  }
+
   :global(.profile-account-dialog .el-dialog__header) {
     padding: 18px 18px 14px;
   }

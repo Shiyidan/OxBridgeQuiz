@@ -45,7 +45,18 @@
         </el-table-column>
         <el-table-column label="学科/模块" width="240" align="center" header-align="center">
           <template #default="{ row }">
-            <SubjectModuleTags v-if="row.modules?.length" :modules="row.modules" />
+            <div v-if="row.modules?.length" class="subject-module-tags" aria-label="试卷学科或分卷">
+              <el-tag
+                v-for="module in orderedModules(row.modules)"
+                :key="`${module.order}-${module.code}`"
+                class="subject-module-tag"
+                :class="`subject-module-tag--${subjectType(module.code)}`"
+                effect="light"
+                round
+              >
+                {{ moduleLabel(module) }}
+              </el-tag>
+            </div>
             <span v-else class="empty-modules">—</span>
           </template>
         </el-table-column>
@@ -140,13 +151,13 @@ import { reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
-import SubjectModuleTags from '@/components/SubjectModuleTags.vue'
 import {
   deletePaper,
   getPaperListData,
   updatePaperAccessTier,
   updatePaperStatus,
   type PaperItem,
+  type PaperModuleOutline,
 } from '@/api/papers'
 import {
   PAPER_ACCESS_TIER,
@@ -173,6 +184,34 @@ const statusOptions = [
   { value: 'archived', label: '已归档' },
 ]
 const accessTierOptions = PAPER_ACCESS_TIER_OPTIONS
+
+// 后台列表始终按考试定义顺序展示模块，避免依赖接口数组的偶然顺序。
+function orderedModules(modules: PaperModuleOutline[]): PaperModuleOutline[] {
+  return [...modules].sort((left, right) => left.order - right.order)
+}
+
+// ESAT 五科与 TMUA 两卷映射到稳定样式类，便于管理员快速识别模块组成。
+function subjectType(code: string | null): string {
+  const normalizedCode = String(code || '').toLowerCase()
+  if (
+    ['maths1', 'maths2', 'physics', 'chemistry', 'biology', 'paper1', 'paper2'].includes(
+      normalizedCode,
+    )
+  ) {
+    return normalizedCode
+  }
+  return 'general'
+}
+
+// 数学模块与 TMUA 分卷使用简洁展示名，内部代码继续保持不变。
+function moduleLabel(module: PaperModuleOutline): string {
+  const normalizedCode = String(module.code || '').toLowerCase()
+  if (normalizedCode === 'maths1') return 'Math 1'
+  if (normalizedCode === 'maths2') return 'Math 2'
+  if (normalizedCode === 'paper1') return 'Paper 1'
+  if (normalizedCode === 'paper2') return 'Paper 2'
+  return module.subject
+}
 
 // 考试类型使用稳定样式类，便于在同一列表中快速区分 ESAT 与 TMUA。
 function examTypeClass(examType: unknown): string {
@@ -377,6 +416,74 @@ async function handleDeletePaper(paper: PaperItem): Promise<void> {
 
 .empty-modules {
   color: #94a3b8;
+}
+
+.subject-module-tags {
+  width: 100%;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.subject-module-tag {
+  flex: 0 0 auto;
+  border-radius: var(--radius-pill);
+  font-weight: var(--weight-semi);
+  white-space: nowrap;
+}
+
+.subject-module-tag :deep(.el-tag__content) {
+  white-space: nowrap;
+}
+
+.subject-module-tag--general {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #475569 !important;
+}
+
+.subject-module-tag--maths1 {
+  background: #ecfeff !important;
+  border-color: #a5f3fc !important;
+  color: #0e7490 !important;
+}
+
+.subject-module-tag--maths2 {
+  background: #f5f3ff !important;
+  border-color: #ddd6fe !important;
+  color: #6d28d9 !important;
+}
+
+.subject-module-tag--physics {
+  background: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: #1d4ed8 !important;
+}
+
+.subject-module-tag--chemistry {
+  background: #fff7ed !important;
+  border-color: #fed7aa !important;
+  color: #c2410c !important;
+}
+
+.subject-module-tag--biology {
+  background: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+  color: #15803d !important;
+}
+
+.subject-module-tag--paper1 {
+  background: #eef2ff !important;
+  border-color: #c7d2fe !important;
+  color: #4338ca !important;
+}
+
+.subject-module-tag--paper2 {
+  background: #fdf4ff !important;
+  border-color: #f0abfc !important;
+  color: #a21caf !important;
 }
 
 .status-btn,

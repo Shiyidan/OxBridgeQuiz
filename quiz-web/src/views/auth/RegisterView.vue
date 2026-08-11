@@ -93,6 +93,31 @@
                   show-password
                 />
               </el-form-item>
+
+              <el-form-item label="邀请码（选填）" prop="inviteCode">
+                <el-input
+                  v-model="form.inviteCode"
+                  placeholder="请输入好友邀请码"
+                  maxlength="16"
+                  autocomplete="off"
+                  @input="handleInviteCodeInput"
+                  @blur="handleValidateInviteCode"
+                />
+                <template #extra>
+                  <span v-if="inviteValidation === 'checking'" class="field-hint"
+                    >正在校验邀请码...</span
+                  >
+                  <span v-else-if="inviteValidation === 'valid'" class="field-hint invite-valid"
+                    >邀请码有效，完成首次会员购买后双方可获得七天会员卡</span
+                  >
+                  <span v-else-if="inviteValidation === 'invalid'" class="field-hint invite-invalid"
+                    >邀请码无效，请检查后重试；也可以清空后继续注册</span
+                  >
+                  <span v-else class="field-hint"
+                    >注册时忘记填写，可在注册后24小时内且首次支付前补填</span
+                  >
+                </template>
+              </el-form-item>
             </section>
 
             <section class="register-form-section register-form-section--exam">
@@ -133,7 +158,7 @@
                 <div class="subject-list">
                   <div v-for="et in selectedExamTypes" :key="et" class="subject-group">
                     <span class="subject-exam-label"
-                      >{{ examTypeLabel(et) }}{{ et === 'ESAT' ? '（最多选 3 科）' : '' }}</span
+                      >{{ examTypeLabel(et) }}{{ et === 'ESAT' ? '（五选三，数学1必选）' : '' }}</span
                     >
                     <div class="subject-chip-group">
                       <label
@@ -286,11 +311,12 @@
 // 注册页：创建账号并进入登录态，完成后返回认证流程开始前的目标页面。
 import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { getMember } from '@/api/member'
 import { sendEmailCode } from '@/api/auth'
+import { validateInvitationCode } from '@/api/invitations'
 import {
   EXAM_TYPE_OPTIONS,
   getExamUnavailableMessage,
@@ -313,6 +339,10 @@ const route = useRoute()
 const auth = useAuthStore()
 const formRef = ref<FormInstance>()
 
+const inviteQueryValue = Array.isArray(route.query.invite)
+  ? route.query.invite[0]
+  : route.query.invite
+
 // 从注册页查询参数恢复受保护目标，并过滤非站内地址。
 const redirectAfterAuth = computed(() => getSafeAuthRedirect(route.query.redirect))
 
@@ -325,8 +355,13 @@ const form = reactive({
   emailCode: '',
   password: '',
   confirmPassword: '',
+  inviteCode:
+    typeof inviteQueryValue === 'string'
+      ? inviteQueryValue.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16)
+      : '',
   legalAccepted: false,
 })
+const inviteValidation = ref<'idle' | 'checking' | 'valid' | 'invalid'>('idle')
 
 // 复用共享校验规则，确保注册页与后端基础规则保持一致。
 const rules: FormRules = {
@@ -379,6 +414,15 @@ const rules: FormRules = {
       trigger: 'blur',
     },
   ],
+  inviteCode: [
+    {
+      validator: (_rule, value: string, callback) => {
+        if (!value || /^[A-Z0-9]{6,16}$/.test(value)) callback()
+        else callback(new Error('邀请码应为6-16位英文字母或数字'))
+      },
+      trigger: 'blur',
+    },
+  ],
   legalAccepted: [
     {
       validator: (_rule, value: boolean, callback) => {
@@ -395,13 +439,13 @@ const examTypes = EXAM_TYPE_OPTIONS.filter((item) => item.value !== 'STEP')
 
 const examSubjects: Record<string, string[]> = {
   ESAT: ['数学1', '数学2', '物理', '化学', '生物'],
-  TMUA: ['数学'],
+  TMUA: ['Paper 1', 'Paper 2'],
   STEP: ['数学'],
 }
 
 const examRequiredSubjects: Record<string, string[]> = {
   ESAT: ['数学1'],
-  TMUA: ['数学'],
+  TMUA: ['Paper 1', 'Paper 2'],
   STEP: ['数学'],
 }
 
@@ -435,6 +479,13 @@ function startCountdown(seconds: number): void {
   }, 1000)
 }
 
+// 路由切换后等待目标页面完成至少一次绘制，避免全局弹窗仍覆盖在注册页背景上。
+function waitForTargetPagePaint(): Promise<void> {
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()))
+  })
+}
+
 // 邮箱变化后废弃旧挑战，防止验证码绑定到已修改的邮箱。
 function handleEmailInput(): void {
   challengeId.value = ''
@@ -444,6 +495,33 @@ function handleEmailInput(): void {
 // 输入阶段过滤非数字，保证验证码模型始终符合提交格式。
 function handleEmailCodeInput(value: string): void {
   form.emailCode = normalizeEmailCode(value)
+}
+
+// 邀请码输入统一转为大写字母和数字，修改后需要重新校验有效性。
+function handleInviteCodeInput(value: string): void {
+  form.inviteCode = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16)
+  inviteValidation.value = 'idle'
+}
+
+// 注册前的轻量校验只改善反馈，最终绑定仍由注册事务再次确认。
+async function handleValidateInviteCode(): Promise<boolean> {
+  if (!form.inviteCode) {
+    inviteValidation.value = 'idle'
+    return true
+  }
+  if (!/^[A-Z0-9]{6,16}$/.test(form.inviteCode)) {
+    inviteValidation.value = 'invalid'
+    return false
+  }
+  inviteValidation.value = 'checking'
+  try {
+    const result = await validateInvitationCode(form.inviteCode)
+    inviteValidation.value = result.valid ? 'valid' : 'invalid'
+    return result.valid
+  } catch {
+    inviteValidation.value = 'idle'
+    return false
+  }
 }
 
 // 注册验证码发送前先校验邮箱，并保存后续注册消费的挑战标识。
@@ -554,8 +632,16 @@ const handleSubmit = async (): Promise<void> => {
     ElMessage.warning('请先获取邮箱验证码')
     return
   }
+  if (form.inviteCode && !(await handleValidateInviteCode())) {
+    ElMessage.warning('请检查邀请码，或清空后继续注册')
+    return
+  }
   for (const et of selectedExamTypes.value) {
     const goal = selectedGoals.value[et] || emptyExamGoal()
+    if (et === 'ESAT' && (selectedSubjects.value.ESAT || []).length !== ESAT_MAX_SUBJECTS) {
+      ElMessage.warning('ESAT 需从 5 个科目中选择 3 个，且数学1为必选科目')
+      return
+    }
     if (goal.targetUniversities.length > 2) {
       ElMessage.warning(`${et} 目标院校最多选择 2 个`)
       return
@@ -597,8 +683,9 @@ const handleSubmit = async (): Promise<void> => {
     }
   })
 
+  let invitationRewardEligible = false
   try {
-    await auth.register({
+    const registration = await auth.register({
       username: form.username,
       email: form.email,
       password: form.password,
@@ -606,8 +693,10 @@ const handleSubmit = async (): Promise<void> => {
       legalVersions: { ...AUTH_LEGAL_VERSIONS },
       challengeId: challengeId.value,
       emailCode: form.emailCode,
+      ...(form.inviteCode ? { inviteCode: form.inviteCode } : {}),
       examPreferences: examPrefs,
     })
+    invitationRewardEligible = registration.invitationRewardEligible
   } catch {
     // Axios 公共响应处理会展示后端 errMsg。
     return
@@ -619,13 +708,33 @@ const handleSubmit = async (): Promise<void> => {
     showClose: true,
     duration: 2500,
   })
+  const postRegisterTarget = redirectAfterAuth.value
+  await router.replace(postRegisterTarget)
+  await waitForTargetPagePaint()
   try {
     const memberCtx = await getMember()
     auth.setMemberContext(memberCtx)
   } catch {
     // 会员上下文可以在后续页面重新加载，不阻断已经成功的注册流程。
   }
-  await router.replace(redirectAfterAuth.value)
+  if (invitationRewardEligible) {
+    try {
+      await ElMessageBox.confirm(
+        '已获得七天会员奖励资格。完成首次有效会员购买后将获得七天会员卡，请在到账后30天内启用。',
+        '邀请奖励资格已绑定',
+        {
+          confirmButtonText: '去开通会员',
+          cancelButtonText: '稍后再说',
+          type: 'success',
+          closeOnClickModal: false,
+        },
+      )
+      await router.replace({ path: '/profile', query: { purchase: '1' } })
+      return
+    } catch {
+      // 用户稍后购买时保留已经建立的邀请关系和奖励资格。
+    }
+  }
 }
 </script>
 
@@ -796,6 +905,14 @@ const handleSubmit = async (): Promise<void> => {
 
 .register-submit {
   width: 100%;
+}
+
+.invite-valid {
+  color: #16803a;
+}
+
+.invite-invalid {
+  color: #c23a3a;
 }
 
 .register-legal-notice {

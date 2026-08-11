@@ -68,6 +68,7 @@ export interface OperationLogItem {
   result: 'success' | 'failure'
   resourceType?: string | null
   resourceId?: string | null
+  resourceDisplayName?: string | null
   method: string
   path: string
   statusCode: number

@@ -20,6 +20,7 @@ import { requestLoggingMiddleware } from './middleware/requestLogging.js'
 import { questionLibraryRouter } from './routes/questionLibrary.js'
 import { practiceNotebookRouter } from './routes/practiceNotebooks.js'
 import { trafficRouter } from './routes/traffic.js'
+import { invitationsRouter } from './routes/invitations.js'
 
 const app = express()
 
@@ -53,6 +54,7 @@ app.use('/api/traffic', trafficRouter)
 app.use('/api/auth', authRouter)
 app.use('/api/getMember', memberRouter)
 app.use('/api/payment', paymentRouter)
+app.use('/api/invitations', invitationsRouter)
 app.use('/api/exams', examRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/papers', papersRouter)

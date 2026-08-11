@@ -115,6 +115,27 @@ function formatOperationLog<T extends {
   }
 }
 
+// 列表页按当前页一次性解析考试记录对应的试卷名称，避免逐行查询造成 N+1 压力。
+async function getExamRecordPaperTitles(
+  logs: Array<{ resourceType: string | null; resourceId: string | null }>,
+): Promise<Map<string, string>> {
+  const examRecordIds = [...new Set(
+    logs
+      .filter((log) => log.resourceType === 'ExamRecord' && log.resourceId)
+      .map((log) => log.resourceId as string),
+  )]
+  if (examRecordIds.length === 0) return new Map()
+
+  const examRecords = await prisma.examRecord.findMany({
+    where: { id: { in: examRecordIds } },
+    select: {
+      id: true,
+      paper: { select: { title: true } },
+    },
+  })
+  return new Map(examRecords.map((record) => [record.id, record.paper.title]))
+}
+
 // 时间筛选只接受有效 ISO 日期，避免无效 Date 进入 Prisma 查询。
 function parseOperationLogDate(value: unknown): Date | null | undefined {
   if (value === undefined || value === null || value === '') return undefined
@@ -255,8 +276,14 @@ adminRouter.get('/operation-logs', async (req, res) => {
     skip: (safePage - 1) * pageSize,
     take: pageSize,
   })
+  const examRecordPaperTitles = await getExamRecordPaperTitles(list)
   res.json(success({
-    list: list.map(formatOperationLog),
+    list: list.map((log) => ({
+      ...formatOperationLog(log),
+      resourceDisplayName: log.resourceType === 'ExamRecord' && log.resourceId
+        ? examRecordPaperTitles.get(log.resourceId) || null
+        : null,
+    })),
     pagination: {
       page: safePage,
       pageSize,

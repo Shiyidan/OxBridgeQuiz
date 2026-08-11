@@ -18,6 +18,7 @@ export interface RegisterParams {
   legalVersions: AuthLegalVersions
   challengeId: string
   emailCode: string
+  inviteCode?: string
   examPreferences?: Array<{
     examType: string
     subjects: string[]
@@ -42,6 +43,7 @@ export interface UserInfo {
 export interface AuthResult {
   user: UserInfo
   accessToken: string
+  invitationRewardEligible?: boolean
 }
 
 export interface EmailCodeResult {

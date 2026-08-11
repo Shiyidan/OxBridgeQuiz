@@ -160,6 +160,10 @@ model User {
   legalAcceptances       UserLegalAcceptance[]
   practiceNotebooks      PracticeNotebook[]
   wrongQuestionSummaries WrongQuestionSummary[]
+  invitationCode         InvitationCode?
+  sentInvitations        InvitationRelation[]         @relation("InvitationInviter")
+  receivedInvitation     InvitationRelation?          @relation("InvitationInvitee")
+  invitationRewards      InvitationReward[]
 }
 
 model OperationLog {
@@ -524,21 +528,28 @@ model MembershipPlan {
 }
 
 model UserMembership {
-  id        String   @id @default(uuid()) @db.VarChar(191)
-  userId    String   @db.VarChar(191)
-  examType  String   @db.VarChar(32)
-  plan      String   @db.VarChar(32)
-  status    String   @default("active") @db.VarChar(32)
-  startsAt  DateTime
-  endsAt    DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(uuid()) @db.VarChar(191)
+  userId         String   @db.VarChar(191)
+  paymentOrderId String?  @db.VarChar(191)
+  examType       String   @db.VarChar(32)
+  plan           String   @db.VarChar(32)
+  sourceType     String?  @db.VarChar(32)
+  sourceId       String?  @db.VarChar(191)
+  status         String   @default("active") @db.VarChar(32)
+  startsAt       DateTime
+  endsAt         DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentOrder     PaymentOrder?     @relation(fields: [paymentOrderId], references: [id], onDelete: SetNull)
+  invitationReward InvitationReward?
 
+  @@unique([paymentOrderId, examType])
   @@index([userId])
   @@index([examType])
   @@index([userId, examType, status])
+  @@index([sourceType, sourceId])
 }
 
 model EntitlementConfig {
@@ -588,10 +599,77 @@ model PaymentOrder {
   user                User                        @relation(fields: [userId], references: [id], onDelete: Restrict)
   refunds             PaymentRefund[]
   reconciliationItems PaymentReconciliationItem[]
+  memberships         UserMembership[]
+  triggeredInvitation InvitationRelation?
+  invitationRewards   InvitationReward[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
   @@index([expiresAt, status])
+}
+
+model InvitationCode {
+  id        String   @id @default(uuid()) @db.VarChar(191)
+  userId    String   @unique @db.VarChar(191)
+  code      String   @unique @db.VarChar(16)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  relations InvitationRelation[]
+
+  @@index([createdAt])
+}
+
+model InvitationRelation {
+  id                    String    @id @default(uuid()) @db.VarChar(191)
+  inviterUserId         String    @db.VarChar(191)
+  inviteeUserId         String    @unique @db.VarChar(191)
+  invitationCodeId      String    @db.VarChar(191)
+  triggerPaymentOrderId String?   @unique @db.VarChar(191)
+  source                String    @db.VarChar(32)
+  status                String    @default("pending_payment") @db.VarChar(32)
+  boundAt               DateTime  @default(now())
+  rewardedAt            DateTime?
+  refundedAt            DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  inviter             User               @relation("InvitationInviter", fields: [inviterUserId], references: [id], onDelete: Cascade)
+  invitee             User               @relation("InvitationInvitee", fields: [inviteeUserId], references: [id], onDelete: Cascade)
+  invitationCode      InvitationCode     @relation(fields: [invitationCodeId], references: [id], onDelete: Restrict)
+  triggerPaymentOrder PaymentOrder?      @relation(fields: [triggerPaymentOrderId], references: [id], onDelete: SetNull)
+  rewards             InvitationReward[]
+
+  @@index([inviterUserId, createdAt])
+  @@index([status, updatedAt])
+  @@index([invitationCodeId])
+}
+
+model InvitationReward {
+  id                    String    @id @default(uuid()) @db.VarChar(191)
+  invitationRelationId  String    @db.VarChar(191)
+  userId                String    @db.VarChar(191)
+  triggerPaymentOrderId String?   @db.VarChar(191)
+  membershipId          String?   @unique @db.VarChar(191)
+  beneficiaryRole       String    @db.VarChar(16)
+  status                String    @default("pending_activation") @db.VarChar(32)
+  examType              String?   @db.VarChar(32)
+  durationHours         Int       @default(168)
+  grantedAt             DateTime?
+  activatedAt           DateTime?
+  revokedAt             DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  invitationRelation  InvitationRelation @relation(fields: [invitationRelationId], references: [id], onDelete: Cascade)
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  triggerPaymentOrder PaymentOrder?      @relation(fields: [triggerPaymentOrderId], references: [id], onDelete: SetNull)
+  membership          UserMembership?    @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+
+  @@unique([invitationRelationId, beneficiaryRole])
+  @@index([userId, status, createdAt])
+  @@index([triggerPaymentOrderId])
 }
 
 model PaymentRefund {

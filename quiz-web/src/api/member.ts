@@ -17,6 +17,7 @@ export interface MemberSubscription {
   status: string
   startsAt: number | null
   endsAt: number | null
+  entitlementEndsAt: number | null
   remainingDays: number
 }
 

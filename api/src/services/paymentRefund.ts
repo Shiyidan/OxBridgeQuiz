@@ -2,6 +2,7 @@
 import { Prisma } from '@prisma/client'
 import {
   MEMBERSHIP_PLAN,
+  MEMBERSHIP_SOURCE,
   MEMBERSHIP_STATUS,
   PAYMENT_ORDER_STATUS,
   PAYMENT_REFUND_STATUS,
@@ -17,6 +18,7 @@ import {
   type ChinaumsBillResponse,
 } from './chinaums.js'
 import { prisma } from './prisma.js'
+import { revokeInvitationRewardsForPaymentOrder } from './invitation.js'
 
 export class PaymentRefundError extends Error {
   constructor(
@@ -97,11 +99,29 @@ async function revertOrderMemberships(
 ): Promise<void> {
   const examTypes = [...new Set(parseJsonArray<string>(order.examTypes))]
   for (const examType of examTypes) {
+    const orderMembership = await tx.userMembership.findFirst({
+      where: { paymentOrderId: order.id, examType },
+    })
+    if (orderMembership) {
+      await tx.userMembership.update({
+        where: { id: orderMembership.id },
+        data: {
+          status: MEMBERSHIP_STATUS.CANCELLED,
+          ...(orderMembership.startsAt <= refundedAt && orderMembership.endsAt > refundedAt
+            ? { endsAt: refundedAt }
+            : {}),
+        },
+      })
+      continue
+    }
+
+    // 历史订单没有来源关联时保留旧版时长回退，但明确排除邀请赠送权益。
     const membership = await tx.userMembership.findFirst({
       where: {
         userId: order.userId,
         examType,
         status: MEMBERSHIP_STATUS.ACTIVE,
+        NOT: { sourceType: MEMBERSHIP_SOURCE.INVITATION_REWARD },
       },
       orderBy: { endsAt: 'desc' },
     })
@@ -151,6 +171,7 @@ async function finalizeRefund(
 
     const order = refund.paymentOrder
     await revertOrderMemberships(tx, order, refundedAt)
+    await revokeInvitationRewardsForPaymentOrder(tx, order.id, refundedAt)
     await tx.paymentOrder.update({
       where: { id: order.id },
       data: {

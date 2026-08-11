@@ -395,7 +395,6 @@ const refreshCookieSameSite = parseCookieSameSite(
   process.env.REFRESH_COOKIE_SAME_SITE,
   backendDefaults.refreshCookieSameSite,
 )
-
 if (refreshCookieSameSite === 'none' && !refreshCookieSecure) {
   throw new Error('[config] SameSite=None cookies require REFRESH_COOKIE_SECURE=true')
 }

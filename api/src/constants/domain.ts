@@ -207,6 +207,41 @@ export const MEMBERSHIP_STATUS = {
   CANCELLED: 'cancelled',
 } as const
 
+export const MEMBERSHIP_SOURCE = {
+  PAYMENT: 'payment',
+  INVITATION_REWARD: 'invitation_reward',
+} as const
+
+export const INVITATION_REWARD_PLAN = 'weekly_reward'
+
+export const INVITATION_BINDING_SOURCE = {
+  REGISTER: 'register',
+  PROFILE: 'profile',
+} as const
+
+export const INVITATION_RELATION_STATUS = {
+  PENDING_PAYMENT: 'pending_payment',
+  REWARDED: 'rewarded',
+  REFUNDED: 'refunded',
+} as const
+
+export const INVITATION_REWARD_ROLE = {
+  INVITER: 'inviter',
+  INVITEE: 'invitee',
+} as const
+
+export const INVITATION_REWARD_STATUS = {
+  PENDING_ACTIVATION: 'pending_activation',
+  ACTIVATED: 'activated',
+  EXPIRED: 'expired',
+  REVOKED: 'revoked',
+} as const
+
+export const INVITATION_BINDING_WINDOW_HOURS = 24
+export const INVITATION_REWARD_DURATION_HOURS = 168
+export const INVITATION_REWARD_ACTIVATION_WINDOW_HOURS = 30 * 24
+export const INVITATION_REWARD_LIFETIME_LIMIT = 3
+
 export const PAYMENT_CONFIG_STATUS = {
   ACTIVE: 'active',
   INACTIVE: 'inactive',

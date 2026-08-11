@@ -79,7 +79,7 @@
       @page-change="handlePageChange"
       @page-size-change="handlePageSizeChange"
     >
-      <el-table-column label="发生时间" width="176" fixed="left">
+      <el-table-column label="发生时间" width="150" fixed="left">
         <template #default="{ row }">{{ formatDateTime(row.occurredAt) }}</template>
       </el-table-column>
       <el-table-column label="操作人" min-width="210">
@@ -90,7 +90,7 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="角色" width="104" align="center">
+      <el-table-column label="角色" width="115" align="center">
         <template #default="{ row }">
           <el-tag
             :type="row.actorRoleSnapshot === 'admin' ? 'danger' : 'info'"
@@ -106,7 +106,7 @@
       </el-table-column>
       <el-table-column prop="summary" label="操作内容" min-width="210" show-overflow-tooltip />
       <el-table-column label="操作对象" min-width="168" show-overflow-tooltip>
-        <template #default="{ row }">{{ resourceLabel(row) }}</template>
+        <template #default="{ row }">{{ resourceListLabel(row) }}</template>
       </el-table-column>
       <el-table-column label="结果" width="92" align="center">
         <template #default="{ row }">
@@ -332,6 +332,13 @@ function formatDateTime(value: string): string {
 function resourceLabel(log: Pick<OperationLogItem, 'resourceType' | 'resourceId'>): string {
   if (!log.resourceType && !log.resourceId) return '-'
   return [log.resourceType, log.resourceId].filter(Boolean).join(' · ')
+}
+
+// 列表优先展示可读的业务名称，详情仍通过 resourceLabel 保留原始审计对象。
+function resourceListLabel(
+  log: Pick<OperationLogItem, 'resourceType' | 'resourceId' | 'resourceDisplayName'>,
+): string {
+  return log.resourceDisplayName || resourceLabel(log)
 }
 
 // 字段名优先使用产品标签，未知扩展字段保留原始编码。

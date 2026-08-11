@@ -48,6 +48,8 @@ import {
 import { recordLegalAcceptances } from '../services/legalAcceptance.js'
 import { normalizeIpAddress } from '../utils/ipAddress.js'
 import { resolveIpLocation } from '../services/ipGeolocation.js'
+import { bindInvitationForUser, InvitationError } from '../services/invitation.js'
+import { INVITATION_BINDING_SOURCE } from '../constants/domain.js'
 
 export const authRouter = createAsyncRouter()
 
@@ -80,6 +82,10 @@ function presentUser(user: User) {
 }
 
 function handleAuthError(res: Response, error: unknown, event: string): void {
+  if (error instanceof InvitationError) {
+    res.status(error.httpStatus).json(fail(error.message, error.code))
+    return
+  }
   if (error instanceof AuthError) {
     res.status(error.status).json(fail(error.message, error.code))
     return
@@ -233,12 +239,23 @@ authRouter.post('/register', registerLimiter, async (req: Request, res: Response
           },
         ],
       })
+      if (input.inviteCode) {
+        await bindInvitationForUser(tx, {
+          userId: createdUser.id,
+          code: input.inviteCode,
+          source: INVITATION_BINDING_SOURCE.REGISTER,
+        })
+      }
       return createdUser
-    })
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
     const session = await createAuthSession(user, req, res)
     setOperationAuditActor(req, user)
     setOperationAuditContext(req, { resourceId: user.id })
-    res.status(201).json(success({ user: presentUser(user), accessToken: session.accessToken }))
+    res.status(201).json(success({
+      user: presentUser(user),
+      accessToken: session.accessToken,
+      invitationRewardEligible: Boolean(input.inviteCode),
+    }))
   } catch (error) {
     handleAuthError(res, error, 'register')
   }

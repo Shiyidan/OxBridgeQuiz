@@ -52,6 +52,8 @@ const authLegalVersionsSchema = z
   })
   .strict();
 
+const ESAT_SUBJECTS = ["数学1", "数学2", "物理", "化学", "生物"] as const;
+
 // 注册沿用按考试类型收集的原始结构，个人中心通过独立全局结构保存后再做兼容转换。
 const examPreferenceSchema = z
   .object({
@@ -76,7 +78,44 @@ const examPreferenceSchema = z
       .optional(),
     weeklyHours: z.number().int().min(1).max(80).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (value.examType === "ESAT") {
+      const subjects = new Set(value.subjects);
+      const containsOnlyEsatSubjects = value.subjects.every((subject) =>
+        ESAT_SUBJECTS.includes(subject as (typeof ESAT_SUBJECTS)[number]),
+      );
+      if (
+        value.subjects.length !== 3 ||
+        subjects.size !== 3 ||
+        !subjects.has("数学1") ||
+        !containsOnlyEsatSubjects
+      ) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["subjects"],
+          message: "ESAT 必须从 5 个科目中选择 3 个，且数学1为必选科目",
+        });
+      }
+      return;
+    }
+
+    if (value.examType !== "TMUA") return;
+
+    const subjects = new Set(value.subjects);
+    if (
+      value.subjects.length !== 2 ||
+      subjects.size !== 2 ||
+      !subjects.has("Paper 1") ||
+      !subjects.has("Paper 2")
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["subjects"],
+        message: "TMUA 备考科目必须为 Paper 1 和 Paper 2",
+      });
+    }
+  });
 
 export const examPreferencesSchema = z.array(examPreferenceSchema).max(10);
 
@@ -87,14 +126,6 @@ const PROFILE_EXAM_DATES = [
   "2028-01",
   "2028-10",
 ] as const;
-const PROFILE_ESAT_SUBJECTS = [
-  "数学1",
-  "数学2",
-  "物理",
-  "化学",
-  "生物",
-] as const;
-
 // 个人中心只提交一份账户级学习偏好，避免按考试类型重复传递相同字段。
 export const profileStudyPreferencesSchema = z
   .object({
@@ -104,9 +135,8 @@ export const profileStudyPreferencesSchema = z
       .max(2)
       .refine((values) => new Set(values).size === values.length, "目标考试不能重复"),
     esatSubjects: z
-      .array(z.enum(PROFILE_ESAT_SUBJECTS))
-      .min(1, "请至少选择一个 ESAT 备考科目")
-      .max(5),
+      .array(z.enum(ESAT_SUBJECTS))
+      .max(3),
     targetRegions: z.string().trim().max(191),
     targetUniversities: z
       .array(z.enum(TARGET_UNIVERSITIES))
@@ -115,7 +145,21 @@ export const profileStudyPreferencesSchema = z
     examDate: z.enum(PROFILE_EXAM_DATES),
     weeklyHours: z.number().int().min(10).max(50),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.examTypes.includes("ESAT") &&
+      (value.esatSubjects.length !== 3 ||
+        new Set(value.esatSubjects).size !== 3 ||
+        !value.esatSubjects.includes("数学1"))
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["esatSubjects"],
+        message: "ESAT 必须从 5 个科目中选择 3 个，且数学1为必选科目",
+      });
+    }
+  });
 
 export const sendEmailCodeSchema = z
   .object({
@@ -137,6 +181,12 @@ export const registerSchema = z
     legalVersions: authLegalVersionsSchema,
     ...emailCodeFields,
     examPreferences: examPreferencesSchema.optional(),
+    inviteCode: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(/^[A-Z0-9]{6,16}$/, "邀请码格式不正确")
+      .optional(),
   })
   .strict()
   .refine((data) => data.password === data.confirmPassword, {

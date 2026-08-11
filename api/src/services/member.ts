@@ -288,6 +288,10 @@ export async function getMemberContext(userId: string) {
         isMembershipActive(membership, now),
       );
       const latestMembership = userMemberships[0];
+      const entitlementEndMembership = userMemberships.find(
+        (membership) =>
+          membership.status === MEMBERSHIP_STATUS.ACTIVE && membership.endsAt > now,
+      );
       const diagnosticLimit =
         config?.diagnosticLimit ?? DEFAULT_DIAGNOSTIC_LIMIT;
       const questionBankLimit =
@@ -320,8 +324,11 @@ export async function getMemberContext(userId: string) {
         endsAt: toTimestamp(
           activeMembership?.endsAt || latestMembership?.endsAt,
         ),
+        entitlementEndsAt: toTimestamp(
+          entitlementEndMembership?.endsAt || latestMembership?.endsAt,
+        ),
         remainingDays: activeMembership
-          ? daysUntil(activeMembership.endsAt, now)
+          ? daysUntil(entitlementEndMembership?.endsAt || activeMembership.endsAt, now)
           : 0,
         diagnostic: {
           limit: unlimited ? null : diagnosticLimit,
@@ -356,6 +363,7 @@ export async function getMemberContext(userId: string) {
       status: item.status,
       startsAt: item.startsAt,
       endsAt: item.endsAt,
+      entitlementEndsAt: item.entitlementEndsAt,
       remainingDays: item.remainingDays,
     }));
 
@@ -429,7 +437,7 @@ export function buildStudyPreferences(preferences: ExamPreferenceRecord[]): Stud
 export function expandStudyPreferences(preferences: StudyPreferences): ExamPreferenceRecord[] {
   return preferences.examTypes.map((examType) => ({
     examType,
-    subjects: examType === "ESAT" ? [...preferences.esatSubjects] : ["数学"],
+    subjects: examType === "ESAT" ? [...preferences.esatSubjects] : ["Paper 1", "Paper 2"],
     targetRegions: preferences.targetRegions,
     targetUniversities: [...preferences.targetUniversities],
     targetMajor: preferences.targetMajor,

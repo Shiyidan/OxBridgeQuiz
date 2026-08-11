@@ -1,9 +1,8 @@
 <!-- 诊断测试首页：按试卷交付方式进入连续作答或分段诊断流程。 -->
 <template>
   <div
-    class="assessment-page"
+    class="assessment-page assessment-page--year-overview"
     :class="{
-      'assessment-page--year-overview': isYearOverview,
       'assessment-page--esat': activeExamType === 'ESAT',
       'assessment-page--tmua': activeExamType === 'TMUA',
     }"
@@ -18,11 +17,7 @@
         </div>
       </header>
 
-      <section
-        v-if="isYearOverview"
-        class="assessment-year-overview"
-        aria-labelledby="assessment-year-title"
-      >
+      <section class="assessment-year-overview" aria-labelledby="assessment-year-title">
         <div class="assessment-year-overview__heading">
           <div>
             <span>{{ activeExamType }} Collections</span>
@@ -31,9 +26,7 @@
           <p>{{ yearOverviewDescription }}</p>
         </div>
 
-        <div v-if="yearLoading" class="empty-state">
-          正在加载 {{ activeExamType }} 试卷年份...
-        </div>
+        <div v-if="yearLoading" class="empty-state">正在加载 {{ activeExamType }} 试卷年份...</div>
         <div v-else-if="yearError" class="assessment-year-state assessment-year-state--error">
           <span>{{ yearError }}</span>
           <button type="button" class="button_cancel" @click="loadAssessmentYears">重新加载</button>
@@ -118,171 +111,6 @@
           </div>
         </div>
       </section>
-
-      <div
-        v-else
-        class="assessment-paper-overview"
-        :class="{ 'assessment-paper-overview--tmua': activeExamType === 'TMUA' }"
-      >
-        <section class="paper-filter-bar" aria-label="诊断试卷筛选">
-          <div class="paper-filter-bar__title">
-            <span>Diagnostic Papers</span>
-            <strong>{{ paperListTitle }}</strong>
-          </div>
-          <div class="paper-filter-bar__controls">
-            <div class="paper-filter-control">
-              <span>完成状态</span>
-              <el-segmented
-                v-model="activeStatusFilter"
-                class="status-filter"
-                :options="statusFilterOptions"
-                aria-label="按完成状态筛选诊断试卷"
-              />
-            </div>
-            <div class="paper-filter-control paper-filter-control--chart">
-              <span>分数趋势</span>
-              <el-switch
-                v-model="showScoreTrend"
-                inline-prompt
-                aria-label="显示或隐藏历次诊断测试分数变化折线图"
-              />
-            </div>
-          </div>
-        </section>
-
-        <section v-if="showScoreTrend" class="chart-card">
-          <div class="chart-title">
-            <div>
-              <span>Score Trend</span>
-              <strong>{{ scoreTrendTitle }}</strong>
-            </div>
-          </div>
-          <div v-if="scoreTrendLoading" class="score-chart-state">正在加载分数趋势...</div>
-          <div v-else-if="scoreTrendError" class="score-chart-state score-chart-state--error">
-            <span>{{ scoreTrendError }}</span>
-            <button type="button" class="button_cancel" @click="loadScoreTrend">重新加载</button>
-          </div>
-          <div v-else-if="!scoreTrend?.points.length" class="score-chart-state">
-            暂无已完成的 {{ activeExamType }} 诊断测试成绩
-          </div>
-          <div
-            v-else
-            ref="chartRef"
-            class="score-chart"
-            :aria-label="`${activeExamType} 诊断测试每日最新分数堆叠折线图`"
-          ></div>
-        </section>
-
-        <section class="paper-grid" aria-label="历年真题">
-          <article
-            v-for="item in filteredDiagnosticTests"
-            :key="item.id"
-            class="paper-card"
-            :class="{
-              'paper-card--unavailable': !isPaperAvailable(item),
-              'paper-card--locked': isPaperLocked(item) && item.testStatus !== 'completed',
-            }"
-          >
-            <div
-              v-if="isPaperLocked(item) && item.testStatus !== 'completed'"
-              class="paper-card__lock-overlay"
-              :aria-label="`${item.examType} 会员专享试卷`"
-              @click.stop
-            >
-              <div class="paper-card__lock-marker">
-                <el-icon><Lock /></el-icon>
-                <!-- <span>会员专享</span> -->
-              </div>
-              <div class="paper-card__lock-actions">
-                <button
-                  v-if="item.completedAttemptCount > 0"
-                  class="paper-card__locked-history-button"
-                  type="button"
-                  @click.stop="openPaperHistory(item)"
-                >
-                  历次记录（{{ item.completedAttemptCount }}）
-                </button>
-                <button
-                  class="paper-card__unlock-button"
-                  type="button"
-                  @click.stop="handleUpgradeClick(item.examType)"
-                >
-                  开通会员
-                </button>
-              </div>
-            </div>
-
-            <div class="paper-card__heading">
-              <div class="paper-card__topline">
-                <span
-                  class="paper-card__badge"
-                  :class="`paper-card__badge--${paperStatusTone(item)}`"
-                >
-                  {{ paperStatusLabel(item) }}
-                </span>
-                <div class="paper-card__identity" aria-label="考试类型和年份">
-                  <span
-                    class="paper-card__exam-type"
-                    :class="`paper-card__exam-type--${String(item.examType || '').toLowerCase()}`"
-                  >
-                    {{ item.examType || 'TMUA' }}
-                  </span>
-                  <span class="paper-card__year">{{ item.year }}</span>
-                </div>
-              </div>
-              <h2 :title="item.title">{{ item.title }}</h2>
-              <SubjectModuleTags
-                v-if="item.modules?.length"
-                class="paper-card__subject-tags"
-                :modules="item.modules"
-                align="start"
-              />
-            </div>
-
-            <div class="paper-card__footer">
-              <div
-                v-if="item.testStatus === 'completed' && item.correctCount !== null"
-                class="paper-card__score"
-              >
-                <strong>{{ item.correctCount }}/{{ item.totalQuestions }}</strong>
-                <span v-if="isReportGenerating(item)">报告 {{ item.reportProgress }}%</span>
-                <span v-else>题正确</span>
-              </div>
-              <div v-else-if="item.testStatus === 'in_progress'" class="paper-card__progress">
-                <span>当前进度：</span>
-                <strong>{{ currentProgressLabel(item) }}</strong>
-              </div>
-              <div class="paper-card__actions">
-                <button
-                  v-if="item.testStatus === 'completed' && isPaperPublished(item)"
-                  class="paper-card__button paper-card__button--secondary button_cancel"
-                  type="button"
-                  :disabled="isPaperLocked(item) || startingPaperId === item.id"
-                  @click="handleRetestPaper(item)"
-                >
-                  重新测试
-                </button>
-                <button
-                  class="paper-card__button button_primary"
-                  type="button"
-                  :disabled="
-                    (isPaperLocked(item) && item.testStatus !== 'completed') ||
-                    startingPaperId === item.id
-                  "
-                  @click="handlePaperAction(item)"
-                >
-                  {{ startingPaperId === item.id ? '正在检查...' : paperActionLabel(item) }}
-                </button>
-              </div>
-            </div>
-          </article>
-        </section>
-
-        <div v-if="loading" class="empty-state">加载中...</div>
-        <div v-else-if="!filteredDiagnosticTests.length" class="empty-state">
-          {{ emptyPaperMessage }}
-        </div>
-      </div>
     </main>
 
     <AppConfirmDialog
@@ -299,7 +127,9 @@
 
     <AppConfirmDialog
       v-model="tmuaPaperDialogVisible"
-      :title="tmuaSelectionYear ? `TMUA ${tmuaSelectionYear} 年 · 确认诊断试卷` : '确认 TMUA 诊断试卷'"
+      :title="
+        tmuaSelectionYear ? `TMUA ${tmuaSelectionYear} 年 · 确认诊断试卷` : '确认 TMUA 诊断试卷'
+      "
       message="本次诊断包含 Paper 1 和 Paper 2，确认开始答题吗？"
       confirm-text="确认开始"
       cancel-text="取消"
@@ -315,7 +145,9 @@
             <div>
               <span aria-hidden="true">✓</span>
               <strong>Paper 1</strong>
-              <small>{{ formatModuleSubtitle(tmuaModuleQuestionCounts.paper1, '数学知识应用') }}</small>
+              <small>{{
+                formatModuleSubtitle(tmuaModuleQuestionCounts.paper1, '数学知识应用')
+              }}</small>
               <em>必做</em>
             </div>
             <div>
@@ -379,7 +211,9 @@
           <span>
             <strong>{{ subject.label }}</strong>
             <small>
-              {{ formatModuleSubtitle(esatSubjectQuestionCounts[subject.code], subject.englishLabel) }}
+              {{
+                formatModuleSubtitle(esatSubjectQuestionCounts[subject.code], subject.englishLabel)
+              }}
             </small>
           </span>
           <em v-if="subject.required">必选</em>
@@ -442,7 +276,7 @@
         class="diagnostic-history__state diagnostic-history__state--error"
       >
         <p>{{ historyError }}</p>
-        <button type="button" class="button_cancel" @click="loadPaperHistory">重新加载</button>
+        <button type="button" class="button_cancel" @click="loadYearHistory">重新加载</button>
       </div>
       <div v-else-if="!historyRecords.length" class="diagnostic-history__state">
         暂无已完成的诊断记录
@@ -513,30 +347,25 @@
 </template>
 
 <script setup lang="ts">
-// 诊断测试中心：展示试卷权益、历史趋势和真题套卷入口。
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+// 诊断测试中心：按年份进入 ESAT 选科或 TMUA 双 Paper 诊断流程。
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Lock, Right } from '@element-plus/icons-vue'
-import * as echarts from 'echarts'
 import NavBar from '@/components/NavBar.vue'
 import AppPagination from '@/components/AppPagination.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
-import SubjectModuleTags from '@/components/SubjectModuleTags.vue'
 import { getMember } from '@/api/member'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import { getExamUnavailableMessage, isExamTypeAvailable } from '@/constants/examTypes'
 import { PAPER_ACCESS_TIER } from '@/constants/paperTypes'
 import {
   getAssessmentYearsData,
-  getAssessmentPaperHistory,
   getAssessmentPapersData,
-  getAssessmentScoreTrend,
   getAssessmentYearHistory,
   type AssessmentPaperHistoryItem,
   type AssessmentPaperItem,
-  type AssessmentScoreTrendResult,
   type AssessmentYearSummary,
   type PaperModuleOutline,
 } from '@/api/papers'
@@ -545,9 +374,7 @@ import { createLoginRequiredRouteLocation } from '@/utils/authRedirect'
 
 const router = useRouter()
 const auth = useAuthStore()
-const loading = ref(true)
 const startingPaperId = ref('')
-const diagnosticTests = ref<AssessmentPaperItem[]>([])
 const assessmentYears = ref<AssessmentYearSummary[]>([])
 const yearLoading = ref(false)
 const yearError = ref('')
@@ -565,7 +392,6 @@ const subjectPapersError = ref('')
 const historyDialogVisible = ref(false)
 const historyLoading = ref(false)
 const historyError = ref('')
-const historyPaper = ref<AssessmentPaperItem | null>(null)
 const historyYear = ref<number | null>(null)
 const historyRecords = ref<AssessmentPaperHistoryItem[]>([])
 const historyPage = ref(1)
@@ -573,17 +399,10 @@ const historyPageSize = ref(5)
 const historyTotal = ref(0)
 const paymentVisible = ref(false)
 const paymentExamType = ref<string>(auth.activeExamType)
-const chartRef = ref<HTMLDivElement | null>(null)
-const scoreTrend = ref<AssessmentScoreTrendResult | null>(null)
-const scoreTrendLoading = ref(true)
-const scoreTrendError = ref('')
-let chartInstance: echarts.ECharts | null = null
 let assessmentInitialized = false
 let assessmentLoadSequence = 0
-let scoreTrendLoadSequence = 0
 let subjectPapersLoadSequence = 0
 
-type AssessmentStatusFilter = 'ALL' | 'not_started' | 'in_progress' | 'completed'
 type EsatSubjectCode = 'maths1' | 'maths2' | 'physics' | 'chemistry' | 'biology'
 
 interface EsatSubjectOption {
@@ -593,14 +412,6 @@ interface EsatSubjectOption {
   required: boolean
 }
 
-const activeStatusFilter = ref<AssessmentStatusFilter>('ALL')
-const showScoreTrend = ref(true)
-const statusFilterOptions: Array<{ label: string; value: AssessmentStatusFilter }> = [
-  { label: '全部', value: 'ALL' },
-  { label: '待开始', value: 'not_started' },
-  { label: '进行中', value: 'in_progress' },
-  { label: '已完成', value: 'completed' },
-]
 const esatSubjectOptions: EsatSubjectOption[] = [
   { code: 'maths1', label: '数学 1', englishLabel: 'Mathematics 1', required: true },
   { code: 'maths2', label: '数学 2', englishLabel: 'Mathematics 2', required: false },
@@ -620,11 +431,6 @@ function requireLoginForDiagnosticAction(): boolean {
 // 诊断中心统一读取导航栏的全局考试类型，不再维护页面级考试选择。
 const activeExamType = computed<ActiveExamType>(() => auth.activeExamType)
 
-// ESAT 与 TMUA 都从年份卡片进入，避免直接暴露底层组合卷列表。
-const isYearOverview = computed(
-  () => activeExamType.value === 'ESAT' || activeExamType.value === 'TMUA',
-)
-
 // 年份页说明分别对应 ESAT 选科和 TMUA 双 Paper 确认两种流程。
 const yearOverviewDescription = computed(() =>
   activeExamType.value === 'ESAT'
@@ -636,9 +442,6 @@ const yearOverviewDescription = computed(() =>
 const yearCardConfigurationLabel = computed(() =>
   activeExamType.value === 'ESAT' ? '5 科选 3 科' : 'Paper 1 + Paper 2',
 )
-
-// 试卷列表标题明确当前选中的 ESAT 年份，避免进入二级后失去上下文。
-const paperListTitle = computed(() => `${activeExamType.value} 历年真题诊断卷`)
 
 // 科目选满三项后以模块代码集合匹配已有六种 ESAT 合法组合卷。
 const selectedPaperPreview = computed(() => {
@@ -654,16 +457,14 @@ const selectedPaperPreview = computed(() => {
 })
 
 // TMUA 确认弹窗从已匹配组合卷读取双 Paper 题量，不根据总题量进行推算。
-const tmuaModuleQuestionCounts = computed<{ paper1: number | null; paper2: number | null }>(
-  () => {
-    const result = { paper1: null as number | null, paper2: null as number | null }
-    for (const module of selectedTmuaPaper.value?.modules || []) {
-      const paperKey = normalizeTmuaModule(module)
-      if (paperKey && module.questionCount > 0) result[paperKey] = module.questionCount
-    }
-    return result
-  },
-)
+const tmuaModuleQuestionCounts = computed<{ paper1: number | null; paper2: number | null }>(() => {
+  const result = { paper1: null as number | null, paper2: null as number | null }
+  for (const module of selectedTmuaPaper.value?.modules || []) {
+    const paperKey = normalizeTmuaModule(module)
+    if (paperKey && module.questionCount > 0) result[paperKey] = module.questionCount
+  }
+  return result
+})
 
 // ESAT 选科发生在组合卷匹配前，因此按该年份已加载试卷汇总各科的模块题量。
 const esatSubjectQuestionCounts = computed<Partial<Record<EsatSubjectCode, number>>>(() => {
@@ -681,19 +482,11 @@ const esatSubjectQuestionCounts = computed<Partial<Record<EsatSubjectCode, numbe
 
 // 同一历史弹窗同时承载单卷和年份聚合两种上下文。
 const historyDialogTitle = computed(() => {
-  if (historyPaper.value) return `${historyPaper.value.title} · 历次诊断记录`
   if (historyYear.value) {
     return `${activeExamType.value} ${historyYear.value} 年 · 历史诊断记录`
   }
   return '历次诊断记录'
 })
-
-// ESAT 采用科目独立标准分，TMUA 采用综合分，标题明确两种评分口径。
-const scoreTrendTitle = computed(() =>
-  activeExamType.value === 'ESAT'
-    ? 'ESAT 每日最新诊断测试科目分数变化'
-    : 'TMUA 每日最新诊断测试综合分数变化',
-)
 
 // 页面说明随全局考试类型切换，避免同时描述两套不同的模块结构。
 const assessmentSubtitle = computed(() =>
@@ -701,24 +494,6 @@ const assessmentSubtitle = computed(() =>
     ? '选择 ESAT 历年真题诊断卷，按科目模块完成在线测试。'
     : '选择 TMUA 历年真题诊断卷，按 Paper 1/2 完成在线测试。',
 )
-
-// 数据源已由后端限定考试类型，页面只保留与考试类型无关的完成状态筛选。
-const filteredDiagnosticTests = computed(() => {
-  return diagnosticTests.value.filter((paper) => {
-    const matchesExamType = String(paper.examType || '').toUpperCase() === activeExamType.value
-    const matchesStatus =
-      activeStatusFilter.value === 'ALL' || paper.testStatus === activeStatusFilter.value
-    return matchesExamType && matchesStatus
-  })
-})
-
-// 空状态区分“尚无任何试卷”和“当前考试类型暂无试卷”，避免误导后台发布状态。
-const emptyPaperMessage = computed(() => {
-  if (activeStatusFilter.value === 'ALL') {
-    return `暂无已上线的 ${activeExamType.value} 诊断试卷，请先在后台真题库发布试卷。`
-  }
-  return `${activeExamType.value} 当前完成状态下暂无诊断试卷。`
-})
 
 // 年份状态色只承载进行中、完成和默认三类稳定语义。
 function yearStatusTone(item: AssessmentYearSummary): 'progress' | 'completed' | 'idle' {
@@ -815,7 +590,8 @@ async function loadAssessmentYears(): Promise<void> {
   assessmentYears.value = []
   try {
     const data = await getAssessmentYearsData(requestedExamType)
-    if (requestSequence !== assessmentLoadSequence || activeExamType.value !== requestedExamType) return
+    if (requestSequence !== assessmentLoadSequence || activeExamType.value !== requestedExamType)
+      return
     assessmentYears.value = data.list || []
   } catch (error: unknown) {
     if (requestSequence !== assessmentLoadSequence) return
@@ -828,69 +604,9 @@ async function loadAssessmentYears(): Promise<void> {
   }
 }
 
-// 每次只请求当前全局考试类型，并丢弃快速切换后延迟返回的旧响应。
-async function loadAssessmentPapers(): Promise<void> {
-  const requestSequence = ++assessmentLoadSequence
-  const requestedExamType = activeExamType.value
-  loading.value = true
-  diagnosticTests.value = []
-  try {
-    const data = await getAssessmentPapersData(requestedExamType)
-    if (requestSequence !== assessmentLoadSequence || requestedExamType !== activeExamType.value) {
-      return
-    }
-    diagnosticTests.value = data.list || []
-  } catch {
-    if (requestSequence === assessmentLoadSequence) diagnosticTests.value = []
-  } finally {
-    if (requestSequence === assessmentLoadSequence) loading.value = false
-  }
-}
-
-// 趋势接口独立刷新，并丢弃快速切换考试类型后返回的旧成绩响应。
-async function loadScoreTrend(): Promise<void> {
-  const requestSequence = ++scoreTrendLoadSequence
-  const requestedExamType = activeExamType.value
-  scoreTrendLoading.value = true
-  scoreTrendError.value = ''
-  scoreTrend.value = null
-  chartInstance?.dispose()
-  chartInstance = null
-  try {
-    const data = await getAssessmentScoreTrend(requestedExamType)
-    if (requestSequence !== scoreTrendLoadSequence || requestedExamType !== activeExamType.value) {
-      return
-    }
-    scoreTrend.value = data
-  } catch (error: unknown) {
-    if (requestSequence !== scoreTrendLoadSequence) return
-    scoreTrendError.value = getApiErrorMessage(error, '分数趋势加载失败，请稍后重试。')
-  } finally {
-    if (requestSequence === scoreTrendLoadSequence) {
-      scoreTrendLoading.value = false
-      if (showScoreTrend.value && scoreTrend.value?.points.length) {
-        await nextTick()
-        renderChart()
-      }
-    }
-  }
-}
-
-// 页面进入或全局考试类型变化时并行刷新试卷列表与真实成绩趋势。
+// 页面进入或全局考试类型变化时刷新年份摘要，不再加载旧版平铺试卷和趋势数据。
 async function refreshAssessmentData(): Promise<void> {
-  if (isYearOverview.value) {
-    scoreTrendLoadSequence += 1
-    loading.value = false
-    diagnosticTests.value = []
-    scoreTrend.value = null
-    scoreTrendLoading.value = false
-    scoreTrendError.value = ''
-    chartInstance?.dispose()
-    chartInstance = null
-    await loadAssessmentYears()
-    return
-  }
-  await Promise.all([loadAssessmentPapers(), loadScoreTrend()])
+  await loadAssessmentYears()
 }
 
 // 年份弹窗只读取当年组合卷用于匹配，不再暴露底层试卷列表。
@@ -978,8 +694,7 @@ async function handleYearSelection(year: number): Promise<void> {
     }
     const paper = subjectSelectionPapers.value.find(
       (item) =>
-        (isPaperPublished(item) || item.testStatus === 'in_progress') &&
-        isTmuaCompositePaper(item),
+        (isPaperPublished(item) || item.testStatus === 'in_progress') && isTmuaCompositePaper(item),
     )
     if (!paper) {
       ElMessage.warning(`TMUA ${year} 年暂无已发布的 Paper 1 + Paper 2 诊断卷`)
@@ -1020,23 +735,6 @@ onMounted(async () => {
   }
   assessmentInitialized = true
   await refreshAssessmentData()
-  window.addEventListener('resize', resizeChart)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', resizeChart)
-  chartInstance?.dispose()
-})
-
-// 趋势图重新显示时等待容器挂载，隐藏时及时释放 ECharts 实例。
-watch(showScoreTrend, async (visible) => {
-  if (!visible) {
-    chartInstance?.dispose()
-    chartInstance = null
-    return
-  }
-  await nextTick()
-  renderChart()
 })
 
 // 导航栏切换考试类型时关闭旧上下文，并重新查询对应诊断卷和成绩趋势。
@@ -1057,7 +755,6 @@ watch(activeExamType, () => {
   historyDialogVisible.value = false
   historyLoading.value = false
   historyError.value = ''
-  historyPaper.value = null
   historyYear.value = null
   historyRecords.value = []
   historyTotal.value = 0
@@ -1067,99 +764,6 @@ watch(activeExamType, () => {
   yearError.value = ''
   void refreshAssessmentData()
 })
-
-// 图表按接口返回的每日最新成绩构造序列，ESAT 科目和 TMUA 综合分使用同一渲染入口。
-function renderChart(): void {
-  const trend = scoreTrend.value
-  if (!chartRef.value || !trend?.points.length) return
-  const seriesMeta = new Map<string, string>()
-  for (const point of trend.points) {
-    for (const score of point.scores) {
-      if (!seriesMeta.has(score.key)) seriesMeta.set(score.key, score.label)
-    }
-  }
-  const seriesEntries = [...seriesMeta.entries()]
-  const stackedMaximum = Math.max(
-    9,
-    ...trend.points.map((point) => point.scores.reduce((sum, score) => sum + score.score, 0)),
-  )
-  const yAxisMaximum = Math.ceil(stackedMaximum / 3) * 3
-  const palette = ['#1a1a1a', '#2f7d78', '#c67a37', '#5576b9', '#8567a8']
-
-  chartInstance?.dispose()
-  chartInstance = echarts.init(chartRef.value)
-  chartInstance.setOption({
-    color: palette,
-    grid: { left: 44, right: 20, top: seriesEntries.length > 1 ? 46 : 24, bottom: 36 },
-    legend: {
-      show: seriesEntries.length > 1,
-      top: 2,
-      right: 4,
-      itemWidth: 18,
-      itemHeight: 8,
-      textStyle: { color: '#666666', fontSize: 12 },
-    },
-    xAxis: {
-      type: 'category',
-      data: trend.points.map((point) => point.date.slice(5).replace('-', '/')),
-      boundaryGap: false,
-      axisTick: { show: false },
-      axisLine: { lineStyle: { color: '#eaeaea' } },
-      axisLabel: { color: '#8a8a8a', fontWeight: 600 },
-      splitLine: { show: true, lineStyle: { color: '#f0f0f0', type: 'dashed' } },
-    },
-    yAxis: {
-      type: 'value',
-      min: 0,
-      max: yAxisMaximum,
-      interval: 3,
-      name: '分数',
-      nameTextStyle: { color: '#8a8a8a', padding: [0, 0, 0, -24] },
-      axisLabel: { color: '#8a8a8a', fontWeight: 600 },
-      splitLine: { lineStyle: { color: '#f0f0f0', type: 'dashed' } },
-    },
-    series: seriesEntries.map(([key, label], index) => ({
-      name: label,
-      type: 'line',
-      stack: 'diagnostic-score',
-      data: trend.points.map(
-        (point) => point.scores.find((score) => score.key === key)?.score ?? null,
-      ),
-      smooth: true,
-      symbol: 'circle',
-      symbolSize: 7,
-      lineStyle: { width: 2.5, color: palette[index % palette.length] },
-      itemStyle: {
-        color: palette[index % palette.length],
-        borderColor: '#ffffff',
-        borderWidth: 2,
-      },
-      emphasis: { focus: 'series' },
-      connectNulls: false,
-    })),
-    tooltip: {
-      trigger: 'axis',
-      formatter: (params: unknown) => {
-        const items = (Array.isArray(params) ? params : [params]) as Array<{
-          dataIndex?: number
-          marker?: string
-          seriesName?: string
-          data?: string | number | null
-        }>
-        const point = trend.points[items[0]?.dataIndex ?? -1]
-        if (!point) return ''
-        const rows = items
-          .filter((item) => item.data !== null && item.data !== undefined)
-          .map((item) => `${item.marker || ''}${item.seriesName || '分数'}：${item.data}`)
-        return [formatDateTime(point.submittedAt), ...rows].join('<br/>')
-      },
-    },
-  })
-}
-
-function resizeChart(): void {
-  chartInstance?.resize()
-}
 
 // 从试卷锁定态进入支付时预选该试卷的考试类型，减少重复选择。
 function handleUpgradeClick(examType?: string): void {
@@ -1178,63 +782,42 @@ async function handlePaymentSuccess(): Promise<void> {
   }
 }
 
-// 打开试卷历史时固定当前试卷上下文，分页请求不会和其他卡片的数据混用。
-function openPaperHistory(item: AssessmentPaperItem): void {
-  historyPaper.value = item
-  historyYear.value = null
-  historyPage.value = 1
-  historyRecords.value = []
-  historyTotal.value = item.completedAttemptCount
-  historyDialogVisible.value = true
-  void loadPaperHistory()
-}
-
 // 年份卡片历史入口汇总该年所有科目组合，不要求学生先选中某套卷。
 function openYearHistory(item: AssessmentYearSummary): void {
   if (item.completedAttemptCount === 0) return
-  historyPaper.value = null
   historyYear.value = item.year
   historyPage.value = 1
   historyRecords.value = []
   historyTotal.value = item.completedAttemptCount
   historyDialogVisible.value = true
-  void loadPaperHistory()
+  void loadYearHistory()
 }
 
-// 历次记录只读取正式交卷 attempt，并按当前单卷或年份上下文选择接口。
-async function loadPaperHistory(): Promise<void> {
-  const paperId = historyPaper.value?.paperId
+// 历次记录按当前考试类型和年份分页读取正式交卷 attempt。
+async function loadYearHistory(): Promise<void> {
   const year = historyYear.value
-  if (!paperId && !year) return
-  const historyContextKey = paperId ? `paper:${paperId}` : `year:${year}`
+  if (!year) return
+  const historyContextKey = `${activeExamType.value}:${year}`
   historyLoading.value = true
   historyError.value = ''
   try {
-    const data = paperId
-      ? await getAssessmentPaperHistory(paperId, historyPage.value, historyPageSize.value)
-      : await getAssessmentYearHistory(
-          activeExamType.value,
-          year!,
-          historyPage.value,
-          historyPageSize.value,
-        )
-    const currentContextKey = historyPaper.value?.paperId
-      ? `paper:${historyPaper.value.paperId}`
-      : `year:${historyYear.value}`
+    const data = await getAssessmentYearHistory(
+      activeExamType.value,
+      year,
+      historyPage.value,
+      historyPageSize.value,
+    )
+    const currentContextKey = `${activeExamType.value}:${historyYear.value}`
     if (currentContextKey !== historyContextKey) return
     historyRecords.value = data.list || []
     historyTotal.value = data.pagination.total
   } catch (error: unknown) {
-    const currentContextKey = historyPaper.value?.paperId
-      ? `paper:${historyPaper.value.paperId}`
-      : `year:${historyYear.value}`
+    const currentContextKey = `${activeExamType.value}:${historyYear.value}`
     if (currentContextKey !== historyContextKey) return
     historyRecords.value = []
     historyError.value = getApiErrorMessage(error, '历次诊断记录加载失败，请稍后重试。')
   } finally {
-    const currentContextKey = historyPaper.value?.paperId
-      ? `paper:${historyPaper.value.paperId}`
-      : `year:${historyYear.value}`
+    const currentContextKey = `${activeExamType.value}:${historyYear.value}`
     if (currentContextKey === historyContextKey) historyLoading.value = false
   }
 }
@@ -1250,14 +833,14 @@ function historyRecordTitle(record: AssessmentPaperHistoryItem): string {
 // 切换页码后重新读取该页，避免一次性把长期积累的全部历史报告下发到首页。
 function handleHistoryPageChange(page: number): void {
   historyPage.value = page
-  void loadPaperHistory()
+  void loadYearHistory()
 }
 
 // 每页数量改变时回到第一页，避免原页码超出新的总页数。
 function handleHistoryPageSizeChange(pageSize: number): void {
   historyPageSize.value = pageSize
   historyPage.value = 1
-  void loadPaperHistory()
+  void loadYearHistory()
 }
 
 // 历史入口始终以该次 examRecordId 导航，禁止回退到同一试卷的其他报告。
@@ -1400,27 +983,6 @@ async function startSelectedEsatPaper(): Promise<void> {
   subjectDialogVisible.value = false
 }
 
-async function handlePaperAction(item: AssessmentPaperItem): Promise<void> {
-  if (requireLoginForDiagnosticAction()) return
-  if (!isPaperAvailable(item)) {
-    ElMessage.info(getExamUnavailableMessage(item.examType))
-    return
-  }
-  if (item.testStatus === 'in_progress') {
-    routeToDiagnosticPaper(item, true)
-    return
-  }
-  if (item.testStatus === 'completed') {
-    openPaperHistory(item)
-    return
-  }
-  if (isPaperLocked(item)) {
-    handleUpgradeClick(item.examType)
-    return
-  }
-  await startPaper(item)
-}
-
 // 重新测试走正式权益校验并创建新的 attempt，不再提供客户端调试绕过参数。
 async function handleRetestPaper(paper: AssessmentPaperItem): Promise<void> {
   if (requireLoginForDiagnosticAction()) return
@@ -1449,13 +1011,6 @@ async function startPaper(paper: AssessmentPaperItem): Promise<void> {
     ElMessage.info('该诊断卷已下线，不能创建新的测试')
     return
   }
-  const activePaper = diagnosticTests.value.find(
-    (item) => item.examType === paper.examType && item.testStatus === 'in_progress',
-  )
-  if (activePaper && activePaper.id !== paper.id) {
-    ElMessage.warning(`请先完成正在进行的“${activePaper.title}”`)
-    return
-  }
   if (startingPaperId.value) return
   startingPaperId.value = paper.id
   try {
@@ -1477,11 +1032,6 @@ function routeToDiagnosticPaper(paper: AssessmentPaperItem, resume: boolean): vo
   router.push({ path: '/practice', query: { paperId: paper.id, mode: 'assessment' } })
 }
 
-// 分析中与待分析统一进入本次分析弹窗，完成后只进入本次考试记录的报告。
-function isReportGenerating(item: AssessmentPaperItem): boolean {
-  return item.reportStatus === 'pending' || item.reportStatus === 'analyzing'
-}
-
 // 诊断列表可展示 STEP 上线预告，但任何开始、继续和重测操作都必须保持关闭。
 function isPaperAvailable(item: AssessmentPaperItem): boolean {
   return isExamTypeAvailable(item.examType || 'TMUA')
@@ -1497,56 +1047,6 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
   if (!isPaperAvailable(item) || item.testStatus === 'in_progress') return false
   if (item.accessTier === PAPER_ACCESS_TIER.FREE || auth.isAdmin) return false
   return !auth.memberContext?.quotas?.[item.examType || 'TMUA']?.isMember
-}
-
-function paperStatusLabel(item: AssessmentPaperItem): string {
-  if (!isPaperAvailable(item)) return '暂未开放'
-  if (!isPaperPublished(item) && item.testStatus === 'in_progress') return '已下线 · 进行中'
-  if (!isPaperPublished(item)) return '已下线'
-  if (item.testStatus === 'in_progress') return '进行中'
-  if (item.testStatus === 'not_started') return '待开始'
-  if (item.reportStatus === 'failed') return '分析失败'
-  if (isReportGenerating(item)) return `报告生成中 ${item.reportProgress}%`
-  if (item.reportStatus === 'not_generated') return '待生成报告'
-  return '报告已完成'
-}
-
-// 状态标签使用低饱和语义色，和科目、考试类型的亮色标签形成层级区分。
-function paperStatusTone(
-  item: AssessmentPaperItem,
-): 'pending' | 'progress' | 'completed' | 'failed' | 'unavailable' {
-  if (!isPaperAvailable(item)) return 'unavailable'
-  if (!isPaperPublished(item)) return 'unavailable'
-  if (item.testStatus === 'in_progress') return 'progress'
-  if (item.testStatus === 'not_started') return 'pending'
-  if (item.reportStatus === 'failed') return 'failed'
-  if (isReportGenerating(item) || item.reportStatus === 'not_generated') return 'progress'
-  return 'completed'
-}
-
-function paperActionLabel(item: AssessmentPaperItem): string {
-  if (!isPaperAvailable(item)) return '正在推进中'
-  if (item.testStatus === 'in_progress') return '继续测试→'
-  if (!isPaperPublished(item)) return '历次记录→'
-  if (item.testStatus === 'not_started') return '开始测试→'
-  if (item.reportStatus === 'failed' && !item.hasReport) return '重新分析→'
-  if (isReportGenerating(item) || item.reportStatus === 'not_generated') {
-    return '查看生成进度→'
-  }
-  return '查看诊断报告→'
-}
-
-// 进行中卡片按当前模块索引展示 ESAT 科目或 TMUA Paper，避免沿用过长的试卷副标题。
-function currentProgressLabel(item: AssessmentPaperItem): string {
-  const moduleIndex = Math.max(0, item.currentModuleIndex ?? 0)
-  const currentModule = item.modules?.[moduleIndex]
-  if (String(item.examType || '').toUpperCase() === 'TMUA') {
-    const moduleIdentity = `${currentModule?.code || ''} ${currentModule?.subject || ''}`
-    if (/paper[\s_-]*2/i.test(moduleIdentity)) return 'Paper 2'
-    if (/paper[\s_-]*1/i.test(moduleIdentity)) return 'Paper 1'
-    return `Paper ${moduleIndex + 1}`
-  }
-  return currentModule?.subject || currentModule?.code || `第 ${moduleIndex + 1} 科目`
 }
 </script>
 
@@ -1620,13 +1120,6 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
 }
 
 .assessment-year-overview {
-  padding: 24px;
-  border: 1px solid var(--color-line);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.3);
-}
-
-.assessment-paper-overview--tmua {
   padding: 24px;
   border: 1px solid var(--color-line);
   border-radius: 20px;
@@ -1966,150 +1459,6 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
   }
 }
 
-.paper-card__button {
-  height: var(--height-button);
-  border-radius: var(--radius-md);
-}
-
-.chart-card {
-  margin-top: 16px;
-  padding: 24px 24px 16px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-}
-
-.chart-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 4px;
-}
-
-.chart-title span {
-  display: block;
-  margin-bottom: 4px;
-  color: var(--color-ink-muted);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semi);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
-}
-
-.chart-title strong {
-  color: var(--color-ink);
-  font-size: var(--text-lg);
-}
-
-.score-chart {
-  width: 100%;
-  height: 220px;
-}
-
-.score-chart-state {
-  display: flex;
-  min-height: 220px;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: var(--color-ink-muted);
-  font-size: var(--text-sm);
-}
-
-.score-chart-state--error {
-  color: var(--color-danger);
-}
-
-.score-chart-state .button_cancel {
-  min-height: 34px;
-  padding: 0 14px;
-}
-
-.paper-filter-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 14px 16px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-}
-
-.paper-filter-bar__title span {
-  display: block;
-  margin-bottom: 3px;
-  color: var(--color-ink-muted);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semi);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
-}
-
-.paper-filter-bar__title strong {
-  color: var(--color-ink);
-  font-size: var(--text-base);
-}
-
-.paper-filter-bar__controls {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-
-.paper-filter-control {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.paper-filter-control > span {
-  color: var(--color-ink-muted);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semi);
-  white-space: nowrap;
-}
-
-.paper-filter-control--chart {
-  min-height: var(--height-button);
-  padding-left: 4px;
-}
-
-.status-filter {
-  flex: 0 0 auto;
-  min-width: 340px;
-}
-
-.status-filter :deep(.el-segmented__item) {
-  min-width: 76px;
-  font-weight: var(--weight-semi);
-}
-
-.paper-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  margin-top: 16px;
-}
-
-.paper-card {
-  position: relative;
-  overflow: hidden;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  padding: 24px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  transition:
-    border-color var(--duration-base) ease,
-    transform var(--duration-fast) ease;
-}
-
 .paper-card__lock-overlay {
   position: absolute;
   inset: 0;
@@ -2220,8 +1569,6 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
   color: rgb(255 255 255);
 }
 
-.paper-card--locked:hover .paper-card__lock-overlay,
-.paper-card--locked:focus-within .paper-card__lock-overlay,
 .assessment-year-card--locked:hover .assessment-year-card__lock-overlay,
 .assessment-year-card--locked:focus-within .assessment-year-card__lock-overlay {
   background: linear-gradient(
@@ -2238,193 +1585,6 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
-}
-
-.paper-card:hover {
-  border-color: var(--color-ink);
-  transform: translateY(-1px);
-}
-
-.paper-card--unavailable,
-.paper-card--unavailable:hover {
-  border-color: var(--color-line);
-  border-style: dashed;
-  background: linear-gradient(
-    135deg,
-    var(--color-surface),
-    color-mix(in srgb, var(--color-report-purple-soft) 44%, var(--color-surface))
-  );
-  transform: none;
-}
-
-.paper-card--unavailable .paper-card__button,
-.paper-card--unavailable .paper-card__button:hover {
-  border-color: var(--color-line);
-  background: var(--color-surface-alt);
-  color: var(--color-ink-muted);
-}
-
-.paper-card__badge {
-  display: inline-flex;
-  align-items: center;
-  height: 24px;
-  padding: 0 10px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-pill);
-  background: var(--color-hover);
-  color: var(--color-ink-soft);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semi);
-}
-
-.paper-card__badge--pending {
-  border-color: #d5d8dc;
-  background: #f1f2f3;
-  color: #555d66;
-}
-
-.paper-card__badge--progress {
-  border-color: #d6c9b2;
-  background: #f3f0e9;
-  color: #6b5b3e;
-}
-
-.paper-card__badge--completed {
-  border-color: #c8d2cc;
-  background: #edf1ef;
-  color: #435c4d;
-}
-
-.paper-card__badge--failed {
-  border-color: #d8c8c8;
-  background: #f3eeee;
-  color: #775555;
-}
-
-.paper-card__badge--unavailable {
-  border-color: #d4d4d4;
-  border-style: dashed;
-  background: #f4f4f4;
-  color: #737373;
-}
-
-.paper-card__topline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 10px;
-}
-
-.paper-card__identity {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  flex: 0 0 auto;
-}
-
-.paper-card__exam-type,
-.paper-card__year {
-  display: inline-flex;
-  align-items: center;
-  height: 24px;
-  padding: 0 9px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-pill);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semi);
-  white-space: nowrap;
-}
-
-.paper-card__exam-type--esat {
-  border-color: #67e8f9;
-  background: #ecfeff;
-  color: #0e7490;
-}
-
-.paper-card__exam-type--tmua {
-  border-color: #ddd6fe;
-  background: #f5f3ff;
-  color: #6d28d9;
-}
-
-.paper-card__year {
-  background: var(--color-surface-alt);
-  color: var(--color-ink-soft);
-}
-
-.paper-card__heading {
-  min-width: 0;
-}
-
-.paper-card__heading h2 {
-  overflow: hidden;
-  margin: 0;
-  color: var(--color-ink);
-  font-size: var(--text-lg);
-  font-weight: var(--weight-bold);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.paper-card__subject-tags {
-  margin-top: 10px;
-}
-
-.paper-card__footer {
-  position: relative;
-  z-index: 3;
-  min-height: var(--height-button);
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--color-line);
-}
-
-.paper-card__score {
-  padding: 0 4px;
-  white-space: nowrap;
-}
-
-.paper-card__score strong {
-  color: var(--color-ink);
-  font-size: var(--text-2xl);
-  font-weight: var(--weight-bold);
-}
-
-.paper-card__score span {
-  color: var(--color-ink-muted);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semi);
-}
-
-.paper-card__progress {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 2px;
-  padding: 0 4px;
-  color: var(--color-ink-muted);
-  font-size: var(--text-sm);
-  white-space: nowrap;
-}
-
-.paper-card__progress strong {
-  color: var(--color-ink);
-  font-weight: var(--weight-semi);
-}
-
-.paper-card__actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-left: auto;
-}
-
-.paper-card__button--secondary {
-  min-width: 92px;
 }
 
 .empty-state {
@@ -2896,8 +2056,7 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
 }
 
 @media (max-width: 760px) {
-  .assessment-year-overview,
-  .assessment-paper-overview--tmua {
+  .assessment-year-overview {
     padding: 18px;
   }
 
@@ -2917,25 +2076,6 @@ function currentProgressLabel(item: AssessmentPaperItem): string {
 
   .assessment-year-card {
     --assessment-year-cover-height: 180px;
-  }
-
-  .paper-filter-bar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .paper-filter-bar__controls {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .paper-filter-control {
-    justify-content: space-between;
-  }
-
-  .status-filter {
-    width: 100%;
-    min-width: 0;
   }
 
   :deep(.diagnostic-history-dialog) {

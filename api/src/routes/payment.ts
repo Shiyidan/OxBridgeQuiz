@@ -117,8 +117,11 @@ function paymentQrCodeUrl(providerPayload: unknown): string | null {
 }
 
 // 会员状态在读取时结合到期时间归一，避免未执行定时任务时仍显示为进行中。
-function effectiveMembershipStatus(status: string, endsAt: Date, now: Date): string {
-  return status === 'active' && endsAt.getTime() <= now.getTime() ? 'expired' : status
+function effectiveMembershipStatus(status: string, startsAt: Date, endsAt: Date, now: Date): string {
+  if (status !== 'active') return status
+  if (endsAt.getTime() <= now.getTime()) return 'expired'
+  if (startsAt.getTime() > now.getTime()) return 'queued'
+  return status
 }
 
 function jsonValue(value: unknown): Prisma.InputJsonValue {
@@ -470,7 +473,12 @@ paymentRouter.get('/records', requireAuth, async (req, res) => {
       id: membership.id,
       examType: membership.examType,
       plan: membership.plan,
-      status: effectiveMembershipStatus(membership.status, membership.endsAt, now),
+      status: effectiveMembershipStatus(
+        membership.status,
+        membership.startsAt,
+        membership.endsAt,
+        now,
+      ),
       startsAt: membership.startsAt.toISOString(),
       endsAt: membership.endsAt.toISOString(),
       createdAt: membership.createdAt.toISOString(),

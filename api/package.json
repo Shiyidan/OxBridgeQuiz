@@ -20,6 +20,7 @@
     "smoke:auth": "tsx scripts/smoke-auth.ts",
     "test:behavior-analytics": "tsx scripts/test-behavior-analytics.ts",
     "test:admin-user-access": "tsx scripts/test-admin-user-access.ts",
+    "test:invitations": "tsx scripts/test-invitations.ts",
     "test:modular-diagnostic": "tsx scripts/test-modular-diagnostic.ts",
     "test:tmua-diagnostic": "tsx scripts/test-tmua-diagnostic-report.ts",
     "verify:chinaums-signature": "tsx scripts/verify-chinaums-signature.ts",

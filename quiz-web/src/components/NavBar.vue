@@ -113,7 +113,9 @@
               @click="showDropdown = !showDropdown"
             >
               <div class="user-info">
-                <span class="user-name">{{ auth.user.username }}</span>
+                <span class="user-name" :title="auth.user.username">
+                  {{ auth.user.username }}
+                </span>
                 <span class="user-meta">{{ currentRoleLabel }}</span>
               </div>
               <div class="user-avatar" :title="auth.user.username">
@@ -124,7 +126,9 @@
                 <div v-if="showDropdown" class="user-dropdown" @click.stop>
                   <div class="dropdown-header">
                     <div class="dropdown-user-info">
-                      <span class="dropdown-name">{{ auth.user.username }}</span>
+                      <span class="dropdown-name" :title="auth.user.username">
+                        {{ auth.user.username }}
+                      </span>
                       <span class="dropdown-role">{{ currentRoleLabel }}</span>
                     </div>
                     <div class="dropdown-avatar">{{ auth.user.username.charAt(0) }}</div>
@@ -515,11 +519,19 @@ onMounted(() => void loadStudentExamPreference())
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  min-width: 0;
+  max-width: 120px;
 }
 .user-name {
+  display: block;
+  overflow: hidden;
+  width: 100%;
   font-size: var(--text-sm);
   font-weight: var(--weight-semi);
   color: var(--color-ink);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .user-meta {
   font-size: 12px;
@@ -528,6 +540,7 @@ onMounted(() => void loadStudentExamPreference())
 .user-avatar,
 .dropdown-avatar {
   display: grid;
+  flex: 0 0 36px;
   place-items: center;
   width: 36px;
   height: 36px;
@@ -553,12 +566,22 @@ onMounted(() => void loadStudentExamPreference())
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   border-bottom: 1px solid var(--color-line-soft);
+}
+.dropdown-user-info {
+  flex: 1;
+  min-width: 0;
+  max-width: 120px;
 }
 .dropdown-name {
   display: block;
+  overflow: hidden;
+  width: 100%;
   font-weight: var(--weight-semi);
   color: var(--color-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .dropdown-role {
   color: var(--color-ink-muted);

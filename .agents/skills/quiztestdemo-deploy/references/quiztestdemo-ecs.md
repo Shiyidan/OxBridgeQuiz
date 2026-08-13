@@ -2,7 +2,7 @@
 
 ## Required Inputs and Environment
 
-Collect `environment` (`test` or `prod`), `scope` (`frontend`, `backend`, or `all`), and the Git branch before running commands.
+Collect `environment` (`test` or `prod`), `scope` (`frontend`, `backend`, or `all`), the Git branch, and the per-deployment report-email choice (`send` or `skip`) before running commands.
 
 Load host, SSH user, key path, URL, and database from the git-ignored `.env.deploy.local` according to `environments.md`. Never infer, combine, or commit environment values.
 
@@ -116,7 +116,8 @@ For `test`, run the local artifact orchestrator instead of manually uploading an
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\.agents\skills\quiztestdemo-deploy\scripts\deploy-test-local-build.ps1 `
   -Scope <frontend|backend|all> `
-  -Branch <branch>
+  -Branch <branch> `
+  [-EmailReport]
 ```
 
 It performs test-environment preflight, local builds, source bundle/artifact upload, guarded server activation, validation, report generation and cleanup. It rejects dirty or unpushed source. The test server only installs `--omit=dev` runtime dependencies after API package files change, plus Prisma generation/migration and process reload.
@@ -333,24 +334,29 @@ Include the environment, scope, branch, commit, backup manifest, migration resul
 
 ## Deployment Report Email
 
-Email notification is currently paused. Do not send deployment reports by default.
+Confirm `send` or `skip` for every deployment. Show only the configured recipient count and masked address during confirmation. Use the full sanitized HTML report as the message body.
 
-If the user explicitly asks to email a report later, first confirm whether the report should be sent as a fully detailed internal report or a reduced/sanitized report.
+For test, pass `-EmailReport` to the local artifact orchestrator only when `send` was confirmed. For production, send after report generation and cleanup.
 
-Optional sender command:
+Sender command:
 
 ```powershell
 node "$skill\scripts\send-deployment-report.cjs" `
-  --report ".private\deployment-reports\quiztestdemo-$Environment-deploy-$stamp.html"
+  --report ".private\deployment-reports\quiztestdemo-$Environment-deploy-$stamp.html" `
+  --environment $Environment `
+  --result <success|partial|failed> `
+  --scope $Scope `
+  --branch $Branch
 ```
 
 Required authorization:
 
 - Configure `DEPLOY_REPORT_SMTP_HOST`, `DEPLOY_REPORT_SMTP_PORT`, `DEPLOY_REPORT_SMTP_USER`, `DEPLOY_REPORT_SMTP_PASS`, `DEPLOY_REPORT_FROM`, and `DEPLOY_REPORT_TO` in `.env.deploy.local`.
 - The send script automatically loads project-local `.env.deploy.local` before reading process environment variables.
+- The default subject is `【测试环境|生产环境】AceMock 部署报告（成功|部分成功|失败）`.
 - Keep `.env.deploy.local` git-ignored. Do not ask for, print, or store SMTP authorization codes, accounts, sender addresses, or recipients in Git, skill files, tracked reports, or deployment logs.
 
-If email sending fails, keep the deployment result and generated report; note the mail failure in the final response.
+Use SMTP for automatic post-deploy notification. Agently requires its normal two-stage confirmation. If email sending fails, keep the deployment result and generated report, note the mail failure in the final response, and do not retry without fresh confirmation.
 
 ## Deployment Report Template
 
@@ -361,11 +367,11 @@ Generate the standalone HTML report under the git-ignored local `.private/deploy
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
-  <title>QuizTestDemo 部署报告</title>
+  <title>【测试环境】AceMock 部署报告</title>
 </head>
 <body>
   <main>
-    <h1>QuizTestDemo 部署报告</h1>
+    <h1>AceMock 部署报告</h1>
     <section>
       <h2>一、部署内容</h2>
       <p>记录部署范围、分支、Commit、后端/前端执行步骤。</p>

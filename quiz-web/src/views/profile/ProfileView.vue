@@ -106,54 +106,6 @@
             title-id="profile-membership-title"
           />
 
-          <div
-            class="membership-plan-banner"
-            :class="{ 'membership-plan-banner--free': !isCurrentExamActive }"
-          >
-            <span class="membership-plan-icon"
-              ><el-icon aria-hidden="true"><Trophy /></el-icon
-            ></span>
-            <div>
-              <small>{{ isCurrentExamActive ? '当前生效方案' : '当前账户方案' }}</small>
-              <strong>{{ membershipPlanTitle }}</strong>
-              <span>{{ membershipPeriodText }}</span>
-            </div>
-            <button
-              type="button"
-              class="membership-plan-action"
-              @click="handleMembershipPrimaryAction"
-            >
-              {{
-                !isCurrentExamActive && !hasCompletedCurrentDiagnostic
-                  ? '开始诊断'
-                  : isCurrentExamActive
-                    ? '续费会员'
-                    : '开通会员'
-              }}
-            </button>
-          </div>
-
-          <div class="membership-benefit-grid">
-            <article>
-              <el-icon aria-hidden="true"><Tickets /></el-icon>
-              <span>试题库</span>
-              <strong>{{ currentQuestionBankAnsweredCount }}<small>道</small></strong>
-              <small>累计答题数量</small>
-            </article>
-            <article>
-              <el-icon aria-hidden="true"><Aim /></el-icon>
-              <span>诊断考试</span>
-              <strong>{{ currentExamStats.diagnosticExamCount }}<small>次</small></strong>
-              <small>累计真实记录</small>
-            </article>
-            <article>
-              <el-icon aria-hidden="true"><Download /></el-icon>
-              <span>资料下载</span>
-              <strong class="benefit-text-value">功能上线中</strong>
-              <small>敬请期待</small>
-            </article>
-          </div>
-
           <div class="membership-exam-switch" role="tablist" aria-label="考试权益切换">
             <button
               v-for="item in diagnosticQuotaItems"
@@ -170,14 +122,71 @@
             >
               <strong>{{ item.label }}</strong
               ><span>{{ item.text }}</span>
+              <svg
+                v-if="currentExamType === item.examType"
+                class="membership-exam-switch-pointer"
+                viewBox="0 0 24 12"
+                aria-hidden="true"
+              >
+                <path d="M2 0h20l-7.8 9.4a2.8 2.8 0 0 1-4.4 0z" />
+              </svg>
             </button>
           </div>
-          <div class="membership-summary-note">
-            <span>
-              当前学习：预估分 {{ currentDiagnosticScoreText }} / 9.0 · 累计做题
-              {{ currentExamStats.answeredQuestionCount }} 道
-            </span>
-            <button type="button" @click="handleUpgradeClick">查看会员权益 →</button>
+
+          <div class="membership-benefit-board">
+            <div
+              class="membership-plan-banner"
+              :class="
+                isCurrentExamActive
+                  ? 'membership-plan-banner--member'
+                  : 'membership-plan-banner--free'
+              "
+            >
+              <span class="membership-plan-icon"
+                ><el-icon aria-hidden="true"><Trophy /></el-icon
+              ></span>
+              <div>
+                <small>{{ isCurrentExamActive ? '当前生效方案' : '当前账户方案' }}</small>
+                <strong>{{ membershipPlanTitle }}</strong>
+                <span>{{ membershipPeriodText }}</span>
+              </div>
+              <button
+                type="button"
+                class="membership-plan-action"
+                @click="handleMembershipPrimaryAction"
+              >
+                {{ isCurrentExamActive ? '续费会员' : '开通会员' }}
+              </button>
+            </div>
+
+            <div class="membership-benefit-grid">
+              <article>
+                <el-icon aria-hidden="true"><Tickets /></el-icon>
+                <span>试题库</span>
+                <strong>{{ currentQuestionBankAnsweredCount }}<small>道</small></strong>
+                <small>累计答题数量</small>
+              </article>
+              <article>
+                <el-icon aria-hidden="true"><Aim /></el-icon>
+                <span>诊断考试</span>
+                <strong>{{ currentExamStats.diagnosticExamCount }}<small>次</small></strong>
+                <small>累计真实记录</small>
+              </article>
+              <article>
+                <el-icon aria-hidden="true"><Download /></el-icon>
+                <span>资料下载</span>
+                <strong class="benefit-text-value">功能上线中</strong>
+                <small>敬请期待</small>
+              </article>
+            </div>
+
+            <div class="membership-summary-note">
+              <span>
+                当前学习：预估分 {{ currentDiagnosticScoreText }} / 9.0 · 累计做题
+                {{ currentExamStats.answeredQuestionCount }} 道
+              </span>
+              <button type="button" @click="handleUpgradeClick">查看会员权益 →</button>
+            </div>
           </div>
         </section>
 
@@ -190,7 +199,7 @@
             class="profile-card-heading"
             kicker="TARGET & PREFERENCES"
             title="目标偏好"
-            description="管理备考考试、科目与考试日期"
+            description="管理备考考试、目标分数与学习计划"
             title-id="profile-target-title"
           >
             <button
@@ -338,6 +347,41 @@
                 </div>
               </dd>
             </div>
+            <div v-if="targetScoreExamTypes.length">
+              <dt><el-icon aria-hidden="true"><Trophy /></el-icon>目标分数</dt>
+              <dd class="profile-target-score-content">
+                <template v-if="examEditing">
+                  <label
+                    v-for="examType in targetScoreExamTypes"
+                    :key="examType"
+                    class="profile-target-score-editor"
+                  >
+                    <span class="profile-subject-exam">{{ examType }}</span>
+                    <el-input-number
+                      v-model="targetScoreDrafts[examType]"
+                      class="profile-target-row-number"
+                      :min="1"
+                      :max="9"
+                      :step="0.1"
+                      :precision="1"
+                      controls-position="right"
+                      :aria-label="`${examType} 目标分数`"
+                      placeholder="1.0-9.0"
+                    />
+                  </label>
+                </template>
+                <template v-else>
+                  <div
+                    v-for="examType in targetScoreExamTypes"
+                    :key="examType"
+                    class="profile-target-score-display"
+                  >
+                    <span class="profile-subject-exam">{{ examType }}</span>
+                    <strong>{{ profileTargetScoreTexts[examType] }}</strong>
+                  </div>
+                </template>
+              </dd>
+            </div>
             <div>
               <dt>
                 <el-icon aria-hidden="true"><Clock /></el-icon>每周可投入时长
@@ -347,8 +391,8 @@
                   v-if="examEditing"
                   v-model="weeklyHoursDraft"
                   class="profile-target-row-number"
-                  :min="10"
-                  :max="50"
+                  :min="1"
+                  :max="80"
                   :step="1"
                   :precision="0"
                   controls-position="right"
@@ -781,7 +825,7 @@ const route = useRoute()
 const auth = useAuthStore()
 const errorText = ref('')
 const profileStats = ref<Record<string, ProfileExamStats>>({})
-const currentExamType = ref(DEFAULT_EXAM_TYPE)
+const currentExamType = ref<ExamType>(auth.activeExamType)
 const billingFilter = ref<BillingFilter>('all')
 const billingSortDescending = ref(true)
 const billingOverview = ref<BillingOverview | null>(null)
@@ -798,6 +842,12 @@ const emailChallengeId = ref('')
 const emailCodeSending = ref(false)
 const emailCountdown = ref(0)
 let emailTimer: number | undefined
+
+// 个人中心的权益切换只是本页查看维度，不改写顶部导航和其他业务页的全局考试上下文。
+function setCurrentExamType(examType: ExamType): void {
+  if (!isExamTypeAvailable(examType)) return
+  currentExamType.value = examType
+}
 const passwordSaving = ref(false)
 const passwordForm = reactive({
   currentPassword: '',
@@ -829,6 +879,10 @@ const editExamTypes = ref<string[]>([])
 const editTargetUniversities = ref<string[]>([])
 const editTargetMajor = ref('')
 const editEsatSubjects = ref<string[]>(['数学1'])
+const targetScoreDrafts = reactive<Record<ScoreExamType, number | undefined>>({
+  ESAT: undefined,
+  TMUA: undefined,
+})
 const weeklyHoursDraft = ref(20)
 const examDateDraft = ref('2026-10')
 const ESAT_SUBJECT_OPTIONS = ['数学1', '数学2', '物理', '化学', '生物'] as const
@@ -841,11 +895,21 @@ const EXAM_DATE_OPTIONS = [
 ] as const
 
 const examTypes = EXAM_TYPE_OPTIONS.filter((item) => item.available)
+type ScoreExamType = 'ESAT' | 'TMUA'
 const displayedTargetExamTypes = computed(() =>
   examEditing.value
     ? editExamTypes.value
     : auth.memberContext?.studyPreferences.examTypes || [],
 )
+// 目标分数与考试类型一一对应，避免 ESAT 与 TMUA 的备考标准互相覆盖。
+const targetScoreExamTypes = computed<ScoreExamType[]>(() => {
+  const targetExamTypes = examEditing.value
+    ? editExamTypes.value
+    : displayedTargetExamTypes.value
+  return targetExamTypes.filter(
+    (examType): examType is ScoreExamType => examType === 'ESAT' || examType === 'TMUA',
+  )
+})
 
 // 个人中心沿用注册页的考试卡片交互，选中考试后再展开对应科目。
 function toggleProfileExamType(examType: string): void {
@@ -855,7 +919,10 @@ function toggleProfileExamType(examType: string): void {
   const index = editExamTypes.value.indexOf(examType)
   if (index >= 0) {
     editExamTypes.value.splice(index, 1)
-    if (examType === 'ESAT') editEsatSubjects.value = ['数学1']
+    if (examType === 'ESAT') {
+      editEsatSubjects.value = ['数学1']
+    }
+    if (examType === 'ESAT' || examType === 'TMUA') targetScoreDrafts[examType] = undefined
     return
   }
 
@@ -896,6 +963,8 @@ function startEditExam(): void {
   editTargetMajor.value = preferences?.targetMajor || '数学与统计、计算机科学'
   const savedEsatSubjects = preferences?.esatSubjects || []
   editEsatSubjects.value = Array.from(new Set(['数学1', ...savedEsatSubjects])).slice(0, 3)
+  targetScoreDrafts.ESAT = preferences?.targetScores.ESAT ?? undefined
+  targetScoreDrafts.TMUA = preferences?.targetScores.TMUA ?? undefined
   weeklyHoursDraft.value = preferences?.weeklyHours || 20
   examDateDraft.value = preferences?.examDate || EXAM_DATE_OPTIONS[0].value
   examEditing.value = true
@@ -906,11 +975,13 @@ function cancelEditExam(): void {
   editTargetUniversities.value = []
   editTargetMajor.value = ''
   editEsatSubjects.value = ['数学1']
+  targetScoreDrafts.ESAT = undefined
+  targetScoreDrafts.TMUA = undefined
   weeklyHoursDraft.value = 20
   examEditing.value = false
 }
 
-// 保存前验证全局备考信息与周投入范围，再通过账户级偏好接口统一持久化。
+// 保存前按考试验证目标分数，避免 ESAT 与 TMUA 的目标值写入同一条偏好。
 async function saveExam(): Promise<void> {
   if (!editExamTypes.value.length) {
     ElMessage.warning('请至少选择一个目标考试')
@@ -932,12 +1003,22 @@ async function saveExam(): Promise<void> {
     ElMessage.warning('ESAT 需选择 3 个科目，且数学1为必选科目')
     return
   }
+  for (const examType of targetScoreExamTypes.value) {
+    const targetScore = targetScoreDrafts[examType]
+    if (
+      targetScore !== undefined &&
+      (!Number.isFinite(targetScore) || targetScore < 1 || targetScore > 9)
+    ) {
+      ElMessage.warning(`${examType} 目标分数需为 1.0-9.0`)
+      return
+    }
+  }
   if (
     !Number.isInteger(weeklyHoursDraft.value) ||
-    weeklyHoursDraft.value < 10 ||
-    weeklyHoursDraft.value > 50
+    weeklyHoursDraft.value < 1 ||
+    weeklyHoursDraft.value > 80
   ) {
-    ElMessage.warning('每周可投入时长需为 10-50 小时')
+    ElMessage.warning('每周可投入时长需为 1-80 小时')
     return
   }
   if (!EXAM_DATE_OPTIONS.some((option) => option.value === examDateDraft.value)) {
@@ -952,6 +1033,10 @@ async function saveExam(): Promise<void> {
       targetRegions: auth.memberContext?.studyPreferences.targetRegions || '',
       targetUniversities: [...editTargetUniversities.value],
       targetMajor,
+      targetScores: {
+        ESAT: editExamTypes.value.includes('ESAT') ? targetScoreDrafts.ESAT ?? null : null,
+        TMUA: editExamTypes.value.includes('TMUA') ? targetScoreDrafts.TMUA ?? null : null,
+      },
       examDate: examDateDraft.value,
       weeklyHours: weeklyHoursDraft.value,
     }
@@ -998,6 +1083,18 @@ const profileTargetMajorText = computed(
 const profileEsatSubjectsText = computed(() => {
   const subjects = studyPreferences.value?.esatSubjects || []
   return subjects.length ? subjects.join('、') : '尚未设置'
+})
+// 目标分数按考试类型分别显示，未填写时保持明确占位，避免与诊断预估分混淆。
+const profileTargetScoreTexts = computed<Record<ScoreExamType, string>>(() => {
+  const targetScores = studyPreferences.value?.targetScores
+  return {
+    ESAT: targetScores?.ESAT === null || targetScores?.ESAT === undefined
+      ? '未设置'
+      : targetScores.ESAT.toFixed(1),
+    TMUA: targetScores?.TMUA === null || targetScores?.TMUA === undefined
+      ? '未设置'
+      : targetScores.TMUA.toFixed(1),
+  }
 })
 const profileWeeklyHoursText = computed(
   () => `${studyPreferences.value?.weeklyHours || 20} 小时/周`,
@@ -1084,8 +1181,6 @@ const diagnosticQuotaItems = computed(() => {
     }
   })
 })
-// 诊断完成状态只读取当前考试类型，避免不同考试记录相互污染。
-const hasCompletedCurrentDiagnostic = computed(() => currentExamStats.value.diagnosticExamCount > 0)
 // 当前诊断卡片统一格式化分数，无有效成绩时显示占位符。
 const currentDiagnosticScoreText = computed(() => {
   const score = currentExamStats.value.estimatedScore
@@ -1323,18 +1418,7 @@ onMounted(async () => {
 
   if (memberResult.status === 'fulfilled') {
     auth.setMemberContext(memberResult.value)
-    // 优先用账户级备考偏好，其次用已开通会员的考试类型。
-    const firstPreference = memberResult.value.studyPreferences.examTypes.find((examType) =>
-      isExamTypeAvailable(examType),
-    )
-    if (firstPreference) {
-      currentExamType.value = normalizeExamType(firstPreference)
-    } else {
-      const firstActive = memberResult.value.memberships.find(
-        (item) => item.status === 'active' && isExamTypeAvailable(item.examType),
-      )
-      if (firstActive) currentExamType.value = normalizeExamType(firstActive.examType)
-    }
+    setCurrentExamType(auth.activeExamType)
   }
   if (statsResult.status === 'fulfilled') {
     profileStats.value = statsResult.value.stats || {}
@@ -1363,12 +1447,8 @@ function handleUpgradeClick(): void {
   paymentVisible.value = true
 }
 
-// 会员主卡优先引导尚未测试的免费用户开始诊断，其余状态进入统一续费流程。
+// 会员主卡只承接当前考试类型的开通或续费，诊断入口保留在独立业务场景中。
 function handleMembershipPrimaryAction(): void {
-  if (!isCurrentExamActive.value && !hasCompletedCurrentDiagnostic.value) {
-    handleStartDiagnostic()
-    return
-  }
   handleUpgradeClick()
 }
 
@@ -1403,7 +1483,7 @@ function handleBillingAction(record: BillingRecord): void {
     ElMessage.info(getExamUnavailableMessage(examType))
     return
   }
-  currentExamType.value = normalizeExamType(examType)
+  setCurrentExamType(normalizeExamType(examType))
   paymentResumeOrderNo.value =
     record.order && record.status === 'pending' ? record.order.orderNo : ''
   paymentVisible.value = true
@@ -1429,7 +1509,7 @@ function handleExamContextClick(examType: ExamType): void {
     ElMessage.info(getExamUnavailableMessage(examType))
     return
   }
-  currentExamType.value = examType
+  setCurrentExamType(examType)
 }
 
 // 从额度区进入统一诊断入口，由诊断页继续选择具体试卷。
@@ -1438,6 +1518,7 @@ function handleStartDiagnostic(): void {
     ElMessage.info(getExamUnavailableMessage(currentExamType.value))
     return
   }
+  auth.setActiveExamType(currentExamType.value as 'ESAT' | 'TMUA')
   router.push('/assessment')
 }
 
@@ -3508,21 +3589,65 @@ onBeforeUnmount(() => {
 }
 
 .membership-plan-banner {
-  min-height: 92px;
+  position: relative;
+  overflow: hidden;
+  min-height: 88px;
   display: grid;
   grid-template-columns: 54px minmax(0, 1fr) auto;
   align-items: center;
   gap: 14px;
   padding: 14px 16px;
-  border-radius: 8px;
-  background: linear-gradient(115deg, #725fff, #4e2bea);
+  border: 1px solid rgba(184, 173, 255, 0.8);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 98% -12%, rgba(150, 132, 255, 0.45), transparent 38%),
+    radial-gradient(circle at 4% 112%, rgba(255, 255, 255, 0.76), transparent 34%),
+    linear-gradient(120deg, #e7e0ff 0%, #f9f8ff 51%, #e8edff 100%);
   color: #fff;
-  box-shadow: 0 12px 24px rgba(83, 54, 232, 0.2);
+  box-shadow: 0 14px 30px rgba(82, 63, 174, 0.13);
+}
+
+.membership-plan-banner--member::after {
+  position: absolute;
+  top: -52px;
+  right: 78px;
+  width: 142px;
+  height: 142px;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 18px rgba(255, 255, 255, 0.1),
+    0 0 0 42px rgba(255, 255, 255, 0.06);
+  content: '';
+  pointer-events: none;
 }
 
 .membership-plan-banner--free {
-  background: linear-gradient(115deg, #7d86a3, #626c8b);
-  box-shadow: 0 12px 24px rgba(76, 87, 120, 0.16);
+  border-color: rgba(190, 202, 224, 0.94);
+  background:
+    radial-gradient(circle at 94% 0%, rgba(137, 155, 193, 0.36), transparent 38%),
+    radial-gradient(circle at 6% 112%, rgba(255, 255, 255, 0.72), transparent 32%),
+    linear-gradient(120deg, #eaf0fa 0%, #f9fbff 54%, #e2eaf6 100%);
+  box-shadow: 0 13px 28px rgba(76, 87, 120, 0.12);
+}
+
+.membership-plan-banner--free::after {
+  position: absolute;
+  right: -24px;
+  bottom: -78px;
+  width: 214px;
+  height: 164px;
+  border-radius: 50%;
+  background: repeating-radial-gradient(
+    ellipse at 74% 86%,
+    transparent 0 18px,
+    rgba(111, 130, 168, 0.13) 19px 20px,
+    transparent 21px 34px
+  );
+  content: '';
+  opacity: 0.86;
+  pointer-events: none;
+  transform: rotate(-10deg);
 }
 
 .membership-plan-icon {
@@ -3531,61 +3656,111 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.17);
-  color: #ffe2a3;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.76), rgba(220, 212, 255, 0.72));
+  color: #654cff;
   font-size: 28px;
+  box-shadow: 0 8px 18px rgba(85, 65, 177, 0.12);
+  z-index: 1;
+}
+
+.membership-plan-banner--free .membership-plan-icon {
+  border-color: rgba(255, 255, 255, 0.92);
+  background: linear-gradient(135deg, #ffffff, #e8edf5);
+  color: #71809d;
+  box-shadow: 0 8px 18px rgba(76, 87, 120, 0.09);
 }
 
 .membership-plan-banner > div {
   display: grid;
   gap: 3px;
   min-width: 0;
+  z-index: 1;
 }
 
 .membership-plan-banner > div > small {
-  color: rgba(255, 255, 255, 0.74);
+  color: #756f9b;
   font-size: 9px;
 }
 
 .membership-plan-banner > div > strong {
+  color: #342562;
   font-size: 19px;
   font-weight: 720;
 }
 
 .membership-plan-banner > div > span {
-  color: rgba(255, 255, 255, 0.78);
+  color: #716b94;
   font-size: 10px;
 }
 
+.membership-plan-banner--free > div > small,
+.membership-plan-banner--free > div > span {
+  color: #79849a;
+}
+
+.membership-plan-banner--free > div > strong {
+  color: #38435c;
+}
+
 .membership-plan-action {
+  position: relative;
+  z-index: 1;
   min-width: 76px;
   height: 31px;
   padding: 0 13px;
   border: 0;
   border-radius: 5px;
-  background: #fff;
-  color: var(--profile-lilac-dark);
+  background: linear-gradient(135deg, #735cff, #5940e7);
+  color: #fff;
   font-family: inherit;
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 7px 16px rgba(83, 54, 232, 0.2);
   transition:
     box-shadow 180ms ease,
     transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .membership-plan-action:hover {
-  box-shadow: 0 8px 18px rgba(27, 22, 95, 0.18);
+  box-shadow: 0 8px 18px rgba(83, 54, 232, 0.22);
   transform: translateY(-2px);
+}
+
+.membership-plan-banner--free .membership-plan-action {
+  border: 1px solid rgba(111, 124, 151, 0.42);
+  background: rgba(255, 255, 255, 0.74);
+  color: #55627d;
+  box-shadow: 0 7px 16px rgba(76, 87, 120, 0.1);
+}
+
+.membership-plan-banner--free .membership-plan-action:hover {
+  border-color: rgba(96, 109, 139, 0.64);
+  box-shadow: 0 9px 18px rgba(76, 87, 120, 0.16);
+}
+
+.membership-benefit-board {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  margin-top: 0;
+  padding: 12px;
+  border: 1px solid rgba(221, 218, 246, 0.94);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(249, 248, 255, 0.88) 0%, rgba(255, 255, 255, 0.98) 100%),
+    #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
 .membership-benefit-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-top: 12px;
   border: 1px solid var(--profile-line);
-  border-radius: 8px 8px 0 0;
+  border-radius: 10px;
   background: #fff;
+  overflow: hidden;
 }
 
 .membership-benefit-grid article {
@@ -3639,40 +3814,63 @@ onBeforeUnmount(() => {
 }
 
 .membership-exam-switch {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 9px 10px;
-  border: 1px solid var(--profile-line);
-  border-top: 0;
-  border-radius: 0;
-  background: #fafaff;
+  gap: 5px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 10px 0 10px;
+  padding: 4px;
+  border: 1px solid rgba(225, 222, 245, 0.9);
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f4f2ff, #fbfbff);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84);
 }
 
 .membership-exam-switch button {
-  min-height: 26px;
+  position: relative;
+  min-height: 31px;
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 0 9px;
+  padding: 0 12px;
   border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
-  color: #777d91;
+  color: #7a7f96;
   font-family: inherit;
-  font-size: 9px;
+  font-size: 10px;
   cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease;
 }
 
 .membership-exam-switch button strong {
   color: inherit;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .membership-exam-switch button.active {
-  border-color: #d9d4ff;
-  background: #efedff;
+  border-color: rgba(255, 255, 255, 0.86);
+  background: #fff;
   color: var(--profile-lilac-dark);
+  box-shadow: 0 4px 12px rgba(71, 59, 147, 0.12);
+}
+
+.membership-exam-switch-pointer {
+  position: absolute;
+  left: 50%;
+  bottom: -11px;
+  width: 24px;
+  height: 12px;
+  fill: #fff;
+  filter: drop-shadow(0 4px 4px rgba(71, 59, 147, 0.09));
+  pointer-events: none;
+  transform: translateX(-50%);
 }
 
 .membership-exam-switch button.unavailable {
@@ -3688,8 +3886,7 @@ onBeforeUnmount(() => {
   gap: 12px;
   padding: 7px 10px;
   border: 1px solid var(--profile-line);
-  border-top: 0;
-  border-radius: 0 0 8px 8px;
+  border-radius: 10px;
   background: #fff9ef;
   color: #8a7559;
   font-size: 9px;
@@ -3884,15 +4081,15 @@ onBeforeUnmount(() => {
 
 .profile-target-subjects {
   display: grid;
-  gap: 6px;
+  gap: 3px;
 }
 
 .profile-subject-group {
   display: grid;
-  grid-template-columns: 54px minmax(0, 1fr);
+  grid-template-columns: 46px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
-  min-height: 28px;
+  gap: 8px;
+  min-height: 24px;
   min-width: 0;
 }
 
@@ -3955,6 +4152,26 @@ onBeforeUnmount(() => {
 .profile-target-row-number :deep(.el-input-number__increase),
 .profile-target-row-number :deep(.el-input-number__decrease) {
   width: 24px;
+}
+
+.profile-target-score-content {
+  display: grid;
+  gap: 3px;
+}
+
+.profile-target-score-editor,
+.profile-target-score-display {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.profile-target-score-display > strong {
+  color: #555c73;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .profile-target-list {

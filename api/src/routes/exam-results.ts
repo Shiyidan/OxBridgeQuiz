@@ -47,7 +47,8 @@ examResultRouter.get('/profile-stats', requireAuth, async (req, res) => {
           userId,
           status: 'submitted',
           examType: { in: EXAM_TYPES },
-          paper: { paperType: { in: [...REAL_PAPER_TYPES] } },
+          paperId: { not: 'question-bank' },
+          paper: { paperType: { notIn: [...QUESTION_BANK_PAPER_TYPES] } },
         },
         select: {
           examType: true,

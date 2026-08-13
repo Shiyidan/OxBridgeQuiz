@@ -36,3 +36,4 @@ Rules:
 - On a new ECS, `*_RUNTIME_ENV_FILE` must refer to a local, Git-ignored API runtime file. Upload it with mode `0600` to `/opt/quiz/api/.env` only when that remote file does not yet exist; never replace an existing runtime file through the bootstrap path.
 - If the server runtime profile or database differs from the selected column, stop before Git, build, migration, or runtime changes.
 - Test artifacts must be built only from a clean, pushed commit on the selected branch. The manifest binds the `test` environment, scope, branch, commit and SHA-256 values; the server rejects every mismatch.
+- Store shared deployment-report mail settings only in `.env.deploy.local`: transport, SMTP host/port/user/secret, sender name/address, and recipients. Never place a real recipient in this reference or any tracked file.

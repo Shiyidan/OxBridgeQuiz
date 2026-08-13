@@ -13,15 +13,18 @@ Read `references/environments.md` for the private configuration contract. Read `
 
 ## Mandatory Preflight
 
-Before any SSH, SCP, Git update, build, migration, runtime sync, or PM2 command, obtain these three explicit values:
+Before any SSH, SCP, Git update, build, migration, runtime sync, or PM2 command, obtain three target values and one notification choice:
 
 1. Environment: `test` or `prod`
 2. Scope: `frontend`, `backend`, or `all`
 3. Git branch
+4. Deployment report email: `send` or `skip`
+
+Treat the report-email choice as per-deployment authorization; never infer consent from an earlier deployment. When sending is requested, state the configured recipient count and masked address before deployment, without printing the complete address.
 
 Ask only for values the user has not already stated exactly. Never infer the environment from the branch name, the words “部署” or “上线”, a previous deployment, or the server `.env`. Never infer the branch.
 
-After collecting the values, repeat the environment, ECS host, public URL, expected database, scope, and branch. For `prod`, require the user to confirm this exact summary before running mutating commands unless their latest message already explicitly confirms the same production target, scope, and branch.
+After collecting the values, repeat the environment, ECS host, public URL, expected database, scope, branch, and masked report-email choice. For `prod`, require the user to confirm this exact summary before running mutating commands unless their latest message already explicitly confirms the same production target, scope, branch, and email choice.
 
 If the user asks only for status or explanation, do not deploy.
 
@@ -50,7 +53,7 @@ Prefer the bundled scripts in `scripts/` instead of writing ad hoc deployment sc
 - `scripts/collect-report.sh`: environment-labelled server-side status and resource collector.
 - `scripts/verify-request-id.sh`: verifies that one health response Request ID appears in the PM2 log paths discovered from `pm2 jlist`; never assume PM2's default log directory.
 - `scripts/generate-report.cjs`: local HTML deployment report generator.
-- `scripts/send-deployment-report.cjs`: optional local SMTP sender. Do not run it unless the user explicitly asks to email a report.
+- `scripts/send-deployment-report.cjs`: confirmed local report sender with an environment-labelled AceMock subject and HTML body. SMTP supports post-deploy sending; Agently remains a manual two-stage confirmation path.
 - `scripts/cleanup-transient.ps1`: mandatory finalizer that preserves a sanitized HTML result, deletes the exact remote deployment directory, and deletes its local raw-evidence directory.
 - `scripts/bootstrap-repository.sh`: explicit fallback for converting a legacy source package into a commit-verified Git checkout; do not use it during routine updates.
 - `scripts/bootstrap-ecs.sh`: idempotently prepares a new Ubuntu ECS host with Node.js 20, Nginx, PM2, runtime directories, deploy user and swap; it never creates application secrets or changes firewall rules.
@@ -66,7 +69,8 @@ For every `test` deployment, use `scripts/deploy-test-local-build.ps1`; do not i
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\.agents\skills\quiztestdemo-deploy\scripts\deploy-test-local-build.ps1 `
   -Scope <frontend|backend|all> `
-  -Branch <confirmed-branch>
+  -Branch <confirmed-branch> `
+  [-EmailReport]
 ```
 
 The script rejects a dirty worktree, an unpushed commit, a dirty server worktree, a non-fast-forward source update, or any artifact manifest/checksum mismatch. It builds artifacts from the selected commit:
@@ -106,7 +110,7 @@ High-level production scripted flow:
 11. Treat report generation and cleanup as a `finally` phase for every outcome: success, partial success, failure, or an interrupted/retried deployment. Save the normal HTML report first; if normal generation fails, let `cleanup-transient.ps1` create a minimal sanitized failure report.
 12. Run `cleanup-transient.ps1` with the confirmed environment, exact local evidence directory, exact remote directory, report path, and final result. The script must delete both raw-evidence directories and must reject paths outside the timestamped deployment locations.
 13. Do not leave deploy logs, copied responses, uploaded scripts, Git bundles, built assets, screenshots, or ad hoc repair scripts below `.tmp/` after the finalizer. `.tmp/` is a scratch area, is Git-ignored, and must never be staged or committed.
-14. Do not send email reports by default.
+14. When the user confirmed email notification, send the generated report after its final result is known. Email failure must not change a successful deployment result.
 
 ## New ECS Bootstrap
 
@@ -192,37 +196,49 @@ If backend was deployed, check PM2 shows `quiz-api` as `online`.
 
 After every completed deployment, generate a standalone HTML report and save it under the git-ignored local `.private/deployment-reports/` directory.
 
-Do not place detailed reports in tracked documentation directories. Do not email reports by default.
+Do not place detailed reports in tracked documentation directories. Send them only when the current deployment preflight explicitly selected email notification.
 
-The HTML report must include:
+Write the HTML report as a release brief for product, operations, and management readers. Lead with the feature/release title from the newest environment deployment record, then show:
 
-- deployment environment: `test` or `prod`
-- deployment result: success, partial success, or failed
-- deployment scope: `frontend`, `backend`, or `all`
-- Git branch and final commit hash
-- deployed modules and what changed operationally
-- server project directory structure summary
-- key update timestamps for repo, backend build, frontend build, database, PM2 config, and Nginx config when available
-- health check results
-- PM2 process status
-- disk usage
-- memory usage
-- CPU/load and uptime
-- open/listening key ports when available
-- RDS MySQL migration status and backup notes when relevant
-- deployment processing records from the selected environment document
-- database-dependent GET result and Request ID-to-runtime-log evidence for backend/all deployments
-- remaining risks or follow-up items
+- deployment result, environment, scope, branch, final commit, time, and total duration
+- a concise natural-language summary of the released feature or change
+- deployed modules and the newest deployment record's verification highlights
+- pass/attention states for homepage, API health, PM2, database read, Prisma migrations, and Request ID traceability
+- summarized server capacity, memory, load, backup count/latest time, and environment guard result
+- friendly deployment stage names and durations
+- only actual risks, failure reason, and actionable follow-up items
+
+Never render terminal output, command invocations, PowerShell stack traces, curl progress meters, server directory trees, backup filenames, raw HTTP bodies, PM2 tables, or complete deployment logs in the HTML report or email body. Use those inputs only to derive concise status and metrics. When a deployment fails, include the failed stage and one sanitized reason instead of the full log.
 
 Pass `--environment <test|prod>` to `generate-report.cjs` and name the output `quiztestdemo-<environment>-deploy-<timestamp>.html`. Use `references/quiztestdemo-ecs.md` for exact collection commands.
 
 ## Email Notification
 
-Email notification is currently paused. Do not run `scripts/send-deployment-report.cjs` during normal deployment.
+Ask for `send` or `skip` during every deployment preflight. A previous deployment choice is not reusable authorization.
 
-If the user explicitly asks to email a report later, first confirm whether the report should be sent as a fully detailed internal report or a reduced/sanitized report.
+Use the full sanitized HTML deployment report as the email body. The default subjects are:
+
+- `【测试环境】AceMock 部署报告（成功|部分成功|失败）`
+- `【生产环境】AceMock 部署报告（成功|部分成功|失败）`
+
+For test deployments, pass `-EmailReport` only after the user selected `send`. The orchestrator sends success and failure reports after the result is known and reports mail errors separately.
+
+For production deployments, after report generation and transient cleanup, run:
+
+```powershell
+node ".agents\skills\quiztestdemo-deploy\scripts\send-deployment-report.cjs" `
+  --report ".private\deployment-reports\quiztestdemo-prod-deploy-<timestamp>.html" `
+  --environment prod `
+  --result <success|partial|failed> `
+  --scope <frontend|backend|all> `
+  --branch <confirmed-branch>
+```
+
+Use SMTP for the post-deploy automatic step. If the configured transport is Agently, follow its confirmation-token flow and do not claim the message was sent before the confirmed call succeeds.
 
 Configure the sender, recipient, SMTP host, account, and authorization code only through `.env.deploy.local` or process environment variables. The send script must not contain fallback addresses or accounts. Keep `.env.deploy.local` git-ignored; do not write SMTP passwords, authorization codes, personal addresses, or recipients into Git, skill files, reports, or deployment logs.
+
+Email delivery is a notification side effect, not part of deployment correctness. If sending fails, preserve the deployment result and local HTML report, report the failure, and do not repeat the send without fresh confirmation.
 
 ## Documentation
 

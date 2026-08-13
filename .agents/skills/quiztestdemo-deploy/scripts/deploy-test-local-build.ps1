@@ -5,7 +5,9 @@ param(
 
     [Parameter(Mandatory = $true)]
     [ValidatePattern('^[A-Za-z0-9._/-]+$')]
-    [string]$Branch
+    [string]$Branch,
+
+    [switch]$EmailReport
 )
 
 # Build commit-bound test artifacts locally, then upload them to the low-resource test ECS.
@@ -189,8 +191,17 @@ function Write-FallbackReport {
     $safeMessage = [System.Net.WebUtility]::HtmlEncode($Message)
     $html = @"
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>QuizTestDemo test deployment report</title></head>
-<body><main><h1>QuizTestDemo test deployment report</h1><p>Result: $safeOutcome</p><p>Build mode: local artifact upload</p><p>Message: $safeMessage</p></main></body></html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>【测试环境】AceMock 部署报告</title></head>
+<body style="margin:0;background:#f4f7fb;font-family:Arial,'Microsoft YaHei',sans-serif;color:#172033;">
+<main style="max-width:720px;margin:0 auto;padding:32px 16px;">
+<header style="padding:28px 32px;background:#0f1f38;color:#fff;border-radius:16px;">
+<div style="font-size:13px;letter-spacing:2px;color:#70d7cb;">ACE MOCK · DEPLOYMENT REPORT</div>
+<h1 style="margin:10px 0 4px;font-size:26px;">测试环境部署报告</h1>
+<p style="margin:0;color:#cbd8e8;">部署未完成</p>
+</header>
+<section style="margin-top:18px;padding:22px;background:#fff;border:1px solid #e1e8f0;border-radius:12px;">
+<p><strong>结果：</strong>$safeOutcome</p><p><strong>构建方式：</strong>本地产物上传</p><p><strong>失败信息：</strong>$safeMessage</p>
+</section></main></body></html>
 "@
     [System.IO.File]::WriteAllText($reportPath, $html, $utf8NoBom)
 }
@@ -388,7 +399,7 @@ try {
         ssh.exe -i $sshKey -o IdentitiesOnly=yes $target "bash $remoteDir/collect-report.sh test $Scope $Branch $expectedDatabase $publicUrl"
     }
     Invoke-NativeLogged -Name 'Public homepage validation' -LogPath (Join-Path $localDir 'public-home.log') -Command {
-        curl.exe -I "$publicUrl/"
+        curl.exe -sS -I "$publicUrl/"
     }
     Invoke-NativeLogged -Name 'Public health validation' -LogPath (Join-Path $localDir 'public-health.log') -Command {
         curl.exe -fsS "$publicUrl/api/health"
@@ -431,6 +442,23 @@ try {
     if ($result -ne 'success') {
         $failureMessage = if ($failure) { $failure } else { 'Deployment stopped before completion.' }
         Write-FallbackReport -Outcome $result -Message $failureMessage
+    }
+    if ($EmailReport -and (Test-Path -LiteralPath $reportPath)) {
+        try {
+            & node.exe (Join-Path $skillRoot 'scripts\send-deployment-report.cjs') `
+                --report $reportPath `
+                --environment test `
+                --result $result `
+                --scope $Scope `
+                --branch $Branch
+            if ($LASTEXITCODE -ne 0) {
+                Write-Warning "Deployment completed with result '$result', but the email report failed with exit code $LASTEXITCODE."
+            } else {
+                Write-Output 'deployment_report_email=sent'
+            }
+        } catch {
+            Write-Warning "Deployment completed with result '$result', but the email report failed: $($_.Exception.Message)"
+        }
     }
     if ($buildWorktreeCreated -and (Test-Path -LiteralPath $buildWorktree)) {
         & git -C $repoRoot worktree remove --force $buildWorktree

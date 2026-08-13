@@ -186,6 +186,10 @@ async function saveGoal(value: { examType: ActiveExamType; subjects: string[] })
       targetRegions: existingPreferences?.targetRegions || '英国、美国',
       targetUniversities: [...(existingPreferences?.targetUniversities || [])],
       targetMajor: existingPreferences?.targetMajor || '数学与统计、计算机科学',
+      targetScores: {
+        ESAT: existingPreferences?.targetScores.ESAT ?? null,
+        TMUA: existingPreferences?.targetScores.TMUA ?? null,
+      },
       examDate: existingPreferences?.examDate || '2026-10',
       weeklyHours: existingPreferences?.weeklyHours || 20,
     }

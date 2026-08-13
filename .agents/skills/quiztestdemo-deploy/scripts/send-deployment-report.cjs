@@ -38,6 +38,27 @@ function env(name, fallback = '') {
   return process.env[name] || fallback
 }
 
+function deploymentMeta(args) {
+  const environment = args.environment || 'unknown'
+  const result = args.result || 'unknown'
+  const scope = args.scope || 'unknown'
+  const branch = args.branch || 'unknown'
+  const environmentLabels = { test: '测试环境', prod: '生产环境' }
+  const resultLabels = { success: '成功', partial: '部分成功', failed: '失败' }
+  const environmentLabel = environmentLabels[environment]
+  const resultLabel = resultLabels[result]
+  if (!environmentLabel) throw new Error('Missing or invalid --environment. Expected test or prod.')
+  if (!resultLabel) throw new Error('Missing or invalid --result. Expected success, partial or failed.')
+  return { environment, environmentLabel, result, resultLabel, scope, branch }
+}
+
+function deploymentSubject(args, meta) {
+  return args.subject || env(
+    'DEPLOY_REPORT_SUBJECT',
+    `【${meta.environmentLabel}】AceMock 部署报告（${meta.resultLabel}）`,
+  )
+}
+
 function encodeHeader(value) {
   return `=?UTF-8?B?${Buffer.from(String(value), 'utf8').toString('base64')}?=`
 }
@@ -112,13 +133,64 @@ function parseJsonOutput(output) {
   }
 }
 
-function sendWithAgently(args, report) {
+// Resolve a Windows npm command shim without sending user-provided arguments through cmd.exe.
+function resolveCommandPath(command) {
+  if (path.isAbsolute(command) || command.includes('/') || command.includes('\\')) {
+    const resolved = path.resolve(command)
+    return fs.existsSync(resolved) ? resolved : command
+  }
+
+  const searchPaths = String(process.env.PATH || '').split(path.delimiter).filter(Boolean)
+  const extensions = process.platform === 'win32'
+    ? String(process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD').split(';').filter(Boolean)
+    : ['']
+  const hasExtension = Boolean(path.extname(command))
+
+  for (const searchPath of searchPaths) {
+    const candidates = hasExtension
+      ? [path.join(searchPath, command)]
+      : extensions.map((extension) => path.join(searchPath, `${command}${extension.toLowerCase()}`))
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) return candidate
+    }
+  }
+
+  return command
+}
+
+// Invoke the Agently npm package through Node so subjects and paths remain single argv values on Windows.
+function agentlyInvocation(cli, commandArgs) {
+  const resolvedCli = resolveCommandPath(cli)
+  if (process.platform !== 'win32' || path.extname(resolvedCli).toLowerCase() !== '.cmd') {
+    return { command: resolvedCli, args: commandArgs }
+  }
+
+  const shimDirectory = path.dirname(resolvedCli)
+  const cliScript = path.join(
+    shimDirectory,
+    'node_modules',
+    '@tencent-qqmail',
+    'agently-cli',
+    'scripts',
+    'run.js',
+  )
+  if (!fs.existsSync(cliScript)) {
+    throw new Error(`Unable to resolve the Agently CLI entry point beside ${resolvedCli}.`)
+  }
+
+  const bundledNode = path.join(shimDirectory, 'node.exe')
+  return {
+    command: fs.existsSync(bundledNode) ? bundledNode : process.execPath,
+    args: [cliScript, ...commandArgs],
+  }
+}
+
+function sendWithAgently(args, report, subject) {
   const cli = args.cli || env('DEPLOY_REPORT_AGENTLY_CLI', process.platform === 'win32' ? 'agently-cli.cmd' : 'agently-cli')
   const to = String(args.to || env('DEPLOY_REPORT_TO'))
     .split(/[;,]/)
     .map((item) => item.trim())
     .filter(Boolean)
-  const subject = args.subject || env('DEPLOY_REPORT_SUBJECT', `QuizTestDemo 上线报告 - ${path.basename(report, '.html')}`)
   const token = args.confirmationToken || args['confirmation-token'] || env('DEPLOY_REPORT_AGENTLY_CONFIRMATION_TOKEN')
 
   if (!to.length) throw new Error('No deployment report recipients configured.')
@@ -128,11 +200,12 @@ function sendWithAgently(args, report) {
   commandArgs.push('--subject', subject, '--body-file', toRelativePath(report))
   if (token) commandArgs.push('--confirmation-token', token)
 
-  const result = spawnSync(cli, commandArgs, {
+  const invocation = agentlyInvocation(cli, commandArgs)
+  const result = spawnSync(invocation.command, invocation.args, {
     cwd: process.cwd(),
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
-    shell: process.platform === 'win32',
+    shell: false,
     windowsHide: true,
   })
   const combinedOutput = [result.stdout, result.stderr].filter(Boolean).join('\n').trim()
@@ -157,18 +230,17 @@ function sendWithAgently(args, report) {
   console.log(combinedOutput || `Deployment report emailed to ${to.length} recipient(s).`)
 }
 
-async function sendWithSmtp(args, report) {
+async function sendWithSmtp(args, report, subject) {
   const host = args.host || env('DEPLOY_REPORT_SMTP_HOST')
   const port = Number(args.port || env('DEPLOY_REPORT_SMTP_PORT', '465'))
   const user = args.user || env('DEPLOY_REPORT_SMTP_USER')
   const pass = args.pass || env('DEPLOY_REPORT_SMTP_PASS') || env('DEPLOY_REPORT_SMTP_AUTH_CODE')
   const fromAddress = args.from || env('DEPLOY_REPORT_FROM')
-  const fromName = args.fromName || env('DEPLOY_REPORT_FROM_NAME', 'QuizTestDemo Deploy Bot')
+  const fromName = args.fromName || env('DEPLOY_REPORT_FROM_NAME', 'AceMock 云舟备考')
   const to = String(args.to || env('DEPLOY_REPORT_TO'))
     .split(/[;,]/)
     .map((item) => item.trim())
     .filter(Boolean)
-  const subject = args.subject || env('DEPLOY_REPORT_SUBJECT', `QuizTestDemo 上线报告 - ${path.basename(report, '.html')}`)
 
   if (!host) throw new Error('Missing DEPLOY_REPORT_SMTP_HOST.')
   if (!user) throw new Error('Missing DEPLOY_REPORT_SMTP_USER.')
@@ -232,15 +304,45 @@ async function main() {
     throw new Error(`Report file not found: ${report || '<empty>'}`)
   }
 
+  const meta = deploymentMeta(args)
+  const subject = deploymentSubject(args, meta)
   const transport = args.transport || env('DEPLOY_REPORT_MAIL_TRANSPORT', 'smtp')
+  if (args['dry-run'] === 'true') {
+    const recipients = String(args.to || env('DEPLOY_REPORT_TO'))
+      .split(/[;,]/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+    if (!recipients.length) throw new Error('No deployment report recipients configured.')
+    if (transport === 'smtp') {
+      const required = {
+        DEPLOY_REPORT_SMTP_HOST: args.host || env('DEPLOY_REPORT_SMTP_HOST'),
+        DEPLOY_REPORT_SMTP_USER: args.user || env('DEPLOY_REPORT_SMTP_USER'),
+        DEPLOY_REPORT_SMTP_SECRET: args.pass || env('DEPLOY_REPORT_SMTP_PASS') || env('DEPLOY_REPORT_SMTP_AUTH_CODE'),
+        DEPLOY_REPORT_FROM: args.from || env('DEPLOY_REPORT_FROM'),
+      }
+      const missing = Object.entries(required).filter(([, value]) => !value).map(([name]) => name)
+      if (missing.length) throw new Error(`Missing deployment report mail settings: ${missing.join(', ')}`)
+    }
+    console.log(JSON.stringify({
+      dryRun: true,
+      transport,
+      environment: meta.environment,
+      result: meta.result,
+      scope: meta.scope,
+      branch: meta.branch,
+      recipientCount: recipients.length,
+      subject,
+    }))
+    return
+  }
   if (transport === 'smtp') {
-    await sendWithSmtp(args, report)
+    await sendWithSmtp(args, report, subject)
     return
   }
   if (transport !== 'agently') {
     throw new Error(`Unsupported mail transport: ${transport}`)
   }
-  sendWithAgently(args, report)
+  sendWithAgently(args, report, subject)
 }
 
 main().catch((error) => {

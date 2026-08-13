@@ -197,7 +197,7 @@
                   </div>
                   <div class="exam-goal-grid">
                     <label class="exam-goal-field exam-goal-field--wide">
-                      <span>目标院校（最多选择 2 个）</span>
+                      <span>目标院校层级（最多选择 2 个）</span>
                       <el-select
                         v-model="selectedGoals[et]!.targetUniversities"
                         multiple
@@ -215,15 +215,15 @@
                       </el-select>
                     </label>
                     <label class="exam-goal-field exam-goal-field--wide">
-                      <span>目标专业</span>
+                      <span>目标专业方向</span>
                       <el-input
                         v-model="selectedGoals[et]!.targetMajor"
                         maxlength="191"
                         placeholder="例如：Mechanical Engineering"
                       />
                     </label>
-                    <label v-if="et === 'ESAT'" class="exam-goal-field">
-                      <span>ESAT 目标分数</span>
+                    <label class="exam-goal-field">
+                      <span>{{ examTypeLabel(et) }} 目标分数</span>
                       <el-input
                         v-model="selectedGoals[et]!.targetScore"
                         type="number"
@@ -648,12 +648,8 @@ const handleSubmit = async (): Promise<void> => {
     }
     const targetScoreText = goal.targetScore.trim()
     const targetScore = Number(targetScoreText)
-    if (
-      et === 'ESAT' &&
-      targetScoreText &&
-      (!Number.isFinite(targetScore) || targetScore < 1 || targetScore > 9)
-    ) {
-      ElMessage.warning('ESAT 目标分数需为 1.0-9.0')
+    if (targetScoreText && (!Number.isFinite(targetScore) || targetScore < 1 || targetScore > 9)) {
+      ElMessage.warning(`${et} 目标分数需为 1.0-9.0`)
       return
     }
     const weeklyHoursText = goal.weeklyHours.trim()
@@ -677,7 +673,7 @@ const handleSubmit = async (): Promise<void> => {
         ? { targetUniversities: [...goal.targetUniversities] }
         : {}),
       ...(goal.targetMajor.trim() ? { targetMajor: goal.targetMajor.trim() } : {}),
-      ...(et === 'ESAT' && goal.targetScore.trim() ? { targetScore } : {}),
+      ...(goal.targetScore.trim() ? { targetScore } : {}),
       ...(goal.examDate ? { examDate: goal.examDate } : {}),
       ...(goal.weeklyHours.trim() ? { weeklyHours } : {}),
     }

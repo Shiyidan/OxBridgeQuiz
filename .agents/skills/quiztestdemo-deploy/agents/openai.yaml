@@ -1,4 +1,4 @@
 interface:
   display_name: "QuizTestDemo Deploy"
-  short_description: "Deploy QuizTestDemo to test or production"
-  default_prompt: "Deploy QuizTestDemo after confirming test or prod, deployment scope, and Git branch."
+  short_description: "Deploy QuizTestDemo with validated email reports"
+  default_prompt: "Use $quiztestdemo-deploy to deploy QuizTestDemo after confirming the environment, scope, branch, and report-email choice."

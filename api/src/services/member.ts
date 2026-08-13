@@ -8,7 +8,7 @@ import {
   EXAM_TYPES,
   MEMBERSHIP_STATUS,
   PAPER_ACCESS_TIER,
-  REAL_PAPER_TYPES,
+  QUESTION_BANK_PAPER_TYPES,
   USER_ROLE,
   isStudentExamTypeAvailable,
 } from "../constants/domain.js";
@@ -37,6 +37,7 @@ export interface StudyPreferences {
   targetRegions: string;
   targetUniversities: string[];
   targetMajor: string;
+  targetScores: Record<"ESAT" | "TMUA", number | null>;
   examDate: string;
   weeklyHours: number;
 }
@@ -148,7 +149,8 @@ async function countDiagnosticUsed(
         userId,
         examType,
         status: "submitted",
-        paper: { paperType: { in: [...REAL_PAPER_TYPES] } },
+        paperId: { not: "question-bank" },
+        paper: { paperType: { notIn: [...QUESTION_BANK_PAPER_TYPES] } },
       },
     }),
   ]);
@@ -411,6 +413,7 @@ function resolveStudyExamDate(preferences: ExamPreferenceRecord[]): string {
 // 会员上下文提供单一账户级偏好，前端无需理解底层按考试兼容存储。
 export function buildStudyPreferences(preferences: ExamPreferenceRecord[]): StudyPreferences {
   const esatPreference = preferences.find((item) => item.examType.toUpperCase() === "ESAT");
+  const tmuaPreference = preferences.find((item) => item.examType.toUpperCase() === "TMUA");
   const firstWith = <T>(selector: (item: ExamPreferenceRecord) => T | undefined): T | undefined =>
     preferences.map(selector).find((value) => value !== undefined);
   const weeklyHours = firstWith((item) => item.weeklyHours);
@@ -427,21 +430,30 @@ export function buildStudyPreferences(preferences: ExamPreferenceRecord[]): Stud
     targetRegions: firstWith((item) => item.targetRegions) || "",
     targetUniversities: firstWith((item) => item.targetUniversities) || [],
     targetMajor: firstWith((item) => item.targetMajor) || "",
+    targetScores: {
+      ESAT: esatPreference?.targetScore ?? null,
+      TMUA: tmuaPreference?.targetScore ?? null,
+    },
     examDate: resolveStudyExamDate(preferences),
     weeklyHours:
-      weeklyHours && weeklyHours >= 10 && weeklyHours <= 50 ? weeklyHours : 20,
+      weeklyHours && weeklyHours >= 1 && weeklyHours <= 80 ? weeklyHours : 20,
   };
 }
 
 // 全局偏好在数据库写入前转换为报告链路仍在使用的按考试记录。
 export function expandStudyPreferences(preferences: StudyPreferences): ExamPreferenceRecord[] {
-  return preferences.examTypes.map((examType) => ({
-    examType,
-    subjects: examType === "ESAT" ? [...preferences.esatSubjects] : ["Paper 1", "Paper 2"],
-    targetRegions: preferences.targetRegions,
-    targetUniversities: [...preferences.targetUniversities],
-    targetMajor: preferences.targetMajor,
-    examDate: preferences.examDate,
-    weeklyHours: preferences.weeklyHours,
-  }));
+  return preferences.examTypes.map((examType) => {
+    const targetScore =
+      examType === "ESAT" || examType === "TMUA" ? preferences.targetScores[examType] : null;
+    return {
+      examType,
+      subjects: examType === "ESAT" ? [...preferences.esatSubjects] : ["Paper 1", "Paper 2"],
+      targetRegions: preferences.targetRegions,
+      targetUniversities: [...preferences.targetUniversities],
+      targetMajor: preferences.targetMajor,
+      ...(targetScore !== null ? { targetScore } : {}),
+      examDate: preferences.examDate,
+      weeklyHours: preferences.weeklyHours,
+    };
+  });
 }

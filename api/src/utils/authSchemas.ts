@@ -142,8 +142,14 @@ export const profileStudyPreferencesSchema = z
       .array(z.enum(TARGET_UNIVERSITIES))
       .max(2, "目标院校最多选择 2 个"),
     targetMajor: z.string().trim().max(191),
+    targetScores: z
+      .object({
+        ESAT: z.number().finite().min(1).max(9).nullable(),
+        TMUA: z.number().finite().min(1).max(9).nullable(),
+      })
+      .strict(),
     examDate: z.enum(PROFILE_EXAM_DATES),
-    weeklyHours: z.number().int().min(10).max(50),
+    weeklyHours: z.number().int().min(1).max(80),
   })
   .strict()
   .superRefine((value, context) => {

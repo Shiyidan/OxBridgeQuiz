@@ -22,7 +22,7 @@ export interface User {
 
 export type ActiveExamType = 'ESAT' | 'TMUA'
 
-// 导航默认考试先采用唯一有效会员权益；权益无法唯一确定时，再按备考倾向和 TMUA 兜底。
+// 默认考试先采用有效会员权益；权益无法唯一确定时，再按备考目标和 TMUA 兜底。
 function resolveDefaultExamType(context: MemberContext): ActiveExamType {
   const memberExamTypes = new Set(
     Object.entries(context.quotas || {})
@@ -34,12 +34,17 @@ function resolveDefaultExamType(context: MemberContext): ActiveExamType {
     return memberExamTypes.has('ESAT') ? 'ESAT' : 'TMUA'
   }
 
-  const preferredExamTypes = new Set(
-    (context.studyPreferences?.examTypes || [])
-      .map((examType) => String(examType || '').toUpperCase())
-      .filter((examType) => examType === 'ESAT' || examType === 'TMUA'),
-  )
-  return preferredExamTypes.size === 1 && preferredExamTypes.has('ESAT') ? 'ESAT' : 'TMUA'
+  const firstPreferredExamType = (context.studyPreferences?.examTypes || [])
+    .map((examType) => String(examType || '').toUpperCase())
+    .find((examType) => examType === 'ESAT' || examType === 'TMUA')
+  if (
+    firstPreferredExamType &&
+    (memberExamTypes.size === 0 || memberExamTypes.has(firstPreferredExamType))
+  ) {
+    return firstPreferredExamType as ActiveExamType
+  }
+
+  return 'TMUA'
 }
 
 export const useAuthStore = defineStore('auth', () => {

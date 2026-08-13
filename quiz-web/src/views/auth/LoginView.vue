@@ -198,6 +198,7 @@ import { resetPassword, sendEmailCode } from '@/api/auth'
 import { getMember } from '@/api/member'
 import {
   AUTH_LOGIN_REQUIRED_REASON,
+  consumeRememberedAuthRedirect,
   createAuthRouteLocation,
   getSafeAuthRedirect,
 } from '@/utils/authRedirect'
@@ -252,7 +253,10 @@ const features = [
 ]
 
 // 从登录页查询参数恢复受保护目标，并过滤非站内地址。
-const redirectAfterAuth = computed(() => getSafeAuthRedirect(route.query.redirect))
+const redirectAfterAuth = computed(() => {
+  const queryRedirect = getSafeAuthRedirect(route.query.redirect)
+  return queryRedirect === '/' ? consumeRememberedAuthRedirect() : queryRedirect
+})
 
 // 用户改走注册流程时继续保留最初访问的目标页面。
 const registerLocation = computed(() =>

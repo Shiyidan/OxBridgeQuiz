@@ -39,9 +39,6 @@ git branch --show-current
 git rev-parse --short HEAD
 git log -1 --format='%h %ci %s'
 
-echo "--- structure ---"
-find /opt/quiz -maxdepth 2 -type d | sort
-
 echo "--- timestamps ---"
 timestamp_targets=(
   /opt/quiz/repo
@@ -82,8 +79,16 @@ ss -ltnp 2>/dev/null | grep -E ':80|:443|:3001' || true
 echo "--- pm2 ---"
 pm2 status --no-color
 
+echo "--- backup-summary ---"
+for backup_type in mysql uploads; do
+  backup_dir="/opt/quiz/backups/${backup_type}"
+  backup_count="$(find "$backup_dir" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')"
+  backup_latest="$(find "$backup_dir" -maxdepth 1 -type f -printf '%TY-%Tm-%Td %TH:%TM\n' 2>/dev/null | sort -r | head -n 1)"
+  echo "${backup_type}_count=${backup_count:-0}"
+  echo "${backup_type}_latest=${backup_latest:-none}"
+done
+
 echo "--- database ---"
-find /opt/quiz/backups -maxdepth 2 -type f 2>/dev/null | sort | tail -n 50 | xargs -r ls -lh
 node - /opt/quiz/api/.env "$ENVIRONMENT" "$EXPECTED_DATABASE" <<'NODE'
 const fs = require('fs')
 

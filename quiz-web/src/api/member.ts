@@ -57,6 +57,7 @@ export interface StudyPreferences {
   targetRegions: string
   targetUniversities: string[]
   targetMajor: string
+  targetScores: Record<'ESAT' | 'TMUA', number | null>
   examDate: string
   weeklyHours: number
 }

@@ -616,13 +616,72 @@ button:disabled {
 }
 
 .reward-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   padding: 10px;
+  border-color: rgba(174, 125, 220, 0.58);
+  background:
+    radial-gradient(circle at 98% -8%, rgba(245, 161, 173, 0.5), transparent 35%),
+    radial-gradient(circle at 4% 108%, rgba(151, 111, 237, 0.4), transparent 38%),
+    repeating-linear-gradient(
+      -34deg,
+      rgba(255, 255, 255, 0.06) 0 1px,
+      transparent 1px 7px
+    ),
+    linear-gradient(120deg, #21183c 0%, #51306d 56%, #a44d62 100%);
+  box-shadow: 0 12px 24px rgba(73, 38, 98, 0.22);
+}
+
+.reward-card::before,
+.reward-card::after {
+  position: absolute;
+  border: 1px solid rgba(255, 226, 241, 0.2);
+  border-radius: 50%;
+  content: '';
+  pointer-events: none;
+}
+
+.reward-card::before {
+  top: -92px;
+  right: -56px;
+  width: 184px;
+  height: 184px;
+  box-shadow:
+    0 0 0 20px rgba(255, 222, 243, 0.08),
+    0 0 0 45px rgba(255, 222, 243, 0.05);
+}
+
+.reward-card::after {
+  right: 18px;
+  bottom: -48px;
+  width: 84px;
+  height: 84px;
+  border-color: rgba(255, 238, 247, 0.14);
+}
+
+.reward-card > div {
+  position: relative;
+  z-index: 1;
+}
+
+.reward-card > div:first-child {
+  min-width: 0;
+}
+
+.reward-card > div:first-child > span {
+  color: rgba(245, 232, 255, 0.84);
+}
+
+.reward-card > div:first-child > strong {
+  color: #fff;
+  letter-spacing: 0.01em;
 }
 
 .reward-card small {
   display: block;
   margin-top: 5px;
-  color: #817b91;
+  color: rgba(245, 232, 255, 0.78);
 }
 
 .reward-card-action {
@@ -631,22 +690,30 @@ button:disabled {
   gap: 8px;
 }
 
+.reward-card-action button {
+  border: 1px solid rgba(255, 242, 238, 0.68);
+  background: linear-gradient(135deg, #fff4ed, #ffd9d1);
+  color: #9a3555;
+  box-shadow: 0 6px 14px rgba(42, 19, 53, 0.2);
+}
+
 .reward-status {
   padding: 4px 9px;
   border-radius: 999px;
-  background: #eeecfb;
-  color: #5d50cf !important;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff4fb !important;
+  backdrop-filter: blur(4px);
   font-weight: 700;
 }
 
 .reward-status--activated {
-  background: #e5f7eb;
-  color: #237743 !important;
+  background: rgba(220, 255, 235, 0.88);
+  color: #277548 !important;
 }
 
 .reward-status--revoked,
 .reward-status--expired {
-  background: #f5eeee;
+  background: rgba(255, 235, 235, 0.9);
   color: #9a4f4f !important;
 }
 

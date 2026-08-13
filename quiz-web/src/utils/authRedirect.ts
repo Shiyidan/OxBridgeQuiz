@@ -4,6 +4,7 @@ import type { LocationQueryValue, RouteLocationRaw } from 'vue-router'
 type AuthRouteName = 'login' | 'register'
 
 export const AUTH_LOGIN_REQUIRED_REASON = 'login-required'
+const AUTH_REDIRECT_STORAGE_KEY = 'auth:pending-redirect'
 
 // 仅接受站内绝对路径，避免认证完成后跳转到外部地址。
 export function getSafeAuthRedirect(
@@ -21,6 +22,21 @@ export function getSafeAuthRedirect(
   return candidate
 }
 
+// 查询参数在第三方跳转、手动复制或刷新时可能丢失，保留一次受保护目标作为登录后的兜底回跳。
+export function rememberAuthRedirect(redirect: string): void {
+  const safeRedirect = getSafeAuthRedirect(redirect)
+  if (safeRedirect === '/' || typeof sessionStorage === 'undefined') return
+  sessionStorage.setItem(AUTH_REDIRECT_STORAGE_KEY, safeRedirect)
+}
+
+// 读取后立即消费，避免普通登录反复被带到上一次的受保护页面。
+export function consumeRememberedAuthRedirect(): string {
+  if (typeof sessionStorage === 'undefined') return '/'
+  const redirect = getSafeAuthRedirect(sessionStorage.getItem(AUTH_REDIRECT_STORAGE_KEY))
+  sessionStorage.removeItem(AUTH_REDIRECT_STORAGE_KEY)
+  return redirect
+}
+
 // 在认证相关页面之间传递有效目标地址，没有目标时保持普通路由。
 export function createAuthRouteLocation(name: AuthRouteName, redirect: string): RouteLocationRaw {
   return redirect === '/' ? { name } : { name, query: { redirect } }
@@ -28,6 +44,7 @@ export function createAuthRouteLocation(name: AuthRouteName, redirect: string): 
 
 // 功能入口要求认证时同时携带回跳地址和提示原因，登录页据此只展示一次明确引导。
 export function createLoginRequiredRouteLocation(redirect: string): RouteLocationRaw {
+  rememberAuthRedirect(redirect)
   return {
     name: 'login',
     query: {

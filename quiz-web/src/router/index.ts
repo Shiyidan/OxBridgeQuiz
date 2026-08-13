@@ -4,7 +4,7 @@ import { ElMessageBox } from 'element-plus'
 import HomeView from '../views/home/HomeView.vue'
 import LoginView from '../views/auth/LoginView.vue'
 import { useAuthStore } from '../stores/auth'
-import { createLoginRequiredRouteLocation } from '../utils/authRedirect'
+import { createLoginRequiredRouteLocation, getSafeAuthRedirect } from '../utils/authRedirect'
 import { applyRouteSeo } from './seo'
 
 class RouteResourceLoadError extends Error {
@@ -330,7 +330,7 @@ router.beforeEach((to, _from) => {
   }
 
   if ((to.path === '/login' || to.path === '/register') && isLoggedIn) {
-    return '/'
+    return getSafeAuthRedirect(to.query.redirect)
   }
 })
 

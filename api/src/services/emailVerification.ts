@@ -106,7 +106,11 @@ export async function consumeEmailChallenge(
     if (nextAttempts >= config.emailCodeMaxAttempts) {
       throw new AuthError(AUTH_ERROR.EMAIL_CODE_ATTEMPTS_EXCEEDED, '验证码错误次数过多，请重新获取', 422)
     }
-    throw new AuthError(AUTH_ERROR.EMAIL_CODE_INVALID, '验证码错误', 422)
+    throw new AuthError(
+      AUTH_ERROR.EMAIL_CODE_INVALID,
+      '验证码错误，请重新输入或重新获取',
+      422,
+    )
   }
 
   const consumed = await tx.emailVerificationChallenge.updateMany({
@@ -122,4 +126,3 @@ export async function consumeEmailChallenge(
     throw new AuthError(AUTH_ERROR.EMAIL_CODE_INVALID, '验证码已被使用，请重新获取', 422)
   }
 }
-

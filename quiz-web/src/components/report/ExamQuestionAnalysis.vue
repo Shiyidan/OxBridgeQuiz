@@ -1,5 +1,11 @@
 <template>
-  <div class="question-analysis" :class="{ 'question-analysis--single': singleQuestionMode }">
+  <div
+    class="question-analysis"
+    :class="{
+      'question-analysis--single': singleQuestionMode,
+      'question-analysis--independent-scroll': independentScroll,
+    }"
+  >
     <aside v-if="!singleQuestionMode" class="question-nav" aria-label="题目导航">
       <span class="section-mark" aria-hidden="true"></span>
       <h2 class="question-nav__title">题目导航</h2>
@@ -52,7 +58,12 @@
       </div>
     </aside>
 
-    <section v-if="currentQuestion" class="report-card" aria-label="题目详情">
+    <section
+      v-if="currentQuestion"
+      ref="reportCardRef"
+      class="report-card"
+      aria-label="题目详情"
+    >
       <QuestionCard
         :question="currentQuestion"
         :index="displayQuestionIndex"
@@ -120,7 +131,7 @@
 
 <script setup lang="ts">
 // 公共逐题解析组件：诊断测试和试题库报告共用同一套题目解析展示。
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import QuestionCard from '@/components/QuestionCard.vue'
 import LatexText from '@/components/LatexText.vue'
 import type { ExamQuestion } from '@/api/exam'
@@ -158,6 +169,7 @@ const props = defineProps<{
   singleQuestionMode?: boolean
   showUserAnswer?: boolean
   groupBy?: 'module' | 'syllabus'
+  independentScroll?: boolean
 }>()
 const emit = defineEmits<{
   questionChange: [index: number]
@@ -167,6 +179,7 @@ const emit = defineEmits<{
 const showUserAnswer = computed(() => props.showUserAnswer !== false)
 
 const currentIndex = ref(0)
+const reportCardRef = ref<HTMLElement | null>(null)
 const currentQuestion = computed<ReportQuestion | undefined>(
   () => props.questions[currentIndex.value],
 )
@@ -284,8 +297,16 @@ watch(
   { immediate: true },
 )
 
-// 当前题号同步给管理侧吸顶操作栏，报告页面无需监听也不受影响。
-watch(currentIndex, (index) => emit('questionChange', index), { immediate: true })
+// 切题后同步管理操作目标，并让独立滚动的题目卡从开头展示新题。
+watch(
+  currentIndex,
+  async (index) => {
+    emit('questionChange', index)
+    await nextTick()
+    reportCardRef.value?.scrollTo({ top: 0 })
+  },
+  { immediate: true },
+)
 
 // 左侧题号导航只切换当前题，不重新请求报告数据。
 function goToQuestion(index: number): void {
@@ -308,6 +329,25 @@ function noop(): void {}
 
 .question-analysis--single {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.question-analysis--independent-scroll {
+  height: 100%;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.question-analysis--independent-scroll .question-nav,
+.question-analysis--independent-scroll .report-card {
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+}
+
+.question-analysis--independent-scroll .question-nav {
+  position: static;
 }
 
 .question-nav,
@@ -535,5 +575,17 @@ function noop(): void {}
 .empty-text {
   color: #64748b;
   text-align: center;
+}
+
+@media (max-width: 900px) {
+  .question-analysis--independent-scroll {
+    height: auto;
+  }
+
+  .question-analysis--independent-scroll .question-nav,
+  .question-analysis--independent-scroll .report-card {
+    height: auto;
+    overflow-y: visible;
+  }
 }
 </style>

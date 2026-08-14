@@ -25,28 +25,6 @@
     <main class="diagnostic-exam-shell">
       <div v-if="loading" class="diagnostic-status">正在恢复诊断测试...</div>
       <template v-else-if="session">
-        <header class="module-header">
-          <div>
-            <!-- <span>{{ examEyebrow }}</span> -->
-            <h1>{{ activeModule?.label || breakState?.nextModuleLabel || '诊断测试' }}</h1>
-          </div>
-          <ol class="module-progress" :aria-label="`${sectionNoun}进度`">
-            <li
-              v-for="(module, index) in session.modules || []"
-              :key="module.code"
-              :class="{
-                'module-progress__item--active': index === session.currentModuleIndex,
-                'module-progress__item--completed': module.status === 'completed',
-              }"
-            >
-              <span>{{ displayModuleLabel(module.code, module.label) }}</span>
-              <small>
-                {{ module.totalQuestions }} 题 · {{ formatModuleMinutes(module.durationSeconds) }} 分钟
-              </small>
-            </li>
-          </ol>
-        </header>
-
         <div v-if="session.phase === 'answering'" class="exam-layout">
           <aside class="question-nav" :aria-label="`当前${sectionNoun}题目导航`">
             <strong>{{ displayModuleLabel(activeModule?.code, activeModule?.label) }}</strong>
@@ -88,8 +66,11 @@
               :selected-answer="answers[currentQuestion.id]"
               :meta-tags="currentKnowledgeTags"
               :disabled="interactionLocked"
+              :show-mark="true"
+              :marked="currentQuestionMarked"
               variant="exam"
               @select="handleSelectAnswer"
+              @toggle-mark="toggleCurrentQuestionMark"
             />
             <footer class="question-actions">
               <button
@@ -110,6 +91,25 @@
               </button>
             </footer>
           </section>
+
+          <aside class="module-nav" :aria-label="`${sectionNoun}进度`">
+            <ol class="module-progress">
+              <li
+                v-for="(module, index) in session.modules || []"
+                :key="module.code"
+                :class="{
+                  'module-progress__item--active': index === session.currentModuleIndex,
+                  'module-progress__item--completed': module.status === 'completed',
+                }"
+              >
+                <span>{{ displayModuleLabel(module.code, module.label) }}</span>
+                <small>
+                  {{ module.totalQuestions }} 题 ·
+                  {{ formatModuleMinutes(module.durationSeconds) }} 分钟
+                </small>
+              </li>
+            </ol>
+          </aside>
         </div>
 
         <div v-else-if="session.phase === 'ready_to_submit'" class="diagnostic-status">
@@ -198,6 +198,7 @@ const session = ref<StartExamResult | null>(null)
 const questions = shallowRef<AttemptQuestion[]>([])
 const currentIndex = ref(0)
 const answers = ref<Record<string, string>>({})
+const markedQuestionIds = ref<Set<string>>(new Set())
 const questionDurations = ref<Record<string, number>>({})
 const visitedQuestionIds = ref<Set<string>>(new Set())
 const transitioning = ref(false)
@@ -231,6 +232,9 @@ let pendingExpiredModuleCode = ''
 const activeModule = computed(() => session.value?.currentModule || null)
 const breakState = computed(() => session.value?.break || null)
 const currentQuestion = computed(() => questions.value[currentIndex.value])
+const currentQuestionMarked = computed(() =>
+  Boolean(currentQuestion.value && markedQuestionIds.value.has(currentQuestion.value.id)),
+)
 
 // 顶部时间轴使用整张诊断试卷名称，当前科目或 Paper 仍由正文分段导航展示。
 const paperProgressTitle = computed(() => {
@@ -242,6 +246,46 @@ const paperProgressTitle = computed(() => {
 // 当前题目按考试记录和分段隔离保存，标签切换或同标签刷新后仍回到离开前查看的题目。
 function currentQuestionStorageKey(examRecordId: string, moduleCode: string): string {
   return `diagnostic-current-question:${examRecordId}:${moduleCode}`
+}
+
+// Mark 状态按整场考试隔离，切换科目后仍保留已标记的题目。
+function markedQuestionsStorageKey(examRecordId: string): string {
+  return `diagnostic-marked-questions:${examRecordId}`
+}
+
+// 会话存储异常或旧值损坏时回退为空集合，不影响正常作答流程。
+function readStoredMarkedQuestionIds(examRecordId: string): Set<string> {
+  try {
+    const stored = JSON.parse(sessionStorage.getItem(markedQuestionsStorageKey(examRecordId)) || '[]')
+    return new Set(
+      Array.isArray(stored)
+        ? stored.filter((questionId): questionId is string => typeof questionId === 'string')
+        : [],
+    )
+  } catch {
+    return new Set()
+  }
+}
+
+// 每次切换 Mark 后立即保存，刷新页面时仍可恢复当前考试的标记。
+function persistMarkedQuestionIds(): void {
+  const examRecordId = session.value?.examRecordId || ''
+  if (!examRecordId) return
+  sessionStorage.setItem(
+    markedQuestionsStorageKey(examRecordId),
+    JSON.stringify([...markedQuestionIds.value]),
+  )
+}
+
+// Mark 只辅助本场答题定位，不进入答案快照或服务端判分数据。
+function toggleCurrentQuestionMark(): void {
+  const questionId = currentQuestion.value?.id
+  if (!questionId || interactionLocked.value) return
+  const nextMarkedQuestionIds = new Set(markedQuestionIds.value)
+  if (nextMarkedQuestionIds.has(questionId)) nextMarkedQuestionIds.delete(questionId)
+  else nextMarkedQuestionIds.add(questionId)
+  markedQuestionIds.value = nextMarkedQuestionIds
+  persistMarkedQuestionIds()
 }
 
 // 浏览器会话存储只保存题目 ID，不保存题目或答案内容。
@@ -275,10 +319,6 @@ const isFinalModule = computed(
 const isTmua = computed(() => session.value?.examType === 'TMUA')
 // 学生操作提示统一使用考试真实结构名称，避免把 TMUA Paper 称为学科。
 const sectionNoun = computed(() => (isTmua.value ? '试卷' : '科目'))
-// 页头明确当前诊断结构，帮助学生确认两卷或三科进度。
-const examEyebrow = computed(() => (
-  isTmua.value ? 'TMUA Diagnostic · Paper 1 & Paper 2' : 'ESAT Equivalent Diagnostic'
-))
 // 最后一段结束即进入交卷，其余分段只锁定当前答案并继续流程。
 const completeSectionLabel = computed(() => (
   isFinalModule.value
@@ -382,6 +422,7 @@ async function applySession(nextSession: StartExamResult): Promise<void> {
   const previousQuestionId = currentQuestion.value?.id || ''
   if (previousQuestionId) persistCurrentQuestion(previousQuestionId)
   session.value = nextSession
+  markedQuestionIds.value = readStoredMarkedQuestionIds(nextSession.examRecordId)
   if (nextSession.phase === 'submitted') {
     submitted.value = true
     submittedExamRecordId.value = nextSession.examRecordId
@@ -522,6 +563,7 @@ function navItemClass(question: AttemptQuestion, index: number): Record<string, 
     'question-nav__item': true,
     'question-nav__item--current': currentIndex.value === index,
     'question-nav__item--answered': Boolean(answers.value[question.id]),
+    'question-nav__item--marked': markedQuestionIds.value.has(question.id),
     'question-nav__item--skipped':
       visitedQuestionIds.value.has(question.id) &&
       !answers.value[question.id] &&
@@ -860,37 +902,16 @@ onBeforeRouteLeave(async () => confirmAndPauseBeforeLeaving())
 }
 
 .diagnostic-exam-shell {
-  width: var(--fluid-shell-width);
+  --exam-layout-gap: 24px;
+  --module-nav-width: 160px;
+
+  width: calc(var(--fluid-shell-width) + var(--module-nav-width) + var(--exam-layout-gap));
   margin: 0 auto;
   padding: 0 72px;
 }
 
-.module-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 32px;
-  margin-top: 14px;
-  margin-bottom: 15px;
-}
-
-.module-header > div > span {
-  color: var(--color-ink-muted);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semi);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
-}
-
-.module-header h1 {
-  margin: 6px 0 0;
-  color: var(--color-ink);
-  font-family: math;
-  font-size: var(--text-3xl);
-}
-
 .module-progress {
-  display: flex;
+  display: grid;
   gap: 8px;
   margin: 0;
   padding: 0;
@@ -899,11 +920,11 @@ onBeforeRouteLeave(async () => confirmAndPauseBeforeLeaving())
 
 .module-progress li {
   display: flex;
-  min-width: 112px;
+  min-width: 0;
   align-items: flex-start;
   flex-direction: column;
   gap: 3px;
-  padding: 3px 12px;
+  padding: 10px 12px;
   border: 1px solid var(--color-line);
   border-radius: 5px;
   color: var(--color-ink-muted);
@@ -922,8 +943,10 @@ onBeforeRouteLeave(async () => confirmAndPauseBeforeLeaving())
 
 .exam-layout {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  gap: 24px;
+  grid-template-areas: 'questions content modules';
+  grid-template-columns: 240px minmax(0, 1fr) var(--module-nav-width);
+  gap: var(--exam-layout-gap);
+  margin-top: 14px;
 }
 
 .question-nav,
@@ -934,6 +957,10 @@ onBeforeRouteLeave(async () => confirmAndPauseBeforeLeaving())
 }
 
 .question-nav {
+  position: sticky;
+  top: 78px;
+  z-index: 10;
+  grid-area: questions;
   align-self: start;
   display: grid;
   gap: 8px;
@@ -948,6 +975,7 @@ onBeforeRouteLeave(async () => confirmAndPauseBeforeLeaving())
 }
 
 .question-nav__item {
+  position: relative;
   aspect-ratio: 1;
   border: 1px solid var(--color-line);
   border-radius: 5px;
@@ -955,6 +983,18 @@ onBeforeRouteLeave(async () => confirmAndPauseBeforeLeaving())
   color: var(--color-ink-soft);
   cursor: pointer;
 }
+
+// .question-nav__item--marked::after {
+//   position: absolute;
+//   bottom: 4px;
+//   left: 50%;
+//   width: 14px;
+//   height: 2px;
+//   border-radius: 999px;
+//   background: #ef4444;
+//   content: '';
+//   transform: translateX(-50%);
+// }
 
 .question-nav__item--current {
   border-color: var(--color-ink);
@@ -984,7 +1024,14 @@ onBeforeRouteLeave(async () => confirmAndPauseBeforeLeaving())
 }
 
 .question-panel {
+  grid-area: content;
   padding: 20px 28px;
+}
+
+.module-nav {
+  grid-area: modules;
+  align-self: start;
+  transform: translateX(48px);
 }
 
 .question-panel--locked :deep(.opt-card) {
@@ -995,7 +1042,7 @@ onBeforeRouteLeave(async () => confirmAndPauseBeforeLeaving())
 .question-actions {
   display: flex;
   justify-content: space-between;
-  margin-top: 24px;
+  margin-top: 16px;
 }
 
 .question-actions button {
@@ -1014,17 +1061,29 @@ onBeforeRouteLeave(async () => confirmAndPauseBeforeLeaving())
 }
 
 @media (max-width: 900px) {
-  .module-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
   .module-progress {
+    display: flex;
     flex-wrap: wrap;
   }
 
+  .module-progress li {
+    min-width: 112px;
+  }
+
   .exam-layout {
+    grid-template-areas:
+      'modules'
+      'questions'
+      'content';
     grid-template-columns: 1fr;
+  }
+
+  .module-nav {
+    transform: none;
+  }
+
+  .question-nav {
+    position: static;
   }
 }
 </style>

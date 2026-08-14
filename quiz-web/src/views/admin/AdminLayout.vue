@@ -1,31 +1,20 @@
 ﻿<template>
   <div class="admin-page">
-    <NavBar />
     <div class="admin-wrapper">
-      <div class="admin-layout">
+      <div
+        class="admin-layout"
+        :class="{ 'admin-layout--sidebar-collapsed': sidebarCollapsed }"
+      >
         <aside class="sidebar" :class="{ 'sidebar--collapsed': sidebarCollapsed }">
-          <div class="sidebar-control">
-            <el-tooltip
-              :content="sidebarCollapsed ? '展开菜单' : '收起菜单'"
-              placement="right"
-            >
-              <button
-                class="sidebar-toggle"
-                type="button"
-                :aria-label="sidebarCollapsed ? '展开后台导航' : '收起后台导航'"
-                :aria-expanded="!sidebarCollapsed"
-                @click="toggleSidebar"
-              >
-                <el-icon :size="18">
-                  <Expand v-if="sidebarCollapsed" />
-                  <Fold v-else />
-                </el-icon>
-              </button>
-            </el-tooltip>
-          </div>
-
           <div class="sidebar-header">
-            <h1 class="sidebar-title">超级管理控制台</h1>
+            <div class="sidebar-brand">
+              <router-link class="sidebar-home-link" to="/" aria-label="返回 AceMock 首页">
+                <span class="sidebar-brand-mark" aria-hidden="true">
+                  <img :src="brandIconUrl" alt="" />
+                </span>
+              </router-link>
+              <h1 class="sidebar-title">超级管理控制台</h1>
+            </div>
             <p class="sidebar-subtitle">
               欢迎，{{ userName }}。您可以在此管理平台核心资产与用户数据。
             </p>
@@ -52,6 +41,21 @@
           </nav>
         </aside>
 
+        <el-tooltip :content="sidebarCollapsed ? '展开菜单' : '收起菜单'" placement="right">
+          <button
+            class="sidebar-toggle"
+            type="button"
+            :aria-label="sidebarCollapsed ? '展开后台导航' : '收起后台导航'"
+            :aria-expanded="!sidebarCollapsed"
+            @click="toggleSidebar"
+          >
+            <el-icon :size="18">
+              <Expand v-if="sidebarCollapsed" />
+              <Fold v-else />
+            </el-icon>
+          </button>
+        </el-tooltip>
+
         <main class="main-content">
           <RouterView />
         </main>
@@ -61,11 +65,11 @@
 </template>
 
 <script setup lang="ts">
-// 管理后台整体布局：NavBar、左侧导航栏和右侧 RouterView。
+// 管理后台整体布局：独立侧栏和右侧 RouterView，不复用前台顶部导航。
 import { computed, onMounted, ref } from 'vue'
 import { Expand, Fold } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
-import NavBar from '@/components/NavBar.vue'
+import brandIconUrl from '@/assets/brand/acemock-icon.png'
 
 const auth = useAuthStore()
 const userName = computed(() => auth.user?.username || '管理员')
@@ -143,7 +147,7 @@ onMounted(() => {
 
 .admin-wrapper {
   width: 100%;
-  height: calc(100vh - var(--nav-height));
+  height: 100vh;
   min-height: 0;
   min-width: var(--layout-min-width);
   max-width: none;
@@ -152,6 +156,7 @@ onMounted(() => {
 }
 
 .admin-layout {
+  position: relative;
   display: flex;
   height: 100%;
   min-height: 0;
@@ -171,14 +176,11 @@ onMounted(() => {
   transition: width 0.2s ease;
 }
 
-.sidebar-control {
-  display: flex;
-  flex: 0 0 auto;
-  justify-content: flex-end;
-  padding: 0 14px 12px;
-}
-
 .sidebar-toggle {
+  position: absolute;
+  bottom: 24px;
+  left: 212px;
+  z-index: 10;
   display: grid;
   place-items: center;
   width: 34px;
@@ -192,7 +194,12 @@ onMounted(() => {
   transition:
     border-color 0.15s ease,
     color 0.15s ease,
-    background 0.15s ease;
+    background 0.15s ease,
+    left 0.2s ease;
+}
+
+.admin-layout--sidebar-collapsed .sidebar-toggle {
+  left: 19px;
 }
 
 .sidebar-toggle:hover {
@@ -212,12 +219,47 @@ onMounted(() => {
   margin-bottom: 8px;
 }
 
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.sidebar-home-link {
+  display: inline-flex;
+  flex: 0 0 auto;
+  border-radius: 6px;
+}
+
+.sidebar-home-link:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 3px;
+}
+
+.sidebar-brand-mark {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+.sidebar-brand-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: scale(1.45);
+}
+
 .sidebar-title {
+  margin: 0;
   font-size: 1.375rem;
   font-weight: 800;
   color: #0f172a;
   letter-spacing: 0;
-  margin: 0 0 8px;
 }
 
 .sidebar-subtitle {
@@ -283,14 +325,20 @@ onMounted(() => {
 .sidebar--collapsed {
   width: 72px;
 
-  .sidebar-control {
-    justify-content: center;
-    padding-inline: 0;
-  }
-
-  .sidebar-header,
+  .sidebar-title,
+  .sidebar-subtitle,
   .nav-label {
     display: none;
+  }
+
+  .sidebar-header {
+    display: flex;
+    justify-content: center;
+    padding: 4px 0 20px;
+  }
+
+  .sidebar-brand {
+    margin: 0;
   }
 
   .sidebar-nav {
@@ -334,6 +382,14 @@ onMounted(() => {
 
   .sidebar--collapsed {
     width: 64px;
+  }
+
+  .sidebar-toggle {
+    left: 188px;
+  }
+
+  .admin-layout--sidebar-collapsed .sidebar-toggle {
+    left: 15px;
   }
 
   .sidebar-header {

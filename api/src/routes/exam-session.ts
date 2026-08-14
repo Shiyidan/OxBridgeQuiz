@@ -4,7 +4,7 @@ import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
 import { formatQuestionRow } from '../utils/questionSync.js'
-import { parseJsonField, parseJsonArray } from '../utils/jsonField.js'
+import { parseJsonField, parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
 import { checkMemberAccess, hasDiagnosticPaperAccess } from '../services/member.js'
 import { verifyQuestionBankSelection } from '../services/questionBankSelection.js'
 import { withQuotaTransaction } from '../services/transactionRetry.js'
@@ -60,6 +60,17 @@ class ExamStartBusinessError extends Error {
   ) {
     super(message)
   }
+}
+
+// 答题页标题与练习记录使用同一份范围快照；练习本记录则回退到用户保存的练习本名称。
+function resolvePracticeTitle(snapshotValue: unknown): string {
+  const snapshot = parseJsonObject(snapshotValue)
+  const knowledgePoint = parseJsonObject(snapshot.knowledgePoint)
+  const knowledgePointLabel = typeof knowledgePoint.label === 'string'
+    ? knowledgePoint.label.trim()
+    : ''
+  if (knowledgePointLabel) return knowledgePointLabel
+  return typeof snapshot.notebookName === 'string' ? snapshot.notebookName.trim() : ''
 }
 
 // 所有题库入口共享唯一进行中练习，切换考试类型后仍能返回并继续原记录。
@@ -259,6 +270,7 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
         examRecordId: examRecord.id,
         paperId: examRecord.paperId,
         examType: examRecord.examType,
+        practiceTitle: resolvePracticeTitle(verifiedSelection.practiceSnapshot),
         totalQuestions: examRecord.totalQuestions,
         startedAt: examRecord.startedAt,
         expiresAt: null,
@@ -664,6 +676,7 @@ examSessionRouter.get('/:id/session', requireAuth, async (req, res) => {
         startedAt: true,
         expiresAt: true,
         status: true,
+        practiceSnapshot: true,
         paper: {
           select: {
             paperType: true,
@@ -734,6 +747,7 @@ examSessionRouter.get('/:id/session', requireAuth, async (req, res) => {
       examRecordId: record.id,
       paperId: record.paperId,
       examType: record.examType,
+      practiceTitle: resolvePracticeTitle(record.practiceSnapshot),
       totalQuestions: record.totalQuestions,
       startedAt: record.startedAt,
       expiresAt,

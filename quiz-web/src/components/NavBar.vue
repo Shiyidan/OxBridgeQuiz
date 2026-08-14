@@ -306,10 +306,10 @@ onMounted(() => void loadStudentExamPreference())
   top: 0;
   z-index: 100;
   min-width: var(--fluid-page-min-width);
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--color-line);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.09);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 /* 前台流体外壳：1200px 起步，窄屏继续收缩到紧凑下限。 */

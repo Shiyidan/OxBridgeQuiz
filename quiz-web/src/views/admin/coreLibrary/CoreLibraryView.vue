@@ -4,7 +4,7 @@
       <!-- 标题区 -->
       <div class="section-header">
         <div class="header-text">
-          <h2 class="section-title">ESAT 专业资料库</h2>
+          <h2 class="section-title">专业资料库</h2>
           <p class="section-desc">管理该学科下的所有题目、教材与学习大纲。</p>
         </div>
       </div>
@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-// 核心资料库首页（ESAT 专业资料库 · 四卡片入口）
+// 核心资料库首页（专业资料库 · 四卡片入口）
 interface LibraryCard {
   key: string
   title: string

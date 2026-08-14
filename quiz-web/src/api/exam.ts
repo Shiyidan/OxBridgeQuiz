@@ -69,6 +69,7 @@ export interface ExamProgress {
   paperTitle?: string
   paperYear?: number
   examType?: string
+  practiceTitle?: string
   totalQuestions: number
   startedAt: string
   expiresAt: string | null

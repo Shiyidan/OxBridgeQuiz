@@ -2,8 +2,23 @@
 <template>
   <article :class="['question-card', `question-card--${variant}`]">
     <div class="question-card__header">
-      <!-- 题号小标 -->
-      <div class="question-card__label">{{ questionLabel || `Question ${index + 1}` }}</div>
+      <div class="question-card__heading">
+        <!-- 题号小标 -->
+        <div class="question-card__label">{{ questionLabel || `Question ${index + 1}` }}</div>
+        <!-- <button
+          v-if="showMark"
+          type="button"
+          class="question-card__mark"
+          :class="{ 'question-card__mark--active': marked }"
+          :disabled="disabled"
+          :aria-label="marked ? '取消标记当前题目' : '标记当前题目'"
+          :aria-pressed="marked"
+          :title="marked ? '取消 Mark' : 'Mark 题目'"
+          @click="emit('toggleMark')"
+        >
+          <el-icon><Flag /></el-icon>
+        </button> -->
+      </div>
       <div v-if="metaTags.length" class="question-card__meta-tags">
         <span v-for="tag in metaTags" :key="tag" class="question-card__meta-tag">
           {{ tag }}
@@ -104,6 +119,7 @@
 <script setup lang="ts">
 // 题目渲染卡片（试题库、练习页、试卷预览共用）
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { Flag } from '@element-plus/icons-vue'
 import LatexText from './LatexText.vue'
 import type { Option, QuestionImage, RenderableQuestion, RichContentBlock } from '@/types'
 
@@ -116,6 +132,8 @@ interface Props {
   metaTags?: string[]
   questionLabel?: string
   disabled?: boolean
+  showMark?: boolean
+  marked?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -123,10 +141,13 @@ const props = withDefaults(defineProps<Props>(), {
   showAnswer: false,
   metaTags: () => [],
   disabled: false,
+  showMark: false,
+  marked: false,
 })
 
 const emit = defineEmits<{
   (e: 'select', label: string): void
+  (e: 'toggleMark'): void
 }>()
 
 const optionsContainer = ref<HTMLElement | null>(null)
@@ -328,6 +349,69 @@ onBeforeUnmount(() => {
     letter-spacing: 0;
   }
 
+  .question-card__heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .question-card__mark {
+    display: inline-grid;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 auto;
+    padding: 0;
+    place-items: center;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    transition:
+      color 0.15s ease,
+      background 0.15s ease;
+  }
+
+  .question-card__mark:hover {
+    background: #f1f5f9;
+    color: #64748b;
+  }
+
+  .question-card__mark:focus-visible {
+    outline: 2px solid #94a3b8;
+    outline-offset: 2px;
+  }
+
+  .question-card__mark:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .question-card__mark :deep(.el-icon) {
+    font-size: 19px;
+  }
+
+  .question-card__mark :deep(path) {
+    fill: transparent;
+    stroke: currentColor;
+    stroke-linejoin: round;
+    stroke-width: 56px;
+  }
+
+  .question-card__mark--active {
+    color: #ef4444;
+  }
+
+  .question-card__mark--active:hover {
+    background: #fef2f2;
+    color: #dc2626;
+  }
+
+  .question-card__mark--active :deep(path) {
+    fill: currentColor;
+    stroke: currentColor;
+  }
+
   .question-card__meta-tags {
     display: flex;
     max-width: 70%;
@@ -399,6 +483,7 @@ onBeforeUnmount(() => {
 
   .question-card__stem :deep(.katex-display) {
     max-width: 100%;
+    padding-block: 0.12em;
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
@@ -417,7 +502,9 @@ onBeforeUnmount(() => {
   }
 
   .question-card__svg {
-    width: min(100%, 320px);
+    width: auto;
+    max-width: 100%;
+    height: 280px;
     max-height: 280px;
     margin: 0 auto;
     object-fit: contain;
@@ -430,8 +517,8 @@ onBeforeUnmount(() => {
   }
 
   .question-card__options {
-    margin-top: 18px;
-    gap: 12px;
+    margin-top: 12px;
+    gap: 8px;
   }
 
   .question-card__option-row {
@@ -516,11 +603,12 @@ onBeforeUnmount(() => {
   }
 
   .opt-card__text :deep(.katex) {
-    font-size: 1em;
+    font-size: 1.1em;
   }
 
   .opt-card__text :deep(.katex-display) {
     max-width: 100%;
+    padding-block: 0.12em;
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
@@ -754,7 +842,7 @@ onBeforeUnmount(() => {
 
 /* 选项中的 katex 公式略微下移以与字母对齐 */
 .opt-card__text :deep(.katex) {
-  font-size: 1em;
+  font-size: 1.1em;
 }
 
 @media (max-width: 760px) {

@@ -11,6 +11,7 @@
       :initial-elapsed-seconds="initialElapsedSeconds"
       :current-index="currentIndex"
       :total-count="totalCount"
+      :header-title="practiceHeaderTitle"
       :back-label-override="practiceBackLabel"
       @back="handleBackToQuestionBank"
       @answering-paused="handleAnsweringPaused"
@@ -153,6 +154,7 @@ const auth = useAuthStore()
 const examNavRef = ref<InstanceType<typeof ExamVue> | null>(null)
 const questions = shallowRef<RenderableQuestion[]>([])
 const activeExamType = ref<ExamType>(DEFAULT_EXAM_TYPE)
+const practiceHeaderTitle = ref('')
 const loading = ref(true)
 const currentIndex = ref(0)
 const countdownDurationSeconds = ref(0)
@@ -276,6 +278,7 @@ async function loadQuestions(): Promise<void> {
         throw new Error('当前练习没有可恢复的题目')
       }
       activeExamRecordId.value = examSession.examRecordId
+      practiceHeaderTitle.value = examSession.practiceTitle || ''
       questions.value = loadedQuestions
       examExpiresAt.value = examSession.expiresAt
       countdownDurationSeconds.value = examSession.expiresAt
@@ -369,6 +372,7 @@ async function loadQuestions(): Promise<void> {
       startedAt: new Date().toISOString(),
     })
     activeExamRecordId.value = examSession.examRecordId
+    practiceHeaderTitle.value = examSession.practiceTitle || ''
     questions.value = loadedQuestions
     examExpiresAt.value = examSession.expiresAt
     if (examSession.isResumed) {

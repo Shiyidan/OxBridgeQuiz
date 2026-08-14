@@ -110,6 +110,7 @@
         :correct-count="0"
         :initial-question-id="activeQuestionId"
         :show-user-answer="false"
+        independent-scroll
         @question-change="handleQuestionChange"
       />
     </main>
@@ -402,7 +403,11 @@ onMounted(loadReview)
 
 <style scoped lang="scss">
 .batch-review-page {
-  min-height: 100%;
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
   padding: 0 40px 40px;
   background: #f8fafc;
 }
@@ -411,6 +416,7 @@ onMounted(loadReview)
   position: sticky;
   top: 0;
   z-index: 40;
+  flex: 0 0 auto;
   margin: 0 -40px 24px;
   border-bottom: 1px solid #dbe3ee;
   background: rgba(255, 255, 255, 0.98);
@@ -569,6 +575,8 @@ onMounted(loadReview)
 
 .analysis-view {
   width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
   max-width: 1480px;
   margin: 0 auto;
 }
@@ -619,6 +627,9 @@ onMounted(loadReview)
 
 @media (max-width: 900px) {
   .batch-review-page {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
     padding-inline: 20px;
   }
 

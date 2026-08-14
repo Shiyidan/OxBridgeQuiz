@@ -106,7 +106,17 @@
             title-id="profile-membership-title"
           />
 
-          <div class="membership-exam-switch" role="tablist" aria-label="考试权益切换">
+          <div
+            class="membership-exam-switch"
+            :class="`membership-exam-switch--${currentExamType.toLowerCase()}`"
+            role="tablist"
+            aria-label="考试权益切换"
+          >
+            <span class="membership-exam-switch-indicator" aria-hidden="true">
+              <svg class="membership-exam-switch-pointer" viewBox="0 0 24 12">
+                <path d="M2 0h20l-7.8 9.4a2.8 2.8 0 0 1-4.4 0z" />
+              </svg>
+            </span>
             <button
               v-for="item in diagnosticQuotaItems"
               :key="item.examType"
@@ -122,14 +132,6 @@
             >
               <strong>{{ item.label }}</strong
               ><span>{{ item.text }}</span>
-              <svg
-                v-if="currentExamType === item.examType"
-                class="membership-exam-switch-pointer"
-                viewBox="0 0 24 12"
-                aria-hidden="true"
-              >
-                <path d="M2 0h20l-7.8 9.4a2.8 2.8 0 0 1-4.4 0z" />
-              </svg>
             </button>
           </div>
 
@@ -434,6 +436,7 @@
       <InvitationPanel
         @membership-changed="handleInvitationMembershipChanged"
         @edit-goals="handleInvitationEditGoals"
+        v-if="false"
       />
 
       <section class="billing-panel" aria-labelledby="billing-title">
@@ -3816,10 +3819,10 @@ onBeforeUnmount(() => {
 .membership-exam-switch {
   position: relative;
   display: flex;
-  flex-wrap: wrap;
+  box-sizing: border-box;
+  flex-wrap: nowrap;
   gap: 5px;
-  width: fit-content;
-  max-width: 100%;
+  width: 100%;
   margin: 10px 0 10px;
   padding: 4px;
   border: 1px solid rgba(225, 222, 245, 0.9);
@@ -3830,9 +3833,13 @@ onBeforeUnmount(() => {
 
 .membership-exam-switch button {
   position: relative;
+  z-index: 1;
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 31px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
   padding: 0 12px;
   border: 1px solid transparent;
@@ -3849,16 +3856,40 @@ onBeforeUnmount(() => {
     color 160ms ease;
 }
 
+.membership-exam-switch-indicator {
+  position: absolute;
+  z-index: 0;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(33.333333% - 6px);
+  border: 1px solid rgba(255, 255, 255, 0.86);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(71, 59, 147, 0.12);
+  pointer-events: none;
+  transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.membership-exam-switch--tmua .membership-exam-switch-indicator {
+  transform: translateX(calc(100% + 5px));
+}
+
+.membership-exam-switch--step .membership-exam-switch-indicator {
+  transform: translateX(calc(200% + 10px));
+}
+
 .membership-exam-switch button strong {
   color: inherit;
   font-size: 11px;
 }
 
 .membership-exam-switch button.active {
-  border-color: rgba(255, 255, 255, 0.86);
-  background: #fff;
+  border-color: transparent;
+  background: transparent;
   color: var(--profile-lilac-dark);
-  box-shadow: 0 4px 12px rgba(71, 59, 147, 0.12);
+  box-shadow: none;
 }
 
 .membership-exam-switch-pointer {
@@ -3876,6 +3907,13 @@ onBeforeUnmount(() => {
 .membership-exam-switch button.unavailable {
   cursor: not-allowed;
   opacity: 0.52;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .membership-exam-switch-indicator,
+  .membership-exam-switch button {
+    transition: none;
+  }
 }
 
 .membership-summary-note {

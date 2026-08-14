@@ -436,7 +436,6 @@
       <InvitationPanel
         @membership-changed="handleInvitationMembershipChanged"
         @edit-goals="handleInvitationEditGoals"
-        v-if="false"
       />
 
       <section class="billing-panel" aria-labelledby="billing-title">

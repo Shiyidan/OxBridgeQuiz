@@ -1,3 +1,4 @@
+// 集中解析并校验 API 在本地、测试与生产环境使用的运行时配置。
 import path from 'path'
 import crypto from 'crypto'
 import dotenv from 'dotenv'
@@ -16,6 +17,16 @@ const LOCAL_CORS_ORIGINS = [
 type BackendEnv = 'local' | 'test' | 'prod'
 type CookieSameSite = 'lax' | 'strict' | 'none'
 type ChinaumsEnv = 'test' | 'prod'
+type MailConfigName =
+  | 'SMTP_USER'
+  | 'SMTP_PASS'
+  | 'MAIL_FROM'
+  | 'BULK_SMTP_USER'
+  | 'BULK_SMTP_PASS'
+  | 'BULK_MAIL_FROM'
+
+const TRANSACTIONAL_MAIL_ADDRESS = 'no-reply@mail.acemock.cn'
+const BULK_MAIL_ADDRESS = 'news@mail.acemock.cn'
 
 type BackendEnvConfig = {
   port: number
@@ -105,10 +116,21 @@ function resolveVisitorIpHashSecret(): string {
   return crypto.randomBytes(64).toString('hex')
 }
 
-// 注册依赖邮件验证码，测试与线上环境缺少 SMTP 凭据时应在启动阶段直接失败。
-function resolveMailValue(name: 'SMTP_USER' | 'SMTP_PASS' | 'MAIL_FROM'): string {
+// 从纯邮箱或带显示名的 From 值中提取邮箱地址，供通道职责校验使用。
+function extractMailboxAddress(value: string): string {
+  const angleAddress = value.match(/<([^<>]+)>/)?.[1]
+  return (angleAddress || value).trim().toLowerCase()
+}
+
+// 邮件通道必须使用固定业务邮箱，避免环境配置漂移到个人或错误账号。
+function resolveMailValue(name: MailConfigName, expectedAddress: string): string {
   const value = process.env[name]?.trim()
-  if (value) return value
+  if (value) {
+    if ((name.endsWith('_USER') || name.endsWith('_FROM')) && extractMailboxAddress(value) !== expectedAddress) {
+      throw new Error(`[config] ${name} must use ${expectedAddress}`)
+    }
+    return value
+  }
   if (BACKEND_ENV !== 'local') {
     throw new Error(`[config] ${name} is required when API_RUNTIME_ENV=${BACKEND_ENV}`)
   }
@@ -425,9 +447,15 @@ export const config = {
   smtpConnectionTimeoutMs: parseInt(process.env.SMTP_CONNECTION_TIMEOUT_MS || '5000', 10),
   smtpGreetingTimeoutMs: parseInt(process.env.SMTP_GREETING_TIMEOUT_MS || '5000', 10),
   smtpSocketTimeoutMs: parseInt(process.env.SMTP_SOCKET_TIMEOUT_MS || '15000', 10),
-  smtpUser: resolveMailValue('SMTP_USER'),
-  smtpPass: resolveMailValue('SMTP_PASS'),
-  mailFrom: resolveMailValue('MAIL_FROM'),
+  smtpUser: resolveMailValue('SMTP_USER', TRANSACTIONAL_MAIL_ADDRESS),
+  smtpPass: resolveMailValue('SMTP_PASS', TRANSACTIONAL_MAIL_ADDRESS),
+  mailFrom: resolveMailValue('MAIL_FROM', TRANSACTIONAL_MAIL_ADDRESS),
+  bulkSmtpHost: process.env.BULK_SMTP_HOST || process.env.SMTP_HOST || 'smtpdm.aliyun.com',
+  bulkSmtpPort: parseInt(process.env.BULK_SMTP_PORT || process.env.SMTP_PORT || '465', 10),
+  bulkSmtpSecure: parseBoolean(process.env.BULK_SMTP_SECURE ?? process.env.SMTP_SECURE, true),
+  bulkSmtpUser: resolveMailValue('BULK_SMTP_USER', BULK_MAIL_ADDRESS),
+  bulkSmtpPass: resolveMailValue('BULK_SMTP_PASS', BULK_MAIL_ADDRESS),
+  bulkMailFrom: resolveMailValue('BULK_MAIL_FROM', BULK_MAIL_ADDRESS),
   databaseUrl: resolveDatabaseUrl(),
   corsOrigins: resolveCorsOrigins(),
   trustProxy: parseTrustProxy(process.env.TRUST_PROXY, backendDefaults.trustProxy),

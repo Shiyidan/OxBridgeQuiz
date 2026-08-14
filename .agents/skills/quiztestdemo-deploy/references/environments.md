@@ -15,7 +15,6 @@ Use exactly one column for each deployment:
 | Expected `API_RUNTIME_ENV` | `test` | `prod` |
 | Build mode | local artifact build via `deploy-test-local-build.ps1` | server build via `remote-deploy.sh` |
 | Deployment document | `文档/5. 部署方案/5.3 测试环境部署记录.md` | `文档/5. 部署方案/5.6 线上环境部署记录.md` |
-| Report prefix | `quiztestdemo-test-deploy-` | `quiztestdemo-prod-deploy-` |
 
 Shared server paths:
 
@@ -36,4 +35,6 @@ Rules:
 - On a new ECS, `*_RUNTIME_ENV_FILE` must refer to a local, Git-ignored API runtime file. Upload it with mode `0600` to `/opt/quiz/api/.env` only when that remote file does not yet exist; never replace an existing runtime file through the bootstrap path.
 - If the server runtime profile or database differs from the selected column, stop before Git, build, migration, or runtime changes.
 - Test artifacts must be built only from a clean, pushed commit on the selected branch. The manifest binds the `test` environment, scope, branch, commit and SHA-256 values; the server rejects every mismatch.
-- Store shared deployment-report mail settings only in `.env.deploy.local`: transport, SMTP host/port/user/secret, sender name/address, and recipients. Never place a real recipient in this reference or any tracked file.
+- Keep the private no-reply SMTP profile used by runtime provisioning only in `.env.deploy.local`; normal deployments do not generate or email reports.
+- Transactional account mail must authenticate and send as `no-reply@mail.acemock.cn` in every environment.
+- Bulk activity notifications must use the independent `news@mail.acemock.cn` account configured by `QUIZ_BULK_SMTP_*`; runtime provisioning maps it to `BULK_SMTP_*` without exposing credentials.

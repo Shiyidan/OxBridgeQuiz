@@ -1,6 +1,6 @@
 // 统一执行部署前运行时依赖校验，供本地 TypeScript 脚本与已构建运行目录共同调用。
 import { config } from '../config.js'
-import { verifyMailTransport } from './mail.js'
+import { verifyBulkMailTransport, verifyMailTransport } from './mail.js'
 import { prisma } from './prisma.js'
 
 export interface RuntimeValidationResult {
@@ -8,6 +8,7 @@ export interface RuntimeValidationResult {
   frontendUrl: string
   database: 'reachable'
   smtp: 'authenticated'
+  bulkSmtp: 'authenticated'
   chinaums: {
     enabled: boolean
     environment?: string
@@ -25,6 +26,7 @@ export interface RuntimeValidationResult {
 export async function validateRuntimeDependencies(): Promise<RuntimeValidationResult> {
   await prisma.user.count()
   await verifyMailTransport()
+  await verifyBulkMailTransport()
 
   const chinaums = config.chinaums.enabled
     ? {
@@ -41,6 +43,7 @@ export async function validateRuntimeDependencies(): Promise<RuntimeValidationRe
     frontendUrl: config.frontendUrl,
     database: 'reachable',
     smtp: 'authenticated',
+    bulkSmtp: 'authenticated',
     chinaums,
     paymentPurchaseAccess: config.paymentAccess.purchaseAllowedEmails.length > 0
       ? {

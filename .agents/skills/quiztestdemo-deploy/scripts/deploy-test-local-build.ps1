@@ -5,9 +5,7 @@ param(
 
     [Parameter(Mandatory = $true)]
     [ValidatePattern('^[A-Za-z0-9._/-]+$')]
-    [string]$Branch,
-
-    [switch]$EmailReport
+    [string]$Branch
 )
 
 # Build commit-bound test artifacts locally, then upload them to the low-resource test ECS.
@@ -21,11 +19,8 @@ $localDir = Join-Path $repoRoot ".tmp\quiz-deploy-test-$stamp"
 $artifactDir = Join-Path $localDir 'artifacts'
 $buildWorktree = Join-Path $localDir 'source'
 $remoteDir = "/tmp/quiz-deploy-$stamp"
-$reportPath = Join-Path $repoRoot ".private\deployment-reports\quiztestdemo-test-deploy-$stamp.html"
-$deploymentDoc = $null
 $deployLog = Join-Path $localDir 'deploy.log'
 $artifactCacheRoot = Join-Path $repoRoot '.private\deployment-cache\test\v1'
-$result = 'failed'
 $remoteCreated = $false
 $buildWorktreeCreated = $false
 $buildJobs = @()
@@ -182,30 +177,6 @@ function Assert-TextValue {
     }
 }
 
-function Write-FallbackReport {
-    param([string]$Outcome, [string]$Message)
-
-    if (Test-Path -LiteralPath $reportPath) { return }
-    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $reportPath) | Out-Null
-    $safeOutcome = [System.Net.WebUtility]::HtmlEncode($Outcome)
-    $safeMessage = [System.Net.WebUtility]::HtmlEncode($Message)
-    $html = @"
-<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><title>【测试环境】AceMock 部署报告</title></head>
-<body style="margin:0;background:#f4f7fb;font-family:Arial,'Microsoft YaHei',sans-serif;color:#172033;">
-<main style="max-width:720px;margin:0 auto;padding:32px 16px;">
-<header style="padding:28px 32px;background:#0f1f38;color:#fff;border-radius:16px;">
-<div style="font-size:13px;letter-spacing:2px;color:#70d7cb;">ACE MOCK · DEPLOYMENT REPORT</div>
-<h1 style="margin:10px 0 4px;font-size:26px;">测试环境部署报告</h1>
-<p style="margin:0;color:#cbd8e8;">部署未完成</p>
-</header>
-<section style="margin-top:18px;padding:22px;background:#fff;border:1px solid #e1e8f0;border-radius:12px;">
-<p><strong>结果：</strong>$safeOutcome</p><p><strong>构建方式：</strong>本地产物上传</p><p><strong>失败信息：</strong>$safeMessage</p>
-</section></main></body></html>
-"@
-    [System.IO.File]::WriteAllText($reportPath, $html, $utf8NoBom)
-}
-
 if (-not (Test-Path -LiteralPath $privateConfig)) {
     throw 'Missing .env.deploy.local.'
 }
@@ -238,10 +209,6 @@ $remoteBranch = @(& git ls-remote --exit-code origin "refs/heads/$Branch")
 if ($LASTEXITCODE -ne 0 -or -not $remoteBranch) { throw "The requested branch $Branch is not available on origin." }
 $originCommit = ($remoteBranch[0] -split '\s+')[0]
 if ($originCommit -ne $commit) { throw 'Refusing to deploy a commit that has not been pushed to origin.' }
-$deploymentDocRelative = @(& git -c core.quotePath=false ls-files '*5.3 *.md') | Select-Object -First 1
-if (-not $deploymentDocRelative) { throw 'Unable to resolve the tracked test deployment document.' }
-$deploymentDoc = Join-Path $repoRoot ($deploymentDocRelative -replace '/', '\')
-
 New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
 [System.IO.File]::WriteAllText($deployLog, '', $utf8NoBom)
 $target = "$sshUser@$hostName"
@@ -349,6 +316,13 @@ try {
         Write-DeploymentTiming -Stage 'artifact_packaging_and_cache'
     }
 
+    Invoke-Checked -Name 'Artifact cache retention' -Command {
+        powershell.exe -ExecutionPolicy Bypass -File (Join-Path $skillRoot 'scripts\prune-test-artifact-cache.ps1') `
+            -CacheRoot $artifactCacheRoot `
+            -ActiveCommit $commit `
+            -KeepCommitCount 5
+    }
+
     $files = [ordered]@{}
     Get-ChildItem -LiteralPath $artifactDir -File -Filter '*.tar.gz' | ForEach-Object {
         $files[$_.Name] = [ordered]@{ sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
@@ -380,7 +354,6 @@ try {
         (Join-Path $skillRoot 'scripts\check-runtime-config.sh'),
         (Join-Path $skillRoot 'scripts\backup-rds-runtime.sh'),
         (Join-Path $skillRoot 'scripts\verify-request-id.sh'),
-        (Join-Path $skillRoot 'scripts\collect-report.sh'),
         $bundlePath,
         $manifestPath
     )
@@ -395,9 +368,6 @@ try {
     }
     Write-DeploymentTiming -Stage 'remote_deploy'
 
-    Invoke-NativeLogged -Name 'Remote report collection' -LogPath (Join-Path $localDir 'server-report.log') -Command {
-        ssh.exe -i $sshKey -o IdentitiesOnly=yes $target "bash $remoteDir/collect-report.sh test $Scope $Branch $expectedDatabase $publicUrl"
-    }
     Invoke-NativeLogged -Name 'Public homepage validation' -LogPath (Join-Path $localDir 'public-home.log') -Command {
         curl.exe -sS -I "$publicUrl/"
     }
@@ -412,53 +382,14 @@ try {
     }
     Write-DeploymentTiming -Stage 'post_deploy_validation'
 
-    Invoke-Checked -Name 'Deployment report generation' -Command {
-        node (Join-Path $skillRoot 'scripts\generate-report.cjs') `
-            --environment test `
-            --scope $Scope `
-            --branch $Branch `
-            --result success `
-            --deploy-log $deployLog `
-            --server-report (Join-Path $localDir 'server-report.log') `
-            --public-home (Join-Path $localDir 'public-home.log') `
-            --public-health (Join-Path $localDir 'public-health.log') `
-            --database-read (Join-Path $localDir 'database-read.log') `
-            --request-id-runtime (Join-Path $localDir 'request-id-runtime.log') `
-            --deployment-doc $deploymentDoc `
-            --output $reportPath
-    }
-    Write-DeploymentTiming -Stage 'report_generation'
-    $result = 'success'
     Write-Output "test_local_artifact_deploy=success scope=$Scope branch=$Branch commit=$commit"
 } catch {
-    $failure = $_.Exception.Message
-    Write-Error $failure
+    Write-Error $_.Exception.Message
     throw
 } finally {
     foreach ($job in @($buildJobs)) {
         if ($job.State -eq 'Running') { Stop-Job -Job $job -ErrorAction SilentlyContinue }
         Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
-    }
-    if ($result -ne 'success') {
-        $failureMessage = if ($failure) { $failure } else { 'Deployment stopped before completion.' }
-        Write-FallbackReport -Outcome $result -Message $failureMessage
-    }
-    if ($EmailReport -and (Test-Path -LiteralPath $reportPath)) {
-        try {
-            & node.exe (Join-Path $skillRoot 'scripts\send-deployment-report.cjs') `
-                --report $reportPath `
-                --environment test `
-                --result $result `
-                --scope $Scope `
-                --branch $Branch
-            if ($LASTEXITCODE -ne 0) {
-                Write-Warning "Deployment completed with result '$result', but the email report failed with exit code $LASTEXITCODE."
-            } else {
-                Write-Output 'deployment_report_email=sent'
-            }
-        } catch {
-            Write-Warning "Deployment completed with result '$result', but the email report failed: $($_.Exception.Message)"
-        }
     }
     if ($buildWorktreeCreated -and (Test-Path -LiteralPath $buildWorktree)) {
         & git -C $repoRoot worktree remove --force $buildWorktree
@@ -468,9 +399,7 @@ try {
         & powershell.exe -ExecutionPolicy Bypass -File (Join-Path $skillRoot 'scripts\cleanup-transient.ps1') `
             -Environment test `
             -LocalDirectory $localDir `
-            -RemoteDirectory $remoteDir `
-            -ReportPath $reportPath `
-            -Result $result
+            -RemoteDirectory $remoteDir
         if ($LASTEXITCODE -ne 0) { throw 'Transient deployment cleanup failed.' }
     } elseif (Test-Path -LiteralPath $localDir) {
         Remove-Item -LiteralPath $localDir -Recurse -Force

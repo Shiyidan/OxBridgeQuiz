@@ -28,14 +28,27 @@ function loadEnvFile(file) {
     if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
       value = value.slice(1, -1)
     }
-    if (!process.env[key]) process.env[key] = value
+    // The ignored deployment profile is the authoritative source; stale machine-level mail variables must not win.
+    process.env[key] = value
   }
 }
 
-loadEnvFile(path.resolve(process.cwd(), '.env.deploy.local'))
+const projectRoot = path.resolve(__dirname, '..', '..', '..', '..')
+loadEnvFile(path.join(projectRoot, '.env.deploy.local'))
 
 function env(name, fallback = '') {
   return process.env[name] || fallback
+}
+
+// Deployment reports are operational mail and must never use the bulk-news identity.
+function assertDeploymentReportSender(user, fromAddress) {
+  const expected = 'no-reply@mail.acemock.cn'
+  const normalizedUser = String(user).trim().toLowerCase()
+  const normalizedFrom = String(fromAddress).match(/<([^<>]+)>/)?.[1]?.trim().toLowerCase()
+    || String(fromAddress).trim().toLowerCase()
+  if (normalizedUser !== expected || normalizedFrom !== expected) {
+    throw new Error(`Deployment reports must use ${expected}.`)
+  }
 }
 
 function deploymentMeta(args) {
@@ -249,6 +262,7 @@ async function sendWithSmtp(args, report, subject) {
   if (!to.length) {
     throw new Error('No deployment report recipients configured.')
   }
+  assertDeploymentReportSender(user, fromAddress)
 
   const html = fs.readFileSync(report, 'utf8')
   const message = [
@@ -322,6 +336,7 @@ async function main() {
       }
       const missing = Object.entries(required).filter(([, value]) => !value).map(([name]) => name)
       if (missing.length) throw new Error(`Missing deployment report mail settings: ${missing.join(', ')}`)
+      assertDeploymentReportSender(required.DEPLOY_REPORT_SMTP_USER, required.DEPLOY_REPORT_FROM)
     }
     console.log(JSON.stringify({
       dryRun: true,

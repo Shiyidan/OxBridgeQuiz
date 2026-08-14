@@ -13,18 +13,15 @@ Read `references/environments.md` for the private configuration contract. Read `
 
 ## Mandatory Preflight
 
-Before any SSH, SCP, Git update, build, migration, runtime sync, or PM2 command, obtain three target values and one notification choice:
+Before any SSH, SCP, Git update, build, migration, runtime sync, or PM2 command, obtain three target values:
 
 1. Environment: `test` or `prod`
 2. Scope: `frontend`, `backend`, or `all`
 3. Git branch
-4. Deployment report email: `send` or `skip`
-
-Treat the report-email choice as per-deployment authorization; never infer consent from an earlier deployment. When sending is requested, state the configured recipient count and masked address before deployment, without printing the complete address.
 
 Ask only for values the user has not already stated exactly. Never infer the environment from the branch name, the words “部署” or “上线”, a previous deployment, or the server `.env`. Never infer the branch.
 
-After collecting the values, repeat the environment, ECS host, public URL, expected database, scope, branch, and masked report-email choice. For `prod`, require the user to confirm this exact summary before running mutating commands unless their latest message already explicitly confirms the same production target, scope, branch, and email choice.
+After collecting the values, repeat the environment, ECS host, public URL, expected database, scope, and branch. For `prod`, require the user to confirm this exact summary before running mutating commands unless their latest message already explicitly confirms the same production target, scope, and branch.
 
 If the user asks only for status or explanation, do not deploy.
 
@@ -44,17 +41,15 @@ An environment mismatch is a hard stop. Do not rewrite the server `.env` to make
 Prefer the bundled scripts in `scripts/` instead of writing ad hoc deployment scripts:
 
 - `scripts/remote-deploy.sh`: guarded server-side deploy runner for `test` or `prod` and `frontend`, `backend`, or `all`.
-- `scripts/deploy-test-local-build.ps1`: required test-environment orchestrator; verifies a clean, pushed commit, builds frontend and API artifacts locally, verifies them with a manifest and SHA-256, uploads them with the source bundle, validates the result, reports, and cleans temporary evidence.
+- `scripts/deploy-test-local-build.ps1`: required test-environment orchestrator; verifies a clean, pushed commit, builds frontend and API artifacts locally, verifies them with a manifest and SHA-256, uploads them with the source bundle, validates the result, and cleans temporary evidence.
 - `scripts/check-prisma-migrations.sh`: server-side Prisma schema/migration guard, called by `remote-deploy.sh`.
 - `scripts/check-runtime-config.sh`: compares runtime `.env` keys with `.env.example`, merges only an explicit allowlist of non-secret defaults after backup, and never prints values; deployment then runs the repository runtime validator.
 - `scripts/merge-visitor-runtime-config.sh`: after explicit environment confirmation, backs up the runtime `.env` and generates the stable visitor analytics HMAC secret only when it is missing, without printing the value.
 - `scripts/merge-payment-runtime-config.sh`: after explicit environment confirmation, backs up the runtime `.env` and merges only an allowlisted private payment overlay from stdin without printing values.
 - `scripts/backup-rds-runtime.sh`: server-side backup runner for transaction-consistent InnoDB RDS MySQL dumps, uploads, runtime config, manifests, checksums, and retention cleanup.
-- `scripts/collect-report.sh`: environment-labelled server-side status and resource collector.
 - `scripts/verify-request-id.sh`: verifies that one health response Request ID appears in the PM2 log paths discovered from `pm2 jlist`; never assume PM2's default log directory.
-- `scripts/generate-report.cjs`: local HTML deployment report generator.
-- `scripts/send-deployment-report.cjs`: confirmed local report sender with an environment-labelled AceMock subject and HTML body. SMTP supports post-deploy sending; Agently remains a manual two-stage confirmation path.
-- `scripts/cleanup-transient.ps1`: mandatory finalizer that preserves a sanitized HTML result, deletes the exact remote deployment directory, and deletes its local raw-evidence directory.
+- `scripts/prune-test-artifact-cache.ps1`: retains only the five most recently used test-build Commit directories after validating every deletion target.
+- `scripts/cleanup-transient.ps1`: mandatory finalizer that deletes the exact remote deployment directory and its local raw-evidence directory without creating a report.
 - `scripts/bootstrap-repository.sh`: explicit fallback for converting a legacy source package into a commit-verified Git checkout; do not use it during routine updates.
 - `scripts/bootstrap-ecs.sh`: idempotently prepares a new Ubuntu ECS host with Node.js 20, Nginx, PM2, runtime directories, deploy user and swap; it never creates application secrets or changes firewall rules.
 - `scripts/provision-runtime-env.ps1`: interactively creates a local, access-restricted API runtime file for a fresh ECS. It prompts locally for the RDS account password, generates stable secrets, reuses only the private SMTP profile, and records the selected runtime-file path in `.env.deploy.local` without printing secret values.
@@ -69,8 +64,7 @@ For every `test` deployment, use `scripts/deploy-test-local-build.ps1`; do not i
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\.agents\skills\quiztestdemo-deploy\scripts\deploy-test-local-build.ps1 `
   -Scope <frontend|backend|all> `
-  -Branch <confirmed-branch> `
-  [-EmailReport]
+  -Branch <confirmed-branch>
 ```
 
 The script rejects a dirty worktree, an unpushed commit, a dirty server worktree, a non-fast-forward source update, or any artifact manifest/checksum mismatch. It builds artifacts from the selected commit:
@@ -83,9 +77,9 @@ Local dependency installation and both builds run in a temporary detached Git wo
 
 Before creating that worktree, the orchestrator uploads the guarded runner and executes `DEPLOY_PREFLIGHT_ONLY=true`. This validates the selected runtime environment, expected database, repository existence and repository cleanliness before local dependency installation or builds begin. A failed target preflight must stop without building or changing the server checkout.
 
-For `scope=all`, the isolated API and frontend dependency-install/build tasks run in parallel. Successfully packaged archives are cached under the Git-ignored `.private/deployment-cache/test/v1/` directory using the exact Commit, scope, Node.js version and npm version. A retry of the same build identity may reuse the cache only after rechecking every archive SHA-256; any missing field, version mismatch or checksum mismatch is a cache miss and triggers a clean rebuild. The deployment manifest is always regenerated for the current branch and deployment attempt.
+For `scope=all`, the isolated API and frontend dependency-install/build tasks run in parallel. Successfully packaged archives are cached under the Git-ignored `.private/deployment-cache/test/v1/` directory using the exact Commit, scope, Node.js version and npm version. A retry of the same build identity may reuse the cache only after rechecking every archive SHA-256; any missing field, version mismatch or checksum mismatch is a cache miss and triggers a clean rebuild. After the current artifact is ready, run `prune-test-artifact-cache.ps1` and keep only the five most recently used Commit directories across all scopes. The deployment manifest is always regenerated for the current branch and deployment attempt.
 
-Both the local orchestrator and remote runner emit machine-readable `local_timing` / `remote_timing` lines for major stages. Preserve these lines in the sanitized HTML report so slow builds, uploads, backups, migration checks and validations can be distinguished without retaining raw temporary evidence.
+Both the local orchestrator and remote runner emit machine-readable `local_timing` / `remote_timing` lines for major stages. Use them during the active deployment to diagnose slow builds, uploads, backups, migration checks and validations; remove them with the transient evidence after recording the concise result.
 
 The remote runner validates the uploaded manifest and archive checksums before updating the server Git checkout. A malformed, mismatched or corrupt artifact must therefore fail before repository mutation, migration, runtime sync or PM2 reload.
 
@@ -100,17 +94,14 @@ High-level production scripted flow:
 1. Load `.env.deploy.local` and resolve the selected production environment keys from `references/environments.md`.
 2. Verify the selected SSH key exists and run a read-only identity check against that environment's host.
 3. Create a unique remote directory such as `/tmp/quiz-deploy-YYYYMMDD-HHMMSS`.
-4. Upload `remote-deploy.sh`, `check-prisma-migrations.sh`, `check-runtime-config.sh`, `backup-rds-runtime.sh`, `verify-request-id.sh`, and `collect-report.sh` into that directory with `scp`.
+4. Upload `remote-deploy.sh`, `check-prisma-migrations.sh`, `check-runtime-config.sh`, `backup-rds-runtime.sh`, and `verify-request-id.sh` into that directory with `scp`.
 5. Execute `bash /tmp/quiz-deploy-*/remote-deploy.sh <environment> <scope> <branch> <expected-database>` on the selected server.
-6. Execute `bash /tmp/quiz-deploy-*/collect-report.sh <environment> <scope> <branch> <expected-database> <public-url>` and save the output only under the matching local `.tmp/quiz-deploy-<timestamp>` directory.
-7. Run public checks against the selected environment URL and save their outputs only under that same directory.
-8. For backend or all, verify at least one database-dependent GET endpoint and save the response; also save `verify-request-id.sh` output or equivalent PM2 log evidence.
-9. For `backend` or `all` deployment, `remote-deploy.sh` must run `backup-rds-runtime.sh before_deploy <stamp> <environment>` before `prisma migrate deploy`.
-10. Write the sanitized deployment record to the document selected by `references/environments.md` and run `node scripts/generate-report.cjs --environment <environment> ... --deployment-doc <deployment-doc>` to write the detailed HTML report under the ignored local `.private/deployment-reports/` directory.
-11. Treat report generation and cleanup as a `finally` phase for every outcome: success, partial success, failure, or an interrupted/retried deployment. Save the normal HTML report first; if normal generation fails, let `cleanup-transient.ps1` create a minimal sanitized failure report.
-12. Run `cleanup-transient.ps1` with the confirmed environment, exact local evidence directory, exact remote directory, report path, and final result. The script must delete both raw-evidence directories and must reject paths outside the timestamped deployment locations.
-13. Do not leave deploy logs, copied responses, uploaded scripts, Git bundles, built assets, screenshots, or ad hoc repair scripts below `.tmp/` after the finalizer. `.tmp/` is a scratch area, is Git-ignored, and must never be staged or committed.
-14. When the user confirmed email notification, send the generated report after its final result is known. Email failure must not change a successful deployment result.
+6. Run public checks against the selected environment URL and save their outputs only under the matching local `.tmp/quiz-deploy-<timestamp>` directory while validation is active.
+7. For backend or all, verify at least one database-dependent GET endpoint and save the response; also save `verify-request-id.sh` output or equivalent PM2 log evidence.
+8. For `backend` or `all` deployment, `remote-deploy.sh` must run `backup-rds-runtime.sh before_deploy <stamp> <environment>` before `prisma migrate deploy`.
+9. Write the concise deployment record to the document selected by `references/environments.md`. Do not generate HTML reports and do not send deployment-report email.
+10. Run `cleanup-transient.ps1` with the confirmed environment, exact local evidence directory, and exact remote directory. The script must delete both raw-evidence directories and reject paths outside the timestamped deployment locations.
+11. Do not leave deploy logs, copied responses, uploaded scripts, Git bundles, built assets, screenshots, or ad hoc repair scripts below `.tmp/` after the finalizer. `.tmp/` is a scratch area, is Git-ignored, and must never be staged or committed.
 
 ## New ECS Bootstrap
 
@@ -123,7 +114,7 @@ Use this flow only when the selected ECS is a newly created host without the sta
 5. Provision `/opt/quiz/api/.env` through a private runtime-config file or a verified migration from the existing environment. For a new environment, run `scripts/provision-runtime-env.ps1` locally with the selected ECS host, SSH key and public URL; it asks locally for the RDS endpoint/account/password and creates the file referenced by `*_RUNTIME_ENV_FILE`. Upload that file with owner `deploy` and mode `0600` only when the remote runtime file does not yet exist. The file must contain the selected `API_RUNTIME_ENV`, selected RDS database URL, stable `JWT_SECRET` and `EMAIL_CODE_SECRET`, SMTP settings, and the selected frontend/CORS URL. Never paste, print, commit or reconstruct credentials from placeholders.
 6. For a new **test** ECS, run `ops/scripts/quiz-nginx-bootstrap.sh test /opt/quiz/repo` as root. It installs the versioned HTTP-only test site only when no QuizTestDemo Nginx site exists. For production, use the separately approved TLS/Nginx process.
 7. Run `install-ops-baseline.sh <environment>` as root only after the repository checkout exists, then reconnect as `deploy` and run the normal guarded deployment. `remote-deploy.sh` starts `quiz-api` from the versioned PM2 template on its first backend deployment and reloads it thereafter.
-8. Run the complete validation, report and transient cleanup phases. Record the first deployment, runtime-config migration source, and any rollback path without recording secret values or real addresses in tracked documentation.
+8. Run the complete validation, concise documentation and transient cleanup phases. Record the first deployment, runtime-config migration source, and any rollback path without recording secret values or real addresses in tracked documentation.
 
 Missing private runtime configuration remains a hard stop. A new server may be initialized, but it must not be treated as a working test or production environment until `validate:runtime` and the database/SMTP checks pass.
 
@@ -142,10 +133,10 @@ Missing private runtime configuration remains a hard stop. A new server may be i
 - Do not use `db push` during routine deployment. Use it only when the user explicitly asks for an emergency/schema-repair operation in the current conversation, and record it in deployment docs.
 - Before backend or all deployment, run the bundled `check-prisma-migrations.sh`. For MySQL, it validates Prisma schema and runs `migrate diff` only when `SHADOW_DATABASE_URL` is configured; otherwise `migrate deploy` is the authoritative migration gate.
 - If the diff contains executable schema changes, stop deployment and tell the user a proper migration must be created and committed before production deployment.
-- If `npx prisma migrate deploy` fails because production already contains a table/column from a prior manual `db push`, do not resolve blindly. Inspect the production table/index structure against the failed migration. Use `migrate resolve --applied` only when the existing production structure matches the migration exactly enough to make it a metadata repair, and record the repair in the report.
+- If `npx prisma migrate deploy` fails because production already contains a table/column from a prior manual `db push`, do not resolve blindly. Inspect the production table/index structure against the failed migration. Use `migrate resolve --applied` only when the existing production structure matches the migration exactly enough to make it a metadata repair, and record the repair in the deployment document.
 - Avoid complex inline scripts through PowerShell SSH quoting. Prefer local temp file plus `scp`, then execute on the server.
 - Do not write reusable deployment logic as one-off files under `.tmp/`. Add reusable, environment-neutral behavior to this Skill or versioned `ops/` assets, then validate it before removing the scratch implementation.
-- Do not preserve raw temporary evidence for later manual review. The ignored HTML report and concise tracked deployment note are the durable records. If deeper debugging is still required, finish that debugging before running the mandatory finalizer.
+- Do not preserve raw temporary evidence for later manual review. The concise tracked deployment note is the durable record. If deeper debugging is still required, finish that debugging before running the mandatory finalizer.
 - If SSH fails because the public key was removed, ask the user to re-add a temporary public key.
 - Do not fall back from `prod` to `test`, or vice versa, after a failed connection.
 
@@ -192,53 +183,11 @@ If frontend was deployed, check the public homepage returns `200 OK`.
 
 If backend was deployed, check PM2 shows `quiz-api` as `online`.
 
-## Deployment Report
+## Deployment Records
 
-After every completed deployment, generate a standalone HTML report and save it under the git-ignored local `.private/deployment-reports/` directory.
+Do not generate standalone HTML reports and do not send deployment-report email. Use transient logs only while the current deployment is being validated, then remove them through the mandatory finalizer.
 
-Do not place detailed reports in tracked documentation directories. Send them only when the current deployment preflight explicitly selected email notification.
-
-Write the HTML report as a release brief for product, operations, and management readers. Lead with the feature/release title from the newest environment deployment record, then show:
-
-- deployment result, environment, scope, branch, final commit, time, and total duration
-- a concise natural-language summary of the released feature or change
-- deployed modules and the newest deployment record's verification highlights
-- pass/attention states for homepage, API health, PM2, database read, Prisma migrations, and Request ID traceability
-- summarized server capacity, memory, load, backup count/latest time, and environment guard result
-- friendly deployment stage names and durations
-- only actual risks, failure reason, and actionable follow-up items
-
-Never render terminal output, command invocations, PowerShell stack traces, curl progress meters, server directory trees, backup filenames, raw HTTP bodies, PM2 tables, or complete deployment logs in the HTML report or email body. Use those inputs only to derive concise status and metrics. When a deployment fails, include the failed stage and one sanitized reason instead of the full log.
-
-Pass `--environment <test|prod>` to `generate-report.cjs` and name the output `quiztestdemo-<environment>-deploy-<timestamp>.html`. Use `references/quiztestdemo-ecs.md` for exact collection commands.
-
-## Email Notification
-
-Ask for `send` or `skip` during every deployment preflight. A previous deployment choice is not reusable authorization.
-
-Use the full sanitized HTML deployment report as the email body. The default subjects are:
-
-- `【测试环境】AceMock 部署报告（成功|部分成功|失败）`
-- `【生产环境】AceMock 部署报告（成功|部分成功|失败）`
-
-For test deployments, pass `-EmailReport` only after the user selected `send`. The orchestrator sends success and failure reports after the result is known and reports mail errors separately.
-
-For production deployments, after report generation and transient cleanup, run:
-
-```powershell
-node ".agents\skills\quiztestdemo-deploy\scripts\send-deployment-report.cjs" `
-  --report ".private\deployment-reports\quiztestdemo-prod-deploy-<timestamp>.html" `
-  --environment prod `
-  --result <success|partial|failed> `
-  --scope <frontend|backend|all> `
-  --branch <confirmed-branch>
-```
-
-Use SMTP for the post-deploy automatic step. If the configured transport is Agently, follow its confirmation-token flow and do not claim the message was sent before the confirmed call succeeds.
-
-Configure the sender, recipient, SMTP host, account, and authorization code only through `.env.deploy.local` or process environment variables. The send script must not contain fallback addresses or accounts. Keep `.env.deploy.local` git-ignored; do not write SMTP passwords, authorization codes, personal addresses, or recipients into Git, skill files, reports, or deployment logs.
-
-Email delivery is a notification side effect, not part of deployment correctness. If sending fails, preserve the deployment result and local HTML report, report the failure, and do not repeat the send without fresh confirmation.
+Keep one concise tracked Markdown record for each completed deployment. Summarize the result, target, deployed Commit, backups, migrations, validations, retries and actionable risks without copying raw logs or sensitive infrastructure values.
 
 ## Documentation
 
@@ -249,7 +198,7 @@ After every completed deployment, write a concise dated note to the selected env
 
 Production domain/HTTPS-only validation belongs under section one of the same document. Production security, backup, or other server-operational changes belong under section three. Do not add execution records back to `5.5 线上环境部署方案.md`.
 
-Include the environment, scope, branch, commit, backup manifest, migrations, validation results, and any interrupted/retried step. Do not put real hosts, database names, local paths, email addresses, or secrets in tracked deployment documents; keep full operational details only in ignored local reports.
+Include the environment, scope, branch, commit, backup manifest, migrations, validation results, and any interrupted/retried step. Do not put real hosts, database names, local paths, email addresses, secrets, command transcripts or raw responses in tracked deployment documents.
 
 Explicitly call out these events when they occur:
 

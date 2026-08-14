@@ -2,7 +2,7 @@
 
 ## Required Inputs and Environment
 
-Collect `environment` (`test` or `prod`), `scope` (`frontend`, `backend`, or `all`), the Git branch, and the per-deployment report-email choice (`send` or `skip`) before running commands.
+Collect `environment` (`test` or `prod`), `scope` (`frontend`, `backend`, or `all`), and the Git branch before running commands.
 
 Load host, SSH user, key path, URL, and database from the git-ignored `.env.deploy.local` according to `environments.md`. Never infer, combine, or commit environment values.
 
@@ -116,11 +116,10 @@ For `test`, run the local artifact orchestrator instead of manually uploading an
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\.agents\skills\quiztestdemo-deploy\scripts\deploy-test-local-build.ps1 `
   -Scope <frontend|backend|all> `
-  -Branch <branch> `
-  [-EmailReport]
+  -Branch <branch>
 ```
 
-It performs test-environment preflight, local builds, source bundle/artifact upload, guarded server activation, validation, report generation and cleanup. It rejects dirty or unpushed source. The test server only installs `--omit=dev` runtime dependencies after API package files change, plus Prisma generation/migration and process reload.
+It performs test-environment preflight, local builds, source bundle/artifact upload, guarded server activation, validation and cleanup. It rejects dirty or unpushed source. The test server only installs `--omit=dev` runtime dependencies after API package files change, plus Prisma generation/migration and process reload. After artifact preparation, the local cache keeps only the five most recently used Commit directories.
 
 For `prod`, use the server-build outline below.
 
@@ -134,28 +133,11 @@ $localDir = Join-Path (Get-Location) ".tmp\quiz-deploy-$Environment-$stamp"
 New-Item -ItemType Directory -Force -Path $localDir | Out-Null
 
 ssh -i $SshKey -o IdentitiesOnly=yes $Target "mkdir -p $remoteDir"
-scp -i $SshKey -o IdentitiesOnly=yes "$skill\scripts\remote-deploy.sh" "$skill\scripts\check-prisma-migrations.sh" "$skill\scripts\check-runtime-config.sh" "$skill\scripts\backup-rds-runtime.sh" "$skill\scripts\verify-request-id.sh" "$skill\scripts\collect-report.sh" "${Target}:$remoteDir/"
+scp -i $SshKey -o IdentitiesOnly=yes "$skill\scripts\remote-deploy.sh" "$skill\scripts\check-prisma-migrations.sh" "$skill\scripts\check-runtime-config.sh" "$skill\scripts\backup-rds-runtime.sh" "$skill\scripts\verify-request-id.sh" "${Target}:$remoteDir/"
 ssh -i $SshKey -o IdentitiesOnly=yes $Target "bash $remoteDir/remote-deploy.sh $Environment $Scope $Branch $ExpectedDatabase"
-ssh -i $SshKey -o IdentitiesOnly=yes $Target "bash $remoteDir/collect-report.sh $Environment $Scope $Branch $ExpectedDatabase $PublicUrl"
 ```
 
-Save deployment logs, server report output, public homepage headers, and public health output under local `.tmp/`, then generate the final HTML report under the ignored `.private/deployment-reports/` directory:
-
-```powershell
-node "$skill\scripts\generate-report.cjs" `
-  --environment $Environment `
-  --scope $Scope `
-  --branch $Branch `
-  --result success `
-  --deploy-log .tmp\quiz-deploy-<stamp>-deploy.log `
-  --server-report .tmp\quiz-deploy-<stamp>-server-report.log `
-  --public-home .tmp\quiz-deploy-<stamp>-public-home.log `
-  --public-health .tmp\quiz-deploy-<stamp>-public-health.log `
-  --database-read .tmp\quiz-deploy-<stamp>-database-read.log `
-  --request-id-runtime .tmp\quiz-deploy-<stamp>-request-id-runtime.log `
-  --deployment-doc $DeploymentDoc `
-  --output ".private\deployment-reports\quiztestdemo-$Environment-deploy-$stamp.html"
-```
+Save validation output only under the timestamped local `.tmp/` directory while the deployment is active. Summarize the final result in the tracked environment deployment document, then remove local and remote transient evidence. Do not generate or email an HTML report.
 
 The remote runner exits with status `49` before Git changes when the selected environment does not match `API_RUNTIME_ENV` or the configured database name. Never edit the server `.env` to bypass this guard.
 
@@ -221,7 +203,7 @@ If `npx prisma migrate deploy` fails because production already has a table or c
 1. Stop the deployment.
 2. Inspect the failed migration SQL and production structure.
 3. Use `npx prisma migrate resolve --applied <migration_name>` only when the production structure already matches that migration.
-4. Record the metadata repair in the HTML deployment report and the selected environment's deployment document.
+4. Record the metadata repair in the selected environment's deployment document.
 
 ## Frontend Deploy
 
@@ -271,59 +253,7 @@ Expected health response:
 {"success":true,"code":0,"errMsg":"","data":{"status":"ok"}}
 ```
 
-## Deployment Report Collection
-
-After validation, collect report data. Prefer one SSH command with simple shell commands, avoiding complex quoting.
-
-Recommended server command:
-
-```bash
-echo '--- git ---'
-cd /opt/quiz/repo
-git branch --show-current
-git rev-parse --short HEAD
-git log -1 --format='%h %ci %s'
-
-echo '--- structure ---'
-find /opt/quiz -maxdepth 2 -type d | sort
-
-echo '--- timestamps ---'
-stat -c '%y %n' \
-  /opt/quiz/repo \
-  /opt/quiz/api/dist/index.js \
-  /opt/quiz/web/dist/index.html \
-  /opt/quiz/ecosystem.config.cjs \
-  /etc/nginx/sites-available/quiz \
-  /etc/nginx/sites-available/quiztestdemo 2>/dev/null || true
-
-echo '--- disk ---'
-df -h /
-du -sh /opt/quiz /opt/quiz/repo /opt/quiz/api /opt/quiz/web /opt/quiz/data /opt/quiz/backups 2>/dev/null || true
-
-echo '--- memory ---'
-free -h
-
-echo '--- cpu-load-uptime ---'
-uptime
-nproc
-
-echo '--- ports ---'
-ss -ltnp 2>/dev/null | grep -E ':80|:443|:3001' || true
-
-echo '--- pm2 ---'
-pm2 status --no-color
-
-echo '--- database ---'
-ls -lh /opt/quiz/backups 2>/dev/null || true
-echo 'runtime database: inspect the environment-labelled collect-report.sh output'
-```
-
-Public checks:
-
-```powershell
-curl.exe -I "$PublicUrl/"
-curl.exe -sS "$PublicUrl/api/health"
-```
+## Deployment Record and Cleanup
 
 Write the durable deployment record after the result is known:
 
@@ -332,66 +262,7 @@ Write the durable deployment record after the result is known:
 
 Include the environment, scope, branch, commit, backup manifest, migration result, validations, retries, and remaining risks. Keep actual hosts, database names, local paths, addresses, and raw server evidence out of tracked documents.
 
-## Deployment Report Email
-
-Confirm `send` or `skip` for every deployment. Show only the configured recipient count and masked address during confirmation. Use the full sanitized HTML report as the message body.
-
-For test, pass `-EmailReport` to the local artifact orchestrator only when `send` was confirmed. For production, send after report generation and cleanup.
-
-Sender command:
-
-```powershell
-node "$skill\scripts\send-deployment-report.cjs" `
-  --report ".private\deployment-reports\quiztestdemo-$Environment-deploy-$stamp.html" `
-  --environment $Environment `
-  --result <success|partial|failed> `
-  --scope $Scope `
-  --branch $Branch
-```
-
-Required authorization:
-
-- Configure `DEPLOY_REPORT_SMTP_HOST`, `DEPLOY_REPORT_SMTP_PORT`, `DEPLOY_REPORT_SMTP_USER`, `DEPLOY_REPORT_SMTP_PASS`, `DEPLOY_REPORT_FROM`, and `DEPLOY_REPORT_TO` in `.env.deploy.local`.
-- The send script automatically loads project-local `.env.deploy.local` before reading process environment variables.
-- The default subject is `【测试环境|生产环境】AceMock 部署报告（成功|部分成功|失败）`.
-- Keep `.env.deploy.local` git-ignored. Do not ask for, print, or store SMTP authorization codes, accounts, sender addresses, or recipients in Git, skill files, tracked reports, or deployment logs.
-
-Use SMTP for automatic post-deploy notification. Agently requires its normal two-stage confirmation. If email sending fails, keep the deployment result and generated report, note the mail failure in the final response, and do not retry without fresh confirmation.
-
-## Deployment Report Template
-
-Generate the standalone HTML report under the git-ignored local `.private/deployment-reports/` directory.
-
-```html
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8" />
-  <title>【测试环境】AceMock 部署报告</title>
-</head>
-<body>
-  <main>
-    <h1>AceMock 部署报告</h1>
-    <section>
-      <h2>一、部署内容</h2>
-      <p>记录部署范围、分支、Commit、后端/前端执行步骤。</p>
-    </section>
-    <section>
-      <h2>二、核心验证</h2>
-      <p>记录公网首页、公网 API、PM2、Prisma migration、RDS 状态。</p>
-    </section>
-    <section>
-      <h2>三、服务器状态</h2>
-      <p>记录目录、时间戳、磁盘、内存、CPU、端口监听。</p>
-    </section>
-    <section>
-      <h2>四、风险与后续</h2>
-      <p>记录 npm audit、HTTPS、备案、迁移风险等后续事项。</p>
-    </section>
-  </main>
-</body>
-</html>
-```
+Do not generate standalone HTML reports and do not send deployment-report email. Run `cleanup-transient.ps1` after the tracked note is complete so timestamped local and remote evidence is removed.
 
 ## Known Pitfalls
 

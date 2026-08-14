@@ -9,12 +9,6 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$RemoteDirectory,
 
-    [Parameter(Mandatory = $true)]
-    [string]$ReportPath,
-
-    [ValidateSet('success', 'partial', 'failed')]
-    [string]$Result = 'failed',
-
     [string]$EnvFile
 )
 
@@ -23,7 +17,6 @@ $ErrorActionPreference = 'Stop'
 # Resolve the repository root from this project-level Skill.
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..\..'))
 $transientRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRoot '.tmp'))
-$reportRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRoot '.private\deployment-reports'))
 
 # Read the private deployment configuration without printing any values.
 function Read-DotEnv {
@@ -86,35 +79,6 @@ if (-not $hostName -or -not $userName -or -not $keyPath) {
     throw "Missing ${prefix}_SSH_HOST, ${prefix}_SSH_USER, or ${prefix}_SSH_KEY in the deployment environment file."
 }
 $keyPath = (Resolve-Path -LiteralPath $keyPath).Path
-
-$resolvedReport = [System.IO.Path]::GetFullPath($ReportPath)
-$expectedReportPrefix = $reportRoot.TrimEnd('\') + '\'
-if (
-    -not $resolvedReport.StartsWith($expectedReportPrefix, [System.StringComparison]::OrdinalIgnoreCase) -or
-    [System.IO.Path]::GetExtension($resolvedReport) -ne '.html'
-) {
-    throw "Cleanup requires a saved HTML report below $reportRoot"
-}
-if (-not (Test-Path -LiteralPath $resolvedReport -PathType Leaf)) {
-    New-Item -ItemType Directory -Path (Split-Path -Parent $resolvedReport) -Force | Out-Null
-    $generatedAt = [System.Net.WebUtility]::HtmlEncode((Get-Date).ToString('yyyy-MM-dd HH:mm:ss zzz'))
-    $safeEnvironment = [System.Net.WebUtility]::HtmlEncode($Environment)
-    $safeResult = [System.Net.WebUtility]::HtmlEncode($Result)
-    $fallbackReport = @"
-<!doctype html>
-<html lang="zh-CN">
-<head><meta charset="utf-8"><title>QuizTestDemo 部署收尾报告</title></head>
-<body>
-<h1>QuizTestDemo 部署收尾报告</h1>
-<p>环境：$safeEnvironment</p>
-<p>结果：$safeResult</p>
-<p>生成时间：$generatedAt</p>
-<p>详细证据未能完整生成；临时证据已按安全清理规则移除。</p>
-</body>
-</html>
-"@
-    Set-Content -LiteralPath $resolvedReport -Value $fallbackReport -Encoding utf8
-}
 
 $resolvedLocalDirectory = Resolve-SafeTransientDirectory -Path $LocalDirectory
 if ($RemoteDirectory -notmatch '^/tmp/quiz-deploy-[0-9]{8}[-_][0-9]{6}$') {

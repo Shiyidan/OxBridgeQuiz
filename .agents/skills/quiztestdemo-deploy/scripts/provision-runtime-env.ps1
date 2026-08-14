@@ -29,6 +29,16 @@ function Read-PrivateKeyValue {
   return $null
 }
 
+# Normalize a plain address or display-name From value before enforcing the fixed sender role.
+function Get-MailboxAddress {
+  param([string]$Value)
+
+  if ($Value -match '<([^<>]+)>') {
+    return $Matches[1].Trim().ToLowerInvariant()
+  }
+  return $Value.Trim().ToLowerInvariant()
+}
+
 # Parse the local ignored deployment profile without displaying its sensitive values.
 function Read-PrivateProfile {
   param([string]$Path)
@@ -131,6 +141,25 @@ $mailFrom = Read-PrivateKeyValue -Values $profile -Names @('DEPLOY_REPORT_FROM')
 if (-not $smtpHost -or -not $smtpPort -or -not $smtpUser -or -not $smtpPassword -or -not $mailFrom) {
   throw 'Private deployment profile does not contain a complete reusable SMTP configuration.'
 }
+if ($smtpUser.ToLowerInvariant() -ne 'no-reply@mail.acemock.cn' -or (Get-MailboxAddress -Value $mailFrom) -ne 'no-reply@mail.acemock.cn') {
+  throw 'Transactional mail and deployment reports must use no-reply@mail.acemock.cn.'
+}
+
+$bulkSmtpHost = Read-PrivateKeyValue -Values $profile -Names @('QUIZ_BULK_SMTP_HOST')
+$bulkSmtpPort = Read-PrivateKeyValue -Values $profile -Names @('QUIZ_BULK_SMTP_PORT')
+$bulkSmtpSecure = Read-PrivateKeyValue -Values $profile -Names @('QUIZ_BULK_SMTP_SECURE')
+$bulkSmtpUser = Read-PrivateKeyValue -Values $profile -Names @('QUIZ_BULK_SMTP_USER')
+$bulkSmtpPassword = Read-PrivateKeyValue -Values $profile -Names @('QUIZ_BULK_SMTP_PASS')
+$bulkMailFrom = Read-PrivateKeyValue -Values $profile -Names @('QUIZ_BULK_MAIL_FROM')
+if (-not $bulkSmtpHost -or -not $bulkSmtpPort -or -not $bulkSmtpSecure -or -not $bulkSmtpUser -or -not $bulkSmtpPassword -or -not $bulkMailFrom) {
+  throw 'Private deployment profile does not contain a complete bulk SMTP configuration.'
+}
+if ($bulkSmtpSecure -notin @('true', 'false')) {
+  throw 'QUIZ_BULK_SMTP_SECURE must be true or false.'
+}
+if ($bulkSmtpUser.ToLowerInvariant() -ne 'news@mail.acemock.cn' -or (Get-MailboxAddress -Value $bulkMailFrom) -ne 'news@mail.acemock.cn') {
+  throw 'Bulk activity notifications must use news@mail.acemock.cn.'
+}
 
 $runtimeDirectory = Join-Path $env:USERPROFILE '.quiztestdemo\runtime'
 $runtimePath = Join-Path $runtimeDirectory "$Environment-api.env"
@@ -161,6 +190,12 @@ $overrides = @{
   SMTP_USER = $smtpUser
   SMTP_PASS = $smtpPassword
   MAIL_FROM = $mailFrom
+  BULK_SMTP_HOST = $bulkSmtpHost
+  BULK_SMTP_PORT = $bulkSmtpPort
+  BULK_SMTP_SECURE = $bulkSmtpSecure
+  BULK_SMTP_USER = $bulkSmtpUser
+  BULK_SMTP_PASS = $bulkSmtpPassword
+  BULK_MAIL_FROM = $bulkMailFrom
   CHINAUMS_ENABLED = 'false'
   CHINAUMS_ENV = 'test'
   PAYMENT_LIFECYCLE_ENABLED = 'false'
@@ -192,4 +227,4 @@ Set-PrivateProfileValues -Path $profilePath -Updates @{
   "${prefix}_RUNTIME_ENV_FILE" = $runtimePath
 }
 
-Write-Output "runtime_env=created environment=$Environment runtime_file=$runtimePath smtp=reused payment=disabled"
+Write-Output "runtime_env=created environment=$Environment runtime_file=$runtimePath transactional_smtp=fixed bulk_smtp=fixed payment=disabled"

@@ -437,6 +437,8 @@ if [[ "$SCOPE" == "backend" || "$SCOPE" == "all" ]]; then
     npx prisma migrate deploy
     npx prisma generate
     npm run build
+    step "production runtime dependency validation"
+    API_ENV_FILE="$API_RUNTIME/.env" npm run validate:runtime
   fi
 
   step "backend runtime sync"

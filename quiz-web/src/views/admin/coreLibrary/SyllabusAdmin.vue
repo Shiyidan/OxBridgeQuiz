@@ -22,7 +22,6 @@
         :data="syllabusList"
         :loading="loading"
         empty-text="暂无考纲，请点击右上角上传考纲"
-        max-height="var(--syllabus-table-max-height)"
       >
         <el-table-column label="序号" width="96" align="center" header-align="center">
           <template #default="{ $index }">{{ $index + 1 }}</template>

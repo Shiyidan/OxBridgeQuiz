@@ -16,7 +16,6 @@
         :loading="loading"
         :total="pagination.total"
         empty-text="暂无成本记录"
-        max-height="var(--revenue-table-max-height)"
         show-pagination
         @page-change="handlePageChange"
         @page-size-change="handlePageSizeChange"

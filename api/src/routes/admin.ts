@@ -251,6 +251,7 @@ adminRouter.get('/operation-logs', async (req, res) => {
     return
   }
 
+  // 关键词按完整标识精确匹配，避免短用户名同时命中其他人的邮箱或请求编号。
   const where: Prisma.OperationLogWhereInput = {
     ...(role && role !== 'all' ? { actorRoleSnapshot: role } : {}),
     ...(module ? { module } : {}),
@@ -262,11 +263,10 @@ adminRouter.get('/operation-logs', async (req, res) => {
     ...(keyword
       ? {
           OR: [
-            { actorNameSnapshot: { contains: keyword } },
-            { actorEmailSnapshot: { contains: keyword } },
-            { summary: { contains: keyword } },
-            { resourceId: { contains: keyword } },
-            { requestId: { contains: keyword } },
+            { actorNameSnapshot: { equals: keyword } },
+            { actorEmailSnapshot: { equals: keyword } },
+            { resourceId: { equals: keyword } },
+            { requestId: { equals: keyword } },
           ],
         }
       : {}),

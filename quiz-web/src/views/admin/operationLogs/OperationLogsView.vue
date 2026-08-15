@@ -36,7 +36,7 @@
           v-model="draftFilters.keyword"
           class="filter-keyword"
           clearable
-          placeholder="操作人、邮箱、对象 ID 或 Request ID"
+          placeholder="精确搜索操作人、邮箱、对象 ID 或 Request ID"
           @keyup.enter="applyFilters"
         />
         <el-select v-model="draftFilters.module" clearable placeholder="全部模块">
@@ -74,7 +74,6 @@
       :loading="loading"
       :total="pagination.total"
       empty-text="暂无操作记录"
-      max-height="var(--operation-log-table-height)"
       show-pagination
       @page-change="handlePageChange"
       @page-size-change="handlePageSizeChange"

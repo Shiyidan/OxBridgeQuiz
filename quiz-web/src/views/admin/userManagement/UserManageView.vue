@@ -14,7 +14,6 @@
         :loading="loading"
         :total="pagination.total"
         empty-text="暂无注册用户"
-        max-height="var(--um-table-max-height)"
         show-pagination
         @page-change="handlePageChange"
         @page-size-change="handlePageSizeChange"

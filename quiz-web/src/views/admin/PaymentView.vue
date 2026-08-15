@@ -129,7 +129,17 @@
           </el-select>
         </div>
 
-        <el-table v-loading="loadingReconciliation" :data="reconciliationItems" empty-text="暂无对账明细">
+        <AdminDataTable
+          v-model:page="reconciliationPagination.page"
+          v-model:page-size="reconciliationPagination.pageSize"
+          :data="reconciliationItems"
+          :loading="loadingReconciliation"
+          :total="reconciliationPagination.total"
+          empty-text="暂无对账明细"
+          show-pagination
+          @page-change="handleReconciliationPageChange"
+          @page-size-change="handleReconciliationPageSizeChange"
+        >
           <el-table-column label="对账日期" width="112">
             <template #default="{ row }">{{ row.run?.businessDate || '—' }}</template>
           </el-table-column>
@@ -175,14 +185,7 @@
               <span v-else class="operation-muted">{{ resolutionStatusText(row.resolutionStatus) }}</span>
             </template>
           </el-table-column>
-        </el-table>
-
-        <AppPagination
-          v-model:page="reconciliationPagination.page"
-          v-model:page-size="reconciliationPagination.pageSize"
-          :total="reconciliationPagination.total"
-          @change="loadReconciliationItems"
-        />
+        </AdminDataTable>
       </section>
 
       <section class="orders-card">
@@ -212,7 +215,17 @@
           </div>
         </div>
 
-        <el-table v-loading="loadingOrders" :data="orders" empty-text="暂无支付订单">
+        <AdminDataTable
+          v-model:page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :data="orders"
+          :loading="loadingOrders"
+          :total="pagination.total"
+          empty-text="暂无支付订单"
+          show-pagination
+          @page-change="handleOrderPageChange"
+          @page-size-change="handleOrderPageSizeChange"
+        >
           <el-table-column prop="orderNo" label="订单号" min-width="215" />
           <el-table-column label="用户" min-width="170">
             <template #default="{ row }">
@@ -266,14 +279,7 @@
               <span v-else-if="row.status === 'refunded'" class="operation-muted">已退款</span>
             </template>
           </el-table-column>
-        </el-table>
-
-        <AppPagination
-          v-model:page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          @change="loadOrders"
-        />
+        </AdminDataTable>
       </section>
     </main>
 
@@ -368,7 +374,11 @@
                 <p>当前模型尚未保存来源订单，以下按用户和考试类型关联，不作为精确归因凭证。</p>
               </div>
             </div>
-            <el-table :data="orderDetail.memberships" size="small" empty-text="没有关联权益记录">
+            <AdminDataTable
+              :data="orderDetail.memberships"
+              size="small"
+              empty-text="没有关联权益记录"
+            >
               <el-table-column prop="examType" label="考试" width="90" />
               <el-table-column label="套餐" width="110">
                 <template #default="{ row }">{{ row.plan === 'yearly' ? '年度' : '月度' }}</template>
@@ -379,7 +389,7 @@
               <el-table-column label="有效期" min-width="230">
                 <template #default="{ row }">{{ formatDateTime(row.startsAt) }} 至 {{ formatDateTime(row.endsAt) }}</template>
               </el-table-column>
-            </el-table>
+            </AdminDataTable>
           </section>
 
           <section class="detail-section">
@@ -440,7 +450,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import AppPagination from '@/components/AppPagination.vue'
+import AdminDataTable from '@/components/admin/AdminDataTable.vue'
 import {
   createAdminPaymentRefund,
   getAdminPaymentConfig,
@@ -729,6 +739,19 @@ async function loadOrders(): Promise<void> {
   }
 }
 
+// 切换支付订单页码后读取对应页数据。
+async function handleOrderPageChange(page: number): Promise<void> {
+  pagination.page = page
+  await loadOrders()
+}
+
+// 调整支付订单每页条数后回到第一页，并让页面高度随当前页数据自然展开。
+async function handleOrderPageSizeChange(pageSize: number): Promise<void> {
+  pagination.pageSize = pageSize
+  pagination.page = 1
+  await loadOrders()
+}
+
 // 订单详情由后台一次性聚合，避免抽屉为通知、退款和对账分别发起请求。
 async function loadOrderDetail(orderNo: string): Promise<void> {
   loadingOrderDetail.value = true
@@ -811,6 +834,19 @@ async function loadReconciliationItems(): Promise<void> {
   } finally {
     loadingReconciliation.value = false
   }
+}
+
+// 切换对账明细页码后读取对应页数据。
+async function handleReconciliationPageChange(page: number): Promise<void> {
+  reconciliationPagination.page = page
+  await loadReconciliationItems()
+}
+
+// 调整对账明细每页条数后回到第一页，完整展示当页明细。
+async function handleReconciliationPageSizeChange(pageSize: number): Promise<void> {
+  reconciliationPagination.pageSize = pageSize
+  reconciliationPagination.page = 1
+  await loadReconciliationItems()
 }
 
 // 切换异常处理状态时从第一页重新读取对应集合。

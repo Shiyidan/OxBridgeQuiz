@@ -42,7 +42,6 @@
         :loading="loading"
         :total="pagination.total"
         empty-text="暂无导入文件，请先导入符合 standard2 的 JSON 或 Markdown 文件"
-        max-height="var(--question-table-max-height)"
         show-pagination
         @page-change="changePage"
         @page-size-change="changePageSize"

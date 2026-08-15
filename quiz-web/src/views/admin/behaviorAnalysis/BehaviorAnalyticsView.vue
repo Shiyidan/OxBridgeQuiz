@@ -311,7 +311,6 @@
               :data="topActions"
               :loading="loading"
               empty-text="当前范围暂无学生关键行为"
-              max-height="560px"
             >
               <el-table-column label="行为" min-width="190">
                 <template #default="{ row }">

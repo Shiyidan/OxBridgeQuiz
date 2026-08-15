@@ -146,7 +146,6 @@
           :data="dailyDetailItems"
           :loading="loading"
           empty-text="当前范围暂无网站访问与注册数据"
-          max-height="480px"
         >
           <el-table-column prop="date" label="日期" min-width="130" />
           <el-table-column prop="uniqueIpCount" label="独立 IP" min-width="110" align="right" />

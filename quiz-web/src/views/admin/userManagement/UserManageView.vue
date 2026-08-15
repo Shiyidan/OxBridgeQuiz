@@ -79,15 +79,25 @@
         <el-table-column
           v-if="isSuperAdmin"
           label="操作"
-          width="120"
+          width="170"
           fixed="right"
           align="center"
           header-align="center"
         >
           <template #default="{ row }">
-            <button class="table-action-btn" type="button" @click.stop="openEditDialog(row)">
-              编辑
-            </button>
+            <div class="table-actions">
+              <button class="table-action-btn" type="button" @click.stop="openEditDialog(row)">
+                编辑
+              </button>
+              <button
+                v-if="row.role !== 'admin'"
+                class="table-action-btn table-action-btn--gift"
+                type="button"
+                @click.stop="openGiftDialog(row)"
+              >
+                赠送
+              </button>
+            </div>
           </template>
         </el-table-column>
       </AdminDataTable>
@@ -153,6 +163,80 @@
         <el-button type="primary" :loading="saving" @click="saveAccess">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="giftVisible"
+      title="赠送卡券"
+      width="520px"
+      append-to-body
+      destroy-on-close
+    >
+      <template v-if="giftingUser">
+        <p class="gift-dialog-description">目前支持赠送日卡；周卡和月卡仅作功能占位，暂不可选择。</p>
+        <div class="user-summary gift-user-summary">
+          <span>赠送给</span>
+          <strong>{{ giftingUser.username }}</strong>
+          <small>{{ giftingUser.email }}</small>
+        </div>
+
+        <div class="gift-card-options">
+          <div class="gift-card-option gift-card-option--disabled">
+            <el-checkbox :model-value="false" disabled aria-label="周卡暂不可赠送" />
+            <div class="gift-card-icon gift-card-icon--weekly" aria-hidden="true">周</div>
+            <div class="gift-card-copy">
+              <strong>周卡 <small>即将开放</small></strong>
+              <span>7 天有效期</span>
+            </div>
+            <el-input-number
+              :model-value="1"
+              :min="1"
+              disabled
+              controls-position="right"
+              aria-label="周卡赠送数量暂不可用"
+            />
+          </div>
+
+          <div class="gift-card-option">
+            <el-checkbox :model-value="true" disabled aria-label="当前赠送日卡" />
+            <div class="gift-card-icon gift-card-icon--daily" aria-hidden="true">日</div>
+            <div class="gift-card-copy">
+              <strong>日卡</strong>
+              <span>1 天有效期 · 启用后生成零元支付订单</span>
+            </div>
+            <el-input-number
+              v-model="giftQuantity"
+              :min="1"
+              :max="10"
+              controls-position="right"
+              aria-label="赠送日卡数量"
+            />
+          </div>
+
+          <div class="gift-card-option gift-card-option--disabled">
+            <el-checkbox :model-value="false" disabled aria-label="月卡暂不可赠送" />
+            <div class="gift-card-icon gift-card-icon--monthly" aria-hidden="true">月</div>
+            <div class="gift-card-copy">
+              <strong>月卡 <small>即将开放</small></strong>
+              <span>30 天有效期</span>
+            </div>
+            <el-input-number
+              :model-value="1"
+              :min="1"
+              disabled
+              controls-position="right"
+              aria-label="月卡赠送数量暂不可用"
+            />
+          </div>
+        </div>
+      </template>
+
+      <template #footer>
+        <el-button :disabled="giftSaving" @click="giftVisible = false">取消</el-button>
+        <el-button type="primary" :loading="giftSaving" @click="submitGift">
+          确认赠送
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -163,6 +247,7 @@ import { useAuthStore } from '@/stores/auth'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
 import {
   getUserListData,
+  giftUserCards,
   updateUserAccess,
   type UserItem,
   type UserMembershipItem,
@@ -177,6 +262,10 @@ const isSuperAdmin = computed(() => auth.user?.role === 'admin')
 const editVisible = ref(false)
 const saving = ref(false)
 const editingUser = ref<UserItem | null>(null)
+const giftVisible = ref(false)
+const giftSaving = ref(false)
+const giftingUser = ref<UserItem | null>(null)
+const giftQuantity = ref(1)
 const editForm = ref({
   role: 'student',
   examTypes: [] as string[],
@@ -210,7 +299,7 @@ function activeMemberships(user: UserItem) {
 }
 
 function planName(plan: string): string {
-  const map: Record<string, string> = { monthly: '月度', yearly: '年度' }
+  const map: Record<string, string> = { monthly: '月度', yearly: '年度', daily_gift: '日卡' }
   return map[plan] || plan
 }
 
@@ -345,6 +434,31 @@ function openEditDialog(user: UserItem): void {
     plan: activeItems[0]?.plan || 'monthly',
   }
   editVisible.value = true
+}
+
+// 赠送弹窗每次从一张日卡开始，避免沿用上一次批量数量造成误发。
+function openGiftDialog(user: UserItem): void {
+  giftingUser.value = user
+  giftQuantity.value = 1
+  giftVisible.value = true
+}
+
+// 确认赠送只发放待启用日卡；支付订单和会员权益由用户后续启用动作创建。
+async function submitGift(): Promise<void> {
+  if (!giftingUser.value) return
+  giftSaving.value = true
+  try {
+    const result = await giftUserCards(giftingUser.value.id, {
+      cardType: 'daily',
+      quantity: giftQuantity.value,
+    })
+    giftVisible.value = false
+    ElMessage.success(`已赠送 ${result.createdCount} 张日卡`)
+  } catch {
+    // 公共请求层统一展示后端业务错误。
+  } finally {
+    giftSaving.value = false
+  }
 }
 
 // 保存后以后端返回用户替换当前行，确保会员记录与列表展示一致。
@@ -536,6 +650,24 @@ onMounted(fetchUsers)
     color var(--duration-base) ease;
 }
 
+.table-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.table-action-btn--gift {
+  color: #5b4bd6;
+}
+
+.table-action-btn--gift:hover,
+.table-action-btn--gift:focus-visible {
+  border-color: #d8d2ff;
+  background: #f4f2ff;
+  color: #4936d1;
+}
+
 .table-action-btn:hover,
 .table-action-btn:focus-visible {
   border-color: var(--color-line);
@@ -566,6 +698,104 @@ onMounted(fetchUsers)
     color: var(--color-ink-soft);
     font-size: var(--text-sm);
   }
+}
+
+.gift-dialog-description {
+  margin: -2px 0 14px;
+  color: var(--color-ink-soft);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.gift-user-summary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 3px 12px;
+  margin-bottom: 14px;
+
+  span {
+    grid-row: 1 / 3;
+    color: var(--color-ink-muted);
+  }
+
+  small {
+    color: var(--color-ink-soft);
+    font-size: var(--text-xs);
+  }
+}
+
+.gift-card-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--color-line-soft);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.gift-card-options {
+  display: grid;
+  gap: 12px;
+}
+
+.gift-card-option--disabled {
+  background: #fafbfc;
+}
+
+.gift-card-option--disabled .gift-card-copy {
+  opacity: 0.68;
+}
+
+.gift-card-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  place-items: center;
+  border-radius: 7px;
+  background: #e8f6ee;
+  color: #237a50;
+  font-weight: 800;
+}
+
+.gift-card-icon--weekly {
+  background: #e9efff;
+  color: #3f63c8;
+}
+
+.gift-card-icon--monthly {
+  background: #f3e8fa;
+  color: #8a49a5;
+}
+
+.gift-card-copy {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+  min-width: 0;
+
+  strong {
+    color: var(--color-ink);
+    font-size: var(--text-base);
+  }
+
+  small {
+    margin-left: 5px;
+    color: var(--color-ink-muted);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  span {
+    color: var(--color-ink-soft);
+    font-size: var(--text-xs);
+  }
+}
+
+.gift-card-option :deep(.el-input-number) {
+  width: 110px;
 }
 
 :deep(.access-form .el-select) {

@@ -399,6 +399,7 @@ export async function runPaymentReconciliation(input: {
   })
   const { startAt, endAt } = businessDateValues(normalizedDate)
   const where: Prisma.PaymentOrderWhereInput = {
+    provider: 'chinaums',
     OR: [
       { createdAt: { gte: startAt, lt: endAt } },
       { paidAt: { gte: startAt, lt: endAt } },

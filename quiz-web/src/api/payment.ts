@@ -16,12 +16,12 @@ export interface PaymentOrder {
   id: string
   orderNo: string
   examTypes: string[]
-  plan: 'monthly' | 'yearly'
-  priceType: 'first_monthly' | 'monthly' | 'yearly'
+  plan: 'monthly' | 'yearly' | 'daily_gift' | 'weekly_reward'
+  priceType: 'first_monthly' | 'monthly' | 'yearly' | 'admin_gift' | 'invitation_reward'
   amountCents: number
   refundedAmountCents: number
   currency: string
-  channel: 'alipay' | 'wechat' | 'unionpay'
+  channel: 'alipay' | 'wechat' | 'unionpay' | 'admin_gift' | 'invitation_reward'
   status: string
   provider: string
   providerOrderNo: string | null

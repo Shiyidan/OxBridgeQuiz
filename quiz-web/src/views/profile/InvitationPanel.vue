@@ -9,7 +9,7 @@
     >
       <div v-if="overview" class="reward-progress">
         <strong>{{ overview.rewardedCount }}/{{ overview.rewardLimit }}</strong>
-        <span>已获得周卡</span>
+        <span>邀请奖励</span>
       </div>
     </ProfileModuleHeading>
 
@@ -22,11 +22,13 @@
     <template v-else-if="overview">
       <div class="invitation-content-grid">
         <div class="invitation-left-column">
-          <article class="invitation-card">
-            <div class="card-title-line">
+          <article class="invitation-card invitation-code-card">
+            <div class="card-title-line section-heading">
               <div class="invite-code-title">
-                <span>我的邀请码</span>
-                <strong>{{ overview.code || (overview.codeActive ? '尚未创建' : '已失效') }}</strong>
+                <h3>我的邀请码</h3>
+                <strong>{{
+                  overview.code || (overview.codeActive ? '尚未创建' : '已失效')
+                }}</strong>
               </div>
               <button
                 v-if="!overview.code && overview.codeActive"
@@ -49,14 +51,14 @@
               <p>同一邀请码可分享给多位新同学，每位同学首次有效支付最多触发一次奖励。</p>
             </template>
             <p v-else-if="!overview.codeActive" class="invitation-code-inactive">
-              已获得三张七天会员卡，邀请码已失效，不能继续分享或绑定。
+              已通过邀请好友获得三张七天会员卡，邀请码已失效，不能继续分享或绑定。
             </p>
           </article>
 
           <article class="invitation-card binding-card">
-            <div class="card-title-line">
+            <div class="card-title-line section-heading">
               <div>
-                <span>我的邀请关系</span>
+                <h3>我的邀请关系</h3>
                 <strong v-if="bindingTitle">{{ bindingTitle }}</strong>
               </div>
             </div>
@@ -82,48 +84,56 @@
               {{ bindingDescription }}
             </p>
           </article>
-
-          <div class="invitation-history">
-            <div class="section-heading">
-              <div>
-                <h3>邀请记录</h3>
-                <p>仅展示受邀账号的脱敏标识和奖励进度。</p>
-              </div>
-            </div>
-            <div v-if="overview.invitations.length" class="history-list">
-              <div v-for="item in overview.invitations" :key="item.id" class="history-row">
-                <div class="history-identity">
-                  <span>{{ item.invitee }}</span>
-                  <small>{{ formatTime(item.boundAt) }}</small>
-                </div>
-                <div class="history-progress-wrap">
-                  <el-steps
-                    class="invitation-progress"
-                    :active="relationCompletedStepCount(item.status, item.inviterRewardStatus)"
-                    finish-status="success"
-                    process-status="wait"
-                    align-center
-                  >
-                    <el-step v-for="step in INVITATION_PROGRESS_STEPS" :key="step" :title="step" />
-                  </el-steps>
-                  <small
-                    v-if="relationProgressNote(item.status, item.inviterRewardStatus)"
-                    class="history-progress-note"
-                  >
-                    {{ relationProgressNote(item.status, item.inviterRewardStatus) }}
-                  </small>
-                </div>
-              </div>
-            </div>
-            <div v-else class="reward-empty">还没有好友通过你的邀请码注册。</div>
-          </div>
         </div>
 
-        <div class="reward-section">
+        <div class="invitation-history">
+          <div class="section-heading">
+            <div>
+              <h3>邀请记录</h3>
+              <p>仅展示受邀账号的脱敏标识和奖励进度。</p>
+            </div>
+            <button
+              v-if="overview.invitations.length > 3"
+              type="button"
+              class="history-more-button"
+              @click="historyVisible = true"
+            >
+              查看更多
+            </button>
+          </div>
+          <div v-if="overview.invitations.length" class="history-list">
+            <div v-for="item in previewInvitations" :key="item.id" class="history-row">
+              <div class="history-identity">
+                <span>{{ item.invitee }}</span>
+                <small>{{ formatTime(item.boundAt) }}</small>
+              </div>
+              <div class="history-progress-wrap">
+                <el-steps
+                  class="invitation-progress"
+                  :active="relationCompletedStepCount(item.status, item.inviterRewardStatus)"
+                  finish-status="success"
+                  process-status="wait"
+                  align-center
+                >
+                  <el-step v-for="step in INVITATION_PROGRESS_STEPS" :key="step" :title="step" />
+                </el-steps>
+                <small
+                  v-if="relationProgressNote(item.status, item.inviterRewardStatus)"
+                  class="history-progress-note"
+                >
+                  {{ relationProgressNote(item.status, item.inviterRewardStatus) }}
+                </small>
+              </div>
+            </div>
+          </div>
+          <div v-else class="reward-empty">还没有好友通过你的邀请码注册。</div>
+        </div>
+
+        <div v-if="showRewards" class="reward-section">
           <div class="section-heading">
             <div>
               <h3>我的七天会员卡</h3>
-              <p>每人终身最多获得三张，邀请人与受邀人来源合并计算。</p>
+              <p>邀请好友最多获得三张；使用他人邀请码获得的受邀奖励另行计算。</p>
             </div>
           </div>
           <div v-if="overview.rewards.length" class="reward-list">
@@ -157,6 +167,7 @@
     </template>
 
     <el-dialog
+      v-if="showRewards"
       v-model="activationVisible"
       title="选择周卡适用考试"
       width="520px"
@@ -193,7 +204,9 @@
       </div>
       <template #footer>
         <template v-if="studyGoalExamTypes.length">
-          <el-button :disabled="activationSaving" @click="activationVisible = false">取消</el-button>
+          <el-button :disabled="activationSaving" @click="activationVisible = false"
+            >取消</el-button
+          >
           <el-button
             type="primary"
             :loading="activationSaving"
@@ -208,6 +221,44 @@
           <el-button type="primary" @click="handleEditStudyGoals">去完善备考目标</el-button>
         </template>
       </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="historyVisible"
+      title="更多邀请记录"
+      width="min(820px, calc(100vw - 32px))"
+      align-center
+      destroy-on-close
+      class="invitation-history-dialog"
+    >
+      <p class="history-dialog-description">
+        共 {{ overview?.invitations.length || 0 }} 条，仅展示受邀账号的脱敏标识和奖励进度。
+      </p>
+      <div v-if="overview?.invitations.length" class="history-list history-list--dialog">
+        <div v-for="item in overview.invitations" :key="item.id" class="history-row">
+          <div class="history-identity">
+            <span>{{ item.invitee }}</span>
+            <small>{{ formatTime(item.boundAt) }}</small>
+          </div>
+          <div class="history-progress-wrap">
+            <el-steps
+              class="invitation-progress"
+              :active="relationCompletedStepCount(item.status, item.inviterRewardStatus)"
+              finish-status="success"
+              process-status="wait"
+              align-center
+            >
+              <el-step v-for="step in INVITATION_PROGRESS_STEPS" :key="step" :title="step" />
+            </el-steps>
+            <small
+              v-if="relationProgressNote(item.status, item.inviterRewardStatus)"
+              class="history-progress-note"
+            >
+              {{ relationProgressNote(item.status, item.inviterRewardStatus) }}
+            </small>
+          </div>
+        </div>
+      </div>
     </el-dialog>
   </section>
 </template>
@@ -227,6 +278,7 @@ import {
 } from '@/api/invitations'
 import { useAuthStore } from '@/stores/auth'
 
+withDefaults(defineProps<{ showRewards?: boolean }>(), { showRewards: true })
 const emit = defineEmits<{ membershipChanged: []; editGoals: [] }>()
 const auth = useAuthStore()
 const overview = ref<InvitationOverview | null>(null)
@@ -239,6 +291,7 @@ const activationVisible = ref(false)
 const activationSaving = ref(false)
 const activationRewardId = ref('')
 const activationExamType = ref<'ESAT' | 'TMUA' | ''>('')
+const historyVisible = ref(false)
 const studyGoalExamTypes = computed(() =>
   (auth.memberContext?.studyPreferences.examTypes || []).filter(
     (examType): examType is 'ESAT' | 'TMUA' => examType === 'ESAT' || examType === 'TMUA',
@@ -250,6 +303,9 @@ const shareUrl = computed(() =>
     ? `${window.location.origin}/register?invite=${encodeURIComponent(overview.value.code)}`
     : '',
 )
+
+// 主面板固定展示最新三条记录，全部历史通过右上角入口查看。
+const previewInvitations = computed(() => overview.value?.invitations.slice(0, 3) || [])
 
 const bindingTitle = computed(() => {
   if (!overview.value) return ''
@@ -294,7 +350,10 @@ async function handleCreateCode(): Promise<void> {
 
 // 输入只保留大写字母和数字，避免粘贴空格造成无效提交。
 function handleBindingInput(value: string): void {
-  bindingDraft.value = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16)
+  bindingDraft.value = value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 16)
 }
 
 // 绑定不可撤销，确认后由服务端重新检查24小时期限、支付状态和并发绑定。
@@ -440,7 +499,8 @@ function relationCompletedStepCount(status: string, inviterRewardStatus: string 
 // 退款、邀请码失效和奖励失效属于正常三步之外的结果，单独保留提示避免步骤状态产生歧义。
 function relationProgressNote(status: string, inviterRewardStatus: string | null): string {
   if (status === 'refunded') return '订单已退款，奖励已撤回'
-  if (status === 'rewarded' && !inviterRewardStatus) return '邀请码失效前已绑定，本次不再发放邀请人周卡'
+  if (status === 'rewarded' && !inviterRewardStatus)
+    return '邀请码失效前已绑定，本次不再发放邀请人周卡'
   if (inviterRewardStatus === 'expired') return '邀请人奖励未按期启用，现已失效'
   return ''
 }
@@ -478,10 +538,24 @@ onMounted(loadOverview)
 .section-heading p,
 .invitation-card p,
 .activation-content p {
-  margin: 4px 0 0;
+  margin: 10px 0 0;
   color: #6f6a85;
   font-size: 12px;
   line-height: 1.45;
+}
+
+.history-more-button {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-color: #d8d2fa;
+  background: #f8f6ff;
+  color: #5b4bd6;
+  font-size: 12px;
+}
+
+.history-more-button:hover {
+  border-color: #9b91ef;
+  background: #f0edff;
 }
 
 .reward-progress {
@@ -518,7 +592,7 @@ onMounted(loadOverview)
 
 .invitation-left-column {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
   gap: 12px;
   min-width: 0;
 }
@@ -534,7 +608,7 @@ onMounted(loadOverview)
 
 .invitation-card {
   box-sizing: border-box;
-  padding: 12px 14px;
+  padding: 14px 14px 4px 14px;
 }
 
 .card-title-line span,
@@ -559,6 +633,11 @@ onMounted(loadOverview)
 
 .invite-code-title strong {
   margin-top: 0;
+}
+
+.binding-card .card-title-line strong {
+  font-size: 12px;
+  // font-weight: 600;
 }
 
 button {
@@ -608,11 +687,27 @@ button:disabled {
   padding: 14px;
 }
 
+.reward-section {
+  grid-column: 1 / -1;
+}
+
 .reward-list,
 .history-list {
   display: grid;
   gap: 10px;
   margin-top: 10px;
+}
+
+.history-list--dialog {
+  max-height: min(62vh, 560px);
+  padding-right: 6px;
+  overflow-y: auto;
+}
+
+.history-dialog-description {
+  margin: 0;
+  color: #777187;
+  font-size: 12px;
 }
 
 .reward-card {
@@ -624,11 +719,7 @@ button:disabled {
   background:
     radial-gradient(circle at 98% -8%, rgba(245, 161, 173, 0.5), transparent 35%),
     radial-gradient(circle at 4% 108%, rgba(151, 111, 237, 0.4), transparent 38%),
-    repeating-linear-gradient(
-      -34deg,
-      rgba(255, 255, 255, 0.06) 0 1px,
-      transparent 1px 7px
-    ),
+    repeating-linear-gradient(-34deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 7px),
     linear-gradient(120deg, #21183c 0%, #51306d 56%, #a44d62 100%);
   box-shadow: 0 12px 24px rgba(73, 38, 98, 0.22);
 }
@@ -894,8 +985,7 @@ button:disabled {
 }
 
 .activation-exam-switch :deep(.el-radio-button.is-active .el-radio-button__inner),
-.activation-exam-switch
-  :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
+.activation-exam-switch :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
   border-color: #8a7eeb !important;
   background: #eeebff !important;
   color: #5144ca !important;
@@ -927,6 +1017,10 @@ button:disabled {
   .reward-section,
   .invitation-history {
     height: auto;
+  }
+
+  .reward-section {
+    grid-column: auto;
   }
 
   .reward-card-action {

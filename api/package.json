@@ -13,6 +13,7 @@
     "backfill:questions": "tsx scripts/backfill-paper-questions.ts",
     "backfill:question-bank-order": "tsx scripts/backfill-question-bank-order.ts",
     "backfill:wrong-questions": "tsx scripts/backfill-wrong-question-summaries.ts",
+    "backfill:invitation-reward-orders": "tsx scripts/backfill-invitation-reward-orders.ts",
     "cleanup:legacy-temporary-practice": "tsx scripts/cleanup-legacy-temporary-practice.ts",
     "clear:dev-users": "tsx scripts/clear-dev-user-data.ts",
     "clear:local-user-content": "tsx scripts/clear-local-user-and-content-data.ts",

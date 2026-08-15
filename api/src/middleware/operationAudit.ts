@@ -73,6 +73,7 @@ const OPERATION_DEFINITIONS: OperationDefinition[] = [
   { method: 'POST', pattern: /^\/api\/admin\/payment-reconciliation\/items\/([^/]+)\/resolve$/, module: OPERATION_AUDIT_MODULE.PAYMENT, action: 'admin.payment_reconciliation.resolve', summary: '关闭支付异常', resourceType: 'PaymentReconciliationItem', resourceIdGroup: 1 },
   { method: 'PUT', pattern: /^\/api\/admin\/users\/([^/]+)\/role$/, module: OPERATION_AUDIT_MODULE.USER, action: 'admin.user.role.update', summary: '修改用户角色', resourceType: 'User', resourceIdGroup: 1 },
   { method: 'PUT', pattern: /^\/api\/admin\/users\/([^/]+)\/access$/, module: OPERATION_AUDIT_MODULE.USER, action: 'admin.user.access.update', summary: '修改用户权限', resourceType: 'User', resourceIdGroup: 1 },
+  { method: 'POST', pattern: /^\/api\/admin\/users\/([^/]+)\/gift-cards$/, module: OPERATION_AUDIT_MODULE.USER, action: 'admin.user.gift_cards.create', summary: '向用户赠送卡券', resourceType: 'User', resourceIdGroup: 1 },
   { method: 'POST', pattern: /^\/api\/admin\/revenue-costs$/, module: OPERATION_AUDIT_MODULE.REVENUE, action: 'admin.revenue_cost.create', summary: '新增成本记录', resourceType: 'RevenueCost' },
   { method: 'PUT', pattern: /^\/api\/admin\/revenue-costs\/([^/]+)$/, module: OPERATION_AUDIT_MODULE.REVENUE, action: 'admin.revenue_cost.update', summary: '修改成本记录', resourceType: 'RevenueCost', resourceIdGroup: 1 },
   { method: 'PUT', pattern: /^\/api\/papers\/([^/]+)$/, module: OPERATION_AUDIT_MODULE.PAPER, action: 'admin.paper.update', summary: '修改试卷', resourceType: 'Paper', resourceIdGroup: 1 },

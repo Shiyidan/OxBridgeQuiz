@@ -453,6 +453,11 @@ export interface UpdateUserAccessPayload {
   }
 }
 
+export interface GiftUserCardsPayload {
+  cardType: 'daily'
+  quantity: number
+}
+
 // ---- 成本管理 ----
 
 /** 成本列表 */
@@ -513,6 +518,15 @@ export function updateUserAccess(userId: string, data: UpdateUserAccessPayload) 
   return callApi<{ user: UserItem | null }>({
     url: `/admin/users/${userId}/access`,
     method: 'PUT',
+    body: data,
+  })
+}
+
+/** 向普通用户发放待启用日卡，启用后由后端生成内部支付订单和会员权益。 */
+export function giftUserCards(userId: string, data: GiftUserCardsPayload) {
+  return callApi<{ createdCount: number; rewardIds: string[]; grantedAt: string }>({
+    url: `/admin/users/${encodeURIComponent(userId)}/gift-cards`,
+    method: 'POST',
     body: data,
   })
 }

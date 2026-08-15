@@ -1,4 +1,4 @@
-// 邀请码服务级回归：验证限时绑定、首付双边待启用卡、30天失效、上限与退款撤回。
+// 邀请码服务级回归：验证限时绑定、双边周卡、管理员赠送日卡、分来源上限与退款撤回。
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import {
@@ -15,6 +15,7 @@ import {
   bindInvitationFromProfile,
   getInvitationOverview,
   getOrCreateInvitationCode,
+  grantAdminDailyCards,
   revokeInvitationRewardsForPaymentOrder,
   validateInvitationCode,
 } from '../src/services/invitation.js'
@@ -167,9 +168,21 @@ async function main(): Promise<void> {
     activatedInvitee.endsAt.getTime() - activatedInvitee.startsAt.getTime(),
     168 * 60 * 60 * 1000,
   )
+  const inviteeRewardOrder = await prisma.paymentOrder.findUniqueOrThrow({
+    where: { id: activatedInvitee.paymentOrderId! },
+  })
+  assert.equal(inviteeRewardOrder.plan, 'weekly_reward')
+  assert.equal(inviteeRewardOrder.priceType, 'invitation_reward')
+  assert.equal(inviteeRewardOrder.channel, 'invitation_reward')
+  assert.equal(inviteeRewardOrder.amountCents, 0)
+  assert.equal(inviteeRewardOrder.status, PAYMENT_ORDER_STATUS.PAID)
+  const activatedInviteeReward = await prisma.invitationReward.findUniqueOrThrow({
+    where: { id: inviteeReward.id },
+  })
+  assert.equal(activatedInviteeReward.triggerPaymentOrderId, order.id)
   overview = await getInvitationOverview(invitee.id)
   assert.equal(overview.rewards[0]?.status, INVITATION_REWARD_STATUS.ACTIVATED)
-  assert.equal(overview.rewardedCount, 1)
+  assert.equal(overview.rewardedCount, 0)
 
   const inviterReward = await prisma.invitationReward.findFirstOrThrow({
     where: {
@@ -181,6 +194,12 @@ async function main(): Promise<void> {
   const activated = await activateInvitationReward(inviter.id, inviterReward.id, 'ESAT')
   assert.equal(activated.examType, 'ESAT')
   assert.equal(activated.endsAt.getTime() - activated.startsAt.getTime(), 168 * 60 * 60 * 1000)
+  const inviterRewardOrder = await prisma.paymentOrder.findUniqueOrThrow({
+    where: { id: activated.paymentOrderId! },
+  })
+  assert.equal(inviterRewardOrder.plan, 'weekly_reward')
+  assert.equal(inviterRewardOrder.priceType, 'invitation_reward')
+  assert.equal(inviterRewardOrder.channel, 'invitation_reward')
 
   const expiredRewardOwner = await createUser('expired-reward')
   const expiredRewardRelation = await prisma.invitationRelation.create({
@@ -220,6 +239,49 @@ async function main(): Promise<void> {
     () => bindInvitationFromProfile(expiredInvitee.id, code.code),
     (error: unknown) =>
       error instanceof InvitationError && error.code === 'INVITATION_BINDING_EXPIRED',
+  )
+
+  // 用户通过邀请好友获得三张后，仍可领取此前绑定关系产生的一张受邀奖励，总卡数为四张。
+  const fourCardSource = await createUser('four-card-source')
+  const fourCardUser = await createUser('four-card-user')
+  const fourCardSourceCode = await getOrCreateInvitationCode(fourCardSource.id)
+  await bindInvitationFromProfile(fourCardUser.id, fourCardSourceCode.code)
+  const fourCardUserCode = await getOrCreateInvitationCode(fourCardUser.id)
+  for (let index = 0; index < 3; index += 1) {
+    const fixtureInvitee = await createUser(`four-card-invitee-${index}`)
+    const fixtureRelation = await prisma.invitationRelation.create({
+      data: {
+        inviterUserId: fourCardUser.id,
+        inviteeUserId: fixtureInvitee.id,
+        invitationCodeId: fourCardUserCode.id,
+        source: INVITATION_BINDING_SOURCE.PROFILE,
+        status: INVITATION_RELATION_STATUS.REWARDED,
+        rewardedAt: new Date(),
+      },
+    })
+    await prisma.invitationReward.create({
+      data: {
+        invitationRelationId: fixtureRelation.id,
+        userId: fourCardUser.id,
+        beneficiaryRole: INVITATION_REWARD_ROLE.INVITER,
+        status: INVITATION_REWARD_STATUS.ACTIVATED,
+        grantedAt: new Date(),
+      },
+    })
+  }
+  let fourCardOverview = await getInvitationOverview(fourCardUser.id)
+  assert.equal(fourCardOverview.rewardedCount, 3)
+  assert.equal(fourCardOverview.codeActive, false)
+  const fourCardOrder = await createPendingOrder(fourCardUser.id, 'ESAT')
+  await confirmPaidOrder(fourCardOrder)
+  fourCardOverview = await getInvitationOverview(fourCardUser.id)
+  assert.equal(fourCardOverview.rewardedCount, 3)
+  assert.equal(fourCardOverview.rewards.length, 4)
+  assert.equal(
+    fourCardOverview.rewards.filter(
+      (reward) => reward.beneficiaryRole === INVITATION_REWARD_ROLE.INVITEE,
+    ).length,
+    1,
   )
 
   // 在邀请码仍有效时先建立一条待支付关系，用于覆盖达到三张后的迟到支付。
@@ -293,6 +355,52 @@ async function main(): Promise<void> {
     0,
   )
 
+  // 管理员赠送时只创建待启用日卡，用户启用后才原子生成零元订单和 24 小时权益。
+  const giftRecipient = await createUser('admin-gift-recipient')
+  const ordersBeforeGift = await prisma.paymentOrder.count({ where: { userId: giftRecipient.id } })
+  const membershipsBeforeGift = await prisma.userMembership.count({ where: { userId: giftRecipient.id } })
+  const giftResult = await grantAdminDailyCards({
+    userId: giftRecipient.id,
+    operatorId: inviter.id,
+    quantity: 2,
+  })
+  assert.equal(giftResult.rewards.length, 2)
+  assert.equal(await prisma.paymentOrder.count({ where: { userId: giftRecipient.id } }), ordersBeforeGift)
+  assert.equal(await prisma.userMembership.count({ where: { userId: giftRecipient.id } }), membershipsBeforeGift)
+  const giftOverview = await getInvitationOverview(giftRecipient.id)
+  assert.equal(giftOverview.rewards.length, 2)
+  assert.ok(giftOverview.rewards.every((reward) => reward.sourceType === 'admin_gift'))
+  assert.ok(giftOverview.rewards.every((reward) => reward.durationHours === 24))
+
+  const activatedGift = await activateInvitationReward(
+    giftRecipient.id,
+    giftOverview.rewards[0]!.id,
+    'TMUA',
+  )
+  assert.equal(activatedGift.plan, 'daily_gift')
+  assert.equal(activatedGift.endsAt.getTime() - activatedGift.startsAt.getTime(), 24 * 60 * 60 * 1000)
+  const giftOrders = await prisma.paymentOrder.findMany({ where: { userId: giftRecipient.id } })
+  assert.equal(giftOrders.length, 1)
+  assert.equal(giftOrders[0]?.status, PAYMENT_ORDER_STATUS.PAID)
+  assert.equal(giftOrders[0]?.amountCents, 0)
+  assert.equal(giftOrders[0]?.provider, 'internal')
+  assert.equal(giftOrders[0]?.plan, 'daily_gift')
+  assert.equal(giftOrders[0]?.priceType, 'admin_gift')
+  assert.equal(giftOrders[0]?.channel, 'admin_gift')
+  assert.equal(
+    await prisma.invitationReward.count({
+      where: { userId: giftRecipient.id, beneficiaryRole: INVITATION_REWARD_ROLE.INVITER },
+    }),
+    0,
+  )
+  const giftInvitationSource = await createUser('admin-gift-invitation-source')
+  const giftInvitationCode = await getOrCreateInvitationCode(giftInvitationSource.id)
+  await bindInvitationFromProfile(giftRecipient.id, giftInvitationCode.code)
+  assert.equal(
+    (await getInvitationOverview(giftRecipient.id)).binding.reason,
+    'already_bound',
+  )
+
   await prisma.$transaction((tx) =>
     revokeInvitationRewardsForPaymentOrder(tx, order.id, new Date()),
   )
@@ -308,7 +416,9 @@ async function main(): Promise<void> {
 
   overview = await getInvitationOverview(inviter.id)
   assert.equal(overview.rewardedCount, 3)
-  console.log('Invitation binding, activation, expiry, code invalidation, and refund regression passed')
+  console.log(
+    'Invitation binding, admin gift activation, split limit, expiry, code invalidation, and refund regression passed',
+  )
 }
 
 main()

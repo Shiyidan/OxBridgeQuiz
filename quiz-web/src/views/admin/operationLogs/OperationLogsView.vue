@@ -258,6 +258,8 @@ const fieldLabels: Record<string, string> = {
   examPreferences: '备考偏好',
   role: '用户角色',
   memberships: '会员权益',
+  pendingDailyCardsAdded: '新增待启用日卡数量',
+  giftCardRewardIds: '生成卡券编号',
   firstMonthlyPriceCents: '首次月付价格（分）',
   monthlyPriceCents: '正常月付价格（分）',
   yearlyPriceCents: '年度价格（分）',

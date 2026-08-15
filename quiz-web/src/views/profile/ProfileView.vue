@@ -107,7 +107,7 @@
           />
 
           <div
-            class="membership-exam-switch"
+            class="membership-exam-switch profile-segment-tabs"
             :class="`membership-exam-switch--${currentExamType.toLowerCase()}`"
             role="tablist"
             aria-label="考试权益切换"
@@ -192,8 +192,12 @@
           </div>
         </section>
 
+        <CardWalletPanel
+          @membership-changed="handleInvitationMembershipChanged"
+          @edit-goals="handleInvitationEditGoals"
+        />
+
         <section
-          ref="profileTargetPanel"
           class="profile-target-panel"
           aria-labelledby="profile-target-title"
         >
@@ -205,30 +209,38 @@
             title-id="profile-target-title"
           >
             <button
-              v-if="!examEditing"
               type="button"
               class="profile-inline-action"
               @click="startEditExam"
             >
               <el-icon aria-hidden="true"><EditPen /></el-icon>编辑目标偏好
             </button>
-            <div v-else class="profile-target-edit-actions">
-              <button type="button" class="profile-target-cancel" @click="cancelEditExam">
-                取消
-              </button>
-              <button
-                type="button"
-                class="profile-target-save"
-                :disabled="examSaving"
-                @click="saveExam"
-              >
-                {{ examSaving ? '保存中...' : '保存修改' }}
-              </button>
-            </div>
           </ProfileModuleHeading>
 
-          <dl class="profile-target-list">
-            <div>
+          <StudyGoalOverview
+            :schools="profileTargetSchoolItems"
+            :majors="profileTargetMajorItems"
+            :exam-types="displayedTargetExamTypes"
+            :target-scores="profileTargetScores"
+            :weekly-hours="profileWeeklyHoursText"
+            :exam-date="profileExamDateText"
+          />
+
+          <el-dialog
+            v-model="examEditing"
+            class="profile-target-dialog"
+            title="编辑目标偏好"
+            width="700px"
+            align-center
+            destroy-on-close
+            :show-close="!examSaving"
+            :close-on-click-modal="!examSaving"
+            :close-on-press-escape="!examSaving"
+            @closed="cancelEditExam"
+          >
+            <p class="profile-target-dialog-intro">让学习计划更贴合您的升学目标</p>
+            <dl class="profile-target-list profile-target-list--editing">
+            <div class="profile-target-field">
               <dt>
                 <el-icon aria-hidden="true"><OfficeBuilding /></el-icon>目标院校层级
               </dt>
@@ -239,7 +251,7 @@
                   class="profile-target-row-select"
                   multiple
                   :multiple-limit="2"
-                  aria-label="目标院校层级"
+                  aria-label="目标院校"
                   placeholder="请选择目标院校"
                 >
                   <el-option
@@ -254,7 +266,7 @@
                 </template>
               </dd>
             </div>
-            <div>
+            <div class="profile-target-field">
               <dt>
                 <el-icon aria-hidden="true"><CollectionTag /></el-icon>目标专业方向
               </dt>
@@ -280,16 +292,16 @@
                 <div v-if="examEditing" class="profile-exam-editor">
                   <div class="profile-exam-type-group" role="group" aria-label="目标考试">
                     <button
-                    v-for="item in examTypes"
-                    :key="item.value"
-                    class="profile-exam-choice"
-                    :class="{
-                      'is-active': editExamTypes.includes(item.value),
-                      'is-unavailable': !item.available,
-                    }"
-                    type="button"
-                    :disabled="!item.available"
-                    @click="toggleProfileExamType(item.value)"
+                      v-for="item in examTypes"
+                      :key="item.value"
+                      class="profile-exam-choice"
+                      :class="{
+                        'is-active': editExamTypes.includes(item.value),
+                        'is-unavailable': !item.available,
+                      }"
+                      type="button"
+                      :disabled="!item.available"
+                      @click="toggleProfileExamType(item.value)"
                     >
                       {{ item.label }}
                       <small v-if="!item.available">推进中</small>
@@ -298,7 +310,13 @@
 
                   <div v-if="editExamTypes.length" class="profile-exam-subject-editor">
                     <section v-if="editExamTypes.includes('ESAT')">
-                      <span class="profile-exam-editor-label">ESAT（五选三）</span>
+                      <header class="profile-exam-subject-heading">
+                        <div>
+                          <strong>ESAT 备考科目</strong>
+                          <small>五项中恰好选择三项，数学1为必选项</small>
+                        </div>
+                        <span>已选 {{ editEsatSubjects.length }} / 3</span>
+                      </header>
                       <div class="profile-exam-subject-choices">
                         <button
                           v-for="subject in ESAT_SUBJECT_OPTIONS"
@@ -315,14 +333,51 @@
                           {{ subject }}
                         </button>
                       </div>
+                      <label class="profile-exam-target-score">
+                        <span>ESAT 目标分数</span>
+                        <el-input-number
+                          v-model="targetScoreDrafts.ESAT"
+                          class="profile-target-row-number"
+                          :min="1"
+                          :max="9"
+                          :step="0.1"
+                          :precision="1"
+                          controls-position="right"
+                          aria-label="ESAT 目标分数"
+                          placeholder="1.0-9.0"
+                        />
+                      </label>
                     </section>
 
                     <section v-if="editExamTypes.includes('TMUA')">
-                      <span class="profile-exam-editor-label">TMUA（固定科目）</span>
+                      <header class="profile-exam-subject-heading">
+                        <div>
+                          <strong>TMUA 备考科目</strong>
+                        </div>
+                        <span>两项均为必选</span>
+                      </header>
                       <div class="profile-exam-subject-choices">
-                        <span class="profile-exam-subject-choice is-active is-required">Paper 1</span>
-                        <span class="profile-exam-subject-choice is-active is-required">Paper 2</span>
+                        <span class="profile-exam-subject-choice is-active is-required"
+                          >Paper 1</span
+                        >
+                        <span class="profile-exam-subject-choice is-active is-required"
+                          >Paper 2</span
+                        >
                       </div>
+                      <label class="profile-exam-target-score">
+                        <span>TMUA 目标分数</span>
+                        <el-input-number
+                          v-model="targetScoreDrafts.TMUA"
+                          class="profile-target-row-number"
+                          :min="1"
+                          :max="9"
+                          :step="0.1"
+                          :precision="1"
+                          controls-position="right"
+                          aria-label="TMUA 目标分数"
+                          placeholder="1.0-9.0"
+                        />
+                      </label>
                     </section>
                   </div>
                   <span v-else class="profile-exam-editor-hint">选择考试后设置对应科目</span>
@@ -343,48 +398,11 @@
                     <span class="profile-subject-exam">TMUA</span>
                     <span>Paper 1、Paper 2</span>
                   </div>
-                  <span v-if="!displayedTargetExamTypes.length">
-                    尚未设置
-                  </span>
+                  <span v-if="!displayedTargetExamTypes.length"> 尚未设置 </span>
                 </div>
               </dd>
             </div>
-            <div v-if="targetScoreExamTypes.length">
-              <dt><el-icon aria-hidden="true"><Trophy /></el-icon>目标分数</dt>
-              <dd class="profile-target-score-content">
-                <template v-if="examEditing">
-                  <label
-                    v-for="examType in targetScoreExamTypes"
-                    :key="examType"
-                    class="profile-target-score-editor"
-                  >
-                    <span class="profile-subject-exam">{{ examType }}</span>
-                    <el-input-number
-                      v-model="targetScoreDrafts[examType]"
-                      class="profile-target-row-number"
-                      :min="1"
-                      :max="9"
-                      :step="0.1"
-                      :precision="1"
-                      controls-position="right"
-                      :aria-label="`${examType} 目标分数`"
-                      placeholder="1.0-9.0"
-                    />
-                  </label>
-                </template>
-                <template v-else>
-                  <div
-                    v-for="examType in targetScoreExamTypes"
-                    :key="examType"
-                    class="profile-target-score-display"
-                  >
-                    <span class="profile-subject-exam">{{ examType }}</span>
-                    <strong>{{ profileTargetScoreTexts[examType] }}</strong>
-                  </div>
-                </template>
-              </dd>
-            </div>
-            <div>
+            <div class="profile-target-field">
               <dt>
                 <el-icon aria-hidden="true"><Clock /></el-icon>每周可投入时长
               </dt>
@@ -405,7 +423,7 @@
                 </template>
               </dd>
             </div>
-            <div>
+            <div class="profile-target-field">
               <dt>
                 <el-icon aria-hidden="true"><Calendar /></el-icon>考试日期
               </dt>
@@ -429,11 +447,31 @@
                 </template>
               </dd>
             </div>
-          </dl>
+            </dl>
+            <template #footer>
+              <button
+                type="button"
+                class="profile-target-dialog-cancel"
+                :disabled="examSaving"
+                @click="cancelEditExam"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                class="profile-target-dialog-save"
+                :disabled="examSaving"
+                @click="saveExam"
+              >
+                {{ examSaving ? '保存中...' : '保存偏好' }}
+              </button>
+            </template>
+          </el-dialog>
         </section>
       </div>
 
       <InvitationPanel
+        :show-rewards="false"
         @membership-changed="handleInvitationMembershipChanged"
         @edit-goals="handleInvitationEditGoals"
       />
@@ -458,7 +496,7 @@
                 >{{ billingSummaryValue('totalSubscriptions')
                 }}<small v-if="billingOverview">项</small></strong
               >
-              <small>{{ subscribedExamTypesText }}</small>
+              <small>包含付费及已启用卡券</small>
             </div>
           </article>
           <article>
@@ -471,7 +509,7 @@
                 >{{ billingSummaryValue('activeEntitlements')
                 }}<small v-if="billingOverview">项</small></strong
               >
-              <small>当前生效会员权益</small>
+              <small>{{ activeEntitlementExamTypesText }}</small>
             </div>
           </article>
           <article>
@@ -572,20 +610,18 @@
                 <dd class="billing-order-number">{{ record.orderNo || '—' }}</dd>
               </div>
               <div>
-                <dt>创建时间</dt>
-                <dd>{{ formatDateTime(record.createdAt) }}</dd>
-              </div>
-              <div>
                 <dt>支付时间</dt>
                 <dd>{{ formatDateTime(record.paidAt) }}</dd>
               </div>
+              <div v-if="billingActionLabel(record)" class="billing-record-action">
+                <dt>操作</dt>
+                <dd>
+                  <button type="button" @click="handleBillingAction(record)">
+                    {{ billingActionLabel(record) }}
+                  </button>
+                </dd>
+              </div>
             </dl>
-
-            <footer v-if="billingActionLabel(record)">
-              <button type="button" @click="handleBillingAction(record)">
-                {{ billingActionLabel(record) }}
-              </button>
-            </footer>
           </article>
         </div>
         <div v-else class="billing-empty-state">
@@ -769,8 +805,10 @@ import {
 } from '@element-plus/icons-vue'
 import NavBar from '@/components/NavBar.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
-import InvitationPanel from '@/components/InvitationPanel.vue'
+import CardWalletPanel from './CardWalletPanel.vue'
+import InvitationPanel from './InvitationPanel.vue'
 import ProfileModuleHeading from '@/components/ProfileModuleHeading.vue'
+import StudyGoalOverview from './StudyGoalOverview.vue'
 import { getMember, updateStudyPreferences, type StudyPreferences } from '@/api/member'
 import { getProfileExamStats, type ProfileExamStats } from '@/api/exam'
 import { getBillingOverview, type BillingOverview, type PaymentOrder } from '@/api/payment'
@@ -795,6 +833,7 @@ import { getApiErrorMessage } from '@/utils/request'
 type BillingFilter = 'all' | 'active' | 'expired' | 'failed' | 'refund'
 type BillingStatus =
   | 'active'
+  | 'activated'
   | 'queued'
   | 'expired'
   | 'cancelled'
@@ -876,7 +915,6 @@ const profileIpLocationText = computed(() => {
 // 报考目标编辑
 const examEditing = ref(false)
 const examSaving = ref(false)
-const profileTargetPanel = ref<HTMLElement | null>(null)
 const editExamTypes = ref<string[]>([])
 const editTargetUniversities = ref<string[]>([])
 const editTargetMajor = ref('')
@@ -898,16 +936,12 @@ const EXAM_DATE_OPTIONS = [
 
 const examTypes = EXAM_TYPE_OPTIONS.filter((item) => item.available)
 type ScoreExamType = 'ESAT' | 'TMUA'
-const displayedTargetExamTypes = computed(() =>
-  examEditing.value
-    ? editExamTypes.value
-    : auth.memberContext?.studyPreferences.examTypes || [],
+const displayedTargetExamTypes = computed(
+  () => auth.memberContext?.studyPreferences.examTypes || [],
 )
 // 目标分数与考试类型一一对应，避免 ESAT 与 TMUA 的备考标准互相覆盖。
 const targetScoreExamTypes = computed<ScoreExamType[]>(() => {
-  const targetExamTypes = examEditing.value
-    ? editExamTypes.value
-    : displayedTargetExamTypes.value
+  const targetExamTypes = examEditing.value ? editExamTypes.value : displayedTargetExamTypes.value
   return targetExamTypes.filter(
     (examType): examType is ScoreExamType => examType === 'ESAT' || examType === 'TMUA',
   )
@@ -953,12 +987,10 @@ function toggleProfileEsatSubject(subject: string): void {
   else editEsatSubjects.value.push(subject)
 }
 
-// 进入编辑模式时把所有已保存偏好复制为当前卡片内的可撤销草稿。
+// 打开弹窗时把已保存偏好复制为独立草稿，关闭前不影响原页面展示。
 function startEditExam(): void {
   const preferences = auth.memberContext?.studyPreferences
-  editExamTypes.value = preferences?.examTypes.length
-    ? [...preferences.examTypes]
-    : []
+  editExamTypes.value = preferences?.examTypes.length ? [...preferences.examTypes] : []
   editTargetUniversities.value = preferences?.targetUniversities.length
     ? [...preferences.targetUniversities]
     : TARGET_UNIVERSITY_OPTIONS.slice(2, 4)
@@ -972,14 +1004,16 @@ function startEditExam(): void {
   examEditing.value = true
 }
 
-// 取消编辑时只退出草稿态，服务端已保存的会员上下文保持不变。
+// 关闭弹窗时清空本次草稿，服务端已保存的会员上下文保持不变。
 function cancelEditExam(): void {
+  editExamTypes.value = []
   editTargetUniversities.value = []
   editTargetMajor.value = ''
   editEsatSubjects.value = ['数学1']
   targetScoreDrafts.ESAT = undefined
   targetScoreDrafts.TMUA = undefined
   weeklyHoursDraft.value = 20
+  examDateDraft.value = EXAM_DATE_OPTIONS[0].value
   examEditing.value = false
 }
 
@@ -1036,8 +1070,8 @@ async function saveExam(): Promise<void> {
       targetUniversities: [...editTargetUniversities.value],
       targetMajor,
       targetScores: {
-        ESAT: editExamTypes.value.includes('ESAT') ? targetScoreDrafts.ESAT ?? null : null,
-        TMUA: editExamTypes.value.includes('TMUA') ? targetScoreDrafts.TMUA ?? null : null,
+        ESAT: editExamTypes.value.includes('ESAT') ? (targetScoreDrafts.ESAT ?? null) : null,
+        TMUA: editExamTypes.value.includes('TMUA') ? (targetScoreDrafts.TMUA ?? null) : null,
       },
       examDate: examDateDraft.value,
       weeklyHours: weeklyHoursDraft.value,
@@ -1075,29 +1109,32 @@ const activeMemberships = computed(() =>
 const hasActiveMembership = computed(() => activeMemberships.value.length > 0)
 // 个人中心只消费后端归一后的账户级偏好，不再自行聚合按考试兼容数据。
 const studyPreferences = computed(() => auth.memberContext?.studyPreferences)
-const profileTargetSchoolsText = computed(() => {
+// 概览卡片使用数组渲染独立标签，顶部身份卡再将同一数据合并为文本。
+const profileTargetSchoolItems = computed(() => {
   const schools = studyPreferences.value?.targetUniversities || []
-  return schools.length ? schools.join('、') : 'UCL、帝国理工、LSE'
+  return schools.length ? schools : ['UCL', '帝国理工', 'LSE']
 })
-const profileTargetMajorText = computed(
-  () => studyPreferences.value?.targetMajor || '数学与统计、计算机科学',
-)
-const profileEsatSubjectsText = computed(() => {
+const profileTargetSchoolsText = computed(() => profileTargetSchoolItems.value.join('、'))
+// 专业方向兼容中文、英文逗号及顿号分隔，确保长文本在概览中拆成独立标签。
+const profileTargetMajorItems = computed(() => {
+  const value = studyPreferences.value?.targetMajor || '数学与统计、计算机科学'
+  return value
+    .split(/[、,，]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+})
+const profileTargetMajorText = computed(() => profileTargetMajorItems.value.join('、'))
+const profileEsatSubjectItems = computed(() => {
   const subjects = studyPreferences.value?.esatSubjects || []
-  return subjects.length ? subjects.join('、') : '尚未设置'
+  return subjects.length ? subjects : []
 })
-// 目标分数按考试类型分别显示，未填写时保持明确占位，避免与诊断预估分混淆。
-const profileTargetScoreTexts = computed<Record<ScoreExamType, string>>(() => {
-  const targetScores = studyPreferences.value?.targetScores
-  return {
-    ESAT: targetScores?.ESAT === null || targetScores?.ESAT === undefined
-      ? '未设置'
-      : targetScores.ESAT.toFixed(1),
-    TMUA: targetScores?.TMUA === null || targetScores?.TMUA === undefined
-      ? '未设置'
-      : targetScores.TMUA.toFixed(1),
-  }
-})
+const profileEsatSubjectsText = computed(() =>
+  profileEsatSubjectItems.value.length ? profileEsatSubjectItems.value.join('、') : '尚未设置',
+)
+// 概览按考试展示已保存目标分数，空值交由子组件统一显示为未设置。
+const profileTargetScores = computed<Record<ScoreExamType, number | null>>(
+  () => studyPreferences.value?.targetScores || { ESAT: null, TMUA: null },
+)
 const profileWeeklyHoursText = computed(
   () => `${studyPreferences.value?.weeklyHours || 20} 小时/周`,
 )
@@ -1127,9 +1164,7 @@ const currentMembership = computed(() =>
 // 会员主标题只区分考试权益是否生效，具体付费周期留在账单记录中展示。
 const membershipPlanTitle = computed(() => {
   const membership = currentMembership.value
-  return membership
-    ? `${currentExamType.value}会员`
-    : `${currentExamType.value} 免费版`
+  return membership ? `${currentExamType.value}会员` : `${currentExamType.value} 免费版`
 })
 // 会员周期优先展示真实到期日，免费状态改为说明实际可用的诊断权益。
 const membershipPeriodText = computed(() => {
@@ -1206,11 +1241,17 @@ const billingRecords = computed<BillingRecord[]>(() => {
         )
       : undefined
     if (membership) matchedMembershipIds.add(membership.id)
+    const membershipStatus = membership ? normalizeBillingStatus(membership.status) : null
+    const activatedCardStatus = membership
+      && ['weekly_reward', 'daily_gift'].includes(membership.plan)
+      && ['active', 'queued'].includes(membershipStatus || '')
     const status =
       order.status === 'refunding' || order.status === 'refunded'
         ? normalizeBillingStatus(order.status)
+        : activatedCardStatus
+          ? 'activated'
         : membership
-          ? normalizeBillingStatus(membership.status)
+          ? membershipStatus || 'failed'
           : order.status === 'pending' && new Date(order.expiresAt).getTime() <= Date.now()
             ? 'closed'
             : normalizeBillingStatus(order.status)
@@ -1241,7 +1282,8 @@ const billingRecords = computed<BillingRecord[]>(() => {
 const filteredBillingRecords = computed(() => {
   const records = billingRecords.value.filter((record) => {
     if (billingFilter.value === 'all') return true
-    if (billingFilter.value === 'active') return ['active', 'queued', 'pending'].includes(record.status)
+    if (billingFilter.value === 'active')
+      return ['active', 'activated', 'queued', 'pending'].includes(record.status)
     if (billingFilter.value === 'expired') {
       return ['expired', 'cancelled', 'closed'].includes(record.status)
     }
@@ -1258,11 +1300,17 @@ function billingSummaryValue(
   if (!billingOverview.value) return '—'
   return String(billingOverview.value.summary[key])
 }
-// 已订阅考试类型只来自成功支付订单，后台授予权益不会被标记为付费订阅。
-const subscribedExamTypesText = computed(() => {
-  if (!billingOverview.value) return billingLoading.value ? '正在同步' : '暂无付费订阅'
-  const examTypes = billingOverview.value.summary.subscribedExamTypes
-  return examTypes.length ? `包含 ${examTypes.join(' / ')}` : '暂无付费订阅'
+// 当前生效考试按考试类型去重展示，避免把同一考试的多个权益周期重复写入说明。
+const activeEntitlementExamTypesText = computed(() => {
+  if (!billingOverview.value) return billingLoading.value ? '正在同步' : '暂无生效考试'
+  const examTypes = [
+    ...new Set(
+      billingOverview.value.memberships
+        .filter((membership) => membership.status === 'active')
+        .map((membership) => membership.examType),
+    ),
+  ]
+  return examTypes.length ? `当前生效 ${examTypes.join(' / ')} 考试` : '暂无生效考试'
 })
 // 累计实付由后端扣除退款金额后汇总，避免前端分页造成金额不完整。
 const billingNetPaidText = computed(() => {
@@ -1470,12 +1518,9 @@ async function handleInvitationMembershipChanged(): Promise<void> {
   if (memberResult.status === 'fulfilled') auth.setMemberContext(memberResult.value)
 }
 
-// 周卡缺少推荐依据时进入目标编辑，并把视口定位到个人中心的备考目标卡片。
+// 周卡缺少推荐依据时直接打开目标偏好弹窗，不再切换原页面为编辑态。
 function handleInvitationEditGoals(): void {
   startEditExam()
-  window.requestAnimationFrame(() => {
-    profileTargetPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  })
 }
 
 // 记录操作根据真实状态恢复待支付订单，或进入对应考试的重新购买流程。
@@ -1497,7 +1542,7 @@ function billingActionLabel(record: BillingRecord): string {
   if (record.kind === 'subscription') {
     if (record.planText === '管理员权益') return ''
     if (record.status === 'queued') return ''
-    return record.status === 'active' ? '续费' : '重新开通'
+    return ['active', 'activated'].includes(record.status) ? '续费' : '重新开通'
   }
   if (record.status === 'pending') return '继续支付'
   if (record.status === 'failed' || record.status === 'closed') return '重新支付'
@@ -1558,6 +1603,7 @@ function planName(plan: string): string {
   if (plan === 'monthly') return '月度版'
   if (plan === 'admin') return '管理员权益'
   if (plan === 'weekly_reward') return '七天邀请会员卡'
+  if (plan === 'daily_gift') return '一日赠送会员卡'
   return '免费版'
 }
 
@@ -1565,6 +1611,7 @@ function planName(plan: string): string {
 function normalizeBillingStatus(status: string): BillingStatus {
   const statuses: BillingStatus[] = [
     'active',
+    'activated',
     'queued',
     'expired',
     'cancelled',
@@ -1582,6 +1629,7 @@ function normalizeBillingStatus(status: string): BillingStatus {
 function billingStatusText(status: BillingStatus): string {
   const map: Record<BillingStatus, string> = {
     active: '进行中',
+    activated: '已启用',
     queued: '排队生效',
     expired: '已过期',
     cancelled: '已取消',
@@ -1611,6 +1659,7 @@ function membershipPlanText(plan: string): string {
   if (plan === 'monthly') return '月度套餐'
   if (plan === 'admin') return '管理员权益'
   if (plan === 'weekly_reward') return '七天邀请会员卡'
+  if (plan === 'daily_gift') return '一日赠送会员卡'
   return planName(plan)
 }
 
@@ -1621,6 +1670,10 @@ function paymentOrderTitle(order: PaymentOrder): string {
 
 // 套餐文案同时体现首月优惠，避免用户将优惠订单误解为普通月付。
 function paymentPlanText(order: Pick<PaymentOrder, 'plan' | 'priceType'>): string {
+  if (order.priceType === 'admin_gift' || order.plan === 'daily_gift') return '管理员赠送日卡'
+  if (order.priceType === 'invitation_reward' || order.plan === 'weekly_reward') {
+    return '邀请奖励周卡'
+  }
   if (order.priceType === 'first_monthly') return '月度套餐（首月优惠）'
   return order.plan === 'yearly' ? '年度套餐' : '月度套餐'
 }
@@ -1631,6 +1684,8 @@ function paymentChannelText(channel: PaymentOrder['channel']): string {
     alipay: '支付宝',
     wechat: '微信支付',
     unionpay: '银联支付',
+    admin_gift: '管理员赠送',
+    invitation_reward: '邀请奖励',
   }
   return map[channel]
 }
@@ -3543,9 +3598,9 @@ onBeforeUnmount(() => {
 
 .profile-dashboard-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: stretch;
-  gap: 16px;
+  gap: 18px;
   margin-top: 16px;
 }
 
@@ -3580,14 +3635,26 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 0;
-  border: 0;
-  background: transparent;
+  min-height: 36px;
+  padding: 0 13px;
+  border: 1px solid #ded9fa;
+  border-radius: 5px;
+  background: #faf9ff;
   color: var(--profile-lilac);
   font-family: inherit;
   font-size: 11px;
   font-weight: 680;
   cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.profile-inline-action:hover {
+  border-color: #bdb4f4;
+  background: #f4f1ff;
+  transform: translateY(-1px);
 }
 
 .membership-plan-banner {
@@ -3749,10 +3816,9 @@ onBeforeUnmount(() => {
   margin-top: 0;
   padding: 12px;
   border: 1px solid rgba(221, 218, 246, 0.94);
-  border-radius: 14px;
+  border-radius: 5px;
   background:
-    linear-gradient(180deg, rgba(249, 248, 255, 0.88) 0%, rgba(255, 255, 255, 0.98) 100%),
-    #fff;
+    linear-gradient(180deg, rgba(249, 248, 255, 0.88) 0%, rgba(255, 255, 255, 0.98) 100%), #fff;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
@@ -3815,7 +3881,7 @@ onBeforeUnmount(() => {
   font-size: 8px;
 }
 
-.membership-exam-switch {
+:deep(.profile-segment-tabs) {
   position: relative;
   display: flex;
   box-sizing: border-box;
@@ -3825,12 +3891,12 @@ onBeforeUnmount(() => {
   margin: 10px 0 10px;
   padding: 4px;
   border: 1px solid rgba(225, 222, 245, 0.9);
-  border-radius: 14px;
+  border-radius: 5px;
   background: linear-gradient(135deg, #f4f2ff, #fbfbff);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84);
 }
 
-.membership-exam-switch button {
+:deep(.profile-segment-tabs button) {
   position: relative;
   z-index: 1;
   flex: 1 1 0;
@@ -3842,7 +3908,7 @@ onBeforeUnmount(() => {
   gap: 5px;
   padding: 0 12px;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: 5px;
   background: transparent;
   color: #7a7f96;
   font-family: inherit;
@@ -3863,7 +3929,7 @@ onBeforeUnmount(() => {
   left: 4px;
   width: calc(33.333333% - 6px);
   border: 1px solid rgba(255, 255, 255, 0.86);
-  border-radius: 999px;
+  border-radius: 5px;
   background: #fff;
   box-shadow: 0 4px 12px rgba(71, 59, 147, 0.12);
   pointer-events: none;
@@ -3943,7 +4009,18 @@ onBeforeUnmount(() => {
 
 .profile-target-panel {
   display: flex;
+  grid-column: 1 / -1;
   flex-direction: column;
+  padding: 14px 16px 16px;
+  border-radius: 5px;
+}
+
+.profile-target-panel .profile-card-heading {
+  margin-bottom: 8px;
+}
+
+.profile-target-list--editing {
+  border-radius: 5px;
 }
 
 .profile-target-edit-actions {
@@ -4274,6 +4351,280 @@ onBeforeUnmount(() => {
   overflow-wrap: anywhere;
 }
 
+:global(.profile-target-dialog) {
+  display: flex;
+  box-sizing: border-box;
+  width: 700px !important;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 16px;
+  box-shadow: 0 24px 70px rgba(31, 34, 53, 0.24);
+}
+
+:global(.profile-target-dialog .el-dialog__header) {
+  margin-right: 0;
+  padding: 24px 28px 8px;
+}
+
+:global(.profile-target-dialog .el-dialog__title) {
+  color: #25283b;
+  font-size: 20px;
+  font-weight: 760;
+}
+
+:global(.profile-target-dialog .el-dialog__headerbtn) {
+  top: 20px;
+  right: 22px;
+}
+
+:global(.profile-target-dialog .el-dialog__body) {
+  flex: 1;
+  padding: 0 28px 4px;
+  overflow-y: auto;
+}
+
+:global(.profile-target-dialog .el-dialog__footer) {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 18px 28px 24px;
+}
+
+.profile-target-dialog-intro {
+  margin: 0 0 18px;
+  color: #8a8fa1;
+  font-size: 12px;
+}
+
+:global(.profile-target-dialog .profile-target-list--editing) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  overflow: visible;
+  border: 0;
+}
+
+:global(.profile-target-dialog .profile-target-list--editing > div) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  align-items: stretch;
+  gap: 8px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+}
+
+:global(.profile-target-dialog .profile-target-list--editing > div + div) {
+  border-top: 0;
+}
+
+:global(.profile-target-dialog .profile-target-list--editing > .profile-target-exam-row) {
+  grid-column: 1 / -1;
+}
+
+:global(.profile-target-dialog .profile-target-list--editing dt) {
+  gap: 0;
+  padding: 0;
+  color: #686e82;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+:global(.profile-target-dialog .profile-target-list--editing dt .el-icon) {
+  display: none;
+}
+
+:global(.profile-target-dialog .profile-target-row-input) {
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-size: 13px;
+  line-height: 38px;
+}
+
+:global(.profile-target-dialog .profile-target-row-select .el-select__wrapper) {
+  min-height: 38px;
+  padding: 2px 10px;
+  border-radius: 7px;
+}
+
+:global(.profile-target-dialog .profile-target-row-number .el-input__wrapper) {
+  min-height: 38px;
+  padding: 0 32px 0 10px;
+  border-radius: 7px;
+}
+
+:global(.profile-target-dialog .profile-target-row-select .el-select__placeholder),
+:global(.profile-target-dialog .profile-target-row-select .el-select__selected-item),
+:global(.profile-target-dialog .profile-target-row-number .el-input__inner) {
+  font-size: 13px;
+}
+
+:global(.profile-target-dialog .profile-target-row-select .el-tag) {
+  height: 24px;
+  padding-inline: 8px;
+  font-size: 11px;
+}
+
+:global(.profile-target-dialog .profile-exam-editor) {
+  gap: 14px;
+}
+
+:global(.profile-target-dialog .profile-exam-type-group) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+:global(.profile-target-dialog .profile-exam-choice) {
+  justify-content: flex-start;
+  gap: 9px;
+  width: 100%;
+  height: 40px;
+  padding: 0 11px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+:global(.profile-target-dialog .profile-exam-choice::before),
+:global(.profile-target-dialog .profile-exam-subject-choice::before) {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  border: 1px solid #9ba0ad;
+  border-radius: 2px;
+  color: #fff;
+  font-size: 12px;
+  content: '';
+}
+
+:global(.profile-target-dialog .profile-exam-choice.is-active::before),
+:global(.profile-target-dialog .profile-exam-subject-choice.is-active::before) {
+  border-color: var(--profile-lilac);
+  background: var(--profile-lilac);
+  content: '✓';
+}
+
+:global(.profile-target-dialog .profile-exam-subject-editor) {
+  gap: 14px;
+}
+
+:global(.profile-target-dialog .profile-exam-subject-editor section) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  padding: 13px;
+  border: 1px solid rgba(105, 85, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(105, 85, 255, 0.035);
+}
+
+.profile-exam-subject-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.profile-exam-subject-heading > div {
+  display: grid;
+  gap: 4px;
+}
+
+.profile-exam-subject-heading strong {
+  color: #5948d4;
+  font-size: 14px;
+}
+
+.profile-exam-subject-heading small {
+  color: #898da0;
+  font-size: 11px;
+}
+
+.profile-exam-subject-heading > span {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #e8f7ef;
+  color: #17815d;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.profile-exam-target-score {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 220px);
+  align-items: center;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(105, 85, 255, 0.14);
+}
+
+.profile-exam-target-score > span {
+  color: #656b80;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+:global(.profile-target-dialog .profile-exam-subject-choices) {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+:global(.profile-target-dialog .profile-exam-subject-choice) {
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+:global(.profile-target-dialog .profile-exam-subject-choice.is-required::after) {
+  margin-left: 2px;
+  color: #ed6377;
+  font-size: 10px;
+  content: '必选';
+}
+
+.profile-target-dialog-cancel,
+.profile-target-dialog-save {
+  min-width: 86px;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 680;
+  cursor: pointer;
+}
+
+.profile-target-dialog-cancel {
+  border: 1px solid var(--profile-line);
+  background: #fff;
+  color: #555c70;
+}
+
+.profile-target-dialog-save {
+  border: 1px solid var(--profile-lilac);
+  background: var(--profile-lilac);
+  color: #fff;
+}
+
+.profile-target-dialog-cancel:disabled,
+.profile-target-dialog-save:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
 .form-panel,
 .subscription-panel,
 .payment-panel {
@@ -4538,7 +4889,8 @@ onBeforeUnmount(() => {
   background: #eaf2ff;
 }
 
-.billing-status--paid {
+.billing-status--paid,
+.billing-status--activated {
   color: #158b56;
   background: #e9f8f0;
 }
@@ -4563,12 +4915,14 @@ onBeforeUnmount(() => {
 
 .billing-record-meta {
   display: grid;
-  grid-template-columns: 0.7fr 1.05fr 0.85fr 0.9fr 1.65fr 1.05fr 1.05fr;
+  grid-template-columns: 0.7fr 1.05fr 0.85fr 0.9fr 1.65fr 1.05fr 0.75fr;
   gap: 18px;
   margin: 12px 0 0;
 }
 
 .billing-record-meta div {
+  display: grid;
+  grid-template-rows: auto 34px;
   min-width: 0;
 }
 
@@ -4577,29 +4931,29 @@ onBeforeUnmount(() => {
   color: #83899a;
   font-size: 11px;
   line-height: 1.35;
+  text-align: center;
 }
 
 .billing-record-meta dd {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-width: 0;
+  min-height: 34px;
   margin: 0;
   color: #2e354a;
   font-size: 12px;
   font-weight: 600;
   line-height: 1.5;
   overflow-wrap: anywhere;
+  text-align: center;
 }
 
 .billing-order-number {
   font-variant-numeric: tabular-nums;
 }
 
-.billing-record-card footer {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 12px;
-}
-
-.billing-record-card footer button {
+.billing-record-action button {
   min-width: 88px;
   min-height: 34px;
   padding: 0 16px;
@@ -4611,7 +4965,7 @@ onBeforeUnmount(() => {
   font-weight: 600;
 }
 
-.billing-record-card footer button:hover {
+.billing-record-action button:hover {
   background: #0f1017;
 }
 
@@ -4661,7 +5015,10 @@ onBeforeUnmount(() => {
     width: 270px;
   }
 
-  .profile-membership-panel,
+  .profile-membership-panel {
+    padding-inline: 16px;
+  }
+
   .profile-target-panel {
     padding-inline: 16px;
   }
@@ -4689,6 +5046,10 @@ onBeforeUnmount(() => {
 @media (max-width: 900px) {
   .profile-dashboard-grid {
     grid-template-columns: 1fr;
+  }
+
+  .profile-target-panel {
+    grid-column: auto;
   }
 
   .profile-target-list > div {
@@ -4737,6 +5098,34 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 620px) {
+  :global(.profile-target-dialog .el-dialog__header) {
+    padding: 20px 18px 8px;
+  }
+
+  :global(.profile-target-dialog .el-dialog__body) {
+    padding-inline: 18px;
+  }
+
+  :global(.profile-target-dialog .el-dialog__footer) {
+    padding: 16px 18px 20px;
+  }
+
+  :global(.profile-target-dialog .profile-target-list--editing) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :global(.profile-target-dialog .profile-target-list--editing > .profile-target-exam-row) {
+    grid-column: auto;
+  }
+
+  :global(.profile-target-dialog .profile-exam-subject-choices) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profile-exam-target-score {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .profile-exam-subject-editor section {
     grid-template-columns: 1fr;
     gap: 5px;

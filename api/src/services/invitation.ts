@@ -2,18 +2,25 @@
 import crypto from 'node:crypto'
 import { Prisma } from '@prisma/client'
 import {
+  ADMIN_GIFT_DAILY_DURATION_HOURS,
+  ADMIN_GIFT_DAILY_PLAN,
+  ADMIN_GIFT_PAYMENT_CHANNEL,
+  CARD_REWARD_SOURCE,
   INVITATION_BINDING_SOURCE,
   INVITATION_BINDING_WINDOW_HOURS,
   INVITATION_RELATION_STATUS,
   INVITATION_REWARD_ACTIVATION_WINDOW_HOURS,
   INVITATION_REWARD_DURATION_HOURS,
   INVITATION_REWARD_LIFETIME_LIMIT,
+  INVITATION_REWARD_PAYMENT_CHANNEL,
   INVITATION_REWARD_PLAN,
   INVITATION_REWARD_ROLE,
   INVITATION_REWARD_STATUS,
   MEMBERSHIP_SOURCE,
   MEMBERSHIP_STATUS,
+  MEMBERSHIP_PLAN,
   PAYMENT_ORDER_STATUS,
+  PAYMENT_PRICE_TYPE,
   USER_ROLE,
   isStudentExamTypeAvailable,
 } from '../constants/domain.js'
@@ -28,6 +35,18 @@ const QUALIFIED_REWARD_STATUSES = [
   INVITATION_REWARD_STATUS.EXPIRED,
   INVITATION_REWARD_STATUS.REVOKED,
 ]
+
+// 内部赠卡订单使用独立前缀，既可人工识别，也不依赖银联商务配置。
+function createAdminGiftOrderNo(now = new Date()): string {
+  const timestamp = now.toISOString().replace(/\D/g, '').slice(0, 17)
+  return `AG${timestamp}${crypto.randomBytes(5).toString('hex').toUpperCase()}`
+}
+
+// 邀请周卡启用订单使用独立前缀，便于与真实支付和管理员赠送日卡区分。
+function createInvitationRewardOrderNo(now = new Date()): string {
+  const timestamp = now.toISOString().replace(/\D/g, '').slice(0, 17)
+  return `IR${timestamp}${crypto.randomBytes(5).toString('hex').toUpperCase()}`
+}
 
 export class InvitationError extends Error {
   constructor(
@@ -78,11 +97,16 @@ async function resolveNextMembershipStart(
   return latest && latest.endsAt > now ? latest.endsAt : now
 }
 
-// 只有已经正式到账的奖励计入终身上限；待首付资格不计数，退款撤回后仍保留占用。
-async function countQualifiedRewards(db: InvitationDatabase, userId: string): Promise<number> {
+// 只有已经正式到账的奖励计入上限；可按奖励来源统计，退款撤回后仍保留占用。
+async function countQualifiedRewards(
+  db: InvitationDatabase,
+  userId: string,
+  beneficiaryRole?: string,
+): Promise<number> {
   return db.invitationReward.count({
     where: {
       userId,
+      ...(beneficiaryRole ? { beneficiaryRole } : {}),
       OR: [
         {
           status: INVITATION_REWARD_STATUS.PENDING_ACTIVATION,
@@ -136,6 +160,7 @@ export async function bindInvitationForUser(
     const paidOrder = await db.paymentOrder.findFirst({
       where: {
         userId: user.id,
+        plan: { in: [MEMBERSHIP_PLAN.MONTHLY, MEMBERSHIP_PLAN.YEARLY] },
         status: {
           in: [
             PAYMENT_ORDER_STATUS.PAID,
@@ -164,14 +189,11 @@ export async function bindInvitationForUser(
   if (invitationCode.userId === user.id) {
     throw new InvitationError('不能使用自己的邀请码', 'INVITATION_SELF_BIND', 422)
   }
-  if (await countQualifiedRewards(db, invitationCode.userId) >= INVITATION_REWARD_LIFETIME_LIMIT) {
+  if (
+    await countQualifiedRewards(db, invitationCode.userId, INVITATION_REWARD_ROLE.INVITER)
+    >= INVITATION_REWARD_LIFETIME_LIMIT
+  ) {
     throw new InvitationError('邀请码无效，请检查后重试', 'INVITATION_CODE_INVALID', 422)
-  }
-  if (await countQualifiedRewards(db, user.id) >= INVITATION_REWARD_LIFETIME_LIMIT) {
-    throw new InvitationError(
-      '已获得三张七天会员卡，不能再绑定邀请码',
-      'INVITATION_REWARD_LIMIT_REACHED',
-    )
   }
 
   const relation = await db.invitationRelation.create({
@@ -219,9 +241,12 @@ export async function getOrCreateInvitationCode(userId: string) {
   if (user.role !== USER_ROLE.STUDENT) {
     throw new InvitationError('仅学生账号可以创建邀请码', 'INVITATION_STUDENT_ONLY', 403)
   }
-  if (await countQualifiedRewards(prisma, userId) >= INVITATION_REWARD_LIFETIME_LIMIT) {
+  if (
+    await countQualifiedRewards(prisma, userId, INVITATION_REWARD_ROLE.INVITER)
+    >= INVITATION_REWARD_LIFETIME_LIMIT
+  ) {
     throw new InvitationError(
-      '已获得三张七天会员卡，邀请码已失效',
+      '已通过邀请好友获得三张七天会员卡，邀请码已失效',
       'INVITATION_CODE_INACTIVE',
     )
   }
@@ -253,7 +278,11 @@ export async function validateInvitationCode(code: string): Promise<boolean> {
     select: { userId: true },
   })
   if (!invitationCode) return false
-  return await countQualifiedRewards(prisma, invitationCode.userId)
+  return await countQualifiedRewards(
+    prisma,
+    invitationCode.userId,
+    INVITATION_REWARD_ROLE.INVITER,
+  )
     < INVITATION_REWARD_LIFETIME_LIMIT
 }
 
@@ -332,6 +361,7 @@ export async function getInvitationOverview(userId: string) {
   const paidOrder = await prisma.paymentOrder.findFirst({
     where: {
       userId,
+      plan: { in: [MEMBERSHIP_PLAN.MONTHLY, MEMBERSHIP_PLAN.YEARLY] },
       status: {
         in: [
           PAYMENT_ORDER_STATUS.PAID,
@@ -356,14 +386,14 @@ export async function getInvitationOverview(userId: string) {
     bindingMessage = '需注册后24小时内填写邀请码，当前补填期限已结束'
   }
 
-  const rewardedCount = user.invitationRewards.filter((reward) =>
-    (
-      reward.status === INVITATION_REWARD_STATUS.PENDING_ACTIVATION
-      && Boolean(reward.grantedAt)
-    )
-    || QUALIFIED_REWARD_STATUSES.includes(
-      reward.status as (typeof QUALIFIED_REWARD_STATUSES)[number],
-    ),
+  const rewardedCount = user.invitationRewards.filter(
+    (reward) =>
+      reward.beneficiaryRole === INVITATION_REWARD_ROLE.INVITER
+      && ((reward.status === INVITATION_REWARD_STATUS.PENDING_ACTIVATION
+        && Boolean(reward.grantedAt))
+        || QUALIFIED_REWARD_STATUSES.includes(
+          reward.status as (typeof QUALIFIED_REWARD_STATUSES)[number],
+        )),
   ).length
   const codeActive = rewardedCount < INVITATION_REWARD_LIFETIME_LIMIT
   const invitations = user.sentInvitations.map((relation) => ({
@@ -400,6 +430,7 @@ export async function getInvitationOverview(userId: string) {
     invitations,
     rewards: user.invitationRewards.map((reward) => ({
       id: reward.id,
+      sourceType: reward.sourceType,
       beneficiaryRole: reward.beneficiaryRole,
       status: effectiveRewardStatus(reward, now),
       examType: reward.examType,
@@ -414,6 +445,40 @@ export async function getInvitationOverview(userId: string) {
       revokedAt: reward.revokedAt?.toISOString() || null,
     })),
   }
+}
+
+// 管理员赠送只创建待启用卡券，不直接修改会员权益；数量限制用于避免误操作批量灌入。
+export async function grantAdminDailyCards(input: {
+  userId: string
+  operatorId: string
+  quantity: number
+}) {
+  if (!Number.isInteger(input.quantity) || input.quantity < 1 || input.quantity > 10) {
+    throw new InvitationError('赠送数量必须为 1 至 10 张', 'ADMIN_GIFT_QUANTITY_INVALID', 422)
+  }
+  const recipient = await prisma.user.findUnique({
+    where: { id: input.userId },
+    select: { id: true, username: true, role: true },
+  })
+  if (!recipient) throw new InvitationError('用户不存在', 'INVITATION_USER_NOT_FOUND', 404)
+  if (recipient.role !== USER_ROLE.STUDENT) {
+    throw new InvitationError('只能向普通用户赠送卡券', 'ADMIN_GIFT_STUDENT_ONLY', 422)
+  }
+  const grantedAt = new Date()
+  const rewards = await prisma.$transaction(
+    Array.from({ length: input.quantity }, () => prisma.invitationReward.create({
+      data: {
+        userId: recipient.id,
+        sourceType: CARD_REWARD_SOURCE.ADMIN_GIFT,
+        beneficiaryRole: INVITATION_REWARD_ROLE.RECIPIENT,
+        status: INVITATION_REWARD_STATUS.PENDING_ACTIVATION,
+        durationHours: ADMIN_GIFT_DAILY_DURATION_HOURS,
+        grantedAt,
+      },
+      select: { id: true },
+    })),
+  )
+  return { recipient, rewards, grantedAt, operatorId: input.operatorId }
 }
 
 // 双方奖励在首笔有效支付后到账并等待手动启用，受邀人沿用购买考试类型。
@@ -457,22 +522,22 @@ export async function fulfillInvitationRewardsForPaidOrder(
     throw new InvitationError('受邀人奖励资格不存在', 'INVITATION_REWARD_MISSING', 500)
   }
 
-  const inviteeCount = await countQualifiedRewards(tx, relation.inviteeUserId)
-  if (inviteeCount >= INVITATION_REWARD_LIFETIME_LIMIT) {
-    await tx.invitationReward.delete({ where: { id: inviteeReward.id } })
-  } else {
-    await tx.invitationReward.update({
-      where: { id: inviteeReward.id },
-      data: {
-        status: INVITATION_REWARD_STATUS.PENDING_ACTIVATION,
-        examType,
-        triggerPaymentOrderId: order.id,
-        grantedAt: paidAt,
-      },
-    })
-  }
+  // 受邀注册奖励不占用“邀请他人最多三张”的名额，因此始终完成这一张的发放。
+  await tx.invitationReward.update({
+    where: { id: inviteeReward.id },
+    data: {
+      status: INVITATION_REWARD_STATUS.PENDING_ACTIVATION,
+      examType,
+      triggerPaymentOrderId: order.id,
+      grantedAt: paidAt,
+    },
+  })
 
-  const inviterCount = await countQualifiedRewards(tx, relation.inviterUserId)
+  const inviterCount = await countQualifiedRewards(
+    tx,
+    relation.inviterUserId,
+    INVITATION_REWARD_ROLE.INVITER,
+  )
   if (inviterCount < INVITATION_REWARD_LIFETIME_LIMIT) {
     await tx.invitationReward.create({
       data: {
@@ -498,23 +563,24 @@ export async function activateInvitationReward(userId: string, rewardId: string,
       const reward = await tx.invitationReward.findFirst({
         where: { id: rewardId, userId },
       })
-      if (!reward) throw new InvitationError('七天会员卡不存在', 'INVITATION_REWARD_NOT_FOUND', 404)
+      if (!reward) throw new InvitationError('会员卡不存在', 'INVITATION_REWARD_NOT_FOUND', 404)
+      const cardName = reward.durationHours === ADMIN_GIFT_DAILY_DURATION_HOURS ? '一日会员卡' : '七天会员卡'
       if (
         reward.status !== INVITATION_REWARD_STATUS.PENDING_ACTIVATION
         || reward.membershipId
       ) {
-        throw new InvitationError('该七天会员卡当前不可启用', 'INVITATION_REWARD_NOT_ACTIVATABLE')
+        throw new InvitationError(`该${cardName}当前不可启用`, 'INVITATION_REWARD_NOT_ACTIVATABLE')
       }
 
       const now = new Date()
       if (!reward.grantedAt) {
         throw new InvitationError(
-          '完成首次有效会员支付后可启用该七天会员卡',
+          `完成首次有效会员支付后可启用该${cardName}`,
           'INVITATION_REWARD_PAYMENT_REQUIRED',
         )
       }
       if (addHours(reward.grantedAt, INVITATION_REWARD_ACTIVATION_WINDOW_HOURS) <= now) {
-        throw new InvitationError('该七天会员卡已超过30天启用期限', 'INVITATION_REWARD_EXPIRED')
+        throw new InvitationError(`该${cardName}已超过30天启用期限`, 'INVITATION_REWARD_EXPIRED')
       }
       const selectedExamType = reward.beneficiaryRole === INVITATION_REWARD_ROLE.INVITEE
         ? reward.examType
@@ -523,12 +589,41 @@ export async function activateInvitationReward(userId: string, rewardId: string,
         throw new InvitationError('请选择当前开放的考试类型', 'INVITATION_EXAM_NOT_AVAILABLE', 422)
       }
       const startsAt = await resolveNextMembershipStart(tx, userId, selectedExamType, now)
+      const isAdminGift = reward.sourceType === CARD_REWARD_SOURCE.ADMIN_GIFT
+      // 日卡和邀请周卡统一在实际启用时形成零元内部订单，领取但未启用不进入订阅统计。
+      const paymentOrder = await tx.paymentOrder.create({
+        data: {
+          orderNo: isAdminGift
+            ? createAdminGiftOrderNo(now)
+            : createInvitationRewardOrderNo(now),
+          userId,
+          examTypes: [selectedExamType],
+          plan: isAdminGift ? ADMIN_GIFT_DAILY_PLAN : INVITATION_REWARD_PLAN,
+          priceType: isAdminGift
+            ? PAYMENT_PRICE_TYPE.ADMIN_GIFT
+            : PAYMENT_PRICE_TYPE.INVITATION_REWARD,
+          amountCents: 0,
+          currency: 'CNY',
+          channel: isAdminGift
+            ? ADMIN_GIFT_PAYMENT_CHANNEL
+            : INVITATION_REWARD_PAYMENT_CHANNEL,
+          status: PAYMENT_ORDER_STATUS.PAID,
+          provider: 'internal',
+          providerPayload: {
+            source: reward.sourceType,
+            rewardId: reward.id,
+          },
+          paidAt: now,
+          expiresAt: now,
+        },
+      })
       const membership = await tx.userMembership.create({
         data: {
           userId,
+          paymentOrderId: paymentOrder.id,
           examType: selectedExamType,
-          plan: INVITATION_REWARD_PLAN,
-          sourceType: MEMBERSHIP_SOURCE.INVITATION_REWARD,
+          plan: isAdminGift ? ADMIN_GIFT_DAILY_PLAN : INVITATION_REWARD_PLAN,
+          sourceType: isAdminGift ? MEMBERSHIP_SOURCE.ADMIN_GIFT : MEMBERSHIP_SOURCE.INVITATION_REWARD,
           sourceId: reward.id,
           status: MEMBERSHIP_STATUS.ACTIVE,
           startsAt,
@@ -545,6 +640,8 @@ export async function activateInvitationReward(userId: string, rewardId: string,
           status: INVITATION_REWARD_STATUS.ACTIVATED,
           examType: selectedExamType,
           membershipId: membership.id,
+          // 邀请周卡继续关联最初触发奖励的真实支付订单，保证退款能够准确撤回奖励。
+          ...(isAdminGift ? { triggerPaymentOrderId: paymentOrder.id } : {}),
           activatedAt: now,
         },
       })

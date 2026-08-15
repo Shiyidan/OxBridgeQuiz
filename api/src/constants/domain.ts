@@ -210,9 +210,16 @@ export const MEMBERSHIP_STATUS = {
 export const MEMBERSHIP_SOURCE = {
   PAYMENT: 'payment',
   INVITATION_REWARD: 'invitation_reward',
+  ADMIN_GIFT: 'admin_gift',
 } as const
 
 export const INVITATION_REWARD_PLAN = 'weekly_reward'
+export const ADMIN_GIFT_DAILY_PLAN = 'daily_gift'
+
+export const CARD_REWARD_SOURCE = {
+  INVITATION: 'invitation',
+  ADMIN_GIFT: 'admin_gift',
+} as const
 
 export const INVITATION_BINDING_SOURCE = {
   REGISTER: 'register',
@@ -228,6 +235,7 @@ export const INVITATION_RELATION_STATUS = {
 export const INVITATION_REWARD_ROLE = {
   INVITER: 'inviter',
   INVITEE: 'invitee',
+  RECIPIENT: 'recipient',
 } as const
 
 export const INVITATION_REWARD_STATUS = {
@@ -239,6 +247,7 @@ export const INVITATION_REWARD_STATUS = {
 
 export const INVITATION_BINDING_WINDOW_HOURS = 24
 export const INVITATION_REWARD_DURATION_HOURS = 168
+export const ADMIN_GIFT_DAILY_DURATION_HOURS = 24
 export const INVITATION_REWARD_ACTIVATION_WINDOW_HOURS = 30 * 24
 export const INVITATION_REWARD_LIFETIME_LIMIT = 3
 
@@ -268,6 +277,9 @@ export const PAYMENT_CHANNEL = {
   UNIONPAY: 'unionpay',
 } as const
 
+export const ADMIN_GIFT_PAYMENT_CHANNEL = 'admin_gift'
+export const INVITATION_REWARD_PAYMENT_CHANNEL = 'invitation_reward'
+
 export const PAYMENT_CHANNELS = Object.values(PAYMENT_CHANNEL)
 export type PaymentChannel = (typeof PAYMENT_CHANNELS)[number]
 
@@ -275,6 +287,8 @@ export const PAYMENT_PRICE_TYPE = {
   FIRST_MONTHLY: 'first_monthly',
   MONTHLY: 'monthly',
   YEARLY: 'yearly',
+  ADMIN_GIFT: 'admin_gift',
+  INVITATION_REWARD: 'invitation_reward',
 } as const
 
 export const PAYMENT_NOTIFICATION_STATUS = {

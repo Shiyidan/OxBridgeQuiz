@@ -27,6 +27,7 @@ export const OPERATION_AUDIT_ACTION_LABELS: Record<string, string> = {
   'diagnostic_report.view': '查看诊断分析报告',
   'payment.order.create': '创建支付订单',
   'payment.order.close': '关闭支付订单',
+  'admin.user.gift_cards.create': '管理员赠送日卡',
 }
 
 // 未知扩展模块保留原始编码，避免新增后端模块时页面显示为空。

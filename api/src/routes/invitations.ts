@@ -92,9 +92,10 @@ invitationsRouter.post('/rewards/:id/activate', requireAuth, async (req, res) =>
       return
     }
     const membership = await activateInvitationReward(req.user!.userId, req.params.id, examType)
+    const durationLabel = membership.plan === 'daily_gift' ? '一日管理员赠送会员卡' : '七天邀请会员卡'
     setOperationAuditContext(req, {
       resourceId: req.params.id,
-      summary: `启用 ${membership.examType} 七天邀请会员卡`,
+      summary: `启用 ${membership.examType} ${durationLabel}`,
     })
     res.json(success({
       membership: {

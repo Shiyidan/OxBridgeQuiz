@@ -223,6 +223,9 @@ export async function requestFullPaymentRefund(input: {
   const prepared = await prisma.$transaction(async (tx) => {
     const order = await tx.paymentOrder.findUnique({ where: { orderNo: input.orderNo } })
     if (!order) throw new PaymentRefundError('支付订单不存在', 'PAYMENT_ORDER_NOT_FOUND', 404)
+    if (order.provider !== 'chinaums') {
+      throw new PaymentRefundError('内部赠送订单不支持退款', 'PAYMENT_ORDER_NOT_REFUNDABLE')
+    }
     if (order.status === PAYMENT_ORDER_STATUS.REFUNDED) {
       const succeeded = await tx.paymentRefund.findFirst({
         where: { paymentOrderId: order.id, status: PAYMENT_REFUND_STATUS.SUCCEEDED },

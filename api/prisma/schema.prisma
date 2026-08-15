@@ -648,10 +648,11 @@ model InvitationRelation {
 
 model InvitationReward {
   id                    String    @id @default(uuid()) @db.VarChar(191)
-  invitationRelationId  String    @db.VarChar(191)
+  invitationRelationId  String?   @db.VarChar(191)
   userId                String    @db.VarChar(191)
   triggerPaymentOrderId String?   @db.VarChar(191)
   membershipId          String?   @unique @db.VarChar(191)
+  sourceType            String    @default("invitation") @db.VarChar(32)
   beneficiaryRole       String    @db.VarChar(16)
   status                String    @default("pending_activation") @db.VarChar(32)
   examType              String?   @db.VarChar(32)
@@ -662,10 +663,10 @@ model InvitationReward {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
-  invitationRelation  InvitationRelation @relation(fields: [invitationRelationId], references: [id], onDelete: Cascade)
-  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  triggerPaymentOrder PaymentOrder?      @relation(fields: [triggerPaymentOrderId], references: [id], onDelete: SetNull)
-  membership          UserMembership?    @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+  invitationRelation  InvitationRelation? @relation(fields: [invitationRelationId], references: [id], onDelete: Cascade)
+  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  triggerPaymentOrder PaymentOrder?       @relation(fields: [triggerPaymentOrderId], references: [id], onDelete: SetNull)
+  membership          UserMembership?     @relation(fields: [membershipId], references: [id], onDelete: SetNull)
 
   @@unique([invitationRelationId, beneficiaryRole])
   @@index([userId, status, createdAt])

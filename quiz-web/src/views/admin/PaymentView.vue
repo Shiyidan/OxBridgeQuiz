@@ -246,7 +246,7 @@
             <template #default="{ row }">
               <el-button link type="primary" @click="handleOpenOrderDetail(row.orderNo)">查看详情</el-button>
               <el-button
-                v-if="row.status === 'paid'"
+                v-if="row.status === 'paid' && row.provider === 'chinaums'"
                 link
                 type="danger"
                 :loading="refundingOrderNo === row.orderNo"
@@ -556,12 +556,20 @@ function normalizeExamTypes(value: unknown): string[] {
 }
 
 function planText(plan: string, priceType: string): string {
+  if (plan === 'daily_gift' || priceType === 'admin_gift') return '管理员赠送日卡'
+  if (plan === 'weekly_reward' || priceType === 'invitation_reward') return '邀请奖励周卡'
   if (plan === 'yearly') return '年度会员'
   return priceType === 'first_monthly' ? '月度会员（首次）' : '月度会员'
 }
 
 function channelText(channel: string): string {
-  return { alipay: '支付宝', wechat: '微信支付', unionpay: '云闪付' }[channel] || channel
+  return {
+    alipay: '支付宝',
+    wechat: '微信支付',
+    unionpay: '云闪付',
+    admin_gift: '管理员赠送',
+    invitation_reward: '邀请奖励',
+  }[channel] || channel
 }
 
 function statusText(status: string): string {
@@ -928,6 +936,7 @@ onMounted(() => {
 .price-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; margin-top: 25px; }
 .price-form :deep(.el-form-item) { min-width: 0; margin-bottom: 18px; }
 .price-form :deep(.el-form-item__label) { color: #344054; font-size: 0.86rem; font-weight: 650; }
+.price-form :deep(.el-form-item__content) { flex-direction: column; align-items: flex-start; }
 .price-form :deep(.el-input-number) { width: 33.333%; min-width: 132px; }
 .field-hint { display: block; margin-top: 7px; color: #94a3b8; font-size: 0.75rem; line-height: 1.4; }
 .strategy-footer { padding-top: 18px; border-top: 1px solid #edf0f4; }

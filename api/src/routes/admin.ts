@@ -55,6 +55,10 @@ import {
   defaultWebsiteTrafficPeriod,
   getWebsiteTrafficAnalytics,
 } from '../services/websiteTraffic.js'
+import {
+  InvitationError,
+  grantAdminDailyCards,
+} from '../services/invitation.js'
 
 export const adminRouter = createAsyncRouter()
 
@@ -1155,6 +1159,45 @@ adminRouter.get('/users', async (req: Request, res: Response) => {
   } catch (err) {
     logRuntimeError('admin.users.list_failed', err)
     res.status(500).json(fail('服务器错误'))
+  }
+})
+
+// 管理员赠送日卡只发放待启用卡券，会员权益与零元支付订单均由用户启用时创建。
+adminRouter.post('/users/:id/gift-cards', async (req: Request, res: Response) => {
+  try {
+    if (req.body?.cardType !== 'daily') {
+      res.status(422).json(fail('当前仅支持赠送日卡', 'ADMIN_GIFT_CARD_TYPE_INVALID'))
+      return
+    }
+    const quantity = Number(req.body?.quantity)
+    const result = await grantAdminDailyCards({
+      userId: req.params.id,
+      operatorId: req.user!.userId,
+      quantity,
+    })
+    setOperationAuditContext(req, {
+      resourceId: result.recipient.id,
+      summary: `向用户“${result.recipient.username}”赠送 ${result.rewards.length} 张日卡`,
+      changes: buildOperationAuditChanges(
+        { pendingDailyCardsAdded: 0, giftCardRewardIds: [] },
+        {
+          pendingDailyCardsAdded: result.rewards.length,
+          giftCardRewardIds: result.rewards.map((reward) => reward.id),
+        },
+      ),
+    })
+    res.json(success({
+      createdCount: result.rewards.length,
+      rewardIds: result.rewards.map((reward) => reward.id),
+      grantedAt: result.grantedAt.toISOString(),
+    }))
+  } catch (error) {
+    if (error instanceof InvitationError) {
+      res.status(error.httpStatus).json(fail(error.message, error.code))
+      return
+    }
+    logRuntimeError('admin.user.gift_cards_failed', error)
+    res.status(500).json(fail('赠送卡券失败'))
   }
 })
 

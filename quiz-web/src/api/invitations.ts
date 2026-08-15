@@ -9,7 +9,8 @@ export type InvitationRewardStatus =
 
 export interface InvitationRewardItem {
   id: string
-  beneficiaryRole: 'inviter' | 'invitee'
+  sourceType: 'invitation' | 'admin_gift'
+  beneficiaryRole: 'inviter' | 'invitee' | 'recipient'
   status: InvitationRewardStatus
   examType: 'ESAT' | 'TMUA' | null
   durationHours: number
@@ -82,7 +83,7 @@ export function bindInvitationCode(code: string) {
   })
 }
 
-/** 双方在30天期限内启用七天会员卡。 */
+/** 用户在30天期限内选择考试并启用卡券。 */
 export function activateInvitationReward(rewardId: string, examType: 'ESAT' | 'TMUA') {
   return callApi<{
     membership: { id: string; examType: string; startsAt: string; endsAt: string }

@@ -53,6 +53,15 @@ const prerenderPages: PrerenderPage[] = [
     summary:
       '本页介绍 STEP 的考试结构、数学证明与综合解题要求、常见问题和备考重点，并提供与 ESAT、TMUA 的对比入口。',
   },
+  {
+    path: '/study-resources',
+    title: 'ESAT、TMUA、STEP 备考资料下载｜AceMock 云舟备考',
+    heading: '备考资料下载',
+    description:
+      '按考试和资料类型查找官方考纲、过往真题与知识点讲义，下载 AceMock 云舟备考已发布的 PDF 学习资料。',
+    summary:
+      '资料按 ESAT、TMUA、STEP 与考试资料、过往真题、知识点讲义分类；免费资料可直接下载，会员资料需登录并具备对应考试会员权益。',
+  },
 ]
 
 // 静态文本进入 HTML 前统一转义，避免文案调整时破坏构建产物结构。

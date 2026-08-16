@@ -105,6 +105,21 @@ async function getActiveMembership(
   );
 }
 
+// 会员资料按考试类型判断有效会员；管理员用于验收和维护时不受会员限制。
+export async function hasActiveExamMembershipAccess(
+  userId: string,
+  examType: string,
+  db: MemberDatabase = prisma,
+): Promise<boolean> {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, role: true },
+  });
+  if (!user) return false;
+  if (user.role === USER_ROLE.ADMIN) return true;
+  return Boolean(await getActiveMembership(userId, examType, new Date(), db));
+}
+
 // 新诊断测试按试卷级访问设置授权；已创建的进行中测试由考试记录本身承接当次授权。
 export async function hasDiagnosticPaperAccess(
   userId: string,

@@ -39,6 +39,11 @@ const publicSeoByPath: Record<string, PublicSeoMetadata> = {
       '了解 STEP 考试结构、核心能力要求、常见问题及其与 ESAT、TMUA 的区别，建立清晰的备考认识。',
     canonicalPath: '/exam-intro/step',
   },
+  '/study-resources': {
+    title: 'ESAT、TMUA、STEP 备考资料下载｜AceMock 云舟备考',
+    description: '按考试和资料类型查找官方考纲、过往真题与知识点讲义，下载 AceMock 云舟备考已发布的 PDF 学习资料。',
+    canonicalPath: '/study-resources',
+  },
 }
 
 const privatePageTitles: Array<{ prefix: string; title: string }> = [

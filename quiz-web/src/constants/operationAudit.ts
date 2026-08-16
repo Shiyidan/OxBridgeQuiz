@@ -13,6 +13,7 @@ export const OPERATION_AUDIT_MODULE_OPTIONS: OperationAuditOption[] = [
   { label: '试卷题库', value: 'paper' },
   { label: '教学大纲', value: 'syllabus' },
   { label: '营收成本', value: 'revenue' },
+  { label: '学习资料', value: 'resource' },
 ]
 
 export const STUDENT_BEHAVIOR_MODULE_OPTIONS = OPERATION_AUDIT_MODULE_OPTIONS.filter((option) =>
@@ -28,6 +29,10 @@ export const OPERATION_AUDIT_ACTION_LABELS: Record<string, string> = {
   'payment.order.create': '创建支付订单',
   'payment.order.close': '关闭支付订单',
   'admin.user.gift_cards.create': '管理员赠送日卡',
+  'admin.study_resource.upload': '上传学习资料',
+  'admin.study_resource.past_paper_upload': '上传年度真题资料组',
+  'admin.study_resource.status_update': '更新学习资料发布状态',
+  'admin.study_resource.delete': '删除学习资料',
 }
 
 // 未知扩展模块保留原始编码，避免新增后端模块时页面显示为空。

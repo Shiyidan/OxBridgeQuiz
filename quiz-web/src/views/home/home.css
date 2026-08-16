@@ -29,6 +29,10 @@ body.home-dialog-open {
   overflow: hidden;
 }
 
+body.home-mobile-nav-open {
+  overflow: hidden;
+}
+
 .home-shell,
 .home-demo-backdrop {
   color: var(--home-ink);
@@ -1588,6 +1592,10 @@ body.home-dialog-open {
 }
 
 @media (max-width: 860px) {
+  .home-shell > .navbar {
+    display: none;
+  }
+
   .home-shell > .navbar .nav-inner {
     width: calc(100% - 36px);
     gap: 12px;

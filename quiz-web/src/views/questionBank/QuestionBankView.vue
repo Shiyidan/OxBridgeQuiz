@@ -412,9 +412,19 @@ function handleOpenPracticeNotebook(): void {
   void router.push('/practice-notebook')
 }
 
+// 移动端仅开放题库与考纲浏览，正式练习统一提示切换到电脑端。
+function requireDesktopForQuestionBankPractice(): boolean {
+  const isMobileViewport =
+    window.matchMedia('(max-width: 780px)').matches || window.screen.width <= 780
+  if (!isMobileViewport) return false
+  ElMessage.info('试题练习需使用电脑端答题，请在电脑端打开后开始练习。')
+  return true
+}
+
 // 续答只携带 ExamRecord ID，题目集合和保存进度全部由服务端会话恢复。
 function handleContinuePractice(): void {
   if (!activePractice.value) return
+  if (requireDesktopForQuestionBankPractice()) return
   void router.push({
     path: '/practice',
     query: { examId: activePractice.value.examRecordId },
@@ -423,6 +433,7 @@ function handleContinuePractice(): void {
 
 // 答题页使用点击卡片时冻结的范围，确认弹窗期间切换树节点不会改变本次练习归属。
 function navigateToPractice(practice: PendingDirectPractice): void {
+  if (requireDesktopForQuestionBankPractice()) return
   void router.push({
     path: '/practice',
     query: {
@@ -435,6 +446,7 @@ function navigateToPractice(practice: PendingDirectPractice): void {
 
 // 难度卡片先确认知识点和默认五题计划，匹配不足时展示实际可生成题量。
 function handleStartPractice(diff: DifficultyOption): void {
+  if (requireDesktopForQuestionBankPractice()) return
   if (requireLoginForPracticeAction()) return
   if (activePractice.value) {
     ElMessage.info('请先继续并完成当前练习')
@@ -457,6 +469,10 @@ function handleStartPractice(diff: DifficultyOption): void {
 
 // 用户确认所选范围后再预检额度，部分不足时进入第二层缩量确认。
 async function handleConfirmSelectedPractice(): Promise<void> {
+  if (requireDesktopForQuestionBankPractice()) {
+    pendingDirectPractice.value = null
+    return
+  }
   if (requireLoginForPracticeAction()) return
   const pending = pendingDirectPractice.value
   if (!pending) return
@@ -500,6 +516,7 @@ function handleConfirmReducedPractice(): void {
   const pending = pendingDirectPractice.value
   pendingDirectPractice.value = null
   if (!pending) return
+  if (requireDesktopForQuestionBankPractice()) return
   navigateToPractice(pending)
 }
 
@@ -987,6 +1004,184 @@ function handleCancelReducedPractice(): void {
 
   .qb-difficulty-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 780px), (max-device-width: 780px) {
+  .question-bank {
+    min-width: 0;
+  }
+
+  .qb-container {
+    width: auto;
+    max-width: calc(100vw - 32px);
+    margin: 0 16px;
+    padding: 26px 0 48px;
+  }
+
+  .qb-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .qb-header__title {
+    font-size: 24px;
+  }
+
+  .qb-header__actions {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  .qb-notebook-entry {
+    min-width: 0;
+    height: 40px;
+    padding: 0 10px;
+  }
+
+  .qb-main {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .qb-sidebar,
+  .qb-content {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  .qb-content {
+    overflow: hidden;
+  }
+
+  .qb-sidebar {
+    position: static;
+    max-height: 260px;
+    overflow: hidden;
+  }
+
+  .qb-sidebar__title {
+    margin-bottom: 10px;
+    font-size: 10px;
+    line-height: 1.45;
+  }
+
+  .qb-sidebar__tree-scroll {
+    max-height: 206px;
+    overflow: auto;
+  }
+
+  .qb-sidebar__tree-scroll :deep(.el-tree) {
+    font-size: 12px;
+  }
+
+  .qb-sidebar__tree-scroll :deep(.el-tree-node__content) {
+    min-height: 32px;
+    padding-right: 6px;
+  }
+
+  .qb-content__header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .qb-content__title {
+    font-size: 15px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  .qb-content__hint {
+    font-size: 10px;
+    line-height: 1.45;
+  }
+
+  .qb-active-practice {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .qb-active-practice .button_primary {
+    width: 100%;
+  }
+
+  .qb-difficulty-grid {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .qb-difficulty-card {
+    border-radius: 10px;
+  }
+
+  .qb-difficulty-card:hover {
+    transform: none;
+  }
+
+  .qb-difficulty-card__visual {
+    min-height: 0;
+    padding: 10px 8px;
+  }
+
+  .qb-difficulty-card__english {
+    margin-bottom: 4px;
+    font-size: 8px;
+  }
+
+  .qb-difficulty-card__title {
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .qb-difficulty-card__count {
+    margin-top: 8px;
+    padding: 4px;
+    font-size: 8px;
+    white-space: nowrap;
+  }
+
+  .qb-difficulty-card__cta {
+    position: static;
+    width: 100%;
+    min-width: 0;
+    height: 34px;
+    gap: 4px;
+    margin-top: 10px;
+    padding: 0 4px;
+    font-size: 10px;
+  }
+
+  .qb-difficulty-card__cta > span:last-child {
+    display: none;
+  }
+
+  .qb-difficulty-card__body {
+    display: none;
+  }
+
+  .qb-difficulty-card__icon {
+    display: none;
+  }
+
+  .qb-difficulty-card__body strong {
+    margin: 0 0 4px;
+    font-size: 12px;
+  }
+
+  .qb-difficulty-card__desc {
+    font-size: 10px;
+    line-height: 1.5;
   }
 }
 </style>

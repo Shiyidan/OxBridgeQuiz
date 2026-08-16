@@ -339,11 +339,24 @@ function formatTrend(score: HomeTrendScore): string {
   return `${score.delta > 0 ? '比上次高' : '比上次低'} ${formatScore(Math.abs(score.delta))}`
 }
 
+// 移动端首页不直接恢复答题会话，只把继续入口落到对应业务模块首页。
+function resolveHomeNavigationPath(path: string): string {
+  const isMobileViewport =
+    window.matchMedia('(max-width: 780px)').matches || window.screen.width <= 780
+  if (!isMobileViewport) return path
+  if (path.startsWith('/assessment/exam/')) return '/assessment'
+  if (path.startsWith('/practice?')) return '/question-bank'
+  return path
+}
+
 // 主行动按状态进入真实功能页；未选择目标时由两个显式选择按钮单独处理。
 function handlePrimaryAction(): void {
-  if (props.state === 'progress') emit('navigate', diagnosticResumePath.value)
-  else if (props.state === 'report') emit('navigate', reportPath.value || '/assessment')
-  else if (props.state === 'active') emit('navigate', practiceResumePath.value)
+  if (props.state === 'progress') {
+    emit('navigate', resolveHomeNavigationPath(diagnosticResumePath.value))
+  } else if (props.state === 'report') emit('navigate', reportPath.value || '/assessment')
+  else if (props.state === 'active') {
+    emit('navigate', resolveHomeNavigationPath(practiceResumePath.value))
+  }
   else if (props.state === 'idle') emit('navigate', '/question-bank')
   else emit('navigate', '/assessment')
 }
@@ -358,7 +371,7 @@ function handleSecondaryAction(): void {
 
 // 固定入口只上报已有目标下的有效路径，no-goal 状态不会误入功能页。
 function handleEntrySelection(entry: HomeEntry): void {
-  if (entry.path) emit('navigate', entry.path)
+  if (entry.path) emit('navigate', resolveHomeNavigationPath(entry.path))
 }
 
 // 状态面板的范围操作按当前任务进入最相关页面，目标管理仍由父级统一处理。

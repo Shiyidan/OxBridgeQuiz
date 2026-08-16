@@ -134,6 +134,37 @@ model ParseTask {
   paper Paper @relation(fields: [paperId], references: [id], onDelete: Cascade)
 }
 
+model StudyResource {
+  id               String    @id @default(uuid()) @db.VarChar(191)
+  bundleKey        String    @db.VarChar(191)
+  title            String    @db.VarChar(255)
+  description      String?   @db.Text
+  examType         String    @db.VarChar(32)
+  category         String    @db.VarChar(32)
+  resourceYear     Int?
+  fileRole         String    @default("main") @db.VarChar(32)
+  accessTier       String    @default("free") @db.VarChar(32)
+  status           String    @default("draft") @db.VarChar(32)
+  originalFileName String    @db.VarChar(255)
+  storageKey       String    @unique @db.VarChar(500)
+  mimeType         String    @default("application/pdf") @db.VarChar(100)
+  fileSizeBytes    Int
+  downloadCount    Int       @default(0)
+  checksumSha256   String    @db.Char(64)
+  uploadedById     String?   @db.VarChar(191)
+  publishedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  uploadedBy User? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([examType, category, status])
+  @@index([bundleKey])
+  @@index([category, examType, resourceYear])
+  @@index([status, createdAt])
+  @@index([uploadedById, createdAt])
+}
+
 model User {
   id                String    @id @default(uuid()) @db.VarChar(191)
   username          String    @unique @db.VarChar(191)
@@ -164,6 +195,7 @@ model User {
   sentInvitations        InvitationRelation[]         @relation("InvitationInviter")
   receivedInvitation     InvitationRelation?          @relation("InvitationInvitee")
   invitationRewards      InvitationReward[]
+  uploadedStudyResources StudyResource[]
 }
 
 model OperationLog {

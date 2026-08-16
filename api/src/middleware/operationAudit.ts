@@ -85,6 +85,10 @@ const OPERATION_DEFINITIONS: OperationDefinition[] = [
   { method: 'PUT', pattern: /^\/api\/papers\/syllabus-library\/([^/]+)\/enable$/, module: OPERATION_AUDIT_MODULE.SYLLABUS, action: 'admin.syllabus.enable', summary: '启用考纲', resourceType: 'Syllabus', resourceIdGroup: 1 },
   { method: 'PUT', pattern: /^\/api\/papers\/syllabus-library\/([^/]+)\/disable$/, module: OPERATION_AUDIT_MODULE.SYLLABUS, action: 'admin.syllabus.disable', summary: '停用考纲', resourceType: 'Syllabus', resourceIdGroup: 1 },
   { method: 'POST', pattern: /^\/api\/upload\/paper-pages\/create$/, module: OPERATION_AUDIT_MODULE.PAPER, action: 'admin.paper.upload_create', summary: '创建上传试卷', resourceType: 'Paper' },
+  { method: 'POST', pattern: /^\/api\/study-resources\/admin\/upload$/, module: OPERATION_AUDIT_MODULE.RESOURCE, action: 'admin.study_resource.upload', summary: '上传学习资料', resourceType: 'StudyResource' },
+  { method: 'POST', pattern: /^\/api\/study-resources\/admin\/upload-past-paper$/, module: OPERATION_AUDIT_MODULE.RESOURCE, action: 'admin.study_resource.past_paper_upload', summary: '上传年度真题资料组', resourceType: 'StudyResource' },
+  { method: 'PUT', pattern: /^\/api\/study-resources\/admin\/bundles\/([^/]+)\/status$/, module: OPERATION_AUDIT_MODULE.RESOURCE, action: 'admin.study_resource.status_update', summary: '更新学习资料发布状态', resourceType: 'StudyResource', resourceIdGroup: 1 },
+  { method: 'DELETE', pattern: /^\/api\/study-resources\/admin\/bundles\/([^/]+)$/, module: OPERATION_AUDIT_MODULE.RESOURCE, action: 'admin.study_resource.delete', summary: '删除学习资料', resourceType: 'StudyResource', resourceIdGroup: 1 },
 ]
 
 // 审计 JSON 只接受有限结构，避免 Date、undefined 或超大业务对象直接写入数据库。

@@ -182,6 +182,15 @@ function resolveDatabaseUrl(): string {
   throw new Error('[config] DATABASE_URL is required')
 }
 
+// 本地默认写入项目 api/uploads，测试和生产固定写入发布目录之外的持久化目录。
+function resolveStudyResourceStorageRoot(): string {
+  const configured = process.env.STUDY_RESOURCE_STORAGE_ROOT?.trim()
+  if (configured) return path.resolve(configured)
+  return BACKEND_ENV === 'local'
+    ? path.resolve(process.cwd(), 'uploads', 'study-resources')
+    : '/opt/quiz/uploads/study-resources'
+}
+
 // 测试与生产地址属于私有部署配置，禁止回退到仓库中的示例地址。
 function resolveFrontendUrl(): string {
   const value = process.env.FRONTEND_URL?.trim().replace(/\/$/, '')
@@ -457,6 +466,12 @@ export const config = {
   bulkSmtpPass: resolveMailValue('BULK_SMTP_PASS', BULK_MAIL_ADDRESS),
   bulkMailFrom: resolveMailValue('BULK_MAIL_FROM', BULK_MAIL_ADDRESS),
   databaseUrl: resolveDatabaseUrl(),
+  studyResourceStorageRoot: resolveStudyResourceStorageRoot(),
+  studyResourceMaxFileSizeBytes:
+    parsePositiveInteger('STUDY_RESOURCE_MAX_FILE_SIZE_MB', process.env.STUDY_RESOURCE_MAX_FILE_SIZE_MB, 50, {
+      min: 1,
+      max: 100,
+    }) * 1024 * 1024,
   corsOrigins: resolveCorsOrigins(),
   trustProxy: parseTrustProxy(process.env.TRUST_PROXY, backendDefaults.trustProxy),
   deepseekApiKey: process.env.DEEPSEEK_API_KEY || '',

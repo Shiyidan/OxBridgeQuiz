@@ -104,6 +104,18 @@ function toApiError(error: unknown): ApiError {
   return new ApiError(message, code, response?.status)
 }
 
+// 文件下载失败时 Axios 会把标准 JSON 错误包包装成 Blob，先还原后再交给统一错误提示。
+async function normalizeBlobErrorResponse(error: unknown): Promise<void> {
+  const response = (error as { response?: { data?: unknown } })?.response
+  if (!response || !(response.data instanceof Blob)) return
+  try {
+    const parsed = JSON.parse(await response.data.text()) as ApiResponse
+    if (parsed && typeof parsed === 'object') response.data = parsed
+  } catch {
+    // 非 JSON 文件错误保留原始 Blob，由通用网络错误文案兜底。
+  }
+}
+
 // 页面需要保留错误状态时统一读取新 ApiError 字段，不再访问 Axios response 兼容结构。
 export function getApiErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError && error.message) return error.message
@@ -187,6 +199,7 @@ instance.interceptors.response.use(
       }
     }
 
+    await normalizeBlobErrorResponse(error)
     const apiError = toApiError(error)
     if (isRefreshRequest) return Promise.reject(apiError)
     if (apiError.code === REQUEST_CANCELED_CODE) return Promise.reject(apiError)
@@ -206,6 +219,7 @@ export interface ApiConfig {
   body?: unknown
   timeout?: number
   silent?: boolean
+  responseType?: 'json' | 'blob'
 }
 
 // 统一过滤空查询参数，避免各 API 模块重复拼接 URL。
@@ -228,6 +242,7 @@ export async function callApi<T>(config: ApiConfig): Promise<T> {
     data: config.body,
     timeout: config.timeout,
     silent: config.silent,
+    responseType: config.responseType,
   })
   return response.data
 }

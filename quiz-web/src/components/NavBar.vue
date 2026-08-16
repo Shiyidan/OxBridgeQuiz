@@ -66,6 +66,12 @@
                 >
                   {{ exam.label }}
                 </el-dropdown-item>
+                <el-dropdown-item
+                  command="study-resources"
+                  :class="{ 'is-current-exam': route.path.startsWith('/study-resources') }"
+                >
+                  资料下载
+                </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -228,7 +234,9 @@ const mistakeNotebookPath = computed(() =>
 const roleHomeLabel = computed(() => (auth.user?.role === 'admin' ? '后台管理' : '个人中心'))
 
 // 考试介绍子路由共享同一个导航激活状态。
-const isExamIntroRoute = computed(() => route.path.startsWith('/exam-intro'))
+const isExamIntroRoute = computed(
+  () => route.path.startsWith('/exam-intro') || route.path.startsWith('/study-resources'),
+)
 
 // 练习本与练习记录属于试题库学习工作区，进入后继续高亮试题库导航。
 const isLearningWorkspaceRoute = computed(
@@ -242,8 +250,8 @@ const isLearningWorkspaceRoute = computed(
 const currentExamType = computed(() => String(route.params.examType || '').toLowerCase())
 
 // Element Plus 下拉命令统一切换考试页面，避免手写 hover 浮层产生闪烁。
-function handleExamCommand(examType: string): void {
-  const path = `/exam-intro/${examType}`
+function handleExamCommand(command: string): void {
+  const path = command === 'study-resources' ? '/study-resources' : `/exam-intro/${command}`
   if (props.delegateNavigation) emit('navigate', path)
   else router.push(path)
 }

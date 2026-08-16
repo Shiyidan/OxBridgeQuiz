@@ -1044,26 +1044,99 @@ function dateOnly(value?: string | null): string | null {
   background: var(--color-surface-alt);
 }
 
-@media (max-width: 780px) {
+@media (max-width: 780px), (max-device-width: 780px) {
+  :global(body:has(.mistake-notebook-page)) {
+    min-width: 0;
+  }
+
+  .mistake-notebook-page {
+    --fluid-page-min-width: 0px;
+    --fluid-shell-width: calc(100% - 32px);
+
+    min-width: 0;
+  }
+
+  :deep(.navbar) {
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  :deep(.navbar::-webkit-scrollbar) {
+    display: none;
+  }
+
+  :deep(.nav-inner) {
+    width: max-content;
+    min-width: 100%;
+    padding: 0 16px;
+  }
+
+  .mistake-notebook-main {
+    width: auto;
+    margin: 0 16px;
+    padding: 26px 0 48px;
+  }
+
   .filter-bar {
-    grid-template-columns: 1fr;
-    gap: 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px 8px;
+    padding: 12px;
   }
 
   .filter-actions {
     grid-column: auto;
-    justify-content: flex-end;
+    gap: 4px;
+    justify-content: stretch;
   }
 
-  .filter-field,
-  .filter-message {
+  .filter-field {
     grid-column: auto;
+    gap: 5px;
+  }
+
+  .filter-field__label {
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+  }
+
+  .filter-field :deep(.el-select__wrapper),
+  .filter-field :deep(.el-input__wrapper) {
+    min-height: 34px;
+    padding-right: 6px;
+    padding-left: 6px;
+    border-radius: 7px;
+  }
+
+  .filter-field :deep(.el-range-input),
+  .filter-field :deep(.el-select__placeholder),
+  .filter-field :deep(.el-select__selected-item) {
+    font-size: 10px;
+  }
+
+  .filter-field :deep(.el-range-separator) {
+    width: 12px;
+    padding: 0 2px;
+    font-size: 9px;
+  }
+
+  .filter-button {
+    width: 100%;
+    min-width: 0;
+    height: 34px;
+    padding: 0 4px;
+    font-size: 11px;
+  }
+
+  .filter-message {
+    grid-column: 1 / -1;
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-device-width: 640px) {
   .mistake-notebook-main {
-    padding: 26px 16px 20px;
+    padding: 26px 0 20px;
   }
 
   .mistake-notebook-header {

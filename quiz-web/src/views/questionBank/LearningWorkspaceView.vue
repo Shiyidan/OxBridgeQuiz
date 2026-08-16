@@ -1,6 +1,9 @@
 <!-- 试题学习工作区：固定全局导航，并为试题库、练习本与练习记录提供页面切换。 -->
 <template>
-  <div class="learning-workspace">
+  <div
+    class="learning-workspace"
+    :class="{ 'learning-workspace--question-bank': activeViewKey === 'question-bank' }"
+  >
     <NavBar />
     <div class="learning-workspace__viewport">
       <Transition :name="transitionName" mode="out-in">
@@ -106,6 +109,35 @@ watch(
   .workspace-slide-back-enter-active,
   .workspace-slide-back-leave-active {
     transition-duration: 1ms;
+  }
+}
+
+@media (max-width: 780px), (max-device-width: 780px) {
+  :global(body:has(.learning-workspace--question-bank)) {
+    min-width: 0;
+  }
+
+  .learning-workspace--question-bank {
+    --fluid-page-min-width: 0px;
+    --fluid-shell-width: calc(100% - 32px);
+
+    min-width: 0;
+  }
+
+  .learning-workspace--question-bank :deep(.navbar) {
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .learning-workspace--question-bank :deep(.navbar::-webkit-scrollbar) {
+    display: none;
+  }
+
+  .learning-workspace--question-bank :deep(.nav-inner) {
+    width: max-content;
+    min-width: 100%;
+    padding: 0 16px;
   }
 }
 </style>

@@ -13,6 +13,7 @@ export const OPERATION_AUDIT_MODULE = {
   PAPER: 'paper',
   SYLLABUS: 'syllabus',
   REVENUE: 'revenue',
+  RESOURCE: 'resource',
 } as const
 
 export const OPERATION_AUDIT_MODULE_VALUES = Object.values(OPERATION_AUDIT_MODULE)

@@ -8,6 +8,11 @@
       FIRST VIEWPORT: 固定页头下优先呈现一句主张、一个主任务，以及足够解释行动原因的上下文。
       FORM: 严格采用参考 HTML 的纵向分屏与克制工程感，交互状态以 PRD 和真实接口为准。
     -->
+    <HomeMobileNav
+      :current-exam="currentExam"
+      @home="scrollToHome"
+      @navigate="handleNavigation"
+    />
     <NavBar
       :delegate-navigation="true"
       :delegate-exam-selection="true"
@@ -85,6 +90,7 @@ import {
   MEMBERSHIP_PURCHASE_PENDING_MESSAGE,
 } from '@/constants/membershipPurchase'
 import HomeGoalDialog from './HomeGoalDialog.vue'
+import HomeMobileNav from './HomeMobileNav.vue'
 import MarketingHome from './MarketingHome.vue'
 import StudentHome from './StudentHome.vue'
 import { useHomeDashboard } from './useHomeDashboard'

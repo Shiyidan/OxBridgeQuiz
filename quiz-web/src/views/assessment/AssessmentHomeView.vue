@@ -421,6 +421,15 @@ const esatSubjectOptions: EsatSubjectOption[] = [
 ]
 const selectedEsatSubjects = ref<EsatSubjectCode[]>(['maths1'])
 
+// 移动端仅开放诊断卷浏览，正式答题需要回到电脑端完成。
+function requireDesktopForDiagnosticAction(): boolean {
+  const isMobileViewport =
+    window.matchMedia('(max-width: 760px)').matches || window.screen.width <= 760
+  if (!isMobileViewport) return false
+  ElMessage.info('诊断测试需使用电脑端答题，请在电脑端打开后开始考试。')
+  return true
+}
+
 // 游客可以浏览诊断年份与科目，但真正开始或重测前必须先完成登录。
 function requireLoginForDiagnosticAction(): boolean {
   if (auth.isLoggedIn) return false
@@ -640,6 +649,7 @@ async function loadSubjectSelectionPapers(): Promise<boolean> {
 
 // 若任一年份存在未完成测试，优先定位该 attempt 并询问是否继续，不打开选科弹窗。
 async function handleYearSelection(year: number): Promise<void> {
+  if (requireDesktopForDiagnosticAction()) return
   if (requireLoginForDiagnosticAction()) return
   if (openingYear.value !== null) return
   const inProgressYear = assessmentYears.value.find((item) => item.inProgressPaperCount > 0)
@@ -714,6 +724,7 @@ async function handleYearSelection(year: number): Promise<void> {
 
 // 确认后携带原 examRecordId 进入分段作答页，保留原答题进度和剩余时间。
 function confirmResumeDiagnostic(): void {
+  if (requireDesktopForDiagnosticAction()) return
   const paper = pendingResumePaper.value
   if (!paper) return
   resumeDialogVisible.value = false
@@ -923,6 +934,7 @@ function historyActionLabel(record: AssessmentPaperHistoryItem): string {
 
 // TMUA 确认后直接新建或重测当年双 Paper 诊断，不再经过试卷卡片页。
 async function startSelectedTmuaPaper(): Promise<void> {
+  if (requireDesktopForDiagnosticAction()) return
   if (requireLoginForDiagnosticAction()) return
   const paper = selectedTmuaPaper.value
   if (!paper) {
@@ -955,6 +967,7 @@ function clearTmuaPaperSelection(): void {
 
 // 科目组合确认后直接继续或新建对应试卷 attempt，不再经过试卷列表。
 async function startSelectedEsatPaper(): Promise<void> {
+  if (requireDesktopForDiagnosticAction()) return
   if (requireLoginForDiagnosticAction()) return
   const paper = selectedPaperPreview.value
   if (!paper) {
@@ -2055,9 +2068,44 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
   background: var(--color-surface);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 760px), (max-device-width: 760px) {
+  :global(body:has(.assessment-page)) {
+    min-width: 0;
+  }
+
+  .assessment-page {
+    --fluid-page-min-width: 0px;
+    --fluid-shell-width: calc(100% - 32px);
+
+    min-width: 0;
+  }
+
+  :deep(.navbar) {
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  :deep(.navbar::-webkit-scrollbar) {
+    display: none;
+  }
+
+  :deep(.nav-inner) {
+    width: max-content;
+    min-width: 100%;
+    padding: 0 16px;
+  }
+
+  .assessment-shell {
+    padding: 26px 0 48px;
+  }
+
+  .page-header h1 {
+    font-size: 24px;
+  }
+
   .assessment-year-overview {
-    padding: 18px;
+    padding: 12px;
   }
 
   .assessment-year-overview__heading {
@@ -2071,11 +2119,107 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
   }
 
   .assessment-year-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .assessment-year-card-stack {
+    padding-top: 9px;
+  }
+
+  .assessment-year-card-stack::before {
+    inset: 0 18px 10px;
+    border-radius: 14px;
+  }
+
+  .assessment-year-card-stack::after {
+    inset: 5px 9px 5px;
+    border-radius: 14px;
   }
 
   .assessment-year-card {
-    --assessment-year-cover-height: 180px;
+    --assessment-year-cover-height: 92px;
+
+    border-radius: 14px;
+  }
+
+  .assessment-year-card:hover {
+    transform: none;
+  }
+
+  .assessment-year-card__topline {
+    top: 8px;
+    right: 8px;
+    left: 8px;
+  }
+
+  .assessment-year-card__topline > i {
+    min-width: 0;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 6px;
+    font-size: 8px;
+  }
+
+  .assessment-year-card__cover-copy {
+    right: 10px;
+    bottom: 8px;
+    left: 10px;
+  }
+
+  .assessment-year-card__cover-copy strong {
+    overflow: hidden;
+    font-size: 16px;
+    text-overflow: ellipsis;
+  }
+
+  .assessment-year-card__cover-copy small {
+    display: none;
+  }
+
+  .assessment-year-card__body {
+    min-height: 106px;
+    grid-template-columns: minmax(0, 1fr) 30px;
+    gap: 6px;
+    padding: 11px 9px 34px;
+  }
+
+  .assessment-year-card__info > strong {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .assessment-year-card__summary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 6px;
+  }
+
+  .assessment-year-card__summary b {
+    font-size: 9px;
+  }
+
+  .assessment-year-card__summary em {
+    padding: 3px 5px;
+    font-size: 8px;
+  }
+
+  .assessment-year-card__action {
+    width: 30px;
+    min-height: 30px;
+    border-radius: 8px;
+  }
+
+  .assessment-year-card__history {
+    right: 10px;
+    bottom: 10px;
+    font-size: 9px;
+  }
+
+  .assessment-year-card__lock-overlay {
+    border-radius: 0 0 14px 14px;
   }
 
   :deep(.diagnostic-history-dialog) {

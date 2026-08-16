@@ -7,27 +7,13 @@
       <section class="exam-hero">
         <div class="exam-hero__grid" aria-hidden="true"></div>
         <div class="exam-shell exam-hero__content">
-          <div class="exam-kicker">
-            <span class="exam-kicker__dot"></span>
-            AceMock 云舟备考 · Exam Intro
-          </div>
+          <div class="exam-kicker">AceMock 云舟备考 · Exam Intro</div>
           <h1>{{ currentExam.title }}</h1>
           <p>{{ currentExam.subtitle }}</p>
         </div>
       </section>
 
       <div class="exam-shell exam-content">
-        <nav class="exam-switcher" aria-label="考试介绍页面">
-          <router-link
-            v-for="exam in examLinks"
-            :key="exam.type"
-            :to="`/exam-intro/${exam.type}`"
-            :aria-current="examType === exam.type ? 'page' : undefined"
-          >
-            {{ exam.label }}
-          </router-link>
-        </nav>
-
         <nav class="exam-tabs" aria-label="考试介绍内容">
           <button
             v-for="tab in tabs"
@@ -130,12 +116,6 @@ const tabs: Array<{ id: TabId; label: string }> = [
   { id: 'faq', label: '常见问题' },
   { id: 'comparison', label: '考试对比' },
 ]
-const examLinks: Array<{ type: ExamType; label: string }> = [
-  { type: 'esat', label: 'ESAT 考试介绍' },
-  { type: 'tmua', label: 'TMUA 考试介绍' },
-  { type: 'step', label: 'STEP 考试介绍' },
-]
-
 const examType = computed<ExamType>(() => {
   const value = String(route.params.examType || '').toLowerCase()
   return isExamType(value) ? value : 'tmua'
@@ -189,105 +169,66 @@ const SectionTitle = defineComponent({
   margin: 0 auto;
 }
 
-.exam-switcher {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.exam-switcher a {
-  min-height: 36px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 14px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-pill);
-  background: var(--color-surface);
-  color: var(--color-ink-soft);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semi);
-  text-decoration: none;
-}
-
-.exam-switcher a:hover,
-.exam-switcher a[aria-current='page'] {
-  border-color: var(--color-ink);
-  color: var(--color-ink);
-}
-
 .exam-hero {
   position: relative;
-  min-height: 240px;
-  padding: 44px 0 68px;
   overflow: hidden;
-  border-bottom: 1px solid var(--color-line);
+  background: #17201e;
+  color: #fff;
 }
 
 .exam-hero__grid {
   position: absolute;
   inset: 0;
-  opacity: 0.55;
+  opacity: 0.12;
   background-image:
-    linear-gradient(var(--color-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--color-line) 1px, transparent 1px);
-  background-size: 64px 64px;
-  mask-image: radial-gradient(ellipse 80% 70% at 50% 38%, black 25%, transparent 78%);
+    linear-gradient(rgba(255, 255, 255, 0.22) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.22) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(90deg, transparent, #000 32%, #000 68%, transparent);
 }
 
 .exam-hero__content {
   position: relative;
   z-index: 1;
+  padding: clamp(54px, 6vw, 88px) 0;
 }
 
 .exam-kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
-  color: var(--color-ink-soft);
-  font-size: 13px;
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.04em;
-}
-
-.exam-kicker__dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--color-ink);
+  color: #b8c6c1;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .exam-hero h1 {
   max-width: 840px;
-  margin: 0 0 12px;
-  color: var(--color-ink);
-  font-size: clamp(32px, 2.35vw, 42px);
+  margin: 16px 0 14px;
+  color: #fff;
+  font-size: clamp(34px, 4vw, 54px);
   font-weight: var(--weight-bold);
-  line-height: var(--leading-tight);
-  letter-spacing: var(--tracking-tight);
+  line-height: 1.08;
 }
 
 .exam-hero p {
   max-width: 720px;
   margin: 0;
-  color: var(--color-ink-soft);
-  font-size: var(--text-base);
-  line-height: var(--leading-relaxed);
+  color: #d8e0dd;
+  font-size: 16px;
+  line-height: 1.8;
 }
 
 .exam-content {
   position: relative;
   z-index: 2;
-  margin-top: -32px;
-  padding-bottom: 96px;
+  padding: 15px 0 96px;
 }
 
 .exam-tabs {
   display: flex;
   align-items: stretch;
   gap: 4px;
-  margin-bottom: 32px;
+  margin-bottom: 15px;
   padding: 0 24px;
   overflow: hidden;
   border: 1px solid var(--color-line);

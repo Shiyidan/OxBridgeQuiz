@@ -122,6 +122,12 @@ const router = createRouter({
       name: 'exam-intro',
       component: lazyRoute(() => import('../views/examIntro/ExamIntroView.vue')),
     },
+    // 资料下载
+    {
+      path: '/study-resources',
+      name: 'study-resources',
+      component: lazyRoute(() => import('../views/studyResources/StudyResourcesView.vue')),
+    },
     // 答题结果
     {
       path: '/exam-result',

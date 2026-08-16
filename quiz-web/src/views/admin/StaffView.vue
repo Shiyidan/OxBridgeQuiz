@@ -1,21 +1,6 @@
 <!-- 员工管理（占位） -->
 <template>
   <div class="placeholder-page">
-    <div class="page-top-bar">
-      <button class="back-btn" @click="$router.push('/admin')">
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <polyline points="15 18 9 12 15 6" />
-        </svg>
-        返回类别列表
-      </button>
-    </div>
     <div class="page-body">
       <h2 class="page-title">员工管理</h2>
       <p class="page-desc">团队成员管理、权限分配与工作绩效追踪。</p>
@@ -27,31 +12,6 @@
 <style scoped lang="scss">
 .placeholder-page {
   min-height: 100%;
-}
-.page-top-bar {
-  padding: 28px 40px 0;
-}
-.back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border: none;
-  background: transparent;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #64748b;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.15s ease;
-  svg {
-    width: 16px;
-    height: 16px;
-  }
-  &:hover {
-    color: #0f172a;
-    background: #f1f5f9;
-  }
 }
 .page-body {
   padding: 24px 40px 48px;

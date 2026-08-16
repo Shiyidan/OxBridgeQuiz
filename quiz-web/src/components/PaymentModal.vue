@@ -70,14 +70,13 @@
                   <span class="plan-price">
                     <span v-if="plan.promo" class="plan-promo">{{ plan.promo }}</span>
                     <strong>¥{{ plan.price }}</strong>
-                    <small v-if="!plan.originalPrice">/{{ plan.period }}</small>
+                    <small>/{{ plan.period }}</small>
                     <span
                       v-if="plan.originalPrice"
                       class="plan-original-group"
-                      :aria-label="`原价${plan.originalPrice}元每月`"
+                      :aria-label="`原价${plan.originalPrice}元`"
                     >
-                      <del class="plan-original-price">¥{{ plan.originalPrice }}</del
-                      ><small>/月</small>
+                      <del class="plan-original-price">¥{{ plan.originalPrice }}</del>
                     </span>
                   </span>
                   <span v-if="selectedPlanId === plan.id" class="plan-selected" aria-hidden="true">
@@ -87,7 +86,7 @@
               </div>
 
               <div class="member-benefits">
-                <h3>会员尊享权</h3>
+                <h3>会员权益</h3>
                 <ul>
                   <li v-for="benefit in benefits" :key="benefit">
                     <svg viewBox="0 0 18 18" aria-hidden="true">
@@ -234,6 +233,7 @@ import {
 interface Props {
   modelValue: boolean
   defaultExamType?: string
+  defaultPlanId?: 'monthly' | 'quarterly'
   resumeOrderNo?: string
 }
 
@@ -241,7 +241,7 @@ interface PaymentPlan {
   id: string
   name: string
   price: string
-  period: '月' | '年'
+  period: '30天' | '90天'
   promo?: string
   originalPrice?: string
   recommended: boolean
@@ -271,41 +271,38 @@ let initializingPayment = false
 const configStatus = ref<'active' | 'inactive'>('active')
 const providerReady = ref(false)
 const priceConfig = ref({
-  firstMonthlyPriceCents: 7800,
-  monthlyPriceCents: 7900,
-  yearlyPriceCents: 39800,
-  firstMonthlyEligible: true,
+  monthlyPriceCents: 19800,
+  quarterlyOriginalPriceCents: 59400,
+  quarterlyPriceCents: 35600,
 })
 
 const plans = computed<PaymentPlan[]>(() => [
   {
     id: 'monthly',
-    name: '按月订阅',
-    price: formatPrice(
-      priceConfig.value.firstMonthlyEligible
-        ? priceConfig.value.firstMonthlyPriceCents
-        : priceConfig.value.monthlyPriceCents,
-    ),
-    period: '月',
-    promo: priceConfig.value.firstMonthlyEligible ? '首次订阅' : undefined,
-    originalPrice: priceConfig.value.firstMonthlyEligible
-      ? formatPrice(priceConfig.value.monthlyPriceCents)
-      : undefined,
+    name: '月卡',
+    price: formatPrice(priceConfig.value.monthlyPriceCents),
+    period: '30天',
     recommended: false,
   },
   {
-    id: 'yearly',
-    name: '按年订阅',
-    price: formatPrice(priceConfig.value.yearlyPriceCents),
-    period: '年',
+    id: 'quarterly',
+    name: '季卡',
+    price: formatPrice(priceConfig.value.quarterlyPriceCents),
+    period: '90天',
+    promo: formatDiscountLabel(
+      priceConfig.value.quarterlyPriceCents,
+      priceConfig.value.quarterlyOriginalPriceCents,
+    ),
+    originalPrice: formatPrice(priceConfig.value.quarterlyOriginalPriceCents),
     recommended: true,
   },
 ])
 
 const benefits = [
-  '解锁 5000+ 练习题，覆盖全部知识点',
-  '解锁历年真题、成绩报告、真题详细解析与 AI 能力诊断',
-  '解锁 1000 套模拟卷、试题详细解析与知识点掌握分',
+  '解锁所选考试的全部会员诊断卷',
+  '不限次生成能力诊断报告与学习建议',
+  '不限题量使用专项题库、自由组卷与练习本',
+  '查看完整解析、错题记录与历史学习数据',
 ]
 
 // 云闪付尚在正式通道审核中，前台暂不提供入口；后端 unionpay 能力保留以便获批后恢复。
@@ -321,10 +318,8 @@ const displayAmount = computed(() =>
   formatPrice(
     orderAmountCents.value ??
       (selectedPlanId.value === 'monthly'
-        ? priceConfig.value.firstMonthlyEligible
-          ? priceConfig.value.firstMonthlyPriceCents
-          : priceConfig.value.monthlyPriceCents
-        : priceConfig.value.yearlyPriceCents),
+        ? priceConfig.value.monthlyPriceCents
+        : priceConfig.value.quarterlyPriceCents),
   ),
 )
 
@@ -339,14 +334,20 @@ function formatPrice(valueCents: number): string {
     : (valueCents / 100).toFixed(2)
 }
 
+// 季卡优惠文案随后台价格同步计算，避免价格调整后仍展示失真的固定折扣。
+function formatDiscountLabel(priceCents: number, originalPriceCents: number): string | undefined {
+  if (priceCents >= originalPriceCents) return undefined
+  const discount = Number(((priceCents / originalPriceCents) * 10).toFixed(1))
+  return `限时 ${discount} 折`
+}
+
 async function loadPaymentConfig(): Promise<boolean> {
   try {
     const config = await getPaymentConfig()
     priceConfig.value = {
-      firstMonthlyPriceCents: config.firstMonthlyPriceCents,
       monthlyPriceCents: config.monthlyPriceCents,
-      yearlyPriceCents: config.yearlyPriceCents,
-      firstMonthlyEligible: config.firstMonthlyEligible,
+      quarterlyOriginalPriceCents: config.quarterlyOriginalPriceCents,
+      quarterlyPriceCents: config.quarterlyPriceCents,
     }
     configStatus.value = config.status
     providerReady.value = config.providerReady
@@ -437,7 +438,7 @@ async function handleCreateOrder(): Promise<void> {
   try {
     const result = await createPaymentOrder({
       examTypes: [selectedExam.value],
-      plan: selectedPlanId.value as 'monthly' | 'yearly',
+      plan: selectedPlanId.value as 'monthly' | 'quarterly',
       channel: selectedChannelId.value as 'alipay' | 'wechat' | 'unionpay',
       legalVersions: { ...MEMBERSHIP_LEGAL_VERSIONS },
     })
@@ -504,6 +505,7 @@ async function initializePaymentModal(): Promise<void> {
   initializingPayment = true
   const defaultExam = examOptions.find((item) => item.value === props.defaultExamType)
   selectedExam.value = defaultExam?.value || 'TMUA'
+  selectedPlanId.value = props.defaultPlanId || 'monthly'
   resetPaymentOrder()
   const currentInitialization = orderGeneration
   creatingOrder.value = true

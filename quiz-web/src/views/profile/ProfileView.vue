@@ -1599,8 +1599,9 @@ function normalizeExamType(value: unknown): ExamType {
 
 // 套餐内部值集中映射为中文名称，避免各卡片重复维护文案。
 function planName(plan: string): string {
-  if (plan === 'yearly') return '专业版'
-  if (plan === 'monthly') return '月度版'
+  if (plan === 'quarterly') return '季卡版'
+  if (plan === 'yearly') return '年度版（历史）'
+  if (plan === 'monthly') return '月卡版'
   if (plan === 'admin') return '管理员权益'
   if (plan === 'weekly_reward') return '七天邀请会员卡'
   if (plan === 'daily_gift') return '一日赠送会员卡'
@@ -1655,8 +1656,9 @@ function formatTimestamp(value: number | string | null): string {
 
 // 会员记录套餐名忠实反映后端值，不使用价格页营销名称替代历史数据。
 function membershipPlanText(plan: string): string {
-  if (plan === 'yearly') return '年度套餐'
-  if (plan === 'monthly') return '月度套餐'
+  if (plan === 'quarterly') return '季卡套餐（90天）'
+  if (plan === 'yearly') return '年度套餐（历史）'
+  if (plan === 'monthly') return '月卡套餐（30天）'
   if (plan === 'admin') return '管理员权益'
   if (plan === 'weekly_reward') return '七天邀请会员卡'
   if (plan === 'daily_gift') return '一日赠送会员卡'
@@ -1668,14 +1670,16 @@ function paymentOrderTitle(order: PaymentOrder): string {
   return `${order.examTypes.join('、') || '会员'} ${paymentPlanText(order)}订单`
 }
 
-// 套餐文案同时体现首月优惠，避免用户将优惠订单误解为普通月付。
+// 套餐文案兼容历史首月优惠和年卡订单，新订单统一展示固定天数。
 function paymentPlanText(order: Pick<PaymentOrder, 'plan' | 'priceType'>): string {
   if (order.priceType === 'admin_gift' || order.plan === 'daily_gift') return '管理员赠送日卡'
   if (order.priceType === 'invitation_reward' || order.plan === 'weekly_reward') {
     return '邀请奖励周卡'
   }
-  if (order.priceType === 'first_monthly') return '月度套餐（首月优惠）'
-  return order.plan === 'yearly' ? '年度套餐' : '月度套餐'
+  if (order.priceType === 'first_monthly') return '月度套餐（历史首购）'
+  if (order.plan === 'quarterly') return '季卡套餐（90天）'
+  if (order.plan === 'yearly') return '年度套餐（历史）'
+  return '月卡套餐（30天）'
 }
 
 // 支付渠道统一转换为用户可理解的中文名称。

@@ -16,6 +16,7 @@ import {
   INVITATION_REWARD_PLAN,
   INVITATION_REWARD_ROLE,
   INVITATION_REWARD_STATUS,
+  LEGACY_MEMBERSHIP_PLAN,
   MEMBERSHIP_SOURCE,
   MEMBERSHIP_STATUS,
   MEMBERSHIP_PLAN,
@@ -160,7 +161,13 @@ export async function bindInvitationForUser(
     const paidOrder = await db.paymentOrder.findFirst({
       where: {
         userId: user.id,
-        plan: { in: [MEMBERSHIP_PLAN.MONTHLY, MEMBERSHIP_PLAN.YEARLY] },
+        plan: {
+          in: [
+            MEMBERSHIP_PLAN.MONTHLY,
+            MEMBERSHIP_PLAN.QUARTERLY,
+            LEGACY_MEMBERSHIP_PLAN.YEARLY,
+          ],
+        },
         status: {
           in: [
             PAYMENT_ORDER_STATUS.PAID,
@@ -361,7 +368,13 @@ export async function getInvitationOverview(userId: string) {
   const paidOrder = await prisma.paymentOrder.findFirst({
     where: {
       userId,
-      plan: { in: [MEMBERSHIP_PLAN.MONTHLY, MEMBERSHIP_PLAN.YEARLY] },
+      plan: {
+        in: [
+          MEMBERSHIP_PLAN.MONTHLY,
+          MEMBERSHIP_PLAN.QUARTERLY,
+          LEGACY_MEMBERSHIP_PLAN.YEARLY,
+        ],
+      },
       status: {
         in: [
           PAYMENT_ORDER_STATUS.PAID,

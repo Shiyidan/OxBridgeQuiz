@@ -142,6 +142,22 @@
       @confirm="handleConfirmReducedPractice"
       @cancel="handleCancelReducedPractice"
     />
+
+    <AppConfirmDialog
+      v-model="upgradeDialogVisible"
+      title="免费练习额度已用完"
+      message="当前考试的免费练习额度已全部使用，开通会员后可继续不限题量练习。"
+      confirm-text="开通会员"
+      cancel-text="暂不开通"
+      tone="default"
+      @confirm="handleOpenPayment"
+    />
+
+    <PaymentModal
+      v-model="paymentVisible"
+      :default-exam-type="paymentExamType"
+      @paid="handlePaymentSuccess"
+    />
   </div>
 </template>
 
@@ -152,11 +168,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { TreeInstance } from 'element-plus'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
+import PaymentModal from '@/components/PaymentModal.vue'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import type { QuestionDifficulty, SyllabusNode } from '@/api/questionBank'
 import { getSyllabusData, getQuestionSummaryData } from '@/api/questionBank'
 import { getActiveQuestionBankPractice, type ActiveQuestionBankPractice } from '@/api/exam'
-import { checkMemberAccess } from '@/api/member'
+import { checkMemberAccess, getMember } from '@/api/member'
 import { createLoginRequiredRouteLocation } from '@/utils/authRedirect'
 
 const router = useRouter()
@@ -204,6 +221,9 @@ const selectionDialogVisible = ref(false)
 const selectionDialogMessage = ref('')
 const quotaDialogVisible = ref(false)
 const quotaDialogMessage = ref('')
+const upgradeDialogVisible = ref(false)
+const paymentVisible = ref(false)
+const paymentExamType = ref<ActiveExamType>(auth.activeExamType)
 const pendingDirectPractice = ref<PendingDirectPractice | null>(null)
 let examContentInitialized = false
 let examLoadSequence = 0
@@ -492,7 +512,8 @@ async function handleConfirmSelectedPractice(): Promise<void> {
     const remaining = Math.max(0, access.remaining ?? 0)
     if (remaining === 0) {
       pendingDirectPractice.value = null
-      ElMessage.warning('当前免费练习题量已用完，请开通会员后继续')
+      paymentExamType.value = activeExamType.value
+      upgradeDialogVisible.value = true
       return
     }
 
@@ -523,6 +544,23 @@ function handleConfirmReducedPractice(): void {
 // 取消缩量练习时只清理本次待开始参数，不改变已有选择。
 function handleCancelReducedPractice(): void {
   pendingDirectPractice.value = null
+}
+
+// 免费额度耗尽提示由用户确认后再进入支付，避免练习操作直接触发收银台。
+function handleOpenPayment(): void {
+  upgradeDialogVisible.value = false
+  paymentVisible.value = true
+}
+
+// 支付完成后刷新会员上下文和题库额度，当前页面无需重新登录即可继续练习。
+async function handlePaymentSuccess(): Promise<void> {
+  paymentVisible.value = false
+  try {
+    auth.setMemberContext(await getMember())
+    await loadExamContent(false)
+  } catch {
+    // 支付组件已确认成功，公共请求层负责提示权益刷新失败。
+  }
 }
 </script>
 

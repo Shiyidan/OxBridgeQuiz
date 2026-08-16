@@ -112,6 +112,24 @@
       @confirm="handleViewPracticeAnalysis"
       @cancel="handleReturnAfterPractice"
     />
+
+    <AppConfirmDialog
+      v-model="upgradeDialogVisible"
+      title="免费练习额度已用完"
+      message="当前考试的免费练习额度已全部使用，开通会员后可继续不限题量练习。"
+      confirm-text="开通会员"
+      cancel-text="返回试题库"
+      tone="default"
+      @confirm="handleOpenPayment"
+      @cancel="handleCancelUpgrade"
+    />
+
+    <PaymentModal
+      :model-value="paymentVisible"
+      :default-exam-type="activeExamType"
+      @update:model-value="handlePaymentVisibilityChange"
+      @paid="handlePaymentSuccess"
+    />
   </div>
 </template>
 
@@ -124,6 +142,7 @@ import QuestionCard from '@/components/QuestionCard.vue'
 import ExamVue from '@/components/ExamVue.vue'
 import DiagnosticAnalysisDialog from '@/components/DiagnosticAnalysisDialog.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
+import PaymentModal from '@/components/PaymentModal.vue'
 import { getQuestionsData } from '@/api/questionBank'
 import { getPaperDetailData } from '@/api/papers'
 import {
@@ -170,6 +189,9 @@ const examSubmitted = ref(false)
 const activeExamRecordId = ref('')
 const analysisDialogVisible = ref(false)
 const practiceResultDialogVisible = ref(false)
+const upgradeDialogVisible = ref(false)
+const paymentVisible = ref(false)
+const quotaUpgradePending = ref(false)
 const submittedExamRecordId = ref('')
 const submissionKey = ref(
   typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -361,9 +383,9 @@ async function loadQuestions(): Promise<void> {
         questionCount: loadedQuestions.length,
       })
       if (!access.allowed) {
-        const remainingText = access.remaining === null ? '0' : String(access.remaining)
-        ElMessage.warning(`当前试题库额度不足，剩余 ${remainingText} 题，请开通会员后继续`)
-        router.replace('/question-bank')
+        questions.value = []
+        quotaUpgradePending.value = true
+        upgradeDialogVisible.value = true
         return
       }
     }
@@ -398,6 +420,38 @@ async function loadQuestions(): Promise<void> {
   } finally {
     loading.value = false
     questionEnteredAt = Date.now()
+  }
+}
+
+// 额度耗尽确认后打开支付弹窗，并预选当前练习对应的考试类型。
+function handleOpenPayment(): void {
+  upgradeDialogVisible.value = false
+  paymentVisible.value = true
+}
+
+// 用户暂不开通时返回试题库，避免停留在没有题目的答题页面。
+function handleCancelUpgrade(): void {
+  quotaUpgradePending.value = false
+  void router.replace({ path: '/question-bank', query: { examType: activeExamType.value } })
+}
+
+// 支付弹窗关闭但尚未完成购买时返回试题库，避免停留在没有题目的答题页。
+function handlePaymentVisibilityChange(visible: boolean): void {
+  paymentVisible.value = visible
+  if (visible || !quotaUpgradePending.value) return
+  quotaUpgradePending.value = false
+  void router.replace({ path: '/question-bank', query: { examType: activeExamType.value } })
+}
+
+// 支付完成后刷新会员上下文，并重新执行此前被额度拦截的选题与开卷流程。
+async function handlePaymentSuccess(): Promise<void> {
+  quotaUpgradePending.value = false
+  paymentVisible.value = false
+  try {
+    auth.setMemberContext(await getMember())
+    await loadQuestions()
+  } catch {
+    // 支付组件已确认成功，公共请求层负责提示权益刷新失败。
   }
 }
 

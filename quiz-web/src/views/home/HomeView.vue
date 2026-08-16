@@ -49,6 +49,9 @@
         :include-hero="!auth.isLoggedIn"
         :authenticated="auth.isLoggedIn"
         :member-price-label="marketingPriceLabel"
+        :quarterly-price-label="marketingQuarterlyPriceLabel"
+        :quarterly-original-price-label="marketingQuarterlyOriginalPriceLabel"
+        :quarterly-discount-label="marketingQuarterlyDiscountLabel"
         @register="(targetPath) => openAuthPage('register', targetPath)"
         @login="(targetPath) => openAuthPage('login', targetPath)"
         @navigate="handleNavigation"
@@ -67,6 +70,7 @@
       v-if="auth.isLoggedIn"
       v-model="paymentOpen"
       :default-exam-type="currentExam || auth.activeExamType"
+      :default-plan-id="paymentDefaultPlan"
       @paid="handlePaymentPaid"
     />
   </div>
@@ -96,15 +100,20 @@ import StudentHome from './StudentHome.vue'
 import { useHomeDashboard } from './useHomeDashboard'
 
 type AuthPage = 'login' | 'register'
+type PaymentPlanId = 'monthly' | 'quarterly'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const paymentOpen = ref(false)
+const paymentDefaultPlan = ref<PaymentPlanId>('monthly')
 const goalDialogOpen = ref(false)
 const goalSaving = ref(false)
 const pendingGoalExam = ref<ActiveExamType | null>(null)
-const marketingPriceLabel = ref('¥79/月')
+const marketingPriceLabel = ref('¥198')
+const marketingQuarterlyPriceLabel = ref('¥356')
+const marketingQuarterlyOriginalPriceLabel = ref('594')
+const marketingQuarterlyDiscountLabel = ref('6折')
 
 const {
   currentExam,
@@ -218,15 +227,16 @@ async function saveGoal(value: { examType: ActiveExamType; subjects: string[] })
 }
 
 // 访客购买先完成认证，登录返回首页后再打开正式支付流程。
-function openPayment(): void {
+function openPayment(planId: PaymentPlanId = 'monthly'): void {
   if (!MEMBERSHIP_PURCHASE_ENABLED) {
     ElMessage.info(MEMBERSHIP_PURCHASE_PENDING_MESSAGE)
     return
   }
   if (!auth.isLoggedIn) {
-    openAuthPage('login', '/?purchase=1')
+    openAuthPage('login', `/?purchase=1&plan=${planId}`)
     return
   }
+  paymentDefaultPlan.value = planId
   paymentOpen.value = true
 }
 
@@ -242,11 +252,37 @@ async function handlePaymentPaid(): Promise<void> {
   }
 }
 
+// 营销价格保留整数元或两位小数，避免后台非整数价格在首页被错误四舍五入。
+function formatMarketingAmount(valueCents: number): string {
+  const yuan = valueCents / 100
+  return Number.isInteger(yuan) ? String(yuan) : yuan.toFixed(2)
+}
+
+// 首页各价格字段共用人民币符号，组合折扣文案时可单独复用无符号金额。
+function formatMarketingPrice(valueCents: number): string {
+  return `¥${formatMarketingAmount(valueCents)}`
+}
+
+// 季卡折扣由实时原价和实付价计算，确保营销卡与支付弹窗保持一致。
+function formatMarketingDiscount(priceCents: number, originalPriceCents: number): string {
+  if (priceCents >= originalPriceCents) return '当前价'
+  const discount = Number(((priceCents / originalPriceCents) * 10).toFixed(1))
+  return `${discount}折`
+}
+
 // 营销价格读取公开支付配置；读取失败时保留默认展示价格，不阻断登录与支付入口。
 async function loadMarketingPrice(): Promise<void> {
   try {
     const config = await getPaymentConfig()
-    marketingPriceLabel.value = `¥${(config.monthlyPriceCents / 100).toFixed(0)}/月`
+    marketingPriceLabel.value = formatMarketingPrice(config.monthlyPriceCents)
+    marketingQuarterlyPriceLabel.value = formatMarketingPrice(config.quarterlyPriceCents)
+    marketingQuarterlyOriginalPriceLabel.value = formatMarketingAmount(
+      config.quarterlyOriginalPriceCents,
+    )
+    marketingQuarterlyDiscountLabel.value = formatMarketingDiscount(
+      config.quarterlyPriceCents,
+      config.quarterlyOriginalPriceCents,
+    )
   } catch {
     // 默认价格只用于营销展示，最终金额和服务可用性由支付弹窗的实时接口确认。
   }
@@ -255,9 +291,11 @@ async function loadMarketingPrice(): Promise<void> {
 // 登录回跳中的购买意图只消费一次，避免刷新其他首页状态时反复弹出。
 async function consumePurchaseIntent(): Promise<void> {
   if (!auth.isLoggedIn || route.query.purchase !== '1') return
+  paymentDefaultPlan.value = route.query.plan === 'quarterly' ? 'quarterly' : 'monthly'
   paymentOpen.value = true
   const nextQuery = { ...route.query }
   delete nextQuery.purchase
+  delete nextQuery.plan
   await router.replace({ path: route.path, query: nextQuery })
 }
 

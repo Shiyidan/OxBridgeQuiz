@@ -1,6 +1,8 @@
 // 支付退款服务：管理全额退款状态、银联结果确认与会员权益回收。
 import { Prisma } from '@prisma/client'
 import {
+  LEGACY_MEMBERSHIP_PLAN,
+  MEMBERSHIP_DURATION_DAYS,
   MEMBERSHIP_PLAN,
   MEMBERSHIP_SOURCE,
   MEMBERSHIP_STATUS,
@@ -86,10 +88,15 @@ function refundPaidAt(response: ChinaumsBillResponse): Date {
 }
 
 function subtractPlanDuration(plan: string, value: Date): Date {
-  const result = new Date(value)
-  if (plan === MEMBERSHIP_PLAN.YEARLY) result.setFullYear(result.getFullYear() - 1)
-  else result.setMonth(result.getMonth() - 1)
-  return result
+  if (plan === LEGACY_MEMBERSHIP_PLAN.YEARLY) {
+    const legacyResult = new Date(value)
+    legacyResult.setFullYear(legacyResult.getFullYear() - 1)
+    return legacyResult
+  }
+  const durationDays = plan === MEMBERSHIP_PLAN.QUARTERLY
+    ? MEMBERSHIP_DURATION_DAYS.quarterly
+    : MEMBERSHIP_DURATION_DAYS.monthly
+  return new Date(value.getTime() - durationDays * 24 * 60 * 60 * 1000)
 }
 
 async function revertOrderMemberships(

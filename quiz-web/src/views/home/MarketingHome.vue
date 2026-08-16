@@ -12,13 +12,19 @@ import HomeFooter from './HomeFooter.vue'
 
 interface MarketingHomeProps {
   memberPriceLabel?: string
+  quarterlyPriceLabel?: string
+  quarterlyOriginalPriceLabel?: string
+  quarterlyDiscountLabel?: string
   includeHero?: boolean
   authenticated?: boolean
 }
 
 // 会员价格由首页容器根据公开支付配置传入，购买入口始终交给父级完成认证分流。
 const props = withDefaults(defineProps<MarketingHomeProps>(), {
-  memberPriceLabel: '¥79/月',
+  memberPriceLabel: '¥198',
+  quarterlyPriceLabel: '¥356',
+  quarterlyOriginalPriceLabel: '594',
+  quarterlyDiscountLabel: '6折',
   includeHero: true,
   authenticated: false,
 })
@@ -43,7 +49,7 @@ const emit = defineEmits<{
   register: [targetPath: string]
   login: [targetPath: string]
   navigate: [targetPath: string]
-  'open-payment': []
+  'open-payment': [planId: 'monthly' | 'quarterly']
   'scroll-top': []
 }>()
 
@@ -66,8 +72,8 @@ function requestLogin(targetPath: string) {
 }
 
 // 购买入口由父级处理登录分流、考试类型选择与支付结果回写。
-function requestPayment() {
-  emit('open-payment')
+function requestPayment(planId: 'monthly' | 'quarterly') {
+  emit('open-payment', planId)
 }
 
 // 页脚产品入口回到营销首页顶部，由父级兼容滚动容器实现。
@@ -569,13 +575,12 @@ onBeforeUnmount(() => {
       id="home-pricing"
       class="home-section home-snap-screen home-action-screen"
       aria-labelledby="home-pricing-title"
-      v-if="false"
     >
       <div class="home-page home-pricing-layout home-motion-content">
         <header class="home-pricing-heading">
           <p class="home-action-kicker">注册与会员</p>
           <h2 id="home-pricing-title" class="home-section-title">
-            先免费完成一次诊断，再决定如何继续提升
+            升级套餐，专心备考
           </h2>
           <p class="home-section-desc">先体验诊断报告，再选择是否升级。</p>
         </header>
@@ -587,20 +592,46 @@ onBeforeUnmount(() => {
                 <span>免费注册</span>
                 <strong>¥0</strong>
               </div>
-              <p>先用真实试卷完成诊断，确认产品是否适合你。</p>
+              <p>注册即可体验免费诊断与练习，学习过程持续为你保留。</p>
             </div>
             <ul class="home-benefit-list">
-              <li class="home-benefit-item">平台开放的免费诊断卷，不限次测试</li>
-              <li class="home-benefit-item">诊断报告与学习记录</li>
-              <li class="home-benefit-item">基础专项练习</li>
-              <li class="home-benefit-item">基础错题收录</li>
+              <li class="home-benefit-item">1套诊断测试卷随做随出报告</li>
+              <li class="home-benefit-item">每个考试享 25 道免费练习额度</li>
+              <li class="home-benefit-item">诊断报告与历史学习记录持续保留</li>
+              <li class="home-benefit-item">已完成内容的错题与解析随时回看</li>
             </ul>
             <button
               class="home-btn home-btn-secondary home-btn-block"
               type="button"
               @click="requestRegistration('/assessment')"
             >
-              免费注册并开始诊断
+              开始诊断
+            </button>
+          </article>
+
+          <article class="home-price-card home-price-card-monthly">
+            <div class="home-price-card-head">
+              <div class="home-price-card-heading">
+                <span>月度会员</span>
+                <div class="home-price-main-line home-price-main-line-light">
+                  <strong>{{ props.memberPriceLabel }}</strong>
+                  <span class="home-price-unit">元</span>
+                </div>
+              </div>
+              <p>适合单月集中备考，会员权益按所选 ESAT 或 TMUA 独立生效。</p>
+            </div>
+            <ul class="home-benefit-list">
+              <li class="home-benefit-item">解锁全部会员诊断卷</li>
+              <li class="home-benefit-item">不限次生成能力诊断报告</li>
+              <li class="home-benefit-item">完整专项练习题库</li>
+              <li class="home-benefit-item">30 天错题攻克与学习建议</li>
+            </ul>
+            <button
+              class="home-btn home-btn-secondary home-btn-block"
+              type="button"
+              @click="requestPayment('monthly')"
+            >
+              开通月卡
             </button>
           </article>
 
@@ -608,23 +639,30 @@ onBeforeUnmount(() => {
             <div class="home-price-recommended">推荐</div>
             <div class="home-price-card-head">
               <div class="home-price-card-heading">
-                <span>会员备考</span>
-                <strong>{{ props.memberPriceLabel }}</strong>
+                <span>季度会员</span>
+                <div class="home-price-main-line">
+                  <strong>{{ props.quarterlyPriceLabel }}</strong>
+                  <del
+                    >/{{ props.quarterlyOriginalPriceLabel
+                    }}<span class="home-price-unit">元</span></del
+                  >
+                  <b>{{ props.quarterlyDiscountLabel }}</b>
+                </div>
               </div>
-              <p>会员按考试类型独立生效，购买时可明确选择 ESAT 或 TMUA。</p>
+              <p>适合完整备考周期，会员权益按所选 ESAT 或 TMUA 独立生效。</p>
             </div>
             <ul class="home-benefit-list">
-              <li class="home-benefit-item">全部可用历史真题</li>
-              <li class="home-benefit-item">不限次数能力诊断</li>
+              <li class="home-benefit-item">解锁全部会员诊断卷</li>
+              <li class="home-benefit-item">不限次生成能力诊断报告</li>
               <li class="home-benefit-item">完整专项练习题库</li>
-              <li class="home-benefit-item">错题攻克与学习建议</li>
+              <li class="home-benefit-item">90 天错题攻克与学习建议</li>
             </ul>
             <button
               class="home-btn home-btn-primary home-btn-block"
               type="button"
-              @click="requestPayment"
+              @click="requestPayment('quarterly')"
             >
-              开通会员
+              开通季卡
             </button>
           </article>
         </div>

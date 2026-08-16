@@ -115,10 +115,10 @@ async function main(): Promise<void> {
     [EXAM_TYPE.TMUA],
   )
 
-  await saveAccess(login.accessToken, [EXAM_TYPE.TMUA], MEMBERSHIP_PLAN.YEARLY)
-  const yearlyTmua = await findUncancelledMemberships()
-  assert.equal(yearlyTmua.length, 1)
-  assert.equal(yearlyTmua[0]?.plan, MEMBERSHIP_PLAN.YEARLY)
+  await saveAccess(login.accessToken, [EXAM_TYPE.TMUA], MEMBERSHIP_PLAN.QUARTERLY)
+  const quarterlyTmua = await findUncancelledMemberships()
+  assert.equal(quarterlyTmua.length, 1)
+  assert.equal(quarterlyTmua[0]?.plan, MEMBERSHIP_PLAN.QUARTERLY)
 
   await saveAccess(login.accessToken, [EXAM_TYPE.ESAT])
   assert.deepEqual(

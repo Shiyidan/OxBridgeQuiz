@@ -5,6 +5,8 @@ import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 import { success, fail } from '../utils/response.js'
 import {
+  LEGACY_MEMBERSHIP_PLAN,
+  MEMBERSHIP_DURATION_DAYS,
   MEMBERSHIP_PLAN,
   MEMBERSHIP_STATUS,
   USER_ROLE,
@@ -71,9 +73,9 @@ function parsePaymentAmount(value: unknown): number | null {
 }
 
 function formatPaymentConfig(config: {
-  firstMonthlyPriceCents: number
   monthlyPriceCents: number
-  yearlyPriceCents: number
+  quarterlyOriginalPriceCents: number
+  quarterlyPriceCents: number
   status: string
   updatedBy: string | null
   updatedAt: Date
@@ -396,11 +398,11 @@ adminRouter.get('/payment-config', async (_req, res) => {
 // 保存支付策略后，前台支付弹窗立即读取最新价格。
 adminRouter.put('/payment-config', async (req, res) => {
   try {
-    const firstMonthlyPriceCents = parsePaymentAmount(req.body.firstMonthlyPriceCents)
     const monthlyPriceCents = parsePaymentAmount(req.body.monthlyPriceCents)
-    const yearlyPriceCents = parsePaymentAmount(req.body.yearlyPriceCents)
+    const quarterlyOriginalPriceCents = parsePaymentAmount(req.body.quarterlyOriginalPriceCents)
+    const quarterlyPriceCents = parsePaymentAmount(req.body.quarterlyPriceCents)
     const status = req.body.status
-    if (firstMonthlyPriceCents === null || monthlyPriceCents === null || yearlyPriceCents === null) {
+    if (monthlyPriceCents === null || quarterlyOriginalPriceCents === null || quarterlyPriceCents === null) {
       res.status(422).json(fail('价格必须是大于 0 的整数分'))
       return
     }
@@ -408,8 +410,8 @@ adminRouter.put('/payment-config', async (req, res) => {
       res.status(422).json(fail('无效的支付策略状态'))
       return
     }
-    if (firstMonthlyPriceCents > monthlyPriceCents) {
-      res.status(422).json(fail('首次按月价格不能高于正常月价格'))
+    if (quarterlyPriceCents > quarterlyOriginalPriceCents) {
+      res.status(422).json(fail('季卡折扣价不能高于季卡原价'))
       return
     }
 
@@ -418,16 +420,16 @@ adminRouter.put('/payment-config', async (req, res) => {
       where: { id: 'default' },
       create: {
         id: 'default',
-        firstMonthlyPriceCents,
         monthlyPriceCents,
-        yearlyPriceCents,
+        quarterlyOriginalPriceCents,
+        quarterlyPriceCents,
         status,
         updatedBy: req.user!.userId,
       },
       update: {
-        firstMonthlyPriceCents,
         monthlyPriceCents,
-        yearlyPriceCents,
+        quarterlyOriginalPriceCents,
+        quarterlyPriceCents,
         status,
         updatedBy: req.user!.userId,
       },
@@ -436,12 +438,12 @@ adminRouter.put('/payment-config', async (req, res) => {
       resourceId: config.id,
       changes: buildOperationAuditChanges(
         {
-          firstMonthlyPriceCents: previousConfig.firstMonthlyPriceCents,
           monthlyPriceCents: previousConfig.monthlyPriceCents,
-          yearlyPriceCents: previousConfig.yearlyPriceCents,
+          quarterlyOriginalPriceCents: previousConfig.quarterlyOriginalPriceCents,
+          quarterlyPriceCents: previousConfig.quarterlyPriceCents,
           status: previousConfig.status,
         },
-        { firstMonthlyPriceCents, monthlyPriceCents, yearlyPriceCents, status },
+        { monthlyPriceCents, quarterlyOriginalPriceCents, quarterlyPriceCents, status },
       ),
     })
     res.json(success(formatPaymentConfig(config)))
@@ -1031,13 +1033,15 @@ type RevenueCostPayloadResult =
   | { error: string }
 
 function buildMembershipEndDate(plan: string, start: Date): Date {
-  const end = new Date(start)
-  if (plan === MEMBERSHIP_PLAN.YEARLY) {
-    end.setFullYear(end.getFullYear() + 1)
-  } else {
-    end.setMonth(end.getMonth() + 1)
+  if (plan === LEGACY_MEMBERSHIP_PLAN.YEARLY) {
+    const legacyEnd = new Date(start)
+    legacyEnd.setFullYear(legacyEnd.getFullYear() + 1)
+    return legacyEnd
   }
-  return end
+  const durationDays = plan === MEMBERSHIP_PLAN.QUARTERLY
+    ? MEMBERSHIP_DURATION_DAYS.quarterly
+    : MEMBERSHIP_DURATION_DAYS.monthly
+  return new Date(start.getTime() + durationDays * 24 * 60 * 60 * 1000)
 }
 
 function formatAdminUserForClient<T extends { role: string; memberships?: any[] }>(user: T) {

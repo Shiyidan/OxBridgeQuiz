@@ -268,9 +268,9 @@ export interface BehaviorAnalyticsResult {
 }
 
 export interface AdminPaymentConfig {
-  firstMonthlyPriceCents: number
   monthlyPriceCents: number
-  yearlyPriceCents: number
+  quarterlyOriginalPriceCents: number
+  quarterlyPriceCents: number
   status: 'active' | 'inactive'
   updatedBy?: string | null
   updatedAt: string

@@ -3,12 +3,11 @@ import { callApi } from '@/utils/request'
 import type { MembershipLegalVersions } from '@/constants/legal'
 
 export interface PaymentConfig {
-  firstMonthlyPriceCents: number
   monthlyPriceCents: number
-  yearlyPriceCents: number
+  quarterlyOriginalPriceCents: number
+  quarterlyPriceCents: number
   status: 'active' | 'inactive'
   providerReady: boolean
-  firstMonthlyEligible: boolean
   updatedAt: string
 }
 
@@ -16,8 +15,8 @@ export interface PaymentOrder {
   id: string
   orderNo: string
   examTypes: string[]
-  plan: 'monthly' | 'yearly' | 'daily_gift' | 'weekly_reward'
-  priceType: 'first_monthly' | 'monthly' | 'yearly' | 'admin_gift' | 'invitation_reward'
+  plan: 'monthly' | 'quarterly' | 'yearly' | 'daily_gift' | 'weekly_reward'
+  priceType: 'monthly' | 'quarterly' | 'yearly' | 'first_monthly' | 'admin_gift' | 'invitation_reward'
   amountCents: number
   refundedAmountCents: number
   currency: string
@@ -74,7 +73,7 @@ export function getPaymentConfig() {
 /** 创建支付订单并由后端向银联商务换取一次性聚合支付二维码。 */
 export function createPaymentOrder(payload: {
   examTypes: string[]
-  plan: 'monthly' | 'yearly'
+  plan: 'monthly' | 'quarterly'
   channel: 'alipay' | 'wechat' | 'unionpay'
   legalVersions: MembershipLegalVersions
 }) {

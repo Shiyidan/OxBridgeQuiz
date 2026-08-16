@@ -27,17 +27,17 @@
         </div>
 
         <el-form class="price-form" label-position="top" @submit.prevent="saveConfig">
-          <el-form-item label="首次按月付费价格">
-            <el-input-number v-model="form.firstMonthlyPrice" :disabled="!editing" :min="0.01" :max="100000" :precision="2" :step="1" controls-position="right" />
-            <span class="field-hint">用户第一次成功购买月度会员时使用</span>
-          </el-form-item>
-          <el-form-item label="正常月价格">
+          <el-form-item label="月卡价格">
             <el-input-number v-model="form.monthlyPrice" :disabled="!editing" :min="0.01" :max="100000" :precision="2" :step="1" controls-position="right" />
-            <span class="field-hint">非首次购买月度会员时使用</span>
+            <span class="field-hint">月卡固定 30 天</span>
           </el-form-item>
-          <el-form-item label="年价格">
-            <el-input-number v-model="form.yearlyPrice" :disabled="!editing" :min="0.01" :max="100000" :precision="2" :step="10" controls-position="right" />
-            <span class="field-hint">年度套餐一次性支付价格</span>
+          <el-form-item label="季卡原价">
+            <el-input-number v-model="form.quarterlyOriginalPrice" :disabled="!editing" :min="0.01" :max="100000" :precision="2" :step="1" controls-position="right" />
+            <span class="field-hint">支付弹窗用于展示划线原价</span>
+          </el-form-item>
+          <el-form-item label="季卡折扣价">
+            <el-input-number v-model="form.quarterlyPrice" :disabled="!editing" :min="0.01" :max="100000" :precision="2" :step="1" controls-position="right" />
+            <span class="field-hint">季卡固定 90 天，当前按 6 折展示</span>
           </el-form-item>
         </el-form>
 
@@ -381,7 +381,7 @@
             >
               <el-table-column prop="examType" label="考试" width="90" />
               <el-table-column label="套餐" width="110">
-                <template #default="{ row }">{{ row.plan === 'yearly' ? '年度' : '月度' }}</template>
+                <template #default="{ row }">{{ planText(row.plan, '') }}</template>
               </el-table-column>
               <el-table-column label="状态" width="100">
                 <template #default="{ row }">{{ membershipStatusText(row.status) }}</template>
@@ -499,15 +499,15 @@ const reconciliationOverview = reactive<AdminPaymentReconciliationOverview>({
   scope: 'local_orders_with_provider_query',
 })
 const form = reactive({
-  firstMonthlyPrice: 78,
-  monthlyPrice: 79,
-  yearlyPrice: 398,
+  monthlyPrice: 198,
+  quarterlyOriginalPrice: 594,
+  quarterlyPrice: 356,
   status: 'active' as 'active' | 'inactive',
 })
 const savedForm = reactive({
-  firstMonthlyPrice: 78,
-  monthlyPrice: 79,
-  yearlyPrice: 398,
+  monthlyPrice: 198,
+  quarterlyOriginalPrice: 594,
+  quarterlyPrice: 356,
   status: 'active' as 'active' | 'inactive',
 })
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
@@ -542,9 +542,9 @@ function formatJson(value: unknown): string {
 }
 
 function syncSavedForm(): void {
-  savedForm.firstMonthlyPrice = form.firstMonthlyPrice
   savedForm.monthlyPrice = form.monthlyPrice
-  savedForm.yearlyPrice = form.yearlyPrice
+  savedForm.quarterlyOriginalPrice = form.quarterlyOriginalPrice
+  savedForm.quarterlyPrice = form.quarterlyPrice
   savedForm.status = form.status
 }
 
@@ -554,9 +554,9 @@ function startEditing(): void {
 }
 
 function cancelEditing(): void {
-  form.firstMonthlyPrice = savedForm.firstMonthlyPrice
   form.monthlyPrice = savedForm.monthlyPrice
-  form.yearlyPrice = savedForm.yearlyPrice
+  form.quarterlyOriginalPrice = savedForm.quarterlyOriginalPrice
+  form.quarterlyPrice = savedForm.quarterlyPrice
   form.status = savedForm.status
   editing.value = false
 }
@@ -568,8 +568,9 @@ function normalizeExamTypes(value: unknown): string[] {
 function planText(plan: string, priceType: string): string {
   if (plan === 'daily_gift' || priceType === 'admin_gift') return '管理员赠送日卡'
   if (plan === 'weekly_reward' || priceType === 'invitation_reward') return '邀请奖励周卡'
-  if (plan === 'yearly') return '年度会员'
-  return priceType === 'first_monthly' ? '月度会员（首次）' : '月度会员'
+  if (plan === 'quarterly') return '季卡会员'
+  if (plan === 'yearly') return '年度会员（历史）'
+  return priceType === 'first_monthly' ? '月度会员（历史首购）' : '月卡会员'
 }
 
 function channelText(channel: string): string {
@@ -685,9 +686,9 @@ function reconciliationUserText(item: AdminPaymentReconciliationItem): string {
 async function loadConfig(): Promise<void> {
   try {
     const config = await getAdminPaymentConfig()
-    form.firstMonthlyPrice = centsToYuan(config.firstMonthlyPriceCents)
     form.monthlyPrice = centsToYuan(config.monthlyPriceCents)
-    form.yearlyPrice = centsToYuan(config.yearlyPriceCents)
+    form.quarterlyOriginalPrice = centsToYuan(config.quarterlyOriginalPriceCents)
+    form.quarterlyPrice = centsToYuan(config.quarterlyPriceCents)
     form.status = config.status
     updatedAt.value = config.updatedAt
     syncSavedForm()
@@ -699,16 +700,16 @@ async function loadConfig(): Promise<void> {
 // 管理员保存价格后，前台下一次打开支付弹窗即使用新策略。
 async function saveConfig(): Promise<void> {
   if (!editing.value) return
-  if (form.firstMonthlyPrice > form.monthlyPrice) {
-    ElMessage.warning('首次按月价格不能高于正常月价格')
+  if (form.quarterlyPrice > form.quarterlyOriginalPrice) {
+    ElMessage.warning('季卡折扣价不能高于季卡原价')
     return
   }
   saving.value = true
   try {
     const config = await updateAdminPaymentConfig({
-      firstMonthlyPriceCents: yuanToCents(form.firstMonthlyPrice),
       monthlyPriceCents: yuanToCents(form.monthlyPrice),
-      yearlyPriceCents: yuanToCents(form.yearlyPrice),
+      quarterlyOriginalPriceCents: yuanToCents(form.quarterlyOriginalPrice),
+      quarterlyPriceCents: yuanToCents(form.quarterlyPrice),
       status: form.status,
     })
     updatedAt.value = config.updatedAt

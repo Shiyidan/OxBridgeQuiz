@@ -44,49 +44,28 @@ import {
 export const paymentRouter = createAsyncRouter()
 
 const DEFAULT_CONFIG = {
-  firstMonthlyPriceCents: 7800,
-  monthlyPriceCents: 7900,
-  yearlyPriceCents: 39800,
+  monthlyPriceCents: 19800,
+  quarterlyOriginalPriceCents: 59400,
+  quarterlyPriceCents: 35600,
 }
 
 function formatConfig(
   paymentConfig: {
-    firstMonthlyPriceCents: number
     monthlyPriceCents: number
-    yearlyPriceCents: number
+    quarterlyOriginalPriceCents: number
+    quarterlyPriceCents: number
     status: string
     updatedAt: Date
   },
-  firstMonthlyEligible = true,
 ) {
   return {
-    firstMonthlyPriceCents: paymentConfig.firstMonthlyPriceCents,
     monthlyPriceCents: paymentConfig.monthlyPriceCents,
-    yearlyPriceCents: paymentConfig.yearlyPriceCents,
+    quarterlyOriginalPriceCents: paymentConfig.quarterlyOriginalPriceCents,
+    quarterlyPriceCents: paymentConfig.quarterlyPriceCents,
     status: paymentConfig.status,
     providerReady: config.chinaums.enabled,
-    firstMonthlyEligible,
     updatedAt: paymentConfig.updatedAt.toISOString(),
   }
-}
-
-// 首月优惠只允许使用一次，已退款订单仍代表用户曾成功完成过月度订阅。
-async function isFirstMonthlyPurchaseEligible(userId: string): Promise<boolean> {
-  const previousMonthlyPurchase = await prisma.paymentOrder.findFirst({
-    where: {
-      userId,
-      plan: MEMBERSHIP_PLAN.MONTHLY,
-      status: {
-        in: [
-          PAYMENT_ORDER_STATUS.PAID,
-          PAYMENT_ORDER_STATUS.REFUNDING,
-          PAYMENT_ORDER_STATUS.REFUNDED,
-        ],
-      },
-    },
-    select: { id: true },
-  })
-  return !previousMonthlyPurchase
 }
 
 function formatOrder<T extends {
@@ -185,13 +164,10 @@ export async function getOrCreatePaymentConfig() {
 }
 
 // 当前生效的支付价格策略
-paymentRouter.get('/config', optionalAuth, async (req, res) => {
+paymentRouter.get('/config', optionalAuth, async (_req, res) => {
   try {
     const paymentConfig = await getOrCreatePaymentConfig()
-    const firstMonthlyEligible = req.user
-      ? await isFirstMonthlyPurchaseEligible(req.user.userId)
-      : true
-    res.json(success(formatConfig(paymentConfig, firstMonthlyEligible)))
+    res.json(success(formatConfig(paymentConfig)))
   } catch (error) {
     logRuntimeError('payment.config.read_failed', error)
     res.status(500).json(fail('获取支付策略失败'))
@@ -354,15 +330,11 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
       return
     }
 
-    let priceType: string = PAYMENT_PRICE_TYPE.YEARLY
-    let amountCents = paymentConfig.yearlyPriceCents
-    if (plan === MEMBERSHIP_PLAN.MONTHLY) {
-      const firstMonthlyEligible = await isFirstMonthlyPurchaseEligible(req.user!.userId)
-      priceType = firstMonthlyEligible ? PAYMENT_PRICE_TYPE.FIRST_MONTHLY : PAYMENT_PRICE_TYPE.MONTHLY
-      amountCents = firstMonthlyEligible
-        ? paymentConfig.firstMonthlyPriceCents
-        : paymentConfig.monthlyPriceCents
-    }
+    const isMonthly = plan === MEMBERSHIP_PLAN.MONTHLY
+    const priceType = isMonthly ? PAYMENT_PRICE_TYPE.MONTHLY : PAYMENT_PRICE_TYPE.QUARTERLY
+    const amountCents = isMonthly
+      ? paymentConfig.monthlyPriceCents
+      : paymentConfig.quarterlyPriceCents
 
     const agreementsAcceptedAt = new Date()
     const expiresAt = new Date(Date.now() + config.chinaums.orderExpireMinutes * 60 * 1000)
@@ -403,7 +375,7 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
       orderNo: order.orderNo,
       amountCents,
       expiresAt,
-      description: `${config.chinaums.orderDescription}-${plan === MEMBERSHIP_PLAN.YEARLY ? 'Annual' : 'Monthly'}`,
+      description: `${config.chinaums.orderDescription}-${isMonthly ? 'Monthly' : 'Quarterly'}`,
     })
     if (!qrResponse.billQRCode || !qrResponse.billDate) {
       throw new ChinaumsRequestError('银联商务未返回有效二维码', 'CHINAUMS_QR_MISSING', qrResponse)

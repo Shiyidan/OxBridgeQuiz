@@ -595,14 +595,14 @@ model EntitlementConfig {
 }
 
 model PaymentConfig {
-  id                     String   @id @default("default") @db.VarChar(32)
-  firstMonthlyPriceCents Int      @default(7800)
-  monthlyPriceCents      Int      @default(7900)
-  yearlyPriceCents       Int      @default(39800)
-  status                 String   @default("active") @db.VarChar(32)
-  updatedBy              String?  @db.VarChar(191)
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  id                          String   @id @default("default") @db.VarChar(32)
+  monthlyPriceCents           Int      @default(19800)
+  quarterlyOriginalPriceCents Int      @default(59400)
+  quarterlyPriceCents         Int      @default(35600)
+  status                      String   @default("active") @db.VarChar(32)
+  updatedBy                   String?  @db.VarChar(191)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
 }
 
 model PaymentOrder {

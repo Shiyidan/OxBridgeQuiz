@@ -279,8 +279,8 @@ const pagination = reactive({
 const examTypeOptions = EXAM_TYPE_OPTIONS
 
 const planOptions = [
-  { label: '月度会员', value: 'monthly' },
-  { label: '年度会员', value: 'yearly' },
+  { label: '月卡会员（30天）', value: 'monthly' },
+  { label: '季卡会员（90天）', value: 'quarterly' },
 ]
 
 interface MembershipBadge {
@@ -298,7 +298,12 @@ function activeMemberships(user: UserItem) {
 }
 
 function planName(plan: string): string {
-  const map: Record<string, string> = { monthly: '月度', yearly: '年度', daily_gift: '日卡' }
+  const map: Record<string, string> = {
+    monthly: '月卡',
+    quarterly: '季卡',
+    yearly: '年度（历史）',
+    daily_gift: '日卡',
+  }
   return map[plan] || plan
 }
 

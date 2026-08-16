@@ -188,7 +188,16 @@ export const MOCK_PAPER_TYPES = [PAPER_TYPE.MOCK_PAPER] as const
 
 export const MEMBERSHIP_PLAN = {
   MONTHLY: 'monthly',
+  QUARTERLY: 'quarterly',
+} as const
+
+export const LEGACY_MEMBERSHIP_PLAN = {
   YEARLY: 'yearly',
+} as const
+
+export const MEMBERSHIP_DURATION_DAYS = {
+  [MEMBERSHIP_PLAN.MONTHLY]: 30,
+  [MEMBERSHIP_PLAN.QUARTERLY]: 90,
 } as const
 
 export const MEMBERSHIP_PLANS = Object.values(MEMBERSHIP_PLAN)
@@ -198,7 +207,7 @@ export const EFFECTIVE_PLAN = {
   FREE: 'free',
   ADMIN: 'admin',
   MONTHLY: MEMBERSHIP_PLAN.MONTHLY,
-  YEARLY: MEMBERSHIP_PLAN.YEARLY,
+  QUARTERLY: MEMBERSHIP_PLAN.QUARTERLY,
 } as const
 
 export const MEMBERSHIP_STATUS = {
@@ -284,9 +293,8 @@ export const PAYMENT_CHANNELS = Object.values(PAYMENT_CHANNEL)
 export type PaymentChannel = (typeof PAYMENT_CHANNELS)[number]
 
 export const PAYMENT_PRICE_TYPE = {
-  FIRST_MONTHLY: 'first_monthly',
   MONTHLY: 'monthly',
-  YEARLY: 'yearly',
+  QUARTERLY: 'quarterly',
   ADMIN_GIFT: 'admin_gift',
   INVITATION_REWARD: 'invitation_reward',
 } as const
@@ -426,7 +434,7 @@ export function isRealPaperType(value: unknown): boolean {
   return REAL_PAPER_TYPES.includes(value as any)
 }
 
-// 会员套餐判断只接受系统已配置的月度或年度方案。
+// 新建会员订单只接受当前开放的月卡或季卡方案。
 export function isMembershipPlan(value: unknown): value is MembershipPlan {
   return typeof value === 'string' && MEMBERSHIP_PLANS.includes(value as MembershipPlan)
 }

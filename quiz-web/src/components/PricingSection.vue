@@ -23,7 +23,7 @@
 
           <div class="plan-price">
             <span class="plan-price-amount">¥&nbsp;{{ plan.price }}</span>
-            <span class="plan-price-suffix">/ 月</span>
+            <span v-if="plan.id === 'member'" class="plan-price-suffix">/ 30天</span>
           </div>
 
           <ul class="plan-features">
@@ -150,7 +150,7 @@ const plans = reactive<Plan[]>([
     id: 'member',
     title: '会员用户',
     tagline: 'AI 全流程引导提升',
-    price: '499',
+    price: '198',
     features: [
       { text: '5000+ 练习题任意刷（覆盖全部知识点）', included: true, highlight: true },
       { text: '全部历史真题测试', included: true, highlight: true },

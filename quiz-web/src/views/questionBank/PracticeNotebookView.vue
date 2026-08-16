@@ -171,6 +171,22 @@
       @confirm="handleConfirmReducedPractice"
       @cancel="handleCancelReducedPractice"
     />
+
+    <AppConfirmDialog
+      v-model="upgradeDialogVisible"
+      title="免费练习额度已用完"
+      message="当前考试的免费练习额度已全部使用，开通会员后可继续不限题量练习。"
+      confirm-text="开通会员"
+      cancel-text="暂不开通"
+      tone="default"
+      @confirm="handleOpenPayment"
+    />
+
+    <PaymentModal
+      v-model="paymentVisible"
+      :default-exam-type="paymentExamType"
+      @paid="handlePaymentSuccess"
+    />
   </div>
 </template>
 
@@ -180,8 +196,9 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import AppPagination from '@/components/AppPagination.vue'
+import PaymentModal from '@/components/PaymentModal.vue'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
-import { checkMemberAccess } from '@/api/member'
+import { checkMemberAccess, getMember } from '@/api/member'
 import { createLoginRequiredRouteLocation } from '@/utils/authRedirect'
 import {
   getPracticeNotebookHistory,
@@ -234,6 +251,9 @@ const expandedRowId = ref('')
 const startingNotebookId = ref('')
 const quotaDialogVisible = ref(false)
 const quotaDialogMessage = ref('')
+const upgradeDialogVisible = ref(false)
+const paymentVisible = ref(false)
+const paymentExamType = ref<ActiveExamType>(auth.activeExamType)
 const pendingNotebookStart = ref<{ notebookId: string } | null>(null)
 const histories = reactive<Record<string, HistoryState>>({})
 let listRequestSequence = 0
@@ -414,7 +434,8 @@ async function handlePrimaryAction(row: DisplayRow): Promise<void> {
 
     const remaining = Math.max(0, access.remaining ?? 0)
     if (remaining === 0) {
-      ElMessage.warning('当前免费练习题量已用完，请开通会员后继续')
+      paymentExamType.value = row.examType
+      upgradeDialogVisible.value = true
       return
     }
 
@@ -439,6 +460,23 @@ function handleConfirmReducedPractice(): void {
 // 取消缩量开始只清理待确认状态，练习本配置保持不变。
 function handleCancelReducedPractice(): void {
   pendingNotebookStart.value = null
+}
+
+// 免费额度耗尽提示由用户确认后再进入支付，并保留当前练习本页面。
+function handleOpenPayment(): void {
+  upgradeDialogVisible.value = false
+  paymentVisible.value = true
+}
+
+// 支付完成后刷新会员上下文和练习本列表，使原操作可以立即重新发起。
+async function handlePaymentSuccess(): Promise<void> {
+  paymentVisible.value = false
+  try {
+    auth.setMemberContext(await getMember())
+    await loadNotebookList()
+  } catch {
+    // 支付组件已确认成功，公共请求层负责提示权益刷新失败。
+  }
 }
 
 // 临时活动答卷返回练习记录，其余练习本答卷保持返回当前页面。

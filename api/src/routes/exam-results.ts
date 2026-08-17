@@ -6,6 +6,7 @@ import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
 import { formatQuestionRow } from '../utils/questionSync.js'
 import { parseJsonField, parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
+import { orderQuestionsForResult } from '../utils/questionOrder.js'
 import { checkMemberAccess } from '../services/member.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { computeScores } from '../services/scoring.js'
@@ -149,15 +150,10 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
       where: { examRecordId: examRecord.id },
     })
 
-    const questionRows = await prisma.question.findMany({
+    const unorderedQuestionRows = await prisma.question.findMany({
       where: { id: { in: answers.map((answer) => answer.questionId) } },
-      orderBy: [
-        { moduleOrder: 'asc' },
-        { moduleQuestionNumber: 'asc' },
-        { paperId: 'asc' },
-        { number: 'asc' },
-      ],
     })
+    const questionRows = orderQuestionsForResult(unorderedQuestionRows)
     const storedPositionsAreComplete = answers.every((answer) => Number.isInteger(answer.position))
       && new Set(answers.map((answer) => answer.position)).size === answers.length
     const orderedAnswers = storedPositionsAreComplete

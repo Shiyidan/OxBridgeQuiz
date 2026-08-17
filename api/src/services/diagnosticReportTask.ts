@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client'
 import { prisma } from './prisma.js'
 import { config } from '../config.js'
 import { parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
+import { orderQuestionsByModule } from '../utils/questionOrder.js'
 import { logRuntimeError } from '../utils/runtimeLogger.js'
 import {
   DIAGNOSTIC_REPORT_GENERATION_MODE,
@@ -182,14 +183,9 @@ async function buildReportForTask(taskId: string, examRecordId: string): Promise
     throw new Error('Diagnostic report requires a submitted exam')
   }
 
-  const [questionRows, syllabusNodes] = await Promise.all([
+  const [unorderedQuestionRows, syllabusNodes] = await Promise.all([
     prisma.question.findMany({
       where: { id: { in: examRecord.answers.map((answer) => answer.questionId) } },
-      orderBy: [
-        { moduleOrder: 'asc' },
-        { moduleQuestionNumber: 'asc' },
-        { number: 'asc' },
-      ],
       select: {
         id: true,
         number: true,
@@ -211,6 +207,7 @@ async function buildReportForTask(taskId: string, examRecordId: string): Promise
       select: { code: true, label: true },
     }),
   ])
+  const questionRows = orderQuestionsByModule(unorderedQuestionRows)
   if (!questionRows.length) throw new Error('Diagnostic paper has no official questions')
 
   const answerMap = new Map(examRecord.answers.map((answer) => [answer.questionId, answer]))

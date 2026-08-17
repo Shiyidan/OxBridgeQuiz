@@ -392,13 +392,17 @@ export async function getModuleExamSession(
   const activeQuestionIds = record.phase === EXAM_PHASE.ANSWERING
     ? currentModule?.questionIds || []
     : []
-  const questionRows = activeQuestionIds.length
+  const unorderedQuestionRows = activeQuestionIds.length
       ? await prisma.question.findMany({
         where: { id: { in: activeQuestionIds } },
-        orderBy: [{ moduleOrder: 'asc' }, { moduleQuestionNumber: 'asc' }, { number: 'asc' }],
         select: attemptQuestionSelect,
       })
     : []
+  const questionMap = new Map(unorderedQuestionRows.map((question) => [question.id, question]))
+  const questionRows = activeQuestionIds.flatMap((questionId) => {
+    const question = questionMap.get(questionId)
+    return question ? [question] : []
+  })
   const activeQuestionSet = new Set(activeQuestionIds)
   const answers: Record<string, string> = {}
   const questionDurations: Record<string, number> = {}

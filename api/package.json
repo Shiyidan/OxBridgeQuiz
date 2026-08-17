@@ -12,6 +12,7 @@
     "db:studio": "prisma studio",
     "backfill:questions": "tsx scripts/backfill-paper-questions.ts",
     "backfill:question-bank-order": "tsx scripts/backfill-question-bank-order.ts",
+    "backfill:question-payloads": "tsx scripts/backfill-question-payloads.ts",
     "backfill:wrong-questions": "tsx scripts/backfill-wrong-question-summaries.ts",
     "backfill:invitation-reward-orders": "tsx scripts/backfill-invitation-reward-orders.ts",
     "cleanup:legacy-temporary-practice": "tsx scripts/cleanup-legacy-temporary-practice.ts",

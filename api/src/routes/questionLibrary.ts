@@ -664,9 +664,6 @@ questionLibraryRouter.post(
                 images: question.images,
               } as Prisma.InputJsonValue,
               meta: {
-                code: question.code,
-                content_blocks: question.contentBlocks,
-                images: question.images,
                 learning_analysis: {
                   correct_solution: question.learningAnalysis.correctSolution,
                   exam_focus: question.learningAnalysis.examFocus,

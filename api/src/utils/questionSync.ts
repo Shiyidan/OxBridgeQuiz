@@ -75,12 +75,6 @@ async function syncPaperQuestionsWithClient(
           images: q.images,
         },
         meta: {
-          code: q.code,
-          source_examType: q.source_examType,
-          year: q.year,
-          is_ai_generated: q.is_ai_generated,
-          content_blocks: q.content_blocks,
-          images: q.images,
           learning_analysis: q.learning_analysis,
         },
       }
@@ -112,12 +106,14 @@ export function getPaperQuestions(paperId: string) {
 
 /** 将 Question 行还原为前端使用的题目对象格式 */
 export function formatQuestionRow(row: any): Record<string, any> {
+  const attemptPayload = parseJsonObject<Record<string, any>>(row.attemptPayload)
   const meta = parseJsonObject<Record<string, any>>(row.meta)
   return {
+    ...attemptPayload,
     ...meta,
     id: row.id,
     uniqueCode: row.uniqueCode,
-    code: row.sourceQuestionCode || meta.code,
+    code: row.sourceQuestionCode || attemptPayload.code || meta.code,
     examType: row.examType,
     number: row.number,
     // 对外标准使用 module_*；component_* 仅保留给早期组合卷和旧页面兼容。

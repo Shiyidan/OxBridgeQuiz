@@ -131,7 +131,7 @@ export function formatQuestionForAttempt(row: any) {
   const question = formatQuestionRow({
     ...row,
     answer: [],
-    meta: row.attemptPayload,
+    meta: {},
   })
   const contentBlocks: Array<Record<string, unknown>> = Array.isArray(question.content_blocks)
     ? question.content_blocks.flatMap((block: any): Array<Record<string, unknown>> => {

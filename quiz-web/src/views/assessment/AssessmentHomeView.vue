@@ -349,7 +349,7 @@
 <script setup lang="ts">
 // 诊断测试中心：按年份进入 ESAT 选科或 TMUA 双 Paper 诊断流程。
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Lock, Right } from '@element-plus/icons-vue'
 import NavBar from '@/components/NavBar.vue'
@@ -372,6 +372,7 @@ import {
 import { getApiErrorMessage } from '@/utils/request'
 import { createLoginRequiredRouteLocation } from '@/utils/authRedirect'
 
+const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const startingPaperId = ref('')
@@ -746,6 +747,15 @@ onMounted(async () => {
   }
   assessmentInitialized = true
   await refreshAssessmentData()
+
+  // 答题页发现其他未完成诊断时回到唯一入口，数据就绪后直接复用继续作答弹窗。
+  if (route.query.resumeDiagnostic === '1') {
+    const nextQuery = { ...route.query }
+    delete nextQuery.resumeDiagnostic
+    await router.replace({ path: route.path, query: nextQuery })
+    const inProgressYear = assessmentYears.value.find((item) => item.inProgressPaperCount > 0)
+    if (inProgressYear) await handleYearSelection(inProgressYear.year)
+  }
 })
 
 // 导航栏切换考试类型时关闭旧上下文，并重新查询对应诊断卷和成绩趋势。

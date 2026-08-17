@@ -94,6 +94,18 @@ const router = createRouter({
       name: 'assessment',
       component: lazyRoute(() => import('../views/assessment/AssessmentHomeView.vue')),
     },
+    // 无限模考
+    {
+      path: '/mock-exams',
+      name: 'mock-exams',
+      component: lazyRoute(() => import('../views/mockExam/MockExamHomeView.vue')),
+    },
+    // 无限模考答题复用诊断测试作答页，答卷身份由独立模考接口创建。
+    {
+      path: '/mock-exams/exam/:paperId',
+      name: 'mock-exam-session',
+      component: lazyRoute(() => import('../views/assessment/DiagnosticExamView.vue')),
+    },
     // 模块化诊断测试
     {
       path: '/assessment/exam/:paperId',
@@ -321,6 +333,7 @@ router.beforeEach((to, _from) => {
     to.path === '/practice' ||
     to.path.startsWith('/practice/') ||
     to.path.startsWith('/assessment/exam/') ||
+    to.path.startsWith('/mock-exams/exam/') ||
     to.path.startsWith('/exam-result') ||
     to.path.startsWith('/mistake-notebook')
 

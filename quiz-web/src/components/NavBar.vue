@@ -66,15 +66,26 @@
                 >
                   {{ exam.label }}
                 </el-dropdown-item>
+                <!-- 资料下载入口暂时隐藏，恢复时解除本段模板注释。
                 <el-dropdown-item
                   command="study-resources"
                   :class="{ 'is-current-exam': route.path.startsWith('/study-resources') }"
                 >
                   资料下载
                 </el-dropdown-item>
+                -->
               </el-dropdown-menu>
             </template>
           </el-dropdown>
+          <!-- 无限模考入口暂时隐藏，恢复时解除本段模板注释。
+          <router-link
+            to="/mock-exams"
+            class="nav-link"
+            active-class="nav-link--active"
+            @click="handleRouteNavigation($event, '/mock-exams')"
+            >无限模考</router-link
+          >
+          -->
         </nav>
       </div>
 

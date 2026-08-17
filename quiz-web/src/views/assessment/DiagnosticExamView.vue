@@ -187,7 +187,7 @@ import {
 import { getMember } from '@/api/member'
 import { useAuthStore } from '@/stores/auth'
 import type { AttemptQuestion } from '@/types'
-import { hasApiErrorCode } from '@/utils/request'
+import { getApiErrorMessage, hasApiErrorCode } from '@/utils/request'
 
 const route = useRoute()
 const router = useRouter()
@@ -401,17 +401,24 @@ function getQuestionDisplayNumber(question: AttemptQuestion, index: number): num
 // 服务端会话是当前模块、休息阶段和截止时间的唯一数据源。
 async function loadSession(): Promise<void> {
   loading.value = true
+  const examRecordId =
+    typeof route.query.examRecordId === 'string' ? route.query.examRecordId : ''
   try {
-    const examRecordId =
-      typeof route.query.examRecordId === 'string' ? route.query.examRecordId : ''
     const paperId = String(route.params.paperId || '')
     const data = examRecordId
       ? await getModuleExamSession(examRecordId)
-      : await startExam({ paperId })
+      : await startExam({ paperId }, { silent: true })
     await applySession(data)
     if (data.phase === 'ready_to_submit') await finalizeExam()
-  } catch {
-    // Axios 公共响应处理会展示后端 errMsg。
+  } catch (error: unknown) {
+    if (hasApiErrorCode(error, 'DIAGNOSTIC_IN_PROGRESS')) {
+      await router.replace({ path: '/assessment', query: { resumeDiagnostic: '1' } })
+      return
+    }
+    // 新建会话使用静默请求以分流业务冲突，其他失败仍向用户展示确切原因。
+    if (!examRecordId) {
+      ElMessage.error(getApiErrorMessage(error, '诊断测试加载失败，请稍后重试。'))
+    }
   } finally {
     loading.value = false
   }

@@ -22,6 +22,10 @@ export interface StartExamParams {
   startedAt?: string
 }
 
+export interface StartExamRequestOptions {
+  silent?: boolean
+}
+
 export interface SubmitParams {
   responses: ExamResponseInput[]
   startedAt?: string
@@ -545,11 +549,12 @@ export interface ProfileExamStats {
 // ---- API ----
 
 /** 进入答题页时创建或恢复考试记录，后续请求只使用返回的 ExamRecord ID。 */
-export function startExam(params: StartExamParams) {
+export function startExam(params: StartExamParams, options: StartExamRequestOptions = {}) {
   return callApi<StartExamResult>({
     url: '/exams/start',
     method: 'POST',
     body: params,
+    silent: options.silent,
   })
 }
 

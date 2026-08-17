@@ -55,6 +55,7 @@ const privatePageTitles: Array<{ prefix: string; title: string }> = [
   { prefix: '/practice-records', title: `练习记录｜${SITE_NAME}` },
   { prefix: '/practice', title: `在线练习｜${SITE_NAME}` },
   { prefix: '/assessment', title: `诊断测试｜${SITE_NAME}` },
+  { prefix: '/mock-exams', title: `无限模考｜${SITE_NAME}` },
   { prefix: '/exam-result', title: `诊断报告｜${SITE_NAME}` },
   { prefix: '/mistake-notebook', title: `错题本｜${SITE_NAME}` },
   { prefix: '/legal', title: `协议与政策｜${SITE_NAME}` },

@@ -19,6 +19,7 @@
         :loading="loading"
         :total="pagination.total"
         empty-text="暂无真题套卷，请点击“试卷解析录入”上传试卷"
+        fill-height
         show-pagination
         @page-change="handlePageChange"
         @page-size-change="handlePageSizeChange"

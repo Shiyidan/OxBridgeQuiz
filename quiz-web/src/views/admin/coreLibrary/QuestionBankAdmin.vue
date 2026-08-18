@@ -42,6 +42,7 @@
         :loading="loading"
         :total="pagination.total"
         empty-text="暂无导入文件，请先导入符合 standard2 的 JSON 或 Markdown 文件"
+        fill-height
         show-pagination
         @page-change="changePage"
         @page-size-change="changePageSize"
@@ -470,9 +471,11 @@ onMounted(loadBatches)
 
 .page-body {
   height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   padding: 24px 40px 10px;
+  overflow: hidden;
 }
 
 .section-header,

@@ -26,6 +26,7 @@
     "test:modular-diagnostic": "tsx scripts/test-modular-diagnostic.ts",
     "test:tmua-diagnostic": "tsx scripts/test-tmua-diagnostic-report.ts",
     "test:diagnostic-weakness": "tsx scripts/test-diagnostic-weakness-profile.ts",
+    "verify:chinaums-order-no": "tsx scripts/verify-chinaums-order-no.ts",
     "verify:chinaums-signature": "tsx scripts/verify-chinaums-signature.ts",
     "verify:chinaums-notification": "tsx scripts/verify-chinaums-notification.ts",
     "smoke:chinaums": "tsx scripts/smoke-chinaums.ts"

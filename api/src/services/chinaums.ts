@@ -143,6 +143,7 @@ function formatAuthorizationTimestamp(date = new Date()): string {
   return `${part.year}${part.month}${part.day}${part.hour}${part.minute}${part.second}`
 }
 
+// 新商户微信通道会在 billNo 后追加一位生成 merOrderId，因此暂将账单号控制为 27 字节兼容其 28 字节限制。
 export function createChinaumsOrderNo(date = new Date()): string {
   if (!config.chinaums.msgSrcId) {
     throw new ChinaumsRequestError('银联商务来源编号尚未配置', 'PAYMENT_PROVIDER_NOT_CONFIGURED')
@@ -150,7 +151,7 @@ export function createChinaumsOrderNo(date = new Date()): string {
   const part = chinaTimeParts(date)
   const milliseconds = String(date.getMilliseconds()).padStart(3, '0')
   const timestamp = `${part.year}${part.month}${part.day}${part.hour}${part.minute}${part.second}${milliseconds}`
-  const random = String(crypto.randomInt(0, 10_000_000)).padStart(7, '0')
+  const random = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0')
   return `${config.chinaums.msgSrcId}${timestamp}${random}`
 }
 

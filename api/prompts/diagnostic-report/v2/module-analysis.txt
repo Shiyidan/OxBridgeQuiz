@@ -1,0 +1,42 @@
+【任务】为输入中的每个 {{moduleNoun}} 生成诊断分析。
+
+先根据 weaknessProfile.diagnosisMode 选择写作模式，但不要输出分析过程：
+- weakness_attack：围绕程序确认的 clear/relative 信号组织“短板证据—优先处理—验证标准”；若 sequenceSignals 有值，优先解释可观察的前后段正确率断层。
+- balanced_improvement：不得回退为“没有结论”；组织“表现画像—分散失分的提分入口—第一行动—后续分流”。
+- stable_progress：说明当前稳定表现，并给出保持正确率与限时节奏的下一步验证方向。
+
+每个模块按字段分工写作，避免重复：
+- riskSignal：最值得关注的可观察风险或提分阻力。
+- summary：平台预估区间、作答题数和跨模块表现结构。
+- strength：本次真实优势及必要的样本边界。
+- keyIssue：明确短板；没有信号时改写为最值得复盘的难度事实或低置信度校准方向。
+- focusSuggestion：第一行动，以及根据复盘或校准结果进入专项补弱还是整卷训练。
+
+sequenceSignals 表示同一模块内后段正确率相对前段出现了达到阈值的明确下降：
+- 必须引用 earlyCorrect/earlyTotal、lateCorrect/lateTotal 和题目位置，把它写成具体的“后段连续失分”结论。
+- 多个模块都有该信号时，应明确这是跨模块共同模式，优先级高于“失分分散”或任意单题知识点校准。
+- 只能判断后段表现下降，不得自行归因为疲劳、时间不足、畏难或注意力；若要判断成因，必须要求通过限时混合题复测。
+
+面向学生的文案不得出现“没有足量证据”“程序确认”“不额外制造短板”“报告只陈述”等内部审计措辞。没有明确短板时，使用“失分较分散”“暂未形成集中短板”“先校准再决定投入”等表达。
+当 difficultySignals 为空时，不得使用“失分集中在某难度层”或“核心瓶颈”等定性；keyIssue 和模块级复盘优先引用该模块的 primaryReviewDifficulty，写成“该难度层答对 X/Y，是最值得先复盘的层级，但当前不定性为短板”。calibrationSignals 只用于知识点小题组校准，不得替代 primaryReviewDifficulty 成为模块级薄弱层。不得列举输入中没有的个人错因选项，例如“知识点不熟”“粗心”“思路问题”；统一要求定位具体失分步骤。
+
+输入中的 examPolicy、weaknessProfile、每个模块的 weaknessSignal、difficultySignals 和 sequenceSignals 均由程序预计算：
+- 必须原样遵守其中的 level、confidence、顺序和证据。
+- weaknessSignal 为 null 时，必须描述作答事实、表现结构和错题复盘方向，但不得自行把该模块定性为明确或相对短板。
+- weaknessSignal.level 为 relative 时，必须写明“相对本次其他模块”，不得表述为绝对能力不足。
+- difficultySignals 为空时，不得自行创造薄弱难度层；可改为描述“本次失分较多的难度层”，并保留样本限制。
+- 两个 TMUA 模块都在 moduleSignals 中时，必须分别承认两个绝对短板；primaryModule 只表示第一优先级。
+- sequenceSignals 有值时，riskSignal、keyIssue 和 focusSuggestion 应优先围绕后段断层组织；知识点校准只能作为后续定位动作。
+
+每项必须包含：
+- moduleId：原样引用输入 ID。
+- riskSignal：不超过 80 字，用一句话指出程序信号允许的可观察风险；没有信号时只写复盘或校准风险。
+- summary：不超过 100 字，概括平台预估区间、作答正确率和难度表现。
+- strength：不超过 80 字，只描述数据中真实存在且样本足够的相对优势；没有时明确说明本次样本未显示稳定优势。
+- keyIssue：不超过 100 字，指出主要薄弱难度层并引用正确数、总数或正确率。
+- focusSuggestion：不超过 100 字，给出下一阶段可执行的复盘方向，不得虚构知识点。
+
+不得推断知识体系、心理或能力成因；不得生成新分数、百分位、院校结论、个人错误类型或输入中不存在的任务。不得自行计算模块差距或用模型判断替代 weaknessProfile。
+
+【输出 JSON Schema】
+{"moduleAnalyses":[{"moduleId":"string","riskSignal":"string","summary":"string","strength":"string","keyIssue":"string","focusSuggestion":"string"}]}

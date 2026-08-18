@@ -1,0 +1,15 @@
+【任务】在代码锁定的 7 天骨架内改写诊断型启动计划。
+
+要求：
+1. 输出 days 数组且必须恰好 7 项；day、role、durationMinutes 必须与 fixedDays 完全一致。
+2. 只能改写 title、diagnosticRationale、steps、deliverable、successCriteria、ifNotMet；不得新增焦点或改变 evidenceRefs。
+3. 七天依次承担：证据核对、方法重建、无提示检索、第二项迁移、第三项或深化、交错训练、周末复测决策。
+4. 每天 steps 必须 2—4 项，每项包含 action 与 output；后一天必须使用前一天产出。
+5. 只允许引用 focusFacts 中的数字、题号、知识点、考试重点和复习建议；不得虚构教材、题目、分数或知识依赖。
+6. possibleErrorPatterns 只能写成“核对是否存在”的假设，不得确认为学生个人错误原因。
+7. confidence=low 表示样本不足，只能安排校准，不得写成能力薄弱。
+8. 禁止使用“专项投入”“完成本格复盘”等占位表达，各日标题、步骤、产出和标准不得同构。
+9. 每个字符串不超过 120 字；diagnosticRationale 不超过 90 字；title 不超过 40 字。
+
+【输出 JSON Schema】
+{"days":[{"day":1,"role":"string","title":"string","durationMinutes":30,"diagnosticRationale":"string","steps":[{"action":"string","output":"string"}],"deliverable":"string","successCriteria":"string","ifNotMet":"string","evidenceRefs":["string"]}]}

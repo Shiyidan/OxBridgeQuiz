@@ -13,7 +13,7 @@ import {
   mergeModuleDiagnosticAnalysis,
   resolveEsatPlanningSubjects,
   validateModulePositioningInsight,
-} from '../src/services/esatDiagnosticReport.js'
+} from '../src/services/diagnostic-report/v2/reportBuilder.js'
 
 const matrix: ReportAiImprovementPlan['matrix'] = [{
   code: 'BIO.1',
@@ -197,28 +197,28 @@ const moduleFixture: AssessmentModule = {
 
 // 整体评价必须拒绝固定套话，并接受同时包含定位与真实证据的模型结果。
 assert.equal(validateModulePositioningInsight(moduleFixture, '该模块仍有提升空间'), null)
-const valuablePositioning = '数学1预估分1.7且本次仅答对2/19题；中难度1/16是限制整体分数的核心，应优先提高中难度基础得分率。'
+const valuablePositioning = '数学1平台预估区间1.3—2.5且本次仅答对2/19题；中难度1/16是限制整体分数的核心，应优先提高中难度基础得分率。'
 assert.equal(validateModulePositioningInsight(moduleFixture, valuablePositioning), valuablePositioning)
 assert.equal(
   validateModulePositioningInsight(
     moduleFixture,
-    '数学1预估分1.7且答对2/19题，核心瓶颈在高难度题，但应优先提升中难度题得分率。',
+    '数学1平台预估区间1.3—2.5且答对2/19题，核心瓶颈在高难度题，但应优先提升中难度题得分率。',
   ),
   null,
 )
 assert.equal(
   validateModulePositioningInsight(
     moduleFixture,
-    '数学1预估分1.7且答对2/19题，当前整体表现极弱，应优先提升中难度题得分率。',
+    '数学1平台预估区间1.3—2.5且答对2/19题，当前整体表现极弱，应优先提升中难度题得分率。',
   ),
   null,
 )
 
 // 模型不可用时的整体评价也必须包含分数、正确率、主体难度层与小样本边界。
 const fallbackPositioning = buildFallbackModulePositioningInsight(moduleFixture)
-assert.match(fallbackPositioning, /预估分1\.7/)
+assert.match(fallbackPositioning, /预估区间1\.3—2\.5/)
 assert.match(fallbackPositioning, /2\/19/)
-assert.match(fallbackPositioning, /中难度仅答对1\/16/)
+assert.match(fallbackPositioning, /中难度答对1\/16/)
 assert.match(fallbackPositioning, /高难度1\/3因样本较少/)
 assert.doesNotMatch(fallbackPositioning, /^该模块仍有较大提升空间$/)
 

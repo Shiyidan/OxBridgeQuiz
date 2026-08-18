@@ -1,0 +1,16 @@
+【任务】为输入中的每个 {{moduleNoun}} 生成一条整体定位评价。
+
+判断顺序：
+1. 根据 scoreRange、performanceLevel、correct、total 判断当前整体表现；只能引用，不得重算。
+2. 比较有题的难度层，同时考虑 correct、total、accuracyPercent 和 sampleNote；少量题目的偶然正确不得视为稳定优势。
+3. sequenceSignals 有值时，必须优先引用前段与后段正确数，把后段正确率断层作为提分入口；不得再用“分散失分”概括。
+4. sequenceSignals 为空时，difficultySignals 有值可写“主要薄弱层”；为空时必须使用输入提供的 primaryReviewDifficulty 作为最值得优先复盘的难度层，并根据 sampleNote 说明需要校准，不得称为核心瓶颈或明确短板。
+5. positioningInsight 必须原样包含 scoreRange 的上下界、correct/total，以及 sequenceSignals 或至少一个难度层证据。
+6. 写成“当前定位 + 至少两项量化证据 + 提分入口 + 唯一优先方向”。存在 sequenceSignals 时优先方向是后段混合题复测；否则提分入口与优先方向必须指向同一个难度层。
+
+weaknessProfile.diagnosisMode 为 balanced_improvement 时，必须说明当前属于均衡提分或分散失分收口，不得写“没有足量证据”“程序确认”“不额外制造短板”。
+
+每条 positioningInsight 使用 1—2 句中文，55—140 字。不同 {{moduleNoun}} 必须体现数据差异，不得只替换名称和数字复用套话。只能描述输入事实，不得虚构知识点、错误类型、能力成因、院校结论或具体学习任务。题目位置下降只能称为后段表现或后段稳定性，不得自行归因为疲劳、时间不足或注意力。
+
+【输出 JSON Schema】
+{"moduleAnalyses":[{"moduleId":"string","positioningInsight":"string"}]}

@@ -1,13 +1,13 @@
-// 新版诊断报告首部分：报告头、模块结构、等效评估分和风险信号。
+// 诊断报告公共门面：维护共享契约、V1 兼容生成，并将 ESAT/TMUA 新报告分发到 V2。
 import crypto from 'crypto'
 import { EXAM_TYPE } from '../constants/domain.js'
 import { BoundedLruCache } from '../utils/boundedLruCache.js'
-import { quickTmuaPaperScore } from './scoring.js'
+import { quickTmuaPaperScore } from './diagnostic-report/shared/scoring.js'
 import { requestDeepSeekJson } from './deepseek.js'
 import {
   buildEsatDiagnosticReportSummary,
   buildTmuaDiagnosticReportSummary,
-} from './esatDiagnosticReport.js'
+} from './diagnostic-report/v2/reportBuilder.js'
 
 type DifficultyLevel = 'low' | 'medium' | 'high'
 
@@ -120,7 +120,80 @@ export interface ReportKnowledgeMastery {
   }>
 }
 
+export type ReportWeaknessLevel = 'clear' | 'relative' | 'calibration' | 'none'
+export type ReportWeaknessConfidence = 'high' | 'medium' | 'low'
+
+export interface ReportModuleWeaknessSignal {
+  moduleId: string
+  moduleLabel: string
+  level: Exclude<ReportWeaknessLevel, 'calibration' | 'none'>
+  confidence: ReportWeaknessConfidence
+  correct: number
+  total: number
+  accuracy: number
+  rank: number
+  gapToNext: number | null
+}
+
+export interface ReportDifficultyWeaknessSignal {
+  moduleId: string
+  moduleLabel: string
+  difficulty: DifficultyLevel
+  difficultyLabel: string
+  level: Exclude<ReportWeaknessLevel, 'calibration' | 'none'>
+  confidence: ReportWeaknessConfidence
+  correct: number
+  total: number
+  accuracy: number
+  wrongCount: number
+}
+
+export interface ReportTopicWeaknessSignal {
+  moduleId: string
+  moduleLabel: string
+  topicCode: string
+  topicLabel: string
+  level: 'clear' | 'calibration'
+  confidence: ReportWeaknessConfidence
+  correct: number
+  total: number
+  accuracy: number
+  wrongCount: number
+  wrongShareInModule: number
+  primaryDifficulty: DifficultyLevel
+  primaryDifficultyLabel: string
+}
+
+export interface ReportSequenceWeaknessSignal {
+  kind: 'late_section_drop'
+  moduleId: string
+  moduleLabel: string
+  level: 'clear'
+  confidence: ReportWeaknessConfidence
+  splitAfter: number
+  earlyCorrect: number
+  earlyTotal: number
+  earlyAccuracy: number
+  lateCorrect: number
+  lateTotal: number
+  lateAccuracy: number
+  accuracyGap: number
+  lateQuestionNumbers: number[]
+}
+
+export interface ReportWeaknessProfile {
+  examPolicy: 'ESAT_VARIABLE_MODULES' | 'TMUA_STANDARD_EQUAL' | 'GENERIC_DYNAMIC'
+  diagnosisMode: 'weakness_attack' | 'balanced_improvement' | 'stable_progress'
+  primaryModule: ReportModuleWeaknessSignal | null
+  moduleSignals: ReportModuleWeaknessSignal[]
+  difficultySignals: ReportDifficultyWeaknessSignal[]
+  topicSignals: ReportTopicWeaknessSignal[]
+  calibrationSignals: ReportTopicWeaknessSignal[]
+  sequenceSignals: ReportSequenceWeaknessSignal[]
+}
+
 export interface ReportAiImprovementPlan {
+  weaknessProfile: ReportWeaknessProfile
   matrix: Array<{
     code: string
     label: string
@@ -146,6 +219,8 @@ export interface ReportAiImprovementPlan {
     correct: number
     total: number
     accuracy: number
+    confidence: 'high' | 'medium'
+    evidenceScope: 'topic'
     priorityReason: string
     suggestedHours: string
     prerequisiteCheck: string
@@ -159,12 +234,13 @@ export interface ReportAiImprovementPlan {
 }
 
 export interface ReportNextAction {
-  actionType: 'targeted_practice' | 'calibration_test' | 'review_wrong'
+  actionType: 'targeted_practice' | 'calibration_test' | 'review_wrong' | 'mixed_timed_practice'
   title: string
   moduleId: string
   moduleLabel: string
   topicCode: string
   topicLabel: string
+  knowledgePointCodes: string[]
   difficulty: DifficultyLevel
   difficultyLabel: string
   evidence: {
@@ -245,6 +321,7 @@ export interface ReportLearningPath {
     weekLabel: string
     goal: string
     strategy: string
+    checkpoint: string
     focusTags: string[]
     tasks: Array<{
       period: string

@@ -38,6 +38,10 @@ import {
   normalizePaperType,
   paperTypeWhereValues,
 } from '../constants/domain.js'
+import {
+  promptVersionForExam,
+  reportVersionForExam,
+} from '../constants/diagnosticReport.js'
 
 import {
   buildModuleExamSnapshot,
@@ -1275,6 +1279,8 @@ examSessionRouter.post('/:id/submit', requireAuth, async (req, res) => {
               userId: req.user!.userId,
               paperId: record.paperId,
               reportKind: record.examType.toLowerCase(),
+              reportVersion: reportVersionForExam(record.examType),
+              promptVersion: promptVersionForExam(record.examType),
             },
             select: { status: true },
           })

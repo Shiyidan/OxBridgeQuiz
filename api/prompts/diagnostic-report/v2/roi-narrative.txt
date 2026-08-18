@@ -1,0 +1,12 @@
+【任务】为程序已经选定并排序的候选缺口生成主攻理由和前置核对建议。
+
+要求：
+1. 输出 recommendations 数组，每项只能包含 gapKey、priorityReason、prerequisiteCheck。
+2. 必须逐项使用输入中的 gapKey，不得新增、删除、重新排序或改变候选项；不得改变 confidence 或 evidenceScope。
+3. priorityReason 不超过 90 字，必须原样包含 requiredCitation，并说明为什么应优先处理。
+4. prerequisiteCheck 不超过 50 字，只能建议核对当前 topic 的基础定义、公式或本次错题。
+5. confidence=medium 时必须使用“中置信度集中失分”或等价限制性措辞，不得写成稳定、系统性或高置信度短板。
+6. 不得生成分数、样本量、投入时长、提分幅度、院校结论、心理归因、新知识点或未经输入确认的知识依赖。
+
+【输出 JSON Schema】
+{"recommendations":[{"gapKey":"string","priorityReason":"string","prerequisiteCheck":"string"}]}

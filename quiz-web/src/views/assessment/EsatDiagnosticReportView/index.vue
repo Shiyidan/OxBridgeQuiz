@@ -11,6 +11,14 @@
         <button type="button" class="button_cancel" @click="loadReport">重新加载</button>
       </div>
 
+      <DiagnosticReportV2
+        v-else-if="report && reportMeta?.productVersion === 'v2'"
+        :report="report"
+        :meta="reportMeta"
+        @question-analysis="viewQuestionAnalysis"
+        @practice="createPracticeFromReport"
+      />
+
       <template v-else-if="report && activeModule">
         <header class="report-header">
           <div>
@@ -36,7 +44,7 @@
             :disabled="upgradeInProgress"
             @click="upgradeReport"
           >
-            {{ upgradeInProgress ? `正在生成 ${upgradeProgress}%` : '生成新版诊断报告' }}
+            {{ upgradeInProgress ? `正在更新 ${upgradeProgress}%` : '更新报告' }}
           </button>
         </section>
         <EsatEquivalentScore
@@ -78,14 +86,16 @@ import {
   getDiagnosticReportSummary,
   getDiagnosticReportStatus,
   regenerateDiagnosticReport,
+  type DiagnosticReportMeta,
   type DiagnosticReportSummary,
 } from '@/api/exam'
 import { getApiErrorMessage } from '@/utils/request'
-import EsatEquivalentScore from './EsatEquivalentScore.vue'
-import EsatOverallOverview from './EsatOverallOverview.vue'
-import EsatKnowledgeMastery from './EsatKnowledgeMastery.vue'
-import EsatAiImprovementPlan from './EsatAiImprovementPlan.vue'
-import EsatLearningPath from './EsatLearningPath.vue'
+import EsatEquivalentScore from '../diagnostic-report/v1/EsatEquivalentScore.vue'
+import EsatOverallOverview from '../diagnostic-report/v1/EsatOverallOverview.vue'
+import EsatKnowledgeMastery from '../diagnostic-report/v1/EsatKnowledgeMastery.vue'
+import EsatAiImprovementPlan from '../diagnostic-report/v1/EsatAiImprovementPlan.vue'
+import EsatLearningPath from '../diagnostic-report/v1/EsatLearningPath.vue'
+import DiagnosticReportV2 from '../diagnostic-report/v2/DiagnosticReportV2.vue'
 
 defineOptions({ name: 'EsatDiagnosticReportView' })
 
@@ -94,14 +104,21 @@ const router = useRouter()
 const loading = ref(true)
 const errorMessage = ref('')
 const report = ref<DiagnosticReportSummary | null>(null)
+const reportMeta = ref<DiagnosticReportMeta | null>(null)
 const activeModuleId = ref('')
 const reportExamRecordId = ref('')
 const upgradeInProgress = ref(false)
 const upgradeProgress = ref(0)
 const upgradeMessage = ref('')
-const reportVersion = ref('')
 let upgradeRequestId = 0
-const CURRENT_ESAT_REPORT_VERSION = 'diagnostic-report-v5'
+
+interface PracticePrefill {
+  name: string
+  knowledgePointCodes: string[]
+  difficulty: 'low' | 'medium' | 'high'
+  questionCount: number
+  durationMinutes: number
+}
 
 // 路由参数是 ESAT 报告接口和权限校验使用的 ExamRecord ID。
 const examId = computed(() => String(route.params.id || ''))
@@ -114,14 +131,8 @@ const activeModule = computed(() =>
 // 当页面展示上一份有效报告时，题目解析必须读取该报告对应的答卷，而不是本次失败或分析中的答卷。
 const questionReviewExamId = computed(() => reportExamRecordId.value || examId.value)
 
-// 报告版本或七日计划结构落后时提供原答卷升级入口，不要求学生重新参加诊断测试。
-const needsReportUpgrade = computed(() => {
-  const path = report.value?.learningPath
-  if (!path) return false
-  const isStarter = path.summary.planningScope === 'starter' || path.summary.mode === 'Starter'
-  const missingStarterPlan = isStarter && path.starterPlan?.days.length !== 7
-  return reportVersion.value !== CURRENT_ESAT_REPORT_VERSION || missingStarterPlan
-})
+// 产品版本与升级资格由服务端统一判定，历史内部修订号不再由页面自行推断。
+const needsReportUpgrade = computed(() => reportMeta.value?.canUpgrade === true)
 
 // 报告重新生成后保持合法模块选择，失效时回到第一个实际模块。
 watch(
@@ -156,6 +167,23 @@ function viewQuestionAnalysis(): void {
     name: 'exam-question-review',
     params: { id: questionReviewExamId.value },
     query: { from: 'diagnostic', report: 'esat' },
+  })
+}
+
+// 报告行动仅预填练习本表单，由学生确认题量、知识点和时长后再创建。
+function createPracticeFromReport(prefill: PracticePrefill): void {
+  void router.push({
+    name: 'practice-notebook-new',
+    query: {
+      source: 'diagnostic-report',
+      returnTo: route.fullPath,
+      examType: 'ESAT',
+      name: prefill.name,
+      knowledgePointCodes: prefill.knowledgePointCodes.join(','),
+      difficulty: prefill.difficulty,
+      questionCount: String(prefill.questionCount),
+      durationMinutes: String(prefill.durationMinutes),
+    },
   })
 }
 
@@ -203,8 +231,8 @@ async function loadReport(): Promise<void> {
       throw new Error('该答卷不是 ESAT 诊断记录')
     }
     report.value = data.report
+    reportMeta.value = data.meta
     reportExamRecordId.value = data.meta.reportExamRecordId || examId.value
-    reportVersion.value = data.meta.reportVersion || ''
     activeModuleId.value = data.report.header.modules[0]?.id || ''
   } catch (error: unknown) {
     errorMessage.value = getApiErrorMessage(error, 'ESAT 诊断报告加载失败')

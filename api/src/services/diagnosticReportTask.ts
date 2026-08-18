@@ -14,18 +14,17 @@ import {
   isRealPaperType,
 } from '../constants/domain.js'
 import {
+  canUpgradeDiagnosticReport,
+  promptVersionForExam,
+  reportVersionForExam,
+} from '../constants/diagnosticReport.js'
+import {
   buildDiagnosticReportSummary,
   type DiagnosticBuildStage,
   type DiagnosticReportSummary,
   type LearnerProfileInput,
 } from './diagnosticReport.js'
 
-const ESAT_REPORT_VERSION = 'diagnostic-report-v5'
-const TMUA_REPORT_VERSION = 'diagnostic-report-v6'
-const GENERIC_REPORT_VERSION = 'diagnostic-report-v1'
-const ESAT_PROMPT_VERSION = 'esat-diagnostic-v5'
-const TMUA_PROMPT_VERSION = 'tmua-diagnostic-v3'
-const GENERIC_PROMPT_VERSION = 'diagnostic-summary-v1'
 const POLL_INTERVAL_MS = 2_000
 const STALE_TASK_MS = 5 * 60_000
 const MAX_AUTOMATIC_RETRIES = 1
@@ -80,25 +79,50 @@ function learningAnalysisForReport(rawMeta: unknown): {
   }
 }
 
-// 学习路径只读取当前考试类型的结构化备考资料，缺失项由报告策略显式降级。
+// 院校、专业、考试时间和每周投入属于账户级信息；科目仍优先读取当前考试配置。
 function learnerProfileForExam(raw: unknown, examType: string): LearnerProfileInput {
   const preferences = parseJsonArray<Record<string, unknown>>(raw)
-  const preference = preferences.find((item) => String(item.examType || '').toUpperCase() === examType.toUpperCase())
-  const weeklyHoursValue = Number(preference?.weeklyHours)
-  const examDateValue = typeof preference?.examDate === 'string' ? preference.examDate.trim() : ''
-  const targetUniversities = Array.isArray(preference?.targetUniversities)
-    ? preference.targetUniversities.filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
-    : typeof preference?.targetUniversity === 'string' && preference.targetUniversity.trim()
-      ? [preference.targetUniversity.trim()]
+  const examPreference = preferences.find(
+    (item) => String(item.examType || '').toUpperCase() === examType.toUpperCase(),
+  )
+  const orderedPreferences = examPreference
+    ? [examPreference, ...preferences.filter((item) => item !== examPreference)]
+    : preferences
+  const firstCommonValue = <T>(selector: (item: Record<string, unknown>) => T | undefined): T | undefined => (
+    orderedPreferences.map(selector).find((value) => value !== undefined)
+  )
+  const weeklyHoursValue = Number(firstCommonValue((item) => item.weeklyHours))
+  const savedExamDate = firstCommonValue((item) => (
+    typeof item.examDate === 'string' ? item.examDate : undefined
+  ))
+  const examDateValue = typeof savedExamDate === 'string'
+    ? savedExamDate.trim()
+    : ''
+  const savedTargetUniversities = firstCommonValue((item) => (
+    Array.isArray(item.targetUniversities) || typeof item.targetUniversity === 'string'
+      ? item.targetUniversities ?? item.targetUniversity
+      : undefined
+  ))
+  const targetUniversities = Array.isArray(savedTargetUniversities)
+    ? savedTargetUniversities.filter(
+        (item): item is string => typeof item === 'string' && Boolean(item.trim()),
+      )
+    : typeof savedTargetUniversities === 'string' && savedTargetUniversities.trim()
+      ? [savedTargetUniversities.trim()]
       : []
+  const savedTargetMajor = firstCommonValue((item) => (
+    typeof item.targetMajor === 'string' ? item.targetMajor : undefined
+  ))
 
   return {
-    subjects: Array.isArray(preference?.subjects)
-      ? preference.subjects.filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
+    subjects: Array.isArray(examPreference?.subjects)
+      ? examPreference.subjects.filter(
+          (item): item is string => typeof item === 'string' && Boolean(item.trim()),
+        )
       : [],
     targetUniversities,
-    targetMajor: typeof preference?.targetMajor === 'string' && preference.targetMajor.trim()
-      ? preference.targetMajor.trim()
+    targetMajor: typeof savedTargetMajor === 'string' && savedTargetMajor.trim()
+      ? savedTargetMajor.trim()
       : null,
     examDate: /^\d{4}-\d{2}(?:-\d{2})?$/.test(examDateValue) ? examDateValue : null,
     weeklyHours: Number.isFinite(weeklyHoursValue) && weeklyHoursValue >= 1 && weeklyHoursValue <= 80
@@ -111,19 +135,6 @@ function reportKindForExam(examType: string): 'esat' | 'tmua' | 'step' {
   if (examType === EXAM_TYPE.ESAT) return 'esat'
   if (examType === EXAM_TYPE.TMUA) return 'tmua'
   return 'step'
-}
-
-function promptVersionForExam(examType: string): string {
-  if (examType === EXAM_TYPE.ESAT) return ESAT_PROMPT_VERSION
-  if (examType === EXAM_TYPE.TMUA) return TMUA_PROMPT_VERSION
-  return GENERIC_PROMPT_VERSION
-}
-
-// 报告版本按考试类型独立演进，避免 TMUA 升级导致已完成的 ESAT 报告被误判为旧版。
-function reportVersionForExam(examType: string): string {
-  if (examType === EXAM_TYPE.ESAT) return ESAT_REPORT_VERSION
-  if (examType === EXAM_TYPE.TMUA) return TMUA_REPORT_VERSION
-  return GENERIC_REPORT_VERSION
 }
 
 // 报告质量与生命周期分开记录，模型降级不会把一份可用报告误标为失败。
@@ -270,7 +281,8 @@ async function publishTaskResult(taskId: string, examRecordId: string): Promise<
   await prisma.$transaction(async (tx) => {
     const task = await tx.diagnosticReportTask.findUnique({ where: { id: taskId } })
     if (!task) throw new Error('Diagnostic report task not found')
-    const reportVersion = reportVersionForExam(task.reportKind.toUpperCase())
+    const reportVersion = task.reportVersion || reportVersionForExam(task.reportKind.toUpperCase())
+    const promptVersion = task.promptVersion || promptVersionForExam(task.reportKind.toUpperCase())
 
     // 每次正式交卷独立持久化一份报告；重测报告不得覆盖同一试卷的其他历史报告。
     await tx.diagnosticReport.upsert({
@@ -280,7 +292,7 @@ async function publishTaskResult(taskId: string, examRecordId: string): Promise<
         result: built.report as unknown as Prisma.InputJsonValue,
         sourceSnapshot: built.sourceSnapshot,
         reportVersion,
-        promptVersion: promptVersionForExam(task.reportKind.toUpperCase()),
+        promptVersion,
         modelName: config.deepseekModel,
         generationMode: built.generationMode,
         completedAt: now,
@@ -293,7 +305,7 @@ async function publishTaskResult(taskId: string, examRecordId: string): Promise<
         result: built.report as unknown as Prisma.InputJsonValue,
         sourceSnapshot: built.sourceSnapshot,
         reportVersion,
-        promptVersion: promptVersionForExam(task.reportKind.toUpperCase()),
+        promptVersion,
         modelName: config.deepseekModel,
         generationMode: built.generationMode,
         completedAt: now,
@@ -309,7 +321,7 @@ async function publishTaskResult(taskId: string, examRecordId: string): Promise<
         result: built.report as unknown as Prisma.InputJsonValue,
         generationMode: built.generationMode,
         reportVersion,
-        promptVersion: promptVersionForExam(task.reportKind.toUpperCase()),
+        promptVersion,
         modelName: config.deepseekModel,
         heartbeatAt: now,
         completedAt: now,
@@ -440,6 +452,9 @@ export async function retryDiagnosticReportTask(examRecordId: string, userId: st
       status: DIAGNOSTIC_REPORT_TASK_STATUS.PENDING,
       stage: DIAGNOSTIC_REPORT_TASK_STAGE.ANSWERS_SAVED,
       progress: 10,
+      reportVersion: reportVersionForExam(task.reportKind.toUpperCase()),
+      promptVersion: promptVersionForExam(task.reportKind.toUpperCase()),
+      modelName: config.deepseekModel,
       retryCount: { increment: 1 },
       errorCode: null,
       errorMessage: null,
@@ -455,8 +470,15 @@ export async function retryDiagnosticReportTask(examRecordId: string, userId: st
 // 已完成报告可按当前版本重新生成；旧报告在新快照成功保存前继续可读，避免升级失败造成数据丢失。
 export async function regenerateDiagnosticReportTask(examRecordId: string, userId: string): Promise<void> {
   await ensureDiagnosticReportTask(examRecordId, userId)
-  const task = await prisma.diagnosticReportTask.findUnique({ where: { examRecordId } })
+  const [task, report] = await Promise.all([
+    prisma.diagnosticReportTask.findUnique({ where: { examRecordId } }),
+    prisma.diagnosticReport.findUnique({
+      where: { examRecordId },
+      select: { reportKind: true, reportVersion: true },
+    }),
+  ])
   if (!task) throw new Error('Diagnostic report task not found')
+  if (report && !canUpgradeDiagnosticReport(report.reportKind, report.reportVersion)) return
   if (
     task.status === DIAGNOSTIC_REPORT_TASK_STATUS.PENDING
     || task.status === DIAGNOSTIC_REPORT_TASK_STATUS.ANALYZING

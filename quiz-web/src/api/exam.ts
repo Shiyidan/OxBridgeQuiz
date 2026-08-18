@@ -143,7 +143,9 @@ export interface DiagnosticReportStatus {
 export interface DiagnosticReportMeta {
   reportExamRecordId: string
   generationMode: 'full_ai' | 'mixed_fallback' | 'rules_only'
-  reportVersion?: string
+  reportVersion: string
+  productVersion: 'v1' | 'v2'
+  canUpgrade: boolean
   completedAt: string
 }
 
@@ -305,6 +307,90 @@ export interface DiagnosticKnowledgeMastery {
 }
 
 export interface DiagnosticAiImprovementPlan {
+  weaknessProfile?: {
+    examPolicy: 'ESAT_VARIABLE_MODULES' | 'TMUA_STANDARD_EQUAL' | 'GENERIC_DYNAMIC'
+    diagnosisMode?: 'weakness_attack' | 'balanced_improvement' | 'stable_progress'
+    primaryModule: {
+      moduleId: string
+      moduleLabel: string
+      level: 'clear' | 'relative'
+      confidence: 'high' | 'medium' | 'low'
+      correct: number
+      total: number
+      accuracy: number
+      rank: number
+      gapToNext: number | null
+    } | null
+    moduleSignals: Array<{
+      moduleId: string
+      moduleLabel: string
+      level: 'clear' | 'relative'
+      confidence: 'high' | 'medium' | 'low'
+      correct: number
+      total: number
+      accuracy: number
+      rank: number
+      gapToNext: number | null
+    }>
+    difficultySignals: Array<{
+      moduleId: string
+      moduleLabel: string
+      difficulty: 'low' | 'medium' | 'high'
+      difficultyLabel: string
+      level: 'clear' | 'relative'
+      confidence: 'high' | 'medium' | 'low'
+      correct: number
+      total: number
+      accuracy: number
+      wrongCount: number
+    }>
+    topicSignals: Array<{
+      moduleId: string
+      moduleLabel: string
+      topicCode: string
+      topicLabel: string
+      level: 'clear'
+      confidence: 'high' | 'medium'
+      correct: number
+      total: number
+      accuracy: number
+      wrongCount: number
+      wrongShareInModule: number
+      primaryDifficulty: 'low' | 'medium' | 'high'
+      primaryDifficultyLabel: string
+    }>
+    calibrationSignals: Array<{
+      moduleId: string
+      moduleLabel: string
+      topicCode: string
+      topicLabel: string
+      level: 'calibration'
+      confidence: 'low'
+      correct: number
+      total: number
+      accuracy: number
+      wrongCount: number
+      wrongShareInModule: number
+      primaryDifficulty: 'low' | 'medium' | 'high'
+      primaryDifficultyLabel: string
+    }>
+    sequenceSignals?: Array<{
+      kind: 'late_section_drop'
+      moduleId: string
+      moduleLabel: string
+      level: 'clear'
+      confidence: 'high' | 'medium' | 'low'
+      splitAfter: number
+      earlyCorrect: number
+      earlyTotal: number
+      earlyAccuracy: number
+      lateCorrect: number
+      lateTotal: number
+      lateAccuracy: number
+      accuracyGap: number
+      lateQuestionNumbers: number[]
+    }>
+  }
   matrix: Array<{
     code: string
     label: string
@@ -330,6 +416,8 @@ export interface DiagnosticAiImprovementPlan {
     correct: number
     total: number
     accuracy: number
+    confidence?: 'high' | 'medium'
+    evidenceScope?: 'topic'
     priorityReason: string
     suggestedHours: string
     prerequisiteCheck: string
@@ -371,6 +459,7 @@ export interface DiagnosticLearningPath {
     weekLabel: string
     goal: string
     strategy: string
+    checkpoint?: string
     focusTags: string[]
     tasks: Array<{
       period: string
@@ -421,12 +510,13 @@ export interface DiagnosticStarterPlan {
 }
 
 export interface DiagnosticNextAction {
-  actionType: 'targeted_practice' | 'calibration_test' | 'review_wrong'
+  actionType: 'targeted_practice' | 'calibration_test' | 'review_wrong' | 'mixed_timed_practice'
   title: string
   moduleId: string
   moduleLabel: string
   topicCode: string
   topicLabel: string
+  knowledgePointCodes?: string[]
   difficulty: 'low' | 'medium' | 'high'
   difficultyLabel: string
   evidence: {

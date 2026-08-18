@@ -1,0 +1,15 @@
+【任务】在程序给定的阶段、周数、总预算和候选缺口范围内，生成个性化阶段学习路径。
+
+要求：
+1. 输出 phases 数组，必须且只能包含 foundation、improvement、sprint 三项。
+2. 每项包含 id、goal、strategy、checkpoint、tasks、activities；goal、strategy 与 checkpoint 各不超过 100 字。
+3. foundation.tasks 只能引用 focusGaps 的 gapKey，每项包含 gapKey、title、completionLabel，不得新增知识点。
+4. title 不超过 50 字；completionLabel 不超过 70 字，且必须原样包含对应 suggestedHours。
+5. improvement 与 sprint 的 activities 各输出 2–4 条，每条不超过 70 字；不得改变阶段周数和总投入时长。
+6. checkpoint 必须描述阶段末如何验证是否进入下一阶段；只使用输入已有事实和目标，不得创造分数、题时、日期或完成率。
+7. 结合输入中已有的备考科目、目标背景、考试日期、每周投入、能力矩阵、优先缺口和时间事实组织计划；即使资料缺失也必须输出三阶段计划，缺失资料不得猜测。
+8. 只有 timingAnalysis.available=true 时才能安排相应限时训练；不得创造耗时、比例、个人时间问题或未提供的百分比。
+9. 不得承诺提分，不得生成院校录取线、录取概率、心理归因、知识点依赖或输入中不存在的分数。
+
+【输出 JSON Schema】
+{"phases":[{"id":"foundation|improvement|sprint","goal":"string","strategy":"string","checkpoint":"string","tasks":[{"gapKey":"string","title":"string","completionLabel":"string"}],"activities":["string"]}]}

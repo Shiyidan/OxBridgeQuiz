@@ -11,6 +11,14 @@
         <button type="button" class="button_cancel" @click="loadReport">重新加载</button>
       </div>
 
+      <DiagnosticReportV2
+        v-else-if="report && reportMeta?.productVersion === 'v2'"
+        :report="report"
+        :meta="reportMeta"
+        @question-analysis="viewQuestionAnalysis"
+        @practice="createPracticeFromReport"
+      />
+
       <template v-else-if="report">
         <header class="report-header">
           <div>
@@ -34,7 +42,7 @@
             :disabled="upgradeInProgress"
             @click="upgradeReport"
           >
-            {{ upgradeInProgress ? `正在生成 ${upgradeProgress}%` : '生成完整 TMUA 诊断报告' }}
+            {{ upgradeInProgress ? `正在更新 ${upgradeProgress}%` : '更新报告' }}
           </button>
         </section>
 
@@ -74,14 +82,16 @@ import {
   getDiagnosticReportStatus,
   getDiagnosticReportSummary,
   regenerateDiagnosticReport,
+  type DiagnosticReportMeta,
   type DiagnosticReportSummary as DiagnosticReportSummaryData,
 } from '@/api/exam'
 import { getApiErrorMessage } from '@/utils/request'
-import TmuaEquivalentScore from './TmuaDiagnosticReportView/TmuaEquivalentScore.vue'
-import EsatOverallOverview from './EsatDiagnosticReportView/EsatOverallOverview.vue'
-import EsatKnowledgeMastery from './EsatDiagnosticReportView/EsatKnowledgeMastery.vue'
-import EsatAiImprovementPlan from './EsatDiagnosticReportView/EsatAiImprovementPlan.vue'
-import EsatLearningPath from './EsatDiagnosticReportView/EsatLearningPath.vue'
+import TmuaEquivalentScore from './diagnostic-report/v1/TmuaEquivalentScore.vue'
+import EsatOverallOverview from './diagnostic-report/v1/EsatOverallOverview.vue'
+import EsatKnowledgeMastery from './diagnostic-report/v1/EsatKnowledgeMastery.vue'
+import EsatAiImprovementPlan from './diagnostic-report/v1/EsatAiImprovementPlan.vue'
+import EsatLearningPath from './diagnostic-report/v1/EsatLearningPath.vue'
+import DiagnosticReportV2 from './diagnostic-report/v2/DiagnosticReportV2.vue'
 
 defineOptions({ name: 'TmuaDiagnosticReportView' })
 
@@ -90,30 +100,26 @@ const router = useRouter()
 const loading = ref(true)
 const errorMessage = ref('')
 const report = ref<DiagnosticReportSummaryData | null>(null)
+const reportMeta = ref<DiagnosticReportMeta | null>(null)
 const reportExamRecordId = ref('')
-const reportVersion = ref('')
 const upgradeInProgress = ref(false)
 const upgradeProgress = ref(0)
 const upgradeMessage = ref('')
 let upgradeRequestId = 0
-const CURRENT_TMUA_REPORT_VERSION = 'diagnostic-report-v6'
+
+interface PracticePrefill {
+  name: string
+  knowledgePointCodes: string[]
+  difficulty: 'low' | 'medium' | 'high'
+  questionCount: number
+  durationMinutes: number
+}
 
 // 路由参数是 TMUA 报告接口和权限校验使用的 ExamRecord ID。
 const examId = computed(() => String(route.params.id || ''))
 
-// 历史报告缺少任一核心模块时提供原答卷升级入口，无需学生重新参加测试。
-const needsReportUpgrade = computed(() => {
-  const current = report.value
-  if (!current) return false
-  const starter = current.learningPath?.summary.planningScope === 'starter'
-  const starterIncomplete = starter && current.learningPath?.starterPlan?.days.length !== 7
-  return reportVersion.value !== CURRENT_TMUA_REPORT_VERSION
-    || !current.overview
-    || !current.knowledgeMastery
-    || !current.aiImprovementPlan
-    || !current.learningPath
-    || starterIncomplete
-})
+// 产品版本与升级资格由服务端统一判定，避免把旧内部修订号误当作 V2。
+const needsReportUpgrade = computed(() => reportMeta.value?.canUpgrade === true)
 
 // 页面初始化只加载 TMUA 独立报告，不复用 ESAT 页面状态。
 onMounted(() => {
@@ -131,6 +137,23 @@ function viewQuestionAnalysis(): void {
     name: 'exam-question-review',
     params: { id: reportExamRecordId.value || examId.value },
     query: { from: 'diagnostic', report: 'tmua' },
+  })
+}
+
+// 报告行动只把建议带入练习本创建页，不在后台静默创建内容。
+function createPracticeFromReport(prefill: PracticePrefill): void {
+  void router.push({
+    name: 'practice-notebook-new',
+    query: {
+      source: 'diagnostic-report',
+      returnTo: route.fullPath,
+      examType: 'TMUA',
+      name: prefill.name,
+      knowledgePointCodes: prefill.knowledgePointCodes.join(','),
+      difficulty: prefill.difficulty,
+      questionCount: String(prefill.questionCount),
+      durationMinutes: String(prefill.durationMinutes),
+    },
   })
 }
 
@@ -178,8 +201,8 @@ async function loadReport(): Promise<void> {
       throw new Error('该答卷不是 TMUA 诊断记录')
     }
     report.value = data.report
+    reportMeta.value = data.meta
     reportExamRecordId.value = data.meta.reportExamRecordId || examId.value
-    reportVersion.value = data.meta.reportVersion || ''
   } catch (error: unknown) {
     errorMessage.value = getApiErrorMessage(error, 'TMUA 诊断报告加载失败')
   } finally {

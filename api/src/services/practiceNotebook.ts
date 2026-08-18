@@ -46,7 +46,8 @@ export class PracticeNotebookBusinessError extends Error {
   }
 }
 
-const QUESTION_COUNT_OPTIONS = [8, 12, 16, 20]
+const QUESTION_COUNT_OPTIONS = [5, 8, 12, 16, 20]
+const PRACTICE_NOTEBOOK_NAME_MAX_LENGTH = 60
 const DIFFICULTY_BUCKETS = ['easy', 'medium', 'hard'] as const
 type DifficultyBucket = (typeof DIFFICULTY_BUCKETS)[number]
 
@@ -69,8 +70,8 @@ export function normalizePracticeNotebookInput(raw: unknown): PracticeNotebookIn
     ? null
     : Number(durationValue)
 
-  if (!name || name.length > 30) {
-    throw new PracticeNotebookBusinessError('练习本名称应为1至30个字符', 422, 'NOTEBOOK_NAME_INVALID')
+  if (!name || name.length > PRACTICE_NOTEBOOK_NAME_MAX_LENGTH) {
+    throw new PracticeNotebookBusinessError('练习本名称应为1至60个字符', 422, 'NOTEBOOK_NAME_INVALID')
   }
   if (!isStudentExamTypeAvailable(examType)) {
     throw new PracticeNotebookBusinessError('当前考试类型暂不支持练习本', 422, 'NOTEBOOK_EXAM_INVALID')
@@ -79,7 +80,7 @@ export function normalizePracticeNotebookInput(raw: unknown): PracticeNotebookIn
     throw new PracticeNotebookBusinessError('请至少选择一个知识点，单次最多选择200个', 422, 'NOTEBOOK_KNOWLEDGE_INVALID')
   }
   if (!QUESTION_COUNT_OPTIONS.includes(questionCount)) {
-    throw new PracticeNotebookBusinessError('每次题量只能选择8、12、16或20题', 422, 'NOTEBOOK_COUNT_INVALID')
+    throw new PracticeNotebookBusinessError('每次题量只能选择5、8、12、16或20题', 422, 'NOTEBOOK_COUNT_INVALID')
   }
   if (!PRACTICE_NOTEBOOK_DIFFICULTIES.includes(difficultyMode)) {
     throw new PracticeNotebookBusinessError('无效的练习难度组合', 422, 'NOTEBOOK_DIFFICULTY_INVALID')

@@ -88,8 +88,8 @@ async function main(): Promise<void> {
   assert.ok(report.aiImprovementPlan.matrix.some((row) => row.moduleId === 'paper2'))
   assert.ok(report.aiImprovementPlan.highRoiGaps.length > 0)
   assert.ok(report.nextAction)
-  assert.equal(report.learningPath?.summary.planningScope, 'starter')
-  assert.equal(report.learningPath?.starterPlan?.days.length, 7)
+  assert.equal(report.learningPath?.summary.planningScope, 'full')
+  assert.equal(report.learningPath?.phases.length, 3)
   assert.deepEqual(stages, ['module_analyzing', 'roi_analyzing', 'path_analyzing'])
 
   console.log(JSON.stringify({
@@ -106,7 +106,7 @@ async function main(): Promise<void> {
     knowledgeModules: report.knowledgeMastery?.modules.length,
     matrixRows: report.aiImprovementPlan.matrix.length,
     highRoiGaps: report.aiImprovementPlan.highRoiGaps.length,
-    starterDays: report.learningPath?.starterPlan?.days.length,
+    planningPhases: report.learningPath?.phases.length,
     stages,
   }, null, 2))
 }

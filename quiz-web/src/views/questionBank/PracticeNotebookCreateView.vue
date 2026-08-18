@@ -16,7 +16,7 @@
         </div>
         <button type="button" class="create-page-back" @click="handleCancel">
           <span aria-hidden="true">←</span>
-          <span>返回练习本</span>
+          <span>{{ reportReturnTo ? '返回诊断报告' : '返回练习本' }}</span>
         </button>
       </header>
 
@@ -29,7 +29,7 @@
             <label class="field-block">
               <el-input
                 v-model="notebookName"
-                maxlength="30"
+                :maxlength="PRACTICE_NOTEBOOK_NAME_MAX_LENGTH"
                 placeholder="例如：代数与函数强化练习"
                 show-word-limit
               />
@@ -313,8 +313,15 @@ const isEditing = computed(
   () => route.name === 'practice-notebook-edit' && Boolean(notebookId.value),
 )
 
+// 只接受本站诊断报告路由作为返回地址，避免查询参数被用于任意外部跳转。
+const reportReturnTo = computed(() => {
+  const value = queryString('returnTo')
+  return /^\/exam-result\/[^/]+\/(?:esat|tmua)(?:\?.*)?$/.test(value) ? value : ''
+})
+
 const treeProps = { children: 'children', label: 'label' }
-const questionCountOptions = [8, 12, 16, 20]
+const PRACTICE_NOTEBOOK_NAME_MAX_LENGTH = 60
+const questionCountOptions = [5, 8, 12, 16, 20]
 const difficultyOptions: Array<{ value: DifficultyMode; label: string }> = [
   { value: 'easy', label: '简单为主' },
   { value: 'medium', label: '中等为主' },
@@ -377,6 +384,25 @@ function indexSyllabusNodes(nodes: SyllabusNode[], ancestors: SyllabusNode[] = [
 function countLeafNodes(node: SyllabusNode): number {
   if (!node.children?.length) return 1
   return node.children.reduce((total, child) => total + countLeafNodes(child), 0)
+}
+
+// 报告可以推荐章节级知识点；创建页将其展开为后端允许保存的叶子知识点代码。
+function resolveLeafKnowledgePointCodes(codes: string[]): string[] {
+  const leafCodes: string[] = []
+
+  // 递归只收集最终可用于组卷的叶子节点，父级本身不进入保存参数。
+  const appendLeaves = (node: SyllabusNode): void => {
+    if (!node.children?.length) {
+      leafCodes.push(node.code)
+      return
+    }
+    node.children.forEach(appendLeaves)
+  }
+  for (const code of codes) {
+    const indexedNode = syllabusIndex.get(code)?.node
+    if (indexedNode) appendLeaves(indexedNode)
+  }
+  return Array.from(new Set(leafCodes))
 }
 
 // 节点副标题区分学科、章节和叶子知识点，帮助用户理解父子级联范围。
@@ -492,9 +518,15 @@ async function loadSyllabus(): Promise<void> {
     indexSyllabusNodes(visibleNodes)
     defaultExpandedKeys.value = visibleNodes[0] ? [visibleNodes[0].code] : []
     treeRenderKey.value += 1
+
+    // 树在加载态下使用 v-if 隐藏，先结束加载让组件真正挂载，再恢复报告预选项。
+    syllabusLoading.value = false
     await nextTick()
-    syllabusTreeRef.value?.setCheckedKeys(pendingCheckedCodes.value)
-    if (pendingCheckedCodes.value.length) syncSelectedKnowledgePoints()
+    if (requestSequence !== syllabusLoadSequence || requestedExamType !== activeExamType.value)
+      return
+    const checkedLeafCodes = resolveLeafKnowledgePointCodes(pendingCheckedCodes.value)
+    syllabusTreeRef.value?.setCheckedKeys(checkedLeafCodes)
+    if (checkedLeafCodes.length) syncSelectedKnowledgePoints()
   } catch {
     if (requestSequence === syllabusLoadSequence) syllabusTree.value = []
   } finally {
@@ -502,9 +534,59 @@ async function loadSyllabus(): Promise<void> {
   }
 }
 
-// 取消新建返回练习本列表，外层工作区使用向右切换动画。
+// 从报告进入时返回原报告，其余入口仍回练习本列表。
 function handleCancel(): void {
-  void router.push('/practice-notebook')
+  void router.push(reportReturnTo.value || '/practice-notebook')
+}
+
+// Vue Router 查询参数统一收敛为单个字符串，数组只读取第一项。
+function queryString(key: string): string {
+  const value = route.query[key]
+  return String(Array.isArray(value) ? value[0] || '' : value || '').trim()
+}
+
+// 诊断报告建议映射到练习本已有的稳定选项，页面不会仅凭链接自动保存。
+function applyDiagnosticReportPrefill(): void {
+  if (queryString('source') !== 'diagnostic-report' || isEditing.value) return
+
+  const examType = queryString('examType').toUpperCase()
+  if (examType === 'ESAT' || examType === 'TMUA') {
+    auth.setActiveExamType(examType)
+  }
+
+  const suggestedName = queryString('name')
+  if (suggestedName) {
+    notebookName.value = suggestedName.slice(0, PRACTICE_NOTEBOOK_NAME_MAX_LENGTH)
+  }
+
+  const requestedCount = Number(queryString('questionCount'))
+  if (Number.isFinite(requestedCount)) {
+    questionCount.value = questionCountOptions.reduce((nearest, option) => (
+      Math.abs(option - requestedCount) < Math.abs(nearest - requestedCount) ? option : nearest
+    ))
+  }
+
+  const difficultyMap: Record<string, DifficultyMode> = {
+    low: 'easy',
+    medium: 'medium',
+    high: 'hard',
+  }
+  difficultyMode.value = difficultyMap[queryString('difficulty')] || difficultyMode.value
+
+  const requestedDuration = Math.round(Number(queryString('durationMinutes')))
+  if (Number.isFinite(requestedDuration) && requestedDuration >= 5) {
+    const normalizedDuration = Math.min(180, requestedDuration)
+    const knownDuration = String(normalizedDuration)
+    durationMode.value = ['20', '24', '30'].includes(knownDuration)
+      ? (knownDuration as DurationMode)
+      : 'custom'
+    customDurationMinutes.value = normalizedDuration
+  }
+
+  pendingCheckedCodes.value = queryString('knowledgePointCodes')
+    .split(',')
+    .map((code) => code.trim())
+    .filter(Boolean)
 }
 
 // 表单保存真实配置；后端再次校验知识点归属和稳定选项，成功后回到当前考试列表。
@@ -589,9 +671,12 @@ onMounted(async () => {
       }
       unseenFirst.value = notebook.unseenFirst
       pendingCheckedCodes.value = notebook.knowledgePointCodes
+    } else {
+      applyDiagnosticReportPrefill()
     }
-    pageInitialized = true
     await loadSyllabus()
+    // 初次考纲与报告预选项恢复完成后，才允许顶部考试切换监听接管页面状态。
+    pageInitialized = true
   } catch {
     if (isEditing.value) await router.replace('/practice-notebook')
   } finally {

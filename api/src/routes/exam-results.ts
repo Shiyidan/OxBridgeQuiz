@@ -20,6 +20,10 @@ import {
   scheduleDiagnosticReportWorker,
 } from '../services/diagnosticReportTask.js'
 import {
+  canUpgradeDiagnosticReport,
+  productVersionForReportVersion,
+} from '../constants/diagnosticReport.js'
+import {
   ANSWER_RECORD_STATE,
   type AnswerRecordState,
   DIAGNOSTIC_REPORT_TASK_STATUS,
@@ -395,6 +399,8 @@ examResultRouter.get('/:id/diagnostic-report/summary', requireAuth, async (req, 
         reportExamRecordId: report.examRecordId,
         generationMode: report.generationMode,
         reportVersion: report.reportVersion,
+        productVersion: productVersionForReportVersion(report.reportVersion),
+        canUpgrade: canUpgradeDiagnosticReport(report.reportKind, report.reportVersion),
         completedAt: report.completedAt,
       },
     }))

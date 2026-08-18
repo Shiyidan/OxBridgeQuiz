@@ -1,0 +1,182 @@
+// 模考试卷库 API：定义后台套卷列表、Excel 导入、校验详情和草稿替换操作。
+import { callApi } from '@/utils/request'
+
+export type MockPaperExamType = 'ESAT' | 'TMUA'
+export type MockPaperAccessTier = 'free' | 'member'
+export type MockPaperValidationStatus = 'valid' | 'invalid'
+
+export interface MockPaperSetListItem {
+  id: string
+  code: string
+  sequenceNo: number
+  examType: MockPaperExamType
+  title: string
+  accessTier: MockPaperAccessTier
+  status: 'draft' | 'published' | 'archived'
+  version: number
+  sourceFileName: string | null
+  paperId: string | null
+  validationStatus: MockPaperValidationStatus
+  issueCount: number
+  questionCount: number
+  moduleCount: number
+  updatedAt: string
+  publishedAt: string | null
+  archivedAt: string | null
+}
+
+export interface MockPaperQuestionDetail {
+  id: string
+  position: number
+  sourceCode: string
+  validationStatus: MockPaperValidationStatus
+  issues: string[]
+  question: {
+    id: string
+    uniqueCode: string
+    title: string
+    status: string
+    examType: string
+    subject: string | null
+    subjectCode: string | null
+    difficulty: 'easy' | 'medium' | 'hard' | null
+    questionType: string | null
+  } | null
+}
+
+export interface MockPaperModuleDetail {
+  id: string
+  code: string
+  label: string
+  order: number
+  durationSeconds: number
+  expectedQuestionCount: number
+  questionCount: number
+  issueCount: number
+  issues: string[]
+  questions: MockPaperQuestionDetail[]
+}
+
+export interface MockPaperSetDetail
+  extends Omit<MockPaperSetListItem, 'moduleCount'> {
+  issues: string[]
+  modules: MockPaperModuleDetail[]
+}
+
+export interface MockPaperListResult {
+  list: MockPaperSetListItem[]
+  pagination: {
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+    hasPrev: boolean
+    hasNext: boolean
+  }
+}
+
+export interface MockPaperListParams {
+  page?: number
+  pageSize?: number
+  examType?: string
+  status?: string
+  keyword?: string
+}
+
+// 管理首页卡片只获取模考试卷库汇总数量。
+export function getMockPaperSetStats() {
+  return callApi<{ total: number; validDrafts: number }>({
+    method: 'GET',
+    url: '/mock-paper-sets/stats',
+    silent: true,
+  })
+}
+
+// 管理列表使用服务端分页，筛选变化后由页面重置到第一页。
+export function getMockPaperSets(params: MockPaperListParams) {
+  return callApi<MockPaperListResult>({
+    method: 'GET',
+    url: '/mock-paper-sets',
+    params: {
+      page: params.page ? String(params.page) : undefined,
+      pageSize: params.pageSize ? String(params.pageSize) : undefined,
+      examType: params.examType,
+      status: params.status,
+      keyword: params.keyword,
+    },
+  })
+}
+
+// 详情包含模块、题序、匹配题目和逐题校验问题。
+export function getMockPaperSetDetail(id: string) {
+  return callApi<MockPaperSetDetail>({
+    method: 'GET',
+    url: `/mock-paper-sets/${id}`,
+  })
+}
+
+// Excel 文件在后端解析并校验，前端不推断题号或模块结果。
+export function importMockPaperWorkbook(file: File, accessTier: MockPaperAccessTier) {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('accessTier', accessTier)
+  return callApi<{ list: MockPaperSetListItem[] }>({
+    method: 'POST',
+    url: '/mock-paper-sets/import',
+    body: form,
+    timeout: 120000,
+  })
+}
+
+// 草稿名称和免费/会员属性可独立调整，套卷编号保持不变。
+export function updateMockPaperSet(
+  id: string,
+  body: { title: string; accessTier: MockPaperAccessTier },
+) {
+  return callApi<{ id: string; title: string; accessTier: MockPaperAccessTier }>({
+    method: 'PUT',
+    url: `/mock-paper-sets/${id}`,
+    body,
+  })
+}
+
+// 单题替换保留当前位置，并由服务端重新复核整套草稿。
+export function replaceMockPaperQuestion(id: string, itemId: string, questionCode: string) {
+  return callApi<{ id: string; previousCode: string; questionCode: string }>({
+    method: 'PUT',
+    url: `/mock-paper-sets/${id}/questions/${itemId}`,
+    body: { questionCode },
+  })
+}
+
+// 题库状态变化后可主动刷新整个草稿的校验结果。
+export function validateMockPaperSet(id: string) {
+  return callApi<{ id: string; validationStatus: MockPaperValidationStatus; issueCount: number }>({
+    method: 'POST',
+    url: `/mock-paper-sets/${id}/validate`,
+  })
+}
+
+// 校验通过后发布到学生端目录，并创建答卷运行载体。
+export function publishMockPaperSet(id: string) {
+  return callApi<{ id: string; paperId: string; status: 'published'; publishedAt: string }>({
+    method: 'POST',
+    url: `/mock-paper-sets/${id}/publish`,
+  })
+}
+
+// 已发布套卷下线后不再允许新开始，既有答卷仍可继续。
+export function archiveMockPaperSet(id: string) {
+  return callApi<{ id: string; status: 'archived'; archivedAt: string }>({
+    method: 'POST',
+    url: `/mock-paper-sets/${id}/archive`,
+  })
+}
+
+// 删除仅用于尚未发布的错误草稿。
+export function deleteMockPaperSet(id: string) {
+  return callApi<{ id: string }>({
+    method: 'DELETE',
+    url: `/mock-paper-sets/${id}`,
+  })
+}

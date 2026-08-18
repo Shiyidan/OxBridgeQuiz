@@ -147,6 +147,7 @@ export interface DiagnosticReportMeta {
   productVersion: 'v1' | 'v2'
   canUpgrade: boolean
   completedAt: string
+  sourcePaperType: string
 }
 
 export interface ExamQuestion extends Question {
@@ -588,6 +589,33 @@ export interface WrongAnswer {
   }
 }
 
+export type MistakeAttemptSourceType =
+  | 'diagnostic'
+  | 'question-bank'
+  | 'mock-exam'
+  | 'unknown'
+
+export type MistakeAttemptAnswerState = 'answered' | 'skipped' | 'unseen'
+
+export interface MistakeAttemptHistoryItem {
+  id: string
+  examRecordId: string
+  submittedAt: string
+  answeredAt: string | null
+  selectedAnswer: string | null
+  answerState: MistakeAttemptAnswerState
+  durationSeconds: number
+  sourceType: MistakeAttemptSourceType
+  sourceLabel: string
+  sourceTitle: string
+}
+
+export interface MistakeAttemptHistoryResult {
+  questionId: string
+  total: number
+  list: MistakeAttemptHistoryItem[]
+}
+
 export interface PaginationMeta {
   page: number
   pageSize: number
@@ -778,6 +806,14 @@ export function getMistakeNotebookData(params: MistakeNotebookParams = {}) {
       ...(params.startDate ? { startDate: params.startDate } : {}),
       ...(params.endDate ? { endDate: params.endDate } : {}),
     },
+  })
+}
+
+/** 获取当前用户在单道错题上的历次错误作答，服务端按提交时间倒序返回。 */
+export function getMistakeAttemptHistory(questionId: string) {
+  return callApi<MistakeAttemptHistoryResult>({
+    url: `/exams/error-book/${encodeURIComponent(questionId)}/attempts`,
+    method: 'GET',
   })
 }
 

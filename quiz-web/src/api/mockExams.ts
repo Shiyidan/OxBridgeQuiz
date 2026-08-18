@@ -66,8 +66,19 @@ export interface MockExamRecordItem {
   currentModuleLabel: string | null
   answeredCount: number
   totalQuestions: number
+  correctCount: number
+  wrongCount: number
+  accuracy: number | null
+  durationSeconds: number
   remainingSeconds: number | null
   score: number | null
+  moduleScores: Array<{
+    code: string
+    label: string
+    correctCount: number
+    totalQuestions: number
+    score: number
+  }>
   reportStatus: 'pending' | 'analyzing' | 'completed' | 'failed' | null
 }
 
@@ -138,10 +149,11 @@ export function getMockExamRecordsData(params: MockExamRecordParams) {
 }
 
 /** 确认考前规则后创建一场独立模考答卷。 */
-export function startMockExam(paperId: string) {
+export function startMockExam(paperId: string, startRequestId: string) {
   return callApi<StartMockExamResult>({
     url: `/mock-exams/papers/${paperId}/attempts`,
     method: 'POST',
+    body: { startRequestId },
     silent: true,
   })
 }

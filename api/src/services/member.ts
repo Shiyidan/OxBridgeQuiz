@@ -8,7 +8,7 @@ import {
   EXAM_TYPES,
   MEMBERSHIP_STATUS,
   PAPER_ACCESS_TIER,
-  QUESTION_BANK_PAPER_TYPES,
+  REAL_PAPER_TYPES,
   USER_ROLE,
   isStudentExamTypeAvailable,
 } from "../constants/domain.js";
@@ -165,7 +165,7 @@ async function countDiagnosticUsed(
         examType,
         status: "submitted",
         paperId: { not: "question-bank" },
-        paper: { paperType: { notIn: [...QUESTION_BANK_PAPER_TYPES] } },
+        paper: { paperType: { in: [...REAL_PAPER_TYPES] } },
       },
     }),
   ]);

@@ -14,13 +14,26 @@
           <i aria-hidden="true"></i>
           <h1>{{ analysisPageTitle }}</h1>
         </header>
-        <ExamQuestionAnalysis
-          :questions="questions"
-          :correct-count="correctCount"
-          :initial-question-id="targetQuestionId"
-          :single-question-mode="singleQuestionMode"
-          :group-by="analysisSource === 'question-bank' ? 'syllabus' : 'module'"
-        />
+        <div
+          class="analysis-page-content"
+          :class="{ 'analysis-page-content--with-history': showMistakeAttemptHistory }"
+        >
+          <ExamQuestionAnalysis
+            :questions="questions"
+            :correct-count="correctCount"
+            :initial-question-id="targetQuestionId"
+            :single-question-mode="singleQuestionMode"
+            :group-by="analysisSource === 'question-bank' ? 'syllabus' : 'module'"
+          />
+          <MistakeAttemptTimeline
+            v-if="showMistakeAttemptHistory"
+            :items="mistakeAttempts"
+            :total="mistakeAttemptTotal"
+            :loading="mistakeAttemptsLoading"
+            :error="mistakeAttemptsError"
+            @retry="loadMistakeAttemptHistory"
+          />
+        </div>
       </section>
     </main>
   </div>
@@ -32,7 +45,14 @@ import { useRoute, useRouter } from 'vue-router'
 import { Back } from '@element-plus/icons-vue'
 import NavBar from '@/components/NavBar.vue'
 import ExamQuestionAnalysis from '@/components/report/ExamQuestionAnalysis.vue'
-import { getDiagnosticReportStatus, getExamResultData, type ExamQuestion } from '@/api/exam'
+import MistakeAttemptTimeline from '@/views/mistakeNotebook/MistakeAttemptTimeline.vue'
+import {
+  getDiagnosticReportStatus,
+  getExamResultData,
+  getMistakeAttemptHistory,
+  type ExamQuestion,
+  type MistakeAttemptHistoryItem,
+} from '@/api/exam'
 import { PAPER_TYPE, normalizePaperType } from '@/constants/paperTypes'
 import { getApiErrorMessage } from '@/utils/request'
 
@@ -57,6 +77,10 @@ const paper = ref<PaperMeta | null>(null)
 const isDiagnosticRecord = ref(false)
 const recordExamType = ref('')
 const practiceNotebookName = ref('')
+const mistakeAttempts = ref<MistakeAttemptHistoryItem[]>([])
+const mistakeAttemptTotal = ref(0)
+const mistakeAttemptsLoading = ref(false)
+const mistakeAttemptsError = ref('')
 
 // 当前答卷 ID 用于读取结果并决定后续进入哪一种报告页面。
 const examId = computed(() => String(route.params.id || ''))
@@ -69,6 +93,9 @@ const targetQuestionId = computed(() => route.query.questionId as string | undef
 
 // 错题本使用专用单题模式，不能从当前入口回退为整卷解析。
 const singleQuestionMode = computed(() => Boolean(isQuestionReview.value && targetQuestionId.value))
+
+// 模考记录的错题回顾只展示错误或未作答题目，不混入本场正确题。
+const wrongOnlyMode = computed(() => route.query.wrongOnly === '1')
 
 // 普通练习标题优先使用试卷标题，缺失时回退到题目科目。
 const examTitle = computed(() => paper.value?.title || questions.value[0]?.subject || '题库练习')
@@ -84,8 +111,14 @@ const analysisSource = computed<'diagnostic' | 'question-bank'>(() => {
 
 // 错题本入口单独决定返回行为，并允许携带已校验的列表筛选地址。
 const cameFromMistakeNotebook = computed(() => route.query.from === 'mistake-notebook')
+const cameFromMockExam = computed(() => route.query.from === 'mock-exam')
 const cameFromPracticeNotebook = computed(() => route.query.from === 'practice-notebook')
 const cameFromPracticeRecords = computed(() => route.query.from === 'practice-records')
+
+// 历史时间轴仅属于错题本的单题解析入口，其他整卷或报告解析保持原有布局。
+const showMistakeAttemptHistory = computed(
+  () => cameFromMistakeNotebook.value && singleQuestionMode.value && Boolean(targetQuestionId.value),
+)
 
 // 练习本解析使用交卷时保存的名称快照，临时题库练习和诊断答卷沿用各自默认标题。
 const pageContextTitle = computed(() => {
@@ -96,24 +129,29 @@ const pageContextTitle = computed(() => {
 const analysisPageTitle = computed(() =>
   singleQuestionMode.value
     ? `${pageContextTitle.value} · 错题解析`
-    : `${pageContextTitle.value} · 题目逐题解析`,
+    : cameFromMockExam.value && wrongOnlyMode.value
+      ? `${pageContextTitle.value} · 错题回顾`
+      : `${pageContextTitle.value} · 题目逐题解析`,
 )
 
 // 返回按钮文案与来源保持一一对应，避免学生从解析页回到错误的业务入口。
 const returnLabel = computed(() =>
   cameFromMistakeNotebook.value
     ? '返回错题本'
-    : cameFromPracticeNotebook.value
-      ? '返回练习本'
-      : cameFromPracticeRecords.value
-        ? '返回练习记录'
-        : analysisSource.value === 'diagnostic'
-          ? '返回诊断报告'
-          : '返回试题库',
+    : cameFromMockExam.value
+      ? '返回模考中心'
+      : cameFromPracticeNotebook.value
+        ? '返回练习本'
+        : cameFromPracticeRecords.value
+          ? '返回练习记录'
+          : analysisSource.value === 'diagnostic'
+            ? '返回诊断报告'
+            : '返回试题库',
 )
 
 // 页面加载后先识别 paperType 和 examType，诊断记录随即跳到独立考试报告页。
 onMounted(async () => {
+  if (showMistakeAttemptHistory.value) void loadMistakeAttemptHistory()
   try {
     const data = await getExamResultData(examId.value)
     const isDiagnostic =
@@ -160,14 +198,35 @@ onMounted(async () => {
       correctCount.value = target.isCorrect ? 1 : 0
       return
     }
-    correctCount.value = data.examRecord.correctCount
-    questions.value = loadedQuestions
+    const visibleQuestions = wrongOnlyMode.value
+      ? loadedQuestions.filter((question) => !question.isCorrect)
+      : loadedQuestions
+    correctCount.value = visibleQuestions.filter((question) => question.isCorrect).length
+    questions.value = visibleQuestions
   } catch (error: unknown) {
     loadError.value = getApiErrorMessage(error, '加载答卷失败，请稍后重试')
   } finally {
     loading.value = false
   }
 })
+
+// 时间轴独立加载，失败时只在右侧提供重试，不阻断题目和解析正文。
+async function loadMistakeAttemptHistory(): Promise<void> {
+  const questionId = String(targetQuestionId.value || '').trim()
+  if (!questionId) return
+
+  mistakeAttemptsLoading.value = true
+  mistakeAttemptsError.value = ''
+  try {
+    const result = await getMistakeAttemptHistory(questionId)
+    mistakeAttempts.value = result.list
+    mistakeAttemptTotal.value = result.total
+  } catch (error: unknown) {
+    mistakeAttemptsError.value = getApiErrorMessage(error, '加载历次作答失败，请稍后重试')
+  } finally {
+    mistakeAttemptsLoading.value = false
+  }
+}
 
 // 返回目标由来源和考试类型固定决定，不依赖浏览器历史栈，刷新页面后仍能保持正确去向。
 function returnToSource(): void {
@@ -177,6 +236,15 @@ function returnToSource(): void {
       returnTo === '/mistake-notebook' || returnTo.startsWith('/mistake-notebook?')
         ? returnTo
         : '/mistake-notebook'
+    void router.push(safeReturnTo)
+    return
+  }
+  if (cameFromMockExam.value) {
+    const returnTo = String(route.query.returnTo || '')
+    const safeReturnTo =
+      returnTo === '/mock-exams' || returnTo.startsWith('/mock-exams?')
+        ? returnTo
+        : '/mock-exams?tab=records&status=completed'
     void router.push(safeReturnTo)
     return
   }
@@ -288,6 +356,23 @@ async function redirectDiagnosticReport(examType: string, reportRecordId: string
 .analysis-page-header h1 {
   margin: 0;
   font-size: var(--text-2xl);
+}
+
+.analysis-page-content {
+  min-width: 0;
+}
+
+.analysis-page-content--with-history {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .analysis-page-content--with-history {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 640px) {

@@ -11,13 +11,15 @@ import {
   DIAGNOSTIC_REPORT_TASK_STATUS,
   EXAM_RECORD_STATUS,
   EXAM_TYPE,
-  isRealPaperType,
+  isMockPaperType,
+  supportsDiagnosticReport,
 } from '../constants/domain.js'
 import {
   canUpgradeDiagnosticReport,
   promptVersionForExam,
   reportVersionForExam,
 } from '../constants/diagnosticReport.js'
+import { parseModuleExamSnapshot } from './moduleExamSession.js'
 import {
   buildDiagnosticReportSummary,
   type DiagnosticBuildStage,
@@ -189,7 +191,9 @@ async function buildReportForTask(taskId: string, examRecordId: string): Promise
     },
   })
   if (!examRecord) throw new Error('Exam record not found')
-  if (!isRealPaperType(examRecord.paper.paperType)) throw new Error('Only real papers support diagnostic reports')
+  if (!supportsDiagnosticReport(examRecord.paper.paperType)) {
+    throw new Error('Only diagnostic and mock papers support diagnostic reports')
+  }
   if (examRecord.status !== EXAM_RECORD_STATUS.SUBMITTED || !examRecord.submittedAt) {
     throw new Error('Diagnostic report requires a submitted exam')
   }
@@ -218,28 +222,55 @@ async function buildReportForTask(taskId: string, examRecordId: string): Promise
       select: { code: true, label: true },
     }),
   ])
-  const questionRows = orderQuestionsByModule(unorderedQuestionRows)
+  const storedPositionsAreComplete = examRecord.answers.every((answer) =>
+    Number.isInteger(answer.position),
+  ) && new Set(examRecord.answers.map((answer) => answer.position)).size === examRecord.answers.length
+  const questionMap = new Map(unorderedQuestionRows.map((question) => [question.id, question]))
+  const questionRows = storedPositionsAreComplete
+    ? [...examRecord.answers]
+        .sort((left, right) => Number(left.position) - Number(right.position))
+        .flatMap((answer) => {
+          const question = questionMap.get(answer.questionId)
+          return question ? [question] : []
+        })
+    : orderQuestionsByModule(unorderedQuestionRows)
   if (!questionRows.length) throw new Error('Diagnostic paper has no official questions')
 
   const answerMap = new Map(examRecord.answers.map((answer) => [answer.questionId, answer]))
+  const moduleSnapshot = parseModuleExamSnapshot(examRecord.structureSnapshot)
+  const frozenQuestionMeta = new Map(
+    (moduleSnapshot?.modules || []).flatMap((module) =>
+      module.questionIds.map((questionId, index) => [
+        questionId,
+        {
+          moduleCode: module.code,
+          moduleOrder: module.order,
+          moduleQuestionNumber: index + 1,
+        },
+      ] as const),
+    ),
+  )
   const learnerProfile = learnerProfileForExam(examRecord.user.examPreferences, examRecord.examType)
-  const questions = questionRows.map((question, index) => ({
-    number: question.number ?? index + 1,
-    subject: question.subject,
-    subjectCode: question.subjectCode,
-    moduleCode: question.moduleCode,
-    moduleOrder: question.moduleOrder,
-    moduleQuestionNumber: question.moduleQuestionNumber,
-    topic: question.topic,
-    topicCode: question.topicCode,
-    knowledgePoints: parseJsonArray<{ code: string; label: string; role?: string }>(question.knowledgePoints),
-    difficulty: question.difficulty,
-    isCorrect: answerMap.get(question.id)?.isCorrect ?? false,
-    isAnswered: Boolean(answerMap.get(question.id)?.selectedAnswer?.trim()),
-    answerState: answerMap.get(question.id)?.answerState as 'unseen' | 'skipped' | 'answered' | undefined,
-    durationSeconds: answerMap.get(question.id)?.durationSeconds ?? null,
-    learningAnalysis: learningAnalysisForReport(question.meta),
-  }))
+  const questions = questionRows.map((question, index) => {
+    const frozen = frozenQuestionMeta.get(question.id)
+    return {
+      number: isMockPaperType(examRecord.paper.paperType) ? index + 1 : question.number ?? index + 1,
+      subject: question.subject,
+      subjectCode: question.subjectCode,
+      moduleCode: frozen?.moduleCode || question.moduleCode,
+      moduleOrder: frozen?.moduleOrder ?? question.moduleOrder,
+      moduleQuestionNumber: frozen?.moduleQuestionNumber ?? question.moduleQuestionNumber,
+      topic: question.topic,
+      topicCode: question.topicCode,
+      knowledgePoints: parseJsonArray<{ code: string; label: string; role?: string }>(question.knowledgePoints),
+      difficulty: question.difficulty,
+      isCorrect: answerMap.get(question.id)?.isCorrect ?? false,
+      isAnswered: Boolean(answerMap.get(question.id)?.selectedAnswer?.trim()),
+      answerState: answerMap.get(question.id)?.answerState as 'unseen' | 'skipped' | 'answered' | undefined,
+      durationSeconds: answerMap.get(question.id)?.durationSeconds ?? null,
+      learningAnalysis: learningAnalysisForReport(question.meta),
+    }
+  })
 
   const report = await buildDiagnosticReportSummary({
     examType: examRecord.examType,
@@ -417,7 +448,9 @@ export async function ensureDiagnosticReportTask(examRecordId: string, userId: s
     include: { paper: { select: { paperType: true } } },
   })
   if (!examRecord) throw new Error('Exam record not found')
-  if (!isRealPaperType(examRecord.paper.paperType)) throw new Error('Only real papers support diagnostic reports')
+  if (!supportsDiagnosticReport(examRecord.paper.paperType)) {
+    throw new Error('Only diagnostic and mock papers support diagnostic reports')
+  }
   if (examRecord.status !== EXAM_RECORD_STATUS.SUBMITTED || !examRecord.submittedAt) {
     throw new Error('Diagnostic report requires a submitted exam')
   }

@@ -34,6 +34,13 @@
             >试题库</router-link
           >
           <router-link
+            to="/mock-exams"
+            class="nav-link"
+            active-class="nav-link--active"
+            @click="handleRouteNavigation($event, '/mock-exams')"
+            >模考中心</router-link
+          >
+          <router-link
             :to="mistakeNotebookPath"
             class="nav-link"
             active-class="nav-link--active"
@@ -77,15 +84,6 @@
               </el-dropdown-menu>
             </template>
           </el-dropdown>
-          <!-- 无限模考入口暂时隐藏，恢复时解除本段模板注释。
-          <router-link
-            to="/mock-exams"
-            class="nav-link"
-            active-class="nav-link--active"
-            @click="handleRouteNavigation($event, '/mock-exams')"
-            >无限模考</router-link
-          >
-          -->
         </nav>
       </div>
 
@@ -146,7 +144,7 @@
                       <span class="dropdown-name" :title="auth.user.username">
                         {{ auth.user.username }}
                       </span>
-                      <span class="dropdown-role">{{ currentRoleLabel }}</span>
+                      <span class="dropdown-role">{{ dropdownEntitlementLabel }}</span>
                     </div>
                     <div class="dropdown-avatar">{{ auth.user.username.charAt(0) }}</div>
                   </div>
@@ -230,6 +228,25 @@ const studentExamOptions = EXAM_TYPE_OPTIONS.filter(
 
 // 根据登录用户身份显示导航栏角色名称。
 const currentRoleLabel = computed(() => (auth.user?.role === 'admin' ? '管理员' : '学生'))
+
+// 头像下拉卡片优先展示管理员权益，普通用户则按账户当前生效的考试会员权益标记身份。
+const dropdownEntitlementLabel = computed(() => {
+  if (auth.isAdmin) return '管理员权益'
+
+  const memberExamTypes = Object.entries(auth.memberContext?.quotas || {})
+    .filter(([, quota]) => quota.isMember)
+    .map(([examType]) => examType.toUpperCase())
+    .filter((examType) => examType === 'ESAT' || examType === 'TMUA')
+    .sort((left, right) => (left === 'ESAT' ? -1 : right === 'ESAT' ? 1 : 0))
+
+  if (memberExamTypes.length === 0) return '免费用户'
+  if (memberExamTypes.length > 1) {
+    return memberExamTypes.map((examType) => `${examType}会员`).join(' · ')
+  }
+
+  const examType = memberExamTypes[0]!
+  return `${examType}会员`
+})
 
 // 当前考试类型由认证 Store 保存，确保导航栏跨前台页面重建后仍保留手动选择。
 const preferredExamType = computed(() => auth.activeExamType)
@@ -603,8 +620,11 @@ onMounted(() => void loadStudentExamPreference())
   white-space: nowrap;
 }
 .dropdown-role {
-  color: var(--color-ink-muted);
+  display: inline-block;
+  margin-top: 2px;
+  color: var(--color-report-orange);
   font-size: 12px;
+  font-weight: var(--weight-semi);
 }
 .dropdown-menu {
   padding: 10px;

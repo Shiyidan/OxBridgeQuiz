@@ -13,8 +13,8 @@
     <button
       type="button"
       class="diagnostic-analysis-dialog__close"
-      aria-label="关闭分析窗口并返回诊断测试"
-      title="关闭并返回诊断测试"
+      :aria-label="`关闭分析窗口并返回${returnCenterName}`"
+      :title="`关闭并返回${returnCenterName}`"
       @click="returnToAssessment"
     >
       ×
@@ -30,9 +30,11 @@
         <button type="button" class="button_primary" :disabled="retrying" @click="retryAnalysis">
           {{ retrying ? '正在重新发起...' : '重新分析' }}
         </button>
-        <button type="button" class="button_cancel" @click="returnToAssessment">返回诊断测试</button>
+        <button type="button" class="button_cancel" @click="returnToAssessment">
+          返回{{ returnCenterName }}
+        </button>
       </div>
-      <p class="analysis-state__note">其他已完成测试的报告可从诊断测试首页“历次记录”查看。</p>
+      <p class="analysis-state__note">其他已完成测试的报告可从{{ returnCenterName }}查看。</p>
     </section>
 
     <section v-else-if="isAnalyzing" class="analysis-state" aria-live="polite">
@@ -70,7 +72,7 @@
         <small>{{ currentModuleIndex + 1 }}/{{ ANALYSIS_MODULES.length }}</small>
       </div>
       <p v-if="pollError" class="analysis-state__error">{{ pollError }}</p>
-      <p class="analysis-state__note">关闭弹窗不会停止后台分析，完成后可从诊断测试首页查看报告。</p>
+      <p class="analysis-state__note">关闭弹窗不会停止后台分析，完成后可从{{ returnCenterName }}查看报告。</p>
     </section>
 
     <section v-else class="analysis-state analysis-state--completed" aria-live="polite">
@@ -93,7 +95,9 @@
         <button type="button" class="button_primary" @click="viewCurrentReport">
           查看诊断报告
         </button>
-        <button type="button" class="button_cancel" @click="returnToAssessment">返回诊断测试</button>
+        <button type="button" class="button_cancel" @click="returnToAssessment">
+          返回{{ returnCenterName }}
+        </button>
       </div>
     </section>
   </el-dialog>
@@ -125,6 +129,7 @@ const ANALYSIS_MODULES = [
 const props = defineProps<{
   modelValue: boolean
   examId: string
+  source?: 'assessment' | 'mock-exam'
 }>()
 
 const emit = defineEmits<{
@@ -151,6 +156,8 @@ const isAnalyzing = computed(
 )
 const analysisFailed = computed(() => analysisStatus.value === 'failed')
 const analysisProgress = computed(() => Math.floor(visualProgress.value))
+// 交卷来源决定关闭和完成按钮返回诊断中心还是无限模考记录页。
+const returnCenterName = computed(() => props.source === 'mock-exam' ? '无限模考' : '诊断测试')
 // 六个分析模块按照单向视觉进度依次展示，到最后一项后停留，不再循环。
 const currentModuleIndex = computed(() => Math.min(
   ANALYSIS_MODULES.length - 1,

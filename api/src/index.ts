@@ -22,6 +22,8 @@ import { practiceNotebookRouter } from './routes/practiceNotebooks.js'
 import { trafficRouter } from './routes/traffic.js'
 import { invitationsRouter } from './routes/invitations.js'
 import { studyResourceRouter } from './routes/studyResources.js'
+import { mockPaperSetRouter } from './routes/mockPaperSets.js'
+import { mockExamRouter } from './routes/mockExams.js'
 
 const app = express()
 
@@ -64,6 +66,8 @@ app.use('/api/practice-notebooks', practiceNotebookRouter)
 app.use('/api/parse-tasks', parseRouter)
 app.use('/api/upload', uploadRouter)
 app.use('/api/study-resources', studyResourceRouter)
+app.use('/api/mock-paper-sets', mockPaperSetRouter)
+app.use('/api/mock-exams', mockExamRouter)
 
 app.get('/api/health', (_req, res) => {
   res.json(success({ status: 'ok' }))

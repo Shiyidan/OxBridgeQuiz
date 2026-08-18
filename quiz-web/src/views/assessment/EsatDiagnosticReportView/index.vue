@@ -22,7 +22,7 @@
       <template v-else-if="report && activeModule">
         <header class="report-header">
           <div>
-            <span>ESAT Diagnostic Report</span>
+            <span>{{ reportMeta?.sourcePaperType === 'mockPaper' ? '来源：无限模考' : 'ESAT Diagnostic Report' }}</span>
             <h1>{{ report.header.title }}</h1>
           </div>
           <button type="button" class="question-analysis-button" @click="viewQuestionAnalysis">

@@ -186,6 +186,17 @@ export const QUESTION_BANK_PAPER_TYPES = [PAPER_TYPE.AI_PAPER] as const
 
 export const MOCK_PAPER_TYPES = [PAPER_TYPE.MOCK_PAPER] as const
 
+export const MOCK_PAPER_STATUS = {
+  DRAFT: 'draft',
+  PUBLISHED: 'published',
+  ARCHIVED: 'archived',
+} as const
+
+export const MOCK_PAPER_VALIDATION_STATUS = {
+  VALID: 'valid',
+  INVALID: 'invalid',
+} as const
+
 export const MEMBERSHIP_PLAN = {
   MONTHLY: 'monthly',
   QUARTERLY: 'quarterly',
@@ -432,6 +443,16 @@ export function paperTypeWhereValues(value: unknown): string[] {
 // 真题判断沿用统一兼容集合，避免业务层重复比较字符串。
 export function isRealPaperType(value: unknown): boolean {
   return REAL_PAPER_TYPES.includes(value as any)
+}
+
+// 模考卷判断集中处理，供学生目录、答题恢复和报告链路保持同一口径。
+export function isMockPaperType(value: unknown): boolean {
+  return MOCK_PAPER_TYPES.includes(value as any)
+}
+
+// 真题诊断和固定模考共享诊断报告能力，题库练习不生成该类报告。
+export function supportsDiagnosticReport(value: unknown): boolean {
+  return isRealPaperType(value) || isMockPaperType(value)
 }
 
 // 新建会员订单只接受当前开放的月卡或季卡方案。

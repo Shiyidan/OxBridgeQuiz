@@ -35,6 +35,7 @@ import {
   isExamType,
   isAnswerRecordState,
   isRealPaperType,
+  supportsDiagnosticReport,
   normalizePaperType,
   paperTypeWhereValues,
 } from '../constants/domain.js'
@@ -709,7 +710,7 @@ examSessionRouter.get('/:id/session', requireAuth, async (req, res) => {
       return
     }
     const paperType = normalizePaperType(record.paper.paperType)
-    if (!isRealPaperType(paperType) && !QUESTION_BANK_PAPER_TYPES.includes(paperType as any)) {
+    if (!supportsDiagnosticReport(paperType) && !QUESTION_BANK_PAPER_TYPES.includes(paperType as any)) {
       res.status(422).json(fail('当前考试类型不支持恢复'))
       return
     }
@@ -1120,7 +1121,7 @@ examSessionRouter.post('/:id/submit', requireAuth, async (req, res) => {
       return
     }
 
-    const isDiagnostic = isRealPaperType(record.paper.paperType)
+    const isDiagnostic = supportsDiagnosticReport(record.paper.paperType)
     const moduleSnapshot = parseModuleExamSnapshot(record.structureSnapshot)
     const usesTimedSession = usesContinuousExamClock(
       record.paper.paperType,

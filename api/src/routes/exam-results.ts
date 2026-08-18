@@ -35,7 +35,8 @@ import {
   REAL_PAPER_TYPES,
   isExamType,
   isAnswerRecordState,
-  isRealPaperType,
+  isMockPaperType,
+  supportsDiagnosticReport,
   normalizePaperType,
   paperTypeWhereValues,
 } from '../constants/domain.js'
@@ -53,7 +54,7 @@ examResultRouter.get('/profile-stats', requireAuth, async (req, res) => {
           status: 'submitted',
           examType: { in: EXAM_TYPES },
           paperId: { not: 'question-bank' },
-          paper: { paperType: { notIn: [...QUESTION_BANK_PAPER_TYPES] } },
+          paper: { paperType: { in: [...REAL_PAPER_TYPES] } },
         },
         select: {
           examType: true,
@@ -182,7 +183,10 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
       if (!question) return []
       return [{
         ...formatQuestionRow(question),
-        number: examRecord.paperId === 'question-bank' && Number.isInteger(answerRecord.position)
+        number: (
+          examRecord.paperId === 'question-bank'
+          || isMockPaperType(paper?.paperType)
+        ) && Number.isInteger(answerRecord.position)
           ? Number(answerRecord.position) + 1
           : question.number,
         questionId: question.id,
@@ -259,8 +263,8 @@ examResultRouter.get('/:id/diagnostic-report/status', requireAuth, async (req, r
       res.status(404).json(fail('Exam record not found'))
       return
     }
-    if (!isRealPaperType(examRecord.paper.paperType)) {
-      res.status(400).json(fail('Only diagnostic real-paper records have this report'))
+    if (!supportsDiagnosticReport(examRecord.paper.paperType)) {
+      res.status(400).json(fail('Only diagnostic and mock-paper records have this report'))
       return
     }
     if (examRecord.status !== EXAM_RECORD_STATUS.SUBMITTED || !examRecord.submittedAt) {
@@ -359,8 +363,8 @@ examResultRouter.get('/:id/diagnostic-report/summary', requireAuth, async (req, 
       res.status(404).json(fail('Exam record not found'))
       return
     }
-    if (!isRealPaperType(examRecord.paper.paperType)) {
-      res.status(400).json(fail('Only diagnostic real-paper records have this report'))
+    if (!supportsDiagnosticReport(examRecord.paper.paperType)) {
+      res.status(400).json(fail('Only diagnostic and mock-paper records have this report'))
       return
     }
     if (examRecord.status !== EXAM_RECORD_STATUS.SUBMITTED || !examRecord.submittedAt) {
@@ -402,6 +406,7 @@ examResultRouter.get('/:id/diagnostic-report/summary', requireAuth, async (req, 
         productVersion: productVersionForReportVersion(report.reportVersion),
         canUpgrade: canUpgradeDiagnosticReport(report.reportKind, report.reportVersion),
         completedAt: report.completedAt,
+        sourcePaperType: examRecord.paper.paperType,
       },
     }))
   } catch (error: any) {

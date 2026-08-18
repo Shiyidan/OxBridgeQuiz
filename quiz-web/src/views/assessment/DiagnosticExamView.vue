@@ -5,7 +5,7 @@
       v-if="session?.phase === 'answering' && activeModule"
       :key="timerKey"
       :exam-type="session.examType === 'TMUA' ? 'TMUA' : 'ESAT'"
-      mode="assessment"
+      :mode="isMockExam ? 'mock-exam' : 'assessment'"
       :countdown-duration-seconds="activeModule.durationSeconds"
       :expires-at="activeModule.expiresAt"
       :server-now="session.serverNow"
@@ -23,7 +23,9 @@
     />
 
     <main class="diagnostic-exam-shell">
-      <div v-if="loading" class="diagnostic-status">正在恢复诊断测试...</div>
+      <div v-if="loading" class="diagnostic-status">
+        正在恢复{{ isMockExam ? '无限模考' : '诊断测试' }}...
+      </div>
       <template v-else-if="session">
         <div v-if="session.phase === 'answering'" class="exam-layout">
           <aside class="question-nav" :aria-label="`当前${sectionNoun}题目导航`">
@@ -115,7 +117,9 @@
         <div v-else-if="session.phase === 'ready_to_submit'" class="diagnostic-status">
           <p>
             全部{{ sectionNoun }}已完成，{{
-              transitioning ? '正在提交诊断结果...' : '诊断结果尚未提交。'
+              transitioning
+                ? `正在提交${isMockExam ? '模考' : '诊断'}结果...`
+                : `${isMockExam ? '模考' : '诊断'}结果尚未提交。`
             }}
           </p>
           <button
@@ -129,7 +133,7 @@
         </div>
       </template>
       <div v-else class="diagnostic-status">
-        <p>无法加载诊断测试。</p>
+        <p>无法加载{{ isMockExam ? '无限模考' : '诊断测试' }}。</p>
         <button type="button" class="button_primary" @click="loadSession">重新加载</button>
       </div>
     </main>
@@ -157,6 +161,7 @@
     <DiagnosticAnalysisDialog
       :model-value="analysisDialogVisible"
       :exam-id="submittedExamRecordId"
+      :source="isMockExam ? 'mock-exam' : 'assessment'"
       @view-report="handleViewDiagnosticReport"
       @return-assessment="handleReturnToAssessment"
     />
@@ -192,6 +197,9 @@ import { getApiErrorMessage, hasApiErrorCode } from '@/utils/request'
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+
+// 同一答题组件根据路由区分诊断与无限模考，仅调整来源语义和返回入口。
+const isMockExam = computed(() => route.name === 'mock-exam-session')
 
 const loading = ref(true)
 const session = ref<StartExamResult | null>(null)
@@ -238,6 +246,7 @@ const currentQuestionMarked = computed(() =>
 
 // 顶部时间轴使用整张诊断试卷名称，当前科目或 Paper 仍由正文分段导航展示。
 const paperProgressTitle = computed(() => {
+  if (isMockExam.value) return session.value?.paperTitle || '无限模考'
   const examType = session.value?.examType || 'TMUA'
   const year = session.value?.paperYear
   return year ? `${examType}真题-${year}年` : session.value?.paperTitle || `${examType}真题`
@@ -405,20 +414,28 @@ async function loadSession(): Promise<void> {
     typeof route.query.examRecordId === 'string' ? route.query.examRecordId : ''
   try {
     const paperId = String(route.params.paperId || '')
+    if (isMockExam.value && !examRecordId) {
+      ElMessage.error('模考答卷身份缺失，请返回无限模考重新进入。')
+      await router.replace('/mock-exams')
+      return
+    }
     const data = examRecordId
       ? await getModuleExamSession(examRecordId)
       : await startExam({ paperId }, { silent: true })
     await applySession(data)
     if (data.phase === 'ready_to_submit') await finalizeExam()
   } catch (error: unknown) {
-    if (hasApiErrorCode(error, 'DIAGNOSTIC_IN_PROGRESS')) {
+    if (!isMockExam.value && hasApiErrorCode(error, 'DIAGNOSTIC_IN_PROGRESS')) {
       await router.replace({ path: '/assessment', query: { resumeDiagnostic: '1' } })
       return
     }
     // 新建会话使用静默请求以分流业务冲突，其他失败仍向用户展示确切原因。
-    if (!examRecordId) {
-      ElMessage.error(getApiErrorMessage(error, '诊断测试加载失败，请稍后重试。'))
-    }
+    ElMessage.error(
+      getApiErrorMessage(
+        error,
+        `${isMockExam.value ? '无限模考' : '诊断测试'}加载失败，请稍后重试。`,
+      ),
+    )
   } finally {
     loading.value = false
   }
@@ -847,7 +864,7 @@ async function confirmAndPauseBeforeLeaving(): Promise<boolean> {
     try {
       const confirmed = await requestConfirmation({
         title: '确认返回',
-        message: `返回诊断中心会保存当前${sectionNoun.value}进度，之后可继续测试。`,
+        message: `返回${isMockExam.value ? '无限模考' : '诊断中心'}会保存当前${sectionNoun.value}进度，之后可继续测试。`,
         confirmText: '保存并返回',
         cancelText: '继续答题',
       })
@@ -870,7 +887,7 @@ async function confirmAndPauseBeforeLeaving(): Promise<boolean> {
 // 页面内返回入口确认成功后固定回到诊断测试首页。
 async function handleBack(): Promise<void> {
   if (await confirmAndPauseBeforeLeaving()) {
-    await router.push('/assessment')
+    await router.push(isMockExam.value ? '/mock-exams' : '/assessment')
   }
 }
 
@@ -883,7 +900,7 @@ async function handleViewDiagnosticReport(target: string): Promise<void> {
 // 暂不查看报告时返回诊断测试列表并刷新试卷状态。
 async function handleReturnToAssessment(): Promise<void> {
   analysisDialogVisible.value = false
-  await router.push('/assessment')
+  await router.push(isMockExam.value ? '/mock-exams' : '/assessment')
 }
 
 onMounted(() => {

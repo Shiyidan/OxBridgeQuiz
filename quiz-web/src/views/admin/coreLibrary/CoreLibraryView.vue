@@ -9,7 +9,7 @@
         </div>
       </div>
 
-      <!-- 四卡片网格 -->
+      <!-- 资料库入口网格 -->
       <div class="card-grid">
         <router-link
           v-for="card in libraryCards"
@@ -33,7 +33,10 @@
 </template>
 
 <script setup lang="ts">
-// 核心资料库首页（专业资料库 · 四卡片入口）
+// 核心资料库首页：汇总各类资料库及模考试卷管理入口。
+import { onMounted, reactive } from 'vue'
+import { getMockPaperSetStats } from '@/api/mockPaperAdmin'
+
 interface LibraryCard {
   key: string
   title: string
@@ -45,7 +48,7 @@ interface LibraryCard {
   path: string
 }
 
-const libraryCards: LibraryCard[] = [
+const libraryCards = reactive<LibraryCard[]>([
   {
     key: 'questions',
     title: '试题库',
@@ -86,7 +89,30 @@ const libraryCards: LibraryCard[] = [
     iconBg: '#eff6ff',
     path: '/admin/core-library/exams',
   },
-]
+  {
+    key: 'mock-exams',
+    title: '模考试卷库',
+    desc: '按模块上传题号、检查题库匹配并管理固定 ESAT / TMUA 模考卷。',
+    count: '—',
+    unit: '套',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h5M8 16h4"/><path d="m15 16 1.5 1.5L20 14"/></svg>',
+    iconBg: '#f5f3ff',
+    path: '/admin/core-library/mock-exams',
+  },
+])
+
+// 模考试卷数量来自后台汇总；加载失败时保留占位，不阻塞其他资料库入口。
+async function loadMockPaperCount(): Promise<void> {
+  try {
+    const result = await getMockPaperSetStats()
+    const card = libraryCards.find((item) => item.key === 'mock-exams')
+    if (card) card.count = result.total
+  } catch {
+    // 首页入口仍可进入，具体加载错误由模考试卷库页面呈现。
+  }
+}
+
+onMounted(() => void loadMockPaperCount())
 </script>
 
 <style scoped lang="scss">

@@ -8,7 +8,6 @@
         <div class="mock-hero__copy">
           <div class="mock-hero__eyebrow-line">
             <span class="mock-hero__eyebrow">FULL-LENGTH MOCK EXAMS</span>
-            <span v-if="usingMockData" class="mock-preview-badge">Mock 数据预览</span>
           </div>
           <h1>无限模考</h1>
           <p>按正式考试结构完成整卷训练，熟悉节奏，追踪每一次进步。</p>
@@ -280,54 +279,94 @@
                       {{ record.status === 'in_progress' ? '未完成' : '已完成' }}
                     </em>
                   </div>
-                  <dl>
-                    <div>
-                      <dt>开始时间</dt>
-                      <dd>{{ formatDateTime(record.startedAt) }}</dd>
+                  <div class="record-card__details">
+                    <div class="record-card__summary">
+                      <dl>
+                        <div>
+                          <dt>开始时间</dt>
+                          <dd>{{ formatDateTime(record.startedAt) }}</dd>
+                        </div>
+                        <div v-if="record.status === 'in_progress'">
+                          <dt>当前进度</dt>
+                          <dd>
+                            {{ record.currentModuleLabel || '等待开始' }} ·
+                            {{ record.answeredCount }}/{{ record.totalQuestions }} 题
+                          </dd>
+                        </div>
+                        <template v-else>
+                          <div>
+                            <dt>交卷时间</dt>
+                            <dd>{{ formatDateTime(record.submittedAt) }}</dd>
+                          </div>
+                          <div>
+                            <dt>答题结果</dt>
+                            <dd>{{ record.correctCount }}/{{ record.totalQuestions }} 题</dd>
+                          </div>
+                          <div>
+                            <dt>正确率</dt>
+                            <dd>{{ formatAccuracy(record.accuracy) }}</dd>
+                          </div>
+                          <div>
+                            <dt>有效用时</dt>
+                            <dd>{{ formatDuration(record.durationSeconds) }}</dd>
+                          </div>
+                        </template>
+                        <div>
+                          <dt>{{ record.status === 'in_progress' ? '剩余时间' : '本次成绩' }}</dt>
+                          <dd>
+                            {{
+                              record.status === 'in_progress'
+                                ? formatRemainingTime(record.remainingSeconds)
+                                : formatRecordScore(record)
+                            }}
+                          </dd>
+                        </div>
+                      </dl>
+                      <div
+                        v-if="record.status === 'completed' && record.moduleScores.length"
+                        class="record-card__module-scores"
+                      >
+                        <span v-for="module in record.moduleScores" :key="module.code">
+                          <strong>{{ module.label }}</strong>
+                          {{ module.correctCount }}/{{ module.totalQuestions }} 题 ·
+                          {{ formatScore(module.score) }} 分
+                        </span>
+                      </div>
                     </div>
-                    <div v-if="record.status === 'in_progress'">
-                      <dt>当前进度</dt>
-                      <dd>
-                        {{ record.currentModuleLabel || '等待开始' }} ·
-                        {{ record.answeredCount }}/{{ record.totalQuestions }} 题
-                      </dd>
-                    </div>
-                    <div v-else>
-                      <dt>交卷时间</dt>
-                      <dd>{{ formatDateTime(record.submittedAt) }}</dd>
-                    </div>
-                    <div>
-                      <dt>{{ record.status === 'in_progress' ? '剩余时间' : '本次成绩' }}</dt>
-                      <dd>
-                        {{
+                    <div class="record-card__actions">
+                      <button
+                        v-if="record.status === 'in_progress'"
+                        type="button"
+                        class="button-danger-text"
+                        @click="requestAbandon(record)"
+                      >
+                        放弃本次
+                      </button>
+                      <button
+                        v-else
+                        type="button"
+                        class="button-secondary"
+                        :disabled="record.wrongCount === 0"
+                        @click="openWrongReview(record)"
+                      >
+                        {{ record.wrongCount === 0 ? '本场无错题' : `错题回顾（${record.wrongCount}）` }}
+                      </button>
+                      <button
+                        type="button"
+                        class="button-primary"
+                        :disabled="retryingReportId === record.examRecordId"
+                        @click="
                           record.status === 'in_progress'
-                            ? formatRemainingTime(record.remainingSeconds)
-                            : formatScore(record.score)
+                            ? continueRecord(record)
+                            : openRecordReport(record)
+                        "
+                      >
+                        {{
+                          record.status === 'in_progress' ? '继续考试' : reportActionLabel(record)
                         }}
-                      </dd>
+                        <el-icon aria-hidden="true"><ArrowRight /></el-icon>
+                      </button>
                     </div>
-                  </dl>
-                  <div class="record-card__actions">
-                    <button
-                      v-if="record.status === 'in_progress'"
-                      type="button"
-                      class="button-danger-text"
-                      @click="requestAbandon(record)"
-                    >
-                      放弃本次
-                    </button>
-                    <button
-                      type="button"
-                      class="button-primary"
-                      @click="
-                        record.status === 'in_progress'
-                          ? continueRecord(record)
-                          : openRecordReport(record)
-                      "
-                    >
-                      {{ record.status === 'in_progress' ? '继续考试' : reportActionLabel(record) }}
-                      <el-icon aria-hidden="true"><ArrowRight /></el-icon>
-                    </button>
                   </div>
                 </article>
               </div>
@@ -381,27 +420,7 @@
                 <div v-if="overviewLoading" class="trend-card__empty">正在同步成绩...</div>
                 <div v-else-if="overviewError" class="trend-card__empty">趋势暂时无法加载</div>
                 <div v-else-if="!hasTrendData" class="trend-card__empty">完成模考后生成趋势</div>
-                <template v-else>
-                  <svg viewBox="0 0 280 112" role="img" aria-label="近五次模考成绩趋势">
-                    <line x1="14" y1="94" x2="266" y2="94" />
-                    <line x1="14" y1="16" x2="14" y2="94" />
-                    <polyline
-                      v-for="(series, index) in overview?.series || []"
-                      :key="series.key"
-                      :data-series="index"
-                      :points="trendPolyline(series.values)"
-                    />
-                  </svg>
-                  <div class="trend-legend">
-                    <span
-                      v-for="(series, index) in overview?.series || []"
-                      :key="series.key"
-                      :data-series="index"
-                    >
-                      <i></i>{{ series.label }}
-                    </span>
-                  </div>
-                </template>
+                <MockExamTrendChart v-else-if="overview" :overview="overview" />
               </div>
             </template>
           </section>
@@ -468,7 +487,7 @@
     >
       <div v-if="selectedStartPaper" class="start-confirmation">
         <div class="start-confirmation__paper">
-          <span>{{ selectedStartPaper.code || 'MOCK' }}</span>
+          <span>AceMock</span>
           <div>
             <strong>{{ selectedStartPaper.title }}</strong>
             <small>
@@ -559,6 +578,14 @@
       </template>
     </el-dialog>
 
+    <DiagnosticAnalysisDialog
+      :model-value="analysisDialogVisible"
+      :exam-id="analysisExamRecordId"
+      source="mock-exam"
+      @view-report="handleAnalysisViewReport"
+      @return-assessment="handleAnalysisReturn"
+    />
+
     <PaymentModal
       v-model="paymentVisible"
       :default-exam-type="paymentExamType"
@@ -585,7 +612,9 @@ import {
 } from '@element-plus/icons-vue'
 import NavBar from '@/components/NavBar.vue'
 import AppPagination from '@/components/AppPagination.vue'
+import DiagnosticAnalysisDialog from '@/components/DiagnosticAnalysisDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
+import MockExamTrendChart from '@/views/mockExam/MockExamTrendChart.vue'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import { PAPER_ACCESS_TIER } from '@/constants/paperTypes'
 import { createLoginRequiredRouteLocation } from '@/utils/authRedirect'
@@ -596,6 +625,7 @@ import {
   resolveExamCountdown,
 } from '@/utils/examSittings'
 import { getMember } from '@/api/member'
+import { retryDiagnosticReport } from '@/api/exam'
 import {
   abandonMockExam,
   getMockExamCatalogData,
@@ -610,20 +640,13 @@ import {
   type MockExamRecordStatus,
 } from '@/api/mockExams'
 import type { PaginationMeta } from '@/api/papers'
-import {
-  MOCK_EXAM_PREVIEW_ENABLED,
-  getPreviewMockExamCatalog,
-  getPreviewMockExamOverview,
-  getPreviewMockExamRecords,
-} from '@/mocks/mockExamPreview'
 
 type PageTab = 'catalog' | 'records'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
-const usingMockData = MOCK_EXAM_PREVIEW_ENABLED
-const activeTab = ref<PageTab>('catalog')
+const activeTab = ref<PageTab>(route.query.tab === 'records' ? 'records' : 'catalog')
 const keywordDraft = ref('')
 const keyword = ref('')
 const catalogStatus = ref<MockExamCatalogStatus>('all')
@@ -636,7 +659,9 @@ const catalogPagination = ref<PaginationMeta>(emptyPagination(10))
 const overview = ref<MockExamOverviewResult | null>(null)
 const overviewLoading = ref(false)
 const overviewError = ref('')
-const recordStatus = ref<MockExamRecordStatus>('in_progress')
+const recordStatus = ref<MockExamRecordStatus>(
+  route.query.status === 'completed' ? 'completed' : 'in_progress',
+)
 const recordPage = ref(1)
 const recordPageSize = ref(10)
 const recordsLoading = ref(false)
@@ -647,11 +672,15 @@ const startDialogVisible = ref(false)
 const selectedStartPaper = ref<MockExamPaperItem | null>(null)
 const rulesAccepted = ref(false)
 const startingPaperId = ref('')
+const startRequestId = ref('')
 const attemptDialogVisible = ref(false)
 const selectedAttempts = ref<MockExamAttemptBrief[]>([])
 const abandonDialogVisible = ref(false)
 const selectedAbandonRecord = ref<MockExamRecordItem | null>(null)
 const abandoning = ref(false)
+const analysisDialogVisible = ref(false)
+const analysisExamRecordId = ref('')
+const retryingReportId = ref('')
 const paymentVisible = ref(false)
 const paymentExamType = ref<string>(auth.activeExamType)
 let catalogLoadSequence = 0
@@ -716,9 +745,8 @@ function hasExamMembership(examType: string): boolean {
   return Boolean(auth.isAdmin || auth.memberContext?.quotas?.[examType]?.isMember)
 }
 
-// 预览模式固定展示会员锁定样式；真实数据下锁定只约束会员卷的新开始。
+// 会员锁定只约束会员卷的新开始，已经创建的答卷仍可继续。
 function isPaperLocked(paper: MockExamPaperItem): boolean {
-  if (usingMockData && paper.accessTier !== PAPER_ACCESS_TIER.FREE) return true
   return (
     paper.accessTier !== PAPER_ACCESS_TIER.FREE &&
     !hasExamMembership(paper.examType || activeExamType.value)
@@ -774,9 +802,7 @@ async function loadCatalog(): Promise<void> {
       page: catalogPage.value,
       pageSize: catalogPageSize.value,
     } as const
-    const data = usingMockData
-      ? getPreviewMockExamCatalog(params, auth.isLoggedIn)
-      : await getMockExamCatalogData(params)
+    const data = await getMockExamCatalogData(params)
     if (sequence !== catalogLoadSequence) return
     papers.value = data.list
     catalogPagination.value = data.pagination
@@ -802,9 +828,7 @@ async function loadOverview(): Promise<void> {
   overviewLoading.value = true
   overviewError.value = ''
   try {
-    const data = usingMockData
-      ? getPreviewMockExamOverview(activeExamType.value)
-      : await getMockExamOverviewData(activeExamType.value)
+    const data = await getMockExamOverviewData(activeExamType.value)
     if (sequence !== overviewLoadSequence) return
     overview.value = data
   } catch (error: unknown) {
@@ -843,9 +867,7 @@ async function loadRecords(): Promise<void> {
       page: recordPage.value,
       pageSize: recordPageSize.value,
     }
-    const data = usingMockData
-      ? getPreviewMockExamRecords(params)
-      : await getMockExamRecordsData(params)
+    const data = await getMockExamRecordsData(params)
     if (sequence !== recordsLoadSequence) return
     records.value = data.list
     recordPagination.value = data.pagination
@@ -888,9 +910,26 @@ function handleStartPaper(paper: MockExamPaperItem): void {
     openMembership(paper.examType)
     return
   }
+  const esatSubjects = auth.memberContext?.studyPreferences.esatSubjects || []
+  if (
+    paper.examType === 'ESAT'
+    && (esatSubjects.length !== 3 || !esatSubjects.includes('数学1'))
+  ) {
+    ElMessage.warning('请先在个人中心完成 ESAT 三科选择。')
+    void router.push('/profile')
+    return
+  }
   selectedStartPaper.value = paper
   rulesAccepted.value = false
+  startRequestId.value = createStartRequestId()
   startDialogVisible.value = true
+}
+
+// 每次考前确认生成稳定请求标识，同一确认请求重试时只会创建一场答卷。
+function createStartRequestId(): string {
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `mock-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
 // 考前确认成功后由专用接口创建独立答卷，再进入复用的分段答题页。
@@ -899,14 +938,8 @@ async function confirmStartPaper(): Promise<void> {
   if (!paper || !rulesAccepted.value || startingPaperId.value) return
   if (requireDesktopForExamAction()) return
   startingPaperId.value = paper.id
-  if (usingMockData) {
-    startDialogVisible.value = false
-    startingPaperId.value = ''
-    ElMessage.info('当前为 Mock 数据样式预览，暂不创建真实答卷。')
-    return
-  }
   try {
-    const result = await startMockExam(paper.id)
+    const result = await startMockExam(paper.id, startRequestId.value || createStartRequestId())
     startDialogVisible.value = false
     await router.push({
       name: 'mock-exam-session',
@@ -924,6 +957,7 @@ async function confirmStartPaper(): Promise<void> {
 function clearStartSelection(): void {
   selectedStartPaper.value = null
   rulesAccepted.value = false
+  startRequestId.value = ''
 }
 
 // 同一试卷有多场未完成时必须由学生明确选择，单场则直接继续。
@@ -948,10 +982,6 @@ function handleContinuePaper(paper: MockExamPaperItem): void {
 function continueAttempt(attempt: MockExamAttemptBrief): void {
   if (requireDesktopForExamAction()) return
   attemptDialogVisible.value = false
-  if (usingMockData) {
-    ElMessage.info('当前为 Mock 数据样式预览，暂不进入真实答题页。')
-    return
-  }
   void router.push({
     name: 'mock-exam-session',
     params: { paperId: attempt.paperId },
@@ -962,10 +992,6 @@ function continueAttempt(attempt: MockExamAttemptBrief): void {
 // 记录页继续操作使用记录自身的 paperId 和 examRecordId。
 function continueRecord(record: MockExamRecordItem): void {
   if (requireDesktopForExamAction()) return
-  if (usingMockData) {
-    ElMessage.info('当前为 Mock 数据样式预览，暂不进入真实答题页。')
-    return
-  }
   void router.push({
     name: 'mock-exam-session',
     params: { paperId: record.paperId },
@@ -976,10 +1002,6 @@ function continueRecord(record: MockExamRecordItem): void {
 // 锁定卷对已登录非会员打开统一支付弹窗，游客仍先登录。
 function openMembership(examType?: string): void {
   if (requireLogin()) return
-  if (usingMockData) {
-    ElMessage.info('这是会员锁定样式预览，暂不发起真实购买。')
-    return
-  }
   paymentExamType.value = examType || activeExamType.value
   paymentVisible.value = true
 }
@@ -1003,21 +1025,64 @@ function openPaperReport(paper: MockExamPaperItem): void {
 }
 
 // 记录报告统一进入当前考试对应的现有诊断报告页面。
-function openRecordReport(record: MockExamRecordItem): void {
-  openReport(record.examRecordId)
+async function openRecordReport(record: MockExamRecordItem): Promise<void> {
+  if (record.reportStatus === 'completed') {
+    openReport(record.examRecordId)
+    return
+  }
+  if (record.reportStatus === 'failed') {
+    retryingReportId.value = record.examRecordId
+    try {
+      await retryDiagnosticReport(record.examRecordId)
+    } catch (error: unknown) {
+      ElMessage.error(getApiErrorMessage(error, '重新分析失败，请稍后重试。'))
+      return
+    } finally {
+      retryingReportId.value = ''
+    }
+  }
+  analysisExamRecordId.value = record.examRecordId
+  analysisDialogVisible.value = true
+}
+
+// 报告生成中或失败时由公共分析弹窗轮询真实进度，并在失败后发起任务重试。
+function handleAnalysisViewReport(target: string): void {
+  analysisDialogVisible.value = false
+  analysisExamRecordId.value = ''
+  void router.push(target)
+}
+
+// 关闭进度弹窗后重新读取记录状态，确保重试结果能更新按钮文案。
+function handleAnalysisReturn(): void {
+  analysisDialogVisible.value = false
+  analysisExamRecordId.value = ''
+  void loadRecords()
+}
+
+// 已完成答卷的错题回顾复用逐题解析，并保留返回模考记录页的固定地址。
+function openWrongReview(record: MockExamRecordItem): void {
+  if (record.wrongCount === 0) return
+  void router.push({
+    name: 'exam-question-review',
+    params: { id: record.examRecordId },
+    query: {
+      from: 'mock-exam',
+      recordSource: 'diagnostic',
+      report: activeExamType.value.toLowerCase(),
+      wrongOnly: '1',
+      returnTo: '/mock-exams?tab=records&status=completed',
+    },
+  })
 }
 
 // ESAT 与 TMUA 报告复用现有路由，并由报告页面标记模考来源。
 function openReport(examRecordId: string): void {
-  if (usingMockData) {
-    ElMessage.info('当前为 Mock 数据样式预览，暂不打开真实报告。')
-    return
-  }
   void router.push(`/exam-result/${examRecordId}/${activeExamType.value.toLowerCase()}`)
 }
 
 // 报告未完成时文案保留真实处理状态。
 function reportActionLabel(record: MockExamRecordItem): string {
+  if (retryingReportId.value === record.examRecordId) return '正在重新分析'
   if (record.reportStatus === 'completed') return '查看报告'
   if (record.reportStatus === 'failed') return '重新分析'
   return '查看进度'
@@ -1034,17 +1099,6 @@ async function confirmAbandon(): Promise<void> {
   const record = selectedAbandonRecord.value
   if (!record || abandoning.value) return
   abandoning.value = true
-  if (usingMockData) {
-    records.value = records.value.filter((item) => item.examRecordId !== record.examRecordId)
-    recordPagination.value = {
-      ...recordPagination.value,
-      total: Math.max(0, recordPagination.value.total - 1),
-    }
-    abandonDialogVisible.value = false
-    abandoning.value = false
-    ElMessage.success('预览记录已从当前列表移除，刷新页面后会恢复。')
-    return
-  }
   try {
     await abandonMockExam(record.examRecordId)
     abandonDialogVisible.value = false
@@ -1087,6 +1141,18 @@ function formatScore(score: number | null | undefined): string {
   return Number.isInteger(score) ? String(score) : score.toFixed(1)
 }
 
+// ESAT 没有官方综合分时提示查看模块成绩，TMUA 继续显示统一综合分。
+function formatRecordScore(record: MockExamRecordItem): string {
+  if (record.score !== null && record.score !== undefined) return `${formatScore(record.score)} 分`
+  return record.moduleScores.length ? '见模块成绩' : '--'
+}
+
+// 后端返回一位小数百分比，缺失时不把未知状态误显示成零。
+function formatAccuracy(accuracy: number | null): string {
+  if (accuracy === null || !Number.isFinite(accuracy)) return '--'
+  return `${accuracy.toFixed(accuracy % 1 === 0 ? 0 : 1)}%`
+}
+
 // 日期时间统一用中文本地格式，空值保持占位。
 function formatDateTime(value: string | null): string {
   if (!value) return '--'
@@ -1109,23 +1175,6 @@ function formatRemainingTime(seconds: number | null): string {
   const minutes = Math.floor((seconds % 3600) / 60)
   const rest = seconds % 60
   return [hours, minutes, rest].map((value) => String(value).padStart(2, '0')).join(':')
-}
-
-// 折线坐标按概览返回的最高分归一化，缺失点会断开为零长度片段。
-function trendPolyline(values: Array<number | null>): string {
-  const maxScore = Math.max(overview.value?.maxScore || 9, 1)
-  const points = values.slice(-5)
-  if (!points.length) return ''
-  const step = points.length === 1 ? 0 : 252 / (points.length - 1)
-  return points
-    .map((value, index) => {
-      if (value === null) return ''
-      const x = 14 + step * index
-      const y = 94 - (Math.max(0, Math.min(value, maxScore)) / maxScore) * 78
-      return `${x.toFixed(1)},${y.toFixed(1)}`
-    })
-    .filter(Boolean)
-    .join(' ')
 }
 
 // 考试类型切换后清理旧考试页面状态并重新读取当前目录和个人概览。
@@ -1152,7 +1201,11 @@ onMounted(async () => {
       // 目录仍可公开浏览，会员和个人考期区域分别按缺省状态展示。
     }
   }
-  await Promise.all([loadCatalog(), loadOverview()])
+  await Promise.all([
+    loadCatalog(),
+    loadOverview(),
+    ...(activeTab.value === 'records' && auth.isLoggedIn ? [loadRecords()] : []),
+  ])
 })
 </script>
 
@@ -1193,20 +1246,6 @@ onMounted(async () => {
   font-size: 11px;
   font-weight: var(--weight-bold);
   letter-spacing: 0.2em;
-}
-
-.mock-preview-badge {
-  display: inline-flex;
-  align-items: center;
-  height: 22px;
-  padding: 0 8px;
-  border: 1px solid #ecd6ae;
-  border-radius: var(--radius-pill);
-  background: var(--color-warning-bg);
-  color: #94610c;
-  font-size: 10px;
-  font-weight: var(--weight-semi);
-  letter-spacing: 0.02em;
 }
 
 .mock-hero h1 {
@@ -1404,7 +1443,7 @@ onMounted(async () => {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 162px;
-  min-height: 176px;
+  min-height: 161px;
   overflow: hidden;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-lg);
@@ -1441,7 +1480,7 @@ onMounted(async () => {
 }
 
 .paper-card__main {
-  padding: 22px 22px 20px 24px;
+  padding: 15px 22px 12px 24px;
 }
 
 .paper-card__heading {
@@ -1588,6 +1627,11 @@ onMounted(async () => {
   color: var(--color-ink);
 }
 
+.button-secondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .state-panel,
 .login-gate {
   display: flex;
@@ -1674,8 +1718,7 @@ onMounted(async () => {
   background: var(--color-surface);
 }
 
-.record-card__top,
-.record-card__actions {
+.record-card__top {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1704,14 +1747,25 @@ onMounted(async () => {
   color: var(--color-success);
 }
 
-.record-card dl {
+.record-card__details {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 20px;
   margin-top: 18px;
   padding: 15px 0;
   border-top: 1px solid var(--color-line-soft);
   border-bottom: 1px solid var(--color-line-soft);
+}
+
+.record-card__summary {
+  min-width: 0;
+}
+
+.record-card dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
 }
 
 .record-card dl div {
@@ -1730,9 +1784,36 @@ onMounted(async () => {
   font-weight: var(--weight-medium);
 }
 
-.record-card__actions {
-  justify-content: flex-end;
+.record-card__module-scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-top: 14px;
+}
+
+.record-card__module-scores span {
+  padding: 6px 9px;
+  border: 1px solid var(--color-line-soft);
+  border-radius: var(--radius-pill);
+  background: var(--color-hover);
+  color: var(--color-ink-muted);
+  font-size: 11px;
+}
+
+.record-card__module-scores strong {
+  margin-right: 5px;
+  color: var(--color-ink-soft);
+}
+
+.record-card__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.record-card__actions .button-secondary {
+  white-space: nowrap;
 }
 
 .button-danger-text {
@@ -1831,68 +1912,12 @@ onMounted(async () => {
   color: var(--color-ink-muted);
 }
 
-.trend-card svg {
-  display: block;
-  width: 100%;
-  margin-top: 8px;
-}
-
-.trend-card svg line {
-  stroke: var(--color-line);
-  stroke-width: 1;
-}
-
-.trend-card svg polyline {
-  fill: none;
-  stroke: var(--color-report-blue);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.trend-card svg polyline[data-series='1'] {
-  stroke: var(--color-report-green);
-}
-
-.trend-card svg polyline[data-series='2'] {
-  stroke: var(--color-report-orange);
-}
-
 .trend-card__empty {
   display: grid;
   height: 122px;
   place-items: center;
   color: var(--color-ink-muted);
   font-size: 11px;
-}
-
-.trend-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 12px;
-  color: var(--color-ink-muted);
-  font-size: 10px;
-}
-
-.trend-legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.trend-legend i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--color-report-blue);
-}
-
-.trend-legend span[data-series='1'] i {
-  background: var(--color-report-green);
-}
-
-.trend-legend span[data-series='2'] i {
-  background: var(--color-report-orange);
 }
 
 .countdown-card {

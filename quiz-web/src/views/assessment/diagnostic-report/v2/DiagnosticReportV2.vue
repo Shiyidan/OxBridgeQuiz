@@ -3,6 +3,7 @@
   <article class="v2-report">
     <header class="report-head">
       <div>
+        <span v-if="meta.sourcePaperType === 'mockPaper'" class="report-source">来源：无限模考</span>
         <h1>{{ report.header.title }}</h1>
       </div>
     </header>
@@ -1137,6 +1138,7 @@ button { font: inherit; }
 .block-heading, .section-heading, .panel-heading { display: flex; }
 
 .report-head { align-items: flex-start; gap: 24px; }
+.report-source { display: inline-flex; margin-bottom: 8px; padding: 4px 9px; border-radius: 999px; background: #dff5eb; color: #176b50; font-size: 12px; font-weight: 800; }
 .report-head h1 { margin: 0; font-size: clamp(25px, 3vw, 32px); }
 .head-summary-row { display: flex; align-items: center; gap: 24px; margin-top: 14px; }
 .report-subtitle { margin: 0; color: var(--v2-muted); font-size: 13px; }

@@ -263,6 +263,15 @@ const router = createRouter({
               component: lazyRoute(() => import('../views/admin/coreLibrary/SyllabusAdmin.vue')),
             },
 
+            // 模考试卷库
+            {
+              path: 'mock-exams',
+              name: 'admin-mock-exams',
+              component: lazyRoute(
+                () => import('../views/admin/coreLibrary/MockPaperLibrary.vue'),
+              ),
+            },
+
             // 真题库
             {
               path: 'exams',

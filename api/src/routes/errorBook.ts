@@ -5,7 +5,7 @@ import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
 import { formatQuestionRow } from '../utils/questionSync.js'
-import { parseJsonField, parseJsonArray } from '../utils/jsonField.js'
+import { parseJsonField, parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
 import { checkMemberAccess } from '../services/member.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { computeScores } from '../services/scoring.js'
@@ -36,6 +36,64 @@ import {
 
 import { safeJsonParse, parseQueryList, parseDateBoundary, parsePositiveInt, getQuestionKey, buildAnswerRecordRows, countCorrectAnswers, ExamResponseInput, normalizeExamResponses, responseMaps, usesContinuousExamClock, buildExamDeadline, continuousExamDurationSeconds, replaceAnswerRecords, collectSyllabusCodes, calculateNinePointScore } from './exam-shared.js'
 export const errorBookRouter = createAsyncRouter()
+
+type WrongAttemptSourceType = 'diagnostic' | 'question-bank' | 'mock-exam' | 'unknown'
+
+interface WrongAttemptExamRecordMeta {
+  id: string
+  practiceSnapshot: Prisma.JsonValue | null
+  paper: {
+    paperType: string
+    title: string
+  }
+}
+
+// 题库答卷以开始练习时冻结的范围快照命名，练习本名称优先于自动生成的专项范围。
+function resolveQuestionBankAttemptTitle(snapshotValue: unknown): string {
+  const snapshot = parseJsonObject(snapshotValue)
+  const notebookName = typeof snapshot.notebookName === 'string' ? snapshot.notebookName.trim() : ''
+  if (notebookName) return notebookName
+
+  const knowledgePoint = parseJsonObject(snapshot.knowledgePoint)
+  const knowledgePointLabel = typeof knowledgePoint.label === 'string'
+    ? knowledgePoint.label.trim()
+    : ''
+  if (knowledgePointLabel) return `${knowledgePointLabel}专项练习`
+
+  const subject = parseJsonObject(snapshot.subject)
+  const subjectLabel = typeof subject.label === 'string' ? subject.label.trim() : ''
+  return subjectLabel ? `${subjectLabel}专项练习` : '题库专项练习'
+}
+
+// 每次错误事件从所属答卷还原业务来源，避免把题库占位试卷名称展示给学生。
+function resolveWrongAttemptSource(
+  record: WrongAttemptExamRecordMeta | undefined,
+  attemptPaperType: string,
+): { type: WrongAttemptSourceType; label: string; title: string } {
+  const paperType = record?.paper.paperType || attemptPaperType
+  if (paperType === PAPER_TYPE.REAL_PAPER) {
+    return {
+      type: 'diagnostic',
+      label: '诊断测试',
+      title: record?.paper.title || '诊断测试试卷',
+    }
+  }
+  if (paperType === PAPER_TYPE.MOCK_PAPER) {
+    return {
+      type: 'mock-exam',
+      label: '模考',
+      title: record?.paper.title || '模考试卷',
+    }
+  }
+  if (paperType === PAPER_TYPE.AI_PAPER) {
+    return {
+      type: 'question-bank',
+      label: '试题库',
+      title: resolveQuestionBankAttemptTitle(record?.practiceSnapshot),
+    }
+  }
+  return { type: 'unknown', label: '其他来源', title: '历史练习' }
+}
 
 // 错题本
 errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
@@ -141,30 +199,78 @@ errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
       },
     })
     const summaryIds = summaries.map((summary) => summary.id)
-    const selectedAnswerGroups = summaryIds.length
-      ? await prisma.wrongQuestionAttempt.groupBy({
-          by: ['summaryId', 'selectedAnswer'],
+    const filteredAttempts = summaryIds.length
+      ? await prisma.wrongQuestionAttempt.findMany({
           where: {
             summaryId: { in: summaryIds },
-            selectedAnswer: { not: null },
+            ...attemptWhere,
           },
-          _min: { submittedAt: true },
-          orderBy: [{ _min: { submittedAt: 'asc' } }, { selectedAnswer: 'asc' }],
+          orderBy: [{ submittedAt: 'desc' }, { id: 'desc' }],
+          select: {
+            id: true,
+            summaryId: true,
+            answerRecordId: true,
+            examRecordId: true,
+            paperType: true,
+            submittedAt: true,
+            selectedAnswer: true,
+          },
         })
       : []
-    const selectedAnswersBySummary = new Map<string, string[]>()
-    for (const group of selectedAnswerGroups) {
-      const selectedAnswer = group.selectedAnswer?.trim()
-      if (!selectedAnswer) continue
-      const answers = selectedAnswersBySummary.get(group.summaryId) || []
-      answers.push(selectedAnswer)
-      selectedAnswersBySummary.set(group.summaryId, answers)
+    const answerRecordIds = filteredAttempts.map((attempt) => attempt.answerRecordId)
+    const examRecordIds = [...new Set(filteredAttempts.map((attempt) => attempt.examRecordId))]
+    const [answerRecords, examRecords] = await Promise.all([
+      answerRecordIds.length
+        ? prisma.answerRecord.findMany({
+            where: {
+              id: { in: answerRecordIds },
+              examRecord: { userId: req.user!.userId },
+            },
+            select: { id: true, durationSeconds: true, answeredAt: true },
+          })
+        : [],
+      examRecordIds.length
+        ? prisma.examRecord.findMany({
+            where: { id: { in: examRecordIds }, userId: req.user!.userId },
+            select: {
+              id: true,
+              paper: { select: { paperType: true, title: true } },
+            },
+          })
+        : [],
+    ])
+    const answerRecordMap = new Map(answerRecords.map((answer) => [answer.id, answer]))
+    const examRecordMap = new Map(examRecords.map((record) => [record.id, record]))
+    const attemptsBySummary = new Map<string, typeof filteredAttempts>()
+    for (const attempt of filteredAttempts) {
+      const attempts = attemptsBySummary.get(attempt.summaryId) || []
+      attempts.push(attempt)
+      attemptsBySummary.set(attempt.summaryId, attempts)
     }
 
     const list = summaries.map((summary) => {
-      const selectedAnswers = selectedAnswersBySummary.get(summary.id) || []
+      const matchingAttempts = attemptsBySummary.get(summary.id) || []
+      const latestAttempt = matchingAttempts[0]
+      const latestAnswerRecord = latestAttempt
+        ? answerRecordMap.get(latestAttempt.answerRecordId)
+        : undefined
+      const latestExamRecord = latestAttempt
+        ? examRecordMap.get(latestAttempt.examRecordId)
+        : undefined
+      const selectedAnswers = [...matchingAttempts].reverse().reduce<string[]>((answers, attempt) => {
+        const selectedAnswer = attempt.selectedAnswer?.trim()
+        if (selectedAnswer && !answers.includes(selectedAnswer)) answers.push(selectedAnswer)
+        return answers
+      }, [])
+      const filteredPaperType = latestExamRecord?.paper.paperType || latestAttempt?.paperType || ''
+      const filteredPaperTitle = latestExamRecord?.paper.title
+        || (filteredPaperType === PAPER_TYPE.MOCK_PAPER
+          ? '模考试卷'
+          : filteredPaperType === PAPER_TYPE.REAL_PAPER
+            ? '诊断测试试卷'
+            : '题库专项练习')
       return {
-        id: summary.latestAnswerRecordId,
+        id: latestAttempt?.answerRecordId || summary.latestAnswerRecordId,
         questionId: summary.questionId,
         examType: summary.examType || summary.question.examType || '',
         title: summary.question.title || '',
@@ -172,19 +278,25 @@ errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
         subject: summary.question.subject || '',
         subjectCode: summary.question.subjectCode || '',
         knowledge_points: safeJsonParse(summary.question.knowledgePoints, []),
-        selectedAnswer: selectedAnswers.join(', ') || summary.latestSelectedAnswer,
+        selectedAnswer: matchingAttempts.length
+          ? selectedAnswers.join(', ') || latestAttempt?.selectedAnswer || null
+          : summary.latestSelectedAnswer,
         selectedAnswers,
-        wrongCount: summary.wrongCount,
+        wrongCount: matchingAttempts.length || summary.wrongCount,
         isCorrect: false,
-        durationSeconds: summary.latestDurationSeconds,
-        answeredAt: summary.latestAnsweredAt,
+        durationSeconds: matchingAttempts.length
+          ? latestAnswerRecord?.durationSeconds || 0
+          : summary.latestDurationSeconds,
+        answeredAt: matchingAttempts.length
+          ? latestAnswerRecord?.answeredAt || null
+          : summary.latestAnsweredAt,
         examRecord: {
-          id: summary.latestExamRecordId,
+          id: latestAttempt?.examRecordId || summary.latestExamRecordId,
           examType: summary.examType,
-          submittedAt: summary.latestWrongAt,
+          submittedAt: latestAttempt?.submittedAt || summary.latestWrongAt,
           paper: {
-            paperType: summary.latestPaperType,
-            title: summary.latestPaperTitle,
+            paperType: matchingAttempts.length ? filteredPaperType : summary.latestPaperType,
+            title: matchingAttempts.length ? filteredPaperTitle : summary.latestPaperTitle,
           },
         },
       }
@@ -208,6 +320,106 @@ errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
   } catch (e: any) {
     logRuntimeError('error_book.list_failed', e)
     res.status(500).json(fail(e.message || '获取错题本失败'))
+  }
+})
+
+// 单题错误历史按最近提交优先返回，并从答卷与练习快照补齐每次错误的来源名称。
+errorBookRouter.get('/error-book/:questionId/attempts', requireAuth, async (req, res) => {
+  try {
+    const questionId = String(req.params.questionId || '').trim()
+    if (!questionId) {
+      res.status(422).json(fail('题目 ID 不能为空'))
+      return
+    }
+
+    const summary = await prisma.wrongQuestionSummary.findUnique({
+      where: {
+        userId_questionId: {
+          userId: req.user!.userId,
+          questionId,
+        },
+      },
+      select: { id: true },
+    })
+    if (!summary) {
+      res.status(404).json(fail('未找到该题的错题记录', 'WRONG_QUESTION_NOT_FOUND'))
+      return
+    }
+
+    const attempts = await prisma.wrongQuestionAttempt.findMany({
+      where: { summaryId: summary.id, userId: req.user!.userId },
+      orderBy: [{ submittedAt: 'desc' }, { id: 'desc' }],
+      select: {
+        id: true,
+        answerRecordId: true,
+        examRecordId: true,
+        paperType: true,
+        submittedAt: true,
+        selectedAnswer: true,
+      },
+    })
+    const answerRecordIds = attempts.map((attempt) => attempt.answerRecordId)
+    const examRecordIds = [...new Set(attempts.map((attempt) => attempt.examRecordId))]
+    const [answerRecords, examRecords] = await Promise.all([
+      answerRecordIds.length
+        ? prisma.answerRecord.findMany({
+            where: {
+              id: { in: answerRecordIds },
+              examRecord: { userId: req.user!.userId },
+            },
+            select: {
+              id: true,
+              answerState: true,
+              answeredAt: true,
+              durationSeconds: true,
+            },
+          })
+        : [],
+      examRecordIds.length
+        ? prisma.examRecord.findMany({
+            where: { id: { in: examRecordIds }, userId: req.user!.userId },
+            select: {
+              id: true,
+              practiceSnapshot: true,
+              paper: { select: { paperType: true, title: true } },
+            },
+          })
+        : [],
+    ])
+    const answerRecordMap = new Map(answerRecords.map((answer) => [answer.id, answer]))
+    const examRecordMap = new Map(examRecords.map((record) => [record.id, record]))
+
+    res.json(success({
+      questionId,
+      total: attempts.length,
+      list: attempts.map((attempt) => {
+        const answerRecord = answerRecordMap.get(attempt.answerRecordId)
+        const source = resolveWrongAttemptSource(
+          examRecordMap.get(attempt.examRecordId),
+          attempt.paperType,
+        )
+        const answerState = answerRecord && isAnswerRecordState(answerRecord.answerState)
+          ? answerRecord.answerState
+          : attempt.selectedAnswer
+            ? ANSWER_RECORD_STATE.ANSWERED
+            : ANSWER_RECORD_STATE.UNSEEN
+        return {
+          id: attempt.id,
+          examRecordId: attempt.examRecordId,
+          submittedAt: attempt.submittedAt,
+          answeredAt: answerRecord?.answeredAt || null,
+          selectedAnswer: attempt.selectedAnswer,
+          answerState,
+          durationSeconds: answerRecord?.durationSeconds || 0,
+          sourceType: source.type,
+          sourceLabel: source.label,
+          sourceTitle: source.title,
+        }
+      }),
+    }))
+  } catch (e: any) {
+    logRuntimeError('error_book.attempt_history_failed', e)
+    res.status(500).json(fail(e.message || '获取错题历史失败'))
   }
 })
 

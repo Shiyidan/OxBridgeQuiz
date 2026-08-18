@@ -16,6 +16,7 @@
         :loading="loading"
         :total="pagination.total"
         empty-text="暂无成本记录"
+        fill-height
         show-pagination
         @page-change="handlePageChange"
         @page-size-change="handlePageSizeChange"
@@ -430,8 +431,6 @@ onMounted(getList)
 
 <style scoped lang="scss">
 .revenue-page {
-  --revenue-table-max-height: calc(100vh - var(--nav-height) - 170px);
-
   height: 100%;
   min-height: 0;
   display: flex;

@@ -3,7 +3,7 @@
   <article class="v2-report">
     <header class="report-head">
       <div>
-        <span v-if="meta.sourcePaperType === 'mockPaper'" class="report-source">来源：无限模考</span>
+      <span v-if="meta.sourcePaperType === 'mockPaper'" class="report-source">来源：模考中心</span>
         <h1>{{ report.header.title }}</h1>
       </div>
     </header>
@@ -244,10 +244,10 @@
           </template>
 
           <template v-else-if="activeDetailTab === 'errors'">
-            <header class="panel-heading"><span>03</span><h3>失分结构：错误集中在哪里</h3></header>
-            <p class="panel-intro">这里只展示可确认的错题分布；可能错误原因统一标为“建议核对”，不作为个人错因结论。</p>
             <div class="error-layout">
               <div>
+                <header class="panel-heading"><span>03</span><h3>失分结构：错误集中在哪里</h3></header>
+                <p class="panel-intro">这里只展示可确认的错题分布；可能错误原因统一标为“建议核对”，不作为个人错因结论。</p>
                 <h4>{{ errorHeadline }}</h4>
                 <div v-if="lossItems.length" class="loss-list">
                   <div v-for="item in lossItems" :key="item.key">
@@ -263,11 +263,27 @@
                   <strong>可确认事实</strong>
                   <p>本次错 {{ report.overview?.wrong ?? 0 }} 题，未作答 {{ report.overview?.unanswered ?? 0 }} 题。</p>
                 </div>
-                <div v-if="possibleErrorPatterns.length" class="reading-point reading-point--warning">
+                <div v-if="questionReviewTargets.length" class="reading-point reading-point--warning">
                   <strong>建议逐题核对</strong>
-                  <ul><li v-for="item in possibleErrorPatterns" :key="item">{{ item }}</li></ul>
+                  <p>点击题号可直接进入对应解析，无需从第一题开始查找。</p>
+                  <div class="question-review-links">
+                    <button
+                      v-for="item in questionReviewTargets"
+                      :key="item.key"
+                      type="button"
+                      :title="item.reason"
+                      @click="emit('questionAnalysis', item)"
+                    >
+                      <span>{{ item.moduleLabel }} · 第 {{ item.questionNumber }} 题</span>
+                      <small>{{ item.topicLabel }}｜建议核对：{{ item.reason }}</small>
+                    </button>
+                  </div>
                 </div>
-                <button type="button" class="text-action" @click="emit('questionAnalysis')">进入题目解析 →</button>
+                <button
+                  type="button"
+                  class="text-action"
+                  @click="emit('questionAnalysis', { wrongOnly: true })"
+                >进入题目解析，查看全部错题 →</button>
               </aside>
             </div>
           </template>
@@ -517,6 +533,21 @@ interface ScoreEntry {
   focusSuggestion: string
 }
 
+interface QuestionAnalysisLocation {
+  moduleId?: string
+  questionNumber?: number
+  wrongOnly?: boolean
+}
+
+interface QuestionAnalysisTarget extends QuestionAnalysisLocation {
+  key: string
+  moduleId: string
+  moduleLabel: string
+  topicLabel: string
+  questionNumber: number
+  reason: string
+}
+
 type LearningPhase = DiagnosticLearningPath['phases'][number]
 type ModuleWeaknessSignal = NonNullable<DiagnosticAiImprovementPlan['weaknessProfile']>['moduleSignals'][number]
 
@@ -526,7 +557,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  questionAnalysis: []
+  questionAnalysis: [target?: QuestionAnalysisLocation]
   practice: [prefill: PracticePrefill]
 }>()
 
@@ -868,7 +899,33 @@ const lossItems = computed(() => {
     bar: item.total ? Math.max(8, Math.round((item.wrongCount / item.total) * 100)) : 8,
   }))
 })
-const possibleErrorPatterns = computed(() => [...new Set(gaps.value.flatMap((item) => item.possibleErrorPatterns || []))].slice(0, 4))
+// 单条核对原因只保留报告已有的第一项建议，并限制长度以维持题号入口的一行阅读节奏。
+function conciseReviewReason(gap: DiagnosticAiImprovementPlan['highRoiGaps'][number]): string {
+  const source = gap.possibleErrorPatterns?.[0] || gap.reviewGuidance?.[0] || ''
+  const normalized = source.replace(/\s+/g, ' ').trim()
+  if (!normalized) return '检查题目条件、关键步骤与最终验算。'
+  return normalized.length > 72 ? `${normalized.slice(0, 72)}…` : normalized
+}
+
+// 报告已有的模块、题号和核对建议转换为稳定的直达入口，避免用无法定位的长文本替代逐题复盘。
+const questionReviewTargets = computed<QuestionAnalysisTarget[]>(() => {
+  const seen = new Set<string>()
+  return gaps.value.flatMap((gap) => (gap.questionNumbers || []).flatMap((questionNumber) => {
+    if (!Number.isInteger(questionNumber) || questionNumber <= 0) return []
+    const key = `${gap.moduleId}:${questionNumber}`
+    if (seen.has(key)) return []
+    seen.add(key)
+    return [{
+      key,
+      moduleId: gap.moduleId,
+      moduleLabel: gap.moduleLabel,
+      topicLabel: gap.topicLabel,
+      questionNumber,
+      reason: conciseReviewReason(gap),
+      wrongOnly: true,
+    }]
+  })).slice(0, 3)
+})
 const errorHeadline = computed(() => sequenceSignals.value.length
   ? `失分集中在${sequenceSignals.value.length > 1 ? '两卷' : sequenceSignals.value[0]?.moduleLabel || '当前模块'}后段，而不是单一知识点`
   : gaps.value[0]
@@ -1249,12 +1306,18 @@ button { font: inherit; }
 .topic-list small { color: var(--v2-muted); }
 .sample-note { padding-top: 9px; border-top: 1px dashed var(--v2-line); font-size: 11px !important; }
 
-.error-layout, .timing-layout { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(280px,.9fr); gap: 28px; }
+.error-layout, .timing-layout { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(280px,.9fr); gap: 28px; align-items: start; }
+.error-layout aside > .reading-point:first-child { margin-top: 0; }
 .error-layout h4, .timing-layout h4 { margin: 0 0 14px; font-size: 18px; }
 .loss-list, .timing-list { border-top: 1px solid var(--v2-ink); }
 .loss-list > div { display: grid; grid-template-columns: minmax(150px,1fr) minmax(130px,1.3fr) 80px; gap: 12px; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--v2-line); font-size: 12px; }
 .loss-list i { background: var(--v2-amber); }
 .reading-point ul { padding-left: 18px; }
+.question-review-links { display: grid; gap: 8px; margin-top: 12px; }
+.question-review-links button { display: grid; gap: 4px; width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid rgba(201, 126, 31, .24); border-radius: 8px; background: #fff; color: var(--v2-ink); cursor: pointer; text-align: left; transition: border-color .2s ease, transform .2s ease; }
+.question-review-links button:hover { border-color: var(--v2-amber); transform: translateY(-1px); }
+.question-review-links span { font-size: 13px; font-weight: 650; }
+.question-review-links small { overflow: hidden; color: var(--v2-muted); text-overflow: ellipsis; white-space: nowrap; }
 .text-action { margin-top: 14px; border: 0; background: transparent; color: var(--v2-teal); cursor: pointer; font-weight: 800; }
 .timing-list > div { display: grid; grid-template-columns: 110px minmax(100px,1fr) 150px; gap: 10px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--v2-line); font-size: 12px; }
 .timing-list small { grid-column: 1/-1; color: var(--v2-muted); }

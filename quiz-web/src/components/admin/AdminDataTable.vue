@@ -1,10 +1,14 @@
 <template>
-  <div class="admin-data-table">
+  <div
+    class="admin-data-table"
+    :class="{ 'admin-data-table--fill-height': fillHeight }"
+  >
     <div class="admin-data-table__wrap">
       <el-table
         v-loading="loading"
         v-bind="$attrs"
         :data="data"
+        :height="fillHeight ? '100%' : undefined"
         class="admin-data-table__table"
         stripe
         :empty-text="emptyText"
@@ -46,6 +50,7 @@ withDefaults(
     page?: number
     pageSize?: number
     total?: number
+    fillHeight?: boolean
   }>(),
   {
     emptyText: '暂无数据',
@@ -54,6 +59,7 @@ withDefaults(
     page: 1,
     pageSize: 20,
     total: 0,
+    fillHeight: false,
   },
 )
 
@@ -70,6 +76,17 @@ const emit = defineEmits<{
   flex: 0 1 auto;
   min-height: 0;
   width: 100%;
+}
+
+.admin-data-table--fill-height {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.admin-data-table--fill-height .admin-data-table__wrap {
+  flex: 1 1 auto;
 }
 
 .admin-data-table__wrap {

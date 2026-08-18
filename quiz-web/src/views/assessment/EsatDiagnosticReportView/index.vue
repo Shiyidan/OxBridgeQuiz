@@ -22,10 +22,10 @@
       <template v-else-if="report && activeModule">
         <header class="report-header">
           <div>
-            <span>{{ reportMeta?.sourcePaperType === 'mockPaper' ? '来源：无限模考' : 'ESAT Diagnostic Report' }}</span>
+          <span>{{ reportMeta?.sourcePaperType === 'mockPaper' ? '来源：模考中心' : 'ESAT Diagnostic Report' }}</span>
             <h1>{{ report.header.title }}</h1>
           </div>
-          <button type="button" class="question-analysis-button" @click="viewQuestionAnalysis">
+          <button type="button" class="question-analysis-button" @click="viewQuestionAnalysis()">
             题目解析
           </button>
         </header>
@@ -161,12 +161,23 @@ function selectModule(moduleId: string): void {
   }
 }
 
-// 逐题解析复用公共 ExamQuestionAnalysis 页面，并以当前报告对应答卷作为只读数据来源。
-function viewQuestionAnalysis(): void {
+// 失分结构携带模块与题号时直接定位对应题目，其他入口继续打开完整逐题解析。
+function viewQuestionAnalysis(target?: {
+  moduleId?: string
+  questionNumber?: number
+  wrongOnly?: boolean
+}): void {
   void router.push({
     name: 'exam-question-review',
     params: { id: questionReviewExamId.value },
-    query: { from: 'diagnostic', report: 'esat' },
+    query: {
+      from: 'diagnostic',
+      report: 'esat',
+      ...(target?.moduleId && target.questionNumber
+        ? { moduleId: target.moduleId, questionNumber: String(target.questionNumber) }
+        : {}),
+      ...(target?.wrongOnly ? { wrongOnly: '1' } : {}),
+    },
   })
 }
 

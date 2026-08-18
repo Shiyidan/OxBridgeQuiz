@@ -258,15 +258,18 @@ mockPaperSetRouter.post('/import', workbookUpload.single('file'), async (req, re
   }
 })
 
-// 草稿允许调整展示名称和免费/会员属性，编号和考试类型保持不可变。
+// 草稿可调整名称和访问级别；已发布卷只允许切换访问级别并同步运行试卷。
 mockPaperSetRouter.put('/:id', async (req, res) => {
-  const current = await prisma.mockPaperSet.findUnique({ where: { id: req.params.id } })
+  const current = await prisma.mockPaperSet.findUnique({
+    where: { id: req.params.id },
+    include: { paper: { select: { id: true } } },
+  })
   if (!current) {
     res.status(404).json(fail('模考试卷不存在', 'MOCK_PAPER_SET_NOT_FOUND'))
     return
   }
-  if (current.status !== MOCK_PAPER_STATUS.DRAFT) {
-    res.status(409).json(fail('已发布模考卷请创建新版本后修改', 'MOCK_PAPER_SET_LOCKED'))
+  if (current.status === MOCK_PAPER_STATUS.ARCHIVED) {
+    res.status(409).json(fail('已下线模考卷不能修改', 'MOCK_PAPER_SET_LOCKED'))
     return
   }
   const title = req.body.title === undefined ? current.title : String(req.body.title).trim()
@@ -284,9 +287,26 @@ mockPaperSetRouter.put('/:id', async (req, res) => {
     res.status(422).json(fail('访问级别必须为免费卷或会员卷', 'MOCK_PAPER_ACCESS_INVALID'))
     return
   }
-  const updated = await prisma.mockPaperSet.update({
-    where: { id: current.id },
-    data: { title, accessTier },
+  if (current.status === MOCK_PAPER_STATUS.PUBLISHED && title !== current.title) {
+    res.status(409).json(fail('已发布模考卷请创建新版本后修改名称', 'MOCK_PAPER_SET_LOCKED'))
+    return
+  }
+  if (current.status === MOCK_PAPER_STATUS.PUBLISHED && !current.paper) {
+    res.status(409).json(fail('已发布模考卷缺少运行试卷，无法更新访问级别', 'MOCK_PAPER_RUNTIME_MISSING'))
+    return
+  }
+  const updated = await prisma.$transaction(async (tx) => {
+    const nextSet = await tx.mockPaperSet.update({
+      where: { id: current.id },
+      data: { title, accessTier },
+    })
+    if (current.status === MOCK_PAPER_STATUS.PUBLISHED && current.paper) {
+      await tx.paper.update({
+        where: { id: current.paper.id },
+        data: { accessTier },
+      })
+    }
+    return nextSet
   })
   setOperationAuditContext(req, {
     resourceId: current.id,

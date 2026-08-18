@@ -1,4 +1,4 @@
-// 无限模考 API：定义公开目录、个人概览、答卷记录和开始/放弃操作的前端契约。
+// 模考中心 API：定义公开目录、个人概览、答卷记录和开始/放弃操作的前端契约。
 import { callApi } from '@/utils/request'
 import type { PaperAccessTier } from '@/types'
 import type { PaperModuleOutline, PaginationMeta } from '@/api/papers'

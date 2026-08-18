@@ -1,4 +1,4 @@
-// 官方考期工具：为无限模考倒计时集中维护 UAT-UK 中国大陆及港澳考试窗口。
+// 官方考期工具：为模考中心倒计时集中维护 UAT-UK 中国大陆及港澳考试窗口。
 import type { ActiveExamType } from '@/stores/auth'
 
 export const OFFICIAL_EXAM_DATES_SOURCE = 'https://esat-tmua.ac.uk/deadlines/'

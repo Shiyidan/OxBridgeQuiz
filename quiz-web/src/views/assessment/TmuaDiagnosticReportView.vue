@@ -22,10 +22,10 @@
       <template v-else-if="report">
         <header class="report-header">
           <div>
-            <span>{{ reportMeta?.sourcePaperType === 'mockPaper' ? '来源：无限模考' : 'TMUA Diagnostic Report' }}</span>
+          <span>{{ reportMeta?.sourcePaperType === 'mockPaper' ? '来源：模考中心' : 'TMUA Diagnostic Report' }}</span>
             <h1>{{ report.header.title }}</h1>
           </div>
-          <button type="button" class="question-analysis-button" @click="viewQuestionAnalysis">
+          <button type="button" class="question-analysis-button" @click="viewQuestionAnalysis()">
             题目解析
           </button>
         </header>
@@ -131,12 +131,23 @@ onBeforeUnmount(() => {
   upgradeRequestId += 1
 })
 
-// 逐题解析复用公共只读页面，并携带 TMUA 报告来源。
-function viewQuestionAnalysis(): void {
+// 失分结构携带 Paper 与题号时直接定位对应题目，其他入口继续打开完整逐题解析。
+function viewQuestionAnalysis(target?: {
+  moduleId?: string
+  questionNumber?: number
+  wrongOnly?: boolean
+}): void {
   void router.push({
     name: 'exam-question-review',
     params: { id: reportExamRecordId.value || examId.value },
-    query: { from: 'diagnostic', report: 'tmua' },
+    query: {
+      from: 'diagnostic',
+      report: 'tmua',
+      ...(target?.moduleId && target.questionNumber
+        ? { moduleId: target.moduleId, questionNumber: String(target.questionNumber) }
+        : {}),
+      ...(target?.wrongOnly ? { wrongOnly: '1' } : {}),
+    },
   })
 }
 

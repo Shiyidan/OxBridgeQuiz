@@ -69,7 +69,7 @@
             <strong :key="currentAnalysisModule">{{ currentAnalysisModule }}</strong>
           </Transition>
         </div>
-        <small>{{ currentModuleIndex + 1 }}/{{ ANALYSIS_MODULES.length }}</small>
+        <small>{{ currentModuleIndex + 1 }}/{{ analysisModules.length }}</small>
       </div>
       <p v-if="pollError" class="analysis-state__error">{{ pollError }}</p>
       <p class="analysis-state__note">关闭弹窗不会停止后台分析，完成后可从{{ returnCenterName }}查看报告。</p>
@@ -90,7 +90,7 @@
       </div>
       <p class="analysis-state__eyebrow">诊断结果已保存</p>
       <h2>诊断报告生成完成</h2>
-      <p class="analysis-state__description">六大诊断模块已生成，您可以立即查看完整报告。</p>
+      <p class="analysis-state__description">七个诊断模块已生成，您可以立即查看完整报告。</p>
       <div class="analysis-state__actions analysis-state__actions--completed">
         <button type="button" class="button_primary" @click="viewCurrentReport">
           查看诊断报告
@@ -117,15 +117,6 @@ const VISUAL_PROGRESS_DURATION_MS = 12000
 const VISUAL_PROGRESS_START = 8
 const VISUAL_PROGRESS_LIMIT = 99
 const VISUAL_PROGRESS_TICK_MS = 80
-const ANALYSIS_MODULES = [
-  '等效评估分',
-  '总体成绩概览',
-  '知识点掌握度',
-  '错题逐题分析',
-  'AI 提升规划表',
-  'AI 定制三阶段学习路径',
-] as const
-
 const props = defineProps<{
   modelValue: boolean
   examId: string
@@ -156,14 +147,25 @@ const isAnalyzing = computed(
 )
 const analysisFailed = computed(() => analysisStatus.value === 'failed')
 const analysisProgress = computed(() => Math.floor(visualProgress.value))
-// 交卷来源决定关闭和完成按钮返回诊断中心还是无限模考记录页。
-const returnCenterName = computed(() => props.source === 'mock-exam' ? '无限模考' : '诊断测试')
-// 六个分析模块按照单向视觉进度依次展示，到最后一项后停留，不再循环。
+// 交卷来源决定关闭和完成按钮返回诊断中心还是模考中心记录页。
+const returnCenterName = computed(() => props.source === 'mock-exam' ? '模考中心' : '诊断测试')
+// 第一模块按考试类型匹配报告真实标题，其余模块与 V2 的 02—07 编号保持一致。
+const analysisModules = computed(() => [
+  reportKind.value === 'tmua' ? '01 综合分与 Paper 区间参照' : '01 官方历史分布参照',
+  '02 科目与知识点',
+  '03 失分结构',
+  '04 时间把控',
+  '05 主攻方向',
+  '06 下一步',
+  '07 学习计划',
+] as const)
+
+// 七个分析模块按照单向视觉进度依次展示，到最后一项后停留，不再循环。
 const currentModuleIndex = computed(() => Math.min(
-  ANALYSIS_MODULES.length - 1,
-  Math.floor((analysisProgress.value / VISUAL_PROGRESS_LIMIT) * ANALYSIS_MODULES.length),
+  analysisModules.value.length - 1,
+  Math.floor((analysisProgress.value / VISUAL_PROGRESS_LIMIT) * analysisModules.value.length),
 ))
-const currentAnalysisModule = computed(() => ANALYSIS_MODULES[currentModuleIndex.value]!)
+const currentAnalysisModule = computed(() => analysisModules.value[currentModuleIndex.value]!)
 
 // 弹窗每次绑定新的考试记录时重置展示状态，并读取对应后台任务进度。
 watch(
@@ -199,7 +201,7 @@ function initializeAnalysis(): void {
   void pollAnalysisStatus()
 }
 
-// 后端完成后仍展示满 6 秒，随后停在完成态，等待用户主动查看报告。
+// 后端完成后仍走完视觉进度，随后停在完成态，等待用户主动查看报告。
 async function pollAnalysisStatus(): Promise<void> {
   if (!props.modelValue || !props.examId) return
   try {
@@ -215,7 +217,7 @@ async function pollAnalysisStatus(): Promise<void> {
     if (status.status === 'completed' && status.reportExamRecordId) {
       stopStatusPolling()
       analysisStatus.value = 'analyzing'
-      analysisMessage.value = '诊断报告已生成，正在整理六大模块'
+      analysisMessage.value = '诊断报告已生成，正在整理七个模块'
       reportReady = true
       advanceVisualProgress()
       return

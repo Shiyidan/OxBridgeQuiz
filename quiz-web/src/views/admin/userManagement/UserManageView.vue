@@ -14,6 +14,7 @@
         :loading="loading"
         :total="pagination.total"
         empty-text="暂无注册用户"
+        fill-height
         show-pagination
         @page-change="handlePageChange"
         @page-size-change="handlePageSizeChange"
@@ -495,8 +496,6 @@ onMounted(fetchUsers)
 
 <style scoped lang="scss">
 .um-page {
-  --um-table-max-height: calc(100vh - var(--nav-height) - 146px);
-
   height: 100%;
   min-height: 0;
   display: flex;

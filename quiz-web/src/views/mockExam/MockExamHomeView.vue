@@ -1,4 +1,4 @@
-<!-- 无限模考首页：提供公开模考目录、会员锁定、个人记录、成绩概览与官方考期倒计时。 -->
+<!-- 模考中心首页：提供公开模考目录、会员锁定、个人记录、成绩概览与官方考期倒计时。 -->
 <template>
   <div class="mock-exam-page">
     <NavBar />
@@ -9,7 +9,7 @@
           <div class="mock-hero__eyebrow-line">
             <span class="mock-hero__eyebrow">FULL-LENGTH MOCK EXAMS</span>
           </div>
-          <h1>无限模考</h1>
+          <h1>模考中心</h1>
           <p>按正式考试结构完成整卷训练，熟悉节奏，追踪每一次进步。</p>
         </div>
         <div class="mock-hero__structure" aria-label="当前考试结构">
@@ -20,8 +20,8 @@
       </header>
 
       <div class="mock-layout">
-        <section class="mock-content" aria-label="无限模考内容">
-          <div class="mock-tabs" role="tablist" aria-label="无限模考页面">
+        <section class="mock-content" aria-label="模考中心内容">
+          <div class="mock-tabs" role="tablist" aria-label="模考中心页面">
             <button
               type="button"
               role="tab"
@@ -476,6 +476,15 @@
       </div>
     </main>
 
+    <AppConfirmDialog
+      v-model="subjectSetupDialogVisible"
+      title="设置 ESAT 备考科目"
+      message="开始 ESAT 模考前，需要先选择三门备考科目。是否前往个人中心进行设置？"
+      confirm-text="前往设置"
+      cancel-text="暂不设置"
+      @confirm="goToSubjectSettings"
+    />
+
     <el-dialog
       v-model="startDialogVisible"
       width="560px"
@@ -612,6 +621,7 @@ import {
 } from '@element-plus/icons-vue'
 import NavBar from '@/components/NavBar.vue'
 import AppPagination from '@/components/AppPagination.vue'
+import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import DiagnosticAnalysisDialog from '@/components/DiagnosticAnalysisDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
 import MockExamTrendChart from '@/views/mockExam/MockExamTrendChart.vue'
@@ -673,6 +683,7 @@ const selectedStartPaper = ref<MockExamPaperItem | null>(null)
 const rulesAccepted = ref(false)
 const startingPaperId = ref('')
 const startRequestId = ref('')
+const subjectSetupDialogVisible = ref(false)
 const attemptDialogVisible = ref(false)
 const selectedAttempts = ref<MockExamAttemptBrief[]>([])
 const abandonDialogVisible = ref(false)
@@ -690,7 +701,6 @@ let overviewLoadSequence = 0
 const catalogStatusOptions: Array<{ label: string; value: MockExamCatalogStatus }> = [
   { label: '全部', value: 'all' },
   { label: '未开始', value: 'not_started' },
-  { label: '有未完成', value: 'in_progress' },
   { label: '已完成', value: 'completed' },
 ]
 
@@ -915,14 +925,18 @@ function handleStartPaper(paper: MockExamPaperItem): void {
     paper.examType === 'ESAT'
     && (esatSubjects.length !== 3 || !esatSubjects.includes('数学1'))
   ) {
-    ElMessage.warning('请先在个人中心完成 ESAT 三科选择。')
-    void router.push('/profile')
+    subjectSetupDialogVisible.value = true
     return
   }
   selectedStartPaper.value = paper
   rulesAccepted.value = false
   startRequestId.value = createStartRequestId()
   startDialogVisible.value = true
+}
+
+// 用户确认后携带目标编辑标识进入个人中心，由目标偏好弹窗直接承接科目设置。
+function goToSubjectSettings(): void {
+  void router.push({ path: '/profile', query: { editGoals: '1' } })
 }
 
 // 每次考前确认生成稳定请求标识，同一确认请求重试时只会创建一场答卷。

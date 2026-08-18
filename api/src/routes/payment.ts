@@ -180,7 +180,22 @@ paymentRouter.post('/notifications/chinaums', async (req, res) => {
   const notifyId = notificationId(payload)
   const orderNo = payload.billNo || payload.merOrderId || null
   const signatureValid = verifyChinaumsNotification(payload)
-  let notificationRecord: { id: string } | null = null
+
+  // 未通过通道认证的公网请求不得产生或修改支付通知审计数据。
+  if (!config.chinaums.enabled || !signatureValid) {
+    res.status(400).type('text/plain').send('FAILED')
+    return
+  }
+  if (payload.mid !== config.chinaums.mid || payload.tid !== config.chinaums.tid || payload.instMid !== config.chinaums.instMid) {
+    res.status(400).type('text/plain').send('FAILED')
+    return
+  }
+  if (!orderNo) {
+    res.status(400).type('text/plain').send('FAILED')
+    return
+  }
+
+  let notificationRecord: { id: string; processStatus: string } | null = null
   try {
     notificationRecord = await prisma.paymentNotification.upsert({
       where: { provider_notificationId: { provider: 'chinaums', notificationId: notifyId } },
@@ -191,21 +206,16 @@ paymentRouter.post('/notifications/chinaums', async (req, res) => {
         signatureValid,
         rawPayload: sanitizeNotification(payload),
       },
-      update: {
-        orderNo,
-        signatureValid,
-        rawPayload: sanitizeNotification(payload),
-      },
-      select: { id: true },
+      // 重发通知复用首次验签通过的审计原文，禁止覆盖已保存记录。
+      update: {},
+      select: { id: true, processStatus: true },
     })
 
-    if (!config.chinaums.enabled || !signatureValid) {
-      throw new PaymentFulfillmentError('银联商务通知验签失败或支付通道未启用', 'PAYMENT_NOTIFICATION_INVALID')
+    // 已成功处理的同一通知直接确认，避免重放导致审计状态被降级。
+    if (notificationRecord.processStatus === PAYMENT_NOTIFICATION_STATUS.PROCESSED) {
+      res.type('text/plain').send('SUCCESS')
+      return
     }
-    if (payload.mid !== config.chinaums.mid || payload.tid !== config.chinaums.tid || payload.instMid !== config.chinaums.instMid) {
-      throw new PaymentFulfillmentError('银联商务通知的商户信息不匹配', 'PAYMENT_MERCHANT_MISMATCH')
-    }
-    if (!orderNo) throw new PaymentFulfillmentError('银联商务通知缺少账单号', 'PAYMENT_ORDER_NO_MISSING')
 
     const order = await prisma.paymentOrder.findUnique({ where: { orderNo } })
     if (!order) throw new PaymentFulfillmentError('本地支付订单不存在', 'PAYMENT_ORDER_NOT_FOUND')
@@ -252,8 +262,11 @@ paymentRouter.post('/notifications/chinaums', async (req, res) => {
   } catch (error) {
     logRuntimeError('payment.chinaums_notification_failed', error)
     if (notificationRecord) {
-      await prisma.paymentNotification.update({
-        where: { id: notificationRecord.id },
+      await prisma.paymentNotification.updateMany({
+        where: {
+          id: notificationRecord.id,
+          processStatus: { not: PAYMENT_NOTIFICATION_STATUS.PROCESSED },
+        },
         data: {
           processStatus: PAYMENT_NOTIFICATION_STATUS.FAILED,
           errorMessage: error instanceof Error ? error.message.slice(0, 500) : '通知处理失败',

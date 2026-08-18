@@ -221,6 +221,7 @@
             :schools="profileTargetSchoolItems"
             :majors="profileTargetMajorItems"
             :exam-types="displayedTargetExamTypes"
+            :esat-subjects="profileEsatSubjectItems"
             :target-scores="profileTargetScores"
             :weekly-hours="profileWeeklyHoursText"
             :exam-date="profileExamDateText"
@@ -1485,6 +1486,13 @@ onMounted(async () => {
   )
   if (hasFailure) errorText.value = '部分学习数据暂时无法加载，请稍后刷新。'
   if (route.query.purchase === '1') paymentVisible.value = true
+  if (route.query.editGoals === '1') {
+    startEditExam()
+    const nextQuery = { ...route.query }
+    delete nextQuery.editGoals
+    // 清除一次性入口参数，刷新个人中心时不重复打开目标编辑弹窗。
+    await router.replace({ query: nextQuery })
+  }
 })
 
 // 个人中心所有升级入口统一打开支付弹窗，并预选当前查看的考试类型。

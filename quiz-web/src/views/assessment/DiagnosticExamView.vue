@@ -24,7 +24,7 @@
 
     <main class="diagnostic-exam-shell">
       <div v-if="loading" class="diagnostic-status">
-        正在恢复{{ isMockExam ? '无限模考' : '诊断测试' }}...
+        正在恢复{{ isMockExam ? '模考中心' : '诊断测试' }}...
       </div>
       <template v-else-if="session">
         <div v-if="session.phase === 'answering'" class="exam-layout">
@@ -133,7 +133,7 @@
         </div>
       </template>
       <div v-else class="diagnostic-status">
-        <p>无法加载{{ isMockExam ? '无限模考' : '诊断测试' }}。</p>
+          <p>无法加载{{ isMockExam ? '模考中心' : '诊断测试' }}。</p>
         <button type="button" class="button_primary" @click="loadSession">重新加载</button>
       </div>
     </main>
@@ -198,7 +198,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
-// 同一答题组件根据路由区分诊断与无限模考，仅调整来源语义和返回入口。
+// 同一答题组件根据路由区分诊断与模考中心，仅调整来源语义和返回入口。
 const isMockExam = computed(() => route.name === 'mock-exam-session')
 
 const loading = ref(true)
@@ -246,7 +246,7 @@ const currentQuestionMarked = computed(() =>
 
 // 顶部时间轴使用整张诊断试卷名称，当前科目或 Paper 仍由正文分段导航展示。
 const paperProgressTitle = computed(() => {
-  if (isMockExam.value) return session.value?.paperTitle || '无限模考'
+  if (isMockExam.value) return session.value?.paperTitle || '模考中心'
   const examType = session.value?.examType || 'TMUA'
   const year = session.value?.paperYear
   return year ? `${examType}真题-${year}年` : session.value?.paperTitle || `${examType}真题`
@@ -415,7 +415,7 @@ async function loadSession(): Promise<void> {
   try {
     const paperId = String(route.params.paperId || '')
     if (isMockExam.value && !examRecordId) {
-      ElMessage.error('模考答卷身份缺失，请返回无限模考重新进入。')
+      ElMessage.error('模考答卷身份缺失，请返回模考中心重新进入。')
       await router.replace('/mock-exams')
       return
     }
@@ -433,7 +433,7 @@ async function loadSession(): Promise<void> {
     ElMessage.error(
       getApiErrorMessage(
         error,
-        `${isMockExam.value ? '无限模考' : '诊断测试'}加载失败，请稍后重试。`,
+        `${isMockExam.value ? '模考中心' : '诊断测试'}加载失败，请稍后重试。`,
       ),
     )
   } finally {
@@ -864,7 +864,7 @@ async function confirmAndPauseBeforeLeaving(): Promise<boolean> {
     try {
       const confirmed = await requestConfirmation({
         title: '确认返回',
-        message: `返回${isMockExam.value ? '无限模考' : '诊断中心'}会保存当前${sectionNoun.value}进度，之后可继续测试。`,
+    message: `返回${isMockExam.value ? '模考中心' : '诊断中心'}会保存当前${sectionNoun.value}进度，之后可继续测试。`,
         confirmText: '保存并返回',
         cancelText: '继续答题',
       })

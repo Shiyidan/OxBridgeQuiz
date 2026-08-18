@@ -1,4 +1,4 @@
-<!-- 个人中心备考目标概览：以两行三列卡片汇总院校、专业、考试、目标分数与学习计划。 -->
+<!-- 个人中心备考目标概览：汇总院校、专业、考试、备考科目、目标分数与学习计划。 -->
 <template>
   <div class="study-goal-overview">
     <div class="study-goal-summary-grid">
@@ -30,6 +30,16 @@
           <span>目标考试</span>
         </div>
         <div class="study-goal-value">{{ normalizedExamTypes.join('、') }}</div>
+      </article>
+
+      <article class="study-goal-summary-card">
+        <div class="study-goal-card-label">
+          <span class="study-goal-icon study-goal-icon--mint">
+            <el-icon aria-hidden="true"><Reading /></el-icon>
+          </span>
+          <span>备考科目</span>
+        </div>
+        <div class="study-goal-value" :title="targetSubjectsText">{{ targetSubjectsText }}</div>
       </article>
     </div>
 
@@ -74,6 +84,7 @@ import {
   Clock,
   CollectionTag,
   OfficeBuilding,
+  Reading,
   Trophy,
 } from '@element-plus/icons-vue'
 
@@ -81,6 +92,7 @@ interface StudyGoalOverviewProps {
   schools: string[]
   majors: string[]
   examTypes: string[]
+  esatSubjects: string[]
   targetScores: Record<'ESAT' | 'TMUA', number | null>
   weeklyHours: string
   examDate: string
@@ -95,7 +107,17 @@ const normalizedExamTypes = computed(() =>
   props.examTypes.length ? props.examTypes : ['尚未设置'],
 )
 
-// 第二行只概览各目标考试的分数，详细科目继续由编辑弹窗承载。
+// 科目跟随已选择的目标考试展示，TMUA 使用固定的两卷考试结构。
+const targetSubjectsText = computed(() => {
+  const sections: string[] = []
+  if (props.examTypes.includes('ESAT')) {
+    sections.push(`ESAT ${props.esatSubjects.length ? props.esatSubjects.join('、') : '未设置'}`)
+  }
+  if (props.examTypes.includes('TMUA')) sections.push('TMUA Paper 1、Paper 2')
+  return sections.length ? sections.join('；') : '尚未设置'
+})
+
+// 第二行按考试分别概览目标分数，避免不同考试的目标值混淆。
 const targetScoresText = computed(() => {
   const examTypes = props.examTypes.filter(
     (examType): examType is 'ESAT' | 'TMUA' => examType === 'ESAT' || examType === 'TMUA',
@@ -118,7 +140,7 @@ const targetScoresText = computed(() => {
 
 .study-goal-summary-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
 }
 
@@ -189,9 +211,20 @@ const targetScoresText = computed(() => {
   gap: 6px;
 }
 
+@media (max-width: 1200px) {
+  .study-goal-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 900px) {
-  .study-goal-summary-grid,
   .study-goal-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .study-goal-summary-grid {
     grid-template-columns: 1fr;
   }
 }

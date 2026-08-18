@@ -94,13 +94,13 @@ const router = createRouter({
       name: 'assessment',
       component: lazyRoute(() => import('../views/assessment/AssessmentHomeView.vue')),
     },
-    // 无限模考
+  // 模考中心
     {
       path: '/mock-exams',
       name: 'mock-exams',
       component: lazyRoute(() => import('../views/mockExam/MockExamHomeView.vue')),
     },
-    // 无限模考答题复用诊断测试作答页，答卷身份由独立模考接口创建。
+  // 模考中心答题复用诊断测试作答页，答卷身份由独立模考接口创建。
     {
       path: '/mock-exams/exam/:paperId',
       name: 'mock-exam-session',

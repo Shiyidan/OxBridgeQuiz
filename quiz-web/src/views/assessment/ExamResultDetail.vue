@@ -21,7 +21,7 @@
           <ExamQuestionAnalysis
             :questions="questions"
             :correct-count="correctCount"
-            :initial-question-id="targetQuestionId"
+            :initial-question-id="resolvedTargetQuestionId"
             :single-question-mode="singleQuestionMode"
             :group-by="analysisSource === 'question-bank' ? 'syllabus' : 'module'"
           />
@@ -88,8 +88,18 @@ const examId = computed(() => String(route.params.id || ''))
 // 专用逐题解析路由需要保留在当前页，不能再被诊断报告自动分流逻辑重定向。
 const isQuestionReview = computed(() => route.name === 'exam-question-review')
 
-// 题号参数只服务于普通练习结果的逐题定位。
-const targetQuestionId = computed(() => route.query.questionId as string | undefined)
+// questionId 用于错题本单题模式；诊断报告则通过模块与正式题号定位整卷中的目标题。
+const targetQuestionId = computed(() => (
+  typeof route.query.questionId === 'string' ? route.query.questionId : undefined
+))
+const targetModuleId = computed(() => (
+  typeof route.query.moduleId === 'string' ? route.query.moduleId.trim().toLowerCase() : ''
+))
+const targetQuestionNumber = computed(() => {
+  const value = Number(route.query.questionNumber)
+  return Number.isInteger(value) && value > 0 ? value : null
+})
+const resolvedTargetQuestionId = ref<string | undefined>(targetQuestionId.value)
 
 // 错题本使用专用单题模式，不能从当前入口回退为整卷解析。
 const singleQuestionMode = computed(() => Boolean(isQuestionReview.value && targetQuestionId.value))
@@ -185,6 +195,18 @@ onMounted(async () => {
       number: question.number ?? index + 1,
       images: question.images || [],
     }))
+    resolvedTargetQuestionId.value = targetQuestionId.value
+    if (!resolvedTargetQuestionId.value && targetQuestionNumber.value !== null) {
+      const numberMatches = loadedQuestions.filter(
+        (question) => Number(question.number) === targetQuestionNumber.value,
+      )
+      const moduleMatch = numberMatches.find((question) => (
+        String(question.module_code || question.component_code || '').trim().toLowerCase()
+        === targetModuleId.value
+      ))
+      const target = moduleMatch || (numberMatches.length === 1 ? numberMatches[0] : undefined)
+      resolvedTargetQuestionId.value = target?.id
+    }
     if (singleQuestionMode.value) {
       const target = loadedQuestions.find(
         (question) =>

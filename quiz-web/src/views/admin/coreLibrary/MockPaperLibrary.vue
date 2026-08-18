@@ -218,13 +218,13 @@
               show-word-limit
               :disabled="detail.status !== 'draft'"
             />
-            <el-select v-model="editForm.accessTier" :disabled="detail.status !== 'draft'">
+            <el-select v-model="editForm.accessTier" :disabled="detail.status === 'archived'">
               <el-option label="会员卷" value="member" />
               <el-option label="免费卷" value="free" />
             </el-select>
             <el-button
               :loading="savingMeta"
-              :disabled="detail.status !== 'draft' || !editForm.title.trim()"
+              :disabled="detail.status === 'archived' || !editForm.title.trim()"
               @click="saveMetadata"
             >
               保存基本信息
@@ -494,7 +494,7 @@ async function refreshCurrentDetail(): Promise<void> {
   await loadList()
 }
 
-// 草稿基本信息保存不会改变编号、考试类型和题目结构。
+// 草稿可保存名称和访问级别；已发布卷只同步免费/会员属性，不改变试卷结构。
 async function saveMetadata(): Promise<void> {
   if (!detail.value || savingMeta.value) return
   savingMeta.value = true

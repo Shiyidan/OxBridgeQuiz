@@ -32,8 +32,7 @@
       <div v-if="filteredRewards.length" class="wallet-preview">
         <div class="wallet-preview-summary">
           <span>
-            当前预览 {{ visibleRewards.length }} 张，共
-            {{ filteredRewards.length }} 张卡券
+            当前预览 {{ visibleRewards.length }} 张，共 {{ filteredRewards.length }} 张卡券
           </span>
           <button type="button" aria-label="查看更多卡券" @click="walletListVisible = true">
             查看更多
@@ -158,11 +157,15 @@
             <el-radio-button value="ESAT">ESAT</el-radio-button>
             <el-radio-button value="TMUA">TMUA</el-radio-button>
           </el-radio-group>
-          <p>确认后考试类型不可修改；已有对应会员时，会员到期时间将增加{{ activationDurationText }}。</p>
+          <p>
+            确认后考试类型不可修改；已有对应会员时，会员到期时间将增加{{ activationDurationText }}。
+          </p>
         </template>
         <div v-else class="wallet-goal-empty">
           <strong>尚未设置备考目标</strong>
-          <p>请先在个人中心完善目标考试，系统会据此推荐本张{{ activationCardKindLabel }}的适用考试。</p>
+          <p>
+            请先在个人中心完善目标考试，系统会据此推荐本张{{ activationCardKindLabel }}的适用考试。
+          </p>
         </div>
       </div>
       <template #footer>
@@ -215,12 +218,14 @@ const activationSaving = ref(false)
 const activationRewardId = ref('')
 const activationExamType = ref<'ESAT' | 'TMUA' | ''>('')
 
-const activationReward = computed(() =>
-  rewards.value.find((reward) => reward.id === activationRewardId.value) || null,
+const activationReward = computed(
+  () => rewards.value.find((reward) => reward.id === activationRewardId.value) || null,
 )
 
-const activationUsesFixedExam = computed(() =>
-  activationReward.value?.beneficiaryRole === 'invitee' && Boolean(activationReward.value.examType),
+const activationUsesFixedExam = computed(
+  () =>
+    activationReward.value?.beneficiaryRole === 'invitee' &&
+    Boolean(activationReward.value.examType),
 )
 
 const activationCardKindLabel = computed(() =>
@@ -228,9 +233,9 @@ const activationCardKindLabel = computed(() =>
     ? '日卡'
     : activationReward.value && isMonthlyCard(activationReward.value)
       ? '月卡'
-    : activationReward.value && isQuarterCard(activationReward.value)
-      ? '季卡'
-      : '周卡',
+      : activationReward.value && isQuarterCard(activationReward.value)
+        ? '季卡'
+        : '周卡',
 )
 
 const activationDurationText = computed(() =>
@@ -238,9 +243,9 @@ const activationDurationText = computed(() =>
     ? '一天'
     : activationReward.value && isMonthlyCard(activationReward.value)
       ? '三十天'
-    : activationReward.value && isQuarterCard(activationReward.value)
-      ? '九十天'
-      : '七天',
+      : activationReward.value && isQuarterCard(activationReward.value)
+        ? '九十天'
+        : '七天',
 )
 
 const studyGoalExamTypes = computed(() =>
@@ -318,15 +323,13 @@ function bringToFront(rewardId: string): void {
 
 // 只有已发放且未启用的奖励才开放使用入口，待首次支付的资格不提前启用。
 function canActivate(reward: InvitationRewardItem): boolean {
-  return (
-    reward.status === 'pending_activation' &&
-    Boolean(reward.grantedAt)
-  )
+  return reward.status === 'pending_activation' && Boolean(reward.grantedAt)
 }
 
-// 卡面按钮在终态保留结果反馈，但只有已发放的待启用卡允许继续操作。
+// 卡面始终展示卡券状态；未完成首次支付的周卡显示禁用的待启用入口。
 function cardActionLabel(reward: InvitationRewardItem): string {
   if (canActivate(reward)) return '立即使用'
+  if (reward.status === 'pending_activation') return '待启用'
   if (reward.status === 'activated') return '已启用'
   if (reward.status === 'expired') return '已过期'
   return ''
@@ -341,11 +344,12 @@ function activateFromDetail(reward: InvitationRewardItem): void {
 // 所有卡券共用卡包主题弹窗；受邀周卡锁定支付考试，其他卡券结合备考目标选择。
 async function openActivation(reward: InvitationRewardItem): Promise<void> {
   activationRewardId.value = reward.id
-  activationExamType.value = reward.beneficiaryRole === 'invitee' && reward.examType
-    ? reward.examType
-    : studyGoalExamTypes.value.length === 1
-      ? studyGoalExamTypes.value[0] || ''
-      : ''
+  activationExamType.value =
+    reward.beneficiaryRole === 'invitee' && reward.examType
+      ? reward.examType
+      : studyGoalExamTypes.value.length === 1
+        ? studyGoalExamTypes.value[0] || ''
+        : ''
   activationVisible.value = true
 }
 

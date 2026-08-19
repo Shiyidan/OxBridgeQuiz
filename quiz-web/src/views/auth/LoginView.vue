@@ -74,17 +74,11 @@
             <el-form-item prop="legalAccepted" class="auth-legal-row">
               <div class="auth-legal-notice">
                 <el-checkbox v-model="form.legalAccepted">我已阅读并同意</el-checkbox>
-                <router-link
-                  to="/legal/user-agreement"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <router-link to="/legal/user-agreement" target="_blank" rel="noopener noreferrer"
                   >《用户服务协议》</router-link
                 >
                 和
-                <router-link
-                  to="/legal/privacy-policy"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <router-link to="/legal/privacy-policy" target="_blank" rel="noopener noreferrer"
                   >《隐私政策》</router-link
                 >
               </div>
@@ -194,6 +188,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useInvitationBenefitStore } from '@/stores/invitationBenefit'
 import { resetPassword, sendEmailCode } from '@/api/auth'
 import { getMember } from '@/api/member'
 import {
@@ -216,6 +211,7 @@ import {
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+const invitationBenefit = useInvitationBenefitStore()
 const formRef = ref<FormInstance>()
 const resetFormRef = ref<FormInstance>()
 const isResetMode = ref(false)
@@ -368,6 +364,7 @@ const handleSubmit = async (): Promise<void> => {
       // 会员上下文可由目标页面重新加载，不阻断已经成功的登录流程。
     }
     await router.replace(redirectAfterAuth.value)
+    await invitationBenefit.showAfterPagePaint()
   } catch {
     // Axios 公共响应处理会展示后端 errMsg。
   }

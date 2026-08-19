@@ -43,13 +43,13 @@ export interface UserInfo {
 export interface AuthResult {
   user: UserInfo
   accessToken: string
-  invitationRewardEligible?: boolean
 }
 
 export interface EmailCodeResult {
   challengeId: string
   expiresIn: number
   resendAfter: number
+  developmentCode?: string
 }
 
 export interface UpdateProfileParams {

@@ -201,12 +201,11 @@ export const useAuthStore = defineStore('auth', () => {
       examDate?: string
       weeklyHours?: number
     }>
-  }): Promise<{ invitationRewardEligible: boolean }> {
+  }): Promise<void> {
     loading.value = true
     try {
       const data = await apiRegister(input)
       applyAuth(data.user, data.accessToken)
-      return { invitationRewardEligible: Boolean(data.invitationRewardEligible) }
     } finally {
       loading.value = false
     }

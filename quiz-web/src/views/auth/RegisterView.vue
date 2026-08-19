@@ -158,7 +158,8 @@
                 <div class="subject-list">
                   <div v-for="et in selectedExamTypes" :key="et" class="subject-group">
                     <span class="subject-exam-label"
-                      >{{ examTypeLabel(et) }}{{ et === 'ESAT' ? '（五选三，数学1必选）' : '' }}</span
+                      >{{ examTypeLabel(et)
+                      }}{{ et === 'ESAT' ? '（五选三，数学1必选）' : '' }}</span
                     >
                     <div class="subject-chip-group">
                       <label
@@ -267,17 +268,11 @@
           <el-form-item prop="legalAccepted" class="register-legal-row">
             <div class="register-legal-notice">
               <el-checkbox v-model="form.legalAccepted">我已阅读并同意</el-checkbox>
-              <router-link
-                to="/legal/user-agreement"
-                target="_blank"
-                rel="noopener noreferrer"
+              <router-link to="/legal/user-agreement" target="_blank" rel="noopener noreferrer"
                 >《用户服务协议》</router-link
               >
               和
-              <router-link
-                to="/legal/privacy-policy"
-                target="_blank"
-                rel="noopener noreferrer"
+              <router-link to="/legal/privacy-policy" target="_blank" rel="noopener noreferrer"
                 >《隐私政策》</router-link
               >
             </div>
@@ -304,65 +299,6 @@
         </p>
       </section>
     </main>
-
-    <el-dialog
-      v-model="invitationRewardVisible"
-      title="邀请奖励资格已绑定"
-      class="invitation-reward-celebration"
-      width="720px"
-      align-center
-      append-to-body
-      :close-on-click-modal="false"
-      :close-on-press-escape="true"
-      :before-close="handleInvitationRewardClose"
-    >
-      <div class="invitation-celebration">
-        <div class="invitation-celebration__confetti" aria-hidden="true">
-          <i
-            v-for="(pieceStyle, index) in invitationConfettiStyles"
-            :key="index"
-            :style="pieceStyle"
-          ></i>
-        </div>
-
-        <div class="invitation-celebration__art" aria-hidden="true">
-          <div
-            class="invitation-celebration__ribbon invitation-celebration__ribbon--left"
-          ></div>
-          <div
-            class="invitation-celebration__ribbon invitation-celebration__ribbon--right"
-          ></div>
-          <div class="invitation-celebration__mascot">
-            <div class="invitation-celebration__hat"><span></span></div>
-            <div class="invitation-celebration__cat">
-              <span
-                class="invitation-celebration__eye invitation-celebration__eye--left"
-              ></span>
-              <span
-                class="invitation-celebration__eye invitation-celebration__eye--right"
-              ></span>
-              <span class="invitation-celebration__nose"></span>
-              <span class="invitation-celebration__whiskers"></span>
-            </div>
-          </div>
-          <div class="invitation-celebration__badge"><span>✓</span> INVITE REWARD</div>
-        </div>
-
-        <div class="invitation-celebration__copy">
-          <p class="invitation-celebration__eyebrow">邀请有礼</p>
-          <h2>邀请奖励资格已绑定</h2>
-          <p class="invitation-celebration__description">
-            已获得七天会员奖励资格。完成首次有效会员购买后，将获得一张七天会员卡。
-          </p>
-          <p class="invitation-celebration__notice">卡券到账后，请在 30 天内启用</p>
-        </div>
-
-        <div class="invitation-celebration__actions">
-          <el-button @click="resolveInvitationReward(false)">稍后再说</el-button>
-          <el-button type="primary" @click="resolveInvitationReward(true)">去开通会员</el-button>
-        </div>
-      </div>
-    </el-dialog>
   </div>
 </template>
 
@@ -373,6 +309,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useInvitationBenefitStore } from '@/stores/invitationBenefit'
 import { getMember } from '@/api/member'
 import { sendEmailCode } from '@/api/auth'
 import { validateInvitationCode } from '@/api/invitations'
@@ -396,45 +333,8 @@ import {
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+const invitationBenefit = useInvitationBenefitStore()
 const formRef = ref<FormInstance>()
-
-const invitationRewardVisible = ref(false)
-let invitationRewardResolver: ((confirmed: boolean) => void) | null = null
-const invitationConfettiStyles = [
-  '--left: 4%; --delay: -0.8s; --duration: 4.6s; --drift: 34px; --color: #ffd43b',
-  '--left: 12%; --delay: -3.1s; --duration: 5.2s; --drift: -28px; --color: #ff5c8a',
-  '--left: 20%; --delay: -1.9s; --duration: 4.2s; --drift: 22px; --color: #22c55e',
-  '--left: 30%; --delay: -4.2s; --duration: 5.7s; --drift: -34px; --color: #6657e8',
-  '--left: 39%; --delay: -2.6s; --duration: 4.9s; --drift: 38px; --color: #ff7a1a',
-  '--left: 49%; --delay: -0.4s; --duration: 5.5s; --drift: -20px; --color: #00b8a9',
-  '--left: 59%; --delay: -3.6s; --duration: 4.4s; --drift: 30px; --color: #ffd43b',
-  '--left: 68%; --delay: -1.3s; --duration: 5.1s; --drift: -38px; --color: #ff4fb3',
-  '--left: 77%; --delay: -4.7s; --duration: 5.8s; --drift: 26px; --color: #6657e8',
-  '--left: 86%; --delay: -2.2s; --duration: 4.7s; --drift: -24px; --color: #22c55e',
-  '--left: 95%; --delay: -3.8s; --duration: 5.4s; --drift: 32px; --color: #ff7a1a',
-]
-
-// 打开自定义奖励弹窗，并将用户的确认选择交回注册成功后的导航流程。
-function openInvitationRewardMessageBox(): Promise<boolean> {
-  invitationRewardVisible.value = true
-  return new Promise((resolve) => {
-    invitationRewardResolver = resolve
-  })
-}
-
-// 将按钮选择回传给注册提交逻辑并关闭奖励弹窗。
-function resolveInvitationReward(confirmed: boolean): void {
-  invitationRewardVisible.value = false
-  invitationRewardResolver?.(confirmed)
-  invitationRewardResolver = null
-}
-
-// 关闭按钮按“稍后再说”处理，保留已经建立的邀请奖励资格。
-function handleInvitationRewardClose(done: () => void): void {
-  invitationRewardResolver?.(false)
-  invitationRewardResolver = null
-  done()
-}
 
 const inviteQueryValue = Array.isArray(route.query.invite)
   ? route.query.invite[0]
@@ -454,7 +354,11 @@ const form = reactive({
   confirmPassword: '',
   inviteCode:
     typeof inviteQueryValue === 'string'
-      ? inviteQueryValue.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16)
+      ? inviteQueryValue
+          .trim()
+          .toUpperCase()
+          .replace(/[^A-Z0-9]/g, '')
+          .slice(0, 16)
       : '',
   legalAccepted: false,
 })
@@ -576,13 +480,6 @@ function startCountdown(seconds: number): void {
   }, 1000)
 }
 
-// 路由切换后等待目标页面完成至少一次绘制，避免全局弹窗仍覆盖在注册页背景上。
-function waitForTargetPagePaint(): Promise<void> {
-  return new Promise((resolve) => {
-    window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()))
-  })
-}
-
 // 邮箱变化后废弃旧挑战，防止验证码绑定到已修改的邮箱。
 function handleEmailInput(): void {
   challengeId.value = ''
@@ -596,7 +493,10 @@ function handleEmailCodeInput(value: string): void {
 
 // 邀请码输入统一转为大写字母和数字，修改后需要重新校验有效性。
 function handleInviteCodeInput(value: string): void {
-  form.inviteCode = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16)
+  form.inviteCode = value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 16)
   inviteValidation.value = 'idle'
 }
 
@@ -633,6 +533,17 @@ async function handleSendCode(): Promise<void> {
     const data = await sendEmailCode(form.email, 'REGISTER')
     challengeId.value = data.challengeId
     startCountdown(data.resendAfter)
+    if (data.developmentCode) {
+      form.emailCode = data.developmentCode
+      formRef.value?.clearValidate('emailCode')
+      ElMessage({
+        type: 'success',
+        message: '开发环境验证码已自动生成并填入',
+        showClose: true,
+        duration: 3000,
+      })
+      return
+    }
     ElMessage({
       type: 'success',
       message: '验证码已发送，请检查邮箱',
@@ -649,8 +560,6 @@ async function handleSendCode(): Promise<void> {
 // 页面离开时释放倒计时，避免卸载后继续更新组件状态。
 onBeforeUnmount(() => {
   if (countdownTimer) window.clearInterval(countdownTimer)
-  invitationRewardResolver?.(false)
-  invitationRewardResolver = null
 })
 
 // 考试类型展示名从统一选项读取，避免页面直接展示内部值。
@@ -778,9 +687,8 @@ const handleSubmit = async (): Promise<void> => {
     }
   })
 
-  let invitationRewardEligible = false
   try {
-    const registration = await auth.register({
+    await auth.register({
       username: form.username,
       email: form.email,
       password: form.password,
@@ -791,7 +699,6 @@ const handleSubmit = async (): Promise<void> => {
       ...(form.inviteCode ? { inviteCode: form.inviteCode } : {}),
       examPreferences: examPrefs,
     })
-    invitationRewardEligible = registration.invitationRewardEligible
   } catch {
     // Axios 公共响应处理会展示后端 errMsg。
     return
@@ -804,21 +711,14 @@ const handleSubmit = async (): Promise<void> => {
     duration: 2500,
   })
   const postRegisterTarget = redirectAfterAuth.value
-  await router.replace(postRegisterTarget)
-  await waitForTargetPagePaint()
   try {
     const memberCtx = await getMember()
     auth.setMemberContext(memberCtx)
   } catch {
     // 会员上下文可以在后续页面重新加载，不阻断已经成功的注册流程。
   }
-  if (invitationRewardEligible) {
-    if (await openInvitationRewardMessageBox()) {
-      await router.replace({ path: '/profile', query: { purchase: '1' } })
-      return
-    }
-    // 用户稍后购买时保留已经建立的邀请关系和奖励资格。
-  }
+  await router.replace(postRegisterTarget)
+  await invitationBenefit.showAfterPagePaint()
 }
 </script>
 
@@ -1203,374 +1103,6 @@ const handleSubmit = async (): Promise<void> => {
   text-align: center;
 }
 
-:global(.invitation-reward-celebration.el-dialog) {
-  position: fixed !important;
-  top: 50% !important;
-  left: 50% !important;
-  width: min(720px, calc(100vw - 32px)) !important;
-  height: 360px !important;
-  min-height: 360px !important;
-  max-height: 360px !important;
-  margin: 0 !important;
-  padding: 0;
-  overflow: hidden;
-  border: 0;
-  border-radius: 28px;
-  box-shadow: 0 28px 80px rgb(15 23 42 / 28%);
-  transform: translate(-50%, -50%) !important;
-}
-
-:global(.invitation-reward-celebration .el-dialog__header) {
-  height: 0;
-  padding: 0;
-}
-
-:global(.invitation-reward-celebration .el-dialog__title) {
-  display: none;
-}
-
-:global(.invitation-reward-celebration .el-dialog__headerbtn) {
-  top: 18px;
-  right: 18px;
-  z-index: 5;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  color: #64748b;
-  background: rgb(255 255 255 / 82%);
-}
-
-:global(.invitation-reward-celebration .el-dialog__headerbtn:hover) {
-  color: #111827;
-  background: #ffffff;
-}
-
-:global(.invitation-reward-celebration .el-dialog__body) {
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  overflow: hidden;
-}
-
-:global(.invitation-celebration__actions) {
-  z-index: 4;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-column: 1 / -1;
-  gap: 14px;
-  padding: 0 32px 24px;
-}
-
-:global(.invitation-celebration__actions .el-button) {
-  width: 100%;
-  height: 46px;
-  margin: 0;
-  border-color: #e5e7eb;
-  border-radius: 12px;
-  color: #334155;
-  background: #f3f4f6;
-  font-size: 15px;
-  font-weight: 700;
-}
-
-:global(.invitation-celebration__actions .el-button--primary) {
-  border-color: #151515;
-  color: #ffffff;
-  background: #151515;
-}
-
-:global(.invitation-celebration__actions .el-button--primary:hover) {
-  border-color: #2f2f2f;
-  background: #2f2f2f;
-}
-
-:global(.invitation-celebration) {
-  position: relative;
-  display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) 70px;
-  width: 100%;
-  height: 360px;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 8% 8%, rgb(255 214 59 / 18%), transparent 26%),
-    radial-gradient(circle at 92% 84%, rgb(102 87 232 / 11%), transparent 30%), #ffffff;
-}
-
-:global(.invitation-celebration__confetti) {
-  position: absolute;
-  z-index: 3;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-:global(.invitation-celebration__confetti i) {
-  position: absolute;
-  top: -24px;
-  left: var(--left);
-  width: 8px;
-  height: 15px;
-  border-radius: 2px;
-  background: var(--color);
-  opacity: 0;
-  animation: invitation-confetti-fall var(--duration) linear var(--delay) infinite;
-}
-
-:global(.invitation-celebration__confetti i:nth-child(3n)) {
-  width: 13px;
-  height: 7px;
-  border-radius: 50%;
-}
-
-:global(.invitation-celebration__confetti i:nth-child(4n)) {
-  width: 7px;
-  height: 7px;
-}
-
-:global(.invitation-celebration__art) {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  padding: 38px 20px 24px 30px;
-}
-
-:global(.invitation-celebration__mascot) {
-  position: relative;
-  width: 120px;
-  height: 118px;
-  margin-top: 6px;
-}
-
-:global(.invitation-celebration__cat) {
-  position: absolute;
-  bottom: 5px;
-  left: 5px;
-  width: 110px;
-  height: 76px;
-  border-radius: 48% 48% 44% 44%;
-  background: #111318;
-  transform: rotate(-2deg);
-}
-
-:global(.invitation-celebration__cat::before),
-:global(.invitation-celebration__cat::after) {
-  position: absolute;
-  top: -14px;
-  width: 34px;
-  height: 34px;
-  background: #111318;
-  content: '';
-  transform: rotate(45deg);
-}
-
-:global(.invitation-celebration__cat::before) {
-  left: 10px;
-  border-radius: 7px 0 0;
-}
-
-:global(.invitation-celebration__cat::after) {
-  right: 10px;
-  border-radius: 0 7px 0 0;
-}
-
-:global(.invitation-celebration__eye) {
-  position: absolute;
-  z-index: 1;
-  top: 28px;
-  width: 18px;
-  height: 8px;
-  border-bottom: 3px solid #ffffff;
-  border-radius: 50%;
-}
-
-:global(.invitation-celebration__eye--left) {
-  left: 24px;
-  transform: rotate(8deg);
-}
-
-:global(.invitation-celebration__eye--right) {
-  right: 24px;
-  transform: rotate(-8deg);
-}
-
-:global(.invitation-celebration__nose) {
-  position: absolute;
-  z-index: 2;
-  top: 44px;
-  left: 49px;
-  width: 14px;
-  height: 11px;
-  border-radius: 50% 50% 55% 55%;
-  background: #ff5c8a;
-}
-
-:global(.invitation-celebration__whiskers),
-:global(.invitation-celebration__whiskers::before),
-:global(.invitation-celebration__whiskers::after) {
-  position: absolute;
-  z-index: 1;
-  top: 52px;
-  width: 28px;
-  height: 2px;
-  border-radius: 999px;
-  background: #ffffff;
-  content: '';
-}
-
-:global(.invitation-celebration__whiskers) {
-  left: 9px;
-  box-shadow: 64px 0 0 #ffffff;
-}
-
-:global(.invitation-celebration__whiskers::before) {
-  top: -7px;
-  left: 1px;
-  transform: rotate(12deg);
-  box-shadow: 63px -13px 0 #ffffff;
-}
-
-:global(.invitation-celebration__whiskers::after) {
-  top: 7px;
-  left: 1px;
-  transform: rotate(-12deg);
-  box-shadow: 63px 13px 0 #ffffff;
-}
-
-:global(.invitation-celebration__hat) {
-  position: absolute;
-  z-index: 2;
-  top: 0;
-  left: 42px;
-  width: 52px;
-  height: 63px;
-  clip-path: polygon(50% 0, 100% 100%, 0 100%);
-  background: repeating-linear-gradient(155deg, #ff5c8a 0 12px, #ffd43b 12px 24px);
-  transform: rotate(-8deg);
-}
-
-:global(.invitation-celebration__hat span) {
-  position: absolute;
-  top: -4px;
-  left: 21px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #6657e8;
-}
-
-:global(.invitation-celebration__badge) {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 10px;
-  color: #334155;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
-:global(.invitation-celebration__badge span) {
-  display: grid;
-  width: 21px;
-  height: 21px;
-  border-radius: 50%;
-  color: #ffffff;
-  background: #22a699;
-  place-items: center;
-}
-
-:global(.invitation-celebration__copy) {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-width: 0;
-  padding: 46px 42px 28px 12px;
-}
-
-:global(.invitation-celebration__eyebrow) {
-  margin: 0 0 9px;
-  color: #6657e8;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-}
-
-:global(.invitation-celebration__copy h2) {
-  margin: 0;
-  color: #111827;
-  font-size: 27px;
-  font-weight: 800;
-  line-height: 1.25;
-}
-
-:global(.invitation-celebration__description) {
-  margin: 16px 0 0;
-  color: #475569;
-  font-size: 15px;
-  line-height: 1.75;
-}
-
-:global(.invitation-celebration__notice) {
-  align-self: flex-start;
-  margin: 14px 0 0;
-  padding: 7px 12px;
-  border-radius: 999px;
-  color: #7c3d0a;
-  background: #fff5d6;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-:global(.invitation-celebration__ribbon) {
-  position: absolute;
-  width: 14px;
-  height: 82px;
-  border-radius: 999px;
-}
-
-:global(.invitation-celebration__ribbon--left) {
-  top: -18px;
-  left: 25px;
-  background: #d8e500;
-  transform: rotate(13deg);
-}
-
-:global(.invitation-celebration__ribbon--right) {
-  top: -24px;
-  right: 7px;
-  background: #ff7a1a;
-  transform: rotate(-28deg);
-}
-
-@keyframes invitation-confetti-fall {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, -32px, 0) rotate(0deg);
-  }
-
-  12%,
-  78% {
-    opacity: 1;
-  }
-
-  100% {
-    opacity: 0;
-    transform: translate3d(var(--drift), 330px, 0) rotate(560deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  :global(.invitation-celebration__confetti i) {
-    animation: none;
-  }
-}
-
 @media (max-width: 900px) {
   .register-form-grid {
     grid-template-columns: 1fr;
@@ -1586,45 +1118,6 @@ const handleSubmit = async (): Promise<void> => {
 }
 
 @media (max-width: 640px) {
-  :global(.invitation-reward-celebration.el-dialog) {
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: calc(100vh - 24px) !important;
-    border-radius: 22px;
-  }
-
-  :global(.invitation-celebration) {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto 70px;
-    height: auto;
-  }
-
-  :global(.invitation-celebration__art) {
-    padding: 26px 20px 0;
-  }
-
-  :global(.invitation-celebration__mascot) {
-    transform: scale(0.82);
-  }
-
-  :global(.invitation-celebration__copy) {
-    align-items: center;
-    padding: 0 28px 24px;
-    text-align: center;
-  }
-
-  :global(.invitation-celebration__copy h2) {
-    font-size: 23px;
-  }
-
-  :global(.invitation-celebration__notice) {
-    align-self: center;
-  }
-
-  :global(.invitation-celebration__actions) {
-    padding: 0 24px 24px;
-  }
-
   .register-card {
     padding: var(--space-10) 1.5rem;
     border-radius: var(--radius-xl);

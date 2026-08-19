@@ -161,30 +161,37 @@ authRouter.post('/email-code', emailCodeLimiter, optionalAuth, async (req: Reque
     const challenge = await prisma.$transaction((tx) =>
       createEmailChallenge(tx, { email: input.email, purpose, userId }),
     )
-    try {
-      await sendVerificationCodeEmail({
-        to: input.email,
-        code: challenge.code,
-        purpose,
-        expiresInMinutes: Math.ceil(config.emailCodeTtlSeconds / 60),
-      })
-    } catch (error) {
-      await prisma.emailVerificationChallenge.update({
-        where: { id: challenge.id },
-        data: { invalidatedAt: new Date() },
-      })
-      logRuntimeError('auth.email_code.send_failed', error)
-      throw new AuthError(
-        AUTH_ERROR.EMAIL_SERVICE_UNAVAILABLE,
-        '验证码邮件暂时无法发送，请稍后再试',
-        503,
-      )
+    const isLocalRegistration = config.runtimeEnv === 'local'
+      && purpose === EMAIL_CODE_PURPOSE.REGISTER
+
+    // 本地注册直接回传本次随机验证码，测试与线上仍必须经过真实邮件通道。
+    if (!isLocalRegistration) {
+      try {
+        await sendVerificationCodeEmail({
+          to: input.email,
+          code: challenge.code,
+          purpose,
+          expiresInMinutes: Math.ceil(config.emailCodeTtlSeconds / 60),
+        })
+      } catch (error) {
+        await prisma.emailVerificationChallenge.update({
+          where: { id: challenge.id },
+          data: { invalidatedAt: new Date() },
+        })
+        logRuntimeError('auth.email_code.send_failed', error)
+        throw new AuthError(
+          AUTH_ERROR.EMAIL_SERVICE_UNAVAILABLE,
+          '验证码邮件暂时无法发送，请稍后再试',
+          503,
+        )
+      }
     }
 
     res.json(success({
       challengeId: challenge.id,
       expiresIn: config.emailCodeTtlSeconds,
       resendAfter: config.emailCodeResendSeconds,
+      ...(isLocalRegistration ? { developmentCode: challenge.code } : {}),
     }))
   } catch (error) {
     handleAuthError(res, error, 'email_code')
@@ -254,7 +261,6 @@ authRouter.post('/register', registerLimiter, async (req: Request, res: Response
     res.status(201).json(success({
       user: presentUser(user),
       accessToken: session.accessToken,
-      invitationRewardEligible: Boolean(input.inviteCode),
     }))
   } catch (error) {
     handleAuthError(res, error, 'register')

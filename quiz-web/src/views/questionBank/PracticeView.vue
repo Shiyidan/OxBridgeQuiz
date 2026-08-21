@@ -1,6 +1,10 @@
 ﻿<!-- 试题库和诊断测试共用的在线答题页 -->
 <template>
   <div class="practice-page">
+    <ExamWatermark
+      v-if="activeExamRecordId"
+      :username="auth.user?.username"
+    />
     <ExamVue
       :key="examTimerKey"
       ref="examNavRef"
@@ -140,6 +144,7 @@ import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import QuestionCard from '@/components/QuestionCard.vue'
 import ExamVue from '@/components/ExamVue.vue'
+import ExamWatermark from '@/components/ExamWatermark.vue'
 import DiagnosticAnalysisDialog from '@/components/DiagnosticAnalysisDialog.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'

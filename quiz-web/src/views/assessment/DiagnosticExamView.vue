@@ -1,6 +1,10 @@
 <!-- 分段诊断答题页：支持 ESAT 科目模块和 TMUA Paper 1/2 的独立计时与顺序锁定。 -->
 <template>
   <div class="diagnostic-exam-page">
+    <ExamWatermark
+      v-if="session?.phase === 'answering'"
+      :username="auth.user?.username"
+    />
     <ExamVue
       v-if="session?.phase === 'answering' && activeModule"
       :key="timerKey"
@@ -173,6 +177,7 @@ import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import ExamVue from '@/components/ExamVue.vue'
+import ExamWatermark from '@/components/ExamWatermark.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import ExamBreakDialog from '@/components/ExamBreakDialog.vue'
 import QuestionCard from '@/components/QuestionCard.vue'

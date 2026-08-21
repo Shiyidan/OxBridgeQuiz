@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import brandIconUrl from '@/assets/brand/acemock-icon.png'
 import contactQrUrl from '@/assets/home/contact-qr.png'
+import wechatQrUrl from '@/assets/home/wechat-qr.png'
 
 withDefaults(
   defineProps<{
@@ -37,8 +38,16 @@ const emit = defineEmits<{
 
       <section class="home-footer-contact" aria-labelledby="home-footer-contact-title">
         <h2 id="home-footer-contact-title" class="home-footer-group-title">联系我们</h2>
-        <img :src="contactQrUrl" alt="AceMock 联系方式二维码" class="home-footer-contact-qr" />
-        <p>小红书扫码进群获取更多优惠</p>
+        <div class="home-footer-contact-codes">
+          <div class="home-footer-contact-code">
+            <img :src="wechatQrUrl" alt="AceMock 微信二维码" class="home-footer-contact-qr" />
+            <p>微信</p>
+          </div>
+          <div class="home-footer-contact-code">
+            <img :src="contactQrUrl" alt="AceMock 小红书二维码" class="home-footer-contact-qr" />
+            <p>小红书</p>
+          </div>
+        </div>
       </section>
 
       <nav class="home-footer-links" aria-label="页脚公开链接">

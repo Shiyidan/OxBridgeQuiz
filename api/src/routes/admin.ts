@@ -61,10 +61,31 @@ import {
   InvitationError,
   grantAdminDailyCards,
 } from '../services/invitation.js'
+import {
+  getAdminUserDetail,
+  isUserActivityModule,
+} from '../services/adminUserDetail.js'
+import { getAdminStaffGiftCardStats } from '../services/adminStaffStats.js'
 
 export const adminRouter = createAsyncRouter()
 
 adminRouter.use(requireAuth, requireAdmin)
+
+// 员工管理
+adminRouter.get('/staff/gift-card-stats', async (req: Request, res: Response) => {
+  try {
+    const page = parsePositiveInt(req.query.page, 1)
+    const pageSize = parsePositiveInt(req.query.pageSize, 20, 100)
+    const keyword = typeof req.query.keyword === 'string'
+      ? req.query.keyword.trim().slice(0, 100)
+      : ''
+    const stats = await getAdminStaffGiftCardStats({ page, pageSize, keyword })
+    res.json(success(stats))
+  } catch (error) {
+    logRuntimeError('admin.staff.gift_card_stats_failed', error)
+    res.status(500).json(fail('读取员工日卡发放统计失败'))
+  }
+})
 
 function parsePaymentAmount(value: unknown): number | null {
   const amount = Number(value)
@@ -121,25 +142,94 @@ function formatOperationLog<T extends {
   }
 }
 
-// 列表页按当前页一次性解析考试记录对应的试卷名称，避免逐行查询造成 N+1 压力。
-async function getExamRecordPaperTitles(
+interface OperationResourceDisplay {
+  name: string
+  email?: string | null
+}
+
+// 当前页按对象类型批量查询可读名称和关联邮箱，避免列表逐行查询造成 N+1 压力。
+async function getOperationResourceDisplays(
   logs: Array<{ resourceType: string | null; resourceId: string | null }>,
-): Promise<Map<string, string>> {
-  const examRecordIds = [...new Set(
+): Promise<Map<string, OperationResourceDisplay>> {
+  const idsFor = (resourceType: string) => [...new Set(
     logs
-      .filter((log) => log.resourceType === 'ExamRecord' && log.resourceId)
+      .filter((log) => log.resourceType === resourceType && log.resourceId)
       .map((log) => log.resourceId as string),
   )]
-  if (examRecordIds.length === 0) return new Map()
+  const userIds = idsFor('User')
+  const examRecordIds = idsFor('ExamRecord')
+  const paperIds = idsFor('Paper')
+  const studyResourceKeys = idsFor('StudyResource')
+  const paymentOrderIds = idsFor('PaymentOrder')
+  const mockPaperSetIds = idsFor('MockPaperSet')
+  const revenueCostIds = idsFor('RevenueCost')
+  const syllabusIds = idsFor('Syllabus')
 
-  const examRecords = await prisma.examRecord.findMany({
-    where: { id: { in: examRecordIds } },
-    select: {
-      id: true,
-      paper: { select: { title: true } },
-    },
+  const [users, examRecords, papers, studyResources, paymentOrders, mockPaperSets, revenueCosts, syllabuses] = await Promise.all([
+    userIds.length
+      ? prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, username: true, email: true },
+        })
+      : Promise.resolve([]),
+    examRecordIds.length
+      ? prisma.examRecord.findMany({
+          where: { id: { in: examRecordIds } },
+          select: { id: true, paper: { select: { title: true } } },
+        })
+      : Promise.resolve([]),
+    paperIds.length
+      ? prisma.paper.findMany({ where: { id: { in: paperIds } }, select: { id: true, title: true } })
+      : Promise.resolve([]),
+    studyResourceKeys.length
+      ? prisma.studyResource.findMany({
+          where: { bundleKey: { in: studyResourceKeys } },
+          select: { bundleKey: true, title: true },
+          distinct: ['bundleKey'],
+        })
+      : Promise.resolve([]),
+    paymentOrderIds.length
+      ? prisma.paymentOrder.findMany({
+          where: { OR: [{ id: { in: paymentOrderIds } }, { orderNo: { in: paymentOrderIds } }] },
+          select: { id: true, orderNo: true, user: { select: { username: true, email: true } } },
+        })
+      : Promise.resolve([]),
+    mockPaperSetIds.length
+      ? prisma.mockPaperSet.findMany({ where: { id: { in: mockPaperSetIds } }, select: { id: true, title: true } })
+      : Promise.resolve([]),
+    revenueCostIds.length
+      ? prisma.revenueCost.findMany({
+          where: { id: { in: revenueCostIds } },
+          select: { id: true, rechargeItem: true, amount: true },
+        })
+      : Promise.resolve([]),
+    syllabusIds.length
+      ? prisma.syllabus.findMany({ where: { id: { in: syllabusIds } }, select: { id: true, name: true } })
+      : Promise.resolve([]),
+  ])
+
+  const displays = new Map<string, OperationResourceDisplay>()
+  users.forEach((user) => displays.set(`User:${user.id}`, { name: user.username, email: user.email }))
+  examRecords.forEach((record) => displays.set(`ExamRecord:${record.id}`, { name: record.paper.title }))
+  papers.forEach((paper) => displays.set(`Paper:${paper.id}`, { name: paper.title }))
+  studyResources.forEach((resource) => displays.set(`StudyResource:${resource.bundleKey}`, { name: resource.title }))
+  paymentOrders.forEach((order) => {
+    const label = `${order.orderNo} · ${order.user.username}`
+    const display = { name: label, email: order.user.email }
+    displays.set(`PaymentOrder:${order.id}`, display)
+    displays.set(`PaymentOrder:${order.orderNo}`, display)
   })
-  return new Map(examRecords.map((record) => [record.id, record.paper.title]))
+  mockPaperSets.forEach((paper) => displays.set(`MockPaperSet:${paper.id}`, { name: paper.title }))
+  revenueCosts.forEach((cost) => displays.set(`RevenueCost:${cost.id}`, {
+    name: `${cost.rechargeItem} · ¥${cost.amount.toFixed(2)}`,
+  }))
+  syllabuses.forEach((syllabus) => displays.set(`Syllabus:${syllabus.id}`, { name: syllabus.name }))
+  return displays
+}
+
+// 对象已删除时从审计摘要保留的中文引号内容恢复名称，编码继续作为次要定位信息。
+function resourceDisplayNameFromSummary(summary: string): string | null {
+  return summary.match(/“([^”]+)”/)?.[1]?.trim() || null
 }
 
 // 时间筛选只接受有效 ISO 日期，避免无效 Date 进入 Prisma 查询。
@@ -282,14 +372,20 @@ adminRouter.get('/operation-logs', async (req, res) => {
     skip: (safePage - 1) * pageSize,
     take: pageSize,
   })
-  const examRecordPaperTitles = await getExamRecordPaperTitles(list)
+  const resourceDisplays = await getOperationResourceDisplays(list)
   res.json(success({
-    list: list.map((log) => ({
-      ...formatOperationLog(log),
-      resourceDisplayName: log.resourceType === 'ExamRecord' && log.resourceId
-        ? examRecordPaperTitles.get(log.resourceId) || null
-        : null,
-    })),
+    list: list.map((log) => {
+      const resourceDisplay = log.resourceType && log.resourceId
+        ? resourceDisplays.get(`${log.resourceType}:${log.resourceId}`)
+        : undefined
+      return {
+        ...formatOperationLog(log),
+        resourceDisplayName: log.resourceType && log.resourceId
+          ? resourceDisplay?.name || resourceDisplayNameFromSummary(log.summary)
+          : null,
+        resourceDisplayEmail: resourceDisplay?.email || null,
+      }
+    }),
     pagination: {
       page: safePage,
       pageSize,
@@ -482,24 +578,6 @@ adminRouter.get('/payment-orders', async (req, res) => {
       where,
       include: {
         user: { select: { id: true, username: true, email: true } },
-        refunds: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-          select: {
-            id: true,
-            refundOrderNo: true,
-            amountCents: true,
-            reason: true,
-            status: true,
-            providerRefundNo: true,
-            failureCode: true,
-            failureMessage: true,
-            operatorId: true,
-            refundedAt: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        },
       },
       orderBy: { createdAt: 'desc' },
       skip: (safePage - 1) * pageSize,
@@ -510,8 +588,6 @@ adminRouter.get('/payment-orders', async (req, res) => {
         const { providerPayload: _providerPayload, ...safeOrder } = order
         return {
           ...safeOrder,
-          latestRefund: order.refunds[0] ? formatPaymentRefund(order.refunds[0]) : null,
-          refunds: undefined,
           createdAt: order.createdAt.toISOString(),
           updatedAt: order.updatedAt.toISOString(),
           expiresAt: order.expiresAt.toISOString(),
@@ -559,12 +635,10 @@ adminRouter.get('/payment-orders/:orderNo', async (req, res) => {
         where: { orderNo: order.orderNo },
         orderBy: { createdAt: 'desc' },
       }),
-      examTypes.length > 0
-        ? prisma.userMembership.findMany({
-            where: { userId: order.userId, examType: { in: examTypes } },
-            orderBy: [{ examType: 'asc' }, { endsAt: 'desc' }],
-          })
-        : Promise.resolve([]),
+      prisma.userMembership.findMany({
+        where: { paymentOrderId: order.id },
+        orderBy: [{ examType: 'asc' }, { endsAt: 'desc' }],
+      }),
     ])
 
     const operatorIds = new Set<string>()
@@ -701,7 +775,6 @@ adminRouter.get('/payment-orders/:orderNo', async (req, res) => {
         status: membership.status,
         occurredAt: membership.startsAt.toISOString(),
         actor: null,
-        inferred: true,
       })
       if (membership.status === MEMBERSHIP_STATUS.CANCELLED || membership.status === MEMBERSHIP_STATUS.EXPIRED) {
         timeline.push({
@@ -712,7 +785,6 @@ adminRouter.get('/payment-orders/:orderNo', async (req, res) => {
           status: membership.status,
           occurredAt: membership.endsAt.toISOString(),
           actor: null,
-          inferred: true,
         })
       }
     })
@@ -787,7 +859,7 @@ adminRouter.get('/payment-orders/:orderNo', async (req, res) => {
         endsAt: membership.endsAt.toISOString(),
         createdAt: membership.createdAt.toISOString(),
         updatedAt: membership.updatedAt.toISOString(),
-        associationBasis: 'user_exam_type_snapshot',
+        associationBasis: 'payment_order',
       })),
       reconciliationItems: order.reconciliationItems.map((item) => ({
         ...formatReconciliationItem(item),
@@ -1163,6 +1235,28 @@ adminRouter.get('/users', async (req: Request, res: Response) => {
   } catch (err) {
     logRuntimeError('admin.users.list_failed', err)
     res.status(500).json(fail('服务器错误'))
+  }
+})
+
+// 用户详情
+adminRouter.get('/users/:id/detail', async (req: Request, res: Response) => {
+  try {
+    const page = parsePositiveInt(req.query.page, 1)
+    const pageSize = parsePositiveInt(req.query.pageSize, 10, 50)
+    const module = req.query.module
+    if (module !== undefined && !isUserActivityModule(module)) {
+      res.status(422).json(fail('用户活动模块参数无效', 'ADMIN_USER_MODULE_INVALID'))
+      return
+    }
+    const detail = await getAdminUserDetail(req.params.id, { page, pageSize, module })
+    if (!detail) {
+      res.status(404).json(fail('用户不存在', 'ADMIN_USER_NOT_FOUND'))
+      return
+    }
+    res.json(success(detail))
+  } catch (error) {
+    logRuntimeError('admin.user.detail_failed', error)
+    res.status(500).json(fail('读取用户详情失败'))
   }
 })
 

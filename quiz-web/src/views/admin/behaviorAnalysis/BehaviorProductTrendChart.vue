@@ -1,4 +1,4 @@
-<!-- 产品使用趋势图：按北京时间自然日对比诊断、题库、模考完成次数与诊断报告查看次数。 -->
+<!-- 产品使用趋势图：按北京时间自然日对比三类练习完成次数、诊断报告和错题本查看次数。 -->
 <template>
   <div class="product-trend-shell">
     <div
@@ -31,14 +31,15 @@ const chartRef = ref<HTMLDivElement | null>(null)
 let chart: echarts.ECharts | null = null
 let resizeObserver: ResizeObserver | null = null
 
-// 四项核心行为均为零时使用空状态，避免无意义坐标轴占据页面空间。
+// 五项核心行为均为零时使用空状态，避免无意义坐标轴占据页面空间。
 const hasData = computed(() =>
   props.items.some(
     (item) =>
       item.diagnosticTestCount +
         item.questionBankPracticeCount +
         item.mockExamCount +
-        item.reportViewCount >
+        item.reportViewCount +
+        item.mistakeNotebookViewCount >
       0,
   ),
 )
@@ -65,7 +66,7 @@ onBeforeUnmount(() => {
   chart = null
 })
 
-// 四条折线共享次数坐标，便于直接观察不同学习路径的使用峰值和相对变化。
+// 五条折线共享次数坐标，便于直接观察不同学习路径的使用峰值和相对变化。
 function renderChart(): void {
   if (!chartRef.value || !hasData.value) return
   if (!chart) chart = echarts.init(chartRef.value)
@@ -73,13 +74,13 @@ function renderChart(): void {
   chart.setOption(
     {
       animationDuration: 420,
-      color: ['#4f46e5', '#0891b2', '#d97706', '#7c3aed'],
+      color: ['#4f46e5', '#0891b2', '#d97706', '#7c3aed', '#e11d48'],
       grid: { left: 48, right: 24, top: 58, bottom: 40 },
       legend: {
         top: 4,
         right: 8,
         textStyle: { color: '#64748b' },
-        data: ['诊断测试', '试题库练习', '模考练习', '查看分析报告'],
+        data: ['诊断测试', '试题库练习', '模考练习', '查看分析报告', '查看错题本'],
       },
       tooltip: {
         trigger: 'axis',
@@ -139,6 +140,14 @@ function renderChart(): void {
           symbolSize: 6,
           lineStyle: { width: 2, type: 'dashed' },
           data: props.items.map((item) => item.reportViewCount),
+        },
+        {
+          name: '查看错题本',
+          type: 'line',
+          smooth: 0.24,
+          symbolSize: 6,
+          lineStyle: { width: 2, type: 'dotted' },
+          data: props.items.map((item) => item.mistakeNotebookViewCount),
         },
       ],
     },

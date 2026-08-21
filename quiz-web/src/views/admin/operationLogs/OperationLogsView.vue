@@ -78,10 +78,12 @@
       @page-change="handlePageChange"
       @page-size-change="handlePageSizeChange"
     >
-      <el-table-column label="发生时间" width="150" fixed="left">
-        <template #default="{ row }">{{ formatDateTime(row.occurredAt) }}</template>
+      <el-table-column label="发生时间" width="200" fixed="left">
+        <template #default="{ row }">
+          <span class="occurred-at-cell">{{ formatDateTime(row.occurredAt) }}</span>
+        </template>
       </el-table-column>
-      <el-table-column label="操作人" min-width="210">
+      <el-table-column label="操作人" min-width="150">
         <template #default="{ row }">
           <div class="actor-cell">
             <strong>{{ row.actorNameSnapshot }}</strong>
@@ -89,35 +91,45 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="角色" width="115" align="center">
+      <el-table-column label="角色" min-width="108" align="center">
         <template #default="{ row }">
-          <el-tag
-            :type="row.actorRoleSnapshot === 'admin' ? 'danger' : 'info'"
-            effect="light"
-            round
-          >
-            {{ roleLabel(row.actorRoleSnapshot) }}
-          </el-tag>
+          <span class="state-tag-cell">
+            <el-tag
+              class="operation-state-tag"
+              :type="row.actorRoleSnapshot === 'admin' ? 'danger' : 'info'"
+              effect="light"
+              round
+            >
+              {{ roleLabel(row.actorRoleSnapshot) }}
+            </el-tag>
+          </span>
         </template>
       </el-table-column>
-      <el-table-column label="模块" width="116" align="center">
+      <el-table-column label="模块" min-width="200" align="center">
         <template #default="{ row }">{{ moduleLabel(row.module) }}</template>
       </el-table-column>
-      <el-table-column prop="summary" label="操作内容" min-width="210" show-overflow-tooltip />
-      <el-table-column label="操作对象" min-width="168" show-overflow-tooltip>
-        <template #default="{ row }">{{ resourceListLabel(row) }}</template>
-      </el-table-column>
-      <el-table-column label="结果" width="92" align="center">
+      <el-table-column label="操作" min-width="300">
         <template #default="{ row }">
-          <el-tag :type="row.result === 'success' ? 'success' : 'danger'" effect="light">
-            {{ row.result === 'success' ? '成功' : '失败' }}
-          </el-tag>
+          <div class="operation-cell">
+            <strong>{{ operationDisplayLabel(row) }}</strong>
+            <span v-if="row.resourceDisplayEmail">{{ row.resourceDisplayEmail }}</span>
+          </div>
         </template>
       </el-table-column>
-      <el-table-column prop="ipAddress" label="来源 IP" width="142">
-        <template #default="{ row }">{{ row.ipAddress || '-' }}</template>
+      <el-table-column label="结果" min-width="104" align="center">
+        <template #default="{ row }">
+          <span class="state-tag-cell">
+            <el-tag
+              class="operation-state-tag"
+              :type="row.result === 'success' ? 'success' : 'danger'"
+              effect="light"
+            >
+              {{ row.result === 'success' ? '成功' : '失败' }}
+            </el-tag>
+          </span>
+        </template>
       </el-table-column>
-      <el-table-column label="详情" width="90" fixed="right" align="center">
+      <el-table-column label="详情" width="86" fixed="right" align="center">
         <template #default="{ row }">
           <el-button link type="primary" @click="openDetail(row.id)">查看</el-button>
         </template>
@@ -281,6 +293,22 @@ const fieldLabels: Record<string, string> = {
   record: '被删除记录',
 }
 
+const resourceTypeLabels: Record<string, string> = {
+  User: '用户',
+  AuthSession: '登录设备',
+  ExamRecord: '答题记录',
+  Paper: '试卷',
+  MockPaperSet: '模考试卷',
+  StudyResource: '学习资料',
+  Syllabus: '考纲',
+  PaymentConfig: '支付配置',
+  PaymentOrder: '支付订单',
+  PaymentRefund: '退款记录',
+  PaymentReconciliationRun: '对账批次',
+  PaymentReconciliationItem: '对账异常',
+  RevenueCost: '成本记录',
+}
+
 const defaultTimes: [Date, Date] = [new Date(2000, 0, 1, 0, 0, 0), new Date(2000, 0, 1, 23, 59, 59)]
 
 const route = useRoute()
@@ -329,17 +357,50 @@ function formatDateTime(value: string): string {
   return new Date(value).toLocaleString('zh-CN', { hour12: false })
 }
 
-// 资源类型和标识组合展示，缺少具体对象时仍保留类型语义。
-function resourceLabel(log: Pick<OperationLogItem, 'resourceType' | 'resourceId'>): string {
-  if (!log.resourceType && !log.resourceId) return '-'
-  return [log.resourceType, log.resourceId].filter(Boolean).join(' · ')
+// 资源类型统一转换为后台可读的中文业务名称，未知扩展类型保留原始值。
+function resourceTypeLabel(resourceType?: string | null): string {
+  if (!resourceType) return '业务对象'
+  return resourceTypeLabels[resourceType] || resourceType
 }
 
-// 列表优先展示可读的业务名称，详情仍通过 resourceLabel 保留原始审计对象。
-function resourceListLabel(
+// 资源类型和完整标识用于详情与悬停定位，列表主内容不再直接突出 UUID。
+function resourceLabel(log: Pick<OperationLogItem, 'resourceType' | 'resourceId'>): string {
+  if (!log.resourceType && !log.resourceId) return '-'
+  return [resourceTypeLabel(log.resourceType), log.resourceId].filter(Boolean).join(' · ')
+}
+
+// 列表第一行优先展示数据库解析出的用户名、试卷名或订单号。
+function resourcePrimaryLabel(
   log: Pick<OperationLogItem, 'resourceType' | 'resourceId' | 'resourceDisplayName'>,
 ): string {
-  return log.resourceDisplayName || resourceLabel(log)
+  if (!log.resourceType && !log.resourceId) return '-'
+  return log.resourceDisplayName || resourceTypeLabel(log.resourceType)
+}
+
+// 诊断报告只保留考试名称和年份，避免试卷模块名称与“诊断报告”重复堆叠。
+function diagnosticReportSubject(displayName: string): string {
+  const examYear = displayName.match(/\b(ESAT|TMUA)\s*(20\d{2})\b/i)
+  const examType = examYear?.[1]
+  const year = examYear?.[2]
+  if (examType && year) return `${examType.toUpperCase()} ${year}`
+  return displayName.split(/\s+[—–]\s+|\s+·\s+/)[0]?.trim() || displayName
+}
+
+// 列表将动作与可读对象合成一句话；摘要已包含对象名称时不再重复追加。
+function operationDisplayLabel(
+  log: Pick<
+    OperationLogItem,
+    'action' | 'summary' | 'resourceType' | 'resourceId' | 'resourceDisplayName'
+  >,
+): string {
+  const displayName = resourcePrimaryLabel(log)
+  if (displayName === '-' || displayName === resourceTypeLabel(log.resourceType)) return log.summary
+  if (log.summary.includes(displayName)) return log.summary
+  if (log.action === 'diagnostic_report.view') {
+    return `查看 ${diagnosticReportSubject(displayName)} 诊断报告`
+  }
+  if (log.resourceType === 'User') return `${displayName} ${log.summary}`
+  return `${log.summary} ${displayName}`
 }
 
 // 字段名优先使用产品标签，未知扩展字段保留原始编码。
@@ -648,6 +709,27 @@ onMounted(() => {
   gap: 8px;
 }
 
+.operation-logs-page :deep(.admin-data-table__table .el-table__cell) {
+  padding: 10px 14px;
+}
+
+.occurred-at-cell {
+  white-space: nowrap;
+}
+
+.state-tag-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0;
+  line-height: 0;
+}
+
+.state-tag-cell :deep(.operation-state-tag::after) {
+  display: none !important;
+  content: none !important;
+}
+
 .actor-cell {
   display: flex;
   min-width: 0;
@@ -667,6 +749,32 @@ onMounted(() => {
   color: #94a3b8;
   font-size: 0.76rem;
   text-overflow: ellipsis;
+}
+
+.operation-cell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.operation-cell strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operation-cell strong {
+  color: #334155;
+  font-size: 0.84rem;
+}
+
+.operation-cell span {
+  overflow: hidden;
+  color: #94a3b8;
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .detail-content {

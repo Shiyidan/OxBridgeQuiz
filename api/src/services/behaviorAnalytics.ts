@@ -10,6 +10,8 @@ import { OPERATION_AUDIT_MODULE, OPERATION_AUDIT_RESULT } from '../constants/ope
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const CHINA_TIMEZONE_OFFSET_MS = 8 * 60 * 60 * 1000
+const DIAGNOSTIC_REPORT_VIEW_ACTION = 'diagnostic_report.view'
+const MISTAKE_NOTEBOOK_VIEW_ACTION = 'mistake_notebook.view'
 
 export const BEHAVIOR_ANALYTICS_TIMEZONE = 'Asia/Shanghai'
 export const BEHAVIOR_ANALYTICS_MAX_RANGE_DAYS = 90
@@ -60,9 +62,15 @@ export interface DiagnosticReportViewEvent {
   resourceId: string | null
 }
 
+export interface MistakeNotebookViewEvent {
+  occurredAt: Date
+  userId: string
+}
+
 export interface ProductUsageEvents {
   completions: ProductCompletionEvent[]
   reportViews: DiagnosticReportViewEvent[]
+  mistakeNotebookViews: MistakeNotebookViewEvent[]
 }
 
 interface MutableGroupStats {
@@ -101,6 +109,8 @@ interface ProductUsagePeriodAggregation {
   reportViewUsers: Set<string>
   reportViewResources: Set<string>
   reportViewCount: number
+  mistakeNotebookViewUsers: Set<string>
+  mistakeNotebookViewCount: number
   userModuleCounts: Map<string, Map<ProductUsageModule, number>>
 }
 
@@ -291,6 +301,8 @@ function aggregateProductUsagePeriod(events: ProductUsageEvents): ProductUsagePe
     reportViewUsers: new Set(),
     reportViewResources: new Set(),
     reportViewCount: 0,
+    mistakeNotebookViewUsers: new Set(),
+    mistakeNotebookViewCount: 0,
     userModuleCounts: new Map(),
   }
 
@@ -316,6 +328,11 @@ function aggregateProductUsagePeriod(events: ProductUsageEvents): ProductUsagePe
     if (event.resourceId) aggregation.reportViewResources.add(event.resourceId)
   }
 
+  for (const event of events.mistakeNotebookViews) {
+    aggregation.mistakeNotebookViewCount += 1
+    aggregation.mistakeNotebookViewUsers.add(event.userId)
+  }
+
   return aggregation
 }
 
@@ -338,8 +355,9 @@ function buildProductUsageTrend(
   date: string
   diagnosticTestCount: number
   questionBankPracticeCount: number
-  mockExamCount: number
-  reportViewCount: number
+    mockExamCount: number
+    reportViewCount: number
+    mistakeNotebookViewCount: number
 }> {
   const trend = new Map<
     string,
@@ -348,6 +366,7 @@ function buildProductUsageTrend(
       questionBankPracticeCount: number
       mockExamCount: number
       reportViewCount: number
+      mistakeNotebookViewCount: number
     }
   >()
   const firstDay = Math.floor((startAt.getTime() + CHINA_TIMEZONE_OFFSET_MS) / DAY_MS) * DAY_MS
@@ -360,6 +379,7 @@ function buildProductUsageTrend(
       questionBankPracticeCount: 0,
       mockExamCount: 0,
       reportViewCount: 0,
+      mistakeNotebookViewCount: 0,
     })
   }
 
@@ -373,6 +393,10 @@ function buildProductUsageTrend(
   for (const event of events.reportViews) {
     const item = trend.get(chinaDateKey(event.occurredAt))
     if (item) item.reportViewCount += 1
+  }
+  for (const event of events.mistakeNotebookViews) {
+    const item = trend.get(chinaDateKey(event.occurredAt))
+    if (item) item.mistakeNotebookViewCount += 1
   }
 
   return [...trend.entries()].map(([date, item]) => ({ date, ...item }))
@@ -443,6 +467,7 @@ export function aggregateProductUsage(
     scope: {
       completionSource: 'exam_record' as const,
       reportViewSource: 'operation_log' as const,
+      mistakeNotebookViewSource: 'operation_log' as const,
       preferenceMinimumCompletions: PRODUCT_PREFERENCE_MIN_COMPLETIONS,
     },
     overview: {
@@ -458,6 +483,16 @@ export function aggregateProductUsage(
       distinctReportCount: current.reportViewResources.size,
       averageReportViews: ratio(current.reportViewCount, current.reportViewUsers.size),
       samePeriodReportViewRate: ratio(viewedCurrentDiagnosticCount, diagnosticRecords.size),
+      mistakeNotebookViewCount: current.mistakeNotebookViewCount,
+      mistakeNotebookViewChangeRate: changeRate(
+        current.mistakeNotebookViewCount,
+        previous.mistakeNotebookViewCount,
+      ),
+      mistakeNotebookViewerCount: current.mistakeNotebookViewUsers.size,
+      averageMistakeNotebookViews: ratio(
+        current.mistakeNotebookViewCount,
+        current.mistakeNotebookViewUsers.size,
+      ),
     },
     modules,
     preferences,
@@ -565,7 +600,7 @@ export function aggregateBehaviorAnalytics(
 export async function getStudentBehaviorAnalytics(filters: BehaviorAnalyticsFilters) {
   const durationMs = filters.endAt.getTime() - filters.startAt.getTime()
   const previousStartAt = new Date(filters.startAt.getTime() - durationMs)
-  const [logs, completionRecords, reportViewLogs] = await Promise.all([
+  const [logs, completionRecords, productViewLogs] = await Promise.all([
     prisma.operationLog.findMany({
       where: {
         actorRoleSnapshot: USER_ROLE.STUDENT,
@@ -598,7 +633,7 @@ export async function getStudentBehaviorAnalytics(filters: BehaviorAnalyticsFilt
     prisma.operationLog.findMany({
       where: {
         actorRoleSnapshot: USER_ROLE.STUDENT,
-        action: 'diagnostic_report.view',
+        action: { in: [DIAGNOSTIC_REPORT_VIEW_ACTION, MISTAKE_NOTEBOOK_VIEW_ACTION] },
         result: OPERATION_AUDIT_RESULT.SUCCESS,
         occurredAt: { gte: previousStartAt, lt: filters.endAt },
       },
@@ -606,6 +641,7 @@ export async function getStudentBehaviorAnalytics(filters: BehaviorAnalyticsFilt
         occurredAt: true,
         actorUserId: true,
         resourceId: true,
+        action: true,
       },
       orderBy: { occurredAt: 'asc' },
     }),
@@ -625,8 +661,8 @@ export async function getStudentBehaviorAnalytics(filters: BehaviorAnalyticsFilt
         ]
       : [],
   )
-  const reportViewEvents: DiagnosticReportViewEvent[] = reportViewLogs.flatMap((log) =>
-    log.actorUserId
+  const reportViewEvents: DiagnosticReportViewEvent[] = productViewLogs.flatMap((log) =>
+    log.actorUserId && log.action === DIAGNOSTIC_REPORT_VIEW_ACTION
       ? [
           {
             occurredAt: log.occurredAt,
@@ -636,13 +672,24 @@ export async function getStudentBehaviorAnalytics(filters: BehaviorAnalyticsFilt
         ]
       : [],
   )
+  const mistakeNotebookViewEvents: MistakeNotebookViewEvent[] = productViewLogs.flatMap((log) =>
+    log.actorUserId && log.action === MISTAKE_NOTEBOOK_VIEW_ACTION
+      ? [{ occurredAt: log.occurredAt, userId: log.actorUserId }]
+      : [],
+  )
   const currentProductEvents: ProductUsageEvents = {
     completions: completionEvents.filter((event) => event.occurredAt >= filters.startAt),
     reportViews: reportViewEvents.filter((event) => event.occurredAt >= filters.startAt),
+    mistakeNotebookViews: mistakeNotebookViewEvents.filter(
+      (event) => event.occurredAt >= filters.startAt,
+    ),
   }
   const previousProductEvents: ProductUsageEvents = {
     completions: completionEvents.filter((event) => event.occurredAt < filters.startAt),
     reportViews: reportViewEvents.filter((event) => event.occurredAt < filters.startAt),
+    mistakeNotebookViews: mistakeNotebookViewEvents.filter(
+      (event) => event.occurredAt < filters.startAt,
+    ),
   }
 
   return {

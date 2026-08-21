@@ -27,7 +27,13 @@
           header-align="center"
         >
           <template #default="{ row }">
-            <span class="cell-name">{{ row.username || '-' }}</span>
+            <button
+              class="cell-name cell-name--link"
+              type="button"
+              @click.stop="openUserDetail(row)"
+            >
+              {{ row.username || '-' }}
+            </button>
           </template>
         </el-table-column>
         <el-table-column
@@ -103,6 +109,8 @@
       </AdminDataTable>
     </div>
 
+    <UserDetailDrawer v-model="detailVisible" :user-id="selectedUserId" />
+
     <el-dialog
       v-model="editVisible"
       title="编辑用户权限"
@@ -164,15 +172,11 @@
       </template>
     </el-dialog>
 
-    <el-dialog
-      v-model="giftVisible"
-      title="赠送卡券"
-      width="520px"
-      append-to-body
-      destroy-on-close
-    >
+    <el-dialog v-model="giftVisible" title="赠送卡券" width="520px" append-to-body destroy-on-close>
       <template v-if="giftingUser">
-        <p class="gift-dialog-description">目前支持赠送日卡；周卡和月卡仅作功能占位，暂不可选择。</p>
+        <p class="gift-dialog-description">
+          目前支持赠送日卡；周卡和月卡仅作功能占位，暂不可选择。
+        </p>
         <div class="user-summary gift-user-summary">
           <span>赠送给</span>
           <strong>{{ giftingUser.username }}</strong>
@@ -232,9 +236,7 @@
 
       <template #footer>
         <el-button :disabled="giftSaving" @click="giftVisible = false">取消</el-button>
-        <el-button type="primary" :loading="giftSaving" @click="submitGift">
-          确认赠送
-        </el-button>
+        <el-button type="primary" :loading="giftSaving" @click="submitGift"> 确认赠送 </el-button>
       </template>
     </el-dialog>
   </div>
@@ -245,6 +247,7 @@
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
+import UserDetailDrawer from './UserDetailDrawer.vue'
 import {
   getUserListData,
   giftUserCards,
@@ -276,6 +279,8 @@ const pagination = reactive({
   pageSize: 20,
   total: 0,
 })
+const detailVisible = ref(false)
+const selectedUserId = ref<string | null>(null)
 
 const examTypeOptions = EXAM_TYPE_OPTIONS
 
@@ -429,6 +434,12 @@ async function handlePageSizeChange(pageSize: number): Promise<void> {
   await fetchUsers()
 }
 
+// 用户详情仅在点击用户名时按需加载，避免答题聚合拖慢用户列表分页。
+function openUserDetail(user: UserItem): void {
+  selectedUserId.value = user.id
+  detailVisible.value = true
+}
+
 // 打开弹窗时带入现有角色和当前有效会员，便于续改测试账号。
 function openEditDialog(user: UserItem): void {
   const activeItems = activeMemberships(user)
@@ -545,6 +556,30 @@ onMounted(fetchUsers)
 .cell-name {
   color: var(--color-ink);
   font-weight: var(--weight-semi);
+}
+
+.cell-name--link {
+  padding: 3px 5px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #4f46e5;
+  font: inherit;
+  font-weight: var(--weight-semi);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition:
+    background var(--duration-base) ease,
+    text-decoration-color var(--duration-base) ease;
+}
+
+.cell-name--link:hover,
+.cell-name--link:focus-visible {
+  background: #eef2ff;
+  text-decoration-color: currentColor;
+  outline: none;
 }
 
 .cell-email {

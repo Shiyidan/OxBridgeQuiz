@@ -809,6 +809,14 @@ export function getMistakeNotebookData(params: MistakeNotebookParams = {}) {
   })
 }
 
+/** 记录一次错题本页面访问，筛选和翻页不会重复上报。 */
+export function recordMistakeNotebookVisit() {
+  return callApi<{ recorded: true }>({
+    url: '/exams/error-book/visit',
+    method: 'POST',
+  })
+}
+
 /** 获取当前用户在单道错题上的历次错误作答，服务端按提交时间倒序返回。 */
 export function getMistakeAttemptHistory(questionId: string) {
   return callApi<MistakeAttemptHistoryResult>({

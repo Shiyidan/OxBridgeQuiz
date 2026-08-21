@@ -114,7 +114,7 @@
           <div class="panel-heading product-panel__heading">
             <div>
               <h3>产品使用偏好</h3>
-              <p>练习次数按成功提交记录去重；分析报告只统计成功打开正文，不包含生成状态轮询。</p>
+              <p>练习次数按成功提交记录去重；分析报告与错题本统计学生成功进入页面的次数。</p>
             </div>
             <span class="panel-count">{{ periodText }}</span>
           </div>
@@ -213,7 +213,7 @@
             <div class="product-insight-card__heading">
               <div>
                 <h4>每日产品使用趋势</h4>
-                <p>按北京时间自然日对比四项核心行为</p>
+                <p>按北京时间自然日对比五项核心行为</p>
               </div>
             </div>
             <BehaviorProductTrendChart :items="productUsage?.trend || []" />
@@ -312,43 +312,40 @@
               :loading="loading"
               empty-text="当前范围暂无学生关键行为"
             >
-              <el-table-column label="行为" min-width="190">
+              <el-table-column label="行为" width="220">
                 <template #default="{ row }">
-                  <div class="action-cell">
-                    <strong>{{ operationActionLabel(row.action) }}</strong>
-                    <code>{{ row.action }}</code>
-                  </div>
+                  {{ operationActionLabel(row.action) }}
                 </template>
               </el-table-column>
-              <el-table-column label="模块" width="112" align="center">
+              <el-table-column label="模块" min-width="112" align="center">
                 <template #default="{ row }">{{ operationModuleLabel(row.module) }}</template>
               </el-table-column>
-              <el-table-column prop="userCount" label="使用人数" width="104" align="right" />
-              <el-table-column prop="operationCount" label="操作次数" width="104" align="right" />
-              <el-table-column label="人均次数" width="104" align="right">
+              <el-table-column prop="userCount" label="使用人数" min-width="104" align="right" />
+              <el-table-column prop="operationCount" label="操作次数" min-width="104" align="right" />
+              <el-table-column label="人均次数" min-width="104" align="right">
                 <template #default="{ row }">{{ row.averageOperations.toFixed(1) }}</template>
               </el-table-column>
-              <el-table-column label="活跃渗透率" width="118" align="right">
+              <el-table-column label="活跃渗透率" min-width="118" align="right">
                 <template #default="{ row }">{{ formatPercent(row.penetrationRate) }}</template>
               </el-table-column>
-              <el-table-column label="重复使用率" width="118" align="right">
+              <el-table-column label="重复使用率" min-width="118" align="right">
                 <template #default="{ row }">{{ formatPercent(row.repeatedUserRate) }}</template>
               </el-table-column>
-              <el-table-column label="失败率" width="96" align="right">
+              <el-table-column label="失败率" min-width="96" align="right">
                 <template #default="{ row }">
                   <span :class="{ 'failure-value': row.failureRate > 0 }">
                     {{ formatPercent(row.failureRate) }}
                   </span>
                 </template>
               </el-table-column>
-              <el-table-column label="操作环比" width="112" align="right">
+              <el-table-column label="操作环比" min-width="112" align="right">
                 <template #default="{ row }">
                   <span :class="changeClass(row.operationChangeRate)">
                     {{ compactChangeText(row.operationChangeRate) }}
                   </span>
                 </template>
               </el-table-column>
-              <el-table-column label="明细" width="92" fixed="right" align="center">
+              <el-table-column label="明细" width="112" fixed="right" align="center">
                 <template #default="{ row }">
                   <el-button link type="primary" @click="openOperationLogs(row)"
                     >查看日志</el-button
@@ -521,6 +518,14 @@ const productMetricCards = computed<ProductMetricCard[]>(() => {
     },
     moduleCard('question_bank'),
     moduleCard('mock_exam'),
+    {
+      key: 'mistake_notebook',
+      label: '查看错题本次数',
+      value: reportOverview?.mistakeNotebookViewCount || 0,
+      detail: `${reportOverview?.mistakeNotebookViewerCount || 0} 名学生访问`,
+      changeRate: reportOverview?.mistakeNotebookViewChangeRate ?? null,
+      color: '#e11d48',
+    },
   ]
 })
 
@@ -918,7 +923,7 @@ onMounted(() => {
 
 .product-metrics-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -1191,25 +1196,6 @@ onMounted(() => {
 
 .action-panel {
   padding-bottom: 18px;
-}
-
-.action-cell {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.action-cell strong {
-  overflow: hidden;
-  color: #334155;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.action-cell code {
-  color: #94a3b8;
-  font-size: 0.72rem;
 }
 
 .data-note {

@@ -255,28 +255,11 @@
           <el-table-column label="创建时间" min-width="170">
             <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="205" fixed="right">
+          <el-table-column label="操作" width="105" fixed="right" align="center">
             <template #default="{ row }">
-              <el-button link type="primary" @click="handleOpenOrderDetail(row.orderNo)">查看详情</el-button>
-              <el-button
-                v-if="row.status === 'paid' && row.provider === 'chinaums'"
-                link
-                type="danger"
-                :loading="refundingOrderNo === row.orderNo"
-                @click="handleRefund(row)"
-              >
-                全额退款
+              <el-button link type="primary" @click="handleOpenOrderDetail(row.orderNo)">
+                订单追踪
               </el-button>
-              <el-button
-                v-else-if="row.status === 'refunding' && row.latestRefund"
-                link
-                type="primary"
-                :loading="queryingRefundNo === row.latestRefund.refundOrderNo"
-                @click="handleRefundQuery(row.latestRefund.refundOrderNo)"
-              >
-                查询退款
-              </el-button>
-              <span v-else-if="row.status === 'refunded'" class="operation-muted">已退款</span>
             </template>
           </el-table-column>
         </AdminDataTable>
@@ -296,11 +279,31 @@
             <div class="detail-section-heading">
               <div>
                 <h3>订单与用户</h3>
-                <p>全站支付订单的当前业务状态。</p>
+                <p>先确认订单、用户、金额和当前资金状态，再执行高风险操作。</p>
               </div>
-              <el-tag :type="statusTagType(orderDetail.order.status)" effect="light">
-                {{ statusText(orderDetail.order.status) }}
-              </el-tag>
+              <div class="detail-heading-actions">
+                <el-tag :type="statusTagType(orderDetail.order.status)" effect="light">
+                  {{ statusText(orderDetail.order.status) }}
+                </el-tag>
+                <el-button
+                  v-if="canRefundOrder"
+                  type="danger"
+                  plain
+                  :loading="refundingOrderNo === orderDetail.order.orderNo"
+                  @click="handleRefund(orderDetail.order)"
+                >
+                  全额退款
+                </el-button>
+                <el-button
+                  v-else-if="processingRefund"
+                  type="primary"
+                  plain
+                  :loading="queryingRefundNo === processingRefund.refundOrderNo"
+                  @click="handleRefundQuery(processingRefund.refundOrderNo)"
+                >
+                  查询退款状态
+                </el-button>
+              </div>
             </div>
             <el-descriptions :column="2" border>
               <el-descriptions-item label="订单号">{{ orderDetail.order.orderNo }}</el-descriptions-item>
@@ -313,31 +316,35 @@
               <el-descriptions-item label="金额">
                 ¥{{ formatMoney(orderDetail.order.amountCents) }} / 已退 ¥{{ formatMoney(orderDetail.order.refundedAmountCents) }}
               </el-descriptions-item>
+              <el-descriptions-item label="支付渠道">{{ channelText(orderDetail.order.channel) }}</el-descriptions-item>
               <el-descriptions-item label="创建时间">{{ formatDateTime(orderDetail.order.createdAt) }}</el-descriptions-item>
               <el-descriptions-item label="支付时间">{{ formatOptionalDateTime(orderDetail.order.paidAt) }}</el-descriptions-item>
               <el-descriptions-item label="过期时间">{{ formatDateTime(orderDetail.order.expiresAt) }}</el-descriptions-item>
               <el-descriptions-item label="关闭时间">{{ formatOptionalDateTime(orderDetail.order.closedAt) }}</el-descriptions-item>
+              <el-descriptions-item
+                v-if="orderDetail.order.failureCode || orderDetail.order.failureMessage"
+                label="失败原因"
+                :span="2"
+              >
+                {{ [orderDetail.order.failureCode, orderDetail.order.failureMessage].filter(Boolean).join('：') }}
+              </el-descriptions-item>
             </el-descriptions>
           </section>
 
           <section class="detail-section">
             <div class="detail-section-heading">
               <div>
-                <h3>银联商务标识</h3>
-                <p>密钥不返回前端，AppId 仅展示脱敏值。</p>
+                <h3>关键处理状态</h3>
+                <p>快速确认渠道流水、支付通知、权益和对账是否完整。</p>
               </div>
-              <span class="detail-environment">{{ orderDetail.provider.environment === 'prod' ? '生产' : '测试' }}</span>
             </div>
-            <el-descriptions :column="2" border>
-              <el-descriptions-item label="AppId">{{ orderDetail.provider.appIdMasked || '—' }}</el-descriptions-item>
-              <el-descriptions-item label="商户号 MID">{{ orderDetail.provider.mid || '—' }}</el-descriptions-item>
-              <el-descriptions-item label="终端号 TID">{{ orderDetail.provider.tid || '—' }}</el-descriptions-item>
-              <el-descriptions-item label="机构商户号">{{ orderDetail.provider.instMid || '—' }}</el-descriptions-item>
-              <el-descriptions-item label="渠道流水号">{{ orderDetail.provider.providerOrderNo || '—' }}</el-descriptions-item>
-              <el-descriptions-item label="账单日期">{{ orderDetail.provider.billDate || '—' }}</el-descriptions-item>
-              <el-descriptions-item label="二维码 ID">{{ orderDetail.provider.qrCodeId || '—' }}</el-descriptions-item>
-              <el-descriptions-item label="系统 ID">{{ orderDetail.provider.systemId || '—' }}</el-descriptions-item>
-            </el-descriptions>
+            <div class="detail-signal-grid">
+              <article v-for="signal in detailSignals" :key="signal.key" :class="['detail-signal', `detail-signal--${signal.tone}`]">
+                <span>{{ signal.label }}</span>
+                <strong>{{ signal.value }}</strong>
+                <small>{{ signal.note }}</small>
+              </article>
+            </div>
           </section>
 
           <section class="detail-section">
@@ -371,7 +378,7 @@
             <div class="detail-section-heading">
               <div>
                 <h3>关联会员权益</h3>
-                <p>当前模型尚未保存来源订单，以下按用户和考试类型关联，不作为精确归因凭证。</p>
+                <p>仅展示通过本订单编号精确关联创建的会员权益。</p>
               </div>
             </div>
             <AdminDataTable
@@ -395,11 +402,25 @@
           <section class="detail-section">
             <div class="detail-section-heading">
               <div>
-                <h3>审计原始记录</h3>
-                <p>银联通知已在入库前脱敏，敏感支付人信息和签名不会展示。</p>
+                <h3>技术与审计信息</h3>
+                <p>仅在支付异常、客服投诉或财务核查时展开；敏感信息不会展示。</p>
               </div>
             </div>
             <el-collapse class="audit-records">
+              <el-collapse-item title="渠道与商户配置" name="merchant">
+                <el-descriptions :column="2" border>
+                  <el-descriptions-item label="运行环境">
+                    {{ orderDetail.provider.environment === 'prod' ? '生产' : '测试' }}
+                  </el-descriptions-item>
+                  <el-descriptions-item label="AppId">{{ orderDetail.provider.appIdMasked || '—' }}</el-descriptions-item>
+                  <el-descriptions-item label="商户号 MID">{{ orderDetail.provider.mid || '—' }}</el-descriptions-item>
+                  <el-descriptions-item label="终端号 TID">{{ orderDetail.provider.tid || '—' }}</el-descriptions-item>
+                  <el-descriptions-item label="机构商户号">{{ orderDetail.provider.instMid || '—' }}</el-descriptions-item>
+                  <el-descriptions-item label="账单日期">{{ orderDetail.provider.billDate || '—' }}</el-descriptions-item>
+                  <el-descriptions-item label="二维码 ID">{{ orderDetail.provider.qrCodeId || '—' }}</el-descriptions-item>
+                  <el-descriptions-item label="系统 ID">{{ orderDetail.provider.systemId || '—' }}</el-descriptions-item>
+                </el-descriptions>
+              </el-collapse-item>
               <el-collapse-item :title="`银联响应摘要（${orderDetail.providerSnapshots.length}）`" name="provider">
                 <div v-if="orderDetail.providerSnapshots.length === 0" class="record-empty">暂无银联响应快照</div>
                 <article v-for="snapshot in orderDetail.providerSnapshots" :key="snapshot.key" class="audit-record">
@@ -513,7 +534,58 @@ const savedForm = reactive({
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
 const reconciliationPagination = reactive({ page: 1, pageSize: 10, total: 0 })
 // 抽屉加载期间仍展示目标订单号，防止标题在请求完成前跳变。
-const orderDetailTitle = computed(() => orderDetailOrderNo.value ? `支付订单详情 · ${orderDetailOrderNo.value}` : '支付订单详情')
+const orderDetailTitle = computed(() => orderDetailOrderNo.value ? `订单追踪 · ${orderDetailOrderNo.value}` : '订单追踪')
+
+// 全额退款只允许从追踪抽屉对真实银联已支付订单发起，避免列表快捷操作误触。
+const canRefundOrder = computed(() => {
+  const order = orderDetail.value?.order
+  return Boolean(order
+    && order.status === 'paid'
+    && order.provider === 'chinaums'
+    && order.amountCents > 0
+    && order.refundedAmountCents === 0)
+})
+
+// 退款中的订单在抽屉内提供主动查询入口，使用最近一笔处理中退款定位渠道状态。
+const processingRefund = computed(() => orderDetail.value?.refunds.find((refund) => refund.status === 'processing') || null)
+
+// 关键状态卡片把技术明细压缩为客服和财务可直接判断的结论。
+const detailSignals = computed(() => {
+  const detail = orderDetail.value
+  if (!detail) return []
+  const failedNotifications = detail.notifications.filter((item) => item.processStatus === 'failed').length
+  const openReconciliations = detail.reconciliationItems.filter((item) => item.resolutionStatus === 'open').length
+  return [
+    {
+      key: 'provider',
+      label: '渠道流水号',
+      value: detail.provider.providerOrderNo || '尚未生成',
+      note: detail.provider.billDate ? `账单日期 ${detail.provider.billDate}` : '暂无渠道账单日期',
+      tone: detail.provider.providerOrderNo ? 'normal' : 'muted',
+    },
+    {
+      key: 'notification',
+      label: '支付通知',
+      value: detail.notifications.length ? `${detail.notifications.length} 条` : '暂无通知',
+      note: failedNotifications ? `${failedNotifications} 条处理失败` : '未发现处理失败',
+      tone: failedNotifications ? 'danger' : detail.notifications.length ? 'success' : 'muted',
+    },
+    {
+      key: 'membership',
+      label: '关联权益',
+      value: `${detail.memberships.length} 项`,
+      note: '按支付订单精确关联',
+      tone: detail.memberships.length ? 'success' : 'muted',
+    },
+    {
+      key: 'reconciliation',
+      label: '对账结果',
+      value: detail.reconciliationItems.length ? `${detail.reconciliationItems.length} 条` : '尚未对账',
+      note: openReconciliations ? `${openReconciliations} 条待处理异常` : '暂无待处理异常',
+      tone: openReconciliations ? 'danger' : detail.reconciliationItems.length ? 'success' : 'muted',
+    },
+  ]
+})
 
 function centsToYuan(value: number): number {
   return Number((value / 100).toFixed(2))
@@ -920,14 +992,14 @@ async function handleResolveItem(id: string): Promise<void> {
 async function handleRefund(order: AdminPaymentOrder): Promise<void> {
   try {
     const result = await ElMessageBox.prompt(
-      `将原路退回 ¥${formatMoney(order.amountCents)}，退款成功后会回收本订单发放的会员权益。`,
+      `用户：${order.user.username}；订单：${order.orderNo}；将原路退回 ¥${formatMoney(order.amountCents)}。退款成功后会回收本订单发放的会员权益。`,
       '确认全额退款',
       {
         confirmButtonText: '确认退款',
         cancelButtonText: '取消',
         inputPlaceholder: '请输入退款原因',
-        inputValue: '管理员测试退款',
         inputValidator: (value) => value.trim().length >= 2 || '退款原因至少填写 2 个字符',
+        type: 'warning',
       },
     )
     refundingOrderNo.value = order.orderNo
@@ -960,7 +1032,6 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .payment-admin-page { min-height: 100%; background: #f6f8fb; }
-.operation-muted { color: #a0aec0; font-size: 0.82rem; }
 .page-body { width: 100%; max-width: 1480px; padding: 22px 40px 48px; box-sizing: border-box; }
 .page-heading { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
 .page-heading h1 { margin: 0 0 7px; color: #0f172a; font-size: 1.55rem; }
@@ -1014,9 +1085,19 @@ onMounted(() => {
 .detail-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 16px; }
 .detail-section-heading h3 { margin: 0 0 5px; color: #172033; font-size: 1rem; }
 .detail-section-heading p { margin: 0; color: #8490a2; font-size: 0.76rem; line-height: 1.5; }
-.detail-environment { padding: 4px 9px; color: #2563eb; font-size: 0.72rem; background: #eff6ff; border-radius: 999px; }
+.detail-heading-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 10px; }
 .detail-overview :deep(.el-descriptions__label), .detail-section :deep(.el-descriptions__label) { width: 112px; color: #64748b; font-weight: 600; }
 .detail-section :deep(.el-descriptions__content) { color: #263245; word-break: break-all; }
+.detail-signal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.detail-signal { display: flex; min-width: 0; flex-direction: column; gap: 6px; padding: 15px 16px; background: #f8fafc; border: 1px solid #e5eaf1; border-radius: 10px; }
+.detail-signal span { color: #718096; font-size: 0.75rem; }
+.detail-signal strong { overflow: hidden; color: #273244; font-size: 0.9rem; text-overflow: ellipsis; white-space: nowrap; }
+.detail-signal small { color: #94a3b8; font-size: 0.72rem; }
+.detail-signal--success { background: #f4fbf7; border-color: #cfe9da; }
+.detail-signal--success strong { color: #176b4d; }
+.detail-signal--danger { background: #fff7f7; border-color: #f5d0d0; }
+.detail-signal--danger strong { color: #c24141; }
+.detail-signal--muted strong { color: #7b8798; }
 .payment-timeline { padding: 8px 4px 0 6px; }
 .timeline-event { padding: 2px 0 7px; }
 .timeline-title-row { display: flex; align-items: center; gap: 9px; }
@@ -1042,6 +1123,9 @@ onMounted(() => {
   .settlement-guide { align-items: flex-start; flex-direction: column; }
   .reconciliation-metrics { grid-template-columns: 1fr; }
   .anomaly-toolbar { align-items: stretch; flex-direction: column; }
+  .detail-section-heading { align-items: stretch; flex-direction: column; }
+  .detail-heading-actions { justify-content: space-between; }
+  .detail-signal-grid { grid-template-columns: 1fr; }
   .detail-section :deep(.el-descriptions) { --el-descriptions-table-border: 1px solid #e5eaf1; }
   .detail-section :deep(.el-descriptions__label) { width: 92px; }
 }

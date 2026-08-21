@@ -35,6 +35,75 @@ export interface UserMembershipItem {
   endsAt: number
 }
 
+export interface AdminUserIpLocation {
+  country: string
+  region: string
+  city: string
+  label: string
+}
+
+export type AdminUserActivityModule =
+  | 'diagnostic'
+  | 'mockExam'
+  | 'questionBank'
+  | 'mistakeNotebook'
+
+export interface AdminUserCountItem {
+  key: AdminUserActivityModule
+  label: string
+  count: number
+}
+
+export interface AdminUserRewardCardSummary {
+  key: 'dailyGift' | 'inviterWeek' | 'inviteeWeek'
+  label: string
+  total: number
+  pendingCount: number
+  activatedCount: number
+  expiredCount: number
+  revokedCount: number
+}
+
+export interface AdminUserAttempt {
+  id: string
+  examType: string
+  status: string
+  startedAt: string
+  submittedAt: string | null
+  accuracy: number | null
+  paper: {
+    code: string | null
+    paperType: string
+  }
+}
+
+export interface AdminUserDetail {
+  profile: UserItem & {
+    updatedAt: string
+  }
+  sourceAndEntitlements: {
+    invitation: {
+      inviter: {
+        id: string
+        username: string
+      }
+      code: string
+      bindingSource: string
+      boundAt: string
+    } | null
+    accessLevel: 'admin' | 'member' | 'free'
+    memberships: UserMembershipItem[]
+    rewardCards: AdminUserRewardCardSummary[]
+  }
+  loginLocation: AdminUserIpLocation | null
+  overview: {
+    moduleAttemptCounts: AdminUserCountItem[]
+    selectedModule: AdminUserActivityModule
+  }
+  attempts: AdminUserAttempt[]
+  pagination: PaginationMeta
+}
+
 export interface PaginationMeta {
   page: number
   pageSize: number
@@ -47,6 +116,26 @@ export interface PaginationMeta {
 export interface PageResult<T> {
   list: T[]
   pagination: PaginationMeta
+}
+
+export interface AdminStaffGiftCardStatsItem {
+  userId: string
+  username: string
+  email: string | null
+  grantCount: number
+  cardCount: number
+  staffCount: number
+  staffNames: string[]
+  latestGrantedAt: string | null
+}
+
+export interface AdminStaffGiftCardStatsResult extends PageResult<AdminStaffGiftCardStatsItem> {
+  overview: {
+    staffCount: number
+    grantCount: number
+    cardCount: number
+    recipientCount: number
+  }
 }
 
 export interface ListParams {
@@ -69,6 +158,7 @@ export interface OperationLogItem {
   resourceType?: string | null
   resourceId?: string | null
   resourceDisplayName?: string | null
+  resourceDisplayEmail?: string | null
   method: string
   path: string
   statusCode: number
@@ -220,12 +310,14 @@ export interface BehaviorProductTrendItem {
   questionBankPracticeCount: number
   mockExamCount: number
   reportViewCount: number
+  mistakeNotebookViewCount: number
 }
 
 export interface BehaviorProductUsage {
   scope: {
     completionSource: 'exam_record'
     reportViewSource: 'operation_log'
+    mistakeNotebookViewSource: 'operation_log'
     preferenceMinimumCompletions: number
   }
   overview: {
@@ -238,6 +330,10 @@ export interface BehaviorProductUsage {
     distinctReportCount: number
     averageReportViews: number
     samePeriodReportViewRate: number
+    mistakeNotebookViewCount: number
+    mistakeNotebookViewChangeRate: number | null
+    mistakeNotebookViewerCount: number
+    averageMistakeNotebookViews: number
   }
   modules: BehaviorProductUsageModule[]
   preferences: BehaviorProductPreference[]
@@ -296,7 +392,6 @@ export interface AdminPaymentOrder {
   closedAt?: string | null
   createdAt: string
   updatedAt?: string
-  latestRefund?: AdminPaymentRefund | null
   user: { id: string; username: string; email: string }
 }
 
@@ -433,7 +528,7 @@ export interface AdminPaymentOrderDetail {
     endsAt: string
     createdAt: string
     updatedAt: string
-    associationBasis: 'user_exam_type_snapshot'
+    associationBasis: 'payment_order'
   }>
   reconciliationItems: Array<
     AdminPaymentReconciliationItem & {
@@ -500,6 +595,37 @@ export function getUserListData(params: ListParams = {}) {
     params: {
       ...(params.page ? { page: String(params.page) } : {}),
       ...(params.pageSize ? { pageSize: String(params.pageSize) } : {}),
+    },
+  })
+}
+
+/** 按当前管理员汇总成功赠送日卡的次数、张数、用户覆盖和最近发放时间。 */
+export function getAdminStaffGiftCardStats(
+  params: ListParams & { keyword?: string } = {},
+) {
+  return callApi<AdminStaffGiftCardStatsResult>({
+    url: '/admin/staff/gift-card-stats',
+    method: 'GET',
+    params: {
+      ...(params.page ? { page: String(params.page) } : {}),
+      ...(params.pageSize ? { pageSize: String(params.pageSize) } : {}),
+      ...(params.keyword ? { keyword: params.keyword } : {}),
+    },
+  })
+}
+
+/** 用户详情按产品模块筛选答题记录，模块总览始终保持全量统计。 */
+export function getAdminUserDetailData(
+  userId: string,
+  params: ListParams & { module?: AdminUserActivityModule } = {},
+) {
+  return callApi<AdminUserDetail>({
+    url: `/admin/users/${encodeURIComponent(userId)}/detail`,
+    method: 'GET',
+    params: {
+      ...(params.page ? { page: String(params.page) } : {}),
+      ...(params.pageSize ? { pageSize: String(params.pageSize) } : {}),
+      ...(params.module ? { module: params.module } : {}),
     },
   })
 }

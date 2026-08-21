@@ -272,6 +272,7 @@ import LatexText from '@/components/LatexText.vue'
 import AppPagination from '@/components/AppPagination.vue'
 import {
   getMistakeNotebookData,
+  recordMistakeNotebookVisit,
   type MistakeNotebookDifficulty,
   type WrongAnswer,
 } from '@/api/exam'
@@ -366,6 +367,8 @@ onMounted(async () => {
   restoreStateFromRoute()
   copyFilters(draftFilters, appliedFilters)
   pageInitialized = true
+  // 访问上报独立于列表加载，统计失败不能阻断学生查看已有错题。
+  void recordMistakeNotebookVisit().catch(() => undefined)
   await Promise.all([loadWrongAnswers(), loadSyllabusTree(activeExamType.value)])
 })
 

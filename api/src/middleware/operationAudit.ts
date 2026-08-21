@@ -63,6 +63,7 @@ const OPERATION_DEFINITIONS: OperationDefinition[] = [
   { method: 'POST', pattern: /^\/api\/exams\/start$/, module: OPERATION_AUDIT_MODULE.EXAM, action: 'exam.start', summary: '开始考试', resourceType: 'ExamRecord' },
   { method: 'POST', pattern: /^\/api\/exams\/([^/]+)\/submit$/, module: OPERATION_AUDIT_MODULE.EXAM, action: 'exam.submit', summary: '提交考试', resourceType: 'ExamRecord', resourceIdGroup: 1 },
   { method: 'GET', pattern: /^\/api\/exams\/([^/]+)\/diagnostic-report\/summary$/, module: OPERATION_AUDIT_MODULE.EXAM, action: 'diagnostic_report.view', summary: '查看诊断分析报告', resourceType: 'ExamRecord', resourceIdGroup: 1 },
+  { method: 'POST', pattern: /^\/api\/exams\/error-book\/visit$/, module: OPERATION_AUDIT_MODULE.EXAM, action: 'mistake_notebook.view', summary: '查看错题本' },
   { method: 'POST', pattern: /^\/api\/payment\/orders$/, module: OPERATION_AUDIT_MODULE.PAYMENT, action: 'payment.order.create', summary: '创建支付订单', resourceType: 'PaymentOrder' },
   { method: 'POST', pattern: /^\/api\/payment\/orders\/([^/]+)\/close$/, module: OPERATION_AUDIT_MODULE.PAYMENT, action: 'payment.order.close', summary: '关闭支付订单', resourceType: 'PaymentOrder', resourceIdGroup: 1 },
   { method: 'PUT', pattern: /^\/api\/admin\/payment-config$/, module: OPERATION_AUDIT_MODULE.PAYMENT, action: 'admin.payment_config.update', summary: '修改支付策略', resourceType: 'PaymentConfig' },

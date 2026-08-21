@@ -23,9 +23,13 @@ export const STUDENT_BEHAVIOR_MODULE_OPTIONS = OPERATION_AUDIT_MODULE_OPTIONS.fi
 export const OPERATION_AUDIT_ACTION_LABELS: Record<string, string> = {
   'profile.update': '修改个人资料',
   'profile.exam_preferences.update': '修改备考偏好',
+  'profile.study_preferences.update': '修改学习偏好',
   'exam.start': '开始考试',
   'exam.submit': '提交考试',
   'diagnostic_report.view': '查看诊断分析报告',
+  'mistake_notebook.view': '查看错题本',
+  'mock_exam.start': '开始模考',
+  'mock_exam.abandon': '放弃模考',
   'payment.order.create': '创建支付订单',
   'payment.order.close': '关闭支付订单',
   'admin.user.gift_cards.create': '管理员赠送日卡',

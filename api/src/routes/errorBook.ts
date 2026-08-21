@@ -48,6 +48,11 @@ interface WrongAttemptExamRecordMeta {
   }
 }
 
+// 页面进入事件使用独立端点记录，避免筛选和翻页请求被重复统计为错题本访问。
+errorBookRouter.post('/error-book/visit', requireAuth, (_req, res) => {
+  res.json(success({ recorded: true }))
+})
+
 // 题库答卷以开始练习时冻结的范围快照命名，练习本名称优先于自动生成的专项范围。
 function resolveQuestionBankAttemptTitle(snapshotValue: unknown): string {
   const snapshot = parseJsonObject(snapshotValue)

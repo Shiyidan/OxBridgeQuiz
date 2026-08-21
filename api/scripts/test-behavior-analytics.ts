@@ -180,6 +180,11 @@ function main(): void {
           resourceId: 'old-report',
         },
       ],
+      mistakeNotebookViews: [
+        { occurredAt: new Date('2026-06-02T04:00:00.000Z'), userId: 'student-1' },
+        { occurredAt: new Date('2026-06-04T08:00:00.000Z'), userId: 'student-3' },
+        { occurredAt: new Date('2026-06-04T09:00:00.000Z'), userId: 'student-3' },
+      ],
     },
     {
       completions: [
@@ -197,6 +202,9 @@ function main(): void {
           resourceId: 'previous-diagnostic',
         },
       ],
+      mistakeNotebookViews: [
+        { occurredAt: new Date('2026-05-30T03:00:00.000Z'), userId: 'student-5' },
+      ],
     },
     filters,
   )
@@ -208,6 +216,14 @@ function main(): void {
   assert.equal(productResult.overview.distinctReportCount, 3)
   assert.equal(productResult.overview.averageReportViews, 2)
   assert.equal(productResult.overview.samePeriodReportViewRate, 0.5)
+  assert.equal(productResult.overview.mistakeNotebookViewCount, 3)
+  assert.equal(productResult.overview.mistakeNotebookViewerCount, 2)
+  assert.equal(productResult.overview.averageMistakeNotebookViews, 1.5)
+  assert.equal(productResult.overview.mistakeNotebookViewChangeRate, 2)
+  assert.deepEqual(
+    productResult.trend.map((item) => item.mistakeNotebookViewCount),
+    [1, 0, 2],
+  )
 
   const diagnosticUsage = productResult.modules.find(
     (item) => item.module === PRODUCT_USAGE_MODULE.DIAGNOSTIC_TEST,

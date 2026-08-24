@@ -1,6 +1,6 @@
 <!-- 个人中心卡包：集中展示邀请周卡，并承接待启用卡券的考试确认与启用。 -->
 <template>
-  <section class="card-wallet-panel" aria-labelledby="card-wallet-title">
+  <section id="member-card-wallet" class="card-wallet-panel" aria-labelledby="card-wallet-title">
     <ProfileModuleHeading
       class="card-wallet-heading"
       kicker="MY CARD WALLET"
@@ -192,7 +192,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ArrowRight } from '@element-plus/icons-vue'
 import ProfileModuleHeading from '@/components/ProfileModuleHeading.vue'
@@ -205,12 +205,15 @@ import { useAuthStore } from '@/stores/auth'
 
 type WalletFilter = 'all' | 'pending' | 'activated'
 
+const props = withDefaults(defineProps<{ initialFilter?: WalletFilter }>(), {
+  initialFilter: 'all',
+})
 const emit = defineEmits<{ membershipChanged: []; editGoals: [] }>()
 const auth = useAuthStore()
 const rewards = ref<InvitationRewardItem[]>([])
 const loading = ref(true)
 const loadError = ref('')
-const activeFilter = ref<WalletFilter>('all')
+const activeFilter = ref<WalletFilter>(props.initialFilter)
 const foregroundRewardId = ref('')
 const walletListVisible = ref(false)
 const activationVisible = ref(false)
@@ -315,6 +318,11 @@ function selectFilter(filter: WalletFilter): void {
   activeFilter.value = filter
   foregroundRewardId.value = ''
 }
+
+watch(
+  () => props.initialFilter,
+  (filter) => selectFilter(filter),
+)
 
 // 叠放卡片通过点击切换前景，不要求用户在重叠区域精确点击按钮。
 function bringToFront(rewardId: string): void {

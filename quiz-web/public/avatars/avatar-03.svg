@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Abstract sunrise over rolling hills badge">
+  <defs>
+    <clipPath id="avatar-circle">
+      <circle cx="128" cy="128" r="120" />
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#avatar-circle)">
+    <circle cx="128" cy="128" r="120" fill="#F4C95D" />
+
+    <circle cx="170" cy="82" r="38" fill="#FFF5E6" />
+
+    <path d="M8 192C36 157 65 135 94 135C117 135 134 151 151 166C169 182 186 187 205 181C221 176 235 164 248 149V248H8Z" fill="#2F4858" />
+    <path d="M8 205C38 174 70 159 101 165C130 170 145 195 175 198C199 201 223 189 248 165V248H8Z" fill="#F6C7A5" />
+    <path d="M8 216C43 190 76 184 110 198C145 212 177 226 248 188V248H8Z" fill="#E45756" />
+
+    <path d="M24 220C59 197 88 195 119 207C153 221 187 228 232 207" fill="none" stroke="#FFF5E6" stroke-width="10" stroke-linecap="round" />
+  </g>
+
+  <circle cx="128" cy="128" r="120" fill="none" stroke="#2F4858" stroke-width="8" />
+</svg>

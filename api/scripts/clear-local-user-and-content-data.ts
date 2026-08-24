@@ -158,7 +158,6 @@ async function clearData(userId: string): Promise<DataCounts> {
       where: { id: userId },
       data: {
         diagnosticUsed: false,
-        avatar: null,
         examPreferences: null,
       },
     })

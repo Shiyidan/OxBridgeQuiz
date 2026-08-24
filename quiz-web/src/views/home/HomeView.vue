@@ -17,7 +17,6 @@
       :delegate-navigation="true"
       :delegate-exam-selection="true"
       :mistake-exam-type="currentExam"
-      :no-goal="state === 'no-goal'"
       @home="scrollToHome"
       @navigate="handleNavigation"
       @select-exam="handleExamSelection"
@@ -82,7 +81,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
-import { getMember, updateStudyPreferences, type StudyPreferences } from '@/api/member'
+import { getMember, updateStudyPreferences, type StudyPreferencesUpdate } from '@/api/member'
 import { getPaymentConfig } from '@/api/payment'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import {
@@ -132,12 +131,12 @@ const {
   reload,
 } = useHomeDashboard()
 
-// 每位用户独立记录首页最后查看的考试，服务端目标仍是允许恢复的唯一范围。
+// 管理员独立记录首页最后查看的工作区；学生默认考试由个人中心保存。
 function getRememberedExamKey(): string | null {
   return auth.user?.id ? `quiz-home-active-exam:${auth.user.id}` : null
 }
 
-// 当前考试只持久化为首页浏览偏好，不改写个人中心的报考目标。
+// 管理员工作区只持久化为首页浏览偏好，不改写学生报考目标。
 function rememberExam(examType: ActiveExamType): void {
   const key = getRememberedExamKey()
   if (key) window.localStorage.setItem(key, examType)
@@ -181,7 +180,6 @@ function handleExamSelection(examType: ActiveExamType): void {
   }
   if (auth.activeExamType === examType) return
   auth.setActiveExamType(examType)
-  rememberExam(examType)
 }
 
 // 目标保存复用会员偏好接口，并保留另一考试已有的全部用户配置。
@@ -190,10 +188,11 @@ async function saveGoal(value: { examType: ActiveExamType; subjects: string[] })
   goalSaving.value = true
   try {
     const existingPreferences = auth.memberContext?.studyPreferences
-    const nextPreferences: StudyPreferences = {
+    const nextPreferences: StudyPreferencesUpdate = {
       examTypes: Array.from(
         new Set([...(existingPreferences?.examTypes || []), value.examType]),
       ),
+      primaryExamType: existingPreferences?.primaryExamType || value.examType,
       esatSubjects:
         value.examType === 'ESAT'
           ? [...value.subjects]
@@ -210,11 +209,11 @@ async function saveGoal(value: { examType: ActiveExamType; subjects: string[] })
     }
 
     await updateStudyPreferences(nextPreferences)
+    const previousExamType = auth.activeExamType
     const context = await getMember()
     auth.setMemberContext(context)
-    const examChanged = auth.activeExamType !== value.examType
-    auth.setActiveExamType(value.examType)
-    rememberExam(value.examType)
+    if (auth.effectiveMemberExamTypes.length !== 1) auth.setActiveExamType(value.examType)
+    const examChanged = previousExamType !== auth.activeExamType
     goalDialogOpen.value = false
     pendingGoalExam.value = null
     if (!examChanged) await reload()
@@ -299,15 +298,15 @@ async function consumePurchaseIntent(): Promise<void> {
   await router.replace({ path: route.path, query: nextQuery })
 }
 
-// 真实目标加载后才恢复最后查看项，且缓存值必须仍属于服务端目标集合。
+// 管理员恢复本机工作区；学生始终服从个人中心保存的默认考试。
 watch(
   goals,
   (availableGoals) => {
     const key = getRememberedExamKey()
     const remembered = key ? window.localStorage.getItem(key) : null
     if (
+      auth.isAdmin &&
       (remembered === 'ESAT' || remembered === 'TMUA') &&
-      (auth.isAdmin || availableGoals.some((goal) => goal.examType === remembered)) &&
       auth.activeExamType !== remembered
     ) {
       auth.setActiveExamType(remembered)
@@ -315,12 +314,12 @@ watch(
     }
     if (
       !auth.isAdmin &&
+      auth.effectiveMemberExamTypes.length !== 1 &&
       availableGoals.length &&
       !availableGoals.some((goal) => goal.examType === auth.activeExamType)
     ) {
       const fallbackExam = availableGoals[0]!.examType
       auth.setActiveExamType(fallbackExam)
-      rememberExam(fallbackExam)
     }
   },
   { immediate: true },

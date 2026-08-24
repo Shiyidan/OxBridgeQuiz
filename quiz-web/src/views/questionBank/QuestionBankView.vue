@@ -143,19 +143,19 @@
       @cancel="handleCancelReducedPractice"
     />
 
-    <AppConfirmDialog
+    <DailyCardAccessDialog
       v-model="upgradeDialogVisible"
-      title="免费练习额度已用完"
-      message="当前考试的免费练习额度已全部使用，开通会员后可继续不限题量练习。"
-      confirm-text="开通会员"
-      cancel-text="暂不开通"
-      tone="default"
-      @confirm="handleOpenPayment"
+      :exam-type="paymentExamType"
+      upgrade-message="当前考试的免费练习额度已全部使用，开通会员后可继续不限题量练习。"
+      @activated="handleDailyCardActivated"
+      @upgrade="handleOpenPayment"
+      @cancel="handleCancelMembershipAccess"
     />
 
     <PaymentModal
-      v-model="paymentVisible"
+      :model-value="paymentVisible"
       :default-exam-type="paymentExamType"
+      @update:model-value="handlePaymentVisibilityChange"
       @paid="handlePaymentSuccess"
     />
   </div>
@@ -168,6 +168,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { TreeInstance } from 'element-plus'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
+import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import type { QuestionDifficulty, SyllabusNode } from '@/api/questionBank'
@@ -196,6 +197,7 @@ interface PendingDirectPractice {
   label: string
   difficulty: DifficultyId
   questionCount: number
+  examType: ActiveExamType
 }
 
 const DIRECT_PRACTICE_QUESTION_COUNT = 5
@@ -413,6 +415,11 @@ async function loadExamContent(useRouteContext: boolean): Promise<void> {
 
 // 导航栏切换考试类型时重新查询该考试的大纲、题量统计与进行中练习。
 watch(activeExamType, () => {
+  selectionDialogVisible.value = false
+  quotaDialogVisible.value = false
+  upgradeDialogVisible.value = false
+  pendingDirectPractice.value = null
+  if (!paymentVisible.value) paymentExamType.value = activeExamType.value
   if (examContentInitialized) void loadExamContent(false)
 })
 
@@ -459,7 +466,7 @@ function navigateToPractice(practice: PendingDirectPractice): void {
     query: {
       code: practice.code,
       difficulty: practice.difficulty,
-      examType: activeExamType.value,
+      examType: practice.examType,
     },
   })
 }
@@ -479,6 +486,7 @@ function handleStartPractice(diff: DifficultyOption): void {
     label: selectedNodeLabel.value,
     difficulty: diff.id,
     questionCount: plannedQuestionCount,
+    examType: activeExamType.value,
   }
   const practiceCountMessage = diff.count > plannedQuestionCount
     ? `题库共${diff.count}题，本次随机练习${plannedQuestionCount}题`
@@ -500,7 +508,7 @@ async function handleConfirmSelectedPractice(): Promise<void> {
   try {
     const access = await checkMemberAccess({
       action: 'question-bank',
-      examType: activeExamType.value,
+      examType: pending.examType,
       questionCount: pending.questionCount,
     })
     if (access.allowed) {
@@ -511,8 +519,7 @@ async function handleConfirmSelectedPractice(): Promise<void> {
 
     const remaining = Math.max(0, access.remaining ?? 0)
     if (remaining === 0) {
-      pendingDirectPractice.value = null
-      paymentExamType.value = activeExamType.value
+      paymentExamType.value = pending.examType
       upgradeDialogVisible.value = true
       return
     }
@@ -546,10 +553,26 @@ function handleCancelReducedPractice(): void {
   pendingDirectPractice.value = null
 }
 
-// 免费额度耗尽提示由用户确认后再进入支付，避免练习操作直接触发收银台。
+// 免费日卡启用后继续使用此前冻结的练习参数，并重新由服务端校验会员额度。
+async function handleDailyCardActivated(): Promise<void> {
+  await handleConfirmSelectedPractice()
+}
+
+// 关闭权益拦截时清理此前冻结的练习参数，避免下次误续接旧操作。
+function handleCancelMembershipAccess(): void {
+  pendingDirectPractice.value = null
+}
+
+// 没有可用日卡或用户主动升级时再进入支付，并结束当前免费练习尝试。
 function handleOpenPayment(): void {
   upgradeDialogVisible.value = false
   paymentVisible.value = true
+}
+
+// 未完成购买便关闭收银台时结束此前冻结的练习意图。
+function handlePaymentVisibilityChange(visible: boolean): void {
+  paymentVisible.value = visible
+  if (!visible) pendingDirectPractice.value = null
 }
 
 // 支付完成后刷新会员上下文和题库额度，当前页面无需重新登录即可继续练习。
@@ -557,7 +580,11 @@ async function handlePaymentSuccess(): Promise<void> {
   paymentVisible.value = false
   try {
     auth.setMemberContext(await getMember())
-    await loadExamContent(false)
+    if (pendingDirectPractice.value) {
+      await handleConfirmSelectedPractice()
+    } else {
+      await loadExamContent(false)
+    }
   } catch {
     // 支付组件已确认成功，公共请求层负责提示权益刷新失败。
   }

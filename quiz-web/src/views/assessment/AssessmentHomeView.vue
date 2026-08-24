@@ -59,13 +59,26 @@
                   >
                     历史记录（{{ item.completedAttemptCount }}）
                   </button>
-                  <button
-                    class="paper-card__unlock-button"
-                    type="button"
-                    @click.stop="handleUpgradeClick(activeExamType)"
-                  >
-                    开通会员
-                  </button>
+                  <div class="paper-card__unlock-options">
+                    <button
+                      v-if="hasPendingDailyCard"
+                      class="paper-card__unlock-button"
+                      type="button"
+                      @click.stop="handleUpgradeForYear(item.year)"
+                    >
+                      使用免费日卡
+                    </button>
+                    <button
+                      class="paper-card__unlock-button"
+                      :class="{
+                        'paper-card__unlock-button--secondary': hasPendingDailyCard,
+                      }"
+                      type="button"
+                      @click.stop="handlePurchaseForYear(item.year)"
+                    >
+                      开通会员
+                    </button>
+                  </div>
                 </div>
               </div>
               <button
@@ -246,6 +259,15 @@
           取消
         </button>
         <button
+          v-if="selectedPaperPreview && isPaperLocked(selectedPaperPreview) && hasPendingDailyCard"
+          type="button"
+          class="button_cancel"
+          :disabled="Boolean(startingPaperId)"
+          @click="handlePurchaseForSelectedEsatPaper"
+        >
+          开通会员
+        </button>
+        <button
           type="button"
           class="button_primary esat-subject-dialog__start"
           :disabled="!selectedPaperPreview || Boolean(startingPaperId)"
@@ -255,7 +277,7 @@
             startingPaperId
               ? '正在检查...'
               : selectedPaperPreview && isPaperLocked(selectedPaperPreview)
-                ? '开通会员'
+                ? lockedMembershipActionLabel
                 : '开始诊断测试'
           }}
         </button>
@@ -338,9 +360,20 @@
       </div>
     </el-dialog>
 
+    <DailyCardAccessDialog
+      v-model="membershipAccessVisible"
+      :exam-type="paymentExamType"
+      direct-upgrade-when-no-card
+      upgrade-message="当前诊断卷需要会员权益，开通会员后即可开始完整诊断。"
+      @activated="handleDailyCardActivated"
+      @upgrade="handleMembershipUpgrade"
+      @cancel="clearPendingMembershipAction"
+    />
+
     <PaymentModal
-      v-model="paymentVisible"
+      :model-value="paymentVisible"
       :default-exam-type="paymentExamType"
+      @update:model-value="handlePaymentVisibilityChange"
       @paid="handlePaymentSuccess"
     />
   </div>
@@ -355,6 +388,7 @@ import { Lock, Right } from '@element-plus/icons-vue'
 import NavBar from '@/components/NavBar.vue'
 import AppPagination from '@/components/AppPagination.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
+import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
 import { getMember } from '@/api/member'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
@@ -398,13 +432,21 @@ const historyRecords = ref<AssessmentPaperHistoryItem[]>([])
 const historyPage = ref(1)
 const historyPageSize = ref(5)
 const historyTotal = ref(0)
+const membershipAccessVisible = ref(false)
 const paymentVisible = ref(false)
-const paymentExamType = ref<string>(auth.activeExamType)
+const paymentExamType = ref<ActiveExamType>(auth.activeExamType)
+const pendingMembershipAction = ref<PendingMembershipAction | null>(null)
 let assessmentInitialized = false
 let assessmentLoadSequence = 0
 let subjectPapersLoadSequence = 0
 
 type EsatSubjectCode = 'maths1' | 'maths2' | 'physics' | 'chemistry' | 'biology'
+
+type PendingMembershipAction =
+  | { kind: 'select-year'; year: number }
+  | { kind: 'start-tmua'; paperId: string }
+  | { kind: 'start-esat'; paperId: string }
+  | { kind: 'retest'; paper: AssessmentPaperItem }
 
 interface EsatSubjectOption {
   code: EsatSubjectCode
@@ -438,8 +480,28 @@ function requireLoginForDiagnosticAction(): boolean {
   return true
 }
 
+// 缓存显示为会员时在关键开始动作前向服务端复核，承接24小时日卡自然到期的长会话。
+async function refreshCachedMembership(examType?: string): Promise<boolean> {
+  const targetExamType = examType || activeExamType.value
+  if (auth.isAdmin || !auth.memberContext?.quotas?.[targetExamType]?.isMember) return true
+  try {
+    auth.setMemberContext(await getMember())
+    return true
+  } catch {
+    return false
+  }
+}
+
 // 诊断中心统一读取导航栏的全局考试类型，不再维护页面级考试选择。
 const activeExamType = computed<ActiveExamType>(() => auth.activeExamType)
+
+// 待启用日卡决定锁定态是否需要同时展示免费与付费两种解锁入口。
+const hasPendingDailyCard = computed(() => Boolean(auth.memberContext?.pendingDailyCards.length))
+
+// 选科弹窗主按钮优先突出免费日卡，同时由相邻按钮保留付费会员选择。
+const lockedMembershipActionLabel = computed(() =>
+  hasPendingDailyCard.value ? '使用免费日卡' : '开通会员',
+)
 
 // 年份页说明分别对应 ESAT 选科和 TMUA 双 Paper 确认两种流程。
 const yearOverviewDescription = computed(() =>
@@ -681,8 +743,9 @@ async function handleYearSelection(year: number): Promise<void> {
   }
 
   const selectedYear = assessmentYears.value.find((item) => item.year === year)
+  if (selectedYear && !(await refreshCachedMembership(activeExamType.value))) return
   if (selectedYear && isYearLocked(selectedYear)) {
-    handleUpgradeClick(activeExamType.value)
+    openMembershipAccess(activeExamType.value, { kind: 'select-year', year })
     return
   }
 
@@ -711,8 +774,9 @@ async function handleYearSelection(year: number): Promise<void> {
       ElMessage.warning(`TMUA ${year} 年暂无已发布的 Paper 1 + Paper 2 诊断卷`)
       return
     }
+    if (!(await refreshCachedMembership(paper.examType))) return
     if (isPaperLocked(paper)) {
-      handleUpgradeClick(paper.examType)
+      openMembershipAccess(paper.examType, { kind: 'select-year', year })
       return
     }
     selectedTmuaPaper.value = paper
@@ -779,17 +843,108 @@ watch(activeExamType, () => {
   historyYear.value = null
   historyRecords.value = []
   historyTotal.value = 0
-  paymentVisible.value = false
-  paymentExamType.value = activeExamType.value
+  membershipAccessVisible.value = false
+  clearPendingMembershipAction()
+  if (!paymentVisible.value) paymentExamType.value = activeExamType.value
   assessmentYears.value = []
   yearError.value = ''
   void refreshAssessmentData()
 })
 
-// 从试卷锁定态进入支付时预选该试卷的考试类型，减少重复选择。
-function handleUpgradeClick(examType?: string): void {
-  paymentExamType.value = examType || activeExamType.value
+// 锁定态仅在存在待启用日卡时展示免费权益选择，否则直接进入支付流程。
+function openMembershipAccess(
+  examType: string | undefined,
+  action: PendingMembershipAction,
+): void {
+  if (requireLoginForDiagnosticAction()) return
+  if (!hasPendingDailyCard.value) {
+    openMembershipPayment(examType, action)
+    return
+  }
+  paymentExamType.value =
+    examType === 'ESAT' || examType === 'TMUA' ? examType : activeExamType.value
+  pendingMembershipAction.value = action
+  membershipAccessVisible.value = true
+}
+
+// 年份锁层点击与卡片主操作使用同一恢复意图。
+function handleUpgradeForYear(year: number): void {
+  if (requireDesktopForDiagnosticAction()) return
+  openMembershipAccess(activeExamType.value, { kind: 'select-year', year })
+}
+
+// 锁定年份的开通会员按钮始终直达支付，免费日卡由相邻入口单独承接。
+function handlePurchaseForYear(year: number): void {
+  if (requireDesktopForDiagnosticAction()) return
+  openMembershipPayment(activeExamType.value, { kind: 'select-year', year })
+}
+
+// ESAT 选科弹窗中的付费选择冻结当前组合卷，支付后继续原开始流程。
+function handlePurchaseForSelectedEsatPaper(): void {
+  const paper = selectedPaperPreview.value
+  if (!paper) return
+  openMembershipPayment(paper.examType, { kind: 'start-esat', paperId: paper.id })
+}
+
+// 日卡启用后只恢复本次拦截的操作，并在重入前先清空意图避免循环消耗。
+async function handleDailyCardActivated(): Promise<void> {
+  const action = pendingMembershipAction.value
+  pendingMembershipAction.value = null
+  if (!action) return
+  if (!auth.memberContext?.quotas?.[paymentExamType.value]?.isMember) {
+    ElMessage.error('会员权益尚未生效，请稍后重试。')
+    return
+  }
+  if (action.kind === 'select-year') {
+    await handleYearSelection(action.year)
+    return
+  }
+  if (action.kind === 'start-tmua') {
+    if (selectedTmuaPaper.value?.id !== action.paperId) {
+      ElMessage.info('试卷状态已更新，请重新选择年份。')
+      return
+    }
+    await startSelectedTmuaPaper()
+    return
+  }
+  if (action.kind === 'start-esat') {
+    if (selectedPaperPreview.value?.id !== action.paperId) {
+      ElMessage.info('科目组合已更新，请重新确认。')
+      return
+    }
+    await startSelectedEsatPaper()
+    return
+  }
+  await handleRetestPaper(action.paper)
+}
+
+// 没有可用日卡或用户主动升级时再进入原有支付流程。
+function handleMembershipUpgrade(): void {
   paymentVisible.value = true
+}
+
+// 用户从锁定卡片直接选择付费时，保存原操作并跳过日卡提示进入收银台。
+function openMembershipPayment(
+  examType: string | undefined,
+  action: PendingMembershipAction,
+): void {
+  if (requireLoginForDiagnosticAction()) return
+  paymentExamType.value =
+    examType === 'ESAT' || examType === 'TMUA' ? examType : activeExamType.value
+  pendingMembershipAction.value = action
+  membershipAccessVisible.value = false
+  paymentVisible.value = true
+}
+
+// 未完成购买便关闭收银台时结束本次恢复意图。
+function handlePaymentVisibilityChange(visible: boolean): void {
+  paymentVisible.value = visible
+  if (!visible) clearPendingMembershipAction()
+}
+
+// 关闭拦截或切换考试时清除旧操作，避免后续误恢复。
+function clearPendingMembershipAction(): void {
+  pendingMembershipAction.value = null
 }
 
 // 支付完成后立即刷新会员上下文，使当前列表无需刷新页面即可解除遮罩。
@@ -798,6 +953,7 @@ async function handlePaymentSuccess(): Promise<void> {
     const context = await getMember()
     auth.setMemberContext(context)
     paymentVisible.value = false
+    await handleDailyCardActivated()
   } catch {
     // Axios 公共响应处理会展示后端 errMsg。
   }
@@ -956,8 +1112,9 @@ async function startSelectedTmuaPaper(): Promise<void> {
     routeToDiagnosticPaper(paper, true)
     return
   }
+  if (!(await refreshCachedMembership(paper.examType))) return
   if (isPaperLocked(paper)) {
-    handleUpgradeClick(paper.examType)
+    openMembershipAccess(paper.examType, { kind: 'start-tmua', paperId: paper.id })
     return
   }
   if (paper.testStatus === 'completed') {
@@ -994,8 +1151,9 @@ async function startSelectedEsatPaper(): Promise<void> {
     routeToDiagnosticPaper(paper, true)
     return
   }
+  if (!(await refreshCachedMembership(paper.examType))) return
   if (isPaperLocked(paper)) {
-    handleUpgradeClick(paper.examType)
+    openMembershipAccess(paper.examType, { kind: 'start-esat', paperId: paper.id })
     return
   }
   if (paper.testStatus === 'completed') {
@@ -1013,8 +1171,9 @@ async function handleRetestPaper(paper: AssessmentPaperItem): Promise<void> {
     ElMessage.info(getExamUnavailableMessage(paper.examType))
     return
   }
+  if (!(await refreshCachedMembership(paper.examType))) return
   if (isPaperLocked(paper)) {
-    handleUpgradeClick(paper.examType)
+    openMembershipAccess(paper.examType, { kind: 'retest', paper })
     return
   }
   if (!isPaperPublished(paper)) {
@@ -1533,10 +1692,11 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
   right: 24px;
   left: 24px;
   z-index: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  column-gap: 10px;
+  justify-content: flex-end;
+  gap: 8px;
   opacity: 0;
   pointer-events: none;
   transform: translateY(8px);
@@ -1546,7 +1706,6 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
 }
 
 .paper-card__unlock-button {
-  grid-column: 2;
   min-width: 112px;
   height: var(--height-button);
   padding: 0 22px;
@@ -1564,10 +1723,21 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
     color var(--duration-fast) ease;
 }
 
+.paper-card__unlock-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.paper-card__unlock-button--secondary {
+  border-color: rgb(255 255 255 / 72%);
+  background: rgb(17 24 39 / 74%);
+  color: rgb(255 255 255 / 96%);
+}
+
 .paper-card__locked-history-button {
-  grid-column: 1;
-  grid-row: 1;
-  justify-self: end;
   padding: 5px 1px 3px;
   border: 0;
   border-bottom: 1px solid rgb(255 255 255 / 72%);
@@ -1585,6 +1755,11 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
 
 .paper-card__unlock-button:hover {
   background: var(--color-surface);
+}
+
+.paper-card__unlock-button--secondary:hover {
+  background: rgb(17 24 39 / 92%);
+  color: rgb(255 255 255);
 }
 
 .paper-card__locked-history-button:hover {

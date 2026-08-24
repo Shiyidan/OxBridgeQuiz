@@ -134,6 +134,7 @@ export const profileStudyPreferencesSchema = z
       .min(1, "请至少选择一个目标考试")
       .max(2)
       .refine((values) => new Set(values).size === values.length, "目标考试不能重复"),
+    primaryExamType: z.enum(["ESAT", "TMUA"]),
     esatSubjects: z
       .array(z.enum(ESAT_SUBJECTS))
       .max(3),
@@ -153,6 +154,13 @@ export const profileStudyPreferencesSchema = z
   })
   .strict()
   .superRefine((value, context) => {
+    if (!value.examTypes.includes(value.primaryExamType)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["primaryExamType"],
+        message: "默认学习考试必须属于目标考试",
+      });
+    }
     if (
       value.examTypes.includes("ESAT") &&
       (value.esatSubjects.length !== 3 ||

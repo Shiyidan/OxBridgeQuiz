@@ -150,6 +150,23 @@
         />
       </section>
     </main>
+
+    <DailyCardAccessDialog
+      v-model="membershipAccessVisible"
+      :exam-type="paymentExamType"
+      upgrade-message="当前资料仅限会员下载，开通对应考试会员后即可继续。"
+      cancel-text="暂不下载"
+      @activated="handleDailyCardActivated"
+      @upgrade="handleMembershipUpgrade"
+      @cancel="clearPendingDownload"
+    />
+
+    <PaymentModal
+      :model-value="paymentVisible"
+      :default-exam-type="paymentExamType"
+      @update:model-value="handlePaymentVisibilityChange"
+      @paid="handlePaymentSuccess"
+    />
   </div>
 </template>
 
@@ -159,10 +176,13 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import AppPagination from '@/components/AppPagination.vue'
+import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
+import PaymentModal from '@/components/PaymentModal.vue'
 import { EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
-import { useAuthStore } from '@/stores/auth'
+import { getMember } from '@/api/member'
+import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import { createLoginRequiredRouteLocation } from '@/utils/authRedirect'
-import { getApiErrorMessage } from '@/utils/request'
+import { getApiErrorMessage, hasApiErrorCode } from '@/utils/request'
 import {
   downloadStudyResource,
   getPublishedStudyResources,
@@ -196,6 +216,10 @@ const resources = ref<PublicStudyResourceItem[]>([])
 const loading = ref(false)
 const loadError = ref('')
 const downloadingIds = ref<string[]>([])
+const membershipAccessVisible = ref(false)
+const paymentVisible = ref(false)
+const paymentExamType = ref<ActiveExamType>(auth.activeExamType)
+const pendingDownload = ref<{ resourceId: string; fileId: string } | null>(null)
 
 // 当前标题随分类筛选变化，帮助用户确认列表语义。
 const currentCategoryTitle = computed(
@@ -263,6 +287,17 @@ async function handleDownload(
     await router.push(createLoginRequiredRouteLocation(route.fullPath))
     return
   }
+  if (
+    resource.accessTier === 'member' &&
+    (resource.examType === 'ESAT' || resource.examType === 'TMUA') &&
+    !auth.memberContext?.isAdmin &&
+    !auth.memberContext?.quotas?.[resource.examType]?.isMember
+  ) {
+    pendingDownload.value = { resourceId: resource.id, fileId: file.id }
+    paymentExamType.value = resource.examType
+    membershipAccessVisible.value = true
+    return
+  }
   if (downloadingIds.value.includes(file.id)) return
   downloadingIds.value = [...downloadingIds.value, file.id]
   try {
@@ -277,10 +312,64 @@ async function handleDownload(
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
     resource.downloadCount += 1
     ElMessage.success('资料已开始下载')
-  } catch {
-    // 公共请求层展示会员限制、文件缺失等具体原因。
+  } catch (error: unknown) {
+    if (
+      (resource.examType === 'ESAT' || resource.examType === 'TMUA') &&
+      hasApiErrorCode(error, 'STUDY_RESOURCE_MEMBERSHIP_REQUIRED')
+    ) {
+      pendingDownload.value = { resourceId: resource.id, fileId: file.id }
+      paymentExamType.value = resource.examType
+      membershipAccessVisible.value = true
+    }
+    // 公共请求层展示文件缺失等其余具体原因。
   } finally {
     downloadingIds.value = downloadingIds.value.filter((id) => id !== file.id)
+  }
+}
+
+// 日卡或新会员权益生效后重新定位当前列表中的文件并继续原下载。
+async function resumePendingDownload(): Promise<void> {
+  const pending = pendingDownload.value
+  pendingDownload.value = null
+  if (!pending) return
+  const resource = resources.value.find((item) => item.id === pending.resourceId)
+  const file = resource?.files.find((item) => item.id === pending.fileId)
+  if (!resource || !file) {
+    ElMessage.info('资料状态已更新，请重新选择。')
+    return
+  }
+  await handleDownload(resource, file)
+}
+
+// 免费日卡启用后直接承接用户刚才选择的资料文件。
+async function handleDailyCardActivated(): Promise<void> {
+  await resumePendingDownload()
+}
+
+// 没有可用日卡或用户主动升级时再进入原有支付流程。
+function handleMembershipUpgrade(): void {
+  paymentVisible.value = true
+}
+
+// 未完成购买便关闭收银台时结束本次下载意图。
+function handlePaymentVisibilityChange(visible: boolean): void {
+  paymentVisible.value = visible
+  if (!visible) clearPendingDownload()
+}
+
+// 取消权益拦截时清除待下载文件，避免后续误触发旧下载。
+function clearPendingDownload(): void {
+  pendingDownload.value = null
+}
+
+// 支付成功后刷新会员上下文并继续下载，不要求用户再次查找资料。
+async function handlePaymentSuccess(): Promise<void> {
+  paymentVisible.value = false
+  try {
+    auth.setMemberContext(await getMember())
+    await resumePendingDownload()
+  } catch {
+    // 支付组件已确认成功，公共请求层负责提示权益刷新失败。
   }
 }
 

@@ -21,12 +21,7 @@
       <section class="profile-identity-card" aria-labelledby="profile-student-name">
         <div class="profile-avatar-wrap">
           <div class="avatar-frame">
-            <img
-              v-if="auth.user?.avatar"
-              :src="auth.user?.avatar || ''"
-              :alt="`${displayName}头像`"
-            />
-            <span v-else>{{ userInitial }}</span>
+            <AppAvatar :source="auth.user?.avatar" :name="displayName" />
           </div>
           <button type="button" class="profile-account-edit" @click="openAccountDialog">
             修改信息
@@ -187,12 +182,13 @@
                 当前学习：预估分 {{ currentDiagnosticScoreText }} / 9.0 · 累计做题
                 {{ currentExamStats.answeredQuestionCount }} 道
               </span>
-              <button type="button" @click="handleUpgradeClick">查看会员权益 →</button>
+              <button type="button" @click="openMembershipBenefits">查看会员权益 →</button>
             </div>
           </div>
         </section>
 
         <CardWalletPanel
+          :initial-filter="route.query.wallet === 'pending' ? 'pending' : 'all'"
           @membership-changed="handleInvitationMembershipChanged"
           @edit-goals="handleInvitationEditGoals"
         />
@@ -308,6 +304,38 @@
                       <small v-if="!item.available">推进中</small>
                     </button>
                   </div>
+
+                  <section
+                    v-if="editExamTypes.length > 1"
+                    class="profile-primary-exam-editor"
+                    aria-labelledby="profile-primary-exam-label"
+                  >
+                    <div>
+                      <strong id="profile-primary-exam-label">默认学习考试</strong>
+                      <small>诊断、模考和题库将优先展示该考试，可随时在个人中心修改</small>
+                    </div>
+                    <div
+                      class="profile-primary-exam-options"
+                      role="radiogroup"
+                      aria-labelledby="profile-primary-exam-label"
+                    >
+                      <label
+                        v-for="examType in editExamTypes"
+                        :key="examType"
+                        class="profile-primary-exam-option"
+                        :class="{ 'is-active': editPrimaryExamType === examType }"
+                      >
+                        <input
+                          type="radio"
+                          name="profile-primary-exam"
+                          :value="examType"
+                          :checked="editPrimaryExamType === examType"
+                          @change="setPrimaryExamType(examType)"
+                        />
+                        <span>{{ examType }}</span>
+                      </label>
+                    </div>
+                  </section>
 
                   <div v-if="editExamTypes.length" class="profile-exam-subject-editor">
                     <section v-if="editExamTypes.includes('ESAT')">
@@ -659,6 +687,13 @@
       <p v-if="errorText" class="load-warning">{{ errorText }}</p>
     </main>
 
+    <MembershipBenefitsDialog
+      v-model="membershipBenefitsVisible"
+      :exam-type="currentExamType"
+      :active="isCurrentExamActive"
+      @upgrade="handleMembershipBenefitsUpgrade"
+    />
+
     <PaymentModal
       v-model="paymentVisible"
       :default-exam-type="currentExamType"
@@ -783,7 +818,7 @@
 
 <script setup lang="ts">
 // 学生个人中心：展示会员权益、学习统计、登录网络、订阅和支付记录。
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
@@ -804,13 +839,15 @@ import {
   Tickets,
   Trophy,
 } from '@element-plus/icons-vue'
+import AppAvatar from '@/components/AppAvatar.vue'
 import NavBar from '@/components/NavBar.vue'
+import MembershipBenefitsDialog from '@/components/MembershipBenefitsDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
 import CardWalletPanel from './CardWalletPanel.vue'
 import InvitationPanel from './InvitationPanel.vue'
 import ProfileModuleHeading from '@/components/ProfileModuleHeading.vue'
 import StudyGoalOverview from './StudyGoalOverview.vue'
-import { getMember, updateStudyPreferences, type StudyPreferences } from '@/api/member'
+import { getMember, updateStudyPreferences, type StudyPreferencesUpdate } from '@/api/member'
 import { getProfileExamStats, type ProfileExamStats } from '@/api/exam'
 import { getBillingOverview, type BillingOverview, type PaymentOrder } from '@/api/payment'
 import { useAuthStore } from '@/stores/auth'
@@ -873,6 +910,7 @@ const billingSortDescending = ref(true)
 const billingOverview = ref<BillingOverview | null>(null)
 const billingLoading = ref(true)
 const billingError = ref('')
+const membershipBenefitsVisible = ref(false)
 const paymentVisible = ref(false)
 const paymentResumeOrderNo = ref('')
 const sessions = ref<AuthSessionItem[]>([])
@@ -914,9 +952,11 @@ const profileIpLocationText = computed(() => {
 })
 
 // 报考目标编辑
+type ScoreExamType = 'ESAT' | 'TMUA'
 const examEditing = ref(false)
 const examSaving = ref(false)
 const editExamTypes = ref<string[]>([])
+const editPrimaryExamType = ref<ScoreExamType>('TMUA')
 const editTargetUniversities = ref<string[]>([])
 const editTargetMajor = ref('')
 const editEsatSubjects = ref<string[]>(['数学1'])
@@ -936,7 +976,6 @@ const EXAM_DATE_OPTIONS = [
 ] as const
 
 const examTypes = EXAM_TYPE_OPTIONS.filter((item) => item.available)
-type ScoreExamType = 'ESAT' | 'TMUA'
 const displayedTargetExamTypes = computed(
   () => auth.memberContext?.studyPreferences.examTypes || [],
 )
@@ -956,6 +995,12 @@ function toggleProfileExamType(examType: string): void {
   const index = editExamTypes.value.indexOf(examType)
   if (index >= 0) {
     editExamTypes.value.splice(index, 1)
+    if (editPrimaryExamType.value === examType) {
+      const nextPrimaryExamType = editExamTypes.value.find(
+        (item): item is ScoreExamType => item === 'ESAT' || item === 'TMUA',
+      )
+      if (nextPrimaryExamType) editPrimaryExamType.value = nextPrimaryExamType
+    }
     if (examType === 'ESAT') {
       editEsatSubjects.value = ['数学1']
     }
@@ -964,6 +1009,9 @@ function toggleProfileExamType(examType: string): void {
   }
 
   editExamTypes.value.push(examType)
+  if (editExamTypes.value.length === 1 && (examType === 'ESAT' || examType === 'TMUA')) {
+    editPrimaryExamType.value = examType
+  }
   editExamTypes.value.sort(
     (left, right) =>
       examTypes.findIndex((item) => item.value === left) -
@@ -971,6 +1019,16 @@ function toggleProfileExamType(examType: string): void {
   )
   if (examType === 'ESAT' && !editEsatSubjects.value.includes('数学1')) {
     editEsatSubjects.value.unshift('数学1')
+  }
+}
+
+// 双目标用户在个人中心明确默认学习上下文，业务页面不再依赖顶部临时切换。
+function setPrimaryExamType(examType: string): void {
+  if (
+    (examType === 'ESAT' || examType === 'TMUA') &&
+    editExamTypes.value.includes(examType)
+  ) {
+    editPrimaryExamType.value = examType
   }
 }
 
@@ -992,6 +1050,15 @@ function toggleProfileEsatSubject(subject: string): void {
 function startEditExam(): void {
   const preferences = auth.memberContext?.studyPreferences
   editExamTypes.value = preferences?.examTypes.length ? [...preferences.examTypes] : []
+  const savedPrimaryExamType = preferences?.primaryExamType
+  editPrimaryExamType.value =
+    (savedPrimaryExamType && editExamTypes.value.includes(savedPrimaryExamType)
+      ? savedPrimaryExamType
+      : editExamTypes.value.includes(auth.activeExamType)
+        ? auth.activeExamType
+        : editExamTypes.value.find(
+            (examType): examType is ScoreExamType => examType === 'ESAT' || examType === 'TMUA',
+          )) || 'TMUA'
   editTargetUniversities.value = preferences?.targetUniversities.length
     ? [...preferences.targetUniversities]
     : TARGET_UNIVERSITY_OPTIONS.slice(2, 4)
@@ -1008,6 +1075,7 @@ function startEditExam(): void {
 // 关闭弹窗时清空本次草稿，服务端已保存的会员上下文保持不变。
 function cancelEditExam(): void {
   editExamTypes.value = []
+  editPrimaryExamType.value = 'TMUA'
   editTargetUniversities.value = []
   editTargetMajor.value = ''
   editEsatSubjects.value = ['数学1']
@@ -1022,6 +1090,10 @@ function cancelEditExam(): void {
 async function saveExam(): Promise<void> {
   if (!editExamTypes.value.length) {
     ElMessage.warning('请至少选择一个目标考试')
+    return
+  }
+  if (!editExamTypes.value.includes(editPrimaryExamType.value)) {
+    ElMessage.warning('请选择默认学习考试')
     return
   }
   if (!editTargetUniversities.value.length) {
@@ -1064,8 +1136,9 @@ async function saveExam(): Promise<void> {
   }
   examSaving.value = true
   try {
-    const preferences: StudyPreferences = {
+    const preferences: StudyPreferencesUpdate = {
       examTypes: [...editExamTypes.value],
+      primaryExamType: editPrimaryExamType.value,
       esatSubjects: editExamTypes.value.includes('ESAT') ? [...editEsatSubjects.value] : [],
       targetRegions: auth.memberContext?.studyPreferences.targetRegions || '',
       targetUniversities: [...editTargetUniversities.value],
@@ -1081,6 +1154,10 @@ async function saveExam(): Promise<void> {
     // 刷新 memberContext 以同步界面
     const ctx = await getMember()
     auth.setMemberContext(ctx)
+    if (auth.effectiveMemberExamTypes.length !== 1) {
+      auth.setActiveExamType(editPrimaryExamType.value)
+    }
+    setCurrentExamType(auth.activeExamType)
     examEditing.value = false
     ElMessage.success('报考目标已更新')
   } catch {
@@ -1100,8 +1177,6 @@ const billingFilters: { label: string; value: BillingFilter }[] = [
 
 // 用户名缺失时提供稳定称呼，避免个人中心标题为空。
 const displayName = computed(() => auth.user?.username || '同学')
-// 未上传头像时从展示名生成文字占位。
-const userInitial = computed(() => displayName.value.charAt(0).toUpperCase())
 // 仅有效会员记录参与当前权益和标签计算。
 const activeMemberships = computed(() =>
   (auth.memberContext?.memberships || []).filter((item) => item.status === 'active'),
@@ -1457,6 +1532,21 @@ function resetPasswordDraft(): void {
   passwordForm.confirmPassword = ''
 }
 
+// 卡包深链在组件渲染完成后定位到待启用权益，避免用户从顶部入口进入后再次查找。
+async function scrollToCardWalletIfRequested(hash = route.hash): Promise<void> {
+  if (hash !== '#member-card-wallet') return
+  await nextTick()
+  document.getElementById('member-card-wallet')?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'center',
+  })
+}
+
+watch(
+  () => route.hash,
+  (hash) => void scrollToCardWalletIfRequested(hash),
+)
+
 // 进入个人中心并行加载权益、统计、设备会话和完整账单总览，局部失败不阻塞其他区域。
 onMounted(async () => {
   errorText.value = ''
@@ -1493,9 +1583,22 @@ onMounted(async () => {
     // 清除一次性入口参数，刷新个人中心时不重复打开目标编辑弹窗。
     await router.replace({ query: nextQuery })
   }
+  await scrollToCardWalletIfRequested()
 })
 
-// 个人中心所有升级入口统一打开支付弹窗，并预选当前查看的考试类型。
+// 权益说明入口先展示会员能获得的学习能力，不在用户点击时直接创建支付意图。
+function openMembershipBenefits(): void {
+  membershipBenefitsVisible.value = true
+}
+
+// 用户在权益说明中明确选择开通后，再进入现有套餐与支付流程。
+async function handleMembershipBenefitsUpgrade(): Promise<void> {
+  membershipBenefitsVisible.value = false
+  await nextTick()
+  handleUpgradeClick()
+}
+
+// 开通、续费与订单恢复入口统一打开支付弹窗，并预选当前查看的考试类型。
 function handleUpgradeClick(): void {
   if (!isExamTypeAvailable(currentExamType.value)) {
     ElMessage.info(getExamUnavailableMessage(currentExamType.value))
@@ -3890,7 +3993,7 @@ onBeforeUnmount(() => {
 
 .membership-benefit-grid article > small {
   color: #a0a5b4;
-  font-size: 8px;
+  font-size: 10px;
 }
 
 :deep(.profile-segment-tabs) {
@@ -4004,7 +4107,7 @@ onBeforeUnmount(() => {
   border-radius: 10px;
   background: #fff9ef;
   color: #8a7559;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .membership-summary-note button {
@@ -4014,7 +4117,7 @@ onBeforeUnmount(() => {
   background: transparent;
   color: #b87c31;
   font-family: inherit;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 680;
   cursor: pointer;
 }
@@ -4522,6 +4625,73 @@ onBeforeUnmount(() => {
   border-color: var(--profile-lilac);
   background: var(--profile-lilac);
   content: '✓';
+}
+
+:global(.profile-target-dialog .profile-primary-exam-editor) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 13px;
+  border: 1px solid rgba(105, 85, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(105, 85, 255, 0.035);
+}
+
+:global(.profile-target-dialog .profile-primary-exam-editor > div:first-child) {
+  display: grid;
+  gap: 3px;
+}
+
+:global(.profile-target-dialog .profile-primary-exam-editor strong) {
+  color: #4d455f;
+  font-size: 13px;
+}
+
+:global(.profile-target-dialog .profile-primary-exam-editor small) {
+  color: #85899a;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+:global(.profile-target-dialog .profile-primary-exam-options) {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 7px;
+}
+
+:global(.profile-target-dialog .profile-primary-exam-option) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 68px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--profile-line);
+  border-radius: 7px;
+  background: #fff;
+  color: #666c7e;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+:global(.profile-target-dialog .profile-primary-exam-option input) {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--profile-lilac);
+}
+
+:global(.profile-target-dialog .profile-primary-exam-option:hover),
+:global(.profile-target-dialog .profile-primary-exam-option:focus-within),
+:global(.profile-target-dialog .profile-primary-exam-option.is-active) {
+  border-color: rgba(105, 85, 255, 0.5);
+  outline: none;
+  background: rgba(105, 85, 255, 0.1);
+  color: var(--profile-lilac);
 }
 
 :global(.profile-target-dialog .profile-exam-subject-editor) {
@@ -5132,6 +5302,16 @@ onBeforeUnmount(() => {
 
   :global(.profile-target-dialog .profile-exam-subject-choices) {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  :global(.profile-target-dialog .profile-primary-exam-editor) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  :global(.profile-target-dialog .profile-primary-exam-options) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .profile-exam-target-score {

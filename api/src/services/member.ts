@@ -3,9 +3,15 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma.js";
 import { parseJsonArray } from "../utils/jsonField.js";
 import {
+  ADMIN_GIFT_DAILY_DURATION_HOURS,
+  CARD_REWARD_SOURCE,
   EFFECTIVE_MEMBERSHIP_STATUS,
   EFFECTIVE_PLAN,
   EXAM_TYPES,
+  INVITATION_REWARD_ACTIVATION_WINDOW_HOURS,
+  INVITATION_REWARD_DURATION_HOURS,
+  INVITATION_REWARD_ROLE,
+  INVITATION_REWARD_STATUS,
   MEMBERSHIP_STATUS,
   PAPER_ACCESS_TIER,
   REAL_PAPER_TYPES,
@@ -18,10 +24,12 @@ const DEFAULT_QUESTION_BANK_LIMIT = 25;
 
 export type EntitlementAction = "diagnostic" | "question-bank";
 type MemberDatabase = typeof prisma | Prisma.TransactionClient;
+export type StudyExamType = "ESAT" | "TMUA";
 
 export interface ExamPreferenceRecord {
   examType: string;
   subjects: string[];
+  primaryExamType?: StudyExamType;
   targetRegions?: string;
   targetUniversities?: string[];
   targetMajor?: string;
@@ -33,6 +41,7 @@ export interface ExamPreferenceRecord {
 
 export interface StudyPreferences {
   examTypes: string[];
+  primaryExamType: StudyExamType | null;
   esatSubjects: string[];
   targetRegions: string;
   targetUniversities: string[];
@@ -41,6 +50,10 @@ export interface StudyPreferences {
   examDate: string;
   weeklyHours: number;
 }
+
+export type StudyPreferencesUpdate = Omit<StudyPreferences, "primaryExamType"> & {
+  primaryExamType: StudyExamType;
+};
 
 const PROFILE_EXAM_DATES = new Set([
   "2026-10",
@@ -257,6 +270,9 @@ export async function checkMemberAccess(
 // 汇总用户在各考试类型下的会员和免费额度上下文。
 export async function getMemberContext(userId: string) {
   const now = new Date();
+  const pendingCardCutoff = new Date(
+    now.getTime() - INVITATION_REWARD_ACTIVATION_WINDOW_HOURS * 60 * 60 * 1000,
+  );
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -271,7 +287,7 @@ export async function getMemberContext(userId: string) {
 
   if (!user) return null;
 
-  const [configs, memberships, paperExamTypes] = await Promise.all([
+  const [configs, memberships, paperExamTypes, pendingMembershipCardRecords] = await Promise.all([
     prisma.entitlementConfig.findMany({ where: { status: "active" } }),
     prisma.userMembership.findMany({
       where: { userId },
@@ -280,6 +296,40 @@ export async function getMemberContext(userId: string) {
     prisma.paper.findMany({
       select: { examType: true },
       distinct: ["examType"],
+    }),
+    prisma.invitationReward.findMany({
+      where: {
+        userId,
+        status: INVITATION_REWARD_STATUS.PENDING_ACTIVATION,
+        membershipId: null,
+        OR: [
+          {
+            sourceType: CARD_REWARD_SOURCE.ADMIN_GIFT,
+            beneficiaryRole: INVITATION_REWARD_ROLE.RECIPIENT,
+            durationHours: ADMIN_GIFT_DAILY_DURATION_HOURS,
+            grantedAt: { gt: pendingCardCutoff },
+          },
+          {
+            sourceType: CARD_REWARD_SOURCE.INVITATION,
+            beneficiaryRole: {
+              in: [INVITATION_REWARD_ROLE.INVITER, INVITATION_REWARD_ROLE.INVITEE],
+            },
+            durationHours: INVITATION_REWARD_DURATION_HOURS,
+            OR: [
+              { grantedAt: null },
+              { grantedAt: { gt: pendingCardCutoff } },
+            ],
+          },
+        ],
+      },
+      select: {
+        id: true,
+        durationHours: true,
+        sourceType: true,
+        beneficiaryRole: true,
+        grantedAt: true,
+      },
+      orderBy: [{ grantedAt: "asc" }, { createdAt: "asc" }],
     }),
   ]);
 
@@ -395,6 +445,30 @@ export async function getMemberContext(userId: string) {
   }
 
   const examPreferences = safeParseExamPreferences(user.examPreferences);
+  const pendingMembershipCards = pendingMembershipCardRecords.map((card) => ({
+    id: card.id,
+    durationHours: card.durationHours,
+    sourceType: card.sourceType,
+    beneficiaryRole: card.beneficiaryRole,
+    readyToActivate: Boolean(card.grantedAt),
+    activationDeadline: card.grantedAt
+      ? card.grantedAt.getTime() +
+        INVITATION_REWARD_ACTIVATION_WINDOW_HOURS * 60 * 60 * 1000
+      : null,
+  }));
+  const pendingDailyCards = pendingMembershipCards
+    .filter(
+      (card) =>
+        card.sourceType === CARD_REWARD_SOURCE.ADMIN_GIFT &&
+        card.beneficiaryRole === INVITATION_REWARD_ROLE.RECIPIENT &&
+        card.durationHours === ADMIN_GIFT_DAILY_DURATION_HOURS &&
+        card.readyToActivate,
+    )
+    .map(({ id, durationHours, activationDeadline }) => ({
+      id,
+      durationHours,
+      activationDeadline: activationDeadline!,
+    }));
 
   return {
     user,
@@ -402,6 +476,8 @@ export async function getMemberContext(userId: string) {
     isAdmin,
     memberships: membershipList,
     quotas,
+    pendingMembershipCards,
+    pendingDailyCards,
     examPreferences,
     studyPreferences: buildStudyPreferences(examPreferences),
   };
@@ -432,15 +508,24 @@ export function buildStudyPreferences(preferences: ExamPreferenceRecord[]): Stud
   const firstWith = <T>(selector: (item: ExamPreferenceRecord) => T | undefined): T | undefined =>
     preferences.map(selector).find((value) => value !== undefined);
   const weeklyHours = firstWith((item) => item.weeklyHours);
+  const examTypes = [
+    ...new Set(
+      preferences
+        .map((item) => item.examType.toUpperCase())
+        .filter((examType) => examType === "ESAT" || examType === "TMUA"),
+    ),
+  ];
+  const primaryExamType =
+    preferences
+      .map((item) => String(item.primaryExamType || "").toUpperCase())
+      .find(
+        (examType): examType is StudyExamType =>
+          (examType === "ESAT" || examType === "TMUA") && examTypes.includes(examType),
+      ) || null;
 
   return {
-    examTypes: [
-      ...new Set(
-        preferences
-          .map((item) => item.examType.toUpperCase())
-          .filter((examType) => examType === "ESAT" || examType === "TMUA"),
-      ),
-    ],
+    examTypes,
+    primaryExamType,
     esatSubjects: esatPreference?.subjects || [],
     targetRegions: firstWith((item) => item.targetRegions) || "",
     targetUniversities: firstWith((item) => item.targetUniversities) || [],
@@ -456,13 +541,17 @@ export function buildStudyPreferences(preferences: ExamPreferenceRecord[]): Stud
 }
 
 // 全局偏好在数据库写入前转换为报告链路仍在使用的按考试记录。
-export function expandStudyPreferences(preferences: StudyPreferences): ExamPreferenceRecord[] {
+export function expandStudyPreferences(preferences: StudyPreferencesUpdate): ExamPreferenceRecord[] {
+  if (!preferences.examTypes.includes(preferences.primaryExamType)) {
+    throw new Error("默认学习考试必须属于目标考试");
+  }
   return preferences.examTypes.map((examType) => {
     const targetScore =
       examType === "ESAT" || examType === "TMUA" ? preferences.targetScores[examType] : null;
     return {
       examType,
       subjects: examType === "ESAT" ? [...preferences.esatSubjects] : ["Paper 1", "Paper 2"],
+      primaryExamType: preferences.primaryExamType,
       targetRegions: preferences.targetRegions,
       targetUniversities: [...preferences.targetUniversities],
       targetMajor: preferences.targetMajor,

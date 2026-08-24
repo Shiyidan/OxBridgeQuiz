@@ -117,14 +117,13 @@
       @cancel="handleReturnAfterPractice"
     />
 
-    <AppConfirmDialog
+    <DailyCardAccessDialog
       v-model="upgradeDialogVisible"
-      title="免费练习额度已用完"
-      message="当前考试的免费练习额度已全部使用，开通会员后可继续不限题量练习。"
-      confirm-text="开通会员"
+      :exam-type="activeExamType === 'ESAT' ? 'ESAT' : 'TMUA'"
+      upgrade-message="当前考试的免费练习额度已全部使用，开通会员后可继续不限题量练习。"
       cancel-text="返回试题库"
-      tone="default"
-      @confirm="handleOpenPayment"
+      @activated="handleDailyCardActivated"
+      @upgrade="handleOpenPayment"
       @cancel="handleCancelUpgrade"
     />
 
@@ -147,6 +146,7 @@ import ExamVue from '@/components/ExamVue.vue'
 import ExamWatermark from '@/components/ExamWatermark.vue'
 import DiagnosticAnalysisDialog from '@/components/DiagnosticAnalysisDialog.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
+import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
 import { getQuestionsData } from '@/api/questionBank'
 import { getPaperDetailData } from '@/api/papers'
@@ -420,6 +420,12 @@ async function loadQuestions(): Promise<void> {
       })
       return
     }
+    if (hasApiErrorCode(e, 'QUESTION_BANK_ACCESS_DENIED')) {
+      questions.value = []
+      quotaUpgradePending.value = true
+      upgradeDialogVisible.value = true
+      return
+    }
     console.error('[Practice] 加载失败', e)
     questions.value = []
   } finally {
@@ -432,6 +438,12 @@ async function loadQuestions(): Promise<void> {
 function handleOpenPayment(): void {
   upgradeDialogVisible.value = false
   paymentVisible.value = true
+}
+
+// 日卡启用后重新执行被拦截的选题与开卷流程，让用户直接回到原操作。
+async function handleDailyCardActivated(): Promise<void> {
+  quotaUpgradePending.value = false
+  await loadQuestions()
 }
 
 // 用户暂不开通时返回试题库，避免停留在没有题目的答题页面。

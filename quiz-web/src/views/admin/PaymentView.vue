@@ -247,12 +247,14 @@
           <el-table-column label="渠道" width="105">
             <template #default="{ row }">{{ channelText(row.channel) }}</template>
           </el-table-column>
-          <el-table-column label="状态" width="105">
+          <el-table-column label="状态" width="125" align="center">
             <template #default="{ row }">
-              <el-tag :type="statusTagType(row.status)" effect="light">{{ statusText(row.status) }}</el-tag>
+              <el-tag :type="statusTagType(row.status)" effect="light">
+                {{ orderStatusText(row) }}
+              </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="创建时间" min-width="170">
+          <el-table-column label="创建时间" width="160">
             <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
           </el-table-column>
           <el-table-column label="操作" width="105" fixed="right" align="center">
@@ -283,7 +285,7 @@
               </div>
               <div class="detail-heading-actions">
                 <el-tag :type="statusTagType(orderDetail.order.status)" effect="light">
-                  {{ statusText(orderDetail.order.status) }}
+                  {{ orderStatusText(orderDetail.order) }}
                 </el-tag>
                 <el-button
                   v-if="canRefundOrder"
@@ -664,6 +666,13 @@ function statusText(status: string): string {
     refunding: '退款中',
     refunded: '已退款',
   }[status] || status
+}
+
+// 内部赠送和邀请奖励没有发生资金支付，后台状态应表达权益履约而非支付结果。
+function orderStatusText(order: Pick<AdminPaymentOrder, 'priceType' | 'status'>): string {
+  const isInternalEntitlement = ['admin_gift', 'invitation_reward'].includes(order.priceType)
+  if (isInternalEntitlement && order.status === 'paid') return '权益已启用'
+  return statusText(order.status)
 }
 
 function statusTagType(status: string): 'success' | 'warning' | 'danger' | 'info' | 'primary' {

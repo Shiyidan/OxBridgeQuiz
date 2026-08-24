@@ -64,6 +64,11 @@
             <strong class="card-count">{{ row.cardCount }} 张</strong>
           </template>
         </el-table-column>
+        <el-table-column label="已使用" min-width="120" align="center">
+          <template #default="{ row }">
+            <strong class="used-card-count">{{ row.usedCardCount }} 张</strong>
+          </template>
+        </el-table-column>
         <el-table-column label="发放管理员" min-width="180" align="center">
           <template #default="{ row }">
             <div class="staff-names">
@@ -312,6 +317,11 @@ onMounted(() => {
 
 .card-count {
   color: #4f46e5;
+  font-size: 0.95rem;
+}
+
+.used-card-count {
+  color: #059669;
   font-size: 0.95rem;
 }
 

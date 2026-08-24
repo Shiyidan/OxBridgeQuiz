@@ -37,7 +37,7 @@ export interface UserInfo {
   username: string
   email: string
   role: string
-  avatar?: string
+  avatar?: string | null
 }
 
 export interface AuthResult {

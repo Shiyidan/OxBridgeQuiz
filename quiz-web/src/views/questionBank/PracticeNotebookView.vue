@@ -172,19 +172,19 @@
       @cancel="handleCancelReducedPractice"
     />
 
-    <AppConfirmDialog
+    <DailyCardAccessDialog
       v-model="upgradeDialogVisible"
-      title="免费练习额度已用完"
-      message="当前考试的免费练习额度已全部使用，开通会员后可继续不限题量练习。"
-      confirm-text="开通会员"
-      cancel-text="暂不开通"
-      tone="default"
-      @confirm="handleOpenPayment"
+      :exam-type="paymentExamType"
+      upgrade-message="当前考试的免费练习额度已全部使用，开通会员后可继续不限题量练习。"
+      @activated="handleDailyCardActivated"
+      @upgrade="handleOpenPayment"
+      @cancel="handleCancelMembershipAccess"
     />
 
     <PaymentModal
-      v-model="paymentVisible"
+      :model-value="paymentVisible"
       :default-exam-type="paymentExamType"
+      @update:model-value="handlePaymentVisibilityChange"
       @paid="handlePaymentSuccess"
     />
   </div>
@@ -196,6 +196,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import AppPagination from '@/components/AppPagination.vue'
+import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import { checkMemberAccess, getMember } from '@/api/member'
@@ -254,7 +255,7 @@ const quotaDialogMessage = ref('')
 const upgradeDialogVisible = ref(false)
 const paymentVisible = ref(false)
 const paymentExamType = ref<ActiveExamType>(auth.activeExamType)
-const pendingNotebookStart = ref<{ notebookId: string } | null>(null)
+const pendingNotebookStart = ref<{ notebookId: string; examType: ActiveExamType } | null>(null)
 const histories = reactive<Record<string, HistoryState>>({})
 let listRequestSequence = 0
 let initialized = false
@@ -434,12 +435,13 @@ async function handlePrimaryAction(row: DisplayRow): Promise<void> {
 
     const remaining = Math.max(0, access.remaining ?? 0)
     if (remaining === 0) {
+      pendingNotebookStart.value = { notebookId: row.id, examType: row.examType }
       paymentExamType.value = row.examType
       upgradeDialogVisible.value = true
       return
     }
 
-    pendingNotebookStart.value = { notebookId: row.id }
+    pendingNotebookStart.value = { notebookId: row.id, examType: row.examType }
     quotaDialogMessage.value = `当前免费练习题量不足，还可免费练习${remaining}道，是否开始`
     quotaDialogVisible.value = true
   } catch {
@@ -462,10 +464,41 @@ function handleCancelReducedPractice(): void {
   pendingNotebookStart.value = null
 }
 
-// 免费额度耗尽提示由用户确认后再进入支付，并保留当前练习本页面。
+// 日卡启用后直接承接此前被冻结的练习本，不要求用户再次查找并点击。
+async function handleDailyCardActivated(): Promise<void> {
+  const pending = pendingNotebookStart.value
+  pendingNotebookStart.value = null
+  if (!pending) return
+  await loadNotebookList()
+  if (activePractice.value) {
+    ElMessage.info(`已有一份 ${activePractice.value.examType} 练习尚未交卷，请先继续完成`)
+    return
+  }
+  const notebook = displayRows.value.find(
+    (item) => item.id === pending.notebookId && item.examType === pending.examType,
+  )
+  if (!notebook) {
+    ElMessage.info('练习本状态已更新，请重新选择。')
+    return
+  }
+  await startNotebookPractice(pending.notebookId)
+}
+
+// 用户关闭会员拦截时清除冻结操作，避免后续误启动旧练习本。
+function handleCancelMembershipAccess(): void {
+  pendingNotebookStart.value = null
+}
+
+// 没有可用日卡或用户主动升级时再进入支付，并保留当前练习本页面。
 function handleOpenPayment(): void {
   upgradeDialogVisible.value = false
   paymentVisible.value = true
+}
+
+// 未完成购买便关闭收银台时结束此前冻结的练习本意图。
+function handlePaymentVisibilityChange(visible: boolean): void {
+  paymentVisible.value = visible
+  if (!visible) pendingNotebookStart.value = null
 }
 
 // 支付完成后刷新会员上下文和练习本列表，使原操作可以立即重新发起。
@@ -473,7 +506,11 @@ async function handlePaymentSuccess(): Promise<void> {
   paymentVisible.value = false
   try {
     auth.setMemberContext(await getMember())
-    await loadNotebookList()
+    if (pendingNotebookStart.value) {
+      await handleDailyCardActivated()
+    } else {
+      await loadNotebookList()
+    }
   } catch {
     // 支付组件已确认成功，公共请求层负责提示权益刷新失败。
   }
@@ -544,6 +581,10 @@ function handleCreateNotebook(): void {
 watch(activeExamType, () => {
   if (!initialized) return
   expandedRowId.value = ''
+  quotaDialogVisible.value = false
+  upgradeDialogVisible.value = false
+  if (!paymentVisible.value) paymentExamType.value = activeExamType.value
+  pendingNotebookStart.value = null
   Object.keys(histories).forEach((key) => delete histories[key])
   if (!auth.isLoggedIn) {
     listLoading.value = false

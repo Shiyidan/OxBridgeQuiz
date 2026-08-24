@@ -152,13 +152,13 @@ export async function getAdminUserDetail(userId: string, options: AdminUserDetai
       username: true,
       email: true,
       role: true,
+      avatar: true,
       createdAt: true,
       updatedAt: true,
       diagnosticUsed: true,
       memberships: {
         where: {
           status: MEMBERSHIP_STATUS.ACTIVE,
-          startsAt: { lte: now },
           endsAt: { gt: now },
         },
         select: {
@@ -243,11 +243,25 @@ export async function getAdminUserDetail(userId: string, options: AdminUserDetai
     }),
     resolveLoginLocation(latestSession?.ipAddress),
   ])
-  // 查询已按到期时间倒序，同一考试类型仅展示当前持续时间最长的一项权益。
-  const activeMemberships = user.memberships.filter(
-    (membership, index, memberships) =>
-      memberships.findIndex((candidate) => candidate.examType === membership.examType) === index,
-  )
+  // 当前套餐决定权益名称，后续已排队的有效权益共同决定最终到期时间。
+  const activeMemberships = user.memberships
+    .filter(
+      (membership) => membership.startsAt <= now && membership.endsAt > now,
+    )
+    .filter(
+      (membership, index, memberships) =>
+        memberships.findIndex((candidate) => candidate.examType === membership.examType) === index,
+    )
+    .map((membership) => ({
+      ...membership,
+      entitlementEndsAt:
+        user.memberships.find(
+          (candidate) =>
+            candidate.examType === membership.examType &&
+            candidate.status === MEMBERSHIP_STATUS.ACTIVE &&
+            candidate.endsAt > now,
+        )?.endsAt || membership.endsAt,
+    }))
 
   return {
     profile: {
@@ -255,6 +269,7 @@ export async function getAdminUserDetail(userId: string, options: AdminUserDetai
       username: user.username,
       email: user.email,
       role: user.role,
+      avatar: user.avatar,
       diagnosticUsed: user.diagnosticUsed,
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
@@ -278,6 +293,7 @@ export async function getAdminUserDetail(userId: string, options: AdminUserDetai
         ...membership,
         startsAt: membership.startsAt.getTime(),
         endsAt: membership.endsAt.getTime(),
+        entitlementEndsAt: membership.entitlementEndsAt.getTime(),
       })),
       rewardCards: summarizeRewardCards(user.invitationRewards, now),
     },

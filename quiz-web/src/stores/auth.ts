@@ -17,32 +17,38 @@ export interface User {
   username: string
   email: string
   role: string
-  avatar?: string
+  avatar?: string | null
 }
 
 export type ActiveExamType = 'ESAT' | 'TMUA'
 
-// 默认考试先采用有效会员权益；权益无法唯一确定时，再按备考目标和 TMUA 兜底。
+// 会员上下文只认当前由服务端判定为生效的考试权益，并过滤未知考试类型。
+function resolveActiveMemberExamTypes(context: MemberContext): ActiveExamType[] {
+  return Object.entries(context.quotas || {})
+    .filter(([, quota]) => quota.isMember)
+    .map(([examType]) => String(examType || '').toUpperCase())
+    .filter((examType): examType is ActiveExamType => examType === 'ESAT' || examType === 'TMUA')
+}
+
+// 唯一有效会员考试优先；双会员或无会员时再使用显式默认、首项目标和 TMUA 兜底。
 function resolveDefaultExamType(context: MemberContext): ActiveExamType {
-  const memberExamTypes = new Set(
-    Object.entries(context.quotas || {})
-      .filter(([, quota]) => quota.isMember)
-      .map(([examType]) => String(examType || '').toUpperCase())
-      .filter((examType) => examType === 'ESAT' || examType === 'TMUA'),
-  )
-  if (memberExamTypes.size === 1) {
-    return memberExamTypes.has('ESAT') ? 'ESAT' : 'TMUA'
+  const memberExamTypes = resolveActiveMemberExamTypes(context)
+  const preferredExamTypes = (context.studyPreferences?.examTypes || [])
+    .map((examType) => String(examType || '').toUpperCase())
+    .filter((examType): examType is ActiveExamType => examType === 'ESAT' || examType === 'TMUA')
+  const primaryExamType = String(context.studyPreferences?.primaryExamType || '').toUpperCase()
+
+  if (memberExamTypes.length === 1) return memberExamTypes[0]!
+
+  if (
+    (primaryExamType === 'ESAT' || primaryExamType === 'TMUA') &&
+    preferredExamTypes.includes(primaryExamType)
+  ) {
+    return primaryExamType
   }
 
-  const firstPreferredExamType = (context.studyPreferences?.examTypes || [])
-    .map((examType) => String(examType || '').toUpperCase())
-    .find((examType) => examType === 'ESAT' || examType === 'TMUA')
-  if (
-    firstPreferredExamType &&
-    (memberExamTypes.size === 0 || memberExamTypes.has(firstPreferredExamType))
-  ) {
-    return firstPreferredExamType as ActiveExamType
-  }
+  const firstPreferredExamType = preferredExamTypes[0]
+  if (firstPreferredExamType) return firstPreferredExamType
 
   return 'TMUA'
 }
@@ -84,6 +90,11 @@ export const useAuthStore = defineStore('auth', () => {
       examType,
       ...item,
     })),
+  )
+
+  // 页面需要判断会员优先级时复用同一份有效考试集合，避免各处自行推导产生分歧。
+  const effectiveMemberExamTypes = computed<ActiveExamType[]>(() =>
+    memberContext.value ? resolveActiveMemberExamTypes(memberContext.value) : [],
   )
 
   // Auth Store 是访问令牌的唯一数据源，请求层通过启动时绑定读取和更新该值。
@@ -129,11 +140,17 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // 上下文刷新时，唯一会员考试覆盖旧选择；双会员与无会员仍尊重用户当前选择。
   function setMemberContext(context: MemberContext): void {
     const userChanged = user.value?.id !== context.user.id
     if (userChanged) examTypeSelectedManually.value = false
     memberContext.value = context
     user.value = context.user
+    if (effectiveMemberExamTypes.value.length === 1) {
+      activeExamType.value = effectiveMemberExamTypes.value[0]!
+      examTypeSelectedManually.value = false
+      return
+    }
     if (!examTypeSelectedManually.value) {
       activeExamType.value = resolveDefaultExamType(context)
     }
@@ -156,7 +173,7 @@ export const useAuthStore = defineStore('auth', () => {
     return memberContextRequest
   }
 
-  // 顶部导航手动切换仅改变当前前端会话，不改写个人中心保存的报考偏好。
+  // 业务页和个人中心切换当前学习上下文，不直接改写已保存的报考目标。
   function setActiveExamType(examType: ActiveExamType): void {
     activeExamType.value = examType
     examTypeSelectedManually.value = true
@@ -253,6 +270,7 @@ export const useAuthStore = defineStore('auth', () => {
     permissions,
     entitlements,
     memberExamTypes,
+    effectiveMemberExamTypes,
     isLoggedIn,
     isAdmin,
     restoreSession,

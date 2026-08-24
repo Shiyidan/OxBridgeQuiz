@@ -2,8 +2,12 @@
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import {
+  ADMIN_GIFT_DAILY_DURATION_HOURS,
+  CARD_REWARD_SOURCE,
   INVITATION_BINDING_SOURCE,
   INVITATION_RELATION_STATUS,
+  INVITATION_REWARD_ACTIVATION_WINDOW_HOURS,
+  INVITATION_REWARD_DURATION_HOURS,
   INVITATION_REWARD_ROLE,
   INVITATION_REWARD_STATUS,
   MEMBERSHIP_PLAN,
@@ -20,6 +24,7 @@ import {
   validateInvitationCode,
 } from '../src/services/invitation.js'
 import { fulfillPaidOrder } from '../src/services/paymentFulfillment.js'
+import { getMemberContext } from '../src/services/member.js'
 import { prisma } from '../src/services/prisma.js'
 
 const testPrefix = 'invitation-regression'
@@ -372,6 +377,135 @@ async function main(): Promise<void> {
   assert.ok(giftOverview.rewards.every((reward) => reward.sourceType === 'admin_gift'))
   assert.ok(giftOverview.rewards.every((reward) => reward.durationHours === 24))
 
+  // 通用待启用摘要同时提示已到账周卡和仍待首次付费到账的邀请周卡，并排除过期周卡。
+  const pendingWeeklyCardOwner = await createUser('pending-weekly-card-summary')
+  const weeklyCardGrantedAt = new Date()
+  const [readyWeeklyCard, waitingWeeklyCard] = await prisma.$transaction([
+    prisma.invitationReward.create({
+      data: {
+        userId: pendingWeeklyCardOwner.id,
+        sourceType: CARD_REWARD_SOURCE.INVITATION,
+        beneficiaryRole: INVITATION_REWARD_ROLE.INVITER,
+        status: INVITATION_REWARD_STATUS.PENDING_ACTIVATION,
+        durationHours: INVITATION_REWARD_DURATION_HOURS,
+        grantedAt: weeklyCardGrantedAt,
+      },
+    }),
+    prisma.invitationReward.create({
+      data: {
+        userId: pendingWeeklyCardOwner.id,
+        sourceType: CARD_REWARD_SOURCE.INVITATION,
+        beneficiaryRole: INVITATION_REWARD_ROLE.INVITEE,
+        status: INVITATION_REWARD_STATUS.PENDING_ACTIVATION,
+        durationHours: INVITATION_REWARD_DURATION_HOURS,
+        grantedAt: null,
+      },
+    }),
+    prisma.invitationReward.create({
+      data: {
+        userId: pendingWeeklyCardOwner.id,
+        sourceType: CARD_REWARD_SOURCE.INVITATION,
+        beneficiaryRole: INVITATION_REWARD_ROLE.INVITER,
+        status: INVITATION_REWARD_STATUS.PENDING_ACTIVATION,
+        durationHours: INVITATION_REWARD_DURATION_HOURS,
+        grantedAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000),
+      },
+    }),
+  ])
+  const pendingWeeklyCardContext = await getMemberContext(pendingWeeklyCardOwner.id)
+  assert.equal(pendingWeeklyCardContext?.pendingMembershipCards.length, 2)
+  assert.equal(pendingWeeklyCardContext?.pendingDailyCards.length, 0)
+  assert.deepEqual(
+    pendingWeeklyCardContext?.pendingMembershipCards.find((card) => card.id === readyWeeklyCard.id),
+    {
+      id: readyWeeklyCard.id,
+      durationHours: INVITATION_REWARD_DURATION_HOURS,
+      sourceType: CARD_REWARD_SOURCE.INVITATION,
+      beneficiaryRole: INVITATION_REWARD_ROLE.INVITER,
+      readyToActivate: true,
+      activationDeadline:
+        weeklyCardGrantedAt.getTime() +
+        INVITATION_REWARD_ACTIVATION_WINDOW_HOURS * 60 * 60 * 1000,
+    },
+  )
+  assert.deepEqual(
+    pendingWeeklyCardContext?.pendingMembershipCards.find((card) => card.id === waitingWeeklyCard.id),
+    {
+      id: waitingWeeklyCard.id,
+      durationHours: INVITATION_REWARD_DURATION_HOURS,
+      sourceType: CARD_REWARD_SOURCE.INVITATION,
+      beneficiaryRole: INVITATION_REWARD_ROLE.INVITEE,
+      readyToActivate: false,
+      activationDeadline: null,
+    },
+  )
+
+  const pendingGiftContext = await getMemberContext(giftRecipient.id)
+  assert.equal(pendingGiftContext?.pendingMembershipCards.length, 2)
+  assert.equal(pendingGiftContext?.pendingDailyCards.length, 2)
+  assert.ok(
+    pendingGiftContext?.pendingDailyCards.every(
+      (card) => card.durationHours === ADMIN_GIFT_DAILY_DURATION_HOURS,
+    ),
+  )
+  assert.ok(
+    pendingGiftContext?.pendingDailyCards.every(
+      (card) =>
+        card.activationDeadline ===
+        giftResult.grantedAt.getTime() +
+          INVITATION_REWARD_ACTIVATION_WINDOW_HOURS * 60 * 60 * 1000,
+    ),
+  )
+
+  // 会员上下文只暴露已到账且仍在启用期内的管理员赠送24小时卡。
+  await prisma.invitationReward.createMany({
+    data: [
+      {
+        userId: giftRecipient.id,
+        sourceType: CARD_REWARD_SOURCE.ADMIN_GIFT,
+        beneficiaryRole: INVITATION_REWARD_ROLE.RECIPIENT,
+        status: INVITATION_REWARD_STATUS.PENDING_ACTIVATION,
+        durationHours: ADMIN_GIFT_DAILY_DURATION_HOURS,
+        grantedAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000),
+      },
+      {
+        userId: giftRecipient.id,
+        sourceType: CARD_REWARD_SOURCE.ADMIN_GIFT,
+        beneficiaryRole: INVITATION_REWARD_ROLE.RECIPIENT,
+        status: INVITATION_REWARD_STATUS.PENDING_ACTIVATION,
+        durationHours: ADMIN_GIFT_DAILY_DURATION_HOURS,
+        grantedAt: null,
+      },
+      {
+        userId: giftRecipient.id,
+        sourceType: CARD_REWARD_SOURCE.INVITATION,
+        beneficiaryRole: INVITATION_REWARD_ROLE.RECIPIENT,
+        status: INVITATION_REWARD_STATUS.PENDING_ACTIVATION,
+        durationHours: ADMIN_GIFT_DAILY_DURATION_HOURS,
+        grantedAt: new Date(),
+      },
+      {
+        userId: giftRecipient.id,
+        sourceType: CARD_REWARD_SOURCE.ADMIN_GIFT,
+        beneficiaryRole: INVITATION_REWARD_ROLE.INVITEE,
+        status: INVITATION_REWARD_STATUS.PENDING_ACTIVATION,
+        durationHours: ADMIN_GIFT_DAILY_DURATION_HOURS,
+        grantedAt: new Date(),
+      },
+      {
+        userId: giftRecipient.id,
+        sourceType: CARD_REWARD_SOURCE.ADMIN_GIFT,
+        beneficiaryRole: INVITATION_REWARD_ROLE.RECIPIENT,
+        status: INVITATION_REWARD_STATUS.PENDING_ACTIVATION,
+        durationHours: 48,
+        grantedAt: new Date(),
+      },
+    ],
+  })
+  const contextWithInvalidGiftCards = await getMemberContext(giftRecipient.id)
+  assert.equal(contextWithInvalidGiftCards?.pendingMembershipCards.length, 2)
+  assert.equal(contextWithInvalidGiftCards?.pendingDailyCards.length, 2)
+
   const activatedGift = await activateInvitationReward(
     giftRecipient.id,
     giftOverview.rewards[0]!.id,
@@ -387,6 +521,10 @@ async function main(): Promise<void> {
   assert.equal(giftOrders[0]?.plan, 'daily_gift')
   assert.equal(giftOrders[0]?.priceType, 'admin_gift')
   assert.equal(giftOrders[0]?.channel, 'admin_gift')
+  const activatedGiftContext = await getMemberContext(giftRecipient.id)
+  assert.equal(activatedGiftContext?.pendingMembershipCards.length, 1)
+  assert.equal(activatedGiftContext?.pendingDailyCards.length, 1)
+  assert.notEqual(activatedGiftContext?.pendingDailyCards[0]?.id, giftOverview.rewards[0]!.id)
   assert.equal(
     await prisma.invitationReward.count({
       where: { userId: giftRecipient.id, beneficiaryRole: INVITATION_REWARD_ROLE.INVITER },

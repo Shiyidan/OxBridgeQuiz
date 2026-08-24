@@ -1,5 +1,11 @@
 // 员工管理统计：基于成功赠卡审计记录，按接收用户汇总管理员的日卡发放情况。
-import { USER_ROLE } from '../constants/domain.js'
+import {
+  ADMIN_GIFT_DAILY_DURATION_HOURS,
+  CARD_REWARD_SOURCE,
+  INVITATION_REWARD_ROLE,
+  INVITATION_REWARD_STATUS,
+  USER_ROLE,
+} from '../constants/domain.js'
 import { OPERATION_AUDIT_RESULT } from '../constants/operationAudit.js'
 import { parseJsonObject } from '../utils/jsonField.js'
 import { prisma } from './prisma.js'
@@ -38,15 +44,15 @@ function recipientNameFromSummary(summary: string): string | null {
   return summary.match(/向用户[“"](.+?)[”"]赠送/)?.[1]?.trim() || null
 }
 
-// 接收用户按获赠日卡量和最近获赠时间排序，优先展示主要发放对象。
+// 接收用户先按最近发放时间倒序排列，同一时间再以日卡总量和用户名稳定排序。
 function compareRecipientRows(
   left: { cardCount: number; latestGrantedAt: string | null; username: string },
   right: { cardCount: number; latestGrantedAt: string | null; username: string },
 ): number {
-  if (right.cardCount !== left.cardCount) return right.cardCount - left.cardCount
   const latestDifference = (Date.parse(right.latestGrantedAt || '') || 0)
     - (Date.parse(left.latestGrantedAt || '') || 0)
   if (latestDifference !== 0) return latestDifference
+  if (right.cardCount !== left.cardCount) return right.cardCount - left.cardCount
   return left.username.localeCompare(right.username, 'zh-CN')
 }
 
@@ -107,6 +113,24 @@ export async function getAdminStaffGiftCardStats(options: AdminStaffStatsOptions
       })
     : []
   const recipientMap = new Map(recipients.map((recipient) => [recipient.id, recipient]))
+  // 已使用只统计管理员赠送且成功启用的一日卡，会员到期后仍保留历史使用次数。
+  const usedDailyCardGroups = recipientIds.length
+    ? await prisma.invitationReward.groupBy({
+        by: ['userId'],
+        where: {
+          userId: { in: recipientIds },
+          sourceType: CARD_REWARD_SOURCE.ADMIN_GIFT,
+          beneficiaryRole: INVITATION_REWARD_ROLE.RECIPIENT,
+          status: INVITATION_REWARD_STATUS.ACTIVATED,
+          durationHours: ADMIN_GIFT_DAILY_DURATION_HOURS,
+          activatedAt: { not: null },
+        },
+        _count: { _all: true },
+      })
+    : []
+  const usedDailyCardCountMap = new Map(
+    usedDailyCardGroups.map((group) => [group.userId, group._count._all]),
+  )
   const normalizedKeyword = options.keyword?.trim().toLocaleLowerCase('zh-CN') || ''
   const rows = [...aggregates.values()]
     .map((aggregate) => {
@@ -117,6 +141,7 @@ export async function getAdminStaffGiftCardStats(options: AdminStaffStatsOptions
         email: recipient?.email || null,
         grantCount: aggregate.grantCount,
         cardCount: aggregate.cardCount,
+        usedCardCount: usedDailyCardCountMap.get(aggregate.userId) || 0,
         staffCount: aggregate.staffIds.size,
         staffNames: [...aggregate.staffIds]
           .map((staffId) => adminMap.get(staffId)?.username)

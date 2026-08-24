@@ -49,6 +49,7 @@ import { recordLegalAcceptances } from '../services/legalAcceptance.js'
 import { normalizeIpAddress } from '../utils/ipAddress.js'
 import { resolveIpLocation } from '../services/ipGeolocation.js'
 import { bindInvitationForUser, InvitationError } from '../services/invitation.js'
+import { pickRandomUserAvatar } from '../services/userAvatar.js'
 import { INVITATION_BINDING_SOURCE } from '../constants/domain.js'
 
 export const authRouter = createAsyncRouter()
@@ -226,6 +227,7 @@ authRouter.post('/register', registerLimiter, async (req: Request, res: Response
           emailVerifiedAt: new Date(),
           password: hashed,
           username: input.username,
+          avatar: pickRandomUserAvatar(),
           examPreferences: input.examPreferences || [],
         },
       })

@@ -1,8 +1,11 @@
 <!-- 访客营销首页：按 PRD 展示公开演示内容，并把注册、登录与功能跳转交给首页容器处理。 -->
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Connection, DocumentChecked, MagicStick } from '@element-plus/icons-vue'
+import diagnosticScoreDistributionUrl from '@/assets/home/diagnostic-score-distribution.png'
 import esatDiagnosticReportOverviewUrl from '@/assets/home/esat-diagnostic-report-overview.png'
+import mistakeNotebookPreviewUrl from '@/assets/home/mistake-notebook-preview.png'
+import mockExamCenterPreviewUrl from '@/assets/home/mock-exam-center-preview.png'
 import practiceNotebookPreviewUrl from '@/assets/home/practice-notebook-preview.png'
 import questionBankPracticePreviewUrl from '@/assets/home/question-bank-practice-preview.png'
 import tmuaDiagnosticQuestion03Url from '@/assets/home/tmua-diagnostic-question-03.png'
@@ -19,6 +22,19 @@ interface MarketingHomeProps {
   authenticated?: boolean
 }
 
+type MarketingHeroId = 'diagnostic' | 'mock-exam'
+
+interface MarketingHeroSlide {
+  id: MarketingHeroId
+  kicker: string
+  title: string
+  actionLabel: string
+  action: 'register' | 'navigate'
+  targetPath: string
+  imageUrl: string
+  imageAlt: string
+}
+
 // 会员价格由首页容器根据公开支付配置传入，购买入口始终交给父级完成认证分流。
 const props = withDefaults(defineProps<MarketingHomeProps>(), {
   memberPriceLabel: '¥198',
@@ -29,6 +45,57 @@ const props = withDefaults(defineProps<MarketingHomeProps>(), {
   authenticated: false,
 })
 
+const diagnosticHeroSlide: MarketingHeroSlide = {
+  id: 'diagnostic',
+  kicker: 'ESAT · TMUA 真题诊断与智能训练',
+  title: '真题诊断，练得更准',
+  actionLabel: '免费开始诊断',
+  action: 'register',
+  targetPath: '/assessment',
+  imageUrl: diagnosticScoreDistributionUrl,
+  imageAlt: '诊断报告中的数学 2 平台估分分布与提升建议',
+}
+
+const heroSlides: readonly MarketingHeroSlide[] = [
+  diagnosticHeroSlide,
+  {
+    id: 'mock-exam',
+    kicker: 'ESAT · TMUA 全真模考与成绩追踪',
+    title: '全真模考，考得更稳',
+    actionLabel: '进入模考中心',
+    action: 'navigate',
+    targetPath: '/mock-exams',
+    imageUrl: mockExamCenterPreviewUrl,
+    imageAlt: '模考中心中的试卷搜索、状态筛选与 TMUA 模拟卷列表',
+  },
+]
+const HERO_TRANSITION_DELAY_MS = 5000
+const activeHeroId = ref<MarketingHeroId>('diagnostic')
+const activeHero = computed<MarketingHeroSlide>(
+  () => heroSlides.find((slide) => slide.id === activeHeroId.value) ?? diagnosticHeroSlide,
+)
+
+interface MarketingStatsCounts {
+  diagnostic: number
+  mockExam: number
+  practice: number
+  coverage: number
+}
+
+const STATS_ANIMATION_DURATION_MS = 900
+const statsTargets: Readonly<MarketingStatsCounts> = {
+  diagnostic: 15,
+  mockExam: 11,
+  practice: 2000,
+  coverage: 100,
+}
+const statsSectionRef = ref<HTMLElement | null>(null)
+const statsCounts = ref<MarketingStatsCounts>({
+  diagnostic: 0,
+  mockExam: 0,
+  practice: 0,
+  coverage: 0,
+})
 const diagnosticGalleryRef = ref<HTMLElement | null>(null)
 const diagnosticGalleryActive = ref(false)
 const practiceGalleryRef = ref<HTMLElement | null>(null)
@@ -37,6 +104,135 @@ let diagnosticGalleryObserver: IntersectionObserver | null = null
 let practiceGalleryObserver: IntersectionObserver | null = null
 let diagnosticGalleryInView = false
 let practiceGalleryInView = false
+let statsObserver: IntersectionObserver | null = null
+let statsAnimationFrame: number | null = null
+let statsAnimationStarted = false
+let heroTransitionTimer: number | null = null
+let heroMotionPreference: MediaQueryList | null = null
+let heroPrefersReducedMotion = false
+const heroImagePreloads: HTMLImageElement[] = []
+let heroGlowAnimationFrame: number | null = null
+let heroGlowTarget: HTMLElement | null = null
+let heroGlowClientX = 0
+let heroGlowClientY = 0
+
+// 统计数字离开视口或组件销毁时停止当前帧，避免后台继续计算。
+function cancelStatsAnimation(): void {
+  if (statsAnimationFrame !== null) {
+    window.cancelAnimationFrame(statsAnimationFrame)
+    statsAnimationFrame = null
+  }
+}
+
+// 统计数字结束动画或减少动效时一次写入最终值，避免逐项更新造成不同步。
+function finishStatsAnimation(): void {
+  cancelStatsAnimation()
+  statsCounts.value = { ...statsTargets }
+}
+
+// 模块完全离开视口后归零，使用户下一次进入时可以重新看到增长过程。
+function resetStatsAnimation(): void {
+  cancelStatsAnimation()
+  statsAnimationStarted = false
+  statsCounts.value = {
+    diagnostic: 0,
+    mockExam: 0,
+    practice: 0,
+    coverage: 0,
+  }
+}
+
+// 数据模块进入视口时快速从零增长到目标值，同一次可见期间只触发一遍。
+function startStatsAnimation(): void {
+  if (statsAnimationStarted) return
+  statsAnimationStarted = true
+
+  if (heroPrefersReducedMotion) {
+    finishStatsAnimation()
+    return
+  }
+
+  const startedAt = performance.now()
+  const updateCounts = (now: number): void => {
+    const progress = Math.min((now - startedAt) / STATS_ANIMATION_DURATION_MS, 1)
+    const easedProgress = 1 - Math.pow(1 - progress, 3)
+    statsCounts.value = {
+      diagnostic: Math.round(statsTargets.diagnostic * easedProgress),
+      mockExam: Math.round(statsTargets.mockExam * easedProgress),
+      practice: Math.round(statsTargets.practice * easedProgress),
+      coverage: Math.round(statsTargets.coverage * easedProgress),
+    }
+
+    if (progress < 1) {
+      statsAnimationFrame = window.requestAnimationFrame(updateCounts)
+      return
+    }
+    statsAnimationFrame = null
+    finishStatsAnimation()
+  }
+  statsAnimationFrame = window.requestAnimationFrame(updateCounts)
+}
+
+// 统计模块采用独立可见性观察器，只在用户真正看到该区域时播放数字动画。
+function observeStatsSection(): void {
+  const statsSection = statsSectionRef.value
+  if (!statsSection) return
+  if (!('IntersectionObserver' in window)) {
+    startStatsAnimation()
+    return
+  }
+  statsObserver = new IntersectionObserver(
+    ([entry]) => {
+      if (!entry?.isIntersecting) {
+        resetStatsAnimation()
+        return
+      }
+      if (entry.intersectionRatio >= 0.35) startStatsAnimation()
+    },
+    { threshold: [0, 0.35] },
+  )
+  statsObserver.observe(statsSection)
+}
+
+// 首屏在诊断与模考之间循环切换，按钮悬停或聚焦时由交互事件暂时停表。
+function clearHeroTransition(): void {
+  if (heroTransitionTimer === null) return
+  window.clearTimeout(heroTransitionTimer)
+  heroTransitionTimer = null
+}
+
+// 模考截图在切换前预载，避免内容浮现时出现空白或图片跳动。
+function preloadHeroImages(): void {
+  for (const slide of heroSlides.slice(1)) {
+    const image = new Image()
+    image.decoding = 'async'
+    image.src = slide.imageUrl
+    heroImagePreloads.push(image)
+  }
+}
+
+// 首屏仅在可见、启用且用户允许动效时安排下一次切换；减少动效模式固定展示模考内容。
+function syncHeroTransition(): void {
+  clearHeroTransition()
+  if (!props.includeHero || document.visibilityState !== 'visible') return
+  if (heroPrefersReducedMotion) {
+    activeHeroId.value = 'mock-exam'
+    return
+  }
+  heroTransitionTimer = window.setTimeout(() => {
+    activeHeroId.value = activeHeroId.value === 'diagnostic' ? 'mock-exam' : 'diagnostic'
+    heroTransitionTimer = null
+    syncHeroTransition()
+  }, HERO_TRANSITION_DELAY_MS)
+}
+
+// 系统动效偏好变化后立即同步首屏状态，避免继续执行不符合用户设置的过渡。
+function handleHeroMotionPreferenceChange(event: MediaQueryListEvent): void {
+  heroPrefersReducedMotion = event.matches
+  if (event.matches && statsAnimationStarted) finishStatsAnimation()
+  if (!event.matches) activeHeroId.value = 'diagnostic'
+  syncHeroTransition()
+}
 
 // 两组轮播仅在各自模块可见且页面处于前台时运行，避免后台持续消耗渲染资源。
 function syncGalleryMotion(): void {
@@ -62,6 +258,43 @@ function requestRegistration(targetPath: string) {
   emit('register', targetPath)
 }
 
+// 当前首屏动作按内容语义进入注册流程或直接打开公开的模考中心。
+function handleHeroAction(): void {
+  const slide = activeHero.value
+  if (slide.action === 'navigate') {
+    emit('navigate', slide.targetPath)
+    return
+  }
+  requestRegistration(slide.targetPath)
+}
+
+// 鼠标光晕按动画帧写入局部坐标，避免高频 pointermove 触发 Vue 响应式渲染。
+function flushHeroGlowPosition(): void {
+  heroGlowAnimationFrame = null
+  if (!heroGlowTarget) return
+  const bounds = heroGlowTarget.getBoundingClientRect()
+  heroGlowTarget.style.setProperty('--home-hero-glow-x', `${heroGlowClientX - bounds.left}px`)
+  heroGlowTarget.style.setProperty('--home-hero-glow-y', `${heroGlowClientY - bounds.top}px`)
+}
+
+// 桌面鼠标进入首屏后显示并移动光晕，触屏和手写笔不启用该装饰效果。
+function handleHeroPointerMove(event: PointerEvent): void {
+  if (event.pointerType !== 'mouse') return
+  heroGlowTarget = event.currentTarget as HTMLElement
+  heroGlowClientX = event.clientX
+  heroGlowClientY = event.clientY
+  heroGlowTarget.style.setProperty('--home-hero-glow-opacity', '1')
+  if (heroGlowAnimationFrame === null) {
+    heroGlowAnimationFrame = window.requestAnimationFrame(flushHeroGlowPosition)
+  }
+}
+
+// 鼠标离开首屏后平滑隐藏光晕，避免光斑停留在页面边缘。
+function handleHeroPointerLeave(event: PointerEvent): void {
+  if (event.pointerType !== 'mouse') return
+  ;(event.currentTarget as HTMLElement).style.setProperty('--home-hero-glow-opacity', '0')
+}
+
 // 受保护功能入口携带登录后的回跳地址，不在演示组件内判断会话状态。
 function requestLogin(targetPath: string) {
   if (props.authenticated) {
@@ -82,6 +315,14 @@ function requestScrollTop() {
 }
 
 onMounted(() => {
+  if (props.includeHero) preloadHeroImages()
+  heroMotionPreference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  heroPrefersReducedMotion = heroMotionPreference.matches
+  heroMotionPreference.addEventListener('change', handleHeroMotionPreferenceChange)
+  document.addEventListener('visibilitychange', syncHeroTransition)
+  syncHeroTransition()
+  observeStatsSection()
+
   const diagnosticGallery = diagnosticGalleryRef.value
   const practiceGallery = practiceGalleryRef.value
   if (!diagnosticGallery && !practiceGallery) return
@@ -118,10 +359,32 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  clearHeroTransition()
+  cancelStatsAnimation()
+  if (heroGlowAnimationFrame !== null) window.cancelAnimationFrame(heroGlowAnimationFrame)
+  heroGlowAnimationFrame = null
+  heroGlowTarget = null
+  statsObserver?.disconnect()
+  heroImagePreloads.length = 0
+  heroMotionPreference?.removeEventListener('change', handleHeroMotionPreferenceChange)
   diagnosticGalleryObserver?.disconnect()
   practiceGalleryObserver?.disconnect()
+  document.removeEventListener('visibilitychange', syncHeroTransition)
   document.removeEventListener('visibilitychange', syncGalleryMotion)
 })
+
+watch(
+  () => props.includeHero,
+  (includeHero) => {
+    if (!includeHero) {
+      clearHeroTransition()
+      activeHeroId.value = 'diagnostic'
+      return
+    }
+    if (heroImagePreloads.length === 0) preloadHeroImages()
+    syncHeroTransition()
+  },
+)
 </script>
 
 <template>
@@ -130,7 +393,7 @@ onBeforeUnmount(() => {
       THESIS: 用可追溯的真题诊断证明“测清楚再练”，拒绝以空泛功能卡堆砌价值。
       OWN-WORLD: 黑白高对比编辑式页面、编号叙事、数据台账与深色报告面板。
       STORY: 访客先理解真题命题模型，再看诊断、报告、训练与错题如何形成闭环，最后选择注册或会员。
-      FIRST VIEWPORT: 左侧一句主张和双行动，右侧放大一张诊断报告预览。
+      FIRST VIEWPORT: 深色首屏以循环淡出切换串联真题诊断与全真模考，右侧只保留对应的真实产品证据。
       FORM: 绑定参考 HTML 的纵向分屏叙事；营销说服模式；视觉结构由用户给定参考确定。
     -->
     <section
@@ -138,100 +401,91 @@ onBeforeUnmount(() => {
       id="home-marketing-hero"
       class="home-section home-snap-screen home-hero-screen"
       aria-labelledby="home-hero-title"
+      @pointermove="handleHeroPointerMove"
+      @pointerleave="handleHeroPointerLeave"
     >
-      <div class="home-page home-hero-layout home-motion-content">
-        <div class="home-hero-copy">
-          <p class="home-hello">AceMock 云舟备考 · ESAT &amp; TMUA 智能备考系统</p>
-          <p class="home-hero-kicker">免费真题诊断</p>
-          <h1 id="home-hero-title" class="home-hero-title">
-            用一套真题，看清你的 ESAT / TMUA 真实水平
-          </h1>
-          <p class="home-hero-desc">
-            注册即可选择历年真题进行诊断，获得按知识点和能力维度生成的专属报告，再根据薄弱项开始训练。
-          </p>
+      <div class="home-hero-cursor-glow" aria-hidden="true"></div>
 
-          <div class="home-hero-actions">
-            <button
-              class="home-btn home-btn-primary"
-              type="button"
-              @click="requestRegistration('/assessment')"
-            >
-              免费注册并开始诊断
-              <span class="home-arrow" aria-hidden="true">→</span>
-            </button>
+      <Transition name="home-hero-switch" mode="out-in">
+        <div
+          :key="activeHero.id"
+          class="home-page home-hero-layout home-motion-content"
+        >
+          <div class="home-hero-copy">
+            <p class="home-hero-kicker">
+              <span class="home-hero-kicker-text">
+                <strong>AceMock</strong>
+                <span aria-hidden="true"> — </span>
+                {{ activeHero.kicker }}
+              </span>
+            </p>
+            <h1 id="home-hero-title" class="home-hero-title">{{ activeHero.title }}</h1>
+
+            <div class="home-hero-actions">
+              <button
+                class="home-btn home-btn-primary"
+                type="button"
+                @click="handleHeroAction"
+                @mouseenter="clearHeroTransition()"
+                @mouseleave="syncHeroTransition()"
+                @focus="clearHeroTransition()"
+                @blur="syncHeroTransition()"
+              >
+                {{ activeHero.actionLabel }}
+                <span class="home-arrow" aria-hidden="true">→</span>
+              </button>
+            </div>
           </div>
 
-          <ul class="home-capability-list" aria-label="核心能力">
-            <li class="home-capability-item">
-              <span class="home-capability-mark" aria-hidden="true">✓</span>
-              历年真题自由练习
-            </li>
-            <li class="home-capability-item">
-              <span class="home-capability-mark" aria-hidden="true">✓</span>
-              专属诊断报告
-            </li>
-            <li class="home-capability-item">
-              <span class="home-capability-mark" aria-hidden="true">✓</span>
-              薄弱知识点训练
-            </li>
-          </ul>
+          <figure :class="['home-hero-report-shot', `home-hero-report-shot--${activeHero.id}`]">
+            <div class="home-hero-report-shot-window">
+              <img
+                :class="[
+                  'home-hero-report-shot-image',
+                  `home-hero-report-shot-image--${activeHero.id}`,
+                ]"
+                :src="activeHero.imageUrl"
+                :alt="activeHero.imageAlt"
+                decoding="async"
+                fetchpriority="high"
+              />
+            </div>
+          </figure>
         </div>
+      </Transition>
+    </section>
 
-        <aside class="home-report-preview" aria-label="ESAT Mathematics 1 诊断报告预览">
-          <div class="home-report-preview-head">
-            <div class="home-report-preview-heading">
-              <strong>ESAT Mathematics 1</strong>
-            </div>
-            <span class="home-report-preview-type">诊断报告</span>
-          </div>
+    <section
+      ref="statsSectionRef"
+      class="home-section home-stats-section"
+      aria-labelledby="home-stats-title"
+    >
+      <div class="home-page home-stats-inner">
+        <header class="home-stats-heading">
+          <p class="home-stats-kicker">为什么选择AceMock</p>
+          <h2 id="home-stats-title">从诊断到模考，每一道题都有解答</h2>
+        </header>
 
-          <div class="home-report-score">
-            <span class="home-report-score-label">综合得分</span>
-            <strong class="home-report-score-value">78</strong>
+        <dl class="home-stats-grid">
+          <div class="home-stat-item">
+            <dd><strong>{{ statsCounts.diagnostic }}</strong><span>套</span></dd>
+            <dt>诊断测试卷</dt>
           </div>
+          <div class="home-stat-item">
+            <dd><strong>{{ statsCounts.mockExam }}</strong><span>套</span></dd>
+            <dt>全真模考卷</dt>
+          </div>
+          <div class="home-stat-item">
+            <dd><strong>{{ statsCounts.practice }}</strong><span>+</span></dd>
+            <dt>原生练习题</dt>
+          </div>
+          <div class="home-stat-item">
+            <dd><strong>{{ statsCounts.coverage }}</strong><span>%</span></dd>
+            <dt>题目与模拟题解答覆盖</dt>
+          </div>
+        </dl>
 
-          <div class="home-mastery-list" aria-label="知识点掌握度">
-            <div class="home-mastery-item">
-              <div class="home-mastery-head"><span>代数与函数</span><b>82%</b></div>
-              <div
-                class="home-progress home-progress-strong"
-                role="progressbar"
-                aria-label="代数与函数演示掌握度"
-                aria-valuemin="0"
-                aria-valuemax="100"
-                aria-valuenow="82"
-              >
-                <i class="home-progress-fill"></i>
-              </div>
-            </div>
-            <div class="home-mastery-item">
-              <div class="home-mastery-head"><span>数论与组合</span><b>64%</b></div>
-              <div
-                class="home-progress home-progress-medium"
-                role="progressbar"
-                aria-label="数论与组合演示掌握度"
-                aria-valuemin="0"
-                aria-valuemax="100"
-                aria-valuenow="64"
-              >
-                <i class="home-progress-fill"></i>
-              </div>
-            </div>
-            <div class="home-mastery-item">
-              <div class="home-mastery-head"><span>几何与测量</span><b>71%</b></div>
-              <div
-                class="home-progress home-progress-steady"
-                role="progressbar"
-                aria-label="几何与测量演示掌握度"
-                aria-valuemin="0"
-                aria-valuemax="100"
-                aria-valuenow="71"
-              >
-                <i class="home-progress-fill"></i>
-              </div>
-            </div>
-          </div>
-        </aside>
+        <p class="home-stats-note"><i aria-hidden="true"></i>内容数量仍在持续更新中</p>
       </div>
     </section>
 
@@ -459,8 +713,8 @@ onBeforeUnmount(() => {
             <img
               :src="questionBankPracticePreviewUrl"
               alt=""
-              width="1514"
-              height="845"
+              width="1519"
+              height="795"
               loading="lazy"
               decoding="async"
             />
@@ -503,71 +757,16 @@ onBeforeUnmount(() => {
           </p>
         </header>
 
-        <div class="home-mistake-ledger" aria-label="个人错题库静态演示表格">
-          <div class="home-mistake-toolbar">
-            <div class="home-mistake-toolbar-heading">
-              <span class="home-demo-badge">静态演示</span>
-              <strong>个人错题库</strong>
-            </div>
-            <div class="home-mistake-filters" aria-label="演示筛选条件，不可操作">
-              <span class="home-mistake-filter"><b>考试</b> ESAT</span>
-              <span class="home-mistake-filter"><b>知识点</b> 全部</span>
-              <span class="home-mistake-filter"><b>状态</b> 待攻克</span>
-            </div>
-          </div>
-
-          <div class="home-table-wrap">
-            <table class="home-mistake-table">
-              <caption class="home-visually-hidden">
-                演示错题记录，不支持筛选或行内操作
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">题目与来源</th>
-                  <th scope="col">你的答案</th>
-                  <th scope="col">正确答案</th>
-                  <th scope="col">知识点</th>
-                  <th scope="col">状态</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>
-                    <strong>函数图像与参数范围</strong>
-                    <span>ESAT Mathematics 1 · 演示题目</span>
-                  </td>
-                  <td><span class="home-answer-wrong">B</span></td>
-                  <td><span class="home-answer-correct">D</span></td>
-                  <td>代数与函数</td>
-                  <td><span class="home-status-text">查看解析</span></td>
-                </tr>
-                <tr>
-                  <td>
-                    <strong>组合计数中的限制条件</strong>
-                    <span>ESAT Mathematics 1 · 演示题目</span>
-                  </td>
-                  <td><span class="home-answer-wrong">A</span></td>
-                  <td><span class="home-answer-correct">C</span></td>
-                  <td>数论与组合</td>
-                  <td><span class="home-status-text">重新练习</span></td>
-                </tr>
-                <tr>
-                  <td>
-                    <strong>三角形中的长度关系</strong>
-                    <span>ESAT Mathematics 1 · 演示题目</span>
-                  </td>
-                  <td><span class="home-answer-wrong">C</span></td>
-                  <td><span class="home-answer-correct">B</span></td>
-                  <td>几何与测量</td>
-                  <td><span class="home-status-text">尚未掌握</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <p class="home-mistake-note">
-            筛选器、状态与表格内容均为静态演示，不会读取或修改真实错题记录。
-          </p>
-        </div>
+        <figure class="home-mistake-preview">
+          <img
+            :src="mistakeNotebookPreviewUrl"
+            alt="个人错题库中的原题、答案对照、考察点与历次作答轨迹"
+            width="1456"
+            height="834"
+            loading="lazy"
+            decoding="async"
+          />
+        </figure>
       </div>
     </section>
 
@@ -582,7 +781,6 @@ onBeforeUnmount(() => {
           <h2 id="home-pricing-title" class="home-section-title">
             升级套餐，专心备考
           </h2>
-          <p class="home-section-desc">先体验诊断报告，再选择是否升级。</p>
         </header>
 
         <div class="home-pricing-grid">
@@ -614,7 +812,7 @@ onBeforeUnmount(() => {
               <div class="home-price-card-heading">
                 <span>月度会员</span>
                 <div class="home-price-main-line home-price-main-line-light">
-                  <strong>{{ props.memberPriceLabel }}</strong>
+                  <strong>{{ props.memberPriceLabel }} </strong>
                   <span class="home-price-unit">元</span>
                 </div>
               </div>

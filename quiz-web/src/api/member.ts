@@ -8,7 +8,7 @@ export interface MemberUser {
   username: string
   email: string
   role: string
-  avatar?: string
+  avatar?: string | null
 }
 
 export interface MemberSubscription {
@@ -19,6 +19,21 @@ export interface MemberSubscription {
   endsAt: number | null
   entitlementEndsAt: number | null
   remainingDays: number
+}
+
+export interface PendingDailyCard {
+  id: string
+  activationDeadline: number
+  durationHours: number
+}
+
+export interface PendingMembershipCard {
+  id: string
+  activationDeadline: number | null
+  durationHours: number
+  sourceType: string
+  beneficiaryRole: string
+  readyToActivate: boolean
 }
 
 export interface UsageQuota {
@@ -42,6 +57,7 @@ export interface ExamQuota {
 export interface ExamPreference {
   examType: string
   subjects: string[]
+  primaryExamType?: StudyExamType
   targetRegions?: string
   targetUniversities?: string[]
   targetMajor?: string
@@ -51,8 +67,11 @@ export interface ExamPreference {
   weeklyHours?: number
 }
 
+export type StudyExamType = 'ESAT' | 'TMUA'
+
 export interface StudyPreferences {
   examTypes: string[]
+  primaryExamType: StudyExamType | null
   esatSubjects: string[]
   targetRegions: string
   targetUniversities: string[]
@@ -62,12 +81,18 @@ export interface StudyPreferences {
   weeklyHours: number
 }
 
+export type StudyPreferencesUpdate = Omit<StudyPreferences, 'primaryExamType'> & {
+  primaryExamType: StudyExamType
+}
+
 export interface MemberContext {
   user: MemberUser
   role: string
   isAdmin: boolean
   memberships: MemberSubscription[]
   quotas: Record<string, ExamQuota>
+  pendingDailyCards: PendingDailyCard[]
+  pendingMembershipCards: PendingMembershipCard[]
   examPreferences: ExamPreference[]
   studyPreferences: StudyPreferences
 }
@@ -85,7 +110,7 @@ export interface MemberAccessResult {
 }
 
 /** 更新账户级学习偏好 */
-export function updateStudyPreferences(studyPreferences: StudyPreferences) {
+export function updateStudyPreferences(studyPreferences: StudyPreferencesUpdate) {
   return callApi<null>({
     url: '/getMember/study-preferences',
     method: 'PUT',

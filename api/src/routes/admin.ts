@@ -1194,10 +1194,17 @@ adminRouter.get('/users', async (req: Request, res: Response) => {
   try {
     const page = parsePositiveInt(req.query.page, 1)
     const pageSize = parsePositiveInt(req.query.pageSize, 20, 100)
-    const total = await prisma.user.count()
+    const keyword = typeof req.query.keyword === 'string'
+      ? req.query.keyword.trim().slice(0, 100)
+      : ''
+    const where: Prisma.UserWhereInput = keyword
+      ? { username: { contains: keyword } }
+      : {}
+    const total = await prisma.user.count({ where })
     const totalPages = Math.ceil(total / pageSize)
     const safePage = totalPages > 0 ? Math.min(page, totalPages) : 1
     const users = await prisma.user.findMany({
+      where,
       select: {
         id: true,
         username: true,

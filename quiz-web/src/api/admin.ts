@@ -21,6 +21,7 @@ export interface UserItem {
   username: string
   email: string
   role: string
+  avatar?: string | null
   diagnosticUsed?: boolean
   createdAt: string
   memberships?: UserMembershipItem[]
@@ -33,6 +34,7 @@ export interface UserMembershipItem {
   status: string
   startsAt: number
   endsAt: number
+  entitlementEndsAt?: number
 }
 
 export interface AdminUserIpLocation {
@@ -124,6 +126,7 @@ export interface AdminStaffGiftCardStatsItem {
   email: string | null
   grantCount: number
   cardCount: number
+  usedCardCount: number
   staffCount: number
   staffNames: string[]
   latestGrantedAt: string | null
@@ -588,13 +591,14 @@ export function createRevenue(data: Partial<RevenueItem>) {
 // ---- 用户管理 ----
 
 /** 用户列表 */
-export function getUserListData(params: ListParams = {}) {
+export function getUserListData(params: ListParams & { keyword?: string } = {}) {
   return callApi<PageResult<UserItem>>({
     url: '/admin/users',
     method: 'GET',
     params: {
       ...(params.page ? { page: String(params.page) } : {}),
       ...(params.pageSize ? { pageSize: String(params.pageSize) } : {}),
+      ...(params.keyword ? { keyword: params.keyword } : {}),
     },
   })
 }

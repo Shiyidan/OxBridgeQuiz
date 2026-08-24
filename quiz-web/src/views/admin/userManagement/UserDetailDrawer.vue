@@ -12,7 +12,11 @@
         <section class="profile-card">
           <div class="profile-identity">
             <div class="profile-avatar" aria-hidden="true">
-              {{ detail.profile.username.slice(0, 1).toUpperCase() }}
+              <AppAvatar
+                :source="detail.profile.avatar"
+                :name="detail.profile.username"
+                decorative
+              />
             </div>
             <div>
               <div class="profile-name-row">
@@ -106,7 +110,10 @@
                     <strong>
                       {{ membership.examType }} · {{ membershipPlanLabel(membership.plan) }}
                     </strong>
-                    <span>有效至 {{ formatDateTime(membership.endsAt) }}</span>
+                    <span>
+                      有效至
+                      {{ formatDateTime(membership.entitlementEndsAt ?? membership.endsAt) }}
+                    </span>
                   </div>
                 </template>
                 <div v-else>
@@ -199,6 +206,7 @@
 <script setup lang="ts">
 // 用户详情抽屉：在后台用户列表按需加载个人信息、登录位置和分页答题汇总。
 import { computed, ref, watch } from 'vue'
+import AppAvatar from '@/components/AppAvatar.vue'
 import AppPagination from '@/components/AppPagination.vue'
 import {
   getAdminUserDetailData,
@@ -415,6 +423,7 @@ function handleClosed(): void {
   width: 48px;
   height: 48px;
   flex: 0 0 48px;
+  overflow: hidden;
   place-items: center;
   border-radius: 14px;
   background: #eef2ff;

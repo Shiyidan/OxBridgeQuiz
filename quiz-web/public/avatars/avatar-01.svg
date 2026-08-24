@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img">
+  <defs>
+    <clipPath id="avatar-circle">
+      <circle cx="128" cy="128" r="120" />
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#avatar-circle)">
+    <circle cx="128" cy="128" r="120" fill="#EAF1F8" />
+
+    <path
+      d="M28 248V120C28 61 69 25 128 25s100 36 100 95v128Z"
+      fill="#4F7CAC"
+    />
+    <path
+      d="M59 248V123c0-42 28-68 69-68s69 26 69 68v125Z"
+      fill="#8FC5D1"
+    />
+    <path
+      d="M88 248V126c0-26 16-42 40-42s40 16 40 42v122Z"
+      fill="#EAF1F8"
+    />
+
+    <path
+      d="M110 252c-7-29-2-50 16-68 15-15 24-29 22-47"
+      fill="none"
+      stroke="#17324D"
+      stroke-width="12"
+      stroke-linecap="round"
+    />
+    <circle cx="148" cy="121" r="11" fill="#FFFFFF" stroke="#17324D" stroke-width="5" />
+  </g>
+
+  <circle cx="128" cy="128" r="120" fill="none" stroke="#17324D" stroke-width="8" />
+</svg>

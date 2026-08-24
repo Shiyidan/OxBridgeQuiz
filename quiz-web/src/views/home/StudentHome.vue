@@ -49,7 +49,7 @@ interface HomeEntry {
   description: string
   actionLabel: string
   mark: string
-  tone: 'teal' | 'amber' | 'violet' | 'default'
+  tone: 'teal' | 'blue' | 'amber' | 'violet' | 'default'
   path: string | null
 }
 
@@ -120,7 +120,7 @@ const heroContent = computed<HeroContent>(() => {
       kicker: '选择备考目标',
       title: '先告诉我们，你现在准备哪一项考试',
       description:
-        'ESAT 与 TMUA 的诊断、练习和错题记录会分开保存。选择的是当前查看目标，不会限制你以后新增另一项。',
+        'ESAT 与 TMUA 的诊断、模考、练习和错题记录会分开保存。选择的是当前查看目标，不会限制你以后新增另一项。',
       primary: '选择 ESAT',
       secondary: '选择 TMUA',
       goodTitle: '两项考试独立记录',
@@ -189,10 +189,10 @@ const heroContent = computed<HeroContent>(() => {
 
   if (props.state === 'idle') {
     return {
-      kicker: '按自己的节奏继续',
-      title: '目前没有必须马上完成的内容',
+      kicker: '继续巩固提升',
+      title: '阶段诊断已完成，选择下一步练习',
       description:
-        '首页不会替你安排固定天数。你可以选择知识点练习、重新做一次诊断，或回看已经收录的错题。',
+        '从知识点练习开始，针对需要提升的内容集中训练；也可以选择模考、重新诊断或回看错题。',
       primary: '选择知识点练习',
       secondary: '重新做一次诊断',
       goodTitle: props.completedAttemptCount
@@ -200,7 +200,7 @@ const heroContent = computed<HeroContent>(() => {
         : '备考目标已经同步',
       goodDetail: '历史记录仍可在对应功能页查看。',
       focusTitle: '下一步由你选择',
-      focusDetail: '诊断、练习和错题入口都保留在首屏。',
+      focusDetail: '诊断、模考、练习和错题入口都保留在首屏。',
       scopeTitle: '当前考试',
       scopeText: exam,
       scopeAction: '管理目标',
@@ -208,17 +208,17 @@ const heroContent = computed<HeroContent>(() => {
   }
 
   return {
-    kicker: '从一次诊断开始',
-    title: exam === 'TMUA' ? '先完成两卷，看看目前卡在哪里' : '先做一套真题，看看现在在哪',
+    kicker: '你的备考从这里开始',
+    title: '完成首次诊断\n找到最值得提升的方向',
     description:
       exam === 'TMUA'
-        ? '完成 Paper 1 与 Paper 2 后生成一个综合分，同时保留两卷的真实答题记录。'
-        : '完成后会看到各科独立成绩、主要失分和接下来最值得练的内容。',
-    primary: '开始第一次诊断',
-    secondary: `先了解 ${exam}`,
+        ? '完成 Paper 1 与 Paper 2，获得综合成绩、分卷表现与后续练习建议。'
+        : '完成一套诊断，获得各科成绩、失分分析与后续练习建议。',
+    primary: '开始首次诊断',
+    secondary: `了解 ${exam} 考试`,
     goodTitle: '备考目标已经同步',
     goodDetail: subjectSummary.value,
-    focusTitle: '按正式节奏完成第一次诊断',
+    focusTitle: '先完成一次完整诊断',
     focusDetail:
       exam === 'TMUA' ? '完成两卷后再生成综合结果。' : '完成整套测试后查看各科独立结果。',
     scopeTitle: exam === 'TMUA' ? '当前考试' : '当前科目',
@@ -227,13 +227,14 @@ const heroContent = computed<HeroContent>(() => {
   }
 })
 
-// 三个固定入口展示真实进度；已确认的零值明确展示，接口缺失时才使用中性占位。
+// 四个固定入口覆盖诊断、练习、模考与复习；有真实进度的模块继续优先展示服务端状态。
 const homeEntries = computed<HomeEntry[]>(() => {
   if (props.state === 'no-goal') {
     return [
       ['01', '诊断测试'],
       ['02', '专项练习'],
-      ['03', '错题本'],
+      ['03', '模考卷'],
+      ['04', '错题本'],
     ].map(([index, title]) => ({
       index: index!,
       title: title!,
@@ -280,6 +281,16 @@ const homeEntries = computed<HomeEntry[]>(() => {
             path: '/assessment',
           }
 
+  const mockExamEntry: HomeEntry = {
+    index: '03',
+    title: '模考卷',
+    description: '按正式考试节奏完成整套模拟卷',
+    actionLabel: '选择模考卷',
+    mark: '模',
+    tone: 'blue',
+    path: '/mock-exams',
+  }
+
   const practiceRemaining = props.practice
     ? Math.max(0, props.practice.totalQuestions - props.practice.answeredCount)
     : null
@@ -306,7 +317,7 @@ const homeEntries = computed<HomeEntry[]>(() => {
   const mistakeEntry: HomeEntry =
     props.mistakeTotal && props.mistakeTotal > 0
       ? {
-          index: '03',
+          index: '04',
           title: '错题本',
           description: `${props.mistakeTotal} 道错题可继续复习`,
           actionLabel: '查看错题',
@@ -315,7 +326,7 @@ const homeEntries = computed<HomeEntry[]>(() => {
           path: mistakeNotebookPath.value,
         }
       : {
-          index: '03',
+          index: '04',
           title: '错题本',
           description: props.mistakeTotal === null ? '错题数量暂未载入' : '做题后会自动收录错题',
           actionLabel: '进入错题本',
@@ -324,7 +335,7 @@ const homeEntries = computed<HomeEntry[]>(() => {
           path: mistakeNotebookPath.value,
         }
 
-  return [diagnosticEntry, practiceEntry, mistakeEntry]
+  return [diagnosticEntry, practiceEntry, mockExamEntry, mistakeEntry]
 })
 
 // 分数保留接口返回精度，整数不额外补小数位。
@@ -402,7 +413,7 @@ function scrollToSharedContent(): void {
     <section v-if="loading" class="home-student-feedback" aria-live="polite" aria-busy="true">
       <span class="home-feedback-index">MY HOME</span>
       <h1>正在读取你的备考记录</h1>
-      <p>诊断、练习、错题与会员状态都以服务端最新记录为准。</p>
+      <p>诊断、模考、练习、错题与会员状态都以服务端最新记录为准。</p>
       <div class="home-feedback-loader" aria-hidden="true"></div>
     </section>
 
@@ -431,7 +442,10 @@ function scrollToSharedContent(): void {
             <div class="home-student-hero-copy">
               <p class="home-hello">欢迎回来，{{ username }}</p>
               <p class="home-hero-kicker">{{ heroContent.kicker }}</p>
-              <h1 id="home-student-title">{{ heroContent.title }}</h1>
+              <h1
+                id="home-student-title"
+                :class="{ 'is-multiline': heroContent.title.includes('\n') }"
+              >{{ heroContent.title }}</h1>
               <p v-if="heroContent.description" class="home-student-hero-description">
                 {{ heroContent.description }}
               </p>

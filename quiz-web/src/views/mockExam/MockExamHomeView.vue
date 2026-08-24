@@ -134,7 +134,13 @@
                     </div>
                     <div v-if="isPaperLocked(paper)" class="paper-card__lock-copy">
                       <el-icon aria-hidden="true"><Lock /></el-icon>
-                      <span>开通 {{ paper.examType }} 会员后解锁新模考</span>
+                      <span>
+                        {{
+                          hasPendingDailyCard
+                            ? `可使用免费日卡，或开通 ${paper.examType} 会员解锁`
+                            : `开通 ${paper.examType} 会员后解锁新模考`
+                        }}
+                      </span>
                     </div>
                   </div>
 
@@ -187,13 +193,31 @@
                     查看报告
                   </button>
                   <button
+                    v-if="isPaperLocked(paper) && hasPendingDailyCard"
                     type="button"
-                    class="button-primary"
-                    :class="{ 'button-primary--locked': isPaperLocked(paper) }"
+                    class="button-primary button-primary--locked"
                     :disabled="
                       startingPaperId === paper.id || paper.publicationStatus !== 'published'
                     "
-                    @click="handleStartPaper(paper)"
+                    @click="handleDailyCardForPaper(paper)"
+                  >
+                    <el-icon aria-hidden="true"><Lock /></el-icon>
+                    使用免费日卡
+                  </button>
+                  <button
+                    type="button"
+                    :class="
+                      isPaperLocked(paper) && hasPendingDailyCard
+                        ? 'button-secondary'
+                        : [
+                            'button-primary',
+                            { 'button-primary--locked': isPaperLocked(paper) },
+                          ]
+                    "
+                    :disabled="
+                      startingPaperId === paper.id || paper.publicationStatus !== 'published'
+                    "
+                    @click="handlePaperPrimaryAction(paper)"
                   >
                     <el-icon v-if="isPaperLocked(paper)" aria-hidden="true"><Lock /></el-icon>
                     {{ paperPrimaryAction(paper) }}
@@ -595,9 +619,19 @@
       @return-assessment="handleAnalysisReturn"
     />
 
+    <DailyCardAccessDialog
+      v-model="membershipAccessVisible"
+      :exam-type="paymentExamType"
+      upgrade-message="当前模拟卷需要会员权益，开通会员后即可开始完整模考。"
+      @activated="handleDailyCardActivated"
+      @upgrade="handleMembershipUpgrade"
+      @cancel="clearPendingMembershipAction"
+    />
+
     <PaymentModal
-      v-model="paymentVisible"
+      :model-value="paymentVisible"
       :default-exam-type="paymentExamType"
+      @update:model-value="handlePaymentVisibilityChange"
       @paid="handlePaymentSuccess"
     />
   </div>
@@ -622,13 +656,14 @@ import {
 import NavBar from '@/components/NavBar.vue'
 import AppPagination from '@/components/AppPagination.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
+import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import DiagnosticAnalysisDialog from '@/components/DiagnosticAnalysisDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
 import MockExamTrendChart from '@/views/mockExam/MockExamTrendChart.vue'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import { PAPER_ACCESS_TIER } from '@/constants/paperTypes'
 import { createLoginRequiredRouteLocation } from '@/utils/authRedirect'
-import { getApiErrorMessage } from '@/utils/request'
+import { getApiErrorMessage, hasApiErrorCode } from '@/utils/request'
 import {
   OFFICIAL_EXAM_DATES_SOURCE,
   formatExamWindow,
@@ -692,8 +727,10 @@ const abandoning = ref(false)
 const analysisDialogVisible = ref(false)
 const analysisExamRecordId = ref('')
 const retryingReportId = ref('')
+const membershipAccessVisible = ref(false)
 const paymentVisible = ref(false)
-const paymentExamType = ref<string>(auth.activeExamType)
+const paymentExamType = ref<ActiveExamType>(auth.activeExamType)
+const pendingMembershipPaperId = ref('')
 let catalogLoadSequence = 0
 let recordsLoadSequence = 0
 let overviewLoadSequence = 0
@@ -718,6 +755,9 @@ function emptyPagination(pageSize: number): PaginationMeta {
 
 // 页面只读取导航栏维护的全局考试类型。
 const activeExamType = computed<ActiveExamType>(() => auth.activeExamType)
+
+// 已知存在待启用日卡时，在锁定试卷上并列展示免费与付费解锁入口。
+const hasPendingDailyCard = computed(() => Boolean(auth.memberContext?.pendingDailyCards.length))
 
 // 考试结构摘要不写死题量，以后台每套正式模考卷配置为准。
 const examStructure = computed(() =>
@@ -753,6 +793,17 @@ const hasTrendData = computed(() =>
 // 当前考试会员只解锁相同考试类型的会员卷。
 function hasExamMembership(examType: string): boolean {
   return Boolean(auth.isAdmin || auth.memberContext?.quotas?.[examType]?.isMember)
+}
+
+// 缓存显示为会员时在新建模考前向服务端复核，承接24小时日卡自然到期的长会话。
+async function refreshCachedExamMembership(examType: string): Promise<boolean> {
+  if (auth.isAdmin || !auth.memberContext?.quotas?.[examType]?.isMember) return true
+  try {
+    auth.setMemberContext(await getMember())
+    return true
+  } catch {
+    return false
+  }
 }
 
 // 会员锁定只约束会员卷的新开始，已经创建的答卷仍可继续。
@@ -909,15 +960,16 @@ function requireLogin(): boolean {
 }
 
 // 新开始依次检查设备、登录、下线和会员资格，再进入考前确认。
-function handleStartPaper(paper: MockExamPaperItem): void {
+async function handleStartPaper(paper: MockExamPaperItem): Promise<void> {
   if (requireDesktopForExamAction()) return
   if (requireLogin()) return
   if (paper.publicationStatus !== 'published') {
     ElMessage.info('该模拟卷已下线，不能开始新的模考。')
     return
   }
+  if (!(await refreshCachedExamMembership(paper.examType))) return
   if (isPaperLocked(paper)) {
-    openMembership(paper.examType)
+    openMembership(paper.examType, paper.id)
     return
   }
   const esatSubjects = auth.memberContext?.studyPreferences.esatSubjects || []
@@ -961,6 +1013,11 @@ async function confirmStartPaper(): Promise<void> {
       query: { examRecordId: result.examRecordId },
     })
   } catch (error: unknown) {
+    if (hasApiErrorCode(error, 'MOCK_EXAM_PAPER_LOCKED')) {
+      startDialogVisible.value = false
+      openMembership(paper.examType, paper.id)
+      return
+    }
     ElMessage.error(getApiErrorMessage(error, '模考创建失败，请稍后重试。'))
   } finally {
     startingPaperId.value = ''
@@ -1013,11 +1070,73 @@ function continueRecord(record: MockExamRecordItem): void {
   })
 }
 
-// 锁定卷对已登录非会员打开统一支付弹窗，游客仍先登录。
-function openMembership(examType?: string): void {
+// 锁定卷先进入会员权益拦截，并冻结试卷 ID 以便日卡启用后继续原操作。
+function openMembership(examType?: string, paperId = ''): void {
   if (requireLogin()) return
-  paymentExamType.value = examType || activeExamType.value
+  paymentExamType.value =
+    examType === 'ESAT' || examType === 'TMUA' ? examType : activeExamType.value
+  pendingMembershipPaperId.value = paperId
+  membershipAccessVisible.value = true
+}
+
+// 用户明确选择长期会员时保存原试卷，并直接进入收银台而不隐藏付费入口。
+function openMembershipPayment(examType?: string, paperId = ''): void {
+  if (requireLogin()) return
+  paymentExamType.value =
+    examType === 'ESAT' || examType === 'TMUA' ? examType : activeExamType.value
+  pendingMembershipPaperId.value = paperId
+  membershipAccessVisible.value = false
   paymentVisible.value = true
+}
+
+// 免费日卡按钮沿用统一资格检查，确保刚到账或已过期的卡片状态会被刷新。
+function handleDailyCardForPaper(paper: MockExamPaperItem): void {
+  if (requireDesktopForExamAction()) return
+  openMembership(paper.examType, paper.id)
+}
+
+// 主按钮保留原开通会员语义；已解锁试卷仍进入正常考前检查流程。
+function handlePaperPrimaryAction(paper: MockExamPaperItem): void {
+  if (isPaperLocked(paper) && hasPendingDailyCard.value) {
+    if (requireDesktopForExamAction()) return
+    openMembershipPayment(paper.examType, paper.id)
+    return
+  }
+  void handleStartPaper(paper)
+}
+
+// 日卡启用后刷新目录并按 ID 重新定位试卷，避免使用已经下线的旧对象。
+async function handleDailyCardActivated(): Promise<void> {
+  const paperId = pendingMembershipPaperId.value
+  pendingMembershipPaperId.value = ''
+  await loadCatalog()
+  if (!paperId) return
+  const paper = papers.value.find((item) => item.id === paperId)
+  if (!paper) {
+    ElMessage.info('试卷状态已更新，请重新选择。')
+    return
+  }
+  if (isPaperLocked(paper)) {
+    ElMessage.error('会员权益尚未生效，请稍后重试。')
+    return
+  }
+  await handleStartPaper(paper)
+}
+
+// 无可用日卡或用户主动升级时再进入原有支付流程。
+function handleMembershipUpgrade(): void {
+  paymentVisible.value = true
+}
+
+// 未完成购买便关闭收银台时结束本次试卷恢复意图。
+function handlePaymentVisibilityChange(visible: boolean): void {
+  paymentVisible.value = visible
+  if (!visible) clearPendingMembershipAction()
+}
+
+// 关闭拦截或切换考试时不再保留旧试卷操作。
+function clearPendingMembershipAction(): void {
+  pendingMembershipPaperId.value = ''
 }
 
 // 支付完成后刷新会员上下文，目录无需整页刷新即可解除锁定。
@@ -1026,7 +1145,7 @@ async function handlePaymentSuccess(): Promise<void> {
     const context = await getMember()
     auth.setMemberContext(context)
     paymentVisible.value = false
-    await loadCatalog()
+    await handleDailyCardActivated()
   } catch (error: unknown) {
     ElMessage.error(getApiErrorMessage(error, '会员状态刷新失败，请稍后重试。'))
   }
@@ -1200,8 +1319,9 @@ watch(activeExamType, () => {
   recordPage.value = 1
   papers.value = []
   records.value = []
-  paymentVisible.value = false
-  paymentExamType.value = activeExamType.value
+  membershipAccessVisible.value = false
+  clearPendingMembershipAction()
+  if (!paymentVisible.value) paymentExamType.value = activeExamType.value
   void Promise.all([loadCatalog(), loadOverview()])
   if (activeTab.value === 'records' && auth.isLoggedIn) void loadRecords()
 })

@@ -268,6 +268,8 @@ const resumedExistingOrder = ref(false)
 let pollingTimer: ReturnType<typeof setInterval> | null = null
 let orderGeneration = 0
 let initializingPayment = false
+let paymentStatusQueryInFlight = false
+let paidEmittedOrderNo = ''
 const configStatus = ref<'active' | 'inactive'>('active')
 const providerReady = ref(false)
 const priceConfig = ref({
@@ -366,14 +368,27 @@ function stopPaymentPolling(): void {
 
 // 支付弹窗轮询服务端订单，最终状态仍由后端查询银联商务并幂等确认。
 async function refreshPaymentStatus(): Promise<void> {
-  if (!createdOrderNo.value || orderStatus.value === 'paid') return
+  const orderNo = createdOrderNo.value
+  if (!orderNo || orderStatus.value === 'paid' || paymentStatusQueryInFlight) return
+  const currentGeneration = orderGeneration
+  paymentStatusQueryInFlight = true
   try {
-    const order = await queryPaymentOrder(createdOrderNo.value)
+    const order = await queryPaymentOrder(orderNo)
+    if (
+      currentGeneration !== orderGeneration ||
+      createdOrderNo.value !== orderNo ||
+      !props.modelValue
+    ) {
+      return
+    }
     orderStatus.value = order.status
     if (order.status === 'paid') {
       stopPaymentPolling()
-      ElMessage.success('支付成功，会员权益已生效')
-      emit('paid', order.orderNo)
+      if (paidEmittedOrderNo !== order.orderNo) {
+        paidEmittedOrderNo = order.orderNo
+        ElMessage.success('支付成功，会员权益已生效')
+        emit('paid', order.orderNo)
+      }
     } else if (['closed', 'failed', 'refunded'].includes(order.status)) {
       stopPaymentPolling()
       resumedExistingOrder.value = false
@@ -382,6 +397,8 @@ async function refreshPaymentStatus(): Promise<void> {
     }
   } catch (error) {
     console.warn('[PaymentModal] 支付状态查询暂时失败', error)
+  } finally {
+    if (currentGeneration === orderGeneration) paymentStatusQueryInFlight = false
   }
 }
 
@@ -406,6 +423,8 @@ async function cancelCurrentOrder(): Promise<void> {
 function resetPaymentOrder(): void {
   orderGeneration += 1
   stopPaymentPolling()
+  paymentStatusQueryInFlight = false
+  paidEmittedOrderNo = ''
   creatingOrder.value = false
   orderCreationFailed.value = false
   createdOrderNo.value = ''
@@ -486,8 +505,11 @@ async function resumeExistingPaymentOrder(orderNo: string): Promise<void> {
     orderStatus.value = order.status
     resumedExistingOrder.value = order.status === 'pending'
     if (order.status === 'paid') {
-      ElMessage.success(result.message)
-      emit('paid', order.orderNo)
+      if (paidEmittedOrderNo !== order.orderNo) {
+        paidEmittedOrderNo = order.orderNo
+        ElMessage.success(result.message)
+        emit('paid', order.orderNo)
+      }
       return
     }
     qrCodeImageUrl.value = await createPaymentQrImage(result.qrCodeUrl)

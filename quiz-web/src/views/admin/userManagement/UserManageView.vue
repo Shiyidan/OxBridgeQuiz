@@ -5,7 +5,23 @@
     </div> -->
 
     <div class="page-body">
-      <h2 class="page-title">用户管理</h2>
+      <div class="page-heading">
+        <h2 class="page-title">用户管理</h2>
+        <div class="user-search" role="search">
+          <el-input
+            v-model="searchKeyword"
+            class="user-search__input"
+            clearable
+            maxlength="100"
+            placeholder="搜索用户名"
+            aria-label="搜索用户名"
+            @keyup.enter="applyUserSearch"
+            @clear="applyUserSearch"
+          />
+          <el-button type="primary" :loading="loading" @click="applyUserSearch">查询</el-button>
+          <el-button @click="resetUserSearch">重置</el-button>
+        </div>
+      </div>
 
       <AdminDataTable
         v-model:page="pagination.page"
@@ -261,6 +277,8 @@ import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 const auth = useAuthStore()
 const users = ref<UserItem[]>([])
 const loading = ref(true)
+const searchKeyword = ref('')
+const appliedSearchKeyword = ref('')
 const isSuperAdmin = computed(() => auth.user?.role === 'admin')
 const editVisible = ref(false)
 const saving = ref(false)
@@ -296,11 +314,31 @@ interface MembershipBadge {
   tooltip: string
 }
 
-function activeMemberships(user: UserItem) {
+interface ActiveMembershipItem extends UserMembershipItem {
+  entitlementEndsAt: number
+}
+
+// 当前生效套餐用于展示名称，同考试类型后续排队权益的最晚结束时间用于展示最终有效期。
+function activeMemberships(user: UserItem): ActiveMembershipItem[] {
   const now = Date.now()
-  return (user.memberships || []).filter(
-    (item) => item.status === 'active' && item.startsAt <= now && item.endsAt > now,
-  )
+  const memberships = user.memberships || []
+  return memberships
+    .filter((item) => item.status === 'active' && item.startsAt <= now && item.endsAt > now)
+    .filter(
+      (item, index, items) =>
+        items.findIndex((candidate) => candidate.examType === item.examType) === index,
+    )
+    .map((item) => ({
+      ...item,
+      entitlementEndsAt: memberships
+        .filter(
+          (candidate) =>
+            candidate.status === 'active' &&
+            candidate.examType === item.examType &&
+            candidate.endsAt > now,
+        )
+        .reduce((latest, candidate) => Math.max(latest, candidate.endsAt), item.endsAt),
+    }))
 }
 
 function planName(plan: string): string {
@@ -322,7 +360,7 @@ function latestMembership(user: UserItem): UserMembershipItem | undefined {
 }
 
 function membershipTooltip(item: UserMembershipItem): string {
-  return `${item.examType} ${planName(item.plan)}，到期时间：${formatDateTime(item.endsAt)}`
+  return `${item.examType} ${planName(item.plan)}，到期时间：${formatDateTime(item.entitlementEndsAt ?? item.endsAt)}`
 }
 
 // 权益列按 UserMembership 逐项展示，支持同一用户叠加多个考试类型会员。
@@ -408,6 +446,7 @@ async function fetchUsers(): Promise<void> {
     const data = await getUserListData({
       page: pagination.page,
       pageSize: pagination.pageSize,
+      keyword: appliedSearchKeyword.value || undefined,
     })
     users.value = data.list || []
     pagination.page = data.pagination.page
@@ -419,6 +458,22 @@ async function fetchUsers(): Promise<void> {
   } finally {
     loading.value = false
   }
+}
+
+// 查询时固定使用已确认的关键词并回到第一页，避免输入中的临时值影响翻页结果。
+async function applyUserSearch(): Promise<void> {
+  searchKeyword.value = searchKeyword.value.trim()
+  appliedSearchKeyword.value = searchKeyword.value
+  pagination.page = 1
+  await fetchUsers()
+}
+
+// 重置同时清空输入和已应用条件，恢复完整用户列表。
+async function resetUserSearch(): Promise<void> {
+  searchKeyword.value = ''
+  appliedSearchKeyword.value = ''
+  pagination.page = 1
+  await fetchUsers()
 }
 
 // 用户列表分页切换时只更新分页条件，并重新读取当前页用户。
@@ -546,11 +601,29 @@ onMounted(fetchUsers)
   padding: 24px 40px 10px;
 }
 
+.page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
 .page-title {
   font-size: 1.5rem;
   font-weight: 800;
   color: #0f172a;
-  margin: 0 0 24px;
+  margin: 0;
+}
+
+.user-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-search__input {
+  width: 280px;
 }
 
 .cell-name {
@@ -842,5 +915,25 @@ onMounted(fetchUsers)
 
 :deep(.access-form .el-form-item:last-child) {
   margin-bottom: 0;
+}
+
+@media (max-width: 760px) {
+  .page-body {
+    padding-inline: 20px;
+  }
+
+  .page-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .user-search {
+    width: 100%;
+  }
+
+  .user-search__input {
+    width: auto;
+    flex: 1;
+  }
 }
 </style>

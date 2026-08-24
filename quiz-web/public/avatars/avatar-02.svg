@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img">
+  <defs>
+    <clipPath id="avatar-02-circle">
+      <circle cx="128" cy="128" r="120"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#avatar-02-circle)">
+    <circle cx="128" cy="128" r="120" fill="#E7F5F2"/>
+    <circle cx="43" cy="213" r="83" fill="#3EA6A0"/>
+    <circle cx="207" cy="52" r="46" fill="#5E8FA3"/>
+
+    <ellipse cx="128" cy="128" rx="92" ry="43" transform="rotate(-18 128 128)" fill="none" stroke="#17384A" stroke-width="12"/>
+    <circle cx="128" cy="128" r="49" fill="#F4C95D"/>
+    <path d="M54 157C91 179 157 169 204 117" fill="none" stroke="#17384A" stroke-width="12" stroke-linecap="round"/>
+
+    <circle cx="202" cy="92" r="13" fill="#3EA6A0" stroke="#17384A" stroke-width="7"/>
+  </g>
+
+  <circle cx="128" cy="128" r="120" fill="none" stroke="#17384A" stroke-width="8"/>
+</svg>

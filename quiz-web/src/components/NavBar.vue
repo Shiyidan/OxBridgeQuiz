@@ -91,7 +91,7 @@
         <slot name="actions">
           <template v-if="auth.isLoggedIn && auth.user">
             <el-dropdown
-              v-if="props.showExamSwitcher"
+              v-if="props.showExamSwitcher && auth.isAdmin"
               trigger="click"
               placement="bottom-end"
               popper-class="student-exam-dropdown"
@@ -100,10 +100,10 @@
               <button
                 type="button"
                 class="exam-preference-chip"
-                :aria-label="`当前备考类型：${preferredExamType}，点击切换`"
+                :aria-label="`当前考试工作区：${preferredExamType}，点击切换`"
               >
                 <span class="exam-preference-dot" aria-hidden="true"></span>
-                <span>{{ noGoal ? '选择备考目标' : `备考 ${preferredExamType}` }}</span>
+                <span>考试工作区：{{ preferredExamType }}</span>
                 <el-icon class="exam-preference-caret" aria-hidden="true">
                   <ArrowDown />
                 </el-icon>
@@ -111,7 +111,7 @@
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item
-                    v-for="exam in studentExamOptions"
+                    v-for="exam in activeExamOptions"
                     :key="exam.value"
                     :command="exam.value"
                     :class="{ 'is-current-exam': preferredExamType === exam.value }"
@@ -121,6 +121,24 @@
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
+            <button
+              v-else-if="props.showExamSwitcher"
+              type="button"
+              class="exam-preference-chip"
+              :aria-label="`${studyGoalLabel}，前往个人中心修改备考目标`"
+              title="前往个人中心修改备考目标"
+              @click="goToStudyGoals"
+            >
+              <span
+                class="exam-preference-dot"
+                :class="{ 'exam-preference-dot--empty': !displayedStudyGoalExamType }"
+                aria-hidden="true"
+              ></span>
+              <span>{{ studyGoalLabel }}</span>
+              <el-icon class="exam-preference-caret" aria-hidden="true">
+                <ArrowRight />
+              </el-icon>
+            </button>
             <div
               class="user-chip"
               @mouseenter="showDropdown = true"
@@ -131,10 +149,29 @@
                 <span class="user-name" :title="auth.user.username">
                   {{ auth.user.username }}
                 </span>
-                <span class="user-meta">{{ currentRoleLabel }}</span>
+                <button
+                  v-if="hasValidPendingMembershipCard"
+                  type="button"
+                  class="user-meta user-meta--pending-card"
+                  title="前往我的卡包查看免费会员权益"
+                  @click.stop="goToPendingMembershipCards"
+                >
+                  免费会员权益待使用
+                </button>
+                <span
+                  v-else
+                  class="user-meta"
+                  :class="{ 'user-meta--member': hasActiveMembership }"
+                >
+                  {{ currentEntitlementLabel }}
+                </span>
               </div>
               <div class="user-avatar" :title="auth.user.username">
-                {{ auth.user.username.charAt(0) }}
+                <AppAvatar
+                  :source="auth.user.avatar"
+                  :name="auth.user.username"
+                  decorative
+                />
               </div>
 
               <Transition name="dropdown">
@@ -144,9 +181,20 @@
                       <span class="dropdown-name" :title="auth.user.username">
                         {{ auth.user.username }}
                       </span>
-                      <span class="dropdown-role">{{ dropdownEntitlementLabel }}</span>
+                      <span
+                        class="dropdown-role"
+                        :class="{ 'dropdown-role--pending': hasValidPendingMembershipCard }"
+                      >
+                        {{ dropdownAccountDetailLabel }}
+                      </span>
                     </div>
-                    <div class="dropdown-avatar">{{ auth.user.username.charAt(0) }}</div>
+                    <div class="dropdown-avatar">
+                      <AppAvatar
+                        :source="auth.user.avatar"
+                        :name="auth.user.username"
+                        decorative
+                      />
+                    </div>
                   </div>
                   <div class="dropdown-menu">
                     <button class="dropdown-item" type="button" @click="goToRoleHome">
@@ -184,18 +232,18 @@
 
 <script setup lang="ts">
 // 全局导航栏：所有前台页面共用，并根据登录状态展示用户入口。
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowDown } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowRight } from '@element-plus/icons-vue'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
+import AppAvatar from '@/components/AppAvatar.vue'
 import brandIconUrl from '@/assets/brand/acemock-icon.png'
 
 interface NavBarProps {
   delegateNavigation?: boolean
   delegateExamSelection?: boolean
   mistakeExamType?: ActiveExamType | null
-  noGoal?: boolean
   showExamSwitcher?: boolean
 }
 
@@ -203,7 +251,6 @@ const props = withDefaults(defineProps<NavBarProps>(), {
   delegateNavigation: false,
   delegateExamSelection: false,
   mistakeExamType: null,
-  noGoal: false,
   showExamSwitcher: true,
 })
 
@@ -217,38 +264,116 @@ const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const showDropdown = ref(false)
+const entitlementClock = ref(Date.now())
+let entitlementExpiryTimer: ReturnType<typeof setTimeout> | null = null
 const examMenuItems = EXAM_TYPE_OPTIONS.map((item) => ({
   type: item.value.toLowerCase(),
   label: item.label,
 }))
-const studentExamOptions = EXAM_TYPE_OPTIONS.filter(
+const activeExamOptions = EXAM_TYPE_OPTIONS.filter(
   (item): item is (typeof EXAM_TYPE_OPTIONS)[number] & { value: ActiveExamType } =>
     item.value === 'ESAT' || item.value === 'TMUA',
 )
 
-// 根据登录用户身份显示导航栏角色名称。
-const currentRoleLabel = computed(() => (auth.user?.role === 'admin' ? '管理员' : '学生'))
-
-// 头像下拉卡片优先展示管理员权益，普通用户则按账户当前生效的考试会员权益标记身份。
-const dropdownEntitlementLabel = computed(() => {
-  if (auth.isAdmin) return '管理员权益'
-
-  const memberExamTypes = Object.entries(auth.memberContext?.quotas || {})
-    .filter(([, quota]) => quota.isMember)
-    .map(([examType]) => examType.toUpperCase())
-    .filter((examType) => examType === 'ESAT' || examType === 'TMUA')
-    .sort((left, right) => (left === 'ESAT' ? -1 : right === 'ESAT' ? 1 : 0))
-
-  if (memberExamTypes.length === 0) return '免费用户'
-  if (memberExamTypes.length > 1) {
-    return memberExamTypes.map((examType) => `${examType}会员`).join(' · ')
-  }
-
-  const examType = memberExamTypes[0]!
-  return `${examType}会员`
+// 顶部只展示个人中心已保存的备考目标，固定排序避免接口记录顺序造成文案跳动。
+const savedStudyGoalExamTypes = computed<ActiveExamType[]>(() => {
+  const savedExamTypes = new Set(
+    (auth.memberContext?.studyPreferences.examTypes || []).map((examType) =>
+      String(examType || '').toUpperCase(),
+    ),
+  )
+  return (['ESAT', 'TMUA'] as const).filter((examType) => savedExamTypes.has(examType))
 })
 
-// 当前考试类型由认证 Store 保存，确保导航栏跨前台页面重建后仍保留手动选择。
+// 生效会员按考试类型排序，顶部与头像下拉共用同一份权益口径。
+const activeMemberExamTypes = computed<ActiveExamType[]>(() =>
+  Object.entries(auth.memberContext?.quotas || {})
+    .filter(
+      ([, quota]) =>
+        quota.isMember &&
+        (quota.endsAt === null || quota.endsAt > entitlementClock.value),
+    )
+    .map(([examType]) => examType.toUpperCase())
+    .filter((examType): examType is ActiveExamType => examType === 'ESAT' || examType === 'TMUA')
+    .sort((left, right) => (left === 'ESAT' ? -1 : right === 'ESAT' ? 1 : 0)),
+)
+
+// 唯一会员考试强制优先；双会员或无会员时展示当前实际学习上下文。
+const displayedStudyGoalExamType = computed<ActiveExamType | null>(() => {
+  if (activeMemberExamTypes.value.length === 1) return activeMemberExamTypes.value[0]!
+  if (activeMemberExamTypes.value.includes(auth.activeExamType)) return auth.activeExamType
+  if (savedStudyGoalExamTypes.value.includes(auth.activeExamType)) return auth.activeExamType
+  return activeMemberExamTypes.value[0] || savedStudyGoalExamTypes.value[0] || null
+})
+
+// 顶部只表达当前正在备考的考试，没有权益和目标时给出明确状态。
+const studyGoalLabel = computed(() =>
+  displayedStudyGoalExamType.value
+    ? `当前备考：${displayedStudyGoalExamType.value}`
+    : '当前备考：未设置',
+)
+
+// 当前存在任一有效考试会员时优先展示会员权益，不再显示待使用卡券入口。
+const hasActiveMembership = computed(() => activeMemberExamTypes.value.length > 0)
+
+// 未到期或仍在等待达成领取条件的会员卡都用于召回，提示用户前往卡包查看活动进度。
+const validPendingMembershipCards = computed(() =>
+  (auth.memberContext?.pendingMembershipCards || []).filter(
+    (card) => card.activationDeadline === null || card.activationDeadline > entitlementClock.value,
+  ),
+)
+
+// 可立即使用的管理员赠送日卡使用严格有效口径，并在下拉文案中优先于活动周卡。
+const validPendingDailyCards = computed(() =>
+  (auth.memberContext?.pendingDailyCards || []).filter(
+    (card) => card.activationDeadline > entitlementClock.value,
+  ),
+)
+
+// 有效会员优先于待启用卡券，避免已享受权益的用户看到重复召回入口。
+const hasValidPendingMembershipCard = computed(
+  () =>
+    !auth.isAdmin &&
+    activeMemberExamTypes.value.length === 0 &&
+    validPendingMembershipCards.value.length > 0,
+)
+
+// 顶部用户名下方展示当前权益；双考试会员使用紧凑文案避免挤压头像区域。
+const currentEntitlementLabel = computed(() => {
+  if (auth.isAdmin) return '管理员'
+  if (activeMemberExamTypes.value.length > 1) return 'ESAT/TMUA会员'
+  if (activeMemberExamTypes.value.length === 1) return `${activeMemberExamTypes.value[0]}会员`
+  return '免费用户'
+})
+
+// 下拉优先召回可直接使用的日卡，其次提示邀请周卡，其他卡种使用通用名称。
+const pendingMembershipCardLabel = computed(() => {
+  const cards = validPendingMembershipCards.value
+  const dailyCardCount = validPendingDailyCards.value.length
+  if (dailyCardCount > 0) return `${dailyCardCount}张免费日卡待启用`
+
+  const weeklyCardCount = cards.filter((card) => card.durationHours === 7 * 24).length
+  if (weeklyCardCount > 0) return `${weeklyCardCount}张免费周卡待启用`
+  return `${cards.length}张免费会员卡待启用`
+})
+
+// 下拉第二行补充权益时效，不再重复顶部已经展示的会员类型。
+const dropdownAccountDetailLabel = computed(() => {
+  if (auth.isAdmin) return '管理员账户'
+  if (activeMemberExamTypes.value.length === 0) {
+    return hasValidPendingMembershipCard.value
+      ? pendingMembershipCardLabel.value
+      : '免费账户'
+  }
+
+  const preferredMemberExamType = activeMemberExamTypes.value.includes(auth.activeExamType)
+    ? auth.activeExamType
+    : activeMemberExamTypes.value[0]!
+  const endsAt = auth.memberContext?.quotas?.[preferredMemberExamType]?.endsAt
+  return endsAt ? formatMembershipDeadline(endsAt) : '会员权益长期有效'
+})
+
+// 管理员考试工作区继续跟随当前前端会话，不读取学生备考目标。
 const preferredExamType = computed(() => auth.activeExamType)
 
 // 首页委托模式下为错题本携带当前考试，其他页面保持原来的通用入口。
@@ -277,6 +402,16 @@ const isLearningWorkspaceRoute = computed(
 // 从路由参数派生当前考试类型，用于标记下拉菜单选中项。
 const currentExamType = computed(() => String(route.params.examType || '').toLowerCase())
 
+// 会员到期时间使用紧凑的本地月日与时分，适配头像下拉有限宽度。
+function formatMembershipDeadline(timestamp: number): string {
+  const deadline = new Date(timestamp)
+  const month = String(deadline.getMonth() + 1).padStart(2, '0')
+  const day = String(deadline.getDate()).padStart(2, '0')
+  const hour = String(deadline.getHours()).padStart(2, '0')
+  const minute = String(deadline.getMinutes()).padStart(2, '0')
+  return `会员有效期至 ${month}/${day} ${hour}:${minute}`
+}
+
 // Element Plus 下拉命令统一切换考试页面，避免手写 hover 浮层产生闪烁。
 function handleExamCommand(command: string): void {
   const path = command === 'study-resources' ? '/study-resources' : `/exam-intro/${command}`
@@ -284,7 +419,7 @@ function handleExamCommand(command: string): void {
   else router.push(path)
 }
 
-// 顶部考试下拉只切换当前前端会话，不覆盖个人中心的长期备考偏好。
+// 管理员保留原有工作区切换能力；首页通过委托事件同步其学习数据视图。
 function handlePreferredExamTypeCommand(command: ActiveExamType): void {
   if (props.delegateExamSelection) emit('select-exam', command)
   else auth.setActiveExamType(command)
@@ -297,7 +432,7 @@ function handleHomeNavigation(event: MouseEvent): void {
   emit('home')
 }
 
-// 首页委托模式保留登录分流与 no-goal 引导，普通页面仍由 RouterLink 直接导航。
+// 首页委托模式只上报业务路径，普通页面仍由 RouterLink 直接导航。
 function handleRouteNavigation(event: MouseEvent, path: string): void {
   if (!props.delegateNavigation) return
   event.preventDefault()
@@ -316,6 +451,26 @@ function goToProfile(): void {
   router.push('/profile')
 }
 
+// 顶部备考目标是只读摘要，所有修改统一交由个人中心的目标偏好弹窗完成。
+function goToStudyGoals(): void {
+  void router.push({ path: '/profile', query: { editGoals: '1' } })
+}
+
+// 顶部待使用权益按钮直达个人中心卡包，方便用户查看可用卡券或邀请活动进度。
+async function goToPendingMembershipCards(): Promise<void> {
+  showDropdown.value = false
+  await router.push({
+    path: '/profile',
+    query: { wallet: 'pending' },
+    hash: '#member-card-wallet',
+  })
+  await nextTick()
+  document.getElementById('member-card-wallet')?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'center',
+  })
+}
+
 // 退出后回首页，让需要登录的页面由路由守卫重新拦截。
 async function handleLogout(): Promise<void> {
   await auth.logout()
@@ -323,17 +478,46 @@ async function handleLogout(): Promise<void> {
   router.push('/')
 }
 
-// 导航栏仅为学生预加载长期备考偏好；管理员直接使用当前会话的考试上下文。
+// 导航栏仅为学生预加载个人中心保存的长期备考目标。
 async function loadStudentExamPreference(): Promise<void> {
   if (!auth.isLoggedIn || auth.isAdmin || auth.memberContext) return
   try {
     await auth.ensureMemberContext()
   } catch {
-    // 获取失败时按产品规则保留 TMUA 默认值，公共请求层负责错误提示。
+    // 获取失败时保留未设置状态，公共请求层负责错误提示。
   }
 }
 
+// 仅在最近一次会员或待启用卡到期时刷新展示时钟，使过期权益立即从顶部消失。
+function scheduleEntitlementExpiryRefresh(): void {
+  if (entitlementExpiryTimer) clearTimeout(entitlementExpiryTimer)
+  entitlementExpiryTimer = null
+  const now = Date.now()
+  entitlementClock.value = now
+  const deadlines = [
+    ...Object.values(auth.memberContext?.quotas || {})
+      .map((quota) => quota.endsAt)
+      .filter((deadline): deadline is number => typeof deadline === 'number' && deadline > now),
+    ...(auth.memberContext?.pendingMembershipCards || [])
+      .map((card) => card.activationDeadline)
+      .filter((deadline): deadline is number => typeof deadline === 'number' && deadline > now),
+  ]
+  if (deadlines.length === 0) return
+  const nextDeadline = Math.min(...deadlines)
+  const maximumTimeout = 2_147_483_647
+  entitlementExpiryTimer = setTimeout(
+    scheduleEntitlementExpiryRefresh,
+    Math.min(Math.max(nextDeadline - now + 50, 50), maximumTimeout),
+  )
+}
+
+watch(() => auth.memberContext, scheduleEntitlementExpiryRefresh, { immediate: true })
+
 onMounted(() => void loadStudentExamPreference())
+
+onBeforeUnmount(() => {
+  if (entitlementExpiryTimer) clearTimeout(entitlementExpiryTimer)
+})
 </script>
 
 <style scoped>
@@ -433,6 +617,9 @@ onMounted(() => void loadStudentExamPreference())
   flex: 0 0 auto;
   border-radius: 50%;
   background: var(--color-success);
+}
+.exam-preference-dot--empty {
+  background: var(--color-ink-muted);
 }
 .exam-preference-caret {
   color: var(--color-ink-muted);
@@ -551,6 +738,17 @@ onMounted(() => void loadStudentExamPreference())
   gap: 10px;
   cursor: pointer;
 }
+
+/* 连接用户名区域与下拉卡片，避免鼠标经过两者之间的视觉留白时误触发离开。 */
+.user-chip::after {
+  position: absolute;
+  z-index: 0;
+  top: 100%;
+  right: 0;
+  width: 100%;
+  height: 13px;
+  content: '';
+}
 .user-info {
   display: flex;
   flex-direction: column;
@@ -573,6 +771,31 @@ onMounted(() => void loadStudentExamPreference())
   font-size: 12px;
   color: var(--color-ink-muted);
 }
+.user-meta--member {
+  color: var(--color-report-orange);
+  font-weight: var(--weight-semi);
+}
+.user-meta--pending-card {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-report-orange);
+  font: inherit;
+  font-size: 12px;
+  font-weight: var(--weight-semi);
+  line-height: 1.35;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.user-meta--pending-card:hover {
+  text-decoration: underline;
+}
+.user-meta--pending-card:focus-visible {
+  border-radius: 2px;
+  outline: 2px solid var(--color-report-orange);
+  outline-offset: 2px;
+}
 .user-avatar,
 .dropdown-avatar {
   display: grid;
@@ -580,6 +803,7 @@ onMounted(() => void loadStudentExamPreference())
   place-items: center;
   width: 36px;
   height: 36px;
+  overflow: hidden;
   border-radius: 50%;
   background: var(--color-ink);
   color: var(--color-ink-inverse);
@@ -588,6 +812,7 @@ onMounted(() => void loadStudentExamPreference())
 }
 .user-dropdown {
   position: absolute;
+  z-index: 1;
   right: 0;
   top: 48px;
   width: 240px;
@@ -608,7 +833,7 @@ onMounted(() => void loadStudentExamPreference())
 .dropdown-user-info {
   flex: 1;
   min-width: 0;
-  max-width: 120px;
+  max-width: 150px;
 }
 .dropdown-name {
   display: block;
@@ -622,8 +847,13 @@ onMounted(() => void loadStudentExamPreference())
 .dropdown-role {
   display: inline-block;
   margin-top: 2px;
-  color: var(--color-report-orange);
+  color: var(--color-ink-muted);
   font-size: 12px;
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.dropdown-role--pending {
+  color: var(--color-report-orange);
   font-weight: var(--weight-semi);
 }
 .dropdown-menu {

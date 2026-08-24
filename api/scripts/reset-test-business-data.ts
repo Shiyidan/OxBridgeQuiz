@@ -136,7 +136,6 @@ async function clearBusinessData(): Promise<DataCounts> {
     const usersReset = await tx.user.updateMany({
       data: {
         diagnosticUsed: false,
-        avatar: null,
         examPreferences: null,
       },
     })

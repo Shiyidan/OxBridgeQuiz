@@ -2,6 +2,7 @@
 import path from 'path'
 import crypto from 'crypto'
 import dotenv from 'dotenv'
+import { assertPaymentRuntimeSafety } from './utils/paymentRuntimeSafety.js'
 
 const envFile = process.env.API_ENV_FILE?.trim() || path.resolve(process.cwd(), '.env')
 dotenv.config({ path: envFile })
@@ -434,6 +435,16 @@ if (BACKEND_ENV === 'prod' && !refreshCookieSecure) {
   throw new Error('[config] Production requires REFRESH_COOKIE_SECURE=true')
 }
 
+const chinaumsConfig = resolveChinaumsConfig()
+const paymentLifecycleConfig = resolvePaymentLifecycleConfig()
+
+// 正式支付不能脱离后台状态收敛任务运行，部署前校验与 API 启动共用这条门禁。
+assertPaymentRuntimeSafety({
+  runtimeEnv: BACKEND_ENV,
+  chinaumsEnabled: chinaumsConfig.enabled,
+  lifecycleEnabled: paymentLifecycleConfig.enabled,
+})
+
 export const config = {
   runtimeEnv: BACKEND_ENV,
   port: parseInt(process.env.API_PORT || String(backendDefaults.port), 10),
@@ -477,11 +488,11 @@ export const config = {
   deepseekApiKey: process.env.DEEPSEEK_API_KEY || '',
   deepseekBaseUrl: (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/$/, ''),
   deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash',
-  chinaums: resolveChinaumsConfig(),
+  chinaums: chinaumsConfig,
   paymentAccess: {
     purchaseAllowedEmails: parsePaymentPurchaseAllowedEmails(
       process.env.PAYMENT_PURCHASE_ALLOWED_EMAILS,
     ),
   },
-  paymentLifecycle: resolvePaymentLifecycleConfig(),
+  paymentLifecycle: paymentLifecycleConfig,
 }

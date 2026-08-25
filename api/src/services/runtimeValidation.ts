@@ -20,6 +20,11 @@ export interface RuntimeValidationResult {
     mode: 'allowlist' | 'unrestricted'
     allowedAccountCount?: number
   }
+  paymentLifecycle: {
+    enabled: boolean
+    pollIntervalMs: number
+    batchSize: number
+  }
 }
 
 /** 验证数据库与 SMTP 等部署必需依赖，并返回不含敏感值的检查摘要。 */
@@ -51,5 +56,10 @@ export async function validateRuntimeDependencies(): Promise<RuntimeValidationRe
           allowedAccountCount: config.paymentAccess.purchaseAllowedEmails.length,
         }
       : { mode: 'unrestricted' },
+    paymentLifecycle: {
+      enabled: config.paymentLifecycle.enabled,
+      pollIntervalMs: config.paymentLifecycle.pollIntervalMs,
+      batchSize: config.paymentLifecycle.batchSize,
+    },
   }
 }

@@ -31,6 +31,7 @@ export type PaymentLifecycleStats = {
   refundErrors: number
   membershipsExpired: number
   usersExpired: number
+  cycleErrors: number
 }
 
 // 每轮使用独立计数，便于日志和部署验证确认任务实际处理结果。
@@ -47,6 +48,7 @@ function createStats(): PaymentLifecycleStats {
     refundErrors: 0,
     membershipsExpired: 0,
     usersExpired: 0,
+    cycleErrors: 0,
   }
 }
 
@@ -132,7 +134,7 @@ async function closeExpiredOrders(now: Date, stats: PaymentLifecycleStats): Prom
       status: PAYMENT_ORDER_STATUS.PENDING,
       expiresAt: { lte: now },
     },
-    orderBy: { expiresAt: 'asc' },
+    orderBy: [{ updatedAt: 'asc' }, { expiresAt: 'asc' }],
     take: config.paymentLifecycle.batchSize,
   })
 
@@ -144,6 +146,13 @@ async function closeExpiredOrders(now: Date, stats: PaymentLifecycleStats): Prom
     } catch (error) {
       stats.closeErrors += 1
       console.error(`[payment-lifecycle] close expired order failed order=${order.orderNo}:`, error)
+      // 失败订单移到下一轮队尾，避免固定坏单长期占满批次并饿死后续订单。
+      await prisma.paymentOrder.updateMany({
+        where: { id: order.id, status: PAYMENT_ORDER_STATUS.PENDING },
+        data: { updatedAt: new Date() },
+      }).catch((touchError) => {
+        console.error(`[payment-lifecycle] defer failed close retry order=${order.orderNo}:`, touchError)
+      })
     }
   }
 }
@@ -202,6 +211,20 @@ async function expireMemberships(now: Date, stats: PaymentLifecycleStats): Promi
   stats.usersExpired += result.expiredUsers
 }
 
+// 单个阶段失败只记录本轮错误，后续支付、关单、退款和权益阶段仍继续执行。
+async function runLifecyclePhase(
+  name: string,
+  stats: PaymentLifecycleStats,
+  task: () => Promise<void>,
+): Promise<void> {
+  try {
+    await task()
+  } catch (error) {
+    stats.cycleErrors += 1
+    console.error(`[payment-lifecycle] ${name} phase failed:`, error)
+  }
+}
+
 // 单轮任务按查询、关单、退款和权益顺序执行，并通过数据库租约跨进程互斥。
 export async function runPaymentLifecycleCycle(now = new Date()): Promise<PaymentLifecycleStats> {
   const stats = createStats()
@@ -212,12 +235,12 @@ export async function runPaymentLifecycleCycle(now = new Date()): Promise<Paymen
     stats.leaseAcquired = await acquireLease(now)
     if (!stats.leaseAcquired) return stats
     leaseHeartbeat = startLeaseHeartbeat()
-    await expireMemberships(now, stats)
-    await reconcilePendingPayments(now, stats)
-    await closeExpiredOrders(now, stats)
-    await reconcileProcessingRefunds(now, stats)
-    await runScheduledPaymentReconciliation(now).catch((error) => {
-      console.error('[payment-reconciliation] scheduled run failed:', error)
+    await runLifecyclePhase('membership expiry', stats, () => expireMemberships(now, stats))
+    await runLifecyclePhase('pending payment query', stats, () => reconcilePendingPayments(now, stats))
+    await runLifecyclePhase('expired order close', stats, () => closeExpiredOrders(now, stats))
+    await runLifecyclePhase('refund query', stats, () => reconcileProcessingRefunds(now, stats))
+    await runLifecyclePhase('payment reconciliation', stats, async () => {
+      await runScheduledPaymentReconciliation(now)
     })
     return stats
   } finally {
@@ -235,7 +258,7 @@ function logCycle(stats: PaymentLifecycleStats): void {
     + stats.expiredOrdersChecked
     + stats.refundsChecked
     + stats.membershipsExpired
-  const errors = stats.paymentQueryErrors + stats.closeErrors + stats.refundErrors
+  const errors = stats.paymentQueryErrors + stats.closeErrors + stats.refundErrors + stats.cycleErrors
   if (activity === 0 && errors === 0) return
   console.log('[payment-lifecycle] cycle completed', stats)
 }
@@ -248,15 +271,19 @@ export async function startPaymentLifecycleWorker(): Promise<void> {
   }
   if (workerTimer) return
 
-  // 首轮与后续轮询复用同一错误边界和活动摘要。
+  // 先注册定时器；即使首轮发生数据库或租约异常，后续轮次仍可自动恢复。
   const run = async () => {
-    const stats = await runPaymentLifecycleCycle()
-    logCycle(stats)
+    try {
+      const stats = await runPaymentLifecycleCycle()
+      logCycle(stats)
+    } catch (error) {
+      console.error('[payment-lifecycle] cycle failed:', error)
+    }
   }
-  await run()
   workerTimer = setInterval(() => {
-    void run().catch((error) => console.error('[payment-lifecycle] polling failed:', error))
+    void run()
   }, config.paymentLifecycle.pollIntervalMs)
   workerTimer.unref()
   console.log(`[payment-lifecycle] worker started intervalMs=${config.paymentLifecycle.pollIntervalMs}`)
+  await run()
 }

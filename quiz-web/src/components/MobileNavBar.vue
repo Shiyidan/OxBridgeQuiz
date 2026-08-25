@@ -2,8 +2,9 @@
 <template>
   <div class="home-mobile-nav">
     <div class="home-mobile-nav__bar">
-      <button class="home-mobile-nav__brand-button" type="button" aria-label="返回首页" @click="goHome">
+      <button class="home-mobile-nav__brand-button" type="button" aria-label="AceMock 返回首页" @click="goHome">
         <img :src="brandIconUrl" alt="" />
+        <span>AceMock</span>
       </button>
       <button
         class="home-mobile-nav__trigger"
@@ -261,7 +262,7 @@ onBeforeUnmount(() => {
     min-width: 0;
     height: 64px;
     display: grid;
-    grid-template-columns: 48px minmax(0, 1fr) minmax(92px, 128px);
+    grid-template-columns: 104px minmax(0, 1fr) minmax(92px, 128px);
     align-items: center;
     padding: 0 16px;
     background: var(--home-mobile-nav-color);
@@ -285,20 +286,28 @@ onBeforeUnmount(() => {
   }
 
   .home-mobile-nav__brand-button {
-    width: 38px;
-    height: 38px;
-    display: grid;
-    place-items: center;
-    overflow: hidden;
-    border-radius: 9px;
+    width: max-content;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
   }
 
   .home-mobile-nav__brand-button img,
   .home-mobile-nav__overlay-brand img {
-    width: 100%;
-    height: 100%;
     object-fit: contain;
     transform: scale(1.42);
+  }
+
+  .home-mobile-nav__brand-button img {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+    overflow: hidden;
+    border-radius: 8px;
   }
 
   .home-mobile-nav__trigger {

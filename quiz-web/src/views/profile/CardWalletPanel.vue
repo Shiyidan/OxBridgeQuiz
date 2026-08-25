@@ -908,6 +908,14 @@ onMounted(loadRewards)
 }
 
 @media (max-width: 560px) {
+  .card-wallet-panel {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    padding: 15px 13px;
+    border-radius: 10px;
+  }
+
   .card-wallet-heading {
     align-items: flex-start;
     flex-direction: column;
@@ -916,6 +924,22 @@ onMounted(loadRewards)
   .wallet-card-main {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .wallet-card {
+    min-height: 132px;
+    padding: 11px 12px;
+  }
+
+  .wallet-card-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+    white-space: normal;
+  }
+
+  .wallet-card-footer p {
+    overflow-wrap: anywhere;
   }
 
   .wallet-detail-list article {

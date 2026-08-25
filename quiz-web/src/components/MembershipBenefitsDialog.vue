@@ -96,6 +96,9 @@ function continueToPayment(): void {
 
 <style scoped>
 :global(.membership-benefits-dialog.el-dialog) {
+  display: flex;
+  max-height: calc(100dvh - 32px);
+  flex-direction: column;
   max-width: calc(100vw - 32px);
   overflow: hidden;
   border: 1px solid #e5e7ff;
@@ -104,16 +107,22 @@ function continueToPayment(): void {
 }
 
 :global(.membership-benefits-dialog .el-dialog__header) {
+  flex: 0 0 auto;
   margin: 0;
   padding: 28px 30px 20px;
   background: linear-gradient(135deg, #f7f5ff 0%, #eef4ff 100%);
 }
 
 :global(.membership-benefits-dialog .el-dialog__body) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 24px 30px 8px;
 }
 
 :global(.membership-benefits-dialog .el-dialog__footer) {
+  flex: 0 0 auto;
   padding: 18px 30px 26px;
 }
 
@@ -216,24 +225,64 @@ function continueToPayment(): void {
 }
 
 @media (max-width: 620px) {
+  :global(.membership-benefits-dialog.el-dialog) {
+    width: calc(100vw - 24px) !important;
+    height: calc(100dvh * 2 / 3);
+    max-width: none;
+    max-height: calc(100dvh * 2 / 3);
+    margin: auto !important;
+  }
+
   :global(.membership-benefits-dialog .el-dialog__header) {
-    padding: 24px 20px 18px;
+    padding: 12px 16px 10px;
   }
 
   :global(.membership-benefits-dialog .el-dialog__body) {
-    padding: 20px 20px 6px;
+    padding: 10px 16px 6px;
+    scrollbar-gutter: stable;
   }
 
   :global(.membership-benefits-dialog .el-dialog__footer) {
-    padding: 16px 20px 22px;
+    border-top: 1px solid var(--color-line-soft);
+    padding: 8px 16px 10px;
+  }
+
+  .benefits-dialog-heading {
+    padding-right: 24px;
+  }
+
+  .benefits-dialog-kicker {
+    margin-bottom: 4px;
+    font-size: 9px;
+  }
+
+  .benefits-dialog-heading h2 {
+    font-size: 18px;
+    line-height: 1.25;
+  }
+
+  .benefits-dialog-heading p {
+    margin-top: 4px;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .benefits-dialog-content {
+    gap: 12px;
   }
 
   .benefits-dialog-grid {
     grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .benefits-dialog-grid article {
     min-height: 0;
+    padding: 12px;
+  }
+
+  .benefits-dialog-note {
+    padding: 10px 12px;
   }
 }
 </style>

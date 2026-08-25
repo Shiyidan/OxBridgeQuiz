@@ -112,32 +112,24 @@ watch(
   }
 }
 
-@media (max-width: 780px), (max-device-width: 780px) {
-  :global(body:has(.learning-workspace--question-bank)) {
+@media (max-width: 860px) {
+  :global(body:has(.learning-workspace)) {
     min-width: 0;
   }
 
-  .learning-workspace--question-bank {
+  .learning-workspace {
     --fluid-page-min-width: 0px;
     --fluid-shell-width: calc(100% - 32px);
 
+    width: 100%;
     min-width: 0;
+    max-width: 100%;
   }
 
-  .learning-workspace--question-bank :deep(.navbar) {
+  .learning-workspace__viewport {
+    width: 100%;
     min-width: 0;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .learning-workspace--question-bank :deep(.navbar::-webkit-scrollbar) {
-    display: none;
-  }
-
-  .learning-workspace--question-bank :deep(.nav-inner) {
-    width: max-content;
-    min-width: 100%;
-    padding: 0 16px;
+    max-width: 100%;
   }
 }
 </style>

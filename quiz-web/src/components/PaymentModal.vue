@@ -1159,12 +1159,17 @@ onBeforeUnmount(() => {
     padding: 0;
   }
   .payment-modal {
+    display: flex;
     width: 100%;
-    min-height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    max-height: 100dvh;
+    flex-direction: column;
     overflow: hidden;
     border-radius: 0;
   }
   .payment-header {
+    flex: 0 0 auto;
     min-height: 64px;
     padding: 0 20px;
   }
@@ -1177,6 +1182,12 @@ onBeforeUnmount(() => {
   }
   .payment-body {
     display: block;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
   .payment-options {
     padding: 28px 20px;
@@ -1200,6 +1211,12 @@ onBeforeUnmount(() => {
   }
   .qr-card {
     width: min(242px, 76vw);
+  }
+  .payment-footer {
+    flex: 0 0 auto;
+    padding: 9px 14px 11px;
+    font-size: 10px;
+    line-height: 1.5;
   }
 }
 </style>

@@ -6,6 +6,19 @@ type AuthRouteName = 'login' | 'register'
 export const AUTH_LOGIN_REQUIRED_REASON = 'login-required'
 const AUTH_REDIRECT_STORAGE_KEY = 'auth:pending-redirect'
 
+const LOGIN_REQUIRED_FEATURES = [
+  { pathPrefix: '/assessment', label: '诊断测试' },
+  { pathPrefix: '/question-bank', label: '试题库' },
+  { pathPrefix: '/mock-exams', label: '模考中心' },
+  { pathPrefix: '/mistake-notebook', label: '错题本' },
+  { pathPrefix: '/practice-notebook', label: '练习本' },
+  { pathPrefix: '/practice-records', label: '练习记录' },
+  { pathPrefix: '/practice', label: '在线练习' },
+  { pathPrefix: '/exam-result', label: '学习报告' },
+  { pathPrefix: '/profile', label: '个人中心' },
+  { pathPrefix: '/admin', label: '后台管理' },
+] as const
+
 // 仅接受站内绝对路径，避免认证完成后跳转到外部地址。
 export function getSafeAuthRedirect(
   value: LocationQueryValue | LocationQueryValue[] | undefined,
@@ -35,6 +48,15 @@ export function consumeRememberedAuthRedirect(): string {
   const redirect = getSafeAuthRedirect(sessionStorage.getItem(AUTH_REDIRECT_STORAGE_KEY))
   sessionStorage.removeItem(AUTH_REDIRECT_STORAGE_KEY)
   return redirect
+}
+
+// 登录页根据原目标模块给出明确提示，帮助用户理解登录后将继续进入哪里。
+export function getLoginRequiredMessage(redirect: LocationQueryValue | LocationQueryValue[] | undefined): string {
+  const targetPath = getSafeAuthRedirect(redirect).split(/[?#]/, 1)[0] || '/'
+  const feature = LOGIN_REQUIRED_FEATURES.find(
+    (item) => targetPath === item.pathPrefix || targetPath.startsWith(`${item.pathPrefix}/`),
+  )
+  return feature ? `请先登录后使用${feature.label}功能` : '请先登录后使用该功能'
 }
 
 // 在认证相关页面之间传递有效目标地址，没有目标时保持普通路由。

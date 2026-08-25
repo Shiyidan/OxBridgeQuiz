@@ -29,10 +29,6 @@ body.home-dialog-open {
   overflow: hidden;
 }
 
-body.home-mobile-nav-open {
-  overflow: hidden;
-}
-
 .home-shell,
 .home-demo-backdrop {
   color: var(--home-ink);
@@ -3171,7 +3167,7 @@ body.home-mobile-nav-open {
   padding: 18px 18px 20px;
   border: 1px solid rgba(33, 140, 136, 0.24);
   border-radius: 14px;
-  background-color: rgba(255, 255, 255, 0.84);
+  background-color: #fff;
   color: var(--home-navy);
   text-align: center;
   transition:
@@ -3246,7 +3242,7 @@ body.home-mobile-nav-open {
 @media (hover: hover) and (pointer: fine) {
   .home-model-visual article:hover {
     border-color: transparent;
-    background-color: rgba(32, 59, 85, 0.84);
+    background-color: #203b55;
     color: #fff;
     box-shadow: 0 26px 48px rgba(23, 42, 62, 0.24);
     transform: translateY(-10px);

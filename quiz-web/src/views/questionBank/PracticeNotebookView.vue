@@ -968,19 +968,194 @@ onMounted(async () => {
   font-size: var(--text-sm);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 860px) {
+  .practice-notebook {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  .notebook-container {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding: 28px 16px 64px;
+  }
+
   .notebook-header {
+    flex-direction: column;
     align-items: flex-start;
+    gap: 18px;
+    margin-bottom: 22px;
+  }
+
+  .notebook-header h1 {
+    font-size: clamp(32px, 10vw, 42px);
+    line-height: 1.12;
+  }
+
+  .notebook-header p {
+    max-width: 100%;
+    line-height: 1.7;
+  }
+
+  .notebook-back {
+    height: 42px;
+  }
+
+  .notebook-active-other {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 16px;
+  }
+
+  .notebook-active-other .button_primary {
+    width: 100%;
+  }
+
+  .notebook-state {
+    min-height: 144px;
+    padding: 28px 18px;
   }
 
   .notebook-list {
-    overflow-x: auto;
+    min-width: 0;
+    overflow: visible;
   }
 
-  .notebook-list__header,
-  .notebook-row,
+  .notebook-list__header {
+    display: none;
+  }
+
+  .notebook-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 12px;
+    min-width: 0;
+    min-height: 0;
+    padding: 22px 16px;
+  }
+
+  .notebook-row__identity,
+  .notebook-row__settings,
+  .notebook-row__actions {
+    grid-column: 1 / -1;
+  }
+
+  .notebook-row__identity h2,
+  .notebook-row__settings strong {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .notebook-row__metric {
+    gap: 5px;
+    padding: 12px;
+    border: 1px solid var(--color-line-soft);
+    background: var(--color-surface-alt);
+  }
+
+  .notebook-row__metric strong {
+    font-size: var(--text-xl);
+  }
+
+  .notebook-row__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .notebook-row__actions button {
+    width: 100%;
+  }
+
   .notebook-history {
-    min-width: 1120px;
+    min-width: 0;
+    padding: 16px;
+    overflow: visible;
+  }
+
+  .history-table__header {
+    display: none;
+  }
+
+  .history-record {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 12px;
+    min-height: 0;
+    padding: 16px 0;
+  }
+
+  .history-record > span,
+  .history-record > strong {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 4px;
+    overflow-wrap: anywhere;
+  }
+
+  .history-record > span::before,
+  .history-record > strong::before {
+    color: var(--color-ink-muted);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-regular);
+  }
+
+  .history-record > span:nth-child(1)::before {
+    content: '交卷时间';
+  }
+
+  .history-record > strong:nth-child(2)::before {
+    content: '成绩';
+  }
+
+  .history-record > span:nth-child(3)::before {
+    content: '正确率';
+  }
+
+  .history-record > span:nth-child(4)::before {
+    content: '用时';
+  }
+
+  .history-record button {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .notebook-create-section {
+    margin-top: 22px;
+    padding: 16px 0;
+  }
+
+  .notebook-create-card {
+    min-height: 104px;
+    justify-content: flex-start;
+    padding: 20px 16px;
+  }
+
+  .notebook-create-card__copy {
+    min-width: 0;
+  }
+
+  .notebook-create-card__copy small {
+    line-height: 1.55;
+  }
+
+  .notebook-history :deep(.app-pagination) {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .notebook-container {
+    padding-inline: 14px;
+  }
+
+  .notebook-row__actions {
+    grid-template-columns: 1fr;
   }
 }
 

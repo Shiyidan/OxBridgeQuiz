@@ -228,6 +228,15 @@
       </div>
     </div>
   </header>
+  <MobileNavBar
+    :current-exam="mobileCurrentExam"
+    :account-meta-label="mobileAccountMetaLabel"
+    :account-meta-pending="hasValidPendingMembershipCard"
+    :account-meta-highlighted="hasActiveMembership || hasValidPendingMembershipCard"
+    @home="handleMobileHomeNavigation"
+    @navigate="handleMobileRouteNavigation"
+    @logout="handleLogout"
+  />
 </template>
 
 <script setup lang="ts">
@@ -238,6 +247,7 @@ import { ArrowDown, ArrowRight } from '@element-plus/icons-vue'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 import AppAvatar from '@/components/AppAvatar.vue'
+import MobileNavBar from '@/components/MobileNavBar.vue'
 import brandIconUrl from '@/assets/brand/acemock-icon.png'
 
 interface NavBarProps {
@@ -346,6 +356,11 @@ const currentEntitlementLabel = computed(() => {
   return '免费用户'
 })
 
+// 移动端沿用桌面权益优先级，仅将待使用卡券压缩为更适合窄屏的提示文案。
+const mobileAccountMetaLabel = computed(() =>
+  hasValidPendingMembershipCard.value ? '有免费权益待使用' : currentEntitlementLabel.value,
+)
+
 // 下拉优先召回可直接使用的日卡，其次提示邀请周卡，其他卡种使用通用名称。
 const pendingMembershipCardLabel = computed(() => {
   const cards = validPendingMembershipCards.value
@@ -402,6 +417,9 @@ const isLearningWorkspaceRoute = computed(
 // 从路由参数派生当前考试类型，用于标记下拉菜单选中项。
 const currentExamType = computed(() => String(route.params.examType || '').toLowerCase())
 
+// 移动端错题本与考试介绍优先跟随页面传入的考试，其次使用全局学习上下文。
+const mobileCurrentExam = computed(() => props.mistakeExamType || auth.activeExamType)
+
 // 会员到期时间使用紧凑的本地月日与时分，适配头像下拉有限宽度。
 function formatMembershipDeadline(timestamp: number): string {
   const deadline = new Date(timestamp)
@@ -437,6 +455,18 @@ function handleRouteNavigation(event: MouseEvent, path: string): void {
   if (!props.delegateNavigation) return
   event.preventDefault()
   emit('navigate', path)
+}
+
+// 首页沿用首屏滚动，其他模块点击移动端品牌或“首页”时返回首页路由。
+function handleMobileHomeNavigation(): void {
+  if (props.delegateNavigation) emit('home')
+  else void router.push('/')
+}
+
+// 首页继续承接自身导航逻辑，其他模块由公共导航直接切换路由。
+function handleMobileRouteNavigation(path: string): void {
+  if (props.delegateNavigation) emit('navigate', path)
+  else void router.push(path)
 }
 
 // 角色入口统一从头像菜单进入，学生和管理员各回到自己的工作台。
@@ -530,6 +560,12 @@ onBeforeUnmount(() => {
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.09);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
+}
+
+@media (max-width: 860px) {
+  .navbar {
+    display: none;
+  }
 }
 
 /* 前台流体外壳：1200px 起步，窄屏继续收缩到紧凑下限。 */

@@ -744,4 +744,219 @@ tr:last-child td {
     transform: translateY(0);
   }
 }
+
+@media (max-width: 860px) {
+  .exam-intro-page {
+    --fluid-page-min-width: 0px;
+    --fluid-shell-width: 100%;
+
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  .exam-shell {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .exam-hero__content {
+    width: calc(100% - 48px);
+    margin-inline: auto;
+    padding: 42px 0 48px;
+  }
+
+  .exam-kicker {
+    font-size: 10px;
+    line-height: 1.6;
+  }
+
+  .exam-hero h1 {
+    max-width: 100%;
+    margin: 14px 0 12px;
+    font-size: clamp(30px, 9vw, 40px);
+    line-height: 1.16;
+    overflow-wrap: anywhere;
+  }
+
+  .exam-hero p {
+    max-width: 100%;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  .exam-content {
+    padding: 14px 14px 64px;
+  }
+
+  .exam-tabs {
+    width: 100%;
+    margin-bottom: 14px;
+    padding: 0 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .exam-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .exam-tab {
+    min-width: 108px;
+    height: 58px;
+    flex: 1 0 108px;
+    gap: 7px;
+    padding: 0 12px;
+    white-space: nowrap;
+  }
+
+  .exam-panel {
+    min-width: 0;
+  }
+
+  .content-card {
+    min-width: 0;
+    margin-bottom: 18px;
+    padding: 24px 16px;
+    border-radius: var(--radius-lg);
+  }
+
+  :deep(.section-title) {
+    align-items: flex-start;
+    gap: 11px;
+    margin-bottom: 22px;
+  }
+
+  :deep(.section-title__bar) {
+    width: 5px;
+    height: 23px;
+    margin-top: 2px;
+  }
+
+  :deep(.section-title h2) {
+    min-width: 0;
+    font-size: var(--text-xl);
+    overflow-wrap: anywhere;
+  }
+
+  :deep(.markdown-content) {
+    max-width: 100%;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+
+  :deep(.markdown-content p) {
+    margin-bottom: 15px;
+  }
+
+  :deep(.markdown-content ul),
+  :deep(.markdown-content ol) {
+    gap: 8px;
+    padding-left: 20px;
+  }
+
+  :deep(.markdown-content blockquote) {
+    margin: 18px 0;
+    padding: 14px 14px;
+  }
+
+  :deep(.markdown-content table) {
+    min-width: 0;
+    margin: 16px 0;
+    table-layout: fixed;
+  }
+
+  :deep(.markdown-content th),
+  :deep(.markdown-content td) {
+    min-width: 0;
+    padding: 12px 10px;
+    overflow-wrap: anywhere;
+  }
+
+  :deep(.markdown-content th:first-child),
+  :deep(.markdown-content td:first-child) {
+    width: 34%;
+  }
+
+  :deep(.markdown-content--comparison) {
+    overflow-x: auto;
+  }
+
+  :deep(.markdown-content--comparison table) {
+    min-width: 720px;
+    table-layout: auto;
+  }
+
+  :deep(.markdown-content--comparison th),
+  :deep(.markdown-content--comparison td) {
+    min-width: 132px;
+  }
+
+  :deep(.markdown-content pre) {
+    margin: 16px 0;
+    padding: 16px;
+  }
+
+  .purpose-list {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .paper-item {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 18px 16px;
+  }
+
+  .paper-item__number {
+    width: 48px;
+    height: 48px;
+  }
+
+  .paper-item dl {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .faq-group {
+    margin-bottom: 30px;
+  }
+
+  .faq-group :deep(.section-title) {
+    margin-bottom: 16px;
+  }
+
+  .faq-list {
+    gap: 10px;
+  }
+
+  .faq-item {
+    border-radius: var(--radius-lg);
+  }
+
+  .faq-item summary {
+    gap: 14px;
+    min-height: 66px;
+    padding: 17px 16px;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .faq-item__toggle {
+    width: 28px;
+    height: 28px;
+  }
+
+  .faq-item__answer {
+    padding: 0 16px 18px;
+  }
+
+  .faq-item__answer p {
+    padding-top: 15px;
+    font-size: 14px;
+  }
+}
 </style>

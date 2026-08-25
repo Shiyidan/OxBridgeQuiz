@@ -2268,4 +2268,250 @@ onMounted(async () => {
     padding-left: 22px;
   }
 }
+
+@media (max-width: 860px) {
+  .mock-exam-page {
+    --fluid-shell-width: 100%;
+
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  .mock-exam-shell {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    padding: 24px 14px 48px;
+  }
+
+  .mock-hero {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 18px;
+    padding: 4px 2px 22px;
+  }
+
+  .mock-hero__copy {
+    min-width: 0;
+  }
+
+  .mock-hero__eyebrow-line {
+    margin-bottom: 9px;
+  }
+
+  .mock-hero__eyebrow {
+    font-size: 9px;
+    letter-spacing: 0.16em;
+  }
+
+  .mock-hero h1 {
+    font-size: 30px;
+  }
+
+  .mock-hero__copy p {
+    margin-top: 9px;
+    font-size: 13px;
+    line-height: 1.65;
+  }
+
+  .mock-hero__structure {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 14px 16px;
+  }
+
+  .mock-layout {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding-top: 18px;
+  }
+
+  .mock-content {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    padding: 0 14px 18px;
+    overflow: hidden;
+    border-radius: 12px;
+  }
+
+  .mock-tabs {
+    gap: 22px;
+    height: 56px;
+    overflow-x: auto;
+  }
+
+  .mock-tabs button {
+    flex: 0 0 auto;
+    font-size: 14px;
+  }
+
+  .catalog-toolbar,
+  .record-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px 0;
+  }
+
+  .catalog-search {
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  .catalog-filters,
+  .record-status-switch {
+    align-self: flex-start;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .catalog-filters button,
+  .record-status-switch button {
+    flex: 0 0 auto;
+  }
+
+  .paper-card {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .paper-card__main {
+    min-width: 0;
+    padding: 15px 14px 13px 17px;
+  }
+
+  .paper-card__heading {
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .paper-card__badges {
+    flex-wrap: wrap;
+  }
+
+  .paper-card__heading h2,
+  .record-card h2 {
+    overflow-wrap: anywhere;
+    font-size: 16px;
+  }
+
+  .paper-card__lock-copy {
+    max-width: none;
+  }
+
+  .paper-card__facts,
+  .paper-card__progress {
+    flex-wrap: wrap;
+    gap: 9px 14px;
+    margin-top: 13px;
+  }
+
+  .paper-card__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 12px 14px 14px;
+    border-top: 1px solid var(--color-line-soft);
+    border-left: 0;
+  }
+
+  .paper-card__actions button:only-child {
+    grid-column: 1 / -1;
+  }
+
+  .state-panel,
+  .login-gate {
+    min-height: 280px;
+    padding: 32px 18px;
+  }
+
+  .record-card {
+    padding: 16px 14px;
+  }
+
+  .record-card__top {
+    align-items: flex-start;
+  }
+
+  .record-card__details {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .record-card dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .record-card__actions {
+    justify-content: stretch;
+    flex-wrap: wrap;
+  }
+
+  .record-card__actions button {
+    flex: 1 1 120px;
+  }
+
+  .mock-sidebar {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .overview-card,
+  .notice-card,
+  .countdown-card {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    border-radius: 12px;
+  }
+
+  :deep(.app-pagination) {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  :deep(.mock-start-dialog),
+  :deep(.mock-attempt-dialog),
+  :deep(.mock-abandon-dialog) {
+    width: calc(100vw - 24px) !important;
+    max-width: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .mock-exam-shell {
+    padding: 20px 10px 40px;
+  }
+
+  .mock-content {
+    padding-inline: 10px;
+  }
+
+  .paper-card__actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .paper-card__actions button {
+    width: 100%;
+  }
+
+  .record-card dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .countdown-card {
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    gap: 9px;
+    padding: 14px;
+  }
+}
 </style>

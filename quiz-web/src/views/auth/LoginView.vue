@@ -73,14 +73,24 @@
 
             <el-form-item prop="legalAccepted" class="auth-legal-row">
               <div class="auth-legal-notice">
-                <el-checkbox v-model="form.legalAccepted">我已阅读并同意</el-checkbox>
-                <router-link to="/legal/user-agreement" target="_blank" rel="noopener noreferrer"
-                  >《用户服务协议》</router-link
-                >
-                和
-                <router-link to="/legal/privacy-policy" target="_blank" rel="noopener noreferrer"
-                  >《隐私政策》</router-link
-                >
+                <el-checkbox
+                  v-model="form.legalAccepted"
+                  aria-label="同意用户服务协议和隐私政策"
+                />
+                <span class="auth-legal-copy">
+                  我已阅读并同意
+                  <router-link
+                    to="/legal/user-agreement"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >《用户服务协议》</router-link
+                  >和<router-link
+                    to="/legal/privacy-policy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >《隐私政策》</router-link
+                  >
+                </span>
               </div>
             </el-form-item>
 
@@ -183,7 +193,7 @@
 
 <script setup lang="ts">
 // 登录页：承载登录和密码重置模块，认证后返回用户原先访问的受保护页面。
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
@@ -195,6 +205,7 @@ import {
   AUTH_LOGIN_REQUIRED_REASON,
   consumeRememberedAuthRedirect,
   createAuthRouteLocation,
+  getLoginRequiredMessage,
   getSafeAuthRedirect,
 } from '@/utils/authRedirect'
 import { AUTH_LEGAL_VERSIONS } from '@/constants/legal'
@@ -216,12 +227,16 @@ const formRef = ref<FormInstance>()
 const resetFormRef = ref<FormInstance>()
 const isResetMode = ref(false)
 
-// 受保护操作主动送达登录页时说明原因，普通登录和会话过期流程不重复提示。
-onMounted(() => {
-  if (route.query.reason === AUTH_LOGIN_REQUIRED_REASON) {
-    ElMessage.info('请先登录后继续使用该功能')
-  }
-})
+// 登录页内继续点击其他受保护模块时，目标参数变化也要重新说明本次登录用途。
+watch(
+  () => [route.query.reason, route.query.redirect] as const,
+  ([reason, redirect]) => {
+    if (reason === AUTH_LOGIN_REQUIRED_REASON) {
+      ElMessage.info(getLoginRequiredMessage(redirect))
+    }
+  },
+  { immediate: true },
+)
 
 const form = reactive({
   username: '',

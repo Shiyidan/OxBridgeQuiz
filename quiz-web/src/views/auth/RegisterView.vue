@@ -267,14 +267,21 @@
 
           <el-form-item prop="legalAccepted" class="register-legal-row">
             <div class="register-legal-notice">
-              <el-checkbox v-model="form.legalAccepted">我已阅读并同意</el-checkbox>
-              <router-link to="/legal/user-agreement" target="_blank" rel="noopener noreferrer"
-                >《用户服务协议》</router-link
-              >
-              和
-              <router-link to="/legal/privacy-policy" target="_blank" rel="noopener noreferrer"
-                >《隐私政策》</router-link
-              >
+              <el-checkbox v-model="form.legalAccepted" aria-label="同意用户服务协议和隐私政策" />
+              <span class="register-legal-copy">
+                我已阅读并同意
+                <router-link
+                  to="/legal/user-agreement"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >《用户服务协议》</router-link
+                >和<router-link
+                  to="/legal/privacy-policy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >《隐私政策》</router-link
+                >
+              </span>
             </div>
           </el-form-item>
 
@@ -901,22 +908,23 @@ const handleSubmit = async (): Promise<void> => {
 
 .register-legal-notice {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  gap: 4px;
+  gap: 8px;
+  width: 100%;
   color: var(--color-text-secondary);
   font-size: var(--text-sm);
   line-height: var(--leading-relaxed);
 
   :deep(.el-checkbox) {
+    flex: 0 0 auto;
     height: auto;
+    margin-top: 3px;
     margin-right: 0;
   }
 
-  :deep(.el-checkbox__label) {
-    padding-left: 7px;
-    color: var(--color-text-secondary);
-    font-size: var(--text-sm);
+  :deep(.el-checkbox__label:empty) {
+    display: none;
   }
 
   a {
@@ -935,6 +943,11 @@ const handleSubmit = async (): Promise<void> => {
     outline: 2px solid var(--color-text);
     outline-offset: 2px;
   }
+}
+
+.register-legal-copy {
+  min-width: 0;
+  line-height: 1.7;
 }
 
 .register-legal-row {

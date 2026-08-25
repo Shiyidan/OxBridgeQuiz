@@ -5226,12 +5226,96 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 900px) {
+  .profile-page {
+    width: 100%;
+    min-width: 0;
+    height: 100dvh;
+  }
+
+  .profile-shell {
+    box-sizing: border-box;
+    width: 100%;
+    height: calc(100dvh - 64px);
+    padding: 22px 16px 48px;
+    overflow-x: hidden;
+    scrollbar-gutter: auto;
+  }
+
+  .profile-shell > * {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .page-heading {
+    padding-bottom: 14px;
+  }
+
+  .page-heading h1 {
+    font-size: 26px;
+  }
+
+  .profile-identity-card {
+    grid-template-columns: 86px minmax(0, 1fr);
+    gap: 14px;
+    min-height: 0;
+    padding: 18px 16px;
+  }
+
+  .profile-avatar-wrap {
+    justify-self: start;
+  }
+
+  .profile-identity-card .avatar-frame {
+    width: 80px;
+    height: 80px;
+    border-width: 5px;
+    font-size: 28px;
+  }
+
+  .profile-identity-copy {
+    padding-left: 0;
+  }
+
+  .profile-name-line h2 {
+    font-size: 19px;
+  }
+
+  .profile-identity-list {
+    gap: 9px;
+    margin-top: 12px;
+  }
+
+  .profile-identity-list li {
+    align-items: flex-start;
+    overflow-wrap: anywhere;
+    font-size: 12px;
+  }
+
+  .profile-study-illustration {
+    display: none;
+  }
+
   .profile-dashboard-grid {
-    grid-template-columns: 1fr;
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    margin-top: 14px;
   }
 
   .profile-target-panel {
     grid-column: auto;
+  }
+
+  .profile-membership-panel,
+  .profile-target-panel,
+  .membership-benefit-board,
+  .membership-plan-banner,
+  .membership-benefit-grid {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .profile-target-list > div {
@@ -5280,6 +5364,129 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 620px) {
+  .profile-shell {
+    padding: 18px 12px 42px;
+  }
+
+  .page-heading h1 {
+    margin-bottom: 4px;
+    font-size: 24px;
+  }
+
+  .page-heading p {
+    font-size: 12px;
+  }
+
+  .profile-identity-card {
+    grid-template-columns: 66px minmax(0, 1fr);
+    gap: 12px;
+    padding: 15px 14px;
+    border-radius: 10px;
+  }
+
+  .profile-identity-card .avatar-frame {
+    width: 62px;
+    height: 62px;
+    border-width: 4px;
+    font-size: 23px;
+  }
+
+  .profile-account-edit {
+    font-size: 11px;
+  }
+
+  .profile-name-line {
+    gap: 7px;
+  }
+
+  .profile-name-line h2 {
+    font-size: 18px;
+  }
+
+  .profile-membership-chip {
+    min-height: 21px;
+    padding-inline: 7px;
+    font-size: 10px;
+  }
+
+  .profile-identity-list {
+    gap: 7px;
+    margin-top: 10px;
+  }
+
+  .profile-identity-list li {
+    gap: 7px;
+    font-size: 11px;
+  }
+
+  .profile-card-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .profile-membership-panel,
+  .profile-target-panel {
+    overflow: hidden;
+    padding: 15px 13px;
+    border-radius: 10px;
+  }
+
+  .membership-plan-banner {
+    grid-template-columns: 44px minmax(0, 1fr);
+    padding: 14px;
+  }
+
+  .membership-plan-icon {
+    width: 42px;
+    height: 42px;
+    font-size: 23px;
+  }
+
+  .membership-plan-action {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .membership-benefit-board {
+    gap: 10px;
+    padding: 9px;
+  }
+
+  .membership-benefit-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .membership-benefit-grid article:nth-child(3) {
+    grid-column: 1 / -1;
+    border-left: 0;
+    border-top: 1px solid var(--profile-line);
+  }
+
+  .membership-summary-note {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+    padding: 9px 10px;
+  }
+
+  .membership-summary-note button {
+    align-self: flex-end;
+  }
+
+  .profile-target-list > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+    padding: 10px 12px;
+  }
+
+  .profile-target-exam-row dt {
+    padding-top: 0;
+  }
+
+  .profile-legal-links {
+    flex-wrap: wrap;
+  }
+
   :global(.profile-target-dialog .el-dialog__header) {
     padding: 20px 18px 8px;
   }

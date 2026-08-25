@@ -1,11 +1,11 @@
-<!-- 模考试卷库：上传固定组卷清单、查看逐题校验结果并在草稿中替换问题题目。 -->
+<!-- 模考试卷库：以试卷封面卡片维护固定组卷清单、逐题校验结果和问题题目替换。 -->
 <template>
   <div class="mock-library-page">
     <header class="page-header">
       <div>
         <router-link class="back-link" to="/admin/core-library">← 返回专业资料库</router-link>
         <h1>模考试卷库</h1>
-        <p>从试题库题号组成固定 ESAT / TMUA 模考卷，校验通过后再进入发布流程。</p>
+        <p>按 Mock 编号维护 Module / Paper；可用单项与完整模考状态由系统自动判断。</p>
       </div>
       <el-button type="primary" size="large" @click="openImportDialog">
         <el-icon><UploadFilled /></el-icon>
@@ -29,7 +29,7 @@
           <el-input
             v-model="filters.keyword"
             clearable
-            placeholder="搜索套卷名称或编号"
+            :placeholder="viewMode === 'sets' ? '搜索套卷名称或编号' : '搜索 Module、套卷名称或编号'"
             class="keyword-input"
             @keyup.enter="applyFilters"
           />
@@ -45,71 +45,205 @@
           <el-button @click="applyFilters">查询</el-button>
           <el-button text @click="resetFilters">重置</el-button>
         </div>
-        <span class="list-total">共 {{ pagination.total }} 套</span>
+        <div class="toolbar-view-switch">
+          <span class="list-total">
+            共 {{ pagination.total }} {{ viewMode === 'sets' ? '套' : '个单项' }}
+          </span>
+          <el-radio-group v-model="viewMode" size="small" @change="handleViewModeChange">
+            <el-radio-button value="sets">套卷视图</el-radio-button>
+            <el-radio-button value="modules">单项视图</el-radio-button>
+          </el-radio-group>
+        </div>
       </div>
 
-      <el-table v-loading="loading" :data="rows" row-key="id" class="paper-table">
-        <el-table-column label="套卷" min-width="230">
-          <template #default="{ row }">
-            <button class="paper-link" type="button" @click="openDetail(row.id)">
-              <strong>{{ row.title }}</strong>
-              <span>{{ row.code }} · V{{ row.version }}</span>
-            </button>
-          </template>
-        </el-table-column>
-        <el-table-column prop="examType" label="考试" width="86" />
-        <el-table-column label="结构" min-width="130">
-          <template #default="{ row }">
-            {{ row.moduleCount }} 个模块 / {{ row.questionCount }} 题
-          </template>
-        </el-table-column>
-        <el-table-column label="权限" width="96">
-          <template #default="{ row }">
-            <el-tag :type="row.accessTier === 'free' ? 'success' : 'warning'" effect="plain">
-              {{ row.accessTier === 'free' ? '免费卷' : '会员卷' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="校验" min-width="145">
-          <template #default="{ row }">
-            <div v-if="row.validationStatus === 'valid'" class="validation-ok">
-              <el-icon><CircleCheckFilled /></el-icon>
-              全部通过
-            </div>
-            <div v-else class="validation-error">
-              <el-icon><WarningFilled /></el-icon>
-              {{ row.issueCount }} 项待处理
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="90">
-          <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)">{{ statusLabel(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="更新时间" width="168">
-          <template #default="{ row }">{{ formatDateTime(row.updatedAt) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="185" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="openDetail(row.id)">检查题目</el-button>
-            <el-button
-              link
-              type="danger"
-              :disabled="row.status !== 'draft'"
-              @click="confirmDelete(row)"
+      <div
+        v-loading="loading"
+        class="paper-grid-shell"
+        :class="{ 'is-module-view': viewMode === 'modules' }"
+      >
+        <div v-if="viewMode === 'sets' && rows.length" class="paper-grid">
+          <article
+            v-for="row in rows"
+            :key="row.id"
+            class="paper-card"
+            :class="[
+              `is-${row.examType.toLowerCase()}`,
+              `is-${row.status}`,
+              { 'is-incomplete': !row.fullExamReady },
+            ]"
+          >
+            <el-badge
+              :value="row.accessTier === 'free' ? 'FREE' : 'MEMBER'"
+              :type="row.accessTier === 'free' ? 'success' : 'warning'"
+              class="cover-access-badge"
             >
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-        <template #empty>
-          <div class="empty-state">
-            <strong>暂无模考卷</strong>
-            <span>上传组卷 Excel 后，系统会从 No.001 开始自动编号并生成草稿。</span>
-          </div>
-        </template>
-      </el-table>
+              <button
+                class="paper-cover"
+                type="button"
+                :aria-label="`检查 ${row.title} 的题目`"
+                @click="openDetail(row.id)"
+              >
+                <span class="cover-spine" aria-hidden="true"></span>
+                <span class="cover-pattern" aria-hidden="true"></span>
+
+                <span class="cover-topline">
+                  <span class="cover-status">{{ statusLabel(row.status) }}</span>
+                </span>
+
+                <span class="cover-exam">{{ row.examType }}</span>
+                <span class="cover-rule" aria-hidden="true"></span>
+
+                <span class="cover-title">{{ coverTitle(row) }}</span>
+                <span class="cover-code">{{ row.code }} · VERSION {{ row.version }}</span>
+
+                <span class="cover-metrics">
+                  <span>
+                    <strong>{{ row.readyModuleCount }}/{{ row.moduleCount }}</strong>
+                    <small>单项可用</small>
+                  </span>
+                  <span>
+                    <strong>{{ row.questionCount }}</strong>
+                    <small>题目</small>
+                  </span>
+                </span>
+
+                <span class="cover-readiness" :class="{ 'is-ready': row.fullExamReady }">
+                  <el-icon>
+                    <CircleCheckFilled v-if="row.fullExamReady" />
+                    <WarningFilled v-else />
+                  </el-icon>
+                  {{ row.fullExamReady ? '完整模考可用' : '完整模考待补齐' }}
+                </span>
+
+                <span class="cover-open">打开试卷 <span aria-hidden="true">→</span></span>
+              </button>
+            </el-badge>
+
+            <footer class="paper-card-footer">
+              <span>
+                <small>最近更新</small>
+                {{ formatDateTime(row.updatedAt) }}
+              </span>
+              <div class="card-actions">
+                <el-button
+                  v-if="row.status === 'draft'"
+                  link
+                  type="danger"
+                  @click="confirmDelete(row)"
+                >
+                  删除
+                </el-button>
+              </div>
+            </footer>
+          </article>
+        </div>
+
+        <el-table
+          v-else-if="viewMode === 'modules' && moduleRows.length"
+          :data="moduleRows"
+          row-key="id"
+          class="module-table"
+        >
+          <el-table-column label="Module / Paper" min-width="180">
+            <template #default="{ row }">
+              <div class="module-identity">
+                <strong>{{ row.label }}</strong>
+                <code>{{ row.code }}</code>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="考试" width="82">
+            <template #default="{ row }">{{ row.mockPaperSet.examType }}</template>
+          </el-table-column>
+          <el-table-column label="试题组成" min-width="180">
+            <template #default="{ row }">
+              <div class="question-composition">
+                <span>
+                  <strong>{{ row.questionCount }}/{{ row.expectedQuestionCount }} 题</strong>
+                  <small>{{ Math.round(row.durationSeconds / 60) }} 分钟</small>
+                </span>
+                <el-progress
+                  :percentage="moduleQuestionPercentage(row)"
+                  :status="row.validationStatus === 'valid' ? 'success' : undefined"
+                  :stroke-width="6"
+                  :show-text="false"
+                />
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="形式与所属套卷" min-width="290">
+            <template #default="{ row }">
+              <div class="module-association">
+                <div>
+                  <el-tag
+                    :type="row.mockPaperSet.fullExamReady ? 'success' : 'warning'"
+                    size="small"
+                    effect="plain"
+                  >
+                    {{ row.mockPaperSet.fullExamReady ? '套卷模块' : '单模块' }}
+                  </el-tag>
+                  <button
+                    type="button"
+                    class="module-set-link"
+                    @click="openDetail(row.mockPaperSet.id, row.id)"
+                  >
+                    {{ row.mockPaperSet.title }}
+                  </button>
+                </div>
+                <small>
+                  {{ row.mockPaperSet.code }} ·
+                  {{ row.mockPaperSet.fullExamReady ? '已组成完整套卷' : '当前套卷待补齐' }}
+                </small>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="校验" min-width="125">
+            <template #default="{ row }">
+              <span v-if="row.validationStatus === 'valid'" class="validation-ok">
+                <el-icon><CircleCheckFilled /></el-icon>
+                单项可用
+              </span>
+              <span v-else class="validation-pending">
+                <el-icon><WarningFilled /></el-icon>
+                {{ row.issueCount }} 个问题
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="套卷状态" width="105">
+            <template #default="{ row }">
+              <div class="module-set-status">
+                <el-tag :type="statusTagType(row.mockPaperSet.status)" size="small">
+                  {{ statusLabel(row.mockPaperSet.status) }}
+                </el-tag>
+                <small>{{ row.mockPaperSet.accessTier === 'free' ? '免费' : '会员' }}</small>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="更新时间" width="150">
+            <template #default="{ row }">{{ formatDateTime(row.updatedAt) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="92" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="openDetail(row.mockPaperSet.id, row.id)">
+                查看题目
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div v-else-if="!loading" class="empty-state">
+          <span class="empty-cover" aria-hidden="true">MOCK</span>
+          <strong>{{ viewMode === 'sets' ? '暂无模考卷' : '暂无 Module / Paper' }}</strong>
+          <span>
+            {{
+              viewMode === 'sets'
+                ? '上传组卷 Excel 后，系统会从 No.001 开始自动编号并生成草稿。'
+                : '上传组卷 Excel 后，每个 Module / Paper 会在这里独立展示。'
+            }}
+          </span>
+          <el-button type="primary" plain @click="openImportDialog">上传第一套试卷</el-button>
+        </div>
+      </div>
 
       <AppPagination
         :page="pagination.page"
@@ -131,6 +265,7 @@
         <strong>编号自动从各考试现有最大编号继续</strong>
         <p>空库首次上传从 No.001 开始。工作表使用“ESAT01-数学1”或“TMUA01-Paper1”命名。</p>
         <p>每张表前三列依次为“考试类型”“学科”“题号（全局唯一）”，题目顺序按数据行排列。</p>
+        <p>无需区分整卷或单项；系统按 Mock 编号归组，并独立判断每个 Module / Paper 是否可用。</p>
       </div>
       <el-form label-position="top">
         <el-form-item label="默认权限">
@@ -179,11 +314,17 @@
               <div class="detail-title-row">
                 <h2>{{ detail.title }}</h2>
                 <el-tag>{{ detail.code }}</el-tag>
-                <el-tag :type="detail.validationStatus === 'valid' ? 'success' : 'danger'">
-                  {{ detail.validationStatus === 'valid' ? '校验通过' : `${detail.issueCount} 项待处理` }}
+                <el-tag :type="detail.readyModuleCount > 0 ? 'success' : 'danger'">
+                  {{ detail.readyModuleCount }}/{{ detail.modules.length }} 个单项可用
+                </el-tag>
+                <el-tag :type="detail.fullExamReady ? 'success' : 'warning'">
+                  {{ detail.fullExamReady ? '完整模考可用' : '完整模考暂不可用' }}
                 </el-tag>
               </div>
-              <p>{{ detail.sourceFileName || '手动创建' }} · {{ detail.questionCount }} 道题</p>
+              <p>
+                {{ detail.sourceFileName || '手动创建' }} · {{ detail.questionCount }} 道题
+                <template v-if="detail.issueCount > 0"> · {{ detail.issueCount }} 项待处理</template>
+              </p>
             </div>
             <div class="detail-actions">
               <el-button :loading="validating" @click="refreshValidation">
@@ -194,10 +335,10 @@
                 v-if="detail.status === 'draft'"
                 type="primary"
                 :loading="publishing"
-                :disabled="detail.validationStatus !== 'valid'"
+                :disabled="detail.readyModuleCount === 0"
                 @click="publishCurrentPaper"
               >
-                {{ detail.validationStatus === 'valid' ? '发布到学生端' : '处理完问题后发布' }}
+                {{ detail.readyModuleCount > 0 ? '发布 Mock 内容' : '暂无可发布单项' }}
               </el-button>
               <el-button
                 v-else-if="detail.status === 'published'"
@@ -231,9 +372,28 @@
             </el-button>
           </section>
 
+          <section class="readiness-overview" aria-label="Mock 可用性">
+            <div>
+              <span>单项模考</span>
+              <strong>{{ detail.readyModuleCount }}/{{ detail.modules.length }} 可用</strong>
+              <small>每个 Module / Paper 独立校验，互不阻塞。</small>
+            </div>
+            <div :class="{ 'is-pending': !detail.fullExamReady }">
+              <span>完整模考</span>
+              <strong>{{ detail.fullExamReady ? '可用' : '暂不可用' }}</strong>
+              <small>
+                {{
+                  detail.fullExamReady
+                    ? '当前 Mock 已具备全部正式组成部分。'
+                    : '补齐并修复全部正式组成部分后自动可用。'
+                }}
+              </small>
+            </div>
+          </section>
+
           <el-alert
             v-if="detail.issues.length"
-            type="error"
+            type="warning"
             :closable="false"
             show-icon
             class="set-alert"
@@ -246,9 +406,14 @@
               <template #label>
                 <span class="module-tab-label">
                   {{ module.label }}
-                  <em :class="{ error: module.issueCount > 0 }">
+                  <em :class="{ error: module.validationStatus !== 'valid' }">
                     {{ module.questionCount }}/{{ module.expectedQuestionCount }}
                   </em>
+                  <small
+                    :class="module.validationStatus === 'valid' ? 'module-ready' : 'module-pending'"
+                  >
+                    {{ module.validationStatus === 'valid' ? '单项可用' : '待处理' }}
+                  </small>
                 </span>
               </template>
               <div v-if="module.issues.length" class="module-issues">
@@ -286,7 +451,10 @@
                     <el-button
                       link
                       type="primary"
-                      :disabled="detail?.status !== 'draft'"
+                      :disabled="
+                        detail?.status === 'archived' ||
+                        (detail?.status === 'published' && module.validationStatus === 'valid')
+                      "
                       @click="openReplaceDialog(row)"
                     >
                       替换
@@ -341,6 +509,7 @@ import AppPagination from '@/components/AppPagination.vue'
 import {
   archiveMockPaperSet,
   deleteMockPaperSet,
+  getMockPaperModules,
   getMockPaperSetDetail,
   getMockPaperSets,
   importMockPaperWorkbook,
@@ -349,6 +518,7 @@ import {
   updateMockPaperSet,
   validateMockPaperSet,
   type MockPaperAccessTier,
+  type MockPaperModuleListItem,
   type MockPaperQuestionDetail,
   type MockPaperSetDetail,
   type MockPaperSetListItem,
@@ -356,13 +526,15 @@ import {
 
 const workflowSteps = [
   { title: '上传清单', desc: '识别套卷、模块与题序' },
-  { title: '全量检查', desc: '核对存在性、状态和结构' },
-  { title: '草稿修正', desc: '逐题替换并重新校验' },
-  { title: '确认发布', desc: '校验通过后接入正式模考' },
+  { title: '逐项检查', desc: '每个 Module / Paper 独立校验' },
+  { title: '草稿修正', desc: '逐题替换并刷新可用状态' },
+  { title: '确认发布', desc: '上架可用单项并派生完整模考' },
 ]
 
 const loading = ref(false)
+const viewMode = ref<'sets' | 'modules'>('sets')
 const rows = ref<MockPaperSetListItem[]>([])
+const moduleRows = ref<MockPaperModuleListItem[]>([])
 const filters = reactive({ keyword: '', examType: '', status: '' })
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
 
@@ -389,23 +561,39 @@ const replaceTarget = ref<MockPaperQuestionDetail | null>(null)
 const replacementCode = ref('')
 const replacing = ref(false)
 
-// 列表请求只采用当前筛选和分页，避免详情刷新干扰管理员定位。
+// 列表按当前展示维度读取套卷或单项分页，避免前端逐套加载 Module 明细。
 async function loadList(): Promise<void> {
   loading.value = true
   try {
-    const result = await getMockPaperSets({
+    const params = {
       page: pagination.page,
       pageSize: pagination.pageSize,
       examType: filters.examType,
       status: filters.status,
       keyword: filters.keyword.trim(),
-    })
-    rows.value = result.list
-    pagination.page = result.pagination.page
-    pagination.total = result.pagination.total
+    }
+    if (viewMode.value === 'modules') {
+      const result = await getMockPaperModules(params)
+      moduleRows.value = result.list
+      rows.value = []
+      pagination.page = result.pagination.page
+      pagination.total = result.pagination.total
+    } else {
+      const result = await getMockPaperSets(params)
+      rows.value = result.list
+      moduleRows.value = []
+      pagination.page = result.pagination.page
+      pagination.total = result.pagination.total
+    }
   } finally {
     loading.value = false
   }
+}
+
+// 切换维度后回到第一页，防止套卷总页数与 Module 总页数互相污染。
+function handleViewModeChange(): void {
+  pagination.page = 1
+  void loadList()
 }
 
 // 查询条件变化后从第一页开始，防止旧页码落在新结果范围之外。
@@ -464,14 +652,16 @@ async function submitImport(): Promise<void> {
   }
 }
 
-// 详情每次从服务端读取最新逐题校验结果，不复用列表汇总猜测。
-async function openDetail(id: string): Promise<void> {
+// 详情每次从服务端读取最新结果；单项视图进入时直接定位目标 Module/Paper。
+async function openDetail(id: string, moduleId?: string): Promise<void> {
   detailVisible.value = true
   detailLoading.value = true
   try {
     const result = await getMockPaperSetDetail(id)
     detail.value = result
-    activeModuleId.value = result.modules[0]?.id || ''
+    activeModuleId.value = result.modules.some((module) => module.id === moduleId)
+      ? moduleId || ''
+      : result.modules[0]?.id || ''
     editForm.title = result.title
     editForm.accessTier = result.accessTier
   } finally {
@@ -523,13 +713,16 @@ async function refreshValidation(): Promise<void> {
   }
 }
 
-// 发布前再次由后端执行全量校验，成功后该套卷才会进入学生端目录。
+// 发布前再次校验全部内容；已通过的单项锁定，待处理单项发布后仍可继续修复。
 async function publishCurrentPaper(): Promise<void> {
-  if (!detail.value || publishing.value || detail.value.validationStatus !== 'valid') return
+  if (!detail.value || publishing.value || detail.value.readyModuleCount === 0) return
+  const availability = detail.value.fullExamReady
+    ? `将发布 ${detail.value.readyModuleCount} 个可用单项，完整模考同时可用。`
+    : `将发布 ${detail.value.readyModuleCount} 个可用单项；完整模考暂不可用。`
   try {
     await ElMessageBox.confirm(
-      `确定发布“${detail.value.title}”吗？发布后题目和结构将锁定。`,
-      '发布模考试卷',
+      `确定发布“${detail.value.title}”吗？${availability}发布后已通过的单项将锁定，待处理单项仍可继续修复。`,
+      '发布 Mock 内容',
       { type: 'warning', confirmButtonText: '确认发布', cancelButtonText: '取消' },
     )
   } catch {
@@ -538,7 +731,7 @@ async function publishCurrentPaper(): Promise<void> {
   publishing.value = true
   try {
     await publishMockPaperSet(detail.value.id)
-    ElMessage.success('模考试卷已发布到学生端')
+    ElMessage.success('Mock 内容已发布')
     await refreshCurrentDetail()
   } finally {
     publishing.value = false
@@ -611,18 +804,31 @@ async function confirmDelete(row: MockPaperSetListItem): Promise<void> {
   await loadList()
 }
 
-// 表格统一显示可读的后台状态名称。
+// 试卷封面统一显示可读的后台状态名称。
 function statusLabel(status: string): string {
   if (status === 'published') return '已发布'
   if (status === 'archived') return '已下线'
   return '草稿'
 }
 
-// 状态颜色与草稿、发布、下线语义保持一致。
+// 单项表格复用套卷状态色，保证草稿、发布和下线在两种视图中一致。
 function statusTagType(status: string): 'info' | 'success' | 'warning' {
   if (status === 'published') return 'success'
   if (status === 'archived') return 'warning'
   return 'info'
+}
+
+// 题量进度以正式预期题数为分母，超额题量最多显示为 100%。
+function moduleQuestionPercentage(row: MockPaperModuleListItem): number {
+  if (row.expectedQuestionCount <= 0) return 0
+  return Math.min(100, Math.round((row.questionCount / row.expectedQuestionCount) * 100))
+}
+
+// 封面已单独展示考试类型，主标题移除重复前缀以突出“模拟卷 No.xxx”。
+function coverTitle(row: MockPaperSetListItem): string {
+  const title = row.title.trim()
+  const withoutExamType = title.replace(new RegExp(`^${row.examType}\\s*`, 'i'), '').trim()
+  return withoutExamType || title
 }
 
 // 后台列表使用固定中国时区格式展示最近修改时间。
@@ -756,35 +962,379 @@ onMounted(() => void loadList())
 .list-total {
   color: #94a3b8;
   font-size: 14px;
+  white-space: nowrap;
 }
 
-.paper-table :deep(.el-table__cell) {
-  padding: 14px 0;
+.toolbar-view-switch {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 14px;
 }
 
-.paper-link {
+.paper-grid-shell {
+  min-height: 300px;
+  padding: 22px 20px 8px;
+}
+
+.paper-grid-shell.is-module-view {
+  padding: 0;
+}
+
+.paper-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 200px));
+  gap: 22px 18px;
+  justify-content: start;
+}
+
+.paper-card {
+  min-width: 0;
+  --cover-start: #15294e;
+  --cover-end: #243f72;
+  --cover-accent: #7dd3fc;
+  --cover-soft: rgba(125, 211, 252, 0.16);
+}
+
+.paper-card.is-tmua {
+  --cover-start: #3d1835;
+  --cover-end: #6d294f;
+  --cover-accent: #f0abfc;
+  --cover-soft: rgba(240, 171, 252, 0.14);
+}
+
+.paper-cover {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 270px;
+  overflow: hidden;
+  flex-direction: column;
+  border: 1px solid color-mix(in srgb, var(--cover-accent) 38%, transparent);
+  border-radius: 4px 13px 13px 4px;
+  padding: 15px 14px 13px 25px;
+  background:
+    radial-gradient(circle at 88% 12%, var(--cover-soft), transparent 32%),
+    linear-gradient(145deg, var(--cover-start), var(--cover-end));
+  box-shadow:
+    0 12px 24px rgba(15, 23, 42, 0.16),
+    0 3px 7px rgba(15, 23, 42, 0.13);
+  color: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.paper-cover:hover,
+.paper-cover:focus-visible {
+  transform: translateY(-3px);
+  box-shadow:
+    0 17px 30px rgba(15, 23, 42, 0.22),
+    0 5px 10px rgba(15, 23, 42, 0.13);
+}
+
+.paper-cover:focus-visible {
+  outline: 3px solid #818cf8;
+  outline-offset: 3px;
+}
+
+.paper-card.is-incomplete .paper-cover {
+  border-color: rgba(251, 191, 36, 0.62);
+}
+
+.paper-card.is-archived .paper-cover {
+  filter: saturate(0.35);
+  opacity: 0.8;
+}
+
+.cover-spine {
+  position: absolute;
+  z-index: 2;
+  inset: 0 auto 0 0;
+  width: 11px;
+  border-right: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(5, 12, 28, 0.32);
+  box-shadow: 3px 0 8px rgba(5, 12, 28, 0.2);
+}
+
+.cover-pattern {
+  position: absolute;
+  top: -44px;
+  right: -60px;
+  width: 180px;
+  height: 180px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 20px rgba(255, 255, 255, 0.025),
+    0 0 0 40px rgba(255, 255, 255, 0.025);
+}
+
+.paper-cover > span:not(.cover-spine, .cover-pattern) {
+  position: relative;
+  z-index: 3;
+}
+
+.cover-topline {
+  display: flex;
+  align-items: center;
+  min-height: 19px;
+}
+
+.cover-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 19px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 2px 7px;
+  background: rgba(15, 23, 42, 0.22);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.cover-access-badge {
+  display: block;
+  width: 100%;
+}
+
+.cover-access-badge :deep(.el-badge__content) {
+  z-index: 6;
+  height: 21px;
+  min-width: 0;
+  border-width: 2px;
+  padding: 0 7px;
+  box-shadow: 0 3px 9px rgba(15, 23, 42, 0.24);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 17px;
+}
+
+.cover-access-badge :deep(.el-badge__content.is-fixed) {
+  top: 2px;
+  right: 6px;
+  transform: translateY(-50%) translateX(25%);
+}
+
+.paper-card.is-published .cover-status {
+  border-color: rgba(110, 231, 183, 0.4);
+  background: rgba(5, 150, 105, 0.3);
+}
+
+.paper-card.is-archived .cover-status {
+  background: rgba(71, 85, 105, 0.54);
+}
+
+.cover-exam {
+  margin-top: 23px;
+  color: var(--cover-accent);
+  font-size: 18px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  line-height: 1;
+}
+
+.cover-rule {
+  width: 30px;
+  height: 2px;
+  margin-top: 9px;
+  border-radius: 3px;
+  background: var(--cover-accent);
+}
+
+.cover-title {
+  display: -webkit-box;
+  min-height: 55px;
+  overflow: hidden;
+  margin-top: 10px;
+  font-size: 21px;
+  font-weight: 850;
+  line-height: 1.28;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.cover-code {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 8px;
+  letter-spacing: 0.09em;
+}
+
+.cover-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: auto;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.cover-metrics > span {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 8px;
+  background: rgba(8, 15, 34, 0.2);
+}
+
+.cover-metrics strong {
+  font-size: 13px;
+}
+
+.cover-metrics small {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 8px;
+}
+
+.cover-readiness {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 7px;
+  color: #fde68a;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.cover-readiness.is-ready {
+  color: #a7f3d0;
+}
+
+.cover-open {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.cover-open span {
+  color: var(--cover-accent);
+  font-size: 14px;
+  transition: transform 180ms ease;
+}
+
+.paper-cover:hover .cover-open span {
+  transform: translateX(4px);
+}
+
+.paper-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 43px;
+  padding: 6px 3px 0 5px;
+}
+
+.paper-card-footer > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  color: #64748b;
+  font-size: 10px;
+}
+
+.paper-card-footer small {
+  color: #a1aab8;
+  font-size: 8px;
+}
+
+.card-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.module-table :deep(.el-table__cell) {
+  padding: 12px 0;
+}
+
+.module-identity,
+.module-association,
+.module-set-status {
   display: flex;
   flex-direction: column;
   gap: 5px;
+}
+
+.module-identity strong {
+  color: #1e293b;
+}
+
+.module-identity code {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.question-composition {
+  display: flex;
+  max-width: 155px;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.question-composition > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.question-composition strong {
+  color: #334155;
+  font-size: 13px;
+}
+
+.question-composition small,
+.module-association small,
+.module-set-status small {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.module-association > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.module-set-link {
+  overflow: hidden;
   border: 0;
   padding: 0;
   background: transparent;
-  color: inherit;
-  text-align: left;
+  color: #4f46e5;
+  font: inherit;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.paper-link strong:hover {
-  color: #4f46e5;
+.module-set-link:hover {
+  color: #3730a3;
+  text-decoration: underline;
 }
 
-.paper-link span {
-  color: #94a3b8;
-  font-size: 12px;
+.module-set-status {
+  align-items: flex-start;
 }
 
 .validation-ok,
-.validation-error {
+.validation-error,
+.validation-pending {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -800,16 +1350,43 @@ onMounted(() => void loadList())
   color: #dc2626;
 }
 
+.validation-pending {
+  color: #d97706;
+}
+
 .empty-state {
   display: flex;
+  min-height: 330px;
+  align-items: center;
+  justify-content: center;
   flex-direction: column;
-  gap: 8px;
-  padding: 48px 0;
+  gap: 10px;
+  padding: 42px 20px;
   color: #94a3b8;
+  text-align: center;
 }
 
 .empty-state strong {
   color: #475569;
+  font-size: 17px;
+}
+
+.empty-state .el-button {
+  margin-top: 8px;
+}
+
+.empty-cover {
+  display: grid;
+  width: 72px;
+  height: 94px;
+  place-items: center;
+  border-radius: 3px 10px 10px 3px;
+  background: linear-gradient(145deg, #1e3a67, #4f46e5);
+  box-shadow: 0 12px 24px rgba(79, 70, 229, 0.2);
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
 }
 
 .list-panel :deep(.app-pagination) {
@@ -890,6 +1467,43 @@ onMounted(() => void loadList())
   width: 130px;
 }
 
+.readiness-overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.readiness-overview > div {
+  display: flex;
+  min-height: 96px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  background: #f0fdf4;
+}
+
+.readiness-overview > div.is-pending {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.readiness-overview span,
+.readiness-overview small {
+  color: #64748b;
+}
+
+.readiness-overview strong {
+  color: #166534;
+  font-size: 20px;
+}
+
+.readiness-overview .is-pending strong {
+  color: #b45309;
+}
+
 .set-alert {
   margin-bottom: 16px;
 }
@@ -919,6 +1533,18 @@ onMounted(() => void loadList())
 .module-tab-label em.error {
   background: #fef2f2;
   color: #dc2626;
+}
+
+.module-tab-label small {
+  font-size: 11px;
+}
+
+.module-ready {
+  color: #059669;
+}
+
+.module-pending {
+  color: #d97706;
 }
 
 .module-issues {
@@ -972,6 +1598,10 @@ onMounted(() => void loadList())
   .filters {
     align-items: stretch;
     flex-wrap: wrap;
+  }
+
+  .toolbar-view-switch {
+    margin-left: auto;
   }
 }
 </style>

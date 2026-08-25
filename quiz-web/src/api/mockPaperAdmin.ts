@@ -19,6 +19,8 @@ export interface MockPaperSetListItem {
   validationStatus: MockPaperValidationStatus
   issueCount: number
   questionCount: number
+  readyModuleCount: number
+  fullExamReady: boolean
   moduleCount: number
   updatedAt: string
   publishedAt: string | null
@@ -52,6 +54,7 @@ export interface MockPaperModuleDetail {
   durationSeconds: number
   expectedQuestionCount: number
   questionCount: number
+  validationStatus: MockPaperValidationStatus
   issueCount: number
   issues: string[]
   questions: MockPaperQuestionDetail[]
@@ -73,6 +76,36 @@ export interface MockPaperListResult {
     hasPrev: boolean
     hasNext: boolean
   }
+}
+
+export interface MockPaperModuleListItem {
+  id: string
+  code: string
+  label: string
+  order: number
+  durationSeconds: number
+  expectedQuestionCount: number
+  questionCount: number
+  validationStatus: MockPaperValidationStatus
+  issueCount: number
+  updatedAt: string
+  mockPaperSet: Pick<
+    MockPaperSetListItem,
+    | 'id'
+    | 'code'
+    | 'sequenceNo'
+    | 'examType'
+    | 'title'
+    | 'accessTier'
+    | 'status'
+    | 'version'
+    | 'fullExamReady'
+  >
+}
+
+export interface MockPaperModuleListResult {
+  list: MockPaperModuleListItem[]
+  pagination: MockPaperListResult['pagination']
 }
 
 export interface MockPaperListParams {
@@ -97,6 +130,21 @@ export function getMockPaperSets(params: MockPaperListParams) {
   return callApi<MockPaperListResult>({
     method: 'GET',
     url: '/mock-paper-sets',
+    params: {
+      page: params.page ? String(params.page) : undefined,
+      pageSize: params.pageSize ? String(params.pageSize) : undefined,
+      examType: params.examType,
+      status: params.status,
+      keyword: params.keyword,
+    },
+  })
+}
+
+// 单项视图按 Module/Paper 分页，并返回所属 Mock 的组成状态。
+export function getMockPaperModules(params: MockPaperListParams) {
+  return callApi<MockPaperModuleListResult>({
+    method: 'GET',
+    url: '/mock-paper-sets/modules',
     params: {
       page: params.page ? String(params.page) : undefined,
       pageSize: params.pageSize ? String(params.pageSize) : undefined,
@@ -151,7 +199,13 @@ export function replaceMockPaperQuestion(id: string, itemId: string, questionCod
 
 // 题库状态变化后可主动刷新整个草稿的校验结果。
 export function validateMockPaperSet(id: string) {
-  return callApi<{ id: string; validationStatus: MockPaperValidationStatus; issueCount: number }>({
+  return callApi<{
+    id: string
+    validationStatus: MockPaperValidationStatus
+    issueCount: number
+    readyModuleCount: number
+    fullExamReady: boolean
+  }>({
     method: 'POST',
     url: `/mock-paper-sets/${id}/validate`,
   })

@@ -6,6 +6,7 @@ import { requireAdmin } from '../middleware/admin.js'
 import { setOperationAuditContext } from '../middleware/operationAudit.js'
 import {
   MOCK_PAPER_STATUS,
+  MOCK_PAPER_VALIDATION_STATUS,
   PAPER_ACCESS_TIER,
   isPaperAccessTier,
 } from '../constants/domain.js'
@@ -55,6 +56,8 @@ function formatMockPaperSetListItem(row: {
   validationStatus: string
   issueCount: number
   questionCount: number
+  readyModuleCount: number
+  fullExamReady: boolean
   updatedAt: Date
   publishedAt: Date | null
   archivedAt: Date | null
@@ -74,6 +77,8 @@ function formatMockPaperSetListItem(row: {
     validationStatus: row.validationStatus,
     issueCount: row.issueCount,
     questionCount: row.questionCount,
+    readyModuleCount: row.readyModuleCount,
+    fullExamReady: row.fullExamReady,
     moduleCount: row._count.modules,
     updatedAt: row.updatedAt.toISOString(),
     publishedAt: row.publishedAt?.toISOString() || null,
@@ -117,6 +122,81 @@ mockPaperSetRouter.get('/', async (req, res) => {
   res.json(
     success({
       list: rows.map(formatMockPaperSetListItem),
+      pagination: {
+        page: safePage,
+        pageSize,
+        total,
+        totalPages,
+        hasPrev: safePage > 1,
+        hasNext: totalPages > 0 && safePage < totalPages,
+      },
+    }),
+  )
+})
+
+// 单项视图按 Module/Paper 分页，并携带所属 Mock 与完整套卷状态。
+mockPaperSetRouter.get('/modules', async (req, res) => {
+  const page = parsePositiveInt(req.query.page, 1)
+  const pageSize = parsePositiveInt(req.query.pageSize, 20, 100)
+  const examType = String(req.query.examType || '').trim().toUpperCase()
+  const status = String(req.query.status || '').trim()
+  const keyword = String(req.query.keyword || '').trim()
+  const parentWhere: Prisma.MockPaperSetWhereInput = {
+    ...(examType ? { examType } : {}),
+    ...(status ? { status } : {}),
+  }
+  const where: Prisma.MockPaperModuleWhereInput = {
+    mockPaperSet: parentWhere,
+    ...(keyword
+      ? {
+          OR: [
+            { code: { contains: keyword } },
+            { label: { contains: keyword } },
+            { mockPaperSet: { title: { contains: keyword } } },
+            { mockPaperSet: { code: { contains: keyword } } },
+          ],
+        }
+      : {}),
+  }
+  const total = await prisma.mockPaperModule.count({ where })
+  const totalPages = Math.ceil(total / pageSize)
+  const safePage = totalPages > 0 ? Math.min(page, totalPages) : 1
+  const rows = await prisma.mockPaperModule.findMany({
+    where,
+    orderBy: [{ updatedAt: 'desc' }, { moduleOrder: 'asc' }],
+    skip: (safePage - 1) * pageSize,
+    take: pageSize,
+    include: {
+      mockPaperSet: {
+        select: {
+          id: true,
+          code: true,
+          title: true,
+          sequenceNo: true,
+          examType: true,
+          accessTier: true,
+          status: true,
+          version: true,
+          fullExamReady: true,
+        },
+      },
+    },
+  })
+  res.json(
+    success({
+      list: rows.map((row) => ({
+        id: row.id,
+        code: row.code,
+        label: row.label,
+        order: row.moduleOrder,
+        durationSeconds: row.durationSeconds,
+        expectedQuestionCount: row.expectedQuestionCount,
+        questionCount: row.questionCount,
+        validationStatus: row.validationStatus,
+        issueCount: row.issueCount,
+        updatedAt: row.updatedAt.toISOString(),
+        mockPaperSet: row.mockPaperSet,
+      })),
       pagination: {
         page: safePage,
         pageSize,
@@ -178,6 +258,8 @@ mockPaperSetRouter.get('/:id', async (req, res) => {
       validationStatus: row.validationStatus,
       issueCount: row.issueCount,
       questionCount: row.questionCount,
+      readyModuleCount: row.readyModuleCount,
+      fullExamReady: row.fullExamReady,
       issues: parseJsonArray<string>(row.issues),
       updatedAt: row.updatedAt.toISOString(),
       publishedAt: row.publishedAt?.toISOString() || null,
@@ -190,6 +272,7 @@ mockPaperSetRouter.get('/:id', async (req, res) => {
         durationSeconds: module.durationSeconds,
         expectedQuestionCount: module.expectedQuestionCount,
         questionCount: module.questionCount,
+        validationStatus: module.validationStatus,
         issueCount: module.issueCount,
         issues: parseJsonArray<string>(module.issues),
         questions: module.questions.map((item) => ({
@@ -319,7 +402,7 @@ mockPaperSetRouter.put('/:id', async (req, res) => {
   res.json(success({ id: updated.id, title: updated.title, accessTier: updated.accessTier }))
 })
 
-// 单题替换保留模块位置，写入新题号后立即全量复核当前套卷。
+// 草稿可替换任意位置；已发布 Mock 只允许继续修复尚未通过的 Module/Paper。
 mockPaperSetRouter.put('/:id/questions/:itemId', async (req, res) => {
   const sourceCode = String(req.body.questionCode || '').trim()
   if (!sourceCode) {
@@ -340,8 +423,18 @@ mockPaperSetRouter.put('/:id/questions/:itemId', async (req, res) => {
     res.status(404).json(fail('待替换题目不存在', 'MOCK_PAPER_QUESTION_NOT_FOUND'))
     return
   }
-  if (item.module.mockPaperSet.status !== MOCK_PAPER_STATUS.DRAFT) {
-    res.status(409).json(fail('已发布模考卷请创建新版本后替换题目', 'MOCK_PAPER_SET_LOCKED'))
+  const canRepairPublishedModule = (
+    item.module.mockPaperSet.status === MOCK_PAPER_STATUS.PUBLISHED
+    && item.module.validationStatus !== MOCK_PAPER_VALIDATION_STATUS.VALID
+  )
+  if (
+    item.module.mockPaperSet.status !== MOCK_PAPER_STATUS.DRAFT
+    && !canRepairPublishedModule
+  ) {
+    res.status(409).json(fail(
+      '已发布且可用的 Module/Paper 已锁定；如需调整请创建新版本',
+      'MOCK_PAPER_SET_LOCKED',
+    ))
     return
   }
   await prisma.mockPaperQuestion.update({
@@ -376,11 +469,13 @@ mockPaperSetRouter.post('/:id/validate', async (req, res) => {
       id: current.id,
       validationStatus: updated!.validationStatus,
       issueCount: updated!.issueCount,
+      readyModuleCount: updated!.readyModuleCount,
+      fullExamReady: updated!.fullExamReady,
     }),
   )
 })
 
-// 校验通过的草稿发布为学生端可见套卷，并创建答卷与报告所需的运行载体。
+// 至少一个模块可用的草稿即可发布；完整模考是否可见继续使用独立派生结果。
 mockPaperSetRouter.post('/:id/publish', async (req, res) => {
   try {
     const result = await publishMockPaperSet(req.params.id)
@@ -403,8 +498,8 @@ mockPaperSetRouter.post('/:id/publish', async (req, res) => {
       res.status(409).json(fail('已下线模考卷不能重新发布，请创建新版本', code))
       return
     }
-    if (code === 'MOCK_PAPER_SET_INVALID') {
-      res.status(422).json(fail('整卷校验未通过，请处理全部问题后发布', code))
+    if (code === 'MOCK_PAPER_SET_NO_READY_MODULES') {
+      res.status(422).json(fail('当前没有可用于单项模考的 Module/Paper，请先处理模块问题', code))
       return
     }
     throw error

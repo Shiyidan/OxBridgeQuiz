@@ -16,6 +16,7 @@
     "backfill:wrong-questions": "tsx scripts/backfill-wrong-question-summaries.ts",
     "backfill:invitation-reward-orders": "tsx scripts/backfill-invitation-reward-orders.ts",
     "backfill:user-avatars": "tsx scripts/backfill-user-avatars.ts",
+    "backfill:mock-paper-readiness": "tsx scripts/backfill-mock-paper-readiness.ts",
     "cleanup:legacy-temporary-practice": "tsx scripts/cleanup-legacy-temporary-practice.ts",
     "clear:dev-users": "tsx scripts/clear-dev-user-data.ts",
     "clear:local-user-content": "tsx scripts/clear-local-user-and-content-data.ts",

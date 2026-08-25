@@ -82,7 +82,7 @@ model Question {
   knowledgePointLinks    QuestionKnowledgePoint[]
   answerRecords          AnswerRecord[]
   wrongQuestionSummaries WrongQuestionSummary[]
-  mockPaperLinks          MockPaperQuestion[]
+  mockPaperLinks         MockPaperQuestion[]
 
   @@unique([paperId, number])
   @@index([paperId])
@@ -98,22 +98,24 @@ model Question {
 }
 
 model MockPaperSet {
-  id               String   @id @default(uuid()) @db.VarChar(191)
-  code             String   @unique @db.VarChar(100)
+  id               String    @id @default(uuid()) @db.VarChar(191)
+  code             String    @unique @db.VarChar(100)
   sequenceNo       Int
-  examType         String   @db.VarChar(32)
-  title            String   @db.VarChar(255)
-  accessTier       String   @default("member") @db.VarChar(32)
-  status           String   @default("draft") @db.VarChar(32)
-  version          Int      @default(1)
-  sourceFileName   String?  @db.VarChar(255)
-  paperId          String?  @unique @db.VarChar(191)
-  validationStatus String   @default("invalid") @db.VarChar(32)
-  issueCount       Int      @default(0)
-  questionCount    Int      @default(0)
+  examType         String    @db.VarChar(32)
+  title            String    @db.VarChar(255)
+  accessTier       String    @default("member") @db.VarChar(32)
+  status           String    @default("draft") @db.VarChar(32)
+  version          Int       @default(1)
+  sourceFileName   String?   @db.VarChar(255)
+  paperId          String?   @unique @db.VarChar(191)
+  validationStatus String    @default("invalid") @db.VarChar(32)
+  issueCount       Int       @default(0)
+  questionCount    Int       @default(0)
+  readyModuleCount Int       @default(0)
+  fullExamReady    Boolean   @default(false)
   issues           Json
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
   publishedAt      DateTime?
   archivedAt       DateTime?
 
@@ -134,17 +136,19 @@ model MockPaperModule {
   durationSeconds       Int
   expectedQuestionCount Int
   questionCount         Int      @default(0)
+  validationStatus      String   @default("invalid") @db.VarChar(32)
   issueCount            Int      @default(0)
   issues                Json
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
-  mockPaperSet MockPaperSet       @relation(fields: [mockPaperSetId], references: [id], onDelete: Cascade)
+  mockPaperSet MockPaperSet        @relation(fields: [mockPaperSetId], references: [id], onDelete: Cascade)
   questions    MockPaperQuestion[]
 
   @@unique([mockPaperSetId, code])
   @@unique([mockPaperSetId, moduleOrder])
   @@index([mockPaperSetId, moduleOrder])
+  @@index([mockPaperSetId, validationStatus])
 }
 
 model MockPaperQuestion {

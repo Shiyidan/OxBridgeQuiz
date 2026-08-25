@@ -337,7 +337,65 @@ function validateQuestion(
   return { question, issues }
 }
 
-// 每次上传或替换后都全量复核整套草稿，确保重复题和模块题量不会因局部修改漏检。
+type MockRuntimeModule = {
+  code: string
+  label: string
+  moduleOrder: number
+  durationSeconds: number
+  expectedQuestionCount: number
+  validationStatus: string
+}
+
+// 运行载体只收录当前校验通过的单项；完整模考与单项模考后续共享同一组稳定配置。
+function buildMockRuntimeConfig(examType: string, modules: MockRuntimeModule[]) {
+  const readyModules = modules.filter(
+    (module) => module.validationStatus === MOCK_PAPER_VALIDATION_STATUS.VALID,
+  )
+  const isEsat = examType === EXAM_TYPE.ESAT
+  const effectiveModules = isEsat ? readyModules.slice(0, 3) : readyModules
+  return {
+    readyModules,
+    durationMinutes: Math.round(
+      effectiveModules.reduce((sum, module) => sum + module.durationSeconds, 0) / 60,
+    ),
+    totalQuestions: effectiveModules.reduce(
+      (sum, module) => sum + module.expectedQuestionCount,
+      0,
+    ),
+    breakDurationSeconds: isEsat ? 180 : 0,
+    moduleConfig: readyModules.map((module) => ({
+      code: module.code,
+      subject: module.label,
+      subjectCode: module.code,
+      order: module.moduleOrder,
+      durationSeconds: module.durationSeconds,
+      questionCount: module.expectedQuestionCount,
+    })),
+  }
+}
+
+// 已发布 Mock 的待处理单项修复后同步运行载体，不改变既有答卷已经冻结的结构快照。
+async function syncPublishedMockPaperRuntime(mockPaperSetId: string): Promise<void> {
+  const set = await prisma.mockPaperSet.findUnique({
+    where: { id: mockPaperSetId },
+    include: { modules: { orderBy: { moduleOrder: 'asc' } } },
+  })
+  if (!set || set.status !== MOCK_PAPER_STATUS.PUBLISHED || !set.paperId) return
+  const runtime = buildMockRuntimeConfig(set.examType, set.modules)
+  if (!runtime.readyModules.length) return
+  await prisma.paper.update({
+    where: { id: set.paperId },
+    data: {
+      duration: runtime.durationMinutes,
+      totalQuestions: runtime.totalQuestions,
+      accessTier: set.accessTier,
+      breakDurationSeconds: runtime.breakDurationSeconds,
+      moduleConfig: runtime.moduleConfig as Prisma.InputJsonValue,
+    },
+  })
+}
+
+// 每次上传或替换后逐模块复核，再从可用模块派生整卷是否完整。
 export async function revalidateMockPaperSet(mockPaperSetId: string): Promise<void> {
   const set = await prisma.mockPaperSet.findUnique({
     where: { id: mockPaperSetId },
@@ -370,6 +428,7 @@ export async function revalidateMockPaperSet(mockPaperSetId: string): Promise<vo
 
   let invalidQuestionCount = 0
   let moduleStructureIssueCount = 0
+  const readyModuleCodes = new Set<string>()
   await prisma.$transaction(async (tx) => {
     for (const module of set.modules) {
       const definition = expectedModules.find((item) => item.code === module.code)
@@ -415,26 +474,38 @@ export async function revalidateMockPaperSet(mockPaperSetId: string): Promise<vo
           durationSeconds: definition?.durationSeconds || module.durationSeconds,
           expectedQuestionCount: definition?.expectedQuestionCount || module.expectedQuestionCount,
           questionCount: module.questions.length,
+          validationStatus:
+            moduleInvalidCount + moduleIssues.length === 0
+              ? MOCK_PAPER_VALIDATION_STATUS.VALID
+              : MOCK_PAPER_VALIDATION_STATUS.INVALID,
           issueCount: moduleInvalidCount + moduleIssues.length,
           issues: moduleIssues as Prisma.InputJsonValue,
         },
       })
+      if (moduleInvalidCount + moduleIssues.length === 0) readyModuleCodes.add(module.code)
     }
 
+    const fullExamReady = (
+      expectedModules.length > 0
+      && expectedModules.every((module) => readyModuleCodes.has(module.code))
+    )
     const issueCount = invalidQuestionCount + moduleStructureIssueCount + setIssues.length
     await tx.mockPaperSet.update({
       where: { id: set.id },
       data: {
         questionCount: allRows.length,
+        readyModuleCount: readyModuleCodes.size,
+        fullExamReady,
         issueCount,
         validationStatus:
-          issueCount === 0
+          fullExamReady
             ? MOCK_PAPER_VALIDATION_STATUS.VALID
             : MOCK_PAPER_VALIDATION_STATUS.INVALID,
         issues: setIssues as Prisma.InputJsonValue,
       },
     })
   })
+  await syncPublishedMockPaperRuntime(set.id)
 }
 
 // 同一考试独立编号；空库从 001 开始，后续上传只向后追加且不覆盖已有套卷。
@@ -504,7 +575,7 @@ export async function createMockPaperDraftsFromWorkbook(
   return createdIds
 }
 
-// 发布时创建只承接考试记录和报告关系的 Paper，题目内容仍只通过组卷关系引用 Question。
+// 发布时只要求至少一个模块可用；完整模考目录继续由 fullExamReady 单独约束。
 export async function publishMockPaperSet(mockPaperSetId: string): Promise<{
   id: string
   paperId: string
@@ -518,28 +589,9 @@ export async function publishMockPaperSet(mockPaperSetId: string): Promise<{
   })
   if (!set) throw new Error('MOCK_PAPER_SET_NOT_FOUND')
   if (set.status === MOCK_PAPER_STATUS.ARCHIVED) throw new Error('MOCK_PAPER_SET_ARCHIVED')
-  if (set.validationStatus !== MOCK_PAPER_VALIDATION_STATUS.VALID) {
-    throw new Error('MOCK_PAPER_SET_INVALID')
-  }
+  const runtime = buildMockRuntimeConfig(set.examType, set.modules)
+  if (!runtime.readyModules.length) throw new Error('MOCK_PAPER_SET_NO_READY_MODULES')
 
-  const isEsat = set.examType === EXAM_TYPE.ESAT
-  const effectiveModuleCount = isEsat ? 3 : set.modules.length
-  const effectiveModules = isEsat ? set.modules.slice(0, effectiveModuleCount) : set.modules
-  const totalQuestions = effectiveModules.reduce(
-    (sum, module) => sum + module.expectedQuestionCount,
-    0,
-  )
-  const durationMinutes = Math.round(
-    effectiveModules.reduce((sum, module) => sum + module.durationSeconds, 0) / 60,
-  )
-  const moduleConfig = set.modules.map((module) => ({
-    code: module.code,
-    subject: module.label,
-    subjectCode: module.code,
-    order: module.moduleOrder,
-    durationSeconds: module.durationSeconds,
-    questionCount: module.expectedQuestionCount,
-  }))
   const paperId = set.paperId || `mock-paper-${set.id}`
   const publishedAt = new Date()
 
@@ -550,13 +602,13 @@ export async function publishMockPaperSet(mockPaperSetId: string): Promise<{
         title: set.title,
         code: set.code,
         examType: set.examType,
-        duration: durationMinutes,
-        totalQuestions,
+        duration: runtime.durationMinutes,
+        totalQuestions: runtime.totalQuestions,
         paperType: PAPER_TYPE.MOCK_PAPER,
         accessTier: set.accessTier,
         deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE,
-        breakDurationSeconds: isEsat ? 180 : 0,
-        moduleConfig: moduleConfig as Prisma.InputJsonValue,
+        breakDurationSeconds: runtime.breakDurationSeconds,
+        moduleConfig: runtime.moduleConfig as Prisma.InputJsonValue,
         assemblyType: 'fixed_mock',
         sourceExamTypes: [set.examType],
         remarks: `模考试卷库套卷 ${set.code} 的运行载体`,
@@ -568,13 +620,13 @@ export async function publishMockPaperSet(mockPaperSetId: string): Promise<{
         code: set.code,
         examType: set.examType,
         year: publishedAt.getFullYear(),
-        duration: durationMinutes,
-        totalQuestions,
+        duration: runtime.durationMinutes,
+        totalQuestions: runtime.totalQuestions,
         paperType: PAPER_TYPE.MOCK_PAPER,
         accessTier: set.accessTier,
         deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE,
-        breakDurationSeconds: isEsat ? 180 : 0,
-        moduleConfig: moduleConfig as Prisma.InputJsonValue,
+        breakDurationSeconds: runtime.breakDurationSeconds,
+        moduleConfig: runtime.moduleConfig as Prisma.InputJsonValue,
         assemblyType: 'fixed_mock',
         sourceExamTypes: [set.examType],
         remarks: `模考试卷库套卷 ${set.code} 的运行载体`,

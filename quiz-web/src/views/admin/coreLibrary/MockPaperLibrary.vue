@@ -73,7 +73,7 @@
             ]"
           >
             <el-badge
-              :value="row.accessTier === 'free' ? 'FREE' : 'MEMBER'"
+              :value="row.accessTier === 'free' ? '免费' : '会员'"
               :type="row.accessTier === 'free' ? 'success' : 'warning'"
               class="cover-access-badge"
             >
@@ -85,34 +85,37 @@
               >
                 <span class="cover-spine" aria-hidden="true"></span>
                 <span class="cover-pattern" aria-hidden="true"></span>
-
-                <span class="cover-topline">
-                  <span class="cover-status">{{ statusLabel(row.status) }}</span>
+                <span class="cover-kicker">
+                  <span class="cover-exam">{{ row.examType }}</span>
+                  <span class="cover-status" :class="`is-${coverStatus(row)}`">
+                    {{ coverStatusLabel(row) }}
+                  </span>
                 </span>
-
-                <span class="cover-exam">{{ row.examType }}</span>
-                <span class="cover-rule" aria-hidden="true"></span>
 
                 <span class="cover-title">{{ coverTitle(row) }}</span>
                 <span class="cover-code">{{ row.code }} · VERSION {{ row.version }}</span>
 
-                <span class="cover-metrics">
-                  <span>
-                    <strong>{{ row.readyModuleCount }}/{{ row.moduleCount }}</strong>
-                    <small>单项可用</small>
+                <span class="cover-module-summary">
+                  <span class="cover-module-count">
+                    <small>可用模块</small>
+                    <strong>
+                      {{ Math.min(row.readyModuleCount, modulePoolCapacity(row.examType)) }}/{{
+                        modulePoolCapacity(row.examType)
+                      }}
+                    </strong>
                   </span>
-                  <span>
-                    <strong>{{ row.questionCount }}</strong>
-                    <small>题目</small>
+                  <span class="cover-subjects">
+                    <small>当前科目</small>
+                    <span class="cover-subject-list">
+                      <em
+                        v-for="module in row.modules"
+                        :key="module.code"
+                        :class="{ 'is-pending': module.validationStatus !== 'valid' }"
+                      >
+                        {{ moduleNameMap[module.code] || module.label }}
+                      </em>
+                    </span>
                   </span>
-                </span>
-
-                <span class="cover-readiness" :class="{ 'is-ready': row.fullExamReady }">
-                  <el-icon>
-                    <CircleCheckFilled v-if="row.fullExamReady" />
-                    <WarningFilled v-else />
-                  </el-icon>
-                  {{ row.fullExamReady ? '完整模考可用' : '完整模考待补齐' }}
                 </span>
 
                 <span class="cover-open">打开试卷 <span aria-hidden="true">→</span></span>
@@ -121,12 +124,15 @@
 
             <footer class="paper-card-footer">
               <span>
-                <small>最近更新</small>
+                <span class="paper-card-footer__meta">
+                  <small>最近更新</small>
+                  <em>{{ coverStatusLabel(row) }}</em>
+                </span>
                 {{ formatDateTime(row.updatedAt) }}
               </span>
               <div class="card-actions">
                 <el-button
-                  v-if="row.status === 'draft'"
+                  v-if="row.deletable"
                   link
                   type="danger"
                   @click="confirmDelete(row)"
@@ -144,10 +150,10 @@
           row-key="id"
           class="module-table"
         >
-          <el-table-column label="Module / Paper" min-width="180">
+          <el-table-column label="Module / Paper" min-width="225">
             <template #default="{ row }">
               <div class="module-identity">
-                <strong>{{ row.label }}</strong>
+                <strong>{{ moduleDisplayName(row) }}</strong>
                 <code>{{ row.code }}</code>
               </div>
             </template>
@@ -155,23 +161,7 @@
           <el-table-column label="考试" width="82">
             <template #default="{ row }">{{ row.mockPaperSet.examType }}</template>
           </el-table-column>
-          <el-table-column label="试题组成" min-width="180">
-            <template #default="{ row }">
-              <div class="question-composition">
-                <span>
-                  <strong>{{ row.questionCount }}/{{ row.expectedQuestionCount }} 题</strong>
-                  <small>{{ Math.round(row.durationSeconds / 60) }} 分钟</small>
-                </span>
-                <el-progress
-                  :percentage="moduleQuestionPercentage(row)"
-                  :status="row.validationStatus === 'valid' ? 'success' : undefined"
-                  :stroke-width="6"
-                  :show-text="false"
-                />
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="形式与所属套卷" min-width="290">
+          <el-table-column label="形式与所属套卷" min-width="330">
             <template #default="{ row }">
               <div class="module-association">
                 <div>
@@ -209,14 +199,22 @@
               </span>
             </template>
           </el-table-column>
-          <el-table-column label="套卷状态" width="105">
+          <el-table-column label="发布状态" width="110">
             <template #default="{ row }">
-              <div class="module-set-status">
-                <el-tag :type="statusTagType(row.mockPaperSet.status)" size="small">
-                  {{ statusLabel(row.mockPaperSet.status) }}
-                </el-tag>
-                <small>{{ row.mockPaperSet.accessTier === 'free' ? '免费' : '会员' }}</small>
-              </div>
+              <el-tag :type="statusTagType(row.mockPaperSet.status)" size="small">
+                {{ statusLabel(row.mockPaperSet.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="访问权限" width="110">
+            <template #default="{ row }">
+              <el-tag
+                :type="row.mockPaperSet.accessTier === 'free' ? 'success' : 'warning'"
+                size="small"
+                effect="plain"
+              >
+                {{ row.mockPaperSet.accessTier === 'free' ? '免费' : '会员' }}
+              </el-tag>
             </template>
           </el-table-column>
           <el-table-column label="更新时间" width="150">
@@ -315,10 +313,18 @@
                 <h2>{{ detail.title }}</h2>
                 <el-tag>{{ detail.code }}</el-tag>
                 <el-tag :type="detail.readyModuleCount > 0 ? 'success' : 'danger'">
-                  {{ detail.readyModuleCount }}/{{ detail.modules.length }} 个单项可用
+                  {{ Math.min(detail.readyModuleCount, modulePoolCapacity(detail.examType)) }}/{{
+                    modulePoolCapacity(detail.examType)
+                  }} 个单项可用
                 </el-tag>
                 <el-tag :type="detail.fullExamReady ? 'success' : 'warning'">
-                  {{ detail.fullExamReady ? '完整模考可用' : '完整模考暂不可用' }}
+                  {{
+                    fullExamAvailabilityLabel(
+                      detail.examType,
+                      detail.readyModuleCount,
+                      detail.fullExamReady,
+                    )
+                  }}
                 </el-tag>
               </div>
               <p>
@@ -372,25 +378,6 @@
             </el-button>
           </section>
 
-          <section class="readiness-overview" aria-label="Mock 可用性">
-            <div>
-              <span>单项模考</span>
-              <strong>{{ detail.readyModuleCount }}/{{ detail.modules.length }} 可用</strong>
-              <small>每个 Module / Paper 独立校验，互不阻塞。</small>
-            </div>
-            <div :class="{ 'is-pending': !detail.fullExamReady }">
-              <span>完整模考</span>
-              <strong>{{ detail.fullExamReady ? '可用' : '暂不可用' }}</strong>
-              <small>
-                {{
-                  detail.fullExamReady
-                    ? '当前 Mock 已具备全部正式组成部分。'
-                    : '补齐并修复全部正式组成部分后自动可用。'
-                }}
-              </small>
-            </div>
-          </section>
-
           <el-alert
             v-if="detail.issues.length"
             type="warning"
@@ -401,19 +388,33 @@
             <template #title>{{ detail.issues.join('；') }}</template>
           </el-alert>
 
-          <el-tabs v-model="activeModuleId" class="module-tabs">
+          <el-tabs
+            v-model="activeModuleId"
+            class="module-tabs"
+          >
             <el-tab-pane v-for="module in detail.modules" :key="module.id" :name="module.id">
               <template #label>
                 <span class="module-tab-label">
-                  {{ module.label }}
+                  {{ moduleDisplayTitle(detail.examType, module.code, module.label, detail.sequenceNo) }}
                   <em :class="{ error: module.validationStatus !== 'valid' }">
                     {{ module.questionCount }}/{{ module.expectedQuestionCount }}
                   </em>
                   <small
-                    :class="module.validationStatus === 'valid' ? 'module-ready' : 'module-pending'"
+                    class="module-publication"
+                    :class="module.published ? 'is-published' : 'is-unpublished'"
                   >
-                    {{ module.validationStatus === 'valid' ? '单项可用' : '待处理' }}
+                    {{ module.published ? '单项已发布' : '单项未发布' }}
                   </small>
+                  <button
+                    v-if="module.removable"
+                    type="button"
+                    class="module-tab-remove"
+                    :disabled="removingModuleId === module.id"
+                    :aria-label="`移除 ${moduleDisplayTitle(detail.examType, module.code, module.label, detail.sequenceNo)}`"
+                    @click.stop="confirmRemoveModule(module)"
+                  >
+                    ×
+                  </button>
                 </span>
               </template>
               <div v-if="module.issues.length" class="module-issues">
@@ -463,10 +464,78 @@
                 </el-table-column>
               </el-table>
             </el-tab-pane>
+            <el-tab-pane v-if="detail.canAddModules" name="add-module">
+              <template #label>
+                <button
+                  type="button"
+                  class="module-tab-add"
+                  aria-label="添加单项卷"
+                  @click.stop="openAddModuleDialog"
+                >
+                  +
+                </button>
+              </template>
+            </el-tab-pane>
           </el-tabs>
         </template>
       </div>
     </el-drawer>
+
+    <el-dialog v-model="addModuleDialogVisible" title="选择可加入的单项卷" width="680px">
+      <div v-loading="candidateLoading" class="module-candidate-shell">
+        <el-radio-group v-if="moduleCandidates.length" v-model="selectedCandidateId">
+          <el-radio
+            v-for="candidate in moduleCandidates"
+            :key="candidate.id"
+            :value="candidate.id"
+            border
+            class="module-candidate-option"
+          >
+            <span class="module-candidate-main">
+              <strong>
+                {{
+                  moduleDisplayTitle(
+                    detail?.examType || '',
+                    candidate.code,
+                    candidate.label,
+                    candidate.sourceSet.sequenceNo,
+                  )
+                }}
+              </strong>
+              <small>
+                {{ candidate.sourceSet.code }} · {{ candidate.questionCount }} 题 ·
+                {{ formatDuration(candidate.durationSeconds) }}
+              </small>
+            </span>
+            <span class="module-candidate-tags">
+              <el-tag size="small" effect="plain">
+                {{ statusLabel(candidate.sourceSet.status) }}
+              </el-tag>
+              <el-tag size="small" effect="plain" type="warning">
+                {{ candidate.sourceSet.accessTier === 'free' ? '免费' : '会员' }}
+              </el-tag>
+            </span>
+          </el-radio>
+        </el-radio-group>
+        <el-empty
+          v-else-if="!candidateLoading"
+          description="暂无尚未组成套卷的可用单项卷"
+          :image-size="76"
+        />
+      </div>
+      <p class="module-candidate-tip">仅显示同一考试、校验通过且尚未被其他完整套卷采用的单项卷。</p>
+      <template #footer>
+        <el-button :disabled="addingModule" @click="addModuleDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="addingModule"
+          :disabled="!selectedCandidateId"
+          @click="submitAddModule"
+        >
+          加入当前套卷
+        </el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="replaceDialogVisible" title="替换题目" width="520px">
       <div v-if="replaceTarget" class="replace-current">
@@ -507,17 +576,22 @@ import { ElMessage, ElMessageBox, type UploadFile } from 'element-plus'
 import { CircleCheckFilled, Refresh, UploadFilled, WarningFilled } from '@element-plus/icons-vue'
 import AppPagination from '@/components/AppPagination.vue'
 import {
+  addMockPaperModule,
   archiveMockPaperSet,
   deleteMockPaperSet,
+  getMockPaperModuleCandidates,
   getMockPaperModules,
   getMockPaperSetDetail,
   getMockPaperSets,
   importMockPaperWorkbook,
   publishMockPaperSet,
+  removeMockPaperModule,
   replaceMockPaperQuestion,
   updateMockPaperSet,
   validateMockPaperSet,
   type MockPaperAccessTier,
+  type MockPaperModuleCandidate,
+  type MockPaperModuleDetail,
   type MockPaperModuleListItem,
   type MockPaperQuestionDetail,
   type MockPaperSetDetail,
@@ -530,6 +604,16 @@ const workflowSteps = [
   { title: '草稿修正', desc: '逐题替换并刷新可用状态' },
   { title: '确认发布', desc: '上架可用单项并派生完整模考' },
 ]
+
+const moduleNameMap: Record<string, string> = {
+  maths1: 'Math1',
+  maths2: 'Math2',
+  physics: 'Physics',
+  biology: 'Biology',
+  chemistry: 'Chemistry',
+  paper1: 'Paper1',
+  paper2: 'Paper2',
+}
 
 const loading = ref(false)
 const viewMode = ref<'sets' | 'modules'>('sets')
@@ -555,6 +639,13 @@ const savingMeta = ref(false)
 const validating = ref(false)
 const publishing = ref(false)
 const archiving = ref(false)
+
+const addModuleDialogVisible = ref(false)
+const candidateLoading = ref(false)
+const moduleCandidates = ref<MockPaperModuleCandidate[]>([])
+const selectedCandidateId = ref('')
+const addingModule = ref(false)
+const removingModuleId = ref('')
 
 const replaceDialogVisible = ref(false)
 const replaceTarget = ref<MockPaperQuestionDetail | null>(null)
@@ -684,6 +775,63 @@ async function refreshCurrentDetail(): Promise<void> {
   await loadList()
 }
 
+// 加号弹窗每次实时读取候选，避免展示刚被其他管理员组套的单项卷。
+async function openAddModuleDialog(): Promise<void> {
+  if (!detail.value?.canAddModules || candidateLoading.value) return
+  addModuleDialogVisible.value = true
+  candidateLoading.value = true
+  selectedCandidateId.value = ''
+  moduleCandidates.value = []
+  try {
+    const result = await getMockPaperModuleCandidates(detail.value.id)
+    moduleCandidates.value = result.list
+  } finally {
+    candidateLoading.value = false
+  }
+}
+
+// 确认后由服务端复制单项题序、锁定来源并重新计算当前套卷完整性。
+async function submitAddModule(): Promise<void> {
+  if (!detail.value || !selectedCandidateId.value || addingModule.value) return
+  addingModule.value = true
+  try {
+    const result = await addMockPaperModule(detail.value.id, selectedCandidateId.value)
+    addModuleDialogVisible.value = false
+    activeModuleId.value = result.id
+    await refreshCurrentDetail()
+    ElMessage.success('单项卷已加入当前套卷')
+  } finally {
+    addingModule.value = false
+  }
+}
+
+// 移除只调整草稿套卷结构；题库中的 Question 数据不随 Module 关系删除。
+async function confirmRemoveModule(module: MockPaperModuleDetail): Promise<void> {
+  if (!detail.value || !module.removable || removingModuleId.value) return
+  try {
+    await ElMessageBox.confirm(
+      `确定从当前草稿套卷移除“${moduleDisplayTitle(
+        detail.value.examType,
+        module.code,
+        module.label,
+        detail.value.sequenceNo,
+      )}”吗？题库中的试题不会被删除。`,
+      '移除单项卷',
+      { type: 'warning', confirmButtonText: '确认移除', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  removingModuleId.value = module.id
+  try {
+    await removeMockPaperModule(detail.value.id, module.id)
+    ElMessage.success('已从当前套卷移除单项卷')
+    await refreshCurrentDetail()
+  } finally {
+    removingModuleId.value = ''
+  }
+}
+
 // 草稿可保存名称和访问级别；已发布卷只同步免费/会员属性，不改变试卷结构。
 async function saveMetadata(): Promise<void> {
   if (!detail.value || savingMeta.value) return
@@ -716,9 +864,11 @@ async function refreshValidation(): Promise<void> {
 // 发布前再次校验全部内容；已通过的单项锁定，待处理单项发布后仍可继续修复。
 async function publishCurrentPaper(): Promise<void> {
   if (!detail.value || publishing.value || detail.value.readyModuleCount === 0) return
-  const availability = detail.value.fullExamReady
-    ? `将发布 ${detail.value.readyModuleCount} 个可用单项，完整模考同时可用。`
-    : `将发布 ${detail.value.readyModuleCount} 个可用单项；完整模考暂不可用。`
+  const availability = `将发布 ${detail.value.readyModuleCount} 个可用单项；${fullExamAvailabilityLabel(
+    detail.value.examType,
+    detail.value.readyModuleCount,
+    detail.value.fullExamReady,
+  )}。`
   try {
     await ElMessageBox.confirm(
       `确定发布“${detail.value.title}”吗？${availability}发布后已通过的单项将锁定，待处理单项仍可继续修复。`,
@@ -789,9 +939,12 @@ async function submitReplacement(): Promise<void> {
 
 // 删除草稿前显示套卷名称，确认后只删除该套草稿及其组卷关系。
 async function confirmDelete(row: MockPaperSetListItem): Promise<void> {
+  const publishedModuleNotice = row.paperId
+    ? '当前已发布的单项会同步下架，'
+    : ''
   try {
     await ElMessageBox.confirm(
-      `确定删除“${row.title}”吗？该操作不会删除试题库原题。`,
+      `确定删除“${row.title}”吗？${publishedModuleNotice}该操作不会删除试题库原题。`,
       '删除模考草稿',
       { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消' },
     )
@@ -811,24 +964,78 @@ function statusLabel(status: string): string {
   return '草稿'
 }
 
+// 套卷封面只表达整套卷状态；单项模块是否开放不参与这里的状态文案。
+function coverStatus(row: MockPaperSetListItem): MockPaperSetListItem['status'] {
+  if (row.status === 'archived') return 'archived'
+  if (row.status === 'published' && row.fullExamReady) return 'published'
+  return 'draft'
+}
+
+// 封面和最近更新时间区域共用同一套套卷状态口径。
+function coverStatusLabel(row: MockPaperSetListItem): string {
+  return statusLabel(coverStatus(row))
+}
+
 // 单项表格复用套卷状态色，保证草稿、发布和下线在两种视图中一致。
 function statusTagType(status: string): 'info' | 'success' | 'warning' {
   if (status === 'published') return 'success'
-  if (status === 'archived') return 'warning'
+  if (status === 'draft') return 'warning'
   return 'info'
 }
 
-// 题量进度以正式预期题数为分母，超额题量最多显示为 100%。
-function moduleQuestionPercentage(row: MockPaperModuleListItem): number {
-  if (row.expectedQuestionCount <= 0) return 0
-  return Math.min(100, Math.round((row.questionCount / row.expectedQuestionCount) * 100))
+// 套卷详情与单项列表共用同一模块标题规则，例如 ESAT Math1 No.001。
+function moduleDisplayTitle(
+  examType: string,
+  moduleCode: string,
+  fallbackLabel: string,
+  sequenceNo: number,
+): string {
+  const moduleName = moduleNameMap[moduleCode] || fallbackLabel
+  return `${examType} ${moduleName} No.${String(sequenceNo).padStart(3, '0')}`
 }
 
-// 封面已单独展示考试类型，主标题移除重复前缀以突出“模拟卷 No.xxx”。
+// 单项列表把所属套卷信息转换为统一模块标题。
+function moduleDisplayName(row: MockPaperModuleListItem): string {
+  return moduleDisplayTitle(
+    row.mockPaperSet.examType,
+    row.code,
+    row.label,
+    row.mockPaperSet.sequenceNo,
+  )
+}
+
+// 套卷封面使用稳定编号生成统一标题，避免后台自定义标题造成列表难以扫描。
 function coverTitle(row: MockPaperSetListItem): string {
-  const title = row.title.trim()
-  const withoutExamType = title.replace(new RegExp(`^${row.examType}\\s*`, 'i'), '').trim()
-  return withoutExamType || title
+  return `${row.examType} 模拟卷 No.${String(row.sequenceNo).padStart(3, '0')}`
+}
+
+// ESAT Module 池可容纳全部五科，TMUA 仍固定为两个 Paper。
+function modulePoolCapacity(examType: MockPaperSetListItem['examType']): number {
+  return examType === 'ESAT' ? 5 : 2
+}
+
+// ESAT 每种正式组合固定包含 Math1，再从其余可用模块中任选两个。
+function esatCombinationCount(readyModuleCount: number): number {
+  const selectableModuleCount = Math.max(0, readyModuleCount - 1)
+  return selectableModuleCount >= 2
+    ? selectableModuleCount * (selectableModuleCount - 1) / 2
+    : 0
+}
+
+// 后台状态同时表达是否可开完整模考，以及当前 Module 池能够派生的组合数量。
+function fullExamAvailabilityLabel(
+  examType: MockPaperSetListItem['examType'],
+  readyModuleCount: number,
+  fullExamReady: boolean,
+): string {
+  if (!fullExamReady) return '完整模考待补齐'
+  if (examType === 'TMUA') return '完整模考可用'
+  return `可生成 ${esatCombinationCount(readyModuleCount)} 种完整模考组合`
+}
+
+// 候选单项使用分钟展示正式限时，便于管理员在组套前快速核对。
+function formatDuration(durationSeconds: number): string {
+  return `${Math.round(durationSeconds / 60)} 分钟`
 }
 
 // 后台列表使用固定中国时区格式展示最近修改时间。
@@ -983,57 +1190,53 @@ onMounted(() => void loadList())
 
 .paper-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 200px));
-  gap: 22px 18px;
-  justify-content: start;
+  width: 100%;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px 20px;
 }
 
 .paper-card {
   min-width: 0;
-  --cover-start: #15294e;
-  --cover-end: #243f72;
-  --cover-accent: #7dd3fc;
-  --cover-soft: rgba(125, 211, 252, 0.16);
+  --cover-accent: #2563eb;
+  --cover-accent-soft: #eff6ff;
+  --cover-border: #cbd5e1;
+  --cover-surface: #f8fafc;
 }
 
 .paper-card.is-tmua {
-  --cover-start: #3d1835;
-  --cover-end: #6d294f;
-  --cover-accent: #f0abfc;
-  --cover-soft: rgba(240, 171, 252, 0.14);
+  --cover-accent: #8b3a62;
+  --cover-accent-soft: #fdf2f8;
+  --cover-border: #d8c4ce;
+  --cover-surface: #fffafb;
 }
 
 .paper-cover {
   position: relative;
   display: flex;
   width: 100%;
-  min-height: 270px;
+  min-height: 258px;
   overflow: hidden;
   flex-direction: column;
-  border: 1px solid color-mix(in srgb, var(--cover-accent) 38%, transparent);
-  border-radius: 4px 13px 13px 4px;
-  padding: 15px 14px 13px 25px;
-  background:
-    radial-gradient(circle at 88% 12%, var(--cover-soft), transparent 32%),
-    linear-gradient(145deg, var(--cover-start), var(--cover-end));
-  box-shadow:
-    0 12px 24px rgba(15, 23, 42, 0.16),
-    0 3px 7px rgba(15, 23, 42, 0.13);
-  color: #fff;
+  border: 1px solid var(--cover-border);
+  border-radius: 10px;
+  padding: 16px 16px 14px 20px;
+  background: var(--cover-surface);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  color: #0f172a;
   font: inherit;
   text-align: left;
   cursor: pointer;
   transition:
     transform 180ms ease,
+    border-color 180ms ease,
     box-shadow 180ms ease;
 }
 
 .paper-cover:hover,
 .paper-cover:focus-visible {
-  transform: translateY(-3px);
-  box-shadow:
-    0 17px 30px rgba(15, 23, 42, 0.22),
-    0 5px 10px rgba(15, 23, 42, 0.13);
+  border-color: var(--cover-accent);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.13);
 }
 
 .paper-cover:focus-visible {
@@ -1042,59 +1245,28 @@ onMounted(() => void loadList())
 }
 
 .paper-card.is-incomplete .paper-cover {
-  border-color: rgba(251, 191, 36, 0.62);
+  border-color: #d6dce5;
 }
 
 .paper-card.is-archived .paper-cover {
-  filter: saturate(0.35);
-  opacity: 0.8;
+  opacity: 0.72;
 }
 
 .cover-spine {
   position: absolute;
   z-index: 2;
   inset: 0 auto 0 0;
-  width: 11px;
-  border-right: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(5, 12, 28, 0.32);
-  box-shadow: 3px 0 8px rgba(5, 12, 28, 0.2);
+  width: 5px;
+  background: var(--cover-accent);
 }
 
 .cover-pattern {
-  position: absolute;
-  top: -44px;
-  right: -60px;
-  width: 180px;
-  height: 180px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 50%;
-  box-shadow:
-    0 0 0 20px rgba(255, 255, 255, 0.025),
-    0 0 0 40px rgba(255, 255, 255, 0.025);
+  display: none;
 }
 
 .paper-cover > span:not(.cover-spine, .cover-pattern) {
   position: relative;
   z-index: 3;
-}
-
-.cover-topline {
-  display: flex;
-  align-items: center;
-  min-height: 19px;
-}
-
-.cover-status {
-  display: inline-flex;
-  align-items: center;
-  min-height: 19px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 999px;
-  padding: 2px 7px;
-  background: rgba(15, 23, 42, 0.22);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
 }
 
 .cover-access-badge {
@@ -1104,15 +1276,15 @@ onMounted(() => void loadList())
 
 .cover-access-badge :deep(.el-badge__content) {
   z-index: 6;
-  height: 21px;
+  height: 23px;
   min-width: 0;
   border-width: 2px;
-  padding: 0 7px;
-  box-shadow: 0 3px 9px rgba(15, 23, 42, 0.24);
-  font-size: 9px;
-  font-weight: 900;
+  padding: 0 8px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.16);
+  font-size: 10px;
+  font-weight: 400;
   letter-spacing: 0.06em;
-  line-height: 17px;
+  line-height: 19px;
 }
 
 .cover-access-badge :deep(.el-badge__content.is-fixed) {
@@ -1121,102 +1293,156 @@ onMounted(() => void loadList())
   transform: translateY(-50%) translateX(25%);
 }
 
-.paper-card.is-published .cover-status {
-  border-color: rgba(110, 231, 183, 0.4);
-  background: rgba(5, 150, 105, 0.3);
+.cover-kicker {
+  display: flex;
+  min-height: 26px;
+  align-items: center;
+  gap: 8px;
+  padding-right: 36px;
 }
 
-.paper-card.is-archived .cover-status {
-  background: rgba(71, 85, 105, 0.54);
-}
-
-.cover-exam {
-  margin-top: 23px;
-  color: var(--cover-accent);
-  font-size: 18px;
-  font-weight: 850;
-  letter-spacing: 0.12em;
+.cover-exam,
+.cover-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 5px;
   line-height: 1;
 }
 
-.cover-rule {
-  width: 30px;
-  height: 2px;
-  margin-top: 9px;
-  border-radius: 3px;
-  background: var(--cover-accent);
+.cover-exam {
+  padding: 6px 8px;
+  background: var(--cover-accent-soft);
+  color: var(--cover-accent);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.cover-status {
+  gap: 5px;
+  border: 1px solid #fdba74;
+  padding: 5px 8px;
+  background: #ffedd5;
+  color: #c2410c;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.cover-status::before {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: currentColor;
+  content: '';
+}
+
+.cover-status.is-published {
+  border-color: #86efac;
+  background: #dcfce7;
+  color: #047857;
+}
+
+.cover-status.is-archived {
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+  color: #475569;
 }
 
 .cover-title {
-  display: -webkit-box;
-  min-height: 55px;
+  display: block;
   overflow: hidden;
-  margin-top: 10px;
-  font-size: 21px;
-  font-weight: 850;
-  line-height: 1.28;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  margin-top: 13px;
+  color: #0f172a;
+  font-size: 20px;
+  font-weight: 750;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cover-code {
-  margin-top: 2px;
-  color: rgba(255, 255, 255, 0.58);
-  font-size: 8px;
-  letter-spacing: 0.09em;
-}
-
-.cover-metrics {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1px;
-  margin-top: auto;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.1);
+  margin-top: 3px;
+  margin-bottom: auto;
+  color: #64748b;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.cover-metrics > span {
+.cover-module-summary {
   display: flex;
+  min-width: 0;
   flex-direction: column;
-  gap: 1px;
-  padding: 6px 8px;
-  background: rgba(8, 15, 34, 0.2);
+  gap: 8px;
+  margin-top: 12px;
 }
 
-.cover-metrics strong {
-  font-size: 13px;
-}
-
-.cover-metrics small {
-  color: rgba(255, 255, 255, 0.62);
-  font-size: 8px;
-}
-
-.cover-readiness {
-  display: inline-flex;
+.cover-module-count,
+.cover-subjects {
+  display: flex;
+  width: 100%;
+  min-width: 0;
   align-items: center;
-  gap: 6px;
-  margin-top: 7px;
-  color: #fde68a;
-  font-size: 9px;
-  font-weight: 700;
+  gap: 8px;
 }
 
-.cover-readiness.is-ready {
-  color: #a7f3d0;
+.cover-module-count {
+  flex: 0 0 auto;
+}
+
+.cover-module-count strong {
+  color: #0f172a;
+  font-size: 15px;
+  line-height: 1.1;
+}
+
+.cover-module-summary small {
+  color: #64748b;
+  font-size: 10px;
+}
+
+.cover-subjects {
+  flex: 1 1 auto;
+}
+
+.cover-subject-list {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.cover-subject-list em {
+  border-radius: 4px;
+  padding: 3px;
+  background: var(--cover-accent-soft);
+  color: var(--cover-accent);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.cover-subject-list em.is-pending {
+  background: #f1f5f9;
+  color: #64748b;
 }
 
 .cover-open {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 8px;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 9px;
+  margin-top: 9px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 9px;
+  color: #334155;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.06em;
 }
 
 .cover-open span {
@@ -1243,12 +1469,26 @@ onMounted(() => void loadList())
   min-width: 0;
   flex-direction: column;
   color: #64748b;
-  font-size: 10px;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .paper-card-footer small {
-  color: #a1aab8;
-  font-size: 8px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.paper-card-footer__meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.paper-card-footer__meta em {
+  color: #64748b;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
 }
 
 .card-actions {
@@ -1261,16 +1501,21 @@ onMounted(() => void loadList())
   padding: 12px 0;
 }
 
-.module-identity,
-.module-association,
-.module-set-status {
+.module-association {
   display: flex;
   flex-direction: column;
   gap: 5px;
 }
 
+.module-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .module-identity strong {
   color: #1e293b;
+  font-size: 14px;
 }
 
 .module-identity code {
@@ -1278,28 +1523,7 @@ onMounted(() => void loadList())
   font-size: 11px;
 }
 
-.question-composition {
-  display: flex;
-  max-width: 155px;
-  flex-direction: column;
-  gap: 7px;
-}
-
-.question-composition > span {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.question-composition strong {
-  color: #334155;
-  font-size: 13px;
-}
-
-.question-composition small,
-.module-association small,
-.module-set-status small {
+.module-association small {
   color: #94a3b8;
   font-size: 11px;
 }
@@ -1326,10 +1550,6 @@ onMounted(() => void loadList())
 .module-set-link:hover {
   color: #3730a3;
   text-decoration: underline;
-}
-
-.module-set-status {
-  align-items: flex-start;
 }
 
 .validation-ok,
@@ -1467,43 +1687,6 @@ onMounted(() => void loadList())
   width: 130px;
 }
 
-.readiness-overview {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.readiness-overview > div {
-  display: flex;
-  min-height: 96px;
-  flex-direction: column;
-  gap: 6px;
-  padding: 16px 18px;
-  border: 1px solid #bbf7d0;
-  border-radius: 12px;
-  background: #f0fdf4;
-}
-
-.readiness-overview > div.is-pending {
-  border-color: #fde68a;
-  background: #fffbeb;
-}
-
-.readiness-overview span,
-.readiness-overview small {
-  color: #64748b;
-}
-
-.readiness-overview strong {
-  color: #166534;
-  font-size: 20px;
-}
-
-.readiness-overview .is-pending strong {
-  color: #b45309;
-}
-
 .set-alert {
   margin-bottom: 16px;
 }
@@ -1513,6 +1696,35 @@ onMounted(() => void loadList())
   border: 1px solid #e2e8f0;
   border-radius: 14px;
   background: #fff;
+}
+
+.module-tabs :deep(#tab-add-module) {
+  height: var(--el-tabs-header-height);
+  padding: 0 8px;
+}
+
+.module-tab-add {
+  width: 30px;
+  height: 30px;
+  border: 1px dashed #94a3b8;
+  border-radius: 7px;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+  font: inherit;
+  font-size: 16px;
+  line-height: 26px;
+}
+
+.module-tab-add:hover,
+.module-tab-add:focus-visible {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.module-tab-add:focus-visible {
+  outline: 2px solid #bfdbfe;
+  outline-offset: 2px;
 }
 
 .module-tab-label {
@@ -1539,12 +1751,122 @@ onMounted(() => void loadList())
   font-size: 11px;
 }
 
-.module-ready {
-  color: #059669;
+.module-tab-remove {
+  display: inline-grid;
+  width: 19px;
+  height: 19px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  opacity: 0;
+  transition:
+    opacity 150ms ease,
+    background 150ms ease,
+    color 150ms ease;
 }
 
-.module-pending {
-  color: #d97706;
+.module-tab-label:hover .module-tab-remove,
+.module-tab-remove:focus-visible {
+  opacity: 1;
+}
+
+.module-tab-remove:hover,
+.module-tab-remove:focus-visible {
+  background: #fef2f2;
+  color: #dc2626;
+  outline: none;
+}
+
+.module-tab-remove:disabled {
+  cursor: wait;
+  opacity: 0.45;
+}
+
+.module-candidate-shell {
+  min-height: 150px;
+}
+
+.module-candidate-shell .el-radio-group {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.module-candidate-option {
+  width: 100%;
+  height: auto;
+  min-height: 66px;
+  margin: 0;
+  padding: 11px 14px;
+}
+
+.module-candidate-option :deep(.el-radio__label) {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.module-candidate-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.module-candidate-main strong {
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.module-candidate-main small,
+.module-candidate-tip {
+  color: #64748b;
+}
+
+.module-candidate-tags {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.module-candidate-tip {
+  margin: 12px 0 0;
+  font-size: 12px;
+}
+
+.module-publication {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 3px 7px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.module-publication.is-published {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.module-publication.is-unpublished {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #64748b;
 }
 
 .module-issues {
@@ -1589,9 +1911,19 @@ onMounted(() => void loadList())
   grid-column: 2;
 }
 
+@media (max-width: 1400px) {
+  .paper-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 1080px) {
   .workflow-strip {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .paper-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .toolbar,
@@ -1602,6 +1934,12 @@ onMounted(() => void loadList())
 
   .toolbar-view-switch {
     margin-left: auto;
+  }
+}
+
+@media (max-width: 680px) {
+  .paper-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

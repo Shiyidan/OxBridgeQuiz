@@ -73,6 +73,7 @@ export interface ExamProgress {
   paperTitle?: string
   paperYear?: number
   examType?: string
+  mockExamMode?: 'full' | 'single'
   practiceTitle?: string
   totalQuestions: number
   startedAt: string

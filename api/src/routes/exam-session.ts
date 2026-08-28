@@ -18,6 +18,7 @@ import {
   ensureDiagnosticReportTask,
   retryDiagnosticReportTask,
   scheduleDiagnosticReportWorker,
+  supportsAttemptDiagnosticReport,
 } from '../services/diagnosticReportTask.js'
 import {
   ANSWER_RECORD_STATE,
@@ -1121,8 +1122,11 @@ examSessionRouter.post('/:id/submit', requireAuth, async (req, res) => {
       return
     }
 
-    const isDiagnostic = supportsDiagnosticReport(record.paper.paperType)
     const moduleSnapshot = parseModuleExamSnapshot(record.structureSnapshot)
+    const isDiagnostic = supportsAttemptDiagnosticReport(
+      record.paper.paperType,
+      record.structureSnapshot,
+    )
     const usesTimedSession = usesContinuousExamClock(
       record.paper.paperType,
       record.paper.deliveryMode,

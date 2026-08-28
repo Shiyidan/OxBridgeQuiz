@@ -34,6 +34,15 @@ const MAX_AUTOMATIC_RETRIES = 1
 let workerRunning = false
 let workerTimer: NodeJS.Timeout | null = null
 
+// 单项模考只保留客观成绩与错题记录，不进入依赖完整考试结构的诊断报告流程。
+export function supportsAttemptDiagnosticReport(
+  paperType: string,
+  structureSnapshot: unknown,
+): boolean {
+  return supportsDiagnosticReport(paperType)
+    && parseModuleExamSnapshot(structureSnapshot)?.mockExamMode !== 'single'
+}
+
 interface StoredLearningAnalysis extends Record<string, unknown> {
   exam_focus?: unknown
   review_guidance?: unknown
@@ -191,8 +200,11 @@ async function buildReportForTask(taskId: string, examRecordId: string): Promise
     },
   })
   if (!examRecord) throw new Error('Exam record not found')
-  if (!supportsDiagnosticReport(examRecord.paper.paperType)) {
-    throw new Error('Only diagnostic and mock papers support diagnostic reports')
+  if (!supportsAttemptDiagnosticReport(
+    examRecord.paper.paperType,
+    examRecord.structureSnapshot,
+  )) {
+    throw new Error('This exam record does not support diagnostic reports')
   }
   if (examRecord.status !== EXAM_RECORD_STATUS.SUBMITTED || !examRecord.submittedAt) {
     throw new Error('Diagnostic report requires a submitted exam')
@@ -448,8 +460,11 @@ export async function ensureDiagnosticReportTask(examRecordId: string, userId: s
     include: { paper: { select: { paperType: true } } },
   })
   if (!examRecord) throw new Error('Exam record not found')
-  if (!supportsDiagnosticReport(examRecord.paper.paperType)) {
-    throw new Error('Only diagnostic and mock papers support diagnostic reports')
+  if (!supportsAttemptDiagnosticReport(
+    examRecord.paper.paperType,
+    examRecord.structureSnapshot,
+  )) {
+    throw new Error('This exam record does not support diagnostic reports')
   }
   if (examRecord.status !== EXAM_RECORD_STATUS.SUBMITTED || !examRecord.submittedAt) {
     throw new Error('Diagnostic report requires a submitted exam')

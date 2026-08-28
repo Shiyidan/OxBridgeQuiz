@@ -3,6 +3,7 @@
  */
 import {
   ESAT_MODULE,
+  ESAT_MODULE_SUBJECT_CODES,
   ESAT_MODULES,
   EXAM_TYPE,
   PAPER_ACCESS_TIER,
@@ -165,14 +166,6 @@ const ESAT_MODULE_ALIASES: Record<string, string> = {
   physics: ESAT_MODULE.PHYSICS,
   chemistry: ESAT_MODULE.CHEMISTRY,
   biology: ESAT_MODULE.BIOLOGY,
-}
-
-const ESAT_MODULE_SUBJECT_CODES: Record<string, string> = {
-  [ESAT_MODULE.MATHS_1]: '110000',
-  [ESAT_MODULE.MATHS_2]: '120000',
-  [ESAT_MODULE.PHYSICS]: '130000',
-  [ESAT_MODULE.CHEMISTRY]: '140000',
-  [ESAT_MODULE.BIOLOGY]: '150000',
 }
 
 const TMUA_PAPER_ALIASES: Record<string, string> = {
@@ -765,7 +758,7 @@ export function validateStandardPaperDocument(input: any): {
       const expectedSubjectCode = moduleCode
         ? rawMetadata?.examType === EXAM_TYPE.TMUA
           ? TMUA_PAPER_SUBJECT_CODES[moduleCode]
-          : ESAT_MODULE_SUBJECT_CODES[moduleCode]
+          : ESAT_MODULE_SUBJECT_CODES[moduleCode as keyof typeof ESAT_MODULE_SUBJECT_CODES]
         : null
       if (isCanonicalModuleDocument && !subjectCode) {
         errors.push({

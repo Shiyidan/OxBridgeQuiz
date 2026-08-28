@@ -29,6 +29,7 @@ import {
 } from "../services/questionBankDocument.js";
 import { createAsyncRouter } from "../utils/asyncRouter.js";
 import { formatQuestionRow } from "../utils/questionSync.js";
+import { resolveQuestionModuleCode } from "../utils/questionModule.js";
 import { fail, success } from "../utils/response.js";
 import {
   attemptQuestionSelect,
@@ -639,12 +640,12 @@ questionLibraryRouter.post(
               importBatchId: batch.id,
               examType: question.examType,
               number: questionIndex + 1,
-              moduleCode:
-                question.part === TMUA_PAPER.PAPER_1
-                  ? TMUA_PAPER.PAPER_1
-                  : question.part === TMUA_PAPER.PAPER_2
-                    ? TMUA_PAPER.PAPER_2
-                    : null,
+              moduleCode: resolveQuestionModuleCode({
+                examType: question.examType,
+                subject: classification.subject,
+                subjectCode: classification.subjectCode,
+                part: question.part,
+              }),
               title: question.title,
               options: question.options as Prisma.InputJsonValue,
               answer: question.answer as Prisma.InputJsonValue,

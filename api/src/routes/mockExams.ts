@@ -17,9 +17,11 @@ import { hasDiagnosticPaperAccess, type ExamPreferenceRecord } from '../services
 import { computeScores, type QuestionResult, type ScoringResult } from '../services/scoring.js'
 import {
   buildModuleExamSnapshot,
+  buildSingleModuleExamSnapshot,
   getModuleExamSession,
   moduleSnapshotJson,
   parseModuleExamSnapshot,
+  singleModuleExamTitle,
 } from '../services/moduleExamSession.js'
 import { parseJsonArray } from '../utils/jsonField.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
@@ -45,6 +47,8 @@ type MockModuleRow = {
   durationSeconds: number
   expectedQuestionCount: number
 }
+
+type MockExamMode = 'full' | 'single'
 
 // 前端分页契约与项目其他列表保持一致。
 function paginationMeta(page: number, pageSize: number, total: number) {
@@ -111,6 +115,34 @@ function currentModuleLabel(record: {
   return snapshot?.modules[record.currentModuleIndex]?.subject || null
 }
 
+// 旧答卷没有模式元数据，按完整模考兼容；新单项答卷由冻结快照明确标记。
+function mockExamMode(structureSnapshot: unknown): MockExamMode {
+  return parseModuleExamSnapshot(structureSnapshot)?.mockExamMode === 'single' ? 'single' : 'full'
+}
+
+// 已提交答卷完成全部模块；进行中答卷只把已经越过或进入待交卷阶段的模块视为已练习。
+function hasCompletedMockModule(record: {
+  status: string
+  phase: string
+  currentModuleIndex: number
+  structureSnapshot: unknown
+}, moduleCode: string): boolean {
+  const snapshot = parseModuleExamSnapshot(record.structureSnapshot)
+  if (!snapshot) return false
+  const moduleIndex = snapshot.modules.findIndex((module) => module.code === moduleCode)
+  if (moduleIndex < 0) return false
+  if (record.status === EXAM_RECORD_STATUS.SUBMITTED) return true
+  return (
+    moduleIndex < record.currentModuleIndex
+    || (moduleIndex === record.currentModuleIndex && record.phase === EXAM_PHASE.READY_TO_SUBMIT)
+  )
+}
+
+// 单项模考没有整卷综合分时使用唯一模块分，目录与记录都能展示可比较的正式成绩。
+function singleModuleScore(scoring: ScoringResult): number | null {
+  return scoring.overallScore ?? scoring.modules[0]?.scaledScore ?? null
+}
+
 // 模考成绩复用统一评分引擎；ESAT 保持官方三模块独立分，不制造总分。
 function scoreExamAnswers(answers: Array<{
   isCorrect: boolean
@@ -124,7 +156,7 @@ function scoreExamAnswers(answers: Array<{
   return computeScores(examType, rows)
 }
 
-// 游客可浏览已发布目录；登录用户额外获得该卷的未完成、已完成与最佳成绩汇总。
+// 游客可浏览完整套卷；个人汇总只统计完整模考，不能被同一运行试卷下的单项答卷污染。
 mockExamRouter.get('/catalog', optionalAuth, async (req, res) => {
   const examType = String(req.query.examType || '').trim().toUpperCase()
   if (examType !== EXAM_TYPE.ESAT && examType !== EXAM_TYPE.TMUA) {
@@ -140,38 +172,16 @@ mockExamRouter.get('/catalog', optionalAuth, async (req, res) => {
   const pageSize = parsePositiveInt(req.query.pageSize, 10, 50)
   const requestedPage = parsePositiveInt(req.query.page, 1)
   const userId = req.user?.userId
-  const relationFilter = userId && status
-    ? status === 'not_started'
-      ? { paper: { examRecords: { none: { userId } } } }
-      : {
-          paper: {
-            examRecords: {
-              some: {
-                userId,
-                status: status === 'in_progress'
-                  ? EXAM_RECORD_STATUS.IN_PROGRESS
-                  : EXAM_RECORD_STATUS.SUBMITTED,
-              },
-            },
-          },
-        }
-    : {}
-  const where: Prisma.MockPaperSetWhereInput = {
-    examType,
-    status: MOCK_PAPER_STATUS.PUBLISHED,
-    validationStatus: MOCK_PAPER_VALIDATION_STATUS.VALID,
-    paperId: { not: null },
-    ...(keyword ? { OR: [{ title: { contains: keyword } }, { code: { contains: keyword } }] } : {}),
-    ...relationFilter,
-  }
-  const total = await prisma.mockPaperSet.count({ where })
-  const totalPages = Math.ceil(total / pageSize)
-  const page = totalPages > 0 ? Math.min(requestedPage, totalPages) : 1
   const sets = await prisma.mockPaperSet.findMany({
-    where,
+    where: {
+      examType,
+      status: MOCK_PAPER_STATUS.PUBLISHED,
+      validationStatus: MOCK_PAPER_VALIDATION_STATUS.VALID,
+      fullExamReady: true,
+      paperId: { not: null },
+      ...(keyword ? { OR: [{ title: { contains: keyword } }, { code: { contains: keyword } }] } : {}),
+    },
     orderBy: [{ sequenceNo: 'asc' }, { version: 'desc' }],
-    skip: (page - 1) * pageSize,
-    take: pageSize,
     include: { modules: { orderBy: { moduleOrder: 'asc' } } },
   })
   const esatModuleCodes = examType === EXAM_TYPE.ESAT
@@ -195,21 +205,23 @@ mockExamRouter.get('/catalog', optionalAuth, async (req, res) => {
     : []
   const recordsByPaper = new Map<string, typeof records>()
   for (const record of records) {
+    if (mockExamMode(record.structureSnapshot) !== 'full') continue
     const current = recordsByPaper.get(record.paperId) || []
     current.push(record)
     recordsByPaper.set(record.paperId, current)
   }
 
-  const list = sets.map((set) => {
+  const allItems = sets.map((set) => {
     const effectiveModules = selectEffectiveModules(set.examType, set.modules, esatModuleCodes)
     const displayModules = set.examType === EXAM_TYPE.ESAT && !effectiveModules.length
       ? []
       : effectiveModules
+    const maths1 = set.modules.find((module) => module.code === 'maths1')
     const totalQuestions = set.examType === EXAM_TYPE.ESAT
-      ? set.modules.find((module) => module.code === 'maths1')!.expectedQuestionCount * 3
+      ? (maths1?.expectedQuestionCount || 0) * 3
       : effectiveModules.reduce((sum, module) => sum + module.expectedQuestionCount, 0)
     const durationSeconds = set.examType === EXAM_TYPE.ESAT
-      ? set.modules.find((module) => module.code === 'maths1')!.durationSeconds * 3
+      ? (maths1?.durationSeconds || 0) * 3
       : effectiveModules.reduce((sum, module) => sum + module.durationSeconds, 0)
     const paperRecords = set.paperId ? recordsByPaper.get(set.paperId) || [] : []
     const inProgress = paperRecords.filter(
@@ -254,17 +266,167 @@ mockExamRouter.get('/catalog', optionalAuth, async (req, res) => {
       })),
     }
   })
+  const filteredItems = !userId || !status
+    ? allItems
+    : allItems.filter((item) => {
+        if (status === 'not_started') return item.inProgressCount === 0 && item.completedCount === 0
+        if (status === 'in_progress') return item.inProgressCount > 0
+        return item.completedCount > 0
+      })
+  const total = filteredItems.length
+  const totalPages = Math.ceil(total / pageSize)
+  const page = totalPages > 0 ? Math.min(requestedPage, totalPages) : 1
+  const list = filteredItems.slice((page - 1) * pageSize, page * pageSize)
+  res.json(success({ list, pagination: paginationMeta(page, pageSize, total) }))
+})
+
+// 单项目录按已发布且独立校验通过的 Module/Paper 展示，并附带单项答卷与跨整卷练习状态。
+mockExamRouter.get('/modules', optionalAuth, async (req, res) => {
+  const examType = String(req.query.examType || '').trim().toUpperCase()
+  if (examType !== EXAM_TYPE.ESAT && examType !== EXAM_TYPE.TMUA) {
+    res.status(422).json(fail('单项模考仅支持 ESAT 或 TMUA', 'MOCK_EXAM_TYPE_INVALID'))
+    return
+  }
+  const keyword = String(req.query.keyword || '').trim().slice(0, 80).toLowerCase()
+  const moduleCode = String(req.query.moduleCode || '').trim().toLowerCase()
+  const status = String(req.query.status || '').trim()
+  if (status && !['not_started', 'in_progress', 'completed', 'practiced'].includes(status)) {
+    res.status(422).json(fail('单项模考目录状态无效', 'MOCK_EXAM_STATUS_INVALID'))
+    return
+  }
+  const pageSize = parsePositiveInt(req.query.pageSize, 10, 50)
+  const requestedPage = parsePositiveInt(req.query.page, 1)
+  const userId = req.user?.userId
+  const modules = await prisma.mockPaperModule.findMany({
+    where: {
+      validationStatus: MOCK_PAPER_VALIDATION_STATUS.VALID,
+      ...(moduleCode ? { code: moduleCode } : {}),
+      mockPaperSet: {
+        examType,
+        status: MOCK_PAPER_STATUS.PUBLISHED,
+        paperId: { not: null },
+      },
+    },
+    orderBy: [
+      { mockPaperSet: { sequenceNo: 'asc' } },
+      { moduleOrder: 'asc' },
+    ],
+    include: {
+      mockPaperSet: {
+        include: { paper: { select: { id: true, status: true } } },
+      },
+    },
+  })
+  const paperIds = [...new Set(modules.flatMap((module) => (
+    module.mockPaperSet.paperId ? [module.mockPaperSet.paperId] : []
+  )))]
+  const records = userId && paperIds.length
+    ? await prisma.examRecord.findMany({
+        where: { userId, paperId: { in: paperIds } },
+        orderBy: [{ submittedAt: 'desc' }, { startedAt: 'desc' }],
+        include: {
+          answers: {
+            select: {
+              selectedAnswer: true,
+              isCorrect: true,
+              question: { select: { subject: true, moduleCode: true } },
+            },
+          },
+        },
+      })
+    : []
+  const recordsByPaper = new Map<string, typeof records>()
+  for (const record of records) {
+    const current = recordsByPaper.get(record.paperId) || []
+    current.push(record)
+    recordsByPaper.set(record.paperId, current)
+  }
+
+  const allItems = modules.flatMap((module) => {
+    const set = module.mockPaperSet
+    if (!set.paperId || set.paper?.status !== 'published') return []
+    const paperRecords = recordsByPaper.get(set.paperId) || []
+    const singleRecords = paperRecords.filter((record) => {
+      const snapshot = parseModuleExamSnapshot(record.structureSnapshot)
+      return snapshot?.mockExamMode === 'single' && snapshot.mockModuleId === module.id
+    })
+    const inProgress = singleRecords.filter(
+      (record) => record.status === EXAM_RECORD_STATUS.IN_PROGRESS,
+    )
+    const completed = singleRecords.filter(
+      (record) => record.status === EXAM_RECORD_STATUS.SUBMITTED,
+    )
+    const completedScores = completed
+      .map((record) => singleModuleScore(scoreExamAnswers(record.answers, record.examType)))
+      .filter((score): score is number => score !== null)
+    const practicedInFull = paperRecords.some((record) => (
+      mockExamMode(record.structureSnapshot) === 'full'
+      && hasCompletedMockModule(record, module.code)
+    ))
+    const title = singleModuleExamTitle(set.examType, module.code, set.sequenceNo)
+    const searchable = `${title} ${module.label} ${module.code} ${set.title} ${set.code}`.toLowerCase()
+    if (keyword && !searchable.includes(keyword)) return []
+    return [{
+      id: module.id,
+      mockPaperSetId: set.id,
+      code: module.code,
+      label: module.label,
+      title,
+      examType: set.examType,
+      accessTier: set.accessTier,
+      durationSeconds: module.durationSeconds,
+      totalQuestions: module.expectedQuestionCount,
+      publicationStatus: 'published',
+      sourcePaperCode: set.code,
+      sourcePaperTitle: set.title,
+      fullExamReady: set.fullExamReady,
+      inProgressCount: inProgress.length,
+      completedCount: completed.length,
+      bestScore: completedScores.length ? Math.max(...completedScores) : null,
+      latestCompletedExamRecordId: completed[0]?.id || null,
+      practicedInFull,
+      inProgressAttempts: inProgress.map((record) => ({
+        examRecordId: record.id,
+        paperId: module.id,
+        startedAt: record.startedAt.toISOString(),
+        updatedAt: (record.phaseStartedAt || record.startedAt).toISOString(),
+        currentModuleLabel: currentModuleLabel(record) || module.label,
+        answeredCount: record.answers.filter((answer) => Boolean(answer.selectedAnswer)).length,
+        totalQuestions: record.totalQuestions,
+        remainingSeconds: remainingSeconds(record),
+      })),
+    }]
+  })
+  const filteredItems = !userId || !status
+    ? allItems
+    : allItems.filter((item) => {
+        if (status === 'not_started') {
+          return item.inProgressCount === 0 && item.completedCount === 0 && !item.practicedInFull
+        }
+        if (status === 'in_progress') return item.inProgressCount > 0
+        if (status === 'completed') return item.completedCount > 0
+        return item.completedCount > 0 || item.practicedInFull
+      })
+  const total = filteredItems.length
+  const totalPages = Math.ceil(total / pageSize)
+  const page = totalPages > 0 ? Math.min(requestedPage, totalPages) : 1
+  const list = filteredItems.slice((page - 1) * pageSize, page * pageSize)
   res.json(success({ list, pagination: paginationMeta(page, pageSize, total) }))
 })
 
 // 个人概览只统计固定模考卷，不混入真题诊断或题库练习。
 mockExamRouter.get('/overview', requireAuth, async (req, res) => {
   const examType = String(req.query.examType || '').trim().toUpperCase()
+  const requestedMode = String(req.query.mode || 'full').trim()
   if (examType !== EXAM_TYPE.ESAT && examType !== EXAM_TYPE.TMUA) {
     res.status(422).json(fail('无限模考仅支持 ESAT 或 TMUA', 'MOCK_EXAM_TYPE_INVALID'))
     return
   }
-  const [records, user] = await Promise.all([
+  if (!['all', 'full', 'single'].includes(requestedMode)) {
+    res.status(422).json(fail('模考概览类型无效', 'MOCK_EXAM_MODE_INVALID'))
+    return
+  }
+  const [allRecords, user] = await Promise.all([
     prisma.examRecord.findMany({
       where: {
         userId: req.user!.userId,
@@ -288,6 +450,9 @@ mockExamRouter.get('/overview', requireAuth, async (req, res) => {
       select: { examPreferences: true },
     }),
   ])
+  const records = requestedMode === 'all'
+    ? allRecords
+    : allRecords.filter((record) => mockExamMode(record.structureSnapshot) === requestedMode)
   const preferences = parseJsonArray<ExamPreferenceRecord>(user?.examPreferences)
   const targetScore = preferences.find(
     (item) => item.examType.toUpperCase() === examType,
@@ -311,12 +476,25 @@ mockExamRouter.get('/overview', requireAuth, async (req, res) => {
           scoring.modules.find((module) => module.module === key)?.scaledScore ?? null,
         ),
       }))
-  const overallScores = scoredRecords
-    .map(({ scoring }) => scoring.overallScore)
-    .filter((score): score is number => score !== null)
+  const bestEsatModule = examType === EXAM_TYPE.ESAT
+    ? scoredRecords
+        .flatMap(({ scoring }) => scoring.modules)
+        .reduce<(ScoringResult['modules'][number] | null)>((best, module) => (
+          !best || module.scaledScore > best.scaledScore ? module : best
+        ), null)
+    : null
+  const bestScores = scoredRecords.flatMap(({ record, scoring }) => {
+    if (examType === EXAM_TYPE.ESAT) return []
+    const score = mockExamMode(record.structureSnapshot) === 'single'
+      ? singleModuleScore(scoring)
+      : scoring.overallScore
+    return score === null ? [] : [score]
+  })
   res.json(success({
     completedCount: records.length,
-    bestScore: overallScores.length ? Math.max(...overallScores) : null,
+    bestScore: bestEsatModule?.scaledScore
+      ?? (bestScores.length ? Math.max(...bestScores) : null),
+    bestScoreModuleLabel: bestEsatModule?.moduleLabel || null,
     targetScore,
     maxScore: 9,
     labels,
@@ -328,12 +506,17 @@ mockExamRouter.get('/overview', requireAuth, async (req, res) => {
 mockExamRouter.get('/records', requireAuth, async (req, res) => {
   const examType = String(req.query.examType || '').trim().toUpperCase()
   const requestedStatus = String(req.query.status || 'in_progress').trim()
+  const requestedMode = String(req.query.mode || 'all').trim()
   if (examType !== EXAM_TYPE.ESAT && examType !== EXAM_TYPE.TMUA) {
     res.status(422).json(fail('无限模考仅支持 ESAT 或 TMUA', 'MOCK_EXAM_TYPE_INVALID'))
     return
   }
   if (requestedStatus !== 'in_progress' && requestedStatus !== 'completed') {
     res.status(422).json(fail('模考记录状态无效', 'MOCK_EXAM_STATUS_INVALID'))
+    return
+  }
+  if (!['all', 'full', 'single'].includes(requestedMode)) {
+    res.status(422).json(fail('模考记录类型无效', 'MOCK_EXAM_MODE_INVALID'))
     return
   }
   const databaseStatus = requestedStatus === 'completed'
@@ -347,23 +530,20 @@ mockExamRouter.get('/records', requireAuth, async (req, res) => {
     status: databaseStatus,
     paper: { paperType: { in: [...MOCK_PAPER_TYPES] } },
   }
-  const total = await prisma.examRecord.count({ where })
-  const totalPages = Math.ceil(total / pageSize)
-  const page = totalPages > 0 ? Math.min(requestedPage, totalPages) : 1
-  const records = await prisma.examRecord.findMany({
+  const allRecords = await prisma.examRecord.findMany({
     where,
     orderBy: requestedStatus === 'completed'
       ? [{ submittedAt: 'desc' }, { startedAt: 'desc' }]
       : [{ startedAt: 'desc' }],
-    skip: (page - 1) * pageSize,
-    take: pageSize,
     include: {
       paper: {
         select: {
           id: true,
           title: true,
           code: true,
-          mockPaperSet: { select: { id: true } },
+          mockPaperSet: {
+            select: { id: true, title: true, code: true, sequenceNo: true },
+          },
         },
       },
       diagnosticReportTask: { select: { status: true } },
@@ -376,15 +556,36 @@ mockExamRouter.get('/records', requireAuth, async (req, res) => {
       },
     },
   })
+  const filteredRecords = requestedMode === 'all'
+    ? allRecords
+    : allRecords.filter((record) => mockExamMode(record.structureSnapshot) === requestedMode)
+  const total = filteredRecords.length
+  const totalPages = Math.ceil(total / pageSize)
+  const page = totalPages > 0 ? Math.min(requestedPage, totalPages) : 1
+  const records = filteredRecords.slice((page - 1) * pageSize, page * pageSize)
   const list = records.map((record) => {
     const scoring = record.status === EXAM_RECORD_STATUS.SUBMITTED
       ? scoreExamAnswers(record.answers, record.examType)
       : null
+    const snapshot = parseModuleExamSnapshot(record.structureSnapshot)
+    const mode = mockExamMode(record.structureSnapshot)
+    const module = mode === 'single' ? snapshot?.modules[0] || null : null
+    const sourceSet = record.paper.mockPaperSet
+    const title = module && sourceSet
+      ? singleModuleExamTitle(record.examType, module.code, sourceSet.sequenceNo)
+      : record.paper.title
     return {
       examRecordId: record.id,
-      paperId: record.paper.mockPaperSet?.id || record.paper.id,
-      paperTitle: record.paper.title,
+      paperId: mode === 'single'
+        ? snapshot?.mockModuleId || sourceSet?.id || record.paper.id
+        : sourceSet?.id || record.paper.id,
+      paperTitle: title,
       paperCode: record.paper.code,
+      mode,
+      moduleCode: module?.code || null,
+      moduleLabel: module?.subject || null,
+      sourcePaperTitle: sourceSet?.title || record.paper.title,
+      sourcePaperCode: sourceSet?.code || record.paper.code,
       status: record.status === EXAM_RECORD_STATUS.SUBMITTED ? 'completed' : 'in_progress',
       startedAt: record.startedAt.toISOString(),
       updatedAt: (record.submittedAt || record.phaseStartedAt || record.startedAt).toISOString(),
@@ -399,7 +600,9 @@ mockExamRouter.get('/records', requireAuth, async (req, res) => {
         : null,
       durationSeconds: record.durationSeconds,
       remainingSeconds: remainingSeconds(record),
-      score: scoring?.overallScore ?? null,
+      score: scoring
+        ? mode === 'single' ? singleModuleScore(scoring) : scoring.overallScore
+        : null,
       moduleScores: scoring?.modules.map((module) => ({
         code: module.module,
         label: module.moduleLabel,
@@ -407,13 +610,153 @@ mockExamRouter.get('/records', requireAuth, async (req, res) => {
         totalQuestions: module.totalQuestions,
         score: module.scaledScore,
       })) || [],
-      reportStatus: record.diagnosticReportTask?.status || null,
+      reportStatus: mode === 'full' ? record.diagnosticReportTask?.status || null : null,
     }
   })
   res.json(success({ list, pagination: paginationMeta(page, pageSize, total) }))
 })
 
-// 创建答卷时冻结会员授权、ESAT 科目组合、模块题序和正式时长；允许并存多场未完成模考。
+// 单项开考冻结目标 Module/Paper 及题序，所属 Mock 未组成完整套卷时仍可独立考试。
+mockExamRouter.post('/modules/:id/attempts', requireAuth, async (req, res) => {
+  const requestId = typeof req.body?.startRequestId === 'string'
+    ? req.body.startRequestId.trim().slice(0, 100)
+    : ''
+  if (!requestId || !/^[A-Za-z0-9-]{8,100}$/.test(requestId)) {
+    res.status(422).json(fail('开始请求标识无效，请刷新后重试', 'MOCK_EXAM_START_REQUEST_INVALID'))
+    return
+  }
+  const startRequestKey = `${req.user!.userId}:single:${req.params.id}:${requestId}`
+  const existing = await prisma.examRecord.findUnique({ where: { startRequestKey } })
+  if (existing) {
+    res.json(success({ examRecordId: existing.id, paperId: req.params.id }))
+    return
+  }
+
+  const module = await prisma.mockPaperModule.findUnique({
+    where: { id: req.params.id },
+    include: {
+      mockPaperSet: { include: { paper: true } },
+      questions: {
+        orderBy: { position: 'asc' },
+        include: {
+          question: {
+            select: {
+              id: true,
+              answer: true,
+              status: true,
+              examType: true,
+            },
+          },
+        },
+      },
+    },
+  })
+  const set = module?.mockPaperSet
+  if (
+    !module
+    || !set
+    || module.validationStatus !== MOCK_PAPER_VALIDATION_STATUS.VALID
+    || set.status !== MOCK_PAPER_STATUS.PUBLISHED
+    || !set.paper
+    || set.paper.status !== 'published'
+  ) {
+    res.status(409).json(fail('该单项模考当前不能开始', 'MOCK_EXAM_MODULE_NOT_AVAILABLE'))
+    return
+  }
+  if (!(await hasDiagnosticPaperAccess(req.user!.userId, set))) {
+    res.status(403).json(fail(
+      `当前单项需要开通 ${set.examType} 会员后才能开始`,
+      'MOCK_EXAM_PAPER_LOCKED',
+    ))
+    return
+  }
+  const invalidQuestion = (
+    module.questions.length !== module.expectedQuestionCount
+    || module.questions.some((item) => (
+      item.validationStatus !== MOCK_PAPER_VALIDATION_STATUS.VALID
+      || !item.question
+      || item.question.status !== QUESTION_STATUS.PUBLISHED
+      || item.question.examType !== set.examType
+    ))
+  )
+  if (invalidQuestion) {
+    res.status(422).json(fail(
+      '该单项题目已发生变化，请等待管理员重新校验',
+      'MOCK_EXAM_QUESTION_INVALID',
+    ))
+    return
+  }
+
+  const questionIds = module.questions.map((item) => item.question!.id)
+  const snapshot = buildSingleModuleExamSnapshot(
+    { examType: set.examType },
+    {
+      id: module.id,
+      code: module.code,
+      subject: module.label,
+      subjectCode: module.code,
+      durationSeconds: module.durationSeconds,
+    },
+    questionIds,
+  )
+  const officialQuestions = module.questions.map((item) => ({
+    id: item.question!.id,
+    answer: parseJsonArray<string>(item.question!.answer),
+  }))
+
+  let examRecordId = ''
+  try {
+    examRecordId = await prisma.$transaction(async (tx) => {
+      const duplicate = await tx.examRecord.findUnique({ where: { startRequestKey } })
+      if (duplicate) return duplicate.id
+      const startedAt = new Date()
+      const expiresAt = new Date(startedAt.getTime() + module.durationSeconds * 1000)
+      const record = await tx.examRecord.create({
+        data: {
+          userId: req.user!.userId,
+          paperId: set.paper!.id,
+          examType: set.examType,
+          totalQuestions: officialQuestions.length,
+          correctCount: 0,
+          startedAt,
+          expiresAt,
+          phase: EXAM_PHASE.ANSWERING,
+          currentModuleIndex: 0,
+          phaseStartedAt: startedAt,
+          phaseExpiresAt: expiresAt,
+          structureSnapshot: moduleSnapshotJson(snapshot),
+          activeDurationSeconds: 0,
+          durationSeconds: 0,
+          status: EXAM_RECORD_STATUS.IN_PROGRESS,
+          startRequestKey,
+        },
+      })
+      await replaceAnswerRecords(tx, record.id, officialQuestions, {}, {}, {}, true)
+      return record.id
+    })
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const duplicate = await prisma.examRecord.findUnique({ where: { startRequestKey } })
+      if (duplicate) examRecordId = duplicate.id
+      else throw error
+    } else {
+      throw error
+    }
+  }
+  const session = await getModuleExamSession(examRecordId, req.user!.userId)
+  if (!session) {
+    res.status(500).json(fail('单项模考会话创建失败', 'MOCK_EXAM_SESSION_FAILED'))
+    return
+  }
+  setOperationAuditContext(req, {
+    resourceType: 'ExamRecord',
+    resourceId: examRecordId,
+    summary: `开始 ${set.examType} 单项模考“${module.label}”`,
+  })
+  res.status(201).json(success({ examRecordId, paperId: module.id }))
+})
+
+// 创建完整答卷时冻结会员授权、ESAT 科目组合、模块题序和正式时长；允许并存多场未完成模考。
 mockExamRouter.post('/papers/:id/attempts', requireAuth, async (req, res) => {
   const requestId = typeof req.body?.startRequestId === 'string'
     ? req.body.startRequestId.trim().slice(0, 100)

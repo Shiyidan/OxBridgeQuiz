@@ -54,6 +54,20 @@ export interface AdminUserCountItem {
   key: AdminUserActivityModule
   label: string
   count: number
+  unit: '次' | '道'
+}
+
+export interface AdminUserWrongQuestionSubject {
+  examType: string
+  subject: string
+  subjectCode: string | null
+  count: number
+  difficultyCounts: {
+    easy: number
+    medium: number
+    hard: number
+    unknown: number
+  }
 }
 
 export interface AdminUserRewardCardSummary {
@@ -73,6 +87,7 @@ export interface AdminUserAttempt {
   startedAt: string
   submittedAt: string | null
   accuracy: number | null
+  subjects: string[]
   paper: {
     code: string | null
     paperType: string
@@ -98,9 +113,14 @@ export interface AdminUserDetail {
     rewardCards: AdminUserRewardCardSummary[]
   }
   loginLocation: AdminUserIpLocation | null
+  lastActiveAt: string | null
   overview: {
     moduleAttemptCounts: AdminUserCountItem[]
     selectedModule: AdminUserActivityModule
+  }
+  wrongQuestionOverview: {
+    total: number
+    subjects: AdminUserWrongQuestionSubject[]
   }
   attempts: AdminUserAttempt[]
   pagination: PaginationMeta

@@ -27,6 +27,8 @@ export interface ModuleExamSnapshot {
   deliveryMode: typeof PAPER_DELIVERY_MODE.MODULE_SEQUENCE
   breakDurationSeconds: number
   modules: StoredExamModule[]
+  mockExamMode?: 'single'
+  mockModuleId?: string
 }
 
 type ModulePaper = {
@@ -40,6 +42,25 @@ type ModulePaper = {
 const ESAT_MODULE_BREAK_SECONDS = 180
 const TMUA_PAPER_DURATION_SECONDS = 75 * 60
 const TMUA_PAPER_QUESTION_COUNT = 20
+const SINGLE_MODULE_DISPLAY_LABELS: Record<string, string> = {
+  maths1: 'Math1',
+  maths2: 'Math2',
+  physics: 'Physics',
+  chemistry: 'Chemistry',
+  biology: 'Biology',
+  paper1: 'Paper1',
+  paper2: 'Paper2',
+}
+
+// 单项目录、记录和错题回顾共用同一标题规则，避免回退成所属完整套卷名称。
+export function singleModuleExamTitle(
+  examType: string,
+  moduleCode: string,
+  sequenceNo: number,
+): string {
+  const label = SINGLE_MODULE_DISPLAY_LABELS[moduleCode] || moduleCode
+  return `${examType} ${label} No.${String(sequenceNo).padStart(3, '0')}`
+}
 
 // Paper.moduleConfig 与题目列共同生成不可变的 attempt 快照，防止后续编辑影响历史考试。
 export function buildModuleExamSnapshot(
@@ -119,6 +140,53 @@ export function buildModuleExamSnapshot(
   }
 }
 
+// 单项模考只冻结一个已校验模块，并用快照元数据与同一运行试卷下的完整模考答卷区分。
+export function buildSingleModuleExamSnapshot(
+  paper: Pick<ModulePaper, 'examType'>,
+  module: {
+    id: string
+    code: string
+    subject: string
+    subjectCode?: string | null
+    durationSeconds: number
+  },
+  questionIds: string[],
+): ModuleExamSnapshot {
+  const code = module.code.trim()
+  const validExamModule = paper.examType === EXAM_TYPE.ESAT
+    ? ESAT_MODULES.some((item) => item === code)
+    : paper.examType === EXAM_TYPE.TMUA
+      ? code === TMUA_PAPER.PAPER_1 || code === TMUA_PAPER.PAPER_2
+      : false
+  if (
+    !module.id
+    || !code
+    || !validExamModule
+    || module.durationSeconds <= 0
+    || questionIds.length === 0
+    || new Set(questionIds).size !== questionIds.length
+  ) {
+    throw new Error('单项模考结构不完整，无法开始考试')
+  }
+
+  return {
+    version: 1,
+    deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE,
+    breakDurationSeconds: 0,
+    mockExamMode: 'single',
+    mockModuleId: module.id,
+    modules: [{
+      code,
+      subject: module.subject || code,
+      subjectCode: module.subjectCode || code,
+      order: 1,
+      durationSeconds: Math.max(1, Math.round(module.durationSeconds)),
+      questionCount: questionIds.length,
+      questionIds,
+    }],
+  }
+}
+
 export function parseModuleExamSnapshot(value: unknown): ModuleExamSnapshot | null {
   const snapshot = parseJsonField<ModuleExamSnapshot | null>(value, null)
   if (
@@ -127,6 +195,7 @@ export function parseModuleExamSnapshot(value: unknown): ModuleExamSnapshot | nu
     || snapshot.deliveryMode !== PAPER_DELIVERY_MODE.MODULE_SEQUENCE
     || !Array.isArray(snapshot.modules)
     || snapshot.modules.length === 0
+    || (snapshot.mockExamMode === 'single' && !snapshot.mockModuleId)
   ) return null
   return snapshot
 }
@@ -452,6 +521,7 @@ export async function getModuleExamSession(
     paperTitle: record.paper.title,
     paperYear: record.paper.year,
     examType: record.examType,
+    mockExamMode: snapshot.mockExamMode === 'single' ? 'single' : 'full',
     totalQuestions: record.totalQuestions,
     status: record.status,
     deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE,

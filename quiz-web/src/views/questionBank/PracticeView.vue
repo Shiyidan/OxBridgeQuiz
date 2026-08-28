@@ -55,7 +55,7 @@
           :disabled="submitting || confirmingSubmit || !currentQuestion"
           @click="confirmSubmitExam"
         >
-          提前交卷
+          {{ submitButtonLabel }}
         </button>
       </aside>
 
@@ -219,6 +219,11 @@ const examMode = computed(() => {
   // 后续仿真考试入口可在此扩展
   return 'question-bank'
 })
+
+// 正计时练习可随时正常交卷；只有限时诊断场景使用“提前交卷”提示。
+const submitButtonLabel = computed(() =>
+  examMode.value === 'question-bank' ? '交卷' : '提前交卷',
+)
 
 // 题库答卷来源决定中途返回、交卷结果和逐题解析的稳定回跳目标。
 const cameFromPracticeNotebook = computed(() => route.query.from === 'practice-notebook')
@@ -742,13 +747,15 @@ async function flushExamProgress(
   }
 }
 
-// 提前交卷前进行二次确认，避免学生误触导致答题直接结束。
+// 主动交卷前进行二次确认，避免学生误触导致答题直接结束。
 async function confirmSubmitExam(): Promise<void> {
   if (submitting.value || confirmingSubmit.value || !currentQuestion.value) return
   confirmingSubmit.value = true
   const confirmMessage =
     unansweredCount.value > 0
-      ? '交卷后将生成本次答题结果，未作答题目会计为未答，是否提前交卷？'
+      ? examMode.value === 'question-bank'
+        ? '交卷后将生成本次答题结果，未作答题目会计为未答，是否交卷？'
+        : '交卷后将生成本次答题结果，未作答题目会计为未答，是否提前交卷？'
       : '确认交卷？'
   try {
     await ElMessageBox.confirm(confirmMessage, '提示', {

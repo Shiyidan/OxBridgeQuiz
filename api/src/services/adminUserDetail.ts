@@ -1,13 +1,11 @@
 // 管理后台用户详情：按用户聚合个人信息、登录位置与正式答题记录，供用户管理抽屉按需查询。
 import {
-  ANSWER_RECORD_STATE,
   CARD_REWARD_SOURCE,
   EXAM_RECORD_STATUS,
   INVITATION_REWARD_ACTIVATION_WINDOW_HOURS,
   INVITATION_REWARD_ROLE,
   INVITATION_REWARD_STATUS,
   MEMBERSHIP_STATUS,
-  PRACTICE_SOURCE,
   USER_ROLE,
   isMockPaperType,
   isRealPaperType,
@@ -23,10 +21,10 @@ interface AdminUserDetailOptions {
 }
 
 export const USER_ACTIVITY_MODULES = [
-  { key: 'diagnostic', label: '诊断测试' },
-  { key: 'mockExam', label: '模考' },
-  { key: 'questionBank', label: '试题库' },
-  { key: 'mistakeNotebook', label: '错题本' },
+  { key: 'diagnostic', label: '诊断测试', unit: '次' },
+  { key: 'mockExam', label: '模考', unit: '次' },
+  { key: 'questionBank', label: '试题库', unit: '次' },
+  { key: 'mistakeNotebook', label: '错题本', unit: '道' },
 ] as const
 
 export type UserActivityModuleKey = (typeof USER_ACTIVITY_MODULES)[number]['key']
@@ -36,31 +34,72 @@ export function isUserActivityModule(value: unknown): value is UserActivityModul
   return USER_ACTIVITY_MODULES.some((module) => module.key === value)
 }
 
-// 试卷类型区分诊断、模考与题库，题库中的 notebook 来源单独归入错题本。
+// 试卷类型区分诊断、模考与题库，题库中的专项练习和练习本统一归入试题库。
 function resolveUserActivityModule(record: {
-  practiceSource: string | null
   paper: { paperType: string }
 }): UserActivityModuleKey {
-  if (record.practiceSource === PRACTICE_SOURCE.NOTEBOOK) return 'mistakeNotebook'
   if (isMockPaperType(record.paper.paperType)) return 'mockExam'
   if (isRealPaperType(record.paper.paperType)) return 'diagnostic'
   return 'questionBank'
 }
 
-// 四个产品模块固定展示，未产生记录的模块也返回 0 次。
+// 四个产品模块固定展示；答卷模块按次数统计，错题本按不重复题目数统计。
 function countUserActivityModules(
-  records: Array<{ practiceSource: string | null; paper: { paperType: string } }>,
+  records: Array<{ paper: { paperType: string } }>,
+  wrongQuestionCount: number,
 ) {
   const counts = new Map<UserActivityModuleKey, number>()
   for (const record of records) {
     const key = resolveUserActivityModule(record)
     counts.set(key, (counts.get(key) || 0) + 1)
   }
+  counts.set('mistakeNotebook', wrongQuestionCount)
   return USER_ACTIVITY_MODULES.map((module) => ({
-    key: module.key,
-    label: module.label,
+    ...module,
     count: counts.get(module.key) || 0,
   }))
+}
+
+interface WrongQuestionSubjectRecord {
+  examType: string
+  question: {
+    subject: string | null
+    subjectCode: string | null
+    difficulty: 'easy' | 'medium' | 'hard' | null
+  }
+}
+
+// 错题按考试类型与稳定科目编码聚合；难度缺失单独保留，确保各档数量之和等于科目错题数。
+function summarizeWrongQuestionSubjects(records: WrongQuestionSubjectRecord[]) {
+  const groups = new Map<string, {
+    examType: string
+    subject: string
+    subjectCode: string | null
+    count: number
+    difficultyCounts: { easy: number; medium: number; hard: number; unknown: number }
+  }>()
+  for (const record of records) {
+    const subjectCode = record.question.subjectCode?.trim() || null
+    const subject = record.question.subject?.trim() || subjectCode || '未标注科目'
+    const key = `${record.examType}:${subjectCode || subject.toLocaleLowerCase()}`
+    const group = groups.get(key) || {
+      examType: record.examType,
+      subject,
+      subjectCode,
+      count: 0,
+      difficultyCounts: { easy: 0, medium: 0, hard: 0, unknown: 0 },
+    }
+    group.count += 1
+    if (record.question.difficulty) group.difficultyCounts[record.question.difficulty] += 1
+    else group.difficultyCounts.unknown += 1
+    groups.set(key, group)
+  }
+  return [...groups.values()].sort(
+    (left, right) =>
+      left.examType.localeCompare(right.examType)
+      || right.count - left.count
+      || left.subject.localeCompare(right.subject),
+  )
 }
 
 // 待启用卡超过30天领取期限后按已过期展示，不依赖个人中心先触发状态回写。
@@ -194,19 +233,26 @@ export async function getAdminUserDetail(userId: string, options: AdminUserDetai
         orderBy: { lastUsedAt: 'desc' },
         take: 1,
       },
+      operationLogs: {
+        select: { occurredAt: true, ipAddress: true },
+        orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+        take: 1,
+      },
     },
   })
   if (!user) return null
 
-  const activityRecords = await prisma.examRecord.findMany({
-    where: { userId },
-    select: {
-      id: true,
-      practiceSource: true,
-      paper: { select: { paperType: true } },
-    },
-  })
-  const moduleAttemptCounts = countUserActivityModules(activityRecords)
+  const [activityRecords, wrongQuestionCount] = await Promise.all([
+    prisma.examRecord.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        paper: { select: { paperType: true } },
+      },
+    }),
+    prisma.wrongQuestionSummary.count({ where: { userId } }),
+  ])
+  const moduleAttemptCounts = countUserActivityModules(activityRecords, wrongQuestionCount)
   const selectedModule =
     options.module ||
     moduleAttemptCounts.find((module) => module.count > 0)?.key ||
@@ -219,29 +265,50 @@ export async function getAdminUserDetail(userId: string, options: AdminUserDetai
   const safePage = totalPages > 0 ? Math.min(options.page, totalPages) : 1
 
   const latestSession = user.authSessions[0]
-  const [attempts, loginLocation] = await Promise.all([
-    prisma.examRecord.findMany({
-      where: { userId, id: { in: selectedRecordIds } },
-      orderBy: { startedAt: 'desc' },
-      skip: (safePage - 1) * options.pageSize,
-      take: options.pageSize,
-      select: {
-        id: true,
-        examType: true,
-        correctCount: true,
-        startedAt: true,
-        submittedAt: true,
-        status: true,
-        paper: {
-          select: { code: true, paperType: true },
-        },
-        answers: {
-          where: { answerState: ANSWER_RECORD_STATE.ANSWERED },
-          select: { id: true },
-        },
-      },
-    }),
-    resolveLoginLocation(latestSession?.ipAddress),
+  const latestActivity = user.operationLogs[0]
+  // 活跃时间与属地优先来自同一条关键操作；缺少操作 IP 时回退到最近登录会话。
+  const latestActivityIpAddress = latestActivity?.ipAddress || latestSession?.ipAddress
+  const [attempts, loginLocation, wrongQuestionRecords] = await Promise.all([
+    selectedModule === 'mistakeNotebook'
+      ? Promise.resolve([])
+      : prisma.examRecord.findMany({
+          where: { userId, id: { in: selectedRecordIds } },
+          orderBy: { startedAt: 'desc' },
+          skip: (safePage - 1) * options.pageSize,
+          take: options.pageSize,
+          select: {
+            id: true,
+            examType: true,
+            correctCount: true,
+            totalQuestions: true,
+            startedAt: true,
+            submittedAt: true,
+            status: true,
+            paper: {
+              select: { code: true, paperType: true },
+            },
+            answers: {
+              orderBy: { position: 'asc' },
+              select: {
+                question: {
+                  select: { subject: true, subjectCode: true, moduleCode: true },
+                },
+              },
+            },
+          },
+        }),
+    resolveLoginLocation(latestActivityIpAddress),
+    selectedModule === 'mistakeNotebook'
+      ? prisma.wrongQuestionSummary.findMany({
+          where: { userId },
+          select: {
+            examType: true,
+            question: {
+              select: { subject: true, subjectCode: true, difficulty: true },
+            },
+          },
+        })
+      : Promise.resolve([]),
   ])
   // 当前套餐决定权益名称，后续已排队的有效权益共同决定最终到期时间。
   const activeMemberships = user.memberships
@@ -298,9 +365,14 @@ export async function getAdminUserDetail(userId: string, options: AdminUserDetai
       rewardCards: summarizeRewardCards(user.invitationRewards, now),
     },
     loginLocation,
+    lastActiveAt: latestActivity?.occurredAt.toISOString() || null,
     overview: {
       moduleAttemptCounts,
       selectedModule,
+    },
+    wrongQuestionOverview: {
+      total: wrongQuestionCount,
+      subjects: summarizeWrongQuestionSubjects(wrongQuestionRecords),
     },
     attempts: attempts.map((attempt) => {
       return {
@@ -310,9 +382,17 @@ export async function getAdminUserDetail(userId: string, options: AdminUserDetai
         startedAt: attempt.startedAt.toISOString(),
         submittedAt: attempt.submittedAt?.toISOString() || null,
         accuracy:
-          attempt.status === EXAM_RECORD_STATUS.SUBMITTED && attempt.answers.length > 0
-            ? Math.round((attempt.correctCount / attempt.answers.length) * 10_000) / 100
-            : null,
+          attempt.status !== EXAM_RECORD_STATUS.SUBMITTED
+            ? null
+            : attempt.totalQuestions > 0
+              ? Math.round((attempt.correctCount / attempt.totalQuestions) * 10_000) / 100
+              : 0,
+        subjects: [...new Set(attempt.answers.flatMap(({ question }) => {
+          const subject = question.subject?.trim()
+            || question.subjectCode?.trim()
+            || question.moduleCode?.trim()
+          return subject ? [subject] : []
+        }))],
         paper: attempt.paper,
       }
     }),

@@ -93,6 +93,7 @@ const OPERATION_DEFINITIONS: OperationDefinition[] = [
   { method: 'POST', pattern: /^\/api\/mock-paper-sets\/([^/]+)\/archive$/, module: OPERATION_AUDIT_MODULE.PAPER, action: 'admin.mock_paper.archive', summary: '下线模考试卷', resourceType: 'MockPaperSet', resourceIdGroup: 1 },
   { method: 'DELETE', pattern: /^\/api\/mock-paper-sets\/([^/]+)$/, module: OPERATION_AUDIT_MODULE.PAPER, action: 'admin.mock_paper.delete', summary: '删除模考卷草稿', resourceType: 'MockPaperSet', resourceIdGroup: 1 },
   { method: 'POST', pattern: /^\/api\/mock-exams\/papers\/([^/]+)\/attempts$/, module: OPERATION_AUDIT_MODULE.EXAM, action: 'mock_exam.start', summary: '开始无限模考', resourceType: 'MockPaperSet', resourceIdGroup: 1 },
+  { method: 'POST', pattern: /^\/api\/mock-exams\/modules\/([^/]+)\/attempts$/, module: OPERATION_AUDIT_MODULE.EXAM, action: 'mock_exam.single_start', summary: '开始单项模考', resourceType: 'MockPaperModule', resourceIdGroup: 1 },
   { method: 'DELETE', pattern: /^\/api\/mock-exams\/attempts\/([^/]+)$/, module: OPERATION_AUDIT_MODULE.EXAM, action: 'mock_exam.abandon', summary: '放弃无限模考', resourceType: 'ExamRecord', resourceIdGroup: 1 },
   { method: 'POST', pattern: /^\/api\/study-resources\/admin\/upload$/, module: OPERATION_AUDIT_MODULE.RESOURCE, action: 'admin.study_resource.upload', summary: '上传学习资料', resourceType: 'StudyResource' },
   { method: 'POST', pattern: /^\/api\/study-resources\/admin\/upload-past-paper$/, module: OPERATION_AUDIT_MODULE.RESOURCE, action: 'admin.study_resource.past_paper_upload', summary: '上传年度真题资料组', resourceType: 'StudyResource' },

@@ -130,6 +130,7 @@ model MockPaperSet {
 model MockPaperModule {
   id                    String   @id @default(uuid()) @db.VarChar(191)
   mockPaperSetId        String   @db.VarChar(191)
+  sourceModuleId        String?  @unique @db.VarChar(191)
   code                  String   @db.VarChar(32)
   label                 String   @db.VarChar(100)
   moduleOrder           Int
@@ -142,8 +143,10 @@ model MockPaperModule {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
-  mockPaperSet MockPaperSet        @relation(fields: [mockPaperSetId], references: [id], onDelete: Cascade)
-  questions    MockPaperQuestion[]
+  mockPaperSet   MockPaperSet        @relation(fields: [mockPaperSetId], references: [id], onDelete: Cascade)
+  sourceModule   MockPaperModule?     @relation("MockPaperModuleComposition", fields: [sourceModuleId], references: [id], onDelete: SetNull)
+  composedCopies MockPaperModule[]    @relation("MockPaperModuleComposition")
+  questions      MockPaperQuestion[]
 
   @@unique([mockPaperSetId, code])
   @@unique([mockPaperSetId, moduleOrder])

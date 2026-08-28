@@ -11,6 +11,7 @@ import {
 } from '../constants/domain.js'
 import { prisma } from './prisma.js'
 import { parseJsonArray } from '../utils/jsonField.js'
+import { resolveQuestionModuleCode } from '../utils/questionModule.js'
 
 type SupportedExamType = typeof EXAM_TYPE.ESAT | typeof EXAM_TYPE.TMUA
 
@@ -119,6 +120,16 @@ const MODULE_DEFINITIONS: Record<SupportedExamType, ModuleDefinition[]> = {
       expectedQuestionCount: 20,
     },
   ],
+}
+
+export const FULL_EXAM_REQUIRED_MODULE_COUNT: Record<SupportedExamType, number> = {
+  ESAT: 3,
+  TMUA: 2,
+}
+
+export const MOCK_PAPER_MODULE_POOL_CAPACITY: Record<SupportedExamType, number> = {
+  ESAT: 5,
+  TMUA: 2,
 }
 
 export class MockPaperWorkbookError extends Error {
@@ -301,6 +312,14 @@ async function findQuestionCandidates(codes: string[]): Promise<Map<string, Vali
 
 // 题目模块校验优先使用结构化字段，旧题缺字段时才使用稳定题号前缀兜底。
 function matchesModule(question: ValidationQuestion, module: ModuleDefinition, sourceCode: string): boolean {
+  const resolvedModuleCode = resolveQuestionModuleCode({
+    examType: question.examType,
+    explicitModuleCode: question.moduleCode,
+    subject: question.subject,
+    subjectCode: question.subjectCode,
+  })
+  if (resolvedModuleCode === module.code) return true
+
   const aliases = new Set(
     [module.code, module.label, ...module.aliases].map((value) => normalizeToken(value)),
   )
@@ -415,10 +434,22 @@ export async function revalidateMockPaperSet(mockPaperSetId: string): Promise<vo
   }
   const candidates = await findQuestionCandidates(allRows.map((row) => row.sourceCode))
   const expectedModules = MODULE_DEFINITIONS[set.examType as SupportedExamType] || []
+  const supportedActualModuleCodes = set.modules
+    .map((module) => module.code)
+    .filter((code) => expectedModules.some((expected) => expected.code === code))
   const setIssues: string[] = []
   const actualModuleCodes = set.modules.map((module) => module.code)
-  for (const expected of expectedModules) {
-    if (!actualModuleCodes.includes(expected.code)) setIssues.push(`缺少${expected.label}模块`)
+  if (set.examType === EXAM_TYPE.ESAT) {
+    if (!actualModuleCodes.includes('maths1')) setIssues.push('缺少数学1模块')
+    const missingModuleCount = Math.max(
+      0,
+      FULL_EXAM_REQUIRED_MODULE_COUNT.ESAT - new Set(supportedActualModuleCodes).size,
+    )
+    if (missingModuleCount > 0) setIssues.push(`完整模考还需 ${missingModuleCount} 个模块`)
+  } else {
+    for (const expected of expectedModules) {
+      if (!actualModuleCodes.includes(expected.code)) setIssues.push(`缺少${expected.label}模块`)
+    }
   }
   for (const module of set.modules) {
     if (!expectedModules.some((expected) => expected.code === module.code)) {
@@ -485,10 +516,11 @@ export async function revalidateMockPaperSet(mockPaperSetId: string): Promise<vo
       if (moduleInvalidCount + moduleIssues.length === 0) readyModuleCodes.add(module.code)
     }
 
-    const fullExamReady = (
-      expectedModules.length > 0
-      && expectedModules.every((module) => readyModuleCodes.has(module.code))
-    )
+    const fullExamReady = set.examType === EXAM_TYPE.ESAT
+      ? readyModuleCodes.has('maths1')
+        && readyModuleCodes.size >= FULL_EXAM_REQUIRED_MODULE_COUNT.ESAT
+      : expectedModules.length > 0
+        && expectedModules.every((module) => readyModuleCodes.has(module.code))
     const issueCount = invalidQuestionCount + moduleStructureIssueCount + setIssues.length
     await tx.mockPaperSet.update({
       where: { id: set.id },

@@ -31,6 +31,13 @@ export const practiceNotebookRouter = createAsyncRouter()
 
 const HISTORY_PAGE_SIZE = 5
 
+// 未识别的历史来源统一按专项练习输出，接口只暴露当前仍存在的两类练习。
+function normalizePracticeSource(source: string | null) {
+  return source === PRACTICE_SOURCE.NOTEBOOK
+    ? PRACTICE_SOURCE.NOTEBOOK
+    : PRACTICE_SOURCE.DIRECT
+}
+
 // 前端列表使用保存时快照，避免每次展示都重新拼装考纲层级。
 function formatNotebookConfig(notebook: {
   id: string
@@ -74,6 +81,7 @@ function formatHistoryRecord(record: {
   practiceSource: string | null
   practiceSnapshot: Prisma.JsonValue | null
 }) {
+  const source = normalizePracticeSource(record.practiceSource)
   return {
     id: record.id,
     examType: record.examType,
@@ -85,8 +93,8 @@ function formatHistoryRecord(record: {
     durationSeconds: record.durationSeconds,
     startedAt: record.startedAt,
     submittedAt: record.submittedAt,
-    source: record.practiceSource || PRACTICE_SOURCE.DIRECT,
-    snapshot: parsePracticeSnapshot(record.practiceSnapshot),
+    source,
+    snapshot: { ...parsePracticeSnapshot(record.practiceSnapshot), source },
   }
 }
 
@@ -210,7 +218,7 @@ practiceNotebookRouter.get('/', requireAuth, async (req, res) => {
           answeredCount: activePractice._count.answers,
           startedAt: activePractice.startedAt,
           practiceNotebookId: activePractice.practiceNotebookId,
-          source: activePractice.practiceSource || PRACTICE_SOURCE.DIRECT,
+          source: normalizePracticeSource(activePractice.practiceSource),
         }
       : null,
     temporaryPractice: temporaryLatest

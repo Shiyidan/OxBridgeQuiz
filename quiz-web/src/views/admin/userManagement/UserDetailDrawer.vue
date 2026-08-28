@@ -38,8 +38,8 @@
               <dd>{{ formatDateTime(detail.profile.createdAt) }}</dd>
             </div>
             <div>
-              <dt>最近更新</dt>
-              <dd>{{ formatDateTime(detail.profile.updatedAt) }}</dd>
+              <dt>最近活跃</dt>
+              <dd>{{ formatOptionalDateTime(detail.lastActiveAt) }}</dd>
             </div>
           </dl>
         </section>
@@ -136,7 +136,7 @@
           <div class="section-heading">
             <div>
               <h3>学习数据概览</h3>
-              <p>点击模块查看对应的答题记录。</p>
+              <p>点击模块查看对应的答题记录或错题分布。</p>
             </div>
           </div>
           <div v-if="detail.overview.moduleAttemptCounts.length" class="module-count-list">
@@ -149,23 +149,61 @@
               @click="handleModuleChange(item.key)"
             >
               <span>{{ item.label }}</span>
-              <strong>{{ item.count }} 次</strong>
+              <strong>{{ item.count }} {{ item.unit }}</strong>
             </button>
           </div>
           <span v-else class="empty-inline">暂无作答</span>
 
           <div class="attempt-summary">
             <strong>{{ selectedModuleLabel }}</strong>
-            <span>{{ detail.pagination.total }} 条记录</span>
+            <span v-if="selectedModule === 'mistakeNotebook'">
+              {{ detail.wrongQuestionOverview.total }} 道错题
+            </span>
+            <span v-else>{{ detail.pagination.total }} 条记录</span>
           </div>
 
-          <div v-if="detail.attempts.length" class="attempt-list">
+          <div
+            v-if="selectedModule === 'mistakeNotebook' && detail.wrongQuestionOverview.subjects.length"
+            class="wrong-subject-list"
+          >
+            <article
+              v-for="item in detail.wrongQuestionOverview.subjects"
+              :key="`${item.examType}:${item.subjectCode || item.subject}`"
+              class="wrong-subject-card"
+            >
+              <div class="wrong-subject-heading">
+                <div>
+                  <span>{{ item.examType }}</span>
+                  <strong>{{ item.subject }}</strong>
+                </div>
+                <b>{{ item.count }} 道</b>
+              </div>
+              <div class="wrong-difficulty-list">
+                <span>简单 {{ item.difficultyCounts.easy }}</span>
+                <span>中等 {{ item.difficultyCounts.medium }}</span>
+                <span>困难 {{ item.difficultyCounts.hard }}</span>
+                <span v-if="item.difficultyCounts.unknown">
+                  未标注 {{ item.difficultyCounts.unknown }}
+                </span>
+              </div>
+            </article>
+          </div>
+          <el-empty
+            v-else-if="selectedModule === 'mistakeNotebook'"
+            description="该用户暂无错题"
+            :image-size="72"
+          />
+
+          <div v-else-if="detail.attempts.length" class="attempt-list">
             <article v-for="attempt in detail.attempts" :key="attempt.id" class="attempt-card">
               <div class="attempt-header">
                 <div class="attempt-title-row">
                   <p class="attempt-label">
                     {{ attempt.examType }} · {{ paperTypeLabel(attempt.paper.paperType) }}
                     <template v-if="attempt.paper.code"> · {{ attempt.paper.code }}</template>
+                  </p>
+                  <p v-if="selectedModule === 'questionBank'" class="attempt-subjects">
+                    科目：{{ formatAttemptSubjects(attempt.subjects) }}
                   </p>
                   <el-tag
                     :type="attempt.status === 'submitted' ? 'success' : 'warning'"
@@ -189,6 +227,7 @@
           <el-empty v-else :description="`该用户暂无${selectedModuleLabel}记录`" :image-size="72" />
 
           <AppPagination
+            v-if="selectedModule !== 'mistakeNotebook'"
             v-model:page="attemptPage"
             v-model:page-size="attemptPageSize"
             :total="detail.pagination.total"
@@ -309,6 +348,11 @@ function formatLoginLocation(location: AdminUserIpLocation | null): string {
 
 function formatAccuracy(value: number | null): string {
   return value === null ? '-' : `${value.toFixed(1)}%`
+}
+
+// 题库答卷可能跨多个科目，按实际题目去重后的顺序完整展示。
+function formatAttemptSubjects(subjects: string[]): string {
+  return subjects.length > 0 ? subjects.join('、') : '未标注'
 }
 
 function attemptStatusLabel(status: string): string {
@@ -633,6 +677,62 @@ function handleClosed(): void {
   gap: 8px;
 }
 
+.wrong-subject-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.wrong-subject-card {
+  padding: 12px 14px;
+  border: 1px solid var(--color-line-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+}
+
+.wrong-subject-heading,
+.wrong-subject-heading > div,
+.wrong-difficulty-list {
+  display: flex;
+}
+
+.wrong-subject-heading {
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.wrong-subject-heading > div {
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.wrong-subject-heading span,
+.wrong-difficulty-list {
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+}
+
+.wrong-subject-heading strong {
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+}
+
+.wrong-subject-heading b {
+  flex: 0 0 auto;
+  color: var(--el-color-danger);
+  font-size: 16px;
+}
+
+.wrong-difficulty-list {
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-line-soft);
+}
+
 .attempt-card {
   padding: 12px 14px;
   border: 1px solid var(--color-line-soft);
@@ -662,6 +762,12 @@ function handleClosed(): void {
   margin: 0;
   color: var(--color-ink);
   font-size: var(--text-sm);
+}
+
+.attempt-subjects {
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
 }
 
 .attempt-accuracy {
@@ -699,6 +805,10 @@ function handleClosed(): void {
   .attempt-header {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .wrong-subject-list {
+    grid-template-columns: 1fr;
   }
 
   .profile-times {

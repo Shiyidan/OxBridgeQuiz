@@ -206,6 +206,40 @@ const auth = useAuthStore()
 // 同一答题组件根据路由区分诊断与模考中心，仅调整来源语义和返回入口。
 const isMockExam = computed(() => route.name === 'mock-exam-session')
 
+// 模考答题返回来源标签；旧链接没有来源时继续回到默认模拟试卷。
+const mockExamReturnTarget = computed(() => {
+  const sourceTab = route.query.sourceTab
+  if (sourceTab === 'modules' || sourceTab === 'records') {
+    return { path: '/mock-exams', query: { tab: sourceTab } }
+  }
+  return { path: '/mock-exams' }
+})
+
+// 单项交卷后直接落到已完成记录，避免返回目录后被默认记录状态隐藏。
+const mockExamCompletionReturnTarget = computed(() => {
+  const sourceTab = route.query.sourceTab
+  const sourceMode = route.query.sourceMode
+  if (sourceTab === 'modules' || (session.value?.mockExamMode === 'single' && sourceTab !== 'records')) {
+    return {
+      path: '/mock-exams',
+      query: { tab: 'records', status: 'completed', mode: 'single' },
+    }
+  }
+  if (sourceTab === 'records') {
+    return {
+      path: '/mock-exams',
+      query: {
+        tab: 'records',
+        status: 'completed',
+        mode: sourceMode === 'single' || sourceMode === 'full'
+          ? sourceMode
+          : session.value?.mockExamMode,
+      },
+    }
+  }
+  return mockExamReturnTarget.value
+})
+
 const loading = ref(true)
 const session = ref<StartExamResult | null>(null)
 const questions = shallowRef<AttemptQuestion[]>([])
@@ -244,6 +278,9 @@ let pendingExpiredModuleCode = ''
 
 const activeModule = computed(() => session.value?.currentModule || null)
 const breakState = computed(() => session.value?.break || null)
+const isSingleMockExam = computed(() => (
+  isMockExam.value && session.value?.mockExamMode === 'single'
+))
 const currentQuestion = computed(() => questions.value[currentIndex.value])
 const currentQuestionMarked = computed(() =>
   Boolean(currentQuestion.value && markedQuestionIds.value.has(currentQuestion.value.id)),
@@ -455,6 +492,10 @@ async function applySession(nextSession: StartExamResult): Promise<void> {
   if (nextSession.phase === 'submitted') {
     submitted.value = true
     submittedExamRecordId.value = nextSession.examRecordId
+    if (isSingleMockExam.value) {
+      await router.replace(mockExamCompletionReturnTarget.value)
+      return
+    }
     analysisDialogVisible.value = true
     return
   }
@@ -834,7 +875,7 @@ function handleDocumentVisibilityChange(): void {
   void resumePausedModule().catch(() => undefined)
 }
 
-// 所有分段均锁定后提交空响应，由后端使用已持久化答案生成诊断结果。
+// 所有分段均锁定后提交空响应；服务端统一生成成绩，仅完整考试继续进入诊断分析。
 async function finalizeExam(): Promise<void> {
   if (!session.value || submitted.value || transitioning.value) return
   transitioning.value = true
@@ -845,12 +886,16 @@ async function finalizeExam(): Promise<void> {
     })
     submitted.value = true
     submittedExamRecordId.value = result.examRecordId
-    analysisDialogVisible.value = true
     try {
       auth.setMemberContext(await getMember())
     } catch {
-      // 额度刷新失败不影响已提交的诊断结果。
+      // 额度刷新失败不影响已经保存的考试结果。
     }
+    if (isSingleMockExam.value) {
+      await router.push(mockExamCompletionReturnTarget.value)
+      return
+    }
+    analysisDialogVisible.value = true
   } catch {
     // Axios 公共响应处理会展示后端 errMsg。
   } finally {
@@ -892,7 +937,7 @@ async function confirmAndPauseBeforeLeaving(): Promise<boolean> {
 // 页面内返回入口确认成功后固定回到诊断测试首页。
 async function handleBack(): Promise<void> {
   if (await confirmAndPauseBeforeLeaving()) {
-    await router.push(isMockExam.value ? '/mock-exams' : '/assessment')
+    await router.push(isMockExam.value ? mockExamReturnTarget.value : '/assessment')
   }
 }
 
@@ -905,7 +950,7 @@ async function handleViewDiagnosticReport(target: string): Promise<void> {
 // 暂不查看报告时返回诊断测试列表并刷新试卷状态。
 async function handleReturnToAssessment(): Promise<void> {
   analysisDialogVisible.value = false
-  await router.push(isMockExam.value ? '/mock-exams' : '/assessment')
+  await router.push(isMockExam.value ? mockExamCompletionReturnTarget.value : '/assessment')
 }
 
 onMounted(() => {

@@ -4,7 +4,7 @@ import type { ActiveExamType } from '@/stores/auth'
 import type { QuestionDifficulty } from '@/api/questionBank'
 
 export type PracticeDifficultyMode = 'easy' | 'medium' | 'hard' | 'mixed'
-export type PracticeSource = 'direct' | 'free_assembly' | 'notebook'
+export type PracticeSource = 'direct' | 'notebook'
 
 export interface PracticeScopeNode {
   code: string
@@ -57,7 +57,7 @@ export interface PracticeHistoryRecord {
 }
 
 export interface TemporaryPracticeSnapshot extends PracticeHistorySnapshot {
-  source: Exclude<PracticeSource, 'notebook'>
+  source: 'direct'
   subject: PracticeScopeNode
   knowledgePoint: PracticeScopeNode & { path: PracticeScopeNode[] }
   difficulty: QuestionDifficulty
@@ -67,7 +67,7 @@ export interface TemporaryPracticeSnapshot extends PracticeHistorySnapshot {
 
 export interface TemporaryPracticeHistoryRecord
   extends Omit<PracticeHistoryRecord, 'source' | 'snapshot'> {
-  source: Exclude<PracticeSource, 'notebook'>
+  source: 'direct'
   snapshot: TemporaryPracticeSnapshot
 }
 
@@ -84,7 +84,7 @@ export interface ActiveNotebookPractice {
   answeredCount: number
   startedAt: string
   practiceNotebookId: string | null
-  source: 'direct' | 'free_assembly' | 'notebook'
+  source: PracticeSource
 }
 
 export interface TemporaryPracticeSummary {
@@ -182,7 +182,7 @@ export function getPracticeNotebookHistory(id: string, page: number, pageSize: n
   })
 }
 
-/** 临时练习承接题库专项和一次性自由组卷的历史记录。 */
+/** 临时练习承接未保存为练习本的题库专项历史。 */
 export function getTemporaryPracticeHistory(
   examType: ActiveExamType,
   page: number,

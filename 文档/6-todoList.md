@@ -27,7 +27,7 @@
 功能开发
 
 - [ ] 错题本功能（ExamRecord + AnswerRecord 表 + 前端页面）
-- [ ] 自由组卷功能（多条件筛选 + 动态拼题 + 生成试卷）
+- [ ] 完善 ESAT / TMUA 预估分逻辑并恢复个人中心展示
 - [√] SVG 缺失宽高自动补齐（parseService + PaperPreview CSS 兜底）
 
 
@@ -96,11 +96,13 @@
 - **问题**：现有错题本仅展示错题列表和练习记录，缺少逐题重做、错题举一反三、知识点关联等功能
 - **方案**：基于 `AnswerRecord.isCorrect === false` 查询，前端补全逐题解析视图、按知识点分组、错题重做入口
 
-### 自由组卷功能
+### ESAT / TMUA 预估分逻辑
 
-- **位置**：前端试卷组装页 + 后端组卷接口
-- **问题**：当前只能使用预设真题套卷或随机诊断出题，无法根据知识点、难度、题型自由搭配
-- **方案**：前端多条件筛选（知识点 / 难度 / 题型 / 数量）→ 后端按条件从试题库动态拼题 → 生成临时试卷 → 进入答题
+- **位置**：前端 [`quiz-web/src/views/profile/ProfileView.vue`](../quiz-web/src/views/profile/ProfileView.vue) + 后端 [`api/src/routes/exam-results.ts`](../api/src/routes/exam-results.ts)、[`api/src/routes/exam-shared.ts`](../api/src/routes/exam-shared.ts)、[`api/src/services/scoring.ts`](../api/src/services/scoring.ts)
+- **问题**：当前 TMUA 仅根据整份答卷的总题数和正确题数构造虚拟分卷，不能反映 Paper 1、Paper 2 的真实答题分布；ESAT 没有统一官方总分，现有个人中心统一展示“预估分 / 9.0”也无法准确表达各模块成绩。多次诊断成绩取最新一次、平均值还是其他口径尚未确定。
+- **临时处理**：个人中心暂时隐藏“当前学习：预估分 / 9.0 · 累计做题”信息，不改变现有后端统计接口。
+- **后续方案**：确定预估分的数据来源和多次成绩聚合口径；TMUA 使用真实 Paper 1、Paper 2 作答结果分别换算后计算总分；ESAT 按实际考试模块分别展示预估分，不默认合成统一总分。确认试题库、练习册、模考和诊断测试中哪些记录参与计算，并统一前后端文案。
+- **验收标准**：同一答卷可依据真实分卷或模块作答数据复算出一致结果；ESAT 与 TMUA 使用符合各自考试结构的展示方式；无有效已提交记录时显示明确空状态；口径确认且完成校验后再恢复个人中心预估分展示。
 
 ---
 

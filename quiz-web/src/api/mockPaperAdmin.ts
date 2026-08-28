@@ -22,6 +22,12 @@ export interface MockPaperSetListItem {
   readyModuleCount: number
   fullExamReady: boolean
   moduleCount: number
+  deletable: boolean
+  modules: Array<{
+    code: string
+    label: string
+    validationStatus: MockPaperValidationStatus
+  }>
   updatedAt: string
   publishedAt: string | null
   archivedAt: string | null
@@ -56,6 +62,8 @@ export interface MockPaperModuleDetail {
   questionCount: number
   validationStatus: MockPaperValidationStatus
   issueCount: number
+  published: boolean
+  removable: boolean
   issues: string[]
   questions: MockPaperQuestionDetail[]
 }
@@ -63,7 +71,24 @@ export interface MockPaperModuleDetail {
 export interface MockPaperSetDetail
   extends Omit<MockPaperSetListItem, 'moduleCount'> {
   issues: string[]
+  canAddModules: boolean
   modules: MockPaperModuleDetail[]
+}
+
+export interface MockPaperModuleCandidate {
+  id: string
+  code: string
+  label: string
+  durationSeconds: number
+  questionCount: number
+  sourceSet: {
+    id: string
+    code: string
+    sequenceNo: number
+    title: string
+    status: 'draft' | 'published'
+    accessTier: MockPaperAccessTier
+  }
 }
 
 export interface MockPaperListResult {
@@ -160,6 +185,31 @@ export function getMockPaperSetDetail(id: string) {
   return callApi<MockPaperSetDetail>({
     method: 'GET',
     url: `/mock-paper-sets/${id}`,
+  })
+}
+
+// 组套候选只包含同考试、模块不重复且尚未被其他套卷采用的有效单项卷。
+export function getMockPaperModuleCandidates(id: string) {
+  return callApi<{ list: MockPaperModuleCandidate[] }>({
+    method: 'GET',
+    url: `/mock-paper-sets/${id}/module-candidates`,
+  })
+}
+
+// 管理员确认后由服务端复制稳定题序并记录来源，前端不直接拼装题目数据。
+export function addMockPaperModule(id: string, sourceModuleId: string) {
+  return callApi<{ id: string; sourceModuleId: string }>({
+    method: 'POST',
+    url: `/mock-paper-sets/${id}/modules`,
+    body: { sourceModuleId },
+  })
+}
+
+// 草稿移除 Module 只调整模考试卷结构，不删除题库中的 Question 数据。
+export function removeMockPaperModule(id: string, moduleId: string) {
+  return callApi<{ id: string; sourceModuleId: string | null }>({
+    method: 'DELETE',
+    url: `/mock-paper-sets/${id}/modules/${moduleId}`,
   })
 }
 

@@ -178,10 +178,7 @@
             </div>
 
             <div class="membership-summary-note">
-              <span>
-                当前学习：预估分 {{ currentDiagnosticScoreText }} / 9.0 · 累计做题
-                {{ currentExamStats.answeredQuestionCount }} 道
-              </span>
+              <span>{{ currentLearningGuidanceText }}</span>
               <button type="button" @click="openMembershipBenefits">查看会员权益 →</button>
             </div>
           </div>
@@ -1262,6 +1259,16 @@ const currentExamStats = computed<ProfileExamStats>(
 const currentQuestionBankAnsweredCount = computed(
   () => auth.memberContext?.quotas?.[currentExamType.value]?.questionBank.used || 0,
 )
+// 学习引导依据当前考试的真实诊断与题库记录给出下一步建议，不使用尚未定稿的预估分。
+const currentLearningGuidanceText = computed(() => {
+  if (currentExamStats.value.diagnosticExamCount === 0) {
+    return `下一步：完成首次 ${currentExamType.value} 诊断考试，生成能力分析报告`
+  }
+  if (currentQuestionBankAnsweredCount.value === 0) {
+    return `下一步：进入 ${currentExamType.value} 试题库开始练习，巩固诊断薄弱项`
+  }
+  return '学习建议：查看诊断报告，继续练习薄弱知识点'
+})
 // 预估分数只对已开通考试展示，并统一保留一位小数。
 const estimatedScoreText = computed(() => {
   if (!isCurrentExamActive.value) return '--'
@@ -1293,11 +1300,6 @@ const diagnosticQuotaItems = computed(() => {
       isEmpty: !available,
     }
   })
-})
-// 当前诊断卡片统一格式化分数，无有效成绩时显示占位符。
-const currentDiagnosticScoreText = computed(() => {
-  const score = currentExamStats.value.estimatedScore
-  return score === null ? '--' : score.toFixed(1)
 })
 // 交易列表以真实支付订单为唯一来源；会员权益只用于补充已支付订单的生效周期与状态。
 const billingRecords = computed<BillingRecord[]>(() => {

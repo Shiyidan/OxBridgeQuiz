@@ -18,11 +18,16 @@ import {
   regenerateDiagnosticReportTask,
   retryDiagnosticReportTask,
   scheduleDiagnosticReportWorker,
+  supportsAttemptDiagnosticReport,
 } from '../services/diagnosticReportTask.js'
 import {
   canUpgradeDiagnosticReport,
   productVersionForReportVersion,
 } from '../constants/diagnosticReport.js'
+import {
+  parseModuleExamSnapshot,
+  singleModuleExamTitle,
+} from '../services/moduleExamSession.js'
 import {
   ANSWER_RECORD_STATE,
   type AnswerRecordState,
@@ -36,7 +41,6 @@ import {
   isExamType,
   isAnswerRecordState,
   isMockPaperType,
-  supportsDiagnosticReport,
   normalizePaperType,
   paperTypeWhereValues,
 } from '../constants/domain.js'
@@ -173,7 +177,15 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
     const paper = needPaperMeta
       ? await prisma.paper.findUnique({
           where: { id: examRecord.paperId },
-          select: { id: true, title: true, paperType: true, year: true, duration: true, code: true },
+          select: {
+            id: true,
+            title: true,
+            paperType: true,
+            year: true,
+            duration: true,
+            code: true,
+            mockPaperSet: { select: { sequenceNo: true } },
+          },
         })
       : null
 
@@ -207,6 +219,17 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
     const notebookName = typeof practiceSnapshot.notebookName === 'string'
       ? practiceSnapshot.notebookName.trim()
       : ''
+    const moduleSnapshot = parseModuleExamSnapshot(examRecord.structureSnapshot)
+    const singleModule = moduleSnapshot?.mockExamMode === 'single'
+      ? moduleSnapshot.modules[0] || null
+      : null
+    const resultPaperTitle = singleModule && paper?.mockPaperSet
+      ? singleModuleExamTitle(
+          examRecord.examType,
+          singleModule.code,
+          paper.mockPaperSet.sequenceNo,
+        )
+      : paper?.title || ''
 
     res.json(success({
       examRecord: {
@@ -232,7 +255,7 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
 
           ? {
               id: paper.id,
-              title: paper.title,
+              title: resultPaperTitle,
               paperType: paper.paperType,
               year: paper.year,
               duration: paper.duration,
@@ -263,7 +286,10 @@ examResultRouter.get('/:id/diagnostic-report/status', requireAuth, async (req, r
       res.status(404).json(fail('Exam record not found'))
       return
     }
-    if (!supportsDiagnosticReport(examRecord.paper.paperType)) {
+    if (!supportsAttemptDiagnosticReport(
+      examRecord.paper.paperType,
+      examRecord.structureSnapshot,
+    )) {
       res.status(400).json(fail('Only diagnostic and mock-paper records have this report'))
       return
     }
@@ -363,7 +389,10 @@ examResultRouter.get('/:id/diagnostic-report/summary', requireAuth, async (req, 
       res.status(404).json(fail('Exam record not found'))
       return
     }
-    if (!supportsDiagnosticReport(examRecord.paper.paperType)) {
+    if (!supportsAttemptDiagnosticReport(
+      examRecord.paper.paperType,
+      examRecord.structureSnapshot,
+    )) {
       res.status(400).json(fail('Only diagnostic and mock-paper records have this report'))
       return
     }

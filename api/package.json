@@ -13,6 +13,8 @@
     "backfill:questions": "tsx scripts/backfill-paper-questions.ts",
     "backfill:question-bank-order": "tsx scripts/backfill-question-bank-order.ts",
     "backfill:question-payloads": "tsx scripts/backfill-question-payloads.ts",
+    "backfill:question-module-codes": "tsx scripts/backfill-question-module-codes.ts",
+    "revalidate:mock-paper-sets": "tsx scripts/revalidate-mock-paper-sets.ts",
     "backfill:wrong-questions": "tsx scripts/backfill-wrong-question-summaries.ts",
     "backfill:invitation-reward-orders": "tsx scripts/backfill-invitation-reward-orders.ts",
     "backfill:user-avatars": "tsx scripts/backfill-user-avatars.ts",

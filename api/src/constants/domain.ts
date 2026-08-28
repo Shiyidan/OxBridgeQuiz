@@ -94,6 +94,14 @@ export const ESAT_MODULE = {
 export const ESAT_MODULES = Object.values(ESAT_MODULE)
 export type EsatModuleCode = (typeof ESAT_MODULES)[number]
 
+export const ESAT_MODULE_SUBJECT_CODES: Record<EsatModuleCode, string> = {
+  [ESAT_MODULE.MATHS_1]: '110000',
+  [ESAT_MODULE.MATHS_2]: '120000',
+  [ESAT_MODULE.PHYSICS]: '130000',
+  [ESAT_MODULE.CHEMISTRY]: '140000',
+  [ESAT_MODULE.BIOLOGY]: '150000',
+}
+
 export const TMUA_PAPER = {
   PAPER_1: 'paper1',
   PAPER_2: 'paper2',
@@ -128,7 +136,6 @@ export type PracticeNotebookDifficulty = (typeof PRACTICE_NOTEBOOK_DIFFICULTIES)
 
 export const PRACTICE_SOURCE = {
   DIRECT: 'direct',
-  FREE_ASSEMBLY: 'free_assembly',
   NOTEBOOK: 'notebook',
 } as const
 

@@ -5,6 +5,8 @@ import type { PaperModuleOutline, PaginationMeta } from '@/api/papers'
 
 export type MockExamCatalogStatus = 'all' | 'not_started' | 'in_progress' | 'completed'
 export type MockExamRecordStatus = 'in_progress' | 'completed'
+export type MockExamModuleStatus = MockExamCatalogStatus | 'practiced'
+export type MockExamRecordMode = 'all' | 'full' | 'single'
 
 export interface MockExamAttemptBrief {
   examRecordId: string
@@ -39,6 +41,33 @@ export interface MockExamCatalogResult {
   pagination: PaginationMeta
 }
 
+export interface MockExamModuleItem {
+  id: string
+  mockPaperSetId: string
+  code: string
+  label: string
+  title: string
+  examType: string
+  accessTier: PaperAccessTier
+  durationSeconds: number
+  totalQuestions: number
+  publicationStatus: 'published' | 'offline' | string
+  sourcePaperCode: string
+  sourcePaperTitle: string
+  fullExamReady: boolean
+  inProgressCount: number
+  completedCount: number
+  bestScore: number | null
+  latestCompletedExamRecordId: string | null
+  practicedInFull: boolean
+  inProgressAttempts: MockExamAttemptBrief[]
+}
+
+export interface MockExamModuleCatalogResult {
+  list: MockExamModuleItem[]
+  pagination: PaginationMeta
+}
+
 export interface MockExamTrendSeries {
   key: string
   label: string
@@ -48,6 +77,7 @@ export interface MockExamTrendSeries {
 export interface MockExamOverviewResult {
   completedCount: number
   bestScore: number | null
+  bestScoreModuleLabel: string | null
   targetScore: number | null
   maxScore: number
   labels: string[]
@@ -59,6 +89,11 @@ export interface MockExamRecordItem {
   paperId: string
   paperTitle: string
   paperCode: string | null
+  mode: 'full' | 'single'
+  moduleCode: string | null
+  moduleLabel: string | null
+  sourcePaperTitle: string
+  sourcePaperCode: string | null
   status: MockExamRecordStatus
   startedAt: string
   updatedAt: string
@@ -98,6 +133,16 @@ export interface MockExamCatalogParams {
 export interface MockExamRecordParams {
   examType: string
   status?: MockExamRecordStatus
+  mode?: MockExamRecordMode
+  page?: number
+  pageSize?: number
+}
+
+export interface MockExamModuleCatalogParams {
+  examType: string
+  keyword?: string
+  moduleCode?: string
+  status?: MockExamModuleStatus
   page?: number
   pageSize?: number
 }
@@ -123,12 +168,29 @@ export function getMockExamCatalogData(params: MockExamCatalogParams) {
   })
 }
 
-/** 当前登录学生的模考次数、最佳成绩与近五次趋势。 */
-export function getMockExamOverviewData(examType: string) {
+/** 游客可访问的单项模考目录；登录时附带单项答卷与整卷练习状态。 */
+export function getMockExamModuleCatalogData(params: MockExamModuleCatalogParams) {
+  return callApi<MockExamModuleCatalogResult>({
+    url: '/mock-exams/modules',
+    method: 'GET',
+    params: {
+      examType: params.examType,
+      keyword: params.keyword,
+      moduleCode: params.moduleCode,
+      status: params.status === 'all' ? undefined : params.status,
+      page: String(params.page || 1),
+      pageSize: String(params.pageSize || 10),
+    },
+    silent: true,
+  })
+}
+
+/** 当前登录学生在指定模考类型下的完成次数、最佳成绩与近五次趋势。 */
+export function getMockExamOverviewData(examType: string, mode: MockExamRecordMode = 'full') {
   return callApi<MockExamOverviewResult>({
     url: '/mock-exams/overview',
     method: 'GET',
-    params: { examType },
+    params: { examType, mode },
     silent: true,
   })
 }
@@ -141,6 +203,7 @@ export function getMockExamRecordsData(params: MockExamRecordParams) {
     params: {
       examType: params.examType,
       status: params.status,
+      mode: params.mode === 'all' ? undefined : params.mode,
       page: String(params.page || 1),
       pageSize: String(params.pageSize || 10),
     },
@@ -152,6 +215,16 @@ export function getMockExamRecordsData(params: MockExamRecordParams) {
 export function startMockExam(paperId: string, startRequestId: string) {
   return callApi<StartMockExamResult>({
     url: `/mock-exams/papers/${paperId}/attempts`,
+    method: 'POST',
+    body: { startRequestId },
+    silent: true,
+  })
+}
+
+/** 确认考前规则后创建一场只包含目标 Module/Paper 的独立答卷。 */
+export function startSingleMockExam(moduleId: string, startRequestId: string) {
+  return callApi<StartMockExamResult>({
+    url: `/mock-exams/modules/${moduleId}/attempts`,
     method: 'POST',
     body: { startRequestId },
     silent: true,

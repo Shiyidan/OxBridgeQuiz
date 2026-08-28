@@ -49,7 +49,7 @@
             <small :title="formatScopePath(record)">{{ formatScopePath(record) }}</small>
           </div>
           <div class="record-row__settings">
-            <span class="record-tag">{{ formatSource(record.source) }}</span>
+            <span class="record-tag">专项练习</span>
             <span v-if="record.snapshot.difficulty" class="record-tag">
               {{ formatDifficulty(record.snapshot.difficulty) }}
             </span>
@@ -183,12 +183,6 @@ function openRecord(examRecordId: string): void {
     params: { id: examRecordId },
     query: { from: 'practice-records', recordSource: 'question-bank' },
   })
-}
-
-// 来源枚举转换为学生可理解的练习类型。
-function formatSource(source: TemporaryPracticeHistoryRecord['source']): string {
-  if (source === 'free_assembly') return '自由组卷'
-  return '专项练习'
 }
 
 // 练习内容使用提交时快照中的最深考纲节点，不再降级展示缺失范围的旧记录。

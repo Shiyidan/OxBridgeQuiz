@@ -31,8 +31,7 @@
             >
               模拟套卷
             </button>
-            <!-- 单项模考入口暂时隐藏，保留页面与数据逻辑便于后续恢复。 -->
-            <!-- <button
+            <button
               type="button"
               role="tab"
               :aria-selected="activeTab === 'modules'"
@@ -40,7 +39,7 @@
               @click="selectTab('modules')"
             >
               单项模考
-            </button> -->
+            </button>
             <button
               type="button"
               role="tab"
@@ -524,7 +523,7 @@
                 <p>可以从模拟试卷或单项模考开始新的 {{ activeExamType }} 训练。</p>
                 <div class="state-panel__actions">
                   <button type="button" @click="selectTab('catalog')">浏览模拟试卷</button>
-                  <!-- <button type="button" @click="selectTab('modules')">浏览单项模考</button> -->
+                  <button type="button" @click="selectTab('modules')">浏览单项模考</button>
                 </div>
               </div>
               <div v-else class="record-list">

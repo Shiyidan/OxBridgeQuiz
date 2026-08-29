@@ -16,6 +16,12 @@ const LOCATION_LOOKUP_CONCURRENCY = 8;
 
 export const WEBSITE_TRAFFIC_MAX_RANGE_DAYS = 90;
 export const WEBSITE_TRAFFIC_TIMEZONE = "Asia/Shanghai";
+export const WEBSITE_VISITOR_TYPE = {
+  STUDENT: "student",
+  ANONYMOUS: "anonymous",
+} as const;
+export type WebsiteVisitorType =
+  (typeof WEBSITE_VISITOR_TYPE)[keyof typeof WEBSITE_VISITOR_TYPE];
 
 export interface WebsiteTrafficFilters {
   startAt: Date;
@@ -25,7 +31,7 @@ export interface WebsiteTrafficFilters {
 export interface WebsiteVisitSample {
   businessDate: Date;
   ipHash: string;
-  visitCount: number;
+  visitorType?: string | null;
 }
 
 export interface RegistrationSample {
@@ -180,10 +186,11 @@ async function aggregateRegistrationLocations(
   };
 }
 
-// 公开上报只写入日期级聚合记录；当天重复 IP 仅累加访问次数。
+// 公开上报按日期与 IP 幂等写入；同一 IP 当天先匿名后登录时升级为学生，之后不再降级。
 export async function recordWebsiteVisit(
   rawIpAddress: string | undefined,
   userAgent: string | undefined,
+  visitorType: WebsiteVisitorType,
   now = new Date(),
 ): Promise<{ counted: boolean }> {
   const ipAddress = normalizeIpAddress(rawIpAddress);
@@ -196,15 +203,22 @@ export async function recordWebsiteVisit(
     create: {
       businessDate,
       ipHash,
+      visitorType,
       visitCount: 1,
       firstSeenAt: now,
       lastSeenAt: now,
     },
     update: {
-      visitCount: { increment: 1 },
+      ...(visitorType === WEBSITE_VISITOR_TYPE.STUDENT ? { visitorType } : {}),
       lastSeenAt: now,
     },
   });
+  if (visitorType === WEBSITE_VISITOR_TYPE.ANONYMOUS) {
+    await prisma.websiteVisitDaily.updateMany({
+      where: { businessDate, ipHash, visitorType: null },
+      data: { visitorType },
+    });
+  }
   return { counted: true };
 }
 
@@ -234,18 +248,17 @@ export function aggregateWebsiteTraffic(
     .size;
   const previousUniqueIps = new Set(previousVisits.map((item) => item.ipHash))
     .size;
-  const currentVisitCount = currentVisits.reduce(
-    (sum, item) => sum + item.visitCount,
-    0,
-  );
-  const previousVisitCount = previousVisits.reduce(
-    (sum, item) => sum + item.visitCount,
-    0,
-  );
+  const currentVisitCount = currentVisits.length;
+  const previousVisitCount = previousVisits.length;
 
   const trend = new Map<
     string,
-    { ipHashes: Set<string>; visitCount: number; registrationCount: number }
+    {
+      ipHashes: Set<string>;
+      studentVisitCount: number;
+      anonymousVisitCount: number;
+      registrationCount: number;
+    }
   >();
   for (
     let cursor = filters.startAt.getTime();
@@ -254,7 +267,8 @@ export function aggregateWebsiteTraffic(
   ) {
     trend.set(chinaDateKey(new Date(cursor)), {
       ipHashes: new Set(),
-      visitCount: 0,
+      studentVisitCount: 0,
+      anonymousVisitCount: 0,
       registrationCount: 0,
     });
   }
@@ -262,7 +276,11 @@ export function aggregateWebsiteTraffic(
     const item = trend.get(businessDateKey(visit.businessDate));
     if (!item) continue;
     item.ipHashes.add(visit.ipHash);
-    item.visitCount += visit.visitCount;
+    if (visit.visitorType === WEBSITE_VISITOR_TYPE.STUDENT) {
+      item.studentVisitCount += 1;
+    } else if (visit.visitorType === WEBSITE_VISITOR_TYPE.ANONYMOUS) {
+      item.anonymousVisitCount += 1;
+    }
   }
   for (const registration of currentRegistrations) {
     const item = trend.get(chinaDateKey(registration.createdAt));
@@ -273,6 +291,8 @@ export function aggregateWebsiteTraffic(
     scope: {
       timezone: WEBSITE_TRAFFIC_TIMEZONE,
       uniqueIpDefinition: "period_distinct_hmac" as const,
+      visitDefinition: "daily_distinct_ip" as const,
+      visitorClassification: "authenticated_role" as const,
       registrationRole: USER_ROLE.STUDENT,
     },
     period: {
@@ -296,7 +316,9 @@ export function aggregateWebsiteTraffic(
     trend: [...trend.entries()].map(([date, item]) => ({
       date,
       uniqueIpCount: item.ipHashes.size,
-      visitCount: item.visitCount,
+      visitCount: item.ipHashes.size,
+      studentVisitCount: item.studentVisitCount,
+      anonymousVisitCount: item.anonymousVisitCount,
       registrationCount: item.registrationCount,
     })),
     generatedAt: new Date().toISOString(),
@@ -317,7 +339,7 @@ export async function getWebsiteTrafficAnalytics(
           lt: chinaBusinessDate(filters.endAt),
         },
       },
-      select: { businessDate: true, ipHash: true, visitCount: true },
+      select: { businessDate: true, ipHash: true, visitorType: true },
       orderBy: { businessDate: "asc" },
     }),
     prisma.user.findMany({

@@ -2,26 +2,19 @@
 <template>
   <div class="mock-library-page">
     <header class="page-header">
-      <div>
+      <div class="page-header__copy">
         <router-link class="back-link" to="/admin/core-library">← 返回专业资料库</router-link>
         <h1>模考试卷库</h1>
         <p>按 Mock 编号维护 Module / Paper；可用单项与完整模考状态由系统自动判断。</p>
       </div>
-      <el-button type="primary" size="large" @click="openImportDialog">
-        <el-icon><UploadFilled /></el-icon>
-        上传组卷 Excel
-      </el-button>
-    </header>
-
-    <section class="workflow-strip" aria-label="组卷流程">
-      <div v-for="(step, index) in workflowSteps" :key="step.title" class="workflow-step">
-        <span class="step-index">{{ index + 1 }}</span>
-        <div>
-          <strong>{{ step.title }}</strong>
-          <small>{{ step.desc }}</small>
-        </div>
+      <div class="library-actions">
+        <el-button size="large" @click="openComposeDialog">组成套卷</el-button>
+        <el-button type="primary" size="large" @click="openImportDialog">
+          <el-icon><UploadFilled /></el-icon>
+          上传组卷 Excel
+        </el-button>
       </div>
-    </section>
+    </header>
 
     <section class="list-panel">
       <div class="toolbar">
@@ -43,7 +36,9 @@
             <el-option label="已下线" value="archived" />
           </el-select>
           <el-button @click="applyFilters">查询</el-button>
-          <el-button text @click="resetFilters">重置</el-button>
+          <el-button text :disabled="!hasActiveFilters || loading" @click="resetFilters">
+            清空筛选
+          </el-button>
         </div>
         <div class="toolbar-view-switch">
           <span class="list-total">
@@ -166,6 +161,7 @@
               <div class="module-association">
                 <div>
                   <el-tag
+                    v-if="!row.released"
                     :type="row.mockPaperSet.fullExamReady ? 'success' : 'warning'"
                     size="small"
                     effect="plain"
@@ -173,16 +169,22 @@
                     {{ row.mockPaperSet.fullExamReady ? '套卷模块' : '单模块' }}
                   </el-tag>
                   <button
+                    v-if="!row.released"
                     type="button"
                     class="module-set-link"
                     @click="openDetail(row.mockPaperSet.id, row.id)"
                   >
                     {{ row.mockPaperSet.title }}
                   </button>
+                  <span v-else class="module-set-empty">目前无所属模拟套卷</span>
                 </div>
-                <small>
+                <small v-if="!row.released">
                   {{ row.mockPaperSet.code }} ·
-                  {{ row.mockPaperSet.fullExamReady ? '已组成完整套卷' : '当前套卷待补齐' }}
+                  {{
+                    row.mockPaperSet.fullExamReady
+                      ? '已组成完整套卷'
+                      : '当前套卷待补齐'
+                  }}
                 </small>
               </div>
             </template>
@@ -201,8 +203,8 @@
           </el-table-column>
           <el-table-column label="发布状态" width="110">
             <template #default="{ row }">
-              <el-tag :type="statusTagType(row.mockPaperSet.status)" size="small">
-                {{ statusLabel(row.mockPaperSet.status) }}
+              <el-tag :type="statusTagType(row.publicationStatus)" size="small">
+                {{ row.publicationStatus === 'published' ? '单项已发布' : '单项未发布' }}
               </el-tag>
             </template>
           </el-table-column>
@@ -222,7 +224,7 @@
           </el-table-column>
           <el-table-column label="操作" width="92" fixed="right">
             <template #default="{ row }">
-              <el-button link type="primary" @click="openDetail(row.mockPaperSet.id, row.id)">
+              <el-button link type="primary" @click="openModuleQuestions(row)">
                 查看题目
               </el-button>
             </template>
@@ -253,12 +255,91 @@
     </section>
 
     <el-dialog
+      v-model="composeDialogVisible"
+      title="组成套卷"
+      width="760px"
+      :close-on-click-modal="!composing"
+      :close-on-press-escape="!composing"
+    >
+      <el-form label-position="top" class="compose-form">
+        <div class="compose-settings">
+          <el-form-item label="考试类型">
+            <el-radio-group v-model="composeExamType" @change="handleComposeExamTypeChange">
+              <el-radio-button value="ESAT">ESAT</el-radio-button>
+              <el-radio-button value="TMUA">TMUA</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="套卷权限">
+            <el-radio-group v-model="composeAccessTier">
+              <el-radio-button value="member">会员卷</el-radio-button>
+              <el-radio-button value="free">免费卷</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+        </div>
+      </el-form>
+
+      <div class="compose-rule">{{ compositionRuleHint }}</div>
+      <div v-loading="compositionCandidateLoading" class="compose-candidate-shell">
+        <el-checkbox-group v-if="compositionCandidates.length" v-model="selectedCompositionIds">
+          <el-checkbox
+            v-for="candidate in compositionCandidates"
+            :key="candidate.id"
+            class="compose-candidate"
+            :value="candidate.id"
+            :disabled="isCompositionCandidateDisabled(candidate)"
+          >
+            <span class="compose-candidate__content">
+              <strong>
+                {{
+                  candidate.title || moduleDisplayTitle(
+                    composeExamType,
+                    candidate.code,
+                    candidate.label,
+                    candidate.sourceSet.sequenceNo,
+                  )
+                }}
+              </strong>
+              <small>
+                {{ candidate.sourceSet.code }} · {{ candidate.questionCount }} 题 ·
+                {{ formatDuration(candidate.durationSeconds) }}
+              </small>
+            </span>
+          </el-checkbox>
+        </el-checkbox-group>
+        <div v-else-if="!compositionCandidateLoading" class="compose-empty">
+          当前没有尚未组成套卷的可用单项卷
+        </div>
+      </div>
+
+      <template #footer>
+        <el-button :disabled="composing" @click="composeDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="composing"
+          :disabled="!canSubmitComposition"
+          @click="submitComposition"
+        >
+          组成套卷（已选 {{ selectedCompositionIds.length }}）
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
       v-model="importDialogVisible"
       title="上传模考组卷清单"
-      width="600px"
+      width="900px"
       :close-on-click-modal="!importing"
       :close-on-press-escape="!importing"
     >
+      <section class="workflow-strip workflow-strip--dialog" aria-label="组卷流程">
+        <div v-for="(step, index) in workflowSteps" :key="step.title" class="workflow-step">
+          <span class="step-index">{{ index + 1 }}</span>
+          <div>
+            <strong>{{ step.title }}</strong>
+            <small>{{ step.desc }}</small>
+          </div>
+        </div>
+      </section>
       <div class="import-help">
         <strong>编号自动从各考试现有最大编号继续</strong>
         <p>空库首次上传从 No.001 开始。工作表使用“ESAT01-数学1”或“TMUA01-Paper1”命名。</p>
@@ -312,12 +393,24 @@
               <div class="detail-title-row">
                 <h2>{{ detail.title }}</h2>
                 <el-tag>{{ detail.code }}</el-tag>
-                <el-tag :type="detail.readyModuleCount > 0 ? 'success' : 'danger'">
+                <el-tag
+                  v-if="detail.singleModuleDetail"
+                  :type="detail.modules[0]?.published ? 'success' : 'info'"
+                >
+                  {{ detail.modules[0]?.published ? '单项已发布' : '单项未发布' }}
+                </el-tag>
+                <el-tag
+                  v-if="!detail.singleModuleDetail"
+                  :type="detail.readyModuleCount > 0 ? 'success' : 'danger'"
+                >
                   {{ Math.min(detail.readyModuleCount, modulePoolCapacity(detail.examType)) }}/{{
                     modulePoolCapacity(detail.examType)
                   }} 个单项可用
                 </el-tag>
-                <el-tag :type="detail.fullExamReady ? 'success' : 'warning'">
+                <el-tag
+                  v-if="!detail.singleModuleDetail"
+                  :type="detail.fullExamReady ? 'success' : 'warning'"
+                >
                   {{
                     fullExamAvailabilityLabel(
                       detail.examType,
@@ -328,26 +421,46 @@
                 </el-tag>
               </div>
               <p>
-                {{ detail.sourceFileName || '手动创建' }} · {{ detail.questionCount }} 道题
+                <template v-if="detail.singleModuleDetail">
+                  {{
+                    detail.parentSetTitle
+                      ? `当前单项已属于 ${detail.parentSetTitle}`
+                      : '当前单项目前无所属模拟套卷'
+                  }}
+                </template>
+                <template v-else>{{ detail.sourceFileName || '手动创建' }}</template>
+                · {{ detail.questionCount }} 道题
                 <template v-if="detail.issueCount > 0"> · {{ detail.issueCount }} 项待处理</template>
               </p>
             </div>
             <div class="detail-actions">
-              <el-button :loading="validating" @click="refreshValidation">
+              <el-button
+                v-if="!detail.singleModuleDetail"
+                :loading="validating"
+                @click="refreshValidation"
+              >
                 <el-icon><Refresh /></el-icon>
                 重新校验
               </el-button>
               <el-button
-                v-if="detail.status === 'draft'"
+                v-if="detail.singleModuleDetail ? detail.canPublish : detail.status === 'draft'"
                 type="primary"
                 :loading="publishing"
-                :disabled="detail.readyModuleCount === 0"
+                :disabled="!detail.canPublish"
                 @click="publishCurrentPaper"
               >
-                {{ detail.readyModuleCount > 0 ? '发布 Mock 内容' : '暂无可发布单项' }}
+                {{
+                  detail.canPublish
+                    ? detail.singleModuleDetail
+                      ? '发布单项'
+                      : detail.fullExamReady
+                      ? '发布完整套卷'
+                      : `发布 ${detail.publishableModuleCount} 个可用单项`
+                    : '暂无可发布内容'
+                }}
               </el-button>
               <el-button
-                v-else-if="detail.status === 'published'"
+                v-else-if="!detail.singleModuleDetail && detail.status === 'published'"
                 type="danger"
                 plain
                 :loading="archiving"
@@ -358,14 +471,18 @@
             </div>
           </header>
 
-          <section class="meta-editor">
+          <section class="meta-editor" :class="{ 'is-single-module': detail.singleModuleDetail }">
             <el-input
               v-model="editForm.title"
               maxlength="255"
               show-word-limit
-              :disabled="detail.status !== 'draft'"
+              :disabled="detail.singleModuleDetail ? detail.status === 'archived' : detail.status !== 'draft'"
             />
-            <el-select v-model="editForm.accessTier" :disabled="detail.status === 'archived'">
+            <el-select
+              v-if="!detail.singleModuleDetail"
+              v-model="editForm.accessTier"
+              :disabled="detail.status === 'archived'"
+            >
               <el-option label="会员卷" value="member" />
               <el-option label="免费卷" value="free" />
             </el-select>
@@ -374,7 +491,7 @@
               :disabled="detail.status === 'archived' || !editForm.title.trim()"
               @click="saveMetadata"
             >
-              保存基本信息
+              {{ detail.singleModuleDetail ? '保存单项名称' : '保存基本信息' }}
             </el-button>
           </section>
 
@@ -395,7 +512,7 @@
             <el-tab-pane v-for="module in detail.modules" :key="module.id" :name="module.id">
               <template #label>
                 <span class="module-tab-label">
-                  {{ moduleDisplayTitle(detail.examType, module.code, module.label, detail.sequenceNo) }}
+                  {{ moduleTitle(module, detail.examType, detail.sequenceNo) }}
                   <em :class="{ error: module.validationStatus !== 'valid' }">
                     {{ module.questionCount }}/{{ module.expectedQuestionCount }}
                   </em>
@@ -410,7 +527,7 @@
                     type="button"
                     class="module-tab-remove"
                     :disabled="removingModuleId === module.id"
-                    :aria-label="`移除 ${moduleDisplayTitle(detail.examType, module.code, module.label, detail.sequenceNo)}`"
+                    :aria-label="`移除 ${moduleTitle(module, detail.examType, detail.sequenceNo)}`"
                     @click.stop="confirmRemoveModule(module)"
                   >
                     ×
@@ -454,7 +571,7 @@
                       type="primary"
                       :disabled="
                         detail?.status === 'archived' ||
-                        (detail?.status === 'published' && module.validationStatus === 'valid')
+                        module.published
                       "
                       @click="openReplaceDialog(row)"
                     >
@@ -494,7 +611,7 @@
             <span class="module-candidate-main">
               <strong>
                 {{
-                  moduleDisplayTitle(
+                  candidate.title || moduleDisplayTitle(
                     detail?.examType || '',
                     candidate.code,
                     candidate.label,
@@ -571,25 +688,31 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, type UploadFile } from 'element-plus'
 import { CircleCheckFilled, Refresh, UploadFilled, WarningFilled } from '@element-plus/icons-vue'
 import AppPagination from '@/components/AppPagination.vue'
 import {
   addMockPaperModule,
   archiveMockPaperSet,
+  composeMockPaperSet,
   deleteMockPaperSet,
+  getMockPaperCompositionCandidates,
   getMockPaperModuleCandidates,
+  getMockPaperModuleDetail,
   getMockPaperModules,
   getMockPaperSetDetail,
   getMockPaperSets,
   importMockPaperWorkbook,
   publishMockPaperSet,
+  publishMockPaperModule,
   removeMockPaperModule,
   replaceMockPaperQuestion,
+  updateMockPaperModuleTitle,
   updateMockPaperSet,
   validateMockPaperSet,
   type MockPaperAccessTier,
+  type MockPaperExamType,
   type MockPaperModuleCandidate,
   type MockPaperModuleDetail,
   type MockPaperModuleListItem,
@@ -622,10 +745,45 @@ const moduleRows = ref<MockPaperModuleListItem[]>([])
 const filters = reactive({ keyword: '', examType: '', status: '' })
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
 
+// 仅在存在有效筛选条件时开放清空操作，避免空状态重复请求列表。
+const hasActiveFilters = computed(() => Boolean(
+  filters.keyword.trim() || filters.examType || filters.status,
+))
+
 const importDialogVisible = ref(false)
 const importAccessTier = ref<MockPaperAccessTier>('member')
 const selectedFile = ref<File | null>(null)
 const importing = ref(false)
+
+const composeDialogVisible = ref(false)
+const composeExamType = ref<MockPaperExamType>('ESAT')
+const composeAccessTier = ref<MockPaperAccessTier>('member')
+const compositionCandidates = ref<MockPaperModuleCandidate[]>([])
+const selectedCompositionIds = ref<string[]>([])
+const compositionCandidateLoading = ref(false)
+const composing = ref(false)
+
+// 已选单项从当前实时候选中派生，服务端提交时仍会重新验证独占关系。
+const selectedCompositionCandidates = computed(() => {
+  const selectedIds = new Set(selectedCompositionIds.value)
+  return compositionCandidates.value.filter((candidate) => selectedIds.has(candidate.id))
+})
+
+// ESAT 至少三科且必须包含 Math1；TMUA 必须同时选择 Paper1 和 Paper2。
+const canSubmitComposition = computed(() => {
+  const codes = new Set(selectedCompositionCandidates.value.map((candidate) => candidate.code))
+  if (codes.size !== selectedCompositionCandidates.value.length) return false
+  if (composeExamType.value === 'ESAT') {
+    return codes.size >= 3 && codes.size <= 5 && codes.has('maths1')
+  }
+  return codes.size === 2 && codes.has('paper1') && codes.has('paper2')
+})
+
+const compositionRuleHint = computed(() => (
+  composeExamType.value === 'ESAT'
+    ? '请选择 Math1，并从 Math2、Physics、Biology、Chemistry 中至少再选两科；每科只能选择一份。'
+    : '请选择一份 Paper1 和一份 Paper2；每个 Paper 只能选择一份。'
+))
 
 const detailVisible = ref(false)
 const detailLoading = ref(false)
@@ -695,11 +853,66 @@ function applyFilters(): void {
 
 // 清空全部条件并恢复默认列表。
 function resetFilters(): void {
+  if (!hasActiveFilters.value || loading.value) return
   filters.keyword = ''
   filters.examType = ''
   filters.status = ''
   pagination.page = 1
   void loadList()
+}
+
+// 打开组套弹窗时重新读取独立单项，避免沿用上一次已经被占用的候选。
+async function openComposeDialog(): Promise<void> {
+  composeExamType.value = 'ESAT'
+  composeAccessTier.value = 'member'
+  selectedCompositionIds.value = []
+  composeDialogVisible.value = true
+  await loadCompositionCandidates()
+}
+
+// 考试类型变化后清空旧选择并切换到对应候选池。
+function handleComposeExamTypeChange(): void {
+  selectedCompositionIds.value = []
+  void loadCompositionCandidates()
+}
+
+// 候选接口只返回尚未组套的独立单项。
+async function loadCompositionCandidates(): Promise<void> {
+  compositionCandidateLoading.value = true
+  compositionCandidates.value = []
+  try {
+    const result = await getMockPaperCompositionCandidates(composeExamType.value)
+    compositionCandidates.value = result.list
+  } finally {
+    compositionCandidateLoading.value = false
+  }
+}
+
+// 同一科目已有选择时禁用其他试卷，防止生成重复科目的套卷。
+function isCompositionCandidateDisabled(candidate: MockPaperModuleCandidate): boolean {
+  return selectedCompositionCandidates.value.some(
+    (selected) => selected.id !== candidate.id && selected.code === candidate.code,
+  )
+}
+
+// 提交成功后切回套卷视图并打开新草稿，方便继续检查和发布。
+async function submitComposition(): Promise<void> {
+  if (!canSubmitComposition.value || composing.value) return
+  composing.value = true
+  try {
+    const result = await composeMockPaperSet(
+      selectedCompositionIds.value,
+      composeAccessTier.value,
+    )
+    composeDialogVisible.value = false
+    viewMode.value = 'sets'
+    pagination.page = 1
+    await loadList()
+    ElMessage.success('套卷草稿已生成')
+    await openDetail(result.id)
+  } finally {
+    composing.value = false
+  }
 }
 
 // 页码变化直接读取对应服务端分页。
@@ -743,6 +956,21 @@ async function submitImport(): Promise<void> {
   }
 }
 
+// 单项表格根据归属状态选择套卷详情或已释放单项详情。
+async function openModuleQuestions(row: MockPaperModuleListItem): Promise<void> {
+  detailVisible.value = true
+  detailLoading.value = true
+  try {
+    const result = await getMockPaperModuleDetail(row.id)
+    detail.value = result
+    activeModuleId.value = row.id
+    editForm.title = result.title
+    editForm.accessTier = result.accessTier
+  } finally {
+    detailLoading.value = false
+  }
+}
+
 // 详情每次从服务端读取最新结果；单项视图进入时直接定位目标 Module/Paper。
 async function openDetail(id: string, moduleId?: string): Promise<void> {
   detailVisible.value = true
@@ -764,8 +992,10 @@ async function openDetail(id: string, moduleId?: string): Promise<void> {
 async function refreshCurrentDetail(): Promise<void> {
   if (!detail.value) return
   const id = detail.value.id
-  const result = await getMockPaperSetDetail(id)
   const previousModule = activeModuleId.value
+  const result = detail.value.singleModuleDetail && previousModule
+    ? await getMockPaperModuleDetail(previousModule)
+    : await getMockPaperSetDetail(id)
   detail.value = result
   activeModuleId.value = result.modules.some((module) => module.id === previousModule)
     ? previousModule
@@ -775,7 +1005,7 @@ async function refreshCurrentDetail(): Promise<void> {
   await loadList()
 }
 
-// 加号弹窗每次实时读取候选，避免展示刚被其他管理员组套的单项卷。
+// 加号弹窗每次实时读取尚未被其他套卷采用的候选，避免重复组卷。
 async function openAddModuleDialog(): Promise<void> {
   if (!detail.value?.canAddModules || candidateLoading.value) return
   addModuleDialogVisible.value = true
@@ -832,11 +1062,19 @@ async function confirmRemoveModule(module: MockPaperModuleDetail): Promise<void>
   }
 }
 
-// 草稿可保存名称和访问级别；已发布卷只同步免费/会员属性，不改变试卷结构。
+// 套卷保存基础信息；单项名称由独立接口同步到来源及已有套卷副本。
 async function saveMetadata(): Promise<void> {
   if (!detail.value || savingMeta.value) return
   savingMeta.value = true
   try {
+    if (detail.value.singleModuleDetail) {
+      const module = detail.value.modules[0]
+      if (!module) return
+      await updateMockPaperModuleTitle(module.id, editForm.title.trim())
+      ElMessage.success('单项名称已更新')
+      await refreshCurrentDetail()
+      return
+    }
     await updateMockPaperSet(detail.value.id, {
       title: editForm.title.trim(),
       accessTier: editForm.accessTier,
@@ -861,17 +1099,38 @@ async function refreshValidation(): Promise<void> {
   }
 }
 
-// 发布前再次校验全部内容；已通过的单项锁定，待处理单项发布后仍可继续修复。
+// 已释放内容只发布当前单项；普通草稿继续沿用套卷与多单项发布流程。
 async function publishCurrentPaper(): Promise<void> {
-  if (!detail.value || publishing.value || detail.value.readyModuleCount === 0) return
-  const availability = `将发布 ${detail.value.readyModuleCount} 个可用单项；${fullExamAvailabilityLabel(
-    detail.value.examType,
-    detail.value.readyModuleCount,
-    detail.value.fullExamReady,
-  )}。`
+  if (!detail.value || publishing.value || !detail.value.canPublish) return
+  if (detail.value.singleModuleDetail) {
+    const module = detail.value.modules[0]
+    if (!module) return
+    try {
+      await ElMessageBox.confirm(
+        `确定发布“${detail.value.title}”吗？发布后只开放当前单项，不会发布所属套卷的其他模块。`,
+        '发布单项',
+        { type: 'warning', confirmButtonText: '确认发布', cancelButtonText: '取消' },
+      )
+    } catch {
+      return
+    }
+    publishing.value = true
+    try {
+      await publishMockPaperModule(module.id)
+      ElMessage.success('单项模考已发布')
+      detailVisible.value = false
+      await loadList()
+    } finally {
+      publishing.value = false
+    }
+    return
+  }
+  const availability = detail.value.fullExamReady
+    ? '将发布完整套卷，并同步开放其中全部可用单项。'
+    : `将开放 ${detail.value.publishableModuleCount} 个可用单项；套卷仍保持草稿。`
   try {
     await ElMessageBox.confirm(
-      `确定发布“${detail.value.title}”吗？${availability}发布后已通过的单项将锁定，待处理单项仍可继续修复。`,
+      `确定发布“${detail.value.title}”吗？${availability}已发布单项将锁定，未发布单项仍可继续修复。`,
       '发布 Mock 内容',
       { type: 'warning', confirmButtonText: '确认发布', cancelButtonText: '取消' },
     )
@@ -937,14 +1196,14 @@ async function submitReplacement(): Promise<void> {
   }
 }
 
-// 删除草稿前显示套卷名称，确认后只删除该套草稿及其组卷关系。
+// 删除草稿只移除套卷及占用关系，原始单项保留并可重新参与组卷。
 async function confirmDelete(row: MockPaperSetListItem): Promise<void> {
   const publishedModuleNotice = row.paperId
     ? '当前已发布的单项会同步下架，'
     : ''
   try {
     await ElMessageBox.confirm(
-      `确定删除“${row.title}”吗？${publishedModuleNotice}该操作不会删除试题库原题。`,
+      `确定删除“${row.title}”吗？${publishedModuleNotice}其中的单项卷会被释放，可重新加入其他套卷；试题库原题不会删除。`,
       '删除模考草稿',
       { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消' },
     )
@@ -952,7 +1211,7 @@ async function confirmDelete(row: MockPaperSetListItem): Promise<void> {
     return
   }
   await deleteMockPaperSet(row.id)
-  ElMessage.success('模考草稿已删除')
+  ElMessage.success('套卷草稿已删除，单项卷已释放')
   if (rows.value.length === 1 && pagination.page > 1) pagination.page -= 1
   await loadList()
 }
@@ -966,9 +1225,7 @@ function statusLabel(status: string): string {
 
 // 套卷封面只表达整套卷状态；单项模块是否开放不参与这里的状态文案。
 function coverStatus(row: MockPaperSetListItem): MockPaperSetListItem['status'] {
-  if (row.status === 'archived') return 'archived'
-  if (row.status === 'published' && row.fullExamReady) return 'published'
-  return 'draft'
+  return row.status
 }
 
 // 封面和最近更新时间区域共用同一套套卷状态口径。
@@ -996,7 +1253,7 @@ function moduleDisplayTitle(
 
 // 单项列表把所属套卷信息转换为统一模块标题。
 function moduleDisplayName(row: MockPaperModuleListItem): string {
-  return moduleDisplayTitle(
+  return row.title || moduleDisplayTitle(
     row.mockPaperSet.examType,
     row.code,
     row.label,
@@ -1004,9 +1261,18 @@ function moduleDisplayName(row: MockPaperModuleListItem): string {
   )
 }
 
-// 套卷封面使用稳定编号生成统一标题，避免后台自定义标题造成列表难以扫描。
+// 详情页签优先使用管理员维护的单项名称，未编辑记录继续显示自动名称。
+function moduleTitle(
+  module: Pick<MockPaperModuleDetail, 'title' | 'code' | 'label'>,
+  examType: string,
+  sequenceNo: number,
+): string {
+  return module.title || moduleDisplayTitle(examType, module.code, module.label, sequenceNo)
+}
+
+// 套卷封面直接展示管理员保存的名称；稳定编号继续由下方 code 单独承担。
 function coverTitle(row: MockPaperSetListItem): string {
-  return `${row.examType} 模拟卷 No.${String(row.sequenceNo).padStart(3, '0')}`
+  return row.title
 }
 
 // ESAT Module 池可容纳全部五科，TMUA 仍固定为两个 Paper。
@@ -1070,6 +1336,15 @@ onMounted(() => void loadList())
   gap: 24px;
 }
 
+.page-header {
+  align-items: flex-end;
+  margin-bottom: 20px;
+}
+
+.page-header__copy {
+  min-width: 0;
+}
+
 .page-header h1,
 .detail-header h2 {
   margin: 10px 0 8px;
@@ -1094,6 +1369,15 @@ onMounted(() => void loadList())
   cursor: pointer;
 }
 
+.library-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+
 .workflow-strip {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1103,6 +1387,10 @@ onMounted(() => void loadList())
   border: 1px solid #e2e8f0;
   border-radius: 14px;
   background: #e2e8f0;
+}
+
+.workflow-strip--dialog {
+  margin: 0 0 18px;
 }
 
 .workflow-step {
@@ -1208,6 +1496,13 @@ onMounted(() => void loadList())
   --cover-accent-soft: #fdf2f8;
   --cover-border: #d8c4ce;
   --cover-surface: #fffafb;
+}
+
+// 草稿统一降为中性灰底，只保留 ESAT/TMUA 的蓝红识别色用于侧边和文字提示。
+.paper-card.is-draft {
+  --cover-accent-soft: #e5e7eb;
+  --cover-border: #cbd5e1;
+  --cover-surface: #f1f3f5;
 }
 
 .paper-cover {
@@ -1552,6 +1847,11 @@ onMounted(() => void loadList())
   text-decoration: underline;
 }
 
+.module-set-empty {
+  color: #64748b;
+  font-size: 12px;
+}
+
 .validation-ok,
 .validation-error,
 .validation-pending {
@@ -1620,6 +1920,93 @@ onMounted(() => void loadList())
   border: 1px solid #c7d2fe;
   border-radius: 10px;
   background: #f5f7ff;
+}
+
+.compose-settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.compose-settings :deep(.el-form-item) {
+  margin-bottom: 8px;
+}
+
+.compose-rule {
+  margin: 4px 0 14px;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.compose-candidate-shell {
+  min-height: 180px;
+  max-height: 430px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px;
+}
+
+.compose-candidate-shell :deep(.el-checkbox-group) {
+  display: grid;
+  gap: 8px;
+  font-size: inherit;
+  line-height: normal;
+}
+
+.compose-candidate {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 11px 12px;
+  background: #fff;
+  cursor: pointer;
+  box-sizing: border-box;
+  width: 100%;
+  height: auto;
+  margin-right: 0;
+  line-height: 1.4;
+}
+
+.compose-candidate:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.compose-candidate :deep(.el-checkbox__label) {
+  min-width: 0;
+  padding-left: 10px;
+  line-height: 1.4;
+}
+
+.compose-candidate__content {
+  display: grid;
+  gap: 4px;
+  line-height: 1.4;
+}
+
+.compose-candidate strong {
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.compose-candidate small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.compose-empty {
+  display: grid;
+  min-height: 162px;
+  place-items: center;
+  color: #94a3b8;
+  font-size: 14px;
 }
 
 .import-help p,
@@ -1938,6 +2325,16 @@ onMounted(() => void loadList())
 }
 
 @media (max-width: 680px) {
+  .page-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .library-actions {
+    justify-content: flex-start;
+    margin-bottom: 0;
+  }
+
   .paper-grid {
     grid-template-columns: minmax(0, 1fr);
   }

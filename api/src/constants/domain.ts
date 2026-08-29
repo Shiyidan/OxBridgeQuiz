@@ -204,6 +204,12 @@ export const MOCK_PAPER_VALIDATION_STATUS = {
   INVALID: 'invalid',
 } as const
 
+export const MOCK_PAPER_MODULE_STATUS = {
+  DRAFT: 'draft',
+  PUBLISHED: 'published',
+  ARCHIVED: 'archived',
+} as const
+
 export const MEMBERSHIP_PLAN = {
   MONTHLY: 'monthly',
   QUARTERLY: 'quarterly',

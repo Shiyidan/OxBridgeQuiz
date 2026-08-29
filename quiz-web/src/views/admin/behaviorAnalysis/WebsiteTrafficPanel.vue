@@ -1,4 +1,4 @@
-<!-- 网站访问分析面板：提供周期去重 IP、访问次数、学生注册及每日趋势。 -->
+<!-- 网站访问分析面板：提供周期去重 IP、访客身份、学生注册及每日趋势。 -->
 <template>
   <div class="traffic-panel">
     <section class="traffic-filter" aria-label="网站访问统计筛选">
@@ -64,7 +64,24 @@
     <div v-if="!loadError || analytics" v-loading="loading" class="traffic-content">
       <section class="overview-strip" aria-label="网站访问核心指标">
         <article v-for="metric in overviewMetrics" :key="metric.key" class="overview-metric">
-          <span>{{ metric.label }}</span>
+          <div class="metric-label">
+            <span>{{ metric.label }}</span>
+            <el-tooltip
+              v-if="metric.description"
+              :content="metric.description"
+              placement="top"
+              effect="light"
+              :show-after="150"
+            >
+              <button
+                class="metric-tooltip-trigger"
+                type="button"
+                :aria-label="`查看${metric.label}的统计说明`"
+              >
+                <QuestionFilled />
+              </button>
+            </el-tooltip>
+          </div>
           <strong>{{ formatInteger(metric.value) }}</strong>
           <small :class="changeClass(metric.changeRate)">
             {{ changeText(metric.changeRate, metric.value) }}
@@ -76,7 +93,7 @@
         <div class="panel-heading">
           <div>
             <h3>网站访问与注册趋势</h3>
-            <p>折线为访问次数，柱形为新增学生注册；均按北京时间自然日统计</p>
+            <p>折线区分登录学生与匿名访客，柱形为新增学生注册；均按北京时间自然日统计</p>
           </div>
           <span>{{ periodText }}</span>
         </div>
@@ -111,63 +128,11 @@
         </article>
       </section>
 
-      <section class="panel table-panel">
-        <div class="panel-heading">
-          <div>
-            <div class="panel-title-row">
-              <h3>每日数据明细</h3>
-              <el-tooltip placement="top" effect="light" :show-after="150">
-                <template #content>
-                  <div class="traffic-definition-tooltip">
-                    <p>
-                      <strong>独立 IP：</strong>当天访问网站的去重 IP 数量；同一 IP 当天访问多次只算
-                      1 个。
-                    </p>
-                    <p>
-                      <strong>访问次数：</strong>当天网站被完整加载的总次数；同一 IP
-                      多次访问会累计。
-                    </p>
-                  </div>
-                </template>
-                <button
-                  class="definition-tooltip-trigger"
-                  type="button"
-                  aria-label="查看每日数据指标说明"
-                >
-                  <QuestionFilled />
-                </button>
-              </el-tooltip>
-            </div>
-            <p>精确值用于核对图表变化，不展示或导出具体 IP 摘要</p>
-          </div>
-          <span>{{ analytics?.trend.length || 0 }} 个自然日</span>
-        </div>
-        <AdminDataTable
-          :data="dailyDetailItems"
-          :loading="loading"
-          empty-text="当前范围暂无网站访问与注册数据"
-        >
-          <el-table-column prop="date" label="日期" min-width="130" />
-          <el-table-column prop="uniqueIpCount" label="独立 IP" min-width="110" align="right" />
-          <el-table-column prop="visitCount" label="访问次数" min-width="110" align="right" />
-          <el-table-column label="IP 平均访问" min-width="125" align="right">
-            <template #default="{ row }">
-              {{ averageVisits(row.visitCount, row.uniqueIpCount) }}
-            </template>
-          </el-table-column>
-          <el-table-column
-            prop="registrationCount"
-            label="注册人数"
-            min-width="110"
-            align="right"
-          />
-        </AdminDataTable>
-      </section>
     </div>
 
     <p class="data-note">
       独立 IP 使用服务端 HMAC
-      摘要去重，不保存明文地址；顶部为所选周期内去重值，趋势为每日去重值。注册地址仅以国家和地区聚合展示。访问次数按每次完整加载网站累计，管理员登录状态下的内部访问不计入。
+      摘要去重，不保存明文地址；访问次数按北京时间自然日对同一 IP 去重。身份由服务端登录状态判断，同一 IP 当天登录后归为登录学生；管理员与常见爬虫不计入。
     </p>
   </div>
 </template>
@@ -182,13 +147,13 @@ import {
   type TrafficRegistrationLocationItem,
 } from '@/api/admin'
 import { getApiErrorMessage } from '@/utils/request'
-import AdminDataTable from '@/components/admin/AdminDataTable.vue'
 import RegistrationLocationChart from './RegistrationLocationChart.vue'
 import WebsiteTrafficTrendChart from './WebsiteTrafficTrendChart.vue'
 
 interface OverviewMetric {
   key: string
   label: string
+  description?: string
   value: number
   changeRate: number | null
 }
@@ -250,12 +215,14 @@ const overviewMetrics = computed<OverviewMetric[]>(() => [
   {
     key: 'unique-ip',
     label: '独立 IP',
+    description: '所选日期范围内按 IP 去重后的访问 IP 数。同一 IP 在整个查询周期内无论访问多少天，只计 1 个。',
     value: analytics.value?.overview.uniqueIpCount || 0,
     changeRate: analytics.value?.overview.uniqueIpChangeRate ?? null,
   },
   {
     key: 'visits',
-    label: '访问次数',
+    label: '每日去重访问',
+    description: '先按每天对 IP 去重，再将各天结果相加。同一 IP 同一天只计 1 次；跨天访问会每天各计 1 次。',
     value: analytics.value?.overview.visitCount || 0,
     changeRate: analytics.value?.overview.visitCountChangeRate ?? null,
   },
@@ -266,11 +233,6 @@ const overviewMetrics = computed<OverviewMetric[]>(() => [
     changeRate: analytics.value?.overview.registrationCountChangeRate ?? null,
   },
 ])
-
-// 每日明细使用趋势数据的副本按日期倒序展示，同时保留图表所需的正序趋势。
-const dailyDetailItems = computed(() =>
-  [...(analytics.value?.trend || [])].sort((left, right) => right.date.localeCompare(left.date)),
-)
 
 // 地址列表保留前八项，其余合并为“其他地区”，兼顾地区明细与图表可读性。
 const locationItems = computed<TrafficRegistrationLocationItem[]>(() => {
@@ -351,11 +313,6 @@ function changeClass(value: number | null): Record<string, boolean> {
     'metric-change--down': value !== null && value < 0,
     'metric-change--neutral': value === null || value === 0,
   }
-}
-
-// 明细中的频次只在存在独立 IP 时计算，空日保持明确占位。
-function averageVisits(visitCount: number, uniqueIpCount: number): string {
-  return uniqueIpCount > 0 ? (visitCount / uniqueIpCount).toFixed(1) : '—'
 }
 
 // 未来日期不允许进入尚未发生的趋势范围。
@@ -571,11 +528,37 @@ onBeforeUnmount(() => {
   border-left: 1px solid #e2e8f0;
 }
 
-.overview-metric > span {
-  display: block;
+.metric-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 10px;
   color: #64748b;
   font-size: 0.8rem;
+}
+
+.metric-tooltip-trigger {
+  display: inline-flex;
+  width: 17px;
+  height: 17px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  cursor: help;
+}
+
+.metric-tooltip-trigger:hover,
+.metric-tooltip-trigger:focus-visible {
+  color: #4f46e5;
+}
+
+.metric-tooltip-trigger:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid #c7d2fe;
+  outline-offset: 2px;
 }
 
 .overview-metric strong {
@@ -668,52 +651,6 @@ onBeforeUnmount(() => {
   font-size: 1rem;
 }
 
-.panel-title-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.definition-tooltip-trigger {
-  display: inline-flex;
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  padding: 2px;
-  border: 1px solid #cbd5e1;
-  border-radius: 4px;
-  background: #fff;
-  color: #64748b;
-  cursor: help;
-}
-
-.definition-tooltip-trigger:hover,
-.definition-tooltip-trigger:focus-visible {
-  border-color: #818cf8;
-  color: #4f46e5;
-}
-
-.definition-tooltip-trigger:focus-visible {
-  outline: 2px solid #c7d2fe;
-  outline-offset: 2px;
-}
-
-.traffic-definition-tooltip {
-  max-width: 360px;
-  color: #334155;
-  line-height: 1.6;
-}
-
-.traffic-definition-tooltip p {
-  margin: 0;
-}
-
-.traffic-definition-tooltip p + p {
-  margin-top: 8px;
-}
-
 .panel-heading p {
   margin-top: 6px;
   color: #94a3b8;
@@ -724,10 +661,6 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   color: #64748b;
   font-size: 0.76rem;
-}
-
-.table-panel {
-  padding-bottom: 18px;
 }
 
 .data-note {

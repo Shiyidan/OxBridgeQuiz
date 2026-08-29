@@ -88,6 +88,10 @@ export interface AdminUserAttempt {
   submittedAt: string | null
   accuracy: number | null
   subjects: string[]
+  questionBankPractice: {
+    mode: 'random' | 'notebook'
+    notebookName: string | null
+  } | null
   paper: {
     code: string | null
     paperType: string
@@ -226,6 +230,8 @@ export interface TrafficAnalyticsTrendItem {
   date: string
   uniqueIpCount: number
   visitCount: number
+  studentVisitCount: number
+  anonymousVisitCount: number
   registrationCount: number
 }
 
@@ -239,6 +245,8 @@ export interface TrafficAnalyticsResult {
   scope: {
     timezone: 'Asia/Shanghai'
     uniqueIpDefinition: 'period_distinct_hmac'
+    visitDefinition: 'daily_distinct_ip'
+    visitorClassification: 'authenticated_role'
     registrationRole: 'student'
   }
   period: {

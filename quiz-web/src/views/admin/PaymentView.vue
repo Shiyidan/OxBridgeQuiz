@@ -226,7 +226,6 @@
           @page-change="handleOrderPageChange"
           @page-size-change="handleOrderPageSizeChange"
         >
-          <el-table-column prop="orderNo" label="订单号" min-width="215" />
           <el-table-column label="用户" min-width="170">
             <template #default="{ row }">
               <div class="user-cell">
@@ -257,6 +256,7 @@
           <el-table-column label="创建时间" width="160">
             <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
           </el-table-column>
+          <el-table-column prop="orderNo" label="订单号" min-width="215" />
           <el-table-column label="操作" width="105" fixed="right" align="center">
             <template #default="{ row }">
               <el-button link type="primary" @click="handleOpenOrderDetail(row.orderNo)">

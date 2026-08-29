@@ -82,7 +82,7 @@
         </el-table-column>
         <el-table-column
           label="科目 / 所属 Paper"
-          min-width="400"
+          min-width="200"
           align="center"
           header-align="center"
         >

@@ -184,7 +184,12 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
             year: true,
             duration: true,
             code: true,
-            mockPaperSet: { select: { sequenceNo: true } },
+            mockPaperSet: {
+              select: {
+                sequenceNo: true,
+                modules: { select: { id: true, code: true, title: true } },
+              },
+            },
           },
         })
       : null
@@ -223,11 +228,15 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
     const singleModule = moduleSnapshot?.mockExamMode === 'single'
       ? moduleSnapshot.modules[0] || null
       : null
+    const currentModuleTitle = paper?.mockPaperSet?.modules.find((module) => (
+      module.id === moduleSnapshot?.mockModuleId || module.code === singleModule?.code
+    ))?.title
     const resultPaperTitle = singleModule && paper?.mockPaperSet
       ? singleModuleExamTitle(
           examRecord.examType,
           singleModule.code,
           paper.mockPaperSet.sequenceNo,
+          currentModuleTitle || singleModule.title,
         )
       : paper?.title || ''
 

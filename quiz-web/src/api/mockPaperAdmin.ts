@@ -56,11 +56,13 @@ export interface MockPaperModuleDetail {
   id: string
   code: string
   label: string
+  title: string | null
   order: number
   durationSeconds: number
   expectedQuestionCount: number
   questionCount: number
   validationStatus: MockPaperValidationStatus
+  publicationStatus: 'draft' | 'published' | 'archived'
   issueCount: number
   published: boolean
   removable: boolean
@@ -71,7 +73,12 @@ export interface MockPaperModuleDetail {
 export interface MockPaperSetDetail
   extends Omit<MockPaperSetListItem, 'moduleCount'> {
   issues: string[]
+  publishableModuleCount: number
+  canPublish: boolean
   canAddModules: boolean
+  singleModuleDetail?: boolean
+  releasedModule?: boolean
+  parentSetTitle?: string | null
   modules: MockPaperModuleDetail[]
 }
 
@@ -79,6 +86,7 @@ export interface MockPaperModuleCandidate {
   id: string
   code: string
   label: string
+  title: string | null
   durationSeconds: number
   questionCount: number
   sourceSet: {
@@ -107,13 +115,16 @@ export interface MockPaperModuleListItem {
   id: string
   code: string
   label: string
+  title: string | null
   order: number
   durationSeconds: number
   expectedQuestionCount: number
   questionCount: number
   validationStatus: MockPaperValidationStatus
+  publicationStatus: 'draft' | 'published' | 'archived'
   issueCount: number
   updatedAt: string
+  released: boolean
   mockPaperSet: Pick<
     MockPaperSetListItem,
     | 'id'
@@ -188,11 +199,57 @@ export function getMockPaperSetDetail(id: string) {
   })
 }
 
-// 组套候选只包含同考试、模块不重复且尚未被其他套卷采用的有效单项卷。
+// 单项视图详情只读取当前 Module/Paper，不展开所属套卷的其他模块。
+export function getMockPaperModuleDetail(moduleId: string) {
+  return callApi<MockPaperSetDetail>({
+    method: 'GET',
+    url: `/mock-paper-sets/modules/${moduleId}`,
+  })
+}
+
+// 单项名称修改后由服务端同步来源模块及其已有套卷副本。
+export function updateMockPaperModuleTitle(moduleId: string, title: string) {
+  return callApi<{ id: string; title: string; updatedModuleCount: number }>({
+    method: 'PUT',
+    url: `/mock-paper-sets/modules/${moduleId}`,
+    body: { title },
+  })
+}
+
+// 单项发布只开放指定 Module/Paper，并保持所属套卷的其他模块状态不变。
+export function publishMockPaperModule(moduleId: string) {
+  return callApi<{ id: string; moduleId: string; paperId: string }>({
+    method: 'POST',
+    url: `/mock-paper-sets/modules/${moduleId}/publish`,
+  })
+}
+
+// 组套候选只包含同考试、模块不重复且尚未被其他有效套卷采用的独立单项卷。
 export function getMockPaperModuleCandidates(id: string) {
   return callApi<{ list: MockPaperModuleCandidate[] }>({
     method: 'GET',
     url: `/mock-paper-sets/${id}/module-candidates`,
+  })
+}
+
+// 新建套卷弹窗读取尚未被任何套卷采用的独立单项。
+export function getMockPaperCompositionCandidates(examType: MockPaperExamType) {
+  return callApi<{ list: MockPaperModuleCandidate[] }>({
+    method: 'GET',
+    url: '/mock-paper-sets/composition-candidates',
+    params: { examType },
+  })
+}
+
+// 由管理员选择的独立单项创建新草稿套卷，来源独占校验由服务端完成。
+export function composeMockPaperSet(
+  moduleIds: string[],
+  accessTier: MockPaperAccessTier,
+) {
+  return callApi<{ id: string }>({
+    method: 'POST',
+    url: '/mock-paper-sets/compose',
+    body: { moduleIds, accessTier },
   })
 }
 
@@ -263,7 +320,14 @@ export function validateMockPaperSet(id: string) {
 
 // 校验通过后发布到学生端目录，并创建答卷运行载体。
 export function publishMockPaperSet(id: string) {
-  return callApi<{ id: string; paperId: string; status: 'published'; publishedAt: string }>({
+  return callApi<{
+    id: string
+    paperId: string
+    status: 'draft' | 'published'
+    publishedAt: string | null
+    suitePublished: boolean
+    publishedModuleCount: number
+  }>({
     method: 'POST',
     url: `/mock-paper-sets/${id}/publish`,
   })

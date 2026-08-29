@@ -118,6 +118,7 @@ model MockPaperSet {
   updatedAt        DateTime  @updatedAt
   publishedAt      DateTime?
   archivedAt       DateTime?
+  deletedAt        DateTime?
 
   modules MockPaperModule[]
   paper   Paper?            @relation(fields: [paperId], references: [id], onDelete: SetNull)
@@ -133,15 +134,19 @@ model MockPaperModule {
   sourceModuleId        String?  @unique @db.VarChar(191)
   code                  String   @db.VarChar(32)
   label                 String   @db.VarChar(100)
+  title                 String?  @db.VarChar(255)
   moduleOrder           Int
   durationSeconds       Int
   expectedQuestionCount Int
   questionCount         Int      @default(0)
   validationStatus      String   @default("invalid") @db.VarChar(32)
+  publicationStatus     String   @default("draft") @db.VarChar(32)
   issueCount            Int      @default(0)
   issues                Json
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+  publishedAt           DateTime?
+  archivedAt            DateTime?
 
   mockPaperSet   MockPaperSet        @relation(fields: [mockPaperSetId], references: [id], onDelete: Cascade)
   sourceModule   MockPaperModule?     @relation("MockPaperModuleComposition", fields: [sourceModuleId], references: [id], onDelete: SetNull)
@@ -152,6 +157,7 @@ model MockPaperModule {
   @@unique([mockPaperSetId, moduleOrder])
   @@index([mockPaperSetId, moduleOrder])
   @@index([mockPaperSetId, validationStatus])
+  @@index([publicationStatus, validationStatus])
 }
 
 model MockPaperQuestion {
@@ -314,6 +320,7 @@ model WebsiteVisitDaily {
   id           String   @id @default(uuid()) @db.VarChar(191)
   businessDate DateTime @db.Date
   ipHash       String   @db.Char(64)
+  visitorType  String?  @db.VarChar(16)
   visitCount   Int      @default(1)
   firstSeenAt  DateTime @default(now())
   lastSeenAt   DateTime @default(now())

@@ -15,6 +15,7 @@ import { attemptQuestionSelect, formatQuestionForAttempt } from '../routes/paper
 export interface StoredExamModule {
   code: string
   subject: string
+  title?: string | null
   subjectCode: string | null
   order: number
   durationSeconds: number
@@ -57,7 +58,10 @@ export function singleModuleExamTitle(
   examType: string,
   moduleCode: string,
   sequenceNo: number,
+  customTitle?: string | null,
 ): string {
+  const normalizedTitle = customTitle?.trim()
+  if (normalizedTitle) return normalizedTitle
   const label = SINGLE_MODULE_DISPLAY_LABELS[moduleCode] || moduleCode
   return `${examType} ${label} No.${String(sequenceNo).padStart(3, '0')}`
 }
@@ -147,6 +151,7 @@ export function buildSingleModuleExamSnapshot(
     id: string
     code: string
     subject: string
+    title?: string | null
     subjectCode?: string | null
     durationSeconds: number
   },
@@ -178,6 +183,7 @@ export function buildSingleModuleExamSnapshot(
     modules: [{
       code,
       subject: module.subject || code,
+      title: module.title?.trim() || null,
       subjectCode: module.subjectCode || code,
       order: 1,
       durationSeconds: Math.max(1, Math.round(module.durationSeconds)),
@@ -518,7 +524,9 @@ export async function getModuleExamSession(
   return {
     examRecordId: record.id,
     paperId: record.paperId,
-    paperTitle: record.paper.title,
+    paperTitle: snapshot.mockExamMode === 'single'
+      ? currentModule?.title || record.paper.title
+      : record.paper.title,
     paperYear: record.paper.year,
     examType: record.examType,
     mockExamMode: snapshot.mockExamMode === 'single' ? 'single' : 'full',

@@ -199,8 +199,10 @@
               <div class="attempt-header">
                 <div class="attempt-title-row">
                   <p class="attempt-label">
-                    {{ attempt.examType }} · {{ paperTypeLabel(attempt.paper.paperType) }}
-                    <template v-if="attempt.paper.code"> · {{ attempt.paper.code }}</template>
+                    {{ attempt.examType }} · {{ attemptTypeLabel(attempt) }}
+                    <template v-if="attempt.paper.code && !attempt.questionBankPractice">
+                      · {{ attempt.paper.code }}
+                    </template>
                   </p>
                   <p v-if="selectedModule === 'questionBank'" class="attempt-subjects">
                     科目：{{ formatAttemptSubjects(attempt.subjects) }}
@@ -250,6 +252,7 @@ import AppPagination from '@/components/AppPagination.vue'
 import {
   getAdminUserDetailData,
   type AdminUserActivityModule,
+  type AdminUserAttempt,
   type AdminUserDetail,
   type AdminUserIpLocation,
   type AdminUserRewardCardSummary,
@@ -366,6 +369,14 @@ function paperTypeLabel(paperType: string): string {
     aiPaper: '题库练习',
   }
   return labels[paperType] || paperType
+}
+
+// 试题库记录展示用户实际选择的入口，练习册仍存在时同时保留当时使用的名称。
+function attemptTypeLabel(attempt: AdminUserAttempt): string {
+  const practice = attempt.questionBankPractice
+  if (!practice) return paperTypeLabel(attempt.paper.paperType)
+  if (practice.mode === 'random') return '随机组题'
+  return practice.notebookName ? `练习册做题 · ${practice.notebookName}` : '练习册做题'
 }
 
 // 当前筛选模块名称同时用于记录区标题和空状态提示。

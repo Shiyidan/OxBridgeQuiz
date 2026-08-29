@@ -6,6 +6,7 @@ import {
   EXAM_PHASE,
   EXAM_RECORD_STATUS,
   EXAM_TYPE,
+  MOCK_PAPER_MODULE_STATUS,
   MOCK_PAPER_STATUS,
   MOCK_PAPER_TYPES,
   MOCK_PAPER_VALIDATION_STATUS,
@@ -28,6 +29,7 @@ import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { fail, success } from '../utils/response.js'
 import { parsePositiveInt } from './papers-shared.js'
 import { replaceAnswerRecords } from './exam-shared.js'
+import { isMockPaperModuleAvailable } from '../utils/mockPaperState.js'
 
 export const mockExamRouter = createAsyncRouter()
 
@@ -175,6 +177,7 @@ mockExamRouter.get('/catalog', optionalAuth, async (req, res) => {
   const sets = await prisma.mockPaperSet.findMany({
     where: {
       examType,
+      deletedAt: null,
       status: MOCK_PAPER_STATUS.PUBLISHED,
       validationStatus: MOCK_PAPER_VALIDATION_STATUS.VALID,
       fullExamReady: true,
@@ -182,7 +185,15 @@ mockExamRouter.get('/catalog', optionalAuth, async (req, res) => {
       ...(keyword ? { OR: [{ title: { contains: keyword } }, { code: { contains: keyword } }] } : {}),
     },
     orderBy: [{ sequenceNo: 'asc' }, { version: 'desc' }],
-    include: { modules: { orderBy: { moduleOrder: 'asc' } } },
+    include: {
+      modules: {
+        where: {
+          publicationStatus: MOCK_PAPER_MODULE_STATUS.PUBLISHED,
+          validationStatus: MOCK_PAPER_VALIDATION_STATUS.VALID,
+        },
+        orderBy: { moduleOrder: 'asc' },
+      },
+    },
   })
   const esatModuleCodes = examType === EXAM_TYPE.ESAT
     ? await getEsatModuleCodes(userId)
@@ -300,11 +311,14 @@ mockExamRouter.get('/modules', optionalAuth, async (req, res) => {
   const modules = await prisma.mockPaperModule.findMany({
     where: {
       validationStatus: MOCK_PAPER_VALIDATION_STATUS.VALID,
+      publicationStatus: MOCK_PAPER_MODULE_STATUS.PUBLISHED,
       ...(moduleCode ? { code: moduleCode } : {}),
       mockPaperSet: {
         examType,
-        status: MOCK_PAPER_STATUS.PUBLISHED,
+        deletedAt: null,
+        status: { not: MOCK_PAPER_STATUS.ARCHIVED },
         paperId: { not: null },
+        paper: { status: 'published' },
       },
     },
     orderBy: [
@@ -363,7 +377,12 @@ mockExamRouter.get('/modules', optionalAuth, async (req, res) => {
       mockExamMode(record.structureSnapshot) === 'full'
       && hasCompletedMockModule(record, module.code)
     ))
-    const title = singleModuleExamTitle(set.examType, module.code, set.sequenceNo)
+    const title = singleModuleExamTitle(
+      set.examType,
+      module.code,
+      set.sequenceNo,
+      module.title,
+    )
     const searchable = `${title} ${module.label} ${module.code} ${set.title} ${set.code}`.toLowerCase()
     if (keyword && !searchable.includes(keyword)) return []
     return [{
@@ -542,7 +561,13 @@ mockExamRouter.get('/records', requireAuth, async (req, res) => {
           title: true,
           code: true,
           mockPaperSet: {
-            select: { id: true, title: true, code: true, sequenceNo: true },
+            select: {
+              id: true,
+              title: true,
+              code: true,
+              sequenceNo: true,
+              modules: { select: { id: true, code: true, title: true } },
+            },
           },
         },
       },
@@ -571,8 +596,16 @@ mockExamRouter.get('/records', requireAuth, async (req, res) => {
     const mode = mockExamMode(record.structureSnapshot)
     const module = mode === 'single' ? snapshot?.modules[0] || null : null
     const sourceSet = record.paper.mockPaperSet
+    const currentModuleTitle = sourceSet?.modules.find((item) => (
+      item.id === snapshot?.mockModuleId || item.code === module?.code
+    ))?.title
     const title = module && sourceSet
-      ? singleModuleExamTitle(record.examType, module.code, sourceSet.sequenceNo)
+      ? singleModuleExamTitle(
+          record.examType,
+          module.code,
+          sourceSet.sequenceNo,
+          currentModuleTitle || module.title,
+        )
       : record.paper.title
     return {
       examRecordId: record.id,
@@ -655,10 +688,14 @@ mockExamRouter.post('/modules/:id/attempts', requireAuth, async (req, res) => {
   if (
     !module
     || !set
-    || module.validationStatus !== MOCK_PAPER_VALIDATION_STATUS.VALID
-    || set.status !== MOCK_PAPER_STATUS.PUBLISHED
     || !set.paper
-    || set.paper.status !== 'published'
+    || !isMockPaperModuleAvailable({
+      publicationStatus: module.publicationStatus,
+      validationStatus: module.validationStatus,
+      deletedAt: set.deletedAt,
+      paperStatus: set.paper.status,
+    })
+    || set.status === MOCK_PAPER_STATUS.ARCHIVED
   ) {
     res.status(409).json(fail('该单项模考当前不能开始', 'MOCK_EXAM_MODULE_NOT_AVAILABLE'))
     return
@@ -694,6 +731,7 @@ mockExamRouter.post('/modules/:id/attempts', requireAuth, async (req, res) => {
       id: module.id,
       code: module.code,
       subject: module.label,
+      title: module.title,
       subjectCode: module.code,
       durationSeconds: module.durationSeconds,
     },
@@ -800,6 +838,7 @@ mockExamRouter.post('/papers/:id/attempts', requireAuth, async (req, res) => {
   })
   if (
     !set
+    || set.deletedAt
     || set.status !== MOCK_PAPER_STATUS.PUBLISHED
     || set.validationStatus !== MOCK_PAPER_VALIDATION_STATUS.VALID
     || !set.paper
@@ -832,9 +871,12 @@ mockExamRouter.post('/papers/:id/attempts', requireAuth, async (req, res) => {
     return
   }
   const invalidQuestion = selectedModules.some((module) =>
-    module.questions.length !== module.expectedQuestionCount
+    module.validationStatus !== MOCK_PAPER_VALIDATION_STATUS.VALID
+    || module.publicationStatus !== MOCK_PAPER_MODULE_STATUS.PUBLISHED
+    || module.questions.length !== module.expectedQuestionCount
     || module.questions.some((item) =>
-      !item.question
+      item.validationStatus !== MOCK_PAPER_VALIDATION_STATUS.VALID
+      || !item.question
       || item.question.status !== QUESTION_STATUS.PUBLISHED
       || item.question.examType !== set.examType,
     ),

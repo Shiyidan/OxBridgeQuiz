@@ -6,6 +6,7 @@ import {
   INVITATION_REWARD_ROLE,
   INVITATION_REWARD_STATUS,
   MEMBERSHIP_STATUS,
+  PRACTICE_SOURCE,
   USER_ROLE,
   isMockPaperType,
   isRealPaperType,
@@ -34,13 +35,28 @@ export function isUserActivityModule(value: unknown): value is UserActivityModul
   return USER_ACTIVITY_MODULES.some((module) => module.key === value)
 }
 
-// 试卷类型区分诊断、模考与题库，题库中的专项练习和练习本统一归入试题库。
+// 试卷类型区分诊断、模考与题库，题库中的随机组题和练习册统一归入试题库。
 function resolveUserActivityModule(record: {
   paper: { paperType: string }
 }): UserActivityModuleKey {
   if (isMockPaperType(record.paper.paperType)) return 'mockExam'
   if (isRealPaperType(record.paper.paperType)) return 'diagnostic'
   return 'questionBank'
+}
+
+// 练习册来源优先依据稳定来源字段识别；普通题库历史记录缺少来源时按随机组题兼容展示。
+function resolveQuestionBankPractice(attempt: {
+  practiceSource: string | null
+  practiceNotebook: { name: string } | null
+  paper: { paperType: string }
+}) {
+  if (resolveUserActivityModule(attempt) !== 'questionBank') return null
+  const isNotebook = attempt.practiceSource === PRACTICE_SOURCE.NOTEBOOK
+    || Boolean(attempt.practiceNotebook)
+  return {
+    mode: isNotebook ? 'notebook' as const : 'random' as const,
+    notebookName: isNotebook ? attempt.practiceNotebook?.name || null : null,
+  }
 }
 
 // 四个产品模块固定展示；答卷模块按次数统计，错题本按不重复题目数统计。
@@ -284,6 +300,8 @@ export async function getAdminUserDetail(userId: string, options: AdminUserDetai
             startedAt: true,
             submittedAt: true,
             status: true,
+            practiceSource: true,
+            practiceNotebook: { select: { name: true } },
             paper: {
               select: { code: true, paperType: true },
             },
@@ -393,6 +411,7 @@ export async function getAdminUserDetail(userId: string, options: AdminUserDetai
             || question.moduleCode?.trim()
           return subject ? [subject] : []
         }))],
+        questionBankPractice: resolveQuestionBankPractice(attempt),
         paper: attempt.paper,
       }
     }),

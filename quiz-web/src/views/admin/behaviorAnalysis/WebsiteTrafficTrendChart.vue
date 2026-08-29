@@ -1,4 +1,4 @@
-<!-- 网站流量趋势图：在同一时间轴组合展示访问次数折线与学生注册柱形。 -->
+<!-- 网站流量趋势图：在同一时间轴区分登录学生、匿名访客与新增注册。 -->
 <template>
   <div class="traffic-chart-shell">
     <div
@@ -6,7 +6,7 @@
       ref="chartRef"
       class="traffic-trend-chart"
       role="img"
-      aria-label="每日网站访问次数折线与学生注册人数柱形趋势图"
+      aria-label="每日登录学生与匿名访客折线、学生注册人数柱形趋势图"
     ></div>
     <el-empty v-if="!hasData" description="当前范围暂无网站访问与注册数据" :image-size="72" />
   </div>
@@ -34,7 +34,6 @@ let resizeObserver: ResizeObserver | null = null
 const hasData = computed(() =>
   props.items.some((item) => item.visitCount > 0 || item.registrationCount > 0),
 )
-
 // 数据范围变化时复用同一实例，避免筛选过程中重复创建 Canvas。
 watch(
   () => props.items,
@@ -66,7 +65,7 @@ function tooltipFormatter(params: unknown): string {
   return [items[0]?.axisValue || '', ...rows].filter(Boolean).join('<br/>')
 }
 
-// 组合图使用双轴保留访问频次与注册人数的量级差异，并共享同一日期横轴。
+// 组合图以服务端身份分类绘制登录学生与匿名访客折线。
 function renderChart(): void {
   if (!chartRef.value || !hasData.value) return
   if (!chart) chart = echarts.init(chartRef.value)
@@ -86,13 +85,13 @@ function renderChart(): void {
   chart.setOption(
     {
       animationDuration: 420,
-      color: ['#4f46e5', '#0f9f8f'],
+      color: ['#4f46e5', '#0f9f8f', '#f59e0b'],
       grid: { left: 52, right: 56, top: 52, bottom: 40 },
       legend: {
         top: 4,
         right: 8,
         textStyle: { color: '#64748b' },
-        data: ['访问次数', '新增注册'],
+        data: ['登录学生', '匿名访客', '新增注册'],
       },
       tooltip: { trigger: 'axis', axisPointer: { type: 'line' }, formatter: tooltipFormatter },
       xAxis: sharedXAxis,
@@ -100,7 +99,7 @@ function renderChart(): void {
         {
           type: 'value',
           minInterval: 1,
-          name: '访问次数',
+          name: '每日去重访问',
           nameTextStyle: { color: '#94a3b8' },
           axisLabel: { color: '#94a3b8' },
           splitLine: { lineStyle: { color: '#eef2f7', type: 'dashed' } },
@@ -116,14 +115,23 @@ function renderChart(): void {
       ],
       series: [
         {
-          name: '访问次数',
+          name: '登录学生',
           type: 'line',
           yAxisIndex: 0,
           smooth: 0.24,
           symbolSize: 6,
           lineStyle: { width: 3 },
           areaStyle: { color: 'rgba(79, 70, 229, 0.06)' },
-          data: props.items.map((item) => item.visitCount),
+          data: props.items.map((item) => item.studentVisitCount),
+        },
+        {
+          name: '匿名访客',
+          type: 'line',
+          yAxisIndex: 0,
+          smooth: 0.24,
+          symbolSize: 6,
+          lineStyle: { width: 3 },
+          data: props.items.map((item) => item.anonymousVisitCount),
         },
         {
           name: '新增注册',

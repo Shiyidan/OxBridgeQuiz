@@ -125,7 +125,7 @@
               v-else-if="props.showExamSwitcher"
               type="button"
               class="exam-preference-chip"
-              :aria-label="`${studyGoalLabel}，前往个人中心修改备考目标`"
+              :aria-label="studyGoalAriaLabel"
               title="前往个人中心修改备考目标"
               @click="goToStudyGoals"
             >
@@ -134,7 +134,12 @@
                 :class="{ 'exam-preference-dot--empty': !displayedStudyGoalExamType }"
                 aria-hidden="true"
               ></span>
-              <span>{{ studyGoalLabel }}</span>
+              <span class="exam-preference-copy">
+                <span>{{ studyGoalLabel }}</span>
+                <span v-if="studyGoalSubjectsLabel" class="exam-preference-subjects">
+                  {{ studyGoalSubjectsLabel }}
+                </span>
+              </span>
               <el-icon class="exam-preference-caret" aria-hidden="true">
                 <ArrowRight />
               </el-icon>
@@ -322,6 +327,22 @@ const studyGoalLabel = computed(() =>
     ? `当前备考：${displayedStudyGoalExamType.value}`
     : '当前备考：未设置',
 )
+// ESAT 学习上下文在考试名称下补充个人中心保存的三科，TMUA 不占用第二行。
+const studyGoalSubjectsLabel = computed(() => {
+  if (displayedStudyGoalExamType.value !== 'ESAT') return ''
+  return (auth.memberContext?.studyPreferences.esatSubjects || [])
+    .map((subject) => String(subject || '').trim())
+    .filter(Boolean)
+    .join(' · ')
+})
+
+// 辅助技术同时读出当前考试与 ESAT 科目，点击行为仍统一前往个人中心修改。
+const studyGoalAriaLabel = computed(() => {
+  const subjectDetail = studyGoalSubjectsLabel.value
+    ? `，备考科目：${studyGoalSubjectsLabel.value}`
+    : ''
+  return `${studyGoalLabel.value}${subjectDetail}，前往个人中心修改备考目标`
+})
 
 // 当前存在任一有效考试会员时优先展示会员权益，不再显示待使用卡券入口。
 const hasActiveMembership = computed(() => activeMemberExamTypes.value.length > 0)
@@ -642,6 +663,22 @@ onBeforeUnmount(() => {
   font-weight: var(--weight-semi);
   white-space: nowrap;
   cursor: pointer;
+}
+.exam-preference-copy {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.exam-preference-subjects {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--color-ink-muted);
+  font-size: 12px;
+  font-weight: var(--weight-regular);
+  letter-spacing: 0;
+  line-height: 1.2;
 }
 .exam-preference-chip:focus-visible {
   outline: 2px solid var(--color-active);

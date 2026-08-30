@@ -49,6 +49,7 @@
         </el-select>
         <el-select v-model="draftFilters.result" clearable placeholder="全部结果">
           <el-option label="成功" value="success" />
+          <el-option label="业务拦截" value="blocked" />
           <el-option label="失败" value="failure" />
         </el-select>
         <el-date-picker
@@ -121,10 +122,10 @@
           <span class="state-tag-cell">
             <el-tag
               class="operation-state-tag"
-              :type="row.result === 'success' ? 'success' : 'danger'"
+              :type="operationResultTagType(row.result)"
               effect="light"
             >
-              {{ row.result === 'success' ? '成功' : '失败' }}
+              {{ operationResultLabel(row.result) }}
             </el-tag>
           </span>
         </template>
@@ -169,7 +170,7 @@
               moduleLabel(selectedLog.module)
             }}</el-descriptions-item>
             <el-descriptions-item label="结果">
-              {{ selectedLog.result === 'success' ? '成功' : '失败' }}
+              {{ operationResultLabel(selectedLog.result) }}
             </el-descriptions-item>
             <el-descriptions-item label="操作内容" :span="2">{{
               selectedLog.summary
@@ -357,6 +358,20 @@ function formatDateTime(value: string): string {
   return new Date(value).toLocaleString('zh-CN', { hour12: false })
 }
 
+// 审计结果区分预期业务保护与真实失败，避免后台把正常拦截误报为故障。
+function operationResultLabel(result: OperationLogItem['result']): string {
+  if (result === 'success') return '成功'
+  if (result === 'blocked') return '业务拦截'
+  return '失败'
+}
+
+// 业务拦截使用警告色，和成功、失败保持稳定的视觉区分。
+function operationResultTagType(result: OperationLogItem['result']): 'success' | 'warning' | 'danger' {
+  if (result === 'success') return 'success'
+  if (result === 'blocked') return 'warning'
+  return 'danger'
+}
+
 // 资源类型统一转换为后台可读的中文业务名称，未知扩展类型保留原始值。
 function resourceTypeLabel(resourceType?: string | null): string {
   if (!resourceType) return '业务对象'
@@ -534,7 +549,7 @@ function initializeFiltersFromRoute(): void {
 
   draftFilters.role = ['all', 'admin', 'student'].includes(role) ? role : 'all'
   draftFilters.module = moduleOptions.some((option) => option.value === module) ? module : ''
-  draftFilters.result = ['success', 'failure'].includes(result) ? result : ''
+  draftFilters.result = ['success', 'blocked', 'failure'].includes(result) ? result : ''
   draftFilters.action = action
   draftFilters.keyword = keyword
   draftFilters.timeRange =

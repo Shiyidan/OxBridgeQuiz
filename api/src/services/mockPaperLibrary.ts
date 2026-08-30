@@ -13,7 +13,11 @@ import {
 import { prisma } from './prisma.js'
 import { parseJsonArray } from '../utils/jsonField.js'
 import { resolveQuestionModuleCode } from '../utils/questionModule.js'
-import { canClaimMockPaperSource, suiteStatusAfterPublish } from '../utils/mockPaperState.js'
+import { formatMockPaperModuleTitle } from '../utils/mockPaperTitle.js'
+import {
+  canClaimMockPaperSource,
+  deriveMockPaperReadiness,
+} from '../utils/mockPaperState.js'
 
 type SupportedExamType = typeof EXAM_TYPE.ESAT | typeof EXAM_TYPE.TMUA
 
@@ -366,6 +370,7 @@ type MockRuntimeModule = {
   expectedQuestionCount: number
   validationStatus: string
   publicationStatus: string
+  sourceModuleId?: string | null
 }
 
 // 运行载体同步时只收录已发布单项；首次发布则先用全部校验通过的单项生成载体。
@@ -377,7 +382,13 @@ function buildMockRuntimeConfig(
   const readyModules = modules.filter(
     (module) => (
       module.validationStatus === MOCK_PAPER_VALIDATION_STATUS.VALID
-      && (!publishedOnly || module.publicationStatus === MOCK_PAPER_MODULE_STATUS.PUBLISHED)
+      && (
+        !publishedOnly
+        || (
+          !module.sourceModuleId
+          && module.publicationStatus === MOCK_PAPER_MODULE_STATUS.PUBLISHED
+        )
+      )
     ),
   )
   const isEsat = examType === EXAM_TYPE.ESAT
@@ -403,14 +414,18 @@ function buildMockRuntimeConfig(
   }
 }
 
-// 只要存在已发布单项就同步运行载体；套卷仍为草稿时也可独立开放单项考试。
+// 已发布套卷按全部模块同步；其他状态只保留独立发布的原始单项运行能力。
 async function syncPublishedMockPaperRuntime(mockPaperSetId: string): Promise<void> {
   const set = await prisma.mockPaperSet.findUnique({
     where: { id: mockPaperSetId },
     include: { modules: { orderBy: { moduleOrder: 'asc' } } },
   })
-  if (!set || set.deletedAt || !set.paperId) return
-  const runtime = buildMockRuntimeConfig(set.examType, set.modules, true)
+  if (!set || !set.paperId) return
+  const suiteRuntimeEnabled = (
+    set.status === MOCK_PAPER_STATUS.PUBLISHED
+    && deriveMockPaperReadiness(set.examType, set.modules).fullExamReady
+  )
+  const runtime = buildMockRuntimeConfig(set.examType, set.modules, !suiteRuntimeEnabled)
   if (!runtime.readyModules.length) {
     await prisma.paper.update({ where: { id: set.paperId }, data: { status: 'archived' } })
     return
@@ -473,7 +488,6 @@ export async function revalidateMockPaperSet(mockPaperSetId: string): Promise<vo
 
   let invalidQuestionCount = 0
   let moduleStructureIssueCount = 0
-  const readyModuleCodes = new Set<string>()
   await prisma.$transaction(async (tx) => {
     for (const module of set.modules) {
       const definition = expectedModules.find((item) => item.code === module.code)
@@ -527,32 +541,20 @@ export async function revalidateMockPaperSet(mockPaperSetId: string): Promise<vo
           issues: moduleIssues as Prisma.InputJsonValue,
         },
       })
-      if (moduleInvalidCount + moduleIssues.length === 0) readyModuleCodes.add(module.code)
     }
 
-    const fullExamReady = set.examType === EXAM_TYPE.ESAT
-      ? readyModuleCodes.has('maths1')
-        && readyModuleCodes.size >= FULL_EXAM_REQUIRED_MODULE_COUNT.ESAT
-      : expectedModules.length > 0
-        && expectedModules.every((module) => readyModuleCodes.has(module.code))
     const issueCount = invalidQuestionCount + moduleStructureIssueCount + setIssues.length
     await tx.mockPaperSet.update({
       where: { id: set.id },
       data: {
         questionCount: allRows.length,
-        readyModuleCount: readyModuleCodes.size,
-        fullExamReady,
         issueCount,
-        validationStatus:
-          fullExamReady
-            ? MOCK_PAPER_VALIDATION_STATUS.VALID
-            : MOCK_PAPER_VALIDATION_STATUS.INVALID,
         issues: setIssues as Prisma.InputJsonValue,
       },
     })
   })
-  // 已删除套卷只承载被释放的原始单项，不再同步整卷运行时载体。
-  if (!set.deletedAt) await syncPublishedMockPaperRuntime(set.id)
+  // 套卷删除或下线后仍需维持其中独立发布单项的运行载体。
+  await syncPublishedMockPaperRuntime(set.id)
 }
 
 // 同一考试独立编号；空库从 001 开始，后续上传只向后追加且不覆盖已有套卷。
@@ -597,6 +599,12 @@ export async function createMockPaperDraftsFromWorkbook(
             create: set.modules.map((module) => ({
               code: module.code,
               label: module.label,
+              title: formatMockPaperModuleTitle({
+                examType: set.examType,
+                code: module.code,
+                label: module.label,
+                sequenceNo,
+              }),
               moduleOrder: module.order,
               durationSeconds: module.durationSeconds,
               expectedQuestionCount: module.expectedQuestionCount,
@@ -692,11 +700,20 @@ export async function composeMockPaperSetFromModules(
           sourceModuleId: module.id,
           code: module.code,
           label: module.label,
-          title: module.title,
+          title: formatMockPaperModuleTitle({
+            title: module.title,
+            examType: module.mockPaperSet.examType,
+            code: module.code,
+            label: module.label,
+            sequenceNo: module.mockPaperSet.sequenceNo,
+          }),
           moduleOrder: module.moduleOrder,
           durationSeconds: module.durationSeconds,
           expectedQuestionCount: module.expectedQuestionCount,
           questionCount: module.questionCount,
+          publicationStatus: module.publicationStatus,
+          publishedAt: module.publishedAt,
+          archivedAt: module.archivedAt,
           validationStatus: module.validationStatus,
           issueCount: module.issueCount,
           issues: module.issues as Prisma.InputJsonValue,
@@ -733,88 +750,17 @@ export async function publishMockPaperModule(moduleId: string): Promise<{
   })
   if (!source) throw new Error('MOCK_PAPER_MODULE_NOT_FOUND')
 
-  let activeSetId = source.mockPaperSetId
-  if (source.mockPaperSet.deletedAt) {
-    if (!canClaimMockPaperSource({
-      sourceModuleId: source.sourceModuleId,
-      composedCopyCount: source._count.composedCopies,
-      ownerModuleCount: source.mockPaperSet._count.modules,
-      ownerStatus: source.mockPaperSet.status,
-      ownerDeletedAt: source.mockPaperSet.deletedAt,
-    })) throw new Error('MOCK_PAPER_MODULE_UNAVAILABLE')
-
-    activeSetId = await prisma.$transaction(async (tx) => {
-      if (source!.mockPaperSet._count.modules === 1) {
-        await tx.mockPaperSet.update({
-          where: { id: source!.mockPaperSet.id },
-          data: {
-            status: MOCK_PAPER_STATUS.DRAFT,
-            deletedAt: null,
-            archivedAt: null,
-          },
-        })
-        await tx.mockPaperModule.update({
-          where: { id: source!.id },
-          data: {
-            publicationStatus: MOCK_PAPER_MODULE_STATUS.DRAFT,
-            publishedAt: null,
-            archivedAt: null,
-          },
-        })
-        return source!.mockPaperSet.id
-      }
-      const latestVersion = await tx.mockPaperSet.findFirst({
-        where: {
-          examType: source!.mockPaperSet.examType,
-          sequenceNo: source!.mockPaperSet.sequenceNo,
-        },
-        orderBy: { version: 'desc' },
-        select: { version: true },
-      })
-      const created = await tx.mockPaperSet.create({
-        data: {
-          code: source!.mockPaperSet.code + '-SINGLE-' + source!.id.slice(0, 8),
-          sequenceNo: source!.mockPaperSet.sequenceNo,
-          examType: source!.mockPaperSet.examType,
-          title: source!.mockPaperSet.title,
-          accessTier: source!.mockPaperSet.accessTier,
-          status: MOCK_PAPER_STATUS.DRAFT,
-          version: (latestVersion?.version || source!.mockPaperSet.version) + 1,
-          sourceFileName: source!.mockPaperSet.sourceFileName,
-          validationStatus: source!.validationStatus,
-          issueCount: source!.issueCount,
-          questionCount: source!.questionCount,
-          readyModuleCount: 1,
-          fullExamReady: false,
-          issues: source!.issues as Prisma.InputJsonValue,
-        },
-        select: { id: true },
-      })
-      await tx.mockPaperModule.update({
-        where: { id: source!.id },
-        data: {
-          mockPaperSetId: created.id,
-          publicationStatus: MOCK_PAPER_MODULE_STATUS.DRAFT,
-          publishedAt: null,
-          archivedAt: null,
-        },
-      })
-      return created.id
-    })
-  }
-
-  await revalidateMockPaperSet(activeSetId)
+  if (source.sourceModuleId) throw new Error('MOCK_PAPER_MODULE_UNAVAILABLE')
+  await revalidateMockPaperSet(source.mockPaperSetId)
   const set = await prisma.mockPaperSet.findUnique({
-    where: { id: activeSetId },
+    where: { id: source.mockPaperSetId },
     include: { modules: { orderBy: { moduleOrder: 'asc' } } },
   })
-  if (!set || set.deletedAt) throw new Error('MOCK_PAPER_SET_NOT_FOUND')
+  if (!set) throw new Error('MOCK_PAPER_SET_NOT_FOUND')
   const target = set.modules.find((module) => module.id === moduleId)
   if (
-    set.status !== MOCK_PAPER_STATUS.DRAFT
-    || !target
+    !target
     || target.validationStatus !== MOCK_PAPER_VALIDATION_STATUS.VALID
-    || target.publicationStatus === MOCK_PAPER_MODULE_STATUS.PUBLISHED
   ) throw new Error('MOCK_PAPER_MODULE_UNAVAILABLE')
 
   const runtime = buildMockRuntimeConfig(set.examType, set.modules)
@@ -858,8 +804,13 @@ export async function publishMockPaperModule(moduleId: string): Promise<{
         status: 'published',
       },
     })
-    await tx.mockPaperModule.update({
-      where: { id: target.id },
+    await tx.mockPaperModule.updateMany({
+      where: {
+        OR: [
+          { id: target.id },
+          { sourceModuleId: target.id },
+        ],
+      },
       data: {
         publicationStatus: MOCK_PAPER_MODULE_STATUS.PUBLISHED,
         publishedAt,
@@ -868,13 +819,13 @@ export async function publishMockPaperModule(moduleId: string): Promise<{
     })
     await tx.mockPaperSet.update({
       where: { id: set.id },
-      data: { paperId, status: MOCK_PAPER_STATUS.DRAFT, publishedAt: null, archivedAt: null },
+      data: { paperId },
     })
   })
   return { id: set.id, moduleId: target.id, paperId }
 }
 
-// 发布时只要求至少一个模块可用；完整模考目录继续由 fullExamReady 单独约束。
+// 套卷发布要求当前包含的全部单项校验通过，不改变任何单项的独立发布状态。
 export async function publishMockPaperSet(mockPaperSetId: string): Promise<{
   id: string
   paperId: string
@@ -891,17 +842,12 @@ export async function publishMockPaperSet(mockPaperSetId: string): Promise<{
   if (!set || set.deletedAt) throw new Error('MOCK_PAPER_SET_NOT_FOUND')
   if (set.status !== MOCK_PAPER_STATUS.DRAFT) throw new Error('MOCK_PAPER_SET_LOCKED')
   const runtime = buildMockRuntimeConfig(set.examType, set.modules)
-  if (!runtime.readyModules.length) throw new Error('MOCK_PAPER_SET_NO_READY_MODULES')
-  const publishableModuleCount = runtime.readyModules.filter(
-    (module) => module.publicationStatus !== MOCK_PAPER_MODULE_STATUS.PUBLISHED,
-  ).length
-  if (!set.fullExamReady && publishableModuleCount === 0) {
-    throw new Error('MOCK_PAPER_SET_NO_READY_MODULES')
-  }
+  const readiness = deriveMockPaperReadiness(set.examType, set.modules)
+  if (!readiness.fullExamReady) throw new Error('MOCK_PAPER_SET_NOT_READY')
 
   const paperId = set.paperId || `mock-paper-${set.id}`
   const publishedAt = new Date()
-  const suitePublished = set.fullExamReady
+  const suitePublished = true
 
   return prisma.$transaction(async (tx) => {
     await tx.paper.upsert({
@@ -941,24 +887,12 @@ export async function publishMockPaperSet(mockPaperSetId: string): Promise<{
         status: 'published',
       },
     })
-    await tx.mockPaperModule.updateMany({
-      where: {
-        mockPaperSetId: set.id,
-        validationStatus: MOCK_PAPER_VALIDATION_STATUS.VALID,
-        publicationStatus: { not: MOCK_PAPER_MODULE_STATUS.PUBLISHED },
-      },
-      data: {
-        publicationStatus: MOCK_PAPER_MODULE_STATUS.PUBLISHED,
-        publishedAt,
-        archivedAt: null,
-      },
-    })
     const updated = await tx.mockPaperSet.update({
       where: { id: set.id },
       data: {
         paperId,
-        status: suiteStatusAfterPublish(suitePublished),
-        publishedAt: suitePublished ? publishedAt : null,
+        status: MOCK_PAPER_STATUS.PUBLISHED,
+        publishedAt,
         archivedAt: null,
       },
       select: { id: true, paperId: true, status: true, publishedAt: true },
@@ -969,7 +903,7 @@ export async function publishMockPaperSet(mockPaperSetId: string): Promise<{
       status: updated.status,
       publishedAt: updated.publishedAt,
       suitePublished,
-      publishedModuleCount: publishableModuleCount,
+      publishedModuleCount: 0,
     }
   })
 }
@@ -980,21 +914,25 @@ export async function archiveMockPaperSet(mockPaperSetId: string): Promise<{
   status: string
   archivedAt: Date
 }> {
-  const set = await prisma.mockPaperSet.findUnique({ where: { id: mockPaperSetId } })
+  const set = await prisma.mockPaperSet.findUnique({
+    where: { id: mockPaperSetId },
+    include: {
+      modules: { select: { sourceModuleId: true, publicationStatus: true } },
+    },
+  })
   if (!set || set.deletedAt) throw new Error('MOCK_PAPER_SET_NOT_FOUND')
   if (set.status !== MOCK_PAPER_STATUS.PUBLISHED || !set.paperId) {
     throw new Error('MOCK_PAPER_SET_NOT_PUBLISHED')
   }
   const archivedAt = new Date()
   return prisma.$transaction(async (tx) => {
-    await tx.paper.update({ where: { id: set.paperId! }, data: { status: 'archived' } })
-    await tx.mockPaperModule.updateMany({
-      where: { mockPaperSetId: set.id },
-      data: {
-        publicationStatus: MOCK_PAPER_MODULE_STATUS.ARCHIVED,
-        archivedAt,
-      },
-    })
+    const hasPublishedCanonicalModule = set.modules.some((module) => (
+      !module.sourceModuleId
+      && module.publicationStatus === MOCK_PAPER_MODULE_STATUS.PUBLISHED
+    ))
+    if (!hasPublishedCanonicalModule) {
+      await tx.paper.update({ where: { id: set.paperId! }, data: { status: 'archived' } })
+    }
     const updated = await tx.mockPaperSet.update({
       where: { id: set.id },
       data: { status: MOCK_PAPER_STATUS.ARCHIVED, archivedAt },

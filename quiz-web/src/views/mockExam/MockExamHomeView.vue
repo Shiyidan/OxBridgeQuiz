@@ -94,8 +94,7 @@
             </div>
 
             <div v-else-if="!papers.length" class="state-panel">
-              <el-icon aria-hidden="true"><Document /></el-icon>
-              <strong>暂无可用模拟卷</strong>
+              <el-empty description="暂无可用模拟卷" :image-size="72" />
               <p v-if="keyword || catalogStatus !== 'all'">
                 当前条件下没有试卷，可以清除筛选后重试。
               </p>
@@ -162,7 +161,10 @@
                       <el-icon aria-hidden="true"><Clock /></el-icon>
                       {{ formatDuration(paper.durationSeconds) }}
                     </span>
-                    <span>{{ formatModuleNames(paper) }}</span>
+                    <span>
+                      <el-icon aria-hidden="true"><Collection /></el-icon>
+                      {{ formatModuleNames(paper) }}
+                    </span>
                   </div>
 
                   <div v-if="auth.isLoggedIn" class="paper-card__progress">
@@ -371,6 +373,10 @@
                       {{ formatDuration(module.durationSeconds) }}
                     </span>
                     <span>
+                      <el-icon aria-hidden="true"><Collection /></el-icon>
+                      {{ module.label }}
+                    </span>
+                    <span>
                       {{
                         module.fullExamReady
                           ? `已组成 ${module.sourcePaperTitle}`
@@ -516,15 +522,7 @@
                 <button type="button" @click="loadRecords">重新加载</button>
               </div>
               <div v-else-if="!records.length" class="state-panel">
-                <el-icon aria-hidden="true"><Document /></el-icon>
-                <strong>{{
-                  recordStatus === 'in_progress' ? '暂无未完成模考' : '暂无已完成模考'
-                }}</strong>
-                <p>可以从模拟试卷或单项模考开始新的 {{ activeExamType }} 训练。</p>
-                <div class="state-panel__actions">
-                  <button type="button" @click="selectTab('catalog')">浏览模拟试卷</button>
-                  <button type="button" @click="selectTab('modules')">浏览单项模考</button>
-                </div>
+                <el-empty description="当前无模考记录" :image-size="72" />
               </div>
               <div v-else class="record-list">
                 <article v-for="record in records" :key="record.examRecordId" class="record-card">
@@ -932,6 +930,7 @@ import { ElMessage } from 'element-plus'
 import {
   ArrowRight,
   Calendar,
+  Collection,
   DataAnalysis,
   Clock,
   Document,
@@ -1424,7 +1423,7 @@ function requireLogin(): boolean {
   return true
 }
 
-// 新开始依次检查设备、登录、下线和会员资格，再进入考前确认。
+// ESAT 完整模考依赖个人中心三科设置；目录只返回能覆盖完整组合的套卷。
 async function handleStartPaper(paper: MockExamPaperItem): Promise<void> {
   if (requireDesktopForExamAction()) return
   if (requireLogin()) return
@@ -2431,10 +2430,6 @@ onMounted(async () => {
   color: var(--color-ink-inverse);
 }
 
-.state-panel__actions {
-  display: flex;
-  gap: 10px;
-}
 
 .state-panel__spinner {
   width: 30px;

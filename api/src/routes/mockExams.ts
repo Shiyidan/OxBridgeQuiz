@@ -29,7 +29,11 @@ import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { fail, success } from '../utils/response.js'
 import { parsePositiveInt } from './papers-shared.js'
 import { replaceAnswerRecords } from './exam-shared.js'
-import { isMockPaperModuleAvailable } from '../utils/mockPaperState.js'
+import {
+  coversEsatModuleSelection,
+  deriveMockPaperReadiness,
+  isMockPaperModuleAvailable,
+} from '../utils/mockPaperState.js'
 
 export const mockExamRouter = createAsyncRouter()
 
@@ -82,7 +86,7 @@ async function getEsatModuleCodes(userId?: string): Promise<string[] | null> {
   return codes
 }
 
-// 目录和开考使用同一科目映射，正式答卷中的模块顺序重新冻结为连续 1..N。
+// ESAT 目录与开考均按个人中心三科映射，不能完整覆盖三科的套卷不作为可用套卷。
 function selectEffectiveModules<T extends MockModuleRow>(
   examType: string,
   modules: T[],
@@ -174,31 +178,34 @@ mockExamRouter.get('/catalog', optionalAuth, async (req, res) => {
   const pageSize = parsePositiveInt(req.query.pageSize, 10, 50)
   const requestedPage = parsePositiveInt(req.query.page, 1)
   const userId = req.user?.userId
-  const sets = await prisma.mockPaperSet.findMany({
+  const candidateSets = await prisma.mockPaperSet.findMany({
     where: {
       examType,
       deletedAt: null,
       status: MOCK_PAPER_STATUS.PUBLISHED,
-      validationStatus: MOCK_PAPER_VALIDATION_STATUS.VALID,
-      fullExamReady: true,
       paperId: { not: null },
       ...(keyword ? { OR: [{ title: { contains: keyword } }, { code: { contains: keyword } }] } : {}),
     },
     orderBy: [{ sequenceNo: 'asc' }, { version: 'desc' }],
     include: {
       modules: {
-        where: {
-          publicationStatus: MOCK_PAPER_MODULE_STATUS.PUBLISHED,
-          validationStatus: MOCK_PAPER_VALIDATION_STATUS.VALID,
-        },
         orderBy: { moduleOrder: 'asc' },
       },
     },
   })
+  const sets = candidateSets.filter(
+    (set) => deriveMockPaperReadiness(set.examType, set.modules).fullExamReady,
+  )
   const esatModuleCodes = examType === EXAM_TYPE.ESAT
     ? await getEsatModuleCodes(userId)
     : null
-  const paperIds = sets.flatMap((set) => (set.paperId ? [set.paperId] : []))
+  const visibleSets = sets.filter((set) => (
+    set.examType !== EXAM_TYPE.ESAT
+    || !userId
+    || coversEsatModuleSelection(set.modules, esatModuleCodes)
+  ))
+
+  const paperIds = visibleSets.flatMap((set) => (set.paperId ? [set.paperId] : []))
   const records = userId && paperIds.length
     ? await prisma.examRecord.findMany({
         where: { userId, paperId: { in: paperIds } },
@@ -222,11 +229,13 @@ mockExamRouter.get('/catalog', optionalAuth, async (req, res) => {
     recordsByPaper.set(record.paperId, current)
   }
 
-  const allItems = sets.map((set) => {
+  const allItems = visibleSets.map((set) => {
     const effectiveModules = selectEffectiveModules(set.examType, set.modules, esatModuleCodes)
-    const displayModules = set.examType === EXAM_TYPE.ESAT && !effectiveModules.length
-      ? []
-      : effectiveModules
+    const displayModules = effectiveModules.length
+      ? effectiveModules
+      : set.examType === EXAM_TYPE.ESAT && !userId && set.modules.length === 3
+        ? [...set.modules].sort((left, right) => left.moduleOrder - right.moduleOrder)
+        : []
     const maths1 = set.modules.find((module) => module.code === 'maths1')
     const totalQuestions = set.examType === EXAM_TYPE.ESAT
       ? (maths1?.expectedQuestionCount || 0) * 3
@@ -310,13 +319,12 @@ mockExamRouter.get('/modules', optionalAuth, async (req, res) => {
   const userId = req.user?.userId
   const modules = await prisma.mockPaperModule.findMany({
     where: {
+      sourceModuleId: null,
       validationStatus: MOCK_PAPER_VALIDATION_STATUS.VALID,
       publicationStatus: MOCK_PAPER_MODULE_STATUS.PUBLISHED,
       ...(moduleCode ? { code: moduleCode } : {}),
       mockPaperSet: {
         examType,
-        deletedAt: null,
-        status: { not: MOCK_PAPER_STATUS.ARCHIVED },
         paperId: { not: null },
         paper: { status: 'published' },
       },
@@ -327,7 +335,10 @@ mockExamRouter.get('/modules', optionalAuth, async (req, res) => {
     ],
     include: {
       mockPaperSet: {
-        include: { paper: { select: { id: true, status: true } } },
+        include: {
+          paper: { select: { id: true, status: true } },
+          modules: { select: { code: true, validationStatus: true } },
+        },
       },
     },
   })
@@ -398,7 +409,7 @@ mockExamRouter.get('/modules', optionalAuth, async (req, res) => {
       publicationStatus: 'published',
       sourcePaperCode: set.code,
       sourcePaperTitle: set.title,
-      fullExamReady: set.fullExamReady,
+      fullExamReady: deriveMockPaperReadiness(set.examType, set.modules).fullExamReady,
       inProgressCount: inProgress.length,
       completedCount: completed.length,
       bestScore: completedScores.length ? Math.max(...completedScores) : null,
@@ -687,6 +698,7 @@ mockExamRouter.post('/modules/:id/attempts', requireAuth, async (req, res) => {
   const set = module?.mockPaperSet
   if (
     !module
+    || module.sourceModuleId
     || !set
     || !set.paper
     || !isMockPaperModuleAvailable({
@@ -695,7 +707,6 @@ mockExamRouter.post('/modules/:id/attempts', requireAuth, async (req, res) => {
       deletedAt: set.deletedAt,
       paperStatus: set.paper.status,
     })
-    || set.status === MOCK_PAPER_STATUS.ARCHIVED
   ) {
     res.status(409).json(fail('该单项模考当前不能开始', 'MOCK_EXAM_MODULE_NOT_AVAILABLE'))
     return
@@ -840,7 +851,7 @@ mockExamRouter.post('/papers/:id/attempts', requireAuth, async (req, res) => {
     !set
     || set.deletedAt
     || set.status !== MOCK_PAPER_STATUS.PUBLISHED
-    || set.validationStatus !== MOCK_PAPER_VALIDATION_STATUS.VALID
+    || !deriveMockPaperReadiness(set.examType, set.modules).fullExamReady
     || !set.paper
     || set.paper.status !== 'published'
   ) {
@@ -864,6 +875,17 @@ mockExamRouter.post('/papers/:id/attempts', requireAuth, async (req, res) => {
     ))
     return
   }
+  if (
+    set.examType === EXAM_TYPE.ESAT
+    && !coversEsatModuleSelection(set.modules, esatModuleCodes)
+  ) {
+    res.status(422).json(fail(
+      '当前套卷不能覆盖个人中心设置的完整三科组合',
+      'MOCK_EXAM_SUBJECTS_NOT_COVERED',
+    ))
+    return
+  }
+
   const selectedModules = selectEffectiveModules(set.examType, set.modules, esatModuleCodes)
   const expectedModuleCount = set.examType === EXAM_TYPE.ESAT ? 3 : 2
   if (selectedModules.length !== expectedModuleCount) {
@@ -872,7 +894,6 @@ mockExamRouter.post('/papers/:id/attempts', requireAuth, async (req, res) => {
   }
   const invalidQuestion = selectedModules.some((module) =>
     module.validationStatus !== MOCK_PAPER_VALIDATION_STATUS.VALID
-    || module.publicationStatus !== MOCK_PAPER_MODULE_STATUS.PUBLISHED
     || module.questions.length !== module.expectedQuestionCount
     || module.questions.some((item) =>
       item.validationStatus !== MOCK_PAPER_VALIDATION_STATUS.VALID

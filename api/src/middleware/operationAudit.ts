@@ -4,7 +4,7 @@ import type { Prisma, User } from '@prisma/client'
 import { prisma } from '../services/prisma.js'
 import {
   OPERATION_AUDIT_MODULE,
-  OPERATION_AUDIT_RESULT,
+  effectiveOperationAuditResult,
   type OperationAuditModule,
 } from '../constants/operationAudit.js'
 import { normalizeIpAddress } from '../utils/ipAddress.js'
@@ -209,7 +209,7 @@ async function persistOperationAudit(req: Request, res: Response, occurredAt: Da
       module: definition.module,
       action: definition.action,
       summary: (context?.summary || definition.summary).slice(0, 500),
-      result: res.statusCode < 400 ? OPERATION_AUDIT_RESULT.SUCCESS : OPERATION_AUDIT_RESULT.FAILURE,
+      result: effectiveOperationAuditResult({ statusCode: res.statusCode, errorCode }),
       resourceType: (context?.resourceType || definition.resourceType)?.slice(0, 64),
       resourceId: (context?.resourceId || resourceIdFromMatch(definition, match))?.slice(0, 191),
       changes: context?.changes as Prisma.InputJsonValue | undefined,

@@ -1,5 +1,6 @@
 // 学生行为聚合纯函数测试：覆盖 UV 去重、失败率、同期变化、空白日期和北京时间分桶。
 import assert from 'node:assert/strict'
+import { effectiveOperationAuditResult } from '../src/constants/operationAudit.js'
 import {
   aggregateBehaviorAnalytics,
   aggregateProductUsage,
@@ -79,6 +80,35 @@ function completion(
 // 单次执行校验核心公式和边界，失败时由 node:assert 输出具体差异。
 function main(): void {
   const result = aggregateBehaviorAnalytics(currentLogs, previousLogs, filters)
+
+  assert.equal(effectiveOperationAuditResult({
+    result: 'failure',
+    statusCode: 409,
+    errorCode: 'DIAGNOSTIC_IN_PROGRESS',
+  }), 'blocked')
+  assert.equal(effectiveOperationAuditResult({
+    statusCode: 409,
+    errorCode: 'QUESTION_BANK_IN_PROGRESS',
+  }), 'blocked')
+  assert.equal(effectiveOperationAuditResult({
+    result: 'failure',
+    statusCode: 500,
+    errorCode: 'INTERNAL_ERROR',
+  }), 'failure')
+
+  const resultWithBlocked = aggregateBehaviorAnalytics([
+    ...currentLogs,
+    {
+      occurredAt: new Date('2026-06-04T03:00:00.000Z'),
+      actorUserId: 'student-2',
+      module: 'exam',
+      action: 'exam.start',
+      result: 'failure',
+      statusCode: 409,
+      errorCode: 'DIAGNOSTIC_IN_PROGRESS',
+    },
+  ], previousLogs, filters)
+  assert.equal(resultWithBlocked.overview.failureRate, 0.2)
 
   assert.equal(result.scope.actorRoleSnapshot, 'student')
   assert.deepEqual(result.scope.excludedModules, ['auth'])

@@ -98,59 +98,77 @@ model Question {
 }
 
 model MockPaperSet {
-  id               String    @id @default(uuid()) @db.VarChar(191)
-  code             String    @unique @db.VarChar(100)
-  sequenceNo       Int
-  examType         String    @db.VarChar(32)
-  title            String    @db.VarChar(255)
-  accessTier       String    @default("member") @db.VarChar(32)
-  status           String    @default("draft") @db.VarChar(32)
-  version          Int       @default(1)
-  sourceFileName   String?   @db.VarChar(255)
-  paperId          String?   @unique @db.VarChar(191)
-  validationStatus String    @default("invalid") @db.VarChar(32)
-  issueCount       Int       @default(0)
-  questionCount    Int       @default(0)
-  readyModuleCount Int       @default(0)
-  fullExamReady    Boolean   @default(false)
-  issues           Json
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  publishedAt      DateTime?
-  archivedAt       DateTime?
-  deletedAt        DateTime?
+  id             String    @id @default(uuid()) @db.VarChar(191)
+  code           String    @unique @db.VarChar(100)
+  sequenceNo     Int
+  examType       String    @db.VarChar(32)
+  title          String    @db.VarChar(255)
+  accessTier     String    @default("member") @db.VarChar(32)
+  status         String    @default("draft") @db.VarChar(32)
+  version        Int       @default(1)
+  sourceFileName String?   @db.VarChar(255)
+  paperId        String?   @unique @db.VarChar(191)
+  issueCount     Int       @default(0)
+  questionCount  Int       @default(0)
+  issues         Json
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  publishedAt    DateTime?
+  archivedAt     DateTime?
+  deletedAt      DateTime?
 
   modules MockPaperModule[]
   paper   Paper?            @relation(fields: [paperId], references: [id], onDelete: SetNull)
 
   @@unique([examType, sequenceNo, version])
   @@index([examType, status, sequenceNo])
-  @@index([validationStatus, updatedAt])
+}
+
+model MockPaperWorkbookUpload {
+  id               String    @id @default(uuid()) @db.VarChar(191)
+  originalFileName String    @db.VarChar(255)
+  storageKey       String    @unique @db.VarChar(255)
+  contentType      String    @db.VarChar(128)
+  fileSizeBytes    Int
+  checksumSha256   String    @db.Char(64)
+  status           String    @default("processing") @db.VarChar(32)
+  setCount         Int       @default(0)
+  moduleCount      Int       @default(0)
+  errorMessage     String?   @db.Text
+  uploadedById     String?   @db.VarChar(191)
+  createdAt        DateTime  @default(now())
+  completedAt      DateTime?
+
+  uploadedBy User? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([uploadedById, createdAt])
 }
 
 model MockPaperModule {
-  id                    String   @id @default(uuid()) @db.VarChar(191)
-  mockPaperSetId        String   @db.VarChar(191)
-  sourceModuleId        String?  @unique @db.VarChar(191)
-  code                  String   @db.VarChar(32)
-  label                 String   @db.VarChar(100)
-  title                 String?  @db.VarChar(255)
+  id                    String    @id @default(uuid()) @db.VarChar(191)
+  mockPaperSetId        String    @db.VarChar(191)
+  sourceModuleId        String?   @unique @db.VarChar(191)
+  code                  String    @db.VarChar(32)
+  label                 String    @db.VarChar(100)
+  title                 String?   @db.VarChar(255)
   moduleOrder           Int
   durationSeconds       Int
   expectedQuestionCount Int
-  questionCount         Int      @default(0)
-  validationStatus      String   @default("invalid") @db.VarChar(32)
-  publicationStatus     String   @default("draft") @db.VarChar(32)
-  issueCount            Int      @default(0)
+  questionCount         Int       @default(0)
+  validationStatus      String    @default("invalid") @db.VarChar(32)
+  publicationStatus     String    @default("draft") @db.VarChar(32)
+  issueCount            Int       @default(0)
   issues                Json
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
   publishedAt           DateTime?
   archivedAt            DateTime?
 
   mockPaperSet   MockPaperSet        @relation(fields: [mockPaperSetId], references: [id], onDelete: Cascade)
-  sourceModule   MockPaperModule?     @relation("MockPaperModuleComposition", fields: [sourceModuleId], references: [id], onDelete: SetNull)
-  composedCopies MockPaperModule[]    @relation("MockPaperModuleComposition")
+  sourceModule   MockPaperModule?    @relation("MockPaperModuleComposition", fields: [sourceModuleId], references: [id], onDelete: SetNull)
+  composedCopies MockPaperModule[]   @relation("MockPaperModuleComposition")
   questions      MockPaperQuestion[]
 
   @@unique([mockPaperSetId, code])
@@ -263,23 +281,24 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  examRecords            ExamRecord[]
-  diagnosticSession      DiagnosticSession[]
-  memberships            UserMembership[]
-  diagnosticReportTasks  DiagnosticReportTask[]
-  diagnosticReports      DiagnosticReport[]
-  authSessions           AuthSession[]
-  emailChallenges        EmailVerificationChallenge[]
-  paymentOrders          PaymentOrder[]
-  operationLogs          OperationLog[]
-  legalAcceptances       UserLegalAcceptance[]
-  practiceNotebooks      PracticeNotebook[]
-  wrongQuestionSummaries WrongQuestionSummary[]
-  invitationCode         InvitationCode?
-  sentInvitations        InvitationRelation[]         @relation("InvitationInviter")
-  receivedInvitation     InvitationRelation?          @relation("InvitationInvitee")
-  invitationRewards      InvitationReward[]
-  uploadedStudyResources StudyResource[]
+  examRecords                ExamRecord[]
+  diagnosticSession          DiagnosticSession[]
+  memberships                UserMembership[]
+  diagnosticReportTasks      DiagnosticReportTask[]
+  diagnosticReports          DiagnosticReport[]
+  authSessions               AuthSession[]
+  emailChallenges            EmailVerificationChallenge[]
+  paymentOrders              PaymentOrder[]
+  operationLogs              OperationLog[]
+  legalAcceptances           UserLegalAcceptance[]
+  practiceNotebooks          PracticeNotebook[]
+  wrongQuestionSummaries     WrongQuestionSummary[]
+  invitationCode             InvitationCode?
+  sentInvitations            InvitationRelation[]         @relation("InvitationInviter")
+  receivedInvitation         InvitationRelation?          @relation("InvitationInvitee")
+  invitationRewards          InvitationReward[]
+  uploadedMockPaperWorkbooks MockPaperWorkbookUpload[]
+  uploadedStudyResources     StudyResource[]
 }
 
 model OperationLog {

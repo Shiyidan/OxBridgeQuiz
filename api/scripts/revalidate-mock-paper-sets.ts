@@ -1,6 +1,7 @@
 // 按当前考试结构重新校验已有模考套卷，用于组卷规则调整后的存量状态刷新。
 import { prisma } from '../src/services/prisma.js'
 import { revalidateMockPaperSet } from '../src/services/mockPaperLibrary.js'
+import { deriveMockPaperReadiness } from '../src/utils/mockPaperState.js'
 
 // 逐套执行正式校验，复用上传和替题后的同一套状态计算逻辑。
 async function main() {
@@ -13,7 +14,10 @@ async function main() {
     console.log(`[${index + 1}/${sets.length}] ${set.code}`)
   }
   const refreshed = await prisma.mockPaperSet.findMany({
-    select: { examType: true, fullExamReady: true },
+    select: {
+      examType: true,
+      modules: { select: { code: true, validationStatus: true } },
+    },
   })
   console.log(
     JSON.stringify({
@@ -24,7 +28,8 @@ async function main() {
           {
             total: refreshed.filter((set) => set.examType === examType).length,
             fullExamReady: refreshed.filter(
-              (set) => set.examType === examType && set.fullExamReady,
+              (set) => set.examType === examType
+                && deriveMockPaperReadiness(set.examType, set.modules).fullExamReady,
             ).length,
           },
         ]),

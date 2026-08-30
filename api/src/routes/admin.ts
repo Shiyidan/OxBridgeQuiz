@@ -41,9 +41,11 @@ import {
   runPaymentReconciliation,
 } from '../services/paymentReconciliation.js'
 import {
+  OPERATION_AUDIT_BLOCKED_ERROR_CODES,
   OPERATION_AUDIT_MODULE,
   OPERATION_AUDIT_MODULE_VALUES,
   OPERATION_AUDIT_RESULT,
+  effectiveOperationAuditResult,
 } from '../constants/operationAudit.js'
 import { buildOperationAuditChanges, setOperationAuditContext } from '../middleware/operationAudit.js'
 import { normalizeIpAddress } from '../utils/ipAddress.js'
@@ -130,16 +132,47 @@ function formatPaymentRefund(refund: {
 function formatOperationLog<T extends {
   occurredAt: Date
   createdAt: Date
+  result: string
+  statusCode: number
+  errorCode: string | null
   changes?: unknown
 }>(log: T) {
   const { changes, ...safeLog } = log
   return {
     ...safeLog,
+    result: effectiveOperationAuditResult(log),
     ipAddress: normalizeIpAddress((safeLog as { ipAddress?: string | null }).ipAddress),
     hasChanges: changes !== null && changes !== undefined,
     occurredAt: log.occurredAt.toISOString(),
     createdAt: log.createdAt.toISOString(),
   }
+}
+
+// 结果筛选按当前统计口径兼容历史 failure 记录，无需回填生产审计表。
+function operationLogResultWhere(result: string): Prisma.OperationLogWhereInput {
+  if (result === OPERATION_AUDIT_RESULT.BLOCKED) {
+    return {
+      OR: [
+        { result: OPERATION_AUDIT_RESULT.BLOCKED },
+        {
+          result: OPERATION_AUDIT_RESULT.FAILURE,
+          statusCode: 409,
+          errorCode: { in: [...OPERATION_AUDIT_BLOCKED_ERROR_CODES] },
+        },
+      ],
+    }
+  }
+  if (result === OPERATION_AUDIT_RESULT.FAILURE) {
+    return {
+      result: OPERATION_AUDIT_RESULT.FAILURE,
+      OR: [
+        { statusCode: { not: 409 } },
+        { errorCode: null },
+        { errorCode: { notIn: [...OPERATION_AUDIT_BLOCKED_ERROR_CODES] } },
+      ],
+    }
+  }
+  return result ? { result } : {}
 }
 
 interface OperationResourceDisplay {
@@ -347,7 +380,7 @@ adminRouter.get('/operation-logs', async (req, res) => {
   const where: Prisma.OperationLogWhereInput = {
     ...(role && role !== 'all' ? { actorRoleSnapshot: role } : {}),
     ...(module ? { module } : {}),
-    ...(result ? { result } : {}),
+    ...operationLogResultWhere(result),
     ...(action ? { action } : {}),
     ...(startAt || endAt
       ? { occurredAt: { ...(startAt ? { gte: startAt } : {}), ...(endAt ? { lte: endAt } : {}) } }
@@ -406,6 +439,7 @@ adminRouter.get('/operation-logs/:id', async (req, res) => {
   }
   res.json(success({
     ...log,
+    result: effectiveOperationAuditResult(log),
     ipAddress: normalizeIpAddress(log.ipAddress),
     occurredAt: log.occurredAt.toISOString(),
     createdAt: log.createdAt.toISOString(),

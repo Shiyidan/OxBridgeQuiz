@@ -13,6 +13,7 @@
           <el-icon><UploadFilled /></el-icon>
           上传组卷 Excel
         </el-button>
+        <el-button size="large" @click="openUploadHistory">上传历史</el-button>
       </div>
     </header>
 
@@ -378,6 +379,70 @@
       </template>
     </el-dialog>
 
+    <el-dialog
+      v-model="uploadHistoryVisible"
+      title="上传历史"
+      width="920px"
+      class="upload-history-dialog"
+    >
+      <div v-loading="uploadHistoryLoading" class="upload-history-shell">
+        <el-table v-if="uploadHistoryRows.length" :data="uploadHistoryRows">
+          <el-table-column label="文件" min-width="250">
+            <template #default="{ row }">
+              <div class="upload-history-file">
+                <strong :title="row.originalFileName">{{ row.originalFileName }}</strong>
+                <small>{{ formatFileSize(row.fileSizeBytes) }}</small>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="处理结果" min-width="210">
+            <template #default="{ row }">
+              <div class="upload-history-result">
+                <el-tag :type="uploadStatusType(row.status)" effect="light">
+                  {{ uploadStatusLabel(row.status) }}
+                </el-tag>
+                <span v-if="row.status === 'succeeded'">
+                  {{ row.setCount }} 套 · {{ row.moduleCount }} 个单项
+                </span>
+                <small v-else-if="row.errorMessage" :title="row.errorMessage">
+                  {{ row.errorMessage }}
+                </small>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="上传人" width="150">
+            <template #default="{ row }">
+              {{ row.uploadedBy?.username || '账号已删除' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="上传时间" width="170">
+            <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="90" fixed="right">
+            <template #default="{ row }">
+              <el-button
+                link
+                type="primary"
+                :loading="downloadingUploadId === row.id"
+                @click="downloadUpload(row)"
+              >
+                下载
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-empty v-else-if="!uploadHistoryLoading" description="暂无上传记录" />
+        <AppPagination
+          :page="uploadHistoryPagination.page"
+          :page-size="uploadHistoryPagination.pageSize"
+          :total="uploadHistoryPagination.total"
+          :page-sizes="[10, 20, 50]"
+          @update:page="changeUploadHistoryPage"
+          @update:page-size="changeUploadHistoryPageSize"
+        />
+      </div>
+    </el-dialog>
+
     <el-drawer
       v-model="detailVisible"
       size="92%"
@@ -453,10 +518,10 @@
                   detail.canPublish
                     ? detail.singleModuleDetail
                       ? '发布单项'
-                      : detail.fullExamReady
-                      ? '发布完整套卷'
-                      : `发布 ${detail.publishableModuleCount} 个可用单项`
-                    : '暂无可发布内容'
+                      : '发布完整套卷'
+                    : detail.singleModuleDetail
+                      ? '暂无可发布内容'
+                      : '套卷尚未满足发布条件'
                 }}
               </el-button>
               <el-button
@@ -640,7 +705,7 @@
           :image-size="76"
         />
       </div>
-      <p class="module-candidate-tip">仅显示同一考试、校验通过且尚未被其他完整套卷采用的单项卷。</p>
+      <p class="module-candidate-tip">仅显示同一考试、校验通过且目前无所属模拟套卷的单项卷。</p>
       <template #footer>
         <el-button :disabled="addingModule" @click="addModuleDialogVisible = false">取消</el-button>
         <el-button
@@ -697,12 +762,14 @@ import {
   archiveMockPaperSet,
   composeMockPaperSet,
   deleteMockPaperSet,
+  downloadMockPaperWorkbookUpload,
   getMockPaperCompositionCandidates,
   getMockPaperModuleCandidates,
   getMockPaperModuleDetail,
   getMockPaperModules,
   getMockPaperSetDetail,
   getMockPaperSets,
+  getMockPaperWorkbookUploadHistory,
   importMockPaperWorkbook,
   publishMockPaperSet,
   publishMockPaperModule,
@@ -719,13 +786,14 @@ import {
   type MockPaperQuestionDetail,
   type MockPaperSetDetail,
   type MockPaperSetListItem,
+  type MockPaperWorkbookUploadItem,
 } from '@/api/mockPaperAdmin'
 
 const workflowSteps = [
   { title: '上传清单', desc: '识别套卷、模块与题序' },
   { title: '逐项检查', desc: '每个 Module / Paper 独立校验' },
   { title: '草稿修正', desc: '逐题替换并刷新可用状态' },
-  { title: '确认发布', desc: '上架可用单项并派生完整模考' },
+  { title: '确认发布', desc: '单项与完整套卷分别发布' },
 ]
 
 const moduleNameMap: Record<string, string> = {
@@ -754,6 +822,12 @@ const importDialogVisible = ref(false)
 const importAccessTier = ref<MockPaperAccessTier>('member')
 const selectedFile = ref<File | null>(null)
 const importing = ref(false)
+
+const uploadHistoryVisible = ref(false)
+const uploadHistoryLoading = ref(false)
+const uploadHistoryRows = ref<MockPaperWorkbookUploadItem[]>([])
+const uploadHistoryPagination = reactive({ page: 1, pageSize: 10, total: 0 })
+const downloadingUploadId = ref('')
 
 const composeDialogVisible = ref(false)
 const composeExamType = ref<MockPaperExamType>('ESAT')
@@ -935,6 +1009,61 @@ function openImportDialog(): void {
   importDialogVisible.value = true
 }
 
+// 打开历史弹窗时从第一页读取服务器档案，避免展示上次停留的过期结果。
+async function openUploadHistory(): Promise<void> {
+  uploadHistoryVisible.value = true
+  uploadHistoryPagination.page = 1
+  await loadUploadHistory()
+}
+
+// 上传历史始终使用服务端分页，原始文件路径只保留在后端。
+async function loadUploadHistory(): Promise<void> {
+  uploadHistoryLoading.value = true
+  try {
+    const result = await getMockPaperWorkbookUploadHistory(
+      uploadHistoryPagination.page,
+      uploadHistoryPagination.pageSize,
+    )
+    uploadHistoryRows.value = result.list
+    uploadHistoryPagination.page = result.pagination.page
+    uploadHistoryPagination.total = result.pagination.total
+  } finally {
+    uploadHistoryLoading.value = false
+  }
+}
+
+// 上传历史切页后读取对应服务器记录。
+function changeUploadHistoryPage(page: number): void {
+  uploadHistoryPagination.page = page
+  void loadUploadHistory()
+}
+
+// 上传历史调整每页数量时回到第一页。
+function changeUploadHistoryPageSize(pageSize: number): void {
+  uploadHistoryPagination.pageSize = pageSize
+  uploadHistoryPagination.page = 1
+  void loadUploadHistory()
+}
+
+// 下载通过临时 Blob 地址触发，完成后立即回收浏览器对象 URL。
+async function downloadUpload(row: MockPaperWorkbookUploadItem): Promise<void> {
+  if (downloadingUploadId.value) return
+  downloadingUploadId.value = row.id
+  try {
+    const blob = await downloadMockPaperWorkbookUpload(row.id)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = row.originalFileName
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  } finally {
+    downloadingUploadId.value = ''
+  }
+}
+
 // Element Plus 文件项只接收原始 .xlsx File，真实解析由后端完成。
 function handleWorkbookChange(file: UploadFile): void {
   selectedFile.value = file.raw || null
@@ -1005,7 +1134,7 @@ async function refreshCurrentDetail(): Promise<void> {
   await loadList()
 }
 
-// 加号弹窗每次实时读取尚未被其他套卷采用的候选，避免重复组卷。
+// 加号弹窗每次只读取目前无所属模拟套卷的候选，草稿套卷中的单项同样不可重复组卷。
 async function openAddModuleDialog(): Promise<void> {
   if (!detail.value?.canAddModules || candidateLoading.value) return
   addModuleDialogVisible.value = true
@@ -1040,12 +1169,11 @@ async function confirmRemoveModule(module: MockPaperModuleDetail): Promise<void>
   if (!detail.value || !module.removable || removingModuleId.value) return
   try {
     await ElMessageBox.confirm(
-      `确定从当前草稿套卷移除“${moduleDisplayTitle(
+      `确定从当前草稿套卷移除“${moduleTitle(
+        module,
         detail.value.examType,
-        module.code,
-        module.label,
         detail.value.sequenceNo,
-      )}”吗？题库中的试题不会被删除。`,
+      )}”吗？仅解除组卷关系，单项内容、校验与发布状态均保持不变。`,
       '移除单项卷',
       { type: 'warning', confirmButtonText: '确认移除', cancelButtonText: '取消' },
     )
@@ -1099,7 +1227,7 @@ async function refreshValidation(): Promise<void> {
   }
 }
 
-// 已释放内容只发布当前单项；普通草稿继续沿用套卷与多单项发布流程。
+// 单项和完整套卷分别发布，任一发布操作都不改变另一侧的发布状态。
 async function publishCurrentPaper(): Promise<void> {
   if (!detail.value || publishing.value || !detail.value.canPublish) return
   if (detail.value.singleModuleDetail) {
@@ -1125,13 +1253,10 @@ async function publishCurrentPaper(): Promise<void> {
     }
     return
   }
-  const availability = detail.value.fullExamReady
-    ? '将发布完整套卷，并同步开放其中全部可用单项。'
-    : `将开放 ${detail.value.publishableModuleCount} 个可用单项；套卷仍保持草稿。`
   try {
     await ElMessageBox.confirm(
-      `确定发布“${detail.value.title}”吗？${availability}已发布单项将锁定，未发布单项仍可继续修复。`,
-      '发布 Mock 内容',
+      `确定发布“${detail.value.title}”吗？本次只发布完整套卷，不改变其中各单项的独立发布状态。`,
+      '发布完整套卷',
       { type: 'warning', confirmButtonText: '确认发布', cancelButtonText: '取消' },
     )
   } catch {
@@ -1140,7 +1265,7 @@ async function publishCurrentPaper(): Promise<void> {
   publishing.value = true
   try {
     await publishMockPaperSet(detail.value.id)
-    ElMessage.success('Mock 内容已发布')
+    ElMessage.success('完整套卷已发布')
     await refreshCurrentDetail()
   } finally {
     publishing.value = false
@@ -1152,7 +1277,7 @@ async function archiveCurrentPaper(): Promise<void> {
   if (!detail.value || archiving.value || detail.value.status !== 'published') return
   try {
     await ElMessageBox.confirm(
-      `下线“${detail.value.title}”后不能新开始，但已有答卷仍可继续和查看报告。`,
+      `下线“${detail.value.title}”后不能再开始完整模考；单项发布状态与已有答卷均不受影响。`,
       '下线模考试卷',
       { type: 'warning', confirmButtonText: '确认下线', cancelButtonText: '取消' },
     )
@@ -1198,12 +1323,9 @@ async function submitReplacement(): Promise<void> {
 
 // 删除草稿只移除套卷及占用关系，原始单项保留并可重新参与组卷。
 async function confirmDelete(row: MockPaperSetListItem): Promise<void> {
-  const publishedModuleNotice = row.paperId
-    ? '当前已发布的单项会同步下架，'
-    : ''
   try {
     await ElMessageBox.confirm(
-      `确定删除“${row.title}”吗？${publishedModuleNotice}其中的单项卷会被释放，可重新加入其他套卷；试题库原题不会删除。`,
+      `确定删除“${row.title}”吗？只删除当前套卷并释放组卷关系；单项内容、校验、发布状态和历史答卷均保持不变。`,
       '删除模考草稿',
       { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消' },
     )
@@ -1302,6 +1424,28 @@ function fullExamAvailabilityLabel(
 // 候选单项使用分钟展示正式限时，便于管理员在组套前快速核对。
 function formatDuration(durationSeconds: number): string {
   return `${Math.round(durationSeconds / 60)} 分钟`
+}
+
+// 文件体积使用便于后台快速识别的 KB/MB 单位。
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+// 上传档案状态使用稳定中文文案。
+function uploadStatusLabel(status: MockPaperWorkbookUploadItem['status']): string {
+  if (status === 'succeeded') return '处理成功'
+  if (status === 'failed') return '处理失败'
+  return '处理中'
+}
+
+// 状态标签颜色只表达处理结果，不与套卷发布状态混用。
+function uploadStatusType(
+  status: MockPaperWorkbookUploadItem['status'],
+): 'success' | 'danger' | 'info' {
+  if (status === 'succeeded') return 'success'
+  if (status === 'failed') return 'danger'
+  return 'info'
 }
 
 // 后台列表使用固定中国时区格式展示最近修改时间。
@@ -2296,6 +2440,49 @@ onMounted(() => void loadList())
 
 .replace-current code {
   grid-column: 2;
+}
+
+.upload-history-shell {
+  min-height: 220px;
+}
+
+.upload-history-file,
+.upload-history-result {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.upload-history-file strong,
+.upload-history-result small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-history-file strong {
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.upload-history-file small,
+.upload-history-result small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.upload-history-result {
+  align-items: flex-start;
+}
+
+.upload-history-result span {
+  color: #475569;
+  font-size: 13px;
+}
+
+.upload-history-shell :deep(.app-pagination) {
+  background: transparent;
 }
 
 @media (max-width: 1400px) {

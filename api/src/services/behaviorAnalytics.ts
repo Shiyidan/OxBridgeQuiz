@@ -6,7 +6,11 @@ import {
   USER_ROLE,
   normalizePaperType,
 } from '../constants/domain.js'
-import { OPERATION_AUDIT_MODULE, OPERATION_AUDIT_RESULT } from '../constants/operationAudit.js'
+import {
+  OPERATION_AUDIT_MODULE,
+  OPERATION_AUDIT_RESULT,
+  isOperationAuditFailure,
+} from '../constants/operationAudit.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const CHINA_TIMEZONE_OFFSET_MS = 8 * 60 * 60 * 1000
@@ -47,6 +51,8 @@ export interface BehaviorAnalyticsLog {
   module: string
   action: string
   result: string
+  statusCode?: number
+  errorCode?: string | null
 }
 
 export interface ProductCompletionEvent {
@@ -159,7 +165,7 @@ function createGroupStats(): MutableGroupStats {
 // 用户标识缺失的历史日志只参与次数统计，不参与 UV 或人均计算。
 function addLogToGroup(group: MutableGroupStats, log: BehaviorAnalyticsLog): void {
   group.operationCount += 1
-  if (log.result === OPERATION_AUDIT_RESULT.FAILURE) group.failureCount += 1
+  if (isOperationAuditFailure({ ...log, statusCode: log.statusCode ?? 0 })) group.failureCount += 1
   if (!log.actorUserId) return
   group.attributedOperationCount += 1
   group.users.add(log.actorUserId)
@@ -183,7 +189,7 @@ function aggregatePeriod(logs: BehaviorAnalyticsLog[]): PeriodAggregation {
 
   for (const log of logs) {
     aggregation.operationCount += 1
-    if (log.result === OPERATION_AUDIT_RESULT.FAILURE) aggregation.failureCount += 1
+    if (isOperationAuditFailure({ ...log, statusCode: log.statusCode ?? 0 })) aggregation.failureCount += 1
     if (log.actorUserId) {
       aggregation.attributedOperationCount += 1
       aggregation.users.add(log.actorUserId)
@@ -243,7 +249,7 @@ function buildTrend(
     const item = trend.get(date)
     if (!item) continue
     item.operationCount += 1
-    if (log.result === OPERATION_AUDIT_RESULT.FAILURE) item.failureCount += 1
+    if (isOperationAuditFailure({ ...log, statusCode: log.statusCode ?? 0 })) item.failureCount += 1
     if (log.actorUserId) item.users.add(log.actorUserId)
   }
 
@@ -613,6 +619,8 @@ export async function getStudentBehaviorAnalytics(filters: BehaviorAnalyticsFilt
         module: true,
         action: true,
         result: true,
+        statusCode: true,
+        errorCode: true,
       },
       orderBy: { occurredAt: 'asc' },
     }),

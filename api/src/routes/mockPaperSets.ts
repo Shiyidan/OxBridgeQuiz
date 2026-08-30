@@ -27,11 +27,19 @@ import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { fail, success } from '../utils/response.js'
 import { parseJsonArray } from '../utils/jsonField.js'
 import { parsePositiveInt } from './papers-shared.js'
+import { formatMockPaperModuleTitle } from '../utils/mockPaperTitle.js'
 import {
   canClaimMockPaperSource,
   canDeleteMockPaperSet,
   canEditMockPaperComposition,
+  deriveMockPaperReadiness,
 } from '../utils/mockPaperState.js'
+import { MOCK_PAPER_UPLOAD_STATUS } from '../constants/mockPaperUploads.js'
+import {
+  deleteMockPaperWorkbook,
+  ensureMockPaperWorkbookAvailable,
+  storeMockPaperWorkbook,
+} from '../services/mockPaperWorkbookStorage.js'
 
 export const mockPaperSetRouter = createAsyncRouter()
 
@@ -57,26 +65,6 @@ function normalizeWorkbookFileName(value: string): string {
     .slice(0, 255)
 }
 
-// 单项自定义名称优先；未编辑时继续使用考试、模块和原始编号生成稳定默认名称。
-function formatMockPaperModuleTitle(input: {
-  title: string | null
-  examType: string
-  code: string
-  label: string
-  sequenceNo: number
-}): string {
-  if (input.title?.trim()) return input.title.trim()
-  const displayLabel = ({
-    maths1: 'Math1',
-    maths2: 'Math2',
-    physics: 'Physics',
-    biology: 'Biology',
-    chemistry: 'Chemistry',
-    paper1: 'Paper1',
-    paper2: 'Paper2',
-  } as Record<string, string>)[input.code] || input.label
-  return `${input.examType} ${displayLabel} No.${String(input.sequenceNo).padStart(3, '0')}`
-}
 
 // 后台 Module 池允许 ESAT 收纳全部五科；实际开考仍从中冻结符合要求的三科组合。
 function getModulePoolCapacity(examType: string): number {
@@ -97,11 +85,8 @@ function formatMockPaperSetListItem(row: {
   version: number
   sourceFileName: string | null
   paperId: string | null
-  validationStatus: string
   issueCount: number
   questionCount: number
-  readyModuleCount: number
-  fullExamReady: boolean
   updatedAt: Date
   publishedAt: Date | null
   archivedAt: Date | null
@@ -113,6 +98,7 @@ function formatMockPaperSetListItem(row: {
   paper: { _count: { examRecords: number } } | null
   _count: { modules: number }
 }) {
+  const readiness = deriveMockPaperReadiness(row.examType, row.modules)
   return {
     id: row.id,
     code: row.code,
@@ -124,11 +110,11 @@ function formatMockPaperSetListItem(row: {
     version: row.version,
     sourceFileName: row.sourceFileName ? normalizeWorkbookFileName(row.sourceFileName) : null,
     paperId: row.paperId,
-    validationStatus: row.validationStatus,
+    validationStatus: readiness.validationStatus,
     issueCount: row.issueCount,
     questionCount: row.questionCount,
-    readyModuleCount: row.readyModuleCount,
-    fullExamReady: row.fullExamReady,
+    readyModuleCount: readiness.readyModuleCount,
+    fullExamReady: readiness.fullExamReady,
     moduleCount: row._count.modules,
     modules: row.modules,
     deletable:
@@ -143,14 +129,21 @@ function formatMockPaperSetListItem(row: {
   }
 }
 
-// 管理首页卡片只读取总套卷数，避免加载套卷和题目明细。
+// 管理首页卡片从模块校验状态实时派生完整套卷数，避免缓存状态漂移。
 mockPaperSetRouter.get('/stats', async (_req, res) => {
-  const [total, validDrafts] = await Promise.all([
+  const [total, draftSets] = await Promise.all([
     prisma.mockPaperSet.count({ where: { deletedAt: null } }),
-    prisma.mockPaperSet.count({
-      where: { deletedAt: null, status: 'draft', validationStatus: 'valid' },
+    prisma.mockPaperSet.findMany({
+      where: { deletedAt: null, status: MOCK_PAPER_STATUS.DRAFT },
+      select: {
+        examType: true,
+        modules: { select: { code: true, validationStatus: true } },
+      },
     }),
   ])
+  const validDrafts = draftSets.filter(
+    (set) => deriveMockPaperReadiness(set.examType, set.modules).fullExamReady,
+  ).length
   res.json(success({ total, validDrafts }))
 })
 
@@ -201,34 +194,22 @@ mockPaperSetRouter.get('/', async (req, res) => {
   )
 })
 
-// 单项视图同时展示有效套卷模块和删除套卷后已释放、尚未再次占用的原始单项。
+// 单项视图只展示每个 Sheet 对应的原始单项；是否加入套卷不影响其独立展示。
 mockPaperSetRouter.get('/modules', async (req, res) => {
   const page = parsePositiveInt(req.query.page, 1)
   const pageSize = parsePositiveInt(req.query.pageSize, 20, 100)
   const examType = String(req.query.examType || '').trim().toUpperCase()
   const status = String(req.query.status || '').trim()
   const keyword = String(req.query.keyword || '').trim()
-  const examOwnerWhere: Prisma.MockPaperSetWhereInput = {
-    ...(examType ? { examType } : {}),
-  }
-  const activeModuleWhere: Prisma.MockPaperModuleWhereInput = {
-    mockPaperSet: { is: { ...examOwnerWhere, deletedAt: null } },
-  }
-  const releasedModuleWhere: Prisma.MockPaperModuleWhereInput = {
+  const visibilityWhere: Prisma.MockPaperModuleWhereInput = {
     sourceModuleId: null,
-    composedCopies: { none: {} },
-    mockPaperSet: { is: { ...examOwnerWhere, deletedAt: { not: null } } },
+    ...(status ? { publicationStatus: status } : {}),
+    mockPaperSet: {
+      is: {
+        ...(examType ? { examType } : {}),
+      },
+    },
   }
-  const visibilityWhere: Prisma.MockPaperModuleWhereInput = status
-    ? status === MOCK_PAPER_MODULE_STATUS.DRAFT
-      ? {
-          OR: [
-            { ...activeModuleWhere, publicationStatus: MOCK_PAPER_MODULE_STATUS.DRAFT },
-            releasedModuleWhere,
-          ],
-        }
-      : { ...activeModuleWhere, publicationStatus: status }
-    : { OR: [activeModuleWhere, releasedModuleWhere] }
   const where: Prisma.MockPaperModuleWhereInput = {
     AND: [
       visibilityWhere,
@@ -264,7 +245,7 @@ mockPaperSetRouter.get('/modules', async (req, res) => {
           accessTier: true,
           status: true,
           version: true,
-          fullExamReady: true,
+          modules: { select: { code: true, validationStatus: true } },
           deletedAt: true,
         },
       },
@@ -274,6 +255,9 @@ mockPaperSetRouter.get('/modules', async (req, res) => {
     success({
       list: rows.map((row) => {
         const released = Boolean(row.mockPaperSet.deletedAt)
+        const readiness = deriveMockPaperReadiness(row.mockPaperSet.examType, row.mockPaperSet.modules)
+        const { modules: _modules, ...mockPaperSet } = row.mockPaperSet
+
         return {
           id: row.id,
           code: row.code,
@@ -284,11 +268,11 @@ mockPaperSetRouter.get('/modules', async (req, res) => {
           expectedQuestionCount: row.expectedQuestionCount,
           questionCount: row.questionCount,
           validationStatus: row.validationStatus,
-          publicationStatus: released ? MOCK_PAPER_MODULE_STATUS.DRAFT : row.publicationStatus,
+          publicationStatus: row.publicationStatus,
           issueCount: row.issueCount,
           updatedAt: row.updatedAt.toISOString(),
           released,
-          mockPaperSet: row.mockPaperSet,
+          mockPaperSet: { ...mockPaperSet, fullExamReady: readiness.fullExamReady },
         }
       }),
       pagination: {
@@ -308,7 +292,12 @@ mockPaperSetRouter.get('/modules/:moduleId', async (req, res) => {
   const module = await prisma.mockPaperModule.findUnique({
     where: { id: req.params.moduleId },
     include: {
-      _count: { select: { composedCopies: true } },
+      composedCopies: {
+        where: { mockPaperSet: { deletedAt: null } },
+        orderBy: { updatedAt: 'desc' },
+        take: 1,
+        include: { mockPaperSet: { select: { title: true } } },
+      },
       mockPaperSet: { include: { _count: { select: { modules: true } } } },
       questions: {
         orderBy: { position: 'asc' },
@@ -330,74 +319,60 @@ mockPaperSetRouter.get('/modules/:moduleId', async (req, res) => {
       },
     },
   })
-  const released = module?.mockPaperSet.deletedAt
-    ? canClaimMockPaperSource({
-        sourceModuleId: module.sourceModuleId,
-        composedCopyCount: module._count.composedCopies,
-        ownerModuleCount: module.mockPaperSet._count.modules,
-        ownerStatus: module.mockPaperSet.status,
-        ownerDeletedAt: module.mockPaperSet.deletedAt,
-      })
-    : false
-  if (!module || (module.mockPaperSet.deletedAt && !released)) {
-    res.status(404).json(fail('单项卷不存在或已被其他套卷采用', 'MOCK_PAPER_MODULE_NOT_AVAILABLE'))
+  if (!module || module.sourceModuleId) {
+    res.status(404).json(fail('单项卷不存在', 'MOCK_PAPER_MODULE_NOT_AVAILABLE'))
     return
   }
   const ready = module.validationStatus === MOCK_PAPER_VALIDATION_STATUS.VALID
-  const published = (
-    !module.mockPaperSet.deletedAt
-    && module.publicationStatus === MOCK_PAPER_MODULE_STATUS.PUBLISHED
-  )
+  const published = module.publicationStatus === MOCK_PAPER_MODULE_STATUS.PUBLISHED
+  const parentSetTitle = module.composedCopies[0]?.mockPaperSet.title
+    || (module.mockPaperSet.deletedAt ? null : module.mockPaperSet.title)
+  const fixedModuleTitle = formatMockPaperModuleTitle({
+    title: module.title,
+    examType: module.mockPaperSet.examType,
+    code: module.code,
+    label: module.label,
+    sequenceNo: module.mockPaperSet.sequenceNo,
+  })
   res.json(success({
     id: module.mockPaperSet.id,
     code: module.mockPaperSet.code,
     sequenceNo: module.mockPaperSet.sequenceNo,
     examType: module.mockPaperSet.examType,
-    title: formatMockPaperModuleTitle({
-      title: module.title,
-      examType: module.mockPaperSet.examType,
-      code: module.code,
-      label: module.label,
-      sequenceNo: module.mockPaperSet.sequenceNo,
-    }),
+    title: fixedModuleTitle,
     accessTier: module.mockPaperSet.accessTier,
     status: module.mockPaperSet.deletedAt ? MOCK_PAPER_STATUS.DRAFT : module.mockPaperSet.status,
     version: module.mockPaperSet.version,
     sourceFileName: module.mockPaperSet.sourceFileName
       ? normalizeWorkbookFileName(module.mockPaperSet.sourceFileName)
       : null,
-    paperId: module.mockPaperSet.deletedAt ? null : module.mockPaperSet.paperId,
+    paperId: module.mockPaperSet.paperId,
     validationStatus: module.validationStatus,
     issueCount: module.issueCount,
     questionCount: module.questionCount,
     readyModuleCount: ready ? 1 : 0,
     fullExamReady: false,
     publishableModuleCount: ready && !published ? 1 : 0,
-    canPublish:
-      ready
-      && !published
-      && (Boolean(module.mockPaperSet.deletedAt) || module.mockPaperSet.status === MOCK_PAPER_STATUS.DRAFT),
+    canPublish: ready && !published,
     canAddModules: false,
     singleModuleDetail: true,
     releasedModule: Boolean(module.mockPaperSet.deletedAt),
-    parentSetTitle: module.mockPaperSet.deletedAt ? null : module.mockPaperSet.title,
+    parentSetTitle,
     issues: parseJsonArray<string>(module.issues),
     updatedAt: module.updatedAt.toISOString(),
-    publishedAt: null,
-    archivedAt: null,
+    publishedAt: module.publishedAt?.toISOString() || null,
+    archivedAt: module.archivedAt?.toISOString() || null,
     modules: [{
       id: module.id,
       code: module.code,
       label: module.label,
-      title: module.title,
+      title: fixedModuleTitle,
       order: module.moduleOrder,
       durationSeconds: module.durationSeconds,
       expectedQuestionCount: module.expectedQuestionCount,
       questionCount: module.questionCount,
       validationStatus: module.validationStatus,
-      publicationStatus: published
-        ? MOCK_PAPER_MODULE_STATUS.PUBLISHED
-        : MOCK_PAPER_MODULE_STATUS.DRAFT,
+      publicationStatus: module.publicationStatus,
       issueCount: module.issueCount,
       published,
       removable: false,
@@ -429,21 +404,11 @@ mockPaperSetRouter.put('/modules/:moduleId', async (req, res) => {
   const module = await prisma.mockPaperModule.findUnique({
     where: { id: req.params.moduleId },
     include: {
-      _count: { select: { composedCopies: true } },
-      mockPaperSet: { include: { _count: { select: { modules: true } } } },
+      mockPaperSet: true,
     },
   })
-  const released = module?.mockPaperSet.deletedAt
-    ? canClaimMockPaperSource({
-        sourceModuleId: module.sourceModuleId,
-        composedCopyCount: module._count.composedCopies,
-        ownerModuleCount: module.mockPaperSet._count.modules,
-        ownerStatus: module.mockPaperSet.status,
-        ownerDeletedAt: module.mockPaperSet.deletedAt,
-      })
-    : false
-  if (!module || (module.mockPaperSet.deletedAt && !released)) {
-    res.status(404).json(fail('单项卷不存在或已被其他套卷采用', 'MOCK_PAPER_MODULE_NOT_AVAILABLE'))
+  if (!module || module.sourceModuleId) {
+    res.status(404).json(fail('单项卷不存在', 'MOCK_PAPER_MODULE_NOT_AVAILABLE'))
     return
   }
   if (
@@ -489,7 +454,7 @@ mockPaperSetRouter.post('/modules/:moduleId/publish', async (req, res) => {
       return
     }
     if (code === 'MOCK_PAPER_MODULE_UNAVAILABLE') {
-      res.status(409).json(fail('该单项卷不可发布或已被其他套卷采用', code))
+      res.status(409).json(fail('该单项卷尚未校验通过或不是独立单项', code))
       return
     }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -500,7 +465,71 @@ mockPaperSetRouter.post('/modules/:moduleId/publish', async (req, res) => {
   }
 })
 
-// 新建套卷弹窗同时读取独立单项和删除套卷后释放的原始模块。
+// 上传历史按时间倒序分页，仅返回后台展示所需信息，不暴露服务器 storageKey。
+mockPaperSetRouter.get('/upload-history', async (req, res) => {
+  const page = parsePositiveInt(req.query.page, 1)
+  const pageSize = parsePositiveInt(req.query.pageSize, 10, 50)
+  const [total, rows] = await prisma.$transaction([
+    prisma.mockPaperWorkbookUpload.count(),
+    prisma.mockPaperWorkbookUpload.findMany({
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      include: {
+        uploadedBy: { select: { username: true, email: true } },
+      },
+    }),
+  ])
+
+  res.json(success({
+    list: rows.map((row) => ({
+      id: row.id,
+      originalFileName: row.originalFileName,
+      contentType: row.contentType,
+      fileSizeBytes: row.fileSizeBytes,
+      status: row.status,
+      setCount: row.setCount,
+      moduleCount: row.moduleCount,
+      errorMessage: row.errorMessage,
+      uploadedBy: row.uploadedBy,
+      createdAt: row.createdAt,
+      completedAt: row.completedAt,
+    })),
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  }))
+})
+
+// 历史 Excel 通过管理员鉴权后的专用接口下载，物理存储路径不返回浏览器。
+mockPaperSetRouter.get('/upload-history/:uploadId/download', async (req, res, next) => {
+  const upload = await prisma.mockPaperWorkbookUpload.findUnique({
+    where: { id: req.params.uploadId },
+  })
+  if (!upload) {
+    res.status(404).json(fail('上传记录不存在', 'MOCK_PAPER_UPLOAD_NOT_FOUND'))
+    return
+  }
+
+  let filePath: string
+  try {
+    filePath = await ensureMockPaperWorkbookAvailable(upload.storageKey)
+  } catch {
+    res.status(404).json(fail('原始 Excel 暂不可用，请联系管理员', 'MOCK_PAPER_UPLOAD_FILE_UNAVAILABLE'))
+    return
+  }
+
+  res.setHeader('Cache-Control', 'private, no-store')
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.download(filePath, upload.originalFileName, (error) => {
+    if (error) next(error)
+  })
+})
+
+// 新建套卷弹窗只读取删除套卷后已释放、且尚未再次被其他套卷占用的原始模块。
 mockPaperSetRouter.get('/composition-candidates', async (req, res) => {
   const examType = String(req.query.examType || '').trim().toUpperCase()
   if (examType !== 'ESAT' && examType !== 'TMUA') {
@@ -515,6 +544,7 @@ mockPaperSetRouter.get('/composition-candidates', async (req, res) => {
       mockPaperSet: {
         is: {
           examType,
+          deletedAt: { not: null },
         },
       },
     },
@@ -524,6 +554,7 @@ mockPaperSetRouter.get('/composition-candidates', async (req, res) => {
           id: true,
           code: true,
           sequenceNo: true,
+          examType: true,
           title: true,
           status: true,
           deletedAt: true,
@@ -547,7 +578,13 @@ mockPaperSetRouter.get('/composition-candidates', async (req, res) => {
         id: module.id,
         code: module.code,
         label: module.label,
-        title: module.title,
+        title: formatMockPaperModuleTitle({
+          title: module.title,
+          examType: module.mockPaperSet.examType,
+          code: module.code,
+          label: module.label,
+          sequenceNo: module.mockPaperSet.sequenceNo,
+        }),
         durationSeconds: module.durationSeconds,
         questionCount: module.questionCount,
         sourceSet: {
@@ -612,6 +649,17 @@ mockPaperSetRouter.get('/:id', async (req, res) => {
         orderBy: { moduleOrder: 'asc' },
         include: {
           _count: { select: { composedCopies: true } },
+          sourceModule: {
+            select: {
+              title: true,
+              code: true,
+              label: true,
+              publicationStatus: true,
+              publishedAt: true,
+              archivedAt: true,
+              mockPaperSet: { select: { examType: true, sequenceNo: true } },
+            },
+          },
           questions: {
             orderBy: { position: 'asc' },
             include: {
@@ -638,6 +686,7 @@ mockPaperSetRouter.get('/:id', async (req, res) => {
     res.status(404).json(fail('模考试卷不存在', 'MOCK_PAPER_SET_NOT_FOUND'))
     return
   }
+  const readiness = deriveMockPaperReadiness(row.examType, row.modules)
   res.json(
     success({
       id: row.id,
@@ -650,28 +699,16 @@ mockPaperSetRouter.get('/:id', async (req, res) => {
       version: row.version,
       sourceFileName: row.sourceFileName ? normalizeWorkbookFileName(row.sourceFileName) : null,
       paperId: row.paperId,
-      validationStatus: row.validationStatus,
+      validationStatus: readiness.validationStatus,
       issueCount: row.issueCount,
       questionCount: row.questionCount,
-      readyModuleCount: row.readyModuleCount,
-      fullExamReady: row.fullExamReady,
-      publishableModuleCount: row.modules.filter((module) => (
-        module.validationStatus === MOCK_PAPER_VALIDATION_STATUS.VALID
-        && module.publicationStatus !== MOCK_PAPER_MODULE_STATUS.PUBLISHED
-      )).length,
-      canPublish:
-        row.status === MOCK_PAPER_STATUS.DRAFT
-        && (
-          row.fullExamReady
-          || row.modules.some((module) => (
-            module.validationStatus === MOCK_PAPER_VALIDATION_STATUS.VALID
-            && module.publicationStatus !== MOCK_PAPER_MODULE_STATUS.PUBLISHED
-          ))
-        ),
+      readyModuleCount: readiness.readyModuleCount,
+      fullExamReady: readiness.fullExamReady,
+      publishableModuleCount: 0,
+      canPublish: row.status === MOCK_PAPER_STATUS.DRAFT && readiness.fullExamReady,
       canAddModules:
         canEditMockPaperComposition(row.status, row.deletedAt)
-        && row.modules.length < getModulePoolCapacity(row.examType)
-        && row.modules.every((module) => module._count.composedCopies === 0),
+        && row.modules.length < getModulePoolCapacity(row.examType),
       issues: parseJsonArray<string>(row.issues),
       updatedAt: row.updatedAt.toISOString(),
       publishedAt: row.publishedAt?.toISOString() || null,
@@ -680,20 +717,24 @@ mockPaperSetRouter.get('/:id', async (req, res) => {
         id: module.id,
         code: module.code,
         label: module.label,
-        title: module.title,
+        title: formatMockPaperModuleTitle({
+          title: module.sourceModule ? module.sourceModule.title : module.title,
+          examType: module.sourceModule?.mockPaperSet.examType || row.examType,
+          code: module.sourceModule?.code || module.code,
+          label: module.sourceModule?.label || module.label,
+          sequenceNo: module.sourceModule?.mockPaperSet.sequenceNo || row.sequenceNo,
+        }),
         order: module.moduleOrder,
         durationSeconds: module.durationSeconds,
         expectedQuestionCount: module.expectedQuestionCount,
         questionCount: module.questionCount,
         validationStatus: module.validationStatus,
-        publicationStatus: module.publicationStatus,
+        publicationStatus: module.sourceModule?.publicationStatus || module.publicationStatus,
         issueCount: module.issueCount,
         published:
-          module.publicationStatus === MOCK_PAPER_MODULE_STATUS.PUBLISHED,
-        removable:
-          row.status === MOCK_PAPER_STATUS.DRAFT
-          && row.modules.length > 1
-          && module.publicationStatus === MOCK_PAPER_MODULE_STATUS.DRAFT,
+          (module.sourceModule?.publicationStatus || module.publicationStatus)
+          === MOCK_PAPER_MODULE_STATUS.PUBLISHED,
+        removable: row.status === MOCK_PAPER_STATUS.DRAFT && row.modules.length > 1,
         issues: parseJsonArray<string>(module.issues),
         questions: module.questions.map((item) => ({
           id: item.id,
@@ -708,7 +749,7 @@ mockPaperSetRouter.get('/:id', async (req, res) => {
   )
 })
 
-// 候选列表返回独立单项及删除套卷后释放、且未再次被占用的原始模块。
+// 候选列表只返回删除套卷后已释放、且未再次被占用的原始模块。
 mockPaperSetRouter.get('/:id/module-candidates', async (req, res) => {
   const target = await prisma.mockPaperSet.findFirst({
     where: { id: req.params.id, deletedAt: null },
@@ -728,7 +769,6 @@ mockPaperSetRouter.get('/:id/module-candidates', async (req, res) => {
   if (
     !canEditMockPaperComposition(target.status, target.deletedAt)
     || target.modules.length >= getModulePoolCapacity(target.examType)
-    || target.modules.some((module) => module._count.composedCopies > 0)
   ) {
     res.json(success({ list: [] }))
     return
@@ -745,6 +785,7 @@ mockPaperSetRouter.get('/:id/module-candidates', async (req, res) => {
       mockPaperSet: {
         is: {
           examType: target.examType,
+          deletedAt: { not: null },
         },
       },
     },
@@ -754,6 +795,7 @@ mockPaperSetRouter.get('/:id/module-candidates', async (req, res) => {
           id: true,
           code: true,
           sequenceNo: true,
+          examType: true,
           title: true,
           status: true,
           deletedAt: true,
@@ -778,7 +820,13 @@ mockPaperSetRouter.get('/:id/module-candidates', async (req, res) => {
         id: module.id,
         code: module.code,
         label: module.label,
-        title: module.title,
+        title: formatMockPaperModuleTitle({
+          title: module.title,
+          examType: module.mockPaperSet.examType,
+          code: module.code,
+          label: module.label,
+          sequenceNo: module.mockPaperSet.sequenceNo,
+        }),
         durationSeconds: module.durationSeconds,
         questionCount: module.questionCount,
         sourceSet: {
@@ -831,7 +879,6 @@ mockPaperSetRouter.post('/:id/modules', async (req, res) => {
   }
   if (
     target.modules.length >= getModulePoolCapacity(target.examType)
-    || target.modules.some((module) => module._count.composedCopies > 0)
   ) {
     res.status(409).json(fail('当前套卷不能继续添加单项卷', 'MOCK_PAPER_COMPOSITION_LOCKED'))
     return
@@ -864,14 +911,20 @@ mockPaperSetRouter.post('/:id/modules', async (req, res) => {
         sourceModuleId: source.id,
         code: source.code,
         label: source.label,
-        title: source.title,
+        title: formatMockPaperModuleTitle({
+          title: source.title,
+          examType: source.mockPaperSet.examType,
+          code: source.code,
+          label: source.label,
+          sequenceNo: source.mockPaperSet.sequenceNo,
+        }),
         moduleOrder: source.moduleOrder,
         durationSeconds: source.durationSeconds,
         expectedQuestionCount: source.expectedQuestionCount,
         questionCount: source.questionCount,
-        publicationStatus: MOCK_PAPER_MODULE_STATUS.DRAFT,
-        publishedAt: null,
-        archivedAt: null,
+        publicationStatus: source.publicationStatus,
+        publishedAt: source.publishedAt,
+        archivedAt: source.archivedAt,
         validationStatus: source.validationStatus,
         issueCount: source.issueCount,
         issues: source.issues as Prisma.InputJsonValue,
@@ -902,7 +955,7 @@ mockPaperSetRouter.post('/:id/modules', async (req, res) => {
   }
 })
 
-// 草稿套卷允许移除尚未发布的 Module，同时至少保留一个基础 Module。
+// 草稿套卷移除单项时只解除组卷关系，同时至少保留一个基础 Module。
 mockPaperSetRouter.delete('/:id/modules/:moduleId', async (req, res) => {
   const module = await prisma.mockPaperModule.findFirst({
     where: {
@@ -921,10 +974,6 @@ mockPaperSetRouter.delete('/:id/modules/:moduleId', async (req, res) => {
   }
   if (module.mockPaperSet._count.modules <= 1) {
     res.status(409).json(fail('草稿套卷至少需要保留一个单项卷', 'MOCK_PAPER_MODULE_REQUIRED'))
-    return
-  }
-  if (module.publicationStatus !== MOCK_PAPER_MODULE_STATUS.DRAFT) {
-    res.status(409).json(fail('已发布单项不能直接移除，请删除整个草稿套卷', 'MOCK_PAPER_MODULE_PUBLISHED'))
     return
   }
 
@@ -951,12 +1000,8 @@ mockPaperSetRouter.delete('/:id/modules/:moduleId', async (req, res) => {
           status: MOCK_PAPER_STATUS.DRAFT,
           version: (latestVersion?.version || module.mockPaperSet.version) + 1,
           sourceFileName: module.mockPaperSet.sourceFileName,
-          validationStatus: module.validationStatus,
           issueCount: module.issueCount,
           questionCount: module.questionCount,
-          readyModuleCount:
-            module.validationStatus === MOCK_PAPER_VALIDATION_STATUS.VALID ? 1 : 0,
-          fullExamReady: false,
           issues: module.issues as Prisma.InputJsonValue,
           deletedAt: releasedAt,
         },
@@ -964,16 +1009,14 @@ mockPaperSetRouter.delete('/:id/modules/:moduleId', async (req, res) => {
       })
       await tx.mockPaperModule.update({
         where: { id: module.id },
-        data: {
-          mockPaperSetId: releasedOwner.id,
-          publicationStatus: MOCK_PAPER_MODULE_STATUS.DRAFT,
-          publishedAt: null,
-          archivedAt: null,
-        },
+        data: { mockPaperSetId: releasedOwner.id },
       })
     })
   }
   await revalidateMockPaperSet(module.mockPaperSetId)
+  if (!module.sourceModuleId && module.publicationStatus === MOCK_PAPER_MODULE_STATUS.PUBLISHED) {
+    await publishMockPaperModule(module.id)
+  }
   setOperationAuditContext(req, {
     resourceId: module.mockPaperSetId,
     summary: `从模考试卷“${module.mockPaperSet.title}”移除单项卷“${module.label}”`,
@@ -1002,9 +1045,40 @@ mockPaperSetRouter.post('/import', workbookUpload.single('file'), async (req, re
     return
   }
 
+  const fileName = normalizeWorkbookFileName(file.originalname) || 'mock-paper-workbook.xlsx'
+  let storedWorkbook
+  try {
+    storedWorkbook = await storeMockPaperWorkbook(file.buffer)
+  } catch (error) {
+    if (error instanceof Error && error.message === 'INVALID_XLSX_SIGNATURE') {
+      res.status(422).json(fail('文件内容不是有效的 .xlsx 工作簿', 'MOCK_PAPER_FILE_INVALID'))
+      return
+    }
+    throw error
+  }
+
+  let uploadId: string
+  try {
+    const upload = await prisma.mockPaperWorkbookUpload.create({
+      data: {
+        originalFileName: fileName,
+        storageKey: storedWorkbook.storageKey,
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        fileSizeBytes: storedWorkbook.fileSizeBytes,
+        checksumSha256: storedWorkbook.checksumSha256,
+        status: MOCK_PAPER_UPLOAD_STATUS.PROCESSING,
+        uploadedById: req.user?.userId,
+      },
+      select: { id: true },
+    })
+    uploadId = upload.id
+  } catch (error) {
+    await deleteMockPaperWorkbook(storedWorkbook.storageKey)
+    throw error
+  }
+
   try {
     const parsedSets = await parseMockPaperWorkbook(file.buffer)
-    const fileName = normalizeWorkbookFileName(file.originalname)
     const createdIds = await createMockPaperDraftsFromWorkbook(
       parsedSets,
       fileName,
@@ -1022,23 +1096,47 @@ mockPaperSetRouter.post('/import', workbookUpload.single('file'), async (req, re
       },
       orderBy: [{ examType: 'asc' }, { sequenceNo: 'asc' }],
     })
+    await prisma.mockPaperWorkbookUpload.update({
+      where: { id: uploadId },
+      data: {
+        status: MOCK_PAPER_UPLOAD_STATUS.SUCCEEDED,
+        setCount: parsedSets.length,
+        moduleCount: parsedSets.reduce((total, set) => total + set.modules.length, 0),
+        completedAt: new Date(),
+      },
+    })
     setOperationAuditContext(req, {
       resourceId: createdIds[0],
       summary: `上传模考组卷清单“${fileName}”，生成 ${createdIds.length} 套草稿`,
-      changes: { createdIds: { before: null, after: createdIds } },
+      changes: {
+        uploadId: { before: null, after: uploadId },
+        createdIds: { before: null, after: createdIds },
+      },
     })
     res.status(201).json(success({ list: rows.map(formatMockPaperSetListItem) }))
   } catch (error) {
+    const errorMessage = error instanceof MockPaperWorkbookError
+      ? error.issues.join('\n')
+      : error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002'
+        ? '套卷编号发生冲突，请刷新列表后重新上传'
+        : '上传处理失败，请联系管理员'
+    await prisma.mockPaperWorkbookUpload.update({
+      where: { id: uploadId },
+      data: {
+        status: MOCK_PAPER_UPLOAD_STATUS.FAILED,
+        errorMessage,
+        completedAt: new Date(),
+      },
+    }).catch((updateError) => {
+      console.error(`[mock-paper-upload] failed to update history id=${uploadId}:`, updateError)
+    })
+
     if (error instanceof MockPaperWorkbookError) {
-      res
-        .status(422)
-        .json(fail(error.issues.join('\n'), 'MOCK_PAPER_WORKBOOK_INVALID'))
+      res.status(422).json(fail(errorMessage, 'MOCK_PAPER_WORKBOOK_INVALID'))
       return
     }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      res
-        .status(409)
-        .json(fail('套卷编号发生冲突，请刷新列表后重新上传', 'MOCK_PAPER_SEQUENCE_CONFLICT'))
+      res.status(409).json(fail(errorMessage, 'MOCK_PAPER_SEQUENCE_CONFLICT'))
       return
     }
     throw error
@@ -1106,7 +1204,7 @@ mockPaperSetRouter.put('/:id', async (req, res) => {
   res.json(success({ id: updated.id, title: updated.title, accessTier: updated.accessTier }))
 })
 
-// 尚未发布的单项允许替换题目；已释放单项也可独立修正，已开放内容保持稳定。
+// 未发布单项替换题目时同步来源与套卷副本；已发布单项始终锁定。
 mockPaperSetRouter.put('/:id/questions/:itemId', async (req, res) => {
   const sourceCode = String(req.body.questionCode || '').trim()
   if (!sourceCode) {
@@ -1127,8 +1225,8 @@ mockPaperSetRouter.put('/:id/questions/:itemId', async (req, res) => {
     include: {
       module: {
         include: {
-          _count: { select: { composedCopies: true } },
-          mockPaperSet: { include: { _count: { select: { modules: true } } } },
+          sourceModule: { select: { publicationStatus: true } },
+          mockPaperSet: true,
         },
       },
     },
@@ -1137,49 +1235,49 @@ mockPaperSetRouter.put('/:id/questions/:itemId', async (req, res) => {
     res.status(404).json(fail('待替换题目不存在', 'MOCK_PAPER_QUESTION_NOT_FOUND'))
     return
   }
-  const releasedModule = Boolean(item.module.mockPaperSet.deletedAt) && canClaimMockPaperSource({
-    sourceModuleId: item.module.sourceModuleId,
-    composedCopyCount: item.module._count.composedCopies,
-    ownerModuleCount: item.module.mockPaperSet._count.modules,
-    ownerStatus: item.module.mockPaperSet.status,
-    ownerDeletedAt: item.module.mockPaperSet.deletedAt,
-  })
-  const editableDraftModule = (
-    canEditMockPaperComposition(
-      item.module.mockPaperSet.status,
-      item.module.mockPaperSet.deletedAt,
+  const effectivePublicationStatus = item.module.sourceModule?.publicationStatus
+    || item.module.publicationStatus
+  const canonicalSingle = !item.module.sourceModuleId
+  const editableDraftModule = effectivePublicationStatus === MOCK_PAPER_MODULE_STATUS.DRAFT
+    && (
+      canonicalSingle
+      || canEditMockPaperComposition(
+        item.module.mockPaperSet.status,
+        item.module.mockPaperSet.deletedAt,
+      )
     )
-    && item.module.publicationStatus === MOCK_PAPER_MODULE_STATUS.DRAFT
-  )
-  if (!editableDraftModule && !releasedModule) {
+  if (!editableDraftModule) {
     res.status(409).json(fail(
       '已发布的 Module/Paper 已锁定；如需调整请创建新版本',
       'MOCK_PAPER_SET_LOCKED',
     ))
     return
   }
-  await prisma.$transaction(async (tx) => {
-    if (releasedModule) {
-      await tx.mockPaperModule.update({
-        where: { id: item.module.id },
-        data: {
-          publicationStatus: MOCK_PAPER_MODULE_STATUS.DRAFT,
-          publishedAt: null,
-          archivedAt: null,
-        },
-      })
-    }
-    await tx.mockPaperQuestion.update({
-      where: { id: item.id },
-      data: {
-        sourceCode,
-        questionId: null,
-        validationStatus: 'invalid',
-        issues: ['正在重新校验'],
-      },
-    })
+  const canonicalModuleId = item.module.sourceModuleId || item.module.id
+  const affectedModules = await prisma.mockPaperModule.findMany({
+    where: {
+      OR: [
+        { id: canonicalModuleId },
+        { sourceModuleId: canonicalModuleId },
+      ],
+    },
+    select: { id: true, mockPaperSetId: true },
   })
-  await revalidateMockPaperSet(item.module.mockPaperSetId)
+  await prisma.mockPaperQuestion.updateMany({
+    where: {
+      moduleId: { in: affectedModules.map((module) => module.id) },
+      position: item.position,
+    },
+    data: {
+      sourceCode,
+      questionId: null,
+      validationStatus: 'invalid',
+      issues: ['正在重新校验'],
+    },
+  })
+  for (const setId of new Set(affectedModules.map((module) => module.mockPaperSetId))) {
+    await revalidateMockPaperSet(setId)
+  }
   setOperationAuditContext(req, {
     resourceId: req.params.id,
     summary: `替换模考卷“${item.module.mockPaperSet.title}”中的题目`,
@@ -1198,19 +1296,27 @@ mockPaperSetRouter.post('/:id/validate', async (req, res) => {
     return
   }
   await revalidateMockPaperSet(current.id)
-  const updated = await prisma.mockPaperSet.findUnique({ where: { id: current.id } })
+  const updated = await prisma.mockPaperSet.findUnique({
+    where: { id: current.id },
+    select: {
+      examType: true,
+      issueCount: true,
+      modules: { select: { code: true, validationStatus: true } },
+    },
+  })
+  const readiness = deriveMockPaperReadiness(updated!.examType, updated!.modules)
   res.json(
     success({
       id: current.id,
-      validationStatus: updated!.validationStatus,
+      validationStatus: readiness.validationStatus,
       issueCount: updated!.issueCount,
-      readyModuleCount: updated!.readyModuleCount,
-      fullExamReady: updated!.fullExamReady,
+      readyModuleCount: readiness.readyModuleCount,
+      fullExamReady: readiness.fullExamReady,
     }),
   )
 })
 
-// 至少一个模块可用的草稿即可发布；完整模考是否可见继续使用独立派生结果。
+// 只有结构完整且全部单项校验通过的草稿才能发布为完整套卷。
 mockPaperSetRouter.post('/:id/publish', async (req, res) => {
   try {
     const result = await publishMockPaperSet(req.params.id)
@@ -1233,8 +1339,8 @@ mockPaperSetRouter.post('/:id/publish', async (req, res) => {
       res.status(409).json(fail('只有草稿套卷可以发布；已发布套卷请创建新版本', code))
       return
     }
-    if (code === 'MOCK_PAPER_SET_NO_READY_MODULES') {
-      res.status(422).json(fail('当前没有可用于单项模考的 Module/Paper，请先处理模块问题', code))
+    if (code === 'MOCK_PAPER_SET_NOT_READY') {
+      res.status(422).json(fail('完整套卷必须满足组卷结构，且当前加入的全部单项都校验通过', code))
       return
     }
     throw error
@@ -1270,7 +1376,7 @@ mockPaperSetRouter.delete('/:id', async (req, res) => {
   const current = await prisma.mockPaperSet.findFirst({
     where: { id: req.params.id, deletedAt: null },
     include: {
-      paper: { select: { _count: { select: { examRecords: true } } } },
+      modules: { select: { sourceModuleId: true, publicationStatus: true } },
     },
   })
   if (!current) {
@@ -1281,25 +1387,17 @@ mockPaperSetRouter.delete('/:id', async (req, res) => {
     res.status(409).json(fail('已发布的完整套卷不能删除，请改为下线', 'MOCK_PAPER_SET_LOCKED'))
     return
   }
-  if ((current.paper?._count.examRecords || 0) > 0) {
-    res.status(409).json(fail('该草稿已有单项考试记录，不能直接删除', 'MOCK_PAPER_SET_HAS_RECORDS'))
-    return
-  }
   const deletedAt = new Date()
   await prisma.$transaction(async (tx) => {
-    if (current.paperId) {
+    const hasPublishedCanonicalModule = current.modules.some((module) => (
+      !module.sourceModuleId
+      && module.publicationStatus === MOCK_PAPER_MODULE_STATUS.PUBLISHED
+    ))
+    if (current.paperId && !hasPublishedCanonicalModule) {
       await tx.paper.update({ where: { id: current.paperId }, data: { status: 'archived' } })
     }
     await tx.mockPaperModule.deleteMany({
       where: { mockPaperSetId: current.id, sourceModuleId: { not: null } },
-    })
-    await tx.mockPaperModule.updateMany({
-      where: { mockPaperSetId: current.id, sourceModuleId: null },
-      data: {
-        publicationStatus: MOCK_PAPER_MODULE_STATUS.DRAFT,
-        publishedAt: null,
-        archivedAt: null,
-      },
     })
     await tx.mockPaperSet.update({
       where: { id: current.id },

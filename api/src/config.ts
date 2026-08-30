@@ -192,6 +192,15 @@ function resolveStudyResourceStorageRoot(): string {
     : '/opt/quiz/uploads/study-resources'
 }
 
+// 模考组卷原始 Excel 与业务数据分开持久化，测试和生产部署更新时不会覆盖历史文件。
+function resolveMockPaperWorkbookStorageRoot(): string {
+  const configured = process.env.MOCK_PAPER_WORKBOOK_STORAGE_ROOT?.trim()
+  if (configured) return path.resolve(configured)
+  return BACKEND_ENV === 'local'
+    ? path.resolve(process.cwd(), 'uploads', 'mock-paper-workbooks')
+    : '/opt/quiz/uploads/mock-paper-workbooks'
+}
+
 // 测试与生产地址属于私有部署配置，禁止回退到仓库中的示例地址。
 function resolveFrontendUrl(): string {
   const value = process.env.FRONTEND_URL?.trim().replace(/\/$/, '')
@@ -478,6 +487,7 @@ export const config = {
   bulkMailFrom: resolveMailValue('BULK_MAIL_FROM', BULK_MAIL_ADDRESS),
   databaseUrl: resolveDatabaseUrl(),
   studyResourceStorageRoot: resolveStudyResourceStorageRoot(),
+  mockPaperWorkbookStorageRoot: resolveMockPaperWorkbookStorageRoot(),
   studyResourceMaxFileSizeBytes:
     parsePositiveInteger('STUDY_RESOURCE_MAX_FILE_SIZE_MB', process.env.STUDY_RESOURCE_MAX_FILE_SIZE_MB, 50, {
       min: 1,

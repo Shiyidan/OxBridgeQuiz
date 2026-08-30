@@ -181,7 +181,7 @@ export interface OperationLogItem {
   module: string
   action: string
   summary: string
-  result: 'success' | 'failure'
+  result: 'success' | 'blocked' | 'failure'
   resourceType?: string | null
   resourceId?: string | null
   resourceDisplayName?: string | null

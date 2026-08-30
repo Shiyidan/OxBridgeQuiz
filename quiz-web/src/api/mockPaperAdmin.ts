@@ -151,6 +151,32 @@ export interface MockPaperListParams {
   status?: string
   keyword?: string
 }
+export interface MockPaperWorkbookUploadItem {
+  id: string
+  originalFileName: string
+  contentType: string
+  fileSizeBytes: number
+  status: 'processing' | 'succeeded' | 'failed'
+  setCount: number
+  moduleCount: number
+  errorMessage: string | null
+  uploadedBy: {
+    username: string
+    email: string
+  } | null
+  createdAt: string
+  completedAt: string | null
+}
+
+export interface MockPaperWorkbookUploadListResult {
+  list: MockPaperWorkbookUploadItem[]
+  pagination: {
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+  }
+}
 
 // 管理首页卡片只获取模考试卷库汇总数量。
 export function getMockPaperSetStats() {
@@ -280,6 +306,24 @@ export function importMockPaperWorkbook(file: File, accessTier: MockPaperAccessT
     url: '/mock-paper-sets/import',
     body: form,
     timeout: 120000,
+  })
+}
+// 上传历史由服务端分页，文件的物理存储键不进入浏览器。
+export function getMockPaperWorkbookUploadHistory(page: number, pageSize: number) {
+  return callApi<MockPaperWorkbookUploadListResult>({
+    method: 'GET',
+    url: '/mock-paper-sets/upload-history',
+    params: { page: String(page), pageSize: String(pageSize) },
+  })
+}
+
+// 原始 Excel 通过管理员鉴权接口下载，避免生成可公开访问的静态地址。
+export function downloadMockPaperWorkbookUpload(id: string) {
+  return callApi<Blob>({
+    method: 'GET',
+    url: `/mock-paper-sets/upload-history/${id}/download`,
+    responseType: 'blob',
+    timeout: 60000,
   })
 }
 

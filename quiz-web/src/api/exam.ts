@@ -647,6 +647,7 @@ export interface MistakeNotebookParams {
   syllabusCodes?: string[]
   startDate?: string
   endDate?: string
+  keyword?: string
 }
 
 export interface PracticeRecord {
@@ -806,6 +807,7 @@ export function getMistakeNotebookData(params: MistakeNotebookParams = {}) {
       ...(params.syllabusCodes?.length ? { syllabusCode: params.syllabusCodes.join(',') } : {}),
       ...(params.startDate ? { startDate: params.startDate } : {}),
       ...(params.endDate ? { endDate: params.endDate } : {}),
+      ...(params.keyword ? { keyword: params.keyword } : {}),
     },
   })
 }

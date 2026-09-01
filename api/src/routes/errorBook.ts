@@ -48,6 +48,14 @@ interface WrongAttemptExamRecordMeta {
   }
 }
 
+interface WrongAnswerKnowledgePointLink {
+  role: string
+  syllabusNode: {
+    code: string
+    label: string
+  }
+}
+
 // 页面进入事件使用独立端点记录，避免筛选和翻页请求被重复统计为错题本访问。
 errorBookRouter.post('/error-book/visit', requireAuth, (_req, res) => {
   res.json(success({ recorded: true }))
@@ -100,6 +108,33 @@ function resolveWrongAttemptSource(
   return { type: 'unknown', label: '其他来源', title: '历史练习' }
 }
 
+// 错题列表统一输出新格式知识点，并兼容历史题目使用 name、is_primary 的旧格式。
+function normalizeWrongAnswerKnowledgePoints(
+  value: unknown,
+  links: WrongAnswerKnowledgePointLink[],
+): Array<{ code: string; label: string; role?: string }> {
+  const points = parseJsonArray<Record<string, unknown>>(value)
+    .map((point) => {
+      const code = typeof point.code === 'string' ? point.code.trim() : ''
+      const labelValue = typeof point.label === 'string' ? point.label : point.name
+      const label = typeof labelValue === 'string' ? labelValue.trim() : ''
+      const role = typeof point.role === 'string'
+        ? point.role
+        : typeof point.is_primary === 'boolean'
+          ? point.is_primary ? 'primary' : 'secondary'
+          : undefined
+      return { code, label, ...(role ? { role } : {}) }
+    })
+    .filter((point) => point.code || point.label)
+
+  if (points.length) return points
+  return links.map((link) => ({
+    code: link.syllabusNode.code,
+    label: link.syllabusNode.label,
+    role: link.role,
+  }))
+}
+
 // 错题本
 errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
   try {
@@ -127,6 +162,13 @@ errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
     const syllabusCodes = await collectSyllabusCodes(requestedSyllabusCodes, examType)
     const page = parsePositiveInt(req.query.page, 1)
     const pageSize = parsePositiveInt(req.query.pageSize, 20, 100)
+    const keyword = String(
+      Array.isArray(req.query.keyword) ? req.query.keyword[0] : req.query.keyword || '',
+    ).trim()
+    if (keyword.length > 100) {
+      res.status(422).json(fail('题干搜索关键词不能超过 100 个字符'))
+      return
+    }
     const startDate = parseDateBoundary(req.query.startDate, 'start')
     const endDate = parseDateBoundary(req.query.endDate, 'end')
     const wrongTimeWhere: Prisma.DateTimeFilter = {
@@ -142,6 +184,7 @@ errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
       ...(examType ? { examType } : {}),
       ...(validDifficulties.length ? { difficulty: { in: validDifficulties } } : {}),
       ...(subjectCodes.length ? { subjectCode: { in: subjectCodes } } : {}),
+      ...(keyword ? { title: { contains: keyword } } : {}),
       ...(syllabusCodes.length
         ? {
             OR: [
@@ -199,6 +242,12 @@ errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
             subject: true,
             subjectCode: true,
             knowledgePoints: true,
+            knowledgePointLinks: {
+              select: {
+                role: true,
+                syllabusNode: { select: { code: true, label: true } },
+              },
+            },
           },
         },
       },
@@ -282,7 +331,10 @@ errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
         difficulty: summary.question.difficulty || '',
         subject: summary.question.subject || '',
         subjectCode: summary.question.subjectCode || '',
-        knowledge_points: safeJsonParse(summary.question.knowledgePoints, []),
+        knowledge_points: normalizeWrongAnswerKnowledgePoints(
+          summary.question.knowledgePoints,
+          summary.question.knowledgePointLinks,
+        ),
         selectedAnswer: matchingAttempts.length
           ? selectedAnswers.join(', ') || latestAttempt?.selectedAnswer || null
           : summary.latestSelectedAnswer,

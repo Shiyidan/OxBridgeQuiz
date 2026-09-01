@@ -97,7 +97,7 @@
                   <span v-if="startingDifficultyId === diff.id">正在生成</span>
                   <span v-else-if="diff.count === 0">暂无题目</span>
                   <span v-else>立即练习</span>
-                  <span aria-hidden="true">→</span>
+                  <!-- <span aria-hidden="true">→</span> -->
                 </button>
               </div>
               <div class="qb-difficulty-card__body">
@@ -863,7 +863,7 @@ async function handlePaymentSuccess(): Promise<void> {
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--color-line);
-  border-radius: 16px;
+  border-radius: 10px;
   background: var(--color-surface);
   box-shadow: 0 10px 26px rgb(15 23 42 / 7%);
   transition:
@@ -961,14 +961,13 @@ async function handlePaymentSuccess(): Promise<void> {
   display: inline-flex;
   margin-top: 14px;
   padding: 5px 9px;
-  border: 1px solid rgb(255 255 255 / 55%);
+  border: 0;
   border-radius: 6px;
-  background: rgb(255 255 255 / 56%);
+  background: transparent;
   color: var(--difficulty-accent-dark);
   font-size: var(--text-xs);
   font-weight: var(--weight-semi);
   line-height: 1;
-  backdrop-filter: blur(5px);
 }
 
 .qb-difficulty-card__cta {
@@ -979,11 +978,11 @@ async function handlePaymentSuccess(): Promise<void> {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  min-width: 126px;
-  height: 43px;
-  padding: 0 16px;
+  // min-width: 126px;
+  height: 40px;
+  padding: 5px 30px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 5px;
   background: var(--difficulty-accent);
   box-shadow: 0 8px 18px color-mix(in srgb, var(--difficulty-accent) 32%, transparent);
   color: #fff;
@@ -1223,7 +1222,7 @@ async function handlePaymentSuccess(): Promise<void> {
     height: 34px;
     gap: 4px;
     margin-top: 10px;
-    padding: 0 4px;
+    padding: 0 20px;
     font-size: 10px;
   }
 

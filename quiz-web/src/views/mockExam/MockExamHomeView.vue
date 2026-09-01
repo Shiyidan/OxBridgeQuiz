@@ -32,6 +32,7 @@
               模拟套卷
             </button>
             <button
+              v-if="moduleMockExamEntryVisible"
               type="button"
               role="tab"
               :aria-selected="activeTab === 'modules'"
@@ -981,11 +982,16 @@ import type { PaginationMeta } from '@/api/papers'
 type PageTab = 'catalog' | 'modules' | 'records'
 type MembershipTarget = { kind: 'paper' | 'module'; id: string }
 
+const moduleMockExamEntryVisible = false
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const activeTab = ref<PageTab>(
-  route.query.tab === 'records' ? 'records' : route.query.tab === 'modules' ? 'modules' : 'catalog',
+  route.query.tab === 'records'
+    ? 'records'
+    : moduleMockExamEntryVisible && route.query.tab === 'modules'
+      ? 'modules'
+      : 'catalog',
 )
 const keywordDraft = ref('')
 const keyword = ref('')
@@ -1891,7 +1897,11 @@ watch(activeExamType, () => {
   membershipAccessVisible.value = false
   clearPendingMembershipAction()
   if (!paymentVisible.value) paymentExamType.value = activeExamType.value
-  void Promise.all([loadCatalog(), loadModules(), loadOverview()])
+  void Promise.all([
+    loadCatalog(),
+    ...(moduleMockExamEntryVisible ? [loadModules()] : []),
+    loadOverview(),
+  ])
   if (activeTab.value === 'records' && auth.isLoggedIn) void loadRecords()
 })
 

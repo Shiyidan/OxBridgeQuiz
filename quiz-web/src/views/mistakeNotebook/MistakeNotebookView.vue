@@ -32,6 +32,25 @@
           </label>
 
           <label class="filter-field">
+            <span class="filter-field__label">难度</span>
+            <el-select
+              v-model="draftFilters.difficulties"
+              multiple
+              collapse-tags
+              collapse-tags-tooltip
+              clearable
+              placeholder="全部难度"
+            >
+              <el-option
+                v-for="option in difficultyOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </label>
+
+          <label class="filter-field">
             <span class="filter-field__label">考试科目</span>
             <el-select
               v-model="draftFilters.subjectCodes"
@@ -52,7 +71,7 @@
             </el-select>
           </label>
 
-          <label class="filter-field">
+          <label ref="knowledgeFilterFieldRef" class="filter-field">
             <span class="filter-field__label">知识点</span>
             <el-tree-select
               v-model="draftFilters.knowledgeCodes"
@@ -63,6 +82,7 @@
               show-checkbox
               collapse-tags
               collapse-tags-tooltip
+              :tag-tooltip="knowledgeTagTooltip"
               clearable
               filterable
               :disabled="syllabusLoading || Boolean(syllabusError)"
@@ -70,26 +90,7 @@
             />
           </label>
 
-          <label class="filter-field">
-            <span class="filter-field__label">难度</span>
-            <el-select
-              v-model="draftFilters.difficulties"
-              multiple
-              collapse-tags
-              collapse-tags-tooltip
-              clearable
-              placeholder="全部难度"
-            >
-              <el-option
-                v-for="option in difficultyOptions"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
-              />
-            </el-select>
-          </label>
-
-          <label class="filter-field">
+          <label class="filter-field filter-field--date">
             <span class="filter-field__label">收录时间</span>
             <el-date-picker
               v-model="draftFilters.dateRange"
@@ -103,23 +104,31 @@
             />
           </label>
 
+          <label class="filter-field filter-field--keyword">
+            <span class="filter-field__label">题目搜索</span>
+            <el-input
+              v-model="draftFilters.keyword"
+              maxlength="100"
+              clearable
+              placeholder="输入题干关键词"
+              @keyup.enter="applyFilters"
+            />
+          </label>
+
           <div class="filter-actions">
-            <button
-              type="button"
-              class="filter-button button_primary"
+            <el-button
+              type="primary"
               :disabled="wrongLoading"
               @click="applyFilters"
             >
               搜索
-            </button>
-            <button
-              type="button"
-              class="filter-button button_cancel"
+            </el-button>
+            <el-button
               :disabled="wrongLoading"
               @click="resetFilters"
             >
               重置
-            </button>
+            </el-button>
           </div>
 
           <p v-if="syllabusError" class="filter-message" role="status">
@@ -224,7 +233,7 @@
                   </span>
                   <span>历史错题：{{ item.wrongCount }} 次</span>
                   <span v-if="selectedAnswersText(item)">
-                    历史相似：{{ selectedAnswersText(item) }}
+                    历史错选：{{ selectedAnswersText(item) }}
                   </span>
                 </div>
               </div>
@@ -292,6 +301,7 @@ interface FilterState {
   knowledgeCodes: string[]
   difficulties: MistakeNotebookDifficulty[]
   dateRange: string[] | null
+  keyword: string
 }
 
 const route = useRoute()
@@ -313,7 +323,7 @@ const difficultyOptions: FilterOption[] = mistakeNotebookDifficultyValues.map((v
 }))
 const difficultyFilterValues = new Set<string>(mistakeNotebookDifficultyValues)
 const sourceLabelMap: Record<PaperType, string> = {
-  [PAPER_TYPE.REAL_PAPER]: '真题',
+  [PAPER_TYPE.REAL_PAPER]: '诊断测试',
   [PAPER_TYPE.MOCK_PAPER]: '模考',
   [PAPER_TYPE.AI_PAPER]: '试题库',
 }
@@ -325,6 +335,8 @@ const wrongError = ref('')
 const syllabusLoading = ref(false)
 const syllabusError = ref('')
 const earliestWrongDate = ref<string | null>(null)
+const knowledgeFilterFieldRef = ref<HTMLElement | null>(null)
+const knowledgeTooltipWidth = ref(0)
 const draftFilters = reactive<FilterState>(createEmptyFilters())
 const appliedFilters = reactive<FilterState>(createEmptyFilters())
 const pagination = reactive({
@@ -336,6 +348,7 @@ const pagination = reactive({
 let wrongRequestSequence = 0
 let syllabusRequestSequence = 0
 let pageInitialized = false
+let knowledgeTooltipResizeObserver: ResizeObserver | null = null
 
 // 错题本与其他学习模块共用顶部导航栏的考试类型，不再维护页面级选择。
 const activeExamType = computed<ActiveExamType>(() => auth.activeExamType)
@@ -353,17 +366,32 @@ const knowledgeTreeData = computed<SyllabusNode[]>(() => {
   const selectedCodes = new Set(draftFilters.subjectCodes)
   return syllabusTreeData.value.filter((item) => selectedCodes.has(item.code))
 })
+const knowledgeTagTooltip = computed(() => ({
+  popperClass: 'mistake-knowledge-tags-tooltip',
+  popperStyle: knowledgeTooltipWidth.value
+    ? {
+        width: `${knowledgeTooltipWidth.value}px`,
+        maxWidth: `${knowledgeTooltipWidth.value}px`,
+      }
+    : undefined,
+}))
 const hasActiveQuery = computed(
   () =>
     appliedFilters.sources.length > 0 ||
     appliedFilters.subjectCodes.length > 0 ||
     appliedFilters.knowledgeCodes.length > 0 ||
     appliedFilters.difficulties.length > 0 ||
-    Boolean(appliedFilters.dateRange?.length === 2),
+    Boolean(appliedFilters.dateRange?.length === 2) ||
+    Boolean(appliedFilters.keyword),
 )
 
 // 首次进入或从解析页返回时，从地址栏恢复已应用条件和分页位置。
 onMounted(async () => {
+  syncKnowledgeTooltipWidth()
+  knowledgeTooltipResizeObserver = new ResizeObserver(syncKnowledgeTooltipWidth)
+  if (knowledgeFilterFieldRef.value) {
+    knowledgeTooltipResizeObserver.observe(knowledgeFilterFieldRef.value)
+  }
   restoreStateFromRoute()
   copyFilters(draftFilters, appliedFilters)
   pageInitialized = true
@@ -386,9 +414,16 @@ watch(activeExamType, async () => {
 
 // 页面销毁后使仍在飞行的请求失效，避免异步结果继续写回已离开的页面。
 onBeforeUnmount(() => {
+  knowledgeTooltipResizeObserver?.disconnect()
   wrongRequestSequence += 1
   syllabusRequestSequence += 1
 })
+
+// 折叠知识点的悬浮层跟随选择框宽度，避免长标签将提示层撑满页面。
+function syncKnowledgeTooltipWidth(): void {
+  const select = knowledgeFilterFieldRef.value?.querySelector<HTMLElement>('.el-select')
+  knowledgeTooltipWidth.value = Math.round(select?.getBoundingClientRect().width || 0)
+}
 
 // 创建筛选初始值，避免草稿条件和已应用条件共享数组引用。
 function createEmptyFilters(): FilterState {
@@ -398,6 +433,7 @@ function createEmptyFilters(): FilterState {
     knowledgeCodes: [],
     difficulties: [],
     dateRange: [],
+    keyword: '',
   }
 }
 
@@ -421,6 +457,8 @@ function restoreStateFromRoute(): void {
   const startDate = String(route.query.startDate || '')
   const endDate = String(route.query.endDate || '')
   draftFilters.dateRange = startDate && endDate ? [startDate, endDate] : []
+  const keyword = Array.isArray(route.query.keyword) ? route.query.keyword[0] : route.query.keyword
+  draftFilters.keyword = String(keyword || '').trim().slice(0, 100)
   pagination.page = positiveRouteNumber(route.query.page, 1)
   pagination.pageSize = positiveRouteNumber(route.query.pageSize, 20)
 }
@@ -467,6 +505,7 @@ async function loadWrongAnswers(): Promise<boolean> {
       difficulties: appliedFilters.difficulties,
       startDate: appliedFilters.dateRange?.[0],
       endDate: appliedFilters.dateRange?.[1],
+      keyword: appliedFilters.keyword,
     })
     if (requestId !== wrongRequestSequence || requestedExamType !== activeExamType.value) return false
     wrongList.value = result.list || []
@@ -494,6 +533,7 @@ function handleSubjectChange(): void {
 async function applyFilters(): Promise<void> {
   const previousFilters = cloneFilters(appliedFilters)
   const previousPage = pagination.page
+  draftFilters.keyword = draftFilters.keyword.trim()
   copyFilters(draftFilters, appliedFilters)
   pagination.page = 1
   const succeeded = await loadWrongAnswers()
@@ -566,6 +606,7 @@ async function syncRouteState(): Promise<void> {
   if (appliedFilters.difficulties.length) query.difficulties = appliedFilters.difficulties.join(',')
   if (appliedFilters.dateRange?.[0]) query.startDate = appliedFilters.dateRange[0]
   if (appliedFilters.dateRange?.[1]) query.endDate = appliedFilters.dateRange[1]
+  if (appliedFilters.keyword) query.keyword = appliedFilters.keyword
   if (pagination.page > 1) query.page = String(pagination.page)
   if (pagination.pageSize !== 20) query.pageSize = String(pagination.pageSize)
   await router.replace({ name: 'mistake-notebook', query })
@@ -578,6 +619,7 @@ function copyFilters(source: FilterState, target: FilterState): void {
   target.knowledgeCodes = [...source.knowledgeCodes]
   target.difficulties = [...source.difficulties]
   target.dateRange = source.dateRange ? [...source.dateRange] : []
+  target.keyword = source.keyword
 }
 
 // 快照用于请求失败后的事务式回滚。
@@ -738,11 +780,15 @@ function dateOnly(value?: string | null): string | null {
 
 .filter-bar {
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns:
+    minmax(0, 18fr)
+    minmax(0, 18fr)
+    minmax(0, 32fr)
+    minmax(0, 32fr);
   gap: 16px 20px;
   align-items: end;
   margin-bottom: 24px;
-  padding: 20px;
+  padding: 10px 20px;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -750,9 +796,9 @@ function dateOnly(value?: string | null): string | null {
 
 .filter-field {
   display: grid;
-  grid-column: span 4;
-  gap: 7px;
-  align-content: start;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
   min-width: 0;
 }
 
@@ -765,37 +811,44 @@ function dateOnly(value?: string | null): string | null {
 
 .filter-field :deep(.el-select),
 .filter-field :deep(.el-tree-select),
+.filter-field :deep(.el-input),
 .filter-field :deep(.el-date-editor) {
   width: 100%;
 }
 
+.filter-field--date {
+  grid-column: 1 / span 2;
+}
+
+.filter-field--keyword {
+  grid-column: 3;
+}
+
 .filter-field :deep(.el-select__wrapper),
 .filter-field :deep(.el-input__wrapper) {
-  min-height: var(--height-button);
-  border-radius: var(--radius-md);
-  box-shadow: 0 0 0 1px var(--color-line) inset;
+  border-radius: 5px;
+}
+
+:global(.mistake-knowledge-tags-tooltip) {
+  box-sizing: border-box;
+}
+
+:global(.mistake-knowledge-tags-tooltip .el-select__selected-item),
+:global(.mistake-knowledge-tags-tooltip .el-tag) {
+  max-width: 100%;
+}
+
+:global(.mistake-knowledge-tags-tooltip .el-select__tags-text) {
+  text-overflow: ellipsis;
+  overflow: hidden;
 }
 
 .filter-actions {
   display: flex;
-  grid-column: span 4;
+  grid-column: 4;
   gap: 8px;
   align-items: center;
   justify-content: flex-end;
-}
-
-.filter-button {
-  min-width: 80px;
-  height: var(--height-button);
-  padding: 0 18px;
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semi);
-}
-
-.filter-button:disabled {
-  cursor: wait;
-  opacity: 0.58;
 }
 
 .filter-message {
@@ -1094,6 +1147,7 @@ function dateOnly(value?: string | null): string | null {
   }
 
   .filter-field {
+    grid-template-columns: minmax(0, 1fr);
     grid-column: auto;
     gap: 5px;
   }
@@ -1109,7 +1163,7 @@ function dateOnly(value?: string | null): string | null {
     min-height: 34px;
     padding-right: 6px;
     padding-left: 6px;
-    border-radius: 7px;
+    border-radius: 5px;
   }
 
   .filter-field :deep(.el-range-input),
@@ -1122,14 +1176,6 @@ function dateOnly(value?: string | null): string | null {
     width: 12px;
     padding: 0 2px;
     font-size: 9px;
-  }
-
-  .filter-button {
-    width: 100%;
-    min-width: 0;
-    height: 34px;
-    padding: 0 4px;
-    font-size: 11px;
   }
 
   .filter-message {

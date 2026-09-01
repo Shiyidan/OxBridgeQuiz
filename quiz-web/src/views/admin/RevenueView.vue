@@ -6,110 +6,176 @@
           <h2 class="page-title">营收与数据</h2>
           <p class="page-desc">平台收入统计、用户增长数据与关键指标看板。</p>
         </div>
-        <el-button type="primary" @click="openImportDialog">成本导入</el-button>
       </div>
 
-      <AdminDataTable
-        v-model:page="pagination.page"
-        v-model:page-size="pagination.pageSize"
-        :data="costs"
-        :loading="loading"
-        :total="pagination.total"
-        empty-text="暂无成本记录"
-        fill-height
-        show-pagination
-        @page-change="handlePageChange"
-        @page-size-change="handlePageSizeChange"
-      >
-        <el-table-column
-          type="index"
-          label="序号"
-          width="64"
-          :index="tableIndex"
-          align="center"
-          header-align="center"
-        />
-        <el-table-column
-          prop="costCategory"
-          label="成本分类"
-          width="180"
-          class-name="cost-category-column"
-          align="center"
-          header-align="center"
+      <section v-loading="paymentsLoading" class="overview-grid" aria-label="真实支付营收总览">
+        <article v-for="item in overviewCards" :key="item.key" class="overview-card">
+          <span>{{ item.label }}</span>
+          <strong>{{ item.value }}</strong>
+          <small>{{ item.note }}</small>
+        </article>
+      </section>
+
+      <section class="data-panel payment-panel">
+        <div class="panel-heading">
+          <div>
+            <h3>真实支付明细</h3>
+            <p>仅统计月卡和季卡的成功支付；赠送日卡、邀请奖励等内部权益不计入营收。</p>
+          </div>
+          <el-tag type="success" effect="light">净营收已扣除退款</el-tag>
+        </div>
+
+        <AdminDataTable
+          v-model:page="paymentPagination.page"
+          v-model:page-size="paymentPagination.pageSize"
+          :data="payments"
+          :loading="paymentsLoading"
+          :total="paymentPagination.total"
+          empty-text="暂无真实支付记录"
+          show-pagination
+          @page-change="handlePaymentPageChange"
+          @page-size-change="handlePaymentPageSizeChange"
         >
-          <template #default="{ row }">
-            <el-tag :type="costCategoryTagType(row.costCategory)" effect="light">
-              {{ revenueCostCategoryLabel(row.costCategory) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          prop="rechargeItem"
-          label="成本项"
-          width="132"
-          align="center"
-          header-align="center"
+          <el-table-column label="付费用户" min-width="210" fixed="left">
+            <template #default="{ row }">
+              <div class="user-cell">
+                <strong>{{ row.user.username }}</strong>
+                <span>{{ row.user.email }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="套餐" width="100" align="center">
+            <template #default="{ row }">{{ paymentPlanLabel(row.plan) }}</template>
+          </el-table-column>
+          <el-table-column label="考试范围" min-width="140" align="center">
+            <template #default="{ row }">{{ paymentExamTypes(row.examTypes) }}</template>
+          </el-table-column>
+          <el-table-column label="净收入" width="120" align="right">
+            <template #default="{ row }">
+              <strong class="net-amount">
+                {{ formatCents(Math.max(0, row.amountCents - row.refundedAmountCents)) }}
+              </strong>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="100" align="center">
+            <template #default="{ row }">
+              <el-tag :type="paymentStatusTagType(row.status)" effect="light">
+                {{ paymentStatusLabel(row.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="支付时间" width="172" align="center">
+            <template #default="{ row }">{{
+              formatDateTime(row.paidAt || row.createdAt)
+            }}</template>
+          </el-table-column>
+        </AdminDataTable>
+      </section>
+
+      <section class="data-panel cost-panel">
+        <div class="panel-heading">
+          <div>
+            <h3>成本记录</h3>
+            <p>维护平台实际支出及其报销进度。</p>
+          </div>
+          <el-button type="primary" @click="openImportDialog">成本导入</el-button>
+        </div>
+
+        <AdminDataTable
+          v-model:page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :data="costs"
+          :loading="loading"
+          :total="pagination.total"
+          empty-text="暂无成本记录"
+          show-pagination
+          @page-change="handlePageChange"
+          @page-size-change="handlePageSizeChange"
         >
-          <template #default="{ row }">
-            <div class="cost-item-cell">
-              <span :class="['cost-item-tag', costItemClass(row.costCategory)]">
-                {{ revenueCostItemLabel(row.rechargeItem) }}
-              </span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="金额" width="112" align="center" header-align="center">
-          <template #default="{ row }">{{ formatAmount(row.amount) }}</template>
-        </el-table-column>
-        <el-table-column label="时间" width="142" align="center" header-align="center">
-          <template #default="{ row }">{{ formatDate(row.occurredAt) }}</template>
-        </el-table-column>
-        <el-table-column
-          prop="operator"
-          label="操作人"
-          width="90"
-          align="center"
-          header-align="center"
-        />
-        <el-table-column label="报销情况" width="120" align="center" header-align="center">
-          <template #default="{ row }">
-            <el-tag :type="reimbursementTagType(row.reimbursementStatus)" effect="light">
-              {{ reimbursementLabel(row.reimbursementStatus) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          prop="remark"
-          label="备注"
-          min-width="179"
-          align="center"
-          header-align="center"
-          show-overflow-tooltip
-        />
-        <el-table-column
-          label="操作"
-          width="96"
-          fixed="right"
-          align="center"
-          header-align="center"
-        >
-          <template #default="{ row }">
-            <button class="table-action-btn" type="button" @click.stop="openEditDialog(row)">
-              编辑
-            </button>
-          </template>
-        </el-table-column>
-      </AdminDataTable>
+          <el-table-column
+            type="index"
+            label="序号"
+            width="64"
+            :index="tableIndex"
+            align="center"
+            header-align="center"
+          />
+          <el-table-column
+            prop="costCategory"
+            label="成本分类"
+            width="180"
+            class-name="cost-category-column"
+            align="center"
+            header-align="center"
+          >
+            <template #default="{ row }">
+              <el-tag :type="costCategoryTagType(row.costCategory)" effect="light">
+                {{ revenueCostCategoryLabel(row.costCategory) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            prop="rechargeItem"
+            label="成本项"
+            width="132"
+            align="center"
+            header-align="center"
+          >
+            <template #default="{ row }">
+              <div class="cost-item-cell">
+                <span :class="['cost-item-tag', costItemClass(row.costCategory)]">
+                  {{ revenueCostItemLabel(row.rechargeItem) }}
+                </span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="金额" width="112" align="center" header-align="center">
+            <template #default="{ row }">{{ formatAmount(row.amount) }}</template>
+          </el-table-column>
+          <el-table-column label="时间" width="142" align="center" header-align="center">
+            <template #default="{ row }">{{ formatDate(row.occurredAt) }}</template>
+          </el-table-column>
+          <el-table-column
+            prop="operator"
+            label="操作人"
+            width="90"
+            align="center"
+            header-align="center"
+          />
+          <el-table-column label="报销情况" width="120" align="center" header-align="center">
+            <template #default="{ row }">
+              <el-tag :type="reimbursementTagType(row.reimbursementStatus)" effect="light">
+                {{ reimbursementLabel(row.reimbursementStatus) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            prop="remark"
+            label="备注"
+            min-width="179"
+            align="center"
+            header-align="center"
+            show-overflow-tooltip
+          />
+          <el-table-column
+            label="操作"
+            width="96"
+            fixed="right"
+            align="center"
+            header-align="center"
+          >
+            <template #default="{ row }">
+              <button class="table-action-btn" type="button" @click.stop="openEditDialog(row)">
+                编辑
+              </button>
+            </template>
+          </el-table-column>
+        </AdminDataTable>
+      </section>
     </div>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="520px" destroy-on-close>
-      <el-form
-        ref="formRef"
-        class="cost-form"
-        :model="form"
-        :rules="rules"
-        label-width="92px"
-      >
+      <el-form ref="formRef" class="cost-form" :model="form" :rules="rules" label-width="92px">
         <el-form-item label="成本分类" prop="costCategory">
           <el-select
             v-model="form.costCategory"
@@ -182,10 +248,18 @@
 </template>
 
 <script setup lang="ts">
-// 营收与数据页面：用于管理员查看、导入和编辑成本记录。
+// 营收与数据页面：汇总真实支付收入，并供管理员查看、导入和编辑成本记录。
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import { getRevenueListData, updateRevenue, createRevenue, type RevenueItem } from '@/api/admin'
+import {
+  createRevenue,
+  getRevenueListData,
+  getRevenuePaymentData,
+  updateRevenue,
+  type RevenueItem,
+  type RevenuePaymentItem,
+  type RevenuePaymentOverview,
+} from '@/api/admin'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
 import {
   REVENUE_COST_CATEGORY,
@@ -214,7 +288,7 @@ interface CostForm {
   remark: string
 }
 
-const operators = ['S', 'L', 'P', 'SS']
+const operators = ['S', 'L', 'P', 'SU']
 const reimbursementOptions: Array<{ label: string; value: ReimbursementStatus }> = [
   { label: '未报销', value: 'unreimbursed' },
   { label: '报销中', value: 'reimbursing' },
@@ -223,6 +297,26 @@ const reimbursementOptions: Array<{ label: string; value: ReimbursementStatus }>
 ]
 
 const costs = ref<RevenueCost[]>([])
+const payments = ref<RevenuePaymentItem[]>([])
+const paymentsLoading = ref(true)
+const paymentOverview = reactive<RevenuePaymentOverview>({
+  paidUserCount: 0,
+  paidOrderCount: 0,
+  grossRevenueCents: 0,
+  refundedAmountCents: 0,
+  netRevenueCents: 0,
+  totalCostCents: 0,
+  costRecordCount: 0,
+  costExcludingReimbursedCents: 0,
+  monthlyOrderCount: 0,
+  quarterlyOrderCount: 0,
+})
+const paymentPagination = reactive({
+  page: 1,
+  pageSize: 10,
+  total: 0,
+})
+
 const loading = ref(true)
 const submitting = ref(false)
 const dialogVisible = ref(false)
@@ -256,6 +350,34 @@ const rules: FormRules<CostForm> = {
 const isEditing = computed(() => Boolean(editingCostId.value))
 const dialogTitle = computed(() => (isEditing.value ? '编辑成本' : '成本导入'))
 const availableCostItems = computed(() => REVENUE_COST_ITEM_OPTIONS[form.costCategory])
+
+// 看板卡片从后端全量汇总派生，支付明细翻页不会改变卡片数值。
+const overviewCards = computed(() => [
+  {
+    key: 'netRevenue',
+    label: '累计净营收',
+    value: formatCents(paymentOverview.netRevenueCents),
+    note: `已扣除退款 ${formatCents(paymentOverview.refundedAmountCents)}`,
+  },
+  {
+    key: 'totalCost',
+    label: '累计成本',
+    value: formatCents(paymentOverview.totalCostCents),
+    note: `共 ${paymentOverview.costRecordCount} 条成本记录`,
+  },
+  {
+    key: 'paidUsers',
+    label: '真实付费用户',
+    value: `${paymentOverview.paidUserCount} 人`,
+    note: `真实支付订单 ${paymentOverview.paidOrderCount} 笔 · 月卡 ${paymentOverview.monthlyOrderCount} 笔 · 季卡 ${paymentOverview.quarterlyOrderCount} 笔`,
+  },
+  {
+    key: 'costExcludingReimbursed',
+    label: '未报销成本',
+    value: formatCents(paymentOverview.costExcludingReimbursedCents),
+    note: '包含未报销、报销中和不可报销记录',
+  },
+])
 
 // 弹窗打开后等待表单挂载完成，再清理旧校验状态。
 function clearValidate(): void {
@@ -318,6 +440,42 @@ function reimbursementLabel(status: ReimbursementStatus): string {
   return reimbursementOptions.find((item) => item.value === status)?.label || status
 }
 
+// 支付金额以分存储，营收看板统一转换为人民币格式。
+function formatCents(amountCents: number): string {
+  return new Intl.NumberFormat('zh-CN', {
+    style: 'currency',
+    currency: 'CNY',
+    minimumFractionDigits: 2,
+  }).format(amountCents / 100)
+}
+
+// 支付时间展示到秒，便于财务按订单核对。
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString('zh-CN', { hour12: false })
+}
+
+// 当前真实支付商品只有月卡和季卡。
+function paymentPlanLabel(plan: RevenuePaymentItem['plan']): string {
+  return plan === 'quarterly' ? '季卡' : '月卡'
+}
+
+// 一笔订单可以同时购买多个考试的权益，表格按斜杠合并显示。
+function paymentExamTypes(examTypes: string[]): string {
+  return examTypes.length > 0 ? examTypes.join(' / ') : '—'
+}
+
+// 营收明细只区分正常支付和仍在退款处理中的订单。
+function paymentStatusLabel(status: RevenuePaymentItem['status']): string {
+  if (status === 'refunding') return '退款中'
+  return '已支付'
+}
+
+// 支付成功和退款中使用不同视觉状态。
+function paymentStatusTagType(status: RevenuePaymentItem['status']): 'success' | 'warning' {
+  if (status === 'refunding') return 'warning'
+  return 'success'
+}
+
 // 报销状态映射到 Element Plus 标签类型，保持表格状态可扫描。
 function reimbursementTagType(
   status: ReimbursementStatus,
@@ -367,6 +525,52 @@ function buildPayload() {
     reimbursementStatus: form.reimbursementStatus,
     remark: form.remark.trim() || null,
   }
+}
+
+// 真实支付接口同时刷新全量看板和当前页明细，分页不会改变汇总值。
+async function loadRevenuePayments(): Promise<void> {
+  paymentsLoading.value = true
+  try {
+    const data = await getRevenuePaymentData({
+      page: paymentPagination.page,
+      pageSize: paymentPagination.pageSize,
+    })
+    payments.value = data.list || []
+    Object.assign(paymentOverview, data.overview)
+    paymentPagination.page = data.pagination.page
+    paymentPagination.pageSize = data.pagination.pageSize
+    paymentPagination.total = data.pagination.total
+  } catch {
+    payments.value = []
+    Object.assign(paymentOverview, {
+      paidUserCount: 0,
+      paidOrderCount: 0,
+      grossRevenueCents: 0,
+      refundedAmountCents: 0,
+      netRevenueCents: 0,
+      totalCostCents: 0,
+      costRecordCount: 0,
+      costExcludingReimbursedCents: 0,
+      monthlyOrderCount: 0,
+      quarterlyOrderCount: 0,
+    })
+    paymentPagination.total = 0
+  } finally {
+    paymentsLoading.value = false
+  }
+}
+
+// 支付明细翻页只请求新一页，顶部汇总仍由服务端返回全量值。
+async function handlePaymentPageChange(page: number): Promise<void> {
+  paymentPagination.page = page
+  await loadRevenuePayments()
+}
+
+// 修改支付明细每页数量后回到第一页。
+async function handlePaymentPageSizeChange(pageSize: number): Promise<void> {
+  paymentPagination.pageSize = pageSize
+  paymentPagination.page = 1
+  await loadRevenuePayments()
 }
 
 // 成本接口返回分页结构，页面只消费当前页列表和分页元数据。
@@ -426,34 +630,30 @@ async function submitCost(): Promise<void> {
   }
 }
 
-onMounted(getList)
+// 页面初始化并行读取营收和成本，两块数据互不阻塞。
+onMounted(() => {
+  void Promise.all([loadRevenuePayments(), getList()])
+})
 </script>
 
 <style scoped lang="scss">
 .revenue-page {
   height: 100%;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
+  background: #f8fafc;
 }
 
 .page-body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  padding: 24px 40px 10px;
-  overflow: hidden;
+  padding: 24px 40px 36px;
 }
 
 .page-heading {
-  flex-shrink: 0;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 20px;
-  margin-bottom: 10px;
+  margin-bottom: 18px;
 }
 
 .page-title {
@@ -467,6 +667,105 @@ onMounted(getList)
   font-size: 0.9rem;
   color: #64748b;
   margin: 0;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  min-height: 112px;
+  margin-bottom: 18px;
+}
+
+.overview-card {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 18px 20px;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 4%);
+}
+
+.overview-card::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: #5b6ee1;
+  content: '';
+}
+
+.overview-card span {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.overview-card strong {
+  margin-top: 9px;
+  color: #172033;
+  font-size: 1.65rem;
+  font-weight: 780;
+  line-height: 1.1;
+}
+
+.overview-card small {
+  margin-top: 9px;
+  color: #94a3b8;
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.data-panel {
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.payment-panel {
+  margin-bottom: 18px;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.panel-heading h3 {
+  margin: 0;
+  color: #1e293b;
+  font-size: 1rem;
+}
+
+.panel-heading p {
+  margin: 6px 0 0;
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.user-cell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.user-cell span {
+  overflow: hidden;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.net-amount {
+  color: #047857;
 }
 
 .table-action-btn {
@@ -561,11 +860,27 @@ onMounted(getList)
 
 @media (max-width: 640px) {
   .page-body {
-    padding: 20px;
+    padding: 20px 16px 28px;
   }
 
-  .page-heading {
+  .page-heading,
+  .panel-heading {
     flex-direction: column;
+    align-items: stretch;
+  }
+
+  .overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .data-panel {
+    padding: 16px;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1100px) {
+  .overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

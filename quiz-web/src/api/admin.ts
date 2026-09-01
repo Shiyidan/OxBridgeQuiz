@@ -16,6 +16,39 @@ export interface RevenueItem {
   updatedAt?: string
 }
 
+export interface RevenuePaymentOverview {
+  paidUserCount: number
+  paidOrderCount: number
+  grossRevenueCents: number
+  refundedAmountCents: number
+  netRevenueCents: number
+  totalCostCents: number
+  costRecordCount: number
+  costExcludingReimbursedCents: number
+  monthlyOrderCount: number
+  quarterlyOrderCount: number
+}
+
+export interface RevenuePaymentItem {
+  id: string
+  orderNo: string
+  examTypes: string[]
+  plan: 'monthly' | 'quarterly'
+  priceType: 'monthly' | 'quarterly'
+  amountCents: number
+  refundedAmountCents: number
+  currency: string
+  channel: string
+  status: 'paid' | 'refunding'
+  paidAt?: string | null
+  createdAt: string
+  user: {
+    id: string
+    username: string
+    email: string
+  }
+}
+
 export interface UserItem {
   id: string
   username: string
@@ -178,6 +211,7 @@ export interface OperationLogItem {
   actorNameSnapshot: string
   actorEmailSnapshot: string
   actorRoleSnapshot: string
+  actorAccountType: 'admin' | 'member' | 'regular'
   module: string
   action: string
   summary: string
@@ -585,6 +619,18 @@ export interface GiftUserCardsPayload {
 }
 
 // ---- 成本管理 ----
+
+/** 读取真实付费营收汇总和支付明细，赠送日卡与邀请奖励由服务端排除。 */
+export function getRevenuePaymentData(params: ListParams = {}) {
+  return callApi<PageResult<RevenuePaymentItem> & { overview: RevenuePaymentOverview }>({
+    url: '/admin/revenue-payments',
+    method: 'GET',
+    params: {
+      ...(params.page ? { page: String(params.page) } : {}),
+      ...(params.pageSize ? { pageSize: String(params.pageSize) } : {}),
+    },
+  })
+}
 
 /** 成本列表 */
 export function getRevenueListData(params: ListParams = {}) {

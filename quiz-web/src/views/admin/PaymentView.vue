@@ -234,7 +234,7 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="套餐" min-width="145">
+          <el-table-column label="套餐" min-width="135">
             <template #default="{ row }">
               <strong>{{ planText(row.plan, row.priceType) }}</strong>
               <div class="exam-tags">{{ normalizeExamTypes(row.examTypes).join(' / ') }}</div>
@@ -243,7 +243,7 @@
           <el-table-column label="金额" width="105">
             <template #default="{ row }">¥{{ formatMoney(row.amountCents) }}</template>
           </el-table-column>
-          <el-table-column label="渠道" width="105">
+          <el-table-column label="渠道" width="125">
             <template #default="{ row }">{{ channelText(row.channel) }}</template>
           </el-table-column>
           <el-table-column label="状态" width="125" align="center">

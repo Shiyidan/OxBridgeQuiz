@@ -28,6 +28,7 @@
     "test:admin-user-access": "tsx scripts/test-admin-user-access.ts",
     "test:invitations": "tsx scripts/test-invitations.ts",
     "test:payment-runtime": "tsx scripts/test-payment-runtime-safety.ts",
+    "test:revenue-payments": "tsx scripts/test-revenue-payments.ts",
     "test:study-preferences": "tsx scripts/test-study-preferences.ts",
     "test:user-avatars": "tsx scripts/test-user-avatars.ts",
     "test:modular-diagnostic": "tsx scripts/test-modular-diagnostic.ts",

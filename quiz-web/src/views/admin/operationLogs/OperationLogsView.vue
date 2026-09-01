@@ -4,7 +4,7 @@
     <div class="page-heading">
       <div>
         <h2 class="page-title">操作日志</h2>
-        <p class="page-desc">查询管理员与普通用户的关键业务操作及字段变更记录。</p>
+        <p class="page-desc">查询管理员与用户的关键业务操作及字段变更记录。</p>
       </div>
     </div>
 
@@ -92,18 +92,28 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="角色" min-width="108" align="center">
+      <el-table-column label="角色" min-width="120" align="center">
         <template #default="{ row }">
-          <span class="state-tag-cell">
-            <el-tag
-              class="operation-state-tag"
-              :type="row.actorRoleSnapshot === 'admin' ? 'danger' : 'info'"
-              effect="light"
-              round
-            >
-              {{ roleLabel(row.actorRoleSnapshot) }}
-            </el-tag>
-          </span>
+          <el-tag
+            :type="row.actorRoleSnapshot === 'admin' ? 'danger' : 'info'"
+            effect="light"
+            round
+            size="small"
+          >
+            {{ roleLabel(row.actorRoleSnapshot) }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="权益身份" min-width="140" align="center">
+        <template #default="{ row }">
+          <el-tag
+            :type="entitlementIdentityTagType(row.actorAccountType)"
+            effect="light"
+            round
+            size="small"
+          >
+            {{ entitlementIdentityLabel(row.actorAccountType) }}
+          </el-tag>
         </template>
       </el-table-column>
       <el-table-column label="模块" min-width="200" align="center">
@@ -163,7 +173,10 @@
             <el-descriptions-item label="角色">{{
               roleLabel(selectedLog.actorRoleSnapshot)
             }}</el-descriptions-item>
-            <el-descriptions-item label="邮箱" :span="2">{{
+            <el-descriptions-item label="权益身份">{{
+              entitlementIdentityLabel(selectedLog.actorAccountType)
+            }}</el-descriptions-item>
+            <el-descriptions-item label="邮箱">{{
               selectedLog.actorEmailSnapshot
             }}</el-descriptions-item>
             <el-descriptions-item label="模块">{{
@@ -258,7 +271,7 @@ interface AuditFilters {
 const roleOptions = [
   { label: '全部', value: 'all' },
   { label: '管理员操作', value: 'admin' },
-  { label: '普通用户操作', value: 'student' },
+  { label: '用户操作', value: 'student' },
 ]
 
 const moduleOptions = OPERATION_AUDIT_MODULE_OPTIONS
@@ -348,9 +361,24 @@ const changeEntries = computed(() =>
 
 const moduleLabel = operationModuleLabel
 
-// 角色快照按操作发生时的身份显示，不跟随用户当前角色变化。
+// 角色只反映账号的后台身份，不混入会员权益状态。
 function roleLabel(role: string): string {
   return role === 'admin' ? '管理员' : '普通用户'
+}
+
+// 权益身份由后台结合角色快照和当前有效会员权益返回。
+function entitlementIdentityLabel(type: OperationLogItem['actorAccountType']): string {
+  if (type === 'admin') return '管理员'
+  if (type === 'member') return '会员'
+  return '免费'
+}
+
+// 仅会员使用金黄色强调，免费与管理员权益统一使用灰色。
+function entitlementIdentityTagType(
+  type: OperationLogItem['actorAccountType'],
+): 'warning' | 'info' {
+  if (type === 'member') return 'warning'
+  return 'info'
 }
 
 // 数据库时间由浏览器统一转换为当前管理端时区。
@@ -764,6 +792,7 @@ onMounted(() => {
   color: #94a3b8;
   font-size: 0.76rem;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .operation-cell {

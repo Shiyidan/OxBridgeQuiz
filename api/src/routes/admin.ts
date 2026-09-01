@@ -68,6 +68,7 @@ import {
   isUserActivityModule,
 } from '../services/adminUserDetail.js'
 import { getAdminStaffGiftCardStats } from '../services/adminStaffStats.js'
+import { getRevenuePayments } from '../services/revenuePayments.js'
 
 export const adminRouter = createAsyncRouter()
 
@@ -146,6 +147,41 @@ function formatOperationLog<T extends {
     occurredAt: log.occurredAt.toISOString(),
     createdAt: log.createdAt.toISOString(),
   }
+}
+
+type OperationActorAccountType = 'admin' | 'member' | 'regular'
+
+// 操作人会员类型按当前有效权益派生；管理员和已删除用户无需额外查询会员记录。
+async function getActiveOperationLogMemberIds(
+  logs: Array<{ actorUserId: string | null; actorRoleSnapshot: string }>,
+): Promise<Set<string>> {
+  const userIds = [...new Set(
+    logs
+      .filter((log) => log.actorRoleSnapshot === USER_ROLE.STUDENT && log.actorUserId)
+      .map((log) => log.actorUserId as string),
+  )]
+  if (userIds.length === 0) return new Set()
+  const now = new Date()
+  const memberships = await prisma.userMembership.findMany({
+    where: {
+      userId: { in: userIds },
+      status: MEMBERSHIP_STATUS.ACTIVE,
+      startsAt: { lte: now },
+      endsAt: { gt: now },
+    },
+    distinct: ['userId'],
+    select: { userId: true },
+  })
+  return new Set(memberships.map((membership) => membership.userId))
+}
+
+// 管理员保持管理员身份，学生再根据当前有效会员记录区分会员和普通用户。
+function operationActorAccountType(
+  log: { actorUserId: string | null; actorRoleSnapshot: string },
+  activeMemberIds: Set<string>,
+): OperationActorAccountType {
+  if (log.actorRoleSnapshot === USER_ROLE.ADMIN) return 'admin'
+  return log.actorUserId && activeMemberIds.has(log.actorUserId) ? 'member' : 'regular'
 }
 
 // 结果筛选按当前统计口径兼容历史 failure 记录，无需回填生产审计表。
@@ -405,7 +441,10 @@ adminRouter.get('/operation-logs', async (req, res) => {
     skip: (safePage - 1) * pageSize,
     take: pageSize,
   })
-  const resourceDisplays = await getOperationResourceDisplays(list)
+  const [resourceDisplays, activeMemberIds] = await Promise.all([
+    getOperationResourceDisplays(list),
+    getActiveOperationLogMemberIds(list),
+  ])
   res.json(success({
     list: list.map((log) => {
       const resourceDisplay = log.resourceType && log.resourceId
@@ -413,6 +452,7 @@ adminRouter.get('/operation-logs', async (req, res) => {
         : undefined
       return {
         ...formatOperationLog(log),
+        actorAccountType: operationActorAccountType(log, activeMemberIds),
         resourceDisplayName: log.resourceType && log.resourceId
           ? resourceDisplay?.name || resourceDisplayNameFromSummary(log.summary)
           : null,
@@ -437,8 +477,10 @@ adminRouter.get('/operation-logs/:id', async (req, res) => {
     res.status(404).json(fail('操作日志不存在'))
     return
   }
+  const activeMemberIds = await getActiveOperationLogMemberIds([log])
   res.json(success({
     ...log,
+    actorAccountType: operationActorAccountType(log, activeMemberIds),
     result: effectiveOperationAuditResult(log),
     ipAddress: normalizeIpAddress(log.ipAddress),
     occurredAt: log.occurredAt.toISOString(),
@@ -1531,6 +1573,19 @@ adminRouter.put('/users/:id/access', async (req: Request, res: Response) => {
     }
     logRuntimeError('admin.user.access_update_failed', err)
     res.status(500).json(fail('服务器错误'))
+  }
+})
+
+// 真实支付营收
+adminRouter.get('/revenue-payments', async (req: Request, res: Response) => {
+  try {
+    const page = parsePositiveInt(req.query.page, 1)
+    const pageSize = parsePositiveInt(req.query.pageSize, 10, 100)
+    const result = await getRevenuePayments({ page, pageSize })
+    res.json(success(result))
+  } catch (error) {
+    logRuntimeError('admin.revenue_payments.list_failed', error)
+    res.status(500).json(fail('读取真实支付营收失败'))
   }
 })
 

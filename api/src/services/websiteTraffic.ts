@@ -278,7 +278,8 @@ export function aggregateWebsiteTraffic(
     item.ipHashes.add(visit.ipHash);
     if (visit.visitorType === WEBSITE_VISITOR_TYPE.STUDENT) {
       item.studentVisitCount += 1;
-    } else if (visit.visitorType === WEBSITE_VISITOR_TYPE.ANONYMOUS) {
+    } else {
+      // 身份分类上线前的历史记录没有 visitorType，统一按匿名访客展示。
       item.anonymousVisitCount += 1;
     }
   }

@@ -689,7 +689,10 @@ export function validateStandardPaperDocument(input: any): {
           message: `${sectionName} ${moduleIndex + 1}：标准 modules[].questions 格式必须填写 code`,
         })
       }
-      const moduleCode = normalizeDiagnosticSectionCode(rawMetadata?.examType, rawModule.code || rawModule.module_code || rawModule.component_code || subject)
+      const moduleCode = normalizeDiagnosticSectionCode(
+        rawMetadata?.examType,
+        rawModule.code || rawModule.module_code || subject,
+      )
       if (isCanonicalModuleDocument && moduleCode && typeof rawModule.code === 'string' && rawModule.code.trim().toLowerCase() !== moduleCode) {
         errors.push({
           block: 0,
@@ -828,10 +831,6 @@ export function validateStandardPaperDocument(input: any): {
           module_code: moduleCode,
           module_order: order,
           module_question_number: moduleQuestionNumber,
-          // 兼容早期 component_* 输出；新业务统一读取 module_*。
-          component_code: moduleCode,
-          component_order: order,
-          component_question_number: moduleQuestionNumber,
           subject: item?.subject || subject,
           subject_code: item?.subject_code || subjectCode,
           learning_analysis: learningAnalysis,
@@ -872,8 +871,8 @@ export function validateStandardPaperDocument(input: any): {
 
   for (let i = 0; i < normalizedQuestions.length; i++) {
     const q = normalizedQuestions[i]
-    const moduleCode = q.module_code || q.component_code
-    const moduleQuestionNumber = q.module_question_number ?? q.component_question_number
+    const moduleCode = q.module_code
+    const moduleQuestionNumber = q.module_question_number
     const modulePrefix = moduleCode ? `${moduleCode} ` : ''
     const label = `${modulePrefix}题目 ${moduleQuestionNumber ?? q.number ?? `索引${i + 1}`}`
     const imageIds = new Set((Array.isArray(q.images) ? q.images : []).map((img: any) => img?.id).filter(Boolean))

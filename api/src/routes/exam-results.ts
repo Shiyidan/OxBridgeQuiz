@@ -25,6 +25,7 @@ import {
   productVersionForReportVersion,
 } from '../constants/diagnosticReport.js'
 import {
+  indexSnapshotQuestionModules,
   parseModuleExamSnapshot,
   singleModuleExamTitle,
 } from '../services/moduleExamSession.js'
@@ -172,6 +173,9 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
           return answer ? [answer] : []
         })
     const questionMap = new Map(questionRows.map((question) => [question.id, question]))
+    const snapshotQuestionModules = indexSnapshotQuestionModules(
+      parseModuleExamSnapshot(examRecord.structureSnapshot),
+    )
 
     const needPaperMeta = examRecord.paperId !== 'question-bank'
     const paper = needPaperMeta
@@ -194,12 +198,21 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
         })
       : null
 
-    // 逐题解析必须遵循试卷题号，不能受作答先后或未答题的空时间影响。
+    // 逐题解析以答卷快照恢复模块归属，并按正式题号排序，不受题库当前分类或作答先后影响。
     const answeredQuestions = orderedAnswers.flatMap((answerRecord) => {
       const question = questionMap.get(answerRecord.questionId)
       if (!question) return []
+      const formatted = formatQuestionRow(question)
+      const snapshotModule = snapshotQuestionModules.get(question.id)
       return [{
-        ...formatQuestionRow(question),
+        ...formatted,
+        ...(snapshotModule
+          ? {
+              module_code: snapshotModule.code,
+              module_order: snapshotModule.order,
+              module_question_number: snapshotModule.questionNumber,
+            }
+          : {}),
         number: (
           examRecord.paperId === 'question-bank'
           || isMockPaperType(paper?.paperType)
@@ -215,7 +228,7 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
 
     const questionsWithResults: QuestionResult[] = answeredQuestions.map((q: any) => ({
       subject: q.subject ?? null,
-      moduleCode: q.module_code ?? q.component_code ?? null,
+      moduleCode: q.module_code ?? null,
       isCorrect: q.isCorrect ?? false,
       number: q.number ?? null,
     }))

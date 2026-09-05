@@ -1798,9 +1798,10 @@ function paymentPlanText(order: Pick<PaymentOrder, 'plan' | 'priceType'>): strin
 // 支付渠道统一转换为用户可理解的中文名称。
 function paymentChannelText(channel: PaymentOrder['channel']): string {
   const map: Record<PaymentOrder['channel'], string> = {
+    aggregate: '聚合支付',
     alipay: '支付宝',
     wechat: '微信支付',
-    unionpay: '银联支付',
+    unionpay: '云闪付',
     admin_gift: '管理员赠送',
     invitation_reward: '邀请奖励',
   }

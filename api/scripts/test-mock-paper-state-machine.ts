@@ -10,6 +10,10 @@ import {
   suiteStatusAfterPublish,
 } from '../src/utils/mockPaperState.js'
 import { formatMockPaperModuleTitle } from '../src/utils/mockPaperTitle.js'
+import {
+  indexSnapshotQuestionModules,
+  parseModuleExamSnapshot,
+} from '../src/services/moduleExamSession.js'
 
 assert.equal(suiteStatusAfterPublish(false), 'draft')
 assert.equal(suiteStatusAfterPublish(true), 'published')
@@ -167,5 +171,41 @@ assert.equal(canClaimMockPaperSource({
   ownerStatus: 'draft',
   ownerDeletedAt: new Date(),
 }), false)
+
+const frozenSnapshot = parseModuleExamSnapshot({
+  version: 1,
+  deliveryMode: 'module_sequence',
+  breakDurationSeconds: 180,
+  modules: [
+    {
+      code: 'maths1',
+      subject: '数学1',
+      subjectCode: 'maths1',
+      order: 1,
+      durationSeconds: 2400,
+      questionCount: 2,
+      questionIds: ['maths1-q1', 'maths1-q2'],
+    },
+    {
+      code: 'maths2',
+      subject: '数学2',
+      subjectCode: 'maths2',
+      order: 2,
+      durationSeconds: 2400,
+      questionCount: 1,
+      questionIds: ['maths2-q1'],
+    },
+  ],
+})
+assert.ok(frozenSnapshot)
+const frozenQuestionModules = indexSnapshotQuestionModules(frozenSnapshot)
+assert.deepEqual(
+  frozenQuestionModules.get('maths1-q2'),
+  { code: 'maths1', order: 1, questionNumber: 2 },
+)
+assert.deepEqual(
+  frozenQuestionModules.get('maths2-q1'),
+  { code: 'maths2', order: 2, questionNumber: 1 },
+)
 
 console.log('Mock paper state-machine regression checks passed.')

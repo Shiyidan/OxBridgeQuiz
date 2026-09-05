@@ -29,6 +29,7 @@
             v-if="showMistakeAttemptHistory"
             :items="mistakeAttempts"
             :total="mistakeAttemptTotal"
+            :module-label="questionModuleLabel"
             :loading="mistakeAttemptsLoading"
             :error="mistakeAttemptsError"
             @retry="loadMistakeAttemptHistory"
@@ -66,6 +67,16 @@ interface PaperMeta {
 }
 
 type ReportQuestion = ExamQuestion & { id: string }
+
+const QUESTION_MODULE_LABELS: Record<string, string> = {
+  maths1: 'Mathematics 1',
+  maths2: 'Mathematics 2',
+  physics: 'Physics',
+  chemistry: 'Chemistry',
+  biology: 'Biology',
+  paper1: 'Paper 1',
+  paper2: 'Paper 2',
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -130,15 +141,28 @@ const showMistakeAttemptHistory = computed(
   () => cameFromMistakeNotebook.value && singleQuestionMode.value && Boolean(targetQuestionId.value),
 )
 
-// 练习本解析使用交卷时保存的名称快照，临时题库练习和诊断答卷沿用各自默认标题。
+// 错题解析优先采用最近一次答题轨迹的来源名称，其余入口沿用当前答卷或练习本名称。
 const pageContextTitle = computed(() => {
+  const latestAttemptSourceTitle = mistakeAttempts.value[0]?.sourceTitle?.trim()
+  if (cameFromMistakeNotebook.value && singleQuestionMode.value && latestAttemptSourceTitle) {
+    return latestAttemptSourceTitle
+  }
   if (analysisSource.value !== 'question-bank') return examTitle.value
   return practiceNotebookName.value || '题库专项练习'
 })
 
+// 错题所属模块优先采用正式 module 编码，缺少模块时回退到科目名称。
+const questionModuleLabel = computed(() => {
+  const question = questions.value[0]
+  const moduleCode = String(question?.module_code || '')
+    .trim()
+    .toLowerCase()
+  return QUESTION_MODULE_LABELS[moduleCode] || String(question?.subject || '').trim()
+})
+
 const analysisPageTitle = computed(() =>
   singleQuestionMode.value
-    ? `${pageContextTitle.value} · 错题解析`
+    ? [pageContextTitle.value, questionModuleLabel.value, '错题解析'].filter(Boolean).join(' · ')
     : cameFromMockExam.value && wrongOnlyMode.value
       ? `${pageContextTitle.value} · 错题回顾`
       : `${pageContextTitle.value} · 题目逐题解析`,
@@ -201,7 +225,7 @@ onMounted(async () => {
         (question) => Number(question.number) === targetQuestionNumber.value,
       )
       const moduleMatch = numberMatches.find((question) => (
-        String(question.module_code || question.component_code || '').trim().toLowerCase()
+        String(question.module_code || '').trim().toLowerCase()
         === targetModuleId.value
       ))
       const target = moduleMatch || (numberMatches.length === 1 ? numberMatches[0] : undefined)

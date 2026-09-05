@@ -25,6 +25,7 @@ import {
   USER_ROLE,
   isStudentExamTypeAvailable,
 } from '../constants/domain.js'
+import { OPERATION_AUDIT_MODULE, OPERATION_AUDIT_RESULT } from '../constants/operationAudit.js'
 import { prisma } from './prisma.js'
 
 type InvitationDatabase = typeof prisma | Prisma.TransactionClient
@@ -667,31 +668,95 @@ export async function activateInvitationReward(userId: string, rewardId: string,
   )
 }
 
-// 触发订单退款时精确撤回双方奖励，已撤回奖励仍保留终身计数和历史记录。
+interface InvitationRewardRefundAudit {
+  operatorId: string
+  refundOrderNo: string
+}
+
+// 触发订单退款时精确撤回双方奖励，并同步关闭启用奖励时生成的零元权益订单。
 export async function revokeInvitationRewardsForPaymentOrder(
   tx: Prisma.TransactionClient,
   paymentOrderId: string,
   refundedAt: Date,
-): Promise<void> {
+  audit?: InvitationRewardRefundAudit,
+) {
   const rewards = await tx.invitationReward.findMany({
     where: {
       triggerPaymentOrderId: paymentOrderId,
       status: { not: INVITATION_REWARD_STATUS.REVOKED },
     },
-    select: { id: true, membershipId: true },
-  })
-  for (const reward of rewards) {
-    if (reward.membershipId) {
-      const membership = await tx.userMembership.findUnique({ where: { id: reward.membershipId } })
-      if (membership) {
-        await tx.userMembership.update({
-          where: { id: membership.id },
-          data: {
-            status: MEMBERSHIP_STATUS.CANCELLED,
-            ...(membership.startsAt <= refundedAt && membership.endsAt > refundedAt
-              ? { endsAt: refundedAt }
-              : {}),
+    select: {
+      id: true,
+      userId: true,
+      beneficiaryRole: true,
+      status: true,
+      membershipId: true,
+      user: { select: { username: true } },
+      membership: {
+        select: {
+          id: true,
+          status: true,
+          startsAt: true,
+          endsAt: true,
+          paymentOrderId: true,
+          paymentOrder: {
+            select: { id: true, status: true, provider: true, amountCents: true, priceType: true },
           },
+        },
+      },
+    },
+  })
+  const membershipChanges: Array<{
+    before: Record<string, string>
+    after: Record<string, string>
+  }> = []
+  const rewardOrderChanges: Array<{
+    before: Record<string, string>
+    after: Record<string, string>
+  }> = []
+  for (const reward of rewards) {
+    const membership = reward.membership
+    if (membership) {
+      const nextEndsAt = membership.startsAt <= refundedAt && membership.endsAt > refundedAt
+        ? refundedAt
+        : membership.endsAt
+      await tx.userMembership.update({
+        where: { id: membership.id },
+        data: {
+          status: MEMBERSHIP_STATUS.CANCELLED,
+          ...(nextEndsAt !== membership.endsAt ? { endsAt: nextEndsAt } : {}),
+        },
+      })
+      membershipChanges.push({
+        before: {
+          id: membership.id,
+          userId: reward.userId,
+          status: membership.status,
+          endsAt: membership.endsAt.toISOString(),
+        },
+        after: {
+          id: membership.id,
+          userId: reward.userId,
+          status: MEMBERSHIP_STATUS.CANCELLED,
+          endsAt: nextEndsAt.toISOString(),
+        },
+      })
+
+      const rewardOrder = membership.paymentOrder
+      if (
+        rewardOrder
+        && rewardOrder.provider === 'internal'
+        && rewardOrder.amountCents === 0
+        && rewardOrder.priceType === PAYMENT_PRICE_TYPE.INVITATION_REWARD
+        && rewardOrder.status === PAYMENT_ORDER_STATUS.PAID
+      ) {
+        await tx.paymentOrder.updateMany({
+          where: { id: rewardOrder.id, status: PAYMENT_ORDER_STATUS.PAID },
+          data: { status: PAYMENT_ORDER_STATUS.REFUNDED },
+        })
+        rewardOrderChanges.push({
+          before: { id: rewardOrder.id, userId: reward.userId, status: rewardOrder.status },
+          after: { id: rewardOrder.id, userId: reward.userId, status: PAYMENT_ORDER_STATUS.REFUNDED },
         })
       }
     }
@@ -704,4 +769,64 @@ export async function revokeInvitationRewardsForPaymentOrder(
     where: { triggerPaymentOrderId: paymentOrderId },
     data: { status: INVITATION_RELATION_STATUS.REFUNDED, refundedAt },
   })
+
+  // 自动撤回也写入独立支付审计，避免只能从卡包状态反推受影响用户。
+  if (audit && rewards.length > 0) {
+    const operator = await tx.user.findUnique({
+      where: { id: audit.operatorId },
+      select: { id: true, username: true, email: true, role: true },
+    })
+    const rewardChanges = rewards.map((reward) => ({
+      before: {
+        id: reward.id,
+        userId: reward.userId,
+        username: reward.user.username,
+        beneficiaryRole: reward.beneficiaryRole,
+        status: reward.status,
+      },
+      after: {
+        id: reward.id,
+        userId: reward.userId,
+        username: reward.user.username,
+        beneficiaryRole: reward.beneficiaryRole,
+        status: INVITATION_REWARD_STATUS.REVOKED,
+      },
+    }))
+    const usernames = [...new Set(rewards.map((reward) => reward.user.username))]
+    await tx.operationLog.create({
+      data: {
+        occurredAt: refundedAt,
+        actorUserId: operator?.id || null,
+        actorNameSnapshot: operator?.username || '系统',
+        actorEmailSnapshot: operator?.email || '',
+        actorRoleSnapshot: operator?.role || USER_ROLE.ADMIN,
+        module: OPERATION_AUDIT_MODULE.PAYMENT,
+        action: 'payment.invitation_rewards.revoke',
+        summary: `支付退款成功，撤回 ${rewards.length} 张邀请周卡（${usernames.join('、')}）`.slice(0, 500),
+        result: OPERATION_AUDIT_RESULT.SUCCESS,
+        resourceType: 'PaymentOrder',
+        resourceId: paymentOrderId,
+        changes: {
+          refundOrderNo: { before: null, after: audit.refundOrderNo },
+          invitationRewards: { before: rewardChanges.map((change) => change.before), after: rewardChanges.map((change) => change.after) },
+          rewardMemberships: { before: membershipChanges.map((change) => change.before), after: membershipChanges.map((change) => change.after) },
+          rewardOrders: { before: rewardOrderChanges.map((change) => change.before), after: rewardOrderChanges.map((change) => change.after) },
+        },
+        method: 'SYSTEM',
+        path: `/internal/payment-refunds/${audit.refundOrderNo}/invitation-rewards/revoke`,
+        statusCode: 200,
+      },
+    })
+  }
+
+  return {
+    rewards: rewards.map((reward) => ({
+      id: reward.id,
+      userId: reward.userId,
+      username: reward.user.username,
+      beneficiaryRole: reward.beneficiaryRole,
+    })),
+    membershipChanges,
+    rewardOrderChanges,
+  }
 }

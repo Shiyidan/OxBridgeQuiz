@@ -25,6 +25,7 @@ import {
 } from '../src/services/invitation.js'
 import { fulfillPaidOrder } from '../src/services/paymentFulfillment.js'
 import { getMemberContext } from '../src/services/member.js'
+import { refundBlockingLaterOrderWhere } from '../src/services/paymentRefund.js'
 import { prisma } from '../src/services/prisma.js'
 
 const testPrefix = 'invitation-regression'
@@ -103,6 +104,14 @@ async function cleanup(): Promise<void> {
   })
   const orderIds = orders.map((order) => order.id)
   await prisma.$transaction(async (tx) => {
+    await tx.operationLog.deleteMany({
+      where: {
+        OR: [
+          { actorUserId: { in: createdUserIds } },
+          { resourceType: 'PaymentOrder', resourceId: { in: orderIds } },
+        ],
+      },
+    })
     await tx.invitationReward.deleteMany({ where: { userId: { in: createdUserIds } } })
     await tx.invitationRelation.deleteMany({
       where: {
@@ -539,9 +548,51 @@ async function main(): Promise<void> {
     'already_bound',
   )
 
-  await prisma.$transaction((tx) =>
-    revokeInvitationRewardsForPaymentOrder(tx, order.id, new Date()),
+  // 已启用周卡形成的后续零元内部订单不能阻断真实支付退款。
+  const laterRefundBlocker = await prisma.paymentOrder.findFirst({
+    where: refundBlockingLaterOrderWhere(order),
+  })
+  assert.equal(laterRefundBlocker, null)
+
+  // 后续真实资金订单仍需先退款；完成退款后，原订单才恢复可退款状态。
+  const laterExternalOrder = await createPendingOrder(invitee.id, 'TMUA')
+  await confirmPaidOrder(laterExternalOrder)
+  const externalRefundBlocker = await prisma.paymentOrder.findFirst({
+    where: refundBlockingLaterOrderWhere(order),
+  })
+  assert.equal(externalRefundBlocker?.id, laterExternalOrder.id)
+  await prisma.paymentOrder.update({
+    where: { id: laterExternalOrder.id },
+    data: { status: PAYMENT_ORDER_STATUS.REFUNDED },
+  })
+  assert.equal(
+    await prisma.paymentOrder.findFirst({ where: refundBlockingLaterOrderWhere(order) }),
+    null,
   )
+
+  // 没有关联邀请奖励的普通退款不产生周卡撤回记录，也不进入额外权益处理。
+  const noRewardRevocation = await prisma.$transaction((tx) =>
+    revokeInvitationRewardsForPaymentOrder(tx, laterExternalOrder.id, new Date(), {
+      operatorId: inviter.id,
+      refundOrderNo: `RF-${laterExternalOrder.orderNo}`,
+    }),
+  )
+  assert.equal(noRewardRevocation.rewards.length, 0)
+  assert.equal(
+    await prisma.operationLog.count({
+      where: { action: 'payment.invitation_rewards.revoke', resourceId: laterExternalOrder.id },
+    }),
+    0,
+  )
+
+  const refundedAt = new Date()
+  const revocation = await prisma.$transaction((tx) =>
+    revokeInvitationRewardsForPaymentOrder(tx, order.id, refundedAt, {
+      operatorId: inviter.id,
+      refundOrderNo: `RF-${order.orderNo}`,
+    }),
+  )
+  assert.equal(revocation.rewards.length, 2)
   const revokedRewards = await prisma.invitationReward.findMany({
     where: { triggerPaymentOrderId: order.id },
   })
@@ -551,6 +602,20 @@ async function main(): Promise<void> {
     where: { id: { in: revokedRewards.flatMap((reward) => reward.membershipId || []) } },
   })
   assert.ok(revokedMemberships.every((membership) => membership.status === 'cancelled'))
+  const revokedRewardOrders = await prisma.paymentOrder.findMany({
+    where: { id: { in: revokedMemberships.flatMap((membership) => membership.paymentOrderId || []) } },
+  })
+  assert.equal(revokedRewardOrders.length, 2)
+  assert.ok(revokedRewardOrders.every((rewardOrder) => rewardOrder.status === PAYMENT_ORDER_STATUS.REFUNDED))
+  const revocationLog = await prisma.operationLog.findFirstOrThrow({
+    where: {
+      action: 'payment.invitation_rewards.revoke',
+      resourceType: 'PaymentOrder',
+      resourceId: order.id,
+    },
+  })
+  assert.match(revocationLog.summary, /撤回 2 张邀请周卡/)
+  assert.equal(revocationLog.result, 'success')
 
   overview = await getInvitationOverview(inviter.id)
   assert.equal(overview.rewardedCount, 3)

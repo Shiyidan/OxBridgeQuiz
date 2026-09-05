@@ -812,7 +812,7 @@ watch(
               <div class="home-price-card-heading">
                 <span>月度会员</span>
                 <div class="home-price-main-line home-price-main-line-light">
-                  <strong>{{ props.memberPriceLabel }} </strong>
+                  <strong>{{ props.memberPriceLabel }}</strong>
                   <span class="home-price-unit">元</span>
                 </div>
               </div>

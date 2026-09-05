@@ -172,7 +172,7 @@ function normalizeToken(value: unknown): string {
     .replace(/[\s_-]+/g, '')
 }
 
-// 工作表名称固定承载考试、源套卷序号和模块，保证批量导入可以稳定分组。
+// 工作表名称固定承载考试、源序号和模块；源序号只用于稳定读取，不代表自动组套关系。
 function parseSheetName(sheetName: string): {
   sourceKey: string
   sourceSequence: number
@@ -253,16 +253,12 @@ export async function parseMockPaperWorkbook(buffer: Buffer): Promise<ParsedWork
       examType: parsedName.examType,
       modules: [],
     }
-    if (set.modules.some((module) => module.code === definition.code)) {
-      issues.push(`${parsedName.sourceKey}：模块 ${definition.label} 重复`)
-      continue
-    }
     set.modules.push({ ...definition, sourceSheetName: sheetName, questionCodes })
     setMap.set(parsedName.sourceKey, set)
   }
 
   if (setMap.size === 0 && issues.length === 0) {
-    issues.push('没有识别到可导入的 ESAT 或 TMUA 套卷')
+    issues.push('没有识别到可导入的 ESAT 或 TMUA 单项卷')
   }
   if (issues.length) throw new MockPaperWorkbookError(issues)
 
@@ -573,7 +569,7 @@ async function getNextSequenceNumbers(
   return result
 }
 
-// 文件中的源编号只用于排序，正式名称按目标库各考试的连续序号从 001 自动生成。
+// 每个 Sheet 独立创建一个无所属套卷的来源模块；只有管理员主动组卷才建立套卷关系。
 export async function createMockPaperDraftsFromWorkbook(
   sets: ParsedWorkbookSet[],
   sourceFileName: string,
@@ -581,48 +577,53 @@ export async function createMockPaperDraftsFromWorkbook(
 ): Promise<string[]> {
   const nextSequences = await getNextSequenceNumbers(sets)
   const createdIds: string[] = []
+  const importedAt = new Date()
   await prisma.$transaction(async (tx) => {
     for (const set of sets) {
-      const sequenceNo = nextSequences.get(set.examType) || 1
-      nextSequences.set(set.examType, sequenceNo + 1)
-      const suffix = String(sequenceNo).padStart(3, '0')
-      const created = await tx.mockPaperSet.create({
-        data: {
-          code: `${set.examType}-MOCK-${suffix}`,
-          sequenceNo,
-          examType: set.examType,
-          title: `${set.examType} 模拟卷 No.${suffix}`,
-          accessTier,
-          sourceFileName,
-          issues: [],
-          modules: {
-            create: set.modules.map((module) => ({
-              code: module.code,
-              label: module.label,
-              title: formatMockPaperModuleTitle({
-                examType: set.examType,
+      for (const module of set.modules) {
+        const sequenceNo = nextSequences.get(set.examType) || 1
+        nextSequences.set(set.examType, sequenceNo + 1)
+        const suffix = String(sequenceNo).padStart(3, '0')
+        const created = await tx.mockPaperSet.create({
+          data: {
+            code: `${set.examType}-MOCK-${suffix}`,
+            sequenceNo,
+            examType: set.examType,
+            title: `${set.examType} 模拟卷 No.${suffix}`,
+            accessTier,
+            sourceFileName,
+            issues: [],
+            deletedAt: importedAt,
+            modules: {
+              create: {
                 code: module.code,
                 label: module.label,
-                sequenceNo,
-              }),
-              moduleOrder: module.order,
-              durationSeconds: module.durationSeconds,
-              expectedQuestionCount: module.expectedQuestionCount,
-              questionCount: module.questionCodes.length,
-              issues: [],
-              questions: {
-                create: module.questionCodes.map((sourceCode, index) => ({
-                  sourceCode,
-                  position: index + 1,
-                  issues: [],
-                })),
+                title: formatMockPaperModuleTitle({
+                  examType: set.examType,
+                  code: module.code,
+                  label: module.label,
+                  sequenceNo,
+                }),
+                accessTier,
+                moduleOrder: module.order,
+                durationSeconds: module.durationSeconds,
+                expectedQuestionCount: module.expectedQuestionCount,
+                questionCount: module.questionCodes.length,
+                issues: [],
+                questions: {
+                  create: module.questionCodes.map((sourceCode, index) => ({
+                    sourceCode,
+                    position: index + 1,
+                    issues: [],
+                  })),
+                },
               },
-            })),
+            },
           },
-        },
-        select: { id: true },
-      })
-      createdIds.push(created.id)
+          select: { id: true },
+        })
+        createdIds.push(created.id)
+      }
     }
   })
 
@@ -707,6 +708,7 @@ export async function composeMockPaperSetFromModules(
             label: module.label,
             sequenceNo: module.mockPaperSet.sequenceNo,
           }),
+          accessTier: module.accessTier,
           moduleOrder: module.moduleOrder,
           durationSeconds: module.durationSeconds,
           expectedQuestionCount: module.expectedQuestionCount,
@@ -823,6 +825,60 @@ export async function publishMockPaperModule(moduleId: string): Promise<{
     })
   })
   return { id: set.id, moduleId: target.id, paperId }
+}
+
+// 单项下线只关闭其独立模考入口；套卷副本同步状态，但不改变完整套卷及其运行载体。
+export async function archiveMockPaperModule(moduleId: string): Promise<{
+  id: string
+  moduleId: string
+  status: string
+  archivedAt: Date
+}> {
+  const source = await prisma.mockPaperModule.findUnique({
+    where: { id: moduleId },
+    include: {
+      mockPaperSet: { select: { id: true, paperId: true, status: true } },
+    },
+  })
+  if (!source) throw new Error('MOCK_PAPER_MODULE_NOT_FOUND')
+  if (source.sourceModuleId) throw new Error('MOCK_PAPER_MODULE_UNAVAILABLE')
+  if (source.publicationStatus !== MOCK_PAPER_MODULE_STATUS.PUBLISHED) {
+    throw new Error('MOCK_PAPER_MODULE_NOT_PUBLISHED')
+  }
+
+  const archivedAt = new Date()
+  await prisma.$transaction(async (tx) => {
+    await tx.mockPaperModule.updateMany({
+      where: {
+        OR: [
+          { id: source.id },
+          { sourceModuleId: source.id },
+        ],
+      },
+      data: {
+        publicationStatus: MOCK_PAPER_MODULE_STATUS.ARCHIVED,
+        archivedAt,
+      },
+    })
+
+    // 草稿或隐藏来源容器的 Paper 只服务于单项；已发布套卷的 Paper 必须继续开放完整模考。
+    if (
+      source.mockPaperSet.paperId
+      && source.mockPaperSet.status !== MOCK_PAPER_STATUS.PUBLISHED
+    ) {
+      await tx.paper.update({
+        where: { id: source.mockPaperSet.paperId },
+        data: { status: 'archived' },
+      })
+    }
+  })
+
+  return {
+    id: source.mockPaperSet.id,
+    moduleId: source.id,
+    status: MOCK_PAPER_MODULE_STATUS.ARCHIVED,
+    archivedAt,
+  }
 }
 
 // 套卷发布要求当前包含的全部单项校验通过，不改变任何单项的独立发布状态。

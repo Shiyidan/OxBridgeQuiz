@@ -17,4 +17,10 @@ if (actual !== expectedSignature || !verifyChinaumsNotificationSignature(payload
 if (resolveChinaumsPaymentChannel(payload) !== 'alipay') {
   throw new Error('ChinaUMS targetSys must identify Alipay even when connectSys is UNIONPAY')
 }
+if (resolveChinaumsPaymentChannel({ targetSys: 'WXPay' }) !== 'wechat') {
+  throw new Error('ChinaUMS targetSys must identify WeChat Pay')
+}
+if (resolveChinaumsPaymentChannel({ billPayment: { targetSys: 'UNIONPAY' } }) !== 'unionpay') {
+  throw new Error('ChinaUMS billPayment.targetSys must identify Cloud QuickPass')
+}
 console.log('ChinaUMS notification signature fixture passed.')

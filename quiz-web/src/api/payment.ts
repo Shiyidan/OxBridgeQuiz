@@ -20,7 +20,7 @@ export interface PaymentOrder {
   amountCents: number
   refundedAmountCents: number
   currency: string
-  channel: 'alipay' | 'wechat' | 'unionpay' | 'admin_gift' | 'invitation_reward'
+  channel: 'aggregate' | 'alipay' | 'wechat' | 'unionpay' | 'admin_gift' | 'invitation_reward'
   status: string
   provider: string
   providerOrderNo: string | null
@@ -74,7 +74,6 @@ export function getPaymentConfig() {
 export function createPaymentOrder(payload: {
   examTypes: string[]
   plan: 'monthly' | 'quarterly'
-  channel: 'alipay' | 'wechat' | 'unionpay'
   legalVersions: MembershipLegalVersions
 }) {
   return callApi<CreatePaymentOrderResult>({

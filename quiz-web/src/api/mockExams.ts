@@ -29,8 +29,11 @@ export interface MockExamPaperItem {
   totalQuestions: number
   modules: PaperModuleOutline[]
   publicationStatus: 'published' | 'offline' | string
+  version: number
   inProgressCount: number
   completedCount: number
+  completedCurrentVersionCount: number
+  hasContentUpdate: boolean
   bestScore: number | null
   latestCompletedExamRecordId: string | null
   inProgressAttempts: MockExamAttemptBrief[]
@@ -89,6 +92,7 @@ export interface MockExamRecordItem {
   paperId: string
   paperTitle: string
   paperCode: string | null
+  version: number
   mode: 'full' | 'single'
   moduleCode: string | null
   moduleLabel: string | null

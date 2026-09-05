@@ -649,6 +649,7 @@ function planText(plan: string, priceType: string): string {
 
 function channelText(channel: string): string {
   return {
+    aggregate: '聚合支付',
     alipay: '支付宝',
     wechat: '微信支付',
     unionpay: '云闪付',
@@ -672,6 +673,7 @@ function statusText(status: string): string {
 function orderStatusText(order: Pick<AdminPaymentOrder, 'priceType' | 'status'>): string {
   const isInternalEntitlement = ['admin_gift', 'invitation_reward'].includes(order.priceType)
   if (isInternalEntitlement && order.status === 'paid') return '权益已启用'
+  if (isInternalEntitlement && order.status === 'refunded') return '权益已撤回'
   return statusText(order.status)
 }
 
@@ -686,7 +688,7 @@ function statusTagType(status: string): 'success' | 'warning' | 'danger' | 'info
 function auditEventType(event: AdminPaymentAuditEvent): 'success' | 'warning' | 'danger' | 'info' | 'primary' {
   if (event.status === 'paid' || event.status === 'succeeded' || event.status === 'processed') return 'success'
   if (event.status === 'failed' || event.status === 'open' || event.status === 'anomaly') return 'danger'
-  if (event.category === 'refund' || event.status === 'processing') return 'warning'
+  if (event.category === 'refund' || event.status === 'processing' || event.status === 'refunded' || event.status === 'revoked') return 'warning'
   if (event.category === 'reconciliation') return 'primary'
   return 'info'
 }

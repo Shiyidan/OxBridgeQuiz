@@ -370,7 +370,7 @@
             <p class="field-label" style="margin-top: 16px">题目预览</p>
             <div class="json-preview-item" v-for="q in mdQuestions" :key="questionPreviewKey(q)">
               <span class="json-preview-num">{{
-                q.module_question_number || q.component_question_number || q.number
+                q.module_question_number || q.number
               }}</span>
               <span v-if="q.subject" class="json-preview-module">{{ q.subject }}</span>
               <span class="json-preview-title">{{ truncateText(q.title, 60) }}</span>
@@ -565,7 +565,7 @@
             <p class="field-label" style="margin-top: 16px">题目预览</p>
             <div class="json-preview-item" v-for="q in jsonQuestions" :key="questionPreviewKey(q)">
               <span class="json-preview-num">{{
-                q.module_question_number || q.component_question_number || q.number
+                q.module_question_number || q.number
               }}</span>
               <span v-if="q.subject" class="json-preview-module">{{ q.subject }}</span>
               <span class="json-preview-title">{{ truncateText(q.title, 60) }}</span>
@@ -835,7 +835,6 @@ interface PreviewDocumentMetadata {
 interface PreviewModuleRow extends Record<string, unknown> {
   code?: unknown
   module_code?: unknown
-  component_code?: unknown
   sectionType?: unknown
   order?: unknown
   subject?: unknown
@@ -1026,7 +1025,6 @@ function readPaperDocumentPreview(raw: unknown): {
       code: String(
         module.code ||
           module.module_code ||
-          module.component_code ||
           module.subject ||
           `module-${moduleIndex + 1}`,
       ),
@@ -1041,9 +1039,7 @@ function readPaperDocumentPreview(raw: unknown): {
     }))
     const questions = moduleRows.flatMap((module, moduleIndex: number) => {
       const moduleQuestions = module.questions as QuestionInput[]
-      const moduleCode = String(
-        module.code || module.module_code || module.component_code || '',
-      ) as QuestionInput['module_code']
+      const moduleCode = String(module.code || module.module_code || '') as QuestionInput['module_code']
       const moduleSubject = typeof module.subject === 'string' ? module.subject : undefined
       const moduleSubjectCode =
         typeof module.subject_code === 'string' || typeof module.subject_code === 'number'
@@ -1062,10 +1058,6 @@ function readPaperDocumentPreview(raw: unknown): {
           module_code: moduleCode,
           module_order: Number(module.order) || moduleIndex + 1,
           module_question_number: rawQuestion.number || itemIndex + 1,
-          // 预览期保留旧别名，便于早期管理页和已上传数据平滑迁移。
-          component_code: moduleCode,
-          component_order: Number(module.order) || moduleIndex + 1,
-          component_question_number: rawQuestion.number || itemIndex + 1,
           subject: question.subject || moduleSubject,
           subject_code: question.subject_code || moduleSubjectCode,
         }
@@ -1089,7 +1081,7 @@ function readPaperDocumentPreview(raw: unknown): {
 function questionPreviewKey(question: QuestionInput): string {
   return (
     question.code ||
-    `${question.module_code || question.component_code || 'flat'}-${question.module_question_number || question.number}`
+    `${question.module_code || 'flat'}-${question.module_question_number || question.number}`
   )
 }
 

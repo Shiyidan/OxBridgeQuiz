@@ -8,6 +8,7 @@ export const OPERATION_AUDIT_RESULT = {
 export const OPERATION_AUDIT_BLOCKED_ERROR_CODES = [
   'DIAGNOSTIC_IN_PROGRESS',
   'QUESTION_BANK_IN_PROGRESS',
+  'PAYMENT_REFUND_REQUIRES_MANUAL_REVIEW',
 ] as const
 
 // 已有未完成答卷属于预期业务保护，不计入系统或用户操作失败。

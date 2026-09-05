@@ -27,6 +27,10 @@ import {
   parseQuestionBankDocumentText,
   validateQuestionBankDocument,
 } from "../services/questionBankDocument.js";
+import {
+  QuestionReplacementReleaseError,
+  releaseQuestionReplacementBatch,
+} from "../services/questionReplacementRelease.js";
 import { createAsyncRouter } from "../utils/asyncRouter.js";
 import { formatQuestionRow } from "../utils/questionSync.js";
 import { resolveQuestionModuleCode } from "../utils/questionModule.js";
@@ -50,6 +54,8 @@ type BatchQuestionSummary = {
   moduleCode: string | null;
   subject: string | null;
   subjectCode: string | null;
+  replacesQuestionId: string | null;
+  replacementQuestion: { status: string } | null;
 };
 
 // 后台列表保留筛选、预览摘要和状态操作所需字段，不读取选项、答案及完整详情列。
@@ -67,6 +73,7 @@ const adminQuestionListSelect = {
   topic: true,
   topicCode: true,
   knowledgePoints: true,
+  replacesQuestionId: true,
   status: true,
   publishedAt: true,
   archivedAt: true,
@@ -240,6 +247,7 @@ function formatAdminListItem(row: any): Record<string, unknown> {
     topic: row.topic,
     topicCode: row.topicCode,
     knowledgePoints: row.knowledgePoints,
+    isReplacement: Boolean(row.replacesQuestionId),
     status: row.status,
     publishedAt: row.publishedAt,
     archivedAt: row.archivedAt,
@@ -307,6 +315,16 @@ function formatImportBatch(row: any): Record<string, unknown> {
     declaredQuestionCount: row.declaredQuestionCount,
     actualQuestionCount: row.actualQuestionCount,
     currentQuestionCount: questions.length,
+    replacementCount: questions.filter((question) => question.replacesQuestionId).length,
+    replacedQuestionCount: questions.filter((question) => (
+      question.status === QUESTION_STATUS.ARCHIVED &&
+      question.replacementQuestion?.status !== QUESTION_STATUS.DRAFT &&
+      Boolean(question.replacementQuestion)
+    )).length,
+    pendingReplacementCount: questions.filter((question) => (
+      Boolean(question.replacementQuestion) &&
+      question.replacementQuestion?.status === QUESTION_STATUS.DRAFT
+    )).length,
     remarks: row.remarks,
     createdAt: row.createdAt,
     statusCounts,
@@ -513,6 +531,81 @@ questionLibraryRouter.post(
           ]);
         }
 
+        const revisionQuestions = document.questions.filter(
+          (question) => question.revision,
+        );
+        const replacementOrigins = revisionQuestions.map(
+          (question) => question.revision!.originCode,
+        );
+        const originalQuestions = replacementOrigins.length
+          ? await tx.question.findMany({
+              where: {
+                uniqueCode: { in: replacementOrigins },
+                paperId: null,
+              },
+              select: {
+                id: true,
+                uniqueCode: true,
+                examType: true,
+                moduleCode: true,
+                revisionVersion: true,
+                status: true,
+                replacementQuestion: { select: { uniqueCode: true } },
+              },
+            })
+          : [];
+        const originalQuestionMap = new Map(
+          originalQuestions.map((question) => [question.uniqueCode, question]),
+        );
+        const replacementIssues: string[] = [];
+        for (const question of revisionQuestions) {
+          const original = originalQuestionMap.get(question.revision!.originCode);
+          if (!original) {
+            replacementIssues.push(
+              `${question.code}: 原题 ${question.revision!.originCode} 不存在于当前试题库`,
+            );
+            continue;
+          }
+          if (original.status !== QUESTION_STATUS.PUBLISHED) {
+            replacementIssues.push(
+              `${question.code}: 原题 ${original.uniqueCode} 不是已发布状态`,
+            );
+          }
+          if (original.examType !== question.examType) {
+            replacementIssues.push(
+              `${question.code}: examType 必须与原题 ${original.uniqueCode} 一致`,
+            );
+          }
+          const replacementModuleCode = resolveQuestionModuleCode({
+            examType: question.examType,
+            subject: question.classification.subject,
+            subjectCode: question.classification.subjectCode,
+            part: question.part,
+          });
+          if (original.moduleCode !== replacementModuleCode) {
+            replacementIssues.push(
+              `${question.code}: 所属模块必须与原题 ${original.uniqueCode} 一致`,
+            );
+          }
+          const expectedRevisionVersion = (original.revisionVersion || 1) + 1;
+          if (
+            Number(question.revision!.version.slice(1)) !==
+            expectedRevisionVersion
+          ) {
+            replacementIssues.push(
+              `${question.code}: 原题 ${original.uniqueCode} 的下一版本必须为 V${expectedRevisionVersion}`,
+            );
+          }
+          if (original.replacementQuestion) {
+            replacementIssues.push(
+              `${question.code}: 原题 ${original.uniqueCode} 已被 ${original.replacementQuestion.uniqueCode} 替换`,
+            );
+          }
+        }
+        if (replacementIssues.length) {
+          throw new QuestionBankDocumentError(replacementIssues);
+        }
+
         const examTypes = [
           ...new Set(document.questions.map((question) => question.examType)),
         ];
@@ -638,6 +731,13 @@ questionLibraryRouter.post(
               sourceQuestionCode: question.code,
               paperId: null,
               importBatchId: batch.id,
+              replacesQuestionId: question.revision
+                ? originalQuestionMap.get(question.revision.originCode)!.id
+                : null,
+              revisionVersion: question.revision
+                ? Number(question.revision.version.slice(1))
+                : null,
+              revisionReason: question.revision?.reason || null,
               examType: question.examType,
               number: questionIndex + 1,
               moduleCode: resolveQuestionModuleCode({
@@ -676,6 +776,7 @@ questionLibraryRouter.post(
                   ? { qualityTier: question.qualityTier }
                   : {}),
                 ...(question.origin ? { origin: question.origin } : {}),
+                ...(question.revision ? { revision: question.revision } : {}),
               } as Prisma.InputJsonValue,
               status: QUESTION_STATUS.DRAFT,
             },
@@ -701,6 +802,7 @@ questionLibraryRouter.post(
           title: result.title,
           fileName: result.fileName,
           questionCount: result.actualQuestionCount,
+          replacementCount: document.questions.filter((question) => question.revision).length,
           status: QUESTION_STATUS.DRAFT,
         }),
       );
@@ -761,6 +863,8 @@ questionLibraryRouter.get(
               moduleCode: true,
               subject: true,
               subjectCode: true,
+              replacesQuestionId: true,
+              replacementQuestion: { select: { status: true } },
             },
           },
         },
@@ -795,6 +899,8 @@ questionLibraryRouter.get(
             moduleCode: true,
             subject: true,
             subjectCode: true,
+            replacesQuestionId: true,
+            replacementQuestion: { select: { status: true } },
           },
         },
       },
@@ -804,6 +910,45 @@ questionLibraryRouter.get(
       return;
     }
     res.json(success(formatImportBatch(row)));
+  },
+);
+
+// 上传包名称仅用于后台识别和追溯，修改后不影响包内题目、替换关系或学生端内容。
+questionLibraryRouter.put(
+  "/admin/batches/:id/title",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    const title = String(req.body?.title || "").trim();
+    if (!title) {
+      res.status(422).json(fail("试题包名称不能为空", "QUESTION_BATCH_TITLE_REQUIRED"));
+      return;
+    }
+    if (title.length > 255) {
+      res.status(422).json(fail("试题包名称不能超过 255 个字符", "QUESTION_BATCH_TITLE_TOO_LONG"));
+      return;
+    }
+    const current = await prisma.questionImportBatch.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, title: true },
+    });
+    if (!current) {
+      res.status(404).json(fail("上传包不存在"));
+      return;
+    }
+    const updated = current.title === title
+      ? current
+      : await prisma.questionImportBatch.update({
+          where: { id: current.id },
+          data: { title },
+          select: { id: true, title: true },
+        });
+    setOperationAuditContext(req, {
+      resourceId: current.id,
+      summary: `修改试题包名称为“${updated.title}”`,
+      changes: { title: { before: current.title, after: updated.title } },
+    });
+    res.json(success(updated));
   },
 );
 
@@ -862,7 +1007,7 @@ questionLibraryRouter.get(
   },
 );
 
-// 上传包级上线或归档会统一更新包内题目；归档题不再进入新练习，但历史作答关系保持不变。
+// 普通上传包统一切换题目状态；替换包上线时同时版本化受影响模考并保留全部旧答卷。
 questionLibraryRouter.put(
   "/admin/batches/:id/status",
   requireAuth,
@@ -893,6 +1038,35 @@ questionLibraryRouter.put(
       res.status(422).json(fail("上传包内没有可操作的题目"));
       return;
     }
+    const replacementCount = await prisma.question.count({
+      where: { ...questionWhere, replacesQuestionId: { not: null } },
+    });
+    if (status === QUESTION_STATUS.PUBLISHED && replacementCount > 0) {
+      try {
+        const result = await releaseQuestionReplacementBatch(batch.id);
+        setOperationAuditContext(req, {
+          resourceId: batch.id,
+          summary: `发布替换题包“${batch.title}”，替换 ${result.replacementCount} 题并生成 ${result.versionedMockPapers.length} 套模考新版`,
+          changes: {
+            replacementCount: { before: 0, after: result.replacementCount },
+            versionedMockPaperCount: {
+              before: 0,
+              after: result.versionedMockPapers.length,
+            },
+          },
+        });
+        res.json(success({ id: batch.id, status, ...result }));
+        return;
+      } catch (error) {
+        if (error instanceof QuestionReplacementReleaseError) {
+          res
+            .status(422)
+            .json(fail(error.issues.join("\n"), "QUESTION_REPLACEMENT_RELEASE_INVALID"));
+          return;
+        }
+        throw error;
+      }
+    }
     const updated = await prisma.question.updateMany({
       where: { ...questionWhere, status: { not: status } },
       data: {
@@ -912,6 +1086,10 @@ questionLibraryRouter.put(
         status,
         questionCount,
         updatedQuestions: updated.count,
+        replacementCount,
+        archivedQuestionCount: 0,
+        updatedDraftMockPaperCount: 0,
+        versionedMockPapers: [],
       }),
     );
   },
@@ -996,8 +1174,30 @@ questionLibraryRouter.put(
       res.status(422).json(fail("状态仅允许 draft、published 或 archived"));
       return;
     }
-    const updated = await prisma.question.updateMany({
+    const target = await prisma.question.findFirst({
       where: { id: req.params.id, paperId: null },
+      select: { id: true, replacesQuestionId: true },
+    });
+    if (!target) {
+      res.status(404).json(fail("题目不存在"));
+      return;
+    }
+    if (
+      status === QUESTION_STATUS.PUBLISHED &&
+      Boolean(target.replacesQuestionId)
+    ) {
+      res
+        .status(409)
+        .json(
+          fail(
+            "替换题必须从所属试题包整包上线，以便同步归档原题并生成模考新版",
+            "QUESTION_REPLACEMENT_BATCH_REQUIRED",
+          ),
+        );
+      return;
+    }
+    const updated = await prisma.question.updateMany({
+      where: { id: target.id, paperId: null },
       data: {
         status,
         publishedAt:
@@ -1005,10 +1205,6 @@ questionLibraryRouter.put(
         archivedAt: status === QUESTION_STATUS.ARCHIVED ? new Date() : null,
       },
     });
-    if (!updated.count) {
-      res.status(404).json(fail("题目不存在"));
-      return;
-    }
     setOperationAuditContext(req, {
       resourceId: req.params.id,
       summary: `更新试题库题目状态为 ${status}`,
@@ -1046,7 +1242,25 @@ questionLibraryRouter.delete(
         );
       return;
     }
-    await prisma.question.delete({ where: { id: row.id } });
+    try {
+      await prisma.question.delete({ where: { id: row.id } });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2003"
+      ) {
+        res
+          .status(409)
+          .json(
+            fail(
+              "题目已被后续修正版本引用，不能删除，请改为归档",
+              "QUESTION_HAS_REPLACEMENT",
+            ),
+          );
+        return;
+      }
+      throw error;
+    }
     setOperationAuditContext(req, {
       resourceId: row.id,
       summary: `删除试题库题目 ${row.sourceQuestionCode || row.id}`,

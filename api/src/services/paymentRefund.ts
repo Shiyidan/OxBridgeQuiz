@@ -46,6 +46,17 @@ type RefundableOrder = {
   createdAt: Date
 }
 
+// 退款顺序只受后续真实资金订单约束，零元赠卡和邀请奖励订单不参与人工复核判断。
+export function refundBlockingLaterOrderWhere(order: Pick<RefundableOrder, 'userId' | 'createdAt'>): Prisma.PaymentOrderWhereInput {
+  return {
+    userId: order.userId,
+    createdAt: { gt: order.createdAt },
+    status: { in: [PAYMENT_ORDER_STATUS.PAID, PAYMENT_ORDER_STATUS.REFUNDING] },
+    provider: 'chinaums',
+    amountCents: { gt: 0 },
+  }
+}
+
 function refundProviderMeta(order: RefundableOrder): { billDate: string } {
   const payload = parseJsonObject(order.providerPayload)
   const qrCode = parseJsonObject(payload.qrCode)
@@ -178,7 +189,10 @@ async function finalizeRefund(
 
     const order = refund.paymentOrder
     await revertOrderMemberships(tx, order, refundedAt)
-    await revokeInvitationRewardsForPaymentOrder(tx, order.id, refundedAt)
+    await revokeInvitationRewardsForPaymentOrder(tx, order.id, refundedAt, {
+      operatorId: refund.operatorId,
+      refundOrderNo: refund.refundOrderNo,
+    })
     await tx.paymentOrder.update({
       where: { id: order.id },
       data: {
@@ -247,11 +261,7 @@ export async function requestFullPaymentRefund(input: {
       throw new PaymentRefundError('该订单已存在退款金额', 'PAYMENT_ORDER_ALREADY_REFUNDED')
     }
     const laterPaidOrder = await tx.paymentOrder.findFirst({
-      where: {
-        userId: order.userId,
-        createdAt: { gt: order.createdAt },
-        status: { in: [PAYMENT_ORDER_STATUS.PAID, PAYMENT_ORDER_STATUS.REFUNDING] },
-      },
+      where: refundBlockingLaterOrderWhere(order),
       select: { id: true },
     })
     if (laterPaidOrder) {

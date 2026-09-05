@@ -31,7 +31,7 @@ import { parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
 import {
   EXAM_TYPES,
   MEMBERSHIP_PLAN,
-  PAYMENT_CHANNELS,
+  PAYMENT_CHANNEL,
   PAYMENT_CONFIG_STATUS,
   PAYMENT_NOTIFICATION_STATUS,
   PAYMENT_ORDER_STATUS,
@@ -232,7 +232,7 @@ paymentRouter.post('/notifications/chinaums', async (req, res) => {
     } else if (order.status !== PAYMENT_ORDER_STATUS.PAID) {
       await syncPaymentOrderFromChinaums(order)
     }
-    // 订单确认成功后用通知中的 targetSys 覆盖最初选择值，报表展示真实付款钱包。
+    // 订单确认成功后用通知中的 targetSys 覆盖聚合渠道，报表展示真实付款钱包。
     const actualChannel = resolveChinaumsPaymentChannel({
       targetSys: payload.targetSys,
       connectSys: payload.connectSys,
@@ -292,10 +292,9 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
       ))
       return
     }
-    const { examTypes, plan, channel, legalVersions } = req.body as {
+    const { examTypes, plan, legalVersions } = req.body as {
       examTypes?: unknown
       plan?: unknown
-      channel?: unknown
       legalVersions?: unknown
     }
     const normalizedLegalVersions = legalVersions && typeof legalVersions === 'object'
@@ -318,10 +317,6 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
     }
     if (!isMembershipPlan(plan)) {
       res.status(422).json(fail('请选择有效的订阅计划'))
-      return
-    }
-    if (typeof channel !== 'string' || !PAYMENT_CHANNELS.includes(channel as (typeof PAYMENT_CHANNELS)[number])) {
-      res.status(422).json(fail('请选择有效的支付方式'))
       return
     }
     if (
@@ -359,7 +354,7 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
         plan,
         priceType,
         amountCents,
-        channel,
+        channel: PAYMENT_CHANNEL.AGGREGATE,
         status: PAYMENT_ORDER_STATUS.PENDING,
         expiresAt,
       },
@@ -397,7 +392,10 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
       where: { id: order.id },
       data: {
         providerPayload: jsonValue({
-          requestedChannel: channel,
+          paymentMode: {
+            type: PAYMENT_CHANNEL.AGGREGATE,
+            walletOption: 'MULTIPLE',
+          },
           qrCode: {
             billDate: qrResponse.billDate,
             billQRCode: qrResponse.billQRCode,

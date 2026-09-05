@@ -1079,7 +1079,7 @@ function dateOnly(value?: string | null): string | null {
   min-height: 36px;
   padding: 0 16px;
   place-items: center;
-  border: 1px solid var(--color-line);
+  border: 1px solid var(--color-ink-soft);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
 }

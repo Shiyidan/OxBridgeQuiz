@@ -21,7 +21,7 @@ body.home-route {
   margin: 0;
   background: var(--home-paper);
   color: var(--home-ink);
-  font-family: 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif;
+  font-family: var(--font-sans);
   text-rendering: optimizeLegibility;
 }
 
@@ -32,7 +32,7 @@ body.home-dialog-open {
 .home-shell,
 .home-demo-backdrop {
   color: var(--home-ink);
-  font-family: 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .home-shell *,
@@ -1401,7 +1401,7 @@ body.home-dialog-open {
 }
 
 .home-price-main-line-light {
-  gap: 0;
+  gap: 3px;
 }
 
 .home-price-main-line .home-price-unit {

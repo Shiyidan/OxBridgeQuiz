@@ -14,7 +14,7 @@ import InvitationBenefitDialog from '@/components/InvitationBenefitDialog.vue'
 }
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
   background: #f0f2f5;
 }
 #app {

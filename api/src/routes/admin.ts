@@ -9,6 +9,7 @@ import {
   MEMBERSHIP_DURATION_DAYS,
   MEMBERSHIP_PLAN,
   MEMBERSHIP_STATUS,
+  PAYMENT_ORDER_STATUS,
   USER_ROLE,
   PAYMENT_NOTIFICATION_STATUS,
   PAYMENT_RECONCILIATION_RESOLUTION,
@@ -706,7 +707,7 @@ adminRouter.get('/payment-orders/:orderNo', async (req, res) => {
     }
 
     const examTypes = [...new Set(parseJsonArray<string>(order.examTypes))]
-    const [notifications, memberships] = await Promise.all([
+    const [notifications, memberships, invitationRewards] = await Promise.all([
       prisma.paymentNotification.findMany({
         where: { orderNo: order.orderNo },
         orderBy: { createdAt: 'desc' },
@@ -714,6 +715,18 @@ adminRouter.get('/payment-orders/:orderNo', async (req, res) => {
       prisma.userMembership.findMany({
         where: { paymentOrderId: order.id },
         orderBy: [{ examType: 'asc' }, { endsAt: 'desc' }],
+      }),
+      prisma.invitationReward.findMany({
+        where: { triggerPaymentOrderId: order.id },
+        select: {
+          id: true,
+          beneficiaryRole: true,
+          status: true,
+          examType: true,
+          revokedAt: true,
+          user: { select: { username: true } },
+        },
+        orderBy: { createdAt: 'asc' },
       }),
     ])
 
@@ -780,6 +793,20 @@ adminRouter.get('/payment-orders/:orderNo', async (req, res) => {
         actor: null,
       })
     }
+    const isInternalEntitlementOrder = order.provider === 'internal' && order.amountCents === 0
+    if (isInternalEntitlementOrder && order.status === PAYMENT_ORDER_STATUS.REFUNDED) {
+      timeline.push({
+        id: `entitlement-revoked-${order.id}`,
+        category: 'entitlement',
+        title: order.priceType === 'invitation_reward' ? '邀请奖励权益已撤回' : '内部赠送权益已撤回',
+        description: order.priceType === 'invitation_reward'
+          ? '触发邀请奖励的真实支付订单已退款'
+          : '关联权益已由系统撤回',
+        status: PAYMENT_ORDER_STATUS.REFUNDED,
+        occurredAt: order.updatedAt.toISOString(),
+        actor: null,
+      })
+    }
     if (order.closedAt) {
       timeline.push({
         id: `order-closed-${order.id}`,
@@ -840,6 +867,19 @@ adminRouter.get('/payment-orders/:orderNo', async (req, res) => {
           actor: actorFor(refund.operatorId),
         })
       }
+    })
+
+    invitationRewards.forEach((reward) => {
+      if (reward.status !== 'revoked' || !reward.revokedAt) return
+      timeline.push({
+        id: `invitation-reward-revoked-${reward.id}`,
+        category: 'entitlement',
+        title: '邀请周卡奖励已撤回',
+        description: `${reward.user.username} · ${reward.beneficiaryRole === 'inviter' ? '邀请人' : '受邀人'} · ${reward.examType || '未选择考试'}`,
+        status: reward.status,
+        occurredAt: reward.revokedAt.toISOString(),
+        actor: null,
+      })
     })
 
     memberships.forEach((membership) => {

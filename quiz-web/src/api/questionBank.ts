@@ -45,6 +45,7 @@ export interface QuestionBankAdminItem {
   topic: string | null
   topicCode: string | null
   knowledgePoints: KnowledgePoint[]
+  isReplacement: boolean
   status: QuestionBankStatus
   publishedAt: string | null
   archivedAt: string | null
@@ -71,6 +72,9 @@ export interface QuestionBankImportBatch {
   declaredQuestionCount: number
   actualQuestionCount: number
   currentQuestionCount: number
+  replacementCount: number
+  replacedQuestionCount: number
+  pendingReplacementCount: number
   remarks: string | null
   createdAt: string
   statusCounts: Record<QuestionBankStatus, number>
@@ -152,6 +156,15 @@ export function getQuestionBankImportBatchDetail(id: string) {
   })
 }
 
+/** 修改后台试题包名称，不改变包内题目及其发布状态。 */
+export function updateQuestionBankImportBatchTitle(id: string, title: string) {
+  return callApi<{ id: string; title: string }>({
+    url: `/question-library/admin/batches/${id}/title`,
+    method: 'PUT',
+    body: { title },
+  })
+}
+
 /** 后台一次读取上传包内全部完整题目，用于逐题解析查看。 */
 export function getQuestionBankImportBatchReview(id: string) {
   return callApi<{ questions: QuestionBankAdminDetail[] }>({
@@ -170,6 +183,17 @@ export function updateQuestionBankImportBatchStatus(
     status: QuestionBankStatus
     questionCount: number
     updatedQuestions: number
+    replacementCount: number
+    archivedQuestionCount: number
+    updatedDraftMockPaperCount: number
+    versionedMockPapers: Array<{
+      previousSetId: string
+      currentSetId: string
+      sequenceNo: number
+      previousVersion: number
+      currentVersion: number
+      code: string
+    }>
   }>({
     url: `/question-library/admin/batches/${id}/status`,
     method: 'PUT',
@@ -192,6 +216,7 @@ export function importQuestionBankDocument(content: string, fileName: string) {
     title: string
     fileName: string | null
     questionCount: number
+    replacementCount: number
     status: QuestionBankStatus
   }>({
     url: '/question-library/admin/import',

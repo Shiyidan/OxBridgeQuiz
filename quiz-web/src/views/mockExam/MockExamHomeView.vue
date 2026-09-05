@@ -32,7 +32,6 @@
               模拟套卷
             </button>
             <button
-              v-if="moduleMockExamEntryVisible"
               type="button"
               role="tab"
               :aria-selected="activeTab === 'modules'"
@@ -531,6 +530,7 @@
                     <div>
                       <div class="record-card__meta">
                         <span>{{ record.paperCode || 'MOCK' }}</span>
+                        <span v-if="record.version > 1">V{{ record.version }}</span>
                         <b :data-mode="record.mode">
                           {{ record.mode === 'single' ? '单项模考' : '完整模考' }}
                         </b>
@@ -982,14 +982,13 @@ import type { PaginationMeta } from '@/api/papers'
 type PageTab = 'catalog' | 'modules' | 'records'
 type MembershipTarget = { kind: 'paper' | 'module'; id: string }
 
-const moduleMockExamEntryVisible = false
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const activeTab = ref<PageTab>(
   route.query.tab === 'records'
     ? 'records'
-    : moduleMockExamEntryVisible && route.query.tab === 'modules'
+    : route.query.tab === 'modules'
       ? 'modules'
       : 'catalog',
 )
@@ -1801,7 +1800,8 @@ async function confirmAbandon(): Promise<void> {
 function paperPrimaryAction(paper: MockExamPaperItem): string {
   if (!auth.isLoggedIn) return '登录后开始'
   if (isPaperLocked(paper)) return '开通会员'
-  if (paper.completedCount > 0 || paper.inProgressCount > 0) return '开始新模考'
+  if (paper.completedCount > 0) return '重新做'
+  if (paper.inProgressCount > 0) return '开始新模考'
   return '开始模考'
 }
 
@@ -1899,7 +1899,7 @@ watch(activeExamType, () => {
   if (!paymentVisible.value) paymentExamType.value = activeExamType.value
   void Promise.all([
     loadCatalog(),
-    ...(moduleMockExamEntryVisible ? [loadModules()] : []),
+    ...(activeTab.value === 'modules' ? [loadModules()] : []),
     loadOverview(),
   ])
   if (activeTab.value === 'records' && auth.isLoggedIn) void loadRecords()

@@ -206,6 +206,29 @@ export function parseModuleExamSnapshot(value: unknown): ModuleExamSnapshot | nu
   return snapshot
 }
 
+export interface SnapshotQuestionModule {
+  code: string
+  order: number
+  questionNumber: number
+}
+
+// 结果与报告按开考时冻结的题目清单恢复模块归属，避免题库分类更新后改写历史答卷结构。
+export function indexSnapshotQuestionModules(
+  snapshot: ModuleExamSnapshot | null,
+): Map<string, SnapshotQuestionModule> {
+  const result = new Map<string, SnapshotQuestionModule>()
+  for (const module of snapshot?.modules || []) {
+    module.questionIds.forEach((questionId, index) => {
+      result.set(questionId, {
+        code: module.code,
+        order: module.order,
+        questionNumber: index + 1,
+      })
+    })
+  }
+  return result
+}
+
 function addSeconds(date: Date, seconds: number): Date {
   return new Date(date.getTime() + Math.max(1, seconds) * 1000)
 }

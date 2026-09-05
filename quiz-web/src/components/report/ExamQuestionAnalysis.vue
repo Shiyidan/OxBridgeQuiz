@@ -66,7 +66,8 @@
     >
       <QuestionCard
         :question="currentQuestion"
-        :index="displayQuestionIndex"
+        :index="currentIndex"
+        :question-label="displayQuestionLabel"
         :selected-answer="currentQuestion.selectedAnswer || undefined"
         :show-answer="true"
         variant="exam"
@@ -162,6 +163,16 @@ const MODULE_LABELS: Record<string, string> = {
   paper2: 'Paper 2',
 }
 
+const MODULE_ALIASES: Record<string, string[]> = {
+  maths1: ['m1', 'math1', 'maths1', 'mathematics1', '数学1'],
+  maths2: ['m2', 'math2', 'maths2', 'mathematics2', '数学2'],
+  physics: ['physics', '物理'],
+  chemistry: ['chemistry', '化学'],
+  biology: ['biology', '生物'],
+  paper1: ['p1', 'paper1', 'tmuap1', 'tmuapaper1'],
+  paper2: ['p2', 'paper2', 'tmuap2', 'tmuapaper2'],
+}
+
 const props = defineProps<{
   questions: ReportQuestion[]
   correctCount: number
@@ -183,23 +194,41 @@ const reportCardRef = ref<HTMLElement | null>(null)
 const currentQuestion = computed<ReportQuestion | undefined>(
   () => props.questions[currentIndex.value],
 )
-const displayQuestionIndex = computed(() => {
-  if (!props.singleQuestionMode) return currentIndex.value
-  const originalNumber = Number(currentQuestion.value?.number)
-  return Number.isInteger(originalNumber) && originalNumber > 0 ? originalNumber - 1 : 0
-})
 const skippedCount = computed(() => props.questions.filter((q) => !q.selectedAnswer).length)
 const wrongCount = computed(
   () => props.questions.filter((q) => q.selectedAnswer && !q.isCorrect).length,
 )
 const answerText = computed(() => currentQuestion.value?.answer?.join(', ') || '-')
+
+// 没有答卷快照的历史结果统一中英文与旧缩写，避免同一模块因显示名称差异被拆组。
+function normalizedQuestionModuleCode(question: ReportQuestion): string {
+  const explicitCode = String(question.module_code || '')
+    .trim()
+    .toLowerCase()
+  if (MODULE_LABELS[explicitCode]) return explicitCode
+
+  const classification = `${explicitCode} ${question.subject_code || ''} ${question.subject || ''}`
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_\-()（）]+/g, '')
+  const examType = String(question.examType || '').trim().toUpperCase()
+  const allowedCodes = examType === 'TMUA'
+    ? new Set(['paper1', 'paper2'])
+    : examType === 'ESAT'
+      ? new Set(['maths1', 'maths2', 'physics', 'chemistry', 'biology'])
+      : null
+  const matched = Object.entries(MODULE_ALIASES).find(([code, aliases]) =>
+    (!allowedCodes || allowedCodes.has(code))
+    && aliases.some((alias) => classification.includes(alias)),
+  )
+  return matched?.[0] || explicitCode
+}
+
 // 题库解析按考纲学科分组，诊断和管理预览继续按考试模块分组。
 const questionNavGroups = computed<QuestionNavGroup[]>(() => {
   const groups: QuestionNavGroup[] = []
   props.questions.forEach((question, index) => {
-    const moduleCode = String(question.module_code || question.component_code || '')
-      .trim()
-      .toLowerCase()
+    const moduleCode = normalizedQuestionModuleCode(question)
     const subjectCode = String(question.subject_code || '').trim().toLowerCase()
     const subject = String(question.subject || '').trim()
     const usesSyllabusGrouping = props.groupBy === 'syllabus'
@@ -207,9 +236,14 @@ const questionNavGroups = computed<QuestionNavGroup[]>(() => {
       ? subjectCode || subject.toLowerCase() || 'syllabus'
       : moduleCode || subject.toLowerCase() || 'continuous'
     const existingGroup = groups.find((group) => group.identity === groupIdentity)
+    const moduleQuestionNumber = Number(question.module_question_number)
     const item: QuestionNavItem = {
       index,
-      number: Number(question.number) || index + 1,
+      number: props.groupBy === 'module'
+        ? Number.isInteger(moduleQuestionNumber) && moduleQuestionNumber > 0
+          ? moduleQuestionNumber
+          : (existingGroup?.items.length || 0) + 1
+        : Number(question.number) || index + 1,
       status: question.selectedAnswer ? (question.isCorrect ? 'correct' : 'wrong') : 'skipped',
     }
 
@@ -230,6 +264,15 @@ const questionNavGroups = computed<QuestionNavGroup[]>(() => {
     })
   })
   return groups
+})
+
+// 逐题标题与左侧导航共用模块内题号；错题本单题入口始终展示为 Question 1。
+const displayQuestionLabel = computed(() => {
+  if (props.singleQuestionMode) return 'Question 1'
+  const currentNavItem = questionNavGroups.value
+    .flatMap((group) => group.items)
+    .find((item) => item.index === currentIndex.value)
+  return `Question ${currentNavItem?.number || currentIndex.value + 1}`
 })
 // 题库解析即使只有一个考纲分组也展示名称，避免左侧只剩题号而看不到所属范围。
 const showQuestionGroupLabels = computed(

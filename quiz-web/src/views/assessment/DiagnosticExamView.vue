@@ -444,9 +444,9 @@ const currentKnowledgeTags = computed(() => {
   return topic ? [topic] : []
 })
 
-// 新规范优先读取 module_question_number，早期 attempt 回退到 component 别名或数组顺序。
+// 模块内题号缺失时使用当前模块中的数组顺序兜底。
 function getQuestionDisplayNumber(question: AttemptQuestion, index: number): number {
-  return question.module_question_number || question.component_question_number || index + 1
+  return question.module_question_number || index + 1
 }
 
 // 服务端会话是当前模块、休息阶段和截止时间的唯一数据源。

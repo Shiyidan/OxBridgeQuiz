@@ -24,7 +24,7 @@
           <li>题目 code 必须全局唯一，考纲 code 和 label 必须匹配当前考纲。</li>
           <li>TMUA 题目的 part 必须填写 paper1 或 paper2；ESAT、STEP 题目不得填写 part。</li>
           <li>整批校验、整批提交；任意一题失败都不会写入数据。</li>
-          <li>导入后的题目统一为草稿，需要逐题审核发布。</li>
+          <li>普通题导入后为草稿；带 revision 的替换题必须整包上线，不能逐题发布。</li>
         </ul>
       </div>
 
@@ -45,6 +45,9 @@
         </div>
         <div>
           <span>实际题量</span><strong>{{ preview.actualCount }} 题</strong>
+        </div>
+        <div>
+          <span>替换题量</span><strong>{{ preview.replacementCount }} 题</strong>
         </div>
         <div>
           <span>备注</span><strong>{{ preview.remarks || '—' }}</strong>
@@ -82,6 +85,7 @@ const preview = ref<{
   title: string
   questionCount: number
   actualCount: number
+  replacementCount: number
   remarks: string
 } | null>(null)
 
@@ -104,6 +108,12 @@ function parsePreview(content: string): void {
       title: String(document.metadata.title || '—'),
       questionCount: Number(document.metadata.questionCount) || 0,
       actualCount: document.questions.length,
+      replacementCount: document.questions.filter(
+        (question: unknown) =>
+          Boolean(question) &&
+          typeof question === 'object' &&
+          Boolean((question as { revision?: unknown }).revision),
+      ).length,
       remarks: String(document.metadata.remarks || ''),
     }
     localError.value = ''
@@ -155,7 +165,11 @@ async function submitImport(): Promise<void> {
   submitting.value = true
   try {
     const result = await importQuestionBankDocument(fileContent.value, selectedFile.value.name)
-    ElMessage.success(`文件已导入，共创建 ${result.questionCount} 道草稿题`)
+    ElMessage.success(
+      result.replacementCount
+        ? `替换文件已导入，共创建 ${result.questionCount} 道草稿题，其中 ${result.replacementCount} 道等待整包上线`
+        : `文件已导入，共创建 ${result.questionCount} 道草稿题`,
+    )
     await router.push({
       name: 'admin-question-batch-detail',
       params: { batchId: result.batchId },

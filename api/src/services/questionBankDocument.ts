@@ -63,6 +63,11 @@ export interface QuestionBankQuestionInput {
     referenceYear?: number;
     referenceQuestionCode?: string;
   };
+  revision?: {
+    originCode: string;
+    version: string;
+    reason: string;
+  };
 }
 
 export interface QuestionBankDocument {
@@ -196,6 +201,7 @@ function validateQuestion(
       "classification",
       "learningAnalysis",
       "origin",
+      "revision",
     ],
     [
       "code",
@@ -553,6 +559,51 @@ function validateQuestion(
     }
   }
 
+  let revision: QuestionBankQuestionInput["revision"];
+  if (raw.revision !== undefined) {
+    const revisionPath = `${path}.revision`;
+    if (!isObject(raw.revision)) {
+      issues.push(`${revisionPath} 必须是对象`);
+    } else {
+      assertKeys(
+        raw.revision,
+        ["originCode", "version", "reason"],
+        ["originCode", "version", "reason"],
+        revisionPath,
+        issues,
+      );
+      const originCode = nonEmptyString(
+        raw.revision.originCode,
+        `${revisionPath}.originCode`,
+        issues,
+      );
+      const version = nonEmptyString(
+        raw.revision.version,
+        `${revisionPath}.version`,
+        issues,
+      );
+      const reason = nonEmptyString(
+        raw.revision.reason,
+        `${revisionPath}.reason`,
+        issues,
+      );
+      if (originCode && !/^[A-Z0-9]+(?:-[A-Z0-9]+)+$/.test(originCode)) {
+        issues.push(`${revisionPath}.originCode 只能包含大写英文字母、数字和连字符`);
+      }
+      if (version && !/^V(?:[2-9]|[1-9]\d+)$/.test(version)) {
+        issues.push(`${revisionPath}.version 必须使用 V2、V3 等格式`);
+      }
+      if (reason && !/^[a-z][a-z0-9_]*$/.test(reason)) {
+        issues.push(`${revisionPath}.reason 只能使用小写字母、数字和下划线`);
+      }
+      const baseCode = originCode.replace(/-V[1-9]\d*$/, "");
+      if (originCode && version && code !== `${baseCode}-${version}`) {
+        issues.push(`${path}.code 必须等于 ${baseCode}-${version}`);
+      }
+      revision = { originCode, version, reason };
+    }
+  }
+
   return {
     code,
     examType: (EXAM_TYPES.has(examType)
@@ -611,6 +662,7 @@ function validateQuestion(
       ),
     },
     ...(origin ? { origin } : {}),
+    ...(revision ? { revision } : {}),
   };
 }
 
@@ -680,10 +732,22 @@ export function validateQuestionBankDocument(
     );
   }
   const codes = new Set<string>();
+  const revisionOriginCodes = new Set<string>();
   questions.forEach((question, index) => {
     if (codes.has(question.code))
       issues.push(`questions[${index}].code 在本批次内重复`);
     codes.add(question.code);
+  });
+  questions.forEach((question, index) => {
+    if (question.revision) {
+      if (revisionOriginCodes.has(question.revision.originCode)) {
+        issues.push(`questions[${index}].revision.originCode 在本批次内重复`);
+      }
+      revisionOriginCodes.add(question.revision.originCode);
+      if (codes.has(question.revision.originCode)) {
+        issues.push(`questions[${index}].revision.originCode 不能指向本批次中的新题`);
+      }
+    }
   });
 
   if (issues.length) throw new QuestionBankDocumentError(issues);

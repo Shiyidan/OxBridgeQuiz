@@ -1,4 +1,4 @@
-<!-- 会员支付弹窗：选择已开放考试、套餐与支付渠道并完成订单支付。 -->
+<!-- 会员支付弹窗：选择考试与套餐，并通过支付宝、微信或云闪付共用的聚合码完成支付。 -->
 <template>
   <Teleport to="body">
     <Transition name="payment-fade">
@@ -15,7 +15,12 @@
           aria-labelledby="payment-modal-title"
         >
           <header class="payment-header">
-            <h2 id="payment-modal-title">{{ resumeOrderNo ? '继续支付订单' : '选择会员套餐' }}</h2>
+            <div>
+              <h2 id="payment-modal-title">
+                {{ resumeOrderNo ? '继续支付订单' : '选择会员套餐' }}
+              </h2>
+              <p>开启高效备考，从一份合适的计划开始</p>
+            </div>
             <button
               class="payment-close"
               type="button"
@@ -31,9 +36,20 @@
           <div class="payment-body">
             <div class="payment-options">
               <div class="option-section">
-                <p class="option-label">请选择您的备考类型：</p>
+                <div class="option-heading">
+                  <span class="option-step">1</span>
+                  <div class="option-heading__content">
+                    <h3>选择备考类型</h3>
+                    <p>不同考试类型的题库、解析与学习建议将有所区别</p>
+                  </div>
+                </div>
                 <div class="exam-options">
-                  <label v-for="exam in examOptions" :key="exam.value" class="exam-option">
+                  <label
+                    v-for="exam in examOptions"
+                    :key="exam.value"
+                    class="exam-option"
+                    :class="{ 'exam-option--active': selectedExam === exam.value }"
+                  >
                     <input
                       v-model="selectedExam"
                       type="radio"
@@ -41,14 +57,37 @@
                       :value="exam.value"
                       :disabled="resumedExistingOrder"
                     />
-                    <span class="radio-control" aria-hidden="true"></span>
-                    <span>{{ exam.label }}</span>
+                    <span
+                      class="exam-option__icon"
+                      :class="`exam-option__icon--${exam.value.toLowerCase()}`"
+                      aria-hidden="true"
+                    >
+                      <svg v-if="exam.value === 'ESAT'" viewBox="0 0 32 32">
+                        <path d="M9 22L16.5 9M15.5 25L23 12" />
+                      </svg>
+                      <svg v-else viewBox="0 0 32 32">
+                        <path d="M16 5L27 25H5L16 5Z" />
+                        <path d="M10.5 15H21.5M10.5 15L16 25M21.5 15L16 25" />
+                      </svg>
+                    </span>
+                    <strong>{{ exam.label }}</strong>
+                    <span class="radio-control" aria-hidden="true">
+                      <svg v-if="selectedExam === exam.value" viewBox="0 0 16 16">
+                        <path d="M3.5 8.2l2.7 2.7 6.3-6.1" />
+                      </svg>
+                    </span>
                   </label>
                 </div>
               </div>
 
               <div class="option-section plan-section">
-                <p class="option-label">请选择合适的订阅计划：</p>
+                <div class="option-heading">
+                  <span class="option-step">2</span>
+                  <div class="option-heading__content">
+                    <h3>选择订阅计划</h3>
+                    <p>按需选择，随时开启高效备考</p>
+                  </div>
+                </div>
                 <button
                   v-for="plan in plans"
                   :key="plan.id"
@@ -79,8 +118,14 @@
                       <del class="plan-original-price">¥{{ plan.originalPrice }}</del>
                     </span>
                   </span>
-                  <span v-if="selectedPlanId === plan.id" class="plan-selected" aria-hidden="true">
-                    <svg viewBox="0 0 16 16"><path d="M3.5 8.2l2.7 2.7 6.3-6.1" /></svg>
+                  <span
+                    class="plan-selected"
+                    :class="{ 'plan-selected--active': selectedPlanId === plan.id }"
+                    aria-hidden="true"
+                  >
+                    <svg v-if="selectedPlanId === plan.id" viewBox="0 0 16 16">
+                      <path d="M3.5 8.2l2.7 2.7 6.3-6.1" />
+                    </svg>
                   </span>
                 </button>
               </div>
@@ -88,65 +133,89 @@
               <div class="member-benefits">
                 <h3>会员权益</h3>
                 <ul>
-                  <li v-for="benefit in benefits" :key="benefit">
-                    <svg viewBox="0 0 18 18" aria-hidden="true">
-                      <circle cx="9" cy="9" r="8" />
-                      <path d="M5.3 9.1l2.4 2.4 5-5" />
-                    </svg>
-                    <span>{{ benefit }}</span>
+                  <li v-for="benefit in benefits" :key="benefit.title">
+                    <span class="benefit-icon" aria-hidden="true">
+                      <svg v-if="benefit.icon === 'document'" viewBox="0 0 24 24">
+                        <path d="M6 3.5h10l2 2v15H6zM9 9h6M9 13h6M9 17h4" />
+                      </svg>
+                      <svg v-else-if="benefit.icon === 'report'" viewBox="0 0 24 24">
+                        <path d="M5 20V11h3v9M10.5 20V5h3v15M16 20v-7h3v7" />
+                      </svg>
+                      <svg v-else-if="benefit.icon === 'library'" viewBox="0 0 24 24">
+                        <path d="M4 7l8-4 8 4-8 4zM4 12l8 4 8-4M4 16l8 4 8-4" />
+                      </svg>
+                      <svg v-else viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="8.5" />
+                        <path d="M12 7v5l3 2" />
+                      </svg>
+                    </span>
+                    <span class="benefit-copy">
+                      <strong>{{ benefit.title }}</strong>
+                      <span>{{ benefit.description }}</span>
+                    </span>
                   </li>
                 </ul>
               </div>
             </div>
 
             <div class="payment-checkout">
-              <div class="amount-line">
-                <span>待支付：</span><strong>¥{{ displayAmount }}</strong>
+              <div class="amount-summary" aria-live="polite">
+                <span>待支付</span>
+                <strong><small>¥</small>{{ displayAmount }}</strong>
+                <p>{{ selectedExamLabel }} · {{ selectedPlanLabel }}</p>
               </div>
 
-              <div class="qr-card" aria-label="银联商务聚合支付二维码">
-                <img
-                  v-if="qrCodeImageUrl"
-                  class="qr-image"
-                  :src="qrCodeImageUrl"
-                  alt="支付二维码"
-                />
-                <a
-                  v-else-if="paymentPageUrl"
-                  class="qr-fallback"
-                  :href="paymentPageUrl"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  二维码生成失败<br />点击打开银联收银台
-                </a>
-                <svg v-else viewBox="0 0 21 21" role="img" aria-hidden="true">
-                  <rect width="21" height="21" fill="#fff" />
-                  <g fill="#101010">
-                    <path d="M1 1h7v7H1zm1 1v5h5V2zM3 3h3v3H3z" fill-rule="evenodd" />
-                    <path d="M13 1h7v7h-7zm1 1v5h5V2zM15 3h3v3h-3z" fill-rule="evenodd" />
-                    <path d="M1 13h7v7H1zm1 1v5h5v-5zM3 15h3v3H3z" fill-rule="evenodd" />
-                    <path
-                      d="M10 1h2v2h-1v2H9V3h1zm-1 5h2v2h2v2h-2V9H9zm3-1h1v2h-1zM8 10h2v2H8zM1 10h2v1h2v2H3v-1H1zm5-1h2v2H6zm-1 3h3v2H6v-1H5zm4 1h2v1h1v2h-2v-1H9zm3-2h2v2h-1v2h-1zm3-2h2v2h3v3h-2v-1h-3v-2h-1V9zm3 6h2v2h-1v3h-2v-2h-2v-2h1v1h2zm-5 1h2v2h2v2h-4v-1h-2v-2h2zM9 18h2v2H9zm1-2h1v1h-1z"
-                    />
-                  </g>
-                </svg>
-                <button
-                  v-if="orderCreationFailed && providerReady && configStatus === 'active'"
-                  class="qr-demo qr-action"
-                  type="button"
-                  :disabled="creatingOrder"
-                  @click="handleCreateOrder"
-                >
-                  {{ creatingOrder ? '正在重新生成…' : '重新生成二维码' }}
-                </button>
-                <span v-else-if="creatingOrder" class="qr-demo qr-loading">正在生成二维码…</span>
-                <span
-                  v-else-if="!providerReady || configStatus !== 'active'"
-                  class="qr-demo qr-unavailable"
-                  >支付暂不可用</span
-                >
-                <span v-else-if="orderStatus === 'paid'" class="qr-demo qr-success">支付成功</span>
+              <div class="qr-frame">
+                <i class="qr-corner qr-corner--top-left" aria-hidden="true"></i>
+                <i class="qr-corner qr-corner--top-right" aria-hidden="true"></i>
+                <i class="qr-corner qr-corner--bottom-left" aria-hidden="true"></i>
+                <i class="qr-corner qr-corner--bottom-right" aria-hidden="true"></i>
+                <div class="qr-card" aria-label="银联商务聚合支付二维码">
+                  <img
+                    v-if="qrCodeImageUrl"
+                    class="qr-image"
+                    :src="qrCodeImageUrl"
+                    alt="支付二维码"
+                  />
+                  <a
+                    v-else-if="paymentPageUrl"
+                    class="qr-fallback"
+                    :href="paymentPageUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    二维码生成失败<br />点击打开银联收银台
+                  </a>
+                  <svg v-else viewBox="0 0 21 21" role="img" aria-hidden="true">
+                    <rect width="21" height="21" fill="#fff" />
+                    <g fill="#101010">
+                      <path d="M1 1h7v7H1zm1 1v5h5V2zM3 3h3v3H3z" fill-rule="evenodd" />
+                      <path d="M13 1h7v7h-7zm1 1v5h5V2zM15 3h3v3h-3z" fill-rule="evenodd" />
+                      <path d="M1 13h7v7H1zm1 1v5h5v-5zM3 15h3v3H3z" fill-rule="evenodd" />
+                      <path
+                        d="M10 1h2v2h-1v2H9V3h1zm-1 5h2v2h2v2h-2V9H9zm3-1h1v2h-1zM8 10h2v2H8zM1 10h2v1h2v2H3v-1H1zm5-1h2v2H6zm-1 3h3v2H6v-1H5zm4 1h2v1h1v2h-2v-1H9zm3-2h2v2h-1v2h-1zm3-2h2v2h3v3h-2v-1h-3v-2h-1V9zm3 6h2v2h-1v3h-2v-2h-2v-2h1v1h2zm-5 1h2v2h2v2h-4v-1h-2v-2h2zM9 18h2v2H9zm1-2h1v1h-1z"
+                      />
+                    </g>
+                  </svg>
+                  <button
+                    v-if="orderCreationFailed && providerReady && configStatus === 'active'"
+                    class="qr-demo qr-action"
+                    type="button"
+                    :disabled="creatingOrder"
+                    @click="handleCreateOrder"
+                  >
+                    {{ creatingOrder ? '正在重新生成…' : '重新生成二维码' }}
+                  </button>
+                  <span v-else-if="creatingOrder" class="qr-demo qr-loading">正在生成二维码…</span>
+                  <span
+                    v-else-if="!providerReady || configStatus !== 'active'"
+                    class="qr-demo qr-unavailable"
+                    >支付暂不可用</span
+                  >
+                  <span v-else-if="orderStatus === 'paid'" class="qr-demo qr-success"
+                    >支付成功</span
+                  >
+                </div>
               </div>
 
               <p class="scan-tip">
@@ -155,37 +224,31 @@
                   >二维码生成失败，请点击上方按钮重试</template
                 >
                 <template v-else-if="createdOrderNo && orderStatus !== 'paid'">
-                  请使用 <strong>{{ activeChannel.name }}</strong> 扫码支付
+                  请使用
+                  <span class="scan-wallets" aria-label="支付宝、微信和云闪付">
+                    <span
+                      v-for="channel in channels"
+                      :key="channel.id"
+                      class="scan-wallet-icon"
+                      :class="`scan-wallet-icon--${channel.id}`"
+                      role="img"
+                      :aria-label="channel.name"
+                      :title="channel.name"
+                      >{{ channel.mark }}</span
+                    >
+                  </span>
+                  扫码支付
                 </template>
                 <template v-else-if="orderStatus === 'paid'">支付成功，会员权益已生效</template>
                 <template v-else>正在准备支付服务</template>
               </p>
-
-              <div class="channel-tabs" role="tablist" aria-label="支付方式">
-                <button
-                  v-for="channel in channels"
-                  :key="channel.id"
-                  class="channel-tab"
-                  :class="{ 'channel-tab--active': selectedChannelId === channel.id }"
-                  type="button"
-                  role="tab"
-                  :aria-selected="selectedChannelId === channel.id"
-                  :disabled="resumedExistingOrder"
-                  @click="selectedChannelId = channel.id"
-                >
-                  <span class="channel-logo" :class="`channel-logo--${channel.id}`">{{
-                    channel.mark
-                  }}</span>
-                  <span>{{ channel.label }}</span>
-                </button>
-              </div>
 
               <div class="safe-tip">
                 <svg viewBox="0 0 20 20" aria-hidden="true">
                   <path d="M10 2l6 2.3v4.5c0 4-2.5 7-6 8.8-3.5-1.8-6-4.8-6-8.8V4.3L10 2z" />
                   <path d="M7 9.7l2 2 4-4" />
                 </svg>
-                扫码支付，安全快捷
+                三种支付工具共用当前二维码
               </div>
             </div>
           </div>
@@ -256,7 +319,6 @@ const emit = defineEmits<{
 const examOptions = EXAM_TYPE_OPTIONS.filter((item) => item.available)
 const selectedExam = ref('TMUA')
 const selectedPlanId = ref('monthly')
-const selectedChannelId = ref('alipay')
 const creatingOrder = ref(false)
 const orderCreationFailed = ref(false)
 const createdOrderNo = ref('')
@@ -301,21 +363,19 @@ const plans = computed<PaymentPlan[]>(() => [
 ])
 
 const benefits = [
-  '解锁所选考试的全部会员诊断卷',
-  '不限次生成能力诊断报告与学习建议',
-  '不限题量使用专项题库与练习本',
-  '查看完整解析、错题记录与历史学习数据',
-]
-
-// 云闪付尚在正式通道审核中，前台暂不提供入口；后端 unionpay 能力保留以便获批后恢复。
-const channels = [
-  { id: 'alipay', name: '支付宝', label: '支付宝', mark: '支' },
-  { id: 'wechat', name: '微信', label: '微信支付', mark: '微' },
+  { icon: 'document', title: '解锁全部', description: '会员诊断卷' },
+  { icon: 'report', title: '不限次数', description: '生成能力诊断报告' },
+  { icon: 'library', title: '不限题量', description: '专项题库与练习本' },
+  { icon: 'history', title: '查看完整解析', description: '与历史学习数据' },
 ] as const
 
-const activeChannel = computed(
-  () => channels.find((item) => item.id === selectedChannelId.value) || channels[0],
-)
+// 聚合码支持的扫码工具只作静态提示，不参与订单创建或二维码切换。
+const channels = [
+  { id: 'alipay', name: '支付宝', mark: '支' },
+  { id: 'wechat', name: '微信支付', mark: '微' },
+  { id: 'unionpay', name: '云闪付 App', mark: '云' },
+] as const
+
 const displayAmount = computed(() =>
   formatPrice(
     orderAmountCents.value ??
@@ -324,6 +384,17 @@ const displayAmount = computed(() =>
         : priceConfig.value.quarterlyPriceCents),
   ),
 )
+
+// 付款摘要展示当前订单对应的考试名称。
+const selectedExamLabel = computed(
+  () => examOptions.find((item) => item.value === selectedExam.value)?.label || selectedExam.value,
+)
+
+// 付款摘要使用当前套餐名称与固定服务期限，避免用户只看到金额。
+const selectedPlanLabel = computed(() => {
+  const selectedPlan = plans.value.find((item) => item.id === selectedPlanId.value)
+  return selectedPlan ? `${selectedPlan.name}（${selectedPlan.period}）` : ''
+})
 
 function closeModal(): void {
   void cancelCurrentOrder()
@@ -444,7 +515,7 @@ async function createPaymentQrImage(checkoutUrl: string): Promise<string> {
   })
 }
 
-// 弹窗打开或支付选项变化后自动创建订单，金额始终由后端重新计算。
+// 弹窗打开或购买内容变化后自动创建聚合订单，金额始终由后端重新计算。
 async function handleCreateOrder(): Promise<void> {
   if (!selectedExam.value) {
     ElMessage.warning('请选择一个备考类型')
@@ -458,7 +529,6 @@ async function handleCreateOrder(): Promise<void> {
     const result = await createPaymentOrder({
       examTypes: [selectedExam.value],
       plan: selectedPlanId.value as 'monthly' | 'quarterly',
-      channel: selectedChannelId.value as 'alipay' | 'wechat' | 'unionpay',
       legalVersions: { ...MEMBERSHIP_LEGAL_VERSIONS },
     })
     if (currentGeneration !== orderGeneration || !props.modelValue) {
@@ -498,7 +568,6 @@ async function resumeExistingPaymentOrder(orderNo: string): Promise<void> {
     const order = result.order
     selectedExam.value = order.examTypes[0] || props.defaultExamType || 'TMUA'
     selectedPlanId.value = order.plan
-    selectedChannelId.value = order.channel
     createdOrderNo.value = order.orderNo
     paymentPageUrl.value = result.qrCodeUrl
     orderAmountCents.value = order.amountCents
@@ -546,7 +615,7 @@ async function initializePaymentModal(): Promise<void> {
   await handleCreateOrder()
 }
 
-// 用户切换考试、套餐或渠道时关闭旧订单，并自动生成与新选择一致的二维码。
+// 用户切换考试或套餐时关闭旧订单，并自动生成与新购买内容一致的二维码。
 async function regeneratePaymentOrder(): Promise<void> {
   if (!props.modelValue || initializingPayment || resumedExistingOrder.value) return
   const previousOrderNo = createdOrderNo.value
@@ -586,7 +655,7 @@ watch(
   },
 )
 
-watch([selectedExam, selectedPlanId, selectedChannelId], () => {
+watch([selectedExam, selectedPlanId], () => {
   void regeneratePaymentOrder()
 })
 
@@ -605,45 +674,53 @@ onBeforeUnmount(() => {
   z-index: 2000;
   display: grid;
   place-items: center;
-  padding: 24px;
-  background: rgb(21 25 32 / 45%);
-  backdrop-filter: blur(3px);
+  padding: 16px;
+  background: rgb(21 31 47 / 38%);
+  backdrop-filter: blur(7px);
 }
 
 .payment-modal {
   width: min(970px, 100%);
   overflow: hidden;
-  color: #30343b;
+  color: #172033;
   background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 24px 70px rgb(15 23 42 / 24%);
+  border: 1px solid rgb(255 255 255 / 72%);
+  border-radius: 18px;
+  box-shadow: 0 28px 80px rgb(15 23 42 / 22%);
 }
 
 .payment-header {
   position: relative;
   display: flex;
   align-items: center;
-  min-height: 70px;
-  padding: 0 30px;
-  border-bottom: 1px solid #e8ebef;
+  min-height: 78px;
+  padding: 15px 30px 12px;
+  border-bottom: 0;
 }
 
 .payment-header h2 {
   margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  color: #111b2f;
+  font-size: 23px;
+  font-weight: 760;
+  letter-spacing: -0.035em;
+}
+
+.payment-header p {
+  margin: 4px 0 0;
+  color: #77849a;
+  font-size: 13px;
 }
 
 .payment-close {
   position: absolute;
-  top: 18px;
-  right: 23px;
+  top: 17px;
+  right: 20px;
   display: grid;
   width: 34px;
   height: 34px;
   padding: 7px;
-  color: #777d86;
+  color: #7c8798;
   background: transparent;
   border: 0;
   border-radius: 50%;
@@ -653,7 +730,7 @@ onBeforeUnmount(() => {
 
 .payment-close:hover {
   color: #1f2937;
-  background: #f3f4f6;
+  background: #f0f4fa;
 }
 
 .payment-close svg {
@@ -664,38 +741,88 @@ onBeforeUnmount(() => {
 
 .payment-body {
   display: grid;
-  grid-template-columns: minmax(0, 56%) minmax(340px, 44%);
+  grid-template-columns: minmax(0, 62%) minmax(340px, 38%);
   min-height: 490px;
 }
 
 .payment-options {
-  padding: 27px 30px 24px;
-  border-right: 1px solid #edf0f3;
+  padding: 14px 30px 20px;
+  border-right: 1px solid #e8eef7;
 }
 
 .option-section + .option-section {
-  margin-top: 29px;
+  margin-top: 20px;
 }
 
-.option-label {
-  margin: 0 0 17px;
-  color: #555b65;
-  font-size: 15px;
+.option-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.option-step {
+  display: grid;
+  flex: 0 0 27px;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  color: #2874ff;
+  font-size: 14px;
+  font-weight: 800;
+  background: #e7f0ff;
+  border-radius: 50%;
+}
+
+.option-heading__content {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.option-heading__content h3 {
+  flex: 0 0 auto;
+  margin: 0;
+  padding-right: 10px;
+  color: #172033;
+  font-size: 16px;
+  font-weight: 760;
+  border-right: 1px solid #d7dfeb;
+}
+
+.option-heading__content p {
+  margin: 0;
+  overflow: hidden;
+  color: #8792a5;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .exam-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 28px 50px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .exam-option {
-  display: inline-flex;
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: 9px;
-  color: #606670;
-  font-size: 15px;
+  gap: 13px;
+  min-height: 68px;
+  padding: 10px 14px;
+  color: #1c2639;
+  font-size: 16px;
+  background: #fff;
+  border: 1px solid #d9e1ec;
+  border-radius: 5px;
   cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
 }
 
 .exam-option input {
@@ -705,57 +832,89 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 
-.radio-control {
+.exam-option__icon {
   display: grid;
   place-items: center;
-  width: 17px;
-  height: 17px;
-  background: #fff;
-  border: 1px solid #ccd2da;
+  flex: 0 0 45px;
+  width: 45px;
+  height: 45px;
   border-radius: 50%;
 }
 
-.radio-control::after {
-  width: 9px;
-  height: 9px;
-  background: #2f73ff;
-  border-radius: 50%;
-  content: '';
-  transform: scale(0);
-  transition: transform 0.15s ease;
+.exam-option__icon svg {
+  width: 27px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.4;
 }
 
-.exam-option input:checked + .radio-control {
+.exam-option__icon--esat {
+  color: #ef3f74;
+  background: linear-gradient(145deg, #ffe9f0, #fff3f6);
+}
+
+.exam-option__icon--tmua {
+  color: #e47613;
+  background: linear-gradient(145deg, #fff0df, #fff8ee);
+}
+
+.exam-option strong {
+  font-size: 16px;
+  font-weight: 750;
+}
+
+.radio-control {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  width: 21px;
+  height: 21px;
+  place-items: center;
+  color: #fff;
   background: #fff;
-  border-color: #2f73ff;
+  border: 1.5px solid #cbd5e2;
+  border-radius: 50%;
 }
 
-.exam-option input:checked + .radio-control::after {
-  transform: scale(1);
+.radio-control svg {
+  width: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 
-.exam-option input:focus-visible + .radio-control {
+.exam-option input:focus-visible ~ .radio-control {
   outline: 2px solid #1a1a1a;
   outline-offset: 2px;
 }
 
-.exam-option:has(input:checked) {
-  color: #2f73ff;
+.exam-option--active {
+  background: linear-gradient(145deg, #fff, #f7faff);
+  border-color: #3478ff;
+  box-shadow: 0 8px 22px rgb(47 115 255 / 8%);
+}
+
+.exam-option--active .radio-control {
+  background: #2f73ff;
+  border-color: #2f73ff;
 }
 
 .exam-option:has(input:disabled),
-.plan-option:disabled,
-.channel-tab:disabled {
+.plan-option:disabled {
   cursor: default;
 }
 
 .plan-section {
-  display: grid;
-  gap: 14px;
+  display: block;
 }
 
-.plan-section .option-label {
-  margin-bottom: 3px;
+.plan-option + .plan-option {
+  margin-top: 20px;
 }
 
 .plan-option {
@@ -763,20 +922,25 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 66px;
-  padding: 0 18px;
-  color: #30343b;
+  width: 100%;
+  min-height: 62px;
+  padding: 0 17px;
+  color: #172033;
   text-align: left;
   background: #fff;
-  border: 1px solid #cbd0d7;
-  border-radius: 10px;
+  border: 1px solid #d8e0eb;
+  border-radius: 5px;
   cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
 }
 
 .plan-option--active {
-  background: #f7faff;
+  background: linear-gradient(145deg, #fff, #f7faff);
   border: 1.5px solid #3478ff;
-  box-shadow: 0 0 0 1px rgb(52 120 255 / 4%);
+  box-shadow: 0 8px 22px rgb(47 115 255 / 7%);
 }
 
 .plan-option:disabled {
@@ -784,8 +948,8 @@ onBeforeUnmount(() => {
 }
 
 .plan-name {
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 750;
 }
 
 .plan-price {
@@ -793,32 +957,33 @@ onBeforeUnmount(() => {
   align-items: baseline;
   gap: 4px;
   margin-left: auto;
+  padding-right: 25px;
 }
 
 .plan-price strong {
   color: #2672ff;
-  font-size: 26px;
+  font-size: 23px;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
 .plan-price > small {
-  color: #7b818a;
-  font-size: 13px;
+  color: #77849a;
+  font-size: 12px;
 }
 
 .plan-promo {
-  margin-right: 5px;
-  color: #2672ff;
-  font-size: 15px;
+  margin-right: 4px;
+  color: #f2a20c;
+  font-size: 13px;
   font-weight: 700;
 }
 
 .plan-original-group {
   display: inline-flex;
   align-items: baseline;
-  color: #7b818a;
-  font-size: 15px;
+  color: #8792a5;
+  font-size: 12px;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
@@ -848,7 +1013,7 @@ onBeforeUnmount(() => {
 .recommend-badge {
   position: absolute;
   top: -12px;
-  left: 20px;
+  left: 18px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -867,96 +1032,215 @@ onBeforeUnmount(() => {
 
 .plan-selected {
   position: absolute;
-  top: -10px;
-  right: -10px;
+  top: 10px;
+  right: 10px;
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: 21px;
+  height: 21px;
   color: #fff;
-  background: #2f73ff;
-  border: 2px solid #fff;
+  background: #fff;
+  border: 1.5px solid #cbd5e2;
   border-radius: 50%;
 }
 
+.plan-selected--active {
+  background: #2f73ff;
+  border-color: #2f73ff;
+}
+
 .plan-selected svg {
-  width: 14px;
+  width: 12px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
 }
 
 .member-benefits {
-  margin-top: 32px;
+  margin-top: 18px;
 }
 
 .member-benefits h3 {
-  margin: 0 0 16px;
-  color: #353a42;
-  font-size: 17px;
+  margin: 0 0 9px;
+  color: #172033;
+  font-size: 15px;
+  font-weight: 760;
 }
 
 .member-benefits ul {
   display: grid;
-  gap: 9px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .member-benefits li {
+  position: relative;
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  color: #59606a;
-  font-size: 14px;
-  line-height: 1.45;
+  min-width: 0;
+  align-items: center;
+  flex-direction: column;
+  gap: 5px;
+  padding: 0 8px;
+  color: #637087;
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: center;
 }
 
-.member-benefits li svg {
-  flex: 0 0 16px;
-  width: 16px;
-  margin-top: 2px;
-  fill: #4e8cad;
+.member-benefits li + li::before {
+  position: absolute;
+  top: 18px;
+  bottom: 2px;
+  left: 0;
+  width: 1px;
+  background: #e2e8f1;
+  content: '';
 }
 
-.member-benefits li svg path {
+.benefit-icon {
+  display: grid;
+  width: 37px;
+  height: 37px;
+  place-items: center;
+  color: #637087;
+  background: linear-gradient(145deg, #f1f3f6, #f8f9fb);
+  border-radius: 50%;
+}
+
+.benefit-icon svg {
+  width: 21px;
   fill: none;
-  stroke: #fff;
+  stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 1.7;
+  stroke-width: 1.8;
+}
+
+.benefit-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.benefit-copy strong {
+  color: #536078;
+  font-size: 12px;
+  font-weight: 650;
 }
 
 .payment-checkout {
+  position: relative;
+  isolation: isolate;
   display: flex;
   align-items: center;
   flex-direction: column;
-  padding: 28px 34px 22px;
-  background: #fdfdfd;
+  padding: 20px 28px 18px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 112% 25%, rgb(203 226 255 / 65%) 0 24%, transparent 24.2%),
+    radial-gradient(circle at 109% 72%, rgb(220 235 255 / 78%) 0 30%, transparent 30.2%),
+    linear-gradient(145deg, #fbfdff 4%, #f5f9ff 62%, #edf5ff 100%);
 }
 
-.amount-line {
-  display: flex;
-  align-items: baseline;
-  margin-bottom: 16px;
-  font-size: 17px;
-  font-weight: 700;
+.payment-checkout::after {
+  position: absolute;
+  z-index: -1;
+  right: -120px;
+  bottom: -180px;
+  width: 420px;
+  height: 420px;
+  border: 64px solid rgb(255 255 255 / 48%);
+  border-radius: 50%;
+  content: '';
 }
 
-.amount-line strong {
+.amount-summary {
+  display: grid;
+  justify-items: center;
+  margin-bottom: 12px;
+  color: #647086;
+  font-size: 13px;
+}
+
+.amount-summary > span {
+  margin-bottom: 2px;
+}
+
+.amount-summary strong {
   color: #2873ff;
-  font-size: 31px;
+  font-size: 39px;
+  font-weight: 540;
+  line-height: 1.12;
   letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.amount-summary strong small {
+  margin-right: 3px;
+  font-size: 0.72em;
+  font-weight: inherit;
+}
+
+.amount-summary p {
+  margin: 4px 0 0;
+  color: #68758b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.qr-frame {
+  position: relative;
+  padding: 8px;
 }
 
 .qr-card {
   position: relative;
-  width: 216px;
-  padding: 13px;
+  width: 202px;
+  padding: 10px;
   background: #fff;
-  border: 1px solid #e4e7eb;
-  border-radius: 3px;
+  border: 1px solid #e4eaf2;
+  border-radius: 5px;
+  box-shadow: 0 16px 38px rgb(74 112 164 / 12%);
+}
+
+.qr-corner {
+  position: absolute;
+  z-index: 1;
+  width: 19px;
+  height: 19px;
+  border-color: #fff;
+  border-style: solid;
+  pointer-events: none;
+}
+
+.qr-corner--top-left {
+  top: 0;
+  left: 0;
+  border-width: 4px 0 0 4px;
+  border-radius: 8px 0 0;
+}
+
+.qr-corner--top-right {
+  top: 0;
+  right: 0;
+  border-width: 4px 4px 0 0;
+  border-radius: 0 8px 0 0;
+}
+
+.qr-corner--bottom-left {
+  bottom: 0;
+  left: 0;
+  border-width: 0 0 4px 4px;
+  border-radius: 0 0 0 8px;
+}
+
+.qr-corner--bottom-right {
+  right: 0;
+  bottom: 0;
+  border-width: 0 4px 4px 0;
+  border-radius: 0 0 8px;
 }
 
 .qr-card > svg {
@@ -1031,74 +1315,48 @@ onBeforeUnmount(() => {
 }
 
 .scan-tip {
-  margin: 13px 0 18px;
-  color: #4c535d;
-  font-size: 14px;
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  justify-content: center;
+  margin: 8px 0 11px;
+  color: #59667b;
+  font-size: 12px;
 }
 
 .scan-tip strong {
   color: #1677ff;
 }
 
-.channel-tabs {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 30px;
-  width: 100%;
-  border-bottom: 1px solid #e9ecef;
+.scan-wallets {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 6px;
+  vertical-align: middle;
 }
 
-.channel-tab {
-  position: relative;
-  display: grid;
-  justify-items: center;
-  gap: 7px;
-  min-width: 58px;
-  padding: 0 0 10px;
-  color: #7b8189;
-  font-size: 12px;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-}
-
-.channel-tab--active {
-  color: #2672ff;
-}
-
-.channel-tab--active::after {
-  position: absolute;
-  right: 0;
-  bottom: -1px;
-  left: 0;
-  height: 2px;
-  background: #2672ff;
-  content: '';
-}
-
-.channel-tab:disabled {
-  opacity: 1;
-}
-
-.channel-logo {
-  display: grid;
+.scan-wallet-icon {
+  display: inline-grid;
   place-items: center;
-  width: 27px;
-  height: 27px;
+  width: 20px;
+  height: 20px;
   color: #fff;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
-  border-radius: 6px;
+  line-height: 1;
+  border-radius: 5px;
 }
 
-.channel-logo--alipay {
+.scan-wallet-icon--alipay {
   background: #1677ff;
 }
-.channel-logo--wechat {
+
+.scan-wallet-icon--wechat {
   background: #16b83e;
 }
-.channel-logo--unionpay {
+
+.scan-wallet-icon--unionpay {
   background: linear-gradient(135deg, #e51c35 0 46%, #087a9d 47% 100%);
 }
 
@@ -1106,9 +1364,25 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 16px;
-  color: #7b8189;
-  font-size: 12px;
+  width: 100%;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 0;
+  color: #718097;
+  font-size: 11px;
+}
+
+.safe-tip::before,
+.safe-tip::after {
+  width: 34px;
+  height: 1px;
+  margin: 0 7px;
+  background: linear-gradient(90deg, transparent, #dce5f1);
+  content: '';
+}
+
+.safe-tip::after {
+  background: linear-gradient(90deg, #dce5f1, transparent);
 }
 
 .safe-tip svg {
@@ -1125,15 +1399,15 @@ onBeforeUnmount(() => {
 }
 
 .payment-footer {
-  padding: 13px 24px 15px;
-  color: #8a9099;
+  padding: 12px 24px 14px;
+  color: #8792a5;
   font-size: 12px;
   text-align: center;
   border-top: 1px solid #eef0f2;
 }
 
 .payment-footer a {
-  color: #4c7f9d;
+  color: #2672ff;
   text-decoration: none;
 }
 
@@ -1154,7 +1428,7 @@ onBeforeUnmount(() => {
   transform: translateY(12px) scale(0.985);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .payment-overlay {
     padding: 0;
   }
@@ -1170,14 +1444,18 @@ onBeforeUnmount(() => {
   }
   .payment-header {
     flex: 0 0 auto;
-    min-height: 64px;
-    padding: 0 20px;
+    min-height: 74px;
+    padding: 12px 20px 10px;
   }
   .payment-header h2 {
-    font-size: 19px;
+    font-size: 20px;
+  }
+  .payment-header p {
+    margin-top: 4px;
+    font-size: 12px;
   }
   .payment-close {
-    top: 15px;
+    top: 12px;
     right: 14px;
   }
   .payment-body {
@@ -1190,15 +1468,15 @@ onBeforeUnmount(() => {
     -webkit-overflow-scrolling: touch;
   }
   .payment-options {
-    padding: 28px 20px;
+    padding: 18px 20px 24px;
     border-right: 0;
   }
   .exam-options {
-    gap: 20px 28px;
+    gap: 12px;
   }
   .plan-option {
-    min-height: 82px;
-    padding: 12px 15px;
+    min-height: 68px;
+    padding: 12px 18px;
   }
   .plan-price {
     flex-wrap: wrap;
@@ -1206,17 +1484,40 @@ onBeforeUnmount(() => {
     max-width: 66%;
   }
   .payment-checkout {
-    padding: 30px 20px;
+    padding: 24px 20px 28px;
     border-top: 1px solid #edf0f3;
   }
   .qr-card {
-    width: min(242px, 76vw);
+    width: min(210px, 76vw);
   }
   .payment-footer {
     flex: 0 0 auto;
     padding: 9px 14px 11px;
     font-size: 10px;
     line-height: 1.5;
+  }
+}
+
+@media (max-width: 560px) {
+  .option-heading__content p {
+    display: none;
+  }
+  .exam-options {
+    grid-template-columns: 1fr;
+  }
+  .exam-option {
+    min-height: 70px;
+  }
+  .member-benefits ul {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 22px;
+  }
+  .member-benefits li:nth-child(3)::before {
+    display: none;
+  }
+  .plan-price {
+    max-width: 70%;
+    padding-right: 25px;
   }
 }
 </style>

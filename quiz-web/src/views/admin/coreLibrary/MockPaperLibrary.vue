@@ -205,18 +205,18 @@
           <el-table-column label="发布状态" width="110">
             <template #default="{ row }">
               <el-tag :type="statusTagType(row.publicationStatus)" size="small">
-                {{ row.publicationStatus === 'published' ? '单项已发布' : '单项未发布' }}
+                {{ modulePublicationStatusLabel(row.publicationStatus) }}
               </el-tag>
             </template>
           </el-table-column>
           <el-table-column label="访问权限" width="110">
             <template #default="{ row }">
               <el-tag
-                :type="row.mockPaperSet.accessTier === 'free' ? 'success' : 'warning'"
+                :type="row.accessTier === 'free' ? 'success' : 'warning'"
                 size="small"
                 effect="plain"
               >
-                {{ row.mockPaperSet.accessTier === 'free' ? '免费' : '会员' }}
+                {{ row.accessTier === 'free' ? '免费' : '会员' }}
               </el-tag>
             </template>
           </el-table-column>
@@ -238,8 +238,8 @@
           <span>
             {{
               viewMode === 'sets'
-                ? '上传组卷 Excel 后，系统会从 No.001 开始自动编号并生成草稿。'
-                : '上传组卷 Excel 后，每个 Module / Paper 会在这里独立展示。'
+                ? '上传的单项不会自动组套；请从“组成套卷”选择可用单项。'
+                : '上传组卷 Excel 后，每个 Sheet 会作为无所属套卷的单项在这里展示。'
             }}
           </span>
           <el-button type="primary" plain @click="openImportDialog">上传第一套试卷</el-button>
@@ -345,7 +345,7 @@
         <strong>编号自动从各考试现有最大编号继续</strong>
         <p>空库首次上传从 No.001 开始。工作表使用“ESAT01-数学1”或“TMUA01-Paper1”命名。</p>
         <p>每张表前三列依次为“考试类型”“学科”“题号（全局唯一）”，题目顺序按数据行排列。</p>
-        <p>无需区分整卷或单项；系统按 Mock 编号归组，并独立判断每个 Module / Paper 是否可用。</p>
+        <p>每个 Sheet 默认导入为无所属套卷的独立单项；需要完整套卷时再使用“组成套卷”。</p>
       </div>
       <el-form label-position="top">
         <el-form-item label="默认权限">
@@ -353,7 +353,7 @@
             <el-radio-button value="member">会员卷</el-radio-button>
             <el-radio-button value="free">免费卷</el-radio-button>
           </el-radio-group>
-          <span class="field-tip">上传后可以逐套修改。</span>
+          <span class="field-tip">上传后可以逐个单项修改。</span>
         </el-form-item>
         <el-form-item label="组卷文件">
           <el-upload
@@ -402,7 +402,8 @@
                   {{ uploadStatusLabel(row.status) }}
                 </el-tag>
                 <span v-if="row.status === 'succeeded'">
-                  {{ row.setCount }} 套 · {{ row.moduleCount }} 个单项
+                  <template v-if="row.setCount > 0">{{ row.setCount }} 套 · </template>
+                  {{ row.moduleCount }} 个单项
                 </span>
                 <small v-else-if="row.errorMessage" :title="row.errorMessage">
                   {{ row.errorMessage }}
@@ -460,9 +461,9 @@
                 <el-tag>{{ detail.code }}</el-tag>
                 <el-tag
                   v-if="detail.singleModuleDetail"
-                  :type="detail.modules[0]?.published ? 'success' : 'info'"
+                  :type="statusTagType(detail.modules[0]?.publicationStatus || 'draft')"
                 >
-                  {{ detail.modules[0]?.published ? '单项已发布' : '单项未发布' }}
+                  {{ modulePublicationStatusLabel(detail.modules[0]?.publicationStatus || 'draft') }}
                 </el-tag>
                 <el-tag
                   v-if="!detail.singleModuleDetail"
@@ -500,8 +501,12 @@
             </div>
             <div class="detail-actions">
               <el-button
-                v-if="!detail.singleModuleDetail"
                 :loading="validating"
+                :disabled="
+                  detail.singleModuleDetail
+                    ? detail.modules[0]?.publicationStatus === 'archived'
+                    : detail.status === 'archived'
+                "
                 @click="refreshValidation"
               >
                 <el-icon><Refresh /></el-icon>
@@ -525,6 +530,18 @@
                 }}
               </el-button>
               <el-button
+                v-else-if="
+                  detail.singleModuleDetail
+                    && detail.modules[0]?.publicationStatus === 'published'
+                "
+                type="danger"
+                plain
+                :loading="archiving"
+                @click="archiveCurrentPaper"
+              >
+                下线单项
+              </el-button>
+              <el-button
                 v-else-if="!detail.singleModuleDetail && detail.status === 'published'"
                 type="danger"
                 plain
@@ -541,22 +558,33 @@
               v-model="editForm.title"
               maxlength="255"
               show-word-limit
-              :disabled="detail.singleModuleDetail ? detail.status === 'archived' : detail.status !== 'draft'"
+              :disabled="
+                detail.singleModuleDetail
+                  ? detail.modules[0]?.publicationStatus === 'archived'
+                  : detail.status !== 'draft'
+              "
             />
             <el-select
-              v-if="!detail.singleModuleDetail"
               v-model="editForm.accessTier"
-              :disabled="detail.status === 'archived'"
+              :disabled="
+                detail.singleModuleDetail
+                  ? detail.modules[0]?.publicationStatus === 'archived'
+                  : detail.status === 'archived'
+              "
             >
               <el-option label="会员卷" value="member" />
               <el-option label="免费卷" value="free" />
             </el-select>
             <el-button
               :loading="savingMeta"
-              :disabled="detail.status === 'archived' || !editForm.title.trim()"
+              :disabled="
+                (detail.singleModuleDetail
+                  ? detail.modules[0]?.publicationStatus === 'archived'
+                  : detail.status === 'archived') || !editForm.title.trim()
+              "
               @click="saveMetadata"
             >
-              {{ detail.singleModuleDetail ? '保存单项名称' : '保存基本信息' }}
+              {{ detail.singleModuleDetail ? '保存单项信息' : '保存基本信息' }}
             </el-button>
           </section>
 
@@ -585,7 +613,7 @@
                     class="module-publication"
                     :class="module.published ? 'is-published' : 'is-unpublished'"
                   >
-                    {{ module.published ? '单项已发布' : '单项未发布' }}
+                    {{ modulePublicationStatusLabel(module.publicationStatus) }}
                   </small>
                   <button
                     v-if="module.removable"
@@ -636,7 +664,7 @@
                       type="primary"
                       :disabled="
                         detail?.status === 'archived' ||
-                        module.published
+                        module.publicationStatus !== 'draft'
                       "
                       @click="openReplaceDialog(row)"
                     >
@@ -759,6 +787,7 @@ import { CircleCheckFilled, Refresh, UploadFilled, WarningFilled } from '@elemen
 import AppPagination from '@/components/AppPagination.vue'
 import {
   addMockPaperModule,
+  archiveMockPaperModule,
   archiveMockPaperSet,
   composeMockPaperSet,
   deleteMockPaperSet,
@@ -775,8 +804,9 @@ import {
   publishMockPaperModule,
   removeMockPaperModule,
   replaceMockPaperQuestion,
-  updateMockPaperModuleTitle,
+  updateMockPaperModule,
   updateMockPaperSet,
+  validateMockPaperModule,
   validateMockPaperSet,
   type MockPaperAccessTier,
   type MockPaperExamType,
@@ -790,7 +820,7 @@ import {
 } from '@/api/mockPaperAdmin'
 
 const workflowSteps = [
-  { title: '上传清单', desc: '识别套卷、模块与题序' },
+  { title: '上传清单', desc: '每个 Sheet 识别为独立单项' },
   { title: '逐项检查', desc: '每个 Module / Paper 独立校验' },
   { title: '草稿修正', desc: '逐题替换并刷新可用状态' },
   { title: '确认发布', desc: '单项与完整套卷分别发布' },
@@ -1069,17 +1099,17 @@ function handleWorkbookChange(file: UploadFile): void {
   selectedFile.value = file.raw || null
 }
 
-// 上传成功后刷新列表并直接打开第一套草稿，便于立即处理缺题。
+// 上传成功后切换单项视图；新 Sheet 默认无套卷归属，不再打开自动生成的套卷详情。
 async function submitImport(): Promise<void> {
   if (!selectedFile.value || importing.value) return
   importing.value = true
   try {
     const result = await importMockPaperWorkbook(selectedFile.value, importAccessTier.value)
     importDialogVisible.value = false
-    ElMessage.success(`已生成 ${result.list.length} 套模考草稿`)
+    ElMessage.success(`已导入 ${result.moduleCount} 个独立单项`)
+    viewMode.value = 'modules'
     pagination.page = 1
     await loadList()
-    if (result.list[0]) await openDetail(result.list[0].id)
   } finally {
     importing.value = false
   }
@@ -1190,7 +1220,7 @@ async function confirmRemoveModule(module: MockPaperModuleDetail): Promise<void>
   }
 }
 
-// 套卷保存基础信息；单项名称由独立接口同步到来源及已有套卷副本。
+// 套卷和单项分别保存自身基本信息；单项变更同步到来源及已有套卷副本。
 async function saveMetadata(): Promise<void> {
   if (!detail.value || savingMeta.value) return
   savingMeta.value = true
@@ -1198,8 +1228,11 @@ async function saveMetadata(): Promise<void> {
     if (detail.value.singleModuleDetail) {
       const module = detail.value.modules[0]
       if (!module) return
-      await updateMockPaperModuleTitle(module.id, editForm.title.trim())
-      ElMessage.success('单项名称已更新')
+      await updateMockPaperModule(module.id, {
+        title: editForm.title.trim(),
+        accessTier: editForm.accessTier,
+      })
+      ElMessage.success('单项信息已更新')
       await refreshCurrentDetail()
       return
     }
@@ -1214,14 +1247,20 @@ async function saveMetadata(): Promise<void> {
   }
 }
 
-// 题库状态变化后由管理员主动触发全量复核。
+// 题库状态变化后按当前详情类型复核单项来源链或完整套卷。
 async function refreshValidation(): Promise<void> {
   if (!detail.value || validating.value) return
   validating.value = true
   try {
-    await validateMockPaperSet(detail.value.id)
+    const module = detail.value.modules[0]
+    if (detail.value.singleModuleDetail) {
+      if (!module) return
+      await validateMockPaperModule(module.id)
+    } else {
+      await validateMockPaperSet(detail.value.id)
+    }
     await refreshCurrentDetail()
-    ElMessage.success('已完成全量校验')
+    ElMessage.success(detail.value.singleModuleDetail ? '单项校验已完成' : '已完成全量校验')
   } finally {
     validating.value = false
   }
@@ -1272,13 +1311,19 @@ async function publishCurrentPaper(): Promise<void> {
   }
 }
 
-// 下线只关闭新答卷入口，弹窗明确保留既有进度与报告。
+// 单项与套卷分别下线；两者都只关闭对应的新答卷入口并保留既有进度与报告。
 async function archiveCurrentPaper(): Promise<void> {
-  if (!detail.value || archiving.value || detail.value.status !== 'published') return
+  if (!detail.value || archiving.value) return
+  const module = detail.value.modules[0]
+  const isSingleModule = detail.value.singleModuleDetail
+  if (isSingleModule && module?.publicationStatus !== 'published') return
+  if (!isSingleModule && detail.value.status !== 'published') return
   try {
     await ElMessageBox.confirm(
-      `下线“${detail.value.title}”后不能再开始完整模考；单项发布状态与已有答卷均不受影响。`,
-      '下线模考试卷',
+      isSingleModule
+        ? `下线“${detail.value.title}”后不能再开始该单项模考；所属完整套卷和已有答卷均不受影响。`
+        : `下线“${detail.value.title}”后不能再开始完整模考；单项发布状态与已有答卷均不受影响。`,
+      isSingleModule ? '下线单项' : '下线模考试卷',
       { type: 'warning', confirmButtonText: '确认下线', cancelButtonText: '取消' },
     )
   } catch {
@@ -1286,8 +1331,13 @@ async function archiveCurrentPaper(): Promise<void> {
   }
   archiving.value = true
   try {
-    await archiveMockPaperSet(detail.value.id)
-    ElMessage.success('模考试卷已下线')
+    if (isSingleModule && module) {
+      await archiveMockPaperModule(module.id)
+      ElMessage.success('单项模考已下线')
+    } else {
+      await archiveMockPaperSet(detail.value.id)
+      ElMessage.success('模考试卷已下线')
+    }
     await refreshCurrentDetail()
   } finally {
     archiving.value = false
@@ -1360,6 +1410,13 @@ function statusTagType(status: string): 'info' | 'success' | 'warning' {
   if (status === 'published') return 'success'
   if (status === 'draft') return 'warning'
   return 'info'
+}
+
+// 单项列表明确区分从未发布与已下线，避免两个状态共用“未发布”文案。
+function modulePublicationStatusLabel(status: string): string {
+  if (status === 'published') return '单项已发布'
+  if (status === 'archived') return '单项已下线'
+  return '单项未发布'
 }
 
 // 套卷详情与单项列表共用同一模块标题规则，例如 ESAT Math1 No.001。

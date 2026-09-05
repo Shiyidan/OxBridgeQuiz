@@ -7,9 +7,6 @@
           <h2 class="section-title">试题库文件</h2>
           <p class="section-desc">每次导入按原始文件归类展示；进入文件后可逐题审核、发布和归档。</p>
         </div>
-        <el-button type="primary" @click="router.push('/admin/core-library/questions/import')">
-          导入 standard2 文件
-        </el-button>
       </div>
 
       <div class="filter-bar">
@@ -33,6 +30,13 @@
         </el-select>
         <el-button @click="applyFilters">筛选</el-button>
         <el-button @click="resetFilters">重置</el-button>
+        <el-button
+          class="import-button"
+          type="primary"
+          @click="router.push('/admin/core-library/questions/import')"
+        >
+          导入 standard2 文件
+        </el-button>
       </div>
 
       <AdminDataTable
@@ -54,10 +58,15 @@
             </el-tooltip>
           </template>
         </el-table-column>
-        <el-table-column label="题目数量" width="100" align="center" header-align="center">
+        <el-table-column label="题目数量" width="130" align="center" header-align="center">
           <template #default="{ row }">
             <div class="count-cell">
               <strong>{{ row.currentQuestionCount }} 题</strong>
+              <span v-if="row.replacementCount">替换 {{ row.replacementCount }} 题</span>
+              <span v-if="row.replacedQuestionCount">已被替换 {{ row.replacedQuestionCount }} 题</span>
+              <span v-if="row.pendingReplacementCount">
+                待替换 {{ row.pendingReplacementCount }} 题
+              </span>
               <span v-if="row.currentQuestionCount !== row.actualQuestionCount">
                 导入时 {{ row.actualQuestionCount }} 题
               </span>
@@ -82,7 +91,7 @@
         </el-table-column>
         <el-table-column
           label="科目 / 所属 Paper"
-          min-width="200"
+          min-width="140"
           align="center"
           header-align="center"
         >
@@ -93,31 +102,26 @@
               :disabled="classificationItems(row).length <= visibleClassificationCount"
               :show-after="300"
             >
-              <div class="tag-list tag-list--center">
-                <el-tag
+              <div class="classification-list">
+                <span
                   v-for="item in visibleClassificationItems(row)"
                   :key="item.key"
-                  class="classification-tag"
-                  :class="subjectTagClass(item.code, item.label)"
-                  effect="light"
-                  round
+                  class="classification-text"
                 >
                   {{ item.displayLabel }}
-                </el-tag>
-                <el-tag
+                </span>
+                <span
                   v-if="classificationItems(row).length > visibleClassificationCount"
-                  class="more-tag"
-                  effect="plain"
-                  round
+                  class="classification-more"
                 >
                   +{{ classificationItems(row).length - visibleClassificationCount }}
-                </el-tag>
+                </span>
                 <span v-if="!classificationItems(row).length" class="empty-value">—</span>
               </div>
             </el-tooltip>
           </template>
         </el-table-column>
-        <el-table-column label="题目状态" min-width="230" align="center" header-align="center">
+        <el-table-column label="题目状态" min-width="260" align="center" header-align="center">
           <template #default="{ row }">
             <div class="status-summary">
               <span class="status-chip status-chip--draft">草稿 {{ row.statusCounts.draft }}</span>
@@ -234,8 +238,8 @@ function examTypeClass(examType: unknown): string {
   return `exam-type-tag--${String(examType || 'TMUA').toLowerCase()}`
 }
 
-// 科目 code 优先映射为真题库的模块颜色，缺失时再根据展示名判断。
-function subjectTagClass(code: string | null, label: string): string {
+// 科目 code 优先映射为紧凑英文名称，缺失时再根据展示名判断。
+function subjectType(code: string | null, label: string): string {
   const normalizedCode = String(code || '').toLowerCase()
   const normalizedLabel = label.toLowerCase().replace(/[^a-z0-9]/g, '')
   const codeMap: Record<string, string> = {
@@ -253,12 +257,12 @@ function subjectTagClass(code: string | null, label: string): string {
       (item) => normalizedCode === item || normalizedLabel.startsWith(item),
     ) ||
     'general'
-  return `classification-tag--${type}`
+  return type
 }
 
-// 科目名称沿用真题库的紧凑标签，避免中英文全名撑高表格行。
+// 科目名称使用紧凑文字，避免中英文全名撑宽表格列。
 function subjectLabel(code: string, label: string): string {
-  const type = subjectTagClass(code, label).replace('classification-tag--', '')
+  const type = subjectType(code, label)
   const labels: Record<string, string> = {
     maths1: 'Math 1',
     maths2: 'Math 2',
@@ -289,7 +293,7 @@ function classificationItems(batch: QuestionBankImportBatch): BatchClassificatio
   ]
 }
 
-// 合并列保持单行标签，超过可见数量的内容通过悬浮提示查看。
+// 合并列按纵向文字排列，超过可见数量的内容通过悬浮提示查看。
 function visibleClassificationItems(batch: QuestionBankImportBatch): BatchClassificationItem[] {
   return classificationItems(batch).slice(0, visibleClassificationCount)
 }
@@ -385,7 +389,9 @@ async function handleBatchStatus(
   const isPublish = status === 'published'
   const actionName = isPublish ? '上线' : '归档'
   const impactMessage = isPublish
-    ? `上线后，包内 ${batch.currentQuestionCount} 道题将进入学生端新练习的选题范围。`
+    ? batch.replacementCount
+      ? `该文件包含 ${batch.replacementCount} 道替换题。上线会自动归档对应原题；引用原题且已经开放或产生答卷的模考卷会生成新版，旧版与历史答卷继续保留。`
+      : `上线后，包内 ${batch.currentQuestionCount} 道题将进入学生端新练习的选题范围。`
     : '归档后，包内题目不再进入学生端新练习，但进行中作答、历史记录和错题本会继续保留。'
   try {
     await ElMessageBox.confirm(
@@ -405,7 +411,11 @@ async function handleBatchStatus(
   operatingAction.value = status
   try {
     const result = await updateQuestionBankImportBatchStatus(batch.id, status)
-    ElMessage.success(`试题包已${actionName}，共更新 ${result.updatedQuestions} 道题`)
+    ElMessage.success(
+      isPublish && result.replacementCount
+        ? `替换已完成：上线 ${result.replacementCount} 道新题、归档 ${result.archivedQuestionCount} 道原题，并生成 ${result.versionedMockPapers.length} 套模考新版`
+        : `试题包已${actionName}，共更新 ${result.updatedQuestions} 道题`,
+    )
     await loadBatches()
   } catch {
     // Axios 公共响应处理会展示后端 errMsg。
@@ -517,6 +527,10 @@ onMounted(loadBatches)
   width: 150px;
 }
 
+.filter-bar .import-button {
+  margin-left: auto;
+}
+
 .count-cell {
   display: grid;
   gap: 4px;
@@ -548,62 +562,42 @@ onMounted(loadBatches)
   justify-content: center;
 }
 
-.exam-type-tag,
-.classification-tag {
+.exam-type-tag {
   flex: 0 0 auto;
   border-radius: var(--radius-pill);
   font-weight: var(--weight-semi);
 }
 
-.exam-type-tag--esat,
-.classification-tag--maths1 {
+.exam-type-tag--esat {
   background: #ecfeff !important;
   border-color: #a5f3fc !important;
   color: #0e7490 !important;
 }
 
-.exam-type-tag--tmua,
-.classification-tag--maths2 {
+.exam-type-tag--tmua {
   background: #f5f3ff !important;
   border-color: #ddd6fe !important;
   color: #6d28d9 !important;
 }
 
-.classification-tag--physics {
-  background: #eff6ff !important;
-  border-color: #bfdbfe !important;
-  color: #1d4ed8 !important;
+.classification-list {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 
-.classification-tag--chemistry {
-  background: #fff7ed !important;
-  border-color: #fed7aa !important;
-  color: #c2410c !important;
+.classification-text {
+  color: #334155;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 
-.classification-tag--biology {
-  background: #f0fdf4 !important;
-  border-color: #bbf7d0 !important;
-  color: #15803d !important;
-}
-
-.classification-tag--paper1 {
-  background: #eef2ff !important;
-  border-color: #c7d2fe !important;
-  color: #4338ca !important;
-}
-
-.classification-tag--paper2 {
-  background: #fdf4ff !important;
-  border-color: #f0abfc !important;
-  color: #a21caf !important;
-}
-
-.classification-tag--general,
-.more-tag {
-  background: #f1f5f9 !important;
-  border-color: #cbd5e1 !important;
-  color: #475569 !important;
+.classification-more {
+  color: #64748b;
+  font-size: 12px;
 }
 
 .empty-value {

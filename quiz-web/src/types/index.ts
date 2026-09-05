@@ -134,10 +134,6 @@ export interface Question {
   module_code?: DiagnosticSectionCode
   module_order?: number
   module_question_number?: number
-  /** @deprecated 兼容早期组合卷；新数据使用 module_*。 */
-  component_code?: DiagnosticSectionCode
-  component_order?: number
-  component_question_number?: number
   topic_code?: string
   topic?: string
   knowledge_points?: KnowledgePoint[]
@@ -298,7 +294,6 @@ export interface LegacyGroupedPaperJson {
     /** 旧格式允许省略，导入器会由 subject 推导。 */
     code?: DiagnosticSectionCode
     module_code?: DiagnosticSectionCode
-    component_code?: DiagnosticSectionCode
     order?: number
     subject: string
     subject_code?: string | number
@@ -315,7 +310,6 @@ export interface LegacyModuleItemsPaperJson {
   modules: Array<{
     code?: DiagnosticSectionCode
     module_code?: DiagnosticSectionCode
-    component_code?: DiagnosticSectionCode
     order?: number
     subject: string
     subject_code?: string | number

@@ -305,6 +305,7 @@ export const PAYMENT_REFUND_STATUS = {
 } as const
 
 export const PAYMENT_CHANNEL = {
+  AGGREGATE: 'aggregate',
   ALIPAY: 'alipay',
   WECHAT: 'wechat',
   UNIONPAY: 'unionpay',

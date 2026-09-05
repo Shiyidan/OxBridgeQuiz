@@ -69,8 +69,7 @@
 
   /* ============ 字体 ============ */
   --font-sans:
-    'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, BlinkMacSystemFont,
-    'Segoe UI', Roboto, sans-serif;
+    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
   --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', Consolas, monospace;
 
   /* ============ 语义化布局尺寸（组件规范见 2-样式规范.md 五章） ============
@@ -144,6 +143,13 @@ body {
   font-family: var(--font-sans);
   font-size: var(--text-base);
   line-height: var(--leading-normal);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
 }
 
 /* 移动端进入真实流式布局，公共导航和已适配页面不再继承桌面 1200px 最小宽度。 */

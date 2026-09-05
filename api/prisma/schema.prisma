@@ -52,6 +52,9 @@ model Question {
   sourceQuestionCode   String?             @db.VarChar(191)
   paperId              String?             @db.VarChar(191)
   importBatchId        String?             @db.VarChar(191)
+  replacesQuestionId   String?             @unique @db.VarChar(191)
+  revisionVersion      Int?
+  revisionReason       String?             @db.VarChar(64)
   examType             String              @default("TMUA") @db.VarChar(32)
   number               Int?
   moduleCode           String?             @db.VarChar(32)
@@ -79,6 +82,8 @@ model Question {
 
   paper                  Paper?                   @relation(fields: [paperId], references: [id], onDelete: Cascade)
   importBatch            QuestionImportBatch?     @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  replacesQuestion       Question?                @relation("QuestionReplacement", fields: [replacesQuestionId], references: [id], onDelete: Restrict)
+  replacementQuestion    Question?                @relation("QuestionReplacement")
   knowledgePointLinks    QuestionKnowledgePoint[]
   answerRecords          AnswerRecord[]
   wrongQuestionSummaries WrongQuestionSummary[]
@@ -153,6 +158,7 @@ model MockPaperModule {
   code                  String    @db.VarChar(32)
   label                 String    @db.VarChar(100)
   title                 String?   @db.VarChar(255)
+  accessTier            String    @default("member") @db.VarChar(32)
   moduleOrder           Int
   durationSeconds       Int
   expectedQuestionCount Int

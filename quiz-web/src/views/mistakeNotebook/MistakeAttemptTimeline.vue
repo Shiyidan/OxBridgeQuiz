@@ -35,7 +35,7 @@
             </span>
             <span>{{ attemptSequenceLabel(index) }}</span>
           </div>
-          <h3 :title="item.sourceTitle">{{ item.sourceTitle }}</h3>
+          <h3 :title="attemptSourceTitle(item)">{{ attemptSourceTitle(item) }}</h3>
           <p :class="{ 'attempt-card__answer--empty': !isAnsweredAttempt(item) }">
             {{ attemptAnswerLabel(item) }}
           </p>
@@ -54,6 +54,7 @@ import type { MistakeAttemptHistoryItem } from '@/api/exam'
 const props = defineProps<{
   items: MistakeAttemptHistoryItem[]
   total: number
+  moduleLabel?: string
   loading: boolean
   error: string
 }>()
@@ -70,6 +71,11 @@ const attemptTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
   minute: '2-digit',
   hour12: false,
 })
+
+// 来源标题与当前题目模块合并展示，减少轨迹卡片中的重复说明行。
+function attemptSourceTitle(item: MistakeAttemptHistoryItem): string {
+  return props.moduleLabel ? `${item.sourceTitle} - ${props.moduleLabel}` : item.sourceTitle
+}
 
 // 时间轴以服务端保存的交卷时间展示，避免把保存时间误称为精确点击答案的时刻。
 function formatAttemptTime(value: string): string {
@@ -106,15 +112,12 @@ function formatDuration(seconds: number): string {
   position: sticky;
   top: 84px;
   min-width: 0;
-  max-height: calc(100vh - 108px);
   overflow-x: hidden;
-  overflow-y: auto;
   padding: 20px 18px 8px;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
-  scrollbar-gutter: stable;
 }
 
 .attempt-timeline__header {
@@ -255,7 +258,6 @@ function formatDuration(seconds: number): string {
 @media (max-width: 1100px) {
   .attempt-timeline {
     position: static;
-    max-height: none;
   }
 }
 </style>

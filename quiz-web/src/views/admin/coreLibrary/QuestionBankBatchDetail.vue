@@ -3,11 +3,33 @@
   <div v-loading="loading" class="batch-review-page">
     <section v-if="batch" class="sticky-admin-panel">
       <div class="batch-toolbar">
+        <button type="button" class="back-link" @click="returnToBatchList">← 返回文件列表</button>
         <div class="batch-heading">
-          <button type="button" class="back-link" @click="returnToBatchList">← 返回文件列表</button>
-          <el-tooltip :content="batch.title" placement="bottom">
-            <h2>{{ batch.title }}</h2>
-          </el-tooltip>
+          <el-input
+            v-if="editingBatchTitle"
+            ref="batchTitleInputRef"
+            v-model="batchTitleDraft"
+            class="batch-title-input"
+            maxlength="255"
+            :disabled="savingBatchTitle"
+            @blur="saveBatchTitle"
+            @keydown.enter.prevent="finishBatchTitleEditing"
+            @keydown.esc.prevent="cancelBatchTitleEditing"
+          />
+          <template v-else>
+            <el-tooltip :content="batch.title" placement="bottom">
+              <h2>{{ batch.title }}</h2>
+            </el-tooltip>
+            <button
+              type="button"
+              class="title-edit-button"
+              aria-label="修改试题包名称"
+              title="修改试题包名称"
+              @click="startBatchTitleEditing"
+            >
+              <el-icon aria-hidden="true"><EditPen /></el-icon>
+            </button>
+          </template>
         </div>
 
         <div class="batch-overview" aria-label="试题包概括">
@@ -19,6 +41,13 @@
           <span>草稿 {{ batch.statusCounts.draft }}</span>
           <span>已发布 {{ batch.statusCounts.published }}</span>
           <span>已归档 {{ batch.statusCounts.archived }}</span>
+          <span v-if="batch.replacementCount">替换题 {{ batch.replacementCount }}</span>
+          <span v-if="batch.replacedQuestionCount">
+            已被替换 {{ batch.replacedQuestionCount }}
+          </span>
+          <span v-if="batch.pendingReplacementCount">
+            待替换 {{ batch.pendingReplacementCount }}
+          </span>
           <span>{{ formatDate(batch.createdAt) }}</span>
         </div>
 
@@ -50,17 +79,19 @@
       </div>
 
       <div v-if="activeQuestion" class="question-toolbar" aria-label="当前题目管理操作">
-        <span :title="activeQuestion.code">{{ activeQuestion.code }}</span>
-        <span class="question-title" :title="activeQuestion.title">
-          {{ activeQuestion.title }}
+        <span class="question-code" :title="activeQuestion.code">{{ activeQuestion.code }}</span>
+        <span
+          class="question-classification"
+          :title="questionHierarchyLabel(activeQuestion)"
+        >
+          {{ questionHierarchyLabel(activeQuestion) }}
         </span>
-        <span>{{ activeQuestion.examType }}</span>
-        <span :title="questionClassificationLabel(activeQuestion)">
-          {{ questionClassificationLabel(activeQuestion) }}
+        <span class="question-difficulty">{{ difficultyLabel(activeQuestion.difficulty) }}</span>
+        <span class="question-quality">{{ qualityTierLabel(activeQuestion.qualityTier) }}</span>
+        <span v-if="activeQuestion.isReplacement" class="question-replacement">
+          替换题 · 请整包上线
         </span>
-        <span>{{ difficultyLabel(activeQuestion.difficulty) }}</span>
-        <span>{{ qualityTierLabel(activeQuestion.qualityTier) }}</span>
-        <el-dropdown trigger="click" @command="changeQuestionStatus">
+        <el-dropdown class="question-status" trigger="click" @command="changeQuestionStatus">
           <button
             type="button"
             class="status-button"
@@ -74,15 +105,13 @@
                 v-for="item in statusOptions"
                 :key="item.value"
                 :command="item.value"
+                :disabled="item.value === 'published' && activeQuestion.isReplacement"
               >
                 {{ item.label }}
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
-        <span :title="knowledgePointLabels(activeQuestion.knowledgePoints)">
-          {{ knowledgePointLabels(activeQuestion.knowledgePoints) }}
-        </span>
         <button
           type="button"
           class="question-delete-button"
@@ -118,9 +147,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { EditPen } from '@element-plus/icons-vue'
 import ExamQuestionAnalysis from '@/components/report/ExamQuestionAnalysis.vue'
 import type { ExamQuestion } from '@/api/exam'
 import {
@@ -129,6 +159,7 @@ import {
   getQuestionBankImportBatchDetail,
   getQuestionBankImportBatchReview,
   updateQuestionBankImportBatchStatus,
+  updateQuestionBankImportBatchTitle,
   updateQuestionBankStatus,
   type QuestionBankAdminDetail,
   type QuestionBankAdminItem,
@@ -136,7 +167,6 @@ import {
   type QuestionBankQualityTier,
   type QuestionBankStatus,
 } from '@/api/questionBank'
-import type { KnowledgePoint } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -144,6 +174,10 @@ const batchId = String(route.params.batchId)
 const loading = ref(false)
 const loadFailed = ref(false)
 const deletingQuestion = ref(false)
+const editingBatchTitle = ref(false)
+const savingBatchTitle = ref(false)
+const batchTitleDraft = ref('')
+const batchTitleInputRef = ref<{ focus: () => void; blur: () => void } | null>(null)
 const batchOperatingAction = ref<'published' | 'archived' | 'delete' | ''>('')
 const batch = ref<QuestionBankImportBatch | null>(null)
 const questionDetails = ref<QuestionBankAdminDetail[]>([])
@@ -185,6 +219,56 @@ const analysisQuestions = computed<Array<ExamQuestion & { id: string }>>(() =>
 const activeQuestion = computed<QuestionBankAdminDetail | null>(
   () => questionDetails.value[activeQuestionIndex.value] || null,
 )
+
+// 点击铅笔后使用当前名称初始化输入框，并在渲染完成后聚焦。
+async function startBatchTitleEditing(): Promise<void> {
+  if (!batch.value || savingBatchTitle.value) return
+  batchTitleDraft.value = batch.value.title
+  editingBatchTitle.value = true
+  await nextTick()
+  batchTitleInputRef.value?.focus()
+}
+
+// 回车触发失焦，统一复用保存流程并避免重复请求。
+function finishBatchTitleEditing(): void {
+  batchTitleInputRef.value?.blur()
+}
+
+// Esc 放弃本次输入并恢复数据库中的当前名称。
+function cancelBatchTitleEditing(): void {
+  batchTitleDraft.value = batch.value?.title || ''
+  editingBatchTitle.value = false
+}
+
+// 失焦时保存修改；失败则恢复最近一次成功名称。
+async function saveBatchTitle(): Promise<void> {
+  if (!batch.value || !editingBatchTitle.value || savingBatchTitle.value) return
+  const previousTitle = batch.value.title
+  const nextTitle = batchTitleDraft.value.trim()
+  if (!nextTitle) {
+    batchTitleDraft.value = previousTitle
+    editingBatchTitle.value = false
+    ElMessage.warning('试题包名称不能为空')
+    return
+  }
+  if (nextTitle === previousTitle) {
+    editingBatchTitle.value = false
+    return
+  }
+  savingBatchTitle.value = true
+  try {
+    const updated = await updateQuestionBankImportBatchTitle(batchId, nextTitle)
+    batch.value.title = updated.title
+    batchTitleDraft.value = updated.title
+    editingBatchTitle.value = false
+    ElMessage.success('试题包名称已保存')
+  } catch {
+    batchTitleDraft.value = previousTitle
+    editingBatchTitle.value = false
+  } finally {
+    savingBatchTitle.value = false
+  }
+}
 
 // 从查看页返回上传文件列表，不保留内部逐题状态。
 async function returnToBatchList(): Promise<void> {
@@ -229,19 +313,15 @@ function handleQuestionChange(index: number): void {
   activeQuestionId.value = questionDetails.value[index].id
 }
 
-// 当前题目的科目与主题合并为吸顶栏中的紧凑分类信息。
-function questionClassificationLabel(question: QuestionBankAdminItem): string {
-  return [question.subject, question.topic].filter(Boolean).join(' / ') || '—'
-}
-
-// 知识点快照只用于当前题目的概括展示。
-function knowledgePointLabels(points: KnowledgePoint[] | unknown): string {
-  return Array.isArray(points)
-    ? points
+// 科目、主题和知识点按考纲层级合并展示，多个同级知识点使用顿号连接。
+function questionHierarchyLabel(question: QuestionBankAdminItem): string {
+  const knowledgePoints = Array.isArray(question.knowledgePoints)
+    ? question.knowledgePoints
         .map((point) => String(point?.label || point?.code || ''))
         .filter(Boolean)
-        .join('、') || '—'
-    : '—'
+        .join('、')
+    : ''
+  return [question.subject, question.topic, knowledgePoints].filter(Boolean).join(' / ') || '—'
 }
 
 // 难度编码在管理查看页统一转换为中文标签。
@@ -266,6 +346,10 @@ async function changeQuestionStatus(command: unknown): Promise<void> {
   const question = activeQuestion.value
   const status = String(command) as QuestionBankStatus
   if (!question || status === question.status) return
+  if (question.isReplacement && status === 'published') {
+    ElMessage.warning('替换题必须通过顶部“上线”整包发布，以同步归档原题和生成模考新版')
+    return
+  }
   try {
     await updateQuestionBankStatus(question.id, status)
     question.status = status
@@ -336,7 +420,9 @@ async function changeBatchStatus(
   const actionName = status === 'published' ? '上线' : '归档'
   const impactMessage =
     status === 'published'
-      ? `上线后，包内 ${batch.value.currentQuestionCount} 道题将进入学生端新练习的选题范围。`
+      ? batch.value.replacementCount
+        ? `该文件包含 ${batch.value.replacementCount} 道替换题。上线会自动归档对应原题；引用原题且已经开放或产生答卷的模考卷会生成新版，旧版与历史答卷继续保留。`
+        : `上线后，包内 ${batch.value.currentQuestionCount} 道题将进入学生端新练习的选题范围。`
       : '归档后，包内题目不再进入学生端新练习，但进行中作答、历史记录和错题本会继续保留。'
   try {
     await ElMessageBox.confirm(
@@ -354,7 +440,11 @@ async function changeBatchStatus(
       question.status = status
     })
     await refreshBatch()
-    ElMessage.success(`试题包已${actionName}，共更新 ${result.updatedQuestions} 道题`)
+    ElMessage.success(
+      status === 'published' && result.replacementCount
+        ? `替换已完成：上线 ${result.replacementCount} 道新题、归档 ${result.archivedQuestionCount} 道原题，并生成 ${result.versionedMockPapers.length} 套模考新版`
+        : `试题包已${actionName}，共更新 ${result.updatedQuestions} 道题`,
+    )
   } catch {
     // 公共请求层展示后端错误。
   } finally {
@@ -433,8 +523,15 @@ onMounted(loadReview)
 }
 
 .batch-toolbar {
-  min-height: 72px;
+  min-height: 86px;
   grid-template-columns: minmax(220px, 1.1fr) minmax(0, 2fr) auto;
+  grid-template-areas:
+    'back back back'
+    'heading overview actions';
+  grid-template-rows: auto auto;
+  column-gap: 16px;
+  row-gap: 4px;
+  padding-block: 8px;
   border-bottom: 1px solid #e2e8f0;
 }
 
@@ -445,11 +542,15 @@ onMounted(loadReview)
 }
 
 .batch-heading {
-  display: grid;
-  gap: 5px;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  grid-area: heading;
 }
 
 .back-link {
+  grid-area: back;
   width: fit-content;
   padding: 0;
   border: 0;
@@ -467,7 +568,37 @@ onMounted(loadReview)
   white-space: nowrap;
 }
 
+.batch-title-input {
+  width: 100%;
+}
+
+.batch-title-input :deep(.el-input__wrapper) {
+  padding: 3px 10px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.title-edit-button {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.title-edit-button:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
 .batch-overview {
+  grid-area: overview;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -493,6 +624,7 @@ onMounted(loadReview)
 }
 
 .batch-actions {
+  grid-area: actions;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -526,15 +658,14 @@ onMounted(loadReview)
 .question-toolbar {
   min-height: 58px;
   grid-template-columns:
-    minmax(120px, 1.1fr)
-    minmax(180px, 1.8fr)
-    70px
-    minmax(130px, 1.25fr)
+    max-content
+    minmax(320px, 2.25fr)
     64px
     64px
-    88px
-    minmax(130px, 1.4fr)
+    minmax(130px, 1fr)
+    80px
     72px;
+  grid-template-areas: 'code classification difficulty quality replacement status delete';
   color: #334155;
   font-size: 14px;
 }
@@ -546,9 +677,19 @@ onMounted(loadReview)
   white-space: nowrap;
 }
 
-.question-title {
-  color: #0f172a;
+.question-code {
+  grid-area: code;
+  overflow: visible !important;
+  padding-right: 8px;
+  text-overflow: clip !important;
+  white-space: nowrap !important;
 }
+.question-classification { grid-area: classification; }
+.question-difficulty { grid-area: difficulty; }
+.question-quality { grid-area: quality; }
+.question-replacement { grid-area: replacement; }
+.question-status { grid-area: status; }
+.question-delete-button { grid-area: delete; }
 
 .status-button {
   min-width: 74px;
@@ -615,12 +756,11 @@ onMounted(loadReview)
   }
 
   .question-toolbar {
-    grid-template-columns: minmax(120px, 1fr) minmax(180px, 2fr) 70px 110px 88px 72px;
+    grid-template-columns: max-content minmax(180px, 1.5fr) 64px 64px 80px 72px;
+    grid-template-areas: 'code classification difficulty quality status delete';
   }
 
-  .question-toolbar > :nth-child(4),
-  .question-toolbar > :nth-child(6),
-  .question-toolbar > :nth-child(8) {
+  .question-replacement {
     display: none;
   }
 }
@@ -644,6 +784,9 @@ onMounted(loadReview)
 
   .batch-toolbar {
     grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'back back'
+      'heading actions';
   }
 
   .batch-overview {

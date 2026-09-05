@@ -116,6 +116,7 @@ export interface MockPaperModuleListItem {
   code: string
   label: string
   title: string | null
+  accessTier: MockPaperAccessTier
   order: number
   durationSeconds: number
   expectedQuestionCount: number
@@ -233,12 +234,32 @@ export function getMockPaperModuleDetail(moduleId: string) {
   })
 }
 
-// 单项名称修改后由服务端同步来源模块及其已有套卷副本。
-export function updateMockPaperModuleTitle(moduleId: string, title: string) {
-  return callApi<{ id: string; title: string; updatedModuleCount: number }>({
+// 单项名称和权限修改后由服务端同步来源模块及其已有套卷副本。
+export function updateMockPaperModule(
+  moduleId: string,
+  body: { title: string; accessTier: MockPaperAccessTier },
+) {
+  return callApi<{
+    id: string
+    title: string
+    accessTier: MockPaperAccessTier
+    updatedModuleCount: number
+  }>({
     method: 'PUT',
     url: `/mock-paper-sets/modules/${moduleId}`,
-    body: { title },
+    body,
+  })
+}
+
+// 单项重新校验只以指定来源 Module/Paper 为入口，不改变任何发布或权限状态。
+export function validateMockPaperModule(moduleId: string) {
+  return callApi<{
+    id: string
+    validationStatus: MockPaperValidationStatus
+    issueCount: number
+  }>({
+    method: 'POST',
+    url: `/mock-paper-sets/modules/${moduleId}/validate`,
   })
 }
 
@@ -247,6 +268,19 @@ export function publishMockPaperModule(moduleId: string) {
   return callApi<{ id: string; moduleId: string; paperId: string }>({
     method: 'POST',
     url: `/mock-paper-sets/modules/${moduleId}/publish`,
+  })
+}
+
+// 单项下线仅关闭新的单项模考入口，不改变所属完整套卷或历史答卷。
+export function archiveMockPaperModule(moduleId: string) {
+  return callApi<{
+    id: string
+    moduleId: string
+    status: 'archived'
+    archivedAt: string
+  }>({
+    method: 'POST',
+    url: `/mock-paper-sets/modules/${moduleId}/archive`,
   })
 }
 
@@ -301,7 +335,7 @@ export function importMockPaperWorkbook(file: File, accessTier: MockPaperAccessT
   const form = new FormData()
   form.append('file', file)
   form.append('accessTier', accessTier)
-  return callApi<{ list: MockPaperSetListItem[] }>({
+  return callApi<{ moduleCount: number }>({
     method: 'POST',
     url: '/mock-paper-sets/import',
     body: form,

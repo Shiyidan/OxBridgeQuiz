@@ -45,14 +45,10 @@ async function syncPaperQuestionsWithClient(
         paperId,
         examType: q.examType || paperExamType,
         number: questionNumber,
-        moduleCode: q.component_code || q.module_code || null,
-        moduleOrder: Number.isInteger(q.component_order ?? q.module_order)
-          ? (q.component_order ?? q.module_order)
-          : null,
-        moduleQuestionNumber: Number.isFinite(
-          q.component_question_number ?? q.module_question_number,
-        )
-          ? (q.component_question_number ?? q.module_question_number)
+        moduleCode: q.module_code || null,
+        moduleOrder: Number.isInteger(q.module_order) ? q.module_order : null,
+        moduleQuestionNumber: Number.isFinite(q.module_question_number)
+          ? q.module_question_number
           : null,
         title: q.title ?? '',
         options: Array.isArray(q.options) ? q.options : [],
@@ -116,13 +112,9 @@ export function formatQuestionRow(row: any): Record<string, any> {
     code: row.sourceQuestionCode || attemptPayload.code || meta.code,
     examType: row.examType,
     number: row.number,
-    // 对外标准使用 module_*；component_* 仅保留给早期组合卷和旧页面兼容。
     module_code: row.moduleCode,
     module_order: row.moduleOrder,
     module_question_number: row.moduleQuestionNumber,
-    component_code: row.moduleCode,
-    component_order: row.moduleOrder,
-    component_question_number: row.moduleQuestionNumber,
     title: row.title,
     options: parseJsonArray(row.options),
     answer: parseJsonArray<string>(row.answer),

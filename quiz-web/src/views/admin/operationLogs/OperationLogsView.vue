@@ -79,7 +79,7 @@
       @page-change="handlePageChange"
       @page-size-change="handlePageSizeChange"
     >
-      <el-table-column label="发生时间" width="200" fixed="left">
+      <el-table-column label="发生时间" width="200">
         <template #default="{ row }">
           <span class="occurred-at-cell">{{ formatDateTime(row.occurredAt) }}</span>
         </template>
@@ -140,7 +140,7 @@
           </span>
         </template>
       </el-table-column>
-      <el-table-column label="详情" width="86" fixed="right" align="center">
+      <el-table-column label="详情" width="86" align="center">
         <template #default="{ row }">
           <el-button link type="primary" @click="openDetail(row.id)">查看</el-button>
         </template>

@@ -548,18 +548,19 @@ function formatDate(value: string): string {
 
 <style scoped lang="scss">
 .resource-page {
-  height: 100%;
-  min-height: 0;
+  // 当前分页全部展开，由后台主内容区滚动到分页器。
+  height: auto;
+  min-height: 100%;
   background: #f8fafc;
 }
 
 .page-body {
-  height: 100%;
+  height: auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
   padding: 24px 40px 16px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .section-header {
@@ -780,6 +781,12 @@ function formatDate(value: string): string {
   .form-grid,
   .paired-upload-grid {
     grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 860px) {
+  .page-body {
+    flex: none;
+    padding: 20px 16px;
   }
 }
 </style>

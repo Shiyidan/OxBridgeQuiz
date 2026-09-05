@@ -140,13 +140,13 @@
           </article>
         </div>
 
-        <el-table
+        <AdminDataTable
           v-else-if="viewMode === 'modules' && moduleRows.length"
           :data="moduleRows"
           row-key="id"
           class="module-table"
         >
-          <el-table-column label="Module / Paper" min-width="225">
+          <el-table-column label="Module / Paper" min-width="210">
             <template #default="{ row }">
               <div class="module-identity">
                 <strong>{{ moduleDisplayName(row) }}</strong>
@@ -154,10 +154,10 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="考试" width="82">
+          <el-table-column label="考试" min-width="76" align="center">
             <template #default="{ row }">{{ row.mockPaperSet.examType }}</template>
           </el-table-column>
-          <el-table-column label="形式与所属套卷" min-width="330">
+          <el-table-column label="形式与所属套卷" min-width="270">
             <template #default="{ row }">
               <div class="module-association">
                 <div>
@@ -190,7 +190,7 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="校验" min-width="125">
+          <el-table-column label="校验" min-width="112" align="center">
             <template #default="{ row }">
               <span v-if="row.validationStatus === 'valid'" class="validation-ok">
                 <el-icon><CircleCheckFilled /></el-icon>
@@ -202,14 +202,14 @@
               </span>
             </template>
           </el-table-column>
-          <el-table-column label="发布状态" width="110">
+          <el-table-column label="发布状态" min-width="120" align="center">
             <template #default="{ row }">
               <el-tag :type="statusTagType(row.publicationStatus)" size="small">
                 {{ modulePublicationStatusLabel(row.publicationStatus) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="访问权限" width="110">
+          <el-table-column label="访问权限" min-width="88" align="center">
             <template #default="{ row }">
               <el-tag
                 :type="row.accessTier === 'free' ? 'success' : 'warning'"
@@ -220,17 +220,23 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="更新时间" width="150">
-            <template #default="{ row }">{{ formatDateTime(row.updatedAt) }}</template>
+          <el-table-column label="更新时间" min-width="112">
+            <template #default="{ row }">
+              <span class="module-updated-at">
+                <span v-for="(part, index) in formatDateTime(row.updatedAt).split(' ')" :key="index">
+                  {{ part }}
+                </span>
+              </span>
+            </template>
           </el-table-column>
-          <el-table-column label="操作" width="92" fixed="right">
+          <el-table-column label="操作" min-width="104" align="center" fixed="right">
             <template #default="{ row }">
               <el-button link type="primary" @click="openModuleQuestions(row)">
                 查看题目
               </el-button>
             </template>
           </el-table-column>
-        </el-table>
+        </AdminDataTable>
 
         <div v-else-if="!loading" class="empty-state">
           <span class="empty-cover" aria-hidden="true">MOCK</span>
@@ -386,7 +392,7 @@
       class="upload-history-dialog"
     >
       <div v-loading="uploadHistoryLoading" class="upload-history-shell">
-        <el-table v-if="uploadHistoryRows.length" :data="uploadHistoryRows">
+        <AdminDataTable v-if="uploadHistoryRows.length" :data="uploadHistoryRows">
           <el-table-column label="文件" min-width="250">
             <template #default="{ row }">
               <div class="upload-history-file">
@@ -431,7 +437,7 @@
               </el-button>
             </template>
           </el-table-column>
-        </el-table>
+        </AdminDataTable>
         <el-empty v-else-if="!uploadHistoryLoading" description="暂无上传记录" />
         <AppPagination
           :page="uploadHistoryPagination.page"
@@ -457,56 +463,89 @@
             <div>
               <button type="button" class="drawer-close" @click="detailVisible = false">← 返回列表</button>
               <div class="detail-title-row">
-                <h2>{{ detail.title }}</h2>
-                <el-tag>{{ detail.code }}</el-tag>
+                <el-input
+                  class="detail-title-input"
+                  aria-label="名称"
+                  v-model="editForm.title"
+                  maxlength="255"
+                  show-word-limit
+                  :disabled="
+                          detail.singleModuleDetail
+                            ? detail.modules[0]?.publicationStatus === 'archived'
+                            : detail.status !== 'draft'
+                        "
+                />
+                <el-select
+                  class="detail-access-select"
+                  aria-label="访问权限"
+                  v-model="editForm.accessTier"
+                  :disabled="
+                          detail.singleModuleDetail
+                            ? detail.modules[0]?.publicationStatus === 'archived'
+                            : detail.status === 'archived'
+                        "
+                >
+                  <el-option label="会员卷" value="member" />
+                  <el-option label="免费卷" value="free" />
+                </el-select>
                 <el-tag
                   v-if="detail.singleModuleDetail"
                   :type="statusTagType(detail.modules[0]?.publicationStatus || 'draft')"
                 >
                   {{ modulePublicationStatusLabel(detail.modules[0]?.publicationStatus || 'draft') }}
                 </el-tag>
-                <el-tag
-                  v-if="!detail.singleModuleDetail"
-                  :type="detail.readyModuleCount > 0 ? 'success' : 'danger'"
-                >
-                  {{ Math.min(detail.readyModuleCount, modulePoolCapacity(detail.examType)) }}/{{
-                    modulePoolCapacity(detail.examType)
-                  }} 个单项可用
-                </el-tag>
-                <el-tag
-                  v-if="!detail.singleModuleDetail"
-                  :type="detail.fullExamReady ? 'success' : 'warning'"
-                >
-                  {{
-                    fullExamAvailabilityLabel(
-                      detail.examType,
-                      detail.readyModuleCount,
-                      detail.fullExamReady,
-                    )
-                  }}
-                </el-tag>
+                <div v-if="!detail.singleModuleDetail" class="detail-readiness">
+                  <el-tag :type="detail.readyModuleCount > 0 ? 'success' : 'danger'">
+                    {{ Math.min(detail.readyModuleCount, modulePoolCapacity(detail.examType)) }}/{{
+                      modulePoolCapacity(detail.examType)
+                    }} 个单项可用
+                  </el-tag>
+                  <el-tag
+                    class="detail-availability"
+                    :type="detail.fullExamReady ? 'success' : 'warning'"
+                  >
+                    {{
+                      !detail.fullExamReady && detail.issues.length
+                        ? detail.issues.join('；')
+                        : fullExamAvailabilityLabel(
+                            detail.examType,
+                            detail.readyModuleCount,
+                            detail.fullExamReady,
+                          )
+                    }}
+                  </el-tag>
+                </div>
               </div>
+              <div class="detail-code"><el-tag>{{ detail.code }}</el-tag></div>
               <p>
                 <template v-if="detail.singleModuleDetail">
-                  {{
-                    detail.parentSetTitle
-                      ? `当前单项已属于 ${detail.parentSetTitle}`
-                      : '当前单项目前无所属模拟套卷'
-                  }}
+                  {{ detail.parentSetTitle ? `当前单项已属于 ${detail.parentSetTitle}` :
+                  '当前单项目前无所属模拟套卷' }}
                 </template>
                 <template v-else>{{ detail.sourceFileName || '手动创建' }}</template>
                 · {{ detail.questionCount }} 道题
-                <template v-if="detail.issueCount > 0"> · {{ detail.issueCount }} 项待处理</template>
+                <template v-if="detail.issueCount > 0">· {{ detail.issueCount }} 项待处理</template>
               </p>
             </div>
             <div class="detail-actions">
               <el-button
+                :loading="savingMeta"
+                :disabled="
+                          (detail.singleModuleDetail
+                            ? detail.modules[0]?.publicationStatus === 'archived'
+                            : detail.status === 'archived') || !editForm.title.trim()
+                        "
+                @click="saveMetadata"
+              >
+                {{ detail.singleModuleDetail ? '保存单项信息' : '保存基本信息' }}
+              </el-button>
+              <el-button
                 :loading="validating"
                 :disabled="
-                  detail.singleModuleDetail
-                    ? detail.modules[0]?.publicationStatus === 'archived'
-                    : detail.status === 'archived'
-                "
+                            detail.singleModuleDetail
+                              ? detail.modules[0]?.publicationStatus === 'archived'
+                              : detail.status === 'archived'
+                          "
                 @click="refreshValidation"
               >
                 <el-icon><Refresh /></el-icon>
@@ -519,21 +558,14 @@
                 :disabled="!detail.canPublish"
                 @click="publishCurrentPaper"
               >
-                {{
-                  detail.canPublish
-                    ? detail.singleModuleDetail
-                      ? '发布单项'
-                      : '发布完整套卷'
-                    : detail.singleModuleDetail
-                      ? '暂无可发布内容'
-                      : '套卷尚未满足发布条件'
-                }}
+                {{ detail.canPublish ? detail.singleModuleDetail ? '发布单项' : '发布完整套卷' :
+                detail.singleModuleDetail ? '暂无可发布内容' : '套卷尚未满足发布条件' }}
               </el-button>
               <el-button
                 v-else-if="
-                  detail.singleModuleDetail
-                    && detail.modules[0]?.publicationStatus === 'published'
-                "
+                            detail.singleModuleDetail
+                              && detail.modules[0]?.publicationStatus === 'published'
+                          "
                 type="danger"
                 plain
                 :loading="archiving"
@@ -553,43 +585,10 @@
             </div>
           </header>
 
-          <section class="meta-editor" :class="{ 'is-single-module': detail.singleModuleDetail }">
-            <el-input
-              v-model="editForm.title"
-              maxlength="255"
-              show-word-limit
-              :disabled="
-                detail.singleModuleDetail
-                  ? detail.modules[0]?.publicationStatus === 'archived'
-                  : detail.status !== 'draft'
-              "
-            />
-            <el-select
-              v-model="editForm.accessTier"
-              :disabled="
-                detail.singleModuleDetail
-                  ? detail.modules[0]?.publicationStatus === 'archived'
-                  : detail.status === 'archived'
-              "
-            >
-              <el-option label="会员卷" value="member" />
-              <el-option label="免费卷" value="free" />
-            </el-select>
-            <el-button
-              :loading="savingMeta"
-              :disabled="
-                (detail.singleModuleDetail
-                  ? detail.modules[0]?.publicationStatus === 'archived'
-                  : detail.status === 'archived') || !editForm.title.trim()
-              "
-              @click="saveMetadata"
-            >
-              {{ detail.singleModuleDetail ? '保存单项信息' : '保存基本信息' }}
-            </el-button>
-          </section>
+
 
           <el-alert
-            v-if="detail.issues.length"
+            v-if="detail.issues.length && (detail.singleModuleDetail || detail.fullExamReady)"
             type="warning"
             :closable="false"
             show-icon
@@ -630,20 +629,20 @@
               <div v-if="module.issues.length" class="module-issues">
                 {{ module.issues.join('；') }}
               </div>
-              <el-table :data="module.questions" row-key="id" class="question-table" max-height="610">
-                <el-table-column prop="position" label="#" width="58" />
-                <el-table-column label="题号" min-width="270">
+              <AdminDataTable :data="module.questions" row-key="id" class="question-table">
+                <el-table-column prop="position" label="#" width="70" />
+                <el-table-column label="题号" min-width="270" align="center">
                   <template #default="{ row }">
                     <code>{{ row.sourceCode || '未填写' }}</code>
                   </template>
                 </el-table-column>
-                <el-table-column label="题目" min-width="300">
+                <el-table-column label="题目" min-width="300" align="center">
                   <template #default="{ row }">
                     <span v-if="row.question" class="question-title">{{ row.question.title }}</span>
                     <span v-else class="muted">未匹配到题库题目</span>
                   </template>
                 </el-table-column>
-                <el-table-column label="题库状态" width="110">
+                <el-table-column label="题库状态" width="110" align="center">
                   <template #default="{ row }">
                     <el-tag v-if="row.question" size="small" effect="plain">
                       {{ row.question.status }}
@@ -651,13 +650,13 @@
                     <span v-else>—</span>
                   </template>
                 </el-table-column>
-                <el-table-column label="校验结果" min-width="230">
+                <el-table-column label="校验结果" min-width="200" align="center">
                   <template #default="{ row }">
                     <span v-if="row.validationStatus === 'valid'" class="validation-ok">通过</span>
                     <span v-else class="row-issues">{{ row.issues.join('；') }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column label="操作" width="92" fixed="right">
+                <el-table-column label="操作" width="92" fixed="right" align="center">
                   <template #default="{ row }">
                     <el-button
                       link
@@ -672,7 +671,7 @@
                     </el-button>
                   </template>
                 </el-table-column>
-              </el-table>
+              </AdminDataTable>
             </el-tab-pane>
             <el-tab-pane v-if="detail.canAddModules" name="add-module">
               <template #label>
@@ -785,6 +784,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, type UploadFile } from 'element-plus'
 import { CircleCheckFilled, Refresh, UploadFilled, WarningFilled } from '@element-plus/icons-vue'
 import AppPagination from '@/components/AppPagination.vue'
+import AdminDataTable from '@/components/admin/AdminDataTable.vue'
 import {
   addMockPaperModule,
   archiveMockPaperModule,
@@ -1993,8 +1993,19 @@ onMounted(() => void loadList())
   align-items: center;
 }
 
-.module-table :deep(.el-table__cell) {
+// 表格类名透传到公共组件内部，统一内边距以免窄列叠加留白后截断按钮。
+:deep(.module-table .el-table__cell) {
   padding: 12px 0;
+}
+
+:deep(.module-table .cell) {
+  padding-inline: 12px;
+}
+
+.module-updated-at {
+  display: flex;
+  flex-direction: column;
+  white-space: nowrap;
 }
 
 .module-association {
@@ -2028,6 +2039,10 @@ onMounted(() => void loadList())
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.module-association :deep(.el-tag) {
+  flex-shrink: 0;
 }
 
 .module-set-link {
@@ -2249,30 +2264,60 @@ onMounted(() => void loadList())
 .detail-title-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
+  margin: 10px 0 12px;
 }
 
-.detail-actions,
-.meta-editor {
+.detail-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
-.meta-editor {
-  margin: 24px 0 16px;
-  padding: 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #fff;
+.detail-header {
+  margin-bottom: 24px;
 }
 
-.meta-editor :deep(.el-input) {
-  max-width: 420px;
+.detail-header > div:first-child {
+  flex: 1;
+  min-width: 0;
 }
 
-.meta-editor :deep(.el-select) {
+.detail-title-input {
+  width: 360px;
+  max-width: 100%;
+  font-size: 16px;
+}
+
+.detail-access-select {
   width: 130px;
+}
+
+.detail-code {
+  margin-bottom: 10px;
+}
+
+// 可用单项数与完整模考组合说明作为一组排列，避免被标题行拆开。
+.detail-readiness {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+}
+
+.detail-readiness > .el-tag:first-child {
+  flex-shrink: 0;
+}
+
+.detail-availability {
+  height: auto;
+  min-height: 24px;
+  padding-block: 4px;
+  white-space: normal;
+  line-height: 1.5;
 }
 
 .set-alert {

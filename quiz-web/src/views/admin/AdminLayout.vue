@@ -1,4 +1,5 @@
-﻿<template>
+<!-- 管理后台公共布局，承载侧栏导航与独立滚动的管理页面。 -->
+<template>
   <div class="admin-page">
     <div class="admin-wrapper">
       <div
@@ -57,7 +58,9 @@
         </el-tooltip>
 
         <main class="main-content">
-          <RouterView />
+          <div class="admin-content-canvas">
+            <RouterView />
+          </div>
         </main>
       </div>
     </div>
@@ -126,14 +129,14 @@ function toggleSidebar(): void {
 
 // 手机端点击导航后自动收起侧栏，给内容区留出更多横向空间。
 function handleNavClick(): void {
-  if (window.matchMedia('(max-width: 768px)').matches) {
+  if (window.matchMedia('(max-width: 860px)').matches) {
     sidebarCollapsed.value = true
   }
 }
 
 // 手机端初次进入后台默认使用图标侧栏，避免遮挡主要管理内容。
 onMounted(() => {
-  if (window.matchMedia('(max-width: 768px)').matches) sidebarCollapsed.value = true
+  if (window.matchMedia('(max-width: 860px)').matches) sidebarCollapsed.value = true
 })
 </script>
 
@@ -363,8 +366,20 @@ onMounted(() => {
   overflow: auto;
 }
 
-@media (max-width: 768px) {
+.admin-content-canvas {
+  height: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 860px) {
+  // 与全局移动端断点一致，避免桌面最小宽度被外层裁切。
+  .admin-page {
+    height: 100dvh;
+  }
+
   .admin-wrapper {
+    height: 100%;
+    min-width: 0;
     padding: 0;
     max-width: none;
   }
@@ -417,13 +432,11 @@ onMounted(() => {
     -webkit-overflow-scrolling: touch;
   }
 
-  .main-content :deep(.data-card) {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .main-content :deep(.data-table) {
-    min-width: 680px;
+  // 内容保留宽布局，超出手机视口时在主内容区横向滚动。
+  .admin-content-canvas {
+    height: auto;
+    min-height: 100%;
+    min-width: 1000px;
   }
 }
 </style>

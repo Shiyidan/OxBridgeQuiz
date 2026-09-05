@@ -46,7 +46,6 @@
         :loading="loading"
         :total="pagination.total"
         empty-text="暂无导入文件，请先导入符合 standard2 的 JSON 或 Markdown 文件"
-        fill-height
         show-pagination
         @page-change="changePage"
         @page-size-change="changePageSize"
@@ -58,7 +57,7 @@
             </el-tooltip>
           </template>
         </el-table-column>
-        <el-table-column label="题目数量" width="130" align="center" header-align="center">
+        <el-table-column label="题目数量" width="140" align="center" header-align="center">
           <template #default="{ row }">
             <div class="count-cell">
               <strong>{{ row.currentQuestionCount }} 题</strong>
@@ -73,7 +72,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="考试类型" width="120" align="center" header-align="center">
+        <el-table-column label="考试类型" width="100" align="center" header-align="center">
           <template #default="{ row }">
             <div class="tag-list tag-list--center">
               <el-tag
@@ -473,19 +472,19 @@ onMounted(loadBatches)
 
 <style scoped lang="scss">
 .question-bank-page {
-  --question-table-max-height: calc(100vh - var(--nav-height) - 220px);
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
+  // 当前分页全部展开，由后台主内容区滚动到分页器。
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
 }
 
 .page-body {
-  height: 100%;
+  height: auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
   padding: 24px 40px 10px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .section-header,
@@ -677,5 +676,11 @@ onMounted(loadBatches)
 .table-action:not(:disabled):hover,
 .table-action:not(:disabled):focus-visible {
   background: var(--color-hover);
+}
+@media (max-width: 860px) {
+  .page-body {
+    flex: none;
+    padding: 20px 16px;
+  }
 }
 </style>

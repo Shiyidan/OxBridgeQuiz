@@ -367,22 +367,22 @@ function formatDate(value: string): string {
 
 <style scoped lang="scss">
 .syllabus-page {
-  --syllabus-table-max-height: calc(100vh - var(--nav-height) - 170px);
+  // 当前分页全部展开，由后台主内容区滚动到分页器。
 
-  height: 100%;
-  min-height: 0;
+  height: auto;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .page-body {
-  flex: 1;
+  flex: none;
   min-height: 0;
   display: flex;
   flex-direction: column;
   padding: 24px 40px 10px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .section-header {
@@ -605,6 +605,12 @@ function formatDate(value: string): string {
 @media (max-width: 900px) {
   .section-header {
     flex-direction: column;
+  }
+}
+@media (max-width: 860px) {
+  .page-body {
+    flex: none;
+    padding: 20px 16px;
   }
 }
 </style>

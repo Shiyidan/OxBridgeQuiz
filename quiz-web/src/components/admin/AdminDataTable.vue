@@ -1,14 +1,15 @@
+<!-- 后台共用表格，桌面支持填满高度，移动端随内容展开。 -->
 <template>
   <div
     class="admin-data-table"
-    :class="{ 'admin-data-table--fill-height': fillHeight }"
+    :class="{ 'admin-data-table--fill-height': effectiveFillHeight }"
   >
     <div class="admin-data-table__wrap">
       <el-table
         v-loading="loading"
         v-bind="$attrs"
         :data="data"
-        :height="fillHeight ? '100%' : undefined"
+        :height="effectiveFillHeight ? '100%' : undefined"
         class="admin-data-table__table"
         stripe
         :empty-text="emptyText"
@@ -36,12 +37,13 @@
 // 后台通用数据表格：统一 Element Table 外壳、自然高度和分页器布局；
 // 已用于用户管理、支付对账、营收与数据、真题库、试题库和大纲管理页面。
 import AppPagination from '@/components/AppPagination.vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 defineOptions({
   inheritAttrs: false,
 })
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     data: T[]
     emptyText?: string
@@ -62,6 +64,22 @@ withDefaults(
     fillHeight: false,
   },
 )
+
+const mobileQuery = window.matchMedia('(max-width: 860px)')
+const isMobile = ref(mobileQuery.matches)
+// 手机端让表格自然展开，由后台主内容区滚动到分页器。
+const effectiveFillHeight = computed(() => props.fillHeight && !isMobile.value)
+
+// 横竖屏或窗口尺寸变化时同步表格高度模式。
+function syncMobileLayout(): void {
+  isMobile.value = mobileQuery.matches
+}
+
+onMounted(() => {
+  syncMobileLayout()
+  mobileQuery.addEventListener('change', syncMobileLayout)
+})
+onUnmounted(() => mobileQuery.removeEventListener('change', syncMobileLayout))
 
 const emit = defineEmits<{
   'update:page': [value: number]

@@ -2038,7 +2038,7 @@ body.home-dialog-open {
 
   .home-hero-title,
   .home-section-title {
-    font-size: 40px;
+    font-size: 34px;
   }
 
   .home-report-preview {
@@ -2179,7 +2179,7 @@ body.home-dialog-open {
 
   .home-hero-title,
   .home-section-title {
-    font-size: clamp(35px, 10vw, 42px);
+    font-size: clamp(29px, calc(10vw - 6px), 36px);
   }
 
   .home-section-desc {
@@ -3512,6 +3512,16 @@ body.home-dialog-open {
   }
 }
 
+@media (max-width: 860px) {
+  .home-student-feedback h1 {
+    font-size: clamp(32px, calc(5vw - 6px), 58px);
+  }
+
+  .home-student-hero h1 {
+    font-size: clamp(36px, calc(4.35vw - 6px), 40px);
+  }
+}
+
 @media (max-width: 620px) {
   .home-student-overview-inner,
   .home-student .home-motion-content {
@@ -3519,7 +3529,7 @@ body.home-dialog-open {
   }
 
   .home-student-hero h1 {
-    font-size: 40px;
+    font-size: 34px;
   }
 
   .home-marketing .home-model-screen .home-story-copy {

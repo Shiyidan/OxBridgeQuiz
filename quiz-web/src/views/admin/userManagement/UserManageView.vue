@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="um-page">
     <!-- <div class="page-top-bar">
       <button class="back-btn" type="button" @click="$router.push('/admin')">← 返回类别列表</button>
@@ -934,6 +934,19 @@ onMounted(fetchUsers)
   .user-search__input {
     width: auto;
     flex: 1;
+  }
+}
+@media (max-width: 860px) {
+  // 移动端由后台主内容区统一滚动，避免筛选区和表格被固定高度裁切。
+  .um-page,
+  .page-body {
+    height: auto;
+    overflow: visible;
+  }
+
+  .page-body {
+    flex: none;
+    padding: 20px 16px;
   }
 }
 </style>

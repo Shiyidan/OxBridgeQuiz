@@ -8,6 +8,7 @@ import {
   MOCK_PAPER_VALIDATION_STATUS,
   QUESTION_STATUS,
 } from '../constants/domain.js'
+import { expandMockPaperVersionClosure } from '../utils/mockPaperVersionClosure.js'
 import { prisma } from './prisma.js'
 import { revalidateMockPaperSet } from './mockPaperLibrary.js'
 
@@ -101,28 +102,40 @@ export async function releaseQuestionReplacementBatch(
   const replacementByOldQuestionId = new Map(
     replacements.map((question) => [question.replacesQuestion!.id, question]),
   )
-  const affectedSets = await prisma.mockPaperSet.findMany({
+  const releaseSetInclude = {
+    paper: { include: { _count: { select: { examRecords: true } } } },
+    modules: {
+      orderBy: { moduleOrder: 'asc' as const },
+      include: { questions: { orderBy: { position: 'asc' as const } } },
+    },
+  } satisfies Prisma.MockPaperSetInclude
+  const directlyAffectedSets = await prisma.mockPaperSet.findMany({
     where: {
       deletedAt: null,
       status: { not: MOCK_PAPER_STATUS.ARCHIVED },
       modules: { some: { questions: { some: { questionId: { in: oldQuestionIds } } } } },
     },
-    include: {
-      paper: { include: { _count: { select: { examRecords: true } } } },
-      modules: {
-        orderBy: { moduleOrder: 'asc' },
-        include: { questions: { orderBy: { position: 'asc' } } },
-      },
-    },
+    include: releaseSetInclude,
   })
 
-  const versionedSets = affectedSets.filter((set) => (
+  const directlyVersionedSets = directlyAffectedSets.filter((set) => (
     set.status === MOCK_PAPER_STATUS.PUBLISHED
     || set.modules.some((module) => module.publicationStatus === MOCK_PAPER_MODULE_STATUS.PUBLISHED)
     || Boolean(set.paper?._count.examRecords)
   ))
-  const editableDraftSets = affectedSets.filter((set) => !versionedSets.includes(set))
-  const incompleteRuntimeSets = versionedSets.filter((set) => !set.paper)
+  const directlyVersionedSetIds = new Set(directlyVersionedSets.map((set) => set.id))
+  const versionClosure = await expandMockPaperVersionClosure(
+    directlyVersionedSets,
+    (sourceModuleIds) => prisma.mockPaperSet.findMany({
+      where: { modules: { some: { id: { in: sourceModuleIds } } } },
+      include: releaseSetInclude,
+    }),
+  )
+  const versionedSets = versionClosure.sets
+  const editableDraftSets = directlyAffectedSets.filter(
+    (set) => !directlyVersionedSetIds.has(set.id),
+  )
+  const incompleteRuntimeSets = directlyVersionedSets.filter((set) => !set.paper)
   if (incompleteRuntimeSets.length) {
     throw new QuestionReplacementReleaseError(
       incompleteRuntimeSets.map((set) => `${set.code} 已开放或已有答卷，但缺少运行 Paper`),
@@ -136,9 +149,10 @@ export async function releaseQuestionReplacementBatch(
       set.modules.map((module) => [module.id, randomUUID()] as const)
     )),
   )
+  const missingSourceModuleIds = new Set(versionClosure.missingSourceModuleIds)
   const missingCompositionSources = versionedSets.flatMap((set) => (
     set.modules.filter((module) => (
-      module.sourceModuleId && !nextModuleIdByOldModuleId.has(module.sourceModuleId)
+      module.sourceModuleId && missingSourceModuleIds.has(module.sourceModuleId)
     ))
   ))
   if (missingCompositionSources.length) {
@@ -188,6 +202,7 @@ export async function releaseQuestionReplacementBatch(
           issues: set.issues as Prisma.InputJsonValue,
           publishedAt: set.status === MOCK_PAPER_STATUS.PUBLISHED ? releasedAt : null,
           archivedAt: null,
+          deletedAt: set.deletedAt ? releasedAt : null,
           modules: {
             create: set.modules.map((module) => ({
               id: nextModuleIdByOldModuleId.get(module.id)!,
@@ -226,33 +241,35 @@ export async function releaseQuestionReplacementBatch(
           },
         },
       })
-      const oldPaper = set.paper!
-      const paperId = `mock-paper-${newSet.id}`
-      await tx.paper.create({
-        data: {
-          id: paperId,
-          title: oldPaper.title,
-          code,
-          examType: oldPaper.examType,
-          year: oldPaper.year,
-          duration: oldPaper.duration,
-          totalQuestions: oldPaper.totalQuestions,
-          paperType: oldPaper.paperType,
-          accessTier: oldPaper.accessTier,
-          deliveryMode: oldPaper.deliveryMode,
-          breakDurationSeconds: oldPaper.breakDurationSeconds,
-          ...optionalJson('moduleConfig', oldPaper.moduleConfig),
-          assemblyType: oldPaper.assemblyType,
-          ...optionalJson('sourceExamTypes', oldPaper.sourceExamTypes),
-          remarks: oldPaper.remarks,
-          pdfUrl: oldPaper.pdfUrl,
-          status: 'published',
-        },
-      })
-      await tx.mockPaperSet.update({
-        where: { id: newSet.id },
-        data: { paperId },
-      })
+      const oldPaper = set.paper
+      if (oldPaper) {
+        const paperId = `mock-paper-${newSet.id}`
+        await tx.paper.create({
+          data: {
+            id: paperId,
+            title: oldPaper.title,
+            code,
+            examType: oldPaper.examType,
+            year: oldPaper.year,
+            duration: oldPaper.duration,
+            totalQuestions: oldPaper.totalQuestions,
+            paperType: oldPaper.paperType,
+            accessTier: oldPaper.accessTier,
+            deliveryMode: oldPaper.deliveryMode,
+            breakDurationSeconds: oldPaper.breakDurationSeconds,
+            ...optionalJson('moduleConfig', oldPaper.moduleConfig),
+            assemblyType: oldPaper.assemblyType,
+            ...optionalJson('sourceExamTypes', oldPaper.sourceExamTypes),
+            remarks: oldPaper.remarks,
+            pdfUrl: oldPaper.pdfUrl,
+            status: 'published',
+          },
+        })
+        await tx.mockPaperSet.update({
+          where: { id: newSet.id },
+          data: { paperId },
+        })
+      }
       await tx.mockPaperModule.updateMany({
         where: { mockPaperSetId: set.id },
         data: {
@@ -264,10 +281,12 @@ export async function releaseQuestionReplacementBatch(
         where: { id: set.id },
         data: { status: MOCK_PAPER_STATUS.ARCHIVED, archivedAt: releasedAt },
       })
-      await tx.paper.update({
-        where: { id: oldPaper.id },
-        data: { status: 'archived' },
-      })
+      if (oldPaper) {
+        await tx.paper.update({
+          where: { id: oldPaper.id },
+          data: { status: 'archived' },
+        })
+      }
       versionedMockPapers.push({
         previousSetId: set.id,
         currentSetId: newSet.id,

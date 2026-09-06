@@ -36,6 +36,7 @@
     "test:modular-diagnostic": "tsx scripts/test-modular-diagnostic.ts",
     "test:tmua-diagnostic": "tsx scripts/test-tmua-diagnostic-report.ts",
     "test:mock-paper-state": "tsx scripts/test-mock-paper-state-machine.ts",
+    "test:question-replacement-version-closure": "tsx scripts/test-question-replacement-version-closure.ts",
     "test:diagnostic-weakness": "tsx scripts/test-diagnostic-weakness-profile.ts",
     "verify:chinaums-order-no": "tsx scripts/verify-chinaums-order-no.ts",
     "verify:chinaums-signature": "tsx scripts/verify-chinaums-signature.ts",

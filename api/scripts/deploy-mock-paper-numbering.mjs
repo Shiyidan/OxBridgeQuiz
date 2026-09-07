@@ -1,7 +1,7 @@
 // 已备份的部署中分阶段升级旧编号；中间客户端回填成功后，部署器才能执行删列迁移。
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
+import { cp, mkdir, readFile, readdir, symlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -30,11 +30,13 @@ if (!/^\s+sequenceNo\s+Int/m.test(currentSet)) {
 }
 
 await mkdir(path.join(stage, 'prisma/migrations'), { recursive: true })
+await writeFile(path.join(stage, 'package.json'), '{"type":"module"}')
+await symlink(path.join(runtimeApi, 'node_modules'), path.join(stage, 'node_modules'), 'dir')
 let intermediate = await readFile(finalSchema, 'utf8')
 intermediate = intermediate.replace('model MockPaperSet {', 'model MockPaperSet {\n  code String @unique @db.VarChar(100)\n  sequenceNo Int\n  legacyCode String? @unique @db.VarChar(100)')
 intermediate = intermediate.replace(/versionGroupId String\s+@db/, 'versionGroupId String? @db')
 // 独立输出防止中间生成覆盖正在服务的运行客户端。
-intermediate = intermediate.replace(/provider\s*=\s*"prisma-client-js"/, `provider = "prisma-client-js"\n  output = "${stage}/node_modules/@prisma/client"`)
+intermediate = intermediate.replace(/provider\s*=\s*"prisma-client-js"/, `provider = "prisma-client-js"\n  output = "${stage}/generated-client"`)
 const middleSchema = path.join(stage, 'prisma/schema.prisma')
 await writeFile(middleSchema, intermediate)
 for (const entry of await readdir(path.join(repoApi, 'prisma/migrations'), { withFileTypes: true })) {
@@ -47,8 +49,8 @@ command('pm2', ['stop', 'quiz-api'])
 command(cli, ['migrate', 'deploy', '--schema', middleSchema])
 command(cli, ['generate', '--schema', middleSchema])
 await mkdir(path.join(stage, 'services'), { recursive: true })
-await writeFile(path.join(stage, 'package.json'), '{"type":"module"}')
-await cp(path.join(artifactApi, 'dist/services/prisma.js'), path.join(stage, 'services/prisma.js'))
+const singleton = await readFile(path.join(artifactApi, 'dist/services/prisma.js'), 'utf8')
+await writeFile(path.join(stage, 'services/prisma.js'), singleton.replace("'@prisma/client'", "'../generated-client/index.js'"))
 const { prisma } = await import(pathToFileURL(path.join(stage, 'services/prisma.js')).href)
 const { buildPlan, canonical, protectedSets } = await import(pathToFileURL(path.join(artifactApi, 'dist/services/mockPaperNumberMigration.js')).href)
 try {

@@ -416,6 +416,13 @@ if [[ "$SCOPE" == "backend" || "$SCOPE" == "all" ]]; then
 
   if [[ "$ENVIRONMENT" == "test" ]]; then
     step "test runtime validate and migrate"
+    run_with_env_file \
+      "$API_RUNTIME/.env" \
+      node "$REPO_DIR/api/scripts/validate-runtime-config.mjs" "$ARTIFACT_STAGE/api"
+    run_with_env_file \
+      "$API_RUNTIME/.env" \
+      node "$REPO_DIR/api/scripts/deploy-mock-paper-numbering.mjs" \
+      "$ENVIRONMENT" "$EXPECTED_DATABASE" "$REPO_DIR/api" "$ARTIFACT_STAGE/api" "$API_RUNTIME" "$SCRIPT_DIR/numbering"
     mkdir -p "$API_RUNTIME/prisma"
     cp "$REPO_DIR/api/prisma/schema.prisma" "$API_RUNTIME/prisma/schema.prisma"
     (

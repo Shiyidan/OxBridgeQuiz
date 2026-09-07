@@ -443,12 +443,17 @@ if [[ "$SCOPE" == "backend" || "$SCOPE" == "all" ]]; then
   else
     cd "$REPO_DIR/api"
     cp "$API_RUNTIME/.env" .env
-    step "backend migrate and build"
-    npx prisma migrate deploy
+    step "production build and runtime validation before migration"
     npx prisma generate
     npm run build
-    step "production runtime dependency validation"
     API_ENV_FILE="$API_RUNTIME/.env" npm run validate:runtime
+    step "production staged numbering migration"
+    run_with_env_file \
+      "$API_RUNTIME/.env" \
+      node "$REPO_DIR/api/scripts/deploy-mock-paper-numbering.mjs" \
+      "$ENVIRONMENT" "$EXPECTED_DATABASE" "$REPO_DIR/api" "$REPO_DIR/api" "$API_RUNTIME" "$SCRIPT_DIR/numbering"
+    npx prisma migrate deploy
+    npx prisma migrate status
   fi
 
   step "backend runtime sync"
@@ -458,6 +463,8 @@ if [[ "$SCOPE" == "backend" || "$SCOPE" == "all" ]]; then
     rsync -a --delete "$REPO_DIR/api/dist/" "$API_RUNTIME/dist/"
     rsync -a --delete "$REPO_DIR/api/node_modules/" "$API_RUNTIME/node_modules/"
     cp "$REPO_DIR/api/package.json" "$REPO_DIR/api/package-lock.json" "$API_RUNTIME/"
+    mkdir -p "$API_RUNTIME/prisma"
+    cp "$REPO_DIR/api/prisma/schema.prisma" "$API_RUNTIME/prisma/schema.prisma"
   fi
   if [[ -d "$REPO_DIR/api/prompts" ]]; then
     rsync -a --delete "$REPO_DIR/api/prompts/" "$API_RUNTIME/prompts/"

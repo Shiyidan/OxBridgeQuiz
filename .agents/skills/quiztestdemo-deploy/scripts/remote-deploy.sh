@@ -418,6 +418,9 @@ if [[ "$SCOPE" == "backend" || "$SCOPE" == "all" ]]; then
     step "test runtime validate and migrate"
     run_with_env_file \
       "$API_RUNTIME/.env" \
+      "$TEST_PRISMA_BIN" generate --schema "$API_RUNTIME/prisma/schema.prisma"
+    run_with_env_file \
+      "$API_RUNTIME/.env" \
       node "$REPO_DIR/api/scripts/validate-runtime-config.mjs" "$ARTIFACT_STAGE/api"
     run_with_env_file \
       "$API_RUNTIME/.env" \

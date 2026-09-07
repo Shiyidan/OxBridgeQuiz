@@ -22,7 +22,7 @@ function command(executable, args, capture = false) {
 }
 
 const currentSchema = command(cli, ['db', 'pull', '--print', '--schema', finalSchema], true)
-const currentSet = currentSchema.match(/model MockPaperSet \{([\s\S]*?)\n\}/)?.[1]
+const currentSet = currentSchema.match(/model MockPaperSet \{([\s\S]*?)\n\}/i)?.[1]
 assert.ok(currentSet, 'MockPaperSet missing')
 if (!/^\s+sequenceNo\s+Int/m.test(currentSet)) {
   console.log('mock_numbering_stage=already_migrated')

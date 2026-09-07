@@ -2,16 +2,17 @@
 import { prisma } from '../src/services/prisma.js'
 import { revalidateMockPaperSet } from '../src/services/mockPaperLibrary.js'
 import { deriveMockPaperReadiness } from '../src/utils/mockPaperState.js'
+import { formatMockPaperSequenceNo } from '../src/utils/mockPaperNumber.js'
 
 // 逐套执行正式校验，复用上传和替题后的同一套状态计算逻辑。
 async function main() {
   const sets = await prisma.mockPaperSet.findMany({
-    select: { id: true, code: true },
-    orderBy: [{ examType: 'asc' }, { sequenceNo: 'asc' }],
+    select: { id: true, title: true, series: { select: { sequenceNo: true } } },
+    orderBy: [{ examType: 'asc' }, { series: { sequenceNo: 'asc' } }],
   })
   for (const [index, set] of sets.entries()) {
     await revalidateMockPaperSet(set.id)
-    console.log(`[${index + 1}/${sets.length}] ${set.code}`)
+    console.log(`[${index + 1}/${sets.length}] ${set.title} ${formatMockPaperSequenceNo(set.series?.sequenceNo)}`)
   }
   const refreshed = await prisma.mockPaperSet.findMany({
     select: {

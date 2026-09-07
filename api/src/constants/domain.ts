@@ -199,6 +199,23 @@ export const MOCK_PAPER_STATUS = {
   ARCHIVED: 'archived',
 } as const
 
+export const MOCK_PAPER_SERIES_KIND = { FULL: 'full', SINGLE: 'single' } as const
+export type MockPaperSeriesKind = typeof MOCK_PAPER_SERIES_KIND[keyof typeof MOCK_PAPER_SERIES_KIND]
+
+export const MOCK_PAPER_MODULE_NUMBER_CODES: Record<string, Record<string, string>> = {
+  [EXAM_TYPE.ESAT]: {
+    [ESAT_MODULE.MATHS_1]: 'M1',
+    [ESAT_MODULE.MATHS_2]: 'M2',
+    [ESAT_MODULE.BIOLOGY]: 'B',
+    [ESAT_MODULE.CHEMISTRY]: 'C',
+    [ESAT_MODULE.PHYSICS]: 'P',
+  },
+  [EXAM_TYPE.TMUA]: {
+    [TMUA_PAPER.PAPER_1]: 'P1',
+    [TMUA_PAPER.PAPER_2]: 'P2',
+  },
+}
+
 export const MOCK_PAPER_VALIDATION_STATUS = {
   VALID: 'valid',
   INVALID: 'invalid',

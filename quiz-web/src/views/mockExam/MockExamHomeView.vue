@@ -123,7 +123,7 @@
                   <div class="paper-card__heading">
                     <div>
                       <div class="paper-card__badges">
-                        <span>{{ paper.code || 'MOCK' }}</span>
+                        <span>{{ formatMockPaperSequenceNo(paper.sequenceNo) }}</span>
                         <span
                           :class="
                             paper.accessTier === PAPER_ACCESS_TIER.FREE
@@ -340,7 +340,7 @@
                   <div class="paper-card__heading">
                     <div>
                       <div class="paper-card__badges">
-                        <span>{{ module.sourcePaperCode }}</span>
+                        <span>{{ formatMockPaperSequenceNo(module.sequenceNo) }}</span>
                         <span
                           :class="
                             module.accessTier === PAPER_ACCESS_TIER.FREE
@@ -379,7 +379,7 @@
                     <span>
                       {{
                         module.fullExamReady
-                          ? `已组成 ${module.sourcePaperTitle}`
+                          ? `已组成 ${module.sourcePaperTitle} · ${formatMockPaperSequenceNo(module.sourcePaperSequenceNo)}`
                           : '目前无所属模拟套卷'
                       }}
                     </span>
@@ -529,8 +529,7 @@
                   <div class="record-card__top">
                     <div>
                       <div class="record-card__meta">
-                        <span>{{ record.paperCode || 'MOCK' }}</span>
-                        <span v-if="record.version > 1">V{{ record.version }}</span>
+                        <span>{{ formatMockPaperSequenceNo(record.sequenceNo) }}</span>
                         <b :data-mode="record.mode">
                           {{ record.mode === 'single' ? '单项模考' : '完整模考' }}
                         </b>
@@ -833,7 +832,7 @@
         </button>
         <button
           type="button"
-          class="dialog-button dialog-button--primary"
+          class="dialog-button dialog-button--primary start-confirm-button"
           :disabled="!rulesAccepted || Boolean(startingTargetId)"
           @click="confirmStartContent"
         >
@@ -952,6 +951,7 @@ import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import { PAPER_ACCESS_TIER } from '@/constants/paperTypes'
 import { createLoginRequiredRouteLocation } from '@/utils/authRedirect'
 import { getApiErrorMessage, hasApiErrorCode } from '@/utils/request'
+import { formatMockPaperSequenceNo } from '@/utils/mockPaperNumber'
 import {
   OFFICIAL_EXAM_DATES_SOURCE,
   formatExamWindow,
@@ -2237,8 +2237,14 @@ onMounted(async () => {
   gap: 18px;
 }
 
+.paper-card__heading > div:first-child {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .paper-card__badges {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 7px;
   margin-bottom: 9px;
@@ -2256,6 +2262,8 @@ onMounted(async () => {
   font-size: 10px;
   font-weight: var(--weight-semi);
   letter-spacing: 0.03em;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .paper-card__badges .paper-badge--free {
@@ -2292,6 +2300,7 @@ onMounted(async () => {
 
 .paper-card__facts {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 18px;
   margin-top: 17px;
@@ -2303,6 +2312,8 @@ onMounted(async () => {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .paper-card__progress {
@@ -2493,6 +2504,7 @@ onMounted(async () => {
 
 .record-card__meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
@@ -2502,6 +2514,7 @@ onMounted(async () => {
   font-size: 10px;
   font-weight: var(--weight-bold);
   letter-spacing: 0.1em;
+  overflow-wrap: anywhere;
 }
 
 .record-card__meta b {
@@ -2951,6 +2964,10 @@ onMounted(async () => {
   border: 1px solid var(--color-ink);
   background: var(--color-ink);
   color: var(--color-ink-inverse);
+}
+
+.start-confirm-button {
+  margin-left: 8px;
 }
 
 .dialog-button--danger {

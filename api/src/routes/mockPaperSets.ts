@@ -1,17 +1,22 @@
 // 模考试卷库路由：提供管理员套卷草稿列表、Excel 导入、详情校验和单题替换。
 import multer from 'multer'
 import { Prisma } from '@prisma/client'
+import { randomUUID } from 'node:crypto'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/admin.js'
 import { setOperationAuditContext } from '../middleware/operationAudit.js'
 import {
+  ESAT_MODULES,
+  EXAM_TYPE,
   MOCK_PAPER_MODULE_STATUS,
   MOCK_PAPER_STATUS,
   MOCK_PAPER_VALIDATION_STATUS,
   PAPER_ACCESS_TIER,
+  TMUA_PAPERS,
   isPaperAccessTier,
 } from '../constants/domain.js'
 import { prisma } from '../services/prisma.js'
+import { withMockPaperNumberTransaction } from '../services/mockPaperNumbering.js'
 import {
   MOCK_PAPER_MODULE_POOL_CAPACITY,
   MockPaperWorkbookError,
@@ -29,6 +34,7 @@ import { fail, success } from '../utils/response.js'
 import { parseJsonArray } from '../utils/jsonField.js'
 import { parsePositiveInt } from './papers-shared.js'
 import { formatMockPaperModuleTitle } from '../utils/mockPaperTitle.js'
+import { buildMockPaperNumber, parseMockPaperNumber, parseMockPaperSequenceNo } from '../utils/mockPaperNumber.js'
 import {
   canClaimMockPaperSource,
   canDeleteMockPaperSet,
@@ -74,11 +80,52 @@ function getModulePoolCapacity(examType: string): number {
   ] || 0
 }
 
+// 学科筛选使用考试定义中的真实模块值，未选考试时允许全部受支持学科。
+function isValidModuleFilter(examType: string, moduleCode: string): boolean {
+  if (!moduleCode) return true
+  const allowed: readonly string[] = examType === EXAM_TYPE.ESAT
+    ? ESAT_MODULES
+    : examType === EXAM_TYPE.TMUA
+      ? TMUA_PAPERS
+      : examType ? [] : [...ESAT_MODULES, ...TMUA_PAPERS]
+  return allowed.includes(moduleCode)
+}
+
+const displayedCompositionOrderBy = [
+  { mockPaperSet: { createdAt: 'desc' } },
+  { id: 'asc' },
+] satisfies Prisma.MockPaperModuleOrderByWithRelationInput[]
+
+const parentSearchSelect = {
+  title: true,
+  examType: true,
+  version: true,
+  deletedAt: true,
+  series: { select: { sequenceNo: true } },
+} satisfies Prisma.MockPaperSetSelect
+
+// 候选只允许系列最新原始版本，最高版本查询不按校验或发布状态过滤，防止回退采用旧题。
+async function latestCanonicalSources<T extends { seriesId: string | null; version: number | null }>(
+  modules: T[],
+): Promise<T[]> {
+  const seriesIds = [...new Set(modules.flatMap((module) => module.seriesId ? [module.seriesId] : []))]
+  if (!seriesIds.length) return []
+  const latest = await prisma.mockPaperModule.groupBy({
+    by: ['seriesId'],
+    where: { seriesId: { in: seriesIds }, sourceModuleId: null },
+    _max: { version: true },
+  })
+  const latestBySeries = new Map(latest.map((module) => [module.seriesId, module._max.version]))
+  return modules.filter((module) => (
+    module.seriesId && module.version === latestBySeries.get(module.seriesId)
+  ))
+}
+
 // 列表响应只返回管理页首屏所需的汇总信息，模块和题目明细按需读取。
 function formatMockPaperSetListItem(row: {
   id: string
-  code: string
-  sequenceNo: number
+  seriesId: string | null
+  series: { sequenceNo: number } | null
   examType: string
   title: string
   accessTier: string
@@ -102,8 +149,8 @@ function formatMockPaperSetListItem(row: {
   const readiness = deriveMockPaperReadiness(row.examType, row.modules)
   return {
     id: row.id,
-    code: row.code,
-    sequenceNo: row.sequenceNo,
+    seriesId: row.seriesId,
+    sequenceNo: buildMockPaperNumber(row.examType, row.series!.sequenceNo, row.version),
     examType: row.examType,
     title: row.title,
     accessTier: row.accessTier,
@@ -133,9 +180,9 @@ function formatMockPaperSetListItem(row: {
 // 管理首页卡片从模块校验状态实时派生完整套卷数，避免缓存状态漂移。
 mockPaperSetRouter.get('/stats', async (_req, res) => {
   const [total, draftSets] = await Promise.all([
-    prisma.mockPaperSet.count({ where: { deletedAt: null } }),
+    prisma.mockPaperSet.count({ where: { deletedAt: null, seriesId: { not: null } } }),
     prisma.mockPaperSet.findMany({
-      where: { deletedAt: null, status: MOCK_PAPER_STATUS.DRAFT },
+      where: { deletedAt: null, seriesId: { not: null }, status: MOCK_PAPER_STATUS.DRAFT },
       select: {
         examType: true,
         modules: { select: { code: true, validationStatus: true } },
@@ -153,25 +200,63 @@ mockPaperSetRouter.get('/', async (req, res) => {
   const page = parsePositiveInt(req.query.page, 1)
   const pageSize = parsePositiveInt(req.query.pageSize, 20, 100)
   const examType = String(req.query.examType || '').trim().toUpperCase()
+  const moduleCode = String(req.query.moduleCode || '').trim().toLowerCase()
   const status = String(req.query.status || '').trim()
   const keyword = String(req.query.keyword || '').trim()
-  const where: Prisma.MockPaperSetWhereInput = {
+  const requestedNumber = parseMockPaperNumber(keyword)
+  const requestedSequenceNo = parseMockPaperSequenceNo(keyword)
+  if (!isValidModuleFilter(examType, moduleCode)) {
+    res.status(422).json(fail('请选择当前考试支持的学科', 'MOCK_PAPER_MODULE_FILTER_INVALID'))
+    return
+  }
+  const visibilityWhere: Prisma.MockPaperSetWhereInput = {
     deletedAt: null,
+    seriesId: { not: null },
     ...(examType ? { examType } : {}),
+    ...(moduleCode ? { modules: { some: { code: moduleCode } } } : {}),
     ...(status ? { status } : {}),
-    ...(keyword
-      ? { OR: [{ title: { contains: keyword } }, { code: { contains: keyword } }] }
-      : {}),
+  }
+  let numberMatchingIds: string[] = []
+  if (keyword && !requestedNumber) {
+    // 完整编号由系列信息派生，轻量读取支持新卷无旧码时仍可用编号片段搜索。
+    const numberRows = await prisma.mockPaperSet.findMany({
+      where: visibilityWhere,
+      select: { id: true, examType: true, version: true, series: { select: { sequenceNo: true } } },
+    })
+    const normalizedKeyword = keyword.toLowerCase()
+    numberMatchingIds = numberRows.filter((row) => (
+      buildMockPaperNumber(row.examType, row.series?.sequenceNo, row.version)?.toLowerCase().includes(normalizedKeyword)
+    )).map((row) => row.id)
+  }
+  const where: Prisma.MockPaperSetWhereInput = {
+    ...visibilityWhere,
+    ...(requestedNumber
+      ? { AND: [requestedNumber.moduleCode
+          ? { id: { in: [] } }
+          : {
+              examType: requestedNumber.examType,
+              version: requestedNumber.version,
+              series: { kind: 'full', sequenceNo: requestedNumber.sequenceNo },
+            },
+        ] }
+      : keyword
+        ? { OR: [
+            { title: { contains: keyword } },
+            { id: { in: numberMatchingIds } },
+            ...(requestedSequenceNo ? [{ series: { sequenceNo: requestedSequenceNo } }] : []),
+          ] }
+        : {}),
   }
   const total = await prisma.mockPaperSet.count({ where })
   const totalPages = Math.ceil(total / pageSize)
   const safePage = totalPages > 0 ? Math.min(page, totalPages) : 1
   const rows = await prisma.mockPaperSet.findMany({
     where,
-    orderBy: [{ examType: 'asc' }, { sequenceNo: 'desc' }, { version: 'desc' }],
+    orderBy: [{ examType: 'asc' }, { series: { sequenceNo: 'desc' } }, { version: 'desc' }],
     skip: (safePage - 1) * pageSize,
     take: pageSize,
     include: {
+      series: { select: { sequenceNo: true } },
       paper: { select: { _count: { select: { examRecords: true } } } },
       modules: {
         orderBy: { moduleOrder: 'asc' },
@@ -200,32 +285,81 @@ mockPaperSetRouter.get('/modules', async (req, res) => {
   const page = parsePositiveInt(req.query.page, 1)
   const pageSize = parsePositiveInt(req.query.pageSize, 20, 100)
   const examType = String(req.query.examType || '').trim().toUpperCase()
+  const moduleCode = String(req.query.moduleCode || '').trim().toLowerCase()
   const status = String(req.query.status || '').trim()
   const keyword = String(req.query.keyword || '').trim()
+  const requestedNumber = parseMockPaperNumber(keyword)
+  const requestedSequenceNo = parseMockPaperSequenceNo(keyword)
+  if (!isValidModuleFilter(examType, moduleCode)) {
+    res.status(422).json(fail('请选择当前考试支持的学科', 'MOCK_PAPER_MODULE_FILTER_INVALID'))
+    return
+  }
   const visibilityWhere: Prisma.MockPaperModuleWhereInput = {
     sourceModuleId: null,
+    seriesId: { not: null },
     ...(status ? { publicationStatus: status } : {}),
+    ...(moduleCode ? { code: moduleCode } : {}),
     mockPaperSet: {
       is: {
         ...(examType ? { examType } : {}),
       },
     },
   }
+  let keywordWhere: Prisma.MockPaperModuleWhereInput = {}
+  if (requestedNumber?.moduleCode) {
+    keywordWhere = {
+      code: requestedNumber.moduleCode,
+      version: requestedNumber.version,
+      series: {
+        examType: requestedNumber.examType,
+        kind: 'single',
+        moduleCode: requestedNumber.moduleCode,
+        sequenceNo: requestedNumber.sequenceNo,
+      },
+    }
+  } else if (keyword) {
+    // 仅关键词检索读取轻量归属信息，按与列表相同的当前所属卷计算匹配 ID，再统一计数和分页。
+    const searchRows = await prisma.mockPaperModule.findMany({
+      where: visibilityWhere,
+      select: {
+        id: true,
+        code: true,
+        version: true,
+        series: { select: { sequenceNo: true } },
+        mockPaperSet: { select: parentSearchSelect },
+        composedCopies: {
+          where: { mockPaperSet: { deletedAt: null } },
+          orderBy: displayedCompositionOrderBy,
+          take: 1,
+          select: { mockPaperSet: { select: parentSearchSelect } },
+        },
+      },
+    })
+    const normalizedKeyword = keyword.toLowerCase()
+    const matchingIds = searchRows.filter((row) => {
+      const displayedSet = row.composedCopies[0]?.mockPaperSet
+        || (row.mockPaperSet.deletedAt ? null : row.mockPaperSet)
+      if (requestedNumber) {
+        return Boolean(displayedSet
+          && displayedSet.examType === requestedNumber.examType
+          && displayedSet.series?.sequenceNo === requestedNumber.sequenceNo
+          && displayedSet.version === requestedNumber.version)
+      }
+      const titleMatches = displayedSet?.title.toLowerCase().includes(normalizedKeyword)
+      const sequenceMatches = requestedSequenceNo !== null && (
+        row.series?.sequenceNo === requestedSequenceNo
+        || displayedSet?.series?.sequenceNo === requestedSequenceNo
+      )
+      const numberMatches = [
+        buildMockPaperNumber(row.mockPaperSet.examType, row.series?.sequenceNo, row.version, row.code),
+        displayedSet && buildMockPaperNumber(displayedSet.examType, displayedSet.series?.sequenceNo, displayedSet.version),
+      ].some((number) => number?.toLowerCase().includes(normalizedKeyword))
+      return titleMatches || sequenceMatches || numberMatches
+    }).map((row) => row.id)
+    keywordWhere = { id: { in: matchingIds } }
+  }
   const where: Prisma.MockPaperModuleWhereInput = {
-    AND: [
-      visibilityWhere,
-      ...(keyword
-        ? [{
-            OR: [
-              { code: { contains: keyword } },
-              { label: { contains: keyword } },
-              { title: { contains: keyword } },
-              { mockPaperSet: { title: { contains: keyword } } },
-              { mockPaperSet: { code: { contains: keyword } } },
-            ],
-          } satisfies Prisma.MockPaperModuleWhereInput]
-        : []),
-    ],
+    AND: [visibilityWhere, keywordWhere],
   }
   const total = await prisma.mockPaperModule.count({ where })
   const totalPages = Math.ceil(total / pageSize)
@@ -236,16 +370,18 @@ mockPaperSetRouter.get('/modules', async (req, res) => {
     skip: (safePage - 1) * pageSize,
     take: pageSize,
     include: {
+      series: { select: { sequenceNo: true } },
       composedCopies: {
         where: { mockPaperSet: { deletedAt: null } },
+        orderBy: displayedCompositionOrderBy,
         take: 1,
         include: {
           mockPaperSet: {
             select: {
               id: true,
-              code: true,
               title: true,
-              sequenceNo: true,
+              seriesId: true,
+              series: { select: { sequenceNo: true } },
               examType: true,
               accessTier: true,
               status: true,
@@ -259,9 +395,9 @@ mockPaperSetRouter.get('/modules', async (req, res) => {
       mockPaperSet: {
         select: {
           id: true,
-          code: true,
           title: true,
-          sequenceNo: true,
+          seriesId: true,
+          series: { select: { sequenceNo: true } },
           examType: true,
           accessTier: true,
           status: true,
@@ -279,10 +415,13 @@ mockPaperSetRouter.get('/modules', async (req, res) => {
         const effectiveSet = assignedSet || row.mockPaperSet
         const released = !assignedSet && Boolean(row.mockPaperSet.deletedAt)
         const readiness = deriveMockPaperReadiness(effectiveSet.examType, effectiveSet.modules)
-        const { modules: _modules, ...mockPaperSet } = effectiveSet
+        const { modules: _modules, series: _series, ...mockPaperSet } = effectiveSet
 
         return {
           id: row.id,
+          seriesId: row.seriesId,
+          sequenceNo: buildMockPaperNumber(row.mockPaperSet.examType, row.series!.sequenceNo, row.version, row.code),
+          version: row.version!,
           code: row.code,
           label: row.label,
           title: row.title,
@@ -296,7 +435,11 @@ mockPaperSetRouter.get('/modules', async (req, res) => {
           issueCount: row.issueCount,
           updatedAt: row.updatedAt.toISOString(),
           released,
-          mockPaperSet: { ...mockPaperSet, fullExamReady: readiness.fullExamReady },
+          mockPaperSet: {
+            ...mockPaperSet,
+            sequenceNo: buildMockPaperNumber(effectiveSet.examType, effectiveSet.series?.sequenceNo, effectiveSet.version),
+            fullExamReady: readiness.fullExamReady,
+          },
         }
       }),
       pagination: {
@@ -316,6 +459,7 @@ mockPaperSetRouter.get('/modules/:moduleId', async (req, res) => {
   const module = await prisma.mockPaperModule.findUnique({
     where: { id: req.params.moduleId },
     include: {
+      series: { select: { sequenceNo: true } },
       composedCopies: {
         where: { mockPaperSet: { deletedAt: null } },
         orderBy: { updatedAt: 'desc' },
@@ -343,7 +487,7 @@ mockPaperSetRouter.get('/modules/:moduleId', async (req, res) => {
       },
     },
   })
-  if (!module || module.sourceModuleId) {
+  if (!module || module.sourceModuleId || !module.series) {
     res.status(404).json(fail('单项卷不存在', 'MOCK_PAPER_MODULE_NOT_AVAILABLE'))
     return
   }
@@ -356,17 +500,17 @@ mockPaperSetRouter.get('/modules/:moduleId', async (req, res) => {
     examType: module.mockPaperSet.examType,
     code: module.code,
     label: module.label,
-    sequenceNo: module.mockPaperSet.sequenceNo,
+    sequenceNo: module.series.sequenceNo,
   })
   res.json(success({
     id: module.mockPaperSet.id,
-    code: module.mockPaperSet.code,
-    sequenceNo: module.mockPaperSet.sequenceNo,
+    seriesId: module.seriesId,
+    sequenceNo: buildMockPaperNumber(module.mockPaperSet.examType, module.series.sequenceNo, module.version, module.code),
     examType: module.mockPaperSet.examType,
     title: fixedModuleTitle,
     accessTier: module.accessTier,
     status: module.mockPaperSet.deletedAt ? MOCK_PAPER_STATUS.DRAFT : module.mockPaperSet.status,
-    version: module.mockPaperSet.version,
+    version: module.version!,
     sourceFileName: module.mockPaperSet.sourceFileName
       ? normalizeWorkbookFileName(module.mockPaperSet.sourceFileName)
       : null,
@@ -388,6 +532,9 @@ mockPaperSetRouter.get('/modules/:moduleId', async (req, res) => {
     archivedAt: module.archivedAt?.toISOString() || null,
     modules: [{
       id: module.id,
+      seriesId: module.seriesId,
+      sequenceNo: buildMockPaperNumber(module.mockPaperSet.examType, module.series.sequenceNo, module.version, module.code),
+      version: module.version!,
       code: module.code,
       label: module.label,
       title: fixedModuleTitle,
@@ -634,6 +781,7 @@ mockPaperSetRouter.get('/composition-candidates', async (req, res) => {
   const modules = await prisma.mockPaperModule.findMany({
     where: {
       sourceModuleId: null,
+      seriesId: { not: null },
       validationStatus: MOCK_PAPER_VALIDATION_STATUS.VALID,
       composedCopies: { none: {} },
       mockPaperSet: {
@@ -644,11 +792,12 @@ mockPaperSetRouter.get('/composition-candidates', async (req, res) => {
       },
     },
     include: {
+      series: { select: { sequenceNo: true } },
       mockPaperSet: {
         select: {
           id: true,
-          code: true,
-          sequenceNo: true,
+          series: { select: { sequenceNo: true } },
+          version: true,
           examType: true,
           title: true,
           status: true,
@@ -658,10 +807,10 @@ mockPaperSetRouter.get('/composition-candidates', async (req, res) => {
         },
       },
     },
-    orderBy: [{ moduleOrder: 'asc' }, { mockPaperSet: { sequenceNo: 'asc' } }],
+    orderBy: [{ moduleOrder: 'asc' }, { series: { sequenceNo: 'asc' } }, { version: 'desc' }],
   })
   res.json(success({
-    list: modules
+    list: (await latestCanonicalSources(modules))
       .filter((module) => canClaimMockPaperSource({
         sourceModuleId: module.sourceModuleId,
         composedCopyCount: 0,
@@ -671,6 +820,9 @@ mockPaperSetRouter.get('/composition-candidates', async (req, res) => {
       }))
       .map((module) => ({
         id: module.id,
+        seriesId: module.seriesId,
+        sequenceNo: buildMockPaperNumber(module.mockPaperSet.examType, module.series!.sequenceNo, module.version, module.code),
+        version: module.version!,
         code: module.code,
         label: module.label,
         title: formatMockPaperModuleTitle({
@@ -678,14 +830,13 @@ mockPaperSetRouter.get('/composition-candidates', async (req, res) => {
           examType: module.mockPaperSet.examType,
           code: module.code,
           label: module.label,
-          sequenceNo: module.mockPaperSet.sequenceNo,
+          sequenceNo: module.series!.sequenceNo,
         }),
         durationSeconds: module.durationSeconds,
         questionCount: module.questionCount,
         sourceSet: {
           id: module.mockPaperSet.id,
-          code: module.mockPaperSet.code,
-          sequenceNo: module.mockPaperSet.sequenceNo,
+          sequenceNo: buildMockPaperNumber(module.mockPaperSet.examType, module.mockPaperSet.series?.sequenceNo, module.mockPaperSet.version),
           title: module.mockPaperSet.title,
           status: module.mockPaperSet.status,
           accessTier: module.accessTier,
@@ -737,12 +888,14 @@ mockPaperSetRouter.post('/compose', async (req, res) => {
 // 套卷详情按模块和题序返回，并附带题库题目的只读预览摘要。
 mockPaperSetRouter.get('/:id', async (req, res) => {
   const row = await prisma.mockPaperSet.findFirst({
-    where: { id: req.params.id, deletedAt: null },
+    where: { id: req.params.id, deletedAt: null, seriesId: { not: null } },
     include: {
+      series: { select: { sequenceNo: true } },
       paper: { select: { status: true } },
       modules: {
         orderBy: { moduleOrder: 'asc' },
         include: {
+          series: { select: { sequenceNo: true } },
           _count: { select: { composedCopies: true } },
           sourceModule: {
             select: {
@@ -752,7 +905,10 @@ mockPaperSetRouter.get('/:id', async (req, res) => {
               publicationStatus: true,
               publishedAt: true,
               archivedAt: true,
-              mockPaperSet: { select: { examType: true, sequenceNo: true } },
+              seriesId: true,
+              version: true,
+              series: { select: { sequenceNo: true } },
+              mockPaperSet: { select: { examType: true } },
             },
           },
           questions: {
@@ -785,8 +941,8 @@ mockPaperSetRouter.get('/:id', async (req, res) => {
   res.json(
     success({
       id: row.id,
-      code: row.code,
-      sequenceNo: row.sequenceNo,
+      seriesId: row.seriesId,
+      sequenceNo: buildMockPaperNumber(row.examType, row.series!.sequenceNo, row.version),
       examType: row.examType,
       title: row.title,
       accessTier: row.accessTier,
@@ -810,6 +966,14 @@ mockPaperSetRouter.get('/:id', async (req, res) => {
       archivedAt: row.archivedAt?.toISOString() || null,
       modules: row.modules.map((module) => ({
         id: module.id,
+        seriesId: module.sourceModule?.seriesId || module.seriesId,
+        sequenceNo: buildMockPaperNumber(
+          module.sourceModule?.mockPaperSet.examType || row.examType,
+          (module.sourceModule?.series || module.series)!.sequenceNo,
+          module.sourceModule?.version || module.version,
+          module.sourceModule?.code || module.code,
+        ),
+        version: module.sourceModule?.version || module.version!,
         code: module.code,
         label: module.label,
         title: formatMockPaperModuleTitle({
@@ -817,7 +981,7 @@ mockPaperSetRouter.get('/:id', async (req, res) => {
           examType: module.sourceModule?.mockPaperSet.examType || row.examType,
           code: module.sourceModule?.code || module.code,
           label: module.sourceModule?.label || module.label,
-          sequenceNo: module.sourceModule?.mockPaperSet.sequenceNo || row.sequenceNo,
+          sequenceNo: (module.sourceModule?.series || module.series)!.sequenceNo,
         }),
         order: module.moduleOrder,
         durationSeconds: module.durationSeconds,
@@ -874,6 +1038,7 @@ mockPaperSetRouter.get('/:id/module-candidates', async (req, res) => {
     where: {
       mockPaperSetId: { not: target.id },
       sourceModuleId: null,
+      seriesId: { not: null },
       validationStatus: MOCK_PAPER_VALIDATION_STATUS.VALID,
       composedCopies: { none: {} },
       ...(existingCodes.length ? { code: { notIn: existingCodes } } : {}),
@@ -885,11 +1050,12 @@ mockPaperSetRouter.get('/:id/module-candidates', async (req, res) => {
       },
     },
     include: {
+      series: { select: { sequenceNo: true } },
       mockPaperSet: {
         select: {
           id: true,
-          code: true,
-          sequenceNo: true,
+          series: { select: { sequenceNo: true } },
+          version: true,
           examType: true,
           title: true,
           status: true,
@@ -899,11 +1065,11 @@ mockPaperSetRouter.get('/:id/module-candidates', async (req, res) => {
         },
       },
     },
-    orderBy: [{ moduleOrder: 'asc' }, { createdAt: 'desc' }],
+    orderBy: [{ moduleOrder: 'asc' }, { series: { sequenceNo: 'asc' } }, { version: 'desc' }],
   })
 
   res.json(success({
-    list: candidates
+    list: (await latestCanonicalSources(candidates))
       .filter((module) => canClaimMockPaperSource({
         sourceModuleId: module.sourceModuleId,
         composedCopyCount: 0,
@@ -913,6 +1079,9 @@ mockPaperSetRouter.get('/:id/module-candidates', async (req, res) => {
       }))
       .map((module) => ({
         id: module.id,
+        seriesId: module.seriesId,
+        sequenceNo: buildMockPaperNumber(module.mockPaperSet.examType, module.series!.sequenceNo, module.version, module.code),
+        version: module.version!,
         code: module.code,
         label: module.label,
         title: formatMockPaperModuleTitle({
@@ -920,14 +1089,13 @@ mockPaperSetRouter.get('/:id/module-candidates', async (req, res) => {
           examType: module.mockPaperSet.examType,
           code: module.code,
           label: module.label,
-          sequenceNo: module.mockPaperSet.sequenceNo,
+          sequenceNo: module.series!.sequenceNo,
         }),
         durationSeconds: module.durationSeconds,
         questionCount: module.questionCount,
         sourceSet: {
           id: module.mockPaperSet.id,
-          code: module.mockPaperSet.code,
-          sequenceNo: module.mockPaperSet.sequenceNo,
+          sequenceNo: buildMockPaperNumber(module.mockPaperSet.examType, module.mockPaperSet.series?.sequenceNo, module.mockPaperSet.version),
           title: module.mockPaperSet.title,
           status: module.mockPaperSet.status,
           accessTier: module.accessTier,
@@ -936,115 +1104,125 @@ mockPaperSetRouter.get('/:id/module-candidates', async (req, res) => {
   }))
 })
 
-// 选择单项卷时复制其稳定题序到当前套卷，并以唯一来源关联阻止重复组卷。
+// 来源版本可被历史副本引用；新增组卷在可串行化事务中复核占用，避免并发重复采用。
 mockPaperSetRouter.post('/:id/modules', async (req, res) => {
   const sourceModuleId = String(req.body.sourceModuleId || '').trim()
   if (!sourceModuleId) {
     res.status(422).json(fail('请选择要加入的单项卷', 'MOCK_PAPER_SOURCE_MODULE_REQUIRED'))
     return
   }
-  const [target, source] = await Promise.all([
-    prisma.mockPaperSet.findFirst({
-      where: { id: req.params.id, deletedAt: null },
-      include: {
-        modules: {
-          select: {
-            code: true,
-            _count: { select: { composedCopies: true } },
-          },
-        },
-      },
-    }),
-    prisma.mockPaperModule.findUnique({
-      where: { id: sourceModuleId },
-      include: {
-        _count: { select: { composedCopies: true } },
-        mockPaperSet: { include: { _count: { select: { modules: true } } } },
-        questions: { orderBy: { position: 'asc' } },
-      },
-    }),
-  ])
-  if (!target) {
-    res.status(404).json(fail('模考试卷不存在', 'MOCK_PAPER_SET_NOT_FOUND'))
-    return
-  }
-  if (!canEditMockPaperComposition(target.status, target.deletedAt)) {
-    res.status(409).json(fail('只有草稿套卷可以继续组套', 'MOCK_PAPER_SET_LOCKED'))
-    return
-  }
-  if (
-    target.modules.length >= getModulePoolCapacity(target.examType)
-  ) {
-    res.status(409).json(fail('当前套卷不能继续添加单项卷', 'MOCK_PAPER_COMPOSITION_LOCKED'))
-    return
-  }
-  if (
-    !source
-    || source.mockPaperSetId === target.id
-    || !canClaimMockPaperSource({
-      sourceModuleId: source.sourceModuleId,
-      composedCopyCount: source._count.composedCopies,
-      ownerModuleCount: source.mockPaperSet._count.modules,
-      ownerStatus: source.mockPaperSet.status,
-      ownerDeletedAt: source.mockPaperSet.deletedAt,
-    })
-    || source.mockPaperSet.examType !== target.examType
-    || source.validationStatus !== MOCK_PAPER_VALIDATION_STATUS.VALID
-  ) {
-    res.status(409).json(fail('该单项卷已被其他套卷采用或当前不可加入', 'MOCK_PAPER_MODULE_UNAVAILABLE'))
-    return
-  }
-  if (target.modules.some((module) => module.code === source.code)) {
-    res.status(409).json(fail('当前套卷已包含同类型 Module/Paper', 'MOCK_PAPER_MODULE_DUPLICATED'))
-    return
-  }
-
   try {
-    const created = await prisma.mockPaperModule.create({
-      data: {
-        mockPaperSetId: target.id,
-        sourceModuleId: source.id,
-        code: source.code,
-        label: source.label,
-        title: formatMockPaperModuleTitle({
-          title: source.title,
-          examType: source.mockPaperSet.examType,
+    const result = await withMockPaperNumberTransaction(async (tx) => {
+      const [target, source] = await Promise.all([
+        tx.mockPaperSet.findFirst({
+          where: { id: req.params.id, deletedAt: null, seriesId: { not: null } },
+          include: { modules: { select: { code: true } } },
+        }),
+        tx.mockPaperModule.findUnique({
+          where: { id: sourceModuleId },
+          include: {
+            series: { select: { sequenceNo: true } },
+            _count: { select: { composedCopies: true } },
+            mockPaperSet: { include: { _count: { select: { modules: true } } } },
+            questions: { orderBy: { position: 'asc' } },
+          },
+        }),
+      ])
+      if (!target) throw new Error('MOCK_PAPER_SET_NOT_FOUND')
+      if (!canEditMockPaperComposition(target.status, target.deletedAt)) {
+        throw new Error('MOCK_PAPER_SET_LOCKED')
+      }
+      if (target.modules.length >= getModulePoolCapacity(target.examType)) {
+        throw new Error('MOCK_PAPER_COMPOSITION_LOCKED')
+      }
+      if (
+        !source
+        || !source.series
+        || source.mockPaperSetId === target.id
+        || !canClaimMockPaperSource({
+          sourceModuleId: source.sourceModuleId,
+          composedCopyCount: source._count.composedCopies,
+          ownerModuleCount: source.mockPaperSet._count.modules,
+          ownerStatus: source.mockPaperSet.status,
+          ownerDeletedAt: source.mockPaperSet.deletedAt,
+        })
+        || source.mockPaperSet.examType !== target.examType
+        || source.validationStatus !== MOCK_PAPER_VALIDATION_STATUS.VALID
+      ) throw new Error('MOCK_PAPER_MODULE_UNAVAILABLE')
+      if (target.modules.some((module) => module.code === source.code)) {
+        throw new Error('MOCK_PAPER_MODULE_DUPLICATED')
+      }
+      const latestSource = await tx.mockPaperModule.findFirst({
+        where: { seriesId: source.seriesId, sourceModuleId: null },
+        orderBy: { version: 'desc' },
+        select: { id: true },
+      })
+      if (latestSource?.id !== source.id) throw new Error('MOCK_PAPER_MODULE_UNAVAILABLE')
+      const created = await tx.mockPaperModule.create({
+        data: {
+          mockPaperSetId: target.id,
+          sourceModuleId: source.id,
           code: source.code,
           label: source.label,
-          sequenceNo: source.mockPaperSet.sequenceNo,
-        }),
-        accessTier: source.accessTier,
-        moduleOrder: source.moduleOrder,
-        durationSeconds: source.durationSeconds,
-        expectedQuestionCount: source.expectedQuestionCount,
-        questionCount: source.questionCount,
-        publicationStatus: source.publicationStatus,
-        publishedAt: source.publishedAt,
-        archivedAt: source.archivedAt,
-        validationStatus: source.validationStatus,
-        issueCount: source.issueCount,
-        issues: source.issues as Prisma.InputJsonValue,
-        questions: {
-          create: source.questions.map((question) => ({
-            questionId: question.questionId,
-            sourceCode: question.sourceCode,
-            position: question.position,
-            validationStatus: question.validationStatus,
-            issues: question.issues as Prisma.InputJsonValue,
-          })),
+          title: formatMockPaperModuleTitle({
+            title: source.title,
+            examType: source.mockPaperSet.examType,
+            code: source.code,
+            label: source.label,
+            sequenceNo: source.series.sequenceNo,
+          }),
+          accessTier: source.accessTier,
+          moduleOrder: source.moduleOrder,
+          durationSeconds: source.durationSeconds,
+          expectedQuestionCount: source.expectedQuestionCount,
+          questionCount: source.questionCount,
+          publicationStatus: source.publicationStatus,
+          publishedAt: source.publishedAt,
+          archivedAt: source.archivedAt,
+          validationStatus: source.validationStatus,
+          issueCount: source.issueCount,
+          issues: source.issues as Prisma.InputJsonValue,
+          questions: {
+            create: source.questions.map((question) => ({
+              questionId: question.questionId,
+              sourceCode: question.sourceCode,
+              position: question.position,
+              validationStatus: question.validationStatus,
+              issues: question.issues as Prisma.InputJsonValue,
+            })),
+          },
         },
-      },
+      })
+      await revalidateMockPaperSet(target.id, tx)
+      return {
+        id: created.id,
+        sourceModuleId: source.id,
+        targetId: target.id,
+        targetTitle: target.title,
+        sourceTitle: source.title || source.mockPaperSet.title,
+      }
     })
-    await revalidateMockPaperSet(target.id)
     setOperationAuditContext(req, {
-      resourceId: target.id,
-      summary: `向模考试卷“${target.title}”加入单项卷“${source.mockPaperSet.title}”`,
-      changes: { sourceModuleId: { before: null, after: source.id } },
+      resourceId: result.targetId,
+      summary: `向模考试卷“${result.targetTitle}”加入单项卷“${result.sourceTitle}”`,
+      changes: { sourceModuleId: { before: null, after: result.sourceModuleId } },
     })
-    res.status(201).json(success({ id: created.id, sourceModuleId: source.id }))
+    res.status(201).json(success({ id: result.id, sourceModuleId: result.sourceModuleId }))
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      res.status(409).json(fail('该单项卷刚刚已被其他套卷采用，请重新选择', 'MOCK_PAPER_MODULE_UNAVAILABLE'))
+    const code = error instanceof Error ? error.message : ''
+    const errors: Record<string, string> = {
+      MOCK_PAPER_SET_NOT_FOUND: '模考试卷不存在',
+      MOCK_PAPER_SET_LOCKED: '只有草稿套卷可以继续组套',
+      MOCK_PAPER_COMPOSITION_LOCKED: '当前套卷不能继续添加单项卷',
+      MOCK_PAPER_MODULE_UNAVAILABLE: '该单项卷已被其他套卷采用或当前不可加入',
+      MOCK_PAPER_MODULE_DUPLICATED: '当前套卷已包含同类型 Module/Paper',
+    }
+    if (errors[code]) {
+      res.status(code === 'MOCK_PAPER_SET_NOT_FOUND' ? 404 : 409).json(fail(errors[code], code))
+      return
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && ['P2002', 'P2034'].includes(error.code)) {
+      res.status(409).json(fail('组卷状态刚刚发生变化，请刷新后重试', 'MOCK_PAPER_MODULE_UNAVAILABLE'))
       return
     }
     throw error
@@ -1078,23 +1256,14 @@ mockPaperSetRouter.delete('/:id/modules/:moduleId', async (req, res) => {
   } else {
     const releasedAt = new Date()
     await prisma.$transaction(async (tx) => {
-      const latestVersion = await tx.mockPaperSet.findFirst({
-        where: {
-          examType: module.mockPaperSet.examType,
-          sequenceNo: module.mockPaperSet.sequenceNo,
-        },
-        orderBy: { version: 'desc' },
-        select: { version: true },
-      })
       const releasedOwner = await tx.mockPaperSet.create({
         data: {
-          code: `${module.mockPaperSet.code}-RELEASED-${module.id.slice(0, 8)}`,
-          sequenceNo: module.mockPaperSet.sequenceNo,
+          versionGroupId: randomUUID(),
           examType: module.mockPaperSet.examType,
           title: module.mockPaperSet.title,
           accessTier: module.accessTier,
           status: MOCK_PAPER_STATUS.DRAFT,
-          version: (latestVersion?.version || module.mockPaperSet.version) + 1,
+          version: 1,
           sourceFileName: module.mockPaperSet.sourceFileName,
           issueCount: module.issueCount,
           questionCount: module.questionCount,

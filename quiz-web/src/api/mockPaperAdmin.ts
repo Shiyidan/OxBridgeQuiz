@@ -7,8 +7,7 @@ export type MockPaperValidationStatus = 'valid' | 'invalid'
 
 export interface MockPaperSetListItem {
   id: string
-  code: string
-  sequenceNo: number
+  sequenceNo: string | null
   examType: MockPaperExamType
   title: string
   accessTier: MockPaperAccessTier
@@ -55,6 +54,8 @@ export interface MockPaperQuestionDetail {
 export interface MockPaperModuleDetail {
   id: string
   code: string
+  sequenceNo: string | null
+  version: number
   label: string
   title: string | null
   order: number
@@ -85,14 +86,15 @@ export interface MockPaperSetDetail
 export interface MockPaperModuleCandidate {
   id: string
   code: string
+  sequenceNo: string | null
+  version: number
   label: string
   title: string | null
   durationSeconds: number
   questionCount: number
   sourceSet: {
     id: string
-    code: string
-    sequenceNo: number
+    sequenceNo: string | null
     title: string
     status: 'draft' | 'published'
     accessTier: MockPaperAccessTier
@@ -114,6 +116,8 @@ export interface MockPaperListResult {
 export interface MockPaperModuleListItem {
   id: string
   code: string
+  sequenceNo: string | null
+  version: number
   label: string
   title: string | null
   accessTier: MockPaperAccessTier
@@ -129,7 +133,6 @@ export interface MockPaperModuleListItem {
   mockPaperSet: Pick<
     MockPaperSetListItem,
     | 'id'
-    | 'code'
     | 'sequenceNo'
     | 'examType'
     | 'title'
@@ -149,6 +152,7 @@ export interface MockPaperListParams {
   page?: number
   pageSize?: number
   examType?: string
+  moduleCode?: string
   status?: string
   keyword?: string
 }
@@ -197,6 +201,7 @@ export function getMockPaperSets(params: MockPaperListParams) {
       page: params.page ? String(params.page) : undefined,
       pageSize: params.pageSize ? String(params.pageSize) : undefined,
       examType: params.examType,
+      moduleCode: params.moduleCode,
       status: params.status,
       keyword: params.keyword,
     },
@@ -212,6 +217,7 @@ export function getMockPaperModules(params: MockPaperListParams) {
       page: params.page ? String(params.page) : undefined,
       pageSize: params.pageSize ? String(params.pageSize) : undefined,
       examType: params.examType,
+      moduleCode: params.moduleCode,
       status: params.status,
       keyword: params.keyword,
     },

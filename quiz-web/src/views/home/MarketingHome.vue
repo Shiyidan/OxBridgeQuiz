@@ -85,8 +85,8 @@ interface MarketingStatsCounts {
 const STATS_ANIMATION_DURATION_MS = 900
 const statsTargets: Readonly<MarketingStatsCounts> = {
   diagnostic: 15,
-  mockExam: 11,
-  practice: 2000,
+  mockExam: 30,
+  practice: 3000,
   coverage: 100,
 }
 const statsSectionRef = ref<HTMLElement | null>(null)
@@ -472,7 +472,7 @@ watch(
             <dt>诊断测试卷</dt>
           </div>
           <div class="home-stat-item">
-            <dd><strong>{{ statsCounts.mockExam }}</strong><span>套</span></dd>
+            <dd><strong>{{ statsCounts.mockExam }}</strong><span>+</span></dd>
             <dt>全真模考卷</dt>
           </div>
           <div class="home-stat-item">

@@ -5,7 +5,7 @@
       <div class="page-header__copy">
         <router-link class="back-link" to="/admin/core-library">← 返回专业资料库</router-link>
         <h1>模考试卷库</h1>
-        <p>按 Mock 编号维护 Module / Paper；可用单项与完整模考状态由系统自动判断。</p>
+        <p>单项按考试与学科独立编号，完整套卷另行编号；可用状态由系统自动判断。</p>
       </div>
       <div class="library-actions">
         <el-button size="large" @click="openComposeDialog">组成套卷</el-button>
@@ -23,13 +23,39 @@
           <el-input
             v-model="filters.keyword"
             clearable
-            :placeholder="viewMode === 'sets' ? '搜索套卷名称或编号' : '搜索 Module、套卷名称或编号'"
+            placeholder="搜索套卷名称或编号"
             class="keyword-input"
             @keyup.enter="applyFilters"
           />
-          <el-select v-model="filters.examType" clearable placeholder="全部考试" class="filter-select">
+          <el-select
+            v-model="filters.examType"
+            clearable
+            placeholder="全部考试"
+            class="filter-select"
+            @change="handleFilterExamTypeChange"
+          >
             <el-option label="ESAT" value="ESAT" />
             <el-option label="TMUA" value="TMUA" />
+          </el-select>
+          <el-select
+            v-model="filters.moduleCode"
+            clearable
+            filterable
+            placeholder="全部学科"
+            class="filter-select"
+          >
+            <el-option-group
+              v-for="group in availableModuleFilterGroups"
+              :key="group.examType"
+              :label="group.examType"
+            >
+              <el-option
+                v-for="option in group.options"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-option-group>
           </el-select>
           <el-select v-model="filters.status" clearable placeholder="全部状态" class="filter-select">
             <el-option label="草稿" value="draft" />
@@ -89,7 +115,7 @@
                 </span>
 
                 <span class="cover-title">{{ coverTitle(row) }}</span>
-                <span class="cover-code">{{ row.code }} · VERSION {{ row.version }}</span>
+                <span class="cover-code">{{ formatMockPaperSequenceNo(row.sequenceNo) }}</span>
 
                 <span class="cover-module-summary">
                   <span class="cover-module-count">
@@ -154,6 +180,11 @@
               </div>
             </template>
           </el-table-column>
+          <el-table-column label="编号" min-width="240" align="center">
+            <template #default="{ row }">
+              <span class="module-sequence-no">{{ row.sequenceNo || '—' }}</span>
+            </template>
+          </el-table-column>
           <el-table-column label="考试" min-width="76" align="center">
             <template #default="{ row }">{{ row.mockPaperSet.examType }}</template>
           </el-table-column>
@@ -180,7 +211,7 @@
                   <span v-else class="module-set-empty">目前无所属模拟套卷</span>
                 </div>
                 <small v-if="!row.released">
-                  {{ row.mockPaperSet.code }} ·
+                  {{ formatMockPaperSequenceNo(row.mockPaperSet.sequenceNo) }} ·
                   {{
                     row.mockPaperSet.fullExamReady
                       ? '已组成完整套卷'
@@ -302,12 +333,12 @@
                     composeExamType,
                     candidate.code,
                     candidate.label,
-                    candidate.sourceSet.sequenceNo,
+                    candidate.sequenceNo,
                   )
                 }}
               </strong>
               <small>
-                {{ candidate.sourceSet.code }} · {{ candidate.questionCount }} 题 ·
+                {{ formatMockPaperSequenceNo(candidate.sequenceNo) }} · {{ candidate.questionCount }} 题 ·
                 {{ formatDuration(candidate.durationSeconds) }}
               </small>
             </span>
@@ -348,8 +379,8 @@
         </div>
       </section>
       <div class="import-help">
-        <strong>编号自动从各考试现有最大编号继续</strong>
-        <p>空库首次上传从 No.001 开始。工作表使用“ESAT01-数学1”或“TMUA01-Paper1”命名。</p>
+        <strong>单项按考试与学科独立递增编号，已用编号不重复分配</strong>
+        <p>每个学科首次上传从 001 开始，编号包含考试、学科和版本，例如 ESAT-MOCK-M2-001-V1；组成套卷时另行编号。工作表使用“ESAT01-数学1”或“TMUA01-Paper1”命名。</p>
         <p>每张表前三列依次为“考试类型”“学科”“题号（全局唯一）”，题目顺序按数据行排列。</p>
         <p>每个 Sheet 默认导入为无所属套卷的独立单项；需要完整套卷时再使用“组成套卷”。</p>
       </div>
@@ -475,19 +506,24 @@
                             : detail.status !== 'draft'
                         "
                 />
-                <el-select
-                  class="detail-access-select"
-                  aria-label="访问权限"
-                  v-model="editForm.accessTier"
-                  :disabled="
-                          detail.singleModuleDetail
-                            ? detail.modules[0]?.publicationStatus === 'archived'
-                            : detail.status === 'archived'
-                        "
-                >
-                  <el-option label="会员卷" value="member" />
-                  <el-option label="免费卷" value="free" />
-                </el-select>
+                <div class="detail-access-group">
+                  <el-select
+                    class="detail-access-select"
+                    aria-label="访问权限"
+                    v-model="editForm.accessTier"
+                    :disabled="
+                            detail.singleModuleDetail
+                              ? detail.modules[0]?.publicationStatus === 'archived'
+                              : detail.status === 'archived'
+                          "
+                  >
+                    <el-option label="会员卷" value="member" />
+                    <el-option label="免费卷" value="free" />
+                  </el-select>
+                  <div class="detail-code">
+                    <el-tag>{{ formatMockPaperSequenceNo(detail.sequenceNo) }}</el-tag>
+                  </div>
+                </div>
                 <el-tag
                   v-if="detail.singleModuleDetail"
                   :type="statusTagType(detail.modules[0]?.publicationStatus || 'draft')"
@@ -516,7 +552,6 @@
                   </el-tag>
                 </div>
               </div>
-              <div class="detail-code"><el-tag>{{ detail.code }}</el-tag></div>
               <p>
                 <template v-if="detail.singleModuleDetail">
                   {{ detail.parentSetTitle ? `当前单项已属于 ${detail.parentSetTitle}` :
@@ -604,7 +639,7 @@
             <el-tab-pane v-for="module in detail.modules" :key="module.id" :name="module.id">
               <template #label>
                 <span class="module-tab-label">
-                  {{ moduleTitle(module, detail.examType, detail.sequenceNo) }}
+                  {{ moduleTitle(module, detail.examType) }}
                   <em :class="{ error: module.validationStatus !== 'valid' }">
                     {{ module.questionCount }}/{{ module.expectedQuestionCount }}
                   </em>
@@ -619,13 +654,16 @@
                     type="button"
                     class="module-tab-remove"
                     :disabled="removingModuleId === module.id"
-                    :aria-label="`移除 ${moduleTitle(module, detail.examType, detail.sequenceNo)}`"
+                    :aria-label="`移除 ${moduleTitle(module, detail.examType)}`"
                     @click.stop="confirmRemoveModule(module)"
                   >
                     ×
                   </button>
                 </span>
               </template>
+              <div v-if="!detail.singleModuleDetail" class="detail-code">
+                <el-tag>{{ formatMockPaperSequenceNo(module.sequenceNo) }}</el-tag>
+              </div>
               <div v-if="module.issues.length" class="module-issues">
                 {{ module.issues.join('；') }}
               </div>
@@ -707,12 +745,12 @@
                     detail?.examType || '',
                     candidate.code,
                     candidate.label,
-                    candidate.sourceSet.sequenceNo,
+                    candidate.sequenceNo,
                   )
                 }}
               </strong>
               <small>
-                {{ candidate.sourceSet.code }} · {{ candidate.questionCount }} 题 ·
+                {{ formatMockPaperSequenceNo(candidate.sequenceNo) }} · {{ candidate.questionCount }} 题 ·
                 {{ formatDuration(candidate.durationSeconds) }}
               </small>
             </span>
@@ -785,6 +823,7 @@ import { ElMessage, ElMessageBox, type UploadFile } from 'element-plus'
 import { CircleCheckFilled, Refresh, UploadFilled, WarningFilled } from '@element-plus/icons-vue'
 import AppPagination from '@/components/AppPagination.vue'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
+import { formatMockPaperSequenceNo, mockPaperTitleOrdinal } from '@/utils/mockPaperNumber'
 import {
   addMockPaperModule,
   archiveMockPaperModule,
@@ -836,16 +875,43 @@ const moduleNameMap: Record<string, string> = {
   paper2: 'Paper2',
 }
 
+const moduleFilterGroups = [
+  {
+    examType: 'ESAT',
+    options: [
+      { value: 'maths1', label: '数学 1' },
+      { value: 'maths2', label: '数学 2' },
+      { value: 'physics', label: '物理' },
+      { value: 'chemistry', label: '化学' },
+      { value: 'biology', label: '生物' },
+    ],
+  },
+  {
+    examType: 'TMUA',
+    options: [
+      { value: 'paper1', label: 'Paper 1' },
+      { value: 'paper2', label: 'Paper 2' },
+    ],
+  },
+]
+
 const loading = ref(false)
 const viewMode = ref<'sets' | 'modules'>('sets')
 const rows = ref<MockPaperSetListItem[]>([])
 const moduleRows = ref<MockPaperModuleListItem[]>([])
-const filters = reactive({ keyword: '', examType: '', status: '' })
+const filters = reactive({ keyword: '', examType: '', moduleCode: '', status: '' })
+const appliedFilters = reactive({ ...filters })
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
+
+// 未指定考试时列出所有学科；选定考试后只提供该考试对应的学科。
+const availableModuleFilterGroups = computed(() => moduleFilterGroups.filter(
+  (group) => !filters.examType || group.examType === filters.examType,
+))
 
 // 仅在存在有效筛选条件时开放清空操作，避免空状态重复请求列表。
 const hasActiveFilters = computed(() => Boolean(
-  filters.keyword.trim() || filters.examType || filters.status,
+  filters.keyword.trim() || filters.examType || filters.moduleCode || filters.status
+  || appliedFilters.keyword || appliedFilters.examType || appliedFilters.moduleCode || appliedFilters.status,
 ))
 
 const importDialogVisible = ref(false)
@@ -914,16 +980,17 @@ const replaceTarget = ref<MockPaperQuestionDetail | null>(null)
 const replacementCode = ref('')
 const replacing = ref(false)
 
-// 列表按当前展示维度读取套卷或单项分页，避免前端逐套加载 Module 明细。
+// 列表分页只使用已提交条件，尚未点击查询的学科和关键词不影响翻页。
 async function loadList(): Promise<void> {
   loading.value = true
   try {
     const params = {
       page: pagination.page,
       pageSize: pagination.pageSize,
-      examType: filters.examType,
-      status: filters.status,
-      keyword: filters.keyword.trim(),
+      examType: appliedFilters.examType,
+      moduleCode: appliedFilters.moduleCode,
+      status: appliedFilters.status,
+      keyword: appliedFilters.keyword,
     }
     if (viewMode.value === 'modules') {
       const result = await getMockPaperModules(params)
@@ -949,8 +1016,16 @@ function handleViewModeChange(): void {
   void loadList()
 }
 
-// 查询条件变化后从第一页开始，防止旧页码落在新结果范围之外。
+// 切换考试时清除不兼容的草稿学科，等待管理员点击查询后再更新列表。
+function handleFilterExamTypeChange(): void {
+  if (!availableModuleFilterGroups.value.some((group) => (
+    group.options.some((option) => option.value === filters.moduleCode)
+  ))) filters.moduleCode = ''
+}
+
+// 提交当前筛选条件并从第一页查询，后续分页继续使用这一组条件。
 function applyFilters(): void {
+  Object.assign(appliedFilters, filters, { keyword: filters.keyword.trim() })
   pagination.page = 1
   void loadList()
 }
@@ -960,7 +1035,9 @@ function resetFilters(): void {
   if (!hasActiveFilters.value || loading.value) return
   filters.keyword = ''
   filters.examType = ''
+  filters.moduleCode = ''
   filters.status = ''
+  Object.assign(appliedFilters, filters)
   pagination.page = 1
   void loadList()
 }
@@ -1202,7 +1279,6 @@ async function confirmRemoveModule(module: MockPaperModuleDetail): Promise<void>
       `确定从当前草稿套卷移除“${moduleTitle(
         module,
         detail.value.examType,
-        detail.value.sequenceNo,
       )}”吗？仅解除组卷关系，单项内容、校验与发布状态均保持不变。`,
       '移除单项卷',
       { type: 'warning', confirmButtonText: '确认移除', cancelButtonText: '取消' },
@@ -1419,37 +1495,37 @@ function modulePublicationStatusLabel(status: string): string {
   return '单项未发布'
 }
 
-// 套卷详情与单项列表共用同一模块标题规则，例如 ESAT Math1 No.001。
+// 无保存标题的单项沿用简短名称，完整业务编号在独立位置展示。
 function moduleDisplayTitle(
   examType: string,
   moduleCode: string,
   fallbackLabel: string,
-  sequenceNo: number,
+  sequenceNo: string | null,
 ): string {
   const moduleName = moduleNameMap[moduleCode] || fallbackLabel
-  return `${examType} ${moduleName} No.${String(sequenceNo).padStart(3, '0')}`
+  const ordinal = mockPaperTitleOrdinal(sequenceNo)
+  return `${examType} ${moduleName}${ordinal ? ` No.${ordinal}` : ''}`
 }
 
-// 单项列表把所属套卷信息转换为统一模块标题。
+// 单项编号属于学科自身，不随其所属完整套卷改变。
 function moduleDisplayName(row: MockPaperModuleListItem): string {
   return row.title || moduleDisplayTitle(
     row.mockPaperSet.examType,
     row.code,
     row.label,
-    row.mockPaperSet.sequenceNo,
+    row.sequenceNo,
   )
 }
 
 // 详情页签优先使用管理员维护的单项名称，未编辑记录继续显示自动名称。
 function moduleTitle(
-  module: Pick<MockPaperModuleDetail, 'title' | 'code' | 'label'>,
+  module: Pick<MockPaperModuleDetail, 'title' | 'code' | 'label' | 'sequenceNo'>,
   examType: string,
-  sequenceNo: number,
 ): string {
-  return module.title || moduleDisplayTitle(examType, module.code, module.label, sequenceNo)
+  return module.title || moduleDisplayTitle(examType, module.code, module.label, module.sequenceNo)
 }
 
-// 套卷封面直接展示管理员保存的名称；稳定编号继续由下方 code 单独承担。
+// 套卷封面保留管理员保存的名称，独立序号由下方编号展示。
 function coverTitle(row: MockPaperSetListItem): string {
   return row.title
 }
@@ -1634,6 +1710,7 @@ onMounted(() => void loadList())
 
 .toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
@@ -1643,16 +1720,29 @@ onMounted(() => void loadList())
 
 .filters {
   display: flex;
+  flex-wrap: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
   align-items: center;
   gap: 10px;
 }
 
+.filters > .el-button {
+  flex: 0 0 auto;
+  margin-left: 0;
+}
+
 .keyword-input {
   width: 260px;
+  min-width: 160px;
+  flex: 0 1 260px;
 }
 
 .filter-select {
   width: 126px;
+  min-width: 104px;
+  flex: 0 1 126px;
 }
 
 .list-total {
@@ -1858,14 +1948,13 @@ onMounted(() => void loadList())
 }
 
 .cover-code {
-  overflow: hidden;
   margin-top: 3px;
   margin-bottom: auto;
   color: #64748b;
   font-size: 11px;
   letter-spacing: 0.02em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .cover-module-summary {
@@ -2008,6 +2097,12 @@ onMounted(() => void loadList())
   white-space: nowrap;
 }
 
+.module-sequence-no {
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
 .module-association {
   display: flex;
   flex-direction: column;
@@ -2033,6 +2128,7 @@ onMounted(() => void loadList())
 .module-association small {
   color: #94a3b8;
   font-size: 11px;
+  overflow-wrap: anywhere;
 }
 
 .module-association > div {
@@ -2199,6 +2295,8 @@ onMounted(() => void loadList())
   min-width: 0;
   padding-left: 10px;
   line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .compose-candidate__content {
@@ -2292,12 +2390,28 @@ onMounted(() => void loadList())
   font-size: 16px;
 }
 
+.detail-access-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+}
+
 .detail-access-select {
   width: 130px;
+  flex-shrink: 0;
 }
 
 .detail-code {
-  margin-bottom: 10px;
+  min-width: 0;
+}
+
+.detail-code :deep(.el-tag) {
+  max-width: 100%;
+  height: auto;
+  min-height: 24px;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 // 可用单项数与完整模考组合说明作为一组排列，避免被标题行拆开。
@@ -2602,8 +2716,7 @@ onMounted(() => void loadList())
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .toolbar,
-  .filters {
+  .toolbar {
     align-items: stretch;
     flex-wrap: wrap;
   }

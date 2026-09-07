@@ -9,6 +9,7 @@ import { parseJsonField, parseJsonArray, parseJsonObject } from '../utils/jsonFi
 import { orderQuestionsForResult } from '../utils/questionOrder.js'
 import { checkMemberAccess } from '../services/member.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
+import { buildMockPaperNumber } from '../utils/mockPaperNumber.js'
 import { computeScores } from '../services/scoring.js'
 import type { QuestionResult } from '../services/scoring.js'
 import { logRuntimeError } from '../utils/runtimeLogger.js'
@@ -190,8 +191,26 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
             code: true,
             mockPaperSet: {
               select: {
-                sequenceNo: true,
-                modules: { select: { id: true, code: true, title: true } },
+                seriesId: true,
+                series: { select: { sequenceNo: true } },
+                version: true,
+                modules: {
+                  select: {
+                    id: true,
+                    code: true,
+                    title: true,
+                    seriesId: true,
+                    series: { select: { sequenceNo: true } },
+                    version: true,
+                    sourceModule: {
+                      select: {
+                        seriesId: true,
+                        series: { select: { sequenceNo: true } },
+                        version: true,
+                      },
+                    },
+                  },
+                },
               },
             },
           },
@@ -241,17 +260,39 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
     const singleModule = moduleSnapshot?.mockExamMode === 'single'
       ? moduleSnapshot.modules[0] || null
       : null
-    const currentModuleTitle = paper?.mockPaperSet?.modules.find((module) => (
+    // 模块可以从旧父容器释放，结果页仍按答卷冻结的模块身份恢复其独立编号。
+    const snapshotModule = singleModule && moduleSnapshot?.mockModuleId
+      ? await prisma.mockPaperModule.findUnique({
+          where: { id: moduleSnapshot.mockModuleId },
+          select: {
+            id: true,
+            code: true,
+            title: true,
+            seriesId: true,
+            series: { select: { sequenceNo: true } },
+            version: true,
+            sourceModule: {
+              select: {
+                seriesId: true,
+                series: { select: { sequenceNo: true } },
+                version: true,
+              },
+            },
+          },
+        })
+      : null
+    const currentModule = snapshotModule || paper?.mockPaperSet?.modules.find((module) => (
       module.id === moduleSnapshot?.mockModuleId || module.code === singleModule?.code
-    ))?.title
-    const resultPaperTitle = singleModule && paper?.mockPaperSet
+    ))
+    const canonicalModule = currentModule?.sourceModule || currentModule
+    const resultPaperTitle = singleModule && canonicalModule?.series
       ? singleModuleExamTitle(
           examRecord.examType,
           singleModule.code,
-          paper.mockPaperSet.sequenceNo,
-          currentModuleTitle || singleModule.title,
+          canonicalModule.series.sequenceNo,
+          currentModule?.title || singleModule.title,
         )
-      : paper?.title || ''
+      : singleModule?.title || paper?.title || ''
 
     res.json(success({
       examRecord: {
@@ -281,7 +322,14 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
               paperType: paper.paperType,
               year: paper.year,
               duration: paper.duration,
-              code: paper.code,
+              ...(!isMockPaperType(paper.paperType) ? { code: paper.code } : {}),
+              seriesId: singleModule ? canonicalModule?.seriesId || null : paper.mockPaperSet?.seriesId || null,
+              sequenceNo: singleModule
+                ? buildMockPaperNumber(examRecord.examType, canonicalModule?.series?.sequenceNo, canonicalModule?.version, singleModule.code)
+                : buildMockPaperNumber(examRecord.examType, paper.mockPaperSet?.series?.sequenceNo, paper.mockPaperSet?.version),
+              version: singleModule
+                ? canonicalModule?.version || 1
+                : paper.mockPaperSet?.version || (isMockPaperType(paper.paperType) ? 1 : null),
             }
           : null,
       },

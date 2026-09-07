@@ -14,6 +14,8 @@ import {
 import { resolveIpLocation } from './ipGeolocation.js'
 import { prisma } from './prisma.js'
 import { normalizeIpAddress } from '../utils/ipAddress.js'
+import { getMockPaperRecordNumbers } from './mockPaperRecordNumber.js'
+import { parseModuleExamSnapshot } from './moduleExamSession.js'
 
 interface AdminUserDetailOptions {
   page: number
@@ -57,6 +59,17 @@ function resolveQuestionBankPractice(attempt: {
     mode: isNotebook ? 'notebook' as const : 'random' as const,
     notebookName: isNotebook ? attempt.practiceNotebook?.name || null : null,
   }
+}
+
+// 单项模考由答卷快照明确标记；历史模考快照按完整套卷展示。
+function resolveMockExamMode(attempt: {
+  structureSnapshot: unknown
+  paper: { paperType: string }
+}): 'single' | 'full' | null {
+  if (!isMockPaperType(attempt.paper.paperType)) return null
+  return parseModuleExamSnapshot(attempt.structureSnapshot)?.mockExamMode === 'single'
+    ? 'single'
+    : 'full'
 }
 
 // 四个产品模块固定展示；答卷模块按次数统计，错题本按不重复题目数统计。
@@ -295,6 +308,8 @@ export async function getAdminUserDetail(userId: string, options: AdminUserDetai
           select: {
             id: true,
             examType: true,
+            paperId: true,
+            structureSnapshot: true,
             correctCount: true,
             totalQuestions: true,
             startedAt: true,
@@ -328,6 +343,9 @@ export async function getAdminUserDetail(userId: string, options: AdminUserDetai
         })
       : Promise.resolve([]),
   ])
+  const mockPaperNumbers = await getMockPaperRecordNumbers(
+    attempts.filter((attempt) => isMockPaperType(attempt.paper.paperType)),
+  )
   // 当前套餐决定权益名称，后续已排队的有效权益共同决定最终到期时间。
   const activeMemberships = user.memberships
     .filter(
@@ -412,7 +430,13 @@ export async function getAdminUserDetail(userId: string, options: AdminUserDetai
           return subject ? [subject] : []
         }))],
         questionBankPractice: resolveQuestionBankPractice(attempt),
-        paper: attempt.paper,
+        mockExamMode: resolveMockExamMode(attempt),
+        paper: {
+          paperType: attempt.paper.paperType,
+          ...(isMockPaperType(attempt.paper.paperType)
+            ? { sequenceNo: mockPaperNumbers.get(attempt.id) ?? null }
+            : { code: attempt.paper.code }),
+        },
       }
     }),
     pagination: {

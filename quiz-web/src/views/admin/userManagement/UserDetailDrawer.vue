@@ -200,7 +200,10 @@
                 <div class="attempt-title-row">
                   <p class="attempt-label">
                     {{ attempt.examType }} · {{ attemptTypeLabel(attempt) }}
-                    <template v-if="attempt.paper.code && !attempt.questionBankPractice">
+                    <template v-if="attempt.paper.sequenceNo && !attempt.questionBankPractice">
+                      · {{ attempt.paper.sequenceNo }}
+                    </template>
+                    <template v-else-if="selectedModule !== 'mockExam' && attempt.paper.code && !attempt.questionBankPractice">
                       · {{ attempt.paper.code }}
                     </template>
                   </p>
@@ -374,6 +377,8 @@ function paperTypeLabel(paperType: string): string {
 // 试题库记录展示用户实际选择的入口，练习册仍存在时同时保留当时使用的名称。
 function attemptTypeLabel(attempt: AdminUserAttempt): string {
   const practice = attempt.questionBankPractice
+  if (attempt.mockExamMode === 'single') return '单项模考'
+  if (attempt.mockExamMode === 'full') return '模拟套卷'
   if (!practice) return paperTypeLabel(attempt.paper.paperType)
   if (practice.mode === 'random') return '随机组题'
   return practice.notebookName ? `练习册做题 · ${practice.notebookName}` : '练习册做题'

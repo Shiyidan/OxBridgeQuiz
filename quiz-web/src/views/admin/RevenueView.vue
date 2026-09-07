@@ -57,6 +57,9 @@
               </strong>
             </template>
           </el-table-column>
+          <el-table-column label="支付渠道" width="120" align="center">
+            <template #default="{ row }">{{ paymentChannelLabel(row.channel) }}</template>
+          </el-table-column>
           <el-table-column label="状态" width="100" align="center">
             <template #default="{ row }">
               <el-tag :type="paymentStatusTagType(row.status)" effect="light">
@@ -261,6 +264,7 @@ import {
   type RevenuePaymentOverview,
 } from '@/api/admin'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
+import { paymentChannelLabel } from '@/utils/paymentChannel'
 import {
   REVENUE_COST_CATEGORY,
   REVENUE_COST_CATEGORY_OPTIONS,

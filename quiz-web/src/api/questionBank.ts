@@ -189,10 +189,9 @@ export function updateQuestionBankImportBatchStatus(
     versionedMockPapers: Array<{
       previousSetId: string
       currentSetId: string
-      sequenceNo: number
+      sequenceNo: string | null
       previousVersion: number
       currentVersion: number
-      code: string
     }>
   }>({
     url: `/question-library/admin/batches/${id}/status`,

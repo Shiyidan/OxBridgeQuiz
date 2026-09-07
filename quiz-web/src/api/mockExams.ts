@@ -21,7 +21,7 @@ export interface MockExamAttemptBrief {
 
 export interface MockExamPaperItem {
   id: string
-  code: string | null
+  sequenceNo: string | null
   title: string
   examType: string
   accessTier: PaperAccessTier
@@ -48,6 +48,7 @@ export interface MockExamModuleItem {
   id: string
   mockPaperSetId: string
   code: string
+  sequenceNo: string | null
   label: string
   title: string
   examType: string
@@ -55,7 +56,7 @@ export interface MockExamModuleItem {
   durationSeconds: number
   totalQuestions: number
   publicationStatus: 'published' | 'offline' | string
-  sourcePaperCode: string
+  sourcePaperSequenceNo: string | null
   sourcePaperTitle: string
   fullExamReady: boolean
   inProgressCount: number
@@ -91,13 +92,12 @@ export interface MockExamRecordItem {
   examRecordId: string
   paperId: string
   paperTitle: string
-  paperCode: string | null
+  sequenceNo: string | null
   version: number
   mode: 'full' | 'single'
   moduleCode: string | null
   moduleLabel: string | null
   sourcePaperTitle: string
-  sourcePaperCode: string | null
   status: MockExamRecordStatus
   startedAt: string
   updatedAt: string

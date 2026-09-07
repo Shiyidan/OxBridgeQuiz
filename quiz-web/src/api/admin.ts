@@ -125,8 +125,10 @@ export interface AdminUserAttempt {
     mode: 'random' | 'notebook'
     notebookName: string | null
   } | null
+  mockExamMode: 'single' | 'full' | null
   paper: {
-    code: string | null
+    code?: string | null
+    sequenceNo?: string | null
     paperType: string
   }
 }

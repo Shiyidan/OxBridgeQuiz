@@ -104,8 +104,8 @@ model Question {
 
 model MockPaperSet {
   id             String    @id @default(uuid()) @db.VarChar(191)
-  code           String    @unique @db.VarChar(100)
-  sequenceNo     Int
+  seriesId       String?   @db.VarChar(191)
+  versionGroupId String    @db.VarChar(191)
   examType       String    @db.VarChar(32)
   title          String    @db.VarChar(255)
   accessTier     String    @default("member") @db.VarChar(32)
@@ -124,9 +124,30 @@ model MockPaperSet {
 
   modules MockPaperModule[]
   paper   Paper?            @relation(fields: [paperId], references: [id], onDelete: SetNull)
+  series  MockPaperSeries?   @relation(fields: [seriesId], references: [id], onDelete: Restrict)
 
-  @@unique([examType, sequenceNo, version])
-  @@index([examType, status, sequenceNo])
+  @@unique([seriesId, version])
+  @@unique([versionGroupId, version])
+  @@index([examType, status])
+}
+
+model MockPaperSeries {
+  id         String   @id @default(uuid()) @db.VarChar(191)
+  examType   String   @db.VarChar(32)
+  kind       String   @db.VarChar(16)
+  moduleCode String   @default("") @db.VarChar(32)
+  sequenceNo Int
+  createdAt  DateTime @default(now())
+
+  sets    MockPaperSet[]
+  modules MockPaperModule[]
+
+  @@unique([examType, kind, moduleCode, sequenceNo])
+}
+
+model MockPaperNumberCounter {
+  id         String @id @db.VarChar(100)
+  lastNumber Int    @default(0)
 }
 
 model MockPaperWorkbookUpload {
@@ -154,7 +175,9 @@ model MockPaperWorkbookUpload {
 model MockPaperModule {
   id                    String    @id @default(uuid()) @db.VarChar(191)
   mockPaperSetId        String    @db.VarChar(191)
-  sourceModuleId        String?   @unique @db.VarChar(191)
+  sourceModuleId        String?   @db.VarChar(191)
+  seriesId              String?   @db.VarChar(191)
+  version               Int?
   code                  String    @db.VarChar(32)
   label                 String    @db.VarChar(100)
   title                 String?   @db.VarChar(255)
@@ -175,10 +198,13 @@ model MockPaperModule {
   mockPaperSet   MockPaperSet        @relation(fields: [mockPaperSetId], references: [id], onDelete: Cascade)
   sourceModule   MockPaperModule?    @relation("MockPaperModuleComposition", fields: [sourceModuleId], references: [id], onDelete: SetNull)
   composedCopies MockPaperModule[]   @relation("MockPaperModuleComposition")
+  series         MockPaperSeries?    @relation(fields: [seriesId], references: [id], onDelete: Restrict)
   questions      MockPaperQuestion[]
 
   @@unique([mockPaperSetId, code])
   @@unique([mockPaperSetId, moduleOrder])
+  @@unique([seriesId, version])
+  @@index([sourceModuleId])
   @@index([mockPaperSetId, moduleOrder])
   @@index([mockPaperSetId, validationStatus])
   @@index([publicationStatus, validationStatus])

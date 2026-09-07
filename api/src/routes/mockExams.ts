@@ -29,6 +29,7 @@ import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { fail, success } from '../utils/response.js'
 import { parsePositiveInt } from './papers-shared.js'
 import { replaceAnswerRecords } from './exam-shared.js'
+import { buildMockPaperNumber, parseMockPaperNumber, parseMockPaperSequenceNo } from '../utils/mockPaperNumber.js'
 import {
   coversEsatModuleSelection,
   deriveMockPaperReadiness,
@@ -55,6 +56,22 @@ type MockModuleRow = {
 }
 
 type MockExamMode = 'full' | 'single'
+
+const mockModuleIdentitySelect = {
+  id: true,
+  code: true,
+  title: true,
+  seriesId: true,
+  series: { select: { sequenceNo: true } },
+  version: true,
+  sourceModule: {
+    select: {
+      seriesId: true,
+      series: { select: { sequenceNo: true } },
+      version: true,
+    },
+  },
+} satisfies Prisma.MockPaperModuleSelect
 
 // 前端分页契约与项目其他列表保持一致。
 function paginationMeta(page: number, pageSize: number, total: number) {
@@ -126,16 +143,6 @@ function mockExamMode(structureSnapshot: unknown): MockExamMode {
   return parseModuleExamSnapshot(structureSnapshot)?.mockExamMode === 'single' ? 'single' : 'full'
 }
 
-// 同一考试和序号属于同一学生可见套卷，数据库 version 只区分不可变内容版本。
-function mockPaperSeriesKey(examType: string, sequenceNo: number): string {
-  return `${examType}:${sequenceNo}`
-}
-
-// 学生端隐藏内部版本后缀，始终展示稳定的 ESAT-MOCK-001 等业务编号。
-function displayMockPaperCode(code: string): string {
-  return code.replace(/-V[1-9]\d*$/i, '')
-}
-
 // 已提交答卷完成全部模块；进行中答卷只把已经越过或进入待交卷阶段的模块视为已练习。
 function hasCompletedMockModule(record: {
   status: string
@@ -180,6 +187,8 @@ mockExamRouter.get('/catalog', optionalAuth, async (req, res) => {
     return
   }
   const keyword = String(req.query.keyword || '').trim().slice(0, 80)
+  const requestedNumber = parseMockPaperNumber(keyword)
+  const requestedSequenceNo = parseMockPaperSequenceNo(keyword)
   const status = String(req.query.status || '').trim()
   if (status && !['not_started', 'in_progress', 'completed'].includes(status)) {
     res.status(422).json(fail('模考目录状态无效', 'MOCK_EXAM_STATUS_INVALID'))
@@ -192,12 +201,23 @@ mockExamRouter.get('/catalog', optionalAuth, async (req, res) => {
     where: {
       examType,
       deletedAt: null,
+      seriesId: { not: null },
       status: MOCK_PAPER_STATUS.PUBLISHED,
       paperId: { not: null },
-      ...(keyword ? { OR: [{ title: { contains: keyword } }, { code: { contains: keyword } }] } : {}),
+      ...(requestedNumber
+        ? { AND: [requestedNumber.moduleCode
+            ? { id: { in: [] } }
+            : {
+                examType: requestedNumber.examType,
+                version: requestedNumber.version,
+                series: { kind: 'full', sequenceNo: requestedNumber.sequenceNo },
+              },
+          ] }
+        : {}),
     },
-    orderBy: [{ sequenceNo: 'asc' }, { version: 'desc' }],
+    orderBy: [{ series: { sequenceNo: 'asc' } }, { version: 'desc' }],
     include: {
+      series: { select: { sequenceNo: true } },
       modules: {
         orderBy: { moduleOrder: 'asc' },
       },
@@ -205,7 +225,11 @@ mockExamRouter.get('/catalog', optionalAuth, async (req, res) => {
   })
   const activeSeries = new Set<string>()
   const candidateSets = candidateVersions.filter((set) => {
-    const key = mockPaperSeriesKey(set.examType, set.sequenceNo)
+    if (keyword && !requestedNumber) {
+      const searchable = `${set.title} ${buildMockPaperNumber(set.examType, set.series?.sequenceNo, set.version) || ''}`.toLowerCase()
+      if (!searchable.includes(keyword.toLowerCase()) && set.series?.sequenceNo !== requestedSequenceNo) return false
+    }
+    const key = set.seriesId!
     if (activeSeries.has(key)) return false
     activeSeries.add(key)
     return true
@@ -223,24 +247,21 @@ mockExamRouter.get('/catalog', optionalAuth, async (req, res) => {
   ))
 
   const visibleSeriesKeys = new Set(
-    visibleSets.map((set) => mockPaperSeriesKey(set.examType, set.sequenceNo)),
+    visibleSets.map((set) => set.seriesId!),
   )
   const seriesSets = visibleSeriesKeys.size
     ? await prisma.mockPaperSet.findMany({
         where: {
           paperId: { not: null },
-          OR: visibleSets.map((set) => ({
-            examType: set.examType,
-            sequenceNo: set.sequenceNo,
-          })),
+          seriesId: { in: [...visibleSeriesKeys] },
         },
-        select: { id: true, examType: true, sequenceNo: true, paperId: true },
+        select: { id: true, seriesId: true, paperId: true },
       })
     : []
   const seriesByPaperId = new Map(
     seriesSets.flatMap((set) => set.paperId
       ? [[set.paperId, {
-          key: mockPaperSeriesKey(set.examType, set.sequenceNo),
+          key: set.seriesId!,
           setId: set.id,
         }] as const]
       : []),
@@ -285,7 +306,7 @@ mockExamRouter.get('/catalog', optionalAuth, async (req, res) => {
     const durationSeconds = set.examType === EXAM_TYPE.ESAT
       ? (maths1?.durationSeconds || 0) * 3
       : effectiveModules.reduce((sum, module) => sum + module.durationSeconds, 0)
-    const seriesKey = mockPaperSeriesKey(set.examType, set.sequenceNo)
+    const seriesKey = set.seriesId!
     const paperRecords = recordsBySeries.get(seriesKey) || []
     const inProgress = paperRecords.filter(
       (record) => record.status === EXAM_RECORD_STATUS.IN_PROGRESS,
@@ -298,7 +319,8 @@ mockExamRouter.get('/catalog', optionalAuth, async (req, res) => {
       .filter((score): score is number => score !== null)
     return {
       id: set.id,
-      code: displayMockPaperCode(set.code),
+      seriesId: set.seriesId,
+      sequenceNo: buildMockPaperNumber(set.examType, set.series!.sequenceNo, set.version),
       version: set.version,
       title: set.title,
       examType: set.examType,
@@ -358,6 +380,8 @@ mockExamRouter.get('/modules', optionalAuth, async (req, res) => {
     return
   }
   const keyword = String(req.query.keyword || '').trim().slice(0, 80).toLowerCase()
+  const requestedNumber = parseMockPaperNumber(keyword)
+  const requestedSequenceNo = parseMockPaperSequenceNo(keyword)
   const moduleCode = String(req.query.moduleCode || '').trim().toLowerCase()
   const status = String(req.query.status || '').trim()
   if (status && !['not_started', 'in_progress', 'completed', 'practiced'].includes(status)) {
@@ -370,6 +394,7 @@ mockExamRouter.get('/modules', optionalAuth, async (req, res) => {
   const candidateModules = await prisma.mockPaperModule.findMany({
     where: {
       sourceModuleId: null,
+      seriesId: { not: null },
       validationStatus: MOCK_PAPER_VALIDATION_STATUS.VALID,
       publicationStatus: MOCK_PAPER_MODULE_STATUS.PUBLISHED,
       ...(moduleCode ? { code: moduleCode } : {}),
@@ -380,13 +405,15 @@ mockExamRouter.get('/modules', optionalAuth, async (req, res) => {
       },
     },
     orderBy: [
-      { mockPaperSet: { sequenceNo: 'asc' } },
-      { mockPaperSet: { version: 'desc' } },
+      { series: { sequenceNo: 'asc' } },
+      { version: 'desc' },
       { moduleOrder: 'asc' },
     ],
     include: {
+      series: { select: { sequenceNo: true } },
       mockPaperSet: {
         include: {
+          series: { select: { sequenceNo: true } },
           paper: { select: { id: true, status: true } },
           modules: { select: { code: true, validationStatus: true } },
         },
@@ -395,35 +422,56 @@ mockExamRouter.get('/modules', optionalAuth, async (req, res) => {
   })
   const activeModuleSeries = new Set<string>()
   const modules = candidateModules.filter((module) => {
-    const key = `${mockPaperSeriesKey(
-      module.mockPaperSet.examType,
-      module.mockPaperSet.sequenceNo,
-    )}:${module.code}`
+    const key = module.seriesId!
     if (activeModuleSeries.has(key)) return false
     activeModuleSeries.add(key)
     return true
   })
-  const seriesSets = modules.length
-    ? await prisma.mockPaperSet.findMany({
+  // 原始单项及其历代组合副本共享编号系列，完整卷练习记录也必须归入实际来源单项。
+  const moduleSeriesIds = modules.map((module) => module.seriesId!)
+  const seriesModules = moduleSeriesIds.length
+    ? await prisma.mockPaperModule.findMany({
         where: {
-          paperId: { not: null },
-          OR: modules.map((module) => ({
-            examType: module.mockPaperSet.examType,
-            sequenceNo: module.mockPaperSet.sequenceNo,
-          })),
+          OR: [
+            { seriesId: { in: moduleSeriesIds } },
+            { sourceModule: { seriesId: { in: moduleSeriesIds } } },
+          ],
         },
-        select: { examType: true, sequenceNo: true, paperId: true },
+        select: {
+          id: true,
+          code: true,
+          seriesId: true,
+          sourceModule: { select: { seriesId: true } },
+          mockPaperSet: { select: { paperId: true } },
+        },
       })
     : []
-  const seriesByPaperId = new Map(
-    seriesSets.flatMap((set) => set.paperId
-      ? [[set.paperId, mockPaperSeriesKey(set.examType, set.sequenceNo)] as const]
-      : []),
-  )
-  const paperIds = [...seriesByPaperId.keys()]
-  const records = userId && paperIds.length
+  const seriesByModuleId = new Map<string, string>()
+  const moduleSeriesByPaperId = new Map<string, Map<string, string>>()
+  for (const module of seriesModules) {
+    const seriesId = module.sourceModule?.seriesId || module.seriesId
+    if (!seriesId) continue
+    seriesByModuleId.set(module.id, seriesId)
+    const paperId = module.mockPaperSet.paperId
+    if (!paperId) continue
+    const paperModules = moduleSeriesByPaperId.get(paperId) || new Map<string, string>()
+    paperModules.set(module.code, seriesId)
+    moduleSeriesByPaperId.set(paperId, paperModules)
+  }
+  const paperIds = [...moduleSeriesByPaperId.keys()]
+  const canonicalModuleIds = seriesModules.filter((module) => module.seriesId).map((module) => module.id)
+  const records = userId && moduleSeriesIds.length
     ? await prisma.examRecord.findMany({
-        where: { userId, paperId: { in: paperIds } },
+        where: {
+          userId,
+          examType,
+          OR: [
+            { paperId: { in: paperIds } },
+            ...canonicalModuleIds.map((moduleId) => ({
+              structureSnapshot: { path: '$.mockModuleId', equals: moduleId },
+            })),
+          ],
+        },
         orderBy: [{ submittedAt: 'desc' }, { startedAt: 'desc' }],
         include: {
           answers: {
@@ -438,19 +486,25 @@ mockExamRouter.get('/modules', optionalAuth, async (req, res) => {
     : []
   const recordsBySeries = new Map<string, typeof records>()
   for (const record of records) {
-    const seriesKey = seriesByPaperId.get(record.paperId)
-    if (!seriesKey) continue
-    const current = recordsBySeries.get(seriesKey) || []
-    current.push(record)
-    recordsBySeries.set(seriesKey, current)
+    const snapshot = parseModuleExamSnapshot(record.structureSnapshot)
+    if (!snapshot) continue
+    const paperModules = moduleSeriesByPaperId.get(record.paperId)
+    const recordSeries = snapshot.mockExamMode === 'single'
+      ? [seriesByModuleId.get(snapshot.mockModuleId || '')
+          || paperModules?.get(snapshot.modules[0]?.code || '')]
+      : snapshot.modules.map((module) => paperModules?.get(module.code))
+    for (const seriesId of new Set(recordSeries)) {
+      if (!seriesId) continue
+      const current = recordsBySeries.get(seriesId) || []
+      current.push(record)
+      recordsBySeries.set(seriesId, current)
+    }
   }
 
   const allItems = modules.flatMap((module) => {
     const set = module.mockPaperSet
     if (!set.paperId || set.paper?.status !== 'published') return []
-    const paperRecords = recordsBySeries.get(
-      mockPaperSeriesKey(set.examType, set.sequenceNo),
-    ) || []
+    const paperRecords = recordsBySeries.get(module.seriesId!) || []
     const singleRecords = paperRecords.filter((record) => {
       const snapshot = parseModuleExamSnapshot(record.structureSnapshot)
       return snapshot?.mockExamMode === 'single' && snapshot.modules[0]?.code === module.code
@@ -471,13 +525,25 @@ mockExamRouter.get('/modules', optionalAuth, async (req, res) => {
     const title = singleModuleExamTitle(
       set.examType,
       module.code,
-      set.sequenceNo,
+      module.series!.sequenceNo,
       module.title,
     )
-    const searchable = `${title} ${module.label} ${module.code} ${set.title} ${set.code}`.toLowerCase()
-    if (keyword && !searchable.includes(keyword)) return []
+    const searchable = `${title} ${module.label} ${module.code} ${set.title} ${buildMockPaperNumber(set.examType, module.series!.sequenceNo, module.version, module.code) || ''}`.toLowerCase()
+    if (requestedNumber) {
+      if (
+        requestedNumber.examType !== set.examType
+        || requestedNumber.moduleCode !== module.code
+        || requestedNumber.sequenceNo !== module.series!.sequenceNo
+        || requestedNumber.version !== module.version
+      ) return []
+    } else if (keyword && !searchable.includes(keyword) && module.series!.sequenceNo !== requestedSequenceNo) {
+      return []
+    }
     return [{
       id: module.id,
+      seriesId: module.seriesId,
+      sequenceNo: buildMockPaperNumber(set.examType, module.series!.sequenceNo, module.version, module.code),
+      version: module.version!,
       mockPaperSetId: set.id,
       code: module.code,
       label: module.label,
@@ -487,7 +553,7 @@ mockExamRouter.get('/modules', optionalAuth, async (req, res) => {
       durationSeconds: module.durationSeconds,
       totalQuestions: module.expectedQuestionCount,
       publicationStatus: 'published',
-      sourcePaperCode: set.code,
+      sourcePaperSequenceNo: buildMockPaperNumber(set.examType, set.series?.sequenceNo, set.version),
       sourcePaperTitle: set.title,
       fullExamReady: deriveMockPaperReadiness(set.examType, set.modules).fullExamReady,
       inProgressCount: inProgress.length,
@@ -655,10 +721,10 @@ mockExamRouter.get('/records', requireAuth, async (req, res) => {
             select: {
               id: true,
               title: true,
-              code: true,
-              sequenceNo: true,
+              seriesId: true,
+              series: { select: { sequenceNo: true } },
               version: true,
-              modules: { select: { id: true, code: true, title: true } },
+              modules: { select: mockModuleIdentitySelect },
             },
           },
         },
@@ -680,6 +746,18 @@ mockExamRouter.get('/records', requireAuth, async (req, res) => {
   const totalPages = Math.ceil(total / pageSize)
   const page = totalPages > 0 ? Math.min(requestedPage, totalPages) : 1
   const records = filteredRecords.slice((page - 1) * pageSize, page * pageSize)
+  // 单项移出原容器后，历史答卷仍以冻结的模块 ID 找到同一个编号系列。
+  const snapshotModuleIds = [...new Set(records.flatMap((record) => {
+    const snapshot = parseModuleExamSnapshot(record.structureSnapshot)
+    return snapshot?.mockExamMode === 'single' && snapshot.mockModuleId ? [snapshot.mockModuleId] : []
+  }))]
+  const snapshotModules = snapshotModuleIds.length
+    ? await prisma.mockPaperModule.findMany({
+        where: { id: { in: snapshotModuleIds } },
+        select: mockModuleIdentitySelect,
+      })
+    : []
+  const moduleIdentityById = new Map(snapshotModules.map((module) => [module.id, module]))
   const list = records.map((record) => {
     const scoring = record.status === EXAM_RECORD_STATUS.SUBMITTED
       ? scoreExamAnswers(record.answers, record.examType)
@@ -688,34 +766,34 @@ mockExamRouter.get('/records', requireAuth, async (req, res) => {
     const mode = mockExamMode(record.structureSnapshot)
     const module = mode === 'single' ? snapshot?.modules[0] || null : null
     const sourceSet = record.paper.mockPaperSet
-    const currentModuleTitle = sourceSet?.modules.find((item) => (
-      item.id === snapshot?.mockModuleId || item.code === module?.code
-    ))?.title
-    const title = module && sourceSet
+    const currentModule = moduleIdentityById.get(snapshot?.mockModuleId || '')
+      || sourceSet?.modules.find((item) => (
+        item.id === snapshot?.mockModuleId || item.code === module?.code
+      ))
+    const canonicalModule = currentModule?.sourceModule || currentModule
+    const title = module && canonicalModule?.series
       ? singleModuleExamTitle(
           record.examType,
           module.code,
-          sourceSet.sequenceNo,
-          currentModuleTitle || module.title,
+          canonicalModule.series.sequenceNo,
+          currentModule?.title || module.title,
         )
-      : record.paper.title
+      : module?.title || record.paper.title
     return {
       examRecordId: record.id,
       paperId: mode === 'single'
         ? snapshot?.mockModuleId || sourceSet?.id || record.paper.id
         : sourceSet?.id || record.paper.id,
       paperTitle: title,
-      paperCode: sourceSet
-        ? displayMockPaperCode(sourceSet.code)
-        : record.paper.code,
-      version: sourceSet?.version || 1,
+      seriesId: mode === 'single' ? canonicalModule?.seriesId || null : sourceSet?.seriesId || null,
+      sequenceNo: mode === 'single'
+        ? buildMockPaperNumber(record.examType, canonicalModule?.series?.sequenceNo, canonicalModule?.version, module?.code)
+        : buildMockPaperNumber(record.examType, sourceSet?.series?.sequenceNo, sourceSet?.version),
+      version: mode === 'single' ? canonicalModule?.version || 1 : sourceSet?.version || 1,
       mode,
       moduleCode: module?.code || null,
       moduleLabel: module?.subject || null,
       sourcePaperTitle: sourceSet?.title || record.paper.title,
-      sourcePaperCode: sourceSet
-        ? displayMockPaperCode(sourceSet.code)
-        : record.paper.code,
       status: record.status === EXAM_RECORD_STATUS.SUBMITTED ? 'completed' : 'in_progress',
       startedAt: record.startedAt.toISOString(),
       updatedAt: (record.submittedAt || record.phaseStartedAt || record.startedAt).toISOString(),

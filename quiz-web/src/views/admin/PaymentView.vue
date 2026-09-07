@@ -474,6 +474,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
+import { paymentChannelLabel as channelText } from '@/utils/paymentChannel'
 import {
   createAdminPaymentRefund,
   getAdminPaymentConfig,
@@ -645,17 +646,6 @@ function planText(plan: string, priceType: string): string {
   if (plan === 'quarterly') return '季卡会员'
   if (plan === 'yearly') return '年度会员（历史）'
   return priceType === 'first_monthly' ? '月度会员（历史首购）' : '月卡会员'
-}
-
-function channelText(channel: string): string {
-  return {
-    aggregate: '聚合支付',
-    alipay: '支付宝',
-    wechat: '微信支付',
-    unionpay: '云闪付',
-    admin_gift: '管理员赠送',
-    invitation_reward: '邀请奖励',
-  }[channel] || channel
 }
 
 function statusText(status: string): string {

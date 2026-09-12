@@ -137,6 +137,7 @@ export type PracticeNotebookDifficulty = (typeof PRACTICE_NOTEBOOK_DIFFICULTIES)
 export const PRACTICE_SOURCE = {
   DIRECT: 'direct',
   NOTEBOOK: 'notebook',
+  FREE_ASSEMBLY: 'free_assembly',
 } as const
 
 // 题库难度卡片生成固定五题练习；题目不足或免费额度不足时由服务端向下取实际数量。

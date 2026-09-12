@@ -83,7 +83,6 @@
               <div class="qb-difficulty-card__visual">
                 <span class="qb-difficulty-card__english">{{ diff.englishLabel }}</span>
                 <h3 class="qb-difficulty-card__title">{{ diff.label }}难度</h3>
-                <span class="qb-difficulty-card__count">题库共 {{ diff.count }} 题</span>
                 <button
                   type="button"
                   class="qb-difficulty-card__cta"
@@ -957,19 +956,6 @@ async function handlePaymentSuccess(): Promise<void> {
   text-shadow: 0 2px 5px rgb(41 68 120 / 28%);
 }
 
-.qb-difficulty-card__count {
-  display: inline-flex;
-  margin-top: 14px;
-  padding: 5px 9px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--difficulty-accent-dark);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semi);
-  line-height: 1;
-}
-
 .qb-difficulty-card__cta {
   position: absolute;
   right: 18px;
@@ -1208,13 +1194,6 @@ async function handlePaymentSuccess(): Promise<void> {
     white-space: nowrap;
   }
 
-  .qb-difficulty-card__count {
-    margin-top: 8px;
-    padding: 4px;
-    font-size: 8px;
-    white-space: nowrap;
-  }
-
   .qb-difficulty-card__cta {
     position: static;
     width: 100%;
@@ -1224,10 +1203,6 @@ async function handlePaymentSuccess(): Promise<void> {
     margin-top: 10px;
     padding: 0 20px;
     font-size: 10px;
-  }
-
-  .qb-difficulty-card__cta > span:last-child {
-    display: none;
   }
 
   .qb-difficulty-card__body {

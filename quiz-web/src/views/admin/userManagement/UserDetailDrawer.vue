@@ -3,6 +3,7 @@
     :model-value="modelValue"
     :title="detail ? `${detail.profile.username} 的用户详情` : '用户详情'"
     size="min(820px, 96vw)"
+    append-to-body
     destroy-on-close
     @update:model-value="emit('update:modelValue', $event)"
     @closed="handleClosed"

@@ -432,3 +432,8 @@ input:-webkit-autofill:active,
 .el-tree-node:focus > .el-tree-node__content {
   background: var(--color-hover);
 }
+
+/* 组织树勾选框使用轻微圆角，保持层级选择控件的方形识别。 */
+.el-tree .el-checkbox__inner {
+  border-radius: 2px;
+}

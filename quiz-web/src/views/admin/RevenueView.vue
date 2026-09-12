@@ -36,7 +36,7 @@
           @page-change="handlePaymentPageChange"
           @page-size-change="handlePaymentPageSizeChange"
         >
-          <el-table-column label="付费用户" min-width="210" fixed="left">
+          <el-table-column label="付费用户" width="280" fixed="left">
             <template #default="{ row }">
               <div class="user-cell">
                 <strong>{{ row.user.username }}</strong>
@@ -44,30 +44,30 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="套餐" width="100" align="center">
+          <el-table-column label="套餐" min-width="120" align="center">
             <template #default="{ row }">{{ paymentPlanLabel(row.plan) }}</template>
           </el-table-column>
-          <el-table-column label="考试范围" min-width="140" align="center">
+          <el-table-column label="考试范围" min-width="120" align="center">
             <template #default="{ row }">{{ paymentExamTypes(row.examTypes) }}</template>
           </el-table-column>
-          <el-table-column label="净收入" width="120" align="right">
+          <el-table-column label="净收入" min-width="120" align="right">
             <template #default="{ row }">
               <strong class="net-amount">
                 {{ formatCents(Math.max(0, row.amountCents - row.refundedAmountCents)) }}
               </strong>
             </template>
           </el-table-column>
-          <el-table-column label="支付渠道" width="120" align="center">
+          <el-table-column label="支付渠道" min-width="120" align="center">
             <template #default="{ row }">{{ paymentChannelLabel(row.channel) }}</template>
           </el-table-column>
-          <el-table-column label="状态" width="100" align="center">
+          <el-table-column label="状态" min-width="120" align="center">
             <template #default="{ row }">
               <el-tag :type="paymentStatusTagType(row.status)" effect="light">
                 {{ paymentStatusLabel(row.status) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="支付时间" width="172" align="center">
+          <el-table-column label="支付时间" width="210" align="center">
             <template #default="{ row }">{{
               formatDateTime(row.paidAt || row.createdAt)
             }}</template>

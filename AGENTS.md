@@ -163,7 +163,7 @@ EntitlementConfig
 - 历史 `Paper.questions` 数据回填使用 `api` 中的脚本 `npm run backfill:questions`；应先使用 `-- --dry-run` 运行，仅在确认不再需要旧版 JSON 后才使用 `-- --clear-legacy`。
 - 所有数据库访问必须通过 `api/src/services/prisma.ts` 中的 Prisma Client 完成；不要使用原始 SQL。
 - 排序查询结果时优先使用数据库的 `orderBy`；前端排序仅作为兜底方案。
-- Prisma `Json`/`Json?` 字段必须写入对应的结构化 JSON 值，不要预先 `JSON.stringify`。仅在读取旧数据时使用 `api/src/utils/jsonField.ts` 兼容字符串 JSON。
+- Prisma `Json`/`Json?` 字段必须写入对应的结构化 JSON 值，不要预先 `JSON.stringify`。仅在读取旧数据时使用 `api/src/utils/jsonField.ts` 兼容字符串 JSON。输入校验、异常处理、历史复制和验收规则统一遵循 `文档/1-开发规范.md` 第 2.2.1 至 2.2.4 节。
 - 需要关联数据时优先使用 Prisma 的 `include` 或 `select`，避免 N+1 查询。
 - 角色、状态、套餐和考试类型应复用 `api/src/constants/` 中的集中定义，不要新增散落的硬编码字符串。
 - 不要在一个字段中混合多种语义：`role` 仅表示身份；会员与权益以 `UserMembership` 和权益 API 为唯一依据。

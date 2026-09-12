@@ -12,7 +12,7 @@ import {
 } from '../src/services/moduleExamSession.js'
 import { computeScores, quickEsatScore } from '../src/services/scoring.js'
 import { formatQuestionForAttempt } from '../src/routes/papers-shared.js'
-import { normalizeTmuaPaperCode } from '../src/services/markdownValidator.js'
+import { normalizeTmuaPaperCode } from '../src/services/paperJsonValidator.js'
 
 const suffix = crypto.randomUUID()
 const userId = `module-test-user-${suffix}`

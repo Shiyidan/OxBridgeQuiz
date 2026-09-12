@@ -9,7 +9,6 @@ import { success, fail } from '../utils/response.js'
 import { syncPaperQuestions, getPaperQuestions, formatQuestionRow } from '../utils/questionSync.js'
 import { parseJsonArray, parseJsonField } from '../utils/jsonField.js'
 import { createNumericId } from '../utils/id.js'
-import { processMarkdownImport, validateStandardPaperDocument } from '../services/markdownValidator.js'
 import { checkMemberAccess, hasDiagnosticPaperAccess } from '../services/member.js'
 import {
   EXAM_TYPE,

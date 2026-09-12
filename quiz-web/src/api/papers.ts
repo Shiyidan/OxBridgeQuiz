@@ -122,7 +122,6 @@ export function updatePaperAccessTier(id: string, accessTier: PaperAccessTier) {
 export interface DeletePaperResult {
   id: string
   deletedQuestions: number
-  deletedParseTasks: number
 }
 
 /** 删除未产生诊断历史的试卷及其直属题目数据。 */

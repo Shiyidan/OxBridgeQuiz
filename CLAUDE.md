@@ -12,7 +12,7 @@ G5 入学考试在线练习与学习平台。当前产品重心：
 - 考纲管理与题目挂考纲
 - 会员权益、后台运营
 
-早期的 Qwen-VL-Max PDF/图片自动解析流程属于历史模块，非当前主线，除非用户明确要求处理旧解析。
+真题仅支持标准 JSON 导入。
 
 - **后端**：Express + TypeScript + Prisma (MySQL)，位于 [api/](api/)
 - **前端**：Vue 3 Composition API + TypeScript + Pinia + KaTeX + SCSS，位于 [quiz-web/](quiz-web/)
@@ -113,7 +113,7 @@ QuestionCard.vue → LatexText.vue → FormulaBlock.vue (KaTeX)
 - `LatexText.vue` 按 `/\$\$([^$]+)\$\$|\$([^$]+)\$/g` 切分为文本 / 行内公式 / 块级公式
 - `FormulaBlock.vue` 调 `katex.renderToString()`，用模块级 `Map` 缓存
 - 文本段用 `white-space: pre-line` 让 `\n` 换行
-- 文本段还会执行 `.replace(/\\n/g, '\n')`，兼容 Qwen 输出中的字面 `\n`
+- 文本段还会执行 `.replace(/\\n/g, '\n')`，兼容历史题目数据中的字面 `\n`
 
 ### API 响应封装
 
@@ -162,16 +162,16 @@ API 模块结构：先写类型（`interface`），再写函数，函数体统�
 - `isAllData: false`（绝大多数场景）：拦截器已解包，直接拿 `data`
 - `isAllData: true`：需要响应头 / 状态码 / 完整 AxiosResponse 时
 
-### PDF 解析流程（历史模块）
+### 真题 JSON 导入流程
 
 ```text
-上传 PDF/图片 → 浏览器 pdf.js 逐页渲染为 JPEG base64
-  → 逐页 POST /parse-tasks/:id/pages
-  → Qwen-VL-Max 单页识别（信号量并发 5）
-  → parseService.ts 汇合、去重、排序，写入 Paper.questions
+管理员选择标准 JSON 文件
+  → POST /papers/import-json
+  → 服务端结构校验与归一化
+  → syncPaperQuestions 写入 Question
 ```
 
-非当前主线，除非用户明确要求，不要动这条路径。
+真题导入入口只接受标准 JSON 文件。
 
 ## Data model
 
@@ -190,7 +190,7 @@ MembershipPlan, UserMembership, EntitlementConfig
 ### 关键数据规则
 
 - **`Question` 是唯一正式数据源**：业务查询、答题、诊断报告、错题本都从 `Question` 读；`Paper.questions` 只作历史兼容和回填输入，新功能不得读写。
-- 上传解析、JSON/Markdown 导入、试卷编辑创建/更新题目必须通过 `syncPaperQuestions` 写入 `Question`。
+- JSON 导入、试卷编辑创建/更新题目必须通过 `syncPaperQuestions` 写入 `Question`。
 - 历史 `Paper.questions` 回填用 `npm run backfill:questions`；先 `-- --dry-run`，确认无问题再正式跑；确认旧 JSON 不再需要后才追加 `-- --clear-legacy`。
 - 所有 DB 读写必须走 Prisma Client（[api/src/services/prisma.ts](api/src/services/prisma.ts)），**禁止** raw SQL。
 - 排序优先用数据库 `orderBy`，前端只做兜底。
@@ -268,7 +268,7 @@ MembershipPlan, UserMembership, EntitlementConfig
 | [3-技术方案.md](3-技术方案.md) / [3.1](3.1%20技术实现方案详解.md) | 整体技术方案 |
 | [3.2 数据库构建.md](3.2%20数据库构建.md) | 数据模型详细文档（Schema 变更必须同步维护） |
 | [3.3 登录模块技术方案.md](3.3%20登录模块技术方案.md) | 登录 / 注册 / JWT |
-| [3.4 试卷上传解析技术方案.md](3.4%20试卷上传解析技术方案.md) | PDF → Qwen 解析（历史模块） |
+| [3.4 真题JSON导入技术方案.md](3.4%20真题JSON导入技术方案.md) | 真题 JSON 导入与校验 |
 | [4.1错题本.md](4.1错题本.md) / [4.2 会员权益.md](4.2%20会员权益.md) / [4.3个人中心.md](4.3个人中心.md) / [4.4登录注册.md](4.4登录注册.md) / [4.5 考纲管理.md](4.5%20考纲管理.md) | 各业务模块方案 |
 | [5-部署方案.md](5-部署方案.md) | 部署方案 |
 | [项目架构.md](项目架构.md) | 目录职责、API 路由表、路由层级、路由守卫 |

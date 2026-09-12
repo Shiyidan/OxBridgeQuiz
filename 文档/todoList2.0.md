@@ -16,8 +16,6 @@ P0 安全漏洞
 P1 业务逻辑 Bug
 
 - [x] P1-1 诊断完整报告中 isCorrect 被硬编码为 true
-- [ ] P1-2 解析任务只保留前 10 道题
-- [ ] P1-3 解析任务内存在服务重启后丢失
 - [ ] P1-4 答题结果中无匹配题目时静默降级
 - [x] P1-5 “重新测试”曾绕过诊断额度
 - [x] P1-6 诊断真题错题本未直达逐题解析
@@ -33,7 +31,6 @@ P3 性能 & 可扩展性
 
 - [x] P3-2 错题本接口无分页
 - [x] P3-3 用户管理列表无分页
-- [ ] P3-4 逐页解析 fire-and-forget 前端无法感知单页失败
 - [x] P3-5 routes 文件拆分：papers.ts（404 行 10 接口）和 exam.ts（399 行）太胖，按子模块拆分
 
 P4 架构性债务
@@ -44,6 +41,7 @@ P4 架构性债务
 - [x] P4-4 无全局错误处理中间件
 - [x] P4-5 JWT 密钥有硬编码回退值
 - [ ] P4-6 PracticeView 同时承载诊断测试与题库练习，页面职责过重
+- [ ] P4-7 清理历史 ParseTask 数据模型与数据库表
 
 P5 代码整洁
 
@@ -52,7 +50,7 @@ P5 代码整洁
 - [x] P5-3 scoreAnswers() 函数未被使用
 - [x] P5-4 config.ts 中 __dirname 计算后未使用
 - [x] P5-5 index.ts 中 import 语句放在文件末尾
-- [ ] P5-6 试卷上传代码优化：移除旧上传格式并精简未使用引用
+- [x] P5-6 真题导入仅保留标准 JSON
 
 ---
 
@@ -94,18 +92,6 @@ P5 代码整洁
 - **问题**：每道题的 `isCorrect` 始终为 `true`，注释说"从 answers JSON 中取"但代码从未读取，导致报告永远显示全对
 - **方案**：从 `session.answers` 解析每道题的实际批改结果，正确设置 `isCorrect`
 - **处理结果**：2026-07-12 已删除旧 `DiagnosticSession` 报告生成服务；历史会话仅保留作额度与统计兼容，不再生成新报告
-
-### P1-2 解析任务只保留前 10 道题
-
-- **位置**：[`api/src/services/parseService.ts`](api/src/services/parseService.ts) `finalizeTask()`
-- **问题**：`sorted.slice(0, 10)` 硬编码，如果试卷有 20/30 题，只保存前 10 道
-- **方案**：移除 `/ 10` 硬限制，或改为可配置的上限
-
-### P1-3 解析任务内存在服务重启后丢失
-
-- **位置**：[`api/src/services/parseService.ts`](api/src/services/parseService.ts) `Map<string, TaskCoordinator>`
-- **问题**：进行中的解析任务存在内存中，服务重启后变成孤儿，ParseTask 记录永远停在 `processing` 状态
-- **方案**：启动时扫描所有 `status: 'processing'` 的 ParseTask，重置为 `failed` 并写入错误信息
 
 ### P1-4 答题结果中无匹配题目时静默降级
 
@@ -173,12 +159,6 @@ P5 代码整洁
 - **方案**：加入 `page` / `limit` 分页参数
 - **处理结果**：2026-07-16 已确认接口通过 Prisma `skip` / `take` 执行数据库分页并返回统一分页元数据，用户管理页面已接入分页组件
 
-### P3-4 逐页解析采用 fire-and-forget 模式，前端无法感知单页失败
-
-- **位置**：[`api/src/routes/parse.ts`](api/src/routes/parse.ts) `POST /:id/pages`
-- **问题**：`addPageToTask().catch(console.error)` 不等待结果，前端只能通过轮询进度判断，页解析失败时无法定位哪一页出错
-- **方案**：在 ParseTask.result 中记录每页的处理状态，轮询接口返回逐页详情
-
 ### P3-5 routes 文件拆分
 
 - **位置**：[`api/src/routes/papers.ts`](api/src/routes/papers.ts)（404 行 10 接口）+ [`api/src/routes/exam.ts`](api/src/routes/exam.ts)（399 行）
@@ -229,6 +209,14 @@ P5 代码整洁
 - **方案**：拆分为 `AssessmentPracticeView` 和 `QuestionBankPracticeView` 两个业务入口；抽取共用的 `QuestionAnswerPanel`、题号导航以及答题状态/增量保存 composable。诊断页面只负责真题倒计时、恢复考试和分析弹窗，题库页面只负责筛题练习与普通结果页
 - **暂缓原因**：当前两种答题链路已经稳定共用同一页面，本期优先保证诊断提交与报告闭环；待题库练习或仿真考试继续扩展时再执行页面拆分
 
+### P4-7 清理历史 ParseTask 数据模型与数据库表
+
+- **位置**：[`api/prisma/schema.prisma`](../api/prisma/schema.prisma) 的 `ParseTask` 模型和 `Paper.parseTasks` 关系，以及数据审计、开发清理和测试环境重置脚本中的历史引用。
+- **现状**：真题导入已经统一为标准 JSON，运行代码不再创建或读取解析任务；数据库表与维护脚本暂时用于兼容既有历史记录。
+- **执行前置条件**：分别统计本地、测试和生产环境的历史记录数量，确认无业务或审计保留需求，并完成生产数据库备份。
+- **实施方案**：通过 Prisma migration 删除 `ParseTask` 表与 `Paper.parseTasks` 关系；同步移除审计和数据清理脚本中的引用，更新数据库与项目架构文档。
+- **验收标准**：仓库中不存在运行时或维护脚本对 `ParseTask` 的引用；迁移状态正常；前后端构建、JSON 真题导入及试卷删除回归通过；生产执行记录包含备份位置和迁移结果。
+
 ---
 
 ## P5 — 代码整洁（低优先级）
@@ -273,16 +261,8 @@ P5 代码整洁
 - **方案**：移动到文件顶部与其他 import 一起
 - **处理结果**：2026-07-12 已将 `success` 导入移动到顶部导入区
 
-### P5-6 试卷上传代码优化：移除旧上传格式并精简未使用引用
+### P5-6 真题导入仅保留标准 JSON
 
-- **位置**：[`quiz-web/src/views/admin/PaperUpload.vue`](quiz-web/src/views/admin/PaperUpload.vue)、[`api/src/services/markdownValidator.ts`](api/src/services/markdownValidator.ts)、[`api/src/routes/papers-shared.ts`](api/src/routes/papers-shared.ts) 及拆分后的试卷、题库和考纲路由
-- **问题**：上传链路同时兼容新版 `metadata + sections`、旧版 `modules[].questions`、`modules[].items`、嵌套 `questions[].items` 和扁平 `questions`，导致前后端存在重复解析、重复校验和规则遗漏风险；部分拆分路由还从 `papers-shared.ts` 批量导入了未实际使用的函数
-- **方案**：
-  1. 将 ESAT/TMUA 外部上传格式统一为 `metadata + sections`，移除前后端对旧外部上传结构的解析和校验分支。
-  2. 删除旧格式前先盘点历史文件和数据库依赖，必要时提供一次性转换脚本；本项不删除入库后仍在使用的标准化 `moduleConfig`、`module_*` 字段和历史数据读取能力。
-  3. 按实际调用精简 `questionBank.ts`、`syllabus.ts`、`papers-crud.ts`、`papers-import.ts` 的 import；将仍需复用的分页解析、学生作答安全投影、试卷权益和考纲启用逻辑拆入职责单一的工具或服务文件。
-  4. 补充新版 JSON 上传、学生安全题目返回、诊断分段和考纲启用的回归测试，确认旧格式移除不影响已入库试卷的展示与作答。
+- **处理结果**：2026-09-13 已将真题导入统一为标准 JSON 文件，相关前后端入口与依赖已经收敛；历史 `ParseTask` 数据模型暂作数据兼容保留。
 
 ---
-
-> **共计**：31 项，已完成 14 项（P0: 4 / P1: 6 / P2: 4 / P3: 5 / P4: 6 / P5: 6）

@@ -1,6 +1,4 @@
-/**
- * Markdown 导入校验器 — 提取 JSON 代码块、结构校验、安全清洗
- */
+/** 标准试卷 JSON 导入校验器：执行结构校验、归一化与安全清洗。 */
 import {
   ESAT_MODULE,
   ESAT_MODULE_SUBJECT_CODES,
@@ -60,9 +58,6 @@ export interface ProcessResult {
   errors: ValidationError[]
   warnings: string[]
 }
-
-// 匹配 ```json ... ``` 代码块
-const JSON_BLOCK_RE = /```json\s*\n([\s\S]*?)\n\s*```/g
 
 // 危险模式：需要移除的标签和属性
 const DANGEROUS_TAGS = /<\s*script[\s\S]*?<\/\s*script\s*>|<\s*iframe[\s\S]*?<\/\s*iframe\s*>|<\s*object[\s\S]*?<\/\s*object\s*>|<\s*embed[^>]*\/?\s*>/gi
@@ -212,21 +207,6 @@ function isSafeRasterImageSource(value: string): boolean {
   if (SAFE_RASTER_DATA_URI.test(value)) return true
   if (/^(?:https?:|blob:|\/)/i.test(value)) return true
   return !/^[a-z][a-z0-9+.-]*:/i.test(value)
-}
-
-export function extractJsonBlocks(md: string): { index: number; raw: string }[] {
-  const blocks: { index: number; raw: string }[] = []
-  let match: RegExpExecArray | null
-  let idx = 0
-
-  // 重置 lastIndex
-  JSON_BLOCK_RE.lastIndex = 0
-  while ((match = JSON_BLOCK_RE.exec(md)) !== null) {
-    idx++
-    blocks.push({ index: idx, raw: match[1].trim() })
-  }
-
-  return blocks
 }
 
 // 新项目题目使用 camelCase；导入边界统一转换为数据库和渲染链使用的 snake_case。
@@ -1342,78 +1322,4 @@ function sanitizeSvgMarkup(svg: string): string {
     .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
     .replace(/\s+(?:href|xlink:href)\s*=\s*(?:"(?!#)[^"]*"|'(?!#)[^']*'|(?!#)[^\s>]+)/gi, '')
     .replace(/javascript\s*:/gi, '')
-}
-
-/**
- * 串联处理：提取 → 解析 → 校验 → 清洗
- */
-export function processMarkdownImport(md: string): ProcessResult {
-  const errors: ValidationError[] = []
-  const warnings: string[] = []
-  const allQuestions: any[] = []
-  let modules: StandardPaperModule[] = []
-  let metadata: StandardPaperMetadata | null = null
-
-  if (!md || typeof md !== 'string' || !md.trim()) {
-    errors.push({ block: 0, message: 'Markdown 内容不能为空' })
-    return { metadata: null, questions: [], modules: [], errors, warnings }
-  }
-
-  // 1. 提取 JSON 代码块
-  const blocks = extractJsonBlocks(md)
-  if (blocks.length === 0) {
-    errors.push({
-      block: 0,
-      message: '未找到 JSON 代码块（需要 ```json ... ``` 格式）',
-    })
-    return { metadata: null, questions: [], modules: [], errors, warnings }
-  }
-  if (blocks.length > 1) {
-    errors.push({
-      block: 0,
-      message: '标准导入 Markdown 只能包含一个完整 JSON 代码块',
-    })
-    return { metadata: null, questions: [], modules: [], errors, warnings }
-  }
-
-  // 2. 逐个解析和校验
-  for (const block of blocks) {
-    let parsed: any
-    try {
-      parsed = JSON.parse(block.raw)
-    } catch (e: any) {
-      errors.push({
-        block: block.index,
-        message: `第 ${block.index} 个 JSON 块解析失败：${e.message}`,
-      })
-      continue
-    }
-
-    const validated = validateStandardPaperDocument(parsed)
-    metadata = validated.metadata
-    modules = validated.modules
-    const questions = validated.questions
-    const structErrors = validated.errors
-    for (const e of structErrors) {
-      errors.push({
-        block: block.index,
-        message: `第 ${block.index} 个 JSON 块，${e.message}`,
-      })
-    }
-
-    if (structErrors.length > 0) continue
-
-    // JSON 与 Markdown 共用同一结构归一化和业务校验入口。
-    allQuestions.push(...questions)
-    warnings.push(...validated.warnings)
-  }
-
-  if (allQuestions.length === 0 && errors.length === 0) {
-    errors.push({
-      block: 0,
-      message: '未能从 Markdown 中提取到有效的题目数据',
-    })
-  }
-
-  return { metadata, questions: allQuestions, modules, errors, warnings }
 }

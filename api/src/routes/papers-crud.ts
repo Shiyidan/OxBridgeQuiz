@@ -11,10 +11,6 @@ import {
 } from "../utils/questionSync.js";
 import { parseJsonArray, parseJsonField } from "../utils/jsonField.js";
 import { createNumericId } from "../utils/id.js";
-import {
-  processMarkdownImport,
-  validateStandardPaperDocument,
-} from "../services/markdownValidator.js";
 import { checkMemberAccess } from "../services/member.js";
 import { createAsyncRouter } from "../utils/asyncRouter.js";
 import {
@@ -477,7 +473,6 @@ paperCrudRouter.delete("/:id", requireAuth, requireAdmin, async (req, res) => {
       _count: {
         select: {
           questionsRel: true,
-          parseTasks: true,
           examRecords: true,
         },
       },
@@ -503,7 +498,7 @@ paperCrudRouter.delete("/:id", requireAuth, requireAdmin, async (req, res) => {
   }
 
   try {
-    // Paper 外键负责级联删除直属题目和解析任务，单条删除保证数据库操作原子性。
+    // Paper 外键负责级联删除直属题目及历史关联记录，单条删除保证数据库操作原子性。
     await prisma.paper.delete({ where: { id: req.params.id } });
   } catch (error) {
     if (
@@ -534,7 +529,6 @@ paperCrudRouter.delete("/:id", requireAuth, requireAdmin, async (req, res) => {
           paperType: previousPaper.paperType,
           status: previousPaper.status,
           questionCount: previousPaper._count.questionsRel,
-          parseTaskCount: previousPaper._count.parseTasks,
         },
       },
       { record: null },
@@ -544,7 +538,6 @@ paperCrudRouter.delete("/:id", requireAuth, requireAdmin, async (req, res) => {
     success({
       id: previousPaper.id,
       deletedQuestions: previousPaper._count.questionsRel,
-      deletedParseTasks: previousPaper._count.parseTasks,
     }),
   );
 });

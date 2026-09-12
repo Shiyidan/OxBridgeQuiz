@@ -3,8 +3,6 @@ import cors from 'cors'
 import cookieParser from 'cookie-parser'
 import { config } from './config.js'
 import { papersRouter } from './routes/papers.js'
-import { parseRouter } from './routes/parse.js'
-import { uploadRouter } from './routes/upload.js'
 import { examRouter } from './routes/exam.js'
 import { authRouter } from './routes/auth.js'
 import { adminRouter } from './routes/admin.js'
@@ -63,8 +61,6 @@ app.use('/api/admin', adminRouter)
 app.use('/api/papers', papersRouter)
 app.use('/api/question-library', questionLibraryRouter)
 app.use('/api/practice-notebooks', practiceNotebookRouter)
-app.use('/api/parse-tasks', parseRouter)
-app.use('/api/upload', uploadRouter)
 app.use('/api/study-resources', studyResourceRouter)
 app.use('/api/mock-paper-sets', mockPaperSetRouter)
 app.use('/api/mock-exams', mockExamRouter)

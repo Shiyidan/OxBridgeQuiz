@@ -1,10 +1,7 @@
 ﻿<!-- 试题库和诊断测试共用的在线答题页 -->
 <template>
   <div class="practice-page">
-    <ExamWatermark
-      v-if="activeExamRecordId"
-      :username="auth.user?.username"
-    />
+    <ExamWatermark v-if="activeExamRecordId" :username="auth.user?.username" />
     <ExamVue
       :key="examTimerKey"
       ref="examNavRef"
@@ -49,14 +46,18 @@
             <span class="question-nav__dot question-nav__dot--pending" />未答 {{ pendingCount }}
           </div>
         </div>
-        <button
-          type="button"
-          class="question-nav__submit button_cancel"
-          :disabled="submitting || confirmingSubmit || !currentQuestion"
-          @click="confirmSubmitExam"
-        >
-          {{ submitButtonLabel }}
-        </button>
+        <div class="question-nav__actions">
+          <AppButton
+            type="secondary"
+            size="medium"
+            class="question-nav__submit"
+            :loading="submitting"
+            :disabled="submitting || confirmingSubmit || !currentQuestion"
+            @click="confirmSubmitExam"
+          >
+            {{ submitButtonLabel }}
+          </AppButton>
+        </div>
       </aside>
 
       <section class="exam-panel" aria-live="polite">
@@ -76,28 +77,34 @@
           </div>
 
           <footer class="exam-actions">
-            <button
-              type="button"
-              class="exam-action button_cancel"
-              :disabled="currentIndex === 0"
-              @click="handlePrev"
-            >
+            <AppButton type="secondary" :disabled="currentIndex === 0" @click="handlePrev">
               上一题
-            </button>
+            </AppButton>
             <div class="exam-actions__right">
-              <button
-                v-if="!isLastQuestion"
-                type="button"
-                class="exam-action button_cancel"
-                @click="handleNext"
-              >
+              <AppButton type="secondary" v-if="!isLastQuestion" @click="handleNext">
                 下一题
-              </button>
+              </AppButton>
             </div>
           </footer>
         </template>
       </section>
     </main>
+
+    <AppDialog
+      v-model="warningDialog.visible"
+      :title="warningDialog.title"
+      :icon="WarningFilled"
+      icon-color="var(--color-warning)"
+      :confirm-text="warningDialog.confirmText"
+      :cancel-text="warningDialog.cancelText"
+      :show-cancel="warningDialog.showCancel"
+      :show-close="warningDialog.showCancel"
+      :close-on-press-escape="warningDialog.showCancel"
+      @confirm="resolveWarningConfirmation(true)"
+      @cancel="resolveWarningConfirmation(false)"
+    >
+      <p>{{ warningDialog.message }}</p>
+    </AppDialog>
 
     <DiagnosticAnalysisDialog
       :model-value="analysisDialogVisible"
@@ -105,17 +112,19 @@
       @view-report="handleViewDiagnosticReport"
       @return-assessment="handleReturnToAssessment"
     />
-    <AppConfirmDialog
+    <AppDialog
       v-model="practiceResultDialogVisible"
       title="练习已交卷"
-      :message="practiceResultMessage"
+      :icon="CircleCheckFilled"
+      icon-color="var(--color-success)"
       confirm-text="查看解析"
       :cancel-text="practiceReturnLabel"
-      tone="default"
       :show-close="false"
       @confirm="handleViewPracticeAnalysis"
       @cancel="handleReturnAfterPractice"
-    />
+    >
+      <p>{{ practiceResultMessage }}</p>
+    </AppDialog>
 
     <DailyCardAccessDialog
       v-model="upgradeDialogVisible"
@@ -137,15 +146,17 @@
 </template>
 
 <script setup lang="ts">
+import AppButton from '@/components/AppButton.vue'
 // 在线答题页：试题库按考点取题，诊断测试按 paperId 取整套真题。
 import { ref, computed, shallowRef, onMounted, onBeforeUnmount } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { CircleCheckFilled, WarningFilled } from '@element-plus/icons-vue'
 import QuestionCard from '@/components/QuestionCard.vue'
 import ExamVue from '@/components/ExamVue.vue'
 import ExamWatermark from '@/components/ExamWatermark.vue'
 import DiagnosticAnalysisDialog from '@/components/DiagnosticAnalysisDialog.vue'
-import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
+import AppDialog from '@/components/AppDialog.vue'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
 import { getQuestionsData } from '@/api/questionBank'
@@ -194,6 +205,15 @@ const examSubmitted = ref(false)
 const activeExamRecordId = ref('')
 const analysisDialogVisible = ref(false)
 const practiceResultDialogVisible = ref(false)
+const warningDialog = ref({
+  visible: false,
+  title: '提示',
+  message: '',
+  confirmText: '确认',
+  cancelText: '继续答题',
+  showCancel: true,
+})
+let warningDialogResolver: ((confirmed: boolean) => void) | null = null
 const upgradeDialogVisible = ref(false)
 const paymentVisible = ref(false)
 const quotaUpgradePending = ref(false)
@@ -213,6 +233,41 @@ const dirtyQuestionVersions = new Map<string, number>()
 const persistedQuestionDurations = new Map<string, number>()
 let progressSavePromise: Promise<void> | null = null
 
+// 交卷与离开共用标准弹窗；到时提示优先结束旧确认，避免两次交卷或多个遮罩叠加。
+function requestWarningConfirmation(
+  options: {
+    title?: string
+    message: string
+    confirmText: string
+    showCancel?: boolean
+  },
+  replacePending = false,
+): Promise<boolean> {
+  if (warningDialogResolver) {
+    if (!replacePending) return Promise.resolve(false)
+    resolveWarningConfirmation(false)
+  }
+  warningDialog.value = {
+    visible: true,
+    title: options.title || '提示',
+    message: options.message,
+    confirmText: options.confirmText,
+    cancelText: '继续答题',
+    showCancel: options.showCancel ?? true,
+  }
+  return new Promise<boolean>((resolve) => {
+    warningDialogResolver = resolve
+  })
+}
+
+// 确认、取消和卸载只结算一次；关闭后由等待中的业务决定是否提交或导航。
+function resolveWarningConfirmation(confirmed: boolean): void {
+  warningDialog.value.visible = false
+  const resolver = warningDialogResolver
+  warningDialogResolver = null
+  resolver?.(confirmed)
+}
+
 // 根据入口区分模式：试题库正计时，诊断测试 / 仿真考试倒计时。
 const examMode = computed(() => {
   if (route.query.paperId) return 'assessment'
@@ -221,9 +276,7 @@ const examMode = computed(() => {
 })
 
 // 正计时练习可随时正常交卷；只有限时诊断场景使用“提前交卷”提示。
-const submitButtonLabel = computed(() =>
-  examMode.value === 'question-bank' ? '交卷' : '提前交卷',
-)
+const submitButtonLabel = computed(() => (examMode.value === 'question-bank' ? '交卷' : '提前交卷'))
 
 // 题库答卷来源决定中途返回、交卷结果和逐题解析的稳定回跳目标。
 const cameFromPracticeNotebook = computed(() => route.query.from === 'practice-notebook')
@@ -660,16 +713,11 @@ async function handleBackToQuestionBank(): Promise<void> {
       ? '返回诊断测试会保存当前作答和用时，之后可继续测试，是否返回？'
       : `返回${target.label}会保存当前作答和用时，之后可继续练习，是否返回？`
   try {
-    await ElMessageBox.confirm(confirmMessage, '提示', {
-      type: 'warning',
-      confirmButtonText: '保存并返回',
-      cancelButtonText: '继续答题',
-      confirmButtonClass: 'button_primary',
-      cancelButtonClass: 'button_cancel',
-      customClass: 'app-confirm-box',
-      closeOnClickModal: false,
-      distinguishCancelAndClose: true,
+    const confirmed = await requestWarningConfirmation({
+      message: confirmMessage,
+      confirmText: '保存并返回',
     })
+    if (!confirmed) return
     router.push(target.path)
   } catch {
     // 用户取消返回时保持当前答题状态。
@@ -758,16 +806,11 @@ async function confirmSubmitExam(): Promise<void> {
         : '交卷后将生成本次答题结果，未作答题目会计为未答，是否提前交卷？'
       : '确认交卷？'
   try {
-    await ElMessageBox.confirm(confirmMessage, '提示', {
-      type: 'warning',
-      confirmButtonText: '确认交卷',
-      cancelButtonText: '继续答题',
-      confirmButtonClass: 'button_primary',
-      cancelButtonClass: 'button_cancel',
-      customClass: 'app-confirm-box',
-      closeOnClickModal: false,
-      distinguishCancelAndClose: true,
+    const confirmed = await requestWarningConfirmation({
+      message: confirmMessage,
+      confirmText: '确认交卷',
     })
+    if (!confirmed) return
     await handleSubmit()
   } catch {
     // 用户取消交卷时保持当前答题状态。
@@ -869,15 +912,17 @@ async function handleTimeExpired(): Promise<void> {
   if (timeExpiredHandling || submitting.value || examSubmitted.value) return
   timeExpiredHandling = true
   try {
-    await ElMessageBox.alert('考试时间已结束，系统将自动提交您的试卷。', '答题时间到', {
-      confirmButtonText: '确定',
-      confirmButtonClass: 'button_primary',
-      customClass: 'app-confirm-box',
-      closeOnClickModal: false,
-      showClose: false,
-    })
+    const confirmed = await requestWarningConfirmation(
+      {
+        title: '答题时间到',
+        message: '考试时间已结束，系统将自动提交您的试卷。',
+        confirmText: '确定',
+        showCancel: false,
+      },
+      true,
+    )
+    if (confirmed) await handleSubmit()
   } finally {
-    await handleSubmit()
     timeExpiredHandling = false
   }
 }
@@ -926,6 +971,7 @@ onMounted(() => {
 
 // 离开答题页时释放自动保存资源；业务返回按钮会在导航前等待最后一次保存完成。
 onBeforeUnmount(() => {
+  resolveWarningConfirmation(false)
   if (progressSaveInterval) clearInterval(progressSaveInterval)
   if (selectionSaveTimer) clearTimeout(selectionSaveTimer)
 })
@@ -1046,11 +1092,13 @@ onBeforeRouteLeave(async () => {
 .question-nav__dot--skipped {
   background: var(--color-warning);
 }
-.question-nav__submit {
-  width: 100%;
-  height: 48px;
+.question-nav__actions {
+  display: flex;
+  justify-content: center;
   margin-top: 24px;
-  font-size: var(--text-base);
+}
+.question-nav__actions .question-nav__submit {
+  width: 100%;
 }
 .exam-panel {
   min-width: 0;
@@ -1067,10 +1115,6 @@ onBeforeRouteLeave(async () => {
   margin-top: 20px;
   padding-top: 16px;
   border-top: 1px solid var(--color-line-soft);
-}
-.exam-action {
-  min-width: 96px;
-  height: 40px;
 }
 .exam-actions__right {
   display: flex;

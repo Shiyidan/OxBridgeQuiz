@@ -1,4 +1,5 @@
-﻿<template>
+<!-- 试题库首页：选择知识点与难度，确认练习范围并校验可用额度。 -->
+<template>
   <div class="question-bank">
     <main class="qb-container">
       <header class="qb-header">
@@ -11,22 +12,12 @@
           <span v-if="questionBankQuota && !questionBankQuota.unlimited" class="qb-usage-count">
             已练习（{{ questionBankQuota.used }}/{{ questionBankQuota.limit ?? 25 }}）
           </span>
-          <router-link to="/practice-records" class="qb-records-entry">
-            <span>练习记录</span>
-          </router-link>
-          <button type="button" class="qb-notebook-entry" @click="handleOpenPracticeNotebook">
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d="M5 4.75A1.75 1.75 0 0 1 6.75 3H19v16H6.75A1.75 1.75 0 0 0 5 20.75v-16Z"
-                stroke="currentColor"
-                stroke-width="1.6"
-                stroke-linejoin="round"
-              />
-              <path d="M5 18.75h14M8.5 7h7" stroke="currentColor" stroke-width="1.6" />
-            </svg>
-            <span>练习本</span>
-            <span aria-hidden="true">→</span>
-          </button>
+          <AppButton type="link" @click="router.push('/practice-records')">
+            练习记录
+          </AppButton>
+          <AppButton type="secondary" :icon="Notebook" @click="handleOpenPracticeNotebook"
+            >练习本</AppButton
+          >
         </div>
       </header>
 
@@ -67,9 +58,7 @@
                 题</span
               >
             </div>
-            <button type="button" class="button_primary" @click="handleContinuePractice">
-              继续练习
-            </button>
+            <AppButton @click="handleContinuePractice"> 继续练习 </AppButton>
           </div>
 
           <div class="qb-difficulty-grid">
@@ -83,21 +72,17 @@
               <div class="qb-difficulty-card__visual">
                 <span class="qb-difficulty-card__english">{{ diff.englishLabel }}</span>
                 <h3 class="qb-difficulty-card__title">{{ diff.label }}难度</h3>
-                <button
-                  type="button"
+                <AppButton
                   class="qb-difficulty-card__cta"
-                  :disabled="
-                    diff.count === 0 ||
-                    Boolean(activePractice) ||
-                    startingDifficultyId === diff.id
-                  "
+                  :size="compactViewport ? 'mini' : 'medium'"
+                  :disabled="diff.count === 0 || Boolean(activePractice)"
+                  :loading="startingDifficultyId === diff.id"
                   @click="handleStartPractice(diff)"
                 >
                   <span v-if="startingDifficultyId === diff.id">正在生成</span>
                   <span v-else-if="diff.count === 0">暂无题目</span>
                   <span v-else>立即练习</span>
-                  <!-- <span aria-hidden="true">→</span> -->
-                </button>
+                </AppButton>
               </div>
               <div class="qb-difficulty-card__body">
                 <span class="qb-difficulty-card__icon" aria-hidden="true">
@@ -121,26 +106,29 @@
       </section>
     </main>
 
-    <AppConfirmDialog
+    <AppDialog
       v-model="selectionDialogVisible"
       title="确认开始练习"
-      :message="selectionDialogMessage"
       confirm-text="开始练习"
       cancel-text="取消"
-      tone="default"
       @confirm="handleConfirmSelectedPractice"
       @cancel="handleCancelSelectedPractice"
-    />
+    >
+      <p>{{ selectionDialogMessage }}</p>
+    </AppDialog>
 
-    <AppConfirmDialog
+    <AppDialog
       v-model="quotaDialogVisible"
       title="免费练习题量不足"
-      :message="quotaDialogMessage"
+      :icon="WarningFilled"
+      icon-color="var(--color-warning)"
       confirm-text="开始练习"
       cancel-text="取消"
       @confirm="handleConfirmReducedPractice"
       @cancel="handleCancelReducedPractice"
-    />
+    >
+      <p>{{ quotaDialogMessage }}</p>
+    </AppDialog>
 
     <DailyCardAccessDialog
       v-model="upgradeDialogVisible"
@@ -161,12 +149,14 @@
 </template>
 
 <script setup lang="ts">
+import AppButton from '@/components/AppButton.vue'
 // 试题库首页：按考试、考纲和难度选择题目范围并开始专项练习。
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Notebook, WarningFilled } from '@element-plus/icons-vue'
 import type { TreeInstance } from 'element-plus'
-import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
+import AppDialog from '@/components/AppDialog.vue'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
@@ -422,6 +412,21 @@ watch(activeExamType, () => {
   if (examContentInitialized) void loadExamContent(false)
 })
 
+// 窄屏卡片使用 Mini，随窗口变化同步组件尺寸，不覆盖按钮内部样式。
+const compactViewport = ref(false)
+let compactViewportQuery: MediaQueryList | undefined
+function syncCompactViewport(): void {
+  compactViewport.value = compactViewportQuery?.matches ?? false
+}
+onMounted(() => {
+  compactViewportQuery = window.matchMedia('(max-width: 780px)')
+  syncCompactViewport()
+  compactViewportQuery.addEventListener('change', syncCompactViewport)
+})
+onBeforeUnmount(() => {
+  compactViewportQuery?.removeEventListener('change', syncCompactViewport)
+})
+
 // 首次进入先完成个人考试偏好初始化，再按最终全局类型加载题库。
 onMounted(async () => {
   try {
@@ -487,15 +492,18 @@ function handleStartPractice(diff: DifficultyOption): void {
     questionCount: plannedQuestionCount,
     examType: activeExamType.value,
   }
-  const practiceCountMessage = diff.count > plannedQuestionCount
-    ? `题库共${diff.count}题，本次随机练习${plannedQuestionCount}题`
-    : `本次练习全部${plannedQuestionCount}题`
+  const practiceCountMessage =
+    diff.count > plannedQuestionCount
+      ? `题库共${diff.count}题，本次随机练习${plannedQuestionCount}题`
+      : `本次练习全部${plannedQuestionCount}题`
   selectionDialogMessage.value = `您已选择${pendingDirectPractice.value.label}，${practiceCountMessage}，开始练习？`
   selectionDialogVisible.value = true
 }
 
 // 用户确认所选范围后再预检额度，部分不足时进入第二层缩量确认。
 async function handleConfirmSelectedPractice(): Promise<void> {
+  // AppDialog 由页面主动关闭；先退出范围确认，再承接额度或会员提示。
+  selectionDialogVisible.value = false
   if (requireDesktopForQuestionBankPractice()) {
     pendingDirectPractice.value = null
     return
@@ -540,6 +548,7 @@ function handleCancelSelectedPractice(): void {
 
 // 确认后按服务端返回的剩余额度缩量进入练习，创建时仍由后端事务再次校验。
 function handleConfirmReducedPractice(): void {
+  quotaDialogVisible.value = false
   const pending = pendingDirectPractice.value
   pendingDirectPractice.value = null
   if (!pending) return
@@ -625,61 +634,6 @@ async function handlePaymentSuccess(): Promise<void> {
   color: var(--color-ink-muted);
   font-size: var(--text-sm);
   white-space: nowrap;
-}
-
-.qb-records-entry {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 2px 6px;
-  border-bottom: 1px solid currentColor;
-  color: var(--color-ink-soft);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semi);
-  line-height: 1;
-  white-space: nowrap;
-  transition:
-    color var(--duration-base) ease,
-    transform var(--duration-fast) ease;
-}
-
-.qb-records-entry:hover,
-.qb-records-entry:focus-visible {
-  color: var(--color-ink);
-  transform: translateX(2px);
-}
-
-.qb-notebook-entry {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 10px;
-  min-width: 148px;
-  height: 46px;
-  padding: 0 16px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  color: var(--color-ink);
-  font: inherit;
-  font-weight: var(--weight-semi);
-  cursor: pointer;
-  transition:
-    border-color var(--duration-base) ease,
-    background var(--duration-base) ease,
-    transform var(--duration-fast) ease;
-}
-
-.qb-notebook-entry:hover,
-.qb-notebook-entry:focus-visible {
-  border-color: var(--color-ink);
-  background: var(--color-hover);
-  transform: translateX(2px);
-}
-
-.qb-notebook-entry svg {
-  width: 20px;
-  height: 20px;
 }
 
 .page-eyebrow {
@@ -956,45 +910,6 @@ async function handlePaymentSuccess(): Promise<void> {
   text-shadow: 0 2px 5px rgb(41 68 120 / 28%);
 }
 
-.qb-difficulty-card__cta {
-  position: absolute;
-  right: 18px;
-  bottom: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  // min-width: 126px;
-  height: 40px;
-  padding: 5px 30px;
-  border: 0;
-  border-radius: 5px;
-  background: var(--difficulty-accent);
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--difficulty-accent) 32%, transparent);
-  color: #fff;
-  font: inherit;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semi);
-  cursor: pointer;
-  transition:
-    background var(--duration-base) ease,
-    box-shadow var(--duration-base) ease,
-    transform var(--duration-fast) ease;
-}
-
-.qb-difficulty-card__cta:not(:disabled):hover,
-.qb-difficulty-card__cta:not(:disabled):focus-visible {
-  background: var(--difficulty-accent-dark);
-  box-shadow: 0 10px 22px color-mix(in srgb, var(--difficulty-accent) 42%, transparent);
-  transform: translateY(-1px);
-}
-
-.qb-difficulty-card__cta:disabled {
-  box-shadow: none;
-  cursor: not-allowed;
-  opacity: 0.54;
-}
-
 .qb-difficulty-card__body {
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr);
@@ -1085,12 +1000,6 @@ async function handlePaymentSuccess(): Promise<void> {
     gap: 10px;
   }
 
-  .qb-notebook-entry {
-    min-width: 0;
-    height: 40px;
-    padding: 0 10px;
-  }
-
   .qb-main {
     grid-template-columns: minmax(0, 1fr);
     gap: 12px;
@@ -1160,10 +1069,6 @@ async function handlePaymentSuccess(): Promise<void> {
     padding: 10px;
   }
 
-  .qb-active-practice .button_primary {
-    width: 100%;
-  }
-
   .qb-difficulty-grid {
     width: 100%;
     min-width: 0;
@@ -1194,17 +1099,6 @@ async function handlePaymentSuccess(): Promise<void> {
     white-space: nowrap;
   }
 
-  .qb-difficulty-card__cta {
-    position: static;
-    width: 100%;
-    min-width: 0;
-    height: 34px;
-    gap: 4px;
-    margin-top: 10px;
-    padding: 0 20px;
-    font-size: 10px;
-  }
-
   .qb-difficulty-card__body {
     display: none;
   }
@@ -1221,6 +1115,35 @@ async function handlePaymentSuccess(): Promise<void> {
   .qb-difficulty-card__desc {
     font-size: 10px;
     line-height: 1.5;
+  }
+}
+/* 难度入口沿用卡片主题色，按钮尺寸、加载和禁用交互仍由 AppButton 提供。 */
+.qb-difficulty-card__cta.app-button.el-button {
+  --app-button-bg: var(--difficulty-accent);
+  --app-button-border: var(--difficulty-accent);
+  --app-button-hover-bg: var(--difficulty-accent-dark);
+  --app-button-hover-border: var(--difficulty-accent-dark);
+  --app-button-active-bg: var(--difficulty-accent-dark);
+  --app-button-active-border: var(--difficulty-accent-dark);
+}
+
+.qb-difficulty-card__cta {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+}
+@media (max-width: 780px) {
+  .qb-difficulty-card__cta {
+    position: static;
+  }
+  .qb-difficulty-card__visual {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .qb-difficulty-grid {
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
   }
 }
 </style>

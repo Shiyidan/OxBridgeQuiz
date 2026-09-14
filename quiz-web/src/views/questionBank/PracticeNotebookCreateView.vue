@@ -14,10 +14,9 @@
             }}
           </p>
         </div>
-        <button type="button" class="create-page-back" @click="handleCancel">
-          <span aria-hidden="true">←</span>
+        <AppButton type="text" :icon="Back" @click="handleCancel">
           <span>{{ reportReturnTo ? '返回诊断报告' : '返回练习本' }}</span>
-        </button>
+        </AppButton>
       </header>
 
       <form v-loading="pageLoading" class="notebook-form" @submit.prevent="handleSubmit">
@@ -33,7 +32,7 @@
                 placeholder="例如：代数与函数强化练习"
                 show-word-limit
               />
-            </label> 
+            </label>
           </div>
         </section>
 
@@ -124,13 +123,14 @@
                     <span class="selected-knowledge-item__tag">
                       {{ item.questionCount === null ? '统计中' : `${item.questionCount} 道题` }}
                     </span>
-                    <button
-                      type="button"
+                    <AppButton
+                      type="text"
+                      size="mini"
+                      :icon="Close"
+                      icon-only
                       :aria-label="`取消选择 ${item.label}`"
                       @click="handleRemoveKnowledgePoint(item.code)"
-                    >
-                      ×
-                    </button>
+                    ></AppButton>
                   </article>
                 </section>
               </div>
@@ -139,14 +139,11 @@
                 <strong>尚未选择知识点</strong>
                 <p>请在左侧考纲树中勾选学科、章节或叶子知识点。</p>
               </div>
-              <button
-                v-if="selectedKnowledgePoints.length"
-                type="button"
-                class="selected-clear"
-                @click="handleClearSelected"
-              >
-                清空当前科目
-              </button>
+              <div v-if="selectedKnowledgePoints.length" class="selected-clear-actions">
+                <AppButton type="text" size="small" @click="handleClearSelected">
+                  清空当前科目
+                </AppButton>
+              </div>
             </section>
           </div>
         </section>
@@ -163,16 +160,16 @@
               <small>题目会在已选学科与知识点之间组合。</small>
             </div>
             <div class="choice-group" aria-label="每次题量">
-              <button
+              <AppButton
+                size="small"
+                :type="questionCount === count ? 'primary' : 'secondary'"
                 v-for="count in questionCountOptions"
                 :key="count"
-                type="button"
-                :class="{ 'is-selected': questionCount === count }"
                 :aria-pressed="questionCount === count"
                 @click="questionCount = count"
               >
                 {{ count }}题
-              </button>
+              </AppButton>
             </div>
           </div>
 
@@ -182,16 +179,16 @@
               <small>用常用组合减少复杂设置。</small>
             </div>
             <div class="choice-group" aria-label="练习难度">
-              <button
+              <AppButton
+                size="small"
+                :type="difficultyMode === option.value ? 'primary' : 'secondary'"
                 v-for="option in difficultyOptions"
                 :key="option.value"
-                type="button"
-                :class="{ 'is-selected': difficultyMode === option.value }"
                 :aria-pressed="difficultyMode === option.value"
                 @click="difficultyMode = option.value"
               >
                 {{ option.label }}
-              </button>
+              </AppButton>
             </div>
           </div>
 
@@ -201,16 +198,16 @@
               <small>限时只影响本组练习。</small>
             </div>
             <div class="choice-group choice-group--time" aria-label="练习时间">
-              <button
+              <AppButton
+                size="small"
+                :type="durationMode === option.value ? 'primary' : 'secondary'"
                 v-for="option in durationOptions"
                 :key="option.value"
-                type="button"
-                :class="{ 'is-selected': durationMode === option.value }"
                 :aria-pressed="durationMode === option.value"
                 @click="durationMode = option.value"
               >
                 {{ option.label }}
-              </button>
+              </AppButton>
               <el-input-number
                 v-if="durationMode === 'custom'"
                 v-model="customDurationMinutes"
@@ -233,10 +230,10 @@
         </section>
 
         <footer class="notebook-form__actions">
-          <button type="button" class="button_cancel" @click="handleCancel">取消</button>
-          <button type="submit" class="button_primary" :disabled="saving || pageLoading">
+          <AppButton type="secondary" @click="handleCancel">取消</AppButton>
+          <AppButton native-type="submit" :loading="saving" :disabled="pageLoading">
             {{ saving ? '保存中...' : isEditing ? '保存修改' : '创建练习本' }}
-          </button>
+          </AppButton>
         </footer>
       </form>
     </main>
@@ -244,6 +241,8 @@
 </template>
 
 <script setup lang="ts">
+import AppButton from '@/components/AppButton.vue'
+import { Back, Close } from '@element-plus/icons-vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type TreeInstance } from 'element-plus'
@@ -561,9 +560,9 @@ function applyDiagnosticReportPrefill(): void {
 
   const requestedCount = Number(queryString('questionCount'))
   if (Number.isFinite(requestedCount)) {
-    questionCount.value = questionCountOptions.reduce((nearest, option) => (
-      Math.abs(option - requestedCount) < Math.abs(nearest - requestedCount) ? option : nearest
-    ))
+    questionCount.value = questionCountOptions.reduce((nearest, option) =>
+      Math.abs(option - requestedCount) < Math.abs(nearest - requestedCount) ? option : nearest,
+    )
   }
 
   const difficultyMap: Record<string, DifficultyMode> = {
@@ -740,27 +739,6 @@ onBeforeUnmount(() => {
 .create-page-header p {
   margin: 10px 0 0;
   color: var(--color-ink-soft);
-}
-
-.create-page-back {
-  height: 46px;
-  padding: 0 16px;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  color: var(--color-ink);
-  font: inherit;
-  font-weight: var(--weight-semi);
-  cursor: pointer;
-}
-
-.create-page-back:hover,
-.create-page-back:focus-visible {
-  border-color: var(--color-ink);
-  background: var(--color-hover);
 }
 
 .notebook-form {
@@ -1040,20 +1018,6 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.selected-knowledge-item button {
-  width: 28px;
-  height: 28px;
-  border: 0;
-  background: transparent;
-  color: var(--color-ink-muted);
-  font-size: 20px;
-  cursor: pointer;
-}
-
-.selected-knowledge-item button:hover {
-  color: var(--color-ink);
-}
-
 .selected-empty {
   flex: 1;
 }
@@ -1072,22 +1036,6 @@ onBeforeUnmount(() => {
   margin: 6px 0 0;
   font-size: var(--text-sm);
   line-height: var(--leading-relaxed);
-}
-
-.selected-clear {
-  margin: 12px 18px;
-  align-self: flex-end;
-  border: 0;
-  background: transparent;
-  color: var(--color-ink-soft);
-  font: inherit;
-  font-size: var(--text-sm);
-  cursor: pointer;
-}
-
-.selected-clear:hover {
-  color: var(--color-ink);
-  text-decoration: underline;
 }
 
 .practice-setting-row {
@@ -1125,30 +1073,6 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 
-.choice-group button {
-  min-width: 66px;
-  height: 40px;
-  padding: 0 14px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  color: var(--color-ink);
-  font: inherit;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semi);
-  cursor: pointer;
-}
-
-.choice-group button:hover {
-  border-color: var(--color-ink);
-}
-
-.choice-group button.is-selected {
-  border-color: var(--color-ink);
-  background: var(--color-ink);
-  color: var(--color-ink-inverse);
-}
-
 .choice-group--time :deep(.el-input-number) {
   width: 150px;
 }
@@ -1167,10 +1091,6 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-}
-
-.notebook-form__actions button {
-  min-width: 116px;
 }
 
 @media (max-width: 1000px) {
@@ -1202,5 +1122,10 @@ onBeforeUnmount(() => {
     padding: 18px 0;
     grid-template-columns: 1fr;
   }
+}
+.selected-clear-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 18px;
 }
 </style>

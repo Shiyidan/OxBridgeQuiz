@@ -254,6 +254,10 @@ input:-webkit-autofill:active,
 .el-select .el-input__wrapper {
   background-color: var(--color-surface) !important;
 }
+/* Select 和 TreeSelect 由外层提供焦点边框，搜索输入框不再重复绘制轮廓。 */
+.el-select__input:focus-visible {
+  outline: none;
+}
 .el-select-dropdown__item.selected {
   color: var(--color-ink);
   font-weight: var(--weight-semi);

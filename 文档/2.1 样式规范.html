@@ -1,0 +1,2068 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AceMock Design System · Button &amp; Dialog</title>
+    <style>
+      :root {
+        --bg: #f5f5f3;
+        --surface: #ffffff;
+        --surface-alt: #fafafa;
+        --ink: #1a1a1a;
+        --ink-soft: #4a4a4a;
+        --ink-muted: #8a8a8a;
+        --line: #eaeaea;
+        --line-strong: #d0d0d0;
+        --hover: #f5f5f5;
+        --charcoal: #333333;
+        --black: #000000;
+        --danger: #d9534f;
+        --danger-bg: #fbedec;
+        --success: #2a9d8f;
+        --link-color: #1a1a1a;
+        --accent: #4f46e5;
+        --accent-soft: #eeedff;
+        --radius-sm: 6px;
+        --radius-md: 8px;
+        --radius-button: 5px;
+        --radius-lg: 12px;
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+        --shadow-md: 0 14px 38px rgba(26, 26, 26, 0.07);
+        --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", "Microsoft YaHei", sans-serif;
+        --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-width: 1180px;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--font-sans);
+        font-size: 14px;
+        line-height: 1.6;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .app-shell {
+        display: grid;
+        grid-template-columns: 248px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 28px 20px;
+        border-right: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(12px);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding: 0 10px 30px;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: var(--ink);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        place-items: center;
+      }
+
+      .brand-name {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .brand-meta {
+        color: var(--ink-muted);
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .nav-label {
+        margin: 0 10px 10px;
+        color: var(--ink-muted);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .nav-list {
+        display: grid;
+        gap: 4px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .nav-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 42px;
+        padding: 0 12px;
+        border-radius: var(--radius-md);
+        color: var(--ink-soft);
+        font-weight: 600;
+      }
+
+      .nav-item.is-active {
+        background: var(--ink);
+        color: #fff;
+      }
+
+      .nav-count {
+        color: var(--ink-muted);
+        font-family: var(--font-mono);
+        font-size: 11px;
+      }
+
+      .nav-item.is-active .nav-count {
+        color: #bdbdbd;
+      }
+
+      .sidebar-note {
+        position: absolute;
+        right: 20px;
+        bottom: 24px;
+        left: 20px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        background: var(--surface-alt);
+        color: var(--ink-muted);
+        font-size: 12px;
+      }
+
+      .sidebar-note strong {
+        display: block;
+        margin-bottom: 3px;
+        color: var(--ink);
+        font-size: 12px;
+      }
+
+      .main {
+        padding: 48px 56px 96px;
+      }
+
+      .content {
+        width: min(1180px, 100%);
+        margin: 0 auto;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 18px;
+        color: var(--accent);
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+        content: "";
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        max-width: 760px;
+        margin-bottom: 16px;
+        font-size: 52px;
+        line-height: 1.08;
+        letter-spacing: -0.055em;
+      }
+
+      .lead {
+        max-width: 780px;
+        margin-bottom: 34px;
+        color: var(--ink-soft);
+        font-size: 17px;
+      }
+
+      .meta-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 54px;
+      }
+
+      .meta-chip {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        padding: 0 11px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: var(--ink-soft);
+        font-family: var(--font-mono);
+        font-size: 11px;
+      }
+
+      .section {
+        margin-top: 58px;
+        scroll-margin-top: 32px;
+      }
+
+      .section-head {
+        display: grid;
+        grid-template-columns: 44px minmax(0, 1fr) auto;
+        align-items: start;
+        gap: 14px;
+        margin-bottom: 22px;
+      }
+
+      .section-index {
+        padding-top: 4px;
+        color: var(--ink-muted);
+        font-family: var(--font-mono);
+        font-size: 12px;
+      }
+
+      h2 {
+        margin-bottom: 6px;
+        font-size: 26px;
+        line-height: 1.25;
+        letter-spacing: -0.035em;
+      }
+
+      .section-description {
+        margin-bottom: 0;
+        color: var(--ink-muted);
+      }
+
+      .section-source {
+        padding-top: 5px;
+        color: var(--ink-muted);
+        font-family: var(--font-mono);
+        font-size: 11px;
+      }
+
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--surface);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .overview-board {
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        overflow: hidden;
+      }
+
+      .specimen-stage {
+        display: grid;
+        min-height: 342px;
+        padding: 58px;
+        border-right: 1px solid var(--line);
+        background:
+          linear-gradient(var(--line) 1px, transparent 1px),
+          linear-gradient(90deg, var(--line) 1px, transparent 1px), #fbfbfa;
+        background-size: 24px 24px;
+        place-items: center;
+      }
+
+      .measure-box {
+        position: relative;
+        padding: 45px 56px;
+      }
+
+      .measure-h,
+      .measure-v {
+        position: absolute;
+        color: var(--accent);
+        font-family: var(--font-mono);
+        font-size: 11px;
+      }
+
+      .measure-h {
+        right: 56px;
+        bottom: 16px;
+        left: 56px;
+        height: 18px;
+        border-top: 1px solid var(--accent);
+        text-align: center;
+      }
+
+      .measure-h::before,
+      .measure-h::after {
+        position: absolute;
+        top: -4px;
+        width: 1px;
+        height: 8px;
+        background: var(--accent);
+        content: "";
+      }
+
+      .measure-h::before {
+        left: 0;
+      }
+
+      .measure-h::after {
+        right: 0;
+      }
+
+      .measure-v {
+        top: 45px;
+        right: 19px;
+        bottom: 45px;
+        width: 28px;
+        border-left: 1px solid var(--accent);
+        writing-mode: vertical-rl;
+      }
+
+      .measure-v::before,
+      .measure-v::after {
+        position: absolute;
+        left: -4px;
+        width: 8px;
+        height: 1px;
+        background: var(--accent);
+        content: "";
+      }
+
+      .measure-v::before {
+        top: 0;
+      }
+
+      .measure-v::after {
+        bottom: 0;
+      }
+
+      .radius-callout {
+        position: absolute;
+        top: 8px;
+        left: 58px;
+        color: var(--accent);
+        font-family: var(--font-mono);
+        font-size: 11px;
+      }
+
+      .radius-callout::after {
+        display: inline-block;
+        width: 34px;
+        height: 20px;
+        margin-left: 8px;
+        border-top: 1px solid currentColor;
+        border-left: 1px solid currentColor;
+        border-radius: var(--radius-button) 0 0;
+        vertical-align: middle;
+        content: "";
+      }
+
+      .spec-panel {
+        padding: 34px;
+      }
+
+      .spec-panel-title {
+        margin-bottom: 22px;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .spec-list {
+        display: grid;
+        margin: 0;
+      }
+
+      .spec-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 20px;
+        padding: 12px 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .spec-row:first-child {
+        border-top: 0;
+      }
+
+      .spec-row dt {
+        color: var(--ink-muted);
+      }
+
+      .spec-row dd {
+        margin: 0;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .token {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .swatch {
+        width: 12px;
+        height: 12px;
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        border-radius: 3px;
+        background: var(--swatch);
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-width: 90px;
+        height: 40px;
+        padding: 0 18px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-button);
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease,
+          opacity 0.2s ease, transform 0.1s ease;
+      }
+
+      .btn svg {
+        width: 16px;
+        height: 16px;
+        flex: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        fill: none;
+      }
+
+      .btn-primary {
+        border-color: var(--ink);
+        background: var(--ink);
+        color: #fff;
+      }
+
+      .btn .el-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        flex: none;
+        line-height: 1;
+      }
+
+      .btn .el-icon svg {
+        fill: currentColor;
+        stroke: none;
+      }
+
+      .btn-primary.is-hover,
+      .btn-primary:hover {
+        border-color: var(--charcoal);
+        background: var(--charcoal);
+      }
+
+      .btn-primary.is-active,
+      .btn-primary:active {
+        border-color: var(--black);
+        background: var(--black);
+        transform: translateY(1px);
+      }
+
+      .btn-secondary {
+        border-color: var(--ink);
+        background: #fff;
+        color: var(--ink);
+      }
+
+      .btn-secondary.is-hover,
+      .btn-secondary:hover {
+        background: var(--hover);
+      }
+
+      .btn-secondary.is-active,
+      .btn-secondary:active {
+        background: var(--surface-alt);
+        transform: translateY(1px);
+      }
+
+      .btn-danger {
+        border-color: var(--danger);
+        background: var(--danger);
+        color: #fff;
+      }
+
+      .btn-danger.is-hover,
+      .btn-danger:hover {
+        border-color: #c94541;
+        background: #c94541;
+      }
+
+      .btn-danger.is-active,
+      .btn-danger:active {
+        border-color: #b93b37;
+        background: #b93b37;
+        transform: translateY(1px);
+      }
+
+      .btn-text,
+      .btn-link {
+        min-width: 0;
+        border-color: transparent;
+        background: transparent;
+        color: var(--ink);
+      }
+
+      .btn-text {
+        padding: 0 12px;
+      }
+
+      .btn-text.is-hover,
+      .btn-text:hover {
+        background: var(--hover);
+      }
+
+      .btn-link {
+        height: auto;
+        padding: 4px 0;
+        color: var(--link-color);
+        text-decoration: underline;
+        text-underline-offset: 5px;
+        transition: transform 0.2s ease;
+      }
+
+      .btn-link.is-hover:not(:disabled):not(.is-disabled),
+      .btn-link:hover:not(:disabled):not(.is-disabled) {
+        transform: translateY(-2px);
+      }
+
+      .btn-link:active:not(:disabled):not(.is-disabled) {
+        transform: translateY(0);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .btn-link {
+          transition: none;
+        }
+
+        .btn-link.is-hover:not(:disabled):not(.is-disabled),
+        .btn-link:hover:not(:disabled):not(.is-disabled) {
+          transform: none;
+        }
+      }
+
+      .btn:focus-visible,
+      .btn.is-focus {
+        outline: 2px solid var(--ink);
+        outline-offset: 2px;
+      }
+
+      .btn:disabled,
+      .btn.is-disabled {
+        cursor: not-allowed;
+        opacity: 0.65;
+        transform: none;
+      }
+
+      .btn-lg {
+        min-width: 90px;
+        height: 48px;
+        padding: 0 22px;
+        font-size: 16px;
+      }
+
+      .btn-sm {
+        min-width: 0;
+        height: 32px;
+        padding: 0 14px;
+        font-size: 13px;
+      }
+
+      .btn-mini {
+        min-width: 0;
+        height: 28px;
+        padding: 0 10px;
+        font-size: 12px;
+      }
+
+      .btn-icon {
+        width: 40px;
+        min-width: 40px;
+        padding: 0;
+      }
+
+      .btn-icon.btn-lg {
+        width: 48px;
+        min-width: 48px;
+      }
+
+      .btn-icon.btn-sm {
+        width: 32px;
+        min-width: 32px;
+      }
+
+      .btn-icon.btn-mini {
+        width: 28px;
+        min-width: 28px;
+      }
+
+      .spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(255, 255, 255, 0.38);
+        border-top-color: currentColor;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .icon-options-preview {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .type-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .type-card {
+        min-height: 236px;
+        padding: 24px;
+      }
+
+      .type-topline {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 34px;
+      }
+
+      .type-number {
+        color: var(--ink-muted);
+        font-family: var(--font-mono);
+        font-size: 11px;
+      }
+
+      .type-tag {
+        padding: 4px 8px;
+        border-radius: 5px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .type-preview {
+        min-height: 50px;
+        margin-bottom: 26px;
+      }
+
+      .type-card h3 {
+        margin-bottom: 5px;
+        font-size: 16px;
+      }
+
+      .type-card p {
+        margin-bottom: 0;
+        color: var(--ink-muted);
+        font-size: 12px;
+      }
+
+      .type-card code,
+      .inline-code {
+        padding: 2px 5px;
+        border-radius: 4px;
+        background: var(--surface-alt);
+        color: var(--ink-soft);
+        font-family: var(--font-mono);
+        font-size: 11px;
+      }
+
+      .state-board {
+        overflow: hidden;
+      }
+
+      .state-row {
+        display: grid;
+        grid-template-columns: 120px repeat(6, minmax(118px, 1fr));
+        min-height: 100px;
+        border-top: 1px solid var(--line);
+      }
+
+      .state-row:first-child {
+        min-height: 48px;
+        border-top: 0;
+        background: var(--surface-alt);
+      }
+
+      .state-cell {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px 10px;
+        border-left: 1px solid var(--line);
+      }
+
+      .state-cell:first-child {
+        justify-content: flex-start;
+        padding-left: 20px;
+        border-left: 0;
+        font-weight: 700;
+      }
+
+      .state-row:first-child .state-cell {
+        color: var(--ink-muted);
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .state-board .btn:not(.btn-sm):not(.btn-mini) {
+        min-width: 90px;
+      }
+
+      .size-board {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        overflow: hidden;
+      }
+
+      .size-stage {
+        display: grid;
+        align-content: center;
+        gap: 28px;
+        min-height: 350px;
+        padding: 42px;
+        border-right: 1px solid var(--line);
+      }
+
+      .size-line {
+        display: grid;
+        grid-template-columns: 70px 124px minmax(0, 1fr);
+        align-items: center;
+        gap: 20px;
+      }
+
+      .size-name strong {
+        display: block;
+        font-size: 13px;
+      }
+
+      .size-line > .btn {
+        justify-self: start;
+        width: max-content;
+      }
+
+      .size-name span {
+        color: var(--ink-muted);
+        font-family: var(--font-mono);
+        font-size: 10px;
+      }
+
+      .dimension-line {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--accent);
+        font-family: var(--font-mono);
+        font-size: 10px;
+      }
+
+      .dimension-line::before {
+        width: 34px;
+        height: 1px;
+        background: currentColor;
+        content: "";
+      }
+
+      .rules-panel {
+        padding: 32px;
+      }
+
+      .rules-panel h3 {
+        margin-bottom: 18px;
+        font-size: 14px;
+      }
+
+      .rules-list {
+        display: grid;
+        gap: 14px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .rules-list li {
+        display: grid;
+        grid-template-columns: 26px minmax(0, 1fr);
+        gap: 10px;
+        color: var(--ink-soft);
+        font-size: 12px;
+      }
+
+      .rule-icon {
+        display: grid;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--surface-alt);
+        color: var(--ink);
+        font-size: 10px;
+        font-weight: 700;
+        place-items: center;
+      }
+
+      .anatomy-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 72px 32px 80px;
+      }
+
+      .anatomy-target {
+        position: relative;
+      }
+
+      .anatomy-target .measure-h {
+        right: 0;
+        left: 0;
+        bottom: -30px;
+        white-space: nowrap;
+      }
+
+      .anatomy-target .measure-v {
+        top: 0;
+        bottom: 0;
+        right: -36px;
+      }
+
+      .anatomy-target .radius-callout {
+        top: -66px;
+        left: 0;
+        white-space: nowrap;
+      }
+
+      .anatomy-primary {
+        position: relative;
+      }
+
+      .anatomy-primary::before,
+      .anatomy-primary::after {
+        position: absolute;
+        top: 1px;
+        bottom: 1px;
+        width: 18px;
+        background: rgba(165, 155, 255, 0.3);
+        pointer-events: none;
+        content: "";
+      }
+
+      .anatomy-primary::before {
+        left: 1px;
+        border-radius: 4px 0 0 4px;
+      }
+
+      .anatomy-primary::after {
+        right: 1px;
+        border-radius: 0 4px 4px 0;
+      }
+
+      .anatomy-label {
+        position: absolute;
+        top: -28px;
+        height: 18px;
+        border-bottom: 1px solid var(--accent);
+        color: var(--accent);
+        font: 11px var(--font-mono);
+        text-align: center;
+      }
+
+      .anatomy-label--left { left: 1px; width: 18px; }
+      .anatomy-label--right { right: 1px; width: 18px; }
+      .anatomy-label--icon { left: 35px; width: 8px; }
+
+      .anatomy-group-gap {
+        position: absolute;
+        left: -12px;
+        top: 0;
+        width: 12px;
+        height: 40px;
+        background: rgba(79, 70, 229, 0.1);
+        border-top: 1px solid var(--accent);
+        border-bottom: 1px solid var(--accent);
+      }
+
+      .anatomy-group-gap::after {
+        position: absolute;
+        top: 80px;
+        left: -40px;
+        width: 96px;
+        color: var(--accent);
+        font: 11px var(--font-mono);
+        text-align: center;
+        content: "按钮间距 12px";
+      }
+
+      .anatomy-group-gap::before {
+        position: absolute;
+        top: 40px;
+        left: 5px;
+        height: 34px;
+        border-left: 1px dashed var(--accent);
+        content: "";
+      }
+
+      .spec-panel-note {
+        margin: 18px 0 0;
+        color: var(--ink-muted);
+        font-size: 12px;
+      }
+
+      .implementation-board {
+        overflow: hidden;
+      }
+
+      .implementation-alert {
+        display: grid;
+        grid-template-columns: 36px minmax(0, 1fr);
+        gap: 14px;
+        padding: 20px 24px;
+        border-bottom: 1px solid #e8e4bd;
+        background: #fffced;
+      }
+
+      .alert-icon {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: #1a1a1a;
+        color: #fff;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 700;
+        place-items: center;
+      }
+
+      .implementation-alert strong {
+        display: block;
+        margin-bottom: 3px;
+        font-size: 13px;
+      }
+
+      .implementation-alert p {
+        margin-bottom: 0;
+        color: #665f3e;
+        font-size: 12px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 15px 18px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: var(--surface-alt);
+        color: var(--ink-muted);
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      td {
+        color: var(--ink-soft);
+        font-size: 12px;
+      }
+
+      td:first-child {
+        color: var(--ink);
+        font-family: var(--font-mono);
+        font-weight: 700;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: #edf8f6;
+        color: #227d72;
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .status-badge::before {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: currentColor;
+        content: "";
+      }
+
+      .status-badge.is-warning {
+        background: #fff6dc;
+        color: #956a00;
+      }
+
+      .usage-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+
+      .usage-card {
+        overflow: hidden;
+      }
+
+      .usage-preview {
+        display: grid;
+        min-height: 170px;
+        padding: 30px;
+        background: var(--surface-alt);
+        place-items: center;
+      }
+
+      .usage-copy {
+        padding: 22px 24px 24px;
+      }
+
+      .usage-copy h3 {
+        margin-bottom: 5px;
+        font-size: 15px;
+      }
+
+      .usage-copy p {
+        margin-bottom: 0;
+        color: var(--ink-muted);
+        font-size: 12px;
+      }
+
+      .dialog-mini {
+        width: 360px;
+        padding: 22px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        background: #fff;
+        box-shadow: var(--shadow-md);
+      }
+
+      .dialog-mini strong {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 14px;
+      }
+
+      .dialog-mini p {
+        margin-bottom: 22px;
+        color: var(--ink-muted);
+        font-size: 11px;
+      }
+
+      .button-group {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+      }
+
+      .toolbar-mini {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        max-width: 470px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        background: #fff;
+      }
+
+      .toolbar-field {
+        height: 40px;
+        flex: 1;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface-alt);
+      }
+
+      .footer-note {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        margin-top: 64px;
+        padding-top: 20px;
+        border-top: 1px solid var(--line-strong);
+        color: var(--ink-muted);
+        font-family: var(--font-mono);
+        font-size: 10px;
+      }
+
+      @media (max-width: 1280px) {
+        .main {
+          padding-right: 36px;
+          padding-left: 36px;
+        }
+      }
+
+      @media print {
+        body {
+          min-width: 0;
+          background: #fff;
+        }
+
+        .app-shell {
+          display: block;
+        }
+
+        .sidebar {
+          display: none;
+        }
+
+        .main {
+          padding: 24px;
+        }
+
+        .section {
+          break-inside: avoid;
+        }
+      }
+      /* 基础弹窗调试样稿：以现有确认弹窗的容器间距为起点，默认按钮使用 Small 规范。 */
+      .dialog-component {
+        margin-top: 100px;
+        padding-top: 58px;
+        border-top: 1px solid var(--line-strong);
+        scroll-margin-top: 32px;
+      }
+      .dialog-component > h2 {
+        margin-bottom: 16px;
+        font-size: 44px;
+      }
+      .dialog-component .lead { margin-bottom: 24px; }
+      .dialog-component .meta-row { margin-bottom: 32px; }
+      .dialog-stage {
+        overflow-x: auto;
+        padding: 50px 32px 38px;
+        border-bottom: 1px solid var(--line);
+        background: radial-gradient(#dededb 1px, transparent 1px) 0 0 / 16px 16px #fafaf8;
+      }
+      .dialog-study {
+        display: grid;
+        grid-template-columns: 520px 190px;
+        align-items: center;
+        gap: 32px;
+        width: 742px;
+        margin: 0 auto;
+      }
+      .dialog-measured { position: relative; }
+      .dialog-width-label {
+        position: relative;
+        margin-bottom: 20px;
+        border-top: 1px solid var(--accent);
+        color: var(--accent);
+        font: 11px/24px var(--font-mono);
+        text-align: center;
+      }
+      .dialog-width-label::before, .dialog-width-label::after {
+        position: absolute;
+        top: -4px;
+        height: 7px;
+        border-left: 1px solid var(--accent);
+        content: "";
+      }
+      .dialog-width-label::before { left: 0; }
+      .dialog-width-label::after { right: 0; }
+      .foundation-shell {
+        position: relative;
+        width: 520px;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 5px;
+        background: #fff;
+        color: #1a1a1a;
+        box-shadow: 0 12px 32px rgb(0 0 0 / 12%);
+        text-align: left;
+      }
+      .foundation-header {
+        position: relative;
+        padding: 18px 24px 14px;
+        border-bottom: 1px solid #eeeeee;
+      }
+      .foundation-header h3 {
+        margin: 0;
+        padding: 0 40px 0 0;
+        text-align: left;
+        color: #1a1a1a;
+        font-size: 18px;
+        font-weight: 600;
+        line-height: 28px;
+      }
+      .foundation-close {
+        position: absolute;
+        top: 14px;
+        right: 18px;
+        display: grid;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border: 0;
+        border-radius: 5px;
+        place-items: center;
+        background: transparent;
+        color: #8a8a8a;
+        cursor: pointer;
+      }
+      .foundation-close svg { width: 16px; height: 16px; fill: currentColor; }
+      .foundation-close:hover { background: #f5f5f5; color: #1a1a1a; }
+      .foundation-close:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; }
+      .foundation-body { min-height: 80px; padding: 20px 24px 8px; }
+      .foundation-body p { margin: 0; color: #4a4a4a; font-size: 14px; line-height: 24px; }
+      .foundation-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        padding: 12px 24px 20px;
+      }
+      .dialog-structure-notes { display: grid; gap: 22px; margin-top: 42px; }
+      .dialog-structure-notes > div { padding-left: 12px; border-left: 2px solid #d5d0ff; }
+      .dialog-structure-notes b { display: block; font-size: 13px; font-weight: 600; }
+      .dialog-structure-notes span { display: block; margin-top: 3px; color: var(--ink-muted); font-size: 12px; }
+      .dialog-preview-caption { margin: 24px 0 0; color: var(--ink-muted); font-size: 12px; text-align: center; }
+      .dialog-spec-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .dialog-spec-block { padding: 26px; }
+      .dialog-spec-block + .dialog-spec-block { border-left: 1px solid var(--line); }
+      .dialog-spec-block h3 { margin-bottom: 16px; font-size: 15px; }
+      .dialog-spec-block dl { margin: 0; }
+      .dialog-spec-block .spec-row { gap: 12px; font-size: 12px; }
+      .dialog-spec-block .spec-row dd { text-align: right; font-size: 11px; }
+      .dialog-spec-note { margin: 12px 0 0; color: var(--ink-muted); font-size: 11px; }
+      .dialog-toolbar { display: flex; align-items: center; gap: 16px; margin-top: 22px; }
+      .dialog-demo-status { margin: 0; color: var(--ink-muted); font-size: 12px; }
+      .foundation-live {
+        width: 520px;
+        max-width: calc(100vw - 32px);
+        max-height: calc(100dvh - 32px);
+        margin: auto;
+        padding: 0;
+        overflow: auto;
+        border: 0;
+        border-radius: 5px;
+        background: #fff;
+        box-shadow: 0 12px 32px rgb(0 0 0 / 12%);
+      }
+      .foundation-live::backdrop { background: rgb(0 0 0 / 50%); }
+      .foundation-live .foundation-shell { width: 100%; box-shadow: none; }
+      .foundation-live:focus { outline: none; }
+      body.foundation-preview-open { overflow: hidden; }
+      .dialog-chapters { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 0 0 36px; }
+      .dialog-chapters a { color: var(--ink-soft); font-size: 12px; }
+      .dialog-chapters a:hover { color: var(--accent); }
+      .dialog-chapters a:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+      .dialog-demo-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 20px 24px; border-bottom: 1px solid var(--line); }
+      .dialog-demo-controls button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+      .dialog-demo-controls > span { margin-right: 8px; color: var(--ink-muted); font-size: 12px; }
+      .dialog-width-stage { padding: 36px 24px; overflow-x: auto; background: #fafaf8; }
+      .dialog-viewport { width: 940px; margin: 0 auto; padding: 32px 16px; outline: 1px dashed #d0d0d0; background: #f0f0ee; }
+      .dialog-viewport .foundation-shell { max-width: 100%; margin: auto; }
+      .dialog-example-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+      .dialog-example-card { overflow: hidden; }
+      .dialog-example-top { display: flex; justify-content: space-between; gap: 12px; padding: 22px 24px 0; font: 11px var(--font-mono); color: var(--ink-muted); }
+      .dialog-example-stage { padding: 28px 24px; overflow-x: auto; background: #fafaf8; margin-top: 20px; }
+      .dialog-example-stage > .foundation-shell { margin: auto; }
+      .dialog-example-copy { padding: 24px; }
+      .dialog-example-copy h3 { font-size: 18px; margin-bottom: 8px; }
+      .dialog-example-copy p { color: var(--ink-muted); margin: 0 0 14px; }
+      .dialog-example-copy code, .dialog-mapping code { font: 12px var(--font-mono); color: var(--accent); overflow-wrap: anywhere; }
+      .dialog-state-layout { display: grid; grid-template-columns: minmax(0, 1fr) 270px; }
+      .dialog-state-preview { padding: 36px 24px; overflow-x: auto; background: #fafaf8; }
+      .dialog-state-preview .foundation-shell { margin: auto; }
+      .dialog-state-copy { padding: 30px 24px; border-left: 1px solid var(--line); }
+      .dialog-state-copy h3 { font-size: 18px; }
+      .dialog-state-copy p { font-size: 13px; color: var(--ink-soft); }
+      .dialog-state-copy code { font-size: 12px; overflow-wrap: anywhere; }
+      .dialog-mapping { overflow-x: auto; }
+      .dialog-mapping table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      .dialog-mapping th, .dialog-mapping td { padding: 15px 22px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+      .dialog-mapping th { background: #fafafa; color: var(--ink-muted); font-weight: 500; }
+      .dialog-mapping td:first-child { width: 27%; }
+      .dialog-mapping tr:last-child td { border-bottom: 0; }
+      .dialog-usage-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+      .dialog-usage-card { padding: 28px; }
+      .dialog-usage-card h3 { font-size: 18px; margin-bottom: 8px; }
+      .dialog-usage-card p { color: var(--ink-soft); font-size: 13px; }
+      .dialog-field { display: grid; gap: 8px; font-size: 14px; }
+      .dialog-field input { width: 100%; height: 36px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 5px; background: #fff; color: var(--ink); font: inherit; }
+      .dialog-field input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+      .dialog-field input[aria-invalid="true"] { border-color: var(--danger); }
+      .dialog-inline-error { margin-top: 12px !important; color: var(--danger) !important; font-size: 12px !important; }
+      .foundation-close:disabled { opacity: .65; cursor: not-allowed; }
+      .foundation-close:disabled:hover { background: transparent; color: #8a8a8a; }
+      .foundation-with-icon { display: flex; align-items: flex-start; gap: 12px; }
+      .foundation-content-icon { width: 24px; height: 24px; flex: 0 0 24px; color: #e9a83b; }
+      .foundation-icon-content { flex: 1; min-width: 0; }
+      .dialog-icon-option { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 13px; cursor: pointer; }
+      .foundation-live .foundation-shell { display: flex; flex-direction: column; max-height: calc(100dvh - 32px); overflow: hidden; }
+      .foundation-live .foundation-header, .foundation-live .foundation-footer { flex: none; }
+      .foundation-live .foundation-body { flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; }
+      .foundation-live .foundation-footer { flex-wrap: wrap; }
+      .dialog-long-item + .dialog-long-item { margin-top: 18px !important; }
+      @media (max-width: 1400px) {
+        .dialog-example-grid, .dialog-usage-grid { grid-template-columns: 1fr; }
+        .dialog-state-layout { grid-template-columns: 1fr; }
+        .dialog-state-copy { border-left: 0; border-top: 1px solid var(--line); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">A</div>
+          <div>
+            <div class="brand-name">AceMock UI</div>
+            <div class="brand-meta">Design system</div>
+          </div>
+        </div>
+
+        <div class="nav-label">Components</div>
+        <ul class="nav-list">
+          <li><a class="nav-item is-active" href="#overview"><span>Button 按钮</span><span class="nav-count">01</span></a></li>
+          <li><span class="nav-item"><span>Input 输入框</span><span class="nav-count">—</span></span></li>
+          <li><span class="nav-item"><span>Table 表格</span><span class="nav-count">—</span></span></li>
+          <li><a class="nav-item" href="#dialog"><span>Dialog 弹窗</span><span class="nav-count">02</span></a></li>
+        </ul>
+
+        <div class="sidebar-note">
+          <strong>组件规范</strong>
+          Button · Dialog<br />按钮规范与基础弹窗调试样稿
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="content">
+          <header id="overview">
+            <div class="eyebrow">Component 01 / Actions</div>
+            <h1>Button 按钮</h1>
+            <p class="lead">
+              按钮触发页面中的即时操作。AceMock 使用黑白灰建立操作层级，仅在删除等不可逆动作中使用危险色。
+              本页给出可以直接用于开发与验收的尺寸、颜色、状态和组合规则。
+            </p>
+            <div class="meta-row">
+              <span class="meta-chip">Web</span>
+              <span class="meta-chip">Vue 3</span>
+              <span class="meta-chip">Element Plus</span>
+              <span class="meta-chip">Updated 2026.09</span>
+            </div>
+          </header>
+
+          <section class="section" aria-labelledby="anatomy-title">
+            <div class="section-head">
+              <span class="section-index">01</span>
+              <div>
+                <h2 id="anatomy-title">基础结构</h2>
+                <p class="section-description">在同一结构图中查看按钮尺寸、圆角、内边距、图文间距与按钮组间距。</p>
+              </div>
+              <span class="section-source">base.css / element-overrides.css</span>
+            </div>
+
+            <div class="card overview-board">
+              <div class="specimen-stage">
+                <div class="anatomy-group" aria-label="按钮基础结构：左右内边距18px，图文间距8px，按钮组间距12px">
+                  <button class="btn btn-secondary" type="button">取消</button>
+                  <div class="anatomy-target">
+                    <span class="radius-callout">R 5</span>
+                    <span class="anatomy-label anatomy-label--left">18</span>
+                    <span class="anatomy-label anatomy-label--icon">8</span>
+                    <span class="anatomy-label anatomy-label--right">18</span>
+                    <span class="anatomy-group-gap" aria-hidden="true"></span>
+                    <button class="btn btn-primary anatomy-primary" type="button">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                      创建试卷
+                    </button>
+                    <span class="measure-h">自适应 · min 90</span>
+                    <span class="measure-v">40px</span>
+                  </div>
+                </div>
+              </div>
+              <div class="spec-panel">
+                <div class="spec-panel-title">Medium / Default</div>
+                <dl class="spec-list">
+                  <div class="spec-row"><dt>高度 Height</dt><dd>40px</dd></div>
+                  <div class="spec-row"><dt>最小宽度 Min width</dt><dd>90px</dd></div>
+                  <div class="spec-row"><dt>内边距 Padding（上下 / 左右）</dt><dd>0 / 18px</dd></div>
+                  <div class="spec-row"><dt>图标与文字间距 Gap</dt><dd>8px</dd></div>
+                  <div class="spec-row"><dt>按钮外边距 Margin</dt><dd>0</dd></div>
+                  <div class="spec-row"><dt>按钮组间距 Group gap</dt><dd>12px</dd></div>
+                  <div class="spec-row"><dt>默认圆角 Radius</dt><dd>5px</dd></div>
+                  <div class="spec-row"><dt>边框 Border</dt><dd>1px</dd></div>
+                  <div class="spec-row"><dt>字号 / 字重</dt><dd>14px / 600</dd></div>
+                  <div class="spec-row"><dt>主按钮背景</dt><dd class="token"><span class="swatch" style="--swatch:#1a1a1a"></span>#1A1A1A</dd></div>
+                </dl>
+                <p class="spec-panel-note">按钮通过固定高度实现垂直居中；按钮之间的 12px 间距由父容器 gap 控制，主按钮放在右侧。</p>
+              </div>
+            </div>
+
+          </section>
+
+          <section class="section" id="sizes" aria-labelledby="sizes-title">
+            <div class="section-head">
+              <span class="section-index">02</span>
+              <div>
+                <h2 id="sizes-title">尺寸体系</h2>
+                <p class="section-description">相同文案按真实尺寸展示，按钮不拉伸。Large / Medium 最小宽度为 90px；Small / Mini 不设最小宽度，按文字和左右内边距自适应。默认圆角均为 5px。</p>
+              </div>
+            </div>
+
+            <div class="card size-board">
+              <div class="size-stage">
+                <div class="size-line">
+                  <div class="size-name"><strong>Large</strong><span>LG</span></div>
+                  <button class="btn btn-primary btn-lg" type="button">开始诊断</button>
+                  <span class="dimension-line">高度 48px<br />左右内边距各 22px<br />字号 16px</span>
+                </div>
+                <div class="size-line">
+                  <div class="size-name"><strong>Medium</strong><span>MD</span></div>
+                  <button class="btn btn-primary" type="button">开始诊断</button>
+                  <span class="dimension-line">高度 40px<br />左右内边距各 18px<br />字号 14px</span>
+                </div>
+                <div class="size-line">
+                  <div class="size-name"><strong>Small</strong><span>SM</span></div>
+                  <button class="btn btn-secondary btn-sm" type="button">开始诊断</button>
+                  <span class="dimension-line">高度 32px<br />左右内边距各 14px<br />字号 13px<br />宽度自适应 · 无最小宽度</span>
+                </div>
+                <div class="size-line">
+                  <div class="size-name"><strong>Mini</strong><span>MINI</span></div>
+                  <button class="btn btn-secondary btn-mini" type="button">开始诊断</button>
+                  <span class="dimension-line">高度 28px<br />左右内边距各 10px<br />字号 12px<br />宽度自适应 · 无最小宽度</span>
+                </div>
+              </div>
+              <div class="rules-panel">
+                <h3>使用场景</h3>
+                <ul class="rules-list">
+                  <li><span class="rule-icon">L</span><span><strong>48px</strong><br />Hero 主操作、登录注册提交、强调型空状态。</span></li>
+                  <li><span class="rule-icon">M</span><span><strong>40px</strong><br />页面工具栏、弹窗操作区、普通表单提交。</span></li>
+                  <li><span class="rule-icon">S</span><span><strong>32px</strong><br />表格行内操作、紧凑筛选区和小型卡片。</span></li>
+                  <li><span class="rule-icon">XS</span><span><strong>28px · Mini</strong><br />移动端卡片辅助操作、紧凑工具栏等特殊场景。移动端主操作仍使用 Medium，辅助按钮需留足点击空间。</span></li>
+                  <li><span class="rule-icon">↔</span><span><strong>宽度自适应</strong><br />Large / Medium 最小宽度 90px；Small / Mini 不设最小宽度。纯图标形式、Text 与 Link 沿用各自的紧凑尺寸。</span></li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section class="section" id="types" aria-labelledby="types-title">
+            <div class="section-head">
+              <span class="section-index">03</span>
+              <div>
+                <h2 id="types-title">按钮分类</h2>
+                <p class="section-description">按钮分为 Primary、Secondary、Danger、Text、Link 五种类型。图标是适用于所有类型的可选内容配置，不单独作为第六种类型。</p>
+              </div>
+            </div>
+
+            <div class="type-grid">
+              <article class="card type-card">
+                <div class="type-topline"><span class="type-number">01 / Primary</span><span class="type-tag">HIGH</span></div>
+                <div class="type-preview"><button class="btn btn-primary" type="button">确认提交</button></div>
+                <h3>主按钮</h3>
+                <p>页面最重要的下一步操作。一个操作区域通常只出现一个。<br /><code>type="primary"</code></p>
+              </article>
+
+              <article class="card type-card">
+                <div class="type-topline"><span class="type-number">02 / Secondary</span><span class="type-tag">MEDIUM</span></div>
+                <div class="type-preview"><button class="btn btn-secondary" type="button">取消</button></div>
+                <h3>次按钮</h3>
+                <p>取消、返回、重置或与主操作并列的次要动作。<br /><code>type="secondary"</code></p>
+              </article>
+
+              <article class="card type-card">
+                <div class="type-topline"><span class="type-number">03 / Danger</span><span class="type-tag">DESTRUCTIVE</span></div>
+                <div class="type-preview"><button class="btn btn-danger" type="button">删除试卷</button></div>
+                <h3>危险按钮</h3>
+                <p>只用于删除、清空、作废等不可逆操作，并配合二次确认。<br /><code>type="danger"</code></p>
+              </article>
+
+              <article class="card type-card">
+                <div class="type-topline"><span class="type-number">04 / Text</span><span class="type-tag">LOW</span></div>
+                <div class="type-preview"><button class="btn btn-text" type="button">重置筛选</button></div>
+                <h3>文字按钮</h3>
+                <p>工具栏内的低强调辅助操作，有完整点击热区。<br /><code>text</code></p>
+              </article>
+
+              <article class="card type-card">
+                <div class="type-topline"><span class="type-number">05 / Link</span><span class="type-tag">INLINE</span></div>
+                <div class="type-preview"><button class="btn btn-link" type="button">查看详情</button></div>
+                <h3>链接按钮</h3>
+                <p>用于表格行或正文中的轻量入口与操作。悬浮时颜色不变，向上浮起 2px，过渡 200ms。<br /><code>link</code></p>
+              </article>
+
+              <article class="card type-card">
+                <div class="type-topline"><span class="type-number">06 / Icon options</span><span class="type-tag">OPTIONAL</span></div>
+                <div class="type-preview icon-options-preview">
+                  <button class="btn btn-text" type="button">
+                    <i class="el-icon" aria-hidden="true"><svg viewBox="0 0 1024 1024"><path d="M224 480h640a32 32 0 1 1 0 64H224a32 32 0 0 1 0-64" /><path d="m237.248 512 265.408 265.344a32 32 0 0 1-45.312 45.312l-288-288a32 32 0 0 1 0-45.312l288-288a32 32 0 1 1 45.312 45.312z" /></svg></i>
+                    <span>返回</span>
+                  </button>
+                  <button class="btn btn-secondary btn-icon" type="button" aria-label="更多操作" title="更多操作"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none" /></svg></button>
+                </div>
+                <h3>图标配置（所有类型通用）</h3>
+                <p>图标是可选属性，不是独立按钮类型。<code>icon</code> 指定图标，<code>iconPosition</code> 选择左侧或右侧，图文间距 8px。<code>iconOnly</code> 仅显示图标，需提供 <code>ariaLabel</code>。解析页返回使用 Text 文字按钮搭配 Back 图标。</p>
+              </article>
+
+
+            </div>
+
+          </section>
+
+          <section class="section" id="states" aria-labelledby="states-title">
+            <div class="section-head">
+              <span class="section-index">04</span>
+              <div>
+                <h2 id="states-title">交互状态</h2>
+                <p class="section-description">状态反馈依靠背景、描边、焦点环与透明度变化，不改变按钮尺寸。</p>
+              </div>
+            </div>
+
+            <div class="card state-board">
+              <div class="state-row">
+                <div class="state-cell">Type</div><div class="state-cell">Default</div><div class="state-cell">Hover</div><div class="state-cell">Active</div><div class="state-cell">Focus</div><div class="state-cell">Disabled</div><div class="state-cell">Loading</div>
+              </div>
+              <div class="state-row">
+                <div class="state-cell">Primary</div>
+                <div class="state-cell"><button class="btn btn-primary" type="button">提交</button></div>
+                <div class="state-cell"><button class="btn btn-primary is-hover" type="button">提交</button></div>
+                <div class="state-cell"><button class="btn btn-primary is-active" type="button">提交</button></div>
+                <div class="state-cell"><button class="btn btn-primary is-focus" type="button">提交</button></div>
+                <div class="state-cell"><button class="btn btn-primary" type="button" disabled>提交</button></div>
+                <div class="state-cell"><button class="btn btn-primary is-disabled" type="button"><span class="spinner"></span>提交中</button></div>
+              </div>
+              <div class="state-row">
+                <div class="state-cell">Secondary</div>
+                <div class="state-cell"><button class="btn btn-secondary" type="button">取消</button></div>
+                <div class="state-cell"><button class="btn btn-secondary is-hover" type="button">取消</button></div>
+                <div class="state-cell"><button class="btn btn-secondary is-active" type="button">取消</button></div>
+                <div class="state-cell"><button class="btn btn-secondary is-focus" type="button">取消</button></div>
+                <div class="state-cell"><button class="btn btn-secondary" type="button" disabled>取消</button></div>
+                <div class="state-cell"><button class="btn btn-secondary is-disabled" type="button">处理中</button></div>
+              </div>
+              <div class="state-row">
+                <div class="state-cell">Danger</div>
+                <div class="state-cell"><button class="btn btn-danger" type="button">删除</button></div>
+                <div class="state-cell"><button class="btn btn-danger is-hover" type="button">删除</button></div>
+                <div class="state-cell"><button class="btn btn-danger is-active" type="button">删除</button></div>
+                <div class="state-cell"><button class="btn btn-danger is-focus" type="button">删除</button></div>
+                <div class="state-cell"><button class="btn btn-danger" type="button" disabled>删除</button></div>
+                <div class="state-cell"><button class="btn btn-danger is-disabled" type="button"><span class="spinner"></span>删除中</button></div>
+              </div>
+            </div>
+          </section>
+
+
+
+
+
+          <section class="section" id="implementation" aria-labelledby="implementation-title">
+            <div class="section-head">
+              <span class="section-index">05</span>
+              <div>
+                <h2 id="implementation-title">当前代码映射</h2>
+                <p class="section-description">区分项目全局原生按钮与 Element Plus 后台按钮，便于开发时准确选用。</p>
+              </div>
+            </div>
+
+            <div class="card implementation-board">
+              <div class="implementation-alert">
+                <span class="alert-icon">!</span>
+                <div>
+                  <strong>当前代码与规范存在尺寸差异</strong>
+                  <p>公共组件 AppButton.vue 已实现本页确认的规范，默认 Medium / Primary 常态，圆角 5px，支持 48 / 40 / 32 / 28px 四档尺寸。Large / Medium 最小宽度 90px，Small / Mini 自适应。新增按钮优先使用 AppButton；下表中的历史类和直接使用的 el-button 仍保留旧样式，尚未批量迁移。调用示例见 1-开发规范.md 的公共按钮说明。</p>
+                </div>
+              </div>
+              <table>
+                <thead><tr><th>实现</th><th>主要场景</th><th>当前尺寸</th><th>颜色与圆角</th><th>结论</th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td>AppButton.vue</td><td>错题本；试题库首页、练习记录、练习本配置与作答操作；模考中心套卷、单项、记录与弹窗操作（搜索栏、目录状态筛选和记录页签保留原样）；ExamVue 返回</td><td>Large 48 · Medium 40 · Small 32 · Mini 28<br />Large / Medium min-W 90；Small / Mini 自适应</td><td>默认 Primary 黑色 / R5</td><td><span class="status-badge">已接入以上模块 · 其余逐步迁移</span></td>
+                  </tr>
+                  <tr>
+                    <td>.button_primary</td><td>前台主操作</td><td>H 40 · min-W 112 · px 18 · gap 8</td><td>#1A1A1A / R8 / 1px</td><td><span class="status-badge is-warning">待同步 min-W 90 / R5</span></td>
+                  </tr>
+                  <tr>
+                    <td>.button_cancel</td><td>前台次操作、取消</td><td>H 40 · min-W 112 · px 18 · gap 8</td><td>#FFFFFF / #1A1A1A / R8</td><td><span class="status-badge is-warning">待同步 min-W 90 / R5</span></td>
+                  </tr>
+                  <tr>
+                    <td>el-button</td><td>后台表单、筛选和弹窗</td><td>Large 40 · Default 32 · Small 24</td><td>已映射黑白灰 / R8</td><td><span class="status-badge is-warning">尺寸 / 圆角待统一</span></td>
+                  </tr>
+                  <tr>
+                    <td>页面局部 button</td><td>导航、答题器及特殊交互</td><td>由页面 scoped CSS 决定</td><td>存在 R5 / R10 / Pill 等变体</td><td><span class="status-badge is-warning">不得作为公共规范</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="section" id="usage" aria-labelledby="usage-title">
+            <div class="section-head">
+              <span class="section-index">06</span>
+              <div>
+                <h2 id="usage-title">组合示例</h2>
+                <p class="section-description">同一个操作区域建立明确主次关系，避免多个主按钮争夺注意力。</p>
+              </div>
+            </div>
+
+            <div class="usage-grid">
+              <article class="card usage-card">
+                <div class="usage-preview">
+                  <div class="dialog-mini">
+                    <strong>发布这套试卷？</strong>
+                    <p>发布后，符合条件的用户可以在模考中心查看并开始作答。</p>
+                    <div class="button-group"><button class="btn btn-secondary btn-sm" type="button">取消</button><button class="btn btn-primary btn-sm" type="button">确认发布</button></div>
+                  </div>
+                </div>
+                <div class="usage-copy"><h3>弹窗操作组</h3><p>次按钮在左，主按钮在右；按钮间距 12px，并与弹窗右边缘对齐。</p></div>
+              </article>
+
+              <article class="card usage-card">
+                <div class="usage-preview">
+                  <div class="toolbar-mini"><div class="toolbar-field" aria-label="筛选输入框占位"></div><button class="btn btn-secondary" type="button">重置</button><button class="btn btn-primary" type="button">查询</button></div>
+                </div>
+                <div class="usage-copy"><h3>筛选工具栏</h3><p>输入框与按钮统一为 40px 高；查询为主操作，重置为次操作。</p></div>
+              </article>
+            </div>
+          </section>
+
+          <section class="dialog-component" id="dialog" aria-labelledby="dialog-title">
+            <div class="eyebrow">Component 02 / Feedback</div>
+            <h2 id="dialog-title">Dialog 弹窗</h2>
+            <p class="lead">在当前页面上承载需要用户集中处理的内容，由标题区、内容区与底部操作区组成。</p>
+            <div class="meta-row">
+              <span class="meta-chip">基础弹窗 / Default</span>
+              <span class="meta-chip">520px · R5</span>
+              <span class="meta-chip">AppDialog 已实现 · 部分业务已接入</span>
+            </div>
+            <nav class="dialog-chapters" aria-label="弹窗规范章节">
+              <a href="#dialog-anatomy">01 基础结构</a><a href="#dialog-sizes">02 尺寸体系</a>
+              <a href="#dialog-types">03 使用分类</a><a href="#dialog-states">04 交互状态</a>
+              <a href="#dialog-mapping">05 当前代码映射</a><a href="#dialog-usage">06 组合示例</a>
+            </nav>
+            <div class="section-head" id="dialog-anatomy">
+              <span class="section-index">01</span>
+              <div>
+                <h2 id="dialog-anatomy-title">基础结构</h2>
+                <p class="section-description">AppDialog.vue 已实现本节规范：标题默认左对齐，底部按钮默认 Small。默认插槽承载内容，footer 插槽支持自定义操作区。</p>
+              </div>
+            </div>
+            <div class="card">
+              <div class="dialog-stage">
+                <div class="dialog-study">
+                  <div class="dialog-measured">
+                    <div class="dialog-width-label">宽度 520px · 高度随内容自适应</div>
+                    <div class="foundation-shell" id="dialog-specimen" aria-label="基础弹窗结构示例">
+                      <header class="foundation-header">
+                        <h3>弹窗标题</h3>
+                        <button type="button" class="foundation-close" data-dialog-action="close" aria-label="关闭弹窗">
+                          <svg viewBox="0 0 1024 1024" aria-hidden="true"><path d="M764.288 214.592a32 32 0 0 1 45.248 45.248L557.248 512l252.288 252.288a32 32 0 0 1-45.248 45.248L512 557.248 259.712 809.536a32 32 0 0 1-45.248-45.248L466.752 512 214.464 259.712a32 32 0 0 1 45.248-45.248L512 466.752z" /></svg>
+                        </button>
+                      </header>
+                      <div class="foundation-body">
+                        <p>这里展示当前操作的说明内容，帮助用户了解操作的目的和影响。内容高度随文字自动延展。</p>
+                      </div>
+                      <footer class="foundation-footer">
+                        <button type="button" class="btn btn-secondary btn-sm" data-dialog-action="cancel">取消</button>
+                        <button type="button" class="btn btn-primary btn-sm" data-dialog-action="confirm">确认</button>
+                      </footer>
+                    </div>
+                  </div>
+                  <div class="dialog-structure-notes">
+                    <div><b>01 / Header 标题区</b><span>左对齐标题 + Close 关闭图标<br />下方 1px 分割线</span></div>
+                    <div><b>02 / Body 内容区</b><span>文字或自定义内容 · 最小高度 80px<br />内边距 20 / 24 / 8 / 24</span></div>
+                    <div><b>03 / Footer 操作区</b><span>右对齐 · 按钮间距 12px<br />次按钮在左，主按钮在右</span></div>
+                  </div>
+                </div>
+                <p class="dialog-preview-caption">按 1:1 尺寸展示；白色弹窗圆角为 5px，外围卡片仅用于规范展示。</p>
+              </div>
+              <div class="dialog-spec-grid">
+                <div class="dialog-spec-block">
+                  <h3>容器与颜色</h3>
+                  <dl>
+                    <div class="spec-row"><dt>宽度 / 高度</dt><dd>520px / auto</dd></div>
+                    <div class="spec-row"><dt>圆角 / 外边距</dt><dd>5px / 0</dd></div>
+                    <div class="spec-row"><dt>容器内边距</dt><dd>0</dd></div>
+                    <div class="spec-row"><dt>背景 / 标题</dt><dd>#FFFFFF / #1A1A1A</dd></div>
+                    <div class="spec-row"><dt>正文 / 分割线</dt><dd>#4A4A4A / #EEEEEE</dd></div>
+                    <div class="spec-row"><dt>遮罩</dt><dd>#000000 · 50%</dd></div>
+                  </dl>
+                  <p class="dialog-spec-note">预览时居中，距视口边缘至少 16px；容器内边距由三个分区分别提供。</p>
+                </div>
+                <div class="dialog-spec-block">
+                  <h3>分区内边距</h3>
+                  <dl>
+                    <div class="spec-row"><dt>标题区</dt><dd>18 / 24 / 14 / 24</dd></div>
+                    <div class="spec-row"><dt>内容区</dt><dd>20 / 24 / 8 / 24</dd></div>
+                    <div class="spec-row"><dt>内容区最小高度</dt><dd>80px（含内边距）</dd></div>
+                    <div class="spec-row"><dt>操作区</dt><dd>12 / 24 / 20 / 24</dd></div>
+                    <div class="spec-row"><dt>标题字号 / 行高</dt><dd>18px / 28px</dd></div>
+                    <div class="spec-row"><dt>正文字号 / 行高</dt><dd>14px / 24px</dd></div>
+                  </dl>
+                  <p class="dialog-spec-note">内边距单位均为 px，顺序为上 / 右 / 下 / 左。</p>
+                </div>
+                <div class="dialog-spec-block">
+                  <h3>操作与关闭</h3>
+                  <dl>
+                    <div class="spec-row"><dt>默认按钮规格</dt><dd>Small / H32 / R5</dd></div>
+                    <div class="spec-row"><dt>按钮宽度</dt><dd>自适应 / 无最小宽度</dd></div>
+                    <div class="spec-row"><dt>按钮字号 / 左右内边距</dt><dd>13px / 14px</dd></div>
+                    <div class="spec-row"><dt>按钮间距 / 排列</dt><dd>12px / 右对齐</dd></div>
+                    <div class="spec-row"><dt>关闭图标 / 点击区</dt><dd>16px / 32 × 32px</dd></div>
+                    <div class="spec-row"><dt>关闭区定位</dt><dd>top 14 / right 18</dd></div>
+                  </dl>
+                  <p class="dialog-spec-note">关闭采用 Element Plus Close 图形；此 HTML 用内联 SVG 展示。</p>
+                </div>
+              </div>
+            </div>
+            <div class="dialog-toolbar">
+              <button type="button" class="btn btn-secondary" id="open-dialog-preview">打开弹窗预览</button>
+              <p class="dialog-demo-status" id="dialog-demo-status" role="status">当前示例：右上角、取消、确认可关闭；Esc 与点击遮罩不关闭。</p>
+            </div>
+            <p class="dialog-spec-note">HTML 预览仅演示视觉与关闭操作。项目 AppDialog 的确认只触发 confirm 事件，由业务页面在处理成功后关闭；接口与示例见 1-开发规范.md。</p>
+
+            <section class="section" id="dialog-sizes" aria-labelledby="dialog-sizes-title">
+              <div class="section-head"><span class="section-index">02</span><div><h2 id="dialog-sizes-title">尺寸体系</h2><p class="section-description">默认宽度 520px，可以通过 width 自由配置宽度。</p></div></div>
+              <div class="card">
+                <div class="dialog-demo-controls" id="dialog-width-controls">
+                  <span>弹窗宽度</span>
+                  <button type="button" class="btn btn-secondary btn-sm" data-width="520" aria-pressed="true">520px · 默认</button>
+                  <button type="button" class="btn btn-secondary btn-sm" id="dialog-mobile-toggle" aria-pressed="false">窄屏适配 · 375px 视口</button>
+                </div>
+                <div class="dialog-width-stage"><div class="dialog-viewport" id="dialog-viewport"><div id="dialog-width-example"></div></div></div>
+                <p class="dialog-preview-caption" id="dialog-width-readout" style="padding:0 24px 24px" role="status"></p>
+              </div>
+              <p class="dialog-spec-note">默认尺寸展示 520px 桌面宽度；窄屏适配展示 375px 视口下的效果。按真实 CSS 像素展示，空间不足时横向滚动。真实组件还会限制最大高度，保留标题和按钮，内容区单独滚动。</p>
+            </section>
+
+            <section class="section" id="dialog-types" aria-labelledby="dialog-types-title">
+              <div class="section-head"><span class="section-index">03</span><div><h2 id="dialog-types-title">使用分类</h2><p class="section-description">以下是同一基础组件的组合方式，使用现有属性与插槽完成，不新增弹窗 type。所有示例标题左对齐，按钮默认 Small。</p></div></div>
+              <div class="dialog-example-grid">
+                <article class="card dialog-example-card"><div class="dialog-example-top"><span>01 / Default</span><span>确认操作</span></div><div class="dialog-example-stage" data-dialog-example="default"></div><div class="dialog-example-copy"><h3>标准确认</h3><p>说明操作影响，并提供取消和确认两个入口。图标可选，不单独区分弹窗类型；显示时为 24px，图文间距 12px，顶部对齐。</p><code>icon 可选 · iconColor 配置颜色</code><label class="dialog-icon-option"><input type="checkbox" id="dialog-icon-toggle" />显示内容图标（黄色提醒图标示例）</label><p class="dialog-spec-note"><code>:icon="WarningFilled" icon-color="var(--color-warning)"</code></p></div></article>
+                <article class="card dialog-example-card"><div class="dialog-example-top"><span>02 / Danger</span><span>危险操作</span></div><div class="dialog-example-stage" data-dialog-example="danger"></div><div class="dialog-example-copy"><h3>危险确认</h3><p>删除等不可逆操作使用危险色确认按钮，说明具体影响。</p><code>confirm-type="danger"</code></div></article>
+                <article class="card dialog-example-card"><div class="dialog-example-top"><span>03 / Information</span><span>单个操作</span></div><div class="dialog-example-stage" data-dialog-example="information"></div><div class="dialog-example-copy"><h3>说明提示</h3><p>只需用户知晓时隐藏取消按钮，保留一个明确的确认入口。</p><code>:show-cancel="false" · confirm-text="我知道了"</code></div></article>
+              </div>
+            </section>
+
+            <section class="section" id="dialog-states" aria-labelledby="dialog-states-title">
+              <div class="section-head"><span class="section-index">04</span><div><h2 id="dialog-states-title">交互状态</h2><p class="section-description">切换查看可用、禁用、加载和失败状态。确认不会自动关闭，业务页面决定何时结束操作。</p></div></div>
+              <div class="card">
+                <div class="dialog-demo-controls" id="dialog-state-controls">
+                  <button type="button" class="btn btn-secondary btn-sm" data-state="default" aria-pressed="true">Default 常态</button>
+                  <button type="button" class="btn btn-secondary btn-sm" data-state="disabled" aria-pressed="false">Disabled 禁用确认</button>
+                  <button type="button" class="btn btn-secondary btn-sm" data-state="loading" aria-pressed="false">Loading 加载</button>
+                  <button type="button" class="btn btn-secondary btn-sm" data-state="failed" aria-pressed="false">Error 业务失败</button>
+                </div>
+                <div class="dialog-state-layout"><div class="dialog-state-preview" id="dialog-state-example"></div><div class="dialog-state-copy" id="dialog-state-description" aria-live="polite"></div></div>
+              </div>
+              <p class="dialog-spec-note">默认关闭策略：取消和关闭图标可用，Esc / 遮罩关闭默认关闭。loading 时上述退出入口均被锁定；父页面仍可在请求成功后主动关闭。</p>
+            </section>
+
+            <section class="section" id="dialog-mapping" aria-labelledby="dialog-mapping-title">
+              <div class="section-head"><span class="section-index">05</span><div><h2 id="dialog-mapping-title">当前代码映射</h2><p class="section-description">对照项目现有弹窗实现、使用场景与替换进度，区分已实现的公共规范和仍在使用的旧样式。</p></div></div>
+              <div class="card dialog-mapping">
+                <table><thead><tr><th>实现</th><th>主要场景</th><th>当前结构与尺寸</th><th>颜色与圆角</th><th>替换情况</th></tr></thead><tbody>
+                  <tr><td>AppDialog.vue</td><td>诊断、题库、练习本及结果、模考中心；交卷、返回、到时、额度及放弃提示可带图标；ExamVue 继续答题提示使用默认无图标样式；ESAT 科目选择使用 W680 和自定义内容；模考开始确认使用默认 W520 / R5 / Small，保留信息卡片与规则内容；历史诊断记录 W860，无通用底部操作；日卡访问弹窗使用默认规范并保留绿色卡面；模考答卷选择使用默认 W520，无通用底部操作</td><td>默认 W520；标题左对齐；Small 按钮 H32，右对齐、gap 12</td><td>黑白灰 / R5；图标可选</td><td><span class="status-badge">已接入 6 个页面及 3 个业务组件 · 17 处弹窗声明</span></td></tr>
+                  <tr><td>AppConfirmDialog.vue</td><td>原通用确认弹窗</td><td>旧版原生按钮与独立布局</td><td>黑白灰 / R5</td><td><span class="status-badge is-warning">已无业务引用 · 文件待清理</span></td></tr>
+                  <tr><td>DailyCardAccessDialog.vue</td><td>日卡启用、会员访问拦截</td><td>W520；原生按钮；与确认弹窗重复定义分区间距</td><td>黑白灰 / R5</td><td><span class="status-badge is-warning">待统一容器与按钮</span></td></tr>
+                  <tr><td>DiagnosticAnalysisDialog.vue</td><td>报告生成中、失败重试、生成完成</td><td>失败 / 完成：AppDialog W520、18px 左对齐标题、Small 按钮；分析中：暂用旧版 W560 居中布局</td><td>结果 R5、成功绿 / 失败红；分析中 R14、紫色旋转图标及渐变进度条</td><td><span class="status-badge">失败 / 完成已接入</span><br />分析中待视觉方案确认</td></tr>
+                  <tr><td>ExamBreakDialog.vue</td><td>科目间休息</td><td>W440；自定义倒计时和操作区</td><td>默认 R16</td><td><span class="status-badge is-warning">尚未迁移</span><br />需保留休息业务逻辑</td></tr>
+                  <tr><td>MembershipBenefitsDialog.vue<br />InvitationBenefitDialog.vue</td><td>会员权益介绍、邀请福利提示</td><td>W620 / W720；独立装饰布局，使用 el-button</td><td>渐变及活动配色 / R20、R28</td><td><span class="status-badge is-warning">尚未迁移</span><br />视觉方案待逐项确认</td></tr>
+                  <tr><td>页面直接使用 el-dialog</td><td>诊断选科与历史、模考、个人中心、后台管理</td><td>页面分别定义宽度、标题、按钮及关闭策略</td><td>全局 R16，部分页面另行覆盖</td><td><span class="status-badge is-warning">待按页面替换</span></td></tr>
+                  <tr><td>ElMessageBox</td><td>确认、提醒、输入提示</td><td>函数式调用；部分使用 app-confirm-box 定制样式</td><td>Element Plus 与项目覆盖样式并存</td><td><span class="status-badge is-warning">待统一确认交互</span></td></tr>
+                  <tr><td>PaymentModal.vue<br />HomeGoalDialog.vue<br />SyllabusAdmin.vue 手写弹窗</td><td>支付、备考目标、考纲上传与详情</td><td>自行维护遮罩、定位与关闭；焦点和滚动处理不一致</td><td>支付 R18；首页及考纲各自定义</td><td><span class="status-badge is-warning">尚未接入公共容器</span></td></tr>
+                </tbody></table>
+              </div>
+            </section>
+
+            <section class="section" id="dialog-usage" aria-labelledby="dialog-usage-title">
+              <div class="section-head"><span class="section-index">06</span><div><h2 id="dialog-usage-title">组合示例</h2><p class="section-description">打开交互预览，体验表单校验、加载锁定和长内容滚动。示例数据仅保存在当前页面，不发起业务请求。</p></div></div>
+              <div class="dialog-usage-grid">
+                <article class="card dialog-usage-card"><div class="eyebrow">Form / 表单提交</div><h3>编辑练习本名称</h3><p>空值提交保留弹窗并显示提示；填写后模拟保存，加载期间锁定退出，成功后关闭。</p><button class="btn btn-secondary btn-sm" type="button" data-open-demo="form">体验表单弹窗</button><p class="dialog-spec-note"><code>默认插槽 + loading + @confirm</code></p></article>
+                <article class="card dialog-usage-card"><div class="eyebrow">Content / 长内容</div><h3>查看操作说明</h3><p>标题和按钮保持可见，超出部分在正文区域滚动。窄屏宽度按视口减 32px 收缩。</p><button class="btn btn-secondary btn-sm" type="button" data-open-demo="long">体验长内容弹窗</button><p class="dialog-spec-note"><code>:width="680" + :show-cancel="false"</code></p></article>
+              </div>
+            </section>
+          </section>
+
+          <footer class="footer-note">
+            <span>AceMock Design System / Button · Dialog</span>
+            <span>Source: quiz-web/src/assets/base.css · element-overrides.css</span>
+          </footer>
+        </div>
+      </main>
+    </div>
+    <dialog class="foundation-live" id="dialog-live" aria-labelledby="dialog-live-title"></dialog>
+    <script>
+      const dialogPreview = document.getElementById('dialog-live');
+      const dialogSpecimen = document.getElementById('dialog-specimen');
+      const dialogStatus = document.getElementById('dialog-demo-status');
+      const previewTrigger = document.getElementById('open-dialog-preview');
+      let activeTrigger = previewTrigger;
+      let activeDemo = 'default';
+      let demoSaving = false;
+      let saveTimer;
+      const dialogExamples = {
+        default: { title: '保存当前设置？', text: '保存后将应用本次修改，请确认内容后继续。' },
+        danger: { title: '删除这份练习本？', text: '删除后无法恢复，请确认这份练习本已不再需要。', confirm: '确认删除', danger: true },
+        information: { title: '操作说明', text: '你可以在个人中心查看会员权益和使用记录。', confirm: '我知道了', showCancel: false },
+        form: { title: '编辑练习本名称', confirm: '保存' },
+        long: { title: '操作说明', width: 680, confirm: '我知道了', showCancel: false }
+      };
+
+      // 所有尺寸、状态和弹出示例共用同一基础结构，避免各处样式各自演进。
+      function createDialogExample(options = {}) {
+        const content = dialogSpecimen.cloneNode(true);
+        content.removeAttribute('id');
+        content.removeAttribute('aria-label');
+        content.style.width = `${options.width || 520}px`;
+        content.querySelector('h3').textContent = options.title || '弹窗标题';
+        content.querySelector('.foundation-body p').textContent = options.text || '请确认当前内容。提交成功后由页面关闭弹窗，校验失败时保留输入。';
+        const confirm = content.querySelector('[data-dialog-action="confirm"]');
+        confirm.textContent = options.confirm || '确认';
+        content.querySelector('[data-dialog-action="cancel"]').textContent = options.cancel || '取消';
+        if (options.icon) {
+          const body = content.querySelector('.foundation-body');
+          const paragraph = body.querySelector('p');
+          const row = document.createElement('div');
+          row.className = 'foundation-with-icon';
+          row.innerHTML = '<svg class="foundation-content-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M12 6.5v7" stroke="white" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="white"/></svg><div class="foundation-icon-content"></div>';
+          row.querySelector('.foundation-icon-content').append(paragraph);
+          body.append(row);
+        }
+        if (options.danger) confirm.classList.replace('btn-primary', 'btn-danger');
+        if (options.showCancel === false) content.querySelector('[data-dialog-action="cancel"]').remove();
+        if (options.showFooter === false) content.querySelector('.foundation-footer').remove();
+        return content;
+      }
+
+      // 复用基础结构生成真实遮罩预览，确保展示样稿和弹出内容保持一致。
+      function openDialogPreview(trigger = previewTrigger, kind = 'default') {
+        activeTrigger = trigger;
+        activeDemo = kind;
+        demoSaving = false;
+        const options = dialogExamples[kind];
+        const content = createDialogExample(options);
+        content.style.width = '100%';
+        dialogPreview.style.width = `${options.width || 520}px`;
+        content.querySelector('h3').id = 'dialog-live-title';
+        if (kind === 'form') {
+          content.querySelector('.foundation-body').innerHTML = '<label class="dialog-field">练习本名称<input id="dialog-demo-name" maxlength="40" placeholder="请输入名称" aria-describedby="dialog-form-error" /></label><p id="dialog-form-error" class="dialog-inline-error" role="status"></p>';
+        }
+        if (kind === 'long') {
+          const body = content.querySelector('.foundation-body');
+          body.replaceChildren();
+          for (let index = 1; index <= 24; index++) {
+            const paragraph = document.createElement('p');
+            paragraph.className = 'dialog-long-item';
+            paragraph.textContent = `${String(index).padStart(2, '0')} / 示例说明：标题与底部操作保持可见，正文过长时可以在此区域上下滚动，查看完整内容后再关闭。`;
+            body.append(paragraph);
+          }
+        }
+        dialogPreview.replaceChildren(content);
+        dialogPreview.showModal();
+        document.body.classList.add('foundation-preview-open');
+        (dialogPreview.querySelector('input') || dialogPreview.querySelector('[data-dialog-action="cancel"]') || dialogPreview.querySelector('button')).focus();
+      }
+
+      // 预览按钮只展示关闭反馈，不调用业务接口。
+      function handleDialogAction(event) {
+        const control = event.target.closest('[data-dialog-action]');
+        if (!control || demoSaving) return;
+        const labels = { close: '关闭', cancel: '取消', confirm: '确认' };
+        const label = labels[control.dataset.dialogAction];
+        if (dialogPreview.open && activeDemo === 'form' && control.dataset.dialogAction === 'confirm') {
+          const input = dialogPreview.querySelector('input');
+          if (!input.value.trim()) {
+            input.setAttribute('aria-invalid', 'true');
+            dialogPreview.querySelector('#dialog-form-error').textContent = '请输入练习本名称，当前内容已保留。';
+            input.focus();
+            return;
+          }
+          input.removeAttribute('aria-invalid');
+          dialogPreview.querySelector('#dialog-form-error').textContent = '';
+          demoSaving = true;
+          dialogPreview.querySelectorAll('button, input').forEach((item) => item.disabled = true);
+          control.innerHTML = '<span class="spinner" aria-hidden="true"></span>保存中';
+          saveTimer = window.setTimeout(() => {
+            demoSaving = false;
+            dialogStatus.textContent = `模拟保存成功：${input.value.trim()}。未写入业务数据。`;
+            dialogPreview.close();
+          }, 1200);
+          return;
+        }
+        if (dialogPreview.open) dialogPreview.close();
+        dialogStatus.textContent = `已演示“${label}”操作，可点击“打开弹窗预览”继续查看。`;
+      }
+
+      previewTrigger.addEventListener('click', () => openDialogPreview());
+      dialogSpecimen.addEventListener('click', handleDialogAction);
+      dialogPreview.addEventListener('click', handleDialogAction);
+      dialogPreview.addEventListener('cancel', (event) => event.preventDefault());
+      dialogPreview.addEventListener('close', () => {
+        clearTimeout(saveTimer);
+        demoSaving = false;
+        document.body.classList.remove('foundation-preview-open');
+        activeTrigger.focus();
+      });
+
+      // 使用分类只映射真实组件属性；卡片与弹出预览共用内容配置。
+      document.querySelectorAll('[data-dialog-example]').forEach((stage) => {
+        const kind = stage.dataset.dialogExample;
+        stage.append(createDialogExample(dialogExamples[kind]));
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn btn-secondary btn-sm';
+        button.textContent = '打开预览';
+        button.style.marginTop = '16px';
+        button.style.display = 'flex';
+        button.addEventListener('click', () => openDialogPreview(button, kind));
+        stage.parentElement.querySelector('.dialog-example-copy').append(button);
+      });
+      document.querySelectorAll('[data-open-demo]').forEach((button) => {
+        button.addEventListener('click', () => openDialogPreview(button, button.dataset.openDemo));
+      });
+      // 普通弹窗通过可选图标展示提醒，不生成独立的警告类型。
+      document.getElementById('dialog-icon-toggle').addEventListener('change', (event) => {
+        dialogExamples.default.icon = event.target.checked;
+        document.querySelector('[data-dialog-example="default"]').replaceChildren(createDialogExample(dialogExamples.default));
+      });
+
+      let selectedDialogWidth = 520;
+      let mobileDialogViewport = false;
+      // 宽度演示保留真实像素，窄视口按组件的左右 16px 留白收缩。
+      function renderDialogWidth() {
+        document.getElementById('dialog-viewport').style.width = mobileDialogViewport ? '375px' : '940px';
+        const content = createDialogExample({ width: selectedDialogWidth, title: '弹窗宽度示例' });
+        document.getElementById('dialog-width-example').replaceChildren(content);
+        document.querySelectorAll('[data-width]').forEach((button) => button.setAttribute('aria-pressed', String(!mobileDialogViewport && Number(button.dataset.width) === selectedDialogWidth)));
+        document.getElementById('dialog-mobile-toggle').setAttribute('aria-pressed', String(mobileDialogViewport));
+        document.getElementById('dialog-width-readout').textContent = mobileDialogViewport
+          ? `窄屏适配：375px 视口 → 实际宽度 ${Math.round(content.getBoundingClientRect().width)}px，左右各 16px。点击“520px · 默认”返回桌面预览。`
+          : `桌面尺寸：${selectedDialogWidth}px · 实际显示 ${Math.round(content.getBoundingClientRect().width)}px · 940px 演示视口 · 不缩放字号与按钮`;
+      }
+      document.querySelectorAll('[data-width]').forEach((button) => button.addEventListener('click', () => {
+        selectedDialogWidth = Number(button.dataset.width);
+        // 返回默认尺寸时退出窄屏限制，恢复 520px 桌面预览。
+        mobileDialogViewport = false;
+        renderDialogWidth();
+      }));
+      document.getElementById('dialog-mobile-toggle').addEventListener('click', () => {
+        mobileDialogViewport = true;
+        renderDialogWidth();
+      });
+      renderDialogWidth();
+
+      const dialogStates = {
+        default: ['可用状态', '确认可用。点击确认只通知业务页面；页面处理成功后再关闭。', 'loading = false'],
+        disabled: ['仅禁用确认', '用于必要选项未完成的场景。取消和关闭图标仍然可用。', 'confirmDisabled = true'],
+        loading: ['提交处理中', '确认显示加载状态，确认、取消、关闭图标均禁用；Esc 和遮罩也不可退出。', 'loading = true'],
+        failed: ['业务处理失败', '错误提示放在内容插槽中。保留输入并允许重新提交，组件没有单独的 error 属性。', 'loading = false + 业务错误内容']
+      };
+      // 失败属于业务内容，禁用和加载对应组件已有属性。
+      function renderDialogState(state) {
+        const content = createDialogExample({ title: '保存设置', confirm: state === 'failed' ? '重试' : '保存' });
+        const confirm = content.querySelector('[data-dialog-action="confirm"]');
+        if (state === 'disabled') confirm.disabled = true;
+        if (state === 'loading') {
+          content.querySelectorAll('button').forEach((button) => button.disabled = true);
+          confirm.innerHTML = '<span class="spinner" aria-hidden="true"></span>保存中';
+        }
+        if (state === 'failed') {
+          const error = document.createElement('p');
+          error.className = 'dialog-inline-error';
+          error.textContent = '保存失败，请重试。你填写的内容仍保留。';
+          content.querySelector('.foundation-body').append(error);
+        }
+        document.getElementById('dialog-state-example').replaceChildren(content);
+        const [title, text, code] = dialogStates[state];
+        document.getElementById('dialog-state-description').innerHTML = `<h3>${title}</h3><p>${text}</p><code>${code}</code>`;
+        document.querySelectorAll('[data-state]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.state === state)));
+      }
+      document.querySelectorAll('[data-state]').forEach((button) => button.addEventListener('click', () => renderDialogState(button.dataset.state)));
+      renderDialogState('default');
+
+      // 滚动到弹窗章节时同步左侧导航的当前项。
+      function updateComponentNavigation() {
+        const dialogActive = document.getElementById('dialog').getBoundingClientRect().top < window.innerHeight / 2;
+        document.querySelectorAll('a.nav-item').forEach((link) => {
+          const active = link.hash === (dialogActive ? '#dialog' : '#overview');
+          link.classList.toggle('is-active', active);
+          if (active) link.setAttribute('aria-current', 'location');
+          else link.removeAttribute('aria-current');
+        });
+      }
+      window.addEventListener('scroll', updateComponentNavigation, { passive: true });
+      updateComponentNavigation();
+    </script>
+  </body>
+</html>

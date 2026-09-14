@@ -12,6 +12,7 @@
   --color-ink-inverse: #ffffff;
   --color-line: #eaeaea;
   --color-line-soft: #f0f0f0;
+  --color-dialog-divider: #eeeeee; /* AppDialog 标题分割线 */
   --color-hover: #f5f5f5;
   --color-active: #e8e8e8;
   --color-charcoal: #333333;
@@ -23,6 +24,8 @@
   --color-warning: #e9a83b;
   --color-warning-bg: #fdf6e7;
   --color-danger: #d9534f;
+  --color-danger-hover: #c94541;
+  --color-danger-active: #b93b37;
   --color-danger-bg: #fbedec;
   --color-info: #6c757d;
   --color-info-bg: #f0f1f3;
@@ -104,10 +107,14 @@
   --height-button: 40px; /* 常规按钮 */
   --height-button-lg: 48px; /* Hero / 表单主提交按钮 */
   --height-button-sm: 32px; /* 表格行内按钮 */
+  --height-button-mini: 28px; /* 紧凑区域辅助按钮 */
+  --button-min-width: 90px; /* AppButton 的 Large / Medium 最小宽度 */
   --height-table-row: 56px; /* 表格行 */
 
   /* ============ 圆角 ============ */
   --radius-sm: 6px;
+  --radius-button: 5px; /* AppButton 默认圆角 */
+  --radius-dialog: 5px; /* AppDialog 基础弹窗圆角 */
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
@@ -117,6 +124,7 @@
 
   /* ============ 阴影（灰度） ============ */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-dialog: 0 12px 32px rgba(0, 0, 0, 0.12);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.08);
   --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.1);

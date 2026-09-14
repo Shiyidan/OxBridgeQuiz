@@ -1,110 +1,100 @@
-<!-- 诊断报告分析弹窗：交卷后展示真实生成进度，并在报告落库后提供主动查看入口。 -->
+<!-- 诊断报告弹窗：分析中暂保留旧版展示，失败与完成使用 AppDialog。 -->
 <template>
   <el-dialog
+    v-if="isAnalyzing"
     :model-value="modelValue"
+    :title="analysisMessage"
     width="560px"
-    class="diagnostic-analysis-dialog"
+    class="report-analysis-pending"
     :show-close="false"
     :close-on-click-modal="false"
     :close-on-press-escape="false"
-    :append-to-body="true"
+    append-to-body
     align-center
   >
     <button
       type="button"
-      class="diagnostic-analysis-dialog__close"
+      class="report-analysis-pending__close"
       :aria-label="`关闭分析窗口并返回${returnCenterName}`"
       :title="`关闭并返回${returnCenterName}`"
       @click="returnToAssessment"
     >
-      ×
+      <el-icon :size="20" aria-hidden="true"><Close /></el-icon>
     </button>
-
-    <section v-if="analysisFailed" class="analysis-state analysis-state--failed" aria-live="polite">
-      <div class="analysis-state__icon analysis-state__icon--failed" aria-hidden="true">!</div>
-      <h2>最新一次诊断分析失败</h2>
-      <p class="analysis-state__description">
-        {{ analysisError || '报告生成过程中发生异常，请重新分析。' }}
-      </p>
-      <div class="analysis-state__actions">
-        <button type="button" class="button_primary" :disabled="retrying" @click="retryAnalysis">
-          {{ retrying ? '正在重新发起...' : '重新分析' }}
-        </button>
-        <button type="button" class="button_cancel" @click="returnToAssessment">
-          返回{{ returnCenterName }}
-        </button>
-      </div>
-      <p class="analysis-state__note">其他已完成测试的报告可从{{ returnCenterName }}查看。</p>
-    </section>
-
-    <section v-else-if="isAnalyzing" class="analysis-state" aria-live="polite">
-      <div class="analysis-spinner" aria-hidden="true">
+    <section class="pending-analysis-state" aria-live="polite">
+      <div class="pending-analysis-spinner" aria-hidden="true">
         <span>诊</span>
       </div>
-      <p class="analysis-state__eyebrow">答卷已提交并安全保存</p>
+      <p class="pending-analysis-state__eyebrow">答卷已提交并安全保存</p>
       <h2>{{ analysisMessage }}</h2>
-      <p class="analysis-state__description">正在根据本次作答生成个性化诊断结果，请稍候。</p>
+      <p class="pending-analysis-state__description">
+        正在根据本次作答生成个性化诊断结果，请稍候。
+      </p>
 
       <div
-        class="analysis-progress"
+        class="pending-analysis-progress"
         role="progressbar"
         aria-label="诊断报告分析进度"
         aria-valuemin="0"
         aria-valuemax="100"
         :aria-valuenow="analysisProgress"
       >
-        <div class="analysis-progress__meta">
+        <div class="pending-analysis-progress__meta">
           <span>分析进度</span>
           <strong>{{ analysisProgress }}%</strong>
         </div>
-        <div class="analysis-progress__track">
+        <div class="pending-analysis-progress__track">
           <span :style="{ width: `${analysisProgress}%` }" />
         </div>
       </div>
 
-      <div class="analysis-module-ticker">
+      <div class="pending-analysis-module-ticker">
         <span>正在构建</span>
-        <div class="analysis-module-ticker__viewport">
-          <Transition name="module-caption" mode="out-in">
+        <div class="pending-analysis-module-ticker__viewport">
+          <Transition name="pending-module-caption" mode="out-in">
             <strong :key="currentAnalysisModule">{{ currentAnalysisModule }}</strong>
           </Transition>
         </div>
         <small>{{ currentModuleIndex + 1 }}/{{ analysisModules.length }}</small>
       </div>
-      <p v-if="pollError" class="analysis-state__error">{{ pollError }}</p>
-      <p class="analysis-state__note">关闭弹窗不会停止后台分析，完成后可从{{ returnCenterName }}查看报告。</p>
-    </section>
-
-    <section v-else class="analysis-state analysis-state--completed" aria-live="polite">
-      <div class="analysis-state__icon analysis-state__icon--completed" aria-hidden="true">
-        <svg viewBox="0 0 64 64" fill="none">
-          <circle cx="32" cy="32" r="28" stroke="#16a34a" stroke-width="3" fill="#ecfdf5" />
-          <polyline
-            points="20,32 28,40 44,24"
-            stroke="#16a34a"
-            stroke-width="4"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </div>
-      <p class="analysis-state__eyebrow">诊断结果已保存</p>
-      <h2>诊断报告生成完成</h2>
-      <p class="analysis-state__description">七个诊断模块已生成，您可以立即查看完整报告。</p>
-      <div class="analysis-state__actions analysis-state__actions--completed">
-        <button type="button" class="button_primary" @click="viewCurrentReport">
-          查看诊断报告
-        </button>
-        <button type="button" class="button_cancel" @click="returnToAssessment">
-          返回{{ returnCenterName }}
-        </button>
-      </div>
+      <p v-if="pollError" class="pending-analysis-state__error">{{ pollError }}</p>
+      <p class="pending-analysis-state__note">
+        关闭弹窗不会停止后台分析，完成后可从{{ returnCenterName }}查看报告。
+      </p>
     </section>
   </el-dialog>
+  <AppDialog
+    v-else
+    :model-value="modelValue"
+    :title="dialogTitle"
+    :icon="statusIcon"
+    :icon-color="statusIconColor"
+    :cancel-text="`返回${returnCenterName}`"
+    :confirm-text="analysisFailed ? '重新分析' : '查看诊断报告'"
+    :loading="retrying"
+    @confirm="handlePrimaryAction"
+    @cancel="returnToAssessment"
+  >
+    <section v-if="analysisFailed" class="analysis-state" aria-live="polite">
+      <p class="analysis-state__lead">答卷已保存，可重新生成报告。</p>
+      <p class="analysis-state__description">
+        {{ analysisError || '报告生成过程中发生异常，请重新分析。' }}
+      </p>
+      <p class="analysis-state__note">重新分析不会重复提交答卷，也不会重复扣减诊断额度。</p>
+    </section>
+
+    <section v-else class="analysis-state" aria-live="polite">
+      <p class="analysis-state__lead">本次诊断结果已保存</p>
+      <p class="analysis-state__description">七个诊断模块已生成，您可以立即查看完整报告。</p>
+    </section>
+  </AppDialog>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { ElDialog, ElIcon } from 'element-plus'
+import { CircleCheckFilled, CircleCloseFilled, Close } from '@element-plus/icons-vue'
+import AppDialog from './AppDialog.vue'
 import {
   getDiagnosticReportStatus,
   retryDiagnosticReport,
@@ -148,23 +138,44 @@ const isAnalyzing = computed(
 const analysisFailed = computed(() => analysisStatus.value === 'failed')
 const analysisProgress = computed(() => Math.floor(visualProgress.value))
 // 交卷来源决定关闭和完成按钮返回诊断中心还是模考中心记录页。
-const returnCenterName = computed(() => props.source === 'mock-exam' ? '模考中心' : '诊断测试')
+const returnCenterName = computed(() => (props.source === 'mock-exam' ? '模考中心' : '诊断测试'))
+// 失败与完成共用标准弹窗；分析中的独立展示不影响这两种结果状态。
+const dialogTitle = computed(() => (analysisFailed.value ? '诊断报告生成失败' : '诊断报告生成完成'))
+const statusIcon = computed(() => (analysisFailed.value ? CircleCloseFilled : CircleCheckFilled))
+const statusIconColor = computed(() =>
+  analysisFailed.value ? 'var(--color-danger)' : 'var(--color-success)',
+)
+
+// 标准确认按钮在失败时重试，完成后才允许进入已生成的报告。
+function handlePrimaryAction(): void {
+  if (analysisFailed.value) {
+    void retryAnalysis()
+    return
+  }
+  if (!isAnalyzing.value) viewCurrentReport()
+}
+
 // 第一模块按考试类型匹配报告真实标题，其余模块与 V2 的 02—07 编号保持一致。
-const analysisModules = computed(() => [
-  reportKind.value === 'tmua' ? '01 综合分与 Paper 区间参照' : '01 官方历史分布参照',
-  '02 科目与知识点',
-  '03 失分结构',
-  '04 时间把控',
-  '05 主攻方向',
-  '06 下一步',
-  '07 学习计划',
-] as const)
+const analysisModules = computed(
+  () =>
+    [
+      reportKind.value === 'tmua' ? '01 综合分与 Paper 区间参照' : '01 官方历史分布参照',
+      '02 科目与知识点',
+      '03 失分结构',
+      '04 时间把控',
+      '05 主攻方向',
+      '06 下一步',
+      '07 学习计划',
+    ] as const,
+)
 
 // 七个分析模块按照单向视觉进度依次展示，到最后一项后停留，不再循环。
-const currentModuleIndex = computed(() => Math.min(
-  analysisModules.value.length - 1,
-  Math.floor((analysisProgress.value / VISUAL_PROGRESS_LIMIT) * analysisModules.value.length),
-))
+const currentModuleIndex = computed(() =>
+  Math.min(
+    analysisModules.value.length - 1,
+    Math.floor((analysisProgress.value / VISUAL_PROGRESS_LIMIT) * analysisModules.value.length),
+  ),
+)
 const currentAnalysisModule = computed(() => analysisModules.value[currentModuleIndex.value]!)
 
 // 弹窗每次绑定新的考试记录时重置展示状态，并读取对应后台任务进度。
@@ -276,8 +287,8 @@ function startVisualProgress(): void {
 function advanceVisualProgress(): void {
   const elapsed = Math.max(0, Date.now() - visualProgressStartedAt)
   const ratio = Math.min(1, elapsed / VISUAL_PROGRESS_DURATION_MS)
-  const nextProgress = VISUAL_PROGRESS_START
-    + (VISUAL_PROGRESS_LIMIT - VISUAL_PROGRESS_START) * ratio
+  const nextProgress =
+    VISUAL_PROGRESS_START + (VISUAL_PROGRESS_LIMIT - VISUAL_PROGRESS_START) * ratio
   visualProgress.value = Math.max(visualProgress.value, nextProgress)
 
   if (!reportReady || visualProgress.value < VISUAL_PROGRESS_LIMIT) return
@@ -306,17 +317,42 @@ function stopAnalysisPolling(): void {
   completionTimer = undefined
   stopVisualProgress()
 }
-
 </script>
 
+<style scoped>
+.analysis-state {
+  min-width: 0;
+}
+.analysis-state__lead {
+  margin: 0;
+  color: var(--color-ink);
+  font-weight: var(--weight-semi);
+}
+.analysis-state__description {
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
+}
+.analysis-state__note,
+.analysis-state__error {
+  margin: 16px 0 0;
+  font-size: 12px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+  color: var(--color-ink-muted);
+}
+.analysis-state__error {
+  color: var(--color-danger);
+}
+</style>
+
 <style lang="scss">
-.diagnostic-analysis-dialog {
+.report-analysis-pending {
   position: relative;
   overflow: hidden;
   border-radius: 14px;
 }
 
-.diagnostic-analysis-dialog__close {
+.report-analysis-pending__close {
   width: 34px;
   height: 34px;
   position: absolute;
@@ -334,53 +370,55 @@ function stopAnalysisPolling(): void {
   font-size: 26px;
   line-height: 1;
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
-.diagnostic-analysis-dialog__close:hover {
+.report-analysis-pending__close:hover {
   background: #f1f5f9;
   color: #334155;
 }
 
-.diagnostic-analysis-dialog__close:focus-visible {
+.report-analysis-pending__close:focus-visible {
   outline: 2px solid #7c3aed;
   outline-offset: 2px;
 }
 
-.diagnostic-analysis-dialog .el-dialog__header {
+.report-analysis-pending .el-dialog__header {
   display: none;
 }
 
-.diagnostic-analysis-dialog .el-dialog__body {
+.report-analysis-pending .el-dialog__body {
   padding: 40px 42px 36px;
 }
 
-.analysis-state {
+.pending-analysis-state {
   text-align: center;
 }
 
-.analysis-state h2 {
+.pending-analysis-state h2 {
   margin: 8px 0 0;
   color: #172033;
   font-size: 22px;
   font-weight: 800;
 }
 
-.analysis-state__eyebrow {
+.pending-analysis-state__eyebrow {
   margin: 0;
   color: #7c3aed;
   font-size: 13px;
   font-weight: 700;
 }
 
-.analysis-state__description {
+.pending-analysis-state__description {
   margin: 12px 0 0;
   color: #718096;
   font-size: 14px;
   line-height: 1.7;
 }
 
-.analysis-spinner {
+.pending-analysis-spinner {
   width: 68px;
   height: 68px;
   display: grid;
@@ -393,19 +431,19 @@ function stopAnalysisPolling(): void {
   animation: diagnostic-analysis-spin 1s linear infinite;
 }
 
-.analysis-spinner span {
+.pending-analysis-spinner span {
   color: #7c3aed;
   font-size: 20px;
   font-weight: 800;
   animation: diagnostic-analysis-spin-reverse 1s linear infinite;
 }
 
-.analysis-progress {
+.pending-analysis-progress {
   margin-top: 28px;
   text-align: left;
 }
 
-.analysis-progress__meta {
+.pending-analysis-progress__meta {
   display: flex;
   justify-content: space-between;
   margin-bottom: 9px;
@@ -414,18 +452,18 @@ function stopAnalysisPolling(): void {
   font-weight: 600;
 }
 
-.analysis-progress__meta strong {
+.pending-analysis-progress__meta strong {
   color: #7c3aed;
 }
 
-.analysis-progress__track {
+.pending-analysis-progress__track {
   height: 9px;
   overflow: hidden;
   border-radius: 999px;
   background: #f1f3f7;
 }
 
-.analysis-progress__track span {
+.pending-analysis-progress__track span {
   display: block;
   height: 100%;
   border-radius: inherit;
@@ -433,7 +471,7 @@ function stopAnalysisPolling(): void {
   transition: width 0.08s linear;
 }
 
-.analysis-module-ticker {
+.pending-analysis-module-ticker {
   min-height: 44px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -450,14 +488,14 @@ function stopAnalysisPolling(): void {
   text-align: left;
 }
 
-.analysis-module-ticker__viewport {
+.pending-analysis-module-ticker__viewport {
   min-width: 0;
   height: 20px;
   position: relative;
   overflow: hidden;
 }
 
-.analysis-module-ticker__viewport strong {
+.pending-analysis-module-ticker__viewport strong {
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -468,72 +506,30 @@ function stopAnalysisPolling(): void {
   white-space: nowrap;
 }
 
-.analysis-state__note,
-.analysis-state__error {
+.pending-analysis-state__note,
+.pending-analysis-state__error {
   margin: 24px 0 0;
   color: #94a3b8;
   font-size: 12px;
 }
 
-.analysis-state__error {
+.pending-analysis-state__error {
   color: #dc2626;
 }
 
-.analysis-state__icon {
-  width: 68px;
-  height: 68px;
-  display: grid;
-  place-items: center;
-  margin: 0 auto 20px;
-  border-radius: 50%;
-  font-size: 28px;
-  font-weight: 800;
+.pending-module-caption-enter-active,
+.pending-module-caption-leave-active {
+  transition:
+    opacity 0.24s ease,
+    transform 0.24s ease;
 }
 
-.analysis-state__icon--failed {
-  background: #fff1f2;
-  color: #dc2626;
-}
-
-.analysis-state__icon--completed {
-  background: #ecfdf5;
-}
-
-.analysis-state__icon svg {
-  width: 100%;
-  height: 100%;
-}
-
-.analysis-state__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 28px;
-}
-
-.analysis-state__actions button {
-  min-width: 138px;
-  min-height: 42px;
-  padding: 0 20px;
-  border-radius: 8px;
-}
-
-.analysis-state__actions--completed .button_primary {
-  min-width: 180px;
-}
-
-.module-caption-enter-active,
-.module-caption-leave-active {
-  transition: opacity 0.24s ease, transform 0.24s ease;
-}
-
-.module-caption-enter-from {
+.pending-module-caption-enter-from {
   opacity: 0;
   transform: translateY(16px);
 }
 
-.module-caption-leave-to {
+.pending-module-caption-leave-to {
   opacity: 0;
   transform: translateY(-16px);
 }
@@ -551,12 +547,24 @@ function stopAnalysisPolling(): void {
 }
 
 @media (max-width: 640px) {
-  .diagnostic-analysis-dialog {
+  .report-analysis-pending {
     width: calc(100% - 32px) !important;
   }
 
-  .diagnostic-analysis-dialog .el-dialog__body {
+  .report-analysis-pending .el-dialog__body {
     padding: 34px 22px 28px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pending-analysis-spinner,
+  .pending-analysis-spinner span {
+    animation: none;
+  }
+  .pending-module-caption-enter-active,
+  .pending-module-caption-leave-active,
+  .pending-analysis-progress__track span {
+    transition: none;
   }
 }
 </style>

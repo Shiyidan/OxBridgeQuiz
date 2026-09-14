@@ -8,10 +8,9 @@
           <h1>练习本</h1>
           <p>保存常用组卷规则，集中查看每次练习和历史结果。</p>
         </div>
-        <button type="button" class="notebook-back" @click="handleBackToQuestionBank">
-          <span aria-hidden="true">←</span>
+        <AppButton type="text" :icon="Back" @click="handleBackToQuestionBank">
           <span>返回试题库</span>
-        </button>
+        </AppButton>
       </header>
 
       <section v-if="unlistedActivePractice" class="notebook-active-other">
@@ -24,19 +23,15 @@
             题</span
           >
         </div>
-        <button
-          type="button"
-          class="button_primary"
-          @click="continuePractice(unlistedActivePractice.examRecordId)"
-        >
+        <AppButton @click="continuePractice(unlistedActivePractice.examRecordId)">
           继续练习
-        </button>
+        </AppButton>
       </section>
 
       <section v-if="listLoading" class="notebook-state">正在加载练习本...</section>
       <section v-else-if="listError" class="notebook-state notebook-state--error">
         <p>{{ listError }}</p>
-        <button type="button" class="button_cancel" @click="loadNotebookList">重新加载</button>
+        <AppButton type="secondary" size="small" @click="loadNotebookList">重新加载</AppButton>
       </section>
       <section v-else-if="displayRows.length" class="notebook-list" aria-label="练习本列表">
         <div class="notebook-list__header" aria-hidden="true">
@@ -81,17 +76,16 @@
               <small>累计{{ row.completedQuestions }}题</small>
             </div>
             <div class="notebook-row__actions" @click.stop @keydown.stop>
-              <button type="button" class="button_cancel" @click="handleEditNotebook(row.id)">
+              <AppButton type="secondary" size="small" @click="handleEditNotebook(row.id)">
                 编辑
-              </button>
-              <button
-                type="button"
-                class="button_primary"
-                :disabled="startingNotebookId === row.id"
+              </AppButton>
+              <AppButton
+                size="small"
+                :loading="startingNotebookId === row.id"
                 @click="handlePrimaryAction(row)"
               >
                 {{ getPrimaryActionLabel(row) }}
-              </button>
+              </AppButton>
             </div>
           </article>
 
@@ -109,9 +103,13 @@
                 class="history-state history-state--error"
               >
                 <span>{{ historyState(row.id).error }}</span>
-                <button type="button" @click="loadHistory(row, historyState(row.id).page)">
+                <AppButton
+                  type="link"
+                  size="small"
+                  @click="loadHistory(row, historyState(row.id).page)"
+                >
                   重试
-                </button>
+                </AppButton>
               </div>
               <div v-else-if="!historyState(row.id).records.length" class="history-state">
                 暂无已交卷练习，完成第一组后会显示在这里。
@@ -134,7 +132,9 @@
                     <strong>{{ record.correctCount }} / {{ record.totalQuestions }}</strong>
                     <span>{{ record.accuracy }}%</span>
                     <span>{{ formatDuration(record.durationSeconds) }}</span>
-                    <button type="button" @click="handleOpenHistory(record.id)">查看详情</button>
+                    <AppButton type="link" size="small" @click="handleOpenHistory(record.id)"
+                      >查看详情</AppButton
+                    >
                   </article>
                 </div>
                 <AppPagination
@@ -152,25 +152,25 @@
         </template>
       </section>
       <section class="notebook-create-section" aria-label="新建练习本">
-        <button type="button" class="notebook-create-card" @click="handleCreateNotebook">
-          <span class="notebook-create-card__icon" aria-hidden="true">＋</span>
-          <span class="notebook-create-card__copy">
-            <strong>新建练习本</strong>
-            <small>自己选择知识点、题量、难度和时间</small>
-          </span>
-        </button>
+        <div class="notebook-create-card">
+          <AppButton :icon="Plus" @click="handleCreateNotebook">新建练习本</AppButton>
+          <small>自己选择知识点、题量、难度和时间</small>
+        </div>
       </section>
     </main>
 
-    <AppConfirmDialog
+    <AppDialog
       v-model="quotaDialogVisible"
       title="免费练习题量不足"
-      :message="quotaDialogMessage"
+      :icon="WarningFilled"
+      icon-color="var(--color-warning)"
       confirm-text="开始练习"
       cancel-text="取消"
       @confirm="handleConfirmReducedPractice"
       @cancel="handleCancelReducedPractice"
-    />
+    >
+      <p>{{ quotaDialogMessage }}</p>
+    </AppDialog>
 
     <DailyCardAccessDialog
       v-model="upgradeDialogVisible"
@@ -191,10 +191,12 @@
 </template>
 
 <script setup lang="ts">
+import AppButton from '@/components/AppButton.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
+import { Back, Plus, WarningFilled } from '@element-plus/icons-vue'
+import AppDialog from '@/components/AppDialog.vue'
 import AppPagination from '@/components/AppPagination.vue'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
@@ -453,6 +455,8 @@ async function handlePrimaryAction(row: DisplayRow): Promise<void> {
 
 // 用户确认后以剩余额度作为本次练习题量，不改写练习本原有的固定题量设置。
 function handleConfirmReducedPractice(): void {
+  // 保持确认后先关闭提示、再启动练习的顺序。
+  quotaDialogVisible.value = false
   const pending = pendingNotebookStart.value
   pendingNotebookStart.value = null
   if (!pending) return
@@ -660,27 +664,6 @@ onMounted(async () => {
   color: var(--color-ink-soft);
 }
 
-.notebook-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  height: 46px;
-  padding: 0 16px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  color: var(--color-ink);
-  font: inherit;
-  font-weight: var(--weight-semi);
-  cursor: pointer;
-}
-
-.notebook-back:hover,
-.notebook-back:focus-visible {
-  border-color: var(--color-ink);
-  background: var(--color-hover);
-}
-
 .notebook-active-other {
   min-height: 70px;
   margin-bottom: 18px;
@@ -831,14 +814,8 @@ onMounted(async () => {
 .notebook-row__actions {
   display: flex;
   justify-content: flex-start;
-  gap: 10px;
-}
-
-.notebook-row__actions button {
-  min-width: 0;
-  height: 44px;
-  padding-inline: 14px;
-  white-space: nowrap;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .notebook-history {
@@ -860,18 +837,6 @@ onMounted(async () => {
 
 .history-state--error {
   color: var(--color-danger);
-}
-
-.history-state button,
-.history-record button {
-  border: 0;
-  background: transparent;
-  color: var(--color-ink);
-  font: inherit;
-  font-weight: var(--weight-semi);
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 
 .history-table__header,
@@ -923,49 +888,14 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
   border: 1px dashed var(--color-line-strong, #bcc9d8);
   border-radius: 0;
   background: var(--color-surface-alt);
   color: var(--color-ink);
   font: inherit;
   text-align: left;
-  cursor: pointer;
-}
-
-.notebook-create-card:hover,
-.notebook-create-card:focus-visible {
-  border-color: var(--color-active);
-  background: var(--color-hover);
-}
-
-.notebook-create-card__icon {
-  display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border: 1px solid var(--color-line);
-  border-radius: 50%;
-  background: var(--color-surface);
-  color: var(--color-active);
-  font-size: 24px;
-}
-
-.notebook-create-card__copy {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.notebook-create-card__copy strong {
-  font-size: var(--text-base);
-  font-weight: var(--weight-bold);
-}
-
-.notebook-create-card__copy small {
-  color: var(--color-ink-soft);
-  font-size: var(--text-sm);
 }
 
 @media (max-width: 860px) {
@@ -1001,18 +931,10 @@ onMounted(async () => {
     line-height: 1.7;
   }
 
-  .notebook-back {
-    height: 42px;
-  }
-
   .notebook-active-other {
     align-items: stretch;
     flex-direction: column;
     padding: 16px;
-  }
-
-  .notebook-active-other .button_primary {
-    width: 100%;
   }
 
   .notebook-state {
@@ -1064,10 +986,6 @@ onMounted(async () => {
   .notebook-row__actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .notebook-row__actions button {
-    width: 100%;
   }
 
   .notebook-history {
@@ -1135,14 +1053,6 @@ onMounted(async () => {
     padding: 20px 16px;
   }
 
-  .notebook-create-card__copy {
-    min-width: 0;
-  }
-
-  .notebook-create-card__copy small {
-    line-height: 1.55;
-  }
-
   .notebook-history :deep(.app-pagination) {
     width: 100%;
     max-width: 100%;
@@ -1164,5 +1074,9 @@ onMounted(async () => {
   .history-expand-leave-active {
     transition-duration: 1ms;
   }
+}
+.notebook-create-card small {
+  color: var(--color-ink-soft);
+  font-size: var(--text-sm);
 }
 </style>

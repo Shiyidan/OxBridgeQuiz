@@ -8,10 +8,9 @@
           <h1>练习记录</h1>
           <p>存放从试题库直接开始、且未保存为练习本的临时练习。</p>
         </div>
-        <button type="button" class="records-back" @click="handleBackToQuestionBank">
-          <span aria-hidden="true">←</span>
+        <AppButton type="text" :icon="Back" @click="handleBackToQuestionBank">
           <span>返回试题库</span>
-        </button>
+        </AppButton>
       </header>
 
       <section v-if="activeTemporaryPractice" class="active-record" aria-label="进行中练习">
@@ -25,13 +24,13 @@
             题 · 开始于 {{ formatDateTime(activeTemporaryPractice.startedAt) }}
           </small>
         </div>
-        <button type="button" class="button_primary" @click="continuePractice">继续练习</button>
+        <AppButton @click="continuePractice">继续练习</AppButton>
       </section>
 
       <section v-if="loading" class="records-state">正在加载练习记录...</section>
       <section v-else-if="loadError" class="records-state records-state--error">
         <p>{{ loadError }}</p>
-        <button type="button" class="button_cancel" @click="loadRecords">重新加载</button>
+        <AppButton type="secondary" size="small" @click="loadRecords">重新加载</AppButton>
       </section>
       <section v-else-if="records.length" class="records-list" aria-label="已完成练习记录">
         <div class="records-list__toolbar">
@@ -80,10 +79,15 @@
           <span class="record-row__submitted" data-label="交卷时间">
             {{ formatDateTime(record.submittedAt) }}
           </span>
-          <button type="button" class="record-row__detail" @click="openRecord(record.id)">
-            <span>查看解析</span>
-            <span aria-hidden="true">→</span>
-          </button>
+          <AppButton
+            type="link"
+            size="small"
+            :icon="Right"
+            icon-position="right"
+            class="record-row__detail"
+            @click="openRecord(record.id)"
+            >查看解析</AppButton
+          >
         </article>
         <AppPagination
           :page="page"
@@ -98,15 +102,15 @@
       <section v-else class="records-state records-state--empty">
         <strong>暂无临时练习记录</strong>
         <p>从试题库选择考点和难度开始练习，交卷后会保存在这里。</p>
-        <button type="button" class="button_primary" @click="handleBackToQuestionBank">
-          前往试题库
-        </button>
+        <AppButton @click="handleBackToQuestionBank"> 前往试题库 </AppButton>
       </section>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
+import AppButton from '@/components/AppButton.vue'
+import { Back, Right } from '@element-plus/icons-vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppPagination from '@/components/AppPagination.vue'
@@ -208,9 +212,7 @@ function formatScopeTitle(record: TemporaryPracticeHistoryRecord): string {
 
 // 路径只展示标题之前的层级，避免主标题和辅助路径重复。
 function formatScopePath(record: TemporaryPracticeHistoryRecord): string {
-  const parentLabels = record.snapshot.knowledgePoint.path
-    .slice(0, -1)
-    .map((node) => node.label)
+  const parentLabels = record.snapshot.knowledgePoint.path.slice(0, -1).map((node) => node.label)
   return parentLabels.length ? `${record.examType} · ${parentLabels.join(' / ')}` : record.examType
 }
 
@@ -295,8 +297,7 @@ onMounted(async () => {
 <style scoped>
 .practice-records {
   min-height: calc(100vh - var(--nav-height));
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 52%) 0, transparent 220px), var(--color-bg);
+  background: linear-gradient(180deg, rgb(255 255 255 / 52%) 0, transparent 220px), var(--color-bg);
   color: var(--color-ink);
 }
 
@@ -346,35 +347,6 @@ onMounted(async () => {
   margin: 12px 0 0;
   color: var(--color-ink-soft);
   line-height: var(--leading-relaxed);
-}
-
-.records-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  height: 46px;
-  padding: 0 18px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
-  color: var(--color-ink);
-  font: inherit;
-  font-weight: var(--weight-semi);
-  cursor: pointer;
-  transition:
-    border-color var(--duration-base) ease,
-    background var(--duration-base) ease,
-    box-shadow var(--duration-base) ease,
-    transform var(--duration-fast) ease;
-}
-
-.records-back:hover,
-.records-back:focus-visible {
-  border-color: var(--color-ink);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-md);
-  transform: translateX(-2px);
 }
 
 .active-record {
@@ -625,34 +597,6 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
-.record-row__detail {
-  display: inline-flex;
-  min-height: 36px;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 0 12px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  color: var(--color-ink);
-  font: inherit;
-  font-weight: var(--weight-semi);
-  cursor: pointer;
-  white-space: nowrap;
-  transition:
-    border-color var(--duration-base) ease,
-    background var(--duration-base) ease,
-    transform var(--duration-fast) ease;
-}
-
-.record-row__detail:hover,
-.record-row__detail:focus-visible {
-  border-color: var(--color-ink);
-  background: var(--color-hover);
-  transform: translateX(2px);
-}
-
 .records-list :deep(.app-pagination) {
   min-height: 68px;
   align-items: center;
@@ -673,18 +617,10 @@ onMounted(async () => {
     margin-bottom: 24px;
   }
 
-  .records-back {
-    height: 42px;
-  }
-
   .active-record {
     align-items: stretch;
     flex-direction: column;
     gap: 16px;
-  }
-
-  .active-record .button_primary {
-    width: 100%;
   }
 
   .records-list {
@@ -775,10 +711,6 @@ onMounted(async () => {
 
   .record-row__submitted {
     overflow-wrap: anywhere;
-  }
-
-  .record-row__detail {
-    margin-top: 2px;
   }
 
   .records-list :deep(.app-pagination) {

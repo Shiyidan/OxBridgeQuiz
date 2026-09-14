@@ -7,10 +7,9 @@
       <div v-else-if="loadError" class="state-card state-card--error">{{ loadError }}</div>
       <section v-else class="practice-result">
         <header class="analysis-page-header">
-          <button type="button" class="analysis-back" @click="returnToSource">
-            <el-icon aria-hidden="true"><Back /></el-icon>
+          <AppButton type="text" :icon="Back" @click="returnToSource">
             {{ returnLabel }}
-          </button>
+          </AppButton>
           <i aria-hidden="true"></i>
           <h1>{{ analysisPageTitle }}</h1>
         </header>
@@ -45,6 +44,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Back } from '@element-plus/icons-vue'
 import NavBar from '@/components/NavBar.vue'
+import AppButton from '@/components/AppButton.vue'
 import ExamQuestionAnalysis from '@/components/report/ExamQuestionAnalysis.vue'
 import MistakeAttemptTimeline from '@/views/mistakeNotebook/MistakeAttemptTimeline.vue'
 import {
@@ -100,12 +100,12 @@ const examId = computed(() => String(route.params.id || ''))
 const isQuestionReview = computed(() => route.name === 'exam-question-review')
 
 // questionId 用于错题本单题模式；诊断报告则通过模块与正式题号定位整卷中的目标题。
-const targetQuestionId = computed(() => (
-  typeof route.query.questionId === 'string' ? route.query.questionId : undefined
-))
-const targetModuleId = computed(() => (
-  typeof route.query.moduleId === 'string' ? route.query.moduleId.trim().toLowerCase() : ''
-))
+const targetQuestionId = computed(() =>
+  typeof route.query.questionId === 'string' ? route.query.questionId : undefined,
+)
+const targetModuleId = computed(() =>
+  typeof route.query.moduleId === 'string' ? route.query.moduleId.trim().toLowerCase() : '',
+)
 const targetQuestionNumber = computed(() => {
   const value = Number(route.query.questionNumber)
   return Number.isInteger(value) && value > 0 ? value : null
@@ -138,7 +138,8 @@ const cameFromPracticeRecords = computed(() => route.query.from === 'practice-re
 
 // 历史时间轴仅属于错题本的单题解析入口，其他整卷或报告解析保持原有布局。
 const showMistakeAttemptHistory = computed(
-  () => cameFromMistakeNotebook.value && singleQuestionMode.value && Boolean(targetQuestionId.value),
+  () =>
+    cameFromMistakeNotebook.value && singleQuestionMode.value && Boolean(targetQuestionId.value),
 )
 
 // 错题解析优先采用最近一次答题轨迹的来源名称，其余入口沿用当前答卷或练习本名称。
@@ -224,10 +225,12 @@ onMounted(async () => {
       const numberMatches = loadedQuestions.filter(
         (question) => Number(question.number) === targetQuestionNumber.value,
       )
-      const moduleMatch = numberMatches.find((question) => (
-        String(question.module_code || '').trim().toLowerCase()
-        === targetModuleId.value
-      ))
+      const moduleMatch = numberMatches.find(
+        (question) =>
+          String(question.module_code || '')
+            .trim()
+            .toLowerCase() === targetModuleId.value,
+      )
       const target = moduleMatch || (numberMatches.length === 1 ? numberMatches[0] : undefined)
       resolvedTargetQuestionId.value = target?.id
     }
@@ -368,29 +371,6 @@ async function redirectDiagnosticReport(examType: string, reportRecordId: string
   align-items: center;
   min-height: 36px;
   margin: 0 0 24px;
-}
-
-.analysis-back {
-  display: inline-flex;
-  gap: 7px;
-  align-items: center;
-  padding: 4px 0;
-  border: 0;
-  background: transparent;
-  color: var(--color-ink-soft);
-  cursor: pointer;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-}
-
-.analysis-back .el-icon {
-  font-size: 17px;
-}
-
-.analysis-back:focus-visible {
-  border-radius: var(--radius-sm);
-  outline: 2px solid var(--color-ink-soft);
-  outline-offset: 3px;
 }
 
 .analysis-page-header > i {

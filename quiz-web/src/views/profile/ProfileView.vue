@@ -1290,7 +1290,7 @@ const diagnosticQuotaItems = computed(() => {
     const quota = quotas[item.value]
     const available = isExamTypeAvailable(item.value)
     const isMember = Boolean(auth.isAdmin || quota?.isMember)
-    const text = available ? (isMember ? '全部试卷已解锁' : '免费卷不限次') : '正在推进中'
+    const text = available ? (isMember ? '会员权益' : '免费权益') : '正在推进中'
 
     return {
       examType: item.value,

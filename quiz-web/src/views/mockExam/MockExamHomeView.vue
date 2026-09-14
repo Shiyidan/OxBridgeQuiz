@@ -87,10 +87,11 @@
               <el-icon aria-hidden="true"><Warning /></el-icon>
               <strong>模考目录暂时无法加载</strong>
               <p>{{ catalogError }}</p>
-              <button type="button" @click="loadCatalog">
-                <el-icon aria-hidden="true"><RefreshRight /></el-icon>
-                重新加载
-              </button>
+              <div class="state-panel__actions">
+                <AppButton type="secondary" size="small" :icon="RefreshRight" @click="loadCatalog">
+                  重新加载
+                </AppButton>
+              </div>
             </div>
 
             <div v-else-if="!papers.length" class="state-panel">
@@ -99,13 +100,11 @@
                 当前条件下没有试卷，可以清除筛选后重试。
               </p>
               <p v-else>后台发布 {{ activeExamType }} 模考卷后会显示在这里。</p>
-              <button
-                v-if="keyword || catalogStatus !== 'all'"
-                type="button"
-                @click="clearCatalogFilters"
-              >
-                清除筛选
-              </button>
+              <div class="state-panel__actions" v-if="keyword || catalogStatus !== 'all'">
+                <AppButton type="secondary" size="small" @click="clearCatalogFilters">
+                  清除筛选
+                </AppButton>
+              </div>
             </div>
 
             <div v-else class="paper-list">
@@ -187,55 +186,43 @@
                 </div>
 
                 <div class="paper-card__actions">
-                  <button
+                  <AppButton
+                    size="medium"
                     v-if="paper.inProgressCount > 0"
-                    type="button"
-                    class="button-secondary"
+                    type="secondary"
                     @click="handleContinuePaper(paper)"
                   >
                     查看未完成
-                  </button>
-                  <button
+                  </AppButton>
+                  <AppButton
+                    size="medium"
                     v-if="paper.completedCount > 0 && paper.latestCompletedExamRecordId"
-                    type="button"
-                    class="button-secondary"
+                    type="secondary"
                     @click="openPaperReport(paper)"
                   >
                     查看报告
-                  </button>
-                  <button
+                  </AppButton>
+                  <AppButton
+                    size="medium"
+                    :loading="startingTargetId === paper.id"
+                    :icon="Lock"
                     v-if="isPaperLocked(paper) && hasPendingDailyCard"
-                    type="button"
-                    class="button-primary button-primary--locked"
-                    :disabled="
-                      startingTargetId === paper.id || paper.publicationStatus !== 'published'
-                    "
+                    :disabled="paper.publicationStatus !== 'published'"
                     @click="handleDailyCardForPaper(paper)"
                   >
-                    <el-icon aria-hidden="true"><Lock /></el-icon>
                     使用免费日卡
-                  </button>
-                  <button
-                    type="button"
-                    :class="
-                      isPaperLocked(paper) && hasPendingDailyCard
-                        ? 'button-secondary'
-                        : [
-                            'button-primary',
-                            { 'button-primary--locked': isPaperLocked(paper) },
-                          ]
-                    "
-                    :disabled="
-                      startingTargetId === paper.id || paper.publicationStatus !== 'published'
-                    "
+                  </AppButton>
+                  <AppButton
+                    size="medium"
+                    :type="isPaperLocked(paper) && hasPendingDailyCard ? 'secondary' : 'primary'"
+                    :icon="isPaperLocked(paper) ? Lock : ArrowRight"
+                    :icon-position="isPaperLocked(paper) ? 'left' : 'right'"
+                    :loading="startingTargetId === paper.id"
+                    :disabled="paper.publicationStatus !== 'published'"
                     @click="handlePaperPrimaryAction(paper)"
                   >
-                    <el-icon v-if="isPaperLocked(paper)" aria-hidden="true"><Lock /></el-icon>
                     {{ paperPrimaryAction(paper) }}
-                    <el-icon v-if="!isPaperLocked(paper)" aria-hidden="true"
-                      ><ArrowRight
-                    /></el-icon>
-                  </button>
+                  </AppButton>
                 </div>
               </article>
             </div>
@@ -303,10 +290,11 @@
               <el-icon aria-hidden="true"><Warning /></el-icon>
               <strong>单项模考暂时无法加载</strong>
               <p>{{ modulesError }}</p>
-              <button type="button" @click="loadModules">
-                <el-icon aria-hidden="true"><RefreshRight /></el-icon>
-                重新加载
-              </button>
+              <div class="state-panel__actions">
+                <AppButton type="secondary" size="small" :icon="RefreshRight" @click="loadModules">
+                  重新加载
+                </AppButton>
+              </div>
             </div>
 
             <div v-else-if="!modules.length" class="state-panel">
@@ -316,13 +304,14 @@
                 当前条件下没有单项，可以清除筛选后重试。
               </p>
               <p v-else>后台发布可用 Module/Paper 后会显示在这里。</p>
-              <button
+              <div
+                class="state-panel__actions"
                 v-if="moduleKeyword || moduleCode || moduleStatus !== 'all'"
-                type="button"
-                @click="clearModuleFilters"
               >
-                清除筛选
-              </button>
+                <AppButton type="secondary" size="small" @click="clearModuleFilters">
+                  清除筛选
+                </AppButton>
+              </div>
             </div>
 
             <div v-else class="paper-list">
@@ -400,9 +389,9 @@
                     </span>
                     <span
                       v-if="
-                        module.inProgressCount === 0
-                        && module.completedCount === 0
-                        && !module.practicedInFull
+                        module.inProgressCount === 0 &&
+                        module.completedCount === 0 &&
+                        !module.practicedInFull
                       "
                     >
                       尚未练习
@@ -414,41 +403,33 @@
                 </div>
 
                 <div class="paper-card__actions">
-                  <button
+                  <AppButton
+                    size="medium"
                     v-if="module.inProgressCount > 0"
-                    type="button"
-                    class="button-secondary"
+                    type="secondary"
                     @click="handleContinueModule(module)"
                   >
                     查看未完成
-                  </button>
-                  <button
+                  </AppButton>
+                  <AppButton
+                    size="medium"
+                    :loading="startingTargetId === module.id"
+                    :icon="Lock"
                     v-if="isModuleLocked(module) && hasPendingDailyCard"
-                    type="button"
-                    class="button-primary button-primary--locked"
-                    :disabled="startingTargetId === module.id"
                     @click="handleDailyCardForModule(module)"
                   >
-                    <el-icon aria-hidden="true"><Lock /></el-icon>
                     使用免费日卡
-                  </button>
-                  <button
-                    type="button"
-                    :class="
-                      isModuleLocked(module) && hasPendingDailyCard
-                        ? 'button-secondary'
-                        : [
-                            'button-primary',
-                            { 'button-primary--locked': isModuleLocked(module) },
-                          ]
-                    "
-                    :disabled="startingTargetId === module.id"
+                  </AppButton>
+                  <AppButton
+                    size="medium"
+                    :type="isModuleLocked(module) && hasPendingDailyCard ? 'secondary' : 'primary'"
+                    :icon="isModuleLocked(module) ? Lock : ArrowRight"
+                    :icon-position="isModuleLocked(module) ? 'left' : 'right'"
+                    :loading="startingTargetId === module.id"
                     @click="handleModulePrimaryAction(module)"
                   >
-                    <el-icon v-if="isModuleLocked(module)" aria-hidden="true"><Lock /></el-icon>
                     {{ modulePrimaryAction(module) }}
-                    <el-icon v-if="!isModuleLocked(module)" aria-hidden="true"><ArrowRight /></el-icon>
-                  </button>
+                  </AppButton>
                 </div>
               </article>
             </div>
@@ -471,7 +452,9 @@
               ></span>
               <h2>登录后查看模考记录</h2>
               <p>未完成进度、历次成绩、报告和错题都保存在你的账号中。</p>
-              <button type="button" @click="requireLogin">立即登录</button>
+              <div class="state-panel__actions">
+                <AppButton @click="requireLogin">立即登录</AppButton>
+              </div>
             </div>
 
             <template v-else>
@@ -519,7 +502,9 @@
                 <el-icon aria-hidden="true"><Warning /></el-icon>
                 <strong>模考记录暂时无法加载</strong>
                 <p>{{ recordsError }}</p>
-                <button type="button" @click="loadRecords">重新加载</button>
+                <div class="state-panel__actions">
+                  <AppButton type="secondary" size="small" @click="loadRecords">重新加载</AppButton>
+                </div>
               </div>
               <div v-else-if="!records.length" class="state-panel">
                 <el-empty description="当前无模考记录" :image-size="72" />
@@ -588,15 +573,17 @@
                             <dt>{{ module.label }}</dt>
                             <dd>
                               <strong>{{ formatScore(module.score) }} 分</strong>
-                              <small>{{ module.correctCount }}/{{ module.totalQuestions }} 题</small>
+                              <small
+                                >{{ module.correctCount }}/{{ module.totalQuestions }} 题</small
+                              >
                             </dd>
                           </div>
                         </template>
                         <div
                           v-if="
-                            record.status === 'in_progress'
-                            || (record.mode === 'full' && activeExamType === 'TMUA')
-                            || !record.moduleScores.length
+                            record.status === 'in_progress' ||
+                            (record.mode === 'full' && activeExamType === 'TMUA') ||
+                            !record.moduleScores.length
                           "
                         >
                           <dt>{{ record.status === 'in_progress' ? '剩余时间' : '本次成绩' }}</dt>
@@ -610,29 +597,38 @@
                         </div>
                       </dl>
                     </div>
-                    <div class="record-card__actions">
-                      <button
+                    <div
+                      class="record-card__actions"
+                      :class="{ 'record-card__actions--in-progress': record.status === 'in_progress' }"
+                    >
+                      <AppButton
+                        type="text"
+                        class="record-card__abandon"
+                        size="medium"
                         v-if="record.status === 'in_progress'"
-                        type="button"
-                        class="button-danger-text"
                         @click="requestAbandon(record)"
                       >
                         放弃本次
-                      </button>
-                      <button
-                        v-else
-                        type="button"
-                        class="button-secondary"
+                      </AppButton>
+                      <AppButton
+                        type="secondary"
+                        size="medium"
+                        v-if="record.status !== 'in_progress'"
                         :disabled="record.wrongCount === 0"
                         @click="openWrongReview(record)"
                       >
-                        {{ record.wrongCount === 0 ? '本场无错题' : `错题回顾（${record.wrongCount}）` }}
-                      </button>
-                      <button
+                        {{
+                          record.wrongCount === 0
+                            ? '本场无错题'
+                            : `错题回顾（${record.wrongCount}）`
+                        }}
+                      </AppButton>
+                      <AppButton
+                        size="medium"
+                        :icon="ArrowRight"
+                        icon-position="right"
                         v-if="record.status === 'in_progress' || record.mode === 'full'"
-                        type="button"
-                        class="button-primary"
-                        :disabled="retryingReportId === record.examRecordId"
+                        :loading="retryingReportId === record.examRecordId"
                         @click="
                           record.status === 'in_progress'
                             ? continueRecord(record)
@@ -642,8 +638,7 @@
                         {{
                           record.status === 'in_progress' ? '继续考试' : reportActionLabel(record)
                         }}
-                        <el-icon aria-hidden="true"><ArrowRight /></el-icon>
-                      </button>
+                      </AppButton>
                     </div>
                   </div>
                 </article>
@@ -684,7 +679,9 @@
             </div>
             <div v-if="!auth.isLoggedIn" class="overview-login">
               <p>登录后查看完成次数、最佳成绩和近五次趋势。</p>
-              <button type="button" @click="requireLogin">登录查看</button>
+              <div class="state-panel__actions">
+                <AppButton @click="requireLogin">登录查看</AppButton>
+              </div>
             </div>
             <template v-else>
               <div class="overview-metrics">
@@ -696,9 +693,7 @@
                 <div>
                   <span>{{ activeExamType === 'ESAT' ? '最佳单科' : '最佳成绩' }}</span>
                   <strong>{{ formatScore(overview?.bestScore) }}</strong>
-                  <small
-                    v-if="activeExamType === 'ESAT' && overview?.bestScoreModuleLabel"
-                  >
+                  <small v-if="activeExamType === 'ESAT' && overview?.bestScoreModuleLabel">
                     {{ overview.bestScoreModuleLabel }}
                     <template
                       v-if="overview.targetScore !== null && overview.targetScore !== undefined"
@@ -707,7 +702,9 @@
                     </template>
                   </small>
                   <small
-                    v-else-if="overview?.targetScore !== null && overview?.targetScore !== undefined"
+                    v-else-if="
+                      overview?.targetScore !== null && overview?.targetScore !== undefined
+                    "
                   >
                     目标 {{ formatScore(overview.targetScore) }}
                   </small>
@@ -776,21 +773,27 @@
       </div>
     </main>
 
-    <AppConfirmDialog
+    <AppDialog
       v-model="subjectSetupDialogVisible"
       title="设置 ESAT 备考科目"
-      message="开始 ESAT 模考前，需要先选择三门备考科目。是否前往个人中心进行设置？"
+      :icon="WarningFilled"
+      icon-color="var(--color-warning)"
       confirm-text="前往设置"
       cancel-text="暂不设置"
       @confirm="goToSubjectSettings"
-    />
+    >
+      <p>开始 ESAT 模考前，需要先选择三门备考科目。是否前往个人中心进行设置？</p>
+    </AppDialog>
 
-    <el-dialog
+    <AppDialog
       v-model="startDialogVisible"
-      width="560px"
-      class="mock-start-dialog"
       :title="selectedStartModule ? '确认开始单项模考' : '确认开始模考'"
-      align-center
+      :close-on-click-modal="true"
+      :close-on-press-escape="true"
+      :loading="Boolean(startingTargetId)"
+      :confirm-disabled="!rulesAccepted"
+      :confirm-text="startingTargetId ? '正在创建答卷...' : '确认开始'"
+      @confirm="confirmStartContent"
       destroy-on-close
       @closed="clearStartSelection"
     >
@@ -822,76 +825,44 @@
           <span>我已阅读并了解以上规则</span>
         </label>
       </div>
-      <template #footer>
-        <button
-          type="button"
-          class="dialog-button dialog-button--secondary"
-          @click="startDialogVisible = false"
-        >
-          取消
-        </button>
-        <button
-          type="button"
-          class="dialog-button dialog-button--primary start-confirm-button"
-          :disabled="!rulesAccepted || Boolean(startingTargetId)"
-          @click="confirmStartContent"
-        >
-          {{ startingTargetId ? '正在创建答卷...' : '确认开始' }}
-        </button>
-      </template>
-    </el-dialog>
+    </AppDialog>
 
-    <el-dialog
+    <AppDialog
       v-model="attemptDialogVisible"
-      width="620px"
-      class="mock-attempt-dialog"
       title="选择要继续的模考"
-      align-center
+      :show-footer="false"
     >
       <div class="attempt-options">
-        <button
-          v-for="attempt in selectedAttempts"
-          :key="attempt.examRecordId"
-          type="button"
-          @click="continueAttempt(attempt)"
-        >
-          <span>
+        <div v-for="attempt in selectedAttempts" :key="attempt.examRecordId" class="attempt-option">
+          <div class="attempt-option__copy">
             <strong>{{ attempt.currentModuleLabel || '等待开始' }}</strong>
             <small>{{ formatDateTime(attempt.updatedAt) }} 更新</small>
-          </span>
+          </div>
           <span>{{ attempt.answeredCount }}/{{ attempt.totalQuestions }} 题</span>
-          <el-icon aria-hidden="true"><ArrowRight /></el-icon>
-        </button>
+          <AppButton
+            size="small"
+            :icon="ArrowRight"
+            icon-position="right"
+            @click="continueAttempt(attempt)"
+            >继续作答</AppButton
+          >
+        </div>
       </div>
-    </el-dialog>
+    </AppDialog>
 
-    <el-dialog
+    <AppDialog
       v-model="abandonDialogVisible"
-      width="500px"
-      class="mock-abandon-dialog"
       title="放弃本次模考？"
-      align-center
+      :icon="WarningFilled"
+      icon-color="var(--color-warning)"
+      confirm-type="danger"
+      :confirm-text="abandoning ? '正在放弃...' : '确认放弃'"
+      :loading="abandoning"
+      @confirm="confirmAbandon"
       @closed="selectedAbandonRecord = null"
     >
       <p>放弃后本次进度将永久删除且无法恢复，不会生成成绩、报告或错题记录。</p>
-      <template #footer>
-        <button
-          type="button"
-          class="dialog-button dialog-button--secondary"
-          @click="abandonDialogVisible = false"
-        >
-          取消
-        </button>
-        <button
-          type="button"
-          class="dialog-button dialog-button--danger"
-          :disabled="abandoning"
-          @click="confirmAbandon"
-        >
-          {{ abandoning ? '正在放弃...' : '确认放弃' }}
-        </button>
-      </template>
-    </el-dialog>
+    </AppDialog>
 
     <DiagnosticAnalysisDialog
       :model-value="analysisDialogVisible"
@@ -939,10 +910,12 @@ import {
   Search,
   UserFilled,
   Warning,
+  WarningFilled,
 } from '@element-plus/icons-vue'
 import NavBar from '@/components/NavBar.vue'
 import AppPagination from '@/components/AppPagination.vue'
-import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
+import AppButton from '@/components/AppButton.vue'
+import AppDialog from '@/components/AppDialog.vue'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import DiagnosticAnalysisDialog from '@/components/DiagnosticAnalysisDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
@@ -986,11 +959,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const activeTab = ref<PageTab>(
-  route.query.tab === 'records'
-    ? 'records'
-    : route.query.tab === 'modules'
-      ? 'modules'
-      : 'catalog',
+  route.query.tab === 'records' ? 'records' : route.query.tab === 'modules' ? 'modules' : 'catalog',
 )
 const keywordDraft = ref('')
 const keyword = ref('')
@@ -1106,10 +1075,12 @@ const moduleCodeOptions = computed(() =>
 const selectedStartContent = computed(() => selectedStartModule.value || selectedStartPaper.value)
 
 // 跨完整与单项的练习状态只用于提示，不阻止学生创建新的独立答卷。
-const isSelectedModulePracticed = computed(() => Boolean(
-  selectedStartModule.value
-  && (selectedStartModule.value.practicedInFull || selectedStartModule.value.completedCount > 0),
-))
+const isSelectedModulePracticed = computed(() =>
+  Boolean(
+    selectedStartModule.value &&
+    (selectedStartModule.value.practicedInFull || selectedStartModule.value.completedCount > 0),
+  ),
+)
 
 // 已知存在待启用日卡时，在锁定试卷上并列展示免费与付费解锁入口。
 const hasPendingDailyCard = computed(() => Boolean(auth.memberContext?.pendingDailyCards.length))
@@ -1172,8 +1143,8 @@ function isPaperLocked(paper: MockExamPaperItem): boolean {
 // 单项权限继承所属 Mock，与完整模考使用同一考试会员资格。
 function isModuleLocked(module: MockExamModuleItem): boolean {
   return (
-    module.accessTier !== PAPER_ACCESS_TIER.FREE
-    && !hasExamMembership(module.examType || activeExamType.value)
+    module.accessTier !== PAPER_ACCESS_TIER.FREE &&
+    !hasExamMembership(module.examType || activeExamType.value)
   )
 }
 
@@ -1327,11 +1298,12 @@ async function loadOverview(): Promise<void> {
   overviewLoading.value = true
   overviewError.value = ''
   try {
-    const overviewMode: MockExamRecordMode = activeTab.value === 'records'
-      ? recordMode.value
-      : activeTab.value === 'modules'
-        ? 'single'
-        : 'full'
+    const overviewMode: MockExamRecordMode =
+      activeTab.value === 'records'
+        ? recordMode.value
+        : activeTab.value === 'modules'
+          ? 'single'
+          : 'full'
     const data = await getMockExamOverviewData(activeExamType.value, overviewMode)
     if (sequence !== overviewLoadSequence) return
     overview.value = data
@@ -1442,10 +1414,7 @@ async function handleStartPaper(paper: MockExamPaperItem): Promise<void> {
     return
   }
   const esatSubjects = auth.memberContext?.studyPreferences.esatSubjects || []
-  if (
-    paper.examType === 'ESAT'
-    && (esatSubjects.length !== 3 || !esatSubjects.includes('数学1'))
-  ) {
+  if (paper.examType === 'ESAT' && (esatSubjects.length !== 3 || !esatSubjects.includes('数学1'))) {
     subjectSetupDialogVisible.value = true
     return
   }
@@ -1478,6 +1447,7 @@ async function handleStartModule(module: MockExamModuleItem): Promise<void> {
 
 // 用户确认后携带目标编辑标识进入个人中心，由目标偏好弹窗直接承接科目设置。
 function goToSubjectSettings(): void {
+  subjectSetupDialogVisible.value = false
   void router.push({ path: '/profile', query: { editGoals: '1' } })
 }
 
@@ -2126,10 +2096,7 @@ onMounted(async () => {
   font-family: inherit;
 }
 
-.catalog-search button,
-.state-panel button,
-.login-gate button,
-.overview-login button {
+.catalog-search button {
   height: 100%;
   padding: 0 15px;
   border: 0;
@@ -2141,7 +2108,35 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-.catalog-filters,
+.catalog-filters {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  background: var(--color-hover);
+}
+
+.catalog-filters button {
+  flex: 0 0 auto;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-ink-muted);
+  font-family: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.catalog-filters button.is-active {
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--color-ink);
+  font-weight: var(--weight-semi);
+}
+
 .record-mode-switch,
 .record-status-switch {
   display: flex;
@@ -2151,7 +2146,6 @@ onMounted(async () => {
   background: var(--color-hover);
 }
 
-.catalog-filters button,
 .record-mode-switch button,
 .record-status-switch button {
   flex: 0 0 auto;
@@ -2167,7 +2161,6 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-.catalog-filters button.is-active,
 .record-mode-switch button.is-active,
 .record-status-switch button.is-active {
   background: var(--color-surface);
@@ -2344,61 +2337,16 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 9px;
+  gap: 12px;
+  align-items: flex-end;
   padding: 20px;
   border-left: 1px solid var(--color-line-soft);
   background: rgba(250, 250, 250, 0.72);
 }
 
-.button-primary,
-.button-secondary,
-.dialog-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  height: 38px;
-  padding: 0 15px;
-  border-radius: var(--radius-md);
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: var(--weight-semi);
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.button-primary {
-  border: 1px solid var(--color-ink);
-  background: var(--color-ink);
-  color: var(--color-ink-inverse);
-}
-
-.button-primary--locked {
-  border-color: #2f2a20;
-  background: #2f2a20;
-}
-
-.button-primary:disabled {
-  border-color: var(--color-line);
-  background: var(--color-active);
-  color: var(--color-ink-muted);
-  cursor: not-allowed;
-}
-
-.button-secondary {
-  border: 1px solid var(--color-line);
-  background: var(--color-surface);
-  color: var(--color-ink-soft);
-}
-
-.button-secondary:hover {
-  border-color: var(--color-ink);
-  color: var(--color-ink);
-}
-
-.button-secondary:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+/* 同一卡片的操作按钮占满各自列宽，避免图标造成宽度不一致。 */
+.paper-card__actions > .app-button.el-button {
+  width: 100%;
 }
 
 .state-panel,
@@ -2439,18 +2387,6 @@ onMounted(async () => {
   margin-top: 8px;
   font-size: var(--text-sm);
 }
-
-.state-panel button,
-.login-gate button,
-.overview-login button {
-  height: 38px;
-  margin-top: 20px;
-  border: 1px solid var(--color-ink);
-  border-radius: var(--radius-md);
-  background: var(--color-ink);
-  color: var(--color-ink-inverse);
-}
-
 
 .state-panel__spinner {
   width: 30px;
@@ -2497,7 +2433,8 @@ onMounted(async () => {
 
 .record-card__top > div > span {
   color: var(--color-ink-muted);
-  font-size: 10px;
+  font-size: 12px;
+  line-height: 1.5;
   font-weight: var(--weight-bold);
   letter-spacing: 0.1em;
 }
@@ -2507,37 +2444,43 @@ onMounted(async () => {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  margin-bottom: 6px;
 }
 
 .record-card__meta > span {
   color: var(--color-ink-muted);
-  font-size: 10px;
+  font-size: 12px;
+  line-height: 1.5;
   font-weight: var(--weight-bold);
   letter-spacing: 0.1em;
   overflow-wrap: anywhere;
 }
 
 .record-card__meta b {
-  padding: 3px 7px;
-  border: 1px solid #a8b4c4;
-  border-radius: 4px;
-  background: #cbd5e1;
-  color: #334155;
-  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border-radius: 5px;
+  background: #eef3fc;
+  color: #44649a;
+  font-size: 12px;
+  line-height: 1.5;
   font-weight: var(--weight-semi);
+  white-space: nowrap;
 }
 
 .record-card__meta b[data-mode='single'] {
-  border-color: #2563eb;
-  background: #2563eb;
-  color: #ffffff;
+  background: #f2effb;
+  color: #7560a5;
 }
 
 .record-card__top small {
   display: block;
   margin-top: 5px;
   color: var(--color-ink-muted);
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .record-card__title-line {
@@ -2556,7 +2499,8 @@ onMounted(async () => {
   border-radius: var(--radius-pill);
   background: var(--color-warning-bg);
   color: #a66b08;
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 1.5;
   font-style: normal;
   font-weight: var(--weight-semi);
 }
@@ -2598,7 +2542,8 @@ onMounted(async () => {
 
 .record-card dt {
   color: var(--color-ink-muted);
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .record-card dd {
@@ -2621,28 +2566,30 @@ onMounted(async () => {
 
 .record-card__module-stat dd small {
   color: var(--color-ink-muted);
-  font-size: 10px;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .record-card__actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  justify-content: flex-end;
   gap: 12px;
 }
 
-.record-card__actions .button-secondary {
-  white-space: nowrap;
+/* 进行中记录的放弃与继续操作并排显示，沿用同一行的垂直居中对齐。 */
+.record-card__actions--in-progress {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.button-danger-text {
-  margin-right: auto;
-  border: 0;
-  background: transparent;
-  color: var(--color-danger);
-  font-family: inherit;
-  font-size: 12px;
-  cursor: pointer;
+/* 记录操作上下排列并共用列宽，图标不影响同组按钮的对齐。 */
+.record-card__actions > .app-button.el-button {
+  width: 100%;
+}
+
+.record-card__actions > .record-card__abandon.app-button.el-button {
+  --app-button-color: var(--color-danger);
+  --app-button-hover-bg: var(--color-danger-bg);
 }
 
 .mock-sidebar {
@@ -2756,11 +2703,6 @@ onMounted(async () => {
   background: var(--color-surface-alt);
   color: var(--color-ink-muted);
   font-size: 12px;
-}
-
-.overview-login button {
-  width: 100%;
-  margin-top: 14px;
 }
 
 .module-guide-card > strong {
@@ -2954,60 +2896,9 @@ onMounted(async () => {
   font-size: 12px;
 }
 
-.dialog-button--secondary {
-  border: 1px solid var(--color-line);
-  background: var(--color-surface);
-  color: var(--color-ink-soft);
-}
-
-.dialog-button--primary {
-  border: 1px solid var(--color-ink);
-  background: var(--color-ink);
-  color: var(--color-ink-inverse);
-}
-
-.start-confirm-button {
-  margin-left: 8px;
-}
-
-.dialog-button--danger {
-  border: 1px solid var(--color-danger);
-  background: var(--color-danger);
-  color: var(--color-ink-inverse);
-}
-
-.dialog-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .attempt-options {
   display: grid;
   gap: 9px;
-}
-
-.attempt-options button {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 16px;
-  padding: 14px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  color: var(--color-ink-soft);
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.attempt-options button:hover {
-  border-color: var(--color-ink);
-}
-
-.attempt-options button > span:first-child {
-  display: grid;
-  gap: 3px;
 }
 
 .attempt-options strong {
@@ -3015,21 +2906,9 @@ onMounted(async () => {
   font-weight: var(--weight-semi);
 }
 
-.mock-abandon-dialog p {
-  color: var(--color-ink-soft);
-  font-size: var(--text-sm);
-  line-height: 1.7;
-}
-
 :deep(.app-pagination) {
   margin-top: 20px;
   background: transparent;
-}
-
-:deep(.mock-start-dialog),
-:deep(.mock-attempt-dialog),
-:deep(.mock-abandon-dialog) {
-  border-radius: var(--radius-xl);
 }
 
 @keyframes spin {
@@ -3173,11 +3052,6 @@ onMounted(async () => {
     overflow-x: auto;
   }
 
-  .catalog-filters button,
-  .record-status-switch button {
-    flex: 0 0 auto;
-  }
-
   .paper-card {
     width: 100%;
     min-width: 0;
@@ -3224,10 +3098,6 @@ onMounted(async () => {
     border-left: 0;
   }
 
-  .paper-card__actions button:only-child {
-    grid-column: 1 / -1;
-  }
-
   .state-panel,
   .login-gate {
     min-height: 280px;
@@ -3257,15 +3127,6 @@ onMounted(async () => {
     gap: 12px;
   }
 
-  .record-card__actions {
-    justify-content: stretch;
-    flex-wrap: wrap;
-  }
-
-  .record-card__actions button {
-    flex: 1 1 120px;
-  }
-
   .mock-sidebar {
     width: 100%;
     min-width: 0;
@@ -3285,12 +3146,6 @@ onMounted(async () => {
     overflow-x: auto;
   }
 
-  :deep(.mock-start-dialog),
-  :deep(.mock-attempt-dialog),
-  :deep(.mock-abandon-dialog) {
-    width: calc(100vw - 24px) !important;
-    max-width: none;
-  }
 }
 
 @media (max-width: 480px) {
@@ -3306,10 +3161,6 @@ onMounted(async () => {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .paper-card__actions button {
-    width: 100%;
-  }
-
   .record-card dl {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -3322,6 +3173,37 @@ onMounted(async () => {
     grid-template-columns: 38px minmax(0, 1fr) auto;
     gap: 9px;
     padding: 14px;
+  }
+}
+/* 操作容器只负责排列与间距，按钮样式统一由 AppButton 提供。 */
+.state-panel__actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.attempt-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  color: var(--color-ink-soft);
+}
+.attempt-option__copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .attempt-option {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .attempt-option .app-button {
+    grid-column: 1 / -1;
+    justify-self: end;
   }
 }
 </style>

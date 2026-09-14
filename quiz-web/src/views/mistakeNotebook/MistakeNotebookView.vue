@@ -1,3 +1,4 @@
+<!-- 错题本列表：筛选长期错题记录，并保持往返解析时的筛选与分页上下文。 -->
 <template>
   <div class="mistake-notebook-page">
     <NavBar />
@@ -116,19 +117,10 @@
           </label>
 
           <div class="filter-actions">
-            <el-button
-              type="primary"
-              :disabled="wrongLoading"
-              @click="applyFilters"
-            >
-              搜索
-            </el-button>
-            <el-button
-              :disabled="wrongLoading"
-              @click="resetFilters"
-            >
+            <AppButton size="small" :loading="wrongLoading" @click="applyFilters"> 搜索 </AppButton>
+            <AppButton type="secondary" size="small" :disabled="wrongLoading" @click="resetFilters">
               重置
-            </el-button>
+            </AppButton>
           </div>
 
           <p v-if="syllabusError" class="filter-message" role="status">
@@ -138,14 +130,14 @@
 
         <div v-if="wrongError && wrongList.length" class="inline-error" role="alert">
           <span>{{ wrongError }}，当前仍显示上一次成功加载的结果。</span>
-          <button
-            type="button"
-            class="button_cancel"
-            :disabled="wrongLoading"
+          <AppButton
+            type="secondary"
+            size="small"
+            :loading="wrongLoading"
             @click="retryWrongAnswers"
           >
             重新加载
-          </button>
+          </AppButton>
         </div>
 
         <div v-if="wrongLoading && wrongList.length === 0" class="section-card section-card--empty">
@@ -159,14 +151,9 @@
         >
           <h3>错题加载失败</h3>
           <p class="empty-desc">{{ wrongError }}</p>
-          <button
-            type="button"
-            class="state-action button_cancel"
-            :disabled="wrongLoading"
-            @click="retryWrongAnswers"
-          >
+          <AppButton type="secondary" :loading="wrongLoading" @click="retryWrongAnswers">
             重新加载
-          </button>
+          </AppButton>
         </div>
 
         <div v-else-if="wrongList.length === 0" class="section-card section-card--empty">
@@ -240,21 +227,32 @@
 
               <router-link
                 v-if="item.examRecord?.id"
+                v-slot="{ href, navigate }"
                 :to="analysisLink(item)"
-                class="wrong-item__action"
-                aria-label="查看试题解析"
+                custom
               >
-                <span>查看解析</span>
+                <AppButton
+                  tag="a"
+                  :href="href"
+                  type="secondary"
+                  size="small"
+                  class="wrong-item__action"
+                  aria-label="查看试题解析"
+                  @click="navigate"
+                >
+                  查看解析
+                </AppButton>
               </router-link>
-              <button
+              <AppButton
                 v-else
-                class="wrong-item__action wrong-item__action--disabled"
-                type="button"
+                class="wrong-item__action"
+                type="secondary"
+                size="small"
                 disabled
                 aria-label="缺少答题记录，暂时无法查看解析"
               >
-                <span>查看解析</span>
-              </button>
+                查看解析
+              </AppButton>
             </article>
           </div>
         </div>
@@ -279,6 +277,7 @@ import { useRoute, useRouter } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
 import LatexText from '@/components/LatexText.vue'
 import AppPagination from '@/components/AppPagination.vue'
+import AppButton from '@/components/AppButton.vue'
 import {
   getMistakeNotebookData,
   recordMistakeNotebookVisit,
@@ -458,7 +457,9 @@ function restoreStateFromRoute(): void {
   const endDate = String(route.query.endDate || '')
   draftFilters.dateRange = startDate && endDate ? [startDate, endDate] : []
   const keyword = Array.isArray(route.query.keyword) ? route.query.keyword[0] : route.query.keyword
-  draftFilters.keyword = String(keyword || '').trim().slice(0, 100)
+  draftFilters.keyword = String(keyword || '')
+    .trim()
+    .slice(0, 100)
   pagination.page = positiveRouteNumber(route.query.page, 1)
   pagination.pageSize = positiveRouteNumber(route.query.pageSize, 20)
 }
@@ -507,7 +508,8 @@ async function loadWrongAnswers(): Promise<boolean> {
       endDate: appliedFilters.dateRange?.[1],
       keyword: appliedFilters.keyword,
     })
-    if (requestId !== wrongRequestSequence || requestedExamType !== activeExamType.value) return false
+    if (requestId !== wrongRequestSequence || requestedExamType !== activeExamType.value)
+      return false
     wrongList.value = result.list || []
     pagination.page = result.pagination.page
     pagination.pageSize = result.pagination.pageSize
@@ -516,7 +518,8 @@ async function loadWrongAnswers(): Promise<boolean> {
     earliestWrongDate.value = dateOnly(result.dateBounds?.min)
     return true
   } catch (error: unknown) {
-    if (requestId !== wrongRequestSequence || requestedExamType !== activeExamType.value) return false
+    if (requestId !== wrongRequestSequence || requestedExamType !== activeExamType.value)
+      return false
     wrongError.value = getApiErrorMessage(error, '错题加载失败，请稍后重试')
     return false
   } finally {
@@ -662,8 +665,9 @@ function questionTitle(item: WrongAnswer): string {
 
 // 知识点摘要最多直接展示两个名称，其余数量以紧凑后缀提示。
 function knowledgeText(item: WrongAnswer): string {
-  const labels = (item.knowledge_points || [])
-    .flatMap((point) => (point.label ? [point.label] : []))
+  const labels = (item.knowledge_points || []).flatMap((point) =>
+    point.label ? [point.label] : [],
+  )
   if (!labels.length) return ''
   const visible = labels.slice(0, 2).join(' · ')
   return labels.length > 2 ? `${visible} +${labels.length - 2}` : visible
@@ -708,7 +712,6 @@ function dateOnly(value?: string | null): string | null {
   const matched = /^(\d{4}-\d{2}-\d{2})/.exec(value)
   return matched?.[1] || null
 }
-
 </script>
 
 <style scoped lang="scss">
@@ -846,7 +849,7 @@ function dateOnly(value?: string | null): string | null {
 .filter-actions {
   display: flex;
   grid-column: 4;
-  gap: 8px;
+  gap: 12px;
   align-items: center;
   justify-content: flex-end;
 }
@@ -893,14 +896,8 @@ function dateOnly(value?: string | null): string | null {
   gap: 12px;
 }
 
-.state-action {
-  min-width: 96px;
-  min-height: var(--height-button);
-  margin-top: 6px;
-  padding: 0 18px;
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semi);
+.section-card--empty > .app-button {
+  justify-self: center;
 }
 
 .inline-error {
@@ -915,13 +912,6 @@ function dateOnly(value?: string | null): string | null {
   background: color-mix(in srgb, var(--color-danger) 6%, var(--color-surface));
   color: var(--color-danger);
   font-size: var(--text-sm);
-
-  button {
-    flex: none;
-    min-height: 36px;
-    padding: 0 14px;
-    border-radius: var(--radius-md);
-  }
 }
 
 .empty-icon {
@@ -1060,44 +1050,8 @@ function dateOnly(value?: string | null): string | null {
   color: var(--color-info);
 }
 
-.wrong-item__action {
-  display: inline-grid;
-  align-items: center;
-  min-width: 0;
-  color: var(--color-ink);
-  border: 0;
-  background: transparent;
-  font-size: var(--text-xs);
-  font-family: inherit;
-  font-weight: var(--weight-semi);
-  text-decoration: none;
-}
-
-.wrong-item__action > span {
-  display: inline-grid;
-  min-width: 86px;
-  min-height: 36px;
-  padding: 0 16px;
-  place-items: center;
-  border: 1px solid var(--color-ink-soft);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-}
-
-.wrong-item__action:hover > span,
-.wrong-item__action:focus-visible > span {
-  border-color: var(--color-ink-soft);
-}
-
-.wrong-item__action--disabled {
-  border: 0;
-  background: transparent;
-  color: var(--color-ink-muted);
-  cursor: not-allowed;
-}
-
-.wrong-item__action--disabled > span {
-  background: var(--color-surface-alt);
+.wrong-item > .wrong-item__action {
+  justify-self: end;
 }
 
 @media (max-width: 780px), (max-device-width: 780px) {
@@ -1141,9 +1095,8 @@ function dateOnly(value?: string | null): string | null {
   }
 
   .filter-actions {
-    grid-column: auto;
-    gap: 4px;
-    justify-content: stretch;
+    grid-column: 1 / -1;
+    justify-content: flex-end;
   }
 
   .filter-field {
@@ -1203,7 +1156,7 @@ function dateOnly(value?: string | null): string | null {
     padding: 14px;
   }
 
-  .wrong-item__action {
+  .wrong-item > .wrong-item__action {
     grid-column: 2;
     justify-self: end;
   }

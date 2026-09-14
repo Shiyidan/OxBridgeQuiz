@@ -1,16 +1,11 @@
 <!-- 会员访问拦截弹窗：有管理员赠送日卡时优先启用，否则承接原有付费升级提示。 -->
 <template>
-  <el-dialog
+  <AppDialog
     :model-value="modelValue"
     :title="dialogTitle"
-    width="520px"
-    class="daily-card-access-dialog"
-    :close-on-click-modal="false"
-    :close-on-press-escape="false"
-    :before-close="handleBeforeClose"
-    append-to-body
-    align-center
-    @close="handleDialogClose"
+    :loading="busy"
+    @confirm="handlePrimaryAction"
+    @cancel="handleCancel"
   >
     <div class="daily-card-access-dialog__content" aria-live="polite">
       <div v-if="checking" class="daily-card-access-dialog__state">
@@ -33,7 +28,8 @@
           使用1张免费日卡，解锁当前考试会员权益24小时，会员到期后仍可查看历史报告。
         </p>
         <div class="daily-card-access-dialog__card-note">
-          <strong>{{ examType }} 会员权益</strong>
+          <span class="daily-card-access-dialog__card-kind">{{ examType }} 会员权益 · 日卡</span>
+          <strong>AceMock 一日会员卡</strong>
           <span>启用成功后，可继续刚才的操作</span>
           <small v-if="activationDeadlineText"> 请在 {{ activationDeadlineText }} 前使用 </small>
         </div>
@@ -47,35 +43,30 @@
       </p>
     </div>
 
-    <template #footer>
-      <div class="daily-card-access-dialog__actions">
-        <button type="button" class="button_cancel" :disabled="busy" @click="handleCancel">
-          {{ resolvedCancelText }}
-        </button>
-        <button
-          v-if="showMembershipChoice"
-          type="button"
-          class="button_cancel daily-card-access-dialog__upgrade"
-          :disabled="busy"
-          @click="handleUpgradeChoice"
-        >
-          开通会员
-        </button>
-        <button
-          type="button"
-          class="button_primary"
-          :disabled="checking || activating"
-          @click="handlePrimaryAction"
-        >
-          {{ primaryActionText }}
-        </button>
-      </div>
+    <template #footer="{ cancel, confirm }">
+      <AppButton type="secondary" size="small" :disabled="busy" @click="cancel">
+        {{ resolvedCancelText }}
+      </AppButton>
+      <AppButton
+        v-if="showMembershipChoice"
+        type="secondary"
+        size="small"
+        :disabled="busy"
+        @click="handleUpgradeChoice"
+      >
+        开通会员
+      </AppButton>
+      <AppButton size="small" :loading="busy" @click="confirm">
+        {{ primaryActionText }}
+      </AppButton>
     </template>
-  </el-dialog>
+  </AppDialog>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import AppDialog from '@/components/AppDialog.vue'
+import AppButton from '@/components/AppButton.vue'
 import { activateInvitationReward } from '@/api/invitations'
 import { getMember, type PendingDailyCard } from '@/api/member'
 import { useAuthStore } from '@/stores/auth'
@@ -109,7 +100,6 @@ const activating = ref(false)
 const errorMessage = ref('')
 const accessCheckFailed = ref(false)
 const activationCompleted = ref(false)
-let actionHandled = false
 let accessCheckSequence = 0
 let interactionGeneration = 0
 
@@ -216,13 +206,11 @@ async function prepareAccessState(): Promise<void> {
     }
     auth.setMemberContext(memberContext)
     if (hasMembershipForExam(requestedExamType)) {
-      actionHandled = true
       emit('update:modelValue', false)
       emit('activated')
       return
     }
     if (props.directUpgradeWhenNoCard && memberContext.pendingDailyCards.length === 0) {
-      actionHandled = true
       emit('update:modelValue', false)
       emit('upgrade')
     }
@@ -269,7 +257,6 @@ async function activateDailyCard(): Promise<void> {
       errorMessage.value = '日卡已启用，但会员权益尚未生效，请点击刷新会员状态。'
       return
     }
-    actionHandled = true
     emit('update:modelValue', false)
     emit('activated')
   } catch (error: unknown) {
@@ -288,7 +275,6 @@ async function activateDailyCard(): Promise<void> {
         }
         auth.setMemberContext(memberContext)
         if (hasMembershipForExam(requestedExamType)) {
-          actionHandled = true
           emit('update:modelValue', false)
           emit('activated')
           return
@@ -307,7 +293,6 @@ async function activateDailyCard(): Promise<void> {
 // 用户主动选择付费方案时关闭日卡提示，并把冻结的原操作交给支付流程续接。
 function handleUpgradeChoice(): void {
   if (busy.value) return
-  actionHandled = true
   emit('update:modelValue', false)
   emit('upgrade')
 }
@@ -323,7 +308,6 @@ async function handlePrimaryAction(): Promise<void> {
     await activateDailyCard()
     return
   }
-  actionHandled = true
   emit('update:modelValue', false)
   emit('upgrade')
 }
@@ -331,22 +315,6 @@ async function handlePrimaryAction(): Promise<void> {
 // 取消按钮关闭当前拦截，并让业务页面自行决定后续返回行为。
 function handleCancel(): void {
   if (busy.value) return
-  actionHandled = true
-  emit('update:modelValue', false)
-  emit('cancel')
-}
-
-// Element Plus 关闭钩子在异步操作期间拒绝关闭，避免启用结果丢失。
-function handleBeforeClose(done: () => void): void {
-  if (!busy.value) done()
-}
-
-// 仅将右上角关闭等非按钮操作转换为一次取消事件。
-function handleDialogClose(): void {
-  if (actionHandled) {
-    actionHandled = false
-    return
-  }
   emit('update:modelValue', false)
   emit('cancel')
 }
@@ -363,7 +331,6 @@ watch(
       return
     }
     interactionGeneration += 1
-    actionHandled = false
     void prepareAccessState()
   },
   { immediate: true },
@@ -376,7 +343,6 @@ watch(
     if (!props.modelValue) return
     interactionGeneration += 1
     activating.value = false
-    actionHandled = false
     void prepareAccessState()
   },
 )
@@ -389,38 +355,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped lang="scss">
-:global(.daily-card-access-dialog) {
-  padding: 0;
-  border-radius: 5px;
-}
-
-:global(.daily-card-access-dialog .el-dialog__header) {
-  margin: 0;
-  padding: 18px 24px 14px;
-  border-bottom: 1px solid var(--color-line-soft);
-}
-
-:global(.daily-card-access-dialog .el-dialog__title) {
-  color: var(--color-ink);
-  font-size: var(--text-xl);
-  font-weight: var(--weight-semi);
-}
-
-:global(.daily-card-access-dialog .el-dialog__headerbtn) {
-  top: 14px;
-  right: 18px;
-}
-
-:global(.daily-card-access-dialog .el-dialog__body) {
-  padding: 20px 24px 8px;
-}
-
-:global(.daily-card-access-dialog .el-dialog__footer) {
-  padding: 12px 24px 20px;
-}
-
 .daily-card-access-dialog__content {
-  min-height: 84px;
   color: var(--color-ink-soft);
 }
 
@@ -464,20 +399,51 @@ onBeforeUnmount(() => {
 }
 
 .daily-card-access-dialog__card-note {
+  box-sizing: border-box;
   display: grid;
   gap: 4px;
   margin-top: 16px;
   padding: 14px 16px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-alt);
+  overflow: hidden;
+  border: 1px solid rgba(115, 151, 132, 0.72);
+  border-radius: 10px;
+  /* 沿用个人中心卡包日卡的绿色渐变、斜纹和阴影。 */
+  background:
+    radial-gradient(circle at 90% 12%, rgba(123, 176, 143, 0.5), transparent 30%),
+    radial-gradient(circle at 5% 110%, rgba(84, 115, 101, 0.46), transparent 38%),
+    repeating-linear-gradient(
+      132deg,
+      rgba(225, 238, 231, 0.07) 0,
+      rgba(225, 238, 231, 0.07) 2px,
+      transparent 2px,
+      transparent 15px
+    ),
+    linear-gradient(135deg, #414a46 0%, #52635b 48%, #497a61 100%);
+  color: rgba(226, 240, 231, 0.88);
+  box-shadow:
+    0 -7px 18px rgba(48, 65, 57, 0.28),
+    0 12px 26px rgba(50, 91, 70, 0.25);
+}
+
+.daily-card-access-dialog__card-kind {
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .daily-card-access-dialog__card-note strong {
-  color: var(--color-ink);
+  margin: 4px 0;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 1.4;
 }
 
-.daily-card-access-dialog__card-note small,
+.daily-card-access-dialog__card-note small {
+  color: rgba(226, 240, 231, 0.88);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .daily-card-access-dialog__hint {
   color: var(--color-ink-muted);
   font-size: var(--text-sm);
@@ -487,42 +453,9 @@ onBeforeUnmount(() => {
   margin-top: 10px;
 }
 
-.daily-card-access-dialog__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-.daily-card-access-dialog__actions button {
-  min-width: 112px;
-  min-height: 40px;
-  padding: 0 16px;
-  border-radius: 5px;
-  white-space: nowrap;
-}
-
-.daily-card-access-dialog__upgrade {
-  border-color: var(--color-ink-soft);
-  color: var(--color-ink);
-}
-
 @keyframes daily-card-access-spin {
   to {
     transform: rotate(360deg);
-  }
-}
-
-@media (max-width: 640px) {
-  :global(.daily-card-access-dialog) {
-    width: calc(100vw - 32px) !important;
-  }
-
-  .daily-card-access-dialog__actions {
-    flex-direction: column-reverse;
-  }
-
-  .daily-card-access-dialog__actions button {
-    width: 100%;
   }
 }
 </style>

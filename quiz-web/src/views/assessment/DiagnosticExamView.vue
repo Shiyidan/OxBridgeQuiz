@@ -142,15 +142,18 @@
       </div>
     </main>
 
-    <AppConfirmDialog
+    <AppDialog
       v-model="confirmDialog.visible"
       :title="confirmDialog.title"
-      :message="confirmDialog.message"
+      :icon="WarningFilled"
+      icon-color="var(--color-warning)"
       :confirm-text="confirmDialog.confirmText"
       :cancel-text="confirmDialog.cancelText"
       @confirm="resolveConfirmDialog(true)"
       @cancel="resolveConfirmDialog(false)"
-    />
+    >
+      <p>{{ confirmDialog.message }}</p>
+    </AppDialog>
 
     <ExamBreakDialog
       :visible="session?.phase === 'break'"
@@ -176,9 +179,10 @@
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { WarningFilled } from '@element-plus/icons-vue'
 import ExamVue from '@/components/ExamVue.vue'
 import ExamWatermark from '@/components/ExamWatermark.vue'
-import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
+import AppDialog from '@/components/AppDialog.vue'
 import ExamBreakDialog from '@/components/ExamBreakDialog.vue'
 import QuestionCard from '@/components/QuestionCard.vue'
 import DiagnosticAnalysisDialog from '@/components/DiagnosticAnalysisDialog.vue'

@@ -126,32 +126,28 @@
       </section>
     </main>
 
-    <AppConfirmDialog
+    <AppDialog
       v-model="resumeDialogVisible"
       title="继续诊断测试"
-      message="您还有未做完的诊断测试，是否继续完成？"
       confirm-text="确认继续"
       cancel-text="取消"
-      tone="default"
-      :show-header-divider="false"
       @confirm="confirmResumeDiagnostic"
       @cancel="clearPendingResumePaper"
-    />
+    >
+      <p>您还有未做完的诊断测试，是否继续完成？</p>
+    </AppDialog>
 
-    <AppConfirmDialog
+    <AppDialog
       v-model="tmuaPaperDialogVisible"
       :title="
         tmuaSelectionYear ? `TMUA ${tmuaSelectionYear} 年 · 确认诊断试卷` : '确认 TMUA 诊断试卷'
       "
-      message="本次诊断包含 Paper 1 和 Paper 2，确认开始答题吗？"
       confirm-text="确认开始"
       cancel-text="取消"
-      tone="default"
-      :show-header-divider="false"
       @confirm="startSelectedTmuaPaper"
       @cancel="clearTmuaPaperSelection"
     >
-      <template #content>
+      <template #default>
         <div class="tmua-paper-confirmation">
           <p>本次诊断包含以下两个 Paper，确认开始答题吗？</p>
           <div class="tmua-paper-confirmation__options" aria-label="TMUA 必做试卷">
@@ -172,17 +168,16 @@
           </div>
         </div>
       </template>
-    </AppConfirmDialog>
+    </AppDialog>
 
-    <el-dialog
+    <AppDialog
       v-model="subjectDialogVisible"
       width="680px"
-      class="esat-subject-dialog"
+      :loading="Boolean(startingPaperId)"
       :title="
         subjectSelectionYear ? `ESAT ${subjectSelectionYear} 年 · 选择诊断科目` : '选择诊断科目'
       "
       destroy-on-close
-      align-center
     >
       <div class="esat-subject-dialog__intro">
         <div>
@@ -200,9 +195,9 @@
         class="esat-subject-dialog__state esat-subject-dialog__state--error"
       >
         <p>{{ subjectPapersError }}</p>
-        <button type="button" class="button_cancel" @click="loadSubjectSelectionPapers">
+        <AppButton type="secondary" size="small" @click="loadSubjectSelectionPapers">
           重新加载
-        </button>
+        </AppButton>
       </div>
       <div v-else class="esat-subject-options" role="group" aria-label="ESAT 诊断科目">
         <button
@@ -254,23 +249,28 @@
         该年份暂无所选科目组合的已发布诊断卷。
       </p>
 
-      <template #footer>
-        <button type="button" class="button_cancel" @click="subjectDialogVisible = false">
+      <template #footer="{ cancel }">
+        <AppButton
+          type="secondary"
+          size="small"
+          :disabled="Boolean(startingPaperId)"
+          @click="cancel"
+        >
           取消
-        </button>
-        <button
+        </AppButton>
+        <AppButton
           v-if="selectedPaperPreview && isPaperLocked(selectedPaperPreview) && hasPendingDailyCard"
-          type="button"
-          class="button_cancel"
+          type="secondary"
+          size="small"
           :disabled="Boolean(startingPaperId)"
           @click="handlePurchaseForSelectedEsatPaper"
         >
           开通会员
-        </button>
-        <button
-          type="button"
-          class="button_primary esat-subject-dialog__start"
-          :disabled="!selectedPaperPreview || Boolean(startingPaperId)"
+        </AppButton>
+        <AppButton
+          size="small"
+          :loading="Boolean(startingPaperId)"
+          :disabled="!selectedPaperPreview"
           @click="startSelectedEsatPaper"
         >
           {{
@@ -280,17 +280,16 @@
                 ? lockedMembershipActionLabel
                 : '开始诊断测试'
           }}
-        </button>
+        </AppButton>
       </template>
-    </el-dialog>
+    </AppDialog>
 
-    <el-dialog
+    <AppDialog
       v-model="historyDialogVisible"
       width="860px"
-      class="diagnostic-history-dialog"
+      :show-footer="false"
       :title="historyDialogTitle"
       destroy-on-close
-      align-center
     >
       <div v-if="historyLoading" class="diagnostic-history__state">正在加载历次记录...</div>
       <div
@@ -298,7 +297,7 @@
         class="diagnostic-history__state diagnostic-history__state--error"
       >
         <p>{{ historyError }}</p>
-        <button type="button" class="button_cancel" @click="loadYearHistory">重新加载</button>
+        <AppButton type="secondary" size="small" @click="loadYearHistory">重新加载</AppButton>
       </div>
       <div v-else-if="!historyRecords.length" class="diagnostic-history__state">
         暂无已完成的诊断记录
@@ -339,14 +338,14 @@
               <dd>{{ formatReportTime(record) }}</dd>
             </div>
           </dl>
-          <button
-            type="button"
+          <AppButton
+            size="small"
             class="diagnostic-history__action"
-            :class="record.hasReport ? 'button_primary' : 'button_cancel'"
+            :type="record.hasReport ? 'primary' : 'secondary'"
             @click="handleHistoryAction(record)"
           >
             {{ historyActionLabel(record) }}
-          </button>
+          </AppButton>
         </article>
         <AppPagination
           :page="historyPage"
@@ -358,7 +357,7 @@
           @page-size-change="handleHistoryPageSizeChange"
         />
       </div>
-    </el-dialog>
+    </AppDialog>
 
     <DailyCardAccessDialog
       v-model="membershipAccessVisible"
@@ -387,7 +386,8 @@ import { ElMessage } from 'element-plus'
 import { Lock, Right } from '@element-plus/icons-vue'
 import NavBar from '@/components/NavBar.vue'
 import AppPagination from '@/components/AppPagination.vue'
-import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
+import AppDialog from '@/components/AppDialog.vue'
+import AppButton from '@/components/AppButton.vue'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
 import { getMember } from '@/api/member'
@@ -789,10 +789,11 @@ async function handleYearSelection(year: number): Promise<void> {
 
 // 确认后携带原 examRecordId 进入分段作答页，保留原答题进度和剩余时间。
 function confirmResumeDiagnostic(): void {
+  // 保持原确认后关闭的行为，后续校验和跳转由页面继续处理。
+  resumeDialogVisible.value = false
   if (requireDesktopForDiagnosticAction()) return
   const paper = pendingResumePaper.value
   if (!paper) return
-  resumeDialogVisible.value = false
   pendingResumePaper.value = null
   routeToDiagnosticPaper(paper, true)
 }
@@ -852,10 +853,7 @@ watch(activeExamType, () => {
 })
 
 // 锁定态仅在存在待启用日卡时展示免费权益选择，否则直接进入支付流程。
-function openMembershipAccess(
-  examType: string | undefined,
-  action: PendingMembershipAction,
-): void {
+function openMembershipAccess(examType: string | undefined, action: PendingMembershipAction): void {
   if (requireLoginForDiagnosticAction()) return
   if (!hasPendingDailyCard.value) {
     openMembershipPayment(examType, action)
@@ -1100,6 +1098,8 @@ function historyActionLabel(record: AssessmentPaperHistoryItem): string {
 
 // TMUA 确认后直接新建或重测当年双 Paper 诊断，不再经过试卷卡片页。
 async function startSelectedTmuaPaper(): Promise<void> {
+  // 先结束确认弹窗，避免会员预检需要展示日卡提示时叠加两个弹窗。
+  tmuaPaperDialogVisible.value = false
   if (requireDesktopForDiagnosticAction()) return
   if (requireLoginForDiagnosticAction()) return
   const paper = selectedTmuaPaper.value
@@ -1857,39 +1857,6 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
   font-weight: var(--weight-bold);
 }
 
-:deep(.esat-subject-dialog) {
-  overflow: hidden;
-  border-radius: var(--radius-lg);
-}
-
-:deep(.esat-subject-dialog .el-dialog__header) {
-  padding: 22px 24px 18px;
-  border-bottom: 1px solid var(--color-line);
-}
-
-:deep(.esat-subject-dialog .el-dialog__title) {
-  color: var(--color-ink);
-  font-size: var(--text-lg);
-  font-weight: var(--weight-bold);
-}
-
-:deep(.esat-subject-dialog .el-dialog__body) {
-  padding: 22px 24px 8px;
-}
-
-:deep(.esat-subject-dialog .el-dialog__footer) {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 16px 24px 22px;
-}
-
-:deep(.esat-subject-dialog .el-dialog__footer button) {
-  min-height: var(--height-button);
-  padding: 0 20px;
-  border-radius: var(--radius-md);
-}
-
 .esat-subject-dialog__intro {
   display: flex;
   align-items: flex-start;
@@ -2032,14 +1999,13 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
   margin: 0;
 }
 
+.esat-subject-dialog__state > .app-button.el-button {
+  justify-self: center;
+}
+
 .esat-subject-dialog__state--error,
 .esat-subject-dialog__unmatched {
   color: var(--color-danger);
-}
-
-.esat-subject-dialog__state button {
-  min-height: var(--height-button);
-  border-radius: var(--radius-md);
 }
 
 .esat-subject-dialog__match {
@@ -2091,35 +2057,8 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
   font-size: var(--text-xs);
 }
 
-.esat-subject-dialog__start:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-:deep(.diagnostic-history-dialog) {
-  overflow: hidden;
-  border-radius: var(--radius-lg);
-}
-
-:deep(.diagnostic-history-dialog .el-dialog__header) {
-  padding: 22px 24px 18px;
-  border-bottom: 1px solid var(--color-line);
-}
-
-:deep(.diagnostic-history-dialog .el-dialog__title) {
-  color: var(--color-ink);
-  font-size: var(--text-lg);
-  font-weight: var(--weight-bold);
-}
-
-:deep(.diagnostic-history-dialog .el-dialog__body) {
-  padding: 0;
-}
-
 .diagnostic-history {
-  max-height: min(68vh, 720px);
-  overflow-y: auto;
-  padding: 8px 24px 20px;
+  padding-bottom: 12px;
 }
 
 .diagnostic-history__state {
@@ -2140,10 +2079,8 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
   color: var(--color-danger);
 }
 
-.diagnostic-history__state button {
-  min-width: 100px;
-  min-height: var(--height-button);
-  border-radius: var(--radius-md);
+.diagnostic-history__state > .app-button.el-button {
+  justify-self: center;
 }
 
 .diagnostic-history__item {
@@ -2240,15 +2177,10 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
 }
 
 .diagnostic-history__action {
-  min-width: 118px;
-  height: var(--height-button);
   align-self: center;
-  border-radius: var(--radius-md);
 }
 
 .diagnostic-history :deep(.app-pagination) {
-  position: sticky;
-  bottom: -20px;
   padding: 14px 0 0;
   background: var(--color-surface);
 }
@@ -2405,22 +2337,6 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
 
   .assessment-year-card__lock-overlay {
     border-radius: 0 0 14px 14px;
-  }
-
-  :deep(.diagnostic-history-dialog) {
-    width: calc(100% - 32px) !important;
-  }
-
-  :deep(.esat-subject-dialog) {
-    width: calc(100% - 32px) !important;
-  }
-
-  :deep(.esat-subject-dialog .el-dialog__body) {
-    padding: 18px 18px 6px;
-  }
-
-  :deep(.esat-subject-dialog .el-dialog__footer) {
-    padding: 14px 18px 18px;
   }
 
   .esat-subject-options {

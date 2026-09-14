@@ -12,11 +12,9 @@
     </div>
     <div v-else-if="error" class="attempt-timeline__state attempt-timeline__state--error">
       <p>{{ error }}</p>
-      <button type="button" @click="$emit('retry')">重新加载</button>
+      <AppButton type="secondary" size="small" @click="$emit('retry')">重新加载</AppButton>
     </div>
-    <div v-else-if="!items.length" class="attempt-timeline__state">
-      暂无历史作答记录
-    </div>
+    <div v-else-if="!items.length" class="attempt-timeline__state">暂无历史作答记录</div>
     <el-timeline v-else class="attempt-timeline__list">
       <el-timeline-item
         v-for="(item, index) in items"
@@ -27,10 +25,7 @@
       >
         <article class="attempt-card">
           <div class="attempt-card__meta">
-            <span
-              class="attempt-card__source"
-              :class="`attempt-card__source--${item.sourceType}`"
-            >
+            <span class="attempt-card__source" :class="`attempt-card__source--${item.sourceType}`">
               {{ item.sourceLabel }}
             </span>
             <span>{{ attemptSequenceLabel(index) }}</span>
@@ -50,6 +45,7 @@
 
 <script setup lang="ts">
 import type { MistakeAttemptHistoryItem } from '@/api/exam'
+import AppButton from '@/components/AppButton.vue'
 
 const props = defineProps<{
   items: MistakeAttemptHistoryItem[]
@@ -153,15 +149,6 @@ function formatDuration(seconds: number): string {
 
 .attempt-timeline__state p {
   margin: 0 0 12px;
-}
-
-.attempt-timeline__state button {
-  padding: 6px 12px;
-  border: 1px solid var(--color-warning);
-  border-radius: var(--radius-md);
-  background: var(--color-warning-bg);
-  color: var(--color-report-orange);
-  cursor: pointer;
 }
 
 .attempt-timeline__state--error {

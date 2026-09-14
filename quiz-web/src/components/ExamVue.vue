@@ -2,23 +2,9 @@
 <template>
   <header class="exam-topbar">
     <div class="exam-topbar__inner">
-      <button
-        type="button"
-        class="exam-topbar__back"
-        :aria-label="backLabel"
-        @click="$emit('back')"
-      >
-        <svg class="exam-topbar__back-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path
-            d="M15 18L9 12L15 6"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-        <span>{{ backLabel }}</span>
-      </button>
+      <AppButton type="text" :icon="Back" :aria-label="backLabel" @click="$emit('back')">
+        {{ backLabel }}
+      </AppButton>
       <div v-if="totalCount > 0" class="exam-topbar__exam" aria-live="polite">
         <div class="exam-topbar__exam-row">
           <strong class="exam-topbar__title">{{ headerText }}</strong>
@@ -34,12 +20,25 @@
         </div>
       </div>
     </div>
+    <AppDialog
+      v-model="resumeDialogVisible"
+      title="提示"
+      confirm-text="确定"
+      :show-cancel="false"
+      :show-close="false"
+      @confirm="confirmResumeAnswering"
+    >
+      <p>是否开始继续答题？</p>
+    </AppDialog>
   </header>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { ElMessageBox, ElNotification } from 'element-plus'
+import { ElNotification } from 'element-plus'
+import AppDialog from './AppDialog.vue'
+import AppButton from './AppButton.vue'
+import { Back } from '@element-plus/icons-vue'
 import { EXAM_TYPE_OPTIONS, type ExamType } from '@/constants/examTypes'
 
 export type ExamMode = 'question-bank' | 'assessment' | 'mock-exam'
@@ -112,6 +111,7 @@ let isMounted = false
 let pausedDuration = 0
 let pauseStartedAt = 0
 let isVisibilityPaused = false
+const resumeDialogVisible = ref(false)
 // 5 分钟提醒只触发一次
 let fiveMinWarned = false
 let timeExpiredEmitted = false
@@ -229,19 +229,17 @@ function handleVisibilityChange(): void {
   }
 
   // 试题库练习在确认继续前保持总计时和单题耗时冻结。
-  ElMessageBox.alert('是否开始继续答题', '提示', {
-    confirmButtonText: '确定',
-    confirmButtonClass: 'button_primary',
-    customClass: 'app-confirm-box',
-    closeOnClickModal: false,
-    showClose: false,
-  }).then(() => {
-    if (!isMounted) return
-    pausedDuration += Date.now() - pauseStartedAt
-    isVisibilityPaused = false
-    startTimer()
-    emit('answering-resumed')
-  })
+  resumeDialogVisible.value = true
+}
+
+// 确认继续后扣除完整暂停时长，只恢复一次计时和单题活跃耗时。
+function confirmResumeAnswering(): void {
+  if (!isMounted || !isVisibilityPaused || !resumeDialogVisible.value) return
+  resumeDialogVisible.value = false
+  pausedDuration += Date.now() - pauseStartedAt
+  isVisibilityPaused = false
+  startTimer()
+  emit('answering-resumed')
 }
 
 // 挂载时启动计时并监听页面可见性变化
@@ -254,6 +252,7 @@ onMounted(() => {
 // 卸载时清理计时器和监听
 onUnmounted(() => {
   isMounted = false
+  resumeDialogVisible.value = false
   stopTimer()
   document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
@@ -285,32 +284,6 @@ defineExpose({ startedAt, timerElapsed })
   grid-template-columns: 260px minmax(0, 1fr);
   align-items: center;
   gap: 24px;
-}
-.exam-topbar__back {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 12px 0 8px;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-ink);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semi);
-  transition:
-    background var(--duration-base) ease,
-    color var(--duration-base) ease;
-}
-.exam-topbar__back:hover {
-  background: var(--color-hover);
-  color: var(--color-black);
-}
-.exam-topbar__back-icon {
-  width: 20px;
-  height: 20px;
 }
 .exam-topbar__exam {
   min-width: 0;

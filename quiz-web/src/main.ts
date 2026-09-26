@@ -24,7 +24,8 @@ configureRequestAuth({
   setAccessToken: auth.setAccessToken,
   clearSession: auth.clearLocalSession,
 })
-await auth.restoreSession()
+// 受限说明页不自动刷新被撤销的会话，避免被普通登录过期逻辑带回首页。
+if (window.location.pathname !== '/account-restricted') await auth.restoreSession()
 
 app.use(router)
 app.mount('#app')

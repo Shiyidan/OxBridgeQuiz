@@ -36,6 +36,8 @@ const router = createRouter({
     { path: '/', name: 'home', component: HomeView },
     // 登录页
     { path: '/login', name: 'login', component: LoginView },
+    // 账号访问受限
+    { path: '/account-restricted', name: 'account-restricted', component: lazyRoute(() => import('../views/auth/AccountRestrictedView.vue')) },
     // 注册页
     {
       path: '/register',

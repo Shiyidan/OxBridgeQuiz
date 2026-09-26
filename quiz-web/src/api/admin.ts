@@ -54,6 +54,9 @@ export interface UserItem {
   username: string
   email: string
   role: string
+  accountStatus: 'active' | 'banned'
+  bannedAt: string | null
+  banReason: string | null
   avatar?: string | null
   diagnosticUsed?: boolean
   createdAt: string
@@ -620,6 +623,12 @@ export interface GiftUserCardsPayload {
   quantity: number
 }
 
+export interface UpdateAccountStatusPayload {
+  userIds: string[]
+  status: 'active' | 'banned'
+  reason: string
+}
+
 // ---- 成本管理 ----
 
 /** 读取真实付费营收汇总和支付明细，赠送日卡与邀请奖励由服务端排除。 */
@@ -665,6 +674,13 @@ export function createRevenue(data: Partial<RevenueItem>) {
 }
 
 // ---- 用户管理 ----
+
+// 后台单个与批量封禁共享接口，解封需要重新登录且不会恢复旧会话。
+export function updateUserAccountStatus(body: UpdateAccountStatusPayload) {
+  return callApi<{ changedCount: number; revokedSessionCount: number }>({
+    method: 'PUT', url: '/admin/users/account-status', body,
+  })
+}
 
 /** 用户列表 */
 export function getUserListData(params: ListParams & { keyword?: string } = {}) {

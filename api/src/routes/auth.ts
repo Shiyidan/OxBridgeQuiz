@@ -51,6 +51,7 @@ import { resolveIpLocation } from '../services/ipGeolocation.js'
 import { bindInvitationForUser, InvitationError } from '../services/invitation.js'
 import { pickRandomUserAvatar } from '../services/userAvatar.js'
 import { INVITATION_BINDING_SOURCE } from '../constants/domain.js'
+import { assertAccountActive } from '../services/accountStatus.js'
 
 export const authRouter = createAsyncRouter()
 
@@ -284,6 +285,7 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
     }
     const valid = await bcrypt.compare(input.password, user.password)
     if (!valid) throw new AuthError(AUTH_ERROR.INVALID_CREDENTIALS, '用户名、邮箱或密码错误', 401)
+    assertAccountActive(user)
 
     await recordLegalAcceptances(prisma, {
       userId: user.id,

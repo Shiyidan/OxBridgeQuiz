@@ -1,3 +1,4 @@
+<!-- 后台用户详情：展示账号状态、封禁原因和学习活动汇总。 -->
 <template>
   <el-drawer
     :model-value="modelValue"
@@ -22,11 +23,16 @@
             <div>
               <div class="profile-name-row">
                 <h3>{{ detail.profile.username }}</h3>
+                <el-tag v-if="detail.profile.accountStatus === 'banned'" type="danger">已封禁</el-tag>
                 <el-tag :type="detail.profile.role === 'admin' ? 'danger' : 'info'" effect="light">
                   {{ roleLabel(detail.profile.role) }}
                 </el-tag>
               </div>
               <p>{{ detail.profile.email }}</p>
+              <p v-if="detail.profile.accountStatus === 'banned'">
+                封禁时间：{{ formatOptionalDateTime(detail.profile.bannedAt) }}<br />
+                原因：{{ detail.profile.banReason }}
+              </p>
             </div>
           </div>
           <dl class="profile-times">

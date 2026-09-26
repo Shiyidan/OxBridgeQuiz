@@ -1,3 +1,4 @@
+<!-- 登录及找回密码页面，封禁账号在验证身份后显示持久说明和客服入口。 -->
 <template>
   <div class="auth-page">
     <NavBar />
@@ -48,6 +49,7 @@
             label-position="top"
             @submit.prevent="handleSubmit"
           >
+            <AccountRestrictionNotice v-if="accountRestricted" class="login-restriction" />
             <el-form-item label="用户名或邮箱" prop="username">
               <el-input
                 v-model="form.username"
@@ -73,16 +75,10 @@
 
             <el-form-item prop="legalAccepted" class="auth-legal-row">
               <div class="auth-legal-notice">
-                <el-checkbox
-                  v-model="form.legalAccepted"
-                  aria-label="同意用户服务协议和隐私政策"
-                />
+                <el-checkbox v-model="form.legalAccepted" aria-label="同意用户服务协议和隐私政策" />
                 <span class="auth-legal-copy">
                   我已阅读并同意
-                  <router-link
-                    to="/legal/user-agreement"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <router-link to="/legal/user-agreement" target="_blank" rel="noopener noreferrer"
                     >《用户服务协议》</router-link
                   >和<router-link
                     to="/legal/privacy-policy"
@@ -197,6 +193,8 @@ import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
+import AccountRestrictionNotice from '@/components/AccountRestrictionNotice.vue'
+import { AUTH_ACCOUNT_BANNED_CODE, hasApiErrorCode } from '@/utils/request'
 import { useAuthStore } from '@/stores/auth'
 import { useInvitationBenefitStore } from '@/stores/invitationBenefit'
 import { resetPassword, sendEmailCode } from '@/api/auth'
@@ -220,6 +218,7 @@ import {
 } from '@/utils/validation'
 
 const router = useRouter()
+const accountRestricted = ref(false)
 const route = useRoute()
 const auth = useAuthStore()
 const invitationBenefit = useInvitationBenefitStore()
@@ -363,6 +362,7 @@ const resetRules: FormRules = {
 
 // 登录成功后拉一次会员上下文，缓存到 auth store 供后续页面复用。
 const handleSubmit = async (): Promise<void> => {
+  accountRestricted.value = false
   if (!formRef.value) return
   try {
     await formRef.value.validate()
@@ -380,8 +380,8 @@ const handleSubmit = async (): Promise<void> => {
     }
     await router.replace(redirectAfterAuth.value)
     await invitationBenefit.showAfterPagePaint()
-  } catch {
-    // Axios 公共响应处理会展示后端 errMsg。
+  } catch (error) {
+    accountRestricted.value = hasApiErrorCode(error, AUTH_ACCOUNT_BANNED_CODE)
   }
 }
 
@@ -487,3 +487,9 @@ onBeforeUnmount(stopCountdown)
 
 <!-- 认证类页面共享布局，非 scoped，按需引入以避免全站污染。 -->
 <style src="./auth-page.css"></style>
+
+<style scoped>
+.login-restriction {
+  margin-bottom: 24px;
+}
+</style>

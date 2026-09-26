@@ -40,9 +40,11 @@ interface RequestAuthBridge {
 let authBridge: RequestAuthBridge | null = null
 let refreshPromise: Promise<string> | null = null
 let authFailureRedirectScheduled = false
+let accountBanned = false
 
 const AUTH_FAILURE_REDIRECT_DELAY_MS = 1800
 const AUTH_SESSION_EXPIRED_CODE = 'AUTH_SESSION_EXPIRED'
+export const AUTH_ACCOUNT_BANNED_CODE = 'AUTH_ACCOUNT_BANNED'
 const REQUEST_CANCELED_CODE = 'ERR_CANCELED'
 
 // 应用启动时绑定 Pinia 认证状态，确保请求层和界面只使用同一个 Token 数据源。
@@ -57,6 +59,12 @@ const instance = axios.create({
 })
 
 instance.interceptors.request.use((request) => {
+  if (accountBanned)
+    throw new ApiError(
+      '该账号已被暂停使用。如需申请恢复，请联系客服。',
+      AUTH_ACCOUNT_BANNED_CODE,
+      403,
+    )
   const accessToken = authBridge?.getAccessToken()
   if (accessToken) request.headers.Authorization = `Bearer ${accessToken}`
   return request
@@ -145,6 +153,7 @@ function isSessionExpired(apiError: ApiError): boolean {
 
 // 受保护接口确认失去登录状态后只提示一次，并在提示可见后自动回到公开首页。
 function handleUnauthorized(apiError: ApiError): void {
+  if (accountBanned) return
   authBridge?.clearSession()
   if (authFailureRedirectScheduled) return
   authFailureRedirectScheduled = true
@@ -154,16 +163,34 @@ function handleUnauthorized(apiError: ApiError): void {
     showClose: false,
   })
   window.setTimeout(() => {
+    if (accountBanned) return
     window.location.replace('/')
   }, AUTH_FAILURE_REDIRECT_DELAY_MS)
 }
 
+// 登录失败由表单保留说明；其他入口统一退出并卸载学习页面，停止旧页面轮询。
+function handleAccountBanned(apiError: ApiError, url: string): boolean {
+  if (apiError.code !== AUTH_ACCOUNT_BANNED_CODE) return false
+  authBridge?.clearSession()
+  if (url.includes('/auth/login')) return true
+  if (!accountBanned) {
+    accountBanned = true
+    if (window.location.pathname !== '/account-restricted')
+      window.location.replace('/account-restricted')
+  }
+  return true
+}
+
 instance.interceptors.response.use(
   (response) => {
+    if (accountBanned)
+      return Promise.reject(new ApiError('账号访问受限', AUTH_ACCOUNT_BANNED_CODE, 403))
     const body = response.data as ApiResponse
     if (body && typeof body === 'object' && 'success' in body) {
       if (!body.success) {
         const apiError = new ApiError(body.errMsg || '请求失败', body.code, response.status)
+        if (handleAccountBanned(apiError, response.config.url || ''))
+          return Promise.reject(apiError)
         if (!response.config.silent) showApiError(apiError)
         return Promise.reject(apiError)
       }
@@ -176,6 +203,11 @@ instance.interceptors.response.use(
     const silent = Boolean(original?.silent)
     const url = original?.url || ''
     const isRefreshRequest = url.includes('/auth/refresh')
+    await normalizeBlobErrorResponse(error)
+    const initialError = toApiError(error)
+    if (handleAccountBanned(initialError, url)) return Promise.reject(initialError)
+    if (accountBanned)
+      return Promise.reject(new ApiError('账号访问受限', AUTH_ACCOUNT_BANNED_CODE, 403))
     const canRefresh =
       error.response?.status === 401 &&
       original &&
@@ -190,6 +222,7 @@ instance.interceptors.response.use(
         return instance(original)
       } catch (refreshError: unknown) {
         const apiError = toApiError(refreshError)
+        if (handleAccountBanned(apiError, '/auth/refresh')) return Promise.reject(apiError)
         if (isSessionExpired(apiError)) {
           handleUnauthorized(apiError)
           return Promise.reject(apiError)
@@ -199,7 +232,6 @@ instance.interceptors.response.use(
       }
     }
 
-    await normalizeBlobErrorResponse(error)
     const apiError = toApiError(error)
     if (isRefreshRequest) return Promise.reject(apiError)
     if (apiError.code === REQUEST_CANCELED_CODE) return Promise.reject(apiError)

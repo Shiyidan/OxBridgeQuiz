@@ -70,6 +70,10 @@ import {
 } from '../services/adminUserDetail.js'
 import { getAdminStaffGiftCardStats } from '../services/adminStaffStats.js'
 import { getRevenuePayments } from '../services/revenuePayments.js'
+import { z } from 'zod'
+import { ACCOUNT_STATUS } from '../constants/auth.js'
+import { AuthError } from '../utils/authError.js'
+import { changeAccountStatus } from '../services/accountStatus.js'
 
 export const adminRouter = createAsyncRouter()
 
@@ -1327,6 +1331,9 @@ adminRouter.get('/users', async (req: Request, res: Response) => {
         email: true,
         role: true,
         diagnosticUsed: true,
+        accountStatus: true,
+        bannedAt: true,
+        banReason: true,
         createdAt: true,
         memberships: {
           select: {
@@ -1358,6 +1365,39 @@ adminRouter.get('/users', async (req: Request, res: Response) => {
   } catch (err) {
     logRuntimeError('admin.users.list_failed', err)
     res.status(500).json(fail('服务器错误'))
+  }
+})
+
+const accountStatusSchema = z.object({
+  userIds: z.array(z.string().uuid()).min(1).max(100),
+  status: z.enum([ACCOUNT_STATUS.ACTIVE, ACCOUNT_STATUS.BANNED]),
+  reason: z.string().trim().min(1).max(500),
+}).strict()
+
+// 用户封禁
+adminRouter.put('/users/account-status', async (req: Request, res: Response) => {
+  const parsed = accountStatusSchema.safeParse(req.body)
+  if (!parsed.success) {
+    res.status(422).json(fail('请选择用户并填写 1 至 500 字的操作原因', 'ADMIN_ACCOUNT_STATUS_INVALID'))
+    return
+  }
+  try {
+    const result = await changeAccountStatus({
+      ...parsed.data, userIds: [...new Set(parsed.data.userIds)], operatorId: req.user!.userId,
+      requestId: req.requestId, ipAddress: normalizeIpAddress(req.ip) || undefined, userAgent: req.get('user-agent'),
+    })
+    res.json(success(result))
+  } catch (error) {
+    if (error instanceof AuthError) {
+      res.status(error.status).json(fail(error.message, error.code))
+      return
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+      res.status(409).json(fail('账号状态正在被其他操作更新，请刷新后重试', 'ADMIN_ACCOUNT_STATUS_CONFLICT'))
+      return
+    }
+    logRuntimeError('admin.user.account_status_failed', error)
+    res.status(500).json(fail('更新账号状态失败'))
   }
 })
 
@@ -1567,6 +1607,9 @@ adminRouter.put('/users/:id/access', async (req: Request, res: Response) => {
           username: true,
           email: true,
           role: true,
+          accountStatus: true,
+          bannedAt: true,
+          banReason: true,
           diagnosticUsed: true,
           createdAt: true,
           memberships: {

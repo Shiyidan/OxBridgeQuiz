@@ -1,3 +1,4 @@
+<!-- 后台用户管理：查询权益、赠送卡券及单个或批量封禁、解封账号。 -->
 <template>
   <div class="um-page">
     <!-- <div class="page-top-bar">
@@ -7,6 +8,15 @@
     <div class="page-body">
       <div class="page-heading">
         <h2 class="page-title">用户管理</h2>
+        <el-button
+          v-if="isSuperAdmin"
+          type="danger"
+          plain
+          :disabled="!selectedUsers.length"
+          @click="openAccountStatusDialog(selectedUsers, 'banned')"
+        >
+          批量封禁（{{ selectedUsers.length }}）
+        </el-button>
         <div class="user-search" role="search">
           <el-input
             v-model="searchKeyword"
@@ -34,7 +44,14 @@
         show-pagination
         @page-change="handlePageChange"
         @page-size-change="handlePageSizeChange"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column
+          v-if="isSuperAdmin"
+          type="selection"
+          width="45"
+          :selectable="canChangeAccountStatus"
+        />
         <el-table-column
           prop="username"
           label="用户名"
@@ -71,6 +88,17 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="账号状态" width="110" align="center">
+          <template #default="{ row }">
+            <el-tooltip
+              v-if="row.accountStatus === 'banned'"
+              :content="`封禁时间：${formatDateTime(row.bannedAt)}；原因：${row.banReason || '-'}`"
+            >
+              <el-tag type="danger">已封禁</el-tag>
+            </el-tooltip>
+            <el-tag v-else type="success">正常</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="所属权益" width="240" align="center" header-align="center">
           <template #default="{ row }">
             <div class="plan-tags">
@@ -101,7 +129,7 @@
         <el-table-column
           v-if="isSuperAdmin"
           label="操作"
-          width="170"
+          width="230"
           fixed="right"
           align="center"
           header-align="center"
@@ -110,6 +138,19 @@
             <div class="table-actions">
               <button class="table-action-btn" type="button" @click.stop="openEditDialog(row)">
                 编辑
+              </button>
+              <button
+                v-if="canChangeAccountStatus(row)"
+                class="table-action-btn"
+                type="button"
+                @click.stop="
+                  openAccountStatusDialog(
+                    [row],
+                    row.accountStatus === 'banned' ? 'active' : 'banned',
+                  )
+                "
+              >
+                {{ row.accountStatus === 'banned' ? '解封' : '封禁' }}
               </button>
               <button
                 v-if="row.role !== 'admin'"
@@ -126,6 +167,47 @@
     </div>
 
     <UserDetailDrawer v-model="detailVisible" :user-id="selectedUserId" />
+
+    <AppDialog
+      v-model="accountStatusVisible"
+      :title="accountStatusTarget === 'banned' ? '封禁账号' : '解封账号'"
+      :confirm-text="accountStatusTarget === 'banned' ? '确认封禁' : '确认解封'"
+      :confirm-type="accountStatusTarget === 'banned' ? 'danger' : 'primary'"
+      :loading="accountStatusSaving"
+      :confirm-disabled="!accountStatusReason.trim()"
+      @confirm="submitAccountStatus"
+    >
+      <p class="account-status-users">
+        {{ accountStatusUsers.map((user) => user.username).join('、') }}
+      </p>
+      <el-alert :closable="false" :type="accountStatusTarget === 'banned' ? 'warning' : 'info'">
+        {{
+          accountStatusTarget === 'banned'
+            ? '封禁持续至管理员解封，全部设备将退出登录，学习数据保留。'
+            : '解封后用户需要重新登录，旧会话不会恢复。'
+        }}
+      </el-alert>
+      <el-form
+        label-position="top"
+        class="account-status-form"
+        @submit.prevent="submitAccountStatus"
+      >
+        <el-form-item
+          :label="accountStatusTarget === 'banned' ? '封禁原因（仅后台可见）' : '解封原因'"
+          required
+        >
+          <el-input
+            v-model="accountStatusReason"
+            type="textarea"
+            :rows="3"
+            maxlength="500"
+            show-word-limit
+            placeholder="请填写操作原因，用于后续核查"
+            :disabled="accountStatusSaving"
+          />
+        </el-form-item>
+      </el-form>
+    </AppDialog>
 
     <el-dialog
       v-model="editVisible"
@@ -264,10 +346,12 @@ import { ref, computed, onMounted, reactive } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
 import UserDetailDrawer from './UserDetailDrawer.vue'
+import AppDialog from '@/components/AppDialog.vue'
 import {
   getUserListData,
   giftUserCards,
   updateUserAccess,
+  updateUserAccountStatus,
   type UserItem,
   type UserMembershipItem,
 } from '@/api/admin'
@@ -299,6 +383,57 @@ const pagination = reactive({
 })
 const detailVisible = ref(false)
 const selectedUserId = ref<string | null>(null)
+const selectedUsers = ref<UserItem[]>([])
+const accountStatusVisible = ref(false)
+const accountStatusSaving = ref(false)
+const accountStatusUsers = ref<UserItem[]>([])
+const accountStatusTarget = ref<'active' | 'banned'>('banned')
+const accountStatusReason = ref('')
+
+// 管理员账号和当前操作者不进入封禁操作，服务端仍会重复校验。
+function canChangeAccountStatus(user: UserItem): boolean {
+  return user.role !== 'admin' && user.id !== auth.user?.id
+}
+
+// 选择集合仅保留当前页用户，防止翻页后误操作旧目标。
+function handleSelectionChange(rows: UserItem[]): void {
+  selectedUsers.value = rows.filter(canChangeAccountStatus)
+}
+
+// 单个操作和批量操作共用确认弹窗，逐次显示实际目标账号。
+function openAccountStatusDialog(rows: UserItem[], status: 'active' | 'banned'): void {
+  accountStatusUsers.value = rows.filter(canChangeAccountStatus)
+  accountStatusTarget.value = status
+  accountStatusReason.value = ''
+  accountStatusVisible.value = accountStatusUsers.value.length > 0
+}
+
+// 只有服务端事务成功后关闭弹窗并刷新状态，失败时保留原因方便重试。
+async function submitAccountStatus(): Promise<void> {
+  if (
+    accountStatusSaving.value ||
+    !accountStatusReason.value.trim() ||
+    !accountStatusUsers.value.length
+  )
+    return
+  accountStatusSaving.value = true
+  try {
+    const result = await updateUserAccountStatus({
+      userIds: accountStatusUsers.value.map((user) => user.id),
+      status: accountStatusTarget.value,
+      reason: accountStatusReason.value.trim(),
+    })
+    ElMessage.success(
+      `已${accountStatusTarget.value === 'banned' ? '封禁' : '解封'} ${result.changedCount} 个账号`,
+    )
+    accountStatusVisible.value = false
+    await fetchUsers()
+  } catch {
+    // 公共请求层展示业务错误，确认弹窗继续保留用户输入。
+  } finally {
+    accountStatusSaving.value = false
+  }
+}
 
 const examTypeOptions = EXAM_TYPE_OPTIONS
 
@@ -441,6 +576,7 @@ function formatDateTime(d: string | number): string {
 
 // 用户接口返回 { users }，页面只消费内部数组。
 async function fetchUsers(): Promise<void> {
+  selectedUsers.value = []
   loading.value = true
   try {
     const data = await getUserListData({
@@ -561,6 +697,13 @@ onMounted(fetchUsers)
 </script>
 
 <style scoped lang="scss">
+.account-status-users {
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+.account-status-form {
+  margin-top: 20px;
+}
 .um-page {
   height: 100%;
   min-height: 0;

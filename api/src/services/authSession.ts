@@ -5,8 +5,9 @@ import type { User } from '@prisma/client'
 import { prisma } from './prisma.js'
 import { config } from '../config.js'
 import { signAccessToken } from './jwt.js'
-import { AUTH_ERROR, AUTH_SESSION_EXPIRED_MESSAGE } from '../constants/auth.js'
+import { ACCOUNT_STATUS, AUTH_ERROR, AUTH_SESSION_EXPIRED_MESSAGE } from '../constants/auth.js'
 import { AuthError } from '../utils/authError.js'
+import { assertAccountActive } from './accountStatus.js'
 
 export const REFRESH_COOKIE_NAME = 'quiz_refresh'
 
@@ -69,18 +70,23 @@ function requestMetadata(req: Request): { ipAddress?: string; userAgent?: string
 
 // 登录成功后创建七天空闲会话，并签发首个短期访问令牌。
 export async function createAuthSession(user: User, req: Request, res: Response) {
+  assertAccountActive(user)
   const sessionId = crypto.randomUUID()
   const secret = crypto.randomBytes(32).toString('base64url')
   const expiresAt = new Date(Date.now() + config.refreshTokenTtlSeconds * 1000)
-  await prisma.authSession.create({
-    data: {
-      id: sessionId,
-      userId: user.id,
-      refreshTokenHash: hashRefreshSecret(secret),
-      expiresAt,
-      ...requestMetadata(req),
-    },
-  })
+  await prisma.$transaction(async (tx) => {
+    const currentUser = await tx.user.findUniqueOrThrow({ where: { id: user.id } })
+    assertAccountActive(currentUser)
+    await tx.authSession.create({
+      data: {
+        id: sessionId,
+        userId: user.id,
+        refreshTokenHash: hashRefreshSecret(secret),
+        expiresAt,
+        ...requestMetadata(req),
+      },
+    })
+  }, { isolationLevel: 'Serializable' })
   setRefreshCookie(res, buildRefreshToken(sessionId, secret))
   return {
     accessToken: signAccessToken(user, sessionId),
@@ -101,6 +107,17 @@ export async function rotateAuthSession(req: Request, res: Response) {
     include: { user: true },
   })
   const now = new Date()
+  const suppliedHash = hashRefreshSecret(parsed.secret)
+  const secretMatches = session && crypto.timingSafeEqual(Buffer.from(session.refreshTokenHash), Buffer.from(suppliedHash))
+  // 刷新秘密验证成功后再披露封禁状态，撤销会话仍能显示准确原因。
+  if (session && secretMatches) {
+    try {
+      assertAccountActive(session.user)
+    } catch (error) {
+      clearRefreshCookie(res)
+      throw error
+    }
+  }
   const idleExpired = session
     ? session.lastUsedAt.getTime() + config.refreshTokenTtlSeconds * 1000 <= now.getTime()
     : false
@@ -109,8 +126,7 @@ export async function rotateAuthSession(req: Request, res: Response) {
     throw new AuthError(AUTH_ERROR.SESSION_EXPIRED, AUTH_SESSION_EXPIRED_MESSAGE, 401)
   }
 
-  const suppliedHash = hashRefreshSecret(parsed.secret)
-  if (!crypto.timingSafeEqual(Buffer.from(session.refreshTokenHash), Buffer.from(suppliedHash))) {
+  if (!secretMatches) {
     await prisma.authSession.update({ where: { id: session.id }, data: { revokedAt: now } })
     clearRefreshCookie(res)
     throw new AuthError(AUTH_ERROR.SESSION_EXPIRED, '登录状态异常，请重新登录！', 401)
@@ -118,8 +134,8 @@ export async function rotateAuthSession(req: Request, res: Response) {
 
   const nextSecret = crypto.randomBytes(32).toString('base64url')
   const nextExpiresAt = new Date(now.getTime() + config.refreshTokenTtlSeconds * 1000)
-  await prisma.authSession.update({
-    where: { id: session.id },
+  const rotated = await prisma.authSession.updateMany({
+    where: { id: session.id, revokedAt: null, refreshTokenHash: suppliedHash, user: { accountStatus: ACCOUNT_STATUS.ACTIVE } },
     data: {
       refreshTokenHash: hashRefreshSecret(nextSecret),
       lastUsedAt: now,
@@ -127,6 +143,12 @@ export async function rotateAuthSession(req: Request, res: Response) {
       ...requestMetadata(req),
     },
   })
+  if (rotated.count !== 1) {
+    clearRefreshCookie(res)
+    const user = await prisma.user.findUnique({ where: { id: session.userId } })
+    if (user) assertAccountActive(user)
+    throw new AuthError(AUTH_ERROR.SESSION_EXPIRED, AUTH_SESSION_EXPIRED_MESSAGE, 401)
+  }
   setRefreshCookie(res, buildRefreshToken(session.id, nextSecret))
   return {
     user: session.user,

@@ -277,6 +277,9 @@ const roleOptions = [
 const moduleOptions = OPERATION_AUDIT_MODULE_OPTIONS
 
 const fieldLabels: Record<string, string> = {
+  accountStatus: '账号状态',
+  banReason: '封禁原因',
+  reason: '操作原因',
   username: '用户名',
   email: '邮箱',
   passwordChanged: '密码',

@@ -33,6 +33,7 @@
     "test:admin-user-access": "tsx scripts/test-admin-user-access.ts",
     "test:account-ban": "tsx scripts/test-account-ban.ts",
     "test:registration-source": "tsx scripts/test-registration-source.ts",
+    "test:registration-limits": "tsx scripts/test-registration-limits.ts",
     "test:question-bank-membership": "tsx scripts/test-question-bank-membership.ts",
     "test:invitations": "tsx scripts/test-invitations.ts",
     "test:payment-runtime": "tsx scripts/test-payment-runtime-safety.ts",

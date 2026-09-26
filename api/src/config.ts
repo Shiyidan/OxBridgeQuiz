@@ -498,6 +498,13 @@ export const config = {
   corsOrigins: resolveCorsOrigins(),
   trustProxy: parseTrustProxy(process.env.TRUST_PROXY, backendDefaults.trustProxy),
   registrationBlockedIps: parseRegistrationBlockedIps(process.env.REGISTRATION_BLOCKED_IPS),
+  registrationLimits: {
+    ipAttemptsPerMinute: parsePositiveInteger('REGISTRATION_IP_ATTEMPTS_PER_MINUTE', process.env.REGISTRATION_IP_ATTEMPTS_PER_MINUTE, 5, { min: 1, max: 1000 }),
+    ipSuccessPer10Minutes: parsePositiveInteger('REGISTRATION_IP_SUCCESS_PER_10_MINUTES', process.env.REGISTRATION_IP_SUCCESS_PER_10_MINUTES, 3, { min: 1, max: 1000 }),
+    ipSuccessPerDay: parsePositiveInteger('REGISTRATION_IP_SUCCESS_PER_DAY', process.env.REGISTRATION_IP_SUCCESS_PER_DAY, 10, { min: 1, max: 1000 }),
+    browserSuccessPerHour: parsePositiveInteger('REGISTRATION_BROWSER_SUCCESS_PER_HOUR', process.env.REGISTRATION_BROWSER_SUCCESS_PER_HOUR, 2, { min: 1, max: 1000 }),
+    codeRequestsPer10Minutes: parsePositiveInteger('REGISTRATION_CODE_REQUESTS_PER_10_MINUTES', process.env.REGISTRATION_CODE_REQUESTS_PER_10_MINUTES, 10, { min: 1, max: 1000 }),
+  },
   deepseekApiKey: process.env.DEEPSEEK_API_KEY || '',
   deepseekBaseUrl: (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/$/, ''),
   deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash',

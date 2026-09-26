@@ -1,3 +1,4 @@
+<!-- 注册页：邮箱验证、备考偏好及注册暂缓提示。 -->
 <template>
   <div class="register-page">
     <NavBar />
@@ -270,20 +271,24 @@
               <el-checkbox v-model="form.legalAccepted" aria-label="同意用户服务协议和隐私政策" />
               <span class="register-legal-copy">
                 我已阅读并同意
-                <router-link
-                  to="/legal/user-agreement"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <router-link to="/legal/user-agreement" target="_blank" rel="noopener noreferrer"
                   >《用户服务协议》</router-link
-                >和<router-link
-                  to="/legal/privacy-policy"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                >和<router-link to="/legal/privacy-policy" target="_blank" rel="noopener noreferrer"
                   >《隐私政策》</router-link
                 >
               </span>
             </div>
           </el-form-item>
+
+          <el-alert
+            v-if="registrationNotice"
+            class="registration-notice"
+            type="warning"
+            :title="registrationNotice"
+            :closable="false"
+            show-icon
+            role="alert"
+          />
 
           <el-form-item class="register-submit-row">
             <el-button
@@ -328,6 +333,7 @@ import {
 import { TARGET_UNIVERSITY_OPTIONS } from '@/constants/universities'
 import { createAuthRouteLocation, getSafeAuthRedirect } from '@/utils/authRedirect'
 import { AUTH_LEGAL_VERSIONS } from '@/constants/legal'
+import { getApiErrorMessage, hasApiErrorCode } from '@/utils/request'
 import {
   validateConfirmPassword,
   EMAIL_CODE_PATTERN,
@@ -471,8 +477,23 @@ const selectedGoals = ref<Record<string, ExamGoalDraft>>({})
 const ESAT_MAX_SUBJECTS = 3
 const challengeId = ref('')
 const codeSending = ref(false)
+const registrationNotice = ref('')
 const countdown = ref(0)
 let countdownTimer: number | undefined
+
+// 风控提示持续保留在表单中，用户可查看北京时间重试时间且不会丢失已填信息。
+function showRegistrationNotice(error: unknown): void {
+  const codes = [
+    'AUTH_REGISTRATION_IP_FREQUENT',
+    'AUTH_REGISTRATION_IP_DAILY',
+    'AUTH_REGISTRATION_BROWSER_FREQUENT',
+    'AUTH_REGISTRATION_COOKIE_REQUIRED',
+    'AUTH_REGISTRATION_RESTRICTED',
+  ]
+  registrationNotice.value = codes.some((code) => hasApiErrorCode(error, code))
+    ? getApiErrorMessage(error, '注册暂缓，请稍后重试。')
+    : ''
+}
 
 // 重发倒计时使用服务端返回间隔，避免客户端与限流时间不一致。
 function startCountdown(seconds: number): void {
@@ -538,6 +559,7 @@ async function handleSendCode(): Promise<void> {
   codeSending.value = true
   try {
     const data = await sendEmailCode(form.email, 'REGISTER')
+    registrationNotice.value = ''
     challengeId.value = data.challengeId
     startCountdown(data.resendAfter)
     if (data.developmentCode) {
@@ -557,8 +579,8 @@ async function handleSendCode(): Promise<void> {
       showClose: true,
       duration: 3000,
     })
-  } catch {
-    // Axios 公共响应处理会展示后端 errMsg。
+  } catch (error) {
+    showRegistrationNotice(error)
   } finally {
     codeSending.value = false
   }
@@ -706,8 +728,8 @@ const handleSubmit = async (): Promise<void> => {
       ...(form.inviteCode ? { inviteCode: form.inviteCode } : {}),
       examPreferences: examPrefs,
     })
-  } catch {
-    // Axios 公共响应处理会展示后端 errMsg。
+  } catch (error) {
+    showRegistrationNotice(error)
     return
   }
 
@@ -793,6 +815,10 @@ const handleSubmit = async (): Promise<void> => {
 
 .register-form {
   text-align: left;
+}
+
+.registration-notice {
+  margin-bottom: 16px;
 }
 
 .register-form :deep(.el-form-item__error) {

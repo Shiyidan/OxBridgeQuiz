@@ -7,7 +7,24 @@ if (!input || !output || !ips.length || ips.some(ip => !isIP(ip))) {
   throw new Error('Usage: node prepare-registration-ip-block.mjs <active-config> <candidate> <ip> [ip...]')
 }
 const original = readFileSync(input, 'utf8')
-if (original.includes('quiz_registration_source_denied')) throw new Error('An existing registration block must be reviewed before replacement')
+if (original.includes('quiz_registration_source_denied')) {
+  // 已有规则只追加完整 IP，保留原名单和其余站点配置；未知格式停止处理。
+  const pattern = /^geo \$quiz_registration_source_denied \{\r?\n([^}]+)^\}/gm
+  const blocks = [...original.matchAll(pattern)]
+  if (blocks.length !== 1) throw new Error('Expected exactly one registration source geo block')
+  const lines = blocks[0][1].split(/\r?\n/).map(line => line.trim()).filter(Boolean)
+  if (lines.filter(line => line === 'default 0;').length !== 1) throw new Error('Unexpected default registration policy')
+  const existingIps = lines.filter(line => line !== 'default 0;').map(line => {
+    const match = /^(\S+)\s+1;$/.exec(line)
+    if (!match || !isIP(match[1])) throw new Error('Unexpected registration source entry')
+    return match[1]
+  })
+  const sources = [...new Set([...existingIps, ...ips])]
+  const replacement = `geo $quiz_registration_source_denied {\n    default 0;\n${sources.map(ip => `    ${ip} 1;`).join('\n')}\n}`
+  writeFileSync(output, original.replace(pattern, () => replacement), { mode: 0o600 })
+  console.log(JSON.stringify({ candidate: 'prepared', blockedSources: sources.length, addedSources: sources.length - existingIps.length }))
+  process.exit(0)
+}
 let locations = 0
 const site = original.replace(/(location \/api\/ \{)/g, match => {
   locations++

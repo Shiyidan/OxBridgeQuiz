@@ -53,6 +53,14 @@ import { pickRandomUserAvatar } from '../services/userAvatar.js'
 import { INVITATION_BINDING_SOURCE } from '../constants/domain.js'
 import { assertAccountActive } from '../services/accountStatus.js'
 import { createRegistrationSourceGuard } from '../middleware/registrationAccess.js'
+import {
+  RegistrationLimitError,
+  getRegistrationSource,
+  consumeRegistrationAttempt,
+  checkRegistrationSuccessLimits,
+  consumeRegistrationSuccess,
+  registrationTransaction,
+} from '../services/registrationLimits.js'
 
 export const authRouter = createAsyncRouter()
 
@@ -68,7 +76,6 @@ function limiter(windowMs: number, max: number) {
   })
 }
 
-const registerLimiter = limiter(60 * 1000, 5)
 const loginLimiter = limiter(15 * 60 * 1000, 20)
 const emailCodeLimiter = limiter(60 * 60 * 1000, 20)
 const registrationSourceGuard = createRegistrationSourceGuard(config.registrationBlockedIps)
@@ -86,6 +93,11 @@ function presentUser(user: User) {
 }
 
 function handleAuthError(res: Response, error: unknown, event: string): void {
+  if (error instanceof RegistrationLimitError) {
+    res.setHeader('Retry-After', String(Math.max(1, Math.ceil((error.retryAt - Date.now()) / 1000))))
+    res.status(error.status).json(fail(error.message, error.code))
+    return
+  }
   if (error instanceof InvitationError) {
     res.status(error.httpStatus).json(fail(error.message, error.code))
     return
@@ -116,6 +128,9 @@ authRouter.post('/email-code', registrationSourceGuard, emailCodeLimiter, option
     let userId: string | undefined
 
     if (purpose === EMAIL_CODE_PURPOSE.REGISTER) {
+      const source = getRegistrationSource(req, res)
+      await consumeRegistrationAttempt(source, true)
+      await checkRegistrationSuccessLimits(source)
       const exists = await prisma.user.findUnique({ where: { email: input.email } })
       if (exists) throw new AuthError(AUTH_ERROR.EMAIL_IN_USE, '该邮箱已注册', 409)
     }
@@ -203,8 +218,11 @@ authRouter.post('/email-code', registrationSourceGuard, emailCodeLimiter, option
 })
 
 // 注册必须在同一事务中消费邮箱验证码并创建账号。
-authRouter.post('/register', registrationSourceGuard, registerLimiter, async (req: Request, res: Response) => {
+authRouter.post('/register', registrationSourceGuard, async (req: Request, res: Response) => {
   try {
+    const source = getRegistrationSource(req, res, true)
+    await consumeRegistrationAttempt(source)
+    await checkRegistrationSuccessLimits(source)
     const input = parseSchema(registerSchema, req.body)
     const legalAcceptedAt = new Date()
     const legalIpAddress = normalizeIpAddress(req.ip)
@@ -217,7 +235,8 @@ authRouter.post('/register', registrationSourceGuard, registerLimiter, async (re
     if (existingUsername) throw new AuthError(AUTH_ERROR.USERNAME_IN_USE, '该用户名已被使用', 409)
 
     const hashed = await bcrypt.hash(input.password, 12)
-    const user = await prisma.$transaction(async (tx) => {
+    const user = await registrationTransaction(async (tx) => {
+      await consumeRegistrationSuccess(tx, source)
       await consumeEmailChallenge(tx, {
         challengeId: input.challengeId,
         email: input.email,
@@ -259,7 +278,7 @@ authRouter.post('/register', registrationSourceGuard, registerLimiter, async (re
         })
       }
       return createdUser
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
+    })
     const session = await createAuthSession(user, req, res)
     setOperationAuditActor(req, user)
     setOperationAuditContext(req, { resourceId: user.id })

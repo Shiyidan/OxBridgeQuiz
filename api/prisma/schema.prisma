@@ -422,6 +422,16 @@ model AuthSession {
   @@index([expiresAt])
 }
 
+// 注册限流按来源与规则保存有界时间戳数组，跨进程共享并通过事务锁串行扣额度。
+model RegistrationRateBucket {
+  key       String   @id @db.VarChar(96)
+  events    Json
+  expiresAt DateTime
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
 model EmailVerificationChallenge {
   id            String    @id @default(uuid()) @db.VarChar(191)
   userId        String?   @db.VarChar(191)

@@ -29,6 +29,8 @@
     "reset:test-business-data": "tsx scripts/reset-test-business-data.ts",
     "smoke:auth": "tsx scripts/smoke-auth.ts",
     "test:behavior-analytics": "tsx scripts/test-behavior-analytics.ts",
+    "test:product-trend-override": "tsx scripts/test-product-trend-override.ts",
+    "repair:sept05-product-trend": "tsx scripts/repair-sept05-product-trend.ts",
     "test:banned-user-analytics": "tsx scripts/test-banned-user-analytics.ts",
     "test:website-traffic": "tsx scripts/test-website-traffic.ts",
     "test:admin-user-access": "tsx scripts/test-admin-user-access.ts",

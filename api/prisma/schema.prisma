@@ -948,6 +948,15 @@ model PaymentReconciliationItem {
   @@index([orderNo])
 }
 
+// 仅修正管理端每日产品趋势展示；不关联或修改用户的练习与答题记录。
+model ProductUsageTrendOverride {
+  businessDate              DateTime @id @db.Date
+  questionBankPracticeCount Int
+  reason                    String   @db.VarChar(255)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
+
 model BackgroundJobLease {
   name        String   @id @db.VarChar(64)
   ownerId     String   @db.VarChar(128)

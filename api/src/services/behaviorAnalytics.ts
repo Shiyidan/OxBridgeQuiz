@@ -608,7 +608,7 @@ export function aggregateBehaviorAnalytics(
 export async function getStudentBehaviorAnalytics(filters: BehaviorAnalyticsFilters) {
   const durationMs = filters.endAt.getTime() - filters.startAt.getTime()
   const previousStartAt = new Date(filters.startAt.getTime() - durationMs)
-  const [logs, completionRecords, productViewLogs] = await Promise.all([
+  const [logs, completionRecords, productViewLogs, trendOverrides] = await Promise.all([
     prisma.operationLog.findMany({
       where: {
         AND: [visibleOperationActorWhere],
@@ -657,6 +657,15 @@ export async function getStudentBehaviorAnalytics(filters: BehaviorAnalyticsFilt
       },
       orderBy: { occurredAt: 'asc' },
     }),
+    prisma.productUsageTrendOverride.findMany({
+      where: {
+        businessDate: {
+          gte: new Date(`${chinaDateKey(filters.startAt)}T00:00:00.000Z`),
+          lte: new Date(`${chinaDateKey(new Date(filters.endAt.getTime() - 1))}T00:00:00.000Z`),
+        },
+      },
+      select: { businessDate: true, questionBankPracticeCount: true },
+    }),
   ])
 
   const currentLogs = logs.filter((log) => log.occurredAt >= filters.startAt)
@@ -704,8 +713,19 @@ export async function getStudentBehaviorAnalytics(filters: BehaviorAnalyticsFilt
     ),
   }
 
+  const productUsage = aggregateProductUsage(currentProductEvents, previousProductEvents, filters)
+  const overrideByDate = new Map(
+    trendOverrides.map((item) => [item.businessDate.toISOString().slice(0, 10), item.questionBankPracticeCount]),
+  )
+  // 修正仅在真实聚合完成后应用到趋势点，汇总、偏好、同期对比和用户业务数据仍使用原始记录。
+  productUsage.trend = productUsage.trend.map((item) => {
+    const count = overrideByDate.get(item.date)
+    return count !== undefined && Number.isSafeInteger(count) && count >= 0
+      ? { ...item, questionBankPracticeCount: count }
+      : item
+  })
   return {
     ...aggregateBehaviorAnalytics(currentLogs, previousLogs, filters),
-    productUsage: aggregateProductUsage(currentProductEvents, previousProductEvents, filters),
+    productUsage,
   }
 }

@@ -37,6 +37,8 @@ const origin = `http://127.0.0.1:${address.port}`
 const userIds: string[] = []
 const paperId = crypto.randomUUID()
 const questionId = crypto.randomUUID()
+const scopeId = crypto.randomUUID()
+const scopeCode = `qbm-${scopeId}`
 const now = Date.now()
 
 // 每个用例拥有独立会话，所有请求经过真实认证及业务路由。
@@ -67,11 +69,18 @@ async function grant(userId: string, plan: string = MEMBERSHIP_PLAN.MONTHLY, sou
   } })
 }
 
-// 构造旧链接所持有的合法选题凭证，验证开始时仍会重新检查会员。
+// 构造旧链接所持有的合法选题凭证，验证旧开始入口已停止接受它。
 function selectionToken(userId: string) {
   return signQuestionBankSelection(userId, EXAM_TYPE.TMUA, [questionId], {
     source: PRACTICE_SOURCE.DIRECT, subject: null, knowledgePoint: null,
     difficulty: 'easy', plannedQuestionCount: 1, questionCount: 1,
+  })
+}
+
+// 新入口在创建练习时选题，测试只使用本次创建的考纲范围。
+async function startPractice(token: string, examType: string = EXAM_TYPE.TMUA) {
+  return request(token, '/questions/practice', 'POST', {
+    examType, code: scopeCode, difficulty: 'easy', requestId: crypto.randomUUID(),
   })
 }
 
@@ -83,11 +92,13 @@ function assertDenied(result: Awaited<ReturnType<typeof request>>) {
 }
 
 try {
+  await prisma.syllabusNode.create({ data: { id: scopeId, code: scopeCode, label: 'Membership test scope', examType: EXAM_TYPE.TMUA } })
   await prisma.paper.create({ data: { id: paperId, title: 'Membership test paper', examType: EXAM_TYPE.TMUA,
     year: 2026, duration: 60, paperType: PAPER_TYPE.AI_PAPER, status: QUESTION_STATUS.PUBLISHED } })
   await prisma.question.create({ data: { id: questionId, uniqueCode: questionId, examType: EXAM_TYPE.TMUA,
     title: 'Membership test question', options: [{ key: 'A', content: '1' }], answer: ['A'],
-    knowledgePoints: [], syllabusPoints: [], meta: {}, difficulty: 'easy', questionType: 'single_choice', status: QUESTION_STATUS.PUBLISHED } })
+    knowledgePoints: [], syllabusPoints: [], meta: {}, difficulty: 'easy', questionType: 'single_choice', status: QUESTION_STATUS.PUBLISHED,
+    knowledgePointLinks: { create: { syllabusNodeId: scopeId, role: 'primary' } } } })
   const free = await createUser()
   for (const examType of [EXAM_TYPE.ESAT, EXAM_TYPE.TMUA]) {
     for (const count of [0, 1, 25, -1]) {
@@ -96,7 +107,8 @@ try {
       assert.equal(access.reason, 'MEMBERSHIP_REQUIRED')
       assert.equal(access.limit, 0)
     }
-    assertDenied(await request(free.token, `/questions/selection?examType=${examType}&difficulty=easy`))
+    assert.equal((await request(free.token, `/questions/selection?examType=${examType}&difficulty=easy`)).status, 410)
+    assertDenied(await startPractice(free.token, examType))
   }
   const context = await getMemberContext(free.id)
   assert.equal(context!.quotas.TMUA!.questionBank.limit, 0)
@@ -106,13 +118,13 @@ try {
   Object.defineProperty(legacyConfigDb, 'entitlementConfig', { value: { findFirst: async () => ({ diagnosticLimit: 1, questionBankLimit: 25 }) } })
   assert.equal((await checkMemberAccess(free.id, 'question-bank', EXAM_TYPE.TMUA, 1, legacyConfigDb)).allowed, false)
   assert.equal(await hasDiagnosticPaperAccess(free.id, { examType: EXAM_TYPE.TMUA, accessTier: PAPER_ACCESS_TIER.FREE }), true)
-  assertDenied(await request(free.token, '/exams/start', 'POST', { selectionToken: selectionToken(free.id) }))
+  assert.equal((await request(free.token, '/exams/start', 'POST', { selectionToken: selectionToken(free.id) })).status, 410)
   assert.equal(await prisma.examRecord.count({ where: { userId: free.id } }), 0)
   const notebook = await prisma.practiceNotebook.create({ data: { userId: free.id, examType: EXAM_TYPE.TMUA,
     name: 'Membership test notebook', knowledgePointCodes: [], knowledgePointSnapshot: [], questionCount: 5, difficultyMode: 'easy' } })
   assertDenied(await request(free.token, `/notebooks/${notebook.id}/start`, 'POST', {}))
   assert.equal(await prisma.examRecord.count({ where: { userId: free.id } }), 0)
-  console.log('PASS free users, old quota config, signed start, notebook start and free diagnosis')
+  console.log('PASS free users, old quota config, retired signed start, notebook start and free diagnosis')
 
   for (const [plan, source] of [
     [MEMBERSHIP_PLAN.MONTHLY, MEMBERSHIP_SOURCE.PAYMENT],
@@ -122,9 +134,9 @@ try {
     const member = await createUser()
     const membership = await grant(member.id, plan, source)
     assert.equal((await checkMemberAccess(member.id, 'question-bank', EXAM_TYPE.TMUA, 10000)).allowed, true)
-    assertDenied(await request(member.token, '/questions/selection?examType=ESAT&difficulty=easy'))
-    assert.equal((await request(member.token, '/questions/selection?examType=TMUA&difficulty=easy')).status, 200)
-    const started = await request(member.token, '/exams/start', 'POST', { selectionToken: selectionToken(member.id) })
+    assertDenied(await startPractice(member.token, EXAM_TYPE.ESAT))
+    assert.equal((await request(member.token, '/questions/selection?examType=TMUA&difficulty=easy')).status, 410)
+    const started = await startPractice(member.token)
     assert.equal(started.status, 200, JSON.stringify(started.body))
     const examId = started.body.data.examRecordId
     assert.equal((await request(member.token, `/exams/${examId}/session`)).status, 200)
@@ -138,8 +150,9 @@ try {
   }
   const admin = await createUser(USER_ROLE.ADMIN)
   for (const examType of [EXAM_TYPE.TMUA, EXAM_TYPE.ESAT]) {
-    assert.equal((await request(admin.token, `/questions/selection?examType=${examType}&difficulty=easy`)).status, 200)
+    assert.equal((await request(admin.token, `/questions/selection?examType=${examType}&difficulty=easy`)).status, 410)
   }
+  assert.equal((await startPractice(admin.token)).status, 200)
   console.log('PASS paid/gift/day-card/admin access, exam isolation, expiration and renewal')
 
   const stale = await createUser()
@@ -151,7 +164,8 @@ try {
     { startsAt: new Date(now - 60000), endsAt: new Date(now - 1000) },
   ]) {
     await prisma.userMembership.update({ where: { id: membership.id }, data })
-    assertDenied(await request(stale.token, '/exams/start', 'POST', { selectionToken: token }))
+    assert.equal((await request(stale.token, '/exams/start', 'POST', { selectionToken: token })).status, 410)
+    assertDenied(await startPractice(stale.token))
   }
   assert.equal(await prisma.examRecord.count({ where: { userId: stale.id } }), 0)
   const legacy = await prisma.examRecord.create({ data: { userId: free.id, paperId, examType: EXAM_TYPE.TMUA,
@@ -169,6 +183,7 @@ try {
   await prisma.examRecord.deleteMany({ where: { userId: { in: userIds } } })
   await prisma.user.deleteMany({ where: { id: { in: userIds } } })
   await prisma.question.deleteMany({ where: { id: questionId } })
+  await prisma.syllabusNode.deleteMany({ where: { id: scopeId } })
   await prisma.paper.deleteMany({ where: { id: paperId } })
   await prisma.$disconnect()
 }

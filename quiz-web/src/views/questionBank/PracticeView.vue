@@ -159,7 +159,7 @@ import DiagnosticAnalysisDialog from '@/components/DiagnosticAnalysisDialog.vue'
 import AppDialog from '@/components/AppDialog.vue'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
-import { getQuestionsData } from '@/api/questionBank'
+import { startQuestionBankPractice } from '@/api/questionBank'
 import { getPaperDetailData } from '@/api/papers'
 import {
   getActiveQuestionBankPractice,
@@ -171,7 +171,7 @@ import {
   type ExamProgress,
   type ExamResponseInput,
 } from '@/api/exam'
-import { checkMemberAccess, getMember } from '@/api/member'
+import { getMember } from '@/api/member'
 import { useAuthStore } from '@/stores/auth'
 import {
   DEFAULT_EXAM_TYPE,
@@ -220,6 +220,11 @@ const paymentVisible = ref(false)
 const quotaUpgradePending = ref(false)
 const membershipAccessDenied = ref(false)
 const submittedExamRecordId = ref('')
+// 网络重试沿用同一次开始请求，避免响应丢失后创建另一组题。
+const startRequestId =
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `practice-${Date.now()}-${Math.random().toString(16).slice(2)}`
 const submissionKey = ref(
   typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
@@ -426,52 +431,26 @@ async function loadQuestions(): Promise<void> {
       router.replace({ path: '/question-bank', query: { examType } })
       return
     }
-    const selection = await getQuestionsData({ code, difficulty, examType })
-    const qs = selection.questions || []
-    const loadedQuestions = qs.map((q, index) => ({
-      ...q,
-      id: q.id || `question-bank-${q.code || q.number || index + 1}`,
-    }))
-    if (!loadedQuestions.length) {
-      questions.value = []
-      resetAnswerState()
-      return
-    }
-    if (!selection.selectionToken) {
-      ElMessage.error('选题凭证生成失败，请返回试题库重试')
-      await router.replace('/question-bank')
-      return
-    }
-    if (loadedQuestions.length > 0) {
-      const access = await checkMemberAccess({
-        action: 'question-bank',
-        examType,
-        questionCount: loadedQuestions.length,
-      })
-      if (!access.allowed) {
-        questions.value = []
-        quotaUpgradePending.value = true
-        upgradeDialogVisible.value = true
-        return
-      }
-    }
-    const examSession = await startExam({
-      selectionToken: selection.selectionToken,
-      startedAt: new Date().toISOString(),
+    const started = await startQuestionBankPractice({
+      code,
+      difficulty: difficulty || '',
+      examType,
+      requestId: startRequestId,
     })
-    activeExamRecordId.value = examSession.examRecordId
-    practiceHeaderTitle.value = examSession.practiceTitle || ''
-    questions.value = loadedQuestions
-    examExpiresAt.value = examSession.expiresAt
-    if (examSession.isResumed) {
-      restoreSavedProgress(examSession, loadedQuestions)
-    } else {
-      resetAnswerState()
+    activeExamType.value = normalizeExamType(started.examType)
+    if (started.status === 'submitted') {
+      await router.replace({ path: '/exam-result', query: { id: started.examRecordId } })
+      return
     }
+    // 先把已提交成功的记录写入路由；取会话失败后刷新仍恢复同一组题。
     await router.replace({
       path: '/practice',
-      query: { examId: examSession.examRecordId },
+      query: {
+        examId: started.examRecordId,
+        ...(started.practiceNotebookId ? { from: 'practice-notebook' } : {}),
+      },
     })
+    await loadQuestions()
   } catch (e) {
     if (hasApiErrorCode(e, 'QUESTION_BANK_IN_PROGRESS')) {
       ElMessage.info('已有未完成练习，请从试题库点击“继续练习”')
@@ -483,12 +462,10 @@ async function loadQuestions(): Promise<void> {
     }
     if (hasApiErrorCode(e, 'QUESTION_BANK_ACCESS_DENIED')) {
       questions.value = []
-      // 旧续答链接只含答卷 ID；取活动记录的考试类型，避免引导购买另一考试会员。
-      if (route.query.examId) {
-        const active = await getActiveQuestionBankPractice(activeExamType.value).catch(() => null)
-        if (active?.examRecordId === route.query.examId) {
-          activeExamType.value = normalizeExamType(active.examType)
-        }
+      // 新开始请求也可能恢复另一考试的活动练习，按原记录引导开通会员。
+      const active = await getActiveQuestionBankPractice(activeExamType.value).catch(() => null)
+      if (active?.examRecordId && (!route.query.examId || active.examRecordId === route.query.examId)) {
+        activeExamType.value = normalizeExamType(active.examType)
       }
       showMembershipRequired()
       return
@@ -765,7 +742,13 @@ async function flushExamProgress(
   throwOnError = false,
   forceCurrentSave = false,
 ): Promise<void> {
-  if (submitting.value || membershipAccessDenied.value || !activeExamRecordId.value || !questions.value.length) return
+  if (
+    submitting.value ||
+    membershipAccessDenied.value ||
+    !activeExamRecordId.value ||
+    !questions.value.length
+  )
+    return
   if (includeCurrentDuration) {
     const question = currentQuestion.value
     recordCurrentQuestionDuration(false)
@@ -1013,7 +996,13 @@ onBeforeUnmount(() => {
 
 // 浏览器后退和其他路由跳转同样先保存进度，避免绕过页面内返回按钮。
 onBeforeRouteLeave(async () => {
-  if (submitting.value || examSubmitted.value || membershipAccessDenied.value || !activeExamRecordId.value) return true
+  if (
+    submitting.value ||
+    examSubmitted.value ||
+    membershipAccessDenied.value ||
+    !activeExamRecordId.value
+  )
+    return true
   try {
     await saveCurrentExamProgress()
     return true

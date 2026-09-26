@@ -18,7 +18,6 @@ export interface ExamResponseInput {
 export interface StartExamParams {
   paperId?: string
   examType?: string
-  selectionToken?: string
   startedAt?: string
 }
 

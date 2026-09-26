@@ -1,7 +1,7 @@
 // 试题库 API：覆盖考纲与练习选题、standard2 导入及单题审核。
 import { callApi } from '@/utils/request'
 import { DEFAULT_EXAM_TYPE } from '@/constants/examTypes'
-import type { AttemptQuestion, KnowledgePoint, Question } from '@/types'
+import type { KnowledgePoint, Question } from '@/types'
 
 export interface SyllabusNode {
   code: string
@@ -21,6 +21,22 @@ export interface QuestionBankSummary {
 export interface KnowledgePointQuestionCounts {
   counts: Record<string, number>
   total: number
+}
+
+export interface StartQuestionBankPracticeParams {
+  code?: string
+  difficulty: string
+  examType: string
+  requestId: string
+}
+
+export interface StartQuestionBankPracticeResult {
+  examRecordId: string
+  examType: string
+  totalQuestions: number
+  status: string
+  isResumed: boolean
+  practiceNotebookId: string | null
 }
 
 export interface PaginationResult {
@@ -110,20 +126,12 @@ export function getKnowledgePointQuestionCounts(codes: string[], examType = DEFA
   })
 }
 
-/** 为一次练习限量选择题目，正确答案不会在此接口下发。 */
-export function getQuestionsData(filters: {
-  code?: string
-  difficulty?: string
-  examType?: string
-}) {
-  return callApi<{ questions: AttemptQuestion[]; total: number; selectionToken: string | null }>({
-    url: '/question-library/selection',
-    method: 'GET',
-    params: {
-      code: filters.code,
-      difficulty: filters.difficulty,
-      examType: filters.examType,
-    },
+// 后端原子创建或恢复练习，取得记录 ID 后才可通过会话接口读取固定题目。
+export function startQuestionBankPractice(params: StartQuestionBankPracticeParams) {
+  return callApi<StartQuestionBankPracticeResult>({
+    url: '/question-library/practice',
+    method: 'POST',
+    body: params,
   })
 }
 

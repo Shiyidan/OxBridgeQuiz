@@ -12,6 +12,7 @@ import {
   isStudentExamTypeAvailable,
 } from '../constants/domain.js'
 import { checkMemberAccess } from '../services/member.js'
+import { lockQuestionBankUser } from '../services/questionBankPractice.js'
 import {
   normalizePracticeNotebookInput,
   parsePracticeSnapshot,
@@ -427,6 +428,7 @@ practiceNotebookRouter.post('/:id/start', requireAuth, async (req, res) => {
       return
     }
     const examRecord = await withQuotaTransaction(async (tx) => {
+      await lockQuestionBankUser(tx, req.user!.userId)
       const existingActive = await tx.examRecord.findFirst({
         where: {
           userId: req.user!.userId,

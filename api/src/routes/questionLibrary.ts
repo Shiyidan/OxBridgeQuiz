@@ -5,24 +5,21 @@ import { requireAuth } from "../middleware/auth.js";
 import { setOperationAuditContext } from "../middleware/operationAudit.js";
 import {
   EXAM_TYPE,
-  PRACTICE_SOURCE,
   QUESTION_DIFFICULTIES,
-  QUESTION_BANK_DIRECT_PRACTICE_COUNT,
-  QUESTION_BANK_MEMBERSHIP_MESSAGE,
-  type QuestionDifficulty,
   QUESTION_STATUS,
   TMUA_PAPER,
   isExamType,
   isQuestionDifficulty,
   isQuestionStatus,
 } from "../constants/domain.js";
-import { checkMemberAccess } from "../services/member.js";
 import { prisma } from "../services/prisma.js";
 import {
-  signQuestionBankSelection,
-  type QuestionBankPracticeSnapshot,
-  type QuestionBankSelectionScopeNode,
-} from "../services/questionBankSelection.js";
+  buildPublishedQuestionWhere,
+  directPracticeSchema,
+  startDirectQuestionBankPractice,
+  QuestionBankPracticeError,
+} from "../services/questionBankPractice.js";
+import { AuthError } from "../utils/authError.js";
 import {
   QuestionBankDocumentError,
   parseQuestionBankDocumentText,
@@ -37,8 +34,6 @@ import { formatQuestionRow } from "../utils/questionSync.js";
 import { resolveQuestionModuleCode } from "../utils/questionModule.js";
 import { fail, success } from "../utils/response.js";
 import {
-  attemptQuestionSelect,
-  formatQuestionForAttempt,
   parsePositiveInt,
 } from "./papers-shared.js";
 
@@ -103,132 +98,6 @@ function parseKnowledgePointCodes(value: unknown): string[] {
   ];
 }
 
-// 父级考纲筛选先解析成节点 id，题目筛选和统计再通过关联表在数据库中完成。
-async function collectDescendantNodeIds(
-  code: string,
-  examType: string,
-): Promise<string[]> {
-  if (!code) return [];
-  const nodes = await prisma.syllabusNode.findMany({
-    where: { examType },
-    select: { id: true, code: true, parentCode: true },
-  });
-  if (!nodes.some((node) => node.code === code)) return [];
-  const codes = new Set([code]);
-  let expanded = true;
-  while (expanded) {
-    expanded = false;
-    for (const node of nodes) {
-      if (
-        node.parentCode &&
-        codes.has(node.parentCode) &&
-        !codes.has(node.code)
-      ) {
-        codes.add(node.code);
-        expanded = true;
-      }
-    }
-  }
-  return nodes.filter((node) => codes.has(node.code)).map((node) => node.id);
-}
-
-// 临时练习范围由服务端考纲和实际选题生成，随签名凭证冻结后再写入答卷快照。
-async function buildDirectPracticeSnapshot(
-  examType: string,
-  code: string,
-  difficulty: QuestionDifficulty,
-  plannedQuestionCount: number,
-  rows: Array<{
-    subject: string | null;
-    subjectCode: string | null;
-  }>,
-): Promise<QuestionBankPracticeSnapshot> {
-  let subject: QuestionBankSelectionScopeNode | null = null;
-  let knowledgePoint: QuestionBankPracticeSnapshot["knowledgePoint"] = null;
-  if (code) {
-    const nodes = await prisma.syllabusNode.findMany({
-      where: { examType },
-      select: { code: true, label: true, parentCode: true },
-    });
-    const nodeMap = new Map(nodes.map((node) => [node.code, node]));
-    const requestedNode = nodeMap.get(code);
-    if (requestedNode) {
-      const lineage = [requestedNode];
-      const visited = new Set([requestedNode.code]);
-      let current = requestedNode.parentCode
-        ? nodeMap.get(requestedNode.parentCode)
-        : undefined;
-      while (current && !visited.has(current.code)) {
-        lineage.unshift(current);
-        visited.add(current.code);
-        current = current.parentCode ? nodeMap.get(current.parentCode) : undefined;
-      }
-      const scopedLineage =
-        lineage.length > 1 && lineage[0]?.parentCode === null
-          ? lineage.slice(1)
-          : lineage;
-      const path = (scopedLineage.length ? scopedLineage : [requestedNode]).map(
-        (node) => ({ code: node.code, label: node.label }),
-      );
-      subject = path[0] || null;
-      knowledgePoint = {
-        code: requestedNode.code,
-        label: requestedNode.label,
-        path,
-      };
-    }
-  }
-
-  if (!subject) {
-    const subjects = new Map<string, QuestionBankSelectionScopeNode>();
-    for (const row of rows) {
-      const label = String(row.subject || "").trim();
-      if (!label) continue;
-      const subjectCode = String(row.subjectCode || label).trim();
-      subjects.set(subjectCode, { code: subjectCode, label });
-    }
-    if (subjects.size === 1) subject = [...subjects.values()][0] || null;
-  }
-
-  return {
-    source: PRACTICE_SOURCE.DIRECT,
-    subject,
-    knowledgePoint,
-    difficulty,
-    plannedQuestionCount,
-    questionCount: rows.length,
-  };
-}
-
-// 学生端查询只允许命中已发布的独立题目，并按可选考纲节点和难度缩小范围。
-async function buildPublishedQuestionWhere(
-  query: Record<string, unknown>,
-): Promise<Prisma.QuestionWhereInput> {
-  const examType = String(query.examType || EXAM_TYPE.TMUA).toUpperCase();
-  const code = String(query.code || "").trim();
-  const difficulty = String(query.difficulty || "").trim();
-  const where: Prisma.QuestionWhereInput = {
-    paperId: null,
-    status: QUESTION_STATUS.PUBLISHED,
-    examType,
-  };
-  if (isQuestionDifficulty(difficulty)) where.difficulty = difficulty;
-  if (code) {
-    const nodeIds = await collectDescendantNodeIds(code, examType);
-    where.knowledgePointLinks = nodeIds.length
-      ? { some: { syllabusNodeId: { in: nodeIds } } }
-      : { some: { syllabusNodeId: "__missing__" } };
-  }
-  return where;
-}
-
-// 作答题号只属于本次返回顺序，不写回 Question.number。
-function formatAttemptQuestions(rows: any[]): Array<Record<string, unknown>> {
-  return rows.map((row, index) => ({
-    ...formatQuestionForAttempt(row),
-    number: index + 1,
-  }));
-}
 
 // 管理列表使用普通列和展示快照，避免为列表加载大体积 SVG 与完整解析。
 function formatAdminListItem(row: any): Record<string, unknown> {
@@ -439,55 +308,38 @@ questionLibraryRouter.get(
   },
 );
 
-// 选题前先验证当前考试会员，创建练习时仍在事务内复核，避免会员到期后使用旧凭证。
-questionLibraryRouter.get("/selection", requireAuth, async (req, res) => {
-  const examType = String(req.query.examType || EXAM_TYPE.TMUA).toUpperCase();
-  if (!isExamType(examType)) {
-    res.status(422).json(fail("无效的考试类型"));
+// 旧取题入口停止返回题目，防止绕过练习创建直接获取题库内容。
+questionLibraryRouter.get("/selection", requireAuth, (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.status(410).json(fail("练习入口已更新，请刷新页面后重新开始", "QUESTION_SELECTION_RETIRED"));
+});
+
+// 原子开始或恢复练习；提交成功后才允许通过所属会话读取题目。
+questionLibraryRouter.post("/practice", requireAuth, async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const parsed = directPracticeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(422).json(fail("练习参数不正确，请刷新页面后重试", "QUESTION_BANK_START_INVALID"));
     return;
   }
-  const difficulty = String(req.query.difficulty || "").trim();
-  if (!isQuestionDifficulty(difficulty)) {
-    res.status(422).json(fail("请选择简单、中等或困难难度"));
-    return;
+  try {
+    const { record, isResumed } = await startDirectQuestionBankPractice(req.user!.userId, parsed.data);
+    setOperationAuditContext(req, {
+      resourceId: record.id,
+      summary: `${isResumed ? "恢复" : "开始"} ${record.examType} 题库练习`,
+    });
+    res.json(success({
+      examRecordId: record.id, examType: record.examType, totalQuestions: record.totalQuestions,
+      status: record.status, isResumed,
+      practiceNotebookId: record.practiceNotebookId,
+    }));
+  } catch (error) {
+    if (error instanceof QuestionBankPracticeError || error instanceof AuthError) {
+      res.status(error.status).json(fail(error.message, error.code));
+      return;
+    }
+    throw error;
   }
-  const entitlement = await checkMemberAccess(req.user!.userId, "question-bank", examType);
-  if (!entitlement.allowed) {
-    res.status(403).json(fail(QUESTION_BANK_MEMBERSHIP_MESSAGE, "QUESTION_BANK_ACCESS_DENIED"));
-    return;
-  }
-  const where = await buildPublishedQuestionWhere(req.query);
-  const total = await prisma.question.count({ where });
-  const plannedCount = Math.min(total, QUESTION_BANK_DIRECT_PRACTICE_COUNT);
-  const take = plannedCount;
-  const skip = take > 0 ? Math.floor(Math.random() * (total - take + 1)) : 0;
-  const rows =
-    take > 0
-      ? await prisma.question.findMany({
-          where,
-          orderBy: [{ id: "asc" }],
-          skip,
-          take,
-          select: attemptQuestionSelect,
-        })
-      : [];
-  const selectionToken = rows.length
-    ? signQuestionBankSelection(
-        req.user!.userId,
-        examType,
-        rows.map((row) => row.id),
-        await buildDirectPracticeSnapshot(
-          examType,
-          String(req.query.code || "").trim(),
-          difficulty,
-          plannedCount,
-          rows,
-        ),
-      )
-    : null;
-  res.json(
-    success({ questions: formatAttemptQuestions(rows), total, selectionToken }),
-  );
 });
 
 // standard2 文件先完成全量校验，再在单个事务内创建批次、题目和考纲关联。

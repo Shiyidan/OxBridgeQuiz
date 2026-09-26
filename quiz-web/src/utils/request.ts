@@ -41,11 +41,40 @@ let authBridge: RequestAuthBridge | null = null
 let refreshPromise: Promise<string> | null = null
 let authFailureRedirectScheduled = false
 let accountBanned = false
+let practiceRefreshScheduled = false
 
 const AUTH_FAILURE_REDIRECT_DELAY_MS = 1800
 const AUTH_SESSION_EXPIRED_CODE = 'AUTH_SESSION_EXPIRED'
 export const AUTH_ACCOUNT_BANNED_CODE = 'AUTH_ACCOUNT_BANNED'
 const REQUEST_CANCELED_CODE = 'ERR_CANCELED'
+const PRACTICE_REFRESH_KEY = 'quiz:question-selection-retired:refreshed'
+const PRACTICE_REFRESH_PARAM = '_practice_refresh'
+
+// 旧练习入口停用后保留当前地址自动更新一次；跨加载标记避免缓存或部署异常导致刷新循环。
+function handleRetiredPractice(apiError: ApiError): boolean {
+  if (apiError.code !== 'QUESTION_SELECTION_RETIRED') return false
+  if (practiceRefreshScheduled) return true
+  const target = new URL(window.location.href)
+  let refreshed = target.searchParams.has(PRACTICE_REFRESH_PARAM)
+  try {
+    refreshed ||= window.sessionStorage.getItem(PRACTICE_REFRESH_KEY) === '1'
+    if (!refreshed) window.sessionStorage.setItem(PRACTICE_REFRESH_KEY, '1')
+  } catch {
+    // 禁用浏览器存储时仍通过地址标记限制刷新次数。
+  }
+  if (refreshed) {
+    apiError.message = '页面更新后仍无法开始练习，请稍后重试或联系客服。'
+    return false
+  }
+  practiceRefreshScheduled = true
+  target.searchParams.set(PRACTICE_REFRESH_PARAM, '1')
+  apiError.message = '练习页面已更新，正在自动刷新…'
+  ElMessage.info({ message: apiError.message, duration: 1000, grouping: true })
+  window.setTimeout(() => {
+    if (!accountBanned && !authFailureRedirectScheduled) window.location.replace(target.href)
+  }, 1000)
+  return true
+}
 
 // 应用启动时绑定 Pinia 认证状态，确保请求层和界面只使用同一个 Token 数据源。
 export function configureRequestAuth(bridge: RequestAuthBridge): void {
@@ -191,6 +220,7 @@ instance.interceptors.response.use(
         const apiError = new ApiError(body.errMsg || '请求失败', body.code, response.status)
         if (handleAccountBanned(apiError, response.config.url || ''))
           return Promise.reject(apiError)
+        if (handleRetiredPractice(apiError)) return Promise.reject(apiError)
         if (!response.config.silent) showApiError(apiError)
         return Promise.reject(apiError)
       }
@@ -208,6 +238,7 @@ instance.interceptors.response.use(
     if (handleAccountBanned(initialError, url)) return Promise.reject(initialError)
     if (accountBanned)
       return Promise.reject(new ApiError('账号访问受限', AUTH_ACCOUNT_BANNED_CODE, 403))
+    if (handleRetiredPractice(initialError)) return Promise.reject(initialError)
     const canRefresh =
       error.response?.status === 401 &&
       original &&
@@ -232,7 +263,7 @@ instance.interceptors.response.use(
       }
     }
 
-    const apiError = toApiError(error)
+    const apiError = initialError
     if (isRefreshRequest) return Promise.reject(apiError)
     if (apiError.code === REQUEST_CANCELED_CODE) return Promise.reject(apiError)
     if (isSessionExpired(apiError)) {

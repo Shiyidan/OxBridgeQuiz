@@ -32,6 +32,7 @@
     "test:website-traffic": "tsx scripts/test-website-traffic.ts",
     "test:admin-user-access": "tsx scripts/test-admin-user-access.ts",
     "test:account-ban": "tsx scripts/test-account-ban.ts",
+    "test:registration-source": "tsx scripts/test-registration-source.ts",
     "test:invitations": "tsx scripts/test-invitations.ts",
     "test:payment-runtime": "tsx scripts/test-payment-runtime-safety.ts",
     "test:revenue-payments": "tsx scripts/test-revenue-payments.ts",

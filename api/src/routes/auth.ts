@@ -52,6 +52,7 @@ import { bindInvitationForUser, InvitationError } from '../services/invitation.j
 import { pickRandomUserAvatar } from '../services/userAvatar.js'
 import { INVITATION_BINDING_SOURCE } from '../constants/domain.js'
 import { assertAccountActive } from '../services/accountStatus.js'
+import { createRegistrationSourceGuard } from '../middleware/registrationAccess.js'
 
 export const authRouter = createAsyncRouter()
 
@@ -70,6 +71,7 @@ function limiter(windowMs: number, max: number) {
 const registerLimiter = limiter(60 * 1000, 5)
 const loginLimiter = limiter(15 * 60 * 1000, 20)
 const emailCodeLimiter = limiter(60 * 60 * 1000, 20)
+const registrationSourceGuard = createRegistrationSourceGuard(config.registrationBlockedIps)
 const passwordLimiter = limiter(15 * 60 * 1000, 10)
 const dummyPasswordHash = bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12)
 
@@ -107,7 +109,7 @@ function handleAuthError(res: Response, error: unknown, event: string): void {
 }
 
 // 发送注册、重置密码或修改邮箱验证码。
-authRouter.post('/email-code', emailCodeLimiter, optionalAuth, async (req: Request, res: Response) => {
+authRouter.post('/email-code', registrationSourceGuard, emailCodeLimiter, optionalAuth, async (req: Request, res: Response) => {
   try {
     const input = parseSchema(sendEmailCodeSchema, req.body)
     const purpose = input.purpose as EmailCodePurpose
@@ -201,7 +203,7 @@ authRouter.post('/email-code', emailCodeLimiter, optionalAuth, async (req: Reque
 })
 
 // 注册必须在同一事务中消费邮箱验证码并创建账号。
-authRouter.post('/register', registerLimiter, async (req: Request, res: Response) => {
+authRouter.post('/register', registrationSourceGuard, registerLimiter, async (req: Request, res: Response) => {
   try {
     const input = parseSchema(registerSchema, req.body)
     const legalAcceptedAt = new Date()

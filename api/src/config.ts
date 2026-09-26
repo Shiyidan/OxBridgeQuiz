@@ -3,6 +3,7 @@ import path from 'path'
 import crypto from 'crypto'
 import dotenv from 'dotenv'
 import { assertPaymentRuntimeSafety } from './utils/paymentRuntimeSafety.js'
+import { parseRegistrationBlockedIps } from './middleware/registrationAccess.js'
 
 const envFile = process.env.API_ENV_FILE?.trim() || path.resolve(process.cwd(), '.env')
 dotenv.config({ path: envFile })
@@ -167,14 +168,15 @@ function parseCookieSameSite(value: string | undefined, fallback: CookieSameSite
   throw new Error(`[config] Unsupported REFRESH_COOKIE_SAME_SITE: ${value}`)
 }
 
-// 可信代理按明确跳数配置，避免伪造客户端 IP 绕过审计和限流。
-function parseTrustProxy(value: string | undefined, fallback: boolean | number): boolean | number {
+// 同机 Nginx 应配置 loopback；直连 API 的外部请求不能自行声明代理来源。
+function parseTrustProxy(value: string | undefined, fallback: boolean | number): boolean | number | string {
   if (value === undefined) return fallback
+  if (value === 'loopback') return 'loopback'
   if (value === 'true') return true
   if (value === 'false') return false
   const hops = Number(value)
   if (Number.isInteger(hops) && hops >= 0) return hops
-  throw new Error(`[config] TRUST_PROXY must be true, false, or a non-negative integer`)
+  throw new Error(`[config] TRUST_PROXY must be loopback, true, false, or a non-negative integer`)
 }
 
 // 数据库连接必须由环境提供，不在源码中保留可用默认凭据。
@@ -495,6 +497,7 @@ export const config = {
     }) * 1024 * 1024,
   corsOrigins: resolveCorsOrigins(),
   trustProxy: parseTrustProxy(process.env.TRUST_PROXY, backendDefaults.trustProxy),
+  registrationBlockedIps: parseRegistrationBlockedIps(process.env.REGISTRATION_BLOCKED_IPS),
   deepseekApiKey: process.env.DEEPSEEK_API_KEY || '',
   deepseekBaseUrl: (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/$/, ''),
   deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash',

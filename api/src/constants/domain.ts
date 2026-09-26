@@ -140,8 +140,9 @@ export const PRACTICE_SOURCE = {
   FREE_ASSEMBLY: 'free_assembly',
 } as const
 
-// 题库难度卡片生成固定五题练习；题目不足或免费额度不足时由服务端向下取实际数量。
+// 题库难度卡片为有效会员生成固定五题练习；题目不足时取实际数量。
 export const QUESTION_BANK_DIRECT_PRACTICE_COUNT = 5
+export const QUESTION_BANK_MEMBERSHIP_MESSAGE = '试题库为会员专享，请开通当前考试类型的会员后使用'
 
 // 将外部状态值收窄为答题记录允许的状态，供接口边界安全复用。
 export function isAnswerRecordState(value: unknown): value is AnswerRecordState {

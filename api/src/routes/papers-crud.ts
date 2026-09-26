@@ -255,7 +255,7 @@ paperCrudRouter.get("/:id", requireAuth, async (req, res) => {
     }
 
     if (
-      !activeAttempt &&
+      (!activeAttempt || QUESTION_BANK_PAPER_TYPES.includes(normalizePaperType(paper.paperType) as any)) &&
       !(await hasStudentPaperEntitlement(
         req.user!.userId,
         paper,

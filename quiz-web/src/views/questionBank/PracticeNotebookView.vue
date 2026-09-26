@@ -159,23 +159,10 @@
       </section>
     </main>
 
-    <AppDialog
-      v-model="quotaDialogVisible"
-      title="免费练习题量不足"
-      :icon="WarningFilled"
-      icon-color="var(--color-warning)"
-      confirm-text="开始练习"
-      cancel-text="取消"
-      @confirm="handleConfirmReducedPractice"
-      @cancel="handleCancelReducedPractice"
-    >
-      <p>{{ quotaDialogMessage }}</p>
-    </AppDialog>
-
     <DailyCardAccessDialog
       v-model="upgradeDialogVisible"
       :exam-type="paymentExamType"
-      upgrade-message="当前考试的免费练习额度已全部使用，开通会员后可继续不限题量练习。"
+      upgrade-message="试题库为会员专享，开通当前考试类型的会员后即可不限题量练习。"
       @activated="handleDailyCardActivated"
       @upgrade="handleOpenPayment"
       @cancel="handleCancelMembershipAccess"
@@ -195,8 +182,7 @@ import AppButton from '@/components/AppButton.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Back, Plus, WarningFilled } from '@element-plus/icons-vue'
-import AppDialog from '@/components/AppDialog.vue'
+import { Back, Plus } from '@element-plus/icons-vue'
 import AppPagination from '@/components/AppPagination.vue'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
@@ -252,8 +238,6 @@ const listLoading = ref(true)
 const listError = ref('')
 const expandedRowId = ref('')
 const startingNotebookId = ref('')
-const quotaDialogVisible = ref(false)
-const quotaDialogMessage = ref('')
 const upgradeDialogVisible = ref(false)
 const paymentVisible = ref(false)
 const paymentExamType = ref<ActiveExamType>(auth.activeExamType)
@@ -398,7 +382,7 @@ function getPrimaryActionLabel(row: DisplayRow): string {
   return '开始练习'
 }
 
-// 后端根据练习本配置和事务内剩余额度确定最终题量，客户端不再传入可修改的数量。
+// 后端根据练习本配置生成题目，并在事务内复核当前考试的会员资格。
 async function startNotebookPractice(notebookId: string): Promise<void> {
   startingNotebookId.value = notebookId
   try {
@@ -411,7 +395,7 @@ async function startNotebookPractice(notebookId: string): Promise<void> {
   }
 }
 
-// 开始操作先预检计划题量，免费额度部分不足时不直接创建，等待用户确认缩量练习。
+// 开始操作先检查当前考试的有效会员，未解锁时保留选择并引导开通。
 async function handlePrimaryAction(row: DisplayRow): Promise<void> {
   if (requireLoginForNotebookAction('/practice-notebook')) return
   if (isActiveRow(row) && activePractice.value) {
@@ -435,37 +419,14 @@ async function handlePrimaryAction(row: DisplayRow): Promise<void> {
       return
     }
 
-    const remaining = Math.max(0, access.remaining ?? 0)
-    if (remaining === 0) {
-      pendingNotebookStart.value = { notebookId: row.id, examType: row.examType }
-      paymentExamType.value = row.examType
-      upgradeDialogVisible.value = true
-      return
-    }
-
     pendingNotebookStart.value = { notebookId: row.id, examType: row.examType }
-    quotaDialogMessage.value = `当前免费练习题量不足，还可免费练习${remaining}道，是否开始`
-    quotaDialogVisible.value = true
+    paymentExamType.value = row.examType
+    upgradeDialogVisible.value = true
   } catch {
     // 公共请求层已统一展示网络或服务端错误，此处只阻止按钮事件产生未处理异常。
   } finally {
     startingNotebookId.value = ''
   }
-}
-
-// 用户确认后以剩余额度作为本次练习题量，不改写练习本原有的固定题量设置。
-function handleConfirmReducedPractice(): void {
-  // 保持确认后先关闭提示、再启动练习的顺序。
-  quotaDialogVisible.value = false
-  const pending = pendingNotebookStart.value
-  pendingNotebookStart.value = null
-  if (!pending) return
-  void startNotebookPractice(pending.notebookId)
-}
-
-// 取消缩量开始只清理待确认状态，练习本配置保持不变。
-function handleCancelReducedPractice(): void {
-  pendingNotebookStart.value = null
 }
 
 // 日卡启用后直接承接此前被冻结的练习本，不要求用户再次查找并点击。
@@ -585,7 +546,6 @@ function handleCreateNotebook(): void {
 watch(activeExamType, () => {
   if (!initialized) return
   expandedRowId.value = ''
-  quotaDialogVisible.value = false
   upgradeDialogVisible.value = false
   if (!paymentVisible.value) paymentExamType.value = activeExamType.value
   pendingNotebookStart.value = null

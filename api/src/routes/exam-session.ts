@@ -6,6 +6,7 @@ import { success, fail } from '../utils/response.js'
 import { formatQuestionRow } from '../utils/questionSync.js'
 import { parseJsonField, parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
 import { checkMemberAccess, hasDiagnosticPaperAccess } from '../services/member.js'
+import { requireQuestionBankAttemptMembership } from '../middleware/questionBankMembership.js'
 import { verifyQuestionBankSelection } from '../services/questionBankSelection.js'
 import { withQuotaTransaction } from '../services/transactionRetry.js'
 import { syncSubmittedWrongQuestions } from '../services/wrongQuestionSummary.js'
@@ -32,6 +33,7 @@ import {
   PAPER_TYPE,
   QUESTION_STATUS,
   QUESTION_BANK_PAPER_TYPES,
+  QUESTION_BANK_MEMBERSHIP_MESSAGE,
   REAL_PAPER_TYPES,
   isExamType,
   isAnswerRecordState,
@@ -259,7 +261,7 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
         )
         if (!entitlement.allowed) {
           throw new ExamStartBusinessError(
-            '当前题库额度不足，请开通会员后继续',
+            QUESTION_BANK_MEMBERSHIP_MESSAGE,
             403,
             'QUESTION_BANK_ACCESS_DENIED',
           )
@@ -444,7 +446,7 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
       res.status(403).json(fail(
         isDiagnostic
           ? `当前试卷需要开通 ${targetExamType} 会员后才能开始`
-          : '当前额度不足，请开通会员后继续',
+          : QUESTION_BANK_MEMBERSHIP_MESSAGE,
         isDiagnostic ? 'DIAGNOSTIC_PAPER_LOCKED' : 'QUESTION_BANK_ACCESS_DENIED',
       ))
       return
@@ -542,7 +544,7 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
 })
 
 // 按考试记录保存进度；startedAt 只在 start 创建记录时写入，此处不会覆盖。
-examSessionRouter.put('/:id/progress', requireAuth, async (req, res) => {
+examSessionRouter.put('/:id/progress', requireAuth, requireQuestionBankAttemptMembership, async (req, res) => {
   try {
     await reconcileModuleBreak(req.params.id, req.user!.userId)
     const record = await prisma.examRecord.findFirst({
@@ -649,7 +651,7 @@ examSessionRouter.put('/:id/progress', requireAuth, async (req, res) => {
 })
 
 // 刷新或重新进入答题页时，按 ExamRecord 冻结的题目范围恢复题目、答案和用时。
-examSessionRouter.get('/:id/session', requireAuth, async (req, res) => {
+examSessionRouter.get('/:id/session', requireAuth, requireQuestionBankAttemptMembership, async (req, res) => {
   try {
     const sessionScope = await prisma.examRecord.findFirst({
       where: { id: req.params.id, userId: req.user!.userId },
@@ -776,7 +778,7 @@ examSessionRouter.get('/:id/session', requireAuth, async (req, res) => {
 })
 
 // 学生离开诊断页时冻结当前作答或休息剩余时间，继续测试时再恢复服务端截止时间。
-examSessionRouter.post('/:id/pause', requireAuth, async (req, res) => {
+examSessionRouter.post('/:id/pause', requireAuth, requireQuestionBankAttemptMembership, async (req, res) => {
   try {
     await reconcileExpiredModuleTimeline(req.params.id, req.user!.userId)
     const record = await prisma.examRecord.findFirst({
@@ -1099,7 +1101,7 @@ examSessionRouter.post('/:id/break/skip', requireAuth, async (req, res) => {
 })
 
 // 按考试记录交卷；题目范围、考试类型和试卷信息全部由服务端记录推导。
-examSessionRouter.post('/:id/submit', requireAuth, async (req, res) => {
+examSessionRouter.post('/:id/submit', requireAuth, requireQuestionBankAttemptMembership, async (req, res) => {
   try {
     const record = await prisma.examRecord.findFirst({
       where: { id: req.params.id, userId: req.user!.userId },

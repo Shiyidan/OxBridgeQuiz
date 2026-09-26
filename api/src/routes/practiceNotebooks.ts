@@ -8,6 +8,7 @@ import {
   PAPER_TYPE,
   PRACTICE_NOTEBOOK_STATUS,
   PRACTICE_SOURCE,
+  QUESTION_BANK_MEMBERSHIP_MESSAGE,
   isStudentExamTypeAvailable,
 } from '../constants/domain.js'
 import { checkMemberAccess } from '../services/member.js'
@@ -411,7 +412,7 @@ practiceNotebookRouter.get('/:id/history', requireAuth, async (req, res) => {
   res.json(success({ list: records.map(formatHistoryRecord), pagination: { page, pageSize, total } }))
 })
 
-// 开始练习在同一事务内占用唯一活动键、动态选题、复核额度并冻结逐题顺序。
+// 开始练习在同一事务内占用唯一活动键、复核会员资格、选题并冻结逐题顺序。
 practiceNotebookRouter.post('/:id/start', requireAuth, async (req, res) => {
   try {
     const notebook = await prisma.practiceNotebook.findFirst({
@@ -450,16 +451,14 @@ practiceNotebookRouter.post('/:id/start', requireAuth, async (req, res) => {
         notebook.questionCount,
         tx,
       )
-      const resolvedQuestionCount = plannedEntitlement.allowed
-        ? notebook.questionCount
-        : Math.max(0, plannedEntitlement.remaining ?? 0)
-      if (resolvedQuestionCount === 0) {
+      if (!plannedEntitlement.allowed) {
         throw new PracticeNotebookBusinessError(
-          '当前题库额度不足，请开通会员后继续',
+          QUESTION_BANK_MEMBERSHIP_MESSAGE,
           403,
           'QUESTION_BANK_ACCESS_DENIED',
         )
       }
+      const resolvedQuestionCount = notebook.questionCount
       await tx.paper.upsert({
         where: { id: 'question-bank' },
         update: { paperType: PAPER_TYPE.AI_PAPER, status: 'published' },
@@ -519,7 +518,7 @@ practiceNotebookRouter.post('/:id/start', requireAuth, async (req, res) => {
       )
       if (!entitlement.allowed) {
         throw new PracticeNotebookBusinessError(
-          `当前题库额度不足，剩余 ${entitlement.remaining ?? 0} 题，请开通会员后继续`,
+          QUESTION_BANK_MEMBERSHIP_MESSAGE,
           403,
           'QUESTION_BANK_ACCESS_DENIED',
         )

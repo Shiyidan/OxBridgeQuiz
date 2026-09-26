@@ -794,7 +794,7 @@ watch(
             </div>
             <ul class="home-benefit-list">
               <li class="home-benefit-item">1套诊断测试卷随做随出报告</li>
-              <li class="home-benefit-item">每个考试享 25 道免费练习额度</li>
+              <li class="home-benefit-item">开通对应考试会员，解锁试题库练习</li>
               <li class="home-benefit-item">诊断报告与历史学习记录持续保留</li>
               <li class="home-benefit-item">已完成内容的错题与解析随时回看</li>
             </ul>

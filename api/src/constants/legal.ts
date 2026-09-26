@@ -2,8 +2,8 @@
 export const LEGAL_DOCUMENT_VERSIONS = {
   userAgreement: 'V1.0',
   privacyPolicy: 'V1.0',
-  membershipServiceAgreement: 'V1.3',
-  membershipPurchaseNotice: 'V1.3',
+  membershipServiceAgreement: 'V1.4',
+  membershipPurchaseNotice: 'V1.4',
 } as const
 
 export const LEGAL_DOCUMENT_TYPE = {

@@ -129,7 +129,7 @@
     <DailyCardAccessDialog
       v-model="upgradeDialogVisible"
       :exam-type="activeExamType === 'ESAT' ? 'ESAT' : 'TMUA'"
-      upgrade-message="当前考试的免费练习额度已全部使用，开通会员后可继续不限题量练习。"
+      upgrade-message="试题库为会员专享，开通当前考试类型的会员后即可不限题量练习。"
       cancel-text="返回试题库"
       @activated="handleDailyCardActivated"
       @upgrade="handleOpenPayment"
@@ -162,6 +162,7 @@ import PaymentModal from '@/components/PaymentModal.vue'
 import { getQuestionsData } from '@/api/questionBank'
 import { getPaperDetailData } from '@/api/papers'
 import {
+  getActiveQuestionBankPractice,
   getExamSession,
   saveExamProgress,
   startExam,
@@ -188,7 +189,7 @@ const auth = useAuthStore()
 
 const examNavRef = ref<InstanceType<typeof ExamVue> | null>(null)
 const questions = shallowRef<RenderableQuestion[]>([])
-const activeExamType = ref<ExamType>(DEFAULT_EXAM_TYPE)
+const activeExamType = ref<ExamType>(auth.activeExamType)
 const practiceHeaderTitle = ref('')
 const loading = ref(true)
 const currentIndex = ref(0)
@@ -217,6 +218,7 @@ let warningDialogResolver: ((confirmed: boolean) => void) | null = null
 const upgradeDialogVisible = ref(false)
 const paymentVisible = ref(false)
 const quotaUpgradePending = ref(false)
+const membershipAccessDenied = ref(false)
 const submittedExamRecordId = ref('')
 const submissionKey = ref(
   typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -340,6 +342,7 @@ const currentKnowledgeTags = computed(() => {
 // 根据路由来源切换数据源：paperId 为真题套卷，否则按考点和难度从题库取题。
 async function loadQuestions(): Promise<void> {
   loading.value = true
+  membershipAccessDenied.value = false
   try {
     const resumeExamId = String(route.query.examId || '').trim()
     const code = route.query.code as string | undefined
@@ -480,8 +483,14 @@ async function loadQuestions(): Promise<void> {
     }
     if (hasApiErrorCode(e, 'QUESTION_BANK_ACCESS_DENIED')) {
       questions.value = []
-      quotaUpgradePending.value = true
-      upgradeDialogVisible.value = true
+      // 旧续答链接只含答卷 ID；取活动记录的考试类型，避免引导购买另一考试会员。
+      if (route.query.examId) {
+        const active = await getActiveQuestionBankPractice(activeExamType.value).catch(() => null)
+        if (active?.examRecordId === route.query.examId) {
+          activeExamType.value = normalizeExamType(active.examType)
+        }
+      }
+      showMembershipRequired()
       return
     }
     console.error('[Practice] 加载失败', e)
@@ -492,7 +501,27 @@ async function loadQuestions(): Promise<void> {
   }
 }
 
-// 额度耗尽确认后打开支付弹窗，并预选当前练习对应的考试类型。
+// 权益失效时暂停答题计时并保留本页答案，允许重新开通或返回题库。
+function showMembershipRequired(): void {
+  membershipAccessDenied.value = true
+  isQuestionTimingPaused = true
+  quotaUpgradePending.value = true
+  upgradeDialogVisible.value = true
+}
+
+// 同页恢复权益后先补存未保存答案；通过旧链接进入时重新加载原答卷。
+async function resumeAfterMembershipUnlock(): Promise<void> {
+  membershipAccessDenied.value = false
+  if (questions.value.length && activeExamRecordId.value) {
+    await flushExamProgress(false, true)
+    isQuestionTimingPaused = false
+    questionEnteredAt = Date.now()
+  } else {
+    await loadQuestions()
+  }
+}
+
+// 未取得会员权益时打开支付弹窗，并预选当前练习对应的考试类型。
 function handleOpenPayment(): void {
   upgradeDialogVisible.value = false
   paymentVisible.value = true
@@ -501,7 +530,7 @@ function handleOpenPayment(): void {
 // 日卡启用后重新执行被拦截的选题与开卷流程，让用户直接回到原操作。
 async function handleDailyCardActivated(): Promise<void> {
   quotaUpgradePending.value = false
-  await loadQuestions()
+  await resumeAfterMembershipUnlock()
 }
 
 // 用户暂不开通时返回试题库，避免停留在没有题目的答题页面。
@@ -518,13 +547,13 @@ function handlePaymentVisibilityChange(visible: boolean): void {
   void router.replace({ path: '/question-bank', query: { examType: activeExamType.value } })
 }
 
-// 支付完成后刷新会员上下文，并重新执行此前被额度拦截的选题与开卷流程。
+// 支付完成后刷新会员上下文，并重新执行此前被会员资格拦截的选题与开卷流程。
 async function handlePaymentSuccess(): Promise<void> {
   quotaUpgradePending.value = false
   paymentVisible.value = false
   try {
     auth.setMemberContext(await getMember())
-    await loadQuestions()
+    await resumeAfterMembershipUnlock()
   } catch {
     // 支付组件已确认成功，公共请求层负责提示权益刷新失败。
   }
@@ -736,7 +765,7 @@ async function flushExamProgress(
   throwOnError = false,
   forceCurrentSave = false,
 ): Promise<void> {
-  if (submitting.value || !activeExamRecordId.value || !questions.value.length) return
+  if (submitting.value || membershipAccessDenied.value || !activeExamRecordId.value || !questions.value.length) return
   if (includeCurrentDuration) {
     const question = currentQuestion.value
     recordCurrentQuestionDuration(false)
@@ -783,6 +812,11 @@ async function flushExamProgress(
   try {
     await request
   } catch (error) {
+    if (hasApiErrorCode(error, 'QUESTION_BANK_ACCESS_DENIED')) {
+      showMembershipRequired()
+      if (throwOnError) throw error
+      return
+    }
     if (hasApiErrorCode(error, 'EXAM_EXPIRED')) {
       void handleTimeExpired()
       if (throwOnError) throw error
@@ -848,7 +882,8 @@ async function handleSubmit(): Promise<void> {
       return
     }
     practiceResultDialogVisible.value = true
-  } catch {
+  } catch (error) {
+    if (hasApiErrorCode(error, 'QUESTION_BANK_ACCESS_DENIED')) showMembershipRequired()
     // Axios 公共响应处理会展示后端 errMsg。
   } finally {
     submitting.value = false
@@ -978,7 +1013,7 @@ onBeforeUnmount(() => {
 
 // 浏览器后退和其他路由跳转同样先保存进度，避免绕过页面内返回按钮。
 onBeforeRouteLeave(async () => {
-  if (submitting.value || examSubmitted.value || !activeExamRecordId.value) return true
+  if (submitting.value || examSubmitted.value || membershipAccessDenied.value || !activeExamRecordId.value) return true
   try {
     await saveCurrentExamProgress()
     return true

@@ -8,6 +8,7 @@ import {
   PRACTICE_SOURCE,
   QUESTION_DIFFICULTIES,
   QUESTION_BANK_DIRECT_PRACTICE_COUNT,
+  QUESTION_BANK_MEMBERSHIP_MESSAGE,
   type QuestionDifficulty,
   QUESTION_STATUS,
   TMUA_PAPER,
@@ -438,7 +439,7 @@ questionLibraryRouter.get(
   },
 );
 
-// 开始练习前只从数据库限量选择候选题，额度最终仍在创建练习的事务内复核。
+// 选题前先验证当前考试会员，创建练习时仍在事务内复核，避免会员到期后使用旧凭证。
 questionLibraryRouter.get("/selection", requireAuth, async (req, res) => {
   const examType = String(req.query.examType || EXAM_TYPE.TMUA).toUpperCase();
   if (!isExamType(examType)) {
@@ -450,32 +451,15 @@ questionLibraryRouter.get("/selection", requireAuth, async (req, res) => {
     res.status(422).json(fail("请选择简单、中等或困难难度"));
     return;
   }
+  const entitlement = await checkMemberAccess(req.user!.userId, "question-bank", examType);
+  if (!entitlement.allowed) {
+    res.status(403).json(fail(QUESTION_BANK_MEMBERSHIP_MESSAGE, "QUESTION_BANK_ACCESS_DENIED"));
+    return;
+  }
   const where = await buildPublishedQuestionWhere(req.query);
   const total = await prisma.question.count({ where });
   const plannedCount = Math.min(total, QUESTION_BANK_DIRECT_PRACTICE_COUNT);
-  let take = plannedCount;
-  if (plannedCount > 0) {
-    const entitlement = await checkMemberAccess(
-      req.user!.userId,
-      "question-bank",
-      examType,
-      plannedCount,
-    );
-    if (!entitlement.allowed) {
-      take = Math.min(plannedCount, Math.max(0, entitlement.remaining ?? 0));
-      if (take === 0) {
-        res
-          .status(403)
-          .json(
-            fail(
-              "当前题库额度不足，请开通会员后继续",
-              "QUESTION_BANK_ACCESS_DENIED",
-            ),
-          );
-        return;
-      }
-    }
-  }
+  const take = plannedCount;
   const skip = take > 0 ? Math.floor(Math.random() * (total - take + 1)) : 0;
   const rows =
     take > 0

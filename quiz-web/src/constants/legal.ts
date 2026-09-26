@@ -5,8 +5,8 @@ export const AUTH_LEGAL_VERSIONS = {
 } as const
 
 export const MEMBERSHIP_LEGAL_VERSIONS = {
-  membershipServiceAgreement: 'V1.3',
-  membershipPurchaseNotice: 'V1.3',
+  membershipServiceAgreement: 'V1.4',
+  membershipPurchaseNotice: 'V1.4',
 } as const
 
 export interface AuthLegalVersions {

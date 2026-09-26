@@ -1,4 +1,4 @@
-<!-- 试题库首页：选择知识点与难度，确认练习范围并校验可用额度。 -->
+<!-- 试题库首页：选择知识点与难度，确认练习范围并校验当前考试的会员权益。 -->
 <template>
   <div class="question-bank">
     <main class="qb-container">
@@ -9,8 +9,8 @@
           <p class="qb-header__subtitle">包含专项试题练习与全真模拟考试系统。</p>
         </div>
         <div class="qb-header__actions">
-          <span v-if="questionBankQuota && !questionBankQuota.unlimited" class="qb-usage-count">
-            已练习（{{ questionBankQuota.used }}/{{ questionBankQuota.limit ?? 25 }}）
+          <span class="qb-usage-count">
+            {{ questionBankQuota ? (questionBankQuota.unlimited ? '会员专享 · 已解锁' : '会员专享 · 开通后练习') : '会员专享' }}
           </span>
           <AppButton type="link" @click="router.push('/practice-records')">
             练习记录
@@ -117,23 +117,10 @@
       <p>{{ selectionDialogMessage }}</p>
     </AppDialog>
 
-    <AppDialog
-      v-model="quotaDialogVisible"
-      title="免费练习题量不足"
-      :icon="WarningFilled"
-      icon-color="var(--color-warning)"
-      confirm-text="开始练习"
-      cancel-text="取消"
-      @confirm="handleConfirmReducedPractice"
-      @cancel="handleCancelReducedPractice"
-    >
-      <p>{{ quotaDialogMessage }}</p>
-    </AppDialog>
-
     <DailyCardAccessDialog
       v-model="upgradeDialogVisible"
       :exam-type="paymentExamType"
-      upgrade-message="当前考试的免费练习额度已全部使用，开通会员后可继续不限题量练习。"
+      upgrade-message="试题库为会员专享，开通当前考试类型的会员后即可不限题量练习。"
       @activated="handleDailyCardActivated"
       @upgrade="handleOpenPayment"
       @cancel="handleCancelMembershipAccess"
@@ -154,7 +141,7 @@ import AppButton from '@/components/AppButton.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Notebook, WarningFilled } from '@element-plus/icons-vue'
+import { Notebook } from '@element-plus/icons-vue'
 import type { TreeInstance } from 'element-plus'
 import AppDialog from '@/components/AppDialog.vue'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
@@ -210,8 +197,6 @@ const activePractice = ref<ActiveQuestionBankPractice | null>(null)
 const startingDifficultyId = ref<DifficultyId | null>(null)
 const selectionDialogVisible = ref(false)
 const selectionDialogMessage = ref('')
-const quotaDialogVisible = ref(false)
-const quotaDialogMessage = ref('')
 const upgradeDialogVisible = ref(false)
 const paymentVisible = ref(false)
 const paymentExamType = ref<ActiveExamType>(auth.activeExamType)
@@ -251,7 +236,7 @@ const activeTopicTitle = computed<string>(() => `${selectedNodeLabel.value} · �
 // 题库统一读取顶部导航的全局考试类型，不再维护页面级考试选择。
 const activeExamType = computed<ActiveExamType>(() => auth.activeExamType)
 
-// 免费额度展示沿用服务端会员上下文，题库专项与练习本的已交卷题量共用同一统计结果。
+// 解锁状态以当前考试的有效会员上下文为准。
 const questionBankQuota = computed(
   () => auth.memberContext?.quotas?.[activeExamType.value]?.questionBank || null,
 )
@@ -405,7 +390,6 @@ async function loadExamContent(useRouteContext: boolean): Promise<void> {
 // 导航栏切换考试类型时重新查询该考试的大纲、题量统计与进行中练习。
 watch(activeExamType, () => {
   selectionDialogVisible.value = false
-  quotaDialogVisible.value = false
   upgradeDialogVisible.value = false
   pendingDirectPractice.value = null
   if (!paymentVisible.value) paymentExamType.value = activeExamType.value
@@ -500,9 +484,9 @@ function handleStartPractice(diff: DifficultyOption): void {
   selectionDialogVisible.value = true
 }
 
-// 用户确认所选范围后再预检额度，部分不足时进入第二层缩量确认。
+// 用户确认范围后检查当前考试会员，未解锁时提供日卡和开通入口。
 async function handleConfirmSelectedPractice(): Promise<void> {
-  // AppDialog 由页面主动关闭；先退出范围确认，再承接额度或会员提示。
+  // AppDialog 由页面主动关闭；先退出范围确认，再承接会员提示。
   selectionDialogVisible.value = false
   if (requireDesktopForQuestionBankPractice()) {
     pendingDirectPractice.value = null
@@ -524,16 +508,8 @@ async function handleConfirmSelectedPractice(): Promise<void> {
       return
     }
 
-    const remaining = Math.max(0, access.remaining ?? 0)
-    if (remaining === 0) {
-      paymentExamType.value = pending.examType
-      upgradeDialogVisible.value = true
-      return
-    }
-
-    pendingDirectPractice.value = { ...pending, questionCount: remaining }
-    quotaDialogMessage.value = `当前免费练习题量不足，还可免费练习${remaining}道，是否开始`
-    quotaDialogVisible.value = true
+    paymentExamType.value = pending.examType
+    upgradeDialogVisible.value = true
   } catch {
     // 公共请求层已统一展示网络或服务端错误，此处只阻止按钮事件产生未处理异常。
   } finally {
@@ -546,22 +522,7 @@ function handleCancelSelectedPractice(): void {
   pendingDirectPractice.value = null
 }
 
-// 确认后按服务端返回的剩余额度缩量进入练习，创建时仍由后端事务再次校验。
-function handleConfirmReducedPractice(): void {
-  quotaDialogVisible.value = false
-  const pending = pendingDirectPractice.value
-  pendingDirectPractice.value = null
-  if (!pending) return
-  if (requireDesktopForQuestionBankPractice()) return
-  navigateToPractice(pending)
-}
-
-// 取消缩量练习时只清理本次待开始参数，不改变已有选择。
-function handleCancelReducedPractice(): void {
-  pendingDirectPractice.value = null
-}
-
-// 免费日卡启用后继续使用此前冻结的练习参数，并重新由服务端校验会员额度。
+// 免费日卡启用后继续使用此前冻结的练习参数，并重新由服务端校验会员权益。
 async function handleDailyCardActivated(): Promise<void> {
   await handleConfirmSelectedPractice()
 }
@@ -583,7 +544,7 @@ function handlePaymentVisibilityChange(visible: boolean): void {
   if (!visible) pendingDirectPractice.value = null
 }
 
-// 支付完成后刷新会员上下文和题库额度，当前页面无需重新登录即可继续练习。
+// 支付完成后刷新当前考试会员资格，当前页面无需重新登录即可继续练习。
 async function handlePaymentSuccess(): Promise<void> {
   paymentVisible.value = false
   try {

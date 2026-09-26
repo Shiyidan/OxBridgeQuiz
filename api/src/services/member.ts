@@ -20,7 +20,8 @@ import {
 } from "../constants/domain.js";
 
 const DEFAULT_DIAGNOSTIC_LIMIT = 1;
-const DEFAULT_QUESTION_BANK_LIMIT = 25;
+// 试题库只向当前考试的有效会员开放，历史配置中的免费题量不再授予权限。
+const QUESTION_BANK_FREE_LIMIT = 0;
 
 export type EntitlementAction = "diagnostic" | "question-bank";
 type MemberDatabase = typeof prisma | Prisma.TransactionClient;
@@ -185,7 +186,7 @@ async function countDiagnosticUsed(
   return sessionCount + examRecordCount;
 }
 
-// 题库用量按实际答题记录计数，确保额度反映用户已消费题目数。
+// 已交卷题量继续用于学习统计，不再授予免费题库权限。
 async function countQuestionBankUsed(
   userId: string,
   examType: string,
@@ -246,17 +247,17 @@ export async function checkMemberAccess(
   const limit =
     action === "diagnostic"
       ? (config?.diagnosticLimit ?? DEFAULT_DIAGNOSTIC_LIMIT)
-      : (config?.questionBankLimit ?? DEFAULT_QUESTION_BANK_LIMIT);
+      : QUESTION_BANK_FREE_LIMIT;
   const used =
     action === "diagnostic"
       ? await countDiagnosticUsed(userId, examType, db)
       : await countQuestionBankUsed(userId, examType, db);
   const remaining = unlimited ? null : Math.max(0, limit - used);
-  const allowed = unlimited || (remaining ?? 0) >= requiredCount;
+  const allowed = unlimited || (action !== "question-bank" && (remaining ?? 0) >= requiredCount);
 
   return {
     allowed,
-    reason: allowed ? null : "QUOTA_NOT_ENOUGH",
+    reason: allowed ? null : action === "question-bank" ? "MEMBERSHIP_REQUIRED" : "QUOTA_NOT_ENOUGH",
     action,
     examType,
     required: requiredCount,
@@ -361,8 +362,7 @@ export async function getMemberContext(userId: string) {
       );
       const diagnosticLimit =
         config?.diagnosticLimit ?? DEFAULT_DIAGNOSTIC_LIMIT;
-      const questionBankLimit =
-        config?.questionBankLimit ?? DEFAULT_QUESTION_BANK_LIMIT;
+      const questionBankLimit = QUESTION_BANK_FREE_LIMIT;
 
       const [diagnosticUsed, questionBankUsed] = await Promise.all([
         countDiagnosticUsed(userId, examType, prisma),

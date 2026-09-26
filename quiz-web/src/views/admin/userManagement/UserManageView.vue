@@ -33,13 +33,20 @@
         </div>
       </div>
 
+      <el-tabs :model-value="userCategory" class="user-tabs" @tab-change="handleCategoryChange">
+        <el-tab-pane label="全部用户" name="all" />
+        <el-tab-pane label="管理员用户" name="admin" />
+        <el-tab-pane label="普通用户" name="student" />
+        <el-tab-pane label="封禁用户" name="banned" />
+      </el-tabs>
+
       <AdminDataTable
         v-model:page="pagination.page"
         v-model:page-size="pagination.pageSize"
         :data="users"
         :loading="loading"
         :total="pagination.total"
-        empty-text="暂无注册用户"
+        empty-text="暂无符合条件的用户"
         fill-height
         show-pagination
         @page-change="handlePageChange"
@@ -88,7 +95,12 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="账号状态" width="110" align="center">
+        <el-table-column
+          label="账号状态"
+          width="110"
+          align="center"
+          class-name="account-status-column"
+        >
           <template #default="{ row }">
             <el-tooltip
               v-if="row.accountStatus === 'banned'"
@@ -353,6 +365,7 @@ import {
   updateUserAccess,
   updateUserAccountStatus,
   type UserItem,
+  type UserCategory,
   type UserMembershipItem,
 } from '@/api/admin'
 import { ElMessage } from 'element-plus'
@@ -363,6 +376,8 @@ const users = ref<UserItem[]>([])
 const loading = ref(true)
 const searchKeyword = ref('')
 const appliedSearchKeyword = ref('')
+const userCategory = ref<UserCategory>('all')
+let userListRequestId = 0
 const isSuperAdmin = computed(() => auth.user?.role === 'admin')
 const editVisible = ref(false)
 const saving = ref(false)
@@ -574,26 +589,39 @@ function formatDateTime(d: string | number): string {
   })
 }
 
-// 用户接口返回 { users }，页面只消费内部数组。
+// 分类和关键词统一由后端分页；快速切换时只接收最后一次请求，避免旧分类覆盖新列表。
 async function fetchUsers(): Promise<void> {
+  const requestId = ++userListRequestId
   selectedUsers.value = []
+  users.value = []
   loading.value = true
   try {
     const data = await getUserListData({
       page: pagination.page,
       pageSize: pagination.pageSize,
       keyword: appliedSearchKeyword.value || undefined,
+      category: userCategory.value,
     })
+    if (requestId !== userListRequestId) return
     users.value = data.list || []
     pagination.page = data.pagination.page
     pagination.pageSize = data.pagination.pageSize
     pagination.total = data.pagination.total
   } catch {
+    if (requestId !== userListRequestId) return
     users.value = []
     pagination.total = 0
   } finally {
-    loading.value = false
+    if (requestId === userListRequestId) loading.value = false
   }
+}
+
+// 切换分类保留已应用搜索条件，回到第一页并清除旧分类的批量选择。
+async function handleCategoryChange(category: string | number): Promise<void> {
+  if (category === userCategory.value) return
+  userCategory.value = category as UserCategory
+  pagination.page = 1
+  await fetchUsers()
 }
 
 // 查询时固定使用已确认的关键词并回到第一页，避免输入中的临时值影响翻页结果。
@@ -604,10 +632,11 @@ async function applyUserSearch(): Promise<void> {
   await fetchUsers()
 }
 
-// 重置同时清空输入和已应用条件，恢复完整用户列表。
+// 重置清空搜索条件并恢复全部用户，保留每页数量。
 async function resetUserSearch(): Promise<void> {
   searchKeyword.value = ''
   appliedSearchKeyword.value = ''
+  userCategory.value = 'all'
   pagination.page = 1
   await fetchUsers()
 }
@@ -668,24 +697,21 @@ async function submitGift(): Promise<void> {
   }
 }
 
-// 保存后以后端返回用户替换当前行，确保会员记录与列表展示一致。
+// 角色改变后重新按当前分类查询，移除不再匹配的用户并校正分页总数。
 async function saveAccess(): Promise<void> {
   if (!editingUser.value) return
   saving.value = true
   try {
-    const data = await updateUserAccess(editingUser.value.id, {
+    await updateUserAccess(editingUser.value.id, {
       role: editForm.value.role,
       membership: {
         examTypes: editForm.value.examTypes,
         plan: editForm.value.plan,
       },
     })
-    if (data.user) {
-      const index = users.value.findIndex((u) => u.id === data.user!.id)
-      if (index >= 0) users.value[index] = data.user
-    }
     editVisible.value = false
     ElMessage.success('用户权限已更新')
+    await fetchUsers()
   } catch {
     // Axios 公共响应处理会展示后端 errMsg。
   } finally {
@@ -752,6 +778,10 @@ onMounted(fetchUsers)
   margin-bottom: 24px;
 }
 
+.user-tabs {
+  flex-shrink: 0;
+}
+
 .page-title {
   font-size: 1.5rem;
   font-weight: 800;
@@ -805,6 +835,14 @@ onMounted(fetchUsers)
 .cell-date {
   color: var(--color-ink-muted);
   font-size: var(--text-sm);
+}
+
+// 状态标签使用单元格已有留白，避免叠加内边距导致标签后出现省略号。
+:deep(.account-status-column .cell) {
+  display: flex;
+  justify-content: center;
+  padding-inline: 0;
+  text-overflow: clip;
 }
 
 .role-tag,

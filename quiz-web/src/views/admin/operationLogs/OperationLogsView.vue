@@ -4,7 +4,7 @@
     <div class="page-heading">
       <div>
         <h2 class="page-title">操作日志</h2>
-        <p class="page-desc">查询管理员与用户的关键业务操作及字段变更记录。</p>
+        <p class="page-desc">查询管理员与用户的关键业务操作及字段变更记录，已剔除当前被封禁用户的操作。</p>
       </div>
     </div>
 
@@ -87,7 +87,16 @@
       <el-table-column label="操作人" min-width="150">
         <template #default="{ row }">
           <div class="actor-cell">
-            <strong>{{ row.actorNameSnapshot }}</strong>
+            <el-button
+              v-if="row.actorUserId"
+              class="actor-name-link"
+              link
+              type="primary"
+              @click.stop="openUserDetail(row.actorUserId)"
+            >
+              {{ row.actorNameSnapshot }}
+            </el-button>
+            <strong v-else>{{ row.actorNameSnapshot }}</strong>
             <span>{{ row.actorEmailSnapshot }}</span>
           </div>
         </template>
@@ -167,9 +176,17 @@
                 </el-button>
               </div>
             </el-descriptions-item>
-            <el-descriptions-item label="操作人">{{
-              selectedLog.actorNameSnapshot
-            }}</el-descriptions-item>
+            <el-descriptions-item label="操作人">
+              <el-button
+                v-if="selectedLog.actorUserId"
+                link
+                type="primary"
+                @click="openUserDetail(selectedLog.actorUserId)"
+              >
+                {{ selectedLog.actorNameSnapshot }}
+              </el-button>
+              <span v-else>{{ selectedLog.actorNameSnapshot }}</span>
+            </el-descriptions-item>
             <el-descriptions-item label="角色">{{
               roleLabel(selectedLog.actorRoleSnapshot)
             }}</el-descriptions-item>
@@ -237,6 +254,7 @@
         </template>
       </div>
     </el-drawer>
+    <UserDetailDrawer v-model="userDetailVisible" :user-id="selectedUserId" />
   </div>
 </template>
 
@@ -246,6 +264,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
+import UserDetailDrawer from '@/views/admin/userManagement/UserDetailDrawer.vue'
 import {
   getOperationLogDetail,
   getOperationLogs,
@@ -340,6 +359,8 @@ let latestListRequestId = 0
 const detailVisible = ref(false)
 const detailLoading = ref(false)
 const selectedLog = ref<OperationLogDetail | null>(null)
+const userDetailVisible = ref(false)
+const selectedUserId = ref<string | null>(null)
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
 const draftFilters = reactive<AuditFilters>({
   role: 'all',
@@ -611,6 +632,12 @@ function handlePageSizeChange(pageSize: number): void {
   void loadLogs()
 }
 
+// 按日志关联账号打开同一用户详情抽屉，避免用历史用户名误查已改名或重名账号。
+function openUserDetail(userId: string): void {
+  selectedUserId.value = userId
+  userDetailVisible.value = true
+}
+
 // 详情按需读取敏感变更值，抽屉先展示加载状态避免残留上一条记录。
 async function openDetail(id: string): Promise<void> {
   detailVisible.value = true
@@ -794,7 +821,20 @@ onMounted(() => {
   text-overflow: ellipsis;
 }
 
-.actor-cell span {
+.actor-name-link {
+  align-self: flex-start;
+  max-width: 100%;
+  font-size: 0.86rem;
+  font-weight: 600;
+
+  :deep(span) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.actor-cell > span {
   overflow: hidden;
   color: #94a3b8;
   font-size: 0.76rem;

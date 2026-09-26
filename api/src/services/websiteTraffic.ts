@@ -2,6 +2,7 @@
 import crypto from "node:crypto";
 import { config } from "../config.js";
 import { USER_ROLE } from "../constants/domain.js";
+import { ACCOUNT_STATUS } from "../constants/auth.js";
 import {
   LEGAL_ACCEPTANCE_SOURCE,
   LEGAL_DOCUMENT_TYPE,
@@ -346,6 +347,7 @@ export async function getWebsiteTrafficAnalytics(
     prisma.user.findMany({
       where: {
         role: USER_ROLE.STUDENT,
+        accountStatus: { not: ACCOUNT_STATUS.BANNED },
         createdAt: { gte: previousStartAt, lt: filters.endAt },
       },
       select: {

@@ -74,6 +74,7 @@ import { z } from 'zod'
 import { ACCOUNT_STATUS } from '../constants/auth.js'
 import { AuthError } from '../utils/authError.js'
 import { changeAccountStatus } from '../services/accountStatus.js'
+import { visibleOperationActorWhere } from '../services/operationLogVisibility.js'
 
 export const adminRouter = createAsyncRouter()
 
@@ -419,9 +420,9 @@ adminRouter.get('/operation-logs', async (req, res) => {
 
   // 关键词按完整标识精确匹配，避免短用户名同时命中其他人的邮箱或请求编号。
   const where: Prisma.OperationLogWhereInput = {
+    AND: [visibleOperationActorWhere, operationLogResultWhere(result)],
     ...(role && role !== 'all' ? { actorRoleSnapshot: role } : {}),
     ...(module ? { module } : {}),
-    ...operationLogResultWhere(result),
     ...(action ? { action } : {}),
     ...(startAt || endAt
       ? { occurredAt: { ...(startAt ? { gte: startAt } : {}), ...(endAt ? { lte: endAt } : {}) } }
@@ -1317,9 +1318,22 @@ adminRouter.get('/users', async (req: Request, res: Response) => {
     const keyword = typeof req.query.keyword === 'string'
       ? req.query.keyword.trim().slice(0, 100)
       : ''
+    const category = z.enum(['all', USER_ROLE.ADMIN, USER_ROLE.STUDENT, ACCOUNT_STATUS.BANNED])
+      .safeParse(req.query.category ?? 'all')
+    if (!category.success) {
+      res.status(422).json(fail('无效的用户分类', 'ADMIN_USER_CATEGORY_INVALID'))
+      return
+    }
     const where: Prisma.UserWhereInput = keyword
       ? { username: { contains: keyword } }
       : {}
+    // 分类在数据库分页前应用，封禁账号独立展示，不混入普通用户列表。
+    if (category.data === ACCOUNT_STATUS.BANNED) {
+      where.accountStatus = ACCOUNT_STATUS.BANNED
+    } else if (category.data !== 'all') {
+      where.role = category.data
+      where.accountStatus = ACCOUNT_STATUS.ACTIVE
+    }
     const total = await prisma.user.count({ where })
     const totalPages = Math.ceil(total / pageSize)
     const safePage = totalPages > 0 ? Math.min(page, totalPages) : 1

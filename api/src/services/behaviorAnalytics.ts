@@ -1,5 +1,7 @@
 // 学生行为统计服务：基于考试记录与操作审计实时聚合产品偏好、行为排行和北京时间趋势。
 import { prisma } from './prisma.js'
+import { ACCOUNT_STATUS } from '../constants/auth.js'
+import { visibleOperationActorWhere } from './operationLogVisibility.js'
 import {
   EXAM_RECORD_STATUS,
   PAPER_TYPE,
@@ -609,6 +611,7 @@ export async function getStudentBehaviorAnalytics(filters: BehaviorAnalyticsFilt
   const [logs, completionRecords, productViewLogs] = await Promise.all([
     prisma.operationLog.findMany({
       where: {
+        AND: [visibleOperationActorWhere],
         actorRoleSnapshot: USER_ROLE.STUDENT,
         module: filters.module || { not: OPERATION_AUDIT_MODULE.AUTH },
         occurredAt: { gte: previousStartAt, lt: filters.endAt },
@@ -628,7 +631,7 @@ export async function getStudentBehaviorAnalytics(filters: BehaviorAnalyticsFilt
       where: {
         status: EXAM_RECORD_STATUS.SUBMITTED,
         submittedAt: { gte: previousStartAt, lt: filters.endAt },
-        user: { role: USER_ROLE.STUDENT },
+        user: { role: USER_ROLE.STUDENT, accountStatus: { not: ACCOUNT_STATUS.BANNED } },
       },
       select: {
         id: true,
@@ -640,6 +643,7 @@ export async function getStudentBehaviorAnalytics(filters: BehaviorAnalyticsFilt
     }),
     prisma.operationLog.findMany({
       where: {
+        AND: [visibleOperationActorWhere],
         actorRoleSnapshot: USER_ROLE.STUDENT,
         action: { in: [DIAGNOSTIC_REPORT_VIEW_ACTION, MISTAKE_NOTEBOOK_VIEW_ACTION] },
         result: OPERATION_AUDIT_RESULT.SUCCESS,

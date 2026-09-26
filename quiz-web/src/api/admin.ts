@@ -63,6 +63,8 @@ export interface UserItem {
   memberships?: UserMembershipItem[]
 }
 
+export type UserCategory = 'all' | 'admin' | 'student' | 'banned'
+
 export interface UserMembershipItem {
   id: string
   examType: string
@@ -683,7 +685,7 @@ export function updateUserAccountStatus(body: UpdateAccountStatusPayload) {
 }
 
 /** 用户列表 */
-export function getUserListData(params: ListParams & { keyword?: string } = {}) {
+export function getUserListData(params: ListParams & { keyword?: string; category?: UserCategory } = {}) {
   return callApi<PageResult<UserItem>>({
     url: '/admin/users',
     method: 'GET',
@@ -691,6 +693,7 @@ export function getUserListData(params: ListParams & { keyword?: string } = {}) 
       ...(params.page ? { page: String(params.page) } : {}),
       ...(params.pageSize ? { pageSize: String(params.pageSize) } : {}),
       ...(params.keyword ? { keyword: params.keyword } : {}),
+      ...(params.category ? { category: params.category } : {}),
     },
   })
 }

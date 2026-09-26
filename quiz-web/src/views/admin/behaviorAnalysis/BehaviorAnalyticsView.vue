@@ -11,7 +11,7 @@
     <div class="page-heading">
       <div>
         <h2 class="page-title">用户行为分析</h2>
-        <p class="page-desc">查看网站访问与注册变化，并结合学习产品使用和关键操作定位优化方向。</p>
+        <p class="page-desc">查看网站访问与注册变化；注册、学习活动和操作统计已剔除当前被封禁用户。</p>
       </div>
       <div class="scope-badge">
         <span class="scope-badge__dot"></span>

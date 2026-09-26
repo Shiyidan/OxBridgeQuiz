@@ -34,6 +34,7 @@ if (!address || typeof address === 'string') throw new Error('Missing test port'
 const baseUrl = `http://127.0.0.1:${address.port}`
 const fixtureIds: string[] = []
 const password = 'AccountBanTest123!'
+const fixturePrefix = `ban${crypto.randomBytes(5).toString('hex')}`
 
 // 请求通过真实路由和中间件，保留响应头以检查刷新 Cookie 清理行为。
 async function request(
@@ -74,7 +75,7 @@ async function login(username: string, attemptedPassword = password) {
 try {
   const hash = await bcrypt.hash(password, 4)
   for (const role of [USER_ROLE.ADMIN, USER_ROLE.STUDENT, USER_ROLE.STUDENT]) {
-    const username = `ban${crypto.randomBytes(7).toString('hex')}`
+    const username = `${fixturePrefix}${fixtureIds.length}`
     const user = await prisma.user.create({
       data: { username, email: `${username}@example.test`, password: hash, role },
     })
@@ -154,8 +155,26 @@ try {
   const listed = await request(`/api/admin/users?keyword=${first!.username}`, { token })
   assert.equal(listed.body.data.list[0].accountStatus, ACCOUNT_STATUS.BANNED)
   assert.equal(listed.body.data.list[0].banReason, '回归测试内部原因')
+  // 隔离关键词下校验分类总数与分页，确保按数据库全量筛选而非只过滤当前页。
+  for (const [category, expected] of [['all', 3], ['admin', 1], ['student', 0], ['banned', 2]] as const) {
+    const result = await request(`/api/admin/users?keyword=${fixturePrefix}&category=${category}&page=99&pageSize=1`, { token })
+    assert.equal(result.status, 200)
+    assert.equal(result.body.data.pagination.total, expected)
+    assert.equal(result.body.data.pagination.page, Math.max(expected, 1))
+    assert.equal(result.body.data.list.length, expected ? 1 : 0)
+    if (category === 'admin') assert.equal(result.body.data.list[0].id, admin!.id)
+    if (category === 'banned') assert.equal(result.body.data.list[0].accountStatus, ACCOUNT_STATUS.BANNED)
+  }
+  assert.equal((await request('/api/admin/users?category=invalid', { token })).status, 422)
+  assert.equal((await request('/api/admin/users?category=admin&category=banned', { token })).status, 422)
   const unbanned = await change([first!.id], ACCOUNT_STATUS.ACTIVE, '人工复核通过')
   assert.equal(unbanned.status, 200)
+  for (const [category, expectedId] of [['student', first!.id], ['banned', second!.id]] as const) {
+    const result = await request(`/api/admin/users?keyword=${fixturePrefix}&category=${category}`, { token })
+    assert.equal(result.body.data.pagination.total, 1)
+    assert.equal(result.body.data.list[0].id, expectedId)
+  }
+  console.log('PASS user categories, keyword filtering, page correction and unban recategorization')
   assert.equal((await request('/required', { token: firstToken })).status, 401)
   assert.equal(
     (await request('/api/auth/refresh', { method: 'POST', cookie })).body.code,

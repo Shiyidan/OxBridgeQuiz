@@ -45,6 +45,7 @@
     "test:study-preferences": "tsx scripts/test-study-preferences.ts",
     "test:user-avatars": "tsx scripts/test-user-avatars.ts",
     "test:modular-diagnostic": "tsx scripts/test-modular-diagnostic.ts",
+    "test:module-session-payload": "tsx scripts/test-module-session-payload.ts",
     "test:tmua-diagnostic": "tsx scripts/test-tmua-diagnostic-report.ts",
     "test:mock-paper-state": "tsx scripts/test-mock-paper-state-machine.ts",
     "test:mock-paper-shared-runtime": "tsx scripts/test-mock-paper-shared-runtime.ts",

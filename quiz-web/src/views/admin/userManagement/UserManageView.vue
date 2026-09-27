@@ -56,13 +56,13 @@
         <el-table-column
           v-if="isSuperAdmin"
           type="selection"
-          width="45"
+          min-width="45"
           :selectable="canChangeAccountStatus"
         />
         <el-table-column
           prop="username"
           label="用户名"
-          min-width="180"
+          min-width="140"
           align="center"
           header-align="center"
         >
@@ -70,6 +70,7 @@
             <button
               class="cell-name cell-name--link"
               type="button"
+              :title="row.username || '-'"
               @click.stop="openUserDetail(row)"
             >
               {{ row.username || '-' }}
@@ -79,39 +80,15 @@
         <el-table-column
           prop="email"
           label="邮箱"
-          min-width="200"
+          min-width="180"
           align="center"
           header-align="center"
-          show-overflow-tooltip
         >
           <template #default="{ row }">
             <span class="cell-email">{{ row.email || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="角色" min-width="150" align="center" header-align="center">
-          <template #default="{ row }">
-            <el-tag class="role-tag" :class="'role-' + row.role" effect="light" round>
-              {{ roleLabel(row.role) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          label="账号状态"
-          width="110"
-          align="center"
-          class-name="account-status-column"
-        >
-          <template #default="{ row }">
-            <el-tooltip
-              v-if="row.accountStatus === 'banned'"
-              :content="`封禁时间：${formatDateTime(row.bannedAt)}；原因：${row.banReason || '-'}`"
-            >
-              <el-tag type="danger">已封禁</el-tag>
-            </el-tooltip>
-            <el-tag v-else type="success">正常</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="所属权益" width="240" align="center" header-align="center">
+        <el-table-column label="所属权益" min-width="220" align="center" header-align="center">
           <template #default="{ row }">
             <div class="plan-tags">
               <el-tooltip
@@ -133,7 +110,30 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="注册时间" min-width="150" align="center" header-align="center">
+        <el-table-column label="角色" min-width="120" align="center" header-align="center">
+          <template #default="{ row }">
+            <el-tag class="role-tag" :class="'role-' + row.role" effect="light" round>
+              {{ roleLabel(row.role) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
+          label="账号状态"
+          min-width="110"
+          align="center"
+          class-name="account-status-column"
+        >
+          <template #default="{ row }">
+            <el-tooltip
+              v-if="row.accountStatus === 'banned'"
+              :content="`封禁时间：${formatDateTime(row.bannedAt)}；原因：${row.banReason || '-'}`"
+            >
+              <el-tag type="danger">已封禁</el-tag>
+            </el-tooltip>
+            <el-tag v-else type="success">正常</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="注册时间" min-width="140" align="center" header-align="center">
           <template #default="{ row }">
             <span class="cell-date">{{ formatDate(row.createdAt) }}</span>
           </template>
@@ -141,7 +141,7 @@
         <el-table-column
           v-if="isSuperAdmin"
           label="操作"
-          width="230"
+          min-width="200"
           fixed="right"
           align="center"
           header-align="center"
@@ -805,6 +805,10 @@ onMounted(fetchUsers)
 }
 
 .cell-name--link {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   padding: 3px 5px;
   border: 0;
   border-radius: 6px;
@@ -829,12 +833,20 @@ onMounted(fetchUsers)
 }
 
 .cell-email {
+  display: block;
+  white-space: normal;
+  overflow-wrap: anywhere;
   color: var(--color-ink-soft);
 }
 
 .cell-date {
   color: var(--color-ink-muted);
   font-size: var(--text-sm);
+}
+
+// 缩小本页单元格的横向留白，为弹性列和操作按钮保留可用空间。
+:deep(.admin-data-table__table .el-table__cell) {
+  padding-inline: 8px;
 }
 
 // 状态标签使用单元格已有留白，避免叠加内边距导致标签后出现省略号。
@@ -855,7 +867,7 @@ onMounted(fetchUsers)
 
 .plan-tags {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 6px;
   align-items: center;
   justify-content: center;
@@ -864,6 +876,7 @@ onMounted(fetchUsers)
 
 .plan-tooltip-trigger {
   display: inline-flex;
+  max-width: 100%;
   cursor: pointer;
 }
 
@@ -944,6 +957,7 @@ onMounted(fetchUsers)
 
 .table-actions {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 4px;

@@ -569,10 +569,10 @@ export async function getModuleExamSession(
           ...modules[record.currentModuleIndex],
           startedAt: record.phaseStartedAt,
           expiresAt: record.phaseExpiresAt,
-          questions,
         }
       : null,
     break: breakState,
+    // 大体积 SVG 只随顶层题目传输一次；模块信息仅保留阶段与计时，旧页面已有顶层回退读取。
     questions,
     answers,
     questionDurations,

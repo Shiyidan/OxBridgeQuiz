@@ -53,7 +53,6 @@ export interface ExamModuleState {
 export interface ActiveExamModule extends ExamModuleState {
   startedAt: string
   expiresAt: string
-  questions: AttemptQuestion[]
 }
 
 export interface ExamBreakState {
@@ -696,10 +695,11 @@ export function saveExamProgress(examId: string, responses: ExamResponseInput[])
 }
 
 /** 恢复模块化诊断会话；题目范围和阶段均由服务端决定。 */
-export function getModuleExamSession(examId: string) {
+export function getModuleExamSession(examId: string, options: { silent?: boolean } = {}) {
   return callApi<StartExamResult>({
     url: `/exams/${examId}/session`,
     method: 'GET',
+    silent: options.silent,
   })
 }
 

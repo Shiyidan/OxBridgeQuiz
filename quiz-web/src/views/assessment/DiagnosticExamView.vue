@@ -137,7 +137,7 @@
         </div>
       </template>
       <div v-else class="diagnostic-status">
-          <p>无法加载{{ isMockExam ? '模考中心' : '诊断测试' }}。</p>
+        <p>{{ loadError || `无法加载${isMockExam ? '模考中心' : '诊断测试'}。` }}</p>
         <button type="button" class="button_primary" @click="loadSession">重新加载</button>
       </div>
     </main>
@@ -245,6 +245,7 @@ const mockExamCompletionReturnTarget = computed(() => {
 })
 
 const loading = ref(true)
+const loadError = ref('')
 const session = ref<StartExamResult | null>(null)
 const questions = shallowRef<AttemptQuestion[]>([])
 const currentIndex = ref(0)
@@ -456,6 +457,7 @@ function getQuestionDisplayNumber(question: AttemptQuestion, index: number): num
 // 服务端会话是当前模块、休息阶段和截止时间的唯一数据源。
 async function loadSession(): Promise<void> {
   loading.value = true
+  loadError.value = ''
   const examRecordId =
     typeof route.query.examRecordId === 'string' ? route.query.examRecordId : ''
   try {
@@ -466,8 +468,12 @@ async function loadSession(): Promise<void> {
       return
     }
     const data = examRecordId
-      ? await getModuleExamSession(examRecordId)
+      ? await getModuleExamSession(examRecordId, { silent: true })
       : await startExam({ paperId }, { silent: true })
+    // 创建成功后固定原答卷地址，后续加载失败重试和刷新都恢复同一次考试。
+    if (!examRecordId) {
+      await router.replace({ query: { ...route.query, examRecordId: data.examRecordId } })
+    }
     await applySession(data)
     if (data.phase === 'ready_to_submit') await finalizeExam()
   } catch (error: unknown) {
@@ -475,13 +481,12 @@ async function loadSession(): Promise<void> {
       await router.replace({ path: '/assessment', query: { resumeDiagnostic: '1' } })
       return
     }
-    // 新建会话使用静默请求以分流业务冲突，其他失败仍向用户展示确切原因。
-    ElMessage.error(
-      getApiErrorMessage(
-        error,
-        `${isMockExam.value ? '模考中心' : '诊断测试'}加载失败，请稍后重试。`,
-      ),
+    // 加载请求统一静默，由页面保留重试说明并只弹一次错误。
+    loadError.value = getApiErrorMessage(
+      error,
+      `${isMockExam.value ? '模考中心' : '诊断测试'}加载失败，请稍后重试。`,
     )
+    ElMessage.error(loadError.value)
   } finally {
     loading.value = false
   }
@@ -516,7 +521,7 @@ async function applySession(nextSession: StartExamResult): Promise<void> {
   }
 
   moduleDeadlineReached.value = Boolean(nextSession.isExpired)
-  questions.value = nextSession.currentModule.questions || nextSession.questions || []
+  questions.value = nextSession.questions || []
   answers.value = { ...nextSession.answers }
   questionDurations.value = { ...nextSession.questionDurations }
   visitedQuestionIds.value = new Set(

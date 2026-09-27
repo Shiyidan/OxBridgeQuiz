@@ -74,6 +74,7 @@
       :data="logs"
       :loading="loading"
       :total="pagination.total"
+      table-layout="auto"
       empty-text="暂无操作记录"
       show-pagination
       @page-change="handlePageChange"
@@ -835,10 +836,9 @@ onMounted(() => {
 }
 
 .actor-cell > span {
-  overflow: hidden;
+  width: max-content;
   color: #94a3b8;
   font-size: 0.76rem;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -850,22 +850,17 @@ onMounted(() => {
 }
 
 .operation-cell strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.operation-cell strong {
+  white-space: normal;
+  overflow-wrap: anywhere;
   color: #334155;
   font-size: 0.84rem;
 }
 
 .operation-cell span {
-  overflow: hidden;
   color: #94a3b8;
   font-size: 0.76rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .detail-content {

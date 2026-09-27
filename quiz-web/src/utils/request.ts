@@ -133,10 +133,14 @@ function toApiError(error: unknown): ApiError {
     }
   )?.response
   const body = response?.data
+  const transportCode = (error as { code?: number | string })?.code
+  const isTimeout = transportCode === 'ECONNABORTED' || transportCode === 'ETIMEDOUT'
   const message =
     body?.success === false && typeof body.errMsg === 'string' && body.errMsg
       ? body.errMsg
-      : (error as { message?: string })?.message || '请求失败'
+      : isTimeout
+        ? '请求超时，请检查网络后重试。'
+        : (error as { message?: string })?.message || '请求失败'
   const code = body?.code ?? (error as { code?: number | string })?.code ?? 1
   return new ApiError(message, code, response?.status)
 }

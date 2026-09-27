@@ -113,18 +113,15 @@
           <RegistrationLocationChart :items="locationItems" />
         </article>
 
-        <article class="panel distribution-panel source-panel">
+        <article class="panel distribution-panel">
           <div class="panel-heading">
             <div>
-              <h3>用户来源分布</h3>
-              <p>用于分析注册学生首次访问网站的渠道来源</p>
+              <h3>用户偏好的考试类型</h3>
+              <p>按所选期间注册学生当前的备考偏好划分，每人计一次</p>
             </div>
-            <el-tag type="info" effect="plain" round>待开发</el-tag>
+            <span>{{ examPreferenceCountText }}</span>
           </div>
-          <div class="source-placeholder">
-            <strong>来源标记接入后展示</strong>
-            <p>后续可区分直接访问、搜索引擎、外部链接和推广活动等来源。</p>
-          </div>
+          <AdminDistributionPieChart title="用户偏好的考试类型" :items="examPreferenceItems" />
         </article>
       </section>
 
@@ -148,6 +145,7 @@ import {
 } from '@/api/admin'
 import { getApiErrorMessage } from '@/utils/request'
 import RegistrationLocationChart from './RegistrationLocationChart.vue'
+import AdminDistributionPieChart from '@/components/admin/AdminDistributionPieChart.vue'
 import WebsiteTrafficTrendChart from './WebsiteTrafficTrendChart.vue'
 
 interface OverviewMetric {
@@ -259,6 +257,19 @@ const locationCoverageText = computed(() => {
   const distribution = analytics.value?.locationDistribution
   if (!distribution) return '等待查询'
   return `已定位 ${formatInteger(distribution.resolvedRegistrationCount)} / ${formatInteger(distribution.totalRegistrationCount)} 人`
+})
+
+// 四类备考偏好互斥计数，零人数类别不绘制扇区。
+const examPreferenceItems = computed(() =>
+  (analytics.value?.examPreferenceDistribution?.items || [])
+    .filter((item) => item.studentCount > 0)
+    .map((item) => ({ label: item.label, count: item.studentCount })),
+)
+
+// 人数来自同一接口周期内的学生集合，等待期间不显示虚构的统计人数。
+const examPreferenceCountText = computed(() => {
+  const distribution = analytics.value?.examPreferenceDistribution
+  return distribution ? `共 ${formatInteger(distribution.totalStudentCount)} 人` : '等待查询'
 })
 
 // 周期文案读取接口边界，保证与实际查询结果而非筛选草稿一致。
@@ -602,35 +613,6 @@ onBeforeUnmount(() => {
 
 .distribution-panel {
   min-height: 340px;
-}
-
-.source-panel {
-  display: flex;
-  flex-direction: column;
-}
-
-.source-placeholder {
-  display: flex;
-  flex: 1;
-  min-height: 230px;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 28px;
-  text-align: center;
-}
-
-.source-placeholder strong {
-  color: #334155;
-  font-size: 0.95rem;
-}
-
-.source-placeholder p {
-  max-width: 34rem;
-  margin: 9px 0 0;
-  color: #64748b;
-  font-size: 0.78rem;
-  line-height: 1.7;
 }
 
 .panel-heading {

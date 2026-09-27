@@ -102,7 +102,7 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="角色" min-width="120" align="center">
+      <el-table-column label="角色" min-width="120">
         <template #default="{ row }">
           <el-tag
             :type="row.actorRoleSnapshot === 'admin' ? 'danger' : 'info'"
@@ -114,7 +114,7 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="权益身份" min-width="140" align="center">
+      <el-table-column label="权益身份" min-width="140">
         <template #default="{ row }">
           <el-tag
             :type="entitlementIdentityTagType(row.actorAccountType)"
@@ -126,10 +126,14 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="模块" min-width="200" align="center">
+      <el-table-column label="模块" min-width="200">
         <template #default="{ row }">{{ moduleLabel(row.module) }}</template>
       </el-table-column>
-      <el-table-column label="操作" min-width="300">
+      <el-table-column
+        label="操作"
+        min-width="300"
+        class-name="operation-content-column"
+      >
         <template #default="{ row }">
           <div class="operation-cell">
             <strong>{{ operationDisplayLabel(row) }}</strong>
@@ -137,7 +141,7 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="结果" min-width="104" align="center">
+      <el-table-column label="结果" min-width="104">
         <template #default="{ row }">
           <span class="state-tag-cell">
             <el-tag
@@ -150,7 +154,7 @@
           </span>
         </template>
       </el-table-column>
-      <el-table-column label="详情" width="86" align="center">
+      <el-table-column label="详情" width="86">
         <template #default="{ row }">
           <el-button link type="primary" @click="openDetail(row.id)">查看</el-button>
         </template>
@@ -791,6 +795,15 @@ onMounted(() => {
   padding: 10px 14px;
 }
 
+// 仅操作内容允许折行，其余列按单行内容分配宽度，空间不足时由表格横向滚动。
+.operation-logs-page :deep(.admin-data-table__table .cell) {
+  white-space: nowrap;
+}
+
+.operation-logs-page :deep(.admin-data-table__table td.operation-content-column .cell) {
+  white-space: normal;
+}
+
 .occurred-at-cell {
   white-space: nowrap;
 }
@@ -812,6 +825,7 @@ onMounted(() => {
   display: flex;
   min-width: 0;
   flex-direction: column;
+  align-items: center;
   gap: 3px;
 }
 
@@ -823,7 +837,7 @@ onMounted(() => {
 }
 
 .actor-name-link {
-  align-self: flex-start;
+  align-self: center;
   max-width: 100%;
   font-size: 0.86rem;
   font-weight: 600;

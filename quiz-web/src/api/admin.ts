@@ -282,6 +282,13 @@ export interface TrafficRegistrationLocationItem {
   percentage: number
 }
 
+export interface TrafficExamPreferenceItem {
+  category: 'ESAT' | 'TMUA' | 'both' | 'unset'
+  label: string
+  studentCount: number
+  percentage: number
+}
+
 export interface TrafficAnalyticsResult {
   scope: {
     timezone: 'Asia/Shanghai'
@@ -313,6 +320,10 @@ export interface TrafficAnalyticsResult {
     resolvedRegistrationCount: number
     unknownRegistrationCount: number
     items: TrafficRegistrationLocationItem[]
+  }
+  examPreferenceDistribution: {
+    totalStudentCount: number
+    items: TrafficExamPreferenceItem[]
   }
   generatedAt: string
 }

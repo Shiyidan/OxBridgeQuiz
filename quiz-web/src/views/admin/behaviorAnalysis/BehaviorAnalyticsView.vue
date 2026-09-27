@@ -230,33 +230,48 @@
 
           <section class="metrics-grid" aria-label="学生行为核心指标">
             <article class="metric-card">
-              <div class="metric-card__label">活跃学生</div>
+              <div class="metric-card__label">
+                活跃学生
+                <AdminMetricTooltip title="活跃学生" :content="auditMetricTooltips.activeUsers" />
+              </div>
               <strong>{{ formatInteger(overview.activeUsers) }}</strong>
               <span :class="changeClass(overview.activeUsersChangeRate)">
                 {{ changeText(overview.activeUsersChangeRate) }}
               </span>
             </article>
             <article class="metric-card">
-              <div class="metric-card__label">关键操作次数</div>
+              <div class="metric-card__label">
+                关键操作次数
+                <AdminMetricTooltip title="关键操作次数" :content="auditMetricTooltips.operationCount" />
+              </div>
               <strong>{{ formatInteger(overview.operationCount) }}</strong>
               <span :class="changeClass(overview.operationCountChangeRate)">
                 {{ changeText(overview.operationCountChangeRate) }}
               </span>
             </article>
             <article class="metric-card">
-              <div class="metric-card__label">人均操作次数</div>
+              <div class="metric-card__label">
+                人均操作次数
+                <AdminMetricTooltip title="人均操作次数" :content="auditMetricTooltips.averageOperations" />
+              </div>
               <strong>{{ overview.averageOperations.toFixed(1) }}</strong>
               <span :class="changeClass(overview.averageOperationsChangeRate)">
                 {{ changeText(overview.averageOperationsChangeRate) }}
               </span>
             </article>
             <article class="metric-card">
-              <div class="metric-card__label">使用模块数</div>
+              <div class="metric-card__label">
+                使用模块数
+                <AdminMetricTooltip title="使用模块数" :content="auditMetricTooltips.moduleCount" />
+              </div>
               <strong>{{ overview.moduleCount }}</strong>
               <span class="metric-card__hint">当前范围内有学生使用</span>
             </article>
             <article class="metric-card">
-              <div class="metric-card__label">操作失败率</div>
+              <div class="metric-card__label">
+                操作失败率
+                <AdminMetricTooltip title="操作失败率" :content="auditMetricTooltips.failureRate" />
+              </div>
               <strong>{{ formatPercent(overview.failureRate) }}</strong>
               <span :class="failureChangeClass">
                 {{ failureChangeText }}
@@ -381,6 +396,7 @@ import {
   type ProductUsageModuleCode,
 } from '@/api/admin'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
+import AdminMetricTooltip from '@/components/admin/AdminMetricTooltip.vue'
 import BehaviorModuleChart from './BehaviorModuleChart.vue'
 import BehaviorProductTrendChart from './BehaviorProductTrendChart.vue'
 import BehaviorTrendChart from './BehaviorTrendChart.vue'
@@ -428,6 +444,14 @@ const analyticsTabs: AnalyticsTabOption[] = [
   { name: 'audit', label: '操作审计' },
 ]
 const studentModuleOptions = STUDENT_BEHAVIOR_MODULE_OPTIONS
+// 用简短定义和业务示例解释五项审计指标。
+const auditMetricTooltips = {
+  activeUsers: '发生过至少一次关键操作的学生，同一人只计一次。',
+  operationCount: '开始考试、提交考试、查看报告、修改资料、创建支付订单等已记录的操作次数，成功或失败均计入。',
+  averageOperations: '每位活跃学生平均产生的关键操作次数。',
+  moduleCount: '发生过关键操作的业务模块数量，例如考试作答、个人资料、支付订阅。',
+  failureRate: '已记录的关键操作中，失败操作所占的比例，业务拦截不算失败。',
+}
 const router = useRouter()
 const activeTab = ref<AnalyticsTab>('traffic')
 const analytics = ref<BehaviorAnalyticsResult | null>(null)
@@ -1118,6 +1142,9 @@ onMounted(() => {
 }
 
 .metric-card__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 9px;
   color: #64748b;
   font-size: 0.8rem;

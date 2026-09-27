@@ -1,4 +1,4 @@
-<!-- 后台共用表格，桌面支持填满高度，移动端随内容展开。 -->
+<!-- 后台共用表格：表头和内容统一居中，桌面支持填满高度，移动端随内容展开。 -->
 <template>
   <div
     class="admin-data-table"
@@ -144,6 +144,12 @@ const emit = defineEmits<{
 
 :deep(.admin-data-table__table .el-table__cell) {
   padding: 12px 16px;
+  text-align: center;
+}
+
+// 在公共单元格内统一对齐，页面无需为每一列重复配置居中。
+:deep(.admin-data-table__table .el-table__cell > .cell) {
+  text-align: center;
 }
 
 :deep(.admin-data-table__table th.el-table__cell) {

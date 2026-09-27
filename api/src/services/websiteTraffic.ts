@@ -1,13 +1,14 @@
 // 网站访问统计服务：按北京时间自然日去重 IP 摘要，并聚合访问与学生注册趋势。
 import crypto from "node:crypto";
 import { config } from "../config.js";
-import { USER_ROLE } from "../constants/domain.js";
+import { EXAM_TYPE, USER_ROLE } from "../constants/domain.js";
 import { ACCOUNT_STATUS } from "../constants/auth.js";
 import {
   LEGAL_ACCEPTANCE_SOURCE,
   LEGAL_DOCUMENT_TYPE,
 } from "../constants/legal.js";
 import { normalizeIpAddress } from "../utils/ipAddress.js";
+import { parseJsonArray } from "../utils/jsonField.js";
 import { resolveIpLocation, type IpLocation } from "./ipGeolocation.js";
 import { prisma } from "./prisma.js";
 
@@ -38,12 +39,51 @@ export interface WebsiteVisitSample {
 export interface RegistrationSample {
   createdAt: Date;
   ipAddress?: string | null;
+  examPreferences?: unknown;
 }
 
 interface RegistrationLocationItem {
   location: string;
   registrationCount: number;
   percentage: number;
+}
+
+// 按当前备考偏好将所选周期注册的学生互斥分组，多选学生只计入双考试类别。
+export function aggregateRegistrationExamPreferences(
+  registrations: RegistrationSample[],
+  filters: WebsiteTrafficFilters,
+) {
+  const counts = { ESAT: 0, TMUA: 0, both: 0, unset: 0 };
+  let totalStudentCount = 0;
+  for (const student of registrations) {
+    if (student.createdAt < filters.startAt || student.createdAt >= filters.endAt) continue;
+    const examTypes = new Set(
+      parseJsonArray<{ examType?: unknown } | null>(student.examPreferences)
+        .map((item) => typeof item?.examType === "string" ? item.examType.trim().toUpperCase() : ""),
+    );
+    const esat = examTypes.has(EXAM_TYPE.ESAT);
+    const tmua = examTypes.has(EXAM_TYPE.TMUA);
+    const category = esat && tmua ? "both" : esat ? EXAM_TYPE.ESAT : tmua ? EXAM_TYPE.TMUA : "unset";
+    counts[category] += 1;
+    totalStudentCount += 1;
+  }
+  const categories = [
+    { category: EXAM_TYPE.ESAT, label: EXAM_TYPE.ESAT },
+    { category: EXAM_TYPE.TMUA, label: EXAM_TYPE.TMUA },
+    { category: "both", label: `${EXAM_TYPE.ESAT} + ${EXAM_TYPE.TMUA}` },
+    { category: "unset", label: "未设置" },
+  ] as const;
+  return {
+    totalStudentCount,
+    items: categories.map(({ category, label }) => ({
+      category,
+      label,
+      studentCount: counts[category],
+      percentage: totalStudentCount > 0
+        ? Math.round(counts[category] / totalStudentCount * 10_000) / 100
+        : 0,
+    })),
+  };
 }
 
 // 默认范围覆盖今天及此前 29 个北京时间自然日，结束时间使用半开区间。
@@ -352,6 +392,7 @@ export async function getWebsiteTrafficAnalytics(
       },
       select: {
         createdAt: true,
+        examPreferences: true,
         legalAcceptances: {
           where: {
             source: LEGAL_ACCEPTANCE_SOURCE.REGISTER,
@@ -367,6 +408,7 @@ export async function getWebsiteTrafficAnalytics(
   ]);
   const registrationSamples = registrations.map((item) => ({
     createdAt: item.createdAt,
+    examPreferences: item.examPreferences,
     ipAddress: item.legalAcceptances[0]?.ipAddress,
   }));
   const trafficAnalytics = aggregateWebsiteTraffic(
@@ -378,5 +420,6 @@ export async function getWebsiteTrafficAnalytics(
     registrationSamples,
     filters,
   );
-  return { ...trafficAnalytics, locationDistribution };
+  const examPreferenceDistribution = aggregateRegistrationExamPreferences(registrationSamples, filters);
+  return { ...trafficAnalytics, locationDistribution, examPreferenceDistribution };
 }

@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict'
 import {
   aggregateWebsiteTraffic,
+  aggregateRegistrationExamPreferences,
   WEBSITE_VISITOR_TYPE,
   type WebsiteVisitSample,
 } from '../src/services/websiteTraffic.js'
@@ -47,6 +48,32 @@ function main(): void {
   )
 
   console.log('Website traffic aggregation tests passed')
+
+  const createdAt = filters.startAt;
+  const preferences = aggregateRegistrationExamPreferences([
+    { createdAt, examPreferences: [{ examType: 'ESAT' }, { examType: 'ESAT' }] },
+    { createdAt, examPreferences: [{ examType: 'tmua' }] },
+    { createdAt, examPreferences: [{ examType: 'ESAT' }, { examType: 'TMUA' }, { examType: 'ESAT' }] },
+    { createdAt, examPreferences: '[{"examType":"TMUA"},{"examType":"ESAT"}]' },
+    { createdAt, examPreferences: null },
+    { createdAt, examPreferences: 'invalid json' },
+    { createdAt, examPreferences: [null, { examType: 123 }, { examType: 'STEP' }] },
+    { createdAt: new Date(filters.startAt.getTime() - 1), examPreferences: [{ examType: 'ESAT' }] },
+    { createdAt: filters.endAt, examPreferences: [{ examType: 'ESAT' }] },
+  ], filters);
+  assert.equal(preferences.totalStudentCount, 7);
+  assert.deepEqual(preferences.items.map(({ category, studentCount }) => ({ category, studentCount })), [
+    { category: 'ESAT', studentCount: 1 },
+    { category: 'TMUA', studentCount: 1 },
+    { category: 'both', studentCount: 2 },
+    { category: 'unset', studentCount: 3 },
+  ]);
+  assert.equal(preferences.items.reduce((sum, item) => sum + item.studentCount, 0), 7);
+  assert.ok(Math.abs(preferences.items.reduce((sum, item) => sum + item.percentage, 0) - 100) < 0.02);
+  const empty = aggregateRegistrationExamPreferences([], filters);
+  assert.equal(empty.totalStudentCount, 0);
+  assert.ok(empty.items.every((item) => item.studentCount === 0 && item.percentage === 0));
+  console.log('Registration exam preferences passed: exclusive categories, duplicate selections, legacy JSON, empty/invalid preferences, date boundaries.');
 }
 
 main()

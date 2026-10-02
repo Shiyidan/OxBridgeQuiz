@@ -1,7 +1,7 @@
 <!-- 后台试题包查看页：从文件列表进入后按前台解析样式逐题查看，并保留吸顶管理操作。 -->
 <template>
   <div v-loading="loading" class="batch-review-page">
-    <section v-if="batch" class="sticky-admin-panel">
+    <section v-if="batch" ref="stickyAdminPanelRef" class="sticky-admin-panel">
       <div class="batch-toolbar">
         <button type="button" class="back-link" @click="returnToBatchList">← 返回文件列表</button>
         <div class="batch-heading">
@@ -139,7 +139,9 @@
         :correct-count="0"
         :initial-question-id="activeQuestionId"
         :show-user-answer="false"
-        independent-scroll
+        navigation-scroll
+        scroll-to-question-on-select
+        :sticky-header="stickyAdminPanelRef"
         @question-change="handleQuestionChange"
       />
     </main>
@@ -178,6 +180,7 @@ const editingBatchTitle = ref(false)
 const savingBatchTitle = ref(false)
 const batchTitleDraft = ref('')
 const batchTitleInputRef = ref<{ focus: () => void; blur: () => void } | null>(null)
+const stickyAdminPanelRef = ref<HTMLElement | null>(null)
 const batchOperatingAction = ref<'published' | 'archived' | 'delete' | ''>('')
 const batch = ref<QuestionBankImportBatch | null>(null)
 const questionDetails = ref<QuestionBankAdminDetail[]>([])
@@ -493,11 +496,7 @@ onMounted(loadReview)
 
 <style scoped lang="scss">
 .batch-review-page {
-  display: flex;
-  height: 100%;
-  min-height: 0;
-  flex-direction: column;
-  overflow: hidden;
+  min-height: 100%;
   padding: 0 40px 40px;
   background: #f8fafc;
 }
@@ -720,10 +719,6 @@ onMounted(loadReview)
   flex: 1 1 auto;
   max-width: 1480px;
   margin: 0 auto;
-}
-
-.analysis-view :deep(.question-nav) {
-  top: 154px;
 }
 
 .analysis-view :deep(.latex-text__plain) {

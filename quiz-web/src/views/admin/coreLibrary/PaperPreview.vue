@@ -85,6 +85,8 @@
           :questions="analysisQuestions"
           :correct-count="0"
           :show-user-answer="false"
+          navigation-scroll
+          scroll-to-question-on-select
         />
         <div v-else class="empty-card">暂无题目数据</div>
       </template>

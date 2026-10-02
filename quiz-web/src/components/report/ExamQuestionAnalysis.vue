@@ -1,12 +1,15 @@
+<!-- 前台报告与后台查看共用的逐题解析，统一题号导航、题目展示和滚动定位。 -->
 <template>
   <div
+    ref="analysisRef"
     class="question-analysis"
     :class="{
       'question-analysis--single': singleQuestionMode,
       'question-analysis--independent-scroll': independentScroll,
+      'question-analysis--navigation-scroll': navigationScroll,
     }"
   >
-    <aside v-if="!singleQuestionMode" class="question-nav" aria-label="题目导航">
+    <aside v-if="!singleQuestionMode" ref="navigationRef" class="question-nav" aria-label="题目导航">
       <span class="section-mark" aria-hidden="true"></span>
       <h2 class="question-nav__title">题目导航</h2>
       <div class="question-nav__groups">
@@ -132,7 +135,7 @@
 
 <script setup lang="ts">
 // 公共逐题解析组件：诊断测试和试题库报告共用同一套题目解析展示。
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import QuestionCard from '@/components/QuestionCard.vue'
 import LatexText from '@/components/LatexText.vue'
 import type { ExamQuestion } from '@/api/exam'
@@ -181,6 +184,9 @@ const props = defineProps<{
   showUserAnswer?: boolean
   groupBy?: 'module' | 'syllabus'
   independentScroll?: boolean
+  scrollToQuestionOnSelect?: boolean
+  navigationScroll?: boolean
+  stickyHeader?: HTMLElement | null
 }>()
 const emit = defineEmits<{
   questionChange: [index: number]
@@ -190,7 +196,81 @@ const emit = defineEmits<{
 const showUserAnswer = computed(() => props.showUserAnswer !== false)
 
 const currentIndex = ref(0)
+const analysisRef = ref<HTMLElement | null>(null)
+const navigationRef = ref<HTMLElement | null>(null)
 const reportCardRef = ref<HTMLElement | null>(null)
+let scrollContainer: HTMLElement | null = null
+let navigationResizeObserver: ResizeObserver | undefined
+let navigationLayoutFrame = 0
+
+// 前台使用窗口滚动，后台使用管理内容区滚动；按实际滚动容器限制导航高度。
+function findScrollContainer(): HTMLElement | null {
+  let parent = analysisRef.value?.parentElement
+  while (parent && parent !== document.body) {
+    if (/(auto|scroll)/.test(getComputedStyle(parent).overflowY)) return parent
+    parent = parent.parentElement
+  }
+  return null
+}
+
+// 导航吸顶后扩展至可用区域底部，后台管理操作栏的实际高度同时用于切题定位。
+function updateNavigationHeight(): void {
+  navigationLayoutFrame = 0
+  const analysis = analysisRef.value
+  const navigation = navigationRef.value
+  if (!props.navigationScroll || !analysis || !navigation) return
+
+  if (props.stickyHeader) {
+    analysis.style.setProperty(
+      '--question-analysis-sticky-top',
+      `${props.stickyHeader.getBoundingClientRect().height + 12}px`,
+    )
+  }
+  const containerTop = scrollContainer
+    ? scrollContainer.getBoundingClientRect().top + scrollContainer.clientTop
+    : 0
+  const containerBottom = scrollContainer
+    ? Math.min(document.documentElement.clientHeight, containerTop + scrollContainer.clientHeight)
+    : document.documentElement.clientHeight
+  const stickyTop = parseFloat(getComputedStyle(navigation).top) || 0
+  const top = Math.max(containerTop + stickyTop, navigation.getBoundingClientRect().top)
+  analysis.style.setProperty('--question-nav-height', `${Math.max(0, containerBottom - top - 16)}px`)
+}
+
+// 捕获窗口和嵌套管理内容区的滚动，每帧只测量一次布局。
+function scheduleNavigationHeight(): void {
+  if (props.navigationScroll && !navigationLayoutFrame) {
+    navigationLayoutFrame = window.requestAnimationFrame(updateNavigationHeight)
+  }
+}
+
+// 题目或管理栏挂载、尺寸改变后重新绑定测量，兼容后台切题和操作栏换行。
+watch(
+  () => [navigationRef.value, props.navigationScroll, props.stickyHeader] as const,
+  () => {
+    navigationResizeObserver?.disconnect()
+    if (!props.navigationScroll || !analysisRef.value) return
+    scrollContainer = findScrollContainer()
+    navigationResizeObserver = new ResizeObserver(scheduleNavigationHeight)
+    navigationResizeObserver.observe(analysisRef.value)
+    if (scrollContainer) navigationResizeObserver.observe(scrollContainer)
+    if (props.stickyHeader) navigationResizeObserver.observe(props.stickyHeader)
+    scheduleNavigationHeight()
+  },
+  { flush: 'post' },
+)
+
+onMounted(() => {
+  window.addEventListener('scroll', scheduleNavigationHeight, { passive: true, capture: true })
+  window.addEventListener('resize', scheduleNavigationHeight)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', scheduleNavigationHeight, true)
+  window.removeEventListener('resize', scheduleNavigationHeight)
+  navigationResizeObserver?.disconnect()
+  window.cancelAnimationFrame(navigationLayoutFrame)
+})
 const currentQuestion = computed<ReportQuestion | undefined>(
   () => props.questions[currentIndex.value],
 )
@@ -351,9 +431,14 @@ watch(
   { immediate: true },
 )
 
-// 左侧题号导航只切换当前题，不重新请求报告数据。
-function goToQuestion(index: number): void {
+// 整页滚动的解析入口在切题后定位题目开头；重复点击当前题也可返回顶部。
+async function goToQuestion(index: number): Promise<void> {
   currentIndex.value = index
+  if (props.scrollToQuestionOnSelect) {
+    await nextTick()
+    updateNavigationHeight()
+    reportCardRef.value?.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'instant' })
+  }
 }
 
 // 解析页只读展示题目，传给 QuestionCard 的 select 事件保持空实现。
@@ -372,6 +457,18 @@ function noop(): void {}
 
 .question-analysis--single {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.question-analysis--navigation-scroll .question-nav {
+  top: var(--question-analysis-sticky-top, 12px);
+  max-height: var(--question-nav-height, calc(100dvh - 28px));
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+}
+
+.question-analysis--navigation-scroll .report-card {
+  scroll-margin-top: var(--question-analysis-sticky-top, 12px);
 }
 
 .question-analysis--independent-scroll {

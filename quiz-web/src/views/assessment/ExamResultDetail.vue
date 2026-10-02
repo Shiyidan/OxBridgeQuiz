@@ -22,6 +22,8 @@
             :correct-count="correctCount"
             :initial-question-id="resolvedTargetQuestionId"
             :single-question-mode="singleQuestionMode"
+            scroll-to-question-on-select
+            navigation-scroll
             :group-by="analysisSource === 'question-bank' ? 'syllabus' : 'module'"
           />
           <MistakeAttemptTimeline
@@ -349,7 +351,7 @@ async function redirectDiagnosticReport(examType: string, reportRecordId: string
 .report-main {
   width: var(--fluid-shell-width);
   margin: 0 auto;
-  padding: 36px 0 72px;
+  padding: 36px 0 36px;
 }
 
 .state-card {
@@ -386,6 +388,7 @@ async function redirectDiagnosticReport(examType: string, reportRecordId: string
 
 .analysis-page-content {
   min-width: 0;
+  --question-analysis-sticky-top: calc(var(--nav-height) + 12px);
 }
 
 .analysis-page-content--with-history {
@@ -398,6 +401,12 @@ async function redirectDiagnosticReport(examType: string, reportRecordId: string
 @media (max-width: 1100px) {
   .analysis-page-content--with-history {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 860px) {
+  .analysis-page-content {
+    --question-analysis-sticky-top: 12px;
   }
 }
 

@@ -725,7 +725,7 @@ function dateOnly(value?: string | null): string | null {
 .mistake-notebook-main {
   width: var(--fluid-shell-width);
   margin: 0 auto;
-  padding: 40px 0 96px;
+  padding: 40px 0 30px;
 }
 
 .back-link {

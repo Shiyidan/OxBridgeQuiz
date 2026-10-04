@@ -48,7 +48,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Back } from '@element-plus/icons-vue'
 import NavBar from '@/components/NavBar.vue'
@@ -58,6 +58,7 @@ import FavoriteCategoryManager from './FavoriteCategoryManager.vue'
 import {
   getFavoriteDetail,
   getFavoriteSummary,
+  recordFavoriteQuestionView,
   type FavoriteDetail,
   type FavoriteSummary,
 } from '@/api/favorites'
@@ -74,15 +75,20 @@ const loading = ref(false)
 const error = ref('')
 const managerOpen = ref(false)
 let sequence = 0
+// 离开详情时作废请求，避免迟到的数据触发查看统计。
+onBeforeUnmount(() => {
+  sequence++
+})
 // 收藏详情直接使用官方题目 ID，无需定位某张答卷。
 const questionId = computed(() => String(route.params.questionId || ''))
 // 正常取消收藏后保留当前题目供继续阅读，返回列表时自然移除。
 async function load() {
   const request = ++sequence
+  const openedQuestionId = questionId.value
   loading.value = true
   error.value = ''
   try {
-    const result = await getFavoriteDetail(questionId.value)
+    const result = await getFavoriteDetail(openedQuestionId)
     if (request !== sequence) return
     detail.value = result
     store.states[questionId.value] = { questionId: questionId.value, categoryId: result.categoryId }
@@ -91,6 +97,16 @@ async function load() {
     if (request === sequence) error.value = getApiErrorMessage(err, '收藏题目加载失败')
   } finally {
     if (request === sequence) loading.value = false
+    await nextTick()
+    // 正文显示一次才记录一次；失败重试成功后计数，分类和收藏状态刷新不重复上报。
+    if (
+      request === sequence &&
+      openedQuestionId === questionId.value &&
+      !error.value &&
+      detail.value
+    ) {
+      void recordFavoriteQuestionView(openedQuestionId).catch(() => undefined)
+    }
   }
 }
 // 分类管理后刷新标签及计数，不重新请求可能已取消收藏的详情。

@@ -70,6 +70,7 @@ import {
 } from '../services/adminUserDetail.js'
 import { getAdminStaffGiftCardStats } from '../services/adminStaffStats.js'
 import { getRevenuePayments } from '../services/revenuePayments.js'
+import { CONVERSION_WINDOW_DAYS, getConversionAnalytics } from '../services/conversionAnalytics.js'
 import { z } from 'zod'
 import { ACCOUNT_STATUS } from '../constants/auth.js'
 import { AuthError } from '../utils/authError.js'
@@ -387,6 +388,31 @@ adminRouter.get('/behavior-analytics', async (req, res) => {
     ...(module ? { module } : {}),
   })
   res.json(success(analytics))
+})
+
+// 转化分析
+adminRouter.get('/conversion-analytics', async (req, res) => {
+  const requestedStartAt = parseOperationLogDate(req.query.startAt)
+  const requestedEndAt = parseOperationLogDate(req.query.endAt)
+  const windowDays = Number(req.query.windowDays ?? 7)
+  if (requestedStartAt === null || requestedEndAt === null ||
+      (requestedStartAt === undefined) !== (requestedEndAt === undefined)) {
+    res.status(422).json(fail('请同时提供有效的开始时间和结束时间'))
+    return
+  }
+  if (!CONVERSION_WINDOW_DAYS.some((days) => days === windowDays)) {
+    res.status(422).json(fail('转化观察期仅支持 7、14 或 30 天'))
+    return
+  }
+  const defaults = defaultBehaviorAnalyticsPeriod()
+  const startAt = requestedStartAt || defaults.startAt
+  const endAt = requestedEndAt || defaults.endAt
+  const duration = endAt.getTime() - startAt.getTime()
+  if (duration <= 0 || duration > BEHAVIOR_ANALYTICS_MAX_RANGE_DAYS * 86400000 || startAt > new Date()) {
+    res.status(422).json(fail('请选择不超过 90 天且已开始的统计范围'))
+    return
+  }
+  res.json(success(await getConversionAnalytics({ startAt, endAt, windowDays })))
 })
 
 // 操作日志

@@ -18,6 +18,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
 const CHINA_TIMEZONE_OFFSET_MS = 8 * 60 * 60 * 1000
 const DIAGNOSTIC_REPORT_VIEW_ACTION = 'diagnostic_report.view'
 const MISTAKE_NOTEBOOK_VIEW_ACTION = 'mistake_notebook.view'
+const FAVORITE_NOTEBOOK_VIEW_ACTION = 'favorite_notebook.question_view'
 
 export const BEHAVIOR_ANALYTICS_TIMEZONE = 'Asia/Shanghai'
 export const BEHAVIOR_ANALYTICS_MAX_RANGE_DAYS = 90
@@ -70,7 +71,7 @@ export interface DiagnosticReportViewEvent {
   resourceId: string | null
 }
 
-export interface MistakeNotebookViewEvent {
+export interface NotebookQuestionViewEvent {
   occurredAt: Date
   userId: string
 }
@@ -78,7 +79,8 @@ export interface MistakeNotebookViewEvent {
 export interface ProductUsageEvents {
   completions: ProductCompletionEvent[]
   reportViews: DiagnosticReportViewEvent[]
-  mistakeNotebookViews: MistakeNotebookViewEvent[]
+  mistakeNotebookViews: NotebookQuestionViewEvent[]
+  favoriteNotebookViews: NotebookQuestionViewEvent[]
 }
 
 interface MutableGroupStats {
@@ -119,6 +121,8 @@ interface ProductUsagePeriodAggregation {
   reportViewCount: number
   mistakeNotebookViewUsers: Set<string>
   mistakeNotebookViewCount: number
+  favoriteNotebookViewUsers: Set<string>
+  favoriteNotebookViewCount: number
   userModuleCounts: Map<string, Map<ProductUsageModule, number>>
 }
 
@@ -311,6 +315,8 @@ function aggregateProductUsagePeriod(events: ProductUsageEvents): ProductUsagePe
     reportViewCount: 0,
     mistakeNotebookViewUsers: new Set(),
     mistakeNotebookViewCount: 0,
+    favoriteNotebookViewUsers: new Set(),
+    favoriteNotebookViewCount: 0,
     userModuleCounts: new Map(),
   }
 
@@ -340,6 +346,10 @@ function aggregateProductUsagePeriod(events: ProductUsageEvents): ProductUsagePe
     aggregation.mistakeNotebookViewCount += 1
     aggregation.mistakeNotebookViewUsers.add(event.userId)
   }
+  for (const event of events.favoriteNotebookViews) {
+    aggregation.favoriteNotebookViewCount += 1
+    aggregation.favoriteNotebookViewUsers.add(event.userId)
+  }
 
   return aggregation
 }
@@ -363,9 +373,10 @@ function buildProductUsageTrend(
   date: string
   diagnosticTestCount: number
   questionBankPracticeCount: number
-    mockExamCount: number
-    reportViewCount: number
-    mistakeNotebookViewCount: number
+  mockExamCount: number
+  reportViewCount: number
+  mistakeNotebookViewCount: number
+  favoriteNotebookViewCount: number
 }> {
   const trend = new Map<
     string,
@@ -375,6 +386,7 @@ function buildProductUsageTrend(
       mockExamCount: number
       reportViewCount: number
       mistakeNotebookViewCount: number
+      favoriteNotebookViewCount: number
     }
   >()
   const firstDay = Math.floor((startAt.getTime() + CHINA_TIMEZONE_OFFSET_MS) / DAY_MS) * DAY_MS
@@ -388,6 +400,7 @@ function buildProductUsageTrend(
       mockExamCount: 0,
       reportViewCount: 0,
       mistakeNotebookViewCount: 0,
+      favoriteNotebookViewCount: 0,
     })
   }
 
@@ -405,6 +418,10 @@ function buildProductUsageTrend(
   for (const event of events.mistakeNotebookViews) {
     const item = trend.get(chinaDateKey(event.occurredAt))
     if (item) item.mistakeNotebookViewCount += 1
+  }
+  for (const event of events.favoriteNotebookViews) {
+    const item = trend.get(chinaDateKey(event.occurredAt))
+    if (item) item.favoriteNotebookViewCount += 1
   }
 
   return [...trend.entries()].map(([date, item]) => ({ date, ...item }))
@@ -476,6 +493,7 @@ export function aggregateProductUsage(
       completionSource: 'exam_record' as const,
       reportViewSource: 'operation_log' as const,
       mistakeNotebookViewSource: 'operation_log' as const,
+      favoriteNotebookViewSource: 'operation_log' as const,
       preferenceMinimumCompletions: PRODUCT_PREFERENCE_MIN_COMPLETIONS,
     },
     overview: {
@@ -500,6 +518,16 @@ export function aggregateProductUsage(
       averageMistakeNotebookViews: ratio(
         current.mistakeNotebookViewCount,
         current.mistakeNotebookViewUsers.size,
+      ),
+      favoriteNotebookViewCount: current.favoriteNotebookViewCount,
+      favoriteNotebookViewChangeRate: changeRate(
+        current.favoriteNotebookViewCount,
+        previous.favoriteNotebookViewCount,
+      ),
+      favoriteNotebookViewerCount: current.favoriteNotebookViewUsers.size,
+      averageFavoriteNotebookViews: ratio(
+        current.favoriteNotebookViewCount,
+        current.favoriteNotebookViewUsers.size,
       ),
     },
     modules,
@@ -645,7 +673,7 @@ export async function getStudentBehaviorAnalytics(filters: BehaviorAnalyticsFilt
       where: {
         AND: [visibleOperationActorWhere],
         actorRoleSnapshot: USER_ROLE.STUDENT,
-        action: { in: [DIAGNOSTIC_REPORT_VIEW_ACTION, MISTAKE_NOTEBOOK_VIEW_ACTION] },
+        action: { in: [DIAGNOSTIC_REPORT_VIEW_ACTION, MISTAKE_NOTEBOOK_VIEW_ACTION, FAVORITE_NOTEBOOK_VIEW_ACTION] },
         result: OPERATION_AUDIT_RESULT.SUCCESS,
         occurredAt: { gte: previousStartAt, lt: filters.endAt },
       },
@@ -693,8 +721,13 @@ export async function getStudentBehaviorAnalytics(filters: BehaviorAnalyticsFilt
         ]
       : [],
   )
-  const mistakeNotebookViewEvents: MistakeNotebookViewEvent[] = productViewLogs.flatMap((log) =>
+  const mistakeNotebookViewEvents: NotebookQuestionViewEvent[] = productViewLogs.flatMap((log) =>
     log.actorUserId && log.action === MISTAKE_NOTEBOOK_VIEW_ACTION
+      ? [{ occurredAt: log.occurredAt, userId: log.actorUserId }]
+      : [],
+  )
+  const favoriteNotebookViewEvents: NotebookQuestionViewEvent[] = productViewLogs.flatMap((log) =>
+    log.actorUserId && log.action === FAVORITE_NOTEBOOK_VIEW_ACTION
       ? [{ occurredAt: log.occurredAt, userId: log.actorUserId }]
       : [],
   )
@@ -704,11 +737,17 @@ export async function getStudentBehaviorAnalytics(filters: BehaviorAnalyticsFilt
     mistakeNotebookViews: mistakeNotebookViewEvents.filter(
       (event) => event.occurredAt >= filters.startAt,
     ),
+    favoriteNotebookViews: favoriteNotebookViewEvents.filter(
+      (event) => event.occurredAt >= filters.startAt,
+    ),
   }
   const previousProductEvents: ProductUsageEvents = {
     completions: completionEvents.filter((event) => event.occurredAt < filters.startAt),
     reportViews: reportViewEvents.filter((event) => event.occurredAt < filters.startAt),
     mistakeNotebookViews: mistakeNotebookViewEvents.filter(
+      (event) => event.occurredAt < filters.startAt,
+    ),
+    favoriteNotebookViews: favoriteNotebookViewEvents.filter(
       (event) => event.occurredAt < filters.startAt,
     ),
   }

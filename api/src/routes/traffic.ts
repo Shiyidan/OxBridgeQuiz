@@ -4,6 +4,7 @@ import { USER_ROLE } from '../constants/domain.js'
 import { optionalAuth } from '../middleware/auth.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { success } from '../utils/response.js'
+import { recordRegistrationVisit } from '../services/registrationAttribution.js'
 import {
   recordWebsiteVisit,
   WEBSITE_VISITOR_TYPE,
@@ -32,5 +33,6 @@ trafficRouter.post('/visit', visitLimiter, optionalAuth, async (req, res) => {
       ? WEBSITE_VISITOR_TYPE.STUDENT
       : WEBSITE_VISITOR_TYPE.ANONYMOUS
   const result = await recordWebsiteVisit(req.ip, req.get('user-agent'), visitorType)
+  if (result.counted && visitorType === WEBSITE_VISITOR_TYPE.ANONYMOUS) recordRegistrationVisit(req, res)
   res.json(success(result))
 })

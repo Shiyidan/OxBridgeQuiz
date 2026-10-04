@@ -221,6 +221,20 @@ favoritesRouter.put('/batch', async (req, res) => {
   res.json(success(null))
 })
 
+// 收藏题目查看
+favoritesRouter.post('/:questionId/view', async (req, res) => {
+  const questionId = idSchema.parse(req.params.questionId)
+  const favorite = await prisma.questionFavorite.findUnique({
+    where: { userId_questionId: { userId: req.user!.userId, questionId } },
+    select: { id: true },
+  })
+  if (!favorite) {
+    res.status(404).json(fail('题目已取消收藏或不存在'))
+    return
+  }
+  res.json(success({ recorded: true }))
+})
+
 // 收藏题目详情
 favoritesRouter.get('/:questionId', async (req, res) => {
   const userId = req.user!.userId

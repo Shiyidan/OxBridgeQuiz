@@ -110,6 +110,8 @@ try {
   assert.equal(await prisma.questionFavorite.count({ where: { userId: owner.id } }), 3)
   const originalAnswers = await prisma.answerRecord.findMany({ where: { examRecordId: exam.id } })
   const detail = await request(owner.token, `/${q1}`)
+  assert.equal((await request(owner.token, `/${q1}/view`, 'POST')).recorded, true)
+  await request(stranger.token, `/${q1}/view`, 'POST', undefined, 404)
   assert.deepEqual(detail.question.answer, ['A'])
   assert.equal(detail.question.learning_analysis.correct_solution, 'favorite-fixture-solution')
   const unfinishedExam = await prisma.examRecord.findUniqueOrThrow({ where: { id: exam.id } })
@@ -178,6 +180,7 @@ try {
   const beforeAnswers = await prisma.answerRecord.findMany({ where: { examRecordId: exam.id } })
   await request(owner.token, `/${q1}`, 'DELETE')
   await request(owner.token, `/${q1}`, 'DELETE')
+  await request(owner.token, `/${q1}/view`, 'POST', undefined, 404)
   assert.deepEqual(
     await prisma.answerRecord.findMany({ where: { examRecordId: exam.id } }),
     beforeAnswers,

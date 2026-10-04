@@ -28,6 +28,7 @@ export const OPERATION_AUDIT_ACTION_LABELS: Record<string, string> = {
   'exam.submit': '提交考试',
   'diagnostic_report.view': '查看诊断分析报告',
   'mistake_notebook.view': '查看错题本',
+  'favorite_notebook.question_view': '查看收藏夹题目',
   'mock_exam.start': '开始模考',
   'mock_exam.abandon': '放弃模考',
   'payment.order.create': '创建支付订单',

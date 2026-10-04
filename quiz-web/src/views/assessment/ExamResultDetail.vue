@@ -70,7 +70,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Back, Delete } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -83,6 +83,7 @@ import {
   getDiagnosticReportStatus,
   getExamResultData,
   getMistakeAttemptHistory,
+  recordMistakeQuestionView,
   removeMistakeQuestions,
   type ExamQuestion,
   type MistakeAttemptHistoryItem,
@@ -128,6 +129,11 @@ const mistakeAttemptsError = ref('')
 const removeMistakeOpen = ref(false)
 const removingMistake = ref(false)
 const removeMistakeError = ref('')
+let detailActive = true
+// 离开详情后迟到的加载结果不能形成查看记录。
+onBeforeUnmount(() => {
+  detailActive = false
+})
 
 // 当前答卷 ID 用于读取结果并决定后续进入哪一种报告页面。
 const examId = computed(() => String(route.params.id || ''))
@@ -262,6 +268,7 @@ const returnLabel = computed(() =>
 
 // 页面加载后先识别 paperType 和 examType，诊断记录随即跳到独立考试报告页。
 onMounted(async () => {
+  const openedPath = route.fullPath
   if (showMistakeAttemptHistory.value) void loadMistakeAttemptHistory()
   try {
     const data = await getExamResultData(examId.value)
@@ -332,6 +339,18 @@ onMounted(async () => {
     loadError.value = getApiErrorMessage(error, '加载答卷失败，请稍后重试')
   } finally {
     loading.value = false
+    await nextTick()
+    // 只在错题本单题正文已显示后上报，整卷报告、加载失败和已离开的页面不计数。
+    if (
+      detailActive &&
+      route.fullPath === openedPath &&
+      showMistakeAttemptHistory.value &&
+      !loadError.value &&
+      questions.value[0]
+    ) {
+      const question = questions.value[0]
+      void recordMistakeQuestionView(question.questionId || question.id).catch(() => undefined)
+    }
   }
 })
 

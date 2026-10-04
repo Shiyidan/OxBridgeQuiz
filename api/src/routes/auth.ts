@@ -53,6 +53,7 @@ import { pickRandomUserAvatar } from '../services/userAvatar.js'
 import { INVITATION_BINDING_SOURCE } from '../constants/domain.js'
 import { assertAccountActive } from '../services/accountStatus.js'
 import { createRegistrationSourceGuard } from '../middleware/registrationAccess.js'
+import { clearRegistrationVisit, readRegistrationVisit } from '../services/registrationAttribution.js'
 import {
   RegistrationLimitError,
   getRegistrationSource,
@@ -251,6 +252,7 @@ authRouter.post('/register', registrationSourceGuard, async (req: Request, res: 
           username: input.username,
           avatar: pickRandomUserAvatar(),
           examPreferences: input.examPreferences || [],
+          firstVisitedAt: readRegistrationVisit(req),
         },
       })
       await recordLegalAcceptances(tx, {
@@ -279,6 +281,7 @@ authRouter.post('/register', registrationSourceGuard, async (req: Request, res: 
       }
       return createdUser
     })
+    clearRegistrationVisit(res)
     const session = await createAuthSession(user, req, res)
     setOperationAuditActor(req, user)
     setOperationAuditContext(req, { resourceId: user.id })

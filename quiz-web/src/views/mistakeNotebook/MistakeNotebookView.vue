@@ -406,7 +406,6 @@ import { ElMessage } from 'element-plus'
 import {
   getMistakeNotebookData,
   removeMistakeQuestions,
-  recordMistakeNotebookVisit,
   type MistakeNotebookDifficulty,
   type WrongAnswer,
 } from '@/api/exam'
@@ -585,8 +584,6 @@ onMounted(async () => {
   restoreStateFromRoute()
   copyFilters(draftFilters, appliedFilters)
   pageInitialized = true
-  // 访问上报独立于列表加载，统计失败不能阻断学生查看已有错题。
-  void recordMistakeNotebookVisit().catch(() => undefined)
   void loadFavoriteSummary()
   const requestedPage = pagination.page
   const [loaded] = await Promise.all([loadWrongAnswers(), loadSyllabusTree(activeExamType.value)])

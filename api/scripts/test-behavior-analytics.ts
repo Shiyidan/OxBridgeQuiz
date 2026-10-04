@@ -215,6 +215,11 @@ function main(): void {
         { occurredAt: new Date('2026-06-04T08:00:00.000Z'), userId: 'student-3' },
         { occurredAt: new Date('2026-06-04T09:00:00.000Z'), userId: 'student-3' },
       ],
+      favoriteNotebookViews: [
+        { occurredAt: new Date('2026-06-02T15:59:59.999Z'), userId: 'student-1' },
+        { occurredAt: new Date('2026-06-02T16:00:00.000Z'), userId: 'student-1' },
+        { occurredAt: new Date('2026-06-04T09:00:00.000Z'), userId: 'student-2' },
+      ],
     },
     {
       completions: [
@@ -235,6 +240,9 @@ function main(): void {
       mistakeNotebookViews: [
         { occurredAt: new Date('2026-05-30T03:00:00.000Z'), userId: 'student-5' },
       ],
+      favoriteNotebookViews: [
+        { occurredAt: new Date('2026-05-30T04:00:00.000Z'), userId: 'student-5' },
+      ],
     },
     filters,
   )
@@ -250,6 +258,16 @@ function main(): void {
   assert.equal(productResult.overview.mistakeNotebookViewerCount, 2)
   assert.equal(productResult.overview.averageMistakeNotebookViews, 1.5)
   assert.equal(productResult.overview.mistakeNotebookViewChangeRate, 2)
+  assert.equal(productResult.overview.favoriteNotebookViewCount, 3)
+  assert.equal(productResult.overview.favoriteNotebookViewerCount, 2)
+  assert.equal(productResult.overview.averageFavoriteNotebookViews, 1.5)
+  assert.equal(productResult.overview.favoriteNotebookViewChangeRate, 2)
+  assert.deepEqual(productResult.trend.map((item) => item.favoriteNotebookViewCount), [1, 1, 1])
+  const emptyEvents = { completions: [], reportViews: [], mistakeNotebookViews: [], favoriteNotebookViews: [] }
+  const emptyProduct = aggregateProductUsage(emptyEvents, emptyEvents, filters)
+  assert.equal(emptyProduct.overview.favoriteNotebookViewCount, 0)
+  assert.equal(emptyProduct.overview.averageFavoriteNotebookViews, 0)
+  assert.equal(emptyProduct.overview.favoriteNotebookViewChangeRate, null)
   assert.deepEqual(
     productResult.trend.map((item) => item.mistakeNotebookViewCount),
     [1, 0, 2],

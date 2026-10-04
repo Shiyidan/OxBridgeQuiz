@@ -394,6 +394,7 @@ export interface BehaviorProductTrendItem {
   mockExamCount: number
   reportViewCount: number
   mistakeNotebookViewCount: number
+  favoriteNotebookViewCount: number
 }
 
 export interface BehaviorProductUsage {
@@ -401,6 +402,7 @@ export interface BehaviorProductUsage {
     completionSource: 'exam_record'
     reportViewSource: 'operation_log'
     mistakeNotebookViewSource: 'operation_log'
+    favoriteNotebookViewSource: 'operation_log'
     preferenceMinimumCompletions: number
   }
   overview: {
@@ -417,6 +419,10 @@ export interface BehaviorProductUsage {
     mistakeNotebookViewChangeRate: number | null
     mistakeNotebookViewerCount: number
     averageMistakeNotebookViews: number
+    favoriteNotebookViewCount: number
+    favoriteNotebookViewChangeRate: number | null
+    favoriteNotebookViewerCount: number
+    averageFavoriteNotebookViews: number
   }
   modules: BehaviorProductUsageModule[]
   preferences: BehaviorProductPreference[]

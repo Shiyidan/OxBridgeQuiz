@@ -1,4 +1,4 @@
-// 本地错题删除回归：校验用户隔离、持久移出、分页回退与新错误重新收录。
+// 本地错题本回归：校验题目查看审计、用户隔离、持久移出及新错误重新收录。
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import { once } from 'node:events'
@@ -9,9 +9,12 @@ import { signAccessToken } from '../src/services/jwt.js'
 import { errorBookRouter } from '../src/routes/errorBook.js'
 import { favoritesRouter } from '../src/routes/favorites.js'
 import { globalErrorHandler } from '../src/middleware/error.js'
+import { operationAuditMiddleware } from '../src/middleware/operationAudit.js'
+import { getStudentBehaviorAnalytics } from '../src/services/behaviorAnalytics.js'
 import { syncPaperQuestions } from '../src/utils/questionSync.js'
 import { syncSubmittedWrongQuestions } from '../src/services/wrongQuestionSummary.js'
-import { EXAM_TYPE, EXAM_RECORD_STATUS } from '../src/constants/domain.js'
+import { EXAM_TYPE, EXAM_RECORD_STATUS, USER_ROLE } from '../src/constants/domain.js'
+import { OPERATION_AUDIT_MODULE, OPERATION_AUDIT_RESULT } from '../src/constants/operationAudit.js'
 
 if (
   config.runtimeEnv !== 'local' ||
@@ -27,15 +30,30 @@ const paperId = `wrong-removal-${crypto.randomUUID()}`
 const userIds: string[] = []
 const app = express()
 app.use(express.json())
-app.use('/exams', errorBookRouter)
-app.use('/favorites', favoritesRouter)
+app.use((req, _res, next) => {
+  req.requestId = req.get('x-test-request-id') || crypto.randomUUID()
+  next()
+})
+app.use(operationAuditMiddleware)
+app.use('/api/exams', errorBookRouter)
+app.use('/api/favorites', favoritesRouter)
 app.use(globalErrorHandler)
 const server = app.listen(0, '127.0.0.1')
 await once(server, 'listening')
 const address = server.address()
 if (!address || typeof address === 'string')
   throw new Error('Missing test server port')
-const base = `http://127.0.0.1:${address.port}`
+const base = `http://127.0.0.1:${address.port}/api`
+
+// 审计在响应结束后异步保存，按本次请求等待，避免断言或清理早于写入。
+async function waitForAudit(requestId: string) {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const log = await prisma.operationLog.findFirst({ where: { requestId } })
+    if (log) return log
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+  throw new Error('Audit was not persisted')
+}
 
 // 随机测试账号隔离真实用户数据，结束时按创建记录精确清理。
 async function member() {
@@ -62,17 +80,31 @@ async function request(
   body?: unknown,
   status = 200,
 ) {
+  const requestId = crypto.randomUUID()
   const response = await fetch(base + path, {
     method,
     headers: {
       authorization: `Bearer ${token}`,
       'content-type': 'application/json',
+      'x-test-request-id': requestId,
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   })
   const result = (await response.json()) as any
   assert.equal(response.status, status, `${method} ${path}: ${result.errMsg}`)
   assert.equal(result.success, status < 400)
+  if (token && ((method === 'POST' && path.endsWith('/view')) || (method === 'DELETE' && path === '/exams/error-book'))) {
+    const audit = await waitForAudit(requestId)
+    assert.equal(audit.result, status < 400 ? 'success' : 'failure')
+    if (path.endsWith('/view')) {
+      assert.equal(audit.resourceType, 'Question')
+      assert.equal(audit.resourceId, path.split('/').at(-2))
+      if (path.startsWith('/exams/error-book/')) {
+        assert.equal(audit.action, 'mistake_notebook.view')
+        assert.equal(audit.summary, '查看错题本')
+      }
+    } else assert.equal(audit.action, 'mistake_notebook.remove')
+  }
   return result.data
 }
 
@@ -173,6 +205,43 @@ try {
     orderBy: { id: 'asc' },
   })
 
+  // 浏览列表不产生查看日志，旧入口已移除；打开具体题目成功后才计数。
+  await request(owner.token, '/exams/error-book?examType=ESAT')
+  await request(owner.token, '/favorites?examType=ESAT')
+  const removedEndpoint = await fetch(`${base}/exams/error-book/visit`, {
+    method: 'POST', headers: { authorization: `Bearer ${owner.token}` },
+  })
+  assert.equal(removedEndpoint.status, 404)
+  assert.equal(await prisma.operationLog.count({ where: { actorUserId: owner.id } }), 0)
+  await request('', `/exams/error-book/${q1}/view`, 'POST', undefined, 401)
+  await request(owner.token, `/exams/error-book/${q1}/view`, 'POST')
+  await request(owner.token, `/exams/error-book/${q1}/view`, 'POST')
+  await request(owner.token, `/favorites/${q1}/view`, 'POST')
+  await request(owner.token, `/favorites/${q1}/view`, 'POST')
+  await request(stranger.token, `/exams/error-book/${q2}/view`, 'POST', undefined, 404)
+  await request(stranger.token, `/favorites/${q1}/view`, 'POST', undefined, 404)
+
+  // 独立未来时段验证历史查看与新查看统一累计，失败查看不计数。
+  const viewAt = new Date('2097-10-03T04:00:00Z')
+  await prisma.operationLog.updateMany({ where: { actorUserId: { in: userIds } }, data: { occurredAt: viewAt } })
+  await prisma.operationLog.create({ data: {
+    occurredAt: viewAt, actorUserId: owner.id, actorNameSnapshot: 'legacy fixture',
+    actorEmailSnapshot: '', actorRoleSnapshot: USER_ROLE.STUDENT, module: OPERATION_AUDIT_MODULE.EXAM,
+    action: 'mistake_notebook.view', summary: '查看错题本', result: OPERATION_AUDIT_RESULT.SUCCESS,
+    method: 'POST', path: '/api/exams/error-book/visit', statusCode: 200,
+  } })
+  const analytics = await getStudentBehaviorAnalytics({
+    startAt: new Date('2097-10-02T16:00:00Z'), endAt: new Date('2097-10-03T16:00:00Z'),
+  })
+  assert.equal(analytics.productUsage.overview.mistakeNotebookViewCount, 3)
+  assert.equal(analytics.productUsage.overview.mistakeNotebookViewerCount, 1)
+  assert.equal(analytics.productUsage.overview.averageMistakeNotebookViews, 3)
+  assert.equal(analytics.productUsage.trend[0].mistakeNotebookViewCount, 3)
+  assert.equal(analytics.productUsage.overview.favoriteNotebookViewCount, 2)
+  assert.equal(analytics.productUsage.overview.favoriteNotebookViewerCount, 1)
+  assert.equal(analytics.productUsage.trend[0].favoriteNotebookViewCount, 2)
+  console.log('PASS question view audit: list ignored, old endpoint removed, historical and new views counted together, owner isolation, failures excluded.')
+
   await request(
     '',
     '/exams/error-book',
@@ -220,6 +289,7 @@ try {
     owner.token,
     '/exams/error-book?examType=ESAT&page=2&pageSize=2',
   )
+  await request(owner.token, `/exams/error-book/${q3}/view`, 'POST', undefined, 404)
   assert.equal(remaining.pagination.page, 1)
   assert.equal(remaining.pagination.total, 2)
   assert.equal(
@@ -329,6 +399,7 @@ try {
     'Wrong-question removal passed: validation, owner/workspace isolation, single/batch removal, idempotence, last-page fallback, preserved answers/favorites/history, old-record replay, new-error re-entry.',
   )
 } finally {
+  await prisma.operationLog.deleteMany({ where: { actorUserId: { in: userIds } } })
   await prisma.examRecord.deleteMany({ where: { paperId } })
   await prisma.paper.deleteMany({ where: { id: paperId } })
   await prisma.user.deleteMany({ where: { id: { in: userIds } } })

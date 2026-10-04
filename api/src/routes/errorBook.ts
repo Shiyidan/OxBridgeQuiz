@@ -74,8 +74,18 @@ interface WrongAnswerKnowledgePointLink {
   }
 }
 
-// 页面进入事件使用独立端点记录，避免筛选和翻页请求被重复统计为错题本访问。
-errorBookRouter.post('/error-book/visit', requireAuth, (_req, res) => {
+// 错题查看
+errorBookRouter.post('/error-book/:questionId/view', requireAuth, async (req, res) => {
+  const questionId = z.string().trim().min(1).max(191).parse(req.params.questionId)
+  // 题目详情显示后才上报，并核对该题仍属于当前用户的错题本。
+  const question = await prisma.wrongQuestionSummary.findFirst({
+    where: { userId: req.user!.userId, questionId, removedAt: null },
+    select: { id: true },
+  })
+  if (!question) {
+    res.status(404).json(fail('该题不在当前用户的错题本中'))
+    return
+  }
   res.json(success({ recorded: true }))
 })
 

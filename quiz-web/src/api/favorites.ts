@@ -98,6 +98,15 @@ export function getFavoriteDetail(questionId: string) {
     url: `/favorites/${encodeURIComponent(questionId)}`,
   })
 }
+// 收藏题目成功显示后记录查看，分类修改和列表浏览不触发。
+export function recordFavoriteQuestionView(questionId: string) {
+  return callApi<{ recorded: true }>({
+    method: 'POST',
+    url: `/favorites/${encodeURIComponent(questionId)}/view`,
+    silent: true,
+  })
+}
+
 // 分类名称由用户定义，按当前考试工作区保存。
 export function createFavoriteCategory(examType: string, name: string) {
   return callApi<FavoriteCategory>({

@@ -1,4 +1,4 @@
-<!-- 产品使用趋势图：按北京时间自然日对比三类练习完成次数、诊断报告和错题本查看次数。 -->
+<!-- 产品使用趋势图：按北京时间自然日对比练习完成、报告正文及错题和收藏题目查看次数。 -->
 <template>
   <div class="product-trend-shell">
     <div
@@ -31,7 +31,7 @@ const chartRef = ref<HTMLDivElement | null>(null)
 let chart: echarts.ECharts | null = null
 let resizeObserver: ResizeObserver | null = null
 
-// 五项核心行为均为零时使用空状态，避免无意义坐标轴占据页面空间。
+// 六项核心行为均为零时使用空状态，收藏题目查看也可独立形成趋势。
 const hasData = computed(() =>
   props.items.some(
     (item) =>
@@ -39,7 +39,8 @@ const hasData = computed(() =>
         item.questionBankPracticeCount +
         item.mockExamCount +
         item.reportViewCount +
-        item.mistakeNotebookViewCount >
+        item.mistakeNotebookViewCount +
+        (item.favoriteNotebookViewCount || 0) >
       0,
   ),
 )
@@ -66,7 +67,7 @@ onBeforeUnmount(() => {
   chart = null
 })
 
-// 五条折线共享次数坐标，便于直接观察不同学习路径的使用峰值和相对变化。
+// 六条折线共享次数坐标，便于直接观察不同学习路径的使用峰值和相对变化。
 function renderChart(): void {
   if (!chartRef.value || !hasData.value) return
   if (!chart) chart = echarts.init(chartRef.value)
@@ -74,13 +75,13 @@ function renderChart(): void {
   chart.setOption(
     {
       animationDuration: 420,
-      color: ['#4f46e5', '#0891b2', '#d97706', '#7c3aed', '#e11d48'],
+      color: ['#4f46e5', '#0891b2', '#d97706', '#7c3aed', '#e11d48', '#ba861c'],
       grid: { left: 48, right: 24, top: 58, bottom: 40 },
       legend: {
         top: 4,
         right: 8,
         textStyle: { color: '#64748b' },
-        data: ['诊断测试', '试题库练习', '模考练习', '查看分析报告', '查看错题本'],
+        data: ['诊断测试', '试题库练习', '模考练习', '查看分析报告', '查看错题本', '查看收藏夹'],
       },
       tooltip: {
         trigger: 'axis',
@@ -148,6 +149,14 @@ function renderChart(): void {
           symbolSize: 6,
           lineStyle: { width: 2, type: 'dotted' },
           data: props.items.map((item) => item.mistakeNotebookViewCount),
+        },
+        {
+          name: '查看收藏夹',
+          type: 'line',
+          smooth: 0.24,
+          symbolSize: 6,
+          lineStyle: { width: 2, type: 'dotted' },
+          data: props.items.map((item) => item.favoriteNotebookViewCount || 0),
         },
       ],
     },

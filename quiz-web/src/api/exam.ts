@@ -825,11 +825,12 @@ export function removeMistakeQuestions(body: RemoveMistakeQuestionsParams) {
   })
 }
 
-/** 记录一次错题本页面访问，筛选和翻页不会重复上报。 */
-export function recordMistakeNotebookVisit() {
+/** 错题详情成功显示后记录一次查看，统计失败不打断复习。 */
+export function recordMistakeQuestionView(questionId: string) {
   return callApi<{ recorded: true }>({
-    url: '/exams/error-book/visit',
+    url: `/exams/error-book/${encodeURIComponent(questionId)}/view`,
     method: 'POST',
+    silent: true,
   })
 }
 

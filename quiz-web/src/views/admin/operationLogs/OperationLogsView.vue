@@ -342,6 +342,7 @@ const resourceTypeLabels: Record<string, string> = {
   User: '用户',
   AuthSession: '登录设备',
   ExamRecord: '答题记录',
+  Question: '题目',
   Paper: '试卷',
   MockPaperSet: '模考试卷',
   StudyResource: '学习资料',

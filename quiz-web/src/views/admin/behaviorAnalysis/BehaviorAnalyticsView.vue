@@ -1,17 +1,12 @@
-<!-- 用户分析页：通过用户访问、产品使用和操作审计三类视角组织运营数据。 -->
+<!-- 用户分析页：通过用户访问、产品使用、操作审计和转化分析组织运营数据。 -->
 <template>
-  <!--
-  THESIS: 同一路由以清晰 Tab 区分匿名流量、学习产品使用和操作审计，拒绝把不同口径堆进一条长页面。
-  OWN-WORLD: 延续后台白色数据面板、浅灰工作区与靛蓝交互色，注册数据使用克制的青绿色语义色。
-  STORY: 管理员先判断访问和注册走势，再切换到产品偏好与操作质量定位变化原因。
-  FIRST VIEWPORT: 标题与统计口径在上，三个 Tab 紧随其后，首个 Tab 直接呈现日期筛选和三项核心指标。
-  FORM: 既有后台数据工作台的分层扩展；用户指定 Tab 顺序，首项固定为用户访问。
-  -->
   <div class="behavior-analytics-page">
     <div class="page-heading">
       <div>
         <h2 class="page-title">用户行为分析</h2>
-        <p class="page-desc">查看网站访问与注册变化；注册、学习活动和操作统计已剔除当前被封禁用户。</p>
+        <p class="page-desc">
+          查看网站访问与注册变化；注册、学习活动和操作统计已剔除当前被封禁用户。
+        </p>
       </div>
       <div class="scope-badge">
         <span class="scope-badge__dot"></span>
@@ -50,11 +45,22 @@
     </div>
 
     <div
-      v-show="activeTab !== 'traffic'"
-      :id="`analytics-panel-${activeTab}`"
+      v-show="activeTab === 'conversion'"
+      id="analytics-panel-conversion"
       class="analytics-tab-panel"
       role="tabpanel"
-      :aria-labelledby="`analytics-tab-${activeTab}`"
+      aria-labelledby="analytics-tab-conversion"
+      tabindex="0"
+    >
+      <KeepAlive><ConversionAnalyticsPanel v-if="activeTab === 'conversion'" /></KeepAlive>
+    </div>
+
+    <div
+      v-show="activeTab === 'product' || activeTab === 'audit'"
+      :id="`analytics-panel-${activeTab === 'audit' ? 'audit' : 'product'}`"
+      class="analytics-tab-panel"
+      role="tabpanel"
+      :aria-labelledby="`analytics-tab-${activeTab === 'audit' ? 'audit' : 'product'}`"
       tabindex="0"
     >
       <section class="filter-card">
@@ -114,7 +120,9 @@
           <div class="panel-heading product-panel__heading">
             <div>
               <h3>产品使用偏好</h3>
-              <p>练习次数按成功提交记录去重；分析报告与错题本统计学生成功进入页面的次数。</p>
+              <p>
+                练习按成功交卷统计，报告按成功打开正文统计；错题本和收藏夹按成功查看具体题目统计，进入列表不计数。
+              </p>
             </div>
             <span class="panel-count">{{ periodText }}</span>
           </div>
@@ -129,10 +137,10 @@
               <div class="product-metric-card__label">{{ card.label }}</div>
               <strong>{{ formatInteger(card.value) }}</strong>
               <div class="product-metric-card__meta">
-                <span>{{ card.detail }}</span>
                 <span :class="changeClass(card.changeRate)">
                   {{ productChangeText(card) }}
                 </span>
+                <span>{{ card.detail }}</span>
               </div>
             </article>
           </div>
@@ -242,7 +250,10 @@
             <article class="metric-card">
               <div class="metric-card__label">
                 关键操作次数
-                <AdminMetricTooltip title="关键操作次数" :content="auditMetricTooltips.operationCount" />
+                <AdminMetricTooltip
+                  title="关键操作次数"
+                  :content="auditMetricTooltips.operationCount"
+                />
               </div>
               <strong>{{ formatInteger(overview.operationCount) }}</strong>
               <span :class="changeClass(overview.operationCountChangeRate)">
@@ -252,7 +263,10 @@
             <article class="metric-card">
               <div class="metric-card__label">
                 人均操作次数
-                <AdminMetricTooltip title="人均操作次数" :content="auditMetricTooltips.averageOperations" />
+                <AdminMetricTooltip
+                  title="人均操作次数"
+                  :content="auditMetricTooltips.averageOperations"
+                />
               </div>
               <strong>{{ overview.averageOperations.toFixed(1) }}</strong>
               <span :class="changeClass(overview.averageOperationsChangeRate)">
@@ -336,7 +350,12 @@
                 <template #default="{ row }">{{ operationModuleLabel(row.module) }}</template>
               </el-table-column>
               <el-table-column prop="userCount" label="使用人数" min-width="104" align="right" />
-              <el-table-column prop="operationCount" label="操作次数" min-width="104" align="right" />
+              <el-table-column
+                prop="operationCount"
+                label="操作次数"
+                min-width="104"
+                align="right"
+              />
               <el-table-column label="人均次数" min-width="104" align="right">
                 <template #default="{ row }">{{ row.averageOperations.toFixed(1) }}</template>
               </el-table-column>
@@ -373,8 +392,8 @@
       </div>
 
       <p v-if="activeTab === 'product'" class="data-note">
-        学习活动次数来自已提交考试记录，报告查看来自成功的正文读取；管理员账号不计入统计。最多查询
-        90 天，历史报告查看次数无法补回。
+        学习活动按已交卷记录统计，报告按正文读取、错题本与收藏夹按具体题目查看统计；管理员账号不计入。最多查询
+        90 天。
       </p>
       <p v-if="activeTab === 'audit'" class="data-note">
         操作审计仅覆盖普通学生的关键业务行为，不统计管理员账号、认证登录和高频自动保存。最多查询 90
@@ -401,6 +420,7 @@ import BehaviorModuleChart from './BehaviorModuleChart.vue'
 import BehaviorProductTrendChart from './BehaviorProductTrendChart.vue'
 import BehaviorTrendChart from './BehaviorTrendChart.vue'
 import WebsiteTrafficPanel from './WebsiteTrafficPanel.vue'
+import ConversionAnalyticsPanel from './ConversionAnalyticsPanel.vue'
 import {
   PRODUCT_PREFERENCE_META,
   PRODUCT_USAGE_MODULE_META,
@@ -419,7 +439,7 @@ interface BehaviorFilters {
   module: string
 }
 
-type AnalyticsTab = 'traffic' | 'product' | 'audit'
+type AnalyticsTab = 'traffic' | 'product' | 'audit' | 'conversion'
 
 interface AnalyticsTabOption {
   name: AnalyticsTab
@@ -442,12 +462,14 @@ const analyticsTabs: AnalyticsTabOption[] = [
   { name: 'traffic', label: '用户访问' },
   { name: 'product', label: '产品使用' },
   { name: 'audit', label: '操作审计' },
+  { name: 'conversion', label: '转化分析' },
 ]
 const studentModuleOptions = STUDENT_BEHAVIOR_MODULE_OPTIONS
 // 用简短定义和业务示例解释五项审计指标。
 const auditMetricTooltips = {
   activeUsers: '发生过至少一次关键操作的学生，同一人只计一次。',
-  operationCount: '开始考试、提交考试、查看报告、修改资料、创建支付订单等已记录的操作次数，成功或失败均计入。',
+  operationCount:
+    '开始考试、提交考试、查看报告、修改资料、创建支付订单等已记录的操作次数，成功或失败均计入。',
   averageOperations: '每位活跃学生平均产生的关键操作次数。',
   moduleCount: '发生过关键操作的业务模块数量，例如考试作答、个人资料、支付订阅。',
   failureRate: '已记录的关键操作中，失败操作所占的比例，业务拦截不算失败。',
@@ -460,7 +482,7 @@ const loadError = ref('')
 let latestRequestId = 0
 const activeQuickRange = ref<(typeof quickRangeOptions)[number] | null>(30)
 
-// 方向键、Home 和 End 在三个分析视角间移动并立即激活，补齐标准 Tab 键盘行为。
+// 方向键、Home 和 End 在分析视角间移动并立即激活，补齐标准 Tab 键盘行为。
 function handleTabKeydown(event: KeyboardEvent, current: AnalyticsTab): void {
   const currentIndex = analyticsTabs.findIndex((tab) => tab.name === current)
   let nextIndex = currentIndex
@@ -514,7 +536,7 @@ const overview = computed(() => analytics.value?.overview || emptyOverview)
 // 产品偏好区直接复用同一原子响应，日期变化时与通用操作统计保持同步。
 const productUsage = computed(() => analytics.value?.productUsage || null)
 
-// 三类完成指标与报告查看指标固定顺序展示，便于管理员快速横向比较。
+// 三类练习与报告、错题、收藏查看固定顺序展示，题目查看不参与练习完成占比。
 const productMetricCards = computed<ProductMetricCard[]>(() => {
   const moduleMap = new Map((productUsage.value?.modules || []).map((item) => [item.module, item]))
   const moduleCard = (module: ProductUsageModuleCode): ProductMetricCard => {
@@ -546,9 +568,17 @@ const productMetricCards = computed<ProductMetricCard[]>(() => {
       key: 'mistake_notebook',
       label: '查看错题本次数',
       value: reportOverview?.mistakeNotebookViewCount || 0,
-      detail: `${reportOverview?.mistakeNotebookViewerCount || 0} 名学生访问`,
+      detail: `${reportOverview?.mistakeNotebookViewerCount || 0} 名学生查看题目`,
       changeRate: reportOverview?.mistakeNotebookViewChangeRate ?? null,
       color: '#e11d48',
+    },
+    {
+      key: 'favorite_notebook',
+      label: '查看收藏夹次数',
+      value: reportOverview?.favoriteNotebookViewCount || 0,
+      detail: `${reportOverview?.favoriteNotebookViewerCount || 0} 名学生查看题目`,
+      changeRate: reportOverview?.favoriteNotebookViewChangeRate ?? null,
+      color: '#ba861c',
     },
   ]
 })
@@ -947,8 +977,9 @@ onMounted(() => {
 
 .product-metrics-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(160px, 1fr));
   gap: 12px;
+  overflow-x: auto;
 }
 
 .product-metric-card {
@@ -990,17 +1021,13 @@ onMounted(() => {
 
 .product-metric-card__meta {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
   color: #94a3b8;
   font-size: 0.71rem;
-}
-
-.product-metric-card__meta > span:first-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .product-insights-grid {
@@ -1234,10 +1261,6 @@ onMounted(() => {
 }
 
 @media (max-width: 1280px) {
-  .product-metrics-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .product-insights-grid {
     grid-template-columns: 1fr;
   }
@@ -1279,14 +1302,8 @@ onMounted(() => {
   }
 
   .filter-row,
-  .metrics-grid,
-  .product-metrics-grid {
+  .metrics-grid {
     grid-template-columns: 1fr;
-  }
-
-  .product-metric-card__meta {
-    align-items: flex-start;
-    flex-direction: column;
   }
 
   .filter-actions :deep(.el-button) {

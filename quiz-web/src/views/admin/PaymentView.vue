@@ -10,6 +10,85 @@
         <span class="environment-badge">全站订单 · 银联商务</span>
       </header>
 
+      <section class="orders-card">
+        <div class="orders-toolbar">
+          <div>
+            <h2>全站支付订单</h2>
+            <p>这里展示所有用户的支付记录，不受当前管理员账号限制。</p>
+          </div>
+          <div class="toolbar-actions">
+            <el-input
+              v-model="orderKeyword"
+              clearable
+              placeholder="订单号 / 用户名 / 邮箱"
+              @keyup.enter="handleOrderSearch"
+              @clear="handleOrderSearch"
+            />
+            <el-select v-model="statusFilter" placeholder="全部状态" clearable @change="handleFilterChange">
+              <el-option label="待支付" value="pending" />
+              <el-option label="已支付" value="paid" />
+              <el-option label="失败" value="failed" />
+              <el-option label="已关闭" value="closed" />
+              <el-option label="退款中" value="refunding" />
+              <el-option label="已退款" value="refunded" />
+            </el-select>
+            <el-button type="primary" plain @click="handleOrderSearch">搜索</el-button>
+            <el-button :loading="loadingOrders" @click="loadOrders">刷新</el-button>
+          </div>
+        </div>
+
+        <AdminDataTable
+          v-model:page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :data="orders"
+          :loading="loadingOrders"
+          :total="pagination.total"
+          empty-text="暂无支付订单"
+          show-pagination
+          @page-change="handleOrderPageChange"
+          @page-size-change="handleOrderPageSizeChange"
+        >
+          <el-table-column label="用户" min-width="170">
+            <template #default="{ row }">
+              <div class="user-cell">
+                <strong>{{ row.user.username }}</strong>
+                <span>{{ row.user.email }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="套餐" min-width="135">
+            <template #default="{ row }">
+              <strong>{{ planText(row.plan, row.priceType) }}</strong>
+              <div class="exam-tags">{{ normalizeExamTypes(row.examTypes).join(' / ') }}</div>
+            </template>
+          </el-table-column>
+          <el-table-column label="金额" width="105">
+            <template #default="{ row }">¥{{ formatMoney(row.amountCents) }}</template>
+          </el-table-column>
+          <el-table-column label="渠道" width="125">
+            <template #default="{ row }">{{ channelText(row.channel) }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="125" align="center">
+            <template #default="{ row }">
+              <el-tag :type="statusTagType(row.status)" effect="light">
+                {{ orderStatusText(row) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="创建时间" width="160">
+            <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+          </el-table-column>
+          <el-table-column prop="orderNo" label="订单号" min-width="215" />
+          <el-table-column label="操作" width="105" fixed="right" align="center">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="handleOpenOrderDetail(row.orderNo)">
+                订单追踪
+              </el-button>
+            </template>
+          </el-table-column>
+        </AdminDataTable>
+      </section>
+
       <section class="strategy-card">
         <div class="card-heading">
           <div>
@@ -183,85 +262,6 @@
                 <el-button link @click="handleResolveItem(row.id)">标记已处理</el-button>
               </template>
               <span v-else class="operation-muted">{{ resolutionStatusText(row.resolutionStatus) }}</span>
-            </template>
-          </el-table-column>
-        </AdminDataTable>
-      </section>
-
-      <section class="orders-card">
-        <div class="orders-toolbar">
-          <div>
-            <h2>全站支付订单</h2>
-            <p>这里展示所有用户的支付记录，不受当前管理员账号限制。</p>
-          </div>
-          <div class="toolbar-actions">
-            <el-input
-              v-model="orderKeyword"
-              clearable
-              placeholder="订单号 / 用户名 / 邮箱"
-              @keyup.enter="handleOrderSearch"
-              @clear="handleOrderSearch"
-            />
-            <el-select v-model="statusFilter" placeholder="全部状态" clearable @change="handleFilterChange">
-              <el-option label="待支付" value="pending" />
-              <el-option label="已支付" value="paid" />
-              <el-option label="失败" value="failed" />
-              <el-option label="已关闭" value="closed" />
-              <el-option label="退款中" value="refunding" />
-              <el-option label="已退款" value="refunded" />
-            </el-select>
-            <el-button type="primary" plain @click="handleOrderSearch">搜索</el-button>
-            <el-button :loading="loadingOrders" @click="loadOrders">刷新</el-button>
-          </div>
-        </div>
-
-        <AdminDataTable
-          v-model:page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          :data="orders"
-          :loading="loadingOrders"
-          :total="pagination.total"
-          empty-text="暂无支付订单"
-          show-pagination
-          @page-change="handleOrderPageChange"
-          @page-size-change="handleOrderPageSizeChange"
-        >
-          <el-table-column label="用户" min-width="170">
-            <template #default="{ row }">
-              <div class="user-cell">
-                <strong>{{ row.user.username }}</strong>
-                <span>{{ row.user.email }}</span>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="套餐" min-width="135">
-            <template #default="{ row }">
-              <strong>{{ planText(row.plan, row.priceType) }}</strong>
-              <div class="exam-tags">{{ normalizeExamTypes(row.examTypes).join(' / ') }}</div>
-            </template>
-          </el-table-column>
-          <el-table-column label="金额" width="105">
-            <template #default="{ row }">¥{{ formatMoney(row.amountCents) }}</template>
-          </el-table-column>
-          <el-table-column label="渠道" width="125">
-            <template #default="{ row }">{{ channelText(row.channel) }}</template>
-          </el-table-column>
-          <el-table-column label="状态" width="125" align="center">
-            <template #default="{ row }">
-              <el-tag :type="statusTagType(row.status)" effect="light">
-                {{ orderStatusText(row) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="创建时间" width="160">
-            <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
-          </el-table-column>
-          <el-table-column prop="orderNo" label="订单号" min-width="215" />
-          <el-table-column label="操作" width="105" fixed="right" align="center">
-            <template #default="{ row }">
-              <el-button link type="primary" @click="handleOpenOrderDetail(row.orderNo)">
-                订单追踪
-              </el-button>
             </template>
           </el-table-column>
         </AdminDataTable>
@@ -1051,7 +1051,8 @@ onMounted(() => {
 .strategy-footer { padding-top: 18px; border-top: 1px solid #edf0f4; }
 .strategy-footer > span { color: #94a3b8; font-size: 0.78rem; }
 .strategy-actions { display: flex; align-items: center; gap: 8px; }
-.reconciliation-card, .orders-card { margin-top: 24px; overflow: hidden; }
+.page-body > section + section { margin-top: 24px; }
+.reconciliation-card, .orders-card { overflow: hidden; }
 .orders-toolbar { padding: 22px 24px; border-bottom: 1px solid #e8ecf1; }
 .toolbar-actions { display: flex; gap: 10px; }
 .toolbar-actions :deep(.el-select) { width: 140px; }

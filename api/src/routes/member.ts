@@ -14,8 +14,19 @@ import { profileStudyPreferencesSchema } from '../utils/authSchemas.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { buildOperationAuditChanges, setOperationAuditContext } from '../middleware/operationAudit.js'
 import { logRuntimeError } from '../utils/runtimeLogger.js'
+import { getLearningFootprint } from '../services/learningFootprint.js'
 
 export const memberRouter = createAsyncRouter()
+
+// 个人学习足迹
+memberRouter.get('/learning-footprint', requireAuth, async (req, res) => {
+  const footprint = await getLearningFootprint(req.user!.userId)
+  if (!footprint) {
+    res.status(404).json(fail('用户不存在'))
+    return
+  }
+  res.json(success(footprint))
+})
 
 // 当前会员权益
 memberRouter.get('/', requireAuth, async (req, res) => {

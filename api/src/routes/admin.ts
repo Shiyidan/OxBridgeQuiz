@@ -267,7 +267,7 @@ async function getOperationResourceDisplays(
     paymentOrderIds.length
       ? prisma.paymentOrder.findMany({
           where: { OR: [{ id: { in: paymentOrderIds } }, { orderNo: { in: paymentOrderIds } }] },
-          select: { id: true, orderNo: true, user: { select: { username: true, email: true } } },
+          select: { id: true, orderNo: true },
         })
       : Promise.resolve([]),
     mockPaperSetIds.length
@@ -289,9 +289,9 @@ async function getOperationResourceDisplays(
   examRecords.forEach((record) => displays.set(`ExamRecord:${record.id}`, { name: record.paper.title }))
   papers.forEach((paper) => displays.set(`Paper:${paper.id}`, { name: paper.title }))
   studyResources.forEach((resource) => displays.set(`StudyResource:${resource.bundleKey}`, { name: resource.title }))
+  // 订单对象只展示订单号，操作人姓名和邮箱由列表的操作人列展示。
   paymentOrders.forEach((order) => {
-    const label = `${order.orderNo} · ${order.user.username}`
-    const display = { name: label, email: order.user.email }
+    const display = { name: order.orderNo }
     displays.set(`PaymentOrder:${order.id}`, display)
     displays.set(`PaymentOrder:${order.orderNo}`, display)
   })

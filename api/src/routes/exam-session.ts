@@ -9,6 +9,7 @@ import { hasDiagnosticPaperAccess } from '../services/member.js'
 import { requireQuestionBankAttemptMembership } from '../middleware/questionBankMembership.js'
 import { withQuotaTransaction } from '../services/transactionRetry.js'
 import { syncSubmittedWrongQuestions } from '../services/wrongQuestionSummary.js'
+import { recordAnswerLearning } from '../services/learningFootprint.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { computeScores } from '../services/scoring.js'
 import { setOperationAuditContext } from '../middleware/operationAudit.js'
@@ -430,6 +431,7 @@ examSessionRouter.put('/:id/progress', requireAuth, requireQuestionBankAttemptMe
 
     try {
       await prisma.$transaction(async (tx) => {
+        await recordAnswerLearning(tx, req.user!.userId, record.id, responses)
         const updateResults = await Promise.all(responses.map((response) => {
           return tx.answerRecord.updateMany({
             where: {
@@ -675,6 +677,7 @@ examSessionRouter.post('/:id/pause', requireAuth, requireQuestionBankAttemptMemb
       : 0
     try {
       await prisma.$transaction(async (tx) => {
+        await recordAnswerLearning(tx, req.user!.userId, record.id, responses, pausedAt)
         const answerUpdates = await Promise.all(responses.map((response) => (
           tx.answerRecord.updateMany({
             where: {
@@ -809,8 +812,9 @@ examSessionRouter.post('/:id/module/complete', requireAuth, async (req, res) => 
     const isLastModule = nextModuleIndex >= snapshot.modules.length
 
     await prisma.$transaction(async (tx) => {
+      await recordAnswerLearning(tx, req.user!.userId, record.id, responses, endedAt)
       for (const response of responses) {
-        await tx.answerRecord.updateMany({
+        const updated = await tx.answerRecord.updateMany({
           where: {
             examRecordId: record.id,
             questionId: response.questionId,
@@ -827,6 +831,7 @@ examSessionRouter.post('/:id/module/complete', requireAuth, async (req, res) => 
             answeredAt: response.selectedAnswer ? endedAt : null,
           },
         })
+        if (updated.count !== 1) throw new ExamProgressConflictError('Exam phase changed while completing module')
       }
 
       const nextModule = snapshot.modules[nextModuleIndex]
@@ -835,7 +840,7 @@ examSessionRouter.post('/:id/module/complete', requireAuth, async (req, res) => 
       const nextModuleExpiresAt = nextModule
         ? new Date(endedAt.getTime() + nextModule.durationSeconds * 1000)
         : null
-      await tx.examRecord.updateMany({
+      const completed = await tx.examRecord.updateMany({
         where: {
           id: record.id,
           status: EXAM_RECORD_STATUS.IN_PROGRESS,
@@ -869,11 +874,16 @@ examSessionRouter.post('/:id/module/complete', requireAuth, async (req, res) => 
                 activeDurationSeconds: { increment: elapsedSeconds },
               },
       })
+      if (completed.count !== 1) throw new ExamProgressConflictError('Exam phase changed while completing module')
     })
 
     const session = await getModuleExamSession(record.id, req.user!.userId)
     res.json(success(session))
   } catch (error: any) {
+    if (error instanceof ExamProgressConflictError) {
+      res.status(409).json(fail('当前考试分段已结束，请刷新后继续', 'EXAM_PHASE_CHANGED'))
+      return
+    }
     logRuntimeError('exam.module_complete_failed', error)
     res.status(500).json(fail(error.message || '完成当前考试分段失败'))
   }
@@ -1075,6 +1085,10 @@ examSessionRouter.post('/:id/submit', requireAuth, requireQuestionBankAttemptMem
         return { examRecord: existingRecord, task: existingTask, claimed: false }
       }
 
+      // 交卷时保存的非空答案也计入当天足迹，同一道题当天不会重复计数。
+      await recordAnswerLearning(tx, req.user!.userId, record.id, officialQuestions.map((question) => ({
+        questionId: question.id, selectedAnswer: maps.answers[question.id] || null,
+      })), submittedAt)
       if (moduleSnapshot) {
         for (const question of officialQuestions) {
           const selectedAnswer = maps.answers[question.id] || null

@@ -45,6 +45,7 @@
     "test:revenue-payments": "tsx scripts/test-revenue-payments.ts",
     "test:study-preferences": "tsx scripts/test-study-preferences.ts",
     "test:favorites": "tsx scripts/test-favorites.ts",
+    "test:learning-footprint": "tsx scripts/test-learning-footprint.ts",
     "test:wrong-question-removal": "tsx scripts/test-wrong-question-removal.ts",
     "test:user-avatars": "tsx scripts/test-user-avatars.ts",
     "test:modular-diagnostic": "tsx scripts/test-modular-diagnostic.ts",

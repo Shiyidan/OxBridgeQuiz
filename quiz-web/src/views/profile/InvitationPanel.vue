@@ -30,26 +30,35 @@
                   overview.code || (overview.codeActive ? '尚未创建' : '已失效')
                 }}</strong>
               </div>
-              <button
+              <AppButton
                 v-if="!overview.code && overview.codeActive"
-                type="button"
-                :disabled="creatingCode"
+                type="primary"
+                size="small"
+                :loading="creatingCode"
                 @click="handleCreateCode"
               >
-                {{ creatingCode ? '创建中...' : '创建邀请码' }}
-              </button>
-            </div>
-            <template v-if="overview.code && overview.codeActive">
-              <div class="share-actions">
-                <button type="button" @click="copyText(overview.code, '邀请码已复制')">
+                创建邀请码
+              </AppButton>
+              <div v-else-if="overview.code && overview.codeActive" class="share-actions">
+                <AppButton
+                  type="secondary"
+                  size="small"
+                  @click="copyText(overview.code, '邀请码已复制')"
+                >
                   复制邀请码
-                </button>
-                <button type="button" @click="copyText(shareUrl, '邀请链接已复制')">
+                </AppButton>
+                <AppButton
+                  type="secondary"
+                  size="small"
+                  @click="copyText(shareUrl, '邀请链接已复制')"
+                >
                   复制邀请链接
-                </button>
+                </AppButton>
               </div>
-              <p>同一邀请码可分享给多位新同学，每位同学首次有效支付最多触发一次奖励。</p>
-            </template>
+            </div>
+            <p v-if="overview.code && overview.codeActive">
+              同一邀请码可分享给多位新同学，每位同学首次有效支付最多触发一次奖励。
+            </p>
             <p v-else-if="!overview.codeActive" class="invitation-code-inactive">
               已通过邀请好友获得三张七天会员卡，邀请码已失效，不能继续分享或绑定。
             </p>
@@ -71,14 +80,15 @@
                 :disabled="!overview.binding.canBind || bindingSaving"
                 @input="handleBindingInput"
               />
-              <button
-                type="button"
+              <AppButton
                 class="binding-submit"
-                :disabled="!overview.binding.canBind || !bindingDraft || bindingSaving"
+                :disabled="!overview.binding.canBind || !bindingDraft"
+                :loading="bindingSaving"
                 @click="handleBind"
+                size="small"
               >
-                {{ bindingSaving ? '绑定中...' : '确认绑定' }}
-              </button>
+                确认绑定
+              </AppButton>
             </div>
             <p :class="{ 'binding-disabled-reason': !overview.binding.canBind }">
               {{ bindingDescription }}
@@ -266,6 +276,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import AppButton from '@/components/AppButton.vue'
 import ProfileModuleHeading from '@/components/ProfileModuleHeading.vue'
 import {
   activateInvitationReward,
@@ -611,6 +622,17 @@ onMounted(loadOverview)
   padding: 14px 14px 4px 14px;
 }
 
+.invitation-code-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 9px 14px;
+}
+
+.invitation-code-card .card-title-line {
+  flex-wrap: wrap;
+}
+
 .card-title-line span,
 .reward-card span,
 .history-row small {
@@ -627,8 +649,12 @@ onMounted(loadOverview)
 
 .invite-code-title {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
+}
+
+.invite-code-title h3 {
+  margin: 0;
 }
 
 .invite-code-title strong {
@@ -640,7 +666,7 @@ onMounted(loadOverview)
   // font-weight: 600;
 }
 
-button {
+button:where(:not(.app-button)) {
   border: 1px solid #7568e8;
   border-radius: 9px;
   padding: 8px 13px;
@@ -650,7 +676,7 @@ button {
   font-weight: 650;
 }
 
-button:disabled {
+button:where(:not(.app-button)):disabled {
   border-color: #d7d3e9;
   color: #aaa5b9;
   cursor: not-allowed;
@@ -658,8 +684,8 @@ button:disabled {
 
 .share-actions {
   display: flex;
-  gap: 10px;
-  margin-top: 10px;
+  flex-shrink: 0;
+  gap: 12px;
 }
 
 .binding-control-row {
@@ -671,12 +697,6 @@ button:disabled {
 
 .binding-disabled-reason {
   color: #9a5d43 !important;
-}
-
-.binding-submit {
-  min-width: 104px;
-  background: #6455df;
-  color: #fff;
 }
 
 .reward-section,
@@ -1010,7 +1030,7 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
-  .binding-submit {
+  .binding-control-row .binding-submit {
     width: 100%;
   }
 

@@ -315,6 +315,7 @@ model User {
   avatar            String?   @db.Text
   examPreferences   Json?
   firstVisitedAt    DateTime?
+  learningTrackedAt DateTime  @default(now())
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -338,6 +339,21 @@ model User {
   uploadedStudyResources     StudyResource[]
   questionFavorites          QuestionFavorite[]
   favoriteCategories         FavoriteCategory[]
+  learningActivities         LearningActivity[]
+}
+
+// 独立保存实际作答足迹，答案覆盖、交卷或移出错题本不会删除历史学习行为。
+model LearningActivity {
+  id          String   @id @default(uuid()) @db.VarChar(191)
+  userId      String   @db.VarChar(191)
+  resourceKey String   @db.VarChar(64)
+  hourStart   DateTime
+  occurredAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, resourceKey, hourStart])
+  @@index([userId, occurredAt])
 }
 
 // 收藏独立于答卷；同一用户对同一道官方题目只保留一条收藏。

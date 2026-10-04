@@ -184,11 +184,7 @@
           </div>
         </section>
 
-        <CardWalletPanel
-          :initial-filter="route.query.wallet === 'pending' ? 'pending' : 'all'"
-          @membership-changed="handleInvitationMembershipChanged"
-          @edit-goals="handleInvitationEditGoals"
-        />
+        <LearningFootprintPanel />
 
         <section
           class="profile-target-panel"
@@ -496,11 +492,18 @@
         </section>
       </div>
 
-      <InvitationPanel
-        :show-rewards="false"
-        @membership-changed="handleInvitationMembershipChanged"
-        @edit-goals="handleInvitationEditGoals"
-      />
+      <div class="profile-community-grid">
+        <InvitationPanel
+          :show-rewards="false"
+          @membership-changed="handleInvitationMembershipChanged"
+          @edit-goals="handleInvitationEditGoals"
+        />
+        <CardWalletPanel
+          :initial-filter="route.query.wallet === 'pending' ? 'pending' : 'all'"
+          @membership-changed="handleInvitationMembershipChanged"
+          @edit-goals="handleInvitationEditGoals"
+        />
+      </div>
 
       <section class="billing-panel" aria-labelledby="billing-title">
         <ProfileModuleHeading
@@ -841,6 +844,7 @@ import NavBar from '@/components/NavBar.vue'
 import MembershipBenefitsDialog from '@/components/MembershipBenefitsDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
 import CardWalletPanel from './CardWalletPanel.vue'
+import LearningFootprintPanel from './LearningFootprintPanel.vue'
 import InvitationPanel from './InvitationPanel.vue'
 import ProfileModuleHeading from '@/components/ProfileModuleHeading.vue'
 import StudyGoalOverview from './StudyGoalOverview.vue'
@@ -3720,6 +3724,28 @@ onBeforeUnmount(() => {
   align-items: stretch;
   gap: 18px;
   margin-top: 16px;
+}
+
+.profile-community-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 18px;
+  margin-top: 16px;
+
+  :deep(.invitation-panel) {
+    min-width: 0;
+    margin-top: 0;
+  }
+  :deep(.invitation-content-grid) {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .profile-community-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .profile-membership-panel,

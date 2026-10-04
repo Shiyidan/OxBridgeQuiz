@@ -29,6 +29,8 @@
   --color-danger-bg: #fbedec;
   --color-info: #6c757d;
   --color-info-bg: #f0f1f3;
+  --color-favorite: #ba861c;
+  --color-favorite-bg: #fff8e8;
 
   /* ============ 诊断报告图表色（仅用于成绩与时间数据编码） ============ */
   --color-report-blue: #3478f6;

@@ -88,6 +88,12 @@ export async function syncSubmittedWrongQuestions(
       },
     })
 
+    // 只有移出后发生的新错误才重新收录，旧答卷重放或历史回填不能恢复已删除的错题。
+    await client.wrongQuestionSummary.updateMany({
+      where: { id: summary.id, removedAt: { lt: record.submittedAt } },
+      data: { removedAt: null },
+    })
+
     await client.wrongQuestionSummary.updateMany({
       where: { id: summary.id, firstWrongAt: { gt: record.submittedAt } },
       data: { firstWrongAt: record.submittedAt },

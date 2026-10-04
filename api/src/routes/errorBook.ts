@@ -1,6 +1,7 @@
 
 // 提供错题本聚合分页与最近练习记录查询。
 import { Prisma } from '@prisma/client'
+import { z } from 'zod'
 import { prisma } from '../services/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
@@ -36,6 +37,23 @@ import {
 
 import { safeJsonParse, parseQueryList, parseDateBoundary, parsePositiveInt, getQuestionKey, buildAnswerRecordRows, countCorrectAnswers, ExamResponseInput, normalizeExamResponses, responseMaps, usesContinuousExamClock, buildExamDeadline, continuousExamDurationSeconds, replaceAnswerRecords, collectSyllabusCodes, calculateNinePointScore } from './exam-shared.js'
 export const errorBookRouter = createAsyncRouter()
+
+const removeWrongQuestionsSchema = z.object({
+  examType: z.string().refine(isExamType),
+  questionIds: z.array(z.string().trim().min(1).max(191)).min(1).max(100)
+    .transform((ids) => [...new Set(ids)]),
+}).strict()
+
+// 错题本删除
+errorBookRouter.delete('/error-book', requireAuth, async (req, res) => {
+  const { examType, questionIds } = removeWrongQuestionsSchema.parse(req.body)
+  // 仅移出当前用户的错题本；保留答卷、错误历史和收藏，重复删除返回零条。
+  const result = await prisma.wrongQuestionSummary.updateMany({
+    where: { userId: req.user!.userId, examType, questionId: { in: questionIds }, removedAt: null },
+    data: { removedAt: new Date() },
+  })
+  res.json(success({ removedCount: result.count }))
+})
 
 type WrongAttemptSourceType = 'diagnostic' | 'question-bank' | 'mock-exam' | 'unknown'
 
@@ -201,6 +219,7 @@ errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
     }
     const summaryWhere: Prisma.WrongQuestionSummaryWhereInput = {
       userId: req.user!.userId,
+      removedAt: null,
       ...(examType ? { examType } : {}),
       ...(paperTypes.length || hasTimeFilter ? { attempts: { some: attemptWhere } } : {}),
       question: questionWhere,
@@ -209,7 +228,7 @@ errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
     const [total, globalDateBounds] = await Promise.all([
       prisma.wrongQuestionSummary.count({ where: summaryWhere }),
       prisma.wrongQuestionAttempt.aggregate({
-        where: { userId: req.user!.userId },
+        where: { userId: req.user!.userId, summary: { removedAt: null } },
         _min: { submittedAt: true },
         _max: { submittedAt: true },
       }),

@@ -88,6 +88,7 @@ model Question {
   answerRecords          AnswerRecord[]
   wrongQuestionSummaries WrongQuestionSummary[]
   mockPaperLinks         MockPaperQuestion[]
+  favorites              QuestionFavorite[]
 
   @@unique([paperId, number])
   @@index([paperId])
@@ -334,6 +335,43 @@ model User {
   invitationRewards          InvitationReward[]
   uploadedMockPaperWorkbooks MockPaperWorkbookUpload[]
   uploadedStudyResources     StudyResource[]
+  questionFavorites          QuestionFavorite[]
+  favoriteCategories         FavoriteCategory[]
+}
+
+// 收藏独立于答卷；同一用户对同一道官方题目只保留一条收藏。
+model QuestionFavorite {
+  id         String   @id @default(uuid()) @db.VarChar(191)
+  userId     String   @db.VarChar(191)
+  questionId String   @db.VarChar(191)
+  categoryId String?  @db.VarChar(191)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question          @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  category FavoriteCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, questionId])
+  @@index([userId, createdAt])
+  @@index([categoryId])
+}
+
+// 分类按用户与考试工作区隔离；删除分类只将其中的收藏移回未分类。
+model FavoriteCategory {
+  id        String   @id @default(uuid()) @db.VarChar(191)
+  userId    String   @db.VarChar(191)
+  examType  String   @db.VarChar(32)
+  name      String   @db.VarChar(40)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  favorites QuestionFavorite[]
+
+  @@unique([userId, examType, name])
+  @@index([userId, examType, sortOrder])
 }
 
 model OperationLog {
@@ -561,6 +599,7 @@ model WrongQuestionSummary {
   latestAnsweredAt      DateTime?
   latestPaperType       String    @db.VarChar(32)
   latestPaperTitle      String    @db.VarChar(255)
+  removedAt             DateTime?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
@@ -569,7 +608,7 @@ model WrongQuestionSummary {
   attempts WrongQuestionAttempt[]
 
   @@unique([userId, questionId])
-  @@index([userId, examType, latestWrongAt, id])
+  @@index([userId, examType, removedAt, latestWrongAt, id])
   @@index([questionId])
 }
 

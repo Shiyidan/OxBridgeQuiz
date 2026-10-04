@@ -6,280 +6,406 @@
       <header class="mistake-notebook-header">
         <span class="page-eyebrow">Mistakes Collector</span>
         <h1>错题本</h1>
-        <p>智能收录错题，精准定位薄弱点，让复习事半功倍</p>
+        <p>回顾做错的题目，收藏值得再看的题目，让每次复习更有方向。</p>
       </header>
 
-      <section class="notebook-section">
-        <div class="section-divider"></div>
+      <div class="notebook-tabs" role="tablist" aria-label="复习内容">
+        <button
+          role="tab"
+          :aria-selected="activeTab === 'mistakes'"
+          :class="{ active: activeTab === 'mistakes' }"
+          @click="switchTab('mistakes')"
+        >
+          我的错题 <span>{{ favoriteSummary?.wrongCount ?? '—' }}</span>
+        </button>
+        <button
+          role="tab"
+          :aria-selected="activeTab === 'favorites'"
+          :class="{ active: activeTab === 'favorites' }"
+          @click="switchTab('favorites')"
+        >
+          我的收藏 <span>{{ favoriteSummary?.total ?? '—' }}</span>
+        </button>
+      </div>
+      <div
+        ref="notebookContentRef"
+        class="notebook-content"
+        :style="{ minHeight: `${contentMinHeight}px` }"
+      >
+        <FavoriteNotebookPanel
+          v-if="notebookReady"
+          v-show="activeTab === 'favorites'"
+          :active="activeTab === 'favorites'"
+          :exam-type="activeExamType"
+          :summary="favoriteSummary"
+          @before-content-change="reserveScrollSpace"
+          @loaded="restoreScroll"
+        />
+        <section v-show="activeTab === 'mistakes'" class="notebook-section">
+          <div class="notebook-filter-bar" aria-label="错题筛选">
+            <label class="filter-field">
+              <span class="filter-field__label">来源</span>
+              <el-select
+                v-model="draftFilters.sources"
+                multiple
+                collapse-tags
+                collapse-tags-tooltip
+                clearable
+                placeholder="请选择"
+              >
+                <el-option
+                  v-for="option in sourceOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </label>
 
-        <div class="filter-bar" aria-label="错题筛选">
-          <label class="filter-field">
-            <span class="filter-field__label">来源</span>
-            <el-select
-              v-model="draftFilters.sources"
-              multiple
-              collapse-tags
-              collapse-tags-tooltip
-              clearable
-              placeholder="请选择"
-            >
-              <el-option
-                v-for="option in sourceOptions"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
+            <label class="filter-field">
+              <span class="filter-field__label">难度</span>
+              <el-select
+                v-model="draftFilters.difficulties"
+                multiple
+                collapse-tags
+                collapse-tags-tooltip
+                clearable
+                placeholder="全部难度"
+              >
+                <el-option
+                  v-for="option in difficultyOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </label>
+
+            <label class="filter-field">
+              <span class="filter-field__label">考试科目</span>
+              <el-select
+                v-model="draftFilters.subjectCodes"
+                multiple
+                collapse-tags
+                collapse-tags-tooltip
+                clearable
+                :disabled="syllabusLoading || Boolean(syllabusError)"
+                placeholder="全部科目"
+                @change="handleSubjectChange"
+              >
+                <el-option
+                  v-for="option in subjectOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </label>
+
+            <label ref="knowledgeFilterFieldRef" class="filter-field">
+              <span class="filter-field__label">知识点</span>
+              <el-tree-select
+                v-model="draftFilters.knowledgeCodes"
+                :data="knowledgeTreeData"
+                :props="treeProps"
+                node-key="code"
+                multiple
+                show-checkbox
+                collapse-tags
+                collapse-tags-tooltip
+                :tag-tooltip="knowledgeTagTooltip"
+                clearable
+                filterable
+                :disabled="syllabusLoading || Boolean(syllabusError)"
+                placeholder="全部知识点"
               />
-            </el-select>
-          </label>
+            </label>
 
-          <label class="filter-field">
-            <span class="filter-field__label">难度</span>
-            <el-select
-              v-model="draftFilters.difficulties"
-              multiple
-              collapse-tags
-              collapse-tags-tooltip
-              clearable
-              placeholder="全部难度"
-            >
-              <el-option
-                v-for="option in difficultyOptions"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
+            <label class="filter-field filter-field--date">
+              <span class="filter-field__label">收录时间</span>
+              <el-date-picker
+                v-model="draftFilters.dateRange"
+                type="daterange"
+                range-separator="至"
+                start-placeholder="开始日期"
+                end-placeholder="结束日期"
+                value-format="YYYY-MM-DD"
+                :disabled-date="isDateDisabled"
+                clearable
               />
-            </el-select>
-          </label>
+            </label>
 
-          <label class="filter-field">
-            <span class="filter-field__label">考试科目</span>
-            <el-select
-              v-model="draftFilters.subjectCodes"
-              multiple
-              collapse-tags
-              collapse-tags-tooltip
-              clearable
-              :disabled="syllabusLoading || Boolean(syllabusError)"
-              placeholder="全部科目"
-              @change="handleSubjectChange"
-            >
-              <el-option
-                v-for="option in subjectOptions"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
+            <label class="filter-field filter-field--keyword">
+              <span class="filter-field__label">题目搜索</span>
+              <el-input
+                v-model="draftFilters.keyword"
+                maxlength="100"
+                clearable
+                placeholder="输入题干关键词"
+                @keyup.enter="applyFilters"
               />
-            </el-select>
-          </label>
+            </label>
 
-          <label ref="knowledgeFilterFieldRef" class="filter-field">
-            <span class="filter-field__label">知识点</span>
-            <el-tree-select
-              v-model="draftFilters.knowledgeCodes"
-              :data="knowledgeTreeData"
-              :props="treeProps"
-              node-key="code"
-              multiple
-              show-checkbox
-              collapse-tags
-              collapse-tags-tooltip
-              :tag-tooltip="knowledgeTagTooltip"
-              clearable
-              filterable
-              :disabled="syllabusLoading || Boolean(syllabusError)"
-              placeholder="全部知识点"
-            />
-          </label>
+            <div class="filter-actions">
+              <AppButton size="small" :loading="wrongLoading" @click="applyFilters">
+                搜索
+              </AppButton>
+              <AppButton
+                type="secondary"
+                size="small"
+                :disabled="wrongLoading"
+                @click="resetFilters"
+              >
+                重置
+              </AppButton>
+            </div>
 
-          <label class="filter-field filter-field--date">
-            <span class="filter-field__label">收录时间</span>
-            <el-date-picker
-              v-model="draftFilters.dateRange"
-              type="daterange"
-              range-separator="至"
-              start-placeholder="开始日期"
-              end-placeholder="结束日期"
-              value-format="YYYY-MM-DD"
-              :disabled-date="isDateDisabled"
-              clearable
-            />
-          </label>
+            <p v-if="syllabusError" class="filter-message" role="status">
+              {{ syllabusError }}
+            </p>
+          </div>
 
-          <label class="filter-field filter-field--keyword">
-            <span class="filter-field__label">题目搜索</span>
-            <el-input
-              v-model="draftFilters.keyword"
-              maxlength="100"
-              clearable
-              placeholder="输入题干关键词"
-              @keyup.enter="applyFilters"
-            />
-          </label>
-
-          <div class="filter-actions">
-            <AppButton size="small" :loading="wrongLoading" @click="applyFilters"> 搜索 </AppButton>
-            <AppButton type="secondary" size="small" :disabled="wrongLoading" @click="resetFilters">
-              重置
+          <div v-if="wrongError && wrongList.length" class="inline-error" role="alert">
+            <span>{{ wrongError }}，当前仍显示上一次成功加载的结果。</span>
+            <AppButton
+              type="secondary"
+              size="small"
+              :loading="wrongLoading"
+              @click="retryWrongAnswers"
+            >
+              重新加载
             </AppButton>
           </div>
 
-          <p v-if="syllabusError" class="filter-message" role="status">
-            {{ syllabusError }}
-          </p>
-        </div>
-
-        <div v-if="wrongError && wrongList.length" class="inline-error" role="alert">
-          <span>{{ wrongError }}，当前仍显示上一次成功加载的结果。</span>
-          <AppButton
-            type="secondary"
-            size="small"
-            :loading="wrongLoading"
-            @click="retryWrongAnswers"
+          <div
+            v-if="wrongLoading && wrongList.length === 0"
+            class="section-card section-card--empty"
           >
-            重新加载
-          </AppButton>
-        </div>
-
-        <div v-if="wrongLoading && wrongList.length === 0" class="section-card section-card--empty">
-          <p class="loading-text">加载中...</p>
-        </div>
-
-        <div
-          v-else-if="wrongError && wrongList.length === 0"
-          class="section-card section-card--empty section-card--error"
-          role="alert"
-        >
-          <h3>错题加载失败</h3>
-          <p class="empty-desc">{{ wrongError }}</p>
-          <AppButton type="secondary" :loading="wrongLoading" @click="retryWrongAnswers">
-            重新加载
-          </AppButton>
-        </div>
-
-        <div v-else-if="wrongList.length === 0" class="section-card section-card--empty">
-          <div class="empty-icon">
-            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="12" y="8" width="40" height="50" rx="4" stroke="#cbd5e1" stroke-width="2" />
-              <line
-                x1="22"
-                y1="22"
-                x2="42"
-                y2="22"
-                stroke="#e2e8f0"
-                stroke-width="2"
-                stroke-linecap="round"
-              />
-              <line
-                x1="22"
-                y1="30"
-                x2="38"
-                y2="30"
-                stroke="#e2e8f0"
-                stroke-width="2"
-                stroke-linecap="round"
-              />
-              <circle cx="46" cy="48" r="12" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="2" />
-              <path d="M43 48h6M46 45v6" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" />
-            </svg>
+            <p class="loading-text">加载中...</p>
           </div>
-          <h3>{{ hasActiveQuery ? '暂无匹配错题' : '暂无错题' }}</h3>
-          <p class="empty-desc">
-            {{ hasActiveQuery ? '调整筛选条件后再试试。' : '你还没有做错的题目，继续保持。' }}
-          </p>
-        </div>
 
-        <div v-else class="wrong-results" :aria-busy="wrongLoading">
-          <header class="wrong-results__header">
-            <div>
-              <h2>错题列表</h2>
-              <span>{{ pagination.total }} 题</span>
+          <div
+            v-else-if="wrongError && wrongList.length === 0"
+            class="section-card section-card--empty section-card--error"
+            role="alert"
+          >
+            <h3>错题加载失败</h3>
+            <p class="empty-desc">{{ wrongError }}</p>
+            <AppButton type="secondary" :loading="wrongLoading" @click="retryWrongAnswers">
+              重新加载
+            </AppButton>
+          </div>
+
+          <div v-else-if="wrongList.length === 0" class="section-card section-card--empty">
+            <div class="empty-icon">
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect
+                  x="12"
+                  y="8"
+                  width="40"
+                  height="50"
+                  rx="4"
+                  stroke="#cbd5e1"
+                  stroke-width="2"
+                />
+                <line
+                  x1="22"
+                  y1="22"
+                  x2="42"
+                  y2="22"
+                  stroke="#e2e8f0"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+                <line
+                  x1="22"
+                  y1="30"
+                  x2="38"
+                  y2="30"
+                  stroke="#e2e8f0"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+                <circle cx="46" cy="48" r="12" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="2" />
+                <path
+                  d="M43 48h6M46 45v6"
+                  stroke="#94a3b8"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
             </div>
-            <p>排序：<strong>最新收录</strong></p>
-          </header>
+            <h3>{{ hasActiveQuery ? '暂无匹配错题' : '暂无错题' }}</h3>
+            <p class="empty-desc">
+              {{ hasActiveQuery ? '调整筛选条件后再试试。' : '你还没有做错的题目，继续保持。' }}
+            </p>
+          </div>
 
-          <div class="wrong-list">
-            <article v-for="item in wrongList" :key="item.id" class="wrong-item">
-              <span class="wrong-item__document" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M6.5 3.5h7l4 4v13h-11z" />
-                  <path d="M13.5 3.5v4h4M9 12h6M9 15.5h4.5" />
-                </svg>
-              </span>
-
-              <div class="wrong-item__body">
-                <h3 class="wrong-item__title">
-                  <LatexText :text="questionTitle(item)" />
-                </h3>
-                <div class="wrong-item__meta">
-                  <span v-if="knowledgeText(item)">知识点：{{ knowledgeText(item) }}</span>
-                  <span
-                    class="wrong-item__difficulty"
-                    :class="difficultyToneClass(item.difficulty)"
-                  >
-                    难度：{{ difficultyText(item) }}
-                  </span>
-                  <span>历史错题：{{ item.wrongCount }} 次</span>
-                  <span v-if="selectedAnswersText(item)">
-                    历史错选：{{ selectedAnswersText(item) }}
-                  </span>
-                </div>
+          <div v-else class="wrong-results" :aria-busy="wrongLoading">
+            <header class="wrong-results__header">
+              <div>
+                <h2>错题列表</h2>
+                <span>{{ pagination.total }} 题</span>
               </div>
-
-              <router-link
-                v-if="item.examRecord?.id"
-                v-slot="{ href, navigate }"
-                :to="analysisLink(item)"
-                custom
-              >
+              <div class="wrong-results__actions">
+                <p>排序：<strong>最新收录</strong></p>
                 <AppButton
-                  tag="a"
-                  :href="href"
                   type="secondary"
                   size="small"
-                  class="wrong-item__action"
-                  aria-label="查看试题解析"
-                  @click="navigate"
+                  :disabled="wrongLoading || wrongRemoving"
+                  @click="toggleWrongBatch"
+                  >{{ wrongBatchMode ? '完成管理' : '批量管理' }}</AppButton
                 >
-                  查看解析
-                </AppButton>
-              </router-link>
-              <AppButton
-                v-else
-                class="wrong-item__action"
-                type="secondary"
-                size="small"
-                disabled
-                aria-label="缺少答题记录，暂时无法查看解析"
-              >
-                查看解析
-              </AppButton>
-            </article>
-          </div>
-        </div>
+              </div>
+            </header>
 
-        <AppPagination
-          v-if="!wrongLoading && !wrongError && pagination.total > 0"
-          v-model:page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          @page-change="handlePageChange"
-          @page-size-change="handlePageSizeChange"
-        />
-      </section>
+            <div v-if="wrongBatchMode" class="wrong-batch-toolbar">
+              <el-checkbox
+                :model-value="allWrongSelected"
+                :indeterminate="selectedWrongIds.length > 0 && !allWrongSelected"
+                :disabled="wrongLoading || wrongRemoving"
+                @change="selectWrongPage"
+                >选择本页</el-checkbox
+              >
+              <span>已选 {{ selectedWrongIds.length }} 题</span>
+              <AppButton
+                type="danger"
+                size="small"
+                :icon="Delete"
+                :disabled="!selectedWrongIds.length || wrongLoading || wrongRemoving"
+                @click="requestWrongRemoval(selectedWrongIds)"
+                >批量删除</AppButton
+              >
+            </div>
+
+            <div class="wrong-list">
+              <article v-for="item in wrongList" :key="item.questionId" class="wrong-item">
+                <el-checkbox
+                  v-if="wrongBatchMode"
+                  class="wrong-item__checkbox"
+                  :model-value="selectedWrongIds.includes(item.questionId)"
+                  :disabled="wrongLoading || wrongRemoving"
+                  :aria-label="`选择错题：${questionTitle(item)}`"
+                  @change="selectWrongItem(item.questionId, Boolean($event))"
+                />
+                <span v-else class="wrong-item__document" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M6.5 3.5h7l4 4v13h-11z" />
+                    <path d="M13.5 3.5v4h4M9 12h6M9 15.5h4.5" />
+                  </svg>
+                </span>
+
+                <div class="wrong-item__body">
+                  <h3 class="wrong-item__title">
+                    <LatexText :text="questionTitle(item)" />
+                  </h3>
+                  <div class="wrong-item__meta">
+                    <div class="wrong-item__subject">
+                      <QuestionFavoriteButton :question-id="item.questionId" />
+                      <span v-if="item.subject">{{ item.subject }}</span>
+                    </div>
+                    <QuestionDifficultyTag :difficulty="item.difficulty" />
+                    <span v-if="knowledgeText(item)" class="wrong-item__knowledge">
+                      知识点：{{ knowledgeText(item) }}
+                    </span>
+                    <span>历史错题：{{ item.wrongCount }} 次</span>
+                    <span v-if="selectedAnswersText(item)">
+                      历史错选：{{ selectedAnswersText(item) }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="wrong-item__actions">
+                  <AppButton
+                    type="text"
+                    size="small"
+                    class="wrong-item__delete"
+                    :icon="Delete"
+                    icon-only
+                    aria-label="移出错题本"
+                    :disabled="wrongLoading || wrongRemoving"
+                    @click="requestWrongRemoval([item.questionId])"
+                  />
+                  <router-link
+                    v-if="item.examRecord?.id"
+                    v-slot="{ href, navigate }"
+                    :to="analysisLink(item)"
+                    custom
+                  >
+                    <AppButton
+                      tag="a"
+                      :href="href"
+                      type="secondary"
+                      size="small"
+                      class="wrong-item__action"
+                      aria-label="查看试题解析"
+                      @click="navigate"
+                    >
+                      查看解析
+                    </AppButton>
+                  </router-link>
+                  <AppButton
+                    v-else
+                    class="wrong-item__action"
+                    type="secondary"
+                    size="small"
+                    disabled
+                    aria-label="缺少答题记录，暂时无法查看解析"
+                  >
+                    查看解析
+                  </AppButton>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <AppPagination
+            v-if="!wrongLoading && !wrongError && pagination.total > 0"
+            v-model:page="pagination.page"
+            v-model:page-size="pagination.pageSize"
+            :total="pagination.total"
+            @page-change="handlePageChange"
+            @page-size-change="handlePageSizeChange"
+          />
+        </section>
+      </div>
     </main>
+    <AppDialog
+      v-model="removeWrongOpen"
+      :title="removeWrongIds.length > 1 ? '批量删除错题' : '删除错题'"
+      confirm-text="确认删除"
+      confirm-type="danger"
+      :loading="wrongRemoving"
+      :confirm-disabled="!removeWrongIds.length"
+      @confirm="confirmWrongRemoval"
+    >
+      <p>确定从错题本中删除这 {{ removeWrongIds.length }} 道题吗？</p>
+      <p>作答记录和收藏会保留，再次做错时会重新收录。</p>
+      <p v-if="removeWrongError" class="wrong-remove-error" role="alert">{{ removeWrongError }}</p>
+    </AppDialog>
   </div>
 </template>
 
 <script setup lang="ts">
 // 错题本页面：按考试体系组织长期错题资产，并在筛选、失败和往返解析时保持上下文一致。
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
+import FavoriteNotebookPanel from './FavoriteNotebookPanel.vue'
+import QuestionFavoriteButton from './QuestionFavoriteButton.vue'
+import QuestionDifficultyTag from './QuestionDifficultyTag.vue'
+import { getFavoriteSummary, type FavoriteSummary } from '@/api/favorites'
+import { useFavoritesStore } from '@/stores/favorites'
 import { useRoute, useRouter } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
 import LatexText from '@/components/LatexText.vue'
 import AppPagination from '@/components/AppPagination.vue'
 import AppButton from '@/components/AppButton.vue'
+import AppDialog from '@/components/AppDialog.vue'
+import { Delete } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import {
   getMistakeNotebookData,
+  removeMistakeQuestions,
   recordMistakeNotebookVisit,
   type MistakeNotebookDifficulty,
   type WrongAnswer,
@@ -306,6 +432,68 @@ interface FilterState {
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const favorites = useFavoritesStore()
+const notebookReady = ref(false)
+const notebookContentRef = ref<HTMLElement | null>(null)
+const contentMinHeight = ref(0)
+const wrongBatchMode = ref(false)
+const selectedWrongIds = ref<string[]>([])
+const removeWrongIds = ref<string[]>([])
+const removeWrongOpen = ref(false)
+const wrongRemoving = ref(false)
+const removeWrongError = ref('')
+const favoriteSummary = ref<FavoriteSummary | null>(null)
+let summarySequence = 0
+let scrollRestored = false
+// 两个页签复用错题本入口，地址栏保留当前页签以支持详情返回。
+const activeTab = computed(() => (route.query.tab === 'favorites' ? 'favorites' : 'mistakes'))
+// 收藏和错题数量使用未筛选的工作区总量。
+async function loadFavoriteSummary() {
+  const request = ++summarySequence
+  try {
+    const result = await getFavoriteSummary(auth.activeExamType)
+    if (request === summarySequence) favoriteSummary.value = result
+  } catch {
+    /* 请求层提示失败，列表仍提供独立重试入口。 */
+  }
+}
+// 记录各页签离开详情前的浏览位置，供返回列表时恢复。
+function scrollKey() {
+  return `notebook-scroll:${auth.user?.id}:${auth.activeExamType}:${activeTab.value}`
+}
+// 离开列表或切换页签时保存当前浏览位置。
+function saveScroll() {
+  sessionStorage.setItem(scrollKey(), String(window.scrollY))
+}
+// 列表加载后再恢复位置，确保页面已有足够高度。
+async function restoreScroll() {
+  if (scrollRestored) return
+  scrollRestored = true
+  const savedScroll = Math.max(0, Number(sessionStorage.getItem(scrollKey())) || 0)
+  const contentTop = (notebookContentRef.value?.getBoundingClientRect().top ?? 0) + window.scrollY
+  // 从解析移出题目后列表可能变短，预留空间以恢复离开列表前的位置。
+  contentMinHeight.value = Math.max(0, Math.ceil(savedScroll + window.innerHeight - contentTop))
+  await nextTick()
+  requestAnimationFrame(() => window.scrollTo({ top: savedScroll, behavior: 'instant' }))
+}
+// 列表变短前保留当前视口所需的高度，避免浏览器因滚动范围缩小而向上收。
+function reserveScrollSpace() {
+  const contentTop = notebookContentRef.value?.getBoundingClientRect().top ?? 0
+  contentMinHeight.value = Math.max(0, Math.ceil(window.innerHeight - contentTop))
+}
+// 切换时保留当前视口；较短列表和异步加载也不能把页签区域推到其他位置。
+async function switchTab(tab: 'mistakes' | 'favorites') {
+  if (tab === activeTab.value) return
+  const scrollTop = window.scrollY
+  reserveScrollSpace()
+  saveScroll()
+  scrollRestored = true
+  await router.replace({ query: { ...route.query, tab: tab === 'favorites' ? tab : undefined } })
+  await nextTick()
+  window.scrollTo({ top: scrollTop, behavior: 'instant' })
+}
+onBeforeRouteLeave(saveScroll)
+watch(() => favorites.revision, loadFavoriteSummary)
 const difficultyLabelMap = {
   easy: '低',
   medium: '中',
@@ -386,6 +574,9 @@ const hasActiveQuery = computed(
 
 // 首次进入或从解析页返回时，从地址栏恢复已应用条件和分页位置。
 onMounted(async () => {
+  // 首次进入先恢复考试工作区，再解释收藏筛选，避免默认 TMUA 清空 ESAT 的返回条件。
+  if (!auth.isAdmin) await auth.ensureMemberContext().catch(() => undefined)
+  notebookReady.value = true
   syncKnowledgeTooltipWidth()
   knowledgeTooltipResizeObserver = new ResizeObserver(syncKnowledgeTooltipWidth)
   if (knowledgeFilterFieldRef.value) {
@@ -396,12 +587,21 @@ onMounted(async () => {
   pageInitialized = true
   // 访问上报独立于列表加载，统计失败不能阻断学生查看已有错题。
   void recordMistakeNotebookVisit().catch(() => undefined)
-  await Promise.all([loadWrongAnswers(), loadSyllabusTree(activeExamType.value)])
+  void loadFavoriteSummary()
+  const requestedPage = pagination.page
+  const [loaded] = await Promise.all([loadWrongAnswers(), loadSyllabusTree(activeExamType.value)])
+  if (activeTab.value === 'mistakes') {
+    // 解析页移出末页最后一题后，把服务端回退的有效页码同步到地址栏。
+    if (loaded && pagination.page !== requestedPage) await syncRouteState()
+    await restoreScroll()
+  }
 })
 
 // 顶部导航切换考试类型后，清除失效的科目条件并重新查询对应错题和考纲。
 watch(activeExamType, async () => {
   if (!pageInitialized) return
+  favoriteSummary.value = null
+  void loadFavoriteSummary()
   draftFilters.subjectCodes = []
   draftFilters.knowledgeCodes = []
   appliedFilters.subjectCodes = []
@@ -410,6 +610,76 @@ watch(activeExamType, async () => {
   await Promise.all([loadWrongAnswers(), loadSyllabusTree(activeExamType.value)])
   await syncRouteState()
 })
+
+// 切换页签或工作区后清空批量选择，避免跨上下文误删。
+watch([activeTab, activeExamType], () => {
+  wrongBatchMode.value = false
+  selectedWrongIds.value = []
+  removeWrongOpen.value = false
+})
+
+// 全选仅针对当前页，分页和筛选不会延续隐藏题目的选择。
+const allWrongSelected = computed(
+  () =>
+    wrongList.value.length > 0 &&
+    wrongList.value.every((item) => selectedWrongIds.value.includes(item.questionId)),
+)
+
+// 完成管理时释放勾选，保持当前滚动位置。
+function toggleWrongBatch() {
+  reserveScrollSpace()
+  wrongBatchMode.value = !wrongBatchMode.value
+  selectedWrongIds.value = []
+}
+
+// 选择本页只包括当前筛选结果中的题目。
+function selectWrongPage(value: unknown) {
+  selectedWrongIds.value = value ? wrongList.value.map((item) => item.questionId) : []
+}
+
+// 单行勾选使用官方题目 ID，避免历史作答记录改变选择范围。
+function selectWrongItem(questionId: string, selected: boolean) {
+  selectedWrongIds.value = selected
+    ? [...new Set([...selectedWrongIds.value, questionId])]
+    : selectedWrongIds.value.filter((id) => id !== questionId)
+}
+
+// 弹窗冻结本次删除范围，确认前不修改列表。
+function requestWrongRemoval(questionIds: string[]) {
+  if (wrongLoading.value || wrongRemoving.value) return
+  const visibleIds = new Set(wrongList.value.map((item) => item.questionId))
+  removeWrongIds.value = [...new Set(questionIds)].filter((id) => visibleIds.has(id))
+  if (!removeWrongIds.value.length) return
+  removeWrongError.value = ''
+  removeWrongOpen.value = true
+}
+
+// 删除成功后重新读取列表和总量；服务端会把删空的末页退回有效页码。
+async function confirmWrongRemoval() {
+  if (wrongRemoving.value || !removeWrongIds.value.length) return
+  const examType = activeExamType.value
+  const questionIds = [...removeWrongIds.value]
+  wrongRemoving.value = true
+  removeWrongError.value = ''
+  try {
+    const result = await removeMistakeQuestions({ examType, questionIds })
+    if (examType !== activeExamType.value || route.name !== 'mistake-notebook') return
+    reserveScrollSpace()
+    removeWrongOpen.value = false
+    selectedWrongIds.value = []
+    ElMessage.success(
+      result.removedCount ? `已删除 ${result.removedCount} 道错题` : '这些题目已移出错题本',
+    )
+    const [loaded] = await Promise.all([loadWrongAnswers(), loadFavoriteSummary()])
+    if (loaded && examType === activeExamType.value && route.name === 'mistake-notebook')
+      await syncRouteState()
+  } catch (error) {
+    if (examType === activeExamType.value)
+      removeWrongError.value = getApiErrorMessage(error, '删除失败，请重试')
+  } finally {
+    wrongRemoving.value = false
+  }
+}
 
 // 页面销毁后使仍在飞行的请求失效，避免异步结果继续写回已离开的页面。
 onBeforeUnmount(() => {
@@ -493,6 +763,8 @@ async function loadSyllabusTree(examType: ActiveExamType): Promise<void> {
 async function loadWrongAnswers(): Promise<boolean> {
   const requestId = ++wrongRequestSequence
   const requestedExamType = activeExamType.value
+  if (activeTab.value === 'mistakes') reserveScrollSpace()
+  selectedWrongIds.value = []
   wrongLoading.value = true
   wrongError.value = ''
   try {
@@ -510,7 +782,15 @@ async function loadWrongAnswers(): Promise<boolean> {
     })
     if (requestId !== wrongRequestSequence || requestedExamType !== activeExamType.value)
       return false
+    if (activeTab.value === 'mistakes') reserveScrollSpace()
     wrongList.value = result.list || []
+    if (!wrongList.value.length) wrongBatchMode.value = false
+    void favorites
+      .load(
+        wrongList.value.map((item) => item.questionId),
+        true,
+      )
+      .catch(() => undefined)
     pagination.page = result.pagination.page
     pagination.pageSize = result.pagination.pageSize
     pagination.total = result.pagination.total
@@ -612,7 +892,10 @@ async function syncRouteState(): Promise<void> {
   if (appliedFilters.keyword) query.keyword = appliedFilters.keyword
   if (pagination.page > 1) query.page = String(pagination.page)
   if (pagination.pageSize !== 20) query.pageSize = String(pagination.pageSize)
-  await router.replace({ name: 'mistake-notebook', query })
+  const favoriteQuery = Object.fromEntries(
+    Object.entries(route.query).filter(([key]) => key === 'tab' || key.startsWith('f')),
+  )
+  await router.replace({ name: 'mistake-notebook', query: { ...favoriteQuery, ...query } })
 }
 
 // 草稿条件与已应用条件保持值复制，避免数组引用造成未搜索条件提前生效。
@@ -673,22 +956,6 @@ function knowledgeText(item: WrongAnswer): string {
   return labels.length > 2 ? `${visible} +${labels.length - 2}` : visible
 }
 
-// 卡片与筛选统一展示低、中、高三档题目难度。
-function difficultyText(item: WrongAnswer): string {
-  const difficulty = item.difficulty || ''
-  return difficulty in difficultyLabelMap
-    ? difficultyLabelMap[difficulty as keyof typeof difficultyLabelMap]
-    : '未标注'
-}
-
-// 难度颜色只编码题目复杂度，不影响列表排序与筛选状态。
-function difficultyToneClass(difficulty?: string | null): string {
-  if (difficulty === 'easy') return 'wrong-item__difficulty--easy'
-  if (difficulty === 'medium') return 'wrong-item__difficulty--medium'
-  if (difficulty === 'hard') return 'wrong-item__difficulty--hard'
-  return 'wrong-item__difficulty--unknown'
-}
-
 // 聚合错题展示全历史错误答案，并按首次出现顺序去重。
 function selectedAnswersText(item: WrongAnswer): string {
   if (item.selectedAnswers?.length) return item.selectedAnswers.join('、')
@@ -715,6 +982,38 @@ function dateOnly(value?: string | null): string | null {
 </script>
 
 <style scoped lang="scss">
+.notebook-content {
+  // 列表增减时不让浏览器跟随题目或分页的位置自动移动视口。
+  overflow-anchor: none;
+}
+.notebook-tabs {
+  display: flex;
+  gap: 28px;
+  margin-bottom: 18px;
+  button {
+    cursor: pointer;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    padding: 14px 2px;
+    background: transparent;
+    color: #8a929b;
+    font: inherit;
+    font-size: 18px;
+  }
+  button.active {
+    color: var(--color-ink);
+    border-bottom-color: var(--color-ink);
+    font-weight: 600;
+  }
+  span {
+    margin-left: 8px;
+    font-size: 12px;
+    border-radius: 12px;
+    background: #edf0f3;
+    padding: 3px 8px;
+    color: #707986;
+  }
+}
 .mistake-notebook-page {
   min-height: 100vh;
   min-width: var(--fluid-page-min-width);
@@ -777,11 +1076,8 @@ function dateOnly(value?: string | null): string | null {
   min-width: 0;
 }
 
-.section-divider {
-  display: none;
-}
-
-.filter-bar {
+// 两个页签共用同一套筛选布局，分类数量和列表长度不改变顶部卡片高度。
+:deep(.notebook-filter-bar) {
   display: grid;
   grid-template-columns:
     minmax(0, 18fr)
@@ -797,7 +1093,7 @@ function dateOnly(value?: string | null): string | null {
   background: var(--color-surface);
 }
 
-.filter-field {
+:deep(.filter-field) {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
   gap: 12px;
@@ -805,17 +1101,17 @@ function dateOnly(value?: string | null): string | null {
   min-width: 0;
 }
 
-.filter-field__label {
+:deep(.filter-field__label) {
   color: var(--color-ink);
   font-size: var(--text-sm);
   font-weight: var(--weight-semi);
   white-space: nowrap;
 }
 
-.filter-field :deep(.el-select),
-.filter-field :deep(.el-tree-select),
-.filter-field :deep(.el-input),
-.filter-field :deep(.el-date-editor) {
+:deep(.filter-field .el-select),
+:deep(.filter-field .el-tree-select),
+:deep(.filter-field .el-input),
+:deep(.filter-field .el-date-editor) {
   width: 100%;
 }
 
@@ -827,8 +1123,8 @@ function dateOnly(value?: string | null): string | null {
   grid-column: 3;
 }
 
-.filter-field :deep(.el-select__wrapper),
-.filter-field :deep(.el-input__wrapper) {
+:deep(.filter-field .el-select__wrapper),
+:deep(.filter-field .el-input__wrapper) {
   border-radius: 5px;
 }
 
@@ -846,7 +1142,7 @@ function dateOnly(value?: string | null): string | null {
   overflow: hidden;
 }
 
-.filter-actions {
+:deep(.filter-actions) {
   display: flex;
   grid-column: 4;
   gap: 12px;
@@ -923,6 +1219,7 @@ function dateOnly(value?: string | null): string | null {
 
 .wrong-results__header {
   display: flex;
+  min-height: 32px;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
@@ -935,6 +1232,45 @@ function dateOnly(value?: string | null): string | null {
   gap: 12px;
 }
 
+.wrong-results__header .wrong-results__actions {
+  align-items: center;
+}
+
+.wrong-batch-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  font-size: var(--text-sm);
+}
+
+.wrong-batch-toolbar > .app-button {
+  margin-left: auto;
+}
+
+.wrong-item__checkbox {
+  justify-self: center;
+}
+
+.wrong-item__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wrong-item__delete.app-button.el-button.app-button--text {
+  --app-button-color: var(--color-danger);
+}
+
+.wrong-remove-error {
+  color: var(--color-danger);
+}
+
 .wrong-results__header h2,
 .wrong-results__header p {
   margin: 0;
@@ -945,7 +1281,7 @@ function dateOnly(value?: string | null): string | null {
   font-weight: var(--weight-bold);
 }
 
-.wrong-results__header span,
+.wrong-results__header > div > span,
 .wrong-results__header p {
   color: var(--color-ink-muted);
   font-size: var(--text-xs);
@@ -1024,33 +1360,24 @@ function dateOnly(value?: string | null): string | null {
   line-height: var(--leading-normal);
 }
 
-.wrong-item__difficulty {
-  padding: 2px 7px;
-  border-radius: var(--radius-pill);
-  font-weight: var(--weight-semi);
+.wrong-item__subject {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
-.wrong-item__difficulty--easy {
-  background: var(--color-success-bg);
-  color: var(--color-success);
+.wrong-item__subject :deep(.favorite-button) {
+  margin-left: 0;
 }
 
-.wrong-item__difficulty--medium {
-  background: var(--color-warning-bg);
-  color: var(--color-report-orange);
+.wrong-item__knowledge {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
-.wrong-item__difficulty--hard {
-  background: var(--color-danger-bg);
-  color: var(--color-danger);
-}
-
-.wrong-item__difficulty--unknown {
-  background: var(--color-info-bg);
-  color: var(--color-info);
-}
-
-.wrong-item > .wrong-item__action {
+.wrong-item > .wrong-item__actions {
   justify-self: end;
 }
 
@@ -1088,44 +1415,44 @@ function dateOnly(value?: string | null): string | null {
     padding: 26px 0 48px;
   }
 
-  .filter-bar {
+  :deep(.notebook-filter-bar) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px 8px;
     padding: 12px;
   }
 
-  .filter-actions {
+  :deep(.filter-actions) {
     grid-column: 1 / -1;
     justify-content: flex-end;
   }
 
-  .filter-field {
+  :deep(.filter-field) {
     grid-template-columns: minmax(0, 1fr);
     grid-column: auto;
     gap: 5px;
   }
 
-  .filter-field__label {
+  :deep(.filter-field__label) {
     overflow: hidden;
     font-size: 11px;
     text-overflow: ellipsis;
   }
 
-  .filter-field :deep(.el-select__wrapper),
-  .filter-field :deep(.el-input__wrapper) {
+  :deep(.filter-field .el-select__wrapper),
+  :deep(.filter-field .el-input__wrapper) {
     min-height: 34px;
     padding-right: 6px;
     padding-left: 6px;
     border-radius: 5px;
   }
 
-  .filter-field :deep(.el-range-input),
-  .filter-field :deep(.el-select__placeholder),
-  .filter-field :deep(.el-select__selected-item) {
+  :deep(.filter-field .el-range-input),
+  :deep(.filter-field .el-select__placeholder),
+  :deep(.filter-field .el-select__selected-item) {
     font-size: 10px;
   }
 
-  .filter-field :deep(.el-range-separator) {
+  :deep(.filter-field .el-range-separator) {
     width: 12px;
     padding: 0 2px;
     font-size: 9px;
@@ -1156,9 +1483,18 @@ function dateOnly(value?: string | null): string | null {
     padding: 14px;
   }
 
-  .wrong-item > .wrong-item__action {
+  .wrong-item > .wrong-item__actions {
     grid-column: 2;
     justify-self: end;
+  }
+
+  .wrong-results__header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .wrong-results__actions {
+    margin-left: auto;
   }
 
   .inline-error {

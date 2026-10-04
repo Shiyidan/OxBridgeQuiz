@@ -64,6 +64,7 @@
             :class="{ 'question-panel--locked': moduleDeadlineReached }"
           >
             <QuestionCard
+              show-favorite
               v-if="currentQuestion"
               :key="currentQuestion.id"
               :question="currentQuestion"

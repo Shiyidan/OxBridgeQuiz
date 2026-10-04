@@ -9,7 +9,12 @@
       'question-analysis--navigation-scroll': navigationScroll,
     }"
   >
-    <aside v-if="!singleQuestionMode" ref="navigationRef" class="question-nav" aria-label="题目导航">
+    <aside
+      v-if="!singleQuestionMode"
+      ref="navigationRef"
+      class="question-nav"
+      aria-label="题目导航"
+    >
       <span class="section-mark" aria-hidden="true"></span>
       <h2 class="question-nav__title">题目导航</h2>
       <div class="question-nav__groups">
@@ -61,13 +66,9 @@
       </div>
     </aside>
 
-    <section
-      v-if="currentQuestion"
-      ref="reportCardRef"
-      class="report-card"
-      aria-label="题目详情"
-    >
+    <section v-if="currentQuestion" ref="reportCardRef" class="report-card" aria-label="题目详情">
       <QuestionCard
+        :show-favorite="showFavorite"
         :question="currentQuestion"
         :index="currentIndex"
         :question-label="displayQuestionLabel"
@@ -75,7 +76,11 @@
         :show-answer="true"
         variant="exam"
         @select="noop"
-      />
+      >
+        <template v-if="$slots['question-actions']" #header-actions>
+          <slot name="question-actions" :question="currentQuestion" />
+        </template>
+      </QuestionCard>
 
       <div class="answer-summary">
         <span v-if="showUserAnswer"
@@ -182,6 +187,7 @@ const props = defineProps<{
   initialQuestionId?: string
   singleQuestionMode?: boolean
   showUserAnswer?: boolean
+  showFavorite?: boolean
   groupBy?: 'module' | 'syllabus'
   independentScroll?: boolean
   scrollToQuestionOnSelect?: boolean
@@ -234,7 +240,10 @@ function updateNavigationHeight(): void {
     : document.documentElement.clientHeight
   const stickyTop = parseFloat(getComputedStyle(navigation).top) || 0
   const top = Math.max(containerTop + stickyTop, navigation.getBoundingClientRect().top)
-  analysis.style.setProperty('--question-nav-height', `${Math.max(0, containerBottom - top - 16)}px`)
+  analysis.style.setProperty(
+    '--question-nav-height',
+    `${Math.max(0, containerBottom - top - 16)}px`,
+  )
 }
 
 // 捕获窗口和嵌套管理内容区的滚动，每帧只测量一次布局。
@@ -291,15 +300,19 @@ function normalizedQuestionModuleCode(question: ReportQuestion): string {
     .trim()
     .toLowerCase()
     .replace(/[\s_\-()（）]+/g, '')
-  const examType = String(question.examType || '').trim().toUpperCase()
-  const allowedCodes = examType === 'TMUA'
-    ? new Set(['paper1', 'paper2'])
-    : examType === 'ESAT'
-      ? new Set(['maths1', 'maths2', 'physics', 'chemistry', 'biology'])
-      : null
-  const matched = Object.entries(MODULE_ALIASES).find(([code, aliases]) =>
-    (!allowedCodes || allowedCodes.has(code))
-    && aliases.some((alias) => classification.includes(alias)),
+  const examType = String(question.examType || '')
+    .trim()
+    .toUpperCase()
+  const allowedCodes =
+    examType === 'TMUA'
+      ? new Set(['paper1', 'paper2'])
+      : examType === 'ESAT'
+        ? new Set(['maths1', 'maths2', 'physics', 'chemistry', 'biology'])
+        : null
+  const matched = Object.entries(MODULE_ALIASES).find(
+    ([code, aliases]) =>
+      (!allowedCodes || allowedCodes.has(code)) &&
+      aliases.some((alias) => classification.includes(alias)),
   )
   return matched?.[0] || explicitCode
 }
@@ -309,7 +322,9 @@ const questionNavGroups = computed<QuestionNavGroup[]>(() => {
   const groups: QuestionNavGroup[] = []
   props.questions.forEach((question, index) => {
     const moduleCode = normalizedQuestionModuleCode(question)
-    const subjectCode = String(question.subject_code || '').trim().toLowerCase()
+    const subjectCode = String(question.subject_code || '')
+      .trim()
+      .toLowerCase()
     const subject = String(question.subject || '').trim()
     const usesSyllabusGrouping = props.groupBy === 'syllabus'
     const groupIdentity = usesSyllabusGrouping
@@ -319,11 +334,12 @@ const questionNavGroups = computed<QuestionNavGroup[]>(() => {
     const moduleQuestionNumber = Number(question.module_question_number)
     const item: QuestionNavItem = {
       index,
-      number: props.groupBy === 'module'
-        ? Number.isInteger(moduleQuestionNumber) && moduleQuestionNumber > 0
-          ? moduleQuestionNumber
-          : (existingGroup?.items.length || 0) + 1
-        : Number(question.number) || index + 1,
+      number:
+        props.groupBy === 'module'
+          ? Number.isInteger(moduleQuestionNumber) && moduleQuestionNumber > 0
+            ? moduleQuestionNumber
+            : (existingGroup?.items.length || 0) + 1
+          : Number(question.number) || index + 1,
       status: question.selectedAnswer ? (question.isCorrect ? 'correct' : 'wrong') : 'skipped',
     }
 

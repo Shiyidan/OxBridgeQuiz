@@ -1,4 +1,5 @@
 import express from 'express'
+import { favoritesRouter } from './routes/favorites.js'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
 import { config } from './config.js'
@@ -57,6 +58,7 @@ app.use('/api/getMember', memberRouter)
 app.use('/api/payment', paymentRouter)
 app.use('/api/invitations', invitationsRouter)
 app.use('/api/exams', examRouter)
+app.use('/api/favorites', favoritesRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/papers', papersRouter)
 app.use('/api/question-library', questionLibraryRouter)

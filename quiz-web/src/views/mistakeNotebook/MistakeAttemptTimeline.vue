@@ -109,7 +109,7 @@ function formatDuration(seconds: number): string {
   top: 84px;
   min-width: 0;
   overflow-x: hidden;
-  padding: 20px 18px 8px;
+  padding: 20px 18px;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
@@ -122,7 +122,7 @@ function formatDuration(seconds: number): string {
 
 .attempt-timeline__header > span {
   color: var(--color-report-orange);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: var(--weight-bold);
   letter-spacing: 0.14em;
 }
@@ -155,8 +155,9 @@ function formatDuration(seconds: number): string {
   color: var(--color-danger);
 }
 
-.attempt-timeline__list {
-  padding-left: 2px;
+.attempt-timeline__list.el-timeline {
+  --el-timeline-node-size-normal: 6px;
+  padding: 0;
 }
 
 .attempt-card {
@@ -229,16 +230,38 @@ function formatDuration(seconds: number): string {
   font-size: 11px;
 }
 
-:deep(.el-timeline) {
-  padding-left: 6px;
+/* 时间与小圆点保留轴线关系，记录卡片占满内容区以保持左右留白一致。 */
+:deep(.el-timeline-item.is-start .el-timeline-item__wrapper) {
+  top: 0;
+  padding-left: 0;
+}
+
+:deep(.el-timeline-item.is-start .el-timeline-item__node) {
+  top: 5px;
+  left: 0;
+}
+
+:deep(.el-timeline-item:last-child) {
+  padding-bottom: 0;
 }
 
 :deep(.el-timeline-item__timestamp) {
   color: var(--color-ink-muted);
   font-size: 11px;
+  line-height: 16px;
 }
 
-:deep(.el-timeline-item__tail) {
+:deep(.el-timeline-item__timestamp.is-top) {
+  padding: 0 0 0 16px;
+  margin-bottom: 8px;
+}
+
+:deep(.el-timeline-item.is-start .el-timeline-item__tail) {
+  top: 14px;
+  bottom: 0;
+  left: 2.5px;
+  height: auto;
+  border-left-width: 1px;
   border-left-color: var(--color-line);
 }
 

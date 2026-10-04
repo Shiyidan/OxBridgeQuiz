@@ -1,10 +1,14 @@
 <!-- 题目通用渲染卡：按内容块顺序安全展示文本、公式、题图与选项。 -->
 <template>
   <article :class="['question-card', `question-card--${variant}`]">
-    <div class="question-card__header">
+    <div
+      class="question-card__header"
+      :class="{ 'question-card__header--with-actions': $slots['header-actions'] }"
+    >
       <div class="question-card__heading">
         <!-- 题号小标 -->
         <div class="question-card__label">{{ questionLabel || `Question ${index + 1}` }}</div>
+        <QuestionFavoriteButton v-if="showFavorite && question.id" :question-id="question.id" />
         <!-- <button
           v-if="showMark"
           type="button"
@@ -23,6 +27,9 @@
         <span v-for="tag in metaTags" :key="tag" class="question-card__meta-tag">
           {{ tag }}
         </span>
+      </div>
+      <div v-if="$slots['header-actions']" class="question-card__actions">
+        <slot name="header-actions" />
       </div>
     </div>
 
@@ -119,8 +126,8 @@
 <script setup lang="ts">
 // 题目渲染卡片（试题库、练习页、试卷预览共用）
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Flag } from '@element-plus/icons-vue'
 import LatexText from './LatexText.vue'
+import QuestionFavoriteButton from '@/views/mistakeNotebook/QuestionFavoriteButton.vue'
 import type { Option, QuestionImage, RenderableQuestion, RichContentBlock } from '@/types'
 
 interface Props {
@@ -134,6 +141,7 @@ interface Props {
   disabled?: boolean
   showMark?: boolean
   marked?: boolean
+  showFavorite?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -264,8 +272,7 @@ function optionNeedsSingleColumn(card: HTMLElement): boolean {
   if (!media || !image || !image.complete) return false
   const availableWidth = media.clientWidth
   return (
-    (availableWidth > 0 && image.naturalWidth > availableWidth * 1.15) ||
-    image.naturalHeight > 180
+    (availableWidth > 0 && image.naturalWidth > availableWidth * 1.15) || image.naturalHeight > 180
   )
 }
 
@@ -338,6 +345,19 @@ onBeforeUnmount(() => {
     justify-content: space-between;
     gap: 20px;
     margin-bottom: 14px;
+  }
+
+  .question-card__header--with-actions {
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+  }
+
+  .question-card__actions {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    margin-left: auto;
   }
 
   .question-card__label {
@@ -579,7 +599,6 @@ onBeforeUnmount(() => {
         color: var(--color-ink-inverse);
       }
     }
-
   }
 
   .opt-card__bullet {

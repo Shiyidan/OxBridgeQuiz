@@ -126,6 +126,12 @@ const router = createRouter({
       name: 'mistake-notebook',
       component: lazyRoute(() => import('../views/mistakeNotebook/MistakeNotebookView.vue')),
     },
+    // 收藏题目
+    {
+      path: '/mistake-notebook/favorites/:questionId',
+      name: 'favorite-question',
+      component: lazyRoute(() => import('../views/mistakeNotebook/FavoriteQuestionView.vue')),
+    },
     // 考试介绍
     {
       path: '/exam-intro',

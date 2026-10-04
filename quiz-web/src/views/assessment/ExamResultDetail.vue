@@ -18,6 +18,7 @@
           :class="{ 'analysis-page-content--with-history': showMistakeAttemptHistory }"
         >
           <ExamQuestionAnalysis
+            show-favorite
             :questions="questions"
             :correct-count="correctCount"
             :initial-question-id="resolvedTargetQuestionId"
@@ -25,7 +26,20 @@
             scroll-to-question-on-select
             navigation-scroll
             :group-by="analysisSource === 'question-bank' ? 'syllabus' : 'module'"
-          />
+          >
+            <template v-if="showMistakeAttemptHistory" #question-actions>
+              <AppButton
+                class="remove-mistake-button"
+                type="text"
+                size="small"
+                :icon="Delete"
+                icon-only
+                aria-label="移出错题本"
+                :disabled="removingMistake"
+                @click="openRemoveMistake"
+              />
+            </template>
+          </ExamQuestionAnalysis>
           <MistakeAttemptTimeline
             v-if="showMistakeAttemptHistory"
             :items="mistakeAttempts"
@@ -38,21 +52,38 @@
         </div>
       </section>
     </main>
+    <AppDialog
+      v-model="removeMistakeOpen"
+      title="移出错题本"
+      confirm-text="确认移出"
+      confirm-type="danger"
+      :loading="removingMistake"
+      @confirm="confirmRemoveMistake"
+    >
+      <p>确定将这道题移出错题本吗？</p>
+      <p>仅从错题本移除，作答记录和收藏会保留。再次做错时会重新收录。</p>
+      <p v-if="removeMistakeError" class="remove-mistake-error" role="alert">
+        {{ removeMistakeError }}
+      </p>
+    </AppDialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Back } from '@element-plus/icons-vue'
+import { Back, Delete } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import AppButton from '@/components/AppButton.vue'
+import AppDialog from '@/components/AppDialog.vue'
 import ExamQuestionAnalysis from '@/components/report/ExamQuestionAnalysis.vue'
 import MistakeAttemptTimeline from '@/views/mistakeNotebook/MistakeAttemptTimeline.vue'
 import {
   getDiagnosticReportStatus,
   getExamResultData,
   getMistakeAttemptHistory,
+  removeMistakeQuestions,
   type ExamQuestion,
   type MistakeAttemptHistoryItem,
 } from '@/api/exam'
@@ -94,6 +125,9 @@ const mistakeAttempts = ref<MistakeAttemptHistoryItem[]>([])
 const mistakeAttemptTotal = ref(0)
 const mistakeAttemptsLoading = ref(false)
 const mistakeAttemptsError = ref('')
+const removeMistakeOpen = ref(false)
+const removingMistake = ref(false)
+const removeMistakeError = ref('')
 
 // 当前答卷 ID 用于读取结果并决定后续进入哪一种报告页面。
 const examId = computed(() => String(route.params.id || ''))
@@ -143,6 +177,46 @@ const showMistakeAttemptHistory = computed(
   () =>
     cameFromMistakeNotebook.value && singleQuestionMode.value && Boolean(targetQuestionId.value),
 )
+
+// 只接受站内错题本地址，保留进入解析前的筛选条件和页码。
+const mistakeNotebookReturnTo = computed(() => {
+  const returnTo = String(route.query.returnTo || '')
+  return returnTo === '/mistake-notebook' || returnTo.startsWith('/mistake-notebook?')
+    ? returnTo
+    : '/mistake-notebook'
+})
+
+// 移出操作只开放给错题本单题解析，确认前不修改题目或历史记录。
+function openRemoveMistake() {
+  if (!showMistakeAttemptHistory.value || !questions.value.length || removingMistake.value) return
+  removeMistakeError.value = ''
+  removeMistakeOpen.value = true
+}
+
+// 按答卷的考试类型移出官方题目；成功后回到原列表，失败时保留解析供重试。
+async function confirmRemoveMistake() {
+  const question = questions.value[0]
+  if (!showMistakeAttemptHistory.value || !question || removingMistake.value) return
+  const reviewPath = route.fullPath
+  const returnTo = mistakeNotebookReturnTo.value
+  removingMistake.value = true
+  removeMistakeError.value = ''
+  try {
+    const result = await removeMistakeQuestions({
+      examType: recordExamType.value,
+      questionIds: [question.questionId || question.id],
+    })
+    if (route.fullPath !== reviewPath) return
+    removeMistakeOpen.value = false
+    ElMessage.success(result.removedCount ? '已移出错题本' : '这道题已移出错题本')
+    await router.replace(returnTo)
+  } catch (error) {
+    if (route.fullPath === reviewPath)
+      removeMistakeError.value = getApiErrorMessage(error, '移出失败，请重试')
+  } finally {
+    removingMistake.value = false
+  }
+}
 
 // 错题解析优先采用最近一次答题轨迹的来源名称，其余入口沿用当前答卷或练习本名称。
 const pageContextTitle = computed(() => {
@@ -282,12 +356,7 @@ async function loadMistakeAttemptHistory(): Promise<void> {
 // 返回目标由来源和考试类型固定决定，不依赖浏览器历史栈，刷新页面后仍能保持正确去向。
 function returnToSource(): void {
   if (cameFromMistakeNotebook.value) {
-    const returnTo = String(route.query.returnTo || '')
-    const safeReturnTo =
-      returnTo === '/mistake-notebook' || returnTo.startsWith('/mistake-notebook?')
-        ? returnTo
-        : '/mistake-notebook'
-    void router.push(safeReturnTo)
+    void router.push(mistakeNotebookReturnTo.value)
     return
   }
   if (cameFromMockExam.value) {
@@ -341,6 +410,14 @@ async function redirectDiagnosticReport(examType: string, reportRecordId: string
 </script>
 
 <style scoped lang="scss">
+.remove-mistake-button.app-button.el-button.app-button--text {
+  --app-button-color: var(--color-danger);
+}
+
+.remove-mistake-error {
+  color: var(--color-danger);
+}
+
 .practice-report {
   width: 100%;
   min-height: 100vh;

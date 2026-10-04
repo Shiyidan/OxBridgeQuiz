@@ -588,11 +588,16 @@ export interface WrongAnswer {
   }
 }
 
-export type MistakeAttemptSourceType =
-  | 'diagnostic'
-  | 'question-bank'
-  | 'mock-exam'
-  | 'unknown'
+export interface RemoveMistakeQuestionsParams {
+  examType: string
+  questionIds: string[]
+}
+
+export interface RemoveMistakeQuestionsResult {
+  removedCount: number
+}
+
+export type MistakeAttemptSourceType = 'diagnostic' | 'question-bank' | 'mock-exam' | 'unknown'
 
 export type MistakeAttemptAnswerState = 'answered' | 'skipped' | 'unseen'
 
@@ -808,6 +813,15 @@ export function getMistakeNotebookData(params: MistakeNotebookParams = {}) {
       ...(params.endDate ? { endDate: params.endDate } : {}),
       ...(params.keyword ? { keyword: params.keyword } : {}),
     },
+  })
+}
+
+// 单题和批量删除共用接口，只移出当前工作区的错题，不改动答卷和收藏。
+export function removeMistakeQuestions(body: RemoveMistakeQuestionsParams) {
+  return callApi<RemoveMistakeQuestionsResult>({
+    method: 'DELETE',
+    url: '/exams/error-book',
+    body,
   })
 }
 

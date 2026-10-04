@@ -282,7 +282,7 @@ export async function getAdminUserDetail(userId: string, options: AdminUserDetai
         paper: { select: { paperType: true } },
       },
     }),
-    prisma.wrongQuestionSummary.count({ where: { userId } }),
+    prisma.wrongQuestionSummary.count({ where: { userId, removedAt: null } }),
   ])
   const moduleAttemptCounts = countUserActivityModules(activityRecords, wrongQuestionCount)
   const selectedModule =
@@ -336,7 +336,7 @@ export async function getAdminUserDetail(userId: string, options: AdminUserDetai
     resolveLoginLocation(latestActivityIpAddress),
     selectedModule === 'mistakeNotebook'
       ? prisma.wrongQuestionSummary.findMany({
-          where: { userId },
+          where: { userId, removedAt: null },
           select: {
             examType: true,
             question: {

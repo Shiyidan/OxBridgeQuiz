@@ -66,6 +66,7 @@
         <template v-else>
           <div class="exam-panel__body">
             <QuestionCard
+              show-favorite
               :key="currentQuestion.id"
               :question="currentQuestion"
               :index="currentIndex"

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { config } from "../src/config.js";
 import { prisma } from "../src/services/prisma.js";
+import { ACCOUNT_STATUS } from "../src/constants/auth.js";
 import {
   EXAM_RECORD_STATUS,
   PAPER_TYPE,
@@ -125,6 +126,15 @@ try {
     )!.completionCount,
     2,
   );
+  // 固定修正不能把封禁用户带回趋势，解封后恢复真实范围内的修正值。
+  await prisma.productUsageTrendOverride.update({ where: { businessDate: day }, data: { questionBankPracticeCount: 999 } });
+  assert.equal((await getStudentBehaviorAnalytics(filters)).productUsage.trend.find(item => item.date === '2097-09-05')!.questionBankPracticeCount, 2);
+  await prisma.user.update({ where: { id }, data: { accountStatus: ACCOUNT_STATUS.BANNED } });
+  const banned = await getStudentBehaviorAnalytics(filters);
+  assert.ok(banned.productUsage.trend.every(item => item.questionBankPracticeCount === 0));
+  assert.equal(banned.productUsage.overview.completedActivityCount, 0);
+  await prisma.user.update({ where: { id }, data: { accountStatus: ACCOUNT_STATUS.ACTIVE } });
+  assert.equal((await getStudentBehaviorAnalytics(filters)).productUsage.trend.find(item => item.date === '2097-09-05')!.questionBankPracticeCount, 2);
   await prisma.productUsageTrendOverride.delete({
     where: { businessDate: day },
   });

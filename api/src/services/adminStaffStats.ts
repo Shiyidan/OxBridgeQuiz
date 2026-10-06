@@ -9,6 +9,8 @@ import {
 import { OPERATION_AUDIT_RESULT } from '../constants/operationAudit.js'
 import { parseJsonObject } from '../utils/jsonField.js'
 import { prisma } from './prisma.js'
+import { ACCOUNT_STATUS } from '../constants/auth.js'
+import { analyticsUserWhere } from './analyticsScope.js'
 
 const GIFT_CARD_ACTION = 'admin.user.gift_cards.create'
 
@@ -58,11 +60,18 @@ function compareRecipientRows(
 
 // 统计范围固定为当前管理员和成功赠卡记录，主表按接收用户而非管理员聚合。
 export async function getAdminStaffGiftCardStats(options: AdminStaffStatsOptions) {
-  const admins = await prisma.user.findMany({
-    where: { role: USER_ROLE.ADMIN },
-    select: { id: true, username: true, email: true },
-    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-  })
+  const [admins, bannedRecipients] = await Promise.all([
+    prisma.user.findMany({
+      where: { ...analyticsUserWhere, role: USER_ROLE.ADMIN },
+      select: { id: true, username: true, email: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    }),
+    prisma.user.findMany({
+      where: { accountStatus: ACCOUNT_STATUS.BANNED },
+      select: { id: true },
+    }),
+  ])
+  const bannedRecipientIds = bannedRecipients.map((user) => user.id)
   const adminIds = admins.map((admin) => admin.id)
   const adminMap = new Map(admins.map((admin) => [admin.id, admin]))
   const logs = adminIds.length
@@ -71,6 +80,13 @@ export async function getAdminStaffGiftCardStats(options: AdminStaffStatsOptions
           actorUserId: { in: adminIds },
           action: GIFT_CARD_ACTION,
           result: OPERATION_AUDIT_RESULT.SUCCESS,
+          // 审计资源标识不是用户外键，先按当前封禁账号排除接收人，再计算所有总览与分页。
+          ...(bannedRecipientIds.length ? {
+            OR: [
+              { resourceId: null },
+              { resourceId: { notIn: bannedRecipientIds } },
+            ],
+          } : {}),
         },
         select: {
           id: true,

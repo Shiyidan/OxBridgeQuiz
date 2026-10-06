@@ -35,15 +35,6 @@ export function effectiveOperationAuditResult(input: {
   return OPERATION_AUDIT_RESULT.FAILURE
 }
 
-// 行为分析只统计真正失败，历史上已保存为 failure 的业务拦截也按新口径排除。
-export function isOperationAuditFailure(input: {
-  result?: string
-  statusCode: number
-  errorCode?: string | null
-}): boolean {
-  return effectiveOperationAuditResult(input) === OPERATION_AUDIT_RESULT.FAILURE
-}
-
 export const OPERATION_AUDIT_MODULE = {
   AUTH: 'auth',
   PROFILE: 'profile',

@@ -1,3 +1,4 @@
+<!-- 营收分析与成本管理：收入统计及明细统一剔除当前封禁用户。 -->
 <template>
   <div class="revenue-page">
     <div class="page-body">
@@ -20,7 +21,7 @@
         <div class="panel-heading">
           <div>
             <h3>真实支付明细</h3>
-            <p>仅统计月卡和季卡的成功支付；赠送日卡、邀请奖励等内部权益不计入营收。</p>
+            <p>仅统计未封禁用户的月卡和季卡成功支付；赠送日卡、邀请奖励等内部权益不计入营收。</p>
           </div>
           <el-tag type="success" effect="light">净营收已扣除退款</el-tag>
         </div>

@@ -1,4 +1,4 @@
-<!-- 操作日志页面：按角色和业务维度检索审计记录，并承接行为分析的精确下钻。 -->
+<!-- 操作日志页面：按角色和业务维度检索操作记录，支持地址栏恢复筛选。 -->
 <template>
   <div class="operation-logs-page">
     <div class="page-heading">

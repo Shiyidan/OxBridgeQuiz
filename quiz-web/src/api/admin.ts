@@ -259,7 +259,6 @@ export interface OperationLogListParams extends ListParams {
 export interface BehaviorAnalyticsParams {
   startAt?: string
   endAt?: string
-  module?: string
 }
 
 export interface TrafficAnalyticsParams {
@@ -287,6 +286,11 @@ export interface TrafficExamPreferenceItem {
   label: string
   studentCount: number
   percentage: number
+}
+
+export interface TrafficExamPreferenceDistribution {
+  totalStudentCount: number
+  items: TrafficExamPreferenceItem[]
 }
 
 export interface TrafficAnalyticsResult {
@@ -321,50 +325,9 @@ export interface TrafficAnalyticsResult {
     unknownRegistrationCount: number
     items: TrafficRegistrationLocationItem[]
   }
-  examPreferenceDistribution: {
-    totalStudentCount: number
-    items: TrafficExamPreferenceItem[]
-  }
+  examPreferenceDistribution: TrafficExamPreferenceDistribution
+  paidExamPreferenceDistribution: TrafficExamPreferenceDistribution
   generatedAt: string
-}
-
-export interface BehaviorAnalyticsOverview {
-  activeUsers: number
-  activeUsersChangeRate: number | null
-  operationCount: number
-  operationCountChangeRate: number | null
-  averageOperations: number
-  averageOperationsChangeRate: number | null
-  moduleCount: number
-  failureRate: number
-  failureRateChange: number | null
-}
-
-export interface BehaviorAnalyticsRankingItem {
-  userCount: number
-  operationCount: number
-  averageOperations: number
-  penetrationRate: number
-  repeatedUserRate: number
-  failureRate: number
-  userChangeRate: number | null
-  operationChangeRate: number | null
-}
-
-export interface BehaviorAnalyticsModule extends BehaviorAnalyticsRankingItem {
-  module: string
-}
-
-export interface BehaviorAnalyticsAction extends BehaviorAnalyticsRankingItem {
-  module: string
-  action: string
-}
-
-export interface BehaviorAnalyticsTrendItem {
-  date: string
-  userCount: number
-  operationCount: number
-  failureCount: number
 }
 
 export type ProductUsageModuleCode = 'diagnostic_test' | 'question_bank' | 'mock_exam'
@@ -432,7 +395,6 @@ export interface BehaviorProductUsage {
 export interface BehaviorAnalyticsResult {
   scope: {
     actorRoleSnapshot: 'student'
-    excludedModules: string[]
     timezone: 'Asia/Shanghai'
   }
   period: {
@@ -442,14 +404,7 @@ export interface BehaviorAnalyticsResult {
     previousEndAt: string
     endExclusive: true
   }
-  overview: BehaviorAnalyticsOverview
-  modules: BehaviorAnalyticsModule[]
-  actions: BehaviorAnalyticsAction[]
-  trend: BehaviorAnalyticsTrendItem[]
   productUsage: BehaviorProductUsage
-  dataQuality: {
-    unattributedOperationCount: number
-  }
 }
 
 export interface AdminPaymentConfig {
@@ -884,7 +839,7 @@ export function resolveAdminPaymentReconciliationItem(id: string, note: string) 
   })
 }
 
-// ---- 操作审计 ----
+// ---- 用户分析与操作日志 ----
 
 /** 查询匿名网站访问与学生注册趋势，按北京时间自然日聚合。 */
 export function getTrafficAnalytics(params: TrafficAnalyticsParams = {}) {
@@ -899,7 +854,7 @@ export function getTrafficAnalytics(params: TrafficAnalyticsParams = {}) {
   })
 }
 
-/** 查询学生学习产品偏好与操作审计统计，不接收角色参数。 */
+/** 查询学生产品使用次数、偏好及每日趋势。 */
 export function getBehaviorAnalytics(params: BehaviorAnalyticsParams = {}) {
   return callApi<BehaviorAnalyticsResult>({
     url: '/admin/behavior-analytics',
@@ -907,7 +862,6 @@ export function getBehaviorAnalytics(params: BehaviorAnalyticsParams = {}) {
     params: {
       startAt: params.startAt,
       endAt: params.endAt,
-      module: params.module,
     },
   })
 }

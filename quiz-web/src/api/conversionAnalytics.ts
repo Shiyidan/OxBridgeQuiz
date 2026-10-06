@@ -5,6 +5,7 @@ export interface ConversionParams {
   startAt: string
   endAt: string
   windowDays: number
+  examDate?: string
 }
 export interface ConversionDuration {
   key: 'registration' | 'activation' | 'payment' | 'checkout'
@@ -21,17 +22,23 @@ export interface ConversionCell {
   users: number
   userHours: number
 }
-export interface ConversionDailyPayment {
+export interface ConversionPaidUserGrowthPoint {
   date: string
-  paidUsers: number
+  cumulativePaidUsers: number
 }
-export interface ConversionSegment {
-  label: string
-  users: number
-  activated: number
-  paid: number
-  conversionRate: number | null
-  medianSeconds: number | null
+export interface ExamPaymentAnalysis {
+  examDate: string
+  totalUsers: number
+  stages: Array<{
+    label: string
+    startDate: string | null
+    endDate: string | null
+    observedDays: number
+    users: number
+    dailyAverage: number | null
+    share: number | null
+    status: 'not_started' | 'outside_range' | 'ongoing' | 'partial' | 'complete'
+  }>
 }
 export interface ConversionResult {
   period: ConversionParams & { observedAt: string; timezone: string }
@@ -56,18 +63,11 @@ export interface ConversionResult {
   }
   funnels: Array<{ key: string; label: string; steps: Array<{ label: string; count: number }> }>
   durations: ConversionDuration[]
-  dailyPayments: ConversionDailyPayment[]
+  paidUserGrowth: ConversionPaidUserGrowthPoint[]
   heatmap: ConversionCell[]
   hourly: Array<{ hour: number; users: number; userHours: number }>
   topHours: Array<{ hour: number; users: number; userHours: number }>
-  segments: ConversionSegment[]
-  weeklyCohorts: Array<{
-    week: string
-    users: number
-    activated: number
-    paid: number
-    conversionRate: number | null
-  }>
+  examPayments: ExamPaymentAnalysis
   quality: {
     registrationTracked: number
     registrationTotal: number
@@ -76,12 +76,47 @@ export interface ConversionResult {
   }
 }
 
+export interface PaidUserAnalytics {
+  observedAt: string
+  paidUsers: number
+  everPaidUsers: number
+  fullyRefundedUsers: number
+  geography: {
+    knownUsers: number
+    unknownUsers: number
+    regions: Array<{ label: string; users: number; share: number | null }>
+  }
+  duration: ConversionDuration & {
+    meanSeconds: number | null
+    minSeconds: number | null
+    maxSeconds: number | null
+    invalidUsers: number
+    withinDayShare: number | null
+    withinWeekShare: number | null
+  }
+}
+
+// 累计付费分析独立加载，首次地域解析允许更长的等待时间。
+export function getPaidUserAnalytics() {
+  return callApi<PaidUserAnalytics>({
+    method: 'GET',
+    url: '/admin/conversion-analytics/paid-users',
+    timeout: 60000,
+    silent: true,
+  })
+}
+
 // 统计失败由面板展示可重试状态，避免重复全局弹窗。
 export function getConversionAnalytics(params: ConversionParams) {
   return callApi<ConversionResult>({
     method: 'GET',
     url: '/admin/conversion-analytics',
-    params: { startAt: params.startAt, endAt: params.endAt, windowDays: String(params.windowDays) },
+    params: {
+      startAt: params.startAt,
+      endAt: params.endAt,
+      windowDays: String(params.windowDays),
+      examDate: params.examDate,
+    },
     silent: true,
   })
 }

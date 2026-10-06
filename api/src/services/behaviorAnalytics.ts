@@ -1,6 +1,6 @@
-// 学生行为统计服务：基于考试记录与操作审计实时聚合产品偏好、行为排行和北京时间趋势。
+// 学生行为统计服务：基于交卷与成功查看记录聚合产品使用偏好和北京时间趋势。
 import { prisma } from './prisma.js'
-import { ACCOUNT_STATUS } from '../constants/auth.js'
+import { analyticsStudentWhere } from './analyticsScope.js'
 import { visibleOperationActorWhere } from './operationLogVisibility.js'
 import {
   EXAM_RECORD_STATUS,
@@ -8,11 +8,7 @@ import {
   USER_ROLE,
   normalizePaperType,
 } from '../constants/domain.js'
-import {
-  OPERATION_AUDIT_MODULE,
-  OPERATION_AUDIT_RESULT,
-  isOperationAuditFailure,
-} from '../constants/operationAudit.js'
+import { OPERATION_AUDIT_RESULT } from '../constants/operationAudit.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const CHINA_TIMEZONE_OFFSET_MS = 8 * 60 * 60 * 1000
@@ -45,17 +41,6 @@ export type ProductPreference = (typeof PRODUCT_PREFERENCE)[keyof typeof PRODUCT
 export interface BehaviorAnalyticsFilters {
   startAt: Date
   endAt: Date
-  module?: string
-}
-
-export interface BehaviorAnalyticsLog {
-  occurredAt: Date
-  actorUserId: string | null
-  module: string
-  action: string
-  result: string
-  statusCode?: number
-  errorCode?: string | null
 }
 
 export interface ProductCompletionEvent {
@@ -81,30 +66,6 @@ export interface ProductUsageEvents {
   reportViews: DiagnosticReportViewEvent[]
   mistakeNotebookViews: NotebookQuestionViewEvent[]
   favoriteNotebookViews: NotebookQuestionViewEvent[]
-}
-
-interface MutableGroupStats {
-  users: Set<string>
-  userOperationCounts: Map<string, number>
-  operationCount: number
-  attributedOperationCount: number
-  failureCount: number
-}
-
-interface PeriodAggregation {
-  users: Set<string>
-  modules: Map<string, MutableGroupStats>
-  actions: Map<string, MutableGroupStats & { module: string; action: string }>
-  operationCount: number
-  attributedOperationCount: number
-  failureCount: number
-  unattributedOperationCount: number
-}
-
-interface TrendAccumulator {
-  users: Set<string>
-  operationCount: number
-  failureCount: number
 }
 
 interface ProductModuleAccumulator {
@@ -157,114 +118,9 @@ function ratio(numerator: number, denominator: number): number {
   return denominator === 0 ? 0 : round(numerator / denominator)
 }
 
-// 每个模块或行为使用同一套用户、次数和失败计数结构。
-function createGroupStats(): MutableGroupStats {
-  return {
-    users: new Set<string>(),
-    userOperationCounts: new Map<string, number>(),
-    operationCount: 0,
-    attributedOperationCount: 0,
-    failureCount: 0,
-  }
-}
-
-// 用户标识缺失的历史日志只参与次数统计，不参与 UV 或人均计算。
-function addLogToGroup(group: MutableGroupStats, log: BehaviorAnalyticsLog): void {
-  group.operationCount += 1
-  if (isOperationAuditFailure({ ...log, statusCode: log.statusCode ?? 0 })) group.failureCount += 1
-  if (!log.actorUserId) return
-  group.attributedOperationCount += 1
-  group.users.add(log.actorUserId)
-  group.userOperationCounts.set(
-    log.actorUserId,
-    (group.userOperationCounts.get(log.actorUserId) || 0) + 1,
-  )
-}
-
-// 单个周期先聚合基础集合与计数，再由响应格式化阶段计算派生指标。
-function aggregatePeriod(logs: BehaviorAnalyticsLog[]): PeriodAggregation {
-  const aggregation: PeriodAggregation = {
-    users: new Set<string>(),
-    modules: new Map(),
-    actions: new Map(),
-    operationCount: 0,
-    attributedOperationCount: 0,
-    failureCount: 0,
-    unattributedOperationCount: 0,
-  }
-
-  for (const log of logs) {
-    aggregation.operationCount += 1
-    if (isOperationAuditFailure({ ...log, statusCode: log.statusCode ?? 0 })) aggregation.failureCount += 1
-    if (log.actorUserId) {
-      aggregation.attributedOperationCount += 1
-      aggregation.users.add(log.actorUserId)
-    } else aggregation.unattributedOperationCount += 1
-
-    const moduleStats = aggregation.modules.get(log.module) || createGroupStats()
-    addLogToGroup(moduleStats, log)
-    aggregation.modules.set(log.module, moduleStats)
-
-    const actionKey = `${log.module}\u0000${log.action}`
-    const actionStats = aggregation.actions.get(actionKey) || {
-      ...createGroupStats(),
-      module: log.module,
-      action: log.action,
-    }
-    addLogToGroup(actionStats, log)
-    aggregation.actions.set(actionKey, actionStats)
-  }
-
-  return aggregation
-}
-
-// 重复用户定义为同一周期内在同一模块或行为至少操作两次的用户。
-function repeatedUserRate(group: MutableGroupStats): number {
-  const repeatedUsers = [...group.userOperationCounts.values()].filter((count) => count >= 2).length
-  return ratio(repeatedUsers, group.users.size)
-}
-
 // UTC 时间先平移到东八区，再取自然日键，避免凌晨日志落入前一天。
 export function chinaDateKey(value: Date): string {
   return new Date(value.getTime() + CHINA_TIMEZONE_OFFSET_MS).toISOString().slice(0, 10)
-}
-
-// 趋势补齐范围内的空白自然日，图表不会因无操作日期而断轴。
-function buildTrend(
-  logs: BehaviorAnalyticsLog[],
-  startAt: Date,
-  endAt: Date,
-): Array<{
-  date: string
-  userCount: number
-  operationCount: number
-  failureCount: number
-}> {
-  const trend = new Map<string, TrendAccumulator>()
-  const firstDay = Math.floor((startAt.getTime() + CHINA_TIMEZONE_OFFSET_MS) / DAY_MS) * DAY_MS
-  const lastIncludedTime = Math.max(startAt.getTime(), endAt.getTime() - 1)
-  const lastDay = Math.floor((lastIncludedTime + CHINA_TIMEZONE_OFFSET_MS) / DAY_MS) * DAY_MS
-
-  for (let cursor = firstDay; cursor <= lastDay; cursor += DAY_MS) {
-    const date = new Date(cursor).toISOString().slice(0, 10)
-    trend.set(date, { users: new Set(), operationCount: 0, failureCount: 0 })
-  }
-
-  for (const log of logs) {
-    const date = chinaDateKey(log.occurredAt)
-    const item = trend.get(date)
-    if (!item) continue
-    item.operationCount += 1
-    if (isOperationAuditFailure({ ...log, statusCode: log.statusCode ?? 0 })) item.failureCount += 1
-    if (log.actorUserId) item.users.add(log.actorUserId)
-  }
-
-  return [...trend.entries()].map(([date, item]) => ({
-    date,
-    userCount: item.users.size,
-    operationCount: item.operationCount,
-    failureCount: item.failureCount,
-  }))
 }
 
 // 试卷标准类型映射为互斥的产品使用模块，避免统计层重复解释业务枚举。
@@ -536,130 +392,16 @@ export function aggregateProductUsage(
   }
 }
 
-// 聚合结果转换为稳定的管理端响应，并为每个排行项匹配上一周期数据。
-export function aggregateBehaviorAnalytics(
-  currentLogs: BehaviorAnalyticsLog[],
-  previousLogs: BehaviorAnalyticsLog[],
-  filters: BehaviorAnalyticsFilters,
-) {
-  const current = aggregatePeriod(currentLogs)
-  const previous = aggregatePeriod(previousLogs)
-  const activeUsers = current.users.size
-  const previousActiveUsers = previous.users.size
-  const averageOperations = ratio(current.attributedOperationCount, activeUsers)
-  const previousAverageOperations = ratio(previous.attributedOperationCount, previousActiveUsers)
-
-  const modules = [...current.modules.entries()]
-    .map(([module, stats]) => {
-      const previousStats = previous.modules.get(module)
-      return {
-        module,
-        userCount: stats.users.size,
-        operationCount: stats.operationCount,
-        averageOperations: ratio(stats.attributedOperationCount, stats.users.size),
-        penetrationRate: ratio(stats.users.size, activeUsers),
-        repeatedUserRate: repeatedUserRate(stats),
-        failureRate: ratio(stats.failureCount, stats.operationCount),
-        userChangeRate: changeRate(stats.users.size, previousStats?.users.size || 0),
-        operationChangeRate: changeRate(stats.operationCount, previousStats?.operationCount || 0),
-      }
-    })
-    .sort(
-      (left, right) =>
-        right.userCount - left.userCount || right.operationCount - left.operationCount,
-    )
-
-  const actions = [...current.actions.entries()]
-    .map(([key, stats]) => {
-      const previousStats = previous.actions.get(key)
-      return {
-        module: stats.module,
-        action: stats.action,
-        userCount: stats.users.size,
-        operationCount: stats.operationCount,
-        averageOperations: ratio(stats.attributedOperationCount, stats.users.size),
-        penetrationRate: ratio(stats.users.size, activeUsers),
-        repeatedUserRate: repeatedUserRate(stats),
-        failureRate: ratio(stats.failureCount, stats.operationCount),
-        userChangeRate: changeRate(stats.users.size, previousStats?.users.size || 0),
-        operationChangeRate: changeRate(stats.operationCount, previousStats?.operationCount || 0),
-      }
-    })
-    .sort(
-      (left, right) =>
-        right.userCount - left.userCount || right.operationCount - left.operationCount,
-    )
-
-  const durationMs = filters.endAt.getTime() - filters.startAt.getTime()
-  const previousStartAt = new Date(filters.startAt.getTime() - durationMs)
-
-  return {
-    scope: {
-      actorRoleSnapshot: USER_ROLE.STUDENT,
-      excludedModules: [OPERATION_AUDIT_MODULE.AUTH],
-      timezone: BEHAVIOR_ANALYTICS_TIMEZONE,
-    },
-    period: {
-      startAt: filters.startAt.toISOString(),
-      endAt: filters.endAt.toISOString(),
-      previousStartAt: previousStartAt.toISOString(),
-      previousEndAt: filters.startAt.toISOString(),
-      endExclusive: true,
-    },
-    overview: {
-      activeUsers,
-      activeUsersChangeRate: changeRate(activeUsers, previousActiveUsers),
-      operationCount: current.operationCount,
-      operationCountChangeRate: changeRate(current.operationCount, previous.operationCount),
-      averageOperations,
-      averageOperationsChangeRate: changeRate(averageOperations, previousAverageOperations),
-      moduleCount: current.modules.size,
-      failureRate: ratio(current.failureCount, current.operationCount),
-      failureRateChange:
-        previous.operationCount === 0
-          ? null
-          : round(
-              ratio(current.failureCount, current.operationCount) -
-                ratio(previous.failureCount, previous.operationCount),
-            ),
-    },
-    modules,
-    actions,
-    trend: buildTrend(currentLogs, filters.startAt, filters.endAt),
-    dataQuality: {
-      unattributedOperationCount: current.unattributedOperationCount,
-    },
-  }
-}
-
 // 数据库仅读取聚合所需窄字段；完成次数取业务记录，报告查看取成功审计事件。
 export async function getStudentBehaviorAnalytics(filters: BehaviorAnalyticsFilters) {
   const durationMs = filters.endAt.getTime() - filters.startAt.getTime()
   const previousStartAt = new Date(filters.startAt.getTime() - durationMs)
-  const [logs, completionRecords, productViewLogs, trendOverrides] = await Promise.all([
-    prisma.operationLog.findMany({
-      where: {
-        AND: [visibleOperationActorWhere],
-        actorRoleSnapshot: USER_ROLE.STUDENT,
-        module: filters.module || { not: OPERATION_AUDIT_MODULE.AUTH },
-        occurredAt: { gte: previousStartAt, lt: filters.endAt },
-      },
-      select: {
-        occurredAt: true,
-        actorUserId: true,
-        module: true,
-        action: true,
-        result: true,
-        statusCode: true,
-        errorCode: true,
-      },
-      orderBy: { occurredAt: 'asc' },
-    }),
+  const [completionRecords, productViewLogs, trendOverrides] = await Promise.all([
     prisma.examRecord.findMany({
       where: {
         status: EXAM_RECORD_STATUS.SUBMITTED,
         submittedAt: { gte: previousStartAt, lt: filters.endAt },
-        user: { role: USER_ROLE.STUDENT, accountStatus: { not: ACCOUNT_STATUS.BANNED } },
+        user: { is: analyticsStudentWhere },
       },
       select: {
         id: true,
@@ -696,8 +438,6 @@ export async function getStudentBehaviorAnalytics(filters: BehaviorAnalyticsFilt
     }),
   ])
 
-  const currentLogs = logs.filter((log) => log.occurredAt >= filters.startAt)
-  const previousLogs = logs.filter((log) => log.occurredAt < filters.startAt)
   const completionEvents: ProductCompletionEvent[] = completionRecords.flatMap((record) =>
     record.submittedAt
       ? [
@@ -756,15 +496,25 @@ export async function getStudentBehaviorAnalytics(filters: BehaviorAnalyticsFilt
   const overrideByDate = new Map(
     trendOverrides.map((item) => [item.businessDate.toISOString().slice(0, 10), item.questionBankPracticeCount]),
   )
-  // 修正仅在真实聚合完成后应用到趋势点，汇总、偏好、同期对比和用户业务数据仍使用原始记录。
+  // 趋势修正不能高于剔除封禁账号后的真实次数，避免固定修正值重新抬高统计。
   productUsage.trend = productUsage.trend.map((item) => {
     const count = overrideByDate.get(item.date)
     return count !== undefined && Number.isSafeInteger(count) && count >= 0
-      ? { ...item, questionBankPracticeCount: count }
+      ? { ...item, questionBankPracticeCount: Math.min(count, item.questionBankPracticeCount) }
       : item
   })
   return {
-    ...aggregateBehaviorAnalytics(currentLogs, previousLogs, filters),
+    scope: {
+      actorRoleSnapshot: USER_ROLE.STUDENT,
+      timezone: BEHAVIOR_ANALYTICS_TIMEZONE,
+    },
+    period: {
+      startAt: filters.startAt.toISOString(),
+      endAt: filters.endAt.toISOString(),
+      previousStartAt: previousStartAt.toISOString(),
+      previousEndAt: filters.startAt.toISOString(),
+      endExclusive: true,
+    },
     productUsage,
   }
 }

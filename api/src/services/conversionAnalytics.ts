@@ -1,17 +1,23 @@
 // 转化分析：区分注册人群的完整观察窗口、真实首付与付费后的学习行为。
 import { prisma } from "./prisma.js";
-import { ACCOUNT_STATUS } from "../constants/auth.js";
+import { analyticsStudentWhere } from "./analyticsScope.js";
 import {
   EXAM_RECORD_STATUS,
   USER_ROLE,
-  EXAM_TYPE,
 } from "../constants/domain.js";
 import { OPERATION_AUDIT_RESULT } from "../constants/operationAudit.js";
 import {
   REAL_PAYMENT_PRICE_TYPES,
   REAL_PAYMENT_STATUSES,
+  realPaymentOrderWhere,
+  isRetainedPayment,
 } from "./revenuePayments.js";
-import { parseJsonArray } from "../utils/jsonField.js";
+import {
+  LEGAL_ACCEPTANCE_SOURCE,
+  LEGAL_DOCUMENT_TYPE,
+} from "../constants/legal.js";
+import { resolveIpLocation, type IpLocation } from "./ipGeolocation.js";
+import { normalizeIpAddress } from "../utils/ipAddress.js";
 
 const DAY = 86400000;
 const CHINA_OFFSET = 8 * 3600000;
@@ -26,6 +32,7 @@ export interface ConversionFilters {
   startAt: Date;
   endAt: Date;
   windowDays: number;
+  examDate?: string;
 }
 export interface ConversionOrder {
   id: string;
@@ -39,7 +46,6 @@ export interface ConversionStudent {
   id: string;
   createdAt: Date;
   firstVisitedAt: Date | null;
-  examPreferences: unknown;
   paymentOrders: ConversionOrder[];
   examRecords: Array<{
     startedAt: Date;
@@ -50,6 +56,154 @@ export interface ConversionStudent {
 export interface ConversionActivity {
   userId: string;
   at: Date;
+}
+
+export interface PaidUserSample {
+  id: string;
+  createdAt: Date;
+  registrationIp: string | null;
+  paymentOrders: ConversionOrder[];
+}
+
+// 每人只计一次注册地区和首次付款耗时，首单退款后复购仍使用最早的成功付款时间。
+export function aggregatePaidUserAnalytics(
+  students: PaidUserSample[],
+  locations: ReadonlyMap<string, IpLocation | null>,
+  now = new Date(),
+) {
+  const everPaid = students
+    .map((student) => ({
+      ...student,
+      paymentOrders: student.paymentOrders.filter(
+        (order) =>
+          order.amountCents > 0 &&
+          REAL_PAYMENT_STATUSES.some((status) => status === order.status),
+      ),
+    }))
+    .filter((student) => student.paymentOrders.length > 0);
+  const paid = everPaid.filter((student) => student.paymentOrders.some(isRetainedPayment));
+  const regions = new Map<string, number>();
+  const seconds: number[] = [];
+  let unknownUsers = 0;
+  for (const student of paid) {
+    const location = locations.get(student.registrationIp || "");
+    const label =
+      [...new Set([location?.country, location?.region].filter(Boolean))].join(
+        " · ",
+      ) || "未知";
+    if (label === "未知") unknownUsers++;
+    regions.set(label, (regions.get(label) || 0) + 1);
+    if (
+      student.paymentOrders.some((order) =>
+        hasInvalidPaymentTime(order, student.createdAt, now),
+      )
+    )
+      continue;
+    const firstPaidAt = Math.min(
+      ...student.paymentOrders.map((order) => order.paidAt!.getTime()),
+    );
+    seconds.push((firstPaidAt - student.createdAt.getTime()) / 1000);
+  }
+  const duration = durationDistribution("payment", seconds, paid.length);
+  return {
+    observedAt: now.toISOString(),
+    paidUsers: paid.length,
+    everPaidUsers: everPaid.length,
+    fullyRefundedUsers: everPaid.length - paid.length,
+    geography: {
+      knownUsers: paid.length - unknownUsers,
+      unknownUsers,
+      regions: [...regions]
+        .map(([label, users]) => ({
+          label,
+          users,
+          share: rate(users, paid.length),
+        }))
+        .sort(
+          (a, b) =>
+            b.users - a.users || a.label.localeCompare(b.label, "zh-CN"),
+        ),
+    },
+    duration: {
+      ...duration,
+      meanSeconds: seconds.length
+        ? seconds.reduce((sum, value) => sum + value, 0) / seconds.length
+        : null,
+      minSeconds: seconds.length ? Math.min(...seconds) : null,
+      maxSeconds: seconds.length ? Math.max(...seconds) : null,
+      invalidUsers: paid.length - seconds.length,
+      withinDayShare: rate(
+        seconds.filter((value) => value < 86400).length,
+        seconds.length,
+      ),
+      withinWeekShare: rate(
+        seconds.filter((value) => value < 7 * 86400).length,
+        seconds.length,
+      ),
+    },
+  };
+}
+
+// 全历史口径独立于日期筛选，注册 IP 仅用于后台汇总，响应不包含个人标识或原始地址。
+export async function getPaidUserAnalytics(now = new Date()) {
+  const rows = await prisma.user.findMany({
+    where: {
+      ...analyticsStudentWhere,
+      paymentOrders: { some: realPaymentOrderWhere() },
+    },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      createdAt: true,
+      legalAcceptances: {
+        where: {
+          source: LEGAL_ACCEPTANCE_SOURCE.REGISTER,
+          documentType: LEGAL_DOCUMENT_TYPE.USER_AGREEMENT,
+        },
+        orderBy: { acceptedAt: "asc" },
+        take: 1,
+        select: { ipAddress: true },
+      },
+      paymentOrders: {
+        where: realPaymentOrderWhere(),
+        orderBy: [{ paidAt: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          createdAt: true,
+          paidAt: true,
+          status: true,
+          amountCents: true,
+          refundedAmountCents: true,
+        },
+      },
+    },
+  });
+  const students = rows.map((row) => ({
+    id: row.id,
+    createdAt: row.createdAt,
+    paymentOrders: row.paymentOrders,
+    registrationIp: normalizeIpAddress(row.legalAcceptances[0]?.ipAddress),
+  }));
+  const ips = [
+    ...new Set(
+      students
+        .filter((student) => student.paymentOrders.some(isRetainedPayment))
+        .map((row) => row.registrationIp)
+        .filter((ip): ip is string => !!ip),
+    ),
+  ];
+  const locations = new Map<string, IpLocation | null>();
+  let cursor = 0;
+  // 限制并发并复用已有位置缓存，解析失败归入未知，不影响人数和转化时长。
+  await Promise.all(
+    Array.from({ length: Math.min(6, ips.length) }, async () => {
+      while (cursor < ips.length) {
+        const ip = ips[cursor++]!;
+        locations.set(ip, await resolveIpLocation(ip));
+      }
+    }),
+  );
+  return aggregatePaidUserAnalytics(students, locations, now);
 }
 
 // 区间采用左闭右开，避免连续日期重复计入午夜事件。
@@ -77,31 +231,88 @@ function hasInvalidPaymentTime(
   );
 }
 
-// 每日人数按付款成功的北京时间日期去重，复购仍计入当天，未发生付款的日期补零。
-function dailyPaymentTrend(
-  ordersByUser: Map<string, ConversionOrder[]>,
+// 每位用户仅在首次真实付款日增加一次，区间之前的付费用户作为累计基数。
+function cumulativePaidUserTrend(
+  firstPayments: Map<string, ConversionOrder>,
   startAt: Date,
   endAt: Date,
 ) {
-  const days = new Map<string, Set<string>>();
+  const days = new Map<string, number>();
   const firstDay =
     Math.floor((startAt.getTime() + CHINA_OFFSET) / DAY) * DAY - CHINA_OFFSET;
   for (let time = firstDay; time < endAt.getTime(); time += DAY) {
     days.set(
       new Date(time + CHINA_OFFSET).toISOString().slice(0, 10),
-      new Set(),
+      0,
     );
   }
-  for (const [userId, orders] of ordersByUser) {
-    for (const order of orders) {
-      if (!order.paidAt || !inPeriod(order.paidAt, startAt, endAt)) continue;
-      const date = new Date(order.paidAt.getTime() + CHINA_OFFSET)
-        .toISOString()
-        .slice(0, 10);
-      days.get(date)?.add(userId);
+  let cumulativePaidUsers = 0;
+  for (const order of firstPayments.values()) {
+    if (!order.paidAt || order.paidAt >= endAt) continue;
+    if (order.paidAt.getTime() < firstDay) {
+      cumulativePaidUsers += 1;
+      continue;
     }
+    const date = new Date(order.paidAt.getTime() + CHINA_OFFSET)
+      .toISOString()
+      .slice(0, 10);
+    if (days.has(date)) days.set(date, days.get(date)! + 1);
   }
-  return [...days].map(([date, users]) => ({ date, paidUsers: users.size }));
+  return [...days].map(([date, newPaidUsers]) => {
+    cumulativePaidUsers += newPaidUsers;
+    return { date, cumulativePaidUsers };
+  });
+}
+
+// 按首次仍有实付金额的付款日分组，日均值只使用所选范围内已经到来的北京时间自然日。
+function examPaymentAnalysis(
+  paidOrdersByUser: Map<string, ConversionOrder[]>,
+  uncertainUsers: Set<string>,
+  filters: ConversionFilters,
+  now: Date,
+) {
+  const examDate = filters.examDate ?? `${new Date(now.getTime() + CHINA_OFFSET).getUTCFullYear()}-10-12`;
+  const examAt = new Date(`${examDate}T00:00:00+08:00`).getTime();
+  const endAt = Math.min(filters.endAt.getTime(), now.getTime(), examAt);
+  const firstPayments = [...paidOrdersByUser].flatMap(([id, orders]) => {
+    if (uncertainUsers.has(id)) return [];
+    const first = orders.find(isRetainedPayment);
+    return first?.paidAt ? [first.paidAt.getTime()] : [];
+  });
+  const stages = [
+    { label: "考前 90 天以上", min: 91, max: null },
+    { label: "考前 61–90 天", min: 61, max: 90 },
+    { label: "考前 31–60 天", min: 31, max: 60 },
+    { label: "考前 15–30 天", min: 15, max: 30 },
+    { label: "考前 8–14 天", min: 8, max: 14 },
+    { label: "考前 1–7 天", min: 1, max: 7 },
+  ].map(({ label, min, max }) => {
+    const stageStart = max === null ? filters.startAt.getTime() : examAt - max * DAY;
+    const stageEnd = examAt - (min - 1) * DAY;
+    const start = Math.max(stageStart, filters.startAt.getTime());
+    const end = Math.min(stageEnd, endAt);
+    const observedDays = end > start
+      ? Math.ceil((end + CHINA_OFFSET) / DAY) - Math.floor((start + CHINA_OFFSET) / DAY)
+      : 0;
+    const users = firstPayments.filter((at) => at >= start && at < end).length;
+    return {
+      label,
+      startDate: observedDays ? new Date(start + CHINA_OFFSET).toISOString().slice(0, 10) : null,
+      endDate: observedDays ? new Date(end - 1 + CHINA_OFFSET).toISOString().slice(0, 10) : null,
+      observedDays,
+      users,
+      dailyAverage: rate(users, observedDays),
+      status: stageStart >= now.getTime() ? "not_started" : !observedDays ? "outside_range"
+        : now.getTime() < stageEnd ? "ongoing"
+        : start > stageStart || end < stageEnd ? "partial" : "complete",
+    };
+  });
+  const totalUsers = stages.reduce((sum, stage) => sum + stage.users, 0);
+  return {
+    examDate,
+    totalUsers,
+    stages: stages.map((stage) => ({ ...stage, share: rate(stage.users, totalUsers) })),
+  };
 }
 
 // 百分位使用排序后的线性插值，小样本仍返回实际时长而不四舍五入成天数。
@@ -166,20 +377,6 @@ function learningActivities(
       ]),
     ),
   ];
-}
-
-// 当前备考方向仅用于分组比较，不将付费结果倒推成注册时的偏好。
-function preferenceLabel(value: unknown): string {
-  const exams = new Set(
-    parseJsonArray<{ examType?: string } | null>(value).map(
-      (item) => item?.examType,
-    ),
-  );
-  if (exams.has(EXAM_TYPE.ESAT) && exams.has(EXAM_TYPE.TMUA))
-    return "ESAT + TMUA";
-  if (exams.has(EXAM_TYPE.ESAT)) return EXAM_TYPE.ESAT;
-  if (exams.has(EXAM_TYPE.TMUA)) return EXAM_TYPE.TMUA;
-  return "未设置";
 }
 
 // 纯聚合让观察期、重复支付、退款和午夜边界可以独立回归验证。
@@ -269,10 +466,11 @@ export function aggregateConversionAnalytics(
   const periodOrders = [...paidOrdersByUser.values()]
     .flat()
     .filter((order) => inPeriod(order.paidAt!, filters.startAt, periodEnd));
+  // 先剔除全额退款订单再排序号，首单退款后仅重新购买一次不属于有效复购。
   const repeatPayerCount = students.filter(
     (student) =>
       !uncertainFirstPaymentUsers.has(student.id) &&
-      (paidOrdersByUser.get(student.id) || []).some(
+      (paidOrdersByUser.get(student.id) || []).filter(isRetainedPayment).some(
         (order, index) =>
           index > 0 && inPeriod(order.paidAt!, filters.startAt, periodEnd),
       ),
@@ -340,50 +538,6 @@ export function aggregateConversionAnalytics(
   const returnedPaid = eligiblePaid.filter((student) =>
     postPaymentUsers.has(student.id),
   ).length;
-  const segmentLabels = ["ESAT", "TMUA", "ESAT + TMUA", "未设置"];
-  const segments = segmentLabels.map((label) => {
-    const rows = cohortRows.filter(
-      (row) => preferenceLabel(row.student.examPreferences) === label,
-    );
-    const payers = rows.filter((row) => row.firstPaid);
-    return {
-      label,
-      users: rows.length,
-      activated: rows.filter((row) => row.completed).length,
-      paid: payers.length,
-      conversionRate: rate(payers.length, rows.length),
-      medianSeconds: percentile(
-        payers
-          .map(
-            (row) =>
-              (row.firstPaid!.paidAt!.getTime() -
-                row.student.createdAt.getTime()) /
-              1000,
-          )
-          .sort((a, b) => a - b),
-        0.5,
-      ),
-    };
-  });
-  const weeklyGroups = new Map<string, typeof cohortRows>();
-  for (const row of cohortRows) {
-    const china = new Date(row.student.createdAt.getTime() + CHINA_OFFSET);
-    china.setUTCDate(china.getUTCDate() - ((china.getUTCDay() + 6) % 7));
-    const key = china.toISOString().slice(0, 10);
-    weeklyGroups.set(key, [...(weeklyGroups.get(key) || []), row]);
-  }
-  const weeklyCohorts = [...weeklyGroups]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([week, rows]) => ({
-      week,
-      users: rows.length,
-      activated: rows.filter((row) => row.completed).length,
-      paid: rows.filter((row) => row.firstPaid).length,
-      conversionRate: rate(
-        rows.filter((row) => row.firstPaid).length,
-        rows.length,
-      ),
-    }));
   const hourly = hourlyUsers.map((users, hour) => ({
     hour,
     users: users.size,
@@ -451,8 +605,8 @@ export function aggregateConversionAnalytics(
       durationDistribution("payment", paymentSamples, matured.length),
       durationDistribution("checkout", checkoutSamples, periodOrders.length),
     ],
-    dailyPayments: dailyPaymentTrend(
-      paidOrdersByUser,
+    paidUserGrowth: cumulativePaidUserTrend(
+      firstPayments,
       filters.startAt,
       periodEnd,
     ),
@@ -462,8 +616,7 @@ export function aggregateConversionAnalytics(
     })),
     hourly,
     topHours,
-    segments,
-    weeklyCohorts,
+    examPayments: examPaymentAnalysis(paidOrdersByUser, uncertainFirstPaymentUsers, filters, now),
     quality: {
       registrationTracked: signupSamples.length,
       registrationTotal: cohort.length,
@@ -493,8 +646,7 @@ export async function getConversionAnalytics(
   );
   const students = await prisma.user.findMany({
     where: {
-      role: USER_ROLE.STUDENT,
-      accountStatus: { not: ACCOUNT_STATUS.BANNED },
+      ...analyticsStudentWhere,
       OR: [
         { createdAt: { gte: filters.startAt, lt: filters.endAt } },
         {
@@ -513,7 +665,6 @@ export async function getConversionAnalytics(
       id: true,
       createdAt: true,
       firstVisitedAt: true,
-      examPreferences: true,
       paymentOrders: {
         where: {
           priceType: { in: [...REAL_PAYMENT_PRICE_TYPES] },

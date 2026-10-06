@@ -70,7 +70,7 @@ import {
 } from '../services/adminUserDetail.js'
 import { getAdminStaffGiftCardStats } from '../services/adminStaffStats.js'
 import { getRevenuePayments } from '../services/revenuePayments.js'
-import { CONVERSION_WINDOW_DAYS, getConversionAnalytics } from '../services/conversionAnalytics.js'
+import { CONVERSION_WINDOW_DAYS, getConversionAnalytics, getPaidUserAnalytics } from '../services/conversionAnalytics.js'
 import { z } from 'zod'
 import { ACCOUNT_STATUS } from '../constants/auth.js'
 import { AuthError } from '../utils/authError.js'
@@ -346,11 +346,10 @@ adminRouter.get('/traffic-analytics', async (req, res) => {
   res.json(success(await getWebsiteTrafficAnalytics({ startAt, endAt })))
 })
 
-// 学生行为分析
+// 产品使用分析
 adminRouter.get('/behavior-analytics', async (req, res) => {
   const requestedStartAt = parseOperationLogDate(req.query.startAt)
   const requestedEndAt = parseOperationLogDate(req.query.endAt)
-  const module = typeof req.query.module === 'string' ? req.query.module.trim() : ''
 
   if (requestedStartAt === null || requestedEndAt === null) {
     res.status(422).json(fail('无效的时间范围'))
@@ -358,14 +357,6 @@ adminRouter.get('/behavior-analytics', async (req, res) => {
   }
   if ((requestedStartAt === undefined) !== (requestedEndAt === undefined)) {
     res.status(422).json(fail('开始时间和结束时间必须同时提供'))
-    return
-  }
-  if (module === OPERATION_AUDIT_MODULE.AUTH) {
-    res.status(422).json(fail('用户行为分析不统计认证登录模块'))
-    return
-  }
-  if (module && !OPERATION_AUDIT_MODULE_VALUES.some((value) => value === module)) {
-    res.status(422).json(fail('无效的操作模块'))
     return
   }
   const defaults = defaultBehaviorAnalyticsPeriod()
@@ -385,7 +376,6 @@ adminRouter.get('/behavior-analytics', async (req, res) => {
   const analytics = await getStudentBehaviorAnalytics({
     startAt,
     endAt,
-    ...(module ? { module } : {}),
   })
   res.json(success(analytics))
 })
@@ -395,6 +385,14 @@ adminRouter.get('/conversion-analytics', async (req, res) => {
   const requestedStartAt = parseOperationLogDate(req.query.startAt)
   const requestedEndAt = parseOperationLogDate(req.query.endAt)
   const windowDays = Number(req.query.windowDays ?? 7)
+  const examDate = req.query.examDate
+  if (examDate !== undefined && (typeof examDate !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(examDate) ||
+      !Number.isFinite(Date.parse(`${examDate}T00:00:00Z`)) ||
+      new Date(`${examDate}T00:00:00Z`).toISOString().slice(0, 10) !== examDate)) {
+    res.status(422).json(fail('请提供有效的考试日期'))
+    return
+  }
   if (requestedStartAt === null || requestedEndAt === null ||
       (requestedStartAt === undefined) !== (requestedEndAt === undefined)) {
     res.status(422).json(fail('请同时提供有效的开始时间和结束时间'))
@@ -412,7 +410,12 @@ adminRouter.get('/conversion-analytics', async (req, res) => {
     res.status(422).json(fail('请选择不超过 90 天且已开始的统计范围'))
     return
   }
-  res.json(success(await getConversionAnalytics({ startAt, endAt, windowDays })))
+  res.json(success(await getConversionAnalytics({ startAt, endAt, windowDays, examDate })))
+})
+
+// 累计付费用户分析
+adminRouter.get('/conversion-analytics/paid-users', async (_req, res) => {
+  res.json(success(await getPaidUserAnalytics()))
 })
 
 // 操作日志

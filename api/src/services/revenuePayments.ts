@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client'
 import { MEMBERSHIP_PLAN, PAYMENT_ORDER_STATUS, PAYMENT_PRICE_TYPE } from '../constants/domain.js'
 import { prisma } from './prisma.js'
 import { parseJsonArray } from '../utils/jsonField.js'
+import { analyticsUserWhere } from './analyticsScope.js'
 
 export const REAL_PAYMENT_STATUSES = [
   PAYMENT_ORDER_STATUS.PAID,
@@ -19,6 +20,13 @@ export const REVENUE_DETAIL_PAYMENT_STATUSES = [
   PAYMENT_ORDER_STATUS.PAID,
   PAYMENT_ORDER_STATUS.REFUNDING,
 ] as const
+
+// 复购和付费偏好只计算仍保留实付金额的订单，全额退款状态优先于历史退款金额。
+export function isRetainedPayment(order: { status: string; amountCents: number; refundedAmountCents: number }): boolean {
+  return REAL_PAYMENT_STATUSES.some(status => status === order.status) &&
+    order.status !== PAYMENT_ORDER_STATUS.REFUNDED &&
+    order.amountCents > order.refundedAmountCents
+}
 
 export interface RevenuePaymentOverview {
   paidUserCount: number
@@ -72,8 +80,9 @@ export function yuanAmountToCents(amount: number): number {
 
 // 营收接口一次返回全量汇总和当前页明细，保证看板不受分页影响。
 export async function getRevenuePayments(input: { page: number; pageSize: number }) {
-  const allPaidWhere = realPaymentOrderWhere()
-  const detailWhere = revenueDetailOrderWhere()
+  // 总额、退款、付费人数、套餐分布及明细统一剔除封禁用户，原始订单仍可在支付运营中处理。
+  const allPaidWhere = { ...realPaymentOrderWhere(), user: { is: analyticsUserWhere } }
+  const detailWhere = { ...revenueDetailOrderWhere(), user: { is: analyticsUserWhere } }
   const [
     paidOrderCount,
     totals,

@@ -340,6 +340,7 @@ model User {
   questionFavorites          QuestionFavorite[]
   favoriteCategories         FavoriteCategory[]
   learningActivities         LearningActivity[]
+  websiteVisits              WebsiteVisitDaily[]          @relation("WebsiteVisitUsers")
 }
 
 // 独立保存实际作答足迹，答案覆盖、交卷或移出错题本不会删除历史学习行为。
@@ -426,15 +427,19 @@ model OperationLog {
 }
 
 model WebsiteVisitDaily {
-  id           String   @id @default(uuid()) @db.VarChar(191)
-  businessDate DateTime @db.Date
-  ipHash       String   @db.Char(64)
-  visitorType  String?  @db.VarChar(16)
-  visitCount   Int      @default(1)
-  firstSeenAt  DateTime @default(now())
-  lastSeenAt   DateTime @default(now())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                   String   @id @default(uuid()) @db.VarChar(191)
+  businessDate         DateTime @db.Date
+  ipHash               String   @db.Char(64)
+  visitorType          String?  @db.VarChar(16)
+  // 旧记录未保存账号身份；新增记录由上报端显式标记是否存在匿名访问。
+  hasUnattributedVisit Boolean  @default(true)
+  visitCount           Int      @default(1)
+  firstSeenAt          DateTime @default(now())
+  lastSeenAt           DateTime @default(now())
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  users User[] @relation("WebsiteVisitUsers")
 
   @@unique([businessDate, ipHash])
   @@index([businessDate])

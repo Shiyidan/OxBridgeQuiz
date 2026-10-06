@@ -30,6 +30,7 @@
             :disabled-date="disableFutureDate"
             @change="handleDateRangeChange"
           />
+          <el-button type="primary" @click="applyFilters">查询</el-button>
         </div>
         <div class="refresh-control">
           <div class="refresh-meta" aria-live="polite">
@@ -40,7 +41,6 @@
           <el-button :icon="Refresh" :loading="refreshing" @click="loadAnalytics(false)">
             刷新
           </el-button>
-          <el-button type="primary" @click="applyFilters">查询</el-button>
         </div>
       </div>
     </section>
@@ -93,14 +93,14 @@
         <div class="panel-heading">
           <div>
             <h3>网站访问与注册趋势</h3>
-            <p>按北京时间自然日统计；注册人数已剔除封禁用户。访问量按 IP 去重，无法按账号剔除。</p>
+            <p>按北京时间自然日统计，剔除当前封禁用户；匿名及历史未关联账号的访问保留。</p>
           </div>
           <span>{{ periodText }}</span>
         </div>
         <WebsiteTrafficTrendChart :items="analytics?.trend || []" />
       </section>
 
-      <section class="distribution-grid" aria-label="注册学生分布分析">
+      <section class="distribution-grid" aria-label="学生地域与考试偏好分析">
         <article class="panel distribution-panel">
           <div class="panel-heading">
             <div>
@@ -117,19 +117,35 @@
           <div class="panel-heading">
             <div>
               <h3>用户偏好的考试类型</h3>
-              <p>按所选期间注册学生当前的备考偏好划分，每人计一次</p>
+              <p>{{ examPreferenceDescription }}</p>
             </div>
             <span>{{ examPreferenceCountText }}</span>
           </div>
-          <AdminDistributionPieChart title="用户偏好的考试类型" :items="examPreferenceItems" />
+          <el-radio-group
+            v-model="examPreferenceAudience"
+            class="preference-switch"
+            aria-label="考试偏好统计人群"
+          >
+            <el-radio-button value="registered">注册用户</el-radio-button>
+            <el-radio-button value="paid">付费用户</el-radio-button>
+          </el-radio-group>
+          <AdminDistributionPieChart
+            :title="examPreferenceAudience === 'paid' ? '付费用户考试偏好' : '注册用户考试偏好'"
+            :items="examPreferenceItems"
+            :empty-text="
+              examPreferenceAudience === 'paid'
+                ? '所选期间暂无有效付费用户'
+                : '所选期间暂无新注册用户'
+            "
+          />
         </article>
       </section>
-
     </div>
 
     <p class="data-note">
-      独立 IP 使用服务端 HMAC
-      摘要去重，不保存明文地址；访问次数按北京时间自然日对同一 IP 去重。身份由服务端登录状态判断，同一 IP 当天登录后归为登录学生；管理员与常见爬虫不计入。
+      独立 IP 使用服务端 HMAC 摘要去重，不保存明文地址；访问次数按北京时间自然日对同一 IP 去重。同一
+      IP
+      当天存在未封禁账号访问时归为登录学生，仅有封禁账号且无匿名访问时剔除。匿名及历史未关联账号的访问保留，管理员与常见爬虫不计入。
     </p>
   </div>
 </template>
@@ -167,6 +183,7 @@ const loading = ref(false)
 const refreshing = ref(false)
 const loadError = ref('')
 const autoRefresh = ref(true)
+const examPreferenceAudience = ref<'registered' | 'paid'>('registered')
 const activeQuickRange = ref<(typeof quickRangeOptions)[number] | null>(30)
 const draftDateRange = ref<[Date, Date]>(recentDateRange(30))
 const appliedDateRange = ref<[Date, Date]>(recentDateRange(30))
@@ -213,14 +230,16 @@ const overviewMetrics = computed<OverviewMetric[]>(() => [
   {
     key: 'unique-ip',
     label: '独立 IP',
-    description: '所选日期范围内按 IP 去重后的访问 IP 数。同一 IP 在整个查询周期内无论访问多少天，只计 1 个。',
+    description:
+      '所选日期范围内按 IP 去重后的访问 IP 数。同一 IP 在整个查询周期内无论访问多少天，只计 1 个。',
     value: analytics.value?.overview.uniqueIpCount || 0,
     changeRate: analytics.value?.overview.uniqueIpChangeRate ?? null,
   },
   {
     key: 'visits',
     label: '每日去重访问',
-    description: '先按每天对 IP 去重，再将各天结果相加。同一 IP 同一天只计 1 次；跨天访问会每天各计 1 次。',
+    description:
+      '先按每天对 IP 去重，再将各天结果相加。同一 IP 同一天只计 1 次；跨天访问会每天各计 1 次。',
     value: analytics.value?.overview.visitCount || 0,
     changeRate: analytics.value?.overview.visitCountChangeRate ?? null,
   },
@@ -259,16 +278,30 @@ const locationCoverageText = computed(() => {
   return `已定位 ${formatInteger(distribution.resolvedRegistrationCount)} / ${formatInteger(distribution.totalRegistrationCount)} 人`
 })
 
+// 两组人群随同一次查询加载，切换只更新图表，保留统计日期与其他分析结果。
+const examPreferenceDistribution = computed(() =>
+  examPreferenceAudience.value === 'paid'
+    ? analytics.value?.paidExamPreferenceDistribution
+    : analytics.value?.examPreferenceDistribution,
+)
+
+// 明确注册与付费各自的时间口径，避免把两组人数之比误认为注册转化率。
+const examPreferenceDescription = computed(() =>
+  examPreferenceAudience.value === 'paid'
+    ? '所选期间有有效付款的用户，含复购并按人去重；全额退款订单不计入，部分退款保留实付的计入。按当前偏好分组，剔除封禁用户。'
+    : '所选期间新注册用户的当前备考偏好，每人计一次，剔除封禁用户。',
+)
+
 // 四类备考偏好互斥计数，零人数类别不绘制扇区。
 const examPreferenceItems = computed(() =>
-  (analytics.value?.examPreferenceDistribution?.items || [])
+  (examPreferenceDistribution.value?.items || [])
     .filter((item) => item.studentCount > 0)
     .map((item) => ({ label: item.label, count: item.studentCount })),
 )
 
 // 人数来自同一接口周期内的学生集合，等待期间不显示虚构的统计人数。
 const examPreferenceCountText = computed(() => {
-  const distribution = analytics.value?.examPreferenceDistribution
+  const distribution = examPreferenceDistribution.value
   return distribution ? `共 ${formatInteger(distribution.totalStudentCount)} 人` : '等待查询'
 })
 
@@ -465,32 +498,39 @@ onBeforeUnmount(() => {
 }
 
 .filter-row {
-  display: grid;
-  grid-template-columns: minmax(300px, 1fr) max-content;
+  display: flex;
+  flex-wrap: wrap;
   gap: 18px;
-  align-items: end;
+  align-items: center;
 }
 
 .filter-field {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 320px) auto;
+  flex: 0 1 auto;
   min-width: 0;
-  flex-direction: column;
-  gap: 7px;
+  align-items: center;
+  gap: 12px;
 }
 
 .filter-field label {
+  white-space: nowrap;
   color: #64748b;
   font-size: 0.78rem;
 }
 
 .filter-field :deep(.el-date-editor) {
-  width: 100%;
+  width: 320px;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .refresh-control {
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-left: auto;
 }
 
 .refresh-meta {
@@ -615,6 +655,10 @@ onBeforeUnmount(() => {
   min-height: 340px;
 }
 
+.preference-switch {
+  margin: 4px 0 12px;
+}
+
 .panel-heading {
   display: flex;
   align-items: flex-start;
@@ -654,7 +698,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1280px) {
-  .filter-row,
   .distribution-grid {
     grid-template-columns: 1fr;
   }
@@ -665,6 +708,15 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 768px) {
+  .filter-field {
+    flex-basis: 100%;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .filter-field label {
+    grid-column: 1 / -1;
+  }
+
   .quick-ranges {
     align-items: stretch;
     flex-wrap: wrap;
@@ -684,6 +736,7 @@ onBeforeUnmount(() => {
   }
 
   .refresh-control {
+    margin-left: 0;
     align-items: stretch;
     flex-wrap: wrap;
     justify-content: flex-start;

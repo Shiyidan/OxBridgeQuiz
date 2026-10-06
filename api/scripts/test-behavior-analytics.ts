@@ -1,15 +1,12 @@
-// 学生行为聚合纯函数测试：覆盖 UV 去重、失败率、同期变化、空白日期和北京时间分桶。
+// 学生行为聚合纯函数测试：覆盖产品使用去重、同期变化、空白日期和北京时间分桶。
 import assert from 'node:assert/strict'
-import { effectiveOperationAuditResult } from '../src/constants/operationAudit.js'
 import {
-  aggregateBehaviorAnalytics,
   aggregateProductUsage,
   chinaDateKey,
   defaultBehaviorAnalyticsPeriod,
   productModuleFromPaperType,
   PRODUCT_PREFERENCE,
   PRODUCT_USAGE_MODULE,
-  type BehaviorAnalyticsLog,
   type ProductCompletionEvent,
   type ProductUsageModule,
 } from '../src/services/behaviorAnalytics.js'
@@ -18,54 +15,6 @@ const filters = {
   startAt: new Date('2026-06-01T16:00:00.000Z'),
   endAt: new Date('2026-06-04T16:00:00.000Z'),
 }
-
-const currentLogs: BehaviorAnalyticsLog[] = [
-  {
-    occurredAt: new Date('2026-06-01T17:00:00.000Z'),
-    actorUserId: 'student-1',
-    module: 'profile',
-    action: 'profile.update',
-    result: 'success',
-  },
-  {
-    occurredAt: new Date('2026-06-01T18:00:00.000Z'),
-    actorUserId: 'student-1',
-    module: 'profile',
-    action: 'profile.update',
-    result: 'failure',
-  },
-  {
-    occurredAt: new Date('2026-06-04T01:00:00.000Z'),
-    actorUserId: 'student-2',
-    module: 'exam',
-    action: 'exam.start',
-    result: 'success',
-  },
-  {
-    occurredAt: new Date('2026-06-04T02:00:00.000Z'),
-    actorUserId: null,
-    module: 'exam',
-    action: 'exam.submit',
-    result: 'success',
-  },
-]
-
-const previousLogs: BehaviorAnalyticsLog[] = [
-  {
-    occurredAt: new Date('2026-05-30T01:00:00.000Z'),
-    actorUserId: 'student-1',
-    module: 'profile',
-    action: 'profile.update',
-    result: 'success',
-  },
-  {
-    occurredAt: new Date('2026-05-31T01:00:00.000Z'),
-    actorUserId: 'student-3',
-    module: 'exam',
-    action: 'exam.start',
-    result: 'success',
-  },
-]
 
 // 产品完成事件以考试记录为唯一资源，构造器让偏好测试清晰表达各学生分布。
 function completion(
@@ -79,73 +28,6 @@ function completion(
 
 // 单次执行校验核心公式和边界，失败时由 node:assert 输出具体差异。
 function main(): void {
-  const result = aggregateBehaviorAnalytics(currentLogs, previousLogs, filters)
-
-  assert.equal(effectiveOperationAuditResult({
-    result: 'failure',
-    statusCode: 409,
-    errorCode: 'DIAGNOSTIC_IN_PROGRESS',
-  }), 'blocked')
-  assert.equal(effectiveOperationAuditResult({
-    statusCode: 409,
-    errorCode: 'QUESTION_BANK_IN_PROGRESS',
-  }), 'blocked')
-  assert.equal(effectiveOperationAuditResult({
-    result: 'failure',
-    statusCode: 500,
-    errorCode: 'INTERNAL_ERROR',
-  }), 'failure')
-
-  const resultWithBlocked = aggregateBehaviorAnalytics([
-    ...currentLogs,
-    {
-      occurredAt: new Date('2026-06-04T03:00:00.000Z'),
-      actorUserId: 'student-2',
-      module: 'exam',
-      action: 'exam.start',
-      result: 'failure',
-      statusCode: 409,
-      errorCode: 'DIAGNOSTIC_IN_PROGRESS',
-    },
-  ], previousLogs, filters)
-  assert.equal(resultWithBlocked.overview.failureRate, 0.2)
-
-  assert.equal(result.scope.actorRoleSnapshot, 'student')
-  assert.deepEqual(result.scope.excludedModules, ['auth'])
-  assert.equal(result.overview.activeUsers, 2)
-  assert.equal(result.overview.operationCount, 4)
-  assert.equal(result.overview.averageOperations, 1.5)
-  assert.equal(result.overview.moduleCount, 2)
-  assert.equal(result.overview.failureRate, 0.25)
-  assert.equal(result.overview.activeUsersChangeRate, 0)
-  assert.equal(result.overview.operationCountChangeRate, 1)
-  assert.equal(result.dataQuality.unattributedOperationCount, 1)
-  assert.equal(
-    aggregateBehaviorAnalytics(currentLogs, [], filters).overview.failureRateChange,
-    null,
-  )
-
-  const profile = result.modules.find((item) => item.module === 'profile')
-  assert.ok(profile)
-  assert.equal(profile.userCount, 1)
-  assert.equal(profile.operationCount, 2)
-  assert.equal(profile.averageOperations, 2)
-  assert.equal(profile.repeatedUserRate, 1)
-  assert.equal(profile.failureRate, 0.5)
-  assert.equal(profile.operationChangeRate, 1)
-
-  const newAction = result.actions.find((item) => item.action === 'exam.submit')
-  assert.ok(newAction)
-  assert.equal(newAction.operationChangeRate, null)
-  const exam = result.modules.find((item) => item.module === 'exam')
-  assert.ok(exam)
-  assert.equal(exam.averageOperations, 1)
-
-  assert.deepEqual(result.trend, [
-    { date: '2026-06-02', userCount: 1, operationCount: 2, failureCount: 1 },
-    { date: '2026-06-03', userCount: 0, operationCount: 0, failureCount: 0 },
-    { date: '2026-06-04', userCount: 1, operationCount: 2, failureCount: 0 },
-  ])
   assert.equal(chinaDateKey(new Date('2026-06-01T15:59:59.999Z')), '2026-06-01')
   assert.equal(chinaDateKey(new Date('2026-06-01T16:00:00.000Z')), '2026-06-02')
   assert.deepEqual(defaultBehaviorAnalyticsPeriod(new Date('2026-06-15T16:00:00.000Z')), {

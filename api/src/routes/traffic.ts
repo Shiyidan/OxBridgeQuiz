@@ -32,7 +32,7 @@ trafficRouter.post('/visit', visitLimiter, optionalAuth, async (req, res) => {
     req.user?.role === USER_ROLE.STUDENT
       ? WEBSITE_VISITOR_TYPE.STUDENT
       : WEBSITE_VISITOR_TYPE.ANONYMOUS
-  const result = await recordWebsiteVisit(req.ip, req.get('user-agent'), visitorType)
+  const result = await recordWebsiteVisit(req.ip, req.get('user-agent'), visitorType, new Date(), req.user?.userId)
   if (result.counted && visitorType === WEBSITE_VISITOR_TYPE.ANONYMOUS) recordRegistrationVisit(req, res)
   res.json(success(result))
 })

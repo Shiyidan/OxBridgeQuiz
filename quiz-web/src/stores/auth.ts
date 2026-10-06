@@ -11,6 +11,7 @@ import {
 } from '../api/auth'
 import { getMember as apiGetMember, type MemberContext } from '../api/member'
 import type { AuthLegalVersions } from '../constants/legal'
+import { recordWebsiteVisit } from '../api/traffic'
 
 export interface User {
   id: string
@@ -193,6 +194,8 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const data = await apiLogin({ username, password, legalVersions })
       applyAuth(data.user, data.accessToken)
+      // 登录后补充当天访问的账号关联，统计失败不阻断登录。
+      if (data.user.role === 'student') void recordWebsiteVisit().catch(() => undefined)
     } finally {
       loading.value = false
     }
@@ -223,6 +226,8 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const data = await apiRegister(input)
       applyAuth(data.user, data.accessToken)
+      // 注册即登录后关联访问身份，继续沿用每日 IP 去重规则。
+      if (data.user.role === 'student') void recordWebsiteVisit().catch(() => undefined)
     } finally {
       loading.value = false
     }

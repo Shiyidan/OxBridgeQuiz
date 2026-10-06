@@ -1,4 +1,4 @@
-// 操作审计展示常量：供操作日志与学生行为分析统一使用模块和行为中文标签。
+// 操作审计展示常量：供操作日志使用模块和行为中文标签。
 export interface OperationAuditOption {
   label: string
   value: string
@@ -15,10 +15,6 @@ export const OPERATION_AUDIT_MODULE_OPTIONS: OperationAuditOption[] = [
   { label: '营收成本', value: 'revenue' },
   { label: '学习资料', value: 'resource' },
 ]
-
-export const STUDENT_BEHAVIOR_MODULE_OPTIONS = OPERATION_AUDIT_MODULE_OPTIONS.filter((option) =>
-  ['profile', 'exam', 'payment'].includes(option.value),
-)
 
 export const OPERATION_AUDIT_ACTION_LABELS: Record<string, string> = {
   'profile.update': '修改个人资料',
@@ -48,7 +44,7 @@ export function operationModuleLabel(module: string): string {
   return OPERATION_AUDIT_MODULE_OPTIONS.find((item) => item.value === module)?.label || module
 }
 
-// 未配置的行为使用编码兜底，确保排行与下钻条件始终可辨识。
+// 未配置的行为使用编码兜底，确保日志中的行为始终可辨识。
 export function operationActionLabel(action: string): string {
   return OPERATION_AUDIT_ACTION_LABELS[action] || action
 }

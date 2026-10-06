@@ -37,8 +37,12 @@
         /></el-select>
         <el-button type="primary" :loading="loading" @click="load">查询</el-button>
       </div>
-      <p>转化率观察所选日期注册的用户；付费人数和活跃时段观察所选日期发生的行为。</p>
+      <p>
+        转化率观察所选日期注册的用户；付费趋势展示截至每日的累计人数，活跃时段按行为发生时间统计。
+      </p>
     </section>
+
+    <PaidUserAnalyticsPanel />
 
     <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon>
       <el-button link type="primary" @click="load">重新加载</el-button>
@@ -78,15 +82,15 @@
         <section class="conversion-section">
           <div class="section-heading">
             <div>
-              <h3>每日付费人数</h3>
+              <h3>累计付费用户趋势</h3>
               <p>
-                {{ appliedPeriod }} · 按北京时间付款成功日期统计，同一用户当天多次付款只计 1 人。
+                {{ appliedPeriod }} · 按北京时间展示截至每日的累计付费用户数，今日截至查询时刻。
               </p>
             </div>
           </div>
-          <ConversionPaymentTrendChart :items="data.dailyPayments" />
+          <ConversionPaidUserGrowthChart :items="data.paidUserGrowth" />
           <p class="chart-note">
-            包含首次付款和复购，赠送会员、奖励及零金额订单不计入；后续退款不扣减付款当日人数。跨日付款分别计入对应日期，每日人数相加不等于期间去重人数。
+            包含所选日期之前已付费的用户，每人仅在首次真实付款时计入一次，复购不重复增加。赠送、奖励、零金额订单和当前封禁用户不计入；退款或会员到期不扣减历史付费人数，无法确认首次付款时间的用户不计入趋势。
           </p>
         </section>
 
@@ -220,56 +224,12 @@
           </div>
         </section>
 
-        <div class="comparison-grid">
-          <section class="conversion-section">
-            <div class="section-heading">
-              <div>
-                <h3>不同注册批次的转化</h3>
-                <p>按注册周分组，仅包含已满 {{ data.period.windowDays }} 天观察期的用户。</p>
-              </div>
-            </div>
-            <AdminDataTable :data="data.weeklyCohorts" empty-text="暂无已观察完整的注册批次"
-              ><el-table-column prop="week" label="注册周起始" min-width="115" /><el-table-column
-                prop="users"
-                label="注册"
-                width="70"
-              /><el-table-column prop="activated" label="完成练习" width="90" /><el-table-column
-                prop="paid"
-                label="首付"
-                width="70"
-              /><el-table-column label="转化率" min-width="85"
-                ><template #default="{ row }">{{
-                  percentage(row.conversionRate)
-                }}</template></el-table-column
-              ></AdminDataTable
-            >
-          </section>
-          <section class="conversion-section">
-            <div class="section-heading">
-              <div>
-                <h3>不同备考方向的转化</h3>
-                <p>按当前备考偏好分组，不代表考试方向本身导致转化差异。</p>
-              </div>
-            </div>
-            <AdminDataTable :data="data.segments" empty-text="暂无分组数据"
-              ><el-table-column prop="label" label="备考方向" min-width="125" /><el-table-column
-                prop="users"
-                label="注册"
-                width="65"
-              /><el-table-column prop="paid" label="首付" width="65" /><el-table-column
-                label="转化率"
-                min-width="85"
-                ><template #default="{ row }">{{
-                  percentage(row.conversionRate)
-                }}</template></el-table-column
-              ><el-table-column label="首付中位时长" min-width="110"
-                ><template #default="{ row }">{{
-                  duration(row.medianSeconds)
-                }}</template></el-table-column
-              ></AdminDataTable
-            >
-          </section>
-        </div>
+        <ExamPaymentAnalysisPanel
+          v-model="examDate"
+          :data="data.examPayments"
+          :period="appliedPeriod"
+          @change="load"
+        />
         <section class="conversion-section follow-up">
           <div class="section-heading">
             <div>
@@ -296,6 +256,7 @@
           </div>
           <p>
             首次付款成功仍计为转化；后续全额退款单独展示。赠送会员、邀请奖励和零金额订单不计入真实付款。
+            复购需至少两笔未全额退款的真实付款，且第二笔或后续付款发生在所选期间；部分退款后仍有实付金额的订单保留。
           </p>
         </section>
         <p class="data-footnote">
@@ -319,9 +280,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import AdminDataTable from '@/components/admin/AdminDataTable.vue'
 import ConversionActivityHeatmap from './ConversionActivityHeatmap.vue'
-import ConversionPaymentTrendChart from './ConversionPaymentTrendChart.vue'
+import ConversionPaidUserGrowthChart from './ConversionPaidUserGrowthChart.vue'
+import PaidUserAnalyticsPanel from './PaidUserAnalyticsPanel.vue'
+import ExamPaymentAnalysisPanel from './ExamPaymentAnalysisPanel.vue'
 import {
   getConversionAnalytics,
   type ConversionDuration,
@@ -335,6 +297,7 @@ const loading = ref(false)
 const error = ref('')
 const quickRange = ref<number | null>(30)
 const windowDays = ref(7)
+const examDate = ref(`${new Date(Date.now() + 8 * 3600000).getUTCFullYear()}-10-12`)
 const dateRange = ref<[Date, Date]>(recentRange(30))
 const durationKey = ref<ConversionDuration['key']>('payment')
 let sequence = 0
@@ -384,6 +347,7 @@ async function load() {
       startAt: startAt.toISOString(),
       endAt: endAt.toISOString(),
       windowDays: windowDays.value,
+      examDate: examDate.value,
     })
     if (request === sequence) data.value = result
   } catch (reason) {
@@ -642,8 +606,7 @@ h4 {
   font-size: 12px;
   white-space: nowrap;
 }
-.funnel-grid,
-.comparison-grid {
+.funnel-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
@@ -835,7 +798,6 @@ h4 {
   text-align: center;
 }
 @media (max-width: 1280px) {
-  .comparison-grid,
   .activity-grid {
     grid-template-columns: 1fr;
   }

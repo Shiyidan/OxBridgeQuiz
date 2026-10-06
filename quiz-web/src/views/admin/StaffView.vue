@@ -4,7 +4,7 @@
     <div class="page-heading">
       <div>
         <h2 class="page-title">员工管理</h2>
-        <p class="page-desc">按接收用户统计管理员赠送日卡的情况，仅计入成功发放记录。</p>
+        <p class="page-desc">按接收用户统计成功赠送的日卡，已剔除当前封禁账号，解封后恢复统计。</p>
       </div>
     </div>
 

@@ -2,7 +2,7 @@
 import crypto from "node:crypto";
 import { config } from "../config.js";
 import { EXAM_TYPE, USER_ROLE } from "../constants/domain.js";
-import { ACCOUNT_STATUS } from "../constants/auth.js";
+import { analyticsStudentWhere, analyticsUserWhere } from "./analyticsScope.js";
 import {
   LEGAL_ACCEPTANCE_SOURCE,
   LEGAL_DOCUMENT_TYPE,
@@ -11,6 +11,7 @@ import { normalizeIpAddress } from "../utils/ipAddress.js";
 import { parseJsonArray } from "../utils/jsonField.js";
 import { resolveIpLocation, type IpLocation } from "./ipGeolocation.js";
 import { prisma } from "./prisma.js";
+import { isRetainedPayment, realPaymentOrderWhere } from "./revenuePayments.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const CHINA_TIMEZONE_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -53,10 +54,16 @@ export function aggregateRegistrationExamPreferences(
   registrations: RegistrationSample[],
   filters: WebsiteTrafficFilters,
 ) {
+  return aggregateExamPreferences(registrations.filter(student =>
+    student.createdAt >= filters.startAt && student.createdAt < filters.endAt,
+  ));
+}
+
+// 注册与付费人群使用同一套互斥分类，统计用户当前偏好而非购买套餐包含的考试。
+function aggregateExamPreferences(students: Pick<RegistrationSample, "examPreferences">[]) {
   const counts = { ESAT: 0, TMUA: 0, both: 0, unset: 0 };
   let totalStudentCount = 0;
-  for (const student of registrations) {
-    if (student.createdAt < filters.startAt || student.createdAt >= filters.endAt) continue;
+  for (const student of students) {
     const examTypes = new Set(
       parseJsonArray<{ examType?: unknown } | null>(student.examPreferences)
         .map((item) => typeof item?.examType === "string" ? item.examType.trim().toUpperCase() : ""),
@@ -233,24 +240,31 @@ export async function recordWebsiteVisit(
   userAgent: string | undefined,
   visitorType: WebsiteVisitorType,
   now = new Date(),
+  userId?: string,
 ): Promise<{ counted: boolean }> {
   const ipAddress = normalizeIpAddress(rawIpAddress);
   if (!ipAddress || isLikelyBot(userAgent)) return { counted: false };
 
   const businessDate = chinaBusinessDate(now);
   const ipHash = visitorIpHash(ipAddress);
+  const identified = visitorType === WEBSITE_VISITOR_TYPE.STUDENT && !!userId;
+  const users = identified ? { connect: { id: userId! } } : undefined;
   await prisma.websiteVisitDaily.upsert({
     where: { businessDate_ipHash: { businessDate, ipHash } },
     create: {
       businessDate,
       ipHash,
       visitorType,
+      hasUnattributedVisit: !identified,
+      users,
       visitCount: 1,
       firstSeenAt: now,
       lastSeenAt: now,
     },
     update: {
       ...(visitorType === WEBSITE_VISITOR_TYPE.STUDENT ? { visitorType } : {}),
+      ...(!identified ? { hasUnattributedVisit: true } : {}),
+      users,
       lastSeenAt: now,
     },
   });
@@ -373,21 +387,34 @@ export async function getWebsiteTrafficAnalytics(
 ) {
   const durationMs = filters.endAt.getTime() - filters.startAt.getTime();
   const previousStartAt = new Date(filters.startAt.getTime() - durationMs);
-  const [visits, registrations] = await Promise.all([
+  const paidOrderWhere = {
+    ...realPaymentOrderWhere(),
+    paidAt: { gte: filters.startAt, lt: filters.endAt },
+  };
+  const [visits, registrations, paidStudents] = await Promise.all([
     prisma.websiteVisitDaily.findMany({
       where: {
+        // 仅当该 IP 当天的已知账号全部封禁且没有匿名访问时剔除，保留共用网络的正常访问。
+        OR: [
+          { hasUnattributedVisit: true },
+          { users: { none: {} } },
+          { users: { some: analyticsUserWhere } },
+        ],
         businessDate: {
           gte: chinaBusinessDate(previousStartAt),
           lt: chinaBusinessDate(filters.endAt),
         },
       },
-      select: { businessDate: true, ipHash: true, visitorType: true },
+      select: {
+        businessDate: true, ipHash: true, visitorType: true,
+        users: { where: analyticsUserWhere, select: { id: true } },
+        _count: { select: { users: true } },
+      },
       orderBy: { businessDate: "asc" },
     }),
     prisma.user.findMany({
       where: {
-        role: USER_ROLE.STUDENT,
-        accountStatus: { not: ACCOUNT_STATUS.BANNED },
+        ...analyticsStudentWhere,
         createdAt: { gte: previousStartAt, lt: filters.endAt },
       },
       select: {
@@ -405,6 +432,19 @@ export async function getWebsiteTrafficAnalytics(
       },
       orderBy: { createdAt: "asc" },
     }),
+    prisma.user.findMany({
+      where: {
+        ...analyticsStudentWhere,
+        paymentOrders: { some: paidOrderWhere },
+      },
+      select: {
+        examPreferences: true,
+        paymentOrders: {
+          where: paidOrderWhere,
+          select: { status: true, amountCents: true, refundedAmountCents: true },
+        },
+      },
+    }),
   ]);
   const registrationSamples = registrations.map((item) => ({
     createdAt: item.createdAt,
@@ -412,7 +452,13 @@ export async function getWebsiteTrafficAnalytics(
     ipAddress: item.legalAcceptances[0]?.ipAddress,
   }));
   const trafficAnalytics = aggregateWebsiteTraffic(
-    visits,
+    visits.map((visit) => ({
+      businessDate: visit.businessDate,
+      ipHash: visit.ipHash,
+      // 仅剩匿名访问时不能继续算登录学生；没有账号关联的旧记录沿用原始分类。
+      visitorType: visit.users.length ? WEBSITE_VISITOR_TYPE.STUDENT
+        : visit._count.users ? WEBSITE_VISITOR_TYPE.ANONYMOUS : visit.visitorType,
+    })),
     registrationSamples,
     filters,
   );
@@ -421,5 +467,8 @@ export async function getWebsiteTrafficAnalytics(
     filters,
   );
   const examPreferenceDistribution = aggregateRegistrationExamPreferences(registrationSamples, filters);
-  return { ...trafficAnalytics, locationDistribution, examPreferenceDistribution };
+  const paidExamPreferenceDistribution = aggregateExamPreferences(
+    paidStudents.filter(student => student.paymentOrders.some(isRetainedPayment)),
+  );
+  return { ...trafficAnalytics, locationDistribution, examPreferenceDistribution, paidExamPreferenceDistribution };
 }

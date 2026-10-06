@@ -12,12 +12,7 @@ import {
   realPaymentOrderWhere,
   isRetainedPayment,
 } from "./revenuePayments.js";
-import {
-  LEGAL_ACCEPTANCE_SOURCE,
-  LEGAL_DOCUMENT_TYPE,
-} from "../constants/legal.js";
-import { resolveIpLocation, type IpLocation } from "./ipGeolocation.js";
-import { normalizeIpAddress } from "../utils/ipAddress.js";
+import { registrationLocationLabel } from "./registrationLocation.js";
 
 const DAY = 86400000;
 const CHINA_OFFSET = 8 * 3600000;
@@ -61,14 +56,14 @@ export interface ConversionActivity {
 export interface PaidUserSample {
   id: string;
   createdAt: Date;
-  registrationIp: string | null;
+  registrationCountry: string | null;
+  registrationRegion: string | null;
   paymentOrders: ConversionOrder[];
 }
 
 // 每人只计一次注册地区和首次付款耗时，首单退款后复购仍使用最早的成功付款时间。
 export function aggregatePaidUserAnalytics(
   students: PaidUserSample[],
-  locations: ReadonlyMap<string, IpLocation | null>,
   now = new Date(),
 ) {
   const everPaid = students
@@ -86,12 +81,8 @@ export function aggregatePaidUserAnalytics(
   const seconds: number[] = [];
   let unknownUsers = 0;
   for (const student of paid) {
-    const location = locations.get(student.registrationIp || "");
-    const label =
-      [...new Set([location?.country, location?.region].filter(Boolean))].join(
-        " · ",
-      ) || "未知";
-    if (label === "未知") unknownUsers++;
+    const label = registrationLocationLabel(student);
+    if (label === "暂无属地") unknownUsers++;
     regions.set(label, (regions.get(label) || 0) + 1);
     if (
       student.paymentOrders.some((order) =>
@@ -144,7 +135,7 @@ export function aggregatePaidUserAnalytics(
   };
 }
 
-// 全历史口径独立于日期筛选，注册 IP 仅用于后台汇总，响应不包含个人标识或原始地址。
+// 全历史口径独立于日期筛选，地区只读取已保存的注册属地，不再实时定位。
 export async function getPaidUserAnalytics(now = new Date()) {
   const rows = await prisma.user.findMany({
     where: {
@@ -155,15 +146,8 @@ export async function getPaidUserAnalytics(now = new Date()) {
     select: {
       id: true,
       createdAt: true,
-      legalAcceptances: {
-        where: {
-          source: LEGAL_ACCEPTANCE_SOURCE.REGISTER,
-          documentType: LEGAL_DOCUMENT_TYPE.USER_AGREEMENT,
-        },
-        orderBy: { acceptedAt: "asc" },
-        take: 1,
-        select: { ipAddress: true },
-      },
+      registrationCountry: true,
+      registrationRegion: true,
       paymentOrders: {
         where: realPaymentOrderWhere(),
         orderBy: [{ paidAt: "asc" }, { createdAt: "asc" }],
@@ -178,32 +162,7 @@ export async function getPaidUserAnalytics(now = new Date()) {
       },
     },
   });
-  const students = rows.map((row) => ({
-    id: row.id,
-    createdAt: row.createdAt,
-    paymentOrders: row.paymentOrders,
-    registrationIp: normalizeIpAddress(row.legalAcceptances[0]?.ipAddress),
-  }));
-  const ips = [
-    ...new Set(
-      students
-        .filter((student) => student.paymentOrders.some(isRetainedPayment))
-        .map((row) => row.registrationIp)
-        .filter((ip): ip is string => !!ip),
-    ),
-  ];
-  const locations = new Map<string, IpLocation | null>();
-  let cursor = 0;
-  // 限制并发并复用已有位置缓存，解析失败归入未知，不影响人数和转化时长。
-  await Promise.all(
-    Array.from({ length: Math.min(6, ips.length) }, async () => {
-      while (cursor < ips.length) {
-        const ip = ips[cursor++]!;
-        locations.set(ip, await resolveIpLocation(ip));
-      }
-    }),
-  );
-  return aggregatePaidUserAnalytics(students, locations, now);
+  return aggregatePaidUserAnalytics(rows, now);
 }
 
 // 区间采用左闭右开，避免连续日期重复计入午夜事件。

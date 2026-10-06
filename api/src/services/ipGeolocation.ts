@@ -1,4 +1,4 @@
-// 登录会话 IP 地理解析：仅查询公网地址，并以短超时和内存缓存隔离第三方服务波动。
+// 注册属地与登录会话共用的 IP 解析：以缓存、请求间隔及限流退避隔离外部服务波动。
 import { isIP } from 'node:net'
 import { normalizeIpAddress } from '../utils/ipAddress.js'
 
@@ -21,10 +21,18 @@ interface CachedIpLocation {
   value: IpLocation | null
 }
 
-const IP_LOOKUP_TIMEOUT_MS = 1500
+const IP_LOOKUP_TIMEOUT_MS = 5000
 const IP_LOCATION_CACHE_TTL_MS = 6 * 60 * 60 * 1000
+const IP_LOCATION_FAILURE_TTL_MS = 60000
 const IP_LOCATION_CACHE_MAX = 500
 const locationCache = new Map<string, CachedIpLocation>()
+const pendingLookups = new Map<string, Promise<IpLocation | null>>()
+let nextLookupAt = 0
+
+// 定时任务遇到限流时暂停外部查询，不把整批用户逐个标为查询失败。
+export function canLookupIpLocation(): boolean {
+  return Date.now() >= nextLookupAt
+}
 
 // 私网、回环和链路本地地址没有可验证的公网地理位置，不发送给外部解析服务。
 export function isPublicIpAddress(value: string | null | undefined): boolean {
@@ -73,7 +81,7 @@ function cacheLocation(ipAddress: string, value: IpLocation | null): void {
   }
   locationCache.set(ipAddress, {
     value,
-    expiresAt: Date.now() + IP_LOCATION_CACHE_TTL_MS,
+    expiresAt: Date.now() + (value ? IP_LOCATION_CACHE_TTL_MS : IP_LOCATION_FAILURE_TTL_MS),
   })
 }
 
@@ -86,7 +94,21 @@ export async function resolveIpLocation(
 
   const cached = locationCache.get(ipAddress)
   if (cached && cached.expiresAt > Date.now()) return cached.value
+  const pending = pendingLookups.get(ipAddress)
+  if (pending) return pending
+  if (!canLookupIpLocation()) return null
+  nextLookupAt = Date.now() + 5000
+  const lookup = fetchIpLocation(ipAddress)
+  pendingLookups.set(ipAddress, lookup)
+  try {
+    return await lookup
+  } finally {
+    pendingLookups.delete(ipAddress)
+  }
+}
 
+// 所有入口共享请求间隔；限流至少冷却一小时，并遵守服务端更长的 Retry-After。
+async function fetchIpLocation(ipAddress: string): Promise<IpLocation | null> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), IP_LOOKUP_TIMEOUT_MS)
   try {
@@ -97,6 +119,12 @@ export async function resolveIpLocation(
       headers: { Accept: 'application/json' },
       signal: controller.signal,
     })
+    if (response.status === 429) {
+      const retryAfter = response.headers.get('retry-after') || ''
+      const retryMs = /^\d+$/.test(retryAfter)
+        ? Number(retryAfter) * 1000 : Date.parse(retryAfter) - Date.now()
+      nextLookupAt = Date.now() + Math.max(3600000, Number.isFinite(retryMs) ? retryMs : 0)
+    }
     if (!response.ok) {
       cacheLocation(ipAddress, null)
       return null

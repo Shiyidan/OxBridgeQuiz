@@ -31,11 +31,11 @@
             <div class="card-heading">
               <h4>付费用户地域分布</h4>
               <span
-                >已识别 {{ data.geography.knownUsers }} 人 · 未知
+                >已识别 {{ data.geography.knownUsers }} 人 · 暂无属地
                 {{ data.geography.unknownUsers }} 人</span
               >
             </div>
-            <p class="card-note">按注册 IP 的国家 / 地区、省份汇总，每人计一次。</p>
+            <p class="card-note">按已保存的注册国家 / 地区、省份汇总，每人计一次。</p>
             <div
               v-if="data.geography.regions.length"
               class="region-list"
@@ -60,14 +60,14 @@
                     :percentage="progress(region.share)"
                     :show-text="false"
                     :stroke-width="7"
-                    :color="region.label === '未知' ? '#cbd5e1' : '#6366f1'"
+                    :color="region.label === '暂无属地' ? '#cbd5e1' : '#6366f1'"
                   />
                 </div>
               </div>
             </div>
             <el-empty v-else description="暂无符合口径的付费用户" :image-size="90" />
             <p class="card-footnote">
-              占比以全部纳入分析的付费用户为分母。IP 地域仅供参考；地址缺失或解析失败归入“未知”。
+              占比以全部纳入分析的付费用户为分母。注册属地每 30 天自动更新，仅供参考；没有查询结果时显示“暂无属地”。
             </p>
           </article>
 

@@ -515,4 +515,7 @@ export const config = {
     ),
   },
   paymentLifecycle: paymentLifecycleConfig,
+  registrationLocation: {
+    enabled: parseBoolean(process.env.REGISTRATION_LOCATION_ENABLED, BACKEND_ENV !== 'local'),
+  },
 }

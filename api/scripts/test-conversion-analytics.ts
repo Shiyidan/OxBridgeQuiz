@@ -374,20 +374,10 @@ const lifetimeSamples: PaidUserSample[] = [
   uncertain,
 ].map((row) => ({
   ...row,
-  registrationIp: row.id === "a" || row.id === "old" ? "shared-ip" : null,
+  registrationCountry: row.id === "a" || row.id === "old" ? "中国" : null,
+  registrationRegion: row.id === "a" || row.id === "old" ? "上海市" : null,
 }));
-const locations = new Map([
-  [
-    "shared-ip",
-    {
-      country: "中国",
-      region: "上海市",
-      city: "上海市",
-      label: "中国 · 上海市",
-    },
-  ],
-]);
-const lifetime = aggregatePaidUserAnalytics(lifetimeSamples, locations, now);
+const lifetime = aggregatePaidUserAnalytics(lifetimeSamples, now);
 assert.equal(lifetime.everPaidUsers, 5);
 assert.equal(lifetime.paidUsers, 4);
 assert.equal(lifetime.fullyRefundedUsers, 1);
@@ -417,7 +407,8 @@ const durationSamples = durations.map(
   (seconds, index): PaidUserSample => ({
     id: `duration-${index}`,
     createdAt: date("2026-08-01T00:00:00Z"),
-    registrationIp: null,
+    registrationCountry: null,
+    registrationRegion: null,
     paymentOrders: [
       order(
         `duration-order-${index}`,
@@ -431,7 +422,6 @@ const durationSamples = durations.map(
 );
 const exactDurations = aggregatePaidUserAnalytics(
   durationSamples,
-  new Map(),
   now,
 );
 assert.deepEqual(
@@ -459,7 +449,6 @@ const repurchased: PaidUserSample = {
 };
 const repurchasedResult = aggregatePaidUserAnalytics(
   [repurchased],
-  new Map(),
   now,
 );
 assert.equal(repurchasedResult.paidUsers, 1);
@@ -474,7 +463,6 @@ const allRefunded = aggregatePaidUserAnalytics(
       })),
     },
   ],
-  new Map(),
   now,
 );
 assert.equal(allRefunded.paidUsers, 0);
@@ -494,14 +482,13 @@ for (const invalidOrder of [
         paymentOrders: [...repurchased.paymentOrders, invalidOrder],
       },
     ],
-    new Map(),
     now,
   );
   assert.equal(invalid.paidUsers, 1);
   assert.equal(invalid.duration.invalidUsers, 1);
   assert.equal(invalid.duration.sampleCount, 0);
 }
-const noPaid = aggregatePaidUserAnalytics([], new Map(), now);
+const noPaid = aggregatePaidUserAnalytics([], now);
 assert.equal(noPaid.paidUsers, 0);
 assert.equal(noPaid.duration.medianSeconds, null);
 assert.ok(

@@ -11,6 +11,7 @@ import { memberRouter } from './routes/member.js'
 import { paymentRouter } from './routes/payment.js'
 import { startDiagnosticReportWorker } from './services/diagnosticReportTask.js'
 import { startPaymentLifecycleWorker } from './services/paymentLifecycle.js'
+import { startRegistrationLocationWorker } from './services/registrationLocation.js'
 import { success } from './utils/response.js'
 import { globalErrorHandler, notFoundHandler } from './middleware/error.js'
 import { operationAuditMiddleware } from './middleware/operationAudit.js'
@@ -85,5 +86,8 @@ app.listen(config.port, () => {
   })
   void startPaymentLifecycleWorker().catch((error) => {
     console.error('[payment-lifecycle] worker startup failed:', error)
+  })
+  void startRegistrationLocationWorker().catch((error) => {
+    console.error('[registration-location] worker startup failed:', error)
   })
 })

@@ -105,7 +105,7 @@
           <div class="panel-heading">
             <div>
               <h3>注册学生地址分布</h3>
-              <p>按注册时 IP 聚合至国家和地区，不展示具体地址</p>
+              <p>按已保存的注册属地汇总，每 30 天自动更新</p>
             </div>
             <span>{{ locationCoverageText }}</span>
           </div>

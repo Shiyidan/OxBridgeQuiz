@@ -314,6 +314,11 @@ model User {
   diagnosticUsed    Boolean   @default(false)
   avatar            String?   @db.Text
   examPreferences   Json?
+  // 注册属地复用注册协议中的 IP；更新时间只记录成功结果，重试时间用于后台调度。
+  registrationCountry String? @db.VarChar(128)
+  registrationRegion String? @db.VarChar(128)
+  registrationLocationUpdatedAt DateTime?
+  registrationLocationNextCheckAt DateTime?
   firstVisitedAt    DateTime?
   learningTrackedAt DateTime  @default(now())
   createdAt         DateTime  @default(now())
@@ -341,6 +346,8 @@ model User {
   favoriteCategories         FavoriteCategory[]
   learningActivities         LearningActivity[]
   websiteVisits              WebsiteVisitDaily[]          @relation("WebsiteVisitUsers")
+
+  @@index([registrationLocationNextCheckAt, createdAt])
 }
 
 // 独立保存实际作答足迹，答案覆盖、交卷或移出错题本不会删除历史学习行为。

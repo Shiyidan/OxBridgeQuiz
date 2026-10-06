@@ -33,6 +33,7 @@
     "test:product-trend-override": "tsx scripts/test-product-trend-override.ts",
     "repair:sept05-product-trend": "tsx scripts/repair-sept05-product-trend.ts",
     "test:banned-user-analytics": "tsx scripts/test-banned-user-analytics.ts",
+    "test:registration-location": "tsx scripts/test-registration-location.ts",
     "test:website-traffic": "tsx scripts/test-website-traffic.ts",
     "test:admin-user-access": "tsx scripts/test-admin-user-access.ts",
     "test:account-ban": "tsx scripts/test-account-ban.ts",

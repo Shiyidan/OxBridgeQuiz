@@ -3,19 +3,14 @@ import crypto from "node:crypto";
 import { config } from "../config.js";
 import { EXAM_TYPE, USER_ROLE } from "../constants/domain.js";
 import { analyticsStudentWhere, analyticsUserWhere } from "./analyticsScope.js";
-import {
-  LEGAL_ACCEPTANCE_SOURCE,
-  LEGAL_DOCUMENT_TYPE,
-} from "../constants/legal.js";
 import { normalizeIpAddress } from "../utils/ipAddress.js";
 import { parseJsonArray } from "../utils/jsonField.js";
-import { resolveIpLocation, type IpLocation } from "./ipGeolocation.js";
+import { registrationLocationLabel } from "./registrationLocation.js";
 import { prisma } from "./prisma.js";
 import { isRetainedPayment, realPaymentOrderWhere } from "./revenuePayments.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const CHINA_TIMEZONE_OFFSET_MS = 8 * 60 * 60 * 1000;
-const LOCATION_LOOKUP_CONCURRENCY = 8;
 
 export const WEBSITE_TRAFFIC_MAX_RANGE_DAYS = 90;
 export const WEBSITE_TRAFFIC_TIMEZONE = "Asia/Shanghai";
@@ -39,7 +34,8 @@ export interface WebsiteVisitSample {
 
 export interface RegistrationSample {
   createdAt: Date;
-  ipAddress?: string | null;
+  registrationCountry?: string | null;
+  registrationRegion?: string | null;
   examPreferences?: unknown;
 }
 
@@ -148,61 +144,20 @@ function changeRate(current: number, previous: number): number | null {
   return Math.round(((current - previous) / previous) * 10_000) / 10_000;
 }
 
-// 地址展示只保留国家和行政区，避免城市级信息在低样本量下暴露过细位置。
-function registrationLocationLabel(location: IpLocation): string {
-  return (
-    [...new Set([location.country, location.region].filter(Boolean))].join(
-      " · ",
-    ) || "未知地区"
-  );
-}
-
-// 注册 IP 以固定并发解析，复用既有短超时缓存并避免集中请求压垮第三方服务。
-async function resolveRegistrationLocations(
-  ipAddresses: string[],
-): Promise<Map<string, IpLocation | null>> {
-  const locations = new Map<string, IpLocation | null>();
-  let cursor = 0;
-
-  async function resolveNext(): Promise<void> {
-    while (cursor < ipAddresses.length) {
-      const index = cursor;
-      cursor += 1;
-      const ipAddress = ipAddresses[index];
-      if (!ipAddress) continue;
-      locations.set(ipAddress, await resolveIpLocation(ipAddress));
-    }
-  }
-
-  const workerCount = Math.min(LOCATION_LOOKUP_CONCURRENCY, ipAddresses.length);
-  await Promise.all(Array.from({ length: workerCount }, () => resolveNext()));
-  return locations;
-}
-
-// 注册地址按所选周期内学生的注册 IP 聚合，只返回国家/地区统计而不返回明文 IP。
-async function aggregateRegistrationLocations(
+// 注册地址直接汇总用户资料中的国家和地区，查看统计不触发外部定位。
+export function aggregateRegistrationLocations(
   registrations: RegistrationSample[],
   filters: WebsiteTrafficFilters,
 ) {
   const currentRegistrations = registrations.filter(
-    (item) => item.createdAt >= filters.startAt,
+    (item) => item.createdAt >= filters.startAt && item.createdAt < filters.endAt,
   );
-  const uniqueIpAddresses = [
-    ...new Set(
-      currentRegistrations
-        .map((item) => normalizeIpAddress(item.ipAddress))
-        .filter((item): item is string => Boolean(item)),
-    ),
-  ];
-  const locations = await resolveRegistrationLocations(uniqueIpAddresses);
-  const counts = new Map<string, number>();
   let resolvedRegistrationCount = 0;
+  const counts = new Map<string, number>();
 
   for (const registration of currentRegistrations) {
-    const ipAddress = normalizeIpAddress(registration.ipAddress);
-    const location = ipAddress ? locations.get(ipAddress) : null;
-    const label = location ? registrationLocationLabel(location) : "未知地区";
-    if (location) resolvedRegistrationCount += 1;
+    const label = registrationLocationLabel(registration);
+    if (label !== "暂无属地") resolvedRegistrationCount += 1;
     counts.set(label, (counts.get(label) || 0) + 1);
   }
 
@@ -420,15 +375,8 @@ export async function getWebsiteTrafficAnalytics(
       select: {
         createdAt: true,
         examPreferences: true,
-        legalAcceptances: {
-          where: {
-            source: LEGAL_ACCEPTANCE_SOURCE.REGISTER,
-            documentType: LEGAL_DOCUMENT_TYPE.USER_AGREEMENT,
-          },
-          select: { ipAddress: true },
-          orderBy: { acceptedAt: "asc" },
-          take: 1,
-        },
+        registrationCountry: true,
+        registrationRegion: true,
       },
       orderBy: { createdAt: "asc" },
     }),
@@ -449,7 +397,8 @@ export async function getWebsiteTrafficAnalytics(
   const registrationSamples = registrations.map((item) => ({
     createdAt: item.createdAt,
     examPreferences: item.examPreferences,
-    ipAddress: item.legalAcceptances[0]?.ipAddress,
+    registrationCountry: item.registrationCountry,
+    registrationRegion: item.registrationRegion,
   }));
   const trafficAnalytics = aggregateWebsiteTraffic(
     visits.map((visit) => ({
@@ -462,7 +411,7 @@ export async function getWebsiteTrafficAnalytics(
     registrationSamples,
     filters,
   );
-  const locationDistribution = await aggregateRegistrationLocations(
+  const locationDistribution = aggregateRegistrationLocations(
     registrationSamples,
     filters,
   );

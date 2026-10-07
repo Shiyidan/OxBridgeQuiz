@@ -22,7 +22,7 @@ import {
   selectPracticeQuestions,
 } from '../services/practiceNotebook.js'
 import { prisma } from '../services/prisma.js'
-import { withQuotaTransaction } from '../services/transactionRetry.js'
+import { withUserTransaction } from '../services/transactionRetry.js'
 import { parseJsonArray } from '../utils/jsonField.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { fail, success } from '../utils/response.js'
@@ -427,7 +427,7 @@ practiceNotebookRouter.post('/:id/start', requireAuth, async (req, res) => {
       res.status(404).json(fail('练习本不存在', 'NOTEBOOK_NOT_FOUND'))
       return
     }
-    const examRecord = await withQuotaTransaction(async (tx) => {
+    const examRecord = await withUserTransaction(async (tx) => {
       await lockQuestionBankUser(tx, req.user!.userId)
       const existingActive = await tx.examRecord.findFirst({
         where: {

@@ -8,6 +8,7 @@ export const EMAIL_CODE_PURPOSE = {
 export type EmailCodePurpose = (typeof EMAIL_CODE_PURPOSE)[keyof typeof EMAIL_CODE_PURPOSE]
 
 export const AUTH_SESSION_EXPIRED_MESSAGE = '您已失去登录状态，请重新登录！'
+export const AUTH_MAX_ACTIVE_IPS = 2
 export const ACCOUNT_STATUS = { ACTIVE: 'active', BANNED: 'banned' } as const
 export const AUTH_ACCOUNT_BANNED_MESSAGE = '该账号已被暂停使用。如需申请恢复，请联系客服。'
 

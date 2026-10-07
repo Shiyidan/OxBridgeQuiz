@@ -36,6 +36,7 @@
     "test:registration-location": "tsx scripts/test-registration-location.ts",
     "test:website-traffic": "tsx scripts/test-website-traffic.ts",
     "test:admin-user-access": "tsx scripts/test-admin-user-access.ts",
+    "test:auth-ip-limit": "tsx scripts/test-auth-ip-limit.ts",
     "test:account-ban": "tsx scripts/test-account-ban.ts",
     "test:registration-source": "tsx scripts/test-registration-source.ts",
     "test:registration-limits": "tsx scripts/test-registration-limits.ts",

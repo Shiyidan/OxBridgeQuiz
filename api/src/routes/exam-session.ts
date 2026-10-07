@@ -7,7 +7,7 @@ import { formatQuestionRow } from '../utils/questionSync.js'
 import { parseJsonField, parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
 import { hasDiagnosticPaperAccess } from '../services/member.js'
 import { requireQuestionBankAttemptMembership } from '../middleware/questionBankMembership.js'
-import { withQuotaTransaction } from '../services/transactionRetry.js'
+import { withUserTransaction } from '../services/transactionRetry.js'
 import { syncSubmittedWrongQuestions } from '../services/wrongQuestionSummary.js'
 import { recordAnswerLearning } from '../services/learningFootprint.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
@@ -1048,7 +1048,7 @@ examSessionRouter.post('/:id/submit', requireAuth, requireQuestionBankAttemptMem
       : moduleSnapshot
         ? record.activeDurationSeconds
         : Object.values(maps.durations).reduce((sum, value) => sum + Math.max(0, value), 0)
-    const result = await withQuotaTransaction(async (tx) => {
+    const result = await withUserTransaction(async (tx) => {
       if (isDiagnostic) {
         const latest = await tx.examRecord.findUnique({ where: { id: record.id } })
         if (latest?.status === EXAM_RECORD_STATUS.SUBMITTED) {

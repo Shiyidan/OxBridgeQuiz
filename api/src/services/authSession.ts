@@ -5,9 +5,14 @@ import type { User } from '@prisma/client'
 import { prisma } from './prisma.js'
 import { config } from '../config.js'
 import { signAccessToken } from './jwt.js'
-import { ACCOUNT_STATUS, AUTH_ERROR, AUTH_SESSION_EXPIRED_MESSAGE } from '../constants/auth.js'
+import { AUTH_ERROR, AUTH_SESSION_EXPIRED_MESSAGE } from '../constants/auth.js'
 import { AuthError } from '../utils/authError.js'
 import { assertAccountActive } from './accountStatus.js'
+import { normalizeIpAddress } from '../utils/ipAddress.js'
+import { lockAuthSessionUser, trimAuthSessionIps } from './authSessionPolicy.js'
+import { withUserTransaction } from './transactionRetry.js'
+import { recordLegalAcceptances, type LegalDocumentAcceptance } from './legalAcceptance.js'
+import { LEGAL_ACCEPTANCE_SOURCE } from '../constants/legal.js'
 
 export const REFRESH_COOKIE_NAME = 'quiz_refresh'
 
@@ -63,20 +68,31 @@ export function getRefreshCookie(req: Request): string | undefined {
 // 会话记录保存有限长度的设备信息，用于个人中心安全排查。
 function requestMetadata(req: Request): { ipAddress?: string; userAgent?: string } {
   return {
-    ipAddress: req.ip?.slice(0, 64),
+    ipAddress: normalizeIpAddress(req.ip)?.slice(0, 64),
     userAgent: req.get('user-agent')?.slice(0, 512),
   }
 }
 
 // 登录成功后创建七天空闲会话，并签发首个短期访问令牌。
-export async function createAuthSession(user: User, req: Request, res: Response) {
+export async function createAuthSession(
+  user: User,
+  req: Request,
+  res: Response,
+  loginAcceptance?: { documents: LegalDocumentAcceptance[]; acceptedAt: Date },
+) {
   assertAccountActive(user)
   const sessionId = crypto.randomUUID()
   const secret = crypto.randomBytes(32).toString('base64url')
   const expiresAt = new Date(Date.now() + config.refreshTokenTtlSeconds * 1000)
-  await prisma.$transaction(async (tx) => {
-    const currentUser = await tx.user.findUniqueOrThrow({ where: { id: user.id } })
-    assertAccountActive(currentUser)
+  await withUserTransaction(async (tx) => {
+    await lockAuthSessionUser(tx, user.id)
+    // 协议记录与会话使用同一锁顺序，避免多端同时登录时外键锁和用户行锁相互等待。
+    if (loginAcceptance) await recordLegalAcceptances(tx, {
+      userId: user.id,
+      source: LEGAL_ACCEPTANCE_SOURCE.LOGIN,
+      ...loginAcceptance,
+      ...requestMetadata(req),
+    })
     await tx.authSession.create({
       data: {
         id: sessionId,
@@ -86,7 +102,8 @@ export async function createAuthSession(user: User, req: Request, res: Response)
         ...requestMetadata(req),
       },
     })
-  }, { isolationLevel: 'Serializable' })
+    await trimAuthSessionIps(tx, user.id, new Date(), normalizeIpAddress(req.ip) || undefined)
+  })
   setRefreshCookie(res, buildRefreshToken(sessionId, secret))
   return {
     accessToken: signAccessToken(user, sessionId),
@@ -134,16 +151,28 @@ export async function rotateAuthSession(req: Request, res: Response) {
 
   const nextSecret = crypto.randomBytes(32).toString('base64url')
   const nextExpiresAt = new Date(now.getTime() + config.refreshTokenTtlSeconds * 1000)
-  const rotated = await prisma.authSession.updateMany({
-    where: { id: session.id, revokedAt: null, refreshTokenHash: suppliedHash, user: { accountStatus: ACCOUNT_STATUS.ACTIVE } },
-    data: {
-      refreshTokenHash: hashRefreshSecret(nextSecret),
-      lastUsedAt: now,
-      expiresAt: nextExpiresAt,
-      ...requestMetadata(req),
-    },
+  const rotated = await withUserTransaction(async tx => {
+    await lockAuthSessionUser(tx, session.userId)
+    const live = await tx.authSession.findUnique({ where: { id: session.id } })
+    if (!live || live.revokedAt || live.expiresAt <= new Date()
+      || live.lastUsedAt.getTime() + config.refreshTokenTtlSeconds * 1000 <= Date.now()
+      || live.refreshTokenHash !== suppliedHash) return false
+    const ip = normalizeIpAddress(req.ip)
+    if (!ip) return false
+    const moved = normalizeIpAddress(live.ipAddress) !== ip
+    await tx.authSession.update({
+      where: { id: session.id },
+      data: {
+        refreshTokenHash: hashRefreshSecret(nextSecret),
+        lastUsedAt: now,
+        expiresAt: nextExpiresAt,
+        ...requestMetadata(req),
+      },
+    })
+    const removedIds = await trimAuthSessionIps(tx, session.userId, new Date(), moved ? ip : undefined)
+    return !removedIds.includes(session.id)
   })
-  if (rotated.count !== 1) {
+  if (!rotated) {
     clearRefreshCookie(res)
     const user = await prisma.user.findUnique({ where: { id: session.userId } })
     if (user) assertAccountActive(user)

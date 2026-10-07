@@ -1,9 +1,9 @@
-// Prisma 权益事务重试器：配合用户行锁，只重试数据库明确报告的写冲突或死锁。
+// Prisma 用户事务重试器：配合用户行锁处理会话、额度等同账号并发变更。
 import { Prisma } from '@prisma/client'
 import { prisma } from './prisma.js'
 
-// 同一用户的并发额度事务会争用用户行；短退避后重放整个事务以获得确定结果。
-export async function withQuotaTransaction<T>(
+// 同一用户的并发事务会争用用户行；短退避后重放整个事务以获得确定结果。
+export async function withUserTransaction<T>(
   operation: (tx: Prisma.TransactionClient) => Promise<T>,
   maxAttempts = 3,
 ): Promise<T> {

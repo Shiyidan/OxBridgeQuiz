@@ -311,12 +311,8 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
     if (!valid) throw new AuthError(AUTH_ERROR.INVALID_CREDENTIALS, '用户名、邮箱或密码错误', 401)
     assertAccountActive(user)
 
-    await recordLegalAcceptances(prisma, {
-      userId: user.id,
-      source: LEGAL_ACCEPTANCE_SOURCE.LOGIN,
+    const session = await createAuthSession(user, req, res, {
       acceptedAt: legalAcceptedAt,
-      ipAddress: normalizeIpAddress(req.ip),
-      userAgent: req.get('user-agent'),
       documents: [
         {
           documentType: LEGAL_DOCUMENT_TYPE.USER_AGREEMENT,
@@ -328,7 +324,6 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
         },
       ],
     })
-    const session = await createAuthSession(user, req, res)
     setOperationAuditActor(req, user)
     setOperationAuditContext(req, { resourceId: user.id })
     res.json(success({ user: presentUser(user), accessToken: session.accessToken }))

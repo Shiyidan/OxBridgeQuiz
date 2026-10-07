@@ -3,7 +3,7 @@ import crypto from 'node:crypto'
 import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import { prisma } from './prisma.js'
-import { withQuotaTransaction } from './transactionRetry.js'
+import { withUserTransaction } from './transactionRetry.js'
 import { checkMemberAccess } from './member.js'
 import { assertAccountActive } from './accountStatus.js'
 import { AuthError } from '../utils/authError.js'
@@ -208,7 +208,7 @@ export async function startDirectQuestionBankPractice(
       .createHash('sha256')
       .update(userId + ':' + input.requestId)
       .digest('hex')
-  return withQuotaTransaction(async (tx) => {
+  return withUserTransaction(async (tx) => {
     await lockQuestionBankUser(tx, userId)
     const previous = await tx.examRecord.findUnique({ where: { startRequestKey } })
     if (previous) {

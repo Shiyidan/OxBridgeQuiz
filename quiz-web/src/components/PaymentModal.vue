@@ -279,6 +279,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import QRCode from 'qrcode'
+import { useOralPromotionStore } from '@/stores/oralPromotion'
 import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 import { MEMBERSHIP_LEGAL_VERSIONS } from '@/constants/legal'
 import {
@@ -311,6 +312,16 @@ interface PaymentPlan {
 }
 
 const props = defineProps<Props>()
+const oralPromotion = useOralPromotionStore()
+const promotionPaymentOwner = Symbol('payment-modal')
+// 支付打开后隐藏推广；即时监听兼容父页面首次挂载时已处于打开状态。
+watch(
+  () => props.modelValue,
+  (visible) => {
+    oralPromotion.setPaymentOpen(promotionPaymentOwner, visible && MEMBERSHIP_PURCHASE_ENABLED)
+  },
+  { immediate: true, flush: 'sync' },
+)
 const emit = defineEmits<{
   (event: 'update:modelValue', value: boolean): void
   (event: 'paid', orderNo: string): void
@@ -661,6 +672,7 @@ watch([selectedExam, selectedPlanId], () => {
 
 window.addEventListener('keydown', handleKeydown)
 onBeforeUnmount(() => {
+  oralPromotion.setPaymentOpen(promotionPaymentOwner, false)
   window.removeEventListener('keydown', handleKeydown)
   stopPaymentPolling()
   document.body.style.overflow = ''

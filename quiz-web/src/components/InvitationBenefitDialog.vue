@@ -55,6 +55,7 @@ import { useInvitationBenefitStore } from '@/stores/invitationBenefit'
 
 const router = useRouter()
 const invitationBenefit = useInvitationBenefitStore()
+// 展示与关闭统一由邀请福利状态管理，登录状态本身不强制弹窗常驻。
 const visible = computed({
   get: () => invitationBenefit.visible,
   set: (value: boolean) => {

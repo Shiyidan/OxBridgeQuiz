@@ -1,3 +1,4 @@
+<!-- 全局导航栏：所有前台页面共用学习入口、账号操作与口语推广。 -->
 <template>
   <header class="navbar">
     <div class="nav-inner">
@@ -6,9 +7,7 @@
           <span class="logo-mark" aria-hidden="true">
             <img :src="brandIconUrl" alt="" class="logo-mark-image" />
           </span>
-          <span class="logo-text">
-            AceMock
-          </span>
+          <span class="logo-text"> AceMock </span>
         </router-link>
         <nav class="nav-links">
           <router-link
@@ -84,6 +83,15 @@
               </el-dropdown-menu>
             </template>
           </el-dropdown>
+          <AppButton
+            v-if="oralPromotion.available"
+            type="text"
+            size="small"
+            class="oral-nav-entry"
+            @click="oralPromotion.open('navigation')"
+          >
+            一对一培训
+          </AppButton>
         </nav>
       </div>
 
@@ -172,11 +180,7 @@
                 </span>
               </div>
               <div class="user-avatar" :title="auth.user.username">
-                <AppAvatar
-                  :source="auth.user.avatar"
-                  :name="auth.user.username"
-                  decorative
-                />
+                <AppAvatar :source="auth.user.avatar" :name="auth.user.username" decorative />
               </div>
 
               <Transition name="dropdown">
@@ -194,11 +198,7 @@
                       </span>
                     </div>
                     <div class="dropdown-avatar">
-                      <AppAvatar
-                        :source="auth.user.avatar"
-                        :name="auth.user.username"
-                        decorative
-                      />
+                      <AppAvatar :source="auth.user.avatar" :name="auth.user.username" decorative />
                     </div>
                   </div>
                   <div class="dropdown-menu">
@@ -242,6 +242,7 @@
     @navigate="handleMobileRouteNavigation"
     @logout="handleLogout"
   />
+  <OralPromotionCharm />
 </template>
 
 <script setup lang="ts">
@@ -253,6 +254,9 @@ import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 import AppAvatar from '@/components/AppAvatar.vue'
 import MobileNavBar from '@/components/MobileNavBar.vue'
+import AppButton from '@/components/AppButton.vue'
+import OralPromotionCharm from '@/components/OralPromotionCharm.vue'
+import { useOralPromotionStore } from '@/stores/oralPromotion'
 import brandIconUrl from '@/assets/brand/acemock-icon.png'
 
 interface NavBarProps {
@@ -278,6 +282,7 @@ const emit = defineEmits<{
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+const oralPromotion = useOralPromotionStore()
 const showDropdown = ref(false)
 const entitlementClock = ref(Date.now())
 let entitlementExpiryTimer: ReturnType<typeof setTimeout> | null = null
@@ -305,8 +310,7 @@ const activeMemberExamTypes = computed<ActiveExamType[]>(() =>
   Object.entries(auth.memberContext?.quotas || {})
     .filter(
       ([, quota]) =>
-        quota.isMember &&
-        (quota.endsAt === null || quota.endsAt > entitlementClock.value),
+        quota.isMember && (quota.endsAt === null || quota.endsAt > entitlementClock.value),
     )
     .map(([examType]) => examType.toUpperCase())
     .filter((examType): examType is ActiveExamType => examType === 'ESAT' || examType === 'TMUA')
@@ -397,9 +401,7 @@ const pendingMembershipCardLabel = computed(() => {
 const dropdownAccountDetailLabel = computed(() => {
   if (auth.isAdmin) return '管理员账户'
   if (activeMemberExamTypes.value.length === 0) {
-    return hasValidPendingMembershipCard.value
-      ? pendingMembershipCardLabel.value
-      : '免费账户'
+    return hasValidPendingMembershipCard.value ? pendingMembershipCardLabel.value : '免费账户'
   }
 
   const preferredMemberExamType = activeMemberExamTypes.value.includes(auth.activeExamType)
@@ -643,7 +645,29 @@ onBeforeUnmount(() => {
 }
 .nav-links {
   min-width: 0;
-  gap: clamp(18px, 1.67vw, 32px);
+  gap: clamp(12px, 1.25vw, 24px);
+}
+.oral-nav-entry.app-button {
+  --app-button-color: #65509b;
+  padding: 0 4px;
+}
+/* 平板横屏仍使用完整导航，缩减品牌和间距为课程入口与账号操作留出空间。 */
+@media (min-width: 861px) and (max-width: 1024px) {
+  .logo-text {
+    display: none;
+  }
+  .nav-inner {
+    gap: 12px;
+  }
+  .nav-left {
+    gap: 10px;
+  }
+  .nav-links {
+    gap: 6px;
+  }
+  .nav-links .nav-link {
+    font-size: 13px;
+  }
 }
 .nav-right {
   flex: 0 0 auto;

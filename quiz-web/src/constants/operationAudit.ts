@@ -14,9 +14,11 @@ export const OPERATION_AUDIT_MODULE_OPTIONS: OperationAuditOption[] = [
   { label: '教学大纲', value: 'syllabus' },
   { label: '营收成本', value: 'revenue' },
   { label: '学习资料', value: 'resource' },
+  { label: '口语推广', value: 'promotion' },
 ]
 
 export const OPERATION_AUDIT_ACTION_LABELS: Record<string, string> = {
+  'promotion.oral.open': '打开英语口语介绍',
   'profile.update': '修改个人资料',
   'profile.exam_preferences.update': '修改备考偏好',
   'profile.study_preferences.update': '修改学习偏好',

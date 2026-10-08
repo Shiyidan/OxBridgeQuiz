@@ -6,7 +6,8 @@ import { fail } from '../utils/response.js'
 import { AUTH_ERROR, AUTH_SESSION_EXPIRED_MESSAGE } from '../constants/auth.js'
 import { assertAccountActive } from '../services/accountStatus.js'
 import { AuthError } from '../utils/authError.js'
-import { checkAuthSessionIp } from '../services/authSessionPolicy.js'
+import { authSessionExpiredError, checkAuthSessionIp } from '../services/authSessionPolicy.js'
+import { clearRefreshCookie } from '../services/authSession.js'
 
 export interface AuthContext {
   userId: string
@@ -41,7 +42,7 @@ async function resolveAuthContext(req: Request): Promise<AuthContext | null> {
   assertAccountActive(session.user)
   if (session.revokedAt || session.expiresAt <= new Date()
     || !await checkAuthSessionIp(session.userId, session.id, req.ip)) {
-    throw new AuthError(AUTH_ERROR.SESSION_EXPIRED, AUTH_SESSION_EXPIRED_MESSAGE, 401)
+    throw await authSessionExpiredError(session.id)
   }
   return {
     userId: session.user.id,
@@ -64,6 +65,11 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     req.user = context
     next()
   } catch (error) {
+    if (error instanceof AuthError && error.code === AUTH_ERROR.IP_LIMIT) {
+      clearRefreshCookie(res)
+      res.status(401).json(fail(error.message, error.code))
+      return
+    }
     if (error instanceof AuthError && error.code === AUTH_ERROR.ACCOUNT_BANNED) {
       res.status(403).json(fail(error.message, error.code))
       return
@@ -81,7 +87,8 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
       res.status(403).json(fail(error.message, error.code))
       return
     }
-    if (error instanceof AuthError && error.code === AUTH_ERROR.SESSION_EXPIRED) {
+    if (error instanceof AuthError && (error.code === AUTH_ERROR.SESSION_EXPIRED || error.code === AUTH_ERROR.IP_LIMIT)) {
+      if (error.code === AUTH_ERROR.IP_LIMIT) clearRefreshCookie(res)
       res.status(401).json(fail(error.message, error.code))
       return
     }

@@ -1,7 +1,8 @@
 // 登录网络限制：同一账号保留两个有效 IP，新网络登录时撤销最早网络的全部会话。
 import type { Prisma } from '@prisma/client'
 import { config } from '../config.js'
-import { AUTH_MAX_ACTIVE_IPS } from '../constants/auth.js'
+import { AUTH_MAX_ACTIVE_IPS, AUTH_ERROR, AUTH_IP_LIMIT_MESSAGE, AUTH_SESSION_EXPIRED_MESSAGE, AUTH_SESSION_REVOKE_REASON } from '../constants/auth.js'
+import { AuthError } from '../utils/authError.js'
 import { normalizeIpAddress } from '../utils/ipAddress.js'
 import { assertAccountActive } from './accountStatus.js'
 import { prisma } from './prisma.js'
@@ -44,9 +45,19 @@ export async function trimAuthSessionIps(
     .map(session => session.id)
   await tx.authSession.updateMany({
     where: { userId, id: { in: removedIds }, revokedAt: null },
-    data: { revokedAt: now },
+    data: { revokedAt: now, revokedReason: AUTH_SESSION_REVOKE_REASON.IP_LIMIT },
   })
   return removedIds
+}
+
+// 失败后读取已提交的撤销原因，覆盖并发登录或本次请求刚触发淘汰的情况。
+export async function authSessionExpiredError(sessionId: string): Promise<AuthError> {
+  const session = await prisma.authSession.findUnique({
+    where: { id: sessionId }, select: { revokedAt: true, revokedReason: true },
+  })
+  return session?.revokedAt && session.revokedReason === AUTH_SESSION_REVOKE_REASON.IP_LIMIT
+    ? new AuthError(AUTH_ERROR.IP_LIMIT, AUTH_IP_LIMIT_MESSAGE, 401)
+    : new AuthError(AUTH_ERROR.SESSION_EXPIRED, AUTH_SESSION_EXPIRED_MESSAGE, 401)
 }
 
 // 普通请求同样检查来源；稳定网络只读，切换网络或旧会话超额时才进入加锁事务。

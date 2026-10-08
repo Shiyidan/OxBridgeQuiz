@@ -45,6 +45,7 @@ let practiceRefreshScheduled = false
 
 const AUTH_FAILURE_REDIRECT_DELAY_MS = 1800
 const AUTH_SESSION_EXPIRED_CODE = 'AUTH_SESSION_EXPIRED'
+const AUTH_IP_LIMIT_CODE = 'AUTH_IP_LIMIT'
 export const AUTH_ACCOUNT_BANNED_CODE = 'AUTH_ACCOUNT_BANNED'
 const REQUEST_CANCELED_CODE = 'ERR_CANCELED'
 const PRACTICE_REFRESH_KEY = 'quiz:question-selection-retired:refreshed'
@@ -242,6 +243,11 @@ instance.interceptors.response.use(
     if (handleAccountBanned(initialError, url)) return Promise.reject(initialError)
     if (accountBanned)
       return Promise.reject(new ApiError('账号访问受限', AUTH_ACCOUNT_BANNED_CODE, 403))
+    // 超限会话已明确被撤销，包括页面恢复登录时也应提示原因，无需再尝试续期。
+    if (initialError.status === 401 && initialError.code === AUTH_IP_LIMIT_CODE) {
+      handleUnauthorized(initialError)
+      return Promise.reject(initialError)
+    }
     if (handleRetiredPractice(initialError)) return Promise.reject(initialError)
     const canRefresh =
       error.response?.status === 401 &&
@@ -258,6 +264,7 @@ instance.interceptors.response.use(
       } catch (refreshError: unknown) {
         const apiError = toApiError(refreshError)
         if (handleAccountBanned(apiError, '/auth/refresh')) return Promise.reject(apiError)
+        if (apiError.code === AUTH_IP_LIMIT_CODE) return Promise.reject(apiError)
         if (isSessionExpired(apiError)) {
           handleUnauthorized(apiError)
           return Promise.reject(apiError)

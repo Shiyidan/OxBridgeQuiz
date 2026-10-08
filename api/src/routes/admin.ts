@@ -76,6 +76,7 @@ import { ACCOUNT_STATUS } from '../constants/auth.js'
 import { AuthError } from '../utils/authError.js'
 import { changeAccountStatus } from '../services/accountStatus.js'
 import { visibleOperationActorWhere } from '../services/operationLogVisibility.js'
+import { getOralPromotionAnalytics } from '../services/oralPromotionAnalytics.js'
 
 export const adminRouter = createAsyncRouter()
 
@@ -411,6 +412,30 @@ adminRouter.get('/conversion-analytics', async (req, res) => {
     return
   }
   res.json(success(await getConversionAnalytics({ startAt, endAt, windowDays, examDate })))
+})
+
+// 口语推广
+adminRouter.get('/oral-promotion-analytics', async (req, res) => {
+  const requestedStartAt = parseOperationLogDate(req.query.startAt)
+  const requestedEndAt = parseOperationLogDate(req.query.endAt)
+  if (requestedStartAt === null || requestedEndAt === null ||
+      (requestedStartAt === undefined) !== (requestedEndAt === undefined)) {
+    res.status(422).json(fail('请同时提供有效的开始时间和结束时间'))
+    return
+  }
+  const defaults = defaultBehaviorAnalyticsPeriod()
+  const startAt = requestedStartAt || defaults.startAt
+  const endAt = requestedEndAt || defaults.endAt
+  const duration = endAt.getTime() - startAt.getTime()
+  if (duration <= 0 || duration > BEHAVIOR_ANALYTICS_MAX_RANGE_DAYS * 86400000 || startAt > new Date()) {
+    res.status(422).json(fail('请选择不超过 90 天且已开始的统计范围'))
+    return
+  }
+  res.json(success(await getOralPromotionAnalytics({
+    startAt, endAt,
+    page: parsePositiveInt(req.query.page, 1),
+    pageSize: parsePositiveInt(req.query.pageSize, 20, 100),
+  })))
 })
 
 // 累计付费用户分析

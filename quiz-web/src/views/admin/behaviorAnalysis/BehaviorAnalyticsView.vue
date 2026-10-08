@@ -1,4 +1,4 @@
-<!-- 用户分析页：通过用户访问、产品使用和转化分析组织运营数据。 -->
+<!-- 用户分析页：通过用户访问、产品使用、转化分析和口语推广组织运营数据。 -->
 <template>
   <div class="behavior-analytics-page">
     <div class="page-heading">
@@ -53,6 +53,17 @@
       tabindex="0"
     >
       <KeepAlive><ConversionAnalyticsPanel v-if="activeTab === 'conversion'" /></KeepAlive>
+    </div>
+
+    <div
+      v-show="activeTab === 'oral-promotion'"
+      id="analytics-panel-oral-promotion"
+      class="analytics-tab-panel"
+      role="tabpanel"
+      aria-labelledby="analytics-tab-oral-promotion"
+      tabindex="0"
+    >
+      <KeepAlive><OralPromotionAnalyticsPanel v-if="activeTab === 'oral-promotion'" /></KeepAlive>
     </div>
 
     <div
@@ -234,6 +245,7 @@ import {
 import BehaviorProductTrendChart from './BehaviorProductTrendChart.vue'
 import WebsiteTrafficPanel from './WebsiteTrafficPanel.vue'
 import ConversionAnalyticsPanel from './ConversionAnalyticsPanel.vue'
+import OralPromotionAnalyticsPanel from './OralPromotionAnalyticsPanel.vue'
 import {
   PRODUCT_PREFERENCE_META,
   PRODUCT_USAGE_MODULE_META,
@@ -246,7 +258,7 @@ interface BehaviorFilters {
   dateRange: [Date, Date] | null
 }
 
-type AnalyticsTab = 'traffic' | 'product' | 'conversion'
+type AnalyticsTab = 'traffic' | 'product' | 'conversion' | 'oral-promotion'
 
 interface AnalyticsTabOption {
   name: AnalyticsTab
@@ -269,6 +281,7 @@ const analyticsTabs: AnalyticsTabOption[] = [
   { name: 'traffic', label: '用户访问' },
   { name: 'product', label: '产品使用' },
   { name: 'conversion', label: '转化分析' },
+  { name: 'oral-promotion', label: '口语推广' },
 ]
 const activeTab = ref<AnalyticsTab>('traffic')
 const analytics = ref<BehaviorAnalyticsResult | null>(null)

@@ -10,7 +10,7 @@ import { prisma } from '../src/services/prisma.js'
 import { authRouter } from '../src/routes/auth.js'
 import { requireAuth, optionalAuth } from '../src/middleware/auth.js'
 import { globalErrorHandler } from '../src/middleware/error.js'
-import { AUTH_ERROR } from '../src/constants/auth.js'
+import { AUTH_ERROR, AUTH_IP_LIMIT_MESSAGE, AUTH_SESSION_EXPIRED_MESSAGE } from '../src/constants/auth.js'
 import { USER_ROLE } from '../src/constants/domain.js'
 import { LEGAL_DOCUMENT_VERSIONS } from '../src/constants/legal.js'
 import { normalizeIpAddress } from '../src/utils/ipAddress.js'
@@ -96,10 +96,14 @@ try {
     for (const path of ['/required', '/optional']) {
       const denied = await request(path, A, device)
       assert.equal(denied.status, 401)
-      assert.equal(denied.body.code, AUTH_ERROR.SESSION_EXPIRED)
+      assert.equal(denied.body.code, AUTH_ERROR.IP_LIMIT)
+      assert.equal(denied.body.errMsg, AUTH_IP_LIMIT_MESSAGE)
+      assert.match(denied.cookie, /Expires=Thu, 01 Jan 1970/)
     }
     const refresh = await request('/api/auth/refresh', A, { method: 'POST', cookie: device.cookie })
     assert.equal(refresh.status, 401)
+    assert.equal(refresh.body.code, AUTH_ERROR.IP_LIMIT)
+    assert.equal(refresh.body.errMsg, AUTH_IP_LIMIT_MESSAGE)
     assert.match(refresh.cookie, /Expires=Thu, 01 Jan 1970/)
   }
   assert.equal((await request('/required', B, b)).status, 200)
@@ -114,6 +118,9 @@ try {
   assert.equal((await request('/required', B, b2)).status, 401)
   assert.equal((await request('/required', D, d)).status, 200)
   await request('/api/auth/logout', C, { method: 'POST', cookie: c.cookie, token: c.token })
+  const loggedOut = await request('/required', C, c)
+  assert.equal(loggedOut.body.code, AUTH_ERROR.SESSION_EXPIRED)
+  assert.equal(loggedOut.body.errMsg, AUTH_SESSION_EXPIRED_MESSAGE)
   await login(user.username, A)
   assert.deepEqual(await activeIps(user.id), [A, D])
   console.log('PASS two IPs, mapped addresses, same-IP devices, failed login, whole-IP eviction, revoked tokens/cookies and logout release')
@@ -139,8 +146,11 @@ try {
   assert.equal((await request('/required', B, soloB)).status, 200)
 
   const expired = await fixture()
-  await login(expired.username, A)
+  const expiredDevice = await login(expired.username, A)
   await prisma.authSession.updateMany({ where: { userId: expired.id }, data: { expiresAt: new Date(Date.now() - 1000) } })
+  const expiredResponse = await request('/api/auth/refresh', A, { method: 'POST', cookie: expiredDevice.cookie })
+  assert.equal(expiredResponse.body.code, AUTH_ERROR.SESSION_EXPIRED)
+  assert.equal(expiredResponse.body.errMsg, AUTH_SESSION_EXPIRED_MESSAGE)
   await login(expired.username, B)
   await login(expired.username, C)
   assert.deepEqual(await activeIps(expired.id), [B, C])
@@ -161,7 +171,9 @@ try {
     } }))
   }
   const oldToken = signAccessToken(legacy, legacySessions[0]!.id)
-  assert.equal((await request('/required', A, { token: oldToken })).status, 401)
+  const legacyDenied = await request('/required', A, { token: oldToken })
+  assert.equal(legacyDenied.status, 401)
+  assert.equal(legacyDenied.body.errMsg, AUTH_IP_LIMIT_MESSAGE)
   assert.deepEqual(await activeIps(legacy.id), [B, C])
 
   // 多个新 IP 同时完成密码登录，串行裁决后只保留两个；管理员也遵循同一上限。

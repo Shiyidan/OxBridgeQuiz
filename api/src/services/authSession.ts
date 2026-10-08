@@ -9,7 +9,7 @@ import { AUTH_ERROR, AUTH_SESSION_EXPIRED_MESSAGE } from '../constants/auth.js'
 import { AuthError } from '../utils/authError.js'
 import { assertAccountActive } from './accountStatus.js'
 import { normalizeIpAddress } from '../utils/ipAddress.js'
-import { lockAuthSessionUser, trimAuthSessionIps } from './authSessionPolicy.js'
+import { authSessionExpiredError, lockAuthSessionUser, trimAuthSessionIps } from './authSessionPolicy.js'
 import { withUserTransaction } from './transactionRetry.js'
 import { recordLegalAcceptances, type LegalDocumentAcceptance } from './legalAcceptance.js'
 import { LEGAL_ACCEPTANCE_SOURCE } from '../constants/legal.js'
@@ -140,6 +140,7 @@ export async function rotateAuthSession(req: Request, res: Response) {
     : false
   if (!session || session.revokedAt || session.expiresAt <= now || idleExpired) {
     clearRefreshCookie(res)
+    if (session && secretMatches) throw await authSessionExpiredError(session.id)
     throw new AuthError(AUTH_ERROR.SESSION_EXPIRED, AUTH_SESSION_EXPIRED_MESSAGE, 401)
   }
 
@@ -176,7 +177,7 @@ export async function rotateAuthSession(req: Request, res: Response) {
     clearRefreshCookie(res)
     const user = await prisma.user.findUnique({ where: { id: session.userId } })
     if (user) assertAccountActive(user)
-    throw new AuthError(AUTH_ERROR.SESSION_EXPIRED, AUTH_SESSION_EXPIRED_MESSAGE, 401)
+    throw await authSessionExpiredError(session.id)
   }
   setRefreshCookie(res, buildRefreshToken(session.id, nextSecret))
   return {

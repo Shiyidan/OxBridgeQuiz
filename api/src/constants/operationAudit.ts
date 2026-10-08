@@ -45,6 +45,7 @@ export const OPERATION_AUDIT_MODULE = {
   SYLLABUS: 'syllabus',
   REVENUE: 'revenue',
   RESOURCE: 'resource',
+  PROMOTION: 'promotion',
 } as const
 
 export const OPERATION_AUDIT_MODULE_VALUES = Object.values(OPERATION_AUDIT_MODULE)

@@ -96,8 +96,8 @@ try {
   await prisma.paper.create({ data: { id: paperId, title: 'Membership test paper', examType: EXAM_TYPE.TMUA,
     year: 2026, duration: 60, paperType: PAPER_TYPE.AI_PAPER, status: QUESTION_STATUS.PUBLISHED } })
   await prisma.question.create({ data: { id: questionId, uniqueCode: questionId, examType: EXAM_TYPE.TMUA,
-    title: 'Membership test question', options: [{ key: 'A', content: '1' }], answer: ['A'],
-    knowledgePoints: [], syllabusPoints: [], meta: {}, difficulty: 'easy', questionType: 'single_choice', status: QUESTION_STATUS.PUBLISHED,
+    title: 'Membership test question', content: { blocks: [], images: [], options: [{ key: 'A', content: '1' }] }, solution: { answer: ['A'] },
+    knowledgePoints: [], meta: {}, difficulty: 'easy', questionType: 'single_choice', status: QUESTION_STATUS.PUBLISHED,
     knowledgePointLinks: { create: { syllabusNodeId: scopeId, role: 'primary' } } } })
   const free = await createUser()
   for (const examType of [EXAM_TYPE.ESAT, EXAM_TYPE.TMUA]) {

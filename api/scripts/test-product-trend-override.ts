@@ -57,10 +57,8 @@ try {
       paperId: id,
       title: "Fixture",
       questionType: "single_choice",
-      options: [{ key: "A", content: "Fixture" }],
-      answer: ["A"],
+      content: { blocks: [], images: [], options: [{ key: "A", content: "Fixture" }] }, solution: { answer: ["A"] },
       knowledgePoints: [],
-      syllabusPoints: [],
       meta: {},
     },
   });

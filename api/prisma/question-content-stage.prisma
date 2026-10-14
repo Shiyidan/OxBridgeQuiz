@@ -1,0 +1,1038 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum QuestionDifficulty {
+  easy
+  medium
+  hard
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Paper {
+  id                   String   @id @db.VarChar(191)
+  title                String   @db.VarChar(255)
+  code                 String?  @db.VarChar(100)
+  examType             String   @default("TMUA") @db.VarChar(32)
+  year                 Int
+  duration             Int
+  totalQuestions       Int      @default(0)
+  paperType            String   @default("realPaper") @db.VarChar(32)
+  accessTier           String   @default("member") @db.VarChar(32)
+  deliveryMode         String   @default("continuous") @db.VarChar(32)
+  breakDurationSeconds Int      @default(0)
+  moduleConfig         Json?
+  assemblyType         String   @default("original") @db.VarChar(32)
+  sourceExamTypes      Json?
+  remarks              String?  @db.Text
+  pdfUrl               String?  @db.Text
+  status               String   @default("draft") @db.VarChar(32)
+  questions            Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  parseTasks            ParseTask[]
+  examRecords           ExamRecord[]
+  questionsRel          Question[]
+  diagnosticReportTasks DiagnosticReportTask[]
+  diagnosticReports     DiagnosticReport[]
+  mockPaperSet          MockPaperSet?
+
+  @@index([examType])
+  @@index([examType, accessTier, status])
+}
+
+model Question {
+  id                   String              @id @default(uuid()) @db.VarChar(191)
+  uniqueCode           String              @unique @db.VarChar(191)
+  sourceQuestionCode   String?             @db.VarChar(191)
+  paperId              String?             @db.VarChar(191)
+  importBatchId        String?             @db.VarChar(191)
+  replacesQuestionId   String?             @unique @db.VarChar(191)
+  revisionVersion      Int?
+  revisionReason       String?             @db.VarChar(64)
+  examType             String              @default("TMUA") @db.VarChar(32)
+  number               Int?
+  moduleCode           String?             @db.VarChar(32)
+  moduleOrder          Int?
+  moduleQuestionNumber Int?
+  title                String              @db.LongText
+  content              Json?
+  solution             Json?
+  options              Json
+  answer               Json
+  subject              String?             @db.VarChar(100)
+  subjectCode          String?             @db.VarChar(64)
+  questionType         String?             @db.VarChar(64)
+  difficulty           QuestionDifficulty?
+  qualityTier          String?             @db.VarChar(32)
+  topic                String?             @db.VarChar(255)
+  topicCode            String?             @db.VarChar(64)
+  knowledgePoints      Json
+  syllabusPoints       Json
+  meta                 Json
+  status               String              @default("draft") @db.VarChar(32)
+  publishedAt          DateTime?
+  archivedAt           DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @default(now()) @updatedAt
+
+  paper                  Paper?                   @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  importBatch            QuestionImportBatch?     @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  replacesQuestion       Question?                @relation("QuestionReplacement", fields: [replacesQuestionId], references: [id], onDelete: Restrict)
+  replacementQuestion    Question?                @relation("QuestionReplacement")
+  knowledgePointLinks    QuestionKnowledgePoint[]
+  answerRecords          AnswerRecord[]
+  wrongQuestionSummaries WrongQuestionSummary[]
+  mockPaperLinks         MockPaperQuestion[]
+  favorites              QuestionFavorite[]
+
+  @@unique([paperId, number])
+  @@index([paperId])
+  @@index([examType])
+  @@index([subjectCode])
+  @@index([number])
+  @@index([sourceQuestionCode])
+  @@index([importBatchId])
+  @@index([paperId, moduleOrder, moduleQuestionNumber])
+  @@index([status, examType, difficulty])
+  @@index([status, examType, subjectCode])
+  @@index([status, examType, topicCode])
+}
+
+model MockPaperSet {
+  id             String    @id @default(uuid()) @db.VarChar(191)
+  seriesId       String?   @db.VarChar(191)
+  versionGroupId String    @db.VarChar(191)
+  examType       String    @db.VarChar(32)
+  title          String    @db.VarChar(255)
+  accessTier     String    @default("member") @db.VarChar(32)
+  status         String    @default("draft") @db.VarChar(32)
+  version        Int       @default(1)
+  sourceFileName String?   @db.VarChar(255)
+  paperId        String?   @unique @db.VarChar(191)
+  issueCount     Int       @default(0)
+  questionCount  Int       @default(0)
+  issues         Json
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  publishedAt    DateTime?
+  archivedAt     DateTime?
+  deletedAt      DateTime?
+
+  modules MockPaperModule[]
+  paper   Paper?            @relation(fields: [paperId], references: [id], onDelete: SetNull)
+  series  MockPaperSeries?   @relation(fields: [seriesId], references: [id], onDelete: Restrict)
+
+  @@unique([seriesId, version])
+  @@unique([versionGroupId, version])
+  @@index([examType, status])
+}
+
+model MockPaperSeries {
+  id         String   @id @default(uuid()) @db.VarChar(191)
+  examType   String   @db.VarChar(32)
+  kind       String   @db.VarChar(16)
+  moduleCode String   @default("") @db.VarChar(32)
+  sequenceNo Int
+  createdAt  DateTime @default(now())
+
+  sets    MockPaperSet[]
+  modules MockPaperModule[]
+
+  @@unique([examType, kind, moduleCode, sequenceNo])
+}
+
+model MockPaperNumberCounter {
+  id         String @id @db.VarChar(100)
+  lastNumber Int    @default(0)
+}
+
+model MockPaperWorkbookUpload {
+  id               String    @id @default(uuid()) @db.VarChar(191)
+  originalFileName String    @db.VarChar(255)
+  storageKey       String    @unique @db.VarChar(255)
+  contentType      String    @db.VarChar(128)
+  fileSizeBytes    Int
+  checksumSha256   String    @db.Char(64)
+  status           String    @default("processing") @db.VarChar(32)
+  setCount         Int       @default(0)
+  moduleCount      Int       @default(0)
+  errorMessage     String?   @db.Text
+  uploadedById     String?   @db.VarChar(191)
+  createdAt        DateTime  @default(now())
+  completedAt      DateTime?
+
+  uploadedBy User? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([uploadedById, createdAt])
+}
+
+model MockPaperModule {
+  id                    String    @id @default(uuid()) @db.VarChar(191)
+  mockPaperSetId        String    @db.VarChar(191)
+  sourceModuleId        String?   @db.VarChar(191)
+  seriesId              String?   @db.VarChar(191)
+  version               Int?
+  code                  String    @db.VarChar(32)
+  label                 String    @db.VarChar(100)
+  title                 String?   @db.VarChar(255)
+  accessTier            String    @default("member") @db.VarChar(32)
+  moduleOrder           Int
+  durationSeconds       Int
+  expectedQuestionCount Int
+  questionCount         Int       @default(0)
+  validationStatus      String    @default("invalid") @db.VarChar(32)
+  publicationStatus     String    @default("draft") @db.VarChar(32)
+  issueCount            Int       @default(0)
+  issues                Json
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  publishedAt           DateTime?
+  archivedAt            DateTime?
+
+  mockPaperSet   MockPaperSet        @relation(fields: [mockPaperSetId], references: [id], onDelete: Cascade)
+  sourceModule   MockPaperModule?    @relation("MockPaperModuleComposition", fields: [sourceModuleId], references: [id], onDelete: SetNull)
+  composedCopies MockPaperModule[]   @relation("MockPaperModuleComposition")
+  series         MockPaperSeries?    @relation(fields: [seriesId], references: [id], onDelete: Restrict)
+  questions      MockPaperQuestion[]
+
+  @@unique([mockPaperSetId, code])
+  @@unique([mockPaperSetId, moduleOrder])
+  @@unique([seriesId, version])
+  @@index([sourceModuleId])
+  @@index([mockPaperSetId, moduleOrder])
+  @@index([mockPaperSetId, validationStatus])
+  @@index([publicationStatus, validationStatus])
+}
+
+model MockPaperQuestion {
+  id               String   @id @default(uuid()) @db.VarChar(191)
+  moduleId         String   @db.VarChar(191)
+  questionId       String?  @db.VarChar(191)
+  sourceCode       String   @db.VarChar(191)
+  position         Int
+  validationStatus String   @default("invalid") @db.VarChar(32)
+  issues           Json
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  module   MockPaperModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  question Question?       @relation(fields: [questionId], references: [id], onDelete: SetNull)
+
+  @@unique([moduleId, position])
+  @@index([moduleId, sourceCode])
+  @@index([questionId])
+}
+
+model QuestionImportBatch {
+  id                    String   @id @default(uuid()) @db.VarChar(191)
+  title                 String   @db.VarChar(255)
+  fileName              String?  @db.VarChar(255)
+  declaredQuestionCount Int
+  actualQuestionCount   Int
+  remarks               String?  @db.Text
+  createdAt             DateTime @default(now())
+
+  questions Question[]
+
+  @@index([createdAt])
+}
+
+model QuestionKnowledgePoint {
+  questionId     String @db.VarChar(191)
+  syllabusNodeId String @db.VarChar(191)
+  role           String @db.VarChar(32)
+
+  question     Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  syllabusNode SyllabusNode @relation(fields: [syllabusNodeId], references: [id], onDelete: Restrict)
+
+  @@id([questionId, syllabusNodeId])
+  @@index([syllabusNodeId, questionId])
+}
+
+model ParseTask {
+  id        String   @id @default(uuid()) @db.VarChar(191)
+  paperId   String   @db.VarChar(191)
+  status    String   @default("pending") @db.VarChar(32)
+  progress  Int      @default(0)
+  error     String?  @db.Text
+  result    Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  paper Paper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+}
+
+model StudyResource {
+  id               String    @id @default(uuid()) @db.VarChar(191)
+  bundleKey        String    @db.VarChar(191)
+  title            String    @db.VarChar(255)
+  description      String?   @db.Text
+  examType         String    @db.VarChar(32)
+  category         String    @db.VarChar(32)
+  resourceYear     Int?
+  fileRole         String    @default("main") @db.VarChar(32)
+  accessTier       String    @default("free") @db.VarChar(32)
+  status           String    @default("draft") @db.VarChar(32)
+  originalFileName String    @db.VarChar(255)
+  storageKey       String    @unique @db.VarChar(500)
+  mimeType         String    @default("application/pdf") @db.VarChar(100)
+  fileSizeBytes    Int
+  downloadCount    Int       @default(0)
+  checksumSha256   String    @db.Char(64)
+  uploadedById     String?   @db.VarChar(191)
+  publishedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  uploadedBy User? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([examType, category, status])
+  @@index([bundleKey])
+  @@index([category, examType, resourceYear])
+  @@index([status, createdAt])
+  @@index([uploadedById, createdAt])
+}
+
+model User {
+  id                String    @id @default(uuid()) @db.VarChar(191)
+  username          String    @unique @db.VarChar(191)
+  email             String    @unique @db.VarChar(191)
+  password          String    @db.VarChar(255)
+  emailVerifiedAt   DateTime?
+  passwordChangedAt DateTime?
+  role              String    @default("student") @db.VarChar(32)
+  accountStatus     String    @default("active") @db.VarChar(32)
+  bannedAt          DateTime?
+  banReason         String?   @db.VarChar(500)
+  diagnosticUsed    Boolean   @default(false)
+  avatar            String?   @db.Text
+  examPreferences   Json?
+  // 注册属地复用注册协议中的 IP；更新时间只记录成功结果，重试时间用于后台调度。
+  registrationCountry String? @db.VarChar(128)
+  registrationRegion String? @db.VarChar(128)
+  registrationLocationUpdatedAt DateTime?
+  registrationLocationNextCheckAt DateTime?
+  firstVisitedAt    DateTime?
+  learningTrackedAt DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  examRecords                ExamRecord[]
+  diagnosticSession          DiagnosticSession[]
+  memberships                UserMembership[]
+  diagnosticReportTasks      DiagnosticReportTask[]
+  diagnosticReports          DiagnosticReport[]
+  authSessions               AuthSession[]
+  emailChallenges            EmailVerificationChallenge[]
+  paymentOrders              PaymentOrder[]
+  operationLogs              OperationLog[]
+  legalAcceptances           UserLegalAcceptance[]
+  practiceNotebooks          PracticeNotebook[]
+  wrongQuestionSummaries     WrongQuestionSummary[]
+  invitationCode             InvitationCode?
+  sentInvitations            InvitationRelation[]         @relation("InvitationInviter")
+  receivedInvitation         InvitationRelation?          @relation("InvitationInvitee")
+  invitationRewards          InvitationReward[]
+  uploadedMockPaperWorkbooks MockPaperWorkbookUpload[]
+  uploadedStudyResources     StudyResource[]
+  questionFavorites          QuestionFavorite[]
+  favoriteCategories         FavoriteCategory[]
+  learningActivities         LearningActivity[]
+  websiteVisits              WebsiteVisitDaily[]          @relation("WebsiteVisitUsers")
+
+  @@index([registrationLocationNextCheckAt, createdAt])
+}
+
+// 独立保存实际作答足迹，答案覆盖、交卷或移出错题本不会删除历史学习行为。
+model LearningActivity {
+  id          String   @id @default(uuid()) @db.VarChar(191)
+  userId      String   @db.VarChar(191)
+  resourceKey String   @db.VarChar(64)
+  hourStart   DateTime
+  occurredAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, resourceKey, hourStart])
+  @@index([userId, occurredAt])
+}
+
+// 收藏独立于答卷；同一用户对同一道官方题目只保留一条收藏。
+model QuestionFavorite {
+  id         String   @id @default(uuid()) @db.VarChar(191)
+  userId     String   @db.VarChar(191)
+  questionId String   @db.VarChar(191)
+  categoryId String?  @db.VarChar(191)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question          @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  category FavoriteCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, questionId])
+  @@index([userId, createdAt])
+  @@index([categoryId])
+}
+
+// 分类按用户与考试工作区隔离；删除分类只将其中的收藏移回未分类。
+model FavoriteCategory {
+  id        String   @id @default(uuid()) @db.VarChar(191)
+  userId    String   @db.VarChar(191)
+  examType  String   @db.VarChar(32)
+  name      String   @db.VarChar(40)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  favorites QuestionFavorite[]
+
+  @@unique([userId, examType, name])
+  @@index([userId, examType, sortOrder])
+}
+
+model OperationLog {
+  id                 String   @id @default(uuid()) @db.VarChar(191)
+  occurredAt         DateTime @default(now())
+  requestId          String?  @db.VarChar(64)
+  actorUserId        String?  @db.VarChar(191)
+  actorNameSnapshot  String   @db.VarChar(191)
+  actorEmailSnapshot String   @db.VarChar(191)
+  actorRoleSnapshot  String   @db.VarChar(32)
+  module             String   @db.VarChar(64)
+  action             String   @db.VarChar(128)
+  summary            String   @db.VarChar(500)
+  result             String   @db.VarChar(32)
+  resourceType       String?  @db.VarChar(64)
+  resourceId         String?  @db.VarChar(191)
+  changes            Json?
+  method             String   @db.VarChar(16)
+  path               String   @db.VarChar(500)
+  statusCode         Int
+  ipAddress          String?  @db.VarChar(64)
+  userAgent          String?  @db.VarChar(512)
+  errorCode          String?  @db.VarChar(64)
+  createdAt          DateTime @default(now())
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([occurredAt])
+  @@index([requestId])
+  @@index([actorRoleSnapshot, occurredAt])
+  @@index([actorUserId, occurredAt])
+  @@index([module, occurredAt])
+  @@index([action, occurredAt])
+  @@index([resourceType, resourceId, occurredAt])
+}
+
+model WebsiteVisitDaily {
+  id                   String   @id @default(uuid()) @db.VarChar(191)
+  businessDate         DateTime @db.Date
+  ipHash               String   @db.Char(64)
+  visitorType          String?  @db.VarChar(16)
+  // 旧记录未保存账号身份；新增记录由上报端显式标记是否存在匿名访问。
+  hasUnattributedVisit Boolean  @default(true)
+  visitCount           Int      @default(1)
+  firstSeenAt          DateTime @default(now())
+  lastSeenAt           DateTime @default(now())
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  users User[] @relation("WebsiteVisitUsers")
+
+  @@unique([businessDate, ipHash])
+  @@index([businessDate])
+}
+
+model UserLegalAcceptance {
+  id              String   @id @default(uuid()) @db.VarChar(191)
+  userId          String   @db.VarChar(191)
+  documentType    String   @db.VarChar(64)
+  documentVersion String   @db.VarChar(32)
+  source          String   @db.VarChar(32)
+  referenceId     String?  @db.VarChar(191)
+  acceptedAt      DateTime @default(now())
+  ipAddress       String?  @db.VarChar(64)
+  userAgent       String?  @db.VarChar(512)
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, documentType, documentVersion])
+  @@index([userId, acceptedAt])
+  @@index([documentType, documentVersion])
+}
+
+model AuthSession {
+  id               String    @id @default(uuid()) @db.VarChar(191)
+  userId           String    @db.VarChar(191)
+  refreshTokenHash String    @db.Char(64)
+  expiresAt        DateTime
+  lastUsedAt       DateTime  @default(now())
+  revokedAt        DateTime?
+  revokedReason    String?   @db.VarChar(64)
+  ipAddress        String?   @db.VarChar(64)
+  userAgent        String?   @db.VarChar(512)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+}
+
+// 注册限流按来源与规则保存有界时间戳数组，跨进程共享并通过事务锁串行扣额度。
+model RegistrationRateBucket {
+  key       String   @id @db.VarChar(96)
+  events    Json
+  expiresAt DateTime
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
+model EmailVerificationChallenge {
+  id            String    @id @default(uuid()) @db.VarChar(191)
+  userId        String?   @db.VarChar(191)
+  email         String    @db.VarChar(191)
+  purpose       String    @db.VarChar(32)
+  codeDigest    String    @db.Char(64)
+  attempts      Int       @default(0)
+  expiresAt     DateTime
+  usedAt        DateTime?
+  invalidatedAt DateTime?
+  createdAt     DateTime  @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([email, purpose, createdAt])
+  @@index([userId, purpose, createdAt])
+  @@index([expiresAt])
+}
+
+model DiagnosticSession {
+  id             String   @id @default(uuid()) @db.VarChar(191)
+  userId         String?  @db.VarChar(191)
+  examType       String   @default("TMUA") @db.VarChar(32)
+  answers        Json
+  totalQuestions Int
+  correctCount   Int
+  status         String   @default("anonymous") @db.VarChar(32)
+  createdAt      DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([examType])
+}
+
+model ExamRecord {
+  id                    String    @id @default(uuid()) @db.VarChar(191)
+  userId                String    @db.VarChar(191)
+  paperId               String    @db.VarChar(191)
+  examType              String    @default("TMUA") @db.VarChar(32)
+  totalQuestions        Int       @default(0)
+  correctCount          Int       @default(0)
+  startedAt             DateTime
+  expiresAt             DateTime?
+  phase                 String    @default("continuous") @db.VarChar(32)
+  currentModuleIndex    Int       @default(0)
+  phaseStartedAt        DateTime?
+  phaseExpiresAt        DateTime?
+  structureSnapshot     Json?
+  activeDurationSeconds Int       @default(0)
+  submittedAt           DateTime?
+  durationSeconds       Int       @default(0)
+  status                String    @default("in_progress") @db.VarChar(32)
+  activeDiagnosticKey   String?   @unique @db.VarChar(191)
+  activeQuestionBankKey String?   @unique @db.VarChar(191)
+  startRequestKey       String?   @unique @db.VarChar(191)
+  submissionKey         String?   @unique @db.VarChar(191)
+  practiceNotebookId    String?   @db.VarChar(191)
+  practiceSource        String?   @db.VarChar(32)
+  practiceSnapshot      Json?
+
+  user                 User                  @relation(fields: [userId], references: [id])
+  paper                Paper                 @relation(fields: [paperId], references: [id])
+  practiceNotebook     PracticeNotebook?     @relation(fields: [practiceNotebookId], references: [id], onDelete: SetNull)
+  answers              AnswerRecord[]
+  diagnosticReportTask DiagnosticReportTask?
+  diagnosticReport     DiagnosticReport?
+
+  @@index([userId, examType])
+  @@index([userId, paperId, status])
+  @@index([practiceNotebookId, status, submittedAt])
+  @@index([examType])
+}
+
+model PracticeNotebook {
+  id                     String   @id @default(uuid()) @db.VarChar(191)
+  userId                 String   @db.VarChar(191)
+  examType               String   @db.VarChar(32)
+  name                   String   @db.VarChar(100)
+  knowledgePointCodes    Json
+  knowledgePointSnapshot Json
+  questionCount          Int
+  difficultyMode         String   @db.VarChar(32)
+  durationMinutes        Int?
+  unseenFirst            Boolean  @default(true)
+  status                 String   @default("active") @db.VarChar(32)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examRecords ExamRecord[]
+
+  @@index([userId, examType, status, updatedAt])
+  @@index([userId, status])
+}
+
+model AnswerRecord {
+  id              String    @id @default(uuid()) @db.VarChar(191)
+  examRecordId    String    @db.VarChar(191)
+  questionId      String    @db.VarChar(191)
+  selectedAnswer  String?   @db.VarChar(64)
+  answerState     String    @default("unseen") @db.VarChar(16)
+  isCorrect       Boolean   @default(false)
+  position        Int?
+  durationSeconds Int       @default(0)
+  answeredAt      DateTime?
+
+  examRecord ExamRecord @relation(fields: [examRecordId], references: [id], onDelete: Cascade)
+  question   Question   @relation(fields: [questionId], references: [id])
+
+  @@unique([examRecordId, questionId])
+  @@index([questionId])
+}
+
+model WrongQuestionSummary {
+  id                    String    @id @default(uuid()) @db.VarChar(191)
+  userId                String    @db.VarChar(191)
+  questionId            String    @db.VarChar(191)
+  examType              String    @db.VarChar(32)
+  wrongCount            Int       @default(1)
+  firstWrongAt          DateTime
+  latestWrongAt         DateTime
+  latestAnswerRecordId  String    @db.VarChar(191)
+  latestExamRecordId    String    @db.VarChar(191)
+  latestSelectedAnswer  String?   @db.VarChar(64)
+  latestDurationSeconds Int       @default(0)
+  latestAnsweredAt      DateTime?
+  latestPaperType       String    @db.VarChar(32)
+  latestPaperTitle      String    @db.VarChar(255)
+  removedAt             DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user     User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question               @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  attempts WrongQuestionAttempt[]
+
+  @@unique([userId, questionId])
+  @@index([userId, examType, removedAt, latestWrongAt, id])
+  @@index([questionId])
+}
+
+model WrongQuestionAttempt {
+  id             String   @id @default(uuid()) @db.VarChar(191)
+  summaryId      String   @db.VarChar(191)
+  userId         String   @db.VarChar(191)
+  questionId     String   @db.VarChar(191)
+  answerRecordId String   @unique @db.VarChar(191)
+  examRecordId   String   @db.VarChar(191)
+  examType       String   @db.VarChar(32)
+  paperType      String   @db.VarChar(32)
+  submittedAt    DateTime
+  selectedAnswer String?  @db.VarChar(64)
+  createdAt      DateTime @default(now())
+
+  summary WrongQuestionSummary @relation(fields: [summaryId], references: [id], onDelete: Cascade)
+
+  @@index([summaryId, paperType, submittedAt])
+  @@index([userId, submittedAt])
+  @@index([examRecordId])
+  @@index([questionId])
+}
+
+model DiagnosticReportTask {
+  id             String    @id @default(uuid()) @db.VarChar(191)
+  examRecordId   String    @unique @db.VarChar(191)
+  userId         String    @db.VarChar(191)
+  paperId        String    @db.VarChar(191)
+  reportKind     String    @db.VarChar(32)
+  status         String    @default("pending") @db.VarChar(32)
+  stage          String    @default("answers_saved") @db.VarChar(32)
+  progress       Int       @default(10)
+  retryCount     Int       @default(0)
+  errorCode      String?   @db.VarChar(64)
+  errorMessage   String?   @db.Text
+  lockedAt       DateTime?
+  heartbeatAt    DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  result         Json?
+  generationMode String?   @db.VarChar(32)
+  reportVersion  String    @default("diagnostic-report-v1") @db.VarChar(64)
+  promptVersion  String?   @db.VarChar(64)
+  modelName      String?   @db.VarChar(100)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  examRecord ExamRecord @relation(fields: [examRecordId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paper      Paper      @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@index([status, updatedAt])
+  @@index([userId, paperId, createdAt])
+}
+
+model DiagnosticReport {
+  id             String   @id @default(uuid()) @db.VarChar(191)
+  userId         String   @db.VarChar(191)
+  paperId        String   @db.VarChar(191)
+  examRecordId   String   @unique @db.VarChar(191)
+  reportKind     String   @db.VarChar(32)
+  result         Json
+  sourceSnapshot Json?
+  reportVersion  String   @default("diagnostic-report-v1") @db.VarChar(64)
+  promptVersion  String?  @db.VarChar(64)
+  modelName      String?  @db.VarChar(100)
+  generationMode String   @default("rules_only") @db.VarChar(32)
+  completedAt    DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  examRecord ExamRecord @relation(fields: [examRecordId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paper      Paper      @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@index([userId, completedAt])
+  @@index([userId, paperId, completedAt])
+  @@index([paperId])
+}
+
+model SyllabusNode {
+  id         String   @id @default(uuid()) @db.VarChar(191)
+  code       String   @db.VarChar(100)
+  label      String   @db.VarChar(512)
+  examType   String   @db.VarChar(32)
+  parentCode String?  @db.VarChar(100)
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  questionKnowledgePoints QuestionKnowledgePoint[]
+
+  @@unique([examType, code])
+  @@index([examType])
+  @@index([parentCode])
+}
+
+model Syllabus {
+  id         String   @id @default(uuid()) @db.VarChar(191)
+  name       String   @db.VarChar(255)
+  examType   String   @db.VarChar(32)
+  sourceJson Json
+  isActive   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([examType])
+  @@index([isActive])
+}
+
+model RevenueCost {
+  id                  String   @id @default(uuid()) @db.VarChar(191)
+  costCategory        String   @default("development_tools") @db.VarChar(32)
+  rechargeItem        String   @db.VarChar(100)
+  amount              Float
+  operator            String   @db.VarChar(100)
+  occurredAt          DateTime
+  reimbursementStatus String   @default("unreimbursed") @db.VarChar(32)
+  remark              String?  @db.Text
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([occurredAt])
+}
+
+model MembershipPlan {
+  id           String   @id @default(uuid()) @db.VarChar(191)
+  examType     String   @db.VarChar(32)
+  plan         String   @db.VarChar(32)
+  priceCents   Int      @default(0)
+  durationDays Int      @default(30)
+  status       String   @default("active") @db.VarChar(32)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([examType, plan])
+  @@index([examType])
+}
+
+model UserMembership {
+  id             String   @id @default(uuid()) @db.VarChar(191)
+  userId         String   @db.VarChar(191)
+  paymentOrderId String?  @db.VarChar(191)
+  examType       String   @db.VarChar(32)
+  plan           String   @db.VarChar(32)
+  sourceType     String?  @db.VarChar(32)
+  sourceId       String?  @db.VarChar(191)
+  status         String   @default("active") @db.VarChar(32)
+  startsAt       DateTime
+  endsAt         DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentOrder     PaymentOrder?     @relation(fields: [paymentOrderId], references: [id], onDelete: SetNull)
+  invitationReward InvitationReward?
+
+  @@unique([paymentOrderId, examType])
+  @@index([userId])
+  @@index([examType])
+  @@index([userId, examType, status])
+  @@index([sourceType, sourceId])
+}
+
+model EntitlementConfig {
+  id                String   @id @default(uuid()) @db.VarChar(191)
+  examType          String   @unique @db.VarChar(32)
+  diagnosticLimit   Int      @default(1)
+  questionBankLimit Int      @default(25)
+  status            String   @default("active") @db.VarChar(32)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model PaymentConfig {
+  id                          String   @id @default("default") @db.VarChar(32)
+  monthlyPriceCents           Int      @default(19800)
+  quarterlyOriginalPriceCents Int      @default(59400)
+  quarterlyPriceCents         Int      @default(35600)
+  status                      String   @default("active") @db.VarChar(32)
+  updatedBy                   String?  @db.VarChar(191)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+}
+
+model PaymentOrder {
+  id                  String    @id @default(uuid()) @db.VarChar(191)
+  orderNo             String    @unique @db.VarChar(64)
+  userId              String    @db.VarChar(191)
+  examTypes           Json
+  plan                String    @db.VarChar(32)
+  priceType           String    @db.VarChar(32)
+  amountCents         Int
+  refundedAmountCents Int       @default(0)
+  currency            String    @default("CNY") @db.VarChar(8)
+  channel             String    @db.VarChar(32)
+  status              String    @default("pending") @db.VarChar(32)
+  provider            String    @default("chinaums") @db.VarChar(32)
+  providerOrderNo     String?   @unique @db.VarChar(128)
+  providerPayload     Json?
+  failureCode         String?   @db.VarChar(64)
+  failureMessage      String?   @db.VarChar(500)
+  paidAt              DateTime?
+  closedAt            DateTime?
+  expiresAt           DateTime
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user                User                        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  refunds             PaymentRefund[]
+  reconciliationItems PaymentReconciliationItem[]
+  memberships         UserMembership[]
+  triggeredInvitation InvitationRelation?
+  invitationRewards   InvitationReward[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([expiresAt, status])
+}
+
+model InvitationCode {
+  id        String   @id @default(uuid()) @db.VarChar(191)
+  userId    String   @unique @db.VarChar(191)
+  code      String   @unique @db.VarChar(16)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  relations InvitationRelation[]
+
+  @@index([createdAt])
+}
+
+model InvitationRelation {
+  id                    String    @id @default(uuid()) @db.VarChar(191)
+  inviterUserId         String    @db.VarChar(191)
+  inviteeUserId         String    @unique @db.VarChar(191)
+  invitationCodeId      String    @db.VarChar(191)
+  triggerPaymentOrderId String?   @unique @db.VarChar(191)
+  source                String    @db.VarChar(32)
+  status                String    @default("pending_payment") @db.VarChar(32)
+  boundAt               DateTime  @default(now())
+  rewardedAt            DateTime?
+  refundedAt            DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  inviter             User               @relation("InvitationInviter", fields: [inviterUserId], references: [id], onDelete: Cascade)
+  invitee             User               @relation("InvitationInvitee", fields: [inviteeUserId], references: [id], onDelete: Cascade)
+  invitationCode      InvitationCode     @relation(fields: [invitationCodeId], references: [id], onDelete: Restrict)
+  triggerPaymentOrder PaymentOrder?      @relation(fields: [triggerPaymentOrderId], references: [id], onDelete: SetNull)
+  rewards             InvitationReward[]
+
+  @@index([inviterUserId, createdAt])
+  @@index([status, updatedAt])
+  @@index([invitationCodeId])
+}
+
+model InvitationReward {
+  id                    String    @id @default(uuid()) @db.VarChar(191)
+  invitationRelationId  String?   @db.VarChar(191)
+  userId                String    @db.VarChar(191)
+  triggerPaymentOrderId String?   @db.VarChar(191)
+  membershipId          String?   @unique @db.VarChar(191)
+  sourceType            String    @default("invitation") @db.VarChar(32)
+  beneficiaryRole       String    @db.VarChar(16)
+  status                String    @default("pending_activation") @db.VarChar(32)
+  examType              String?   @db.VarChar(32)
+  durationHours         Int       @default(168)
+  grantedAt             DateTime?
+  activatedAt           DateTime?
+  revokedAt             DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  invitationRelation  InvitationRelation? @relation(fields: [invitationRelationId], references: [id], onDelete: Cascade)
+  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  triggerPaymentOrder PaymentOrder?       @relation(fields: [triggerPaymentOrderId], references: [id], onDelete: SetNull)
+  membership          UserMembership?     @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+
+  @@unique([invitationRelationId, beneficiaryRole])
+  @@index([userId, status, createdAt])
+  @@index([triggerPaymentOrderId])
+}
+
+model PaymentRefund {
+  id               String    @id @default(uuid()) @db.VarChar(191)
+  refundOrderNo    String    @unique @db.VarChar(64)
+  paymentOrderId   String    @db.VarChar(191)
+  amountCents      Int
+  reason           String    @db.VarChar(255)
+  status           String    @default("processing") @db.VarChar(32)
+  providerRefundNo String?   @unique @db.VarChar(128)
+  providerPayload  Json?
+  failureCode      String?   @db.VarChar(64)
+  failureMessage   String?   @db.VarChar(500)
+  operatorId       String    @db.VarChar(191)
+  refundedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  paymentOrder PaymentOrder @relation(fields: [paymentOrderId], references: [id], onDelete: Restrict)
+
+  @@index([paymentOrderId, createdAt])
+  @@index([status, createdAt])
+}
+
+model PaymentNotification {
+  id             String    @id @default(uuid()) @db.VarChar(191)
+  provider       String    @default("chinaums") @db.VarChar(32)
+  notificationId String    @db.VarChar(128)
+  orderNo        String?   @db.VarChar(64)
+  signatureValid Boolean   @default(false)
+  processStatus  String    @default("received") @db.VarChar(32)
+  rawPayload     Json
+  errorMessage   String?   @db.VarChar(500)
+  processedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([provider, notificationId])
+  @@index([orderNo, createdAt])
+  @@index([processStatus, createdAt])
+}
+
+model PaymentReconciliationRun {
+  id              String    @id @default(uuid()) @db.VarChar(191)
+  provider        String    @default("chinaums") @db.VarChar(32)
+  businessDate    DateTime  @db.Date
+  status          String    @default("running") @db.VarChar(32)
+  trigger         String    @default("scheduled") @db.VarChar(32)
+  triggeredBy     String?   @db.VarChar(191)
+  totalOrders     Int       @default(0)
+  matchedOrders   Int       @default(0)
+  correctedOrders Int       @default(0)
+  anomalyOrders   Int       @default(0)
+  errorOrders     Int       @default(0)
+  errorMessage    String?   @db.VarChar(500)
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  items PaymentReconciliationItem[]
+
+  @@unique([provider, businessDate])
+  @@index([status, businessDate])
+}
+
+model PaymentReconciliationItem {
+  id                  String    @id @default(uuid()) @db.VarChar(191)
+  runId               String    @db.VarChar(191)
+  paymentOrderId      String    @db.VarChar(191)
+  orderNo             String    @db.VarChar(64)
+  localStatus         String    @db.VarChar(32)
+  providerStatus      String?   @db.VarChar(32)
+  localAmountCents    Int
+  providerAmountCents Int?
+  result              String    @db.VarChar(32)
+  anomalyType         String?   @db.VarChar(64)
+  message             String    @db.VarChar(500)
+  providerPayload     Json?
+  resolutionStatus    String    @default("none") @db.VarChar(32)
+  resolutionNote      String?   @db.VarChar(500)
+  resolvedBy          String?   @db.VarChar(191)
+  resolvedAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  run          PaymentReconciliationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  paymentOrder PaymentOrder             @relation(fields: [paymentOrderId], references: [id], onDelete: Restrict)
+
+  @@unique([runId, paymentOrderId])
+  @@index([resolutionStatus, updatedAt])
+  @@index([result, updatedAt])
+  @@index([orderNo])
+}
+
+// 仅修正管理端每日产品趋势展示；不关联或修改用户的练习与答题记录。
+model ProductUsageTrendOverride {
+  businessDate              DateTime @id @db.Date
+  questionBankPracticeCount Int
+  reason                    String   @db.VarChar(255)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
+
+model BackgroundJobLease {
+  name        String   @id @db.VarChar(64)
+  ownerId     String   @db.VarChar(128)
+  lockedUntil DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([lockedUntil])
+}

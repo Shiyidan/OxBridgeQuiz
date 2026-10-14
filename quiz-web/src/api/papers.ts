@@ -1,6 +1,4 @@
-/**
- * 试卷 相关 API
- */
+// 真题管理与年度诊断的统一 API，供后台题库和学生选科、历史记录页面调用。
 import { callApi } from '@/utils/request'
 import type { PaperAccessTier, PaperDeliveryMode, Question } from '@/types'
 
@@ -51,7 +49,20 @@ export interface PaperListParams {
   pageSize?: number
   paperType?: string
   examType?: string
+  year?: number
   keyword?: string
+}
+
+export interface AdminPaperYear {
+  year: number
+  paperCount: number
+  statusCounts: Record<string, number>
+  accessTierCounts: Record<string, number>
+}
+
+export interface AdminPaperYearResult {
+  list: AdminPaperYear[]
+  pagination: PaginationMeta
 }
 
 export interface PaperDetail extends PaperItem {
@@ -59,7 +70,65 @@ export interface PaperDetail extends PaperItem {
   questions: Question[]
 }
 
-/** 试卷列表 */
+export interface DiagnosticQuestionDocument {
+  id?: string
+  code: string
+  content: Record<string, unknown> & { title: string }
+  solution: Record<string, unknown> & { answer: string[] }
+  meta: Record<string, unknown>
+}
+
+export interface DiagnosticPaperDocument {
+  format: 'paper-content-solution-meta-v1'
+  paper: Record<string, unknown> & {
+    title: string
+    examType: 'ESAT' | 'TMUA'
+    year: number
+    accessTier: PaperAccessTier
+    moduleConfig: PaperModuleOutline[]
+  }
+  questions: DiagnosticQuestionDocument[]
+}
+
+export interface DiagnosticPaperValidation {
+  paper: DiagnosticPaperDocument['paper']
+  questions: DiagnosticQuestionDocument[]
+  modules: PaperModuleOutline[]
+  questionCount: number
+}
+
+// 年度诊断只接受统一题目文档，由服务端集中检查科目完整性和题目内容。
+export function validateDiagnosticPaperDocument(document: unknown) {
+  return callApi<DiagnosticPaperValidation>({
+    method: 'POST',
+    url: '/papers/diagnostic/validate',
+    body: document,
+    timeout: 0,
+    silent: true,
+  })
+}
+
+// 校验后创建年度草稿；旧答卷继续引用原试卷和原题目。
+export function importDiagnosticPaperDocument(document: DiagnosticPaperDocument) {
+  return callApi<PaperItem>({
+    method: 'POST',
+    url: '/papers/diagnostic/import',
+    body: document,
+    timeout: 0,
+    silent: true,
+  })
+}
+
+// 下载可再次校验导入的年度文档，避免将数据库行当作交换格式。
+export function getDiagnosticPaperDocument(id: string) {
+  return callApi<DiagnosticPaperDocument>({
+    method: 'GET',
+    url: `/papers/${id}/document`,
+    timeout: 0,
+  })
+}
+
+// 试卷列表
 export function getPaperListData(params: PaperListParams = {}) {
   return callApi<PaperListResult>({
     url: '/papers',
@@ -69,12 +138,30 @@ export function getPaperListData(params: PaperListParams = {}) {
       pageSize: String(params.pageSize || 20),
       ...(params.paperType ? { paperType: params.paperType } : {}),
       ...(params.examType ? { examType: params.examType } : {}),
+      ...(params.year !== undefined ? { year: String(params.year) } : {}),
       ...(params.keyword ? { keyword: params.keyword } : {}),
     },
   })
 }
 
-/** 试卷详情 */
+// 真题库按考试类型查询年份及完整状态统计。
+export function getAdminPaperYears(params: {
+  examType: 'ESAT' | 'TMUA'
+  page: number
+  pageSize: number
+}) {
+  return callApi<AdminPaperYearResult>({
+    method: 'GET',
+    url: '/papers/admin/years',
+    params: {
+      examType: params.examType,
+      page: String(params.page),
+      pageSize: String(params.pageSize),
+    },
+  })
+}
+
+// 试卷详情
 export function getPaperDetailData(id: string) {
   return callApi<PaperDetail>({
     url: `/papers/${id}`,
@@ -83,7 +170,7 @@ export function getPaperDetailData(id: string) {
   })
 }
 
-/** 更新试卷状态 */
+// 更新试卷状态
 export function updatePaperStatus(id: string, status: string) {
   return callApi<PaperItem>({
     url: `/papers/${id}`,
@@ -92,7 +179,7 @@ export function updatePaperStatus(id: string, status: string) {
   })
 }
 
-/** 更新试卷标题。 */
+// 更新试卷标题。
 export function updatePaperTitle(id: string, title: string) {
   return callApi<PaperItem>({
     url: `/papers/${id}`,
@@ -101,7 +188,7 @@ export function updatePaperTitle(id: string, title: string) {
   })
 }
 
-/** 更新试卷类型 */
+// 更新试卷类型
 export function updatePaperType(id: string, paperType: string) {
   return callApi<PaperItem>({
     url: `/papers/${id}`,
@@ -110,7 +197,7 @@ export function updatePaperType(id: string, paperType: string) {
   })
 }
 
-/** 更新诊断卷的免费或会员访问级别。 */
+// 更新诊断卷的免费或会员访问级别。
 export function updatePaperAccessTier(id: string, accessTier: PaperAccessTier) {
   return callApi<PaperItem>({
     url: `/papers/${id}`,
@@ -124,7 +211,7 @@ export interface DeletePaperResult {
   deletedQuestions: number
 }
 
-/** 删除未产生诊断历史的试卷及其直属题目数据。 */
+// 删除未产生诊断历史的试卷及其直属题目数据。
 export function deletePaper(id: string) {
   return callApi<DeletePaperResult>({
     url: `/papers/${id}`,
@@ -192,6 +279,7 @@ export interface AssessmentYearResult {
 }
 
 export interface AssessmentPaperHistoryItem {
+  isExpired?: boolean
   examRecordId: string
   paperId?: string
   paperTitle?: string
@@ -256,7 +344,7 @@ export interface AssessmentScoreTrendResult {
   points: AssessmentScoreTrendPoint[]
 }
 
-/** 获取当前考试类型下可见诊断卷的年份聚合及用户完成状态。 */
+// 获取当前考试类型下可见诊断卷的年份聚合及用户完成状态。
 export function getAssessmentYearsData(examType: string) {
   return callApi<AssessmentYearResult>({
     url: '/papers/assessment/years',
@@ -265,7 +353,7 @@ export function getAssessmentYearsData(examType: string) {
   })
 }
 
-/** 获取当前考试类型及可选年份下按试卷聚合的诊断测试列表及用户状态。 */
+// 获取当前考试类型及可选年份下按试卷聚合的诊断测试列表及用户状态。
 export function getAssessmentPapersData(examType: string, year?: number) {
   return callApi<AssessmentPaperResult>({
     url: '/papers/assessment/papers',
@@ -274,7 +362,7 @@ export function getAssessmentPapersData(examType: string, year?: number) {
   })
 }
 
-/** 获取当前考试类型下按北京时间自然日聚合的最新诊断分数。 */
+// 获取当前考试类型下按北京时间自然日聚合的最新诊断分数。
 export function getAssessmentScoreTrend(examType: string) {
   return callApi<AssessmentScoreTrendResult>({
     url: '/papers/assessment/score-trend',
@@ -283,7 +371,7 @@ export function getAssessmentScoreTrend(examType: string) {
   })
 }
 
-/** 分页获取某一考试年份下跨组合卷汇总的已交卷诊断记录。 */
+// 分页获取某一考试年份下跨组合卷汇总的已交卷诊断记录。
 export function getAssessmentYearHistory(examType: string, year: number, page = 1, pageSize = 10) {
   return callApi<AssessmentYearHistoryResult>({
     url: `/papers/assessment/years/${year}/history`,

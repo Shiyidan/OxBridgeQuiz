@@ -1,10 +1,7 @@
 <!-- 分段诊断答题页：支持 ESAT 科目模块和 TMUA Paper 1/2 的独立计时与顺序锁定。 -->
 <template>
   <div class="diagnostic-exam-page">
-    <ExamWatermark
-      v-if="session?.phase === 'answering'"
-      :username="auth.user?.username"
-    />
+    <ExamWatermark v-if="session?.phase === 'answering'" :username="auth.user?.username" />
     <ExamVue
       v-if="session?.phase === 'answering' && activeModule"
       :key="timerKey"
@@ -127,12 +124,7 @@
                 : `${isMockExam ? '模考' : '诊断'}结果尚未提交。`
             }}
           </p>
-          <button
-            v-if="!transitioning"
-            type="button"
-            class="button_primary"
-            @click="finalizeExam"
-          >
+          <button v-if="!transitioning" type="button" class="button_primary" @click="finalizeExam">
             重试提交诊断结果
           </button>
         </div>
@@ -224,7 +216,10 @@ const mockExamReturnTarget = computed(() => {
 const mockExamCompletionReturnTarget = computed(() => {
   const sourceTab = route.query.sourceTab
   const sourceMode = route.query.sourceMode
-  if (sourceTab === 'modules' || (session.value?.mockExamMode === 'single' && sourceTab !== 'records')) {
+  if (
+    sourceTab === 'modules' ||
+    (session.value?.mockExamMode === 'single' && sourceTab !== 'records')
+  ) {
     return {
       path: '/mock-exams',
       query: { tab: 'records', status: 'completed', mode: 'single' },
@@ -236,9 +231,10 @@ const mockExamCompletionReturnTarget = computed(() => {
       query: {
         tab: 'records',
         status: 'completed',
-        mode: sourceMode === 'single' || sourceMode === 'full'
-          ? sourceMode
-          : session.value?.mockExamMode,
+        mode:
+          sourceMode === 'single' || sourceMode === 'full'
+            ? sourceMode
+            : session.value?.mockExamMode,
       },
     }
   }
@@ -282,12 +278,17 @@ let leaveConfirmationPromise: Promise<boolean> | null = null
 let confirmDialogResolver: ((confirmed: boolean) => void) | null = null
 let pendingExpiredModuleCode = ''
 
+// 当前可答模块由服务端会话决定，前端不自行解锁后续科目。
 const activeModule = computed(() => session.value?.currentModule || null)
+// 休息阶段的展示以会话返回的时间信息为准，支持刷新后恢复。
 const breakState = computed(() => session.value?.break || null)
-const isSingleMockExam = computed(() => (
-  isMockExam.value && session.value?.mockExamMode === 'single'
-))
+// 结合页面来源和会话模式识别单科模考，避免套用多科诊断操作。
+const isSingleMockExam = computed(
+  () => isMockExam.value && session.value?.mockExamMode === 'single',
+)
+// 根据当前模块内的导航位置选择题目，保持题干与答题卡同步。
 const currentQuestion = computed(() => questions.value[currentIndex.value])
+// 按当前题目 ID 读取标记状态，切题时不沿用上一题的标记。
 const currentQuestionMarked = computed(() =>
   Boolean(currentQuestion.value && markedQuestionIds.value.has(currentQuestion.value.id)),
 )
@@ -313,7 +314,9 @@ function markedQuestionsStorageKey(examRecordId: string): string {
 // 会话存储异常或旧值损坏时回退为空集合，不影响正常作答流程。
 function readStoredMarkedQuestionIds(examRecordId: string): Set<string> {
   try {
-    const stored = JSON.parse(sessionStorage.getItem(markedQuestionsStorageKey(examRecordId)) || '[]')
+    const stored = JSON.parse(
+      sessionStorage.getItem(markedQuestionsStorageKey(examRecordId)) || '[]',
+    )
     return new Set(
       Array.isArray(stored)
         ? stored.filter((questionId): questionId is string => typeof questionId === 'string')
@@ -358,9 +361,10 @@ function persistCurrentQuestion(questionId = currentQuestion.value?.id || ''): v
   sessionStorage.setItem(currentQuestionStorageKey(examRecordId, moduleCode), questionId)
 }
 // 当前分段的完成数量只统计实际选择了答案的题目，访问后跳过的题目不计入进度。
-const answeredCount = computed(() =>
-  questions.value.filter((question) => Boolean(answers.value[question.id])).length,
+const answeredCount = computed(
+  () => questions.value.filter((question) => Boolean(answers.value[question.id])).length,
 )
+// 阶段切换、模块到时、试卷失效或暂停时统一锁定作答，防止越过会话边界。
 const interactionLocked = computed(
   () =>
     transitioning.value ||
@@ -369,6 +373,7 @@ const interactionLocked = computed(
     session.value?.phase === 'paused' ||
     session.value?.phase === 'break_paused',
 )
+// 根据冻结模块清单判断当前是否最后一科，决定下一步是换科还是交卷。
 const isFinalModule = computed(
   () => (session.value?.currentModuleIndex || 0) === (session.value?.modules?.length || 1) - 1,
 )
@@ -377,15 +382,15 @@ const isTmua = computed(() => session.value?.examType === 'TMUA')
 // 学生操作提示统一使用考试真实结构名称，避免把 TMUA Paper 称为学科。
 const sectionNoun = computed(() => (isTmua.value ? '试卷' : '科目'))
 // 最后一段结束即进入交卷，其余分段只锁定当前答案并继续流程。
-const completeSectionLabel = computed(() => (
-  isFinalModule.value
-    ? '结束本次考试并交卷'
-    : '进入下一节考试'
-))
+const completeSectionLabel = computed(() =>
+  isFinalModule.value ? '结束本次考试并交卷' : '进入下一节考试',
+)
 
 // 分段导航统一使用简洁名称，Paper 分卷去掉学术副标题，其他科目沿用服务端名称。
 function displayModuleLabel(code?: string, fallbackLabel?: string): string {
-  const normalizedCode = String(code || '').trim().toLowerCase()
+  const normalizedCode = String(code || '')
+    .trim()
+    .toLowerCase()
   const normalizedLabel = String(fallbackLabel || '').toLowerCase()
   if (normalizedCode === 'paper1' || /paper\s*1/.test(normalizedLabel)) return 'Paper 1'
   if (normalizedCode === 'paper2' || /paper\s*2/.test(normalizedLabel)) return 'Paper 2'
@@ -459,8 +464,7 @@ function getQuestionDisplayNumber(question: AttemptQuestion, index: number): num
 async function loadSession(): Promise<void> {
   loading.value = true
   loadError.value = ''
-  const examRecordId =
-    typeof route.query.examRecordId === 'string' ? route.query.examRecordId : ''
+  const examRecordId = typeof route.query.examRecordId === 'string' ? route.query.examRecordId : ''
   try {
     const paperId = String(route.params.paperId || '')
     if (isMockExam.value && !examRecordId) {
@@ -470,7 +474,16 @@ async function loadSession(): Promise<void> {
     }
     const data = examRecordId
       ? await getModuleExamSession(examRecordId, { silent: true })
-      : await startExam({ paperId }, { silent: true })
+      : await startExam(
+          {
+            paperId,
+            moduleCodes:
+              typeof route.query.moduleCodes === 'string'
+                ? route.query.moduleCodes.split(',').filter(Boolean)
+                : undefined,
+          },
+          { silent: true },
+        )
     // 创建成功后固定原答卷地址，后续加载失败重试和刷新都恢复同一次考试。
     if (!examRecordId) {
       await router.replace({ query: { ...route.query, examRecordId: data.examRecordId } })
@@ -544,11 +557,12 @@ async function applySession(nextSession: StartExamResult): Promise<void> {
     (question) => question.id === (previousQuestionId || storedQuestionId),
   )
   const firstUnanswered = questions.value.findIndex((question) => !answers.value[question.id])
-  currentIndex.value = restoredQuestionIndex >= 0
-    ? restoredQuestionIndex
-    : firstUnanswered >= 0
-      ? firstUnanswered
-      : Math.max(questions.value.length - 1, 0)
+  currentIndex.value =
+    restoredQuestionIndex >= 0
+      ? restoredQuestionIndex
+      : firstUnanswered >= 0
+        ? firstUnanswered
+        : Math.max(questions.value.length - 1, 0)
   if (currentQuestion.value) visitedQuestionIds.value.add(currentQuestion.value.id)
   persistCurrentQuestion()
   timingPaused = false
@@ -620,7 +634,8 @@ function goToQuestion(index: number): void {
     index < 0 ||
     index >= questions.value.length ||
     index === currentIndex.value
-  ) return
+  )
+    return
   recordCurrentDuration()
   currentIndex.value = index
   if (currentQuestion.value) visitedQuestionIds.value.add(currentQuestion.value.id)
@@ -667,9 +682,10 @@ async function confirmCompleteModule(): Promise<void> {
   const unanswered = questions.value.length - answeredCount.value
   const nextSection = session.value?.modules?.[(session.value?.currentModuleIndex || 0) + 1]
   const confirmed = await requestConfirmation({
-    message: unanswered > 0
-      ? `本${sectionNoun.value}还有 ${unanswered} 题未作答。结束后不能返回修改，是否继续？`
-      : `本${sectionNoun.value}结束后不能返回修改，是否继续？`,
+    message:
+      unanswered > 0
+        ? `本${sectionNoun.value}还有 ${unanswered} 题未作答。结束后不能返回修改，是否继续？`
+        : `本${sectionNoun.value}结束后不能返回修改，是否继续？`,
     title: isFinalModule.value ? '完成诊断测试' : `结束当前${sectionNoun.value}`,
     confirmText: isFinalModule.value
       ? '完成并交卷'
@@ -772,10 +788,8 @@ function handleBreakElapsed(): void {
 
 // 确认离开答题页时保存完整快照，并由服务端冻结当前分段的剩余秒数。
 async function pauseCurrentModule(): Promise<void> {
-  if (
-    !session.value
-    || (session.value.phase !== 'answering' && session.value.phase !== 'break')
-  ) return
+  if (!session.value || (session.value.phase !== 'answering' && session.value.phase !== 'break'))
+    return
   if (pauseSessionPromise) {
     await pauseSessionPromise
     return
@@ -924,7 +938,7 @@ async function confirmAndPauseBeforeLeaving(): Promise<boolean> {
     try {
       const confirmed = await requestConfirmation({
         title: '确认返回',
-    message: `返回${isMockExam.value ? '模考中心' : '诊断中心'}会保存当前${sectionNoun.value}进度，之后可继续测试。`,
+        message: `返回${isMockExam.value ? '模考中心' : '诊断中心'}会保存当前${sectionNoun.value}进度，之后可继续测试。`,
         confirmText: '保存并返回',
         cancelText: '继续答题',
       })
@@ -963,12 +977,14 @@ async function handleReturnToAssessment(): Promise<void> {
   await router.push(isMockExam.value ? mockExamCompletionReturnTarget.value : '/assessment')
 }
 
+// 进入答题页先恢复服务端会话，再启用周期保存与页面可见性切换保护。
 onMounted(() => {
   void loadSession()
   saveTimer = setInterval(() => void saveProgress(), 30_000)
   document.addEventListener('visibilitychange', handleDocumentVisibilityChange)
 })
 
+// 离开答题页时移除保存计时与事件监听，并结束未决确认，避免旧会话继续更新。
 onBeforeUnmount(() => {
   if (saveTimer) clearInterval(saveTimer)
   if (selectionSaveTimer) clearTimeout(selectionSaveTimer)
@@ -976,6 +992,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', handleDocumentVisibilityChange)
 })
 
+// 站内跳转前先确认离开并保存暂停状态，允许取消导航以继续当前作答。
 onBeforeRouteLeave(async () => confirmAndPauseBeforeLeaving())
 </script>
 

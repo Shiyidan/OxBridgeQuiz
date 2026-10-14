@@ -1,4 +1,3 @@
-
 // 汇总试卷子路由共用的参数解析、考纲同步与学生访问规则。
 import { Router } from 'express'
 import { Prisma } from '@prisma/client'
@@ -38,7 +37,7 @@ export type FlatSyllabusNode = {
   order: number
 }
 
-// 作答页只读取渲染题目和恢复顺序所需字段，避免加载答案、解析及管理元数据。
+// 不读取 solution；内容中的嵌套扩展仍经白名单过滤，禁止将任意上传字段下发。
 export const attemptQuestionSelect = {
   id: true,
   uniqueCode: true,
@@ -50,7 +49,7 @@ export const attemptQuestionSelect = {
   moduleOrder: true,
   moduleQuestionNumber: true,
   title: true,
-  options: true,
+  content: true,
   subject: true,
   subjectCode: true,
   questionType: true,
@@ -58,15 +57,15 @@ export const attemptQuestionSelect = {
   topic: true,
   topicCode: true,
   knowledgePoints: true,
-  syllabusPoints: true,
-  attemptPayload: true,
+  meta: true,
 } satisfies Prisma.QuestionSelect
 
+// 试卷筛选只传递非空难度值，缺失值统一视为不限制难度。
 export function levelOf(d: string | null | undefined): string | null {
   return typeof d === 'string' && d ? d : null
 }
 
-// 试卷列表
+// 考纲导入兼容旧字符串 JSON，解析失败时明确拒绝继续同步。
 export function parseSyllabusJson(input: unknown): unknown {
   if (typeof input !== 'string') return input
   try {
@@ -76,6 +75,7 @@ export function parseSyllabusJson(input: unknown): unknown {
   }
 }
 
+// 兼容既有考纲导入容器，统一提取节点树供后续结构校验。
 export function getSyllabusRoots(input: unknown): RawSyllabusNode[] {
   if (Array.isArray(input)) return input as RawSyllabusNode[]
   if (!input || typeof input !== 'object') throw new Error('考纲内容必须是树形 JSON')
@@ -90,11 +90,13 @@ export function getSyllabusRoots(input: unknown): RawSyllabusNode[] {
   throw new Error('考纲内容缺少节点数组')
 }
 
+// 将考纲树展开为保留父子关系和同级顺序的记录，供事务同步使用。
 export function normalizeSyllabusNodes(input: unknown): FlatSyllabusNode[] {
   const roots = getSyllabusRoots(input)
   const flat: FlatSyllabusNode[] = []
   const seen = new Set<string>()
 
+  // 递归校验节点编码唯一性及子节点结构，避免导入后出现歧义映射。
   function visit(node: RawSyllabusNode, parentCode: string | null, order: number): void {
     const code = typeof node.code === 'string' ? node.code.trim() : ''
     const labelSource = node.label ?? node.name ?? node.title
@@ -114,10 +116,12 @@ export function normalizeSyllabusNodes(input: unknown): FlatSyllabusNode[] {
   return flat
 }
 
+// 旧 JSON 字段解析失败时返回空值，由调用入口决定缺省展示或拒绝请求。
 export function safeParseJson(value: unknown): unknown {
   return parseJsonField<unknown>(value, null)
 }
 
+// 列表分页参数使用正整数默认值，并按接口上限限制查询规模。
 export function parsePositiveInt(value: unknown, fallback: number, max?: number): number {
   const parsed = Number.parseInt(String(value ?? ''), 10)
   const safeValue = Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
@@ -129,8 +133,7 @@ export function parsePositiveInt(value: unknown, fallback: number, max?: number)
 export function formatQuestionForAttempt(row: any) {
   const question = formatQuestionRow({
     ...row,
-    answer: [],
-    meta: {},
+    solution: { answer: [] },
   })
   const contentBlocks: Array<Record<string, unknown>> = Array.isArray(question.content_blocks)
     ? question.content_blocks.flatMap((block: any): Array<Record<string, unknown>> => {
@@ -195,14 +198,6 @@ export function formatQuestionForAttempt(row: any) {
             : {}),
       }))
     : []
-  const syllabusPoints = Array.isArray(question.syllabus_points)
-    ? question.syllabus_points.map((point: any) => ({
-        code: typeof point?.code === 'string' ? point.code : '',
-        label: typeof point?.label === 'string' ? point.label : '',
-      }))
-    : []
-
-  // 作答态按白名单投影，嵌套对象中的解析、正确标记或生成器私有字段一律不下发。
   return {
     id: question.id,
     uniqueCode: question.uniqueCode,
@@ -225,7 +220,6 @@ export function formatQuestionForAttempt(row: any) {
     topic: question.topic,
     topic_code: question.topic_code,
     knowledge_points: knowledgePoints,
-    syllabus_points: syllabusPoints,
   }
 }
 
@@ -259,6 +253,7 @@ export async function hasStudentPaperEntitlement(
   return entitlement.allowed
 }
 
+// 启用考纲前核对独立题目的分类引用，再在同一事务中同步节点与题目标签。
 export async function applySyllabusToTree(syllabus: { id: string; examType: string; sourceJson: unknown }) {
   const content = parseSyllabusJson(syllabus.sourceJson)
   const nodes = normalizeSyllabusNodes(content)

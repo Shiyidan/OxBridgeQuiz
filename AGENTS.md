@@ -158,6 +158,7 @@ EntitlementConfig
 ## 数据库规则
 
 - `Question` 是业务查询、考试、报告和错题本唯一的官方题目数据源。
+- 诊断试卷与独立试题库共用 `Question` 结构：`content` 保存 `blocks/options/images`，`solution` 保存 `answer` 与学习解析，`meta` 仅保存来源及扩展。检索、关联和管理标量列保留；统一文档由 `formatQuestionDocument` 聚合为 `id/code/content/solution/meta`，`title` 和分类进入文档 `content`，题号/模块/管理信息进入文档 `meta`。不得恢复 `attemptPayload`、旧 `Question.options/answer/syllabusPoints` 列或在 `meta` 重复保存正文解析；作答接口必须经 `formatQuestionForAttempt` 的嵌套白名单过滤且不得查询 `solution`。
 - `Paper.questions` 仅用于旧版兼容和数据回填输入。新业务不得从中读取题目，也不得向其中保存或更新题目内容；兼容和回填流程可以清空该字段。
 - 创建或更新题目的 JSON 导入流程和题目编辑流程必须通过 `syncPaperQuestions` 写入。
 - 历史 `Paper.questions` 数据回填使用 `api` 中的脚本 `npm run backfill:questions`；应先使用 `-- --dry-run` 运行，仅在确认不再需要旧版 JSON 后才使用 `-- --clear-legacy`。
@@ -169,6 +170,10 @@ EntitlementConfig
 - 不要在一个字段中混合多种语义：`role` 仅表示身份；会员与权益以 `UserMembership` 和权益 API 为唯一依据。
 
 ### Schema 变更
+
+部署含 `20261014010000_unify_question_meta` 的后端版本前，必须暂停题目写入，保留仍包含旧列的 Prisma Client，先执行 `npm run migrate:question-meta -- --dry-run --environment=<目标环境>`，再执行 `--apply --confirm=MERGE_QUESTION_META --environment=<目标环境>`。脚本必须完成全量备份、零冲突审计及合并验证后，才可执行删列迁移和 `prisma generate`。不得先运行会覆盖旧 Client 的 `npm ci` / `prisma generate` 后跳过回填；新空数据库不需要数据回填。完整步骤见 `文档/3.技术文档/3.12 统一题目数据结构.md`。
+
+部署 `content/solution/meta` 版本必须再分两阶段：先在独立维护目录准备仅截至 `20261014020000_add_question_content_solution` 的原样迁移副本，通过 Prisma 加列并用 `api/prisma/question-content-stage.prisma` 生成同时含新旧列的 Client；执行 `npm run migrate:question-content -- --dry-run --environment=<目标环境>` 和 `--apply --confirm=SPLIT_QUESTION_CONTENT --environment=<目标环境>`，完成全量备份、零冲突审计和逐题无损验证后，才能对完整迁移目录执行 `20261014030000_finalize_question_content_solution` 及最终 `prisma generate`。不得在回填前对完整目录直接 `migrate deploy`，不得修改或删除仓库原有迁移文件来跳过阶段。暂停应用直至最终 Client、构建及历史记录校验成功；新空库可直接执行完整迁移。
 
 每次修改 Prisma schema 时：
 

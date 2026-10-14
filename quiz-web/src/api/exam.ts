@@ -1,10 +1,8 @@
-/**
- * 考试 / 答卷 / 错题本 相关 API
- */
+// 考试、诊断报告与错题本的统一 API，供作答、历史记录及复习页面调用。
 import { callApi } from '@/utils/request'
 import type { AttemptQuestion, Question } from '@/types'
 
-// ---- 类型 ----
+// 作答、报告和历史记录页面共用的请求及响应类型。
 
 export type AnswerState = 'unseen' | 'skipped' | 'answered'
 
@@ -16,6 +14,7 @@ export interface ExamResponseInput {
 }
 
 export interface StartExamParams {
+  moduleCodes?: string[]
   paperId?: string
   examType?: string
   startedAt?: string
@@ -151,6 +150,7 @@ export interface DiagnosticReportMeta {
 
 export interface ExamQuestion extends Question {
   questionId?: string
+  originalQuestionId?: string
   selectedAnswer?: string | null
   isCorrect?: boolean
   durationSeconds?: number
@@ -669,9 +669,9 @@ export interface ProfileExamStats {
   diagnosticExamCount: number
 }
 
-// ---- API ----
+// 页面通过统一请求层访问考试、报告与复习接口。
 
-/** 进入答题页时创建或恢复考试记录，后续请求只使用返回的 ExamRecord ID。 */
+// 进入答题页时创建或恢复考试记录，后续请求只使用返回的 ExamRecord ID。
 export function startExam(params: StartExamParams, options: StartExamRequestOptions = {}) {
   return callApi<StartExamResult>({
     url: '/exams/start',
@@ -681,7 +681,7 @@ export function startExam(params: StartExamParams, options: StartExamRequestOpti
   })
 }
 
-/** 查询指定考试类型唯一的进行中题库练习。 */
+// 查询指定考试类型唯一的进行中题库练习。
 export function getActiveQuestionBankPractice(examType: string) {
   return callApi<ActiveQuestionBankPractice | null>({
     url: '/exams/active-practice',
@@ -690,7 +690,7 @@ export function getActiveQuestionBankPractice(examType: string) {
   })
 }
 
-/** 按考试记录保存逐题答案与耗时。 */
+// 按考试记录保存逐题答案与耗时。
 export function saveExamProgress(examId: string, responses: ExamResponseInput[]) {
   return callApi<SaveProgressResult>({
     url: `/exams/${examId}/progress`,
@@ -699,7 +699,7 @@ export function saveExamProgress(examId: string, responses: ExamResponseInput[])
   })
 }
 
-/** 恢复模块化诊断会话；题目范围和阶段均由服务端决定。 */
+// 恢复模块化诊断会话；题目范围和阶段均由服务端决定。
 export function getModuleExamSession(examId: string, options: { silent?: boolean } = {}) {
   return callApi<StartExamResult>({
     url: `/exams/${examId}/session`,
@@ -708,7 +708,7 @@ export function getModuleExamSession(examId: string, options: { silent?: boolean
   })
 }
 
-/** 按 ExamRecord 恢复普通题库练习或连续考试的冻结题目与进度。 */
+// 按 ExamRecord 恢复普通题库练习或连续考试的冻结题目与进度。
 export function getExamSession(examId: string) {
   return callApi<StartExamResult>({
     url: `/exams/${examId}/session`,
@@ -716,7 +716,7 @@ export function getExamSession(examId: string) {
   })
 }
 
-/** 离开答题页时保存当前模块快照，并由服务端冻结剩余时间。 */
+// 离开答题页时保存当前模块快照，并由服务端冻结剩余时间。
 export function pauseExamModule(
   examId: string,
   moduleCode: string,
@@ -729,7 +729,7 @@ export function pauseExamModule(
   })
 }
 
-/** 锁定当前考试分段答案，并进入休息、下一分段或最终交卷阶段。 */
+// 锁定当前考试分段答案，并进入休息、下一分段或最终交卷阶段。
 export function completeExamModule(examId: string, responses: ExamResponseInput[]) {
   return callApi<StartExamResult>({
     url: `/exams/${examId}/module/complete`,
@@ -738,7 +738,7 @@ export function completeExamModule(examId: string, responses: ExamResponseInput[
   })
 }
 
-/** 跳过当前三分钟休息并立即开始下一科目。 */
+// 跳过当前三分钟休息并立即开始下一科目。
 export function skipExamBreak(examId: string) {
   return callApi<StartExamResult>({
     url: `/exams/${examId}/break/skip`,
@@ -747,7 +747,7 @@ export function skipExamBreak(examId: string) {
   })
 }
 
-/** 按考试记录交卷，试卷、题目范围与考试类型由后端记录推导。 */
+// 按考试记录交卷，试卷、题目范围与考试类型由后端记录推导。
 export function submitExam(examId: string, params: SubmitParams) {
   return callApi<SubmitResult>({
     url: `/exams/${examId}/submit`,
@@ -756,7 +756,7 @@ export function submitExam(examId: string, params: SubmitParams) {
   })
 }
 
-/** 获取答卷详情 */
+// 获取答卷详情
 export function getExamResultData(examId: string) {
   return callApi<ExamResult>({
     url: `/exams/${examId}/result`,
@@ -764,7 +764,7 @@ export function getExamResultData(examId: string) {
   })
 }
 
-/** 获取新版诊断报告头、等效评估分与总体成绩概览 */
+// 获取新版诊断报告头、等效评估分与总体成绩概览
 export function getDiagnosticReportSummary(examId: string) {
   return callApi<{ report: DiagnosticReportSummary; meta: DiagnosticReportMeta }>({
     url: `/exams/${examId}/diagnostic-report/summary`,
@@ -772,7 +772,7 @@ export function getDiagnosticReportSummary(examId: string) {
   })
 }
 
-/** 获取诊断报告后台生成状态，分析弹窗据此展示真实进度。 */
+// 获取诊断报告后台生成状态，分析弹窗据此展示真实进度。
 export function getDiagnosticReportStatus(examId: string) {
   return callApi<DiagnosticReportStatus>({
     url: `/exams/${examId}/diagnostic-report/status`,
@@ -780,7 +780,7 @@ export function getDiagnosticReportStatus(examId: string) {
   })
 }
 
-/** 重新执行失败的诊断分析，不重复提交答卷。 */
+// 重新执行失败的诊断分析，不重复提交答卷。
 export function retryDiagnosticReport(examId: string) {
   return callApi<Pick<DiagnosticReportStatus, 'status' | 'stage' | 'progress'>>({
     url: `/exams/${examId}/diagnostic-report/retry`,
@@ -788,7 +788,7 @@ export function retryDiagnosticReport(examId: string) {
   })
 }
 
-/** 按当前报告版本重新分析已提交答卷，成功前保留旧报告快照。 */
+// 按当前报告版本重新分析已提交答卷，成功前保留旧报告快照。
 export function regenerateDiagnosticReport(examId: string) {
   return callApi<Pick<DiagnosticReportStatus, 'status' | 'stage' | 'progress'>>({
     url: `/exams/${examId}/diagnostic-report/regenerate`,
@@ -796,7 +796,7 @@ export function regenerateDiagnosticReport(examId: string) {
   })
 }
 
-/** 获取错题本 */
+// 获取错题本
 export function getMistakeNotebookData(params: MistakeNotebookParams = {}) {
   return callApi<PageResult<WrongAnswer>>({
     url: '/exams/error-book',
@@ -825,7 +825,7 @@ export function removeMistakeQuestions(body: RemoveMistakeQuestionsParams) {
   })
 }
 
-/** 错题详情成功显示后记录一次查看，统计失败不打断复习。 */
+// 错题详情成功显示后记录一次查看，统计失败不打断复习。
 export function recordMistakeQuestionView(questionId: string) {
   return callApi<{ recorded: true }>({
     url: `/exams/error-book/${encodeURIComponent(questionId)}/view`,
@@ -834,7 +834,7 @@ export function recordMistakeQuestionView(questionId: string) {
   })
 }
 
-/** 获取当前用户在单道错题上的历次错误作答，服务端按提交时间倒序返回。 */
+// 获取当前用户在单道错题上的历次错误作答，服务端按提交时间倒序返回。
 export function getMistakeAttemptHistory(questionId: string) {
   return callApi<MistakeAttemptHistoryResult>({
     url: `/exams/error-book/${encodeURIComponent(questionId)}/attempts`,
@@ -842,7 +842,7 @@ export function getMistakeAttemptHistory(questionId: string) {
   })
 }
 
-/** 获取试题库练习记录 */
+// 获取试题库练习记录
 export function getPracticeRecords() {
   return callApi<{ records: PracticeRecord[] }>({
     url: '/exams/practice-records',
@@ -850,7 +850,7 @@ export function getPracticeRecords() {
   })
 }
 
-/** 获取个人中心考试统计 */
+// 获取个人中心考试统计
 export function getProfileExamStats() {
   return callApi<{ stats: Record<string, ProfileExamStats> }>({
     url: '/exams/profile-stats',

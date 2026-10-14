@@ -55,9 +55,14 @@
             <div class="paper-meta">
               <span>年份：{{ paper.year }}</span>
               <span class="meta-sep">·</span>
-              <span>时长：{{ paper.duration }} 分钟</span>
+              <span v-if="selectedModule"
+                >{{ selectedModule.subject }} · {{ selectedModule.durationSeconds / 60 }} 分钟</span
+              >
+              <span v-else>{{
+                paper.assemblyType === 'annual_subjects' ? '年度科目题库' : `${paper.duration} 分钟`
+              }}</span>
               <span class="meta-sep">·</span>
-              <span>共 {{ questions.length }} 题</span>
+              <span>共 {{ visibleQuestions.length }} 题</span>
               <template
                 v-if="paper.deliveryMode === 'module_sequence' && paper.breakDurationSeconds"
               >
@@ -117,17 +122,43 @@ const savingTitle = ref(false)
 const titleDraft = ref('')
 const titleInputRef = ref<{ focus: () => void; blur: () => void } | null>(null)
 
+// 科目入口只筛选本年度的目标模块，保持题干与解析使用共用渲染链路。
+const visibleQuestions = computed(() =>
+  typeof route.query.moduleCode === 'string'
+    ? questions.value.filter((question) => question.module_code === route.query.moduleCode)
+    : questions.value,
+)
+// 预览中的时长使用当前科目的计时配置，避免把五科总时长当作学生考试时间。
+const selectedModule = computed(() =>
+  paper.value?.modules?.find((module) => module.code === route.query.moduleCode),
+)
+
 // 完整真题转换为报告组件的数据结构，题目 id 同时用于左侧导航的稳定定位。
 const analysisQuestions = computed<Array<ExamQuestion & { id: string }>>(() =>
-  questions.value.map((question, index) => ({
+  visibleQuestions.value.map((question, index) => ({
     ...question,
     id: question.id || `q-${index}`,
     questionId: question.id || `q-${index}`,
   })),
 )
 
-const backPath = '/admin/core-library/exams'
-const backLabel = '返回真题库列表'
+// 从年份列表进入的预览回到原考试和年份，避免每次校对后重新定位。
+const backPath = computed(() => ({
+  path: '/admin/core-library/exams',
+  query: {
+    examType:
+      route.query.examType === 'TMUA'
+        ? 'TMUA'
+        : route.query.examType === 'ESAT'
+          ? 'ESAT'
+          : paper.value?.examType,
+    year: route.query.year || (paper.value ? String(paper.value.year) : undefined),
+  },
+}))
+// 明确返回的是当年套卷列表，未加载试卷时保留通用导航提示。
+const backLabel = computed(() =>
+  backPath.value.query.year ? `返回 ${backPath.value.query.year} 年试卷` : '返回真题库',
+)
 
 // 点击编辑图标后使用当前标题初始化输入框，并在渲染完成后自动聚焦。
 async function startTitleEditing(): Promise<void> {
@@ -179,6 +210,7 @@ async function saveTitle(): Promise<void> {
   }
 }
 
+// 根据路由试卷 ID 加载官方题目源，管理端预览沿用正式题卡的结构和解析。
 onMounted(async () => {
   try {
     const data = await getPaperDetailData(route.params.id as string)
@@ -198,6 +230,7 @@ onMounted(async () => {
   }
 })
 
+// 预览页将试卷生命周期状态映射为管理端标签，未知值保留原文便于排查。
 function statusLabel(s: string) {
   return { draft: '草稿', review: '审核中', published: '已上线', archived: '已归档' }[s] || s
 }

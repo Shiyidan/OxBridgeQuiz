@@ -69,6 +69,14 @@ export const PAPER_DELIVERY_MODE = {
 } as const
 
 export const PAPER_DELIVERY_MODES = Object.values(PAPER_DELIVERY_MODE)
+
+// 年度诊断与历史组合卷分开进入目录，历史试卷保留供原答卷回顾。
+export const DIAGNOSTIC_ASSEMBLY = {
+  ANNUAL: 'annual_subjects',
+  RETIRED: 'annual_subjects_retired',
+  LEGACY_EXPIRED: 'legacy_diagnostic_expired',
+  MIGRATED: 'legacy_diagnostic_migrated',
+} as const
 export type PaperDeliveryMode = (typeof PAPER_DELIVERY_MODES)[number]
 
 export const EXAM_PHASE = {

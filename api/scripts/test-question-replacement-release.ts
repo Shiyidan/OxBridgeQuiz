@@ -72,8 +72,8 @@ async function createQuestions(moduleCode: string, examType: string = EXAM_TYPE.
     id: `${prefix}-${index + 1}`, uniqueCode: `${prefix}-${index + 1}`, examType, moduleCode,
   }))
   await prisma.question.createMany({ data: questions.map((question) => ({
-    ...question, title: 'Choose the value of 1 + 1.', options: ['A. 2', 'B. 3'], answer: ['A'],
-    questionType: 'single_choice', knowledgePoints: [], syllabusPoints: [], meta: {},
+    ...question, title: 'Choose the value of 1 + 1.', content: { blocks: [], images: [], options: ['A. 2', 'B. 3'] }, solution: { answer: ['A'] },
+    questionType: 'single_choice', knowledgePoints: [], meta: {},
     status: QUESTION_STATUS.PUBLISHED, publishedAt: fixtureTime,
   })) })
   return questions
@@ -88,8 +88,8 @@ async function createReplacement(original: FixtureQuestion, revisionVersion = 2,
     uniqueCode: `${original.uniqueCode}-V${revisionVersion}`,
     importBatchId: batch.id, replacesQuestionId: original.id, revisionVersion,
     examType: original.examType, moduleCode: original.moduleCode,
-    title: 'Choose the value of 2 + 2.', options: ['A. 4', 'B. 5'], answer: ['A'],
-    questionType: 'single_choice', knowledgePoints: [], syllabusPoints: [], meta: {}, status,
+    title: 'Choose the value of 2 + 2.', content: { blocks: [], images: [], options: ['A. 4', 'B. 5'] }, solution: { answer: ['A'] },
+    questionType: 'single_choice', knowledgePoints: [], meta: {}, status,
     publishedAt: status === QUESTION_STATUS.PUBLISHED ? fixtureTime : null,
   } })
   return { batch, question: { ...question, moduleCode: original.moduleCode } }

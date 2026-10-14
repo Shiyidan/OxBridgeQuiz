@@ -1,6 +1,7 @@
 <!-- 管理端真题 JSON 导入页：校验并预览标准试卷文档。 -->
 <template>
-  <div class="upload-page">
+  <DiagnosticPaperImport v-if="!isQuestionBankSource" />
+  <div v-else class="upload-page">
     <!-- 顶部返回 -->
     <div class="page-top-bar">
       <button class="back-btn" @click="$router.push(uploadBackPath)">
@@ -149,9 +150,7 @@
           <div class="json-preview-list" v-if="jsonQuestions.length">
             <p class="field-label" style="margin-top: 16px">题目预览</p>
             <div class="json-preview-item" v-for="q in jsonQuestions" :key="questionPreviewKey(q)">
-              <span class="json-preview-num">{{
-                q.module_question_number || q.number
-              }}</span>
+              <span class="json-preview-num">{{ q.module_question_number || q.number }}</span>
               <span v-if="q.subject" class="json-preview-module">{{ q.subject }}</span>
               <span class="json-preview-title">{{ truncateText(q.title, 60) }}</span>
               <span class="json-preview-opts">{{ q.options.length }} 个选项</span>
@@ -229,6 +228,7 @@
 </template>
 
 <script setup lang="ts">
+import DiagnosticPaperImport from './DiagnosticPaperImport.vue'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -247,10 +247,13 @@ import { getApiErrorMessage } from '@/utils/request'
 const router = useRouter()
 const route = useRoute()
 
+// 按路由来源区分试题库与真题库入口，保持导入后的返回上下文。
 const isQuestionBankSource = computed(() => route.query.source === 'questions')
+// 导入页的返回地址沿用进入时的题库类型。
 const uploadBackPath = computed(() =>
   isQuestionBankSource.value ? '/admin/core-library/questions' : '/admin/core-library/exams',
 )
+// 返回按钮文案与原题库入口一致，避免混淆独立题目和真题套卷。
 const uploadBackLabel = computed(() =>
   isQuestionBankSource.value ? '返回试题库管理' : '返回真题库列表',
 )
@@ -280,19 +283,21 @@ const jsonDone = ref(false)
 const jsonError = ref('')
 const jsonPaperId = ref('')
 
-
+// 导入预览先清除旧版段落占位标记，再截断题目摘要以控制列表宽度。
 function truncateText(text: string, maxLen: number): string {
   if (!text) return ''
   const cleaned = text.replace(/\[\[(BS|NL|PARA|FIG)\]\]/g, ' ')
   return cleaned.length > maxLen ? cleaned.slice(0, maxLen) + '...' : cleaned
 }
 
+// 上传元数据中的考试类型必须属于支持范围，否则使用页面默认考试类型。
 function normalizeExamType(value: unknown): ExamType {
   return EXAM_TYPE_OPTIONS.some((item) => item.value === value)
     ? (value as ExamType)
     : DEFAULT_EXAM_TYPE
 }
 
+// 校验导入文档的试卷类型是否属于前后端约定的业务枚举。
 function isPaperTypeValue(value: unknown): value is PaperMetadata['paperType'] {
   return Object.values(PAPER_TYPE).includes(value as PaperMetadata['paperType'])
 }
@@ -524,10 +529,7 @@ function readPaperDocumentPreview(raw: unknown): {
   if (moduleRows) {
     const modules = moduleRows.map((module, moduleIndex: number) => ({
       code: String(
-        module.code ||
-          module.module_code ||
-          module.subject ||
-          `module-${moduleIndex + 1}`,
+        module.code || module.module_code || module.subject || `module-${moduleIndex + 1}`,
       ),
       subject: String(
         module.subject ||
@@ -540,7 +542,9 @@ function readPaperDocumentPreview(raw: unknown): {
     }))
     const questions = moduleRows.flatMap((module, moduleIndex: number) => {
       const moduleQuestions = module.questions as QuestionInput[]
-      const moduleCode = String(module.code || module.module_code || '') as QuestionInput['module_code']
+      const moduleCode = String(
+        module.code || module.module_code || '',
+      ) as QuestionInput['module_code']
       const moduleSubject = typeof module.subject === 'string' ? module.subject : undefined
       const moduleSubjectCode =
         typeof module.subject_code === 'string' || typeof module.subject_code === 'number'
@@ -586,6 +590,7 @@ function questionPreviewKey(question: QuestionInput): string {
   )
 }
 
+// 累加前置模块的题量，为模块内题号生成整卷预览位置。
 function questionsBeforeModule(modules: PreviewModuleRow[], targetIndex: number): number {
   return modules
     .slice(0, targetIndex)
@@ -601,35 +606,40 @@ function questionsBeforeModule(modules: PreviewModuleRow[], targetIndex: number)
     )
 }
 
+// 导入完成后按试卷类型选择试题库或真题库的预览入口。
 function previewPathForPaperType(id: string, paperType?: PaperMetadata['paperType']): string {
   return paperType === PAPER_TYPE.AI_PAPER
     ? `/admin/core-library/questions/${id}`
     : `/admin/core-library/exams/${id}`
 }
 
-// ---- JSON 导入逻辑 ----
+// 点击选择文件时复用原生文件输入框，后续统一进入标准 JSON 预览流程。
 
 function triggerJsonFileInput(): void {
   jsonFileInput.value?.click()
 }
 
+// 拖入的文件复用标准 JSON 校验流程，并结束拖拽高亮状态。
 function handleJsonDrop(e: DragEvent): void {
   jsonDragOver.value = false
   const f = e.dataTransfer?.files?.[0]
   if (f) processJsonFile(f)
 }
 
+// 文件选择器与拖拽入口共用同一套读取和预览校验。
 function handleJsonFileSelect(e: Event): void {
   const f = (e.target as HTMLInputElement).files?.[0]
   if (f) processJsonFile(f)
 }
 
+// 读取并校验上传文档后一次性填充元数据和题目预览，解析失败时不进入导入流程。
 function processJsonFile(f: File): void {
   if (!f.name.endsWith('.json') && f.type !== 'application/json') {
     ElMessage.warning('仅支持 .json 文件')
     return
   }
   const reader = new FileReader()
+  // 文件完整解析且通过结构检查后才更新预览，避免未校验的内容进入提交状态。
   reader.onload = () => {
     try {
       const raw = JSON.parse(reader.result as string)
@@ -662,6 +672,7 @@ function processJsonFile(f: File): void {
   reader.readAsText(f)
 }
 
+// 清空上一份文档的题目、元数据及导入结果，避免下一次上传串用旧状态。
 function clearJsonFile(): void {
   jsonFile.value = null
   jsonTitle.value = ''
@@ -680,11 +691,13 @@ function clearJsonFile(): void {
   jsonPaperId.value = ''
 }
 
+// 重新开始导入时同时重置文件预览与提交状态。
 function resetJsonImport(): void {
   clearJsonFile()
   jsonImporting.value = false
 }
 
+// 提交管理员编辑后的标准文档，服务端成功持久化后才开放预览入口。
 async function importJson(): Promise<void> {
   if (!jsonMetadata.value || !jsonDocument.value) {
     ElMessage.warning('请先选择标准 JSON 文件')
@@ -726,10 +739,12 @@ async function importJson(): Promise<void> {
   }
 }
 
+// 使用本次导入返回的试卷 ID 进入对应题库的内容预览。
 function goToJsonPreview(): void {
   router.push(previewPathForPaperType(jsonPaperId.value, jsonMetadata.value?.paperType))
 }
 
+// 保留文档其余元数据，只合并管理员可编辑的名称、考试信息和访问级别。
 function buildEditedMetadata(
   metadata: PaperMetadata,
   paperName: string,
@@ -774,7 +789,6 @@ function buildEditedPaperDocument(
     metadata,
   } as StandardPaperJson
 }
-
 </script>
 
 <style scoped lang="scss">

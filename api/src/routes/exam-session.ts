@@ -1,9 +1,12 @@
 // 处理考试开始或恢复、增量保存及原子交卷流程。
 import { Prisma } from '@prisma/client'
 import { prisma } from '../services/prisma.js'
+import { diagnosticHistoryQuestionFields, parseDiagnosticHistorySnapshot } from '../utils/diagnosticHistorySnapshot.js'
 import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
 import { formatQuestionRow } from '../utils/questionSync.js'
+import { getQuestionAnswer } from '../utils/questionDocument.js'
+import { AnnualDiagnosticError, selectAnnualModules } from '../services/annualDiagnostic.js'
 import { parseJsonField, parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
 import { hasDiagnosticPaperAccess } from '../services/member.js'
 import { requireQuestionBankAttemptMembership } from '../middleware/questionBankMembership.js'
@@ -23,6 +26,7 @@ import {
 } from '../services/diagnosticReportTask.js'
 import {
   ANSWER_RECORD_STATE,
+  DIAGNOSTIC_ASSEMBLY,
   type AnswerRecordState,
   DIAGNOSTIC_REPORT_TASK_STATUS,
   EXAM_TYPE,
@@ -101,9 +105,10 @@ examSessionRouter.get('/active-practice', requireAuth, async (req, res) => {
 examSessionRouter.post('/start', requireAuth, async (req, res) => {
   try {
 
-    const { paperId, examType } = req.body as {
+    const { paperId, examType, moduleCodes } = req.body as {
       paperId?: string
       examType?: string
+      moduleCodes?: string[]
     }
     if (!paperId || paperId === 'question-bank') {
       res.status(410).json(fail('练习入口已更新，请刷新页面后重新开始', 'QUESTION_SELECTION_RETIRED'))
@@ -128,6 +133,7 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
           deliveryMode: true,
           breakDurationSeconds: true,
           moduleConfig: true,
+          assemblyType: true,
           status: true,
         },
       })
@@ -153,6 +159,8 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
       return
     }
     const isModuleSequence = targetDeliveryMode === PAPER_DELIVERY_MODE.MODULE_SEQUENCE
+    const isAnnual = targetPaper.assemblyType === DIAGNOSTIC_ASSEMBLY.ANNUAL
+    const selectedModules = isAnnual ? selectAnnualModules(targetExamType, targetPaper.moduleConfig, moduleCodes) : null
     const usesContinuousClock = usesContinuousExamClock(targetPaperType, targetDeliveryMode)
     const existingRecord = isDiagnostic
       ? await prisma.examRecord.findFirst({
@@ -183,6 +191,14 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
           'DIAGNOSTIC_IN_PROGRESS',
         ))
         return
+      }
+      if (selectedModules) {
+        const frozen = parseModuleExamSnapshot(existingRecord.structureSnapshot)
+        const expected = selectedModules.map((module) => module.code).join('|')
+        if (!frozen || frozen.modules.map((module) => module.code).join('|') !== expected) {
+          res.status(409).json(fail('已有未完成诊断测试，请先继续原科目组合', 'DIAGNOSTIC_IN_PROGRESS'))
+          return
+        }
       }
       if (isModuleSequence) {
         const session = await getModuleExamSession(
@@ -247,6 +263,10 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
       return
     }
 
+    if (!isAnnual) {
+      res.status(410).json(fail('此卷仅用于历史记录，请从年度科目库开始新的诊断测试', 'DIAGNOSTIC_LEGACY_RETIRED'))
+      return
+    }
     if (targetPaper.status !== 'published') {
       res.status(404).json(fail('试卷不存在或尚未发布'))
       return
@@ -262,23 +282,28 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
       return
     }
 
-    const questionRows = await prisma.question.findMany({
-      where: { paperId: targetPaperId },
-      orderBy: [{ paperId: 'asc' }, { number: 'asc' }],
+    const storedQuestionRows = await prisma.question.findMany({
+      where: { paperId: targetPaperId, ...(selectedModules ? { moduleCode: { in: selectedModules.map((module) => module.code) } } : {}) },
+      orderBy: [{ moduleOrder: 'asc' }, { moduleQuestionNumber: 'asc' }, { number: 'asc' }],
       select: {
         id: true,
-        answer: true,
+        solution: true,
         moduleCode: true,
         moduleOrder: true,
       },
     })
+    // 共享题目保留年度顺序；学生的实际模块顺序只写入答卷快照，不回写题库。
+    const questionRows = storedQuestionRows.map((question) => ({
+      ...question,
+      moduleOrder: selectedModules?.find((module) => module.code === question.moduleCode)?.order ?? question.moduleOrder,
+    }))
     if (!questionRows.length) {
       res.status(422).json(fail('考试题目不存在或不属于当前考试类型'))
       return
     }
     const officialQuestions = questionRows.map((question) => ({
       id: question.id,
-      answer: parseJsonArray<string>(question.answer),
+      answer: getQuestionAnswer(question),
     }))
 
     const accessAllowed = await hasDiagnosticPaperAccess(req.user!.userId, targetPaper)
@@ -290,8 +315,11 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
       return
     }
 
+    if (selectedModules?.some((module) => questionRows.filter((q) => q.moduleCode === module.code).length !== module.questionCount)) {
+      throw new AnnualDiagnosticError('年度科目题量不完整，暂不能开始考试')
+    }
     const moduleSnapshot = isModuleSequence && targetPaper
-      ? buildModuleExamSnapshot(targetPaper as any, questionRows)
+      ? buildModuleExamSnapshot({ ...targetPaper, ...(selectedModules ? { moduleConfig: selectedModules } : {}) }, questionRows)
       : null
 
     const examRecord = await prisma.$transaction(async (tx) => {
@@ -358,6 +386,10 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
       durationSeconds: 0,
     }))
   } catch (error: any) {
+    if (error instanceof AnnualDiagnosticError) {
+      res.status(422).json(fail(error.message, error.code))
+      return
+    }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       res.status(409).json(fail(
         '当前考试类型已有一场未完成的诊断测试，请返回诊断中心继续作答',
@@ -513,6 +545,7 @@ examSessionRouter.get('/:id/session', requireAuth, requireQuestionBankAttemptMem
         expiresAt: true,
         status: true,
         practiceSnapshot: true,
+        structureSnapshot: true,
         paper: {
           select: {
             paperType: true,
@@ -570,8 +603,9 @@ examSessionRouter.get('/:id/session', requireAuth, requireQuestionBankAttemptMem
             : ANSWER_RECORD_STATE.UNSEEN
     }
     const usesPracticeDeadline = record.paperId === 'question-bank' && Boolean(record.expiresAt)
-    const expiresAt = usesContinuousExamClock(record.paper.paperType, record.paper.deliveryMode)
-      ? record.expiresAt || buildExamDeadline(record.startedAt, record.paper.duration)
+    const historicalPaper = parseDiagnosticHistorySnapshot(record.structureSnapshot)?.sourcePaper
+    const expiresAt = usesContinuousExamClock(record.paper.paperType, historicalPaper?.deliveryMode ?? record.paper.deliveryMode)
+      ? record.expiresAt || buildExamDeadline(record.startedAt, historicalPaper?.duration ?? record.paper.duration)
       : usesPracticeDeadline
         ? record.expiresAt
         : null
@@ -597,6 +631,7 @@ examSessionRouter.get('/:id/session', requireAuth, requireQuestionBankAttemptMem
       questions: orderedAnswers.map((answer, index) => ({
         ...formatQuestionForAttempt(answer.question),
         number: index + 1,
+        ...diagnosticHistoryQuestionFields(record.structureSnapshot, answer.questionId),
       })),
     }))
   } catch (error: any) {
@@ -965,9 +1000,10 @@ examSessionRouter.post('/:id/submit', requireAuth, requireQuestionBankAttemptMem
       record.paper.paperType,
       record.structureSnapshot,
     )
+    const historicalPaper = parseDiagnosticHistorySnapshot(record.structureSnapshot)?.sourcePaper
     const usesTimedSession = usesContinuousExamClock(
       record.paper.paperType,
-      record.paper.deliveryMode,
+      historicalPaper?.deliveryMode ?? record.paper.deliveryMode,
     ) || (record.paperId === 'question-bank' && Boolean(record.expiresAt))
     if (record.status === EXAM_RECORD_STATUS.SUBMITTED) {
       const task = isDiagnostic
@@ -1011,7 +1047,7 @@ examSessionRouter.post('/:id/submit', requireAuth, requireQuestionBankAttemptMem
     const questionRows = await prisma.question.findMany({
       where: { id: { in: scopedQuestionIds } },
       orderBy: [{ paperId: 'asc' }, { number: 'asc' }],
-      select: { id: true, answer: true },
+      select: { id: true, solution: true },
     })
     if (!questionRows.length) {
       res.status(422).json(fail('当前考试记录没有可提交的正式题目'))
@@ -1031,7 +1067,7 @@ examSessionRouter.post('/:id/submit', requireAuth, requireQuestionBankAttemptMem
     const officialQuestions = orderedAnswers.flatMap((answerRecord) => {
       const question = questionMap.get(answerRecord.questionId)
       return question
-        ? [{ id: question.id, answer: parseJsonArray<string>(question.answer) }]
+        ? [{ id: question.id, answer: getQuestionAnswer(question) }]
         : []
     })
 
@@ -1041,7 +1077,7 @@ examSessionRouter.post('/:id/submit', requireAuth, requireQuestionBankAttemptMem
     const correctCount = countCorrectAnswers(officialQuestions, maps.answers)
     const submittedAt = new Date()
     const expiresAt = usesTimedSession
-      ? record.expiresAt || buildExamDeadline(record.startedAt, record.paper.duration)
+      ? record.expiresAt || buildExamDeadline(record.startedAt, historicalPaper?.duration ?? record.paper.duration)
       : null
     const durationSeconds = expiresAt
       ? continuousExamDurationSeconds(record.startedAt, expiresAt, submittedAt)

@@ -1,4 +1,5 @@
 // 练习本业务服务：校验保存配置、按难度与知识点动态选题，并格式化历史快照。
+import { getQuestionAnswer } from '../utils/questionDocument.js'
 import type { Prisma, PracticeNotebook } from '@prisma/client'
 import {
   ANSWER_RECORD_STATE,
@@ -390,9 +391,9 @@ export async function selectPracticeQuestions(
   const orderedIds = [...selectedIds].slice(0, notebook.questionCount)
   const rows = await db.question.findMany({
     where: { id: { in: orderedIds } },
-    select: { id: true, answer: true },
+    select: { id: true, solution: true },
   })
-  const rowMap = new Map(rows.map((row) => [row.id, row]))
+  const rowMap = new Map(rows.map((row) => [row.id, { id: row.id, answer: getQuestionAnswer(row) }]))
   return {
     questions: orderedIds.flatMap((id) => rowMap.get(id) ? [rowMap.get(id)!] : []),
     availableCount,

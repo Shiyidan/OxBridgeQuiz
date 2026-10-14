@@ -30,7 +30,7 @@ import {
   releaseQuestionReplacementBatch,
 } from "../services/questionReplacementRelease.js";
 import { createAsyncRouter } from "../utils/asyncRouter.js";
-import { formatQuestionRow } from "../utils/questionSync.js";
+import { formatQuestionRow, syncPaperQuestions } from "../utils/questionSync.js";
 import { resolveQuestionModuleCode } from "../utils/questionModule.js";
 import { fail, success } from "../utils/response.js";
 import {
@@ -561,11 +561,9 @@ questionLibraryRouter.post(
         });
         for (const [questionIndex, question] of document.questions.entries()) {
           const classification = canonicalClassifications.get(question.code)!;
-          const created = await tx.question.create({
-            data: {
-              uniqueCode: question.code,
-              sourceQuestionCode: question.code,
-              paperId: null,
+          // 独立试题沿用批次和修订关系，题目内容交由与诊断卷相同的同步入口写入。
+          const [questionId] = await syncPaperQuestions(null, [{
+              code: question.code,
               importBatchId: batch.id,
               replacesQuestionId: question.revision
                 ? originalQuestionMap.get(question.revision.originCode)!.id
@@ -576,50 +574,38 @@ questionLibraryRouter.post(
               revisionReason: question.revision?.reason || null,
               examType: question.examType,
               number: questionIndex + 1,
-              moduleCode: resolveQuestionModuleCode({
+              module_code: resolveQuestionModuleCode({
                 examType: question.examType,
                 subject: classification.subject,
                 subjectCode: classification.subjectCode,
                 part: question.part,
               }),
               title: question.title,
-              options: question.options as Prisma.InputJsonValue,
-              answer: question.answer as Prisma.InputJsonValue,
+              options: question.options,
+              answer: question.answer,
               subject: classification.subject,
-              subjectCode: classification.subjectCode,
-              questionType: question.questionType,
+              subject_code: classification.subjectCode,
+              question_type: question.questionType,
               difficulty: question.difficulty,
               qualityTier: question.qualityTier || null,
               topic: classification.topic,
-              topicCode: classification.topicCode,
-              knowledgePoints:
-                classification.knowledgePoints as unknown as Prisma.InputJsonValue,
-              syllabusPoints: [] as Prisma.InputJsonValue,
-              attemptPayload: {
-                code: question.code,
-                content_blocks: question.contentBlocks,
-                images: question.images,
-              } as Prisma.InputJsonValue,
-              meta: {
-                learning_analysis: {
-                  correct_solution: question.learningAnalysis.correctSolution,
-                  exam_focus: question.learningAnalysis.examFocus,
-                  common_error_causes:
-                    question.learningAnalysis.commonErrorCauses,
-                  review_guidance: question.learningAnalysis.reviewGuidance,
-                },
-                ...(question.qualityTier
-                  ? { qualityTier: question.qualityTier }
-                  : {}),
-                ...(question.origin ? { origin: question.origin } : {}),
-                ...(question.revision ? { revision: question.revision } : {}),
-              } as Prisma.InputJsonValue,
-              status: QUESTION_STATUS.DRAFT,
-            },
-          });
+              topic_code: classification.topicCode,
+              knowledge_points: classification.knowledgePoints,
+              syllabus_points: [],
+              content_blocks: question.contentBlocks,
+              images: question.images,
+              learning_analysis: {
+                correct_solution: question.learningAnalysis.correctSolution,
+                exam_focus: question.learningAnalysis.examFocus,
+                common_error_causes: question.learningAnalysis.commonErrorCauses,
+                review_guidance: question.learningAnalysis.reviewGuidance,
+              },
+              ...(question.origin ? { origin: question.origin } : {}),
+              ...(question.revision ? { revision: question.revision } : {}),
+          }], tx);
           await tx.questionKnowledgePoint.createMany({
             data: classification.knowledgePoints.map((point) => ({
-              questionId: created.id,
+              questionId,
               syllabusNodeId: nodeMap.get(`${question.examType}:${point.code}`)!
                 .id,
               role: point.role,

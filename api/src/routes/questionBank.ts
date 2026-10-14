@@ -4,12 +4,14 @@ import { prisma } from '../services/prisma.js'
 import { optionalAuth, requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
 import { parseJsonField } from '../utils/jsonField.js'
+import { diagnosticHistoryModules, diagnosticHistoryQuestionFields, isExpiredDiagnosticPaper, parseDiagnosticHistorySnapshot } from '../utils/diagnosticHistorySnapshot.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { logRuntimeError } from '../utils/runtimeLogger.js'
 import { computeScores } from '../services/scoring.js'
 import type { QuestionResult } from '../services/scoring.js'
 import {
   EXAM_TYPE,
+  DIAGNOSTIC_ASSEMBLY,
   EXAM_RECORD_STATUS,
   PAPER_ACCESS_TIER,
   PAPER_DELIVERY_MODE,
@@ -58,6 +60,7 @@ questionBankRouter.get('/assessment/years', optionalAuth, async (req, res) => {
           OR: [
             {
               status: 'published',
+              assemblyType: DIAGNOSTIC_ASSEMBLY.ANNUAL,
               OR: [
                 { examType: { not: EXAM_TYPE.ESAT } },
                 { deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE },
@@ -68,6 +71,7 @@ questionBankRouter.get('/assessment/years', optionalAuth, async (req, res) => {
         }
       : {
           status: 'published',
+          assemblyType: DIAGNOSTIC_ASSEMBLY.ANNUAL,
           ...(examType === EXAM_TYPE.ESAT
             ? { deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE }
             : {}),
@@ -81,6 +85,7 @@ questionBankRouter.get('/assessment/years', optionalAuth, async (req, res) => {
       },
       select: {
         id: true,
+        assemblyType: true,
         year: true,
         totalQuestions: true,
         accessTier: true,
@@ -122,11 +127,16 @@ questionBankRouter.get('/assessment/years', optionalAuth, async (req, res) => {
       const latestRecord = paper.examRecords[0]
       const completedAttemptCount = paper.examRecords.filter((record) => record.status === EXAM_RECORD_STATUS.SUBMITTED).length
 
-      summary.paperCount += 1
-      summary.totalQuestions += paper.totalQuestions
+      const availableAnnual = paper.assemblyType === DIAGNOSTIC_ASSEMBLY.ANNUAL
+      if (availableAnnual) {
+        summary.paperCount += 1
+        summary.totalQuestions += paper.totalQuestions
+      }
       summary.completedAttemptCount += completedAttemptCount
-      if (paper.accessTier === PAPER_ACCESS_TIER.MEMBER) summary.memberPaperCount += 1
-      else summary.freePaperCount += 1
+      if (availableAnnual) {
+        if (paper.accessTier === PAPER_ACCESS_TIER.MEMBER) summary.memberPaperCount += 1
+        else summary.freePaperCount += 1
+      }
       if (completedAttemptCount > 0) summary.completedPaperCount += 1
       if (latestRecord?.status === EXAM_RECORD_STATUS.IN_PROGRESS) {
         summary.inProgressPaperCount += 1
@@ -164,16 +174,18 @@ questionBankRouter.get('/assessment/papers', optionalAuth, async (req, res) => {
           OR: [
             {
               status: 'published',
+              assemblyType: DIAGNOSTIC_ASSEMBLY.ANNUAL,
               OR: [
                 { examType: { not: EXAM_TYPE.ESAT } },
                 { deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE },
               ],
             },
-            { examRecords: { some: { userId } } },
+            { examRecords: { some: { userId, status: EXAM_RECORD_STATUS.IN_PROGRESS } } },
           ],
         }
       : {
           status: 'published',
+          assemblyType: DIAGNOSTIC_ASSEMBLY.ANNUAL,
           ...(examType === EXAM_TYPE.ESAT
             ? { deliveryMode: PAPER_DELIVERY_MODE.MODULE_SEQUENCE }
             : {}),
@@ -227,6 +239,7 @@ questionBankRouter.get('/assessment/papers', optionalAuth, async (req, res) => {
               phase: true,
               currentModuleIndex: true,
               phaseExpiresAt: true,
+              structureSnapshot: true,
               submittedAt: true,
               durationSeconds: true,
               _count: {
@@ -268,23 +281,27 @@ questionBankRouter.get('/assessment/papers', optionalAuth, async (req, res) => {
           const record = latestRecordMap.get(paper.id)
           const report = record?.diagnosticReport
           const testStatus = record?.status === 'in_progress' ? 'in_progress' : record?.status === 'submitted' ? 'completed' : 'not_started'
+          const historicalPaper = testStatus === 'in_progress'
+            ? parseDiagnosticHistorySnapshot(record?.structureSnapshot)?.sourcePaper : null
           const reportStatus = record?.status === 'submitted' ? (report ? 'completed' : record.diagnosticReportTask?.status || 'not_generated') : null
 
           return {
             id: paper.id,
             paperId: paper.id,
-            paperName: paper.title,
-            title: paper.title,
+            paperName: historicalPaper?.title ?? paper.title,
+            title: historicalPaper?.title ?? paper.title,
             code: paper.code,
             examType: paper.examType,
             year: paper.year,
-            duration: paper.duration,
-            totalQuestions: paper.totalQuestions,
+            duration: historicalPaper?.duration ?? paper.duration,
+            totalQuestions: testStatus === 'in_progress' ? record!.totalQuestions : paper.totalQuestions,
             paperType: paper.paperType,
             accessTier: paper.accessTier,
-            deliveryMode: paper.deliveryMode,
+            deliveryMode: historicalPaper?.deliveryMode ?? paper.deliveryMode,
             breakDurationSeconds: paper.breakDurationSeconds,
-            modules: parseJsonField(paper.moduleConfig, []),
+            modules: testStatus === 'in_progress'
+              ? diagnosticHistoryModules(record?.structureSnapshot, paper.moduleConfig)
+              : parseJsonField(paper.moduleConfig, []),
             assemblyType: paper.assemblyType,
             remarks: paper.remarks,
             publicationStatus: paper.status,
@@ -365,6 +382,7 @@ questionBankRouter.get('/assessment/score-trend', requireAuth, async (req, res) 
       where: { id: { in: dailyRecords.map((record) => record.id) } },
       select: {
         id: true,
+        structureSnapshot: true,
         paper: { select: { title: true } },
         answers: {
           select: {
@@ -372,6 +390,7 @@ questionBankRouter.get('/assessment/score-trend', requireAuth, async (req, res) 
             position: true,
             question: {
               select: {
+                id: true,
                 subject: true,
                 moduleCode: true,
                 number: true,
@@ -391,7 +410,7 @@ questionBankRouter.get('/assessment/score-trend', requireAuth, async (req, res) 
         subject: answer.question.subject,
         moduleCode: answer.question.moduleCode,
         isCorrect: answer.isCorrect,
-        number: answer.question.number,
+        number: diagnosticHistoryQuestionFields(record.structureSnapshot, answer.question.id).number ?? answer.question.number,
       }))
       const scoring = computeScores(examType, questionResults)
       const scores =
@@ -417,7 +436,7 @@ questionBankRouter.get('/assessment/score-trend', requireAuth, async (req, res) 
           date: dailyRecord.date,
           submittedAt: dailyRecord.submittedAt,
           examRecordId: dailyRecord.id,
-          paperTitle: record.paper.title,
+          paperTitle: parseDiagnosticHistorySnapshot(record.structureSnapshot)?.sourcePaper.title ?? record.paper.title,
           scores,
         },
       ]
@@ -466,10 +485,14 @@ questionBankRouter.get('/assessment/years/:year/history', requireAuth, async (re
           startedAt: true,
           submittedAt: true,
           durationSeconds: true,
+          structureSnapshot: true,
           paper: {
             select: {
               id: true,
               title: true,
+              status: true,
+              paperType: true,
+              assemblyType: true,
               examType: true,
               moduleConfig: true,
             },
@@ -505,8 +528,10 @@ questionBankRouter.get('/assessment/years/:year/history', requireAuth, async (re
         list: records.map((record, index) => ({
           examRecordId: record.id,
           paperId: record.paper.id,
-          paperTitle: record.paper.title,
-          modules: parseJsonField(record.paper.moduleConfig, []),
+          paperTitle: parseDiagnosticHistorySnapshot(record.structureSnapshot)?.sourcePaper.title ?? record.paper.title,
+          isExpired: isExpiredDiagnosticPaper(record.paper),
+          // 历史选科只取答卷快照，缺失时不能用年度五科冒充本次作答科目。
+          modules: diagnosticHistoryModules(record.structureSnapshot, []),
           attemptNumber: total - (page - 1) * pageSize - index,
           totalQuestions: record.totalQuestions,
           correctCount: record.correctCount,
@@ -548,7 +573,7 @@ questionBankRouter.get('/assessment/papers/:paperId/history', requireAuth, async
         id: req.params.paperId,
         paperType: { in: [...REAL_PAPER_TYPES] },
       },
-      select: { id: true, title: true, examType: true, year: true },
+      select: { id: true, title: true, examType: true, year: true, status: true, paperType: true, assemblyType: true, moduleConfig: true },
     })
     if (!paper) {
       res.status(404).json(fail('诊断试卷不存在'))
@@ -571,6 +596,7 @@ questionBankRouter.get('/assessment/papers/:paperId/history', requireAuth, async
           startedAt: true,
           submittedAt: true,
           durationSeconds: true,
+          structureSnapshot: true,
           diagnosticReportTask: {
             select: {
               status: true,
@@ -600,6 +626,10 @@ questionBankRouter.get('/assessment/papers/:paperId/history', requireAuth, async
         paper,
         list: records.map((record, index) => ({
           examRecordId: record.id,
+          isExpired: isExpiredDiagnosticPaper(paper),
+          paperTitle: parseDiagnosticHistorySnapshot(record.structureSnapshot)?.sourcePaper.title ?? paper.title,
+          // 缺少快照时返回空科目，前端按考试与年份显示兜底标题。
+          modules: diagnosticHistoryModules(record.structureSnapshot, []),
           attemptNumber: total - (page - 1) * pageSize - index,
           totalQuestions: record.totalQuestions,
           correctCount: record.correctCount,

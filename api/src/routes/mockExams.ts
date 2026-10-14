@@ -1,4 +1,5 @@
 // 无限模考学生端路由：提供公开目录、个人记录与趋势，并创建可复用分段考试链路的独立答卷。
+import { getQuestionAnswer } from '../utils/questionDocument.js'
 import { Prisma } from '@prisma/client'
 import { optionalAuth, requireAuth } from '../middleware/auth.js'
 import { setOperationAuditContext } from '../middleware/operationAudit.js'
@@ -850,7 +851,7 @@ mockExamRouter.post('/modules/:id/attempts', requireAuth, async (req, res) => {
           question: {
             select: {
               id: true,
-              answer: true,
+              solution: true,
               status: true,
               examType: true,
             },
@@ -917,7 +918,7 @@ mockExamRouter.post('/modules/:id/attempts', requireAuth, async (req, res) => {
   )
   const officialQuestions = module.questions.map((item) => ({
     id: item.question!.id,
-    answer: parseJsonArray<string>(item.question!.answer),
+    answer: getQuestionAnswer(item.question!),
   }))
 
   let examRecordId = ''
@@ -1001,7 +1002,7 @@ mockExamRouter.post('/papers/:id/attempts', requireAuth, async (req, res) => {
               question: {
                 select: {
                   id: true,
-                  answer: true,
+                  solution: true,
                   status: true,
                   examType: true,
                   subject: true,
@@ -1105,7 +1106,7 @@ mockExamRouter.post('/papers/:id/attempts', requireAuth, async (req, res) => {
   )
   const officialQuestions = orderedQuestionItems.map((item) => ({
     id: item.question.id,
-    answer: parseJsonArray<string>(item.question.answer),
+    answer: getQuestionAnswer(item.question),
   }))
 
   let examRecordId = ''

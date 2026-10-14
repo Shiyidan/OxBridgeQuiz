@@ -6,6 +6,7 @@
       <div v-if="loading" class="state-card" role="status" aria-live="polite">
         正在生成 TMUA 两卷诊断...
       </div>
+      <DiagnosticExpiredNotice v-else-if="paperExpired" />
       <div v-else-if="errorMessage" class="state-card state-card--error" role="alert">
         <p>{{ errorMessage }}</p>
         <button type="button" class="button_cancel" @click="loadReport">重新加载</button>
@@ -75,6 +76,8 @@
 </template>
 
 <script setup lang="ts">
+import DiagnosticExpiredNotice from '@/components/DiagnosticExpiredNotice.vue'
+import { hasApiErrorCode } from '@/utils/request'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
@@ -98,6 +101,7 @@ defineOptions({ name: 'TmuaDiagnosticReportView' })
 const route = useRoute()
 const router = useRouter()
 const loading = ref(true)
+const paperExpired = ref(false)
 const errorMessage = ref('')
 const report = ref<DiagnosticReportSummaryData | null>(null)
 const reportMeta = ref<DiagnosticReportMeta | null>(null)
@@ -206,6 +210,7 @@ function waitForUpgradePoll(): Promise<void> {
 async function loadReport(): Promise<void> {
   loading.value = true
   errorMessage.value = ''
+  paperExpired.value = false
   try {
     const data = await getDiagnosticReportSummary(examId.value)
     if (data.report.reportKind !== 'tmua') {
@@ -215,6 +220,7 @@ async function loadReport(): Promise<void> {
     reportMeta.value = data.meta
     reportExamRecordId.value = data.meta.reportExamRecordId || examId.value
   } catch (error: unknown) {
+    paperExpired.value = hasApiErrorCode(error, 'DIAGNOSTIC_PAPER_EXPIRED')
     errorMessage.value = getApiErrorMessage(error, 'TMUA 诊断报告加载失败')
   } finally {
     loading.value = false

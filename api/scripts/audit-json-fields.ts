@@ -47,11 +47,9 @@ const EXPECTATIONS: Record<string, Expected> = {
   'Paper.moduleConfig': 'array',
   'Paper.sourceExamTypes': 'array',
   'Paper.questions': 'array',
-  'Question.options': 'array',
-  'Question.answer': 'array',
+  'Question.content': 'object',
+  'Question.solution': 'object',
   'Question.knowledgePoints': 'array',
-  'Question.syllabusPoints': 'array',
-  'Question.attemptPayload': 'object',
   'Question.meta': 'object',
   'MockPaperSet.issues': 'array',
   'MockPaperModule.issues': 'array',
@@ -153,12 +151,14 @@ function inspectKnownEntries(fieldPath: string, value: unknown): Finding[] {
   const findings: Finding[] = []
   if (jsonKind(value) === 'object') {
     const record = value as Record<string, unknown>
-    const nested = fieldPath === 'Question.attemptPayload'
-      ? { content_blocks: 'array', images: 'array' } as const
-      : fieldPath === 'Question.meta' ? { learning_analysis: 'object' } as const : {}
+    const nested: Record<string, Expected> = fieldPath === 'Question.content'
+      ? { blocks: 'array', images: 'array', options: 'array' }
+      : fieldPath === 'Question.solution' ? { answer: 'array' }
+        : fieldPath === 'Question.meta' ? { source: 'object' } : {}
     for (const [key, expected] of Object.entries(nested)) {
       if (Object.hasOwn(record, key)) {
         findings.push(...inspectContainer(record[key], expected, true, `${fieldPath}.${key}`).findings)
+        findings.push(...inspectKnownEntries(`${fieldPath}.${key}`, record[key]))
       }
     }
   }
@@ -168,10 +168,10 @@ function inspectKnownEntries(fieldPath: string, value: unknown): Finding[] {
   }
   for (const [index, entry] of value.entries()) {
     const entryPath = `${fieldPath}[${index}]`
-    if (fieldPath === 'Question.options' && jsonKind(entry) !== 'object') {
+    if (fieldPath === 'Question.content.options' && jsonKind(entry) !== 'object') {
       findings.push({ path: entryPath, classification: 'option_item_not_object' })
     }
-    if ((fieldPath === 'Question.answer' || fieldPath === 'PaymentOrder.examTypes') && typeof entry !== 'string') {
+    if ((fieldPath === 'Question.solution.answer' || fieldPath === 'PaymentOrder.examTypes') && typeof entry !== 'string') {
       findings.push({ path: entryPath, classification: 'item_not_string' })
     }
     if (fieldPath === 'User.examPreferences') {
@@ -290,9 +290,9 @@ function selfTest(): void {
   assert.equal(inspectContainer('legacy text', 'unknown', true, 'x').findings.length, 0)
   assert.equal(decodeString(JSON.stringify(JSON.stringify(JSON.stringify('[]')))).outcome, 'decode_limit')
   assert.equal(inspectKnownEntries('Question.meta', { text: '{bad', learning_analysis: {} }).length, 0)
-  assert.equal(inspectKnownEntries('Question.attemptPayload', { content_blocks: '[]', images: {} }).length, 2)
-  assert.equal(inspectKnownEntries('Question.options', [null, 'A', {}, []]).length, 3)
-  assert.equal(inspectKnownEntries('Question.answer', ['[legal answer]', 42]).length, 1)
+  assert.equal(inspectKnownEntries('Question.content', { blocks: '[]', images: {} }).length, 2)
+  assert.equal(inspectKnownEntries('Question.content.options', [null, 'A', {}, []]).length, 3)
+  assert.equal(inspectKnownEntries('Question.solution.answer', ['[legal answer]', 42]).length, 1)
   assert.equal(inspectKnownEntries('User.examPreferences', [null, {}, { examType: 'ESAT' }]).length, 2)
   assert.equal(inspectKnownEntries('PaymentOrder.examTypes', []).length, 1)
   assert.equal(inspectKnownEntries('PaymentOrder.examTypes', ['ESAT', null]).length, 1)

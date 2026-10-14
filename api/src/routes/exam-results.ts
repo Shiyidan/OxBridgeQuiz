@@ -1,10 +1,11 @@
-
 // 提供考试结果、个人统计及诊断报告任务与摘要接口。
 import { Prisma } from '@prisma/client'
 import { prisma } from '../services/prisma.js'
+import { requireAvailableDiagnosticHistory } from '../middleware/diagnosticHistory.js'
 import { requireAuth } from '../middleware/auth.js'
 import { success, fail } from '../utils/response.js'
 import { formatQuestionRow } from '../utils/questionSync.js'
+import { diagnosticHistoryQuestionFields, parseDiagnosticHistorySnapshot } from '../utils/diagnosticHistorySnapshot.js'
 import { parseJsonField, parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
 import { orderQuestionsForResult } from '../utils/questionOrder.js'
 import { checkMemberAccess } from '../services/member.js'
@@ -34,6 +35,7 @@ import {
   ANSWER_RECORD_STATE,
   type AnswerRecordState,
   DIAGNOSTIC_REPORT_TASK_STATUS,
+  DIAGNOSTIC_ASSEMBLY,
   EXAM_TYPE,
   EXAM_TYPES,
   EXAM_RECORD_STATUS,
@@ -141,7 +143,7 @@ examResultRouter.get('/profile-stats', requireAuth, async (req, res) => {
 })
 
 // Exam result
-examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
+examResultRouter.get('/:id/result', requireAuth, requireAvailableDiagnosticHistory, async (req, res) => {
   try {
     const examRecord = await prisma.examRecord.findFirst({
       where: { id: req.params.id, userId: req.user!.userId },
@@ -186,6 +188,7 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
             id: true,
             title: true,
             paperType: true,
+            assemblyType: true,
             year: true,
             duration: true,
             code: true,
@@ -217,8 +220,11 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
         })
       : null
 
-    // 逐题解析以答卷快照恢复模块归属，并按正式题号排序，不受题库当前分类或作答先后影响。
-    const answeredQuestions = orderedAnswers.flatMap((answerRecord) => {
+    const isAnnualDiagnostic = paper?.assemblyType === DIAGNOSTIC_ASSEMBLY.ANNUAL
+      || paper?.assemblyType === DIAGNOSTIC_ASSEMBLY.RETIRED
+    const historicalPaper = parseDiagnosticHistorySnapshot(examRecord.structureSnapshot)?.sourcePaper
+    // 年度选科的全卷题号来自本次答卷，旧组合卷仍保留原题号；模块归属始终按快照恢复。
+    const answeredQuestions = orderedAnswers.flatMap((answerRecord, answerIndex) => {
       const question = questionMap.get(answerRecord.questionId)
       if (!question) return []
       const formatted = formatQuestionRow(question)
@@ -232,12 +238,13 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
               module_question_number: snapshotModule.questionNumber,
             }
           : {}),
-        number: (
+        number: isAnnualDiagnostic ? answerIndex + 1 : (
           examRecord.paperId === 'question-bank'
           || isMockPaperType(paper?.paperType)
         ) && Number.isInteger(answerRecord.position)
           ? Number(answerRecord.position) + 1
           : question.number,
+        ...diagnosticHistoryQuestionFields(examRecord.structureSnapshot, question.id),
         questionId: question.id,
         selectedAnswer: answerRecord.selectedAnswer,
         isCorrect: answerRecord.isCorrect,
@@ -292,7 +299,7 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
           canonicalModule.series.sequenceNo,
           currentModule?.title || singleModule.title,
         )
-      : singleModule?.title || paper?.title || ''
+      : singleModule?.title || historicalPaper?.title || paper?.title || ''
 
     res.json(success({
       examRecord: {
@@ -320,9 +327,11 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
               id: paper.id,
               title: resultPaperTitle,
               paperType: paper.paperType,
-              year: paper.year,
-              duration: paper.duration,
-              ...(!isMockPaperType(paper.paperType) ? { code: paper.code } : {}),
+              year: historicalPaper?.year ?? paper.year,
+              duration: historicalPaper?.duration ?? (isAnnualDiagnostic && moduleSnapshot
+                ? moduleSnapshot.modules.reduce((total, module) => total + module.durationSeconds, 0) / 60
+                : paper.duration),
+              ...(!isMockPaperType(paper.paperType) ? { code: historicalPaper ? historicalPaper.code : paper.code } : {}),
               seriesId: singleModule ? canonicalModule?.seriesId || null : paper.mockPaperSet?.seriesId || null,
               sequenceNo: singleModule
                 ? buildMockPaperNumber(examRecord.examType, canonicalModule?.series?.sequenceNo, canonicalModule?.version, singleModule.code)
@@ -343,7 +352,7 @@ examResultRouter.get('/:id/result', requireAuth, async (req, res) => {
 })
 
 // 诊断报告生成状态
-examResultRouter.get('/:id/diagnostic-report/status', requireAuth, async (req, res) => {
+examResultRouter.get('/:id/diagnostic-report/status', requireAuth, requireAvailableDiagnosticHistory, async (req, res) => {
   try {
     const examRecord = await prisma.examRecord.findFirst({
       where: { id: req.params.id, userId: req.user!.userId },
@@ -413,7 +422,7 @@ examResultRouter.get('/:id/diagnostic-report/status', requireAuth, async (req, r
 })
 
 // 失败的诊断报告重新分析
-examResultRouter.post('/:id/diagnostic-report/retry', requireAuth, async (req, res) => {
+examResultRouter.post('/:id/diagnostic-report/retry', requireAuth, requireAvailableDiagnosticHistory, async (req, res) => {
   try {
     await retryDiagnosticReportTask(req.params.id, req.user!.userId)
     const task = await prisma.diagnosticReportTask.findUnique({ where: { examRecordId: req.params.id } })
@@ -430,7 +439,7 @@ examResultRouter.post('/:id/diagnostic-report/retry', requireAuth, async (req, r
 })
 
 // 升级已完成诊断报告
-examResultRouter.post('/:id/diagnostic-report/regenerate', requireAuth, async (req, res) => {
+examResultRouter.post('/:id/diagnostic-report/regenerate', requireAuth, requireAvailableDiagnosticHistory, async (req, res) => {
   try {
     await regenerateDiagnosticReportTask(req.params.id, req.user!.userId)
     const task = await prisma.diagnosticReportTask.findUnique({ where: { examRecordId: req.params.id } })
@@ -446,7 +455,7 @@ examResultRouter.post('/:id/diagnostic-report/regenerate', requireAuth, async (r
 })
 
 // 按考试记录读取该次测试独立持久化的诊断报告
-examResultRouter.get('/:id/diagnostic-report/summary', requireAuth, async (req, res) => {
+examResultRouter.get('/:id/diagnostic-report/summary', requireAuth, requireAvailableDiagnosticHistory, async (req, res) => {
   try {
     const examRecord = await prisma.examRecord.findFirst({
       where: { id: req.params.id, userId: req.user!.userId },

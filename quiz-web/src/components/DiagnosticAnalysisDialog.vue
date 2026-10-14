@@ -1,7 +1,18 @@
 <!-- 诊断报告弹窗：分析中暂保留旧版展示，失败与完成使用 AppDialog。 -->
 <template>
+  <AppDialog
+    v-if="paperExpired"
+    :model-value="modelValue"
+    title="试卷已失效"
+    confirm-text="查看最新版试卷"
+    cancel-text="返回诊断测试"
+    @confirm="returnToAssessment"
+    @cancel="returnToAssessment"
+  >
+    <p>当前试卷已失效，请查看最新版试卷</p>
+  </AppDialog>
   <el-dialog
-    v-if="isAnalyzing"
+    v-else-if="isAnalyzing"
     :model-value="modelValue"
     :title="analysisMessage"
     width="560px"
@@ -100,7 +111,7 @@ import {
   retryDiagnosticReport,
   type DiagnosticReportStatus,
 } from '@/api/exam'
-import { getApiErrorMessage } from '@/utils/request'
+import { getApiErrorMessage, hasApiErrorCode } from '@/utils/request'
 
 const STATUS_POLL_MS = 2000
 const VISUAL_PROGRESS_DURATION_MS = 12000
@@ -123,6 +134,7 @@ const analysisStatus = ref<DiagnosticReportStatus['status']>('pending')
 const analysisMessage = ref('正在准备诊断分析')
 const analysisError = ref('')
 const pollError = ref('')
+const paperExpired = ref(false)
 const reportKind = ref<DiagnosticReportStatus['reportKind']>('esat')
 const reportExamRecordId = ref('')
 const retrying = ref(false)
@@ -132,16 +144,21 @@ let visualProgressTimer: number | undefined
 let visualProgressStartedAt = 0
 let reportReady = false
 
+// 后台任务处于排队或分析状态时保持进度展示，完成后才切换结果弹窗。
 const isAnalyzing = computed(
   () => analysisStatus.value === 'pending' || analysisStatus.value === 'analyzing',
 )
+// 以服务端任务状态决定失败提示及重试入口。
 const analysisFailed = computed(() => analysisStatus.value === 'failed')
+// 视觉进度向下取整供百分比展示，避免定时推进时出现小数跳动。
 const analysisProgress = computed(() => Math.floor(visualProgress.value))
 // 交卷来源决定关闭和完成按钮返回诊断中心还是模考中心记录页。
 const returnCenterName = computed(() => (props.source === 'mock-exam' ? '模考中心' : '诊断测试'))
 // 失败与完成共用标准弹窗；分析中的独立展示不影响这两种结果状态。
 const dialogTitle = computed(() => (analysisFailed.value ? '诊断报告生成失败' : '诊断报告生成完成'))
+// 结果弹窗按任务成功或失败显示对应状态图标。
 const statusIcon = computed(() => (analysisFailed.value ? CircleCloseFilled : CircleCheckFilled))
+// 图标颜色跟随任务结果，保持失败和完成状态的视觉含义一致。
 const statusIconColor = computed(() =>
   analysisFailed.value ? 'var(--color-danger)' : 'var(--color-success)',
 )
@@ -176,6 +193,7 @@ const currentModuleIndex = computed(() =>
     Math.floor((analysisProgress.value / VISUAL_PROGRESS_LIMIT) * analysisModules.value.length),
   ),
 )
+// 按当前视觉进度索引展示本考试对应的分析模块名称。
 const currentAnalysisModule = computed(() => analysisModules.value[currentModuleIndex.value]!)
 
 // 弹窗每次绑定新的考试记录时重置展示状态，并读取对应后台任务进度。
@@ -193,6 +211,7 @@ watch(
   { immediate: true },
 )
 
+// 弹窗宿主卸载时终止当前任务的轮询和延迟导航，避免影响后续页面。
 onBeforeUnmount(() => {
   stopAnalysisPolling()
 })
@@ -200,6 +219,7 @@ onBeforeUnmount(() => {
 // 新一次交卷从最低进度开始，确保旧报告状态不会短暂闪现在当前弹窗。
 function initializeAnalysis(): void {
   stopAnalysisPolling()
+  paperExpired.value = false
   visualProgress.value = VISUAL_PROGRESS_START
   visualProgressStartedAt = Date.now()
   reportReady = false
@@ -239,6 +259,11 @@ async function pollAnalysisStatus(): Promise<void> {
       return
     }
   } catch (error: unknown) {
+    if (hasApiErrorCode(error, 'DIAGNOSTIC_PAPER_EXPIRED')) {
+      paperExpired.value = true
+      stopAnalysisPolling()
+      return
+    }
     pollError.value = getApiErrorMessage(error, '暂时无法获取分析进度，正在重试。')
   }
   pollTimer = window.setTimeout(() => void pollAnalysisStatus(), STATUS_POLL_MS)
@@ -252,6 +277,11 @@ async function retryAnalysis(): Promise<void> {
     await retryDiagnosticReport(props.examId)
     initializeAnalysis()
   } catch (error: unknown) {
+    if (hasApiErrorCode(error, 'DIAGNOSTIC_PAPER_EXPIRED')) {
+      paperExpired.value = true
+      stopAnalysisPolling()
+      return
+    }
     analysisError.value = getApiErrorMessage(error, '重新分析失败，请稍后重试。')
   } finally {
     retrying.value = false
@@ -301,16 +331,19 @@ function advanceVisualProgress(): void {
   }, 420)
 }
 
+// 离开当前分析流程时停止视觉计时，防止旧任务继续推进新弹窗进度。
 function stopVisualProgress(): void {
   if (visualProgressTimer) window.clearInterval(visualProgressTimer)
   visualProgressTimer = undefined
 }
 
+// 取消待执行的状态查询，避免弹窗关闭后继续请求旧任务。
 function stopStatusPolling(): void {
   if (pollTimer) window.clearTimeout(pollTimer)
   pollTimer = undefined
 }
 
+// 关闭或切换答卷时统一清除轮询、完成跳转及视觉进度计时器。
 function stopAnalysisPolling(): void {
   stopStatusPolling()
   if (completionTimer) window.clearTimeout(completionTimer)

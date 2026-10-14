@@ -103,8 +103,7 @@ async function main(): Promise<void> {
     moduleOrder: 1,
     moduleQuestionNumber: 1,
     title: 'Question',
-    options: [{ label: 'A', text: 'Option', isCorrect: true, solution: 'secret' }],
-    answer: ['A'],
+    solution: { answer: ['A'], correctSolution: 'secret' },
     subject: 'Mathematics 1',
     subjectCode: '110000',
     questionType: 'single_choice',
@@ -112,15 +111,11 @@ async function main(): Promise<void> {
     topic: null,
     topicCode: null,
     knowledgePoints: [],
-    syllabusPoints: [],
-    attemptPayload: {
-      content_blocks: [{ type: 'paragraph', text: 'Question' }],
+    meta: {},
+    content: {
+      options: [{ label: 'A', text: 'Option', isCorrect: true, solution: 'secret' }],
+      blocks: [{ type: 'paragraph', text: 'Question', solution: 'secret' }],
       images: [],
-    },
-    meta: {
-      content_blocks: [{ type: 'paragraph', text: 'Question', solution: 'secret' }],
-      images: [],
-      learning_analysis: { correct_solution: 'secret' },
     },
   })
   assert.equal(Object.prototype.hasOwnProperty.call(safeQuestion, 'answer'), false)

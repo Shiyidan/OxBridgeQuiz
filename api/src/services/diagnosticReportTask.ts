@@ -1,11 +1,14 @@
 // 诊断报告后台任务：持久化分析阶段，并为每次已提交测试独立生成正式报告。
+import { solutionToLearningAnalysis } from '../utils/questionDocument.js'
 import { Prisma } from '@prisma/client'
 import { prisma } from './prisma.js'
+import { diagnosticHistoryQuestionFields, parseDiagnosticHistorySnapshot } from '../utils/diagnosticHistorySnapshot.js'
 import { config } from '../config.js'
 import { parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
 import { orderQuestionsByModule } from '../utils/questionOrder.js'
 import { logRuntimeError } from '../utils/runtimeLogger.js'
 import {
+  DIAGNOSTIC_ASSEMBLY,
   DIAGNOSTIC_REPORT_GENERATION_MODE,
   DIAGNOSTIC_REPORT_TASK_STAGE,
   DIAGNOSTIC_REPORT_TASK_STATUS,
@@ -62,13 +65,12 @@ const STAGE_PROGRESS: Record<TaskStage, number> = {
 }
 
 // 题库内已有的受控学习分析只提取报告可安全引用的字段，完整解答不进入诊断模型输入。
-function learningAnalysisForReport(rawMeta: unknown): {
+function learningAnalysisForReport(rawSolution: unknown): {
   examFocus: string | null
   reviewGuidance: string[]
   commonErrorCauses: string[]
 } | undefined {
-  const meta = parseJsonObject(rawMeta)
-  const analysis = parseJsonObject<StoredLearningAnalysis>(meta.learning_analysis)
+  const analysis = solutionToLearningAnalysis(rawSolution) as StoredLearningAnalysis
   const examFocus = typeof analysis.exam_focus === 'string' ? analysis.exam_focus.trim() : ''
   const reviewGuidance = typeof analysis.review_guidance === 'string'
     ? analysis.review_guidance
@@ -99,6 +101,7 @@ function learnerProfileForExam(raw: unknown, examType: string): LearnerProfileIn
   const orderedPreferences = examPreference
     ? [examPreference, ...preferences.filter((item) => item !== examPreference)]
     : preferences
+  // 账户级目标优先沿用当前考试配置，缺失时才从其他考试配置补齐。
   const firstCommonValue = <T>(selector: (item: Record<string, unknown>) => T | undefined): T | undefined => (
     orderedPreferences.map(selector).find((value) => value !== undefined)
   )
@@ -142,6 +145,7 @@ function learnerProfileForExam(raw: unknown, examType: string): LearnerProfileIn
   }
 }
 
+// 将答卷考试类型映射为持久化的报告类别，供任务版本选择使用。
 function reportKindForExam(examType: string): 'esat' | 'tmua' | 'step' {
   if (examType === EXAM_TYPE.ESAT) return 'esat'
   if (examType === EXAM_TYPE.TMUA) return 'tmua'
@@ -167,6 +171,7 @@ function generationModeForReport(report: DiagnosticReportSummary): string {
   return DIAGNOSTIC_REPORT_GENERATION_MODE.MIXED_FALLBACK
 }
 
+// 仅推进仍在分析的任务，并同步进度和心跳，避免覆盖已完成或失败状态。
 async function updateTaskStage(taskId: string, stage: TaskStage): Promise<void> {
   await prisma.diagnosticReportTask.updateMany({
     where: { id: taskId, status: DIAGNOSTIC_REPORT_TASK_STATUS.ANALYZING },
@@ -178,12 +183,14 @@ async function updateTaskStage(taskId: string, stage: TaskStage): Promise<void> 
   })
 }
 
+// 将报告构建器的内部阶段映射为任务进度，供前端轮询统一展示。
 function mapBuildStage(stage: DiagnosticBuildStage): TaskStage {
   if (stage === 'roi_analyzing') return DIAGNOSTIC_REPORT_TASK_STAGE.ROI_ANALYZING
   if (stage === 'path_analyzing') return DIAGNOSTIC_REPORT_TASK_STAGE.PATH_ANALYZING
   return DIAGNOSTIC_REPORT_TASK_STAGE.MODULE_ANALYZING
 }
 
+// 按已交卷记录的冻结模块与当前官方题目构建分析输入，同时保存可追溯的报告来源快照。
 async function buildReportForTask(taskId: string, examRecordId: string): Promise<{
   report: DiagnosticReportSummary
   sourceSnapshot: Prisma.InputJsonObject
@@ -225,7 +232,7 @@ async function buildReportForTask(taskId: string, examRecordId: string): Promise
         topicCode: true,
         knowledgePoints: true,
         difficulty: true,
-        meta: true,
+        solution: true,
       },
     }),
     prisma.syllabusNode.findMany({
@@ -250,6 +257,9 @@ async function buildReportForTask(taskId: string, examRecordId: string): Promise
 
   const answerMap = new Map(examRecord.answers.map((answer) => [answer.questionId, answer]))
   const moduleSnapshot = parseModuleExamSnapshot(examRecord.structureSnapshot)
+  const historicalPaper = parseDiagnosticHistorySnapshot(examRecord.structureSnapshot)?.sourcePaper
+  const isAnnualDiagnostic = examRecord.paper.assemblyType === DIAGNOSTIC_ASSEMBLY.ANNUAL
+    || examRecord.paper.assemblyType === DIAGNOSTIC_ASSEMBLY.RETIRED
   const frozenQuestionMeta = new Map(
     (moduleSnapshot?.modules || []).flatMap((module) =>
       module.questionIds.map((questionId, index) => [
@@ -265,13 +275,14 @@ async function buildReportForTask(taskId: string, examRecordId: string): Promise
   const learnerProfile = learnerProfileForExam(examRecord.user.examPreferences, examRecord.examType)
   const questions = questionRows.map((question, index) => {
     const frozen = frozenQuestionMeta.get(question.id)
+    const historical = diagnosticHistoryQuestionFields(examRecord.structureSnapshot, question.id)
     return {
-      number: isMockPaperType(examRecord.paper.paperType) ? index + 1 : question.number ?? index + 1,
+      number: historical.number ?? (isMockPaperType(examRecord.paper.paperType) || isAnnualDiagnostic ? index + 1 : question.number ?? index + 1),
       subject: question.subject,
       subjectCode: question.subjectCode,
-      moduleCode: frozen?.moduleCode || question.moduleCode,
-      moduleOrder: frozen?.moduleOrder ?? question.moduleOrder,
-      moduleQuestionNumber: frozen?.moduleQuestionNumber ?? question.moduleQuestionNumber,
+      moduleCode: historical.module_code ?? frozen?.moduleCode ?? question.moduleCode,
+      moduleOrder: historical.module_order ?? frozen?.moduleOrder ?? question.moduleOrder,
+      moduleQuestionNumber: historical.module_question_number ?? frozen?.moduleQuestionNumber ?? question.moduleQuestionNumber,
       topic: question.topic,
       topicCode: question.topicCode,
       knowledgePoints: parseJsonArray<{ code: string; label: string; role?: string }>(question.knowledgePoints),
@@ -280,17 +291,19 @@ async function buildReportForTask(taskId: string, examRecordId: string): Promise
       isAnswered: Boolean(answerMap.get(question.id)?.selectedAnswer?.trim()),
       answerState: answerMap.get(question.id)?.answerState as 'unseen' | 'skipped' | 'answered' | undefined,
       durationSeconds: answerMap.get(question.id)?.durationSeconds ?? null,
-      learningAnalysis: learningAnalysisForReport(question.meta),
+      learningAnalysis: learningAnalysisForReport(question.solution),
     }
   })
 
   const report = await buildDiagnosticReportSummary({
     examType: examRecord.examType,
     paper: {
-      title: examRecord.paper.title,
-      code: examRecord.paper.code,
-      year: examRecord.paper.year,
-      duration: examRecord.paper.duration,
+      title: historicalPaper?.title ?? examRecord.paper.title,
+      code: historicalPaper ? historicalPaper.code : examRecord.paper.code,
+      year: historicalPaper?.year ?? examRecord.paper.year,
+      duration: historicalPaper?.duration ?? (isAnnualDiagnostic && moduleSnapshot
+        ? moduleSnapshot.modules.reduce((total, module) => total + module.durationSeconds, 0) / 60
+        : examRecord.paper.duration),
     },
     questions,
     elapsedDurationSeconds: examRecord.durationSeconds,
@@ -316,6 +329,7 @@ async function buildReportForTask(taskId: string, examRecordId: string): Promise
   }
 }
 
+// 以本次答卷为唯一归属，在同一事务中保存报告并完成任务状态。
 async function publishTaskResult(taskId: string, examRecordId: string): Promise<void> {
   const built = await buildReportForTask(taskId, examRecordId)
   await updateTaskStage(taskId, DIAGNOSTIC_REPORT_TASK_STAGE.REPORT_SAVING)
@@ -375,6 +389,7 @@ async function publishTaskResult(taskId: string, examRecordId: string): Promise<
   })
 }
 
+// 生成异常先按自动重试额度重新排队，额度耗尽后保留失败原因供用户重试。
 async function failOrRetryTask(taskId: string, error: unknown): Promise<void> {
   const task = await prisma.diagnosticReportTask.findUnique({ where: { id: taskId } })
   if (!task) return
@@ -404,6 +419,7 @@ async function failOrRetryTask(taskId: string, error: unknown): Promise<void> {
   console.error('[diagnostic-report-task] generation failed', { taskId, shouldRetry, error })
 }
 
+// 按创建顺序原子领取待分析任务，避免并发执行器重复生成同一份报告。
 async function processPendingTasks(): Promise<void> {
   if (workerRunning) return
   workerRunning = true
@@ -451,6 +467,7 @@ export function scheduleDiagnosticReportWorker(): void {
   })
 }
 
+// 校验答卷归属与交卷状态后复用或创建唯一报告任务，待处理任务立即唤醒执行器。
 export async function ensureDiagnosticReportTask(examRecordId: string, userId: string): Promise<{
   id: string
   status: string
@@ -488,6 +505,7 @@ export async function ensureDiagnosticReportTask(examRecordId: string, userId: s
   return task
 }
 
+// 仅将当前用户的失败任务重新排队，并清除旧锁与错误状态。
 export async function retryDiagnosticReportTask(examRecordId: string, userId: string): Promise<void> {
   await ensureDiagnosticReportTask(examRecordId, userId)
   const task = await prisma.diagnosticReportTask.findUnique({ where: { examRecordId } })
@@ -553,6 +571,7 @@ export async function regenerateDiagnosticReportTask(examRecordId: string, userI
   scheduleDiagnosticReportWorker()
 }
 
+// 将超时失去心跳的分析任务恢复为待处理，支持服务中断后的自动续跑。
 async function recoverStaleTasks(): Promise<void> {
   const staleBefore = new Date(Date.now() - STALE_TASK_MS)
   await prisma.diagnosticReportTask.updateMany({

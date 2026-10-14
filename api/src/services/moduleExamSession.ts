@@ -9,6 +9,7 @@ import {
   TMUA_PAPER,
 } from '../constants/domain.js'
 import { prisma } from './prisma.js'
+import { diagnosticHistoryQuestionFields, parseDiagnosticHistorySnapshot } from '../utils/diagnosticHistorySnapshot.js'
 import { parseJsonField } from '../utils/jsonField.js'
 import { attemptQuestionSelect, formatQuestionForAttempt } from '../routes/papers-shared.js'
 
@@ -193,6 +194,7 @@ export function buildSingleModuleExamSnapshot(
   }
 }
 
+// 恢复会话前校验快照版本、分段模式和模块清单，拒绝不完整的单科模考快照。
 export function parseModuleExamSnapshot(value: unknown): ModuleExamSnapshot | null {
   const snapshot = parseJsonField<ModuleExamSnapshot | null>(value, null)
   if (
@@ -229,6 +231,7 @@ export function indexSnapshotQuestionModules(
   return result
 }
 
+// 阶段截止时间至少推进一秒，避免零时长导致新阶段立即过期。
 function addSeconds(date: Date, seconds: number): Date {
   return new Date(date.getTime() + Math.max(1, seconds) * 1000)
 }
@@ -420,6 +423,7 @@ export async function reconcileExpiredModuleTimeline(
   }
 }
 
+// 有效作答时长只累计答题阶段，并以模块截止时间封顶，休息和暂停不计入。
 function activeElapsedSeconds(record: {
   phase: string
   phaseStartedAt: Date | null
@@ -541,7 +545,11 @@ export async function getModuleExamSession(
         canSkip: snapshot.breakDurationSeconds > 0,
       }
     : null
-  const questions = questionRows.map(formatQuestionForAttempt)
+  const questions = questionRows.map((question) => ({
+    ...formatQuestionForAttempt(question),
+    ...diagnosticHistoryQuestionFields(record.structureSnapshot, question.id),
+  }))
+  const historicalPaper = parseDiagnosticHistorySnapshot(record.structureSnapshot)?.sourcePaper
   const elapsed = activeElapsedSeconds(record, now)
 
   return {
@@ -549,8 +557,8 @@ export async function getModuleExamSession(
     paperId: record.paperId,
     paperTitle: snapshot.mockExamMode === 'single'
       ? currentModule?.title || record.paper.title
-      : record.paper.title,
-    paperYear: record.paper.year,
+      : historicalPaper?.title ?? record.paper.title,
+    paperYear: historicalPaper?.year ?? record.paper.year,
     examType: record.examType,
     mockExamMode: snapshot.mockExamMode === 'single' ? 'single' : 'full',
     totalQuestions: record.totalQuestions,
@@ -587,6 +595,7 @@ export async function getModuleExamSession(
   }
 }
 
+// 将已构建的模块快照作为结构化 JSON 交给 Prisma，避免保存为字符串。
 export function moduleSnapshotJson(snapshot: ModuleExamSnapshot): Prisma.InputJsonValue {
   return snapshot as unknown as Prisma.InputJsonValue
 }

@@ -4,6 +4,7 @@
     <NavBar />
     <main class="report-main">
       <div v-if="loading" class="state-card">正在识别报告类型...</div>
+      <DiagnosticExpiredNotice v-else-if="paperExpired" />
       <div v-else-if="loadError" class="state-card state-card--error">{{ loadError }}</div>
       <section v-else class="practice-result">
         <header class="analysis-page-header">
@@ -70,6 +71,8 @@
 </template>
 
 <script setup lang="ts">
+import DiagnosticExpiredNotice from '@/components/DiagnosticExpiredNotice.vue'
+import { hasApiErrorCode } from '@/utils/request'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Back, Delete } from '@element-plus/icons-vue'
@@ -115,6 +118,7 @@ const QUESTION_MODULE_LABELS: Record<string, string> = {
 const route = useRoute()
 const router = useRouter()
 const loading = ref(true)
+const paperExpired = ref(false)
 const loadError = ref('')
 const correctCount = ref(0)
 const questions = ref<ReportQuestion[]>([])
@@ -145,9 +149,11 @@ const isQuestionReview = computed(() => route.name === 'exam-question-review')
 const targetQuestionId = computed(() =>
   typeof route.query.questionId === 'string' ? route.query.questionId : undefined,
 )
+// 将报告链接携带的模块编码规范化，配合科目内题号定位解析。
 const targetModuleId = computed(() =>
   typeof route.query.moduleId === 'string' ? route.query.moduleId.trim().toLowerCase() : '',
 )
+// 仅接受正整数题号，避免无效深链接误定位到其他题目。
 const targetQuestionNumber = computed(() => {
   const value = Number(route.query.questionNumber)
   return Number.isInteger(value) && value > 0 ? value : null
@@ -174,8 +180,11 @@ const analysisSource = computed<'diagnostic' | 'question-bank'>(() => {
 
 // 错题本入口单独决定返回行为，并允许携带已校验的列表筛选地址。
 const cameFromMistakeNotebook = computed(() => route.query.from === 'mistake-notebook')
+// 保留模考记录入口语义，用于错题回顾标题和返回导航。
 const cameFromMockExam = computed(() => route.query.from === 'mock-exam')
+// 识别练习本来路，解析结束后回到原练习本流程。
 const cameFromPracticeNotebook = computed(() => route.query.from === 'practice-notebook')
+// 识别练习记录来路，保留历史列表的返回入口。
 const cameFromPracticeRecords = computed(() => route.query.from === 'practice-records')
 
 // 历史时间轴仅属于错题本的单题解析入口，其他整卷或报告解析保持原有布局。
@@ -243,6 +252,7 @@ const questionModuleLabel = computed(() => {
   return QUESTION_MODULE_LABELS[moduleCode] || String(question?.subject || '').trim()
 })
 
+// 根据单题错题、模考错题回顾或整卷解析模式组合标题，并沿用原业务来源名称。
 const analysisPageTitle = computed(() =>
   singleQuestionMode.value
     ? [pageContextTitle.value, questionModuleLabel.value, '错题解析'].filter(Boolean).join(' · ')
@@ -269,7 +279,6 @@ const returnLabel = computed(() =>
 // 页面加载后先识别 paperType 和 examType，诊断记录随即跳到独立考试报告页。
 onMounted(async () => {
   const openedPath = route.fullPath
-  if (showMistakeAttemptHistory.value) void loadMistakeAttemptHistory()
   try {
     const data = await getExamResultData(examId.value)
     const isDiagnostic =
@@ -303,7 +312,9 @@ onMounted(async () => {
       number: question.number ?? index + 1,
       images: question.images || [],
     }))
-    resolvedTargetQuestionId.value = targetQuestionId.value
+    resolvedTargetQuestionId.value =
+      loadedQuestions.find((question) => question.originalQuestionId === targetQuestionId.value)
+        ?.id || targetQuestionId.value
     if (!resolvedTargetQuestionId.value && targetQuestionNumber.value !== null) {
       const numberMatches = loadedQuestions.filter(
         (question) => Number(question.number) === targetQuestionNumber.value,
@@ -320,7 +331,8 @@ onMounted(async () => {
     if (singleQuestionMode.value) {
       const target = loadedQuestions.find(
         (question) =>
-          question.id === targetQuestionId.value || question.questionId === targetQuestionId.value,
+          question.id === resolvedTargetQuestionId.value ||
+          question.questionId === resolvedTargetQuestionId.value,
       )
       if (!target) {
         loadError.value = '该题不属于本次答卷'
@@ -328,6 +340,8 @@ onMounted(async () => {
       }
       questions.value = [target]
       correctCount.value = target.isCorrect ? 1 : 0
+      // 先解析原题别名，再读取新题关联的历次作答，避免旧链接显示空时间轴。
+      if (showMistakeAttemptHistory.value) void loadMistakeAttemptHistory()
       return
     }
     const visibleQuestions = wrongOnlyMode.value
@@ -336,6 +350,7 @@ onMounted(async () => {
     correctCount.value = visibleQuestions.filter((question) => question.isCorrect).length
     questions.value = visibleQuestions
   } catch (error: unknown) {
+    paperExpired.value = hasApiErrorCode(error, 'DIAGNOSTIC_PAPER_EXPIRED')
     loadError.value = getApiErrorMessage(error, '加载答卷失败，请稍后重试')
   } finally {
     loading.value = false
@@ -356,7 +371,7 @@ onMounted(async () => {
 
 // 时间轴独立加载，失败时只在右侧提供重试，不阻断题目和解析正文。
 async function loadMistakeAttemptHistory(): Promise<void> {
-  const questionId = String(targetQuestionId.value || '').trim()
+  const questionId = String(resolvedTargetQuestionId.value || '').trim()
   if (!questionId) return
 
   mistakeAttemptsLoading.value = true

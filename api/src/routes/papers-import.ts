@@ -10,6 +10,7 @@ import { validateStandardPaperDocument } from '../services/paperJsonValidator.js
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { setOperationAuditContext } from '../middleware/operationAudit.js'
 import { logRuntimeError } from '../utils/runtimeLogger.js'
+import { isRealPaperType } from '../constants/domain.js'
 
 export const paperImportRouter = createAsyncRouter()
 
@@ -22,6 +23,10 @@ paperImportRouter.post('/import-json', requireAuth, requireAdmin, async (req, re
       return
     }
     const { metadata, questions, modules } = validated
+    if (isRealPaperType(metadata.paperType)) {
+      res.status(422).json(fail('诊断试卷请使用年度分科标准文档导入', 'DIAGNOSTIC_ANNUAL_DOCUMENT_REQUIRED'))
+      return
+    }
 
     const paper = await prisma.paper.create({
       data: {

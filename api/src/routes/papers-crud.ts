@@ -19,9 +19,11 @@ import {
 } from "../middleware/operationAudit.js";
 import {
   EXAM_TYPE,
+  DIAGNOSTIC_ASSEMBLY,
   ESAT_MODULES,
   PAPER_ACCESS_TIER,
   PAPER_DELIVERY_MODE,
+  PAPER_TYPE,
   QUESTION_BANK_PAPER_TYPES,
   TMUA_PAPER,
   USER_ROLE,
@@ -56,6 +58,7 @@ type PublishablePaper = {
   breakDurationSeconds: number;
   moduleConfig: unknown;
   totalQuestions: number;
+  assemblyType: string;
 };
 
 // ESAT 与 TMUA 诊断发布前复核数据库结构，避免绕过上传校验发布扁平卷或残缺分段卷。
@@ -100,8 +103,8 @@ async function getDiagnosticPublishIssue(
     );
   const esatConfigInvalid =
     paper.examType === EXAM_TYPE.ESAT &&
-    (modules.length !== 3 ||
-      new Set(moduleCodes).size !== 3 ||
+    (modules.length !== (paper.assemblyType === DIAGNOSTIC_ASSEMBLY.ANNUAL ? 5 : 3) ||
+      new Set(moduleCodes).size !== modules.length ||
       moduleCodes.some(
         (code) => !ESAT_MODULES.some((moduleCode) => moduleCode === code),
       ) ||
@@ -120,7 +123,7 @@ async function getDiagnosticPublishIssue(
     return `${paper.examType} 诊断卷的分段代码、顺序和时长配置不完整`;
   }
   if (esatConfigInvalid) {
-    return "ESAT 诊断卷必须包含三个不重复科目，并且包含 Mathematics 1";
+    return paper.assemblyType === DIAGNOSTIC_ASSEMBLY.ANNUAL ? "ESAT 年度诊断必须完整提供五个科目" : "ESAT 诊断卷必须包含三个不重复科目，并且包含 Mathematics 1";
   }
   if (tmuaConfigInvalid) {
     return "TMUA 诊断卷必须按顺序包含 paper1、paper2，每卷 20 题且独立计时 75 分钟";
@@ -164,6 +167,64 @@ async function getDiagnosticPublishIssue(
   return null;
 }
 
+// 真题库年份
+paperCrudRouter.get(
+  "/admin/years",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    const examType = String(req.query.examType || "");
+    if (examType !== EXAM_TYPE.ESAT && examType !== EXAM_TYPE.TMUA) {
+      res.status(422).json(fail("请选择 ESAT 或 TMUA"));
+      return;
+    }
+    const page = parsePositiveInt(req.query.page, 1);
+    const pageSize = parsePositiveInt(req.query.pageSize, 20, 100);
+    const groups = await prisma.paper.groupBy({
+      by: ["year", "status", "accessTier"],
+      where: { examType, paperType: PAPER_TYPE.REAL_PAPER, assemblyType: DIAGNOSTIC_ASSEMBLY.ANNUAL },
+      _count: { _all: true },
+      orderBy: { year: "desc" },
+    });
+    const years = new Map<
+      number,
+      { year: number; paperCount: number; statusCounts: Record<string, number>; accessTierCounts: Record<string, number> }
+    >();
+    for (const group of groups) {
+      const summary = years.get(group.year) || {
+        year: group.year,
+        paperCount: 0,
+        statusCounts: {},
+        accessTierCounts: {},
+      };
+      summary.paperCount += group._count._all;
+      summary.statusCounts[group.status] = (summary.statusCounts[group.status] || 0) + group._count._all;
+      summary.accessTierCounts[group.accessTier] = (summary.accessTierCounts[group.accessTier] || 0) + group._count._all;
+      years.set(group.year, summary);
+    }
+    const total = years.size;
+    const totalPages = Math.ceil(total / pageSize);
+    const safePage = totalPages > 0 ? Math.min(page, totalPages) : 1;
+    res.json(
+      success({
+        list: [...years.values()].slice(
+          (safePage - 1) * pageSize,
+          safePage * pageSize,
+        ),
+        pagination: {
+          page: safePage,
+          pageSize,
+          total,
+          totalPages,
+          hasPrev: safePage > 1,
+          hasNext: safePage < totalPages,
+        },
+      }),
+    );
+  },
+);
+
+// 试卷列表
 paperCrudRouter.get("/", requireAuth, requireAdmin, async (req, res) => {
   const page = parsePositiveInt(req.query.page, 1);
   const pageSize = parsePositiveInt(
@@ -178,8 +239,18 @@ paperCrudRouter.get("/", requireAuth, requireAdmin, async (req, res) => {
   const keyword =
     typeof req.query.keyword === "string" ? req.query.keyword.trim() : "";
   const where: Record<string, unknown> = {};
+  if (req.query.year !== undefined) {
+    const yearText = String(req.query.year);
+    const year = Number(yearText);
+    if (!/^\d{4}$/.test(yearText) || year < 2000 || year > 2100) {
+      res.status(422).json(fail("无效的试卷年份"));
+      return;
+    }
+    where.year = year;
+  }
   const paperTypeValues = paperType ? paperTypeWhereValues(paperType) : [];
   if (paperTypeValues.length > 0) where.paperType = { in: paperTypeValues };
+  if (paperType && isRealPaperType(paperType)) where.assemblyType = DIAGNOSTIC_ASSEMBLY.ANNUAL;
   if (examType && isExamType(examType)) where.examType = examType;
   if (keyword) where.title = { contains: keyword };
 
@@ -255,7 +326,10 @@ paperCrudRouter.get("/:id", requireAuth, async (req, res) => {
     }
 
     if (
-      (!activeAttempt || QUESTION_BANK_PAPER_TYPES.includes(normalizePaperType(paper.paperType) as any)) &&
+      (!activeAttempt ||
+        QUESTION_BANK_PAPER_TYPES.includes(
+          normalizePaperType(paper.paperType) as any,
+        )) &&
       !(await hasStudentPaperEntitlement(
         req.user!.userId,
         paper,
@@ -337,6 +411,14 @@ paperCrudRouter.put("/:id", requireAuth, requireAdmin, async (req, res) => {
     res.status(404).json(fail("试卷不存在"));
     return;
   }
+  if (isRealPaperType(previousPaper.paperType) && previousPaper.assemblyType !== DIAGNOSTIC_ASSEMBLY.ANNUAL) {
+    res.status(409).json(fail("历史诊断试卷只读，请维护年度科目库", "DIAGNOSTIC_HISTORY_READ_ONLY"));
+    return;
+  }
+  if (previousPaper.assemblyType === DIAGNOSTIC_ASSEMBLY.ANNUAL && questions !== undefined) {
+    res.status(422).json(fail("年度题目请通过统一格式导入新版本，原版本保留供历史查看", "DIAGNOSTIC_IMPORT_REQUIRED"));
+    return;
+  }
   if (
     title !== undefined &&
     title !== previousPaper.title &&
@@ -415,6 +497,13 @@ paperCrudRouter.put("/:id", requireAuth, requireAdmin, async (req, res) => {
     });
     if (questions !== undefined) {
       await syncPaperQuestions(updatedPaper.id, questions, tx);
+    }
+    // 新年度版本发布后才退役上一入口；旧题及所有答卷继续引用原版本。
+    if (updatedPaper.assemblyType === DIAGNOSTIC_ASSEMBLY.ANNUAL && updatedPaper.status === "published") {
+      await tx.paper.updateMany({
+        where: { id: { not: updatedPaper.id }, examType: updatedPaper.examType, year: updatedPaper.year, paperType: PAPER_TYPE.REAL_PAPER, assemblyType: DIAGNOSTIC_ASSEMBLY.ANNUAL, status: "published" },
+        data: { status: "archived", assemblyType: DIAGNOSTIC_ASSEMBLY.RETIRED },
+      });
     }
     return { paper: updatedPaper, definitionLocked: false };
   });
@@ -560,9 +649,20 @@ paperCrudRouter.put(
       res.status(422).json(fail(publishIssue, "PAPER_STRUCTURE_INVALID"));
       return;
     }
-    const paper = await prisma.paper.update({
-      where: { id: req.params.id },
-      data: { status: "published" },
+    if (isRealPaperType(previousPaper.paperType) && previousPaper.assemblyType !== DIAGNOSTIC_ASSEMBLY.ANNUAL) {
+      res.status(409).json(fail("历史诊断试卷仅保留查阅，请导入新的年度分科版本", "DIAGNOSTIC_HISTORY_READONLY"));
+      return;
+    }
+    // 发布新年度版本时切换目录入口，旧版本题目仍供历史答卷引用。
+    const paper = await prisma.$transaction(async (tx) => {
+      const published = await tx.paper.update({ where: { id: req.params.id }, data: { status: "published" } });
+      if (published.assemblyType === DIAGNOSTIC_ASSEMBLY.ANNUAL) {
+        await tx.paper.updateMany({
+          where: { id: { not: published.id }, examType: published.examType, year: published.year, paperType: PAPER_TYPE.REAL_PAPER, assemblyType: DIAGNOSTIC_ASSEMBLY.ANNUAL, status: "published" },
+          data: { status: "archived", assemblyType: DIAGNOSTIC_ASSEMBLY.RETIRED },
+        });
+      }
+      return published;
     });
     setOperationAuditContext(req, {
       summary: `发布试卷“${paper.title}”`,

@@ -1,162 +1,285 @@
-<!-- 真题库管理页：维护试卷发布状态、访问级别和内容入口。 -->
+<!-- 真题库管理页：按考试类型和年份浏览套卷，维护发布状态、访问级别和内容入口。 -->
 <template>
   <div class="exam-bank-page">
     <div class="page-body">
       <div class="section-header">
         <div class="header-text">
           <h2 class="section-title">真题库管理</h2>
-          <p class="section-desc">管理已录入的历年真题套卷，发布后会进入诊断测试供学生全真模拟。</p>
+          <p class="section-desc">按年份统一管理各科真题，学生选择科目后组成诊断测试。</p>
         </div>
         <div class="header-actions">
-          <el-button type="primary" @click="handleManualImport">试卷录入</el-button>
+          <el-button type="primary" @click="handleManualImport">导入年度试卷</el-button>
         </div>
       </div>
 
-      <AdminDataTable
-        v-model:page="pagination.page"
-        v-model:page-size="pagination.pageSize"
-        :data="paperList"
-        :loading="loading"
-        :total="pagination.total"
-        empty-text="暂无真题套卷，请点击“试卷解析录入”上传试卷"
-        show-pagination
-        @page-change="handlePageChange"
-        @page-size-change="handlePageSizeChange"
+      <el-tabs
+        class="exam-tabs"
+        :model-value="activeExamType"
+        @update:model-value="handleExamChange"
       >
-        <el-table-column
-          prop="title"
-          label="套卷名称"
-          min-width="220"
-          align="center"
-          header-align="center"
-          show-overflow-tooltip
-        >
-          <template #default="{ row }">
-            <span class="cell-name">{{ row.title }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="考试类型" width="120" align="center" header-align="center">
-          <template #default="{ row }">
-            <el-tag class="exam-type-tag" :class="examTypeClass(row.examType)" effect="light" round>
-              {{ row.examType || 'TMUA' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="学科/模块" width="240" align="center" header-align="center">
-          <template #default="{ row }">
-            <div v-if="row.modules?.length" class="subject-module-tags" aria-label="试卷学科或分卷">
-              <el-tag
-                v-for="module in orderedModules(row.modules)"
-                :key="`${module.order}-${module.code}`"
-                class="subject-module-tag"
-                :class="`subject-module-tag--${subjectType(module.code)}`"
-                effect="light"
-                round
-              >
-                {{ moduleLabel(module) }}
-              </el-tag>
-            </div>
-            <span v-else class="empty-modules">—</span>
-          </template>
-        </el-table-column>
-        <el-table-column
-          prop="year"
-          label="年份"
-          width="100"
-          align="center"
-          header-align="center"
+        <el-tab-pane
+          v-for="exam in examTabs"
+          :key="exam.value"
+          :label="exam.label"
+          :name="exam.value"
         />
-        <el-table-column label="状态" width="140" align="center" header-align="center">
-          <template #default="{ row }">
-            <el-dropdown trigger="click" @command="handleStatusCommand(row.id, $event)">
-              <button class="status-btn" :class="`status-btn--${row.status}`" type="button">
-                {{ statusLabel(row.status) }}
-              </button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item
-                    v-for="item in statusOptions"
-                    :key="item.value"
-                    :command="item.value"
-                  >
-                    {{ item.label }}
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-          </template>
-        </el-table-column>
-        <el-table-column label="访问级别" width="130" align="center" header-align="center">
-          <template #default="{ row }">
-            <el-dropdown trigger="click" @command="handleAccessTierCommand(row.id, $event)">
-              <button
-                class="access-tier-btn"
-                :class="`access-tier-btn--${row.accessTier}`"
-                type="button"
-              >
-                {{ accessTierLabel(row.accessTier) }}
-              </button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item
-                    v-for="item in accessTierOptions"
-                    :key="item.value"
-                    :command="item.value"
-                  >
-                    {{ item.label }}
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-          </template>
-        </el-table-column>
-        <el-table-column label="题目数量" width="100" align="center" header-align="center">
-          <template #default="{ row }">{{ row.totalQuestions }} 题</template>
-        </el-table-column>
-        <el-table-column label="建议时长" width="120" align="center" header-align="center">
-          <template #default="{ row }">{{ row.duration }} 分钟</template>
-        </el-table-column>
-        <el-table-column
-          label="操作"
-          width="190"
-          fixed="right"
-          align="center"
-          header-align="center"
-        >
-          <template #default="{ row }">
-            <div class="action-group">
-              <router-link :to="`/admin/core-library/exams/${row.id}`" class="table-action-link">
-                管理内容
-              </router-link>
-              <button
-                class="table-action-link table-action-link--danger"
-                type="button"
-                :disabled="deletingPaperId === row.id"
-                @click="handleDeletePaper(row)"
-              >
-                {{ deletingPaperId === row.id ? '删除中' : '删除' }}
-              </button>
+      </el-tabs>
+
+      <div class="collection-header">
+        <div>
+          <el-button v-if="selectedYear" class="back-years" text @click="backToYears">
+            <el-icon><ArrowLeft /></el-icon>全部年份
+          </el-button>
+          <h3>{{ selectedYear ? `${selectedYear} 年试卷` : `${activeExamType} 历年真题` }}</h3>
+          <p>
+            {{
+              selectedYear
+                ? '按科目查看题目与解析，年度统一维护发布状态和访问级别。'
+                : '选择年份，查看 ESAT 五科或 TMUA 两卷。'
+            }}
+          </p>
+        </div>
+        <span v-if="!loading && !loadError" class="collection-count">
+          共 {{ pagination.total }} {{ selectedYear ? '个年度题库' : '个年份' }}
+        </span>
+      </div>
+
+      <el-alert
+        v-if="loadError"
+        :title="loadError"
+        type="error"
+        :closable="false"
+        show-icon
+        class="load-error"
+      >
+        <el-button text type="primary" @click="fetchPapers">重新加载</el-button>
+      </el-alert>
+
+      <template v-else-if="!selectedYear">
+        <el-skeleton v-if="loading" :rows="5" animated class="year-skeleton" />
+        <el-empty
+          v-else-if="!yearList.length"
+          :description="`暂无 ${activeExamType} 真题，请先录入试卷`"
+        />
+        <div v-else class="year-grid">
+          <router-link
+            v-for="item in yearList"
+            :key="item.year"
+            class="year-card"
+            :to="{ path: route.path, query: { examType: activeExamType, year: item.year } }"
+            :aria-label="`查看 ${activeExamType} ${item.year} 年的 ${item.paperCount} 套试卷`"
+          >
+            <div class="year-card__heading">
+              <span class="year-card__year">{{ item.year }}<small>年</small></span>
+              <el-icon class="year-card__icon"><FolderOpened /></el-icon>
             </div>
-          </template>
-        </el-table-column>
-      </AdminDataTable>
+            <p class="year-card__count">
+              {{ activeExamType === 'ESAT' ? '五科年度题库' : 'Paper 1 + Paper 2' }}
+            </p>
+            <div class="year-card__access">
+              <span
+                v-if="item.accessTierCounts[PAPER_ACCESS_TIER.FREE]"
+                class="year-card__badge year-card__badge--free"
+                >免费<span v-if="item.paperCount > 1">
+                  {{ item.accessTierCounts[PAPER_ACCESS_TIER.FREE] }}</span
+                ></span
+              >
+              <span
+                v-if="item.accessTierCounts[PAPER_ACCESS_TIER.MEMBER]"
+                class="year-card__badge year-card__badge--member"
+                >会员<span v-if="item.paperCount > 1">
+                  {{ item.accessTierCounts[PAPER_ACCESS_TIER.MEMBER] }}</span
+                ></span
+              >
+            </div>
+            <div class="year-card__footer">
+              查看科目<el-icon><ArrowRight /></el-icon>
+            </div>
+          </router-link>
+        </div>
+        <AppPagination
+          v-if="!loading"
+          v-model:page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          @page-change="handlePageChange"
+          @page-size-change="handlePageSizeChange"
+        />
+      </template>
+
+      <div v-else class="annual-table-panel">
+        <el-config-provider :locale="zhCn">
+          <AdminDataTable
+            v-model:page="pagination.page"
+            v-model:page-size="pagination.pageSize"
+            :data="paperList"
+            :loading="loading"
+            :total="pagination.total"
+            :empty-text="`${activeExamType} ${selectedYear} 年暂无试卷，请先录入试卷`"
+            show-pagination
+            @page-change="handlePageChange"
+            @page-size-change="handlePageSizeChange"
+          >
+            <el-table-column
+              prop="title"
+              label="年度题库"
+              min-width="300"
+              class-name="annual-title-column"
+              align="left"
+              header-align="left"
+            >
+              <template #default="{ row }">
+                <div class="annual-title-cell">
+                  <el-icon class="annual-title-icon" aria-hidden="true"><Document /></el-icon>
+                  <div class="annual-title-text">
+                    <span class="cell-name">{{ row.title }}</span>
+                    <span v-if="row.modules?.length" class="cell-description"
+                      >{{ row.modules.length }} 个科目</span
+                    >
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="140" align="center" header-align="center">
+              <template #default="{ row }">
+                <el-dropdown trigger="click" @command="handleStatusCommand(row.id, $event)">
+                  <button class="status-btn" :class="`status-btn--${row.status}`" type="button">
+                    {{ statusLabel(row.status) }}
+                    <el-icon aria-hidden="true"><ArrowDown /></el-icon>
+                  </button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item
+                        v-for="item in statusOptions"
+                        :key="item.value"
+                        :command="item.value"
+                      >
+                        {{ item.label }}
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </template>
+            </el-table-column>
+            <el-table-column label="访问级别" width="140" align="center" header-align="center">
+              <template #default="{ row }">
+                <el-dropdown trigger="click" @command="handleAccessTierCommand(row.id, $event)">
+                  <button
+                    class="access-tier-btn"
+                    :class="`access-tier-btn--${row.accessTier}`"
+                    type="button"
+                  >
+                    {{ accessTierLabel(row.accessTier) }}
+                    <el-icon aria-hidden="true"><ArrowDown /></el-icon>
+                  </button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item
+                        v-for="item in accessTierOptions"
+                        :key="item.value"
+                        :command="item.value"
+                      >
+                        {{ item.label }}
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </template>
+            </el-table-column>
+            <el-table-column label="题目数量" width="120" align="center" header-align="center">
+              <template #default="{ row }"
+                ><span class="question-count">{{ row.totalQuestions }}</span
+                ><span class="question-unit">题</span></template
+              >
+            </el-table-column>
+            <el-table-column
+              label="操作"
+              width="280"
+              fixed="right"
+              align="center"
+              header-align="center"
+            >
+              <template #default="{ row }">
+                <div class="action-group">
+                  <router-link
+                    :to="{
+                      path: `/admin/core-library/exams/${row.id}`,
+                      query: { examType: activeExamType, year: selectedYear },
+                    }"
+                    class="table-action-link"
+                  >
+                    管理内容
+                  </router-link>
+                  <AppButton
+                    type="text"
+                    size="small"
+                    :loading="exportingPaperId === row.id"
+                    @click="handleExport(row)"
+                    >导出</AppButton
+                  >
+                  <AppButton
+                    class="delete-action"
+                    type="text"
+                    size="small"
+                    :loading="deletingPaperId === row.id"
+                    @click="handleDeletePaper(row)"
+                  >
+                    {{ deletingPaperId === row.id ? '删除中' : '删除' }}
+                  </AppButton>
+                </div>
+              </template>
+            </el-table-column>
+          </AdminDataTable>
+        </el-config-provider>
+      </div>
+      <template v-if="selectedYear && !loading && !loadError">
+        <section v-for="paper in paperList" :key="paper.id" class="annual-modules">
+          <h3>科目内容</h3>
+          <div class="module-grid">
+            <router-link
+              v-for="module in orderedModules(paper.modules || [])"
+              :key="module.code"
+              class="module-card"
+              :to="{
+                path: `/admin/core-library/exams/${paper.id}`,
+                query: { examType: activeExamType, year: selectedYear, moduleCode: module.code },
+              }"
+            >
+              <strong>{{ moduleLabel(module) }}</strong>
+              <span>{{ module.questionCount }} 题 · {{ module.durationSeconds / 60 }} 分钟</span>
+              <span class="module-card__link"
+                >查看题目与解析 <el-icon><ArrowRight /></el-icon
+              ></span>
+            </router-link>
+          </div>
+        </section>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 // 真题库列表：套卷管理、发布状态和预览入口。
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
+import AppPagination from '@/components/AppPagination.vue'
+import AppButton from '@/components/AppButton.vue'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import { ArrowDown, ArrowLeft, ArrowRight, Document, FolderOpened } from '@element-plus/icons-vue'
+import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
+import { getApiErrorMessage } from '@/utils/request'
 import {
   deletePaper,
   getPaperListData,
+  getAdminPaperYears,
+  getDiagnosticPaperDocument,
   updatePaperAccessTier,
   updatePaperStatus,
   type PaperItem,
   type PaperModuleOutline,
+  type AdminPaperYear,
 } from '@/api/papers'
 import {
   PAPER_ACCESS_TIER,
@@ -169,7 +292,22 @@ const route = useRoute()
 const router = useRouter()
 const loading = ref(true)
 const deletingPaperId = ref<string | null>(null)
+const exportingPaperId = ref<string | null>(null)
 const paperList = ref<PaperItem[]>([])
+const yearList = ref<AdminPaperYear[]>([])
+const loadError = ref('')
+let requestSequence = 0
+const examTabs = EXAM_TYPE_OPTIONS.filter((exam) => exam.value === 'ESAT' || exam.value === 'TMUA')
+// 地址保存考试上下文，直接访问未指定类型的真题库时默认展示 ESAT。
+const activeExamType = computed<'ESAT' | 'TMUA'>(() =>
+  route.query.examType === 'TMUA' ? 'TMUA' : 'ESAT',
+)
+// 仅合法四位年份进入当年列表，异常地址回到年份导航。
+const selectedYear = computed<number | null>(() => {
+  const value = String(route.query.year || '')
+  const year = Number(value)
+  return /^\d{4}$/.test(value) && year >= 2000 && year <= 2100 ? year : null
+})
 const pagination = reactive({
   page: 1,
   pageSize: 20,
@@ -189,19 +327,6 @@ function orderedModules(modules: PaperModuleOutline[]): PaperModuleOutline[] {
   return [...modules].sort((left, right) => left.order - right.order)
 }
 
-// ESAT 五科与 TMUA 两卷映射到稳定样式类，便于管理员快速识别模块组成。
-function subjectType(code: string | null): string {
-  const normalizedCode = String(code || '').toLowerCase()
-  if (
-    ['maths1', 'maths2', 'physics', 'chemistry', 'biology', 'paper1', 'paper2'].includes(
-      normalizedCode,
-    )
-  ) {
-    return normalizedCode
-  }
-  return 'general'
-}
-
 // 数学模块与 TMUA 分卷使用简洁展示名，内部代码继续保持不变。
 function moduleLabel(module: PaperModuleOutline): string {
   const normalizedCode = String(module.code || '').toLowerCase()
@@ -212,39 +337,60 @@ function moduleLabel(module: PaperModuleOutline): string {
   return module.subject
 }
 
-// 考试类型使用稳定样式类，便于在同一列表中快速区分 ESAT 与 TMUA。
-function examTypeClass(examType: unknown): string {
-  const normalized = String(examType || 'TMUA').toLowerCase()
-  return `exam-type-tag--${normalized}`
+// 切换考试后从年份开始浏览，不把另一考试的年份筛选带入新列表。
+function handleExamChange(value: string | number): void {
+  if (value === activeExamType.value || (value !== 'ESAT' && value !== 'TMUA')) return
+  void router.push({ path: '/admin/core-library/exams', query: { examType: value } })
 }
 
-// 每次回到真题库列表时重新获取数据，保证上传或编辑后的状态可见。
+// 返回当前考试的年份导航，重新读取最新套卷状态汇总。
+function backToYears(): void {
+  void router.push({ path: '/admin/core-library/exams', query: { examType: activeExamType.value } })
+}
+
+// 页面初始化、类型切换及浏览器返回统一根据地址加载对应层级。
 watch(
-  () => route.path,
-  (path) => {
-    if (path === '/admin/core-library/exams') void fetchPapers()
+  () => [route.path, activeExamType.value, selectedYear.value],
+  () => {
+    requestSequence += 1
+    if (route.path !== '/admin/core-library/exams') return
+    pagination.page = 1
+    void fetchPapers()
   },
   { immediate: true },
 )
 
-// 真题库列表只展示真题卷来源，避免题库和模考来源混入后台真题管理。
+// 年份读取聚合统计，进入年份才查询套卷；忽略切换上下文前发出的旧请求。
 async function fetchPapers(): Promise<void> {
+  const sequence = ++requestSequence
+  const year = selectedYear.value
   loading.value = true
+  loadError.value = ''
+  paperList.value = []
+  yearList.value = []
+  pagination.total = 0
   try {
-    const data = await getPaperListData({
+    const params = {
       page: pagination.page,
       pageSize: pagination.pageSize,
-      paperType: PAPER_TYPE.REAL_PAPER,
-    })
-    paperList.value = data.list || []
-    pagination.page = data.pagination.page
-    pagination.pageSize = data.pagination.pageSize
-    pagination.total = data.pagination.total
-  } catch {
-    paperList.value = []
-    pagination.total = 0
+      examType: activeExamType.value,
+    }
+    if (year === null) {
+      const data = await getAdminPaperYears(params)
+      if (sequence !== requestSequence) return
+      yearList.value = data.list
+      Object.assign(pagination, data.pagination)
+    } else {
+      const data = await getPaperListData({ ...params, year, paperType: PAPER_TYPE.REAL_PAPER })
+      if (sequence !== requestSequence) return
+      paperList.value = data.list
+      Object.assign(pagination, data.pagination)
+    }
+  } catch (error: unknown) {
+    if (sequence !== requestSequence) return
+    loadError.value = getApiErrorMessage(error, '真题库加载失败，请稍后重试')
   } finally {
-    loading.value = false
+    if (sequence === requestSequence) loading.value = false
   }
 }
 
@@ -304,7 +450,31 @@ async function handleAccessTierCommand(id: string, command: unknown): Promise<vo
 
 // 录入入口复用真题库上传解析流程，上传时默认写入真题卷来源。
 function handleManualImport(): void {
-  router.push('/admin/core-library/exams/upload')
+  router.push({
+    path: '/admin/core-library/exams/upload',
+    query: { examType: activeExamType.value, year: selectedYear.value || undefined },
+  })
+}
+
+// 导出统一文档供年度校对及再次导入，浏览器下载后释放临时地址。
+async function handleExport(paper: PaperItem): Promise<void> {
+  if (exportingPaperId.value) return
+  exportingPaperId.value = paper.id
+  try {
+    const document = await getDiagnosticPaperDocument(paper.id)
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(document, null, 2)], { type: 'application/json;charset=utf-8' }),
+    )
+    const anchor = window.document.createElement('a')
+    anchor.href = url
+    anchor.download = `${paper.examType}_${paper.year}_年度试卷.json`
+    anchor.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  } catch {
+    // 请求层统一显示下载失败原因，保持当前年份和科目内容可操作。
+  } finally {
+    exportingPaperId.value = null
+  }
 }
 
 // 删除操作先进行不可逆确认，成功后重新读取数据库列表并修正空页分页。
@@ -338,6 +508,43 @@ async function handleDeletePaper(paper: PaperItem): Promise<void> {
 </script>
 
 <style scoped lang="scss">
+.annual-modules {
+  margin: 24px 0;
+}
+.annual-modules h3 {
+  color: var(--color-ink);
+  font-size: 18px;
+}
+.module-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 16px;
+}
+.module-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  color: var(--color-ink);
+  text-decoration: none;
+}
+.module-card:hover,
+.module-card:focus-visible {
+  border-color: var(--color-ink-muted);
+  background: var(--color-hover);
+}
+.module-card > span {
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+}
+.module-card__link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
 .exam-bank-page {
   // 当前分页全部展开，由后台主内容区滚动到分页器。
 
@@ -391,26 +598,255 @@ async function handleDeletePaper(paper: PaperItem): Promise<void> {
   gap: 10px;
 }
 
+.exam-tabs {
+  margin-top: 14px;
+
+  :deep(.el-tabs__header) {
+    margin-bottom: 0;
+  }
+  :deep(.el-tabs__item) {
+    height: 52px;
+    font-size: 16px;
+    font-weight: var(--weight-semi);
+  }
+  :deep(.el-tabs__content) {
+    display: none;
+  }
+}
+
+.collection-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  margin: 28px 0 20px;
+
+  h3 {
+    margin: 0;
+    color: var(--color-ink);
+    font-size: 20px;
+    font-weight: var(--weight-semi);
+  }
+  p {
+    margin: 8px 0 0;
+    color: var(--color-ink-muted);
+    font-size: var(--text-sm);
+  }
+}
+
+.back-years {
+  margin: 0 0 12px -12px;
+  color: var(--color-ink-muted);
+
+  .el-icon {
+    margin-right: 6px;
+  }
+}
+
+.collection-count {
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.year-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.year-card {
+  display: flex;
+  flex-direction: column;
+  padding: 24px 24px 0;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  text-decoration: none;
+  transition:
+    border-color var(--duration-base),
+    box-shadow var(--duration-base);
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--color-ink-muted);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 3px;
+  }
+}
+
+.year-card__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.year-card__year {
+  font-size: 32px;
+  line-height: 1.2;
+  font-weight: var(--weight-semi);
+  font-variant-numeric: tabular-nums;
+
+  small {
+    margin-left: 8px;
+    font-size: var(--text-sm);
+    font-weight: normal;
+    color: var(--color-ink-muted);
+  }
+}
+
+.year-card__icon {
+  padding: 10px;
+  border-radius: var(--radius-lg);
+  background: var(--color-hover);
+  color: var(--color-ink-muted);
+  font-size: 22px;
+  box-sizing: content-box;
+}
+
+.year-card__count {
+  margin: 18px 0 12px;
+  font-size: var(--text-sm);
+}
+
+.year-card__access {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 22px;
+  color: var(--color-ink-muted);
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.year-card__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: var(--weight-semi);
+}
+
+.year-card__badge--free {
+  border-color: #059669;
+  background: #059669;
+  color: #ffffff;
+}
+
+.year-card__badge--member {
+  border-color: #f59e0b;
+  background: #f59e0b;
+  color: #422006;
+}
+
+.year-card__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding: 16px 0;
+  border-top: 1px solid var(--color-line-soft);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+}
+
+.year-skeleton {
+  padding: 24px 0 40px;
+}
+.load-error {
+  margin-bottom: 24px;
+}
+
 .cell-name {
   color: var(--color-ink);
   font-weight: var(--weight-semi);
 }
 
-.exam-type-tag {
-  border-radius: var(--radius-pill);
+.annual-table-panel {
+  min-width: 0;
+
+  :deep(.admin-data-table__wrap) {
+    border-radius: 10px;
+  }
+
+  :deep(.admin-data-table__table .el-table__cell) {
+    padding: 18px 0;
+  }
+
+  :deep(.admin-data-table__table .el-table__cell > .cell) {
+    padding: 0 14px;
+  }
+
+  :deep(.admin-data-table__table th.el-table__cell) {
+    padding: 14px 0;
+    background: #f6f8fb;
+    color: var(--color-ink-muted);
+    font-size: 13px;
+  }
+
+  :deep(.admin-data-table__table .annual-title-column > .cell) {
+    padding-left: 24px;
+    text-align: left;
+  }
+
+  :deep(.admin-data-table__pagination) {
+    margin-top: 16px;
+    background: transparent;
+  }
+}
+
+.annual-title-cell {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.annual-title-icon {
+  flex: 0 0 40px;
+  height: 40px;
+  border: 1px solid var(--color-line-soft);
+  border-radius: 8px;
+  background: #f6f8fb;
+  color: #64748b;
+  font-size: 20px;
+}
+
+.annual-title-text {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  line-height: 1.5;
+
+  .cell-name {
+    font-size: 15px;
+    overflow-wrap: anywhere;
+  }
+}
+
+.cell-description,
+.question-unit {
+  font-size: 12px;
+  color: var(--color-ink-muted);
+}
+
+.question-count {
+  font-size: 16px;
   font-weight: var(--weight-semi);
+  font-variant-numeric: tabular-nums;
 }
 
-.exam-type-tag--esat {
-  background: #ecfeff !important;
-  border-color: #a5f3fc !important;
-  color: #0e7490 !important;
-}
-
-.exam-type-tag--tmua {
-  background: #f5f3ff !important;
-  border-color: #ddd6fe !important;
-  color: #6d28d9 !important;
+.question-unit {
+  margin-left: 6px;
 }
 
 .empty-modules {
@@ -420,7 +856,7 @@ async function handleDeletePaper(paper: PaperItem): Promise<void> {
 .subject-module-tags {
   width: 100%;
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 6px;
@@ -488,11 +924,13 @@ async function handleDeletePaper(paper: PaperItem): Promise<void> {
 .status-btn,
 .access-tier-btn,
 .table-action-link {
-  min-width: 72px;
-  height: var(--height-button-sm);
+  box-sizing: border-box;
+  min-width: 88px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   padding: 0 10px;
   border-radius: var(--radius-md);
   font-family: inherit;
@@ -507,7 +945,28 @@ async function handleDeletePaper(paper: PaperItem): Promise<void> {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.status-btn .el-icon,
+.access-tier-btn .el-icon {
+  font-size: 12px;
+}
+
+.status-btn:focus-visible,
+.access-tier-btn:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 3px;
+}
+
+.action-group :deep(.delete-action.app-button) {
+  color: #dc2626;
+}
+
+.action-group :deep(.delete-action.app-button:hover:not(:disabled)) {
+  color: #b91c1c;
+  background: #fef2f2;
 }
 
 .status-btn {
@@ -551,8 +1010,8 @@ async function handleDeletePaper(paper: PaperItem): Promise<void> {
 }
 
 .table-action-link {
-  border: 0;
-  background: transparent;
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
   color: var(--color-ink);
   text-decoration: none;
   transition:

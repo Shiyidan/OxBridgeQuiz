@@ -1,4 +1,5 @@
 // 模考试卷库服务：解析组卷 Excel、关联现有题库题目，并维护草稿的可发布校验结果。
+import { getQuestionAnswer, questionObject } from '../utils/questionDocument.js'
 import { Prisma, type Question } from '@prisma/client'
 import readXlsxFile, { readSheetNames, type Row } from 'read-excel-file/node'
 import {
@@ -60,8 +61,8 @@ type ValidationQuestion = Pick<
   | 'subject'
   | 'subjectCode'
   | 'questionType'
-  | 'options'
-  | 'answer'
+  | 'content'
+  | 'solution'
 >
 
 const EXPECTED_HEADERS = ['考试类型', '学科', '题号（全局唯一）']
@@ -303,8 +304,8 @@ async function findQuestionCandidates(
           subject: true,
           subjectCode: true,
           questionType: true,
-          options: true,
-          answer: true,
+          content: true,
+          solution: true,
         },
       })),
     )
@@ -362,8 +363,8 @@ function validateQuestion(
   if (question.examType !== examType) issues.push(`题目考试类型应为 ${examType}`)
   if (!matchesModule(question, module, sourceCode)) issues.push(`题目不属于${module.label}模块`)
   if (question.questionType !== 'single_choice') issues.push('当前模考只支持单选题')
-  if (parseJsonArray(question.options).length < 2) issues.push('题目选项不完整')
-  if (parseJsonArray(question.answer).length !== 1) issues.push('题目标准答案不完整')
+  if (parseJsonArray(questionObject(question.content, 'content').options).length < 2) issues.push('题目选项不完整')
+  if (getQuestionAnswer(question).length !== 1) issues.push('题目标准答案不完整')
   return { question, issues }
 }
 

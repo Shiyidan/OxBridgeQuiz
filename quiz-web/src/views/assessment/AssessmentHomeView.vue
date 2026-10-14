@@ -230,7 +230,7 @@
 
       <div v-if="selectedPaperPreview" class="esat-subject-dialog__match">
         <span>
-          已匹配诊断卷
+          本次诊断组合
           <em v-if="isPaperLocked(selectedPaperPreview)">
             <el-icon><Lock /></el-icon>
             会员专享
@@ -246,7 +246,7 @@
         v-else-if="selectedEsatSubjects.length === 3 && !subjectPapersLoading"
         class="esat-subject-dialog__unmatched"
       >
-        该年份暂无所选科目组合的已发布诊断卷。
+        该年份所选科目尚未准备完整，暂时无法开始。
       </p>
 
       <template #footer="{ cancel }">
@@ -287,13 +287,16 @@
     <AppDialog
       v-model="historyDialogVisible"
       width="860px"
+      style="max-height: calc(100dvh - 82px)"
       :show-footer="false"
       :title="historyDialogTitle"
       destroy-on-close
     >
-      <div v-if="historyLoading" class="diagnostic-history__state">正在加载历次记录...</div>
+      <div v-if="historyLoading && !historyRecords.length" class="diagnostic-history__state">
+        正在加载历次记录...
+      </div>
       <div
-        v-else-if="historyError"
+        v-else-if="historyError && !historyRecords.length"
         class="diagnostic-history__state diagnostic-history__state--error"
       >
         <p>{{ historyError }}</p>
@@ -303,15 +306,21 @@
         暂无已完成的诊断记录
       </div>
       <div v-else class="diagnostic-history">
+        <div class="diagnostic-history__summary">
+          <span
+            >共 <strong>{{ historyTotal }}</strong> 次诊断</span
+          >
+          <span>按交卷时间倒序</span>
+        </div>
         <article
           v-for="record in historyRecords"
           :key="record.examRecordId"
           class="diagnostic-history__item"
         >
           <div class="diagnostic-history__heading">
-            <div>
-              <strong>{{ historyRecordTitle(record) }}</strong>
-              <small>第 {{ record.attemptNumber }} 次诊断</small>
+            <div class="diagnostic-history__identity">
+              <span class="diagnostic-history__attempt">第 {{ record.attemptNumber }} 次</span>
+              <h3>{{ historyRecordTitle(record) }}</h3>
             </div>
             <span
               class="diagnostic-history__status"
@@ -320,42 +329,57 @@
               {{ historyReportLabel(record) }}
             </span>
           </div>
-          <dl class="diagnostic-history__metrics">
-            <div>
-              <dt>交卷时间</dt>
-              <dd>{{ formatDateTime(record.submittedAt) }}</dd>
-            </div>
-            <div>
-              <dt>成绩</dt>
-              <dd>{{ record.correctCount }}/{{ record.totalQuestions }} 题正确</dd>
-            </div>
-            <div>
-              <dt>作答用时</dt>
-              <dd>{{ formatDuration(record.durationSeconds) }}</dd>
-            </div>
-            <div>
-              <dt>报告时间</dt>
-              <dd>{{ formatReportTime(record) }}</dd>
-            </div>
-          </dl>
-          <AppButton
-            size="small"
-            class="diagnostic-history__action"
-            :type="record.hasReport ? 'primary' : 'secondary'"
-            @click="handleHistoryAction(record)"
-          >
-            {{ historyActionLabel(record) }}
-          </AppButton>
+          <div class="diagnostic-history__body">
+            <dl class="diagnostic-history__score">
+              <dt>答对题数</dt>
+              <dd>
+                <strong>{{ record.correctCount }}</strong
+                ><span>/ {{ record.totalQuestions }}</span>
+              </dd>
+            </dl>
+            <dl class="diagnostic-history__metrics">
+              <div>
+                <dt>交卷时间</dt>
+                <dd>{{ formatDateTime(record.submittedAt) }}</dd>
+              </div>
+              <div>
+                <dt>作答用时</dt>
+                <dd>{{ formatDuration(record.durationSeconds) }}</dd>
+              </div>
+              <div>
+                <dt>报告时间</dt>
+                <dd>{{ formatReportTime(record) }}</dd>
+              </div>
+            </dl>
+            <AppButton
+              size="small"
+              class="diagnostic-history__action"
+              :type="record.hasReport ? 'primary' : 'secondary'"
+              :icon="Right"
+              icon-position="right"
+              @click="handleHistoryAction(record)"
+            >
+              {{ historyActionLabel(record) }}
+            </AppButton>
+          </div>
+          <p v-if="record.isExpired" class="diagnostic-history__notice">
+            当前试卷已失效，请查看最新版试卷
+          </p>
         </article>
-        <AppPagination
-          :page="historyPage"
-          :page-size="historyPageSize"
-          :page-sizes="[5, 10, 20]"
-          :total="historyTotal"
-          layout="total, sizes, prev, pager, next"
-          @page-change="handleHistoryPageChange"
-          @page-size-change="handleHistoryPageSizeChange"
-        />
+        <div
+          ref="historyLoadTrigger"
+          class="diagnostic-history__load-more"
+          role="status"
+          aria-live="polite"
+        >
+          <template v-if="historyLoading">正在加载更多记录...</template>
+          <template v-else-if="historyError">
+            <span>{{ historyError }}</span>
+            <AppButton type="text" size="small" @click="loadYearHistory">重新加载</AppButton>
+          </template>
+          <template v-else-if="historyHasMore">向下滚动查看更多</template>
+          <template v-else>已显示全部 {{ historyTotal }} 次诊断</template>
+        </div>
       </div>
     </AppDialog>
 
@@ -380,12 +404,11 @@
 
 <script setup lang="ts">
 // 诊断测试中心：按年份进入 ESAT 选科或 TMUA 双 Paper 诊断流程。
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Lock, Right } from '@element-plus/icons-vue'
 import NavBar from '@/components/NavBar.vue'
-import AppPagination from '@/components/AppPagination.vue'
 import AppDialog from '@/components/AppDialog.vue'
 import AppButton from '@/components/AppButton.vue'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
@@ -429,9 +452,13 @@ const historyLoading = ref(false)
 const historyError = ref('')
 const historyYear = ref<number | null>(null)
 const historyRecords = ref<AssessmentPaperHistoryItem[]>([])
-const historyPage = ref(1)
-const historyPageSize = ref(5)
+const historyPage = ref(0)
+const historyPageSize = 20
 const historyTotal = ref(0)
+const historyHasMore = ref(true)
+const historyLoadTrigger = ref<HTMLElement | null>(null)
+let historyLoadSequence = 0
+let historyObserver: IntersectionObserver | null = null
 const membershipAccessVisible = ref(false)
 const paymentVisible = ref(false)
 const paymentExamType = ref<ActiveExamType>(auth.activeExamType)
@@ -506,7 +533,7 @@ const lockedMembershipActionLabel = computed(() =>
 // 年份页说明分别对应 ESAT 选科和 TMUA 双 Paper 确认两种流程。
 const yearOverviewDescription = computed(() =>
   activeExamType.value === 'ESAT'
-    ? '选择年份后直接确定三个测试科目，系统会匹配对应诊断卷。'
+    ? '选择年份和三个测试科目，系统按当年科目题库组成诊断卷。'
     : '选择年份后确认 Paper 1 与 Paper 2，即可开始完整 TMUA 诊断。',
 )
 
@@ -515,20 +542,30 @@ const yearCardConfigurationLabel = computed(() =>
   activeExamType.value === 'ESAT' ? '5 科选 3 科' : 'Paper 1 + Paper 2',
 )
 
-// 科目选满三项后以模块代码集合匹配已有六种 ESAT 合法组合卷。
+// 年度题库覆盖所选三科后，摘要只统计本次考试需要的模块。
 const selectedPaperPreview = computed(() => {
   if (selectedEsatSubjects.value.length !== 3) return null
-  const selectedKey = [...selectedEsatSubjects.value].sort().join('|')
-  return (
-    subjectSelectionPapers.value.find(
-      (paper) =>
-        (isPaperPublished(paper) || paper.testStatus === 'in_progress') &&
-        esatPaperSubjectKey(paper) === selectedKey,
-    ) || null
+  const paper = subjectSelectionPapers.value.find(
+    (item) =>
+      item.assemblyType === 'annual_subjects' &&
+      isPaperPublished(item) &&
+      selectedEsatSubjects.value.every((code) =>
+        item.modules.some((module) => module.code === code && module.questionCount > 0),
+      ),
   )
+  if (!paper) return null
+  const modules = paper.modules.filter((module) =>
+    selectedEsatSubjects.value.includes(module.code as EsatSubjectCode),
+  )
+  return {
+    ...paper,
+    modules,
+    totalQuestions: modules.reduce((sum, module) => sum + module.questionCount, 0),
+    duration: modules.reduce((sum, module) => sum + module.durationSeconds, 0) / 60,
+  }
 })
 
-// TMUA 确认弹窗从已匹配组合卷读取双 Paper 题量，不根据总题量进行推算。
+// TMUA 确认弹窗从年度模块读取双 Paper 题量，不根据总题量进行推算。
 const tmuaModuleQuestionCounts = computed<{ paper1: number | null; paper2: number | null }>(() => {
   const result = { paper1: null as number | null, paper2: null as number | null }
   for (const module of selectedTmuaPaper.value?.modules || []) {
@@ -538,10 +575,12 @@ const tmuaModuleQuestionCounts = computed<{ paper1: number | null; paper2: numbe
   return result
 })
 
-// ESAT 选科发生在组合卷匹配前，因此按该年份已加载试卷汇总各科的模块题量。
+// ESAT 选科显示当前已发布年度题库的科目题量，不混入历史组合卷。
 const esatSubjectQuestionCounts = computed<Partial<Record<EsatSubjectCode, number>>>(() => {
   const result: Partial<Record<EsatSubjectCode, number>> = {}
-  for (const paper of subjectSelectionPapers.value) {
+  for (const paper of subjectSelectionPapers.value.filter(
+    (item) => item.assemblyType === 'annual_subjects' && isPaperPublished(item),
+  )) {
     for (const module of paper.modules || []) {
       const subjectCode = normalizeEsatSubject(module)
       if (subjectCode && module.questionCount > 0 && result[subjectCode] === undefined) {
@@ -620,23 +659,12 @@ function formatModuleSubtitle(questionCount: number | null | undefined, label: s
   return questionCount && questionCount > 0 ? `${questionCount} 题 · ${label}` : label
 }
 
-// 组合卷匹配不依赖模块展示顺序，只比较三科集合。
-function esatPaperSubjectKey(paper: AssessmentPaperItem): string {
-  return [
-    ...new Set(
-      (paper.modules || [])
-        .map(normalizeEsatSubject)
-        .filter((code): code is EsatSubjectCode => Boolean(code)),
-    ),
-  ]
-    .sort()
-    .join('|')
-}
-
-// TMUA 年份入口只匹配同时包含 Paper 1 与 Paper 2 的完整组合卷。
+// TMUA 新考试只使用同时包含 Paper 1 与 Paper 2 的年度题库。
 function isTmuaCompositePaper(paper: AssessmentPaperItem): boolean {
   const moduleKeys = new Set((paper.modules || []).map(normalizeTmuaModule))
-  return moduleKeys.has('paper1') && moduleKeys.has('paper2')
+  return (
+    paper.assemblyType === 'annual_subjects' && moduleKeys.has('paper1') && moduleKeys.has('paper2')
+  )
 }
 
 // Mathematics 1 始终必选；其余科目最多再选两项。
@@ -681,7 +709,7 @@ async function refreshAssessmentData(): Promise<void> {
   await loadAssessmentYears()
 }
 
-// 年份弹窗只读取当年组合卷用于匹配，不再暴露底层试卷列表。
+// 年份弹窗读取年度模块及当前用户旧进行中记录，分别承接选科和继续作答。
 async function loadSubjectSelectionPapers(): Promise<boolean> {
   const requestedYear = subjectSelectionYear.value
   const requestedExamType = activeExamType.value
@@ -960,18 +988,23 @@ async function handlePaymentSuccess(): Promise<void> {
 // 年份卡片历史入口汇总该年所有科目组合，不要求学生先选中某套卷。
 function openYearHistory(item: AssessmentYearSummary): void {
   if (item.completedAttemptCount === 0) return
+  historyLoadSequence += 1
+  historyLoading.value = false
+  historyError.value = ''
+  historyHasMore.value = true
   historyYear.value = item.year
-  historyPage.value = 1
+  historyPage.value = 0
   historyRecords.value = []
   historyTotal.value = item.completedAttemptCount
   historyDialogVisible.value = true
   void loadYearHistory()
 }
 
-// 历次记录按当前考试类型和年份分页读取正式交卷 attempt。
+// 滚动到底部时追加下一批历史；保留已显示记录，失败重试仍请求同一批次。
 async function loadYearHistory(): Promise<void> {
   const year = historyYear.value
-  if (!year) return
+  if (!year || !historyDialogVisible.value || historyLoading.value || !historyHasMore.value) return
+  const requestSequence = ++historyLoadSequence
   const historyContextKey = `${activeExamType.value}:${year}`
   historyLoading.value = true
   historyError.value = ''
@@ -979,47 +1012,110 @@ async function loadYearHistory(): Promise<void> {
     const data = await getAssessmentYearHistory(
       activeExamType.value,
       year,
-      historyPage.value,
-      historyPageSize.value,
+      historyPage.value + 1,
+      historyPageSize,
     )
     const currentContextKey = `${activeExamType.value}:${historyYear.value}`
-    if (currentContextKey !== historyContextKey) return
-    historyRecords.value = data.list || []
+    if (
+      requestSequence !== historyLoadSequence ||
+      currentContextKey !== historyContextKey ||
+      !historyDialogVisible.value
+    )
+      return
+    const existingIds = new Set(historyRecords.value.map((record) => record.examRecordId))
+    historyRecords.value.push(
+      ...data.list.filter((record) => !existingIds.has(record.examRecordId)),
+    )
+    historyPage.value = data.pagination.page
     historyTotal.value = data.pagination.total
+    historyHasMore.value = data.pagination.hasNext && data.list.length > 0
   } catch (error: unknown) {
     const currentContextKey = `${activeExamType.value}:${historyYear.value}`
-    if (currentContextKey !== historyContextKey) return
-    historyRecords.value = []
+    if (
+      requestSequence !== historyLoadSequence ||
+      currentContextKey !== historyContextKey ||
+      !historyDialogVisible.value
+    )
+      return
     historyError.value = getApiErrorMessage(error, '历次诊断记录加载失败，请稍后重试。')
   } finally {
     const currentContextKey = `${activeExamType.value}:${historyYear.value}`
-    if (currentContextKey === historyContextKey) historyLoading.value = false
+    if (requestSequence === historyLoadSequence && currentContextKey === historyContextKey)
+      historyLoading.value = false
   }
 }
 
-// 历史记录以真实试卷名称作为主标题；缺少旧数据标题时按当前考试与年份生成兜底名称。
+// 使用弹窗自身的滚动区域触发加载，内容不足一屏时继续补齐，关闭后释放观察器。
+watch(
+  [historyLoadTrigger, historyLoading, historyError, historyHasMore, historyDialogVisible],
+  () => {
+    historyObserver?.disconnect()
+    historyObserver = null
+    const trigger = historyLoadTrigger.value
+    if (
+      !trigger ||
+      !historyDialogVisible.value ||
+      historyLoading.value ||
+      historyError.value ||
+      !historyHasMore.value
+    )
+      return
+    const root = trigger.closest('.el-dialog__body')
+    if (!root) return
+    historyObserver = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) void loadYearHistory()
+      },
+      { root, rootMargin: '0px 0px 80px 0px' },
+    )
+    historyObserver.observe(trigger)
+  },
+  { flush: 'post' },
+)
+
+// 关闭弹窗立即使在途请求失效，避免快速重开同一年时旧响应混入新列表。
+watch(
+  historyDialogVisible,
+  (visible) => {
+    if (visible) return
+    historyLoadSequence += 1
+    historyLoading.value = false
+    historyObserver?.disconnect()
+    historyObserver = null
+  },
+  { flush: 'sync' },
+)
+
+// 离开诊断首页时使在途历史请求失效，并停止滚动加载观察。
+onBeforeUnmount(() => {
+  historyLoadSequence += 1
+  historyObserver?.disconnect()
+})
+
+// 按本次答卷快照中的科目顺序统一命名；缺少科目时仅展示考试与年份，不猜测年度选科。
 function historyRecordTitle(record: AssessmentPaperHistoryItem): string {
-  if (record.paperTitle) return record.paperTitle
-  return historyYear.value
-    ? `${activeExamType.value} ${historyYear.value} 年诊断卷`
-    : `${activeExamType.value} 诊断卷`
-}
-
-// 切换页码后重新读取该页，避免一次性把长期积累的全部历史报告下发到首页。
-function handleHistoryPageChange(page: number): void {
-  historyPage.value = page
-  void loadYearHistory()
-}
-
-// 每页数量改变时回到第一页，避免原页码超出新的总页数。
-function handleHistoryPageSizeChange(pageSize: number): void {
-  historyPageSize.value = pageSize
-  historyPage.value = 1
-  void loadYearHistory()
+  const prefix = [activeExamType.value, historyYear.value].filter(Boolean).join(' ')
+  const labels = (record.modules || []).map((module) => {
+    if (activeExamType.value === 'ESAT') {
+      const code = normalizeEsatSubject(module)
+      const option = esatSubjectOptions.find((item) => item.code === code)
+      return option?.label.replace(/\s+/g, '') || module.subject?.trim()
+    }
+    const code = normalizeTmuaModule(module)
+    return code === 'paper1' ? 'Paper 1' : code === 'paper2' ? 'Paper 2' : module.subject?.trim()
+  })
+  return labels.length && labels.every(Boolean)
+    ? `${prefix} · ${[...new Set(labels)].join(' / ')}`
+    : `${prefix} 诊断测试`
 }
 
 // 历史入口始终以该次 examRecordId 导航，禁止回退到同一试卷的其他报告。
 function handleHistoryAction(record: AssessmentPaperHistoryItem): void {
+  if (record.isExpired) {
+    ElMessage.info('当前试卷已失效，请查看最新版试卷')
+    historyDialogVisible.value = false
+    return
+  }
   historyDialogVisible.value = false
   if (record.hasReport) {
     const reportKind = record.reportKind.toLowerCase()
@@ -1046,6 +1142,7 @@ function formatDateTime(value: string | null): string {
   if (!value) return '—'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '—'
+  // 历史时间的月、日、时、分统一补齐两位，便于列表纵向比较。
   const pad = (part: number) => String(part).padStart(2, '0')
   return [
     `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
@@ -1073,6 +1170,7 @@ function formatDuration(durationSeconds: number): string {
 
 // 历史状态文案描述该次报告自身，不受同一试卷其他报告影响。
 function historyReportLabel(record: AssessmentPaperHistoryItem): string {
+  if (record.isExpired) return '试卷已失效'
   if (record.hasReport) return '报告已完成'
   if (record.reportStatus === 'failed') return '分析失败'
   if (record.reportStatus === 'analyzing') return `报告生成中 ${record.reportProgress}%`
@@ -1084,6 +1182,7 @@ function historyReportLabel(record: AssessmentPaperHistoryItem): string {
 function historyReportTone(
   record: AssessmentPaperHistoryItem,
 ): 'completed' | 'progress' | 'failed' {
+  if (record.isExpired) return 'failed'
   if (record.hasReport) return 'completed'
   if (record.reportStatus === 'failed') return 'failed'
   return 'progress'
@@ -1091,7 +1190,8 @@ function historyReportTone(
 
 // 报告尚未完成时，历史记录入口复用本次分析进度或失败重试流程。
 function historyActionLabel(record: AssessmentPaperHistoryItem): string {
-  if (record.hasReport) return '查看该次报告'
+  if (record.isExpired) return '查看最新版试卷'
+  if (record.hasReport) return '查看报告'
   if (record.reportStatus === 'failed') return '重新分析'
   return '查看生成进度'
 }
@@ -1207,11 +1307,21 @@ function routeToDiagnosticPaper(paper: AssessmentPaperItem, resume: boolean): vo
   if (paper.deliveryMode === 'module_sequence') {
     router.push({
       path: `/assessment/exam/${paper.id}`,
-      query: resume && paper.examRecordId ? { examRecordId: paper.examRecordId } : {},
+      query:
+        resume && paper.examRecordId
+          ? { examRecordId: paper.examRecordId }
+          : { moduleCodes: paper.modules.map((module) => module.code).join(',') },
     })
     return
   }
-  router.push({ path: '/practice', query: { paperId: paper.id, mode: 'assessment' } })
+  router.push({
+    path: '/practice',
+    query: {
+      paperId: paper.id,
+      mode: 'assessment',
+      ...(resume && paper.examRecordId ? { examId: paper.examRecordId } : {}),
+    },
+  })
 }
 
 // 诊断列表可展示 STEP 上线预告，但任何开始、继续和重测操作都必须保持关闭。
@@ -2061,6 +2171,20 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
   padding-bottom: 12px;
 }
 
+.diagnostic-history__summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  color: var(--color-ink-muted);
+  font-size: 13px;
+
+  strong {
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
 .diagnostic-history__state {
   min-height: 220px;
   display: grid;
@@ -2084,75 +2208,131 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
 }
 
 .diagnostic-history__item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 14px 20px;
-  padding: 18px 0;
-  border-bottom: 1px solid var(--color-line);
+  margin-bottom: 12px;
+  padding: 18px;
+  border: 1px solid var(--color-line);
+  border-radius: 5px;
+  background: var(--color-surface);
 }
 
 .diagnostic-history__heading {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
 }
 
-.diagnostic-history__heading > div {
+.diagnostic-history__identity {
   min-width: 0;
-  display: grid;
-  gap: 3px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
 }
 
-.diagnostic-history__heading strong {
-  font-weight: 700;
-  color: var(--color-ink);
-  font-size: var(--text-base);
-}
-
-.diagnostic-history__heading small {
-  overflow: hidden;
-  color: var(--color-ink-muted);
-  font-size: var(--text-xs);
+.diagnostic-history__heading h3 {
+  margin: 0;
   font-weight: var(--weight-semi);
-  text-overflow: ellipsis;
+  color: var(--color-ink);
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.diagnostic-history__attempt {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 5px;
+  background: #f1f5f9;
+  color: var(--color-ink-muted);
+  font-size: 12px;
+  font-weight: var(--weight-semi);
   white-space: nowrap;
 }
 
 .diagnostic-history__status {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
-  min-height: 24px;
+  gap: 6px;
+  min-height: 28px;
   padding: 0 9px;
   border: 1px solid var(--color-line);
-  border-radius: var(--radius-pill);
-  font-size: var(--text-xs);
+  border-radius: 5px;
+  font-size: 14px;
   font-weight: var(--weight-semi);
+  white-space: nowrap;
+}
+
+.diagnostic-history__status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 .diagnostic-history__status--completed {
-  border-color: #c8d2cc;
-  background: #edf1ef;
-  color: #435c4d;
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  color: #047857;
 }
 
 .diagnostic-history__status--progress {
-  border-color: #d6c9b2;
-  background: #f3f0e9;
-  color: #6b5b3e;
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
 }
 
 .diagnostic-history__status--failed {
-  border-color: #d8c8c8;
-  background: #f3eeee;
-  color: #775555;
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.diagnostic-history__body {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+}
+
+.diagnostic-history__score {
+  margin: 0;
+  border-right: 1px solid var(--color-line-soft);
+
+  dt {
+    color: var(--color-ink-muted);
+    font-size: 12px;
+  }
+
+  dd {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    margin: 3px 0 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  strong {
+    color: var(--color-ink);
+    font-size: 28px;
+    line-height: 1.2;
+    font-weight: var(--weight-semi);
+  }
+
+  span {
+    color: var(--color-ink-muted);
+    font-size: 13px;
+  }
 }
 
 .diagnostic-history__metrics {
   min-width: 0;
   display: grid;
-  grid-template-columns: 1.35fr 1fr 1fr 1.35fr;
-  gap: 18px;
+  grid-template-columns: 1.3fr 1fr 1.3fr;
+  gap: 12px;
   margin: 0;
 }
 
@@ -2163,26 +2343,42 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
 .diagnostic-history__metrics dt {
   margin-bottom: 5px;
   color: var(--color-ink-muted);
-  font-size: var(--text-xs);
+  font-size: 12px;
 }
 
 .diagnostic-history__metrics dd {
-  overflow: hidden;
   margin: 0;
-  color: var(--color-ink-soft);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semi);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: #000;
+  font-size: 14px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .diagnostic-history__action {
   align-self: center;
 }
 
-.diagnostic-history :deep(.app-pagination) {
-  padding: 14px 0 0;
-  background: var(--color-surface);
+.diagnostic-history__notice {
+  margin: 14px 0 0;
+  padding: 8px 12px;
+  border-radius: 5px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 13px;
+}
+
+.diagnostic-history__load-more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 0;
+  color: var(--color-ink-muted);
+  font-size: 13px;
 }
 
 @media (max-width: 760px), (max-device-width: 760px) {
@@ -2360,14 +2556,38 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
   }
 
   .diagnostic-history__item {
-    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+
+  .diagnostic-history__heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .diagnostic-history__body {
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 16px;
   }
 
   .diagnostic-history__metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
+    gap: 8px;
+
+    div {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 4px 10px;
+    }
+
+    dt {
+      margin: 0;
+    }
   }
 
   .diagnostic-history__action {
+    grid-column: 1 / -1;
     width: 100%;
   }
 }

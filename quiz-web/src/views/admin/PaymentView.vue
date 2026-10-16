@@ -51,7 +51,14 @@
           <el-table-column label="用户" min-width="170">
             <template #default="{ row }">
               <div class="user-cell">
-                <strong>{{ row.user.username }}</strong>
+                <el-button
+                  class="user-name-link"
+                  link
+                  type="primary"
+                  @click.stop="openUserDetail(row.user.id)"
+                >
+                  {{ row.user.username }}
+                </el-button>
                 <span>{{ row.user.email }}</span>
               </div>
             </template>
@@ -467,6 +474,7 @@
         </template>
       </div>
     </el-drawer>
+    <UserDetailDrawer v-model="userDetailVisible" :user-id="selectedUserId" />
   </div>
 </template>
 
@@ -474,6 +482,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
+import UserDetailDrawer from '@/views/admin/userManagement/UserDetailDrawer.vue'
 import { paymentChannelLabel as channelText } from '@/utils/paymentChannel'
 import {
   createAdminPaymentRefund,
@@ -499,6 +508,15 @@ const editing = ref(false)
 const loadingOrders = ref(false)
 const loadingOrderDetail = ref(false)
 const orderDetailVisible = ref(false)
+const userDetailVisible = ref(false)
+const selectedUserId = ref<string | null>(null)
+
+// 支付订单使用同一用户详情入口，按账号 ID 查询以避免重名或改名造成误查。
+function openUserDetail(userId: string): void {
+  selectedUserId.value = userId
+  userDetailVisible.value = true
+}
+
 const refundingOrderNo = ref('')
 const queryingRefundNo = ref('')
 const loadingReconciliation = ref(false)
@@ -1078,7 +1096,8 @@ onMounted(() => {
 .reconciliation-card :deep(.el-table) { --el-table-border-color: #edf0f4; }
 .user-cell { display: grid; gap: 3px; }
 .user-cell strong { color: #273244; font-size: 0.86rem; }
-.user-cell span, .exam-tags { color: #8490a2; font-size: 0.75rem; }
+.user-cell > span, .exam-tags { color: #8490a2; font-size: 0.75rem; }
+.user-name-link { justify-self: start; max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; }
 .exam-tags { margin-top: 4px; }
 .orders-card :deep(.app-pagination), .reconciliation-card :deep(.app-pagination) { padding: 18px 24px; }
 .order-detail-drawer { min-height: 240px; padding: 0 4px 28px; }

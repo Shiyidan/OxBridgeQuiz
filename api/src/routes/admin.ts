@@ -157,39 +157,45 @@ function formatOperationLog<T extends {
   }
 }
 
-type OperationActorAccountType = 'admin' | 'member' | 'regular'
+type OperationActorAccountType = 'admin' | 'member' | 'expired' | 'regular'
 
-// 操作人会员类型按当前有效权益派生；管理员和已删除用户无需额外查询会员记录。
-async function getActiveOperationLogMemberIds(
+// 当前会员优先；没有生效权益时，仅已实际开始且到期的历史会员标记为已过期。
+async function getOperationLogMembershipTypes(
   logs: Array<{ actorUserId: string | null; actorRoleSnapshot: string }>,
-): Promise<Set<string>> {
+): Promise<Map<string, 'member' | 'expired'>> {
   const userIds = [...new Set(
     logs
       .filter((log) => log.actorRoleSnapshot === USER_ROLE.STUDENT && log.actorUserId)
       .map((log) => log.actorUserId as string),
   )]
-  if (userIds.length === 0) return new Set()
+  const types = new Map<string, 'member' | 'expired'>()
+  if (userIds.length === 0) return types
   const now = new Date()
   const memberships = await prisma.userMembership.findMany({
     where: {
       userId: { in: userIds },
-      status: MEMBERSHIP_STATUS.ACTIVE,
+      status: { in: [MEMBERSHIP_STATUS.ACTIVE, MEMBERSHIP_STATUS.EXPIRED] },
       startsAt: { lte: now },
-      endsAt: { gt: now },
     },
-    distinct: ['userId'],
-    select: { userId: true },
+    select: { userId: true, status: true, endsAt: true },
   })
-  return new Set(memberships.map((membership) => membership.userId))
+  for (const membership of memberships) {
+    if (membership.status === MEMBERSHIP_STATUS.ACTIVE && membership.endsAt > now) {
+      types.set(membership.userId, 'member')
+    } else if (membership.endsAt <= now && types.get(membership.userId) !== 'member') {
+      types.set(membership.userId, 'expired')
+    }
+  }
+  return types
 }
 
-// 管理员保持管理员身份，学生再根据当前有效会员记录区分会员和普通用户。
+// 管理员保持独立身份，普通账号区分当前会员、历史到期和免费。
 function operationActorAccountType(
   log: { actorUserId: string | null; actorRoleSnapshot: string },
-  activeMemberIds: Set<string>,
+  membershipTypes: Map<string, 'member' | 'expired'>,
 ): OperationActorAccountType {
   if (log.actorRoleSnapshot === USER_ROLE.ADMIN) return 'admin'
-  return log.actorUserId && activeMemberIds.has(log.actorUserId) ? 'member' : 'regular'
+  return (log.actorUserId && membershipTypes.get(log.actorUserId)) || 'regular'
 }
 
 // 结果筛选按当前统计口径兼容历史 failure 记录，无需回填生产审计表。
@@ -501,9 +507,9 @@ adminRouter.get('/operation-logs', async (req, res) => {
     skip: (safePage - 1) * pageSize,
     take: pageSize,
   })
-  const [resourceDisplays, activeMemberIds] = await Promise.all([
+  const [resourceDisplays, membershipTypes] = await Promise.all([
     getOperationResourceDisplays(list),
-    getActiveOperationLogMemberIds(list),
+    getOperationLogMembershipTypes(list),
   ])
   res.json(success({
     list: list.map((log) => {
@@ -512,7 +518,7 @@ adminRouter.get('/operation-logs', async (req, res) => {
         : undefined
       return {
         ...formatOperationLog(log),
-        actorAccountType: operationActorAccountType(log, activeMemberIds),
+        actorAccountType: operationActorAccountType(log, membershipTypes),
         resourceDisplayName: log.resourceType && log.resourceId
           ? resourceDisplay?.name || resourceDisplayNameFromSummary(log.summary)
           : null,
@@ -537,10 +543,10 @@ adminRouter.get('/operation-logs/:id', async (req, res) => {
     res.status(404).json(fail('操作日志不存在'))
     return
   }
-  const activeMemberIds = await getActiveOperationLogMemberIds([log])
+  const membershipTypes = await getOperationLogMembershipTypes([log])
   res.json(success({
     ...log,
-    actorAccountType: operationActorAccountType(log, activeMemberIds),
+    actorAccountType: operationActorAccountType(log, membershipTypes),
     result: effectiveOperationAuditResult(log),
     ipAddress: normalizeIpAddress(log.ipAddress),
     occurredAt: log.occurredAt.toISOString(),

@@ -400,18 +400,19 @@ function roleLabel(role: string): string {
   return role === 'admin' ? '管理员' : '普通用户'
 }
 
-// 权益身份由后台结合角色快照和当前有效会员权益返回。
+// 已过期仅用于历史到期会员，从未开通的账号仍显示免费。
 function entitlementIdentityLabel(type: OperationLogItem['actorAccountType']): string {
   if (type === 'admin') return '管理员'
   if (type === 'member') return '会员'
+  if (type === 'expired') return '已过期'
   return '免费'
 }
 
-// 仅会员使用金黄色强调，免费与管理员权益统一使用灰色。
+// 生效会员用绿色强调，免费、已过期及管理员身份使用灰色。
 function entitlementIdentityTagType(
   type: OperationLogItem['actorAccountType'],
-): 'warning' | 'info' {
-  if (type === 'member') return 'warning'
+): 'success' | 'info' {
+  if (type === 'member') return 'success'
   return 'info'
 }
 

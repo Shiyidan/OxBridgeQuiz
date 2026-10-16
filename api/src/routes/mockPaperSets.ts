@@ -32,6 +32,7 @@ import {
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { fail, success } from '../utils/response.js'
 import { parseJsonArray } from '../utils/jsonField.js'
+import { formatQuestionRow } from '../utils/questionSync.js'
 import { parsePositiveInt } from './papers-shared.js'
 import { formatMockPaperModuleTitle } from '../utils/mockPaperTitle.js'
 import { buildMockPaperNumber, parseMockPaperNumber, parseMockPaperSequenceNo } from '../utils/mockPaperNumber.js'
@@ -452,6 +453,31 @@ mockPaperSetRouter.get('/modules', async (req, res) => {
       },
     }),
   )
+})
+
+// 模考单项题目预览
+mockPaperSetRouter.get('/modules/:moduleId/review', async (req, res) => {
+  // 直接读取当前模块的 Question 关系，草稿、已发布及已下线单项共用正式渲染数据。
+  const module = await prisma.mockPaperModule.findUnique({
+    where: { id: req.params.moduleId },
+    include: {
+      questions: { orderBy: { position: 'asc' }, include: { question: true } },
+    },
+  })
+  if (!module) {
+    res.status(404).json(fail('单项卷不存在', 'MOCK_PAPER_MODULE_NOT_AVAILABLE'))
+    return
+  }
+  res.json(success({
+    questions: module.questions.flatMap((item) => item.question ? [{
+      ...formatQuestionRow(item.question),
+      number: item.position,
+      module_code: module.code,
+      module_order: module.moduleOrder,
+      module_question_number: item.position,
+    }] : []),
+    missingCount: module.questions.filter((item) => !item.question).length,
+  }))
 })
 
 // 单项详情始终只返回当前 Module/Paper，不展开其所属套卷的其他模块。

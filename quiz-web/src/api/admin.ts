@@ -40,6 +40,7 @@ export interface RevenuePaymentItem {
   currency: string
   channel: string
   status: 'paid' | 'refunding'
+  membershipStatus: 'active' | 'expired'
   paidAt?: string | null
   createdAt: string
   user: {
@@ -218,7 +219,7 @@ export interface OperationLogItem {
   actorNameSnapshot: string
   actorEmailSnapshot: string
   actorRoleSnapshot: string
-  actorAccountType: 'admin' | 'member' | 'regular'
+  actorAccountType: 'admin' | 'member' | 'expired' | 'regular'
   module: string
   action: string
   summary: string

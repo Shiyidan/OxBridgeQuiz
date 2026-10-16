@@ -1,5 +1,11 @@
 // 模考试卷库 API：定义后台套卷列表、Excel 导入、校验详情和草稿替换操作。
 import { callApi } from '@/utils/request'
+import type { Question } from '@/types'
+
+export interface MockPaperModuleReview {
+  questions: Question[]
+  missingCount: number
+}
 
 export type MockPaperExamType = 'ESAT' | 'TMUA'
 export type MockPaperAccessTier = 'free' | 'member'
@@ -71,8 +77,7 @@ export interface MockPaperModuleDetail {
   questions: MockPaperQuestionDetail[]
 }
 
-export interface MockPaperSetDetail
-  extends Omit<MockPaperSetListItem, 'moduleCount'> {
+export interface MockPaperSetDetail extends Omit<MockPaperSetListItem, 'moduleCount'> {
   issues: string[]
   publishableModuleCount: number
   canPublish: boolean
@@ -308,10 +313,7 @@ export function getMockPaperCompositionCandidates(examType: MockPaperExamType) {
 }
 
 // 由管理员选择的独立单项创建新草稿套卷，来源独占校验由服务端完成。
-export function composeMockPaperSet(
-  moduleIds: string[],
-  accessTier: MockPaperAccessTier,
-) {
+export function composeMockPaperSet(moduleIds: string[], accessTier: MockPaperAccessTier) {
   return callApi<{ id: string }>({
     method: 'POST',
     url: '/mock-paper-sets/compose',
@@ -430,5 +432,13 @@ export function deleteMockPaperSet(id: string) {
   return callApi<{ id: string }>({
     method: 'DELETE',
     url: `/mock-paper-sets/${id}`,
+  })
+}
+
+// 按模块题序读取完整题目，用于后台复用报告中的题干、选项及解析组件。
+export function getMockPaperModuleReview(moduleId: string) {
+  return callApi<MockPaperModuleReview>({
+    method: 'GET',
+    url: `/mock-paper-sets/modules/${moduleId}/review`,
   })
 }

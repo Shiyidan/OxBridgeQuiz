@@ -167,13 +167,13 @@
                   </div>
 
                   <div v-if="auth.isLoggedIn" class="paper-card__progress">
-                    <span v-if="paper.inProgressCount > 0">
-                      未完成 <strong>{{ paper.inProgressCount }}</strong> 场
-                    </span>
-                    <span v-if="paper.completedCount > 0">
+                    <span v-if="paper.completedCount > 0" class="progress-completed">
                       已完成 <strong>{{ paper.completedCount }}</strong> 次
                     </span>
-                    <span v-if="paper.bestScore !== null">
+                    <span v-if="paper.inProgressCount > 0" class="progress-pending">
+                      未完成 <strong>{{ paper.inProgressCount }}</strong> 场
+                    </span>
+                    <span v-if="paper.bestScore !== null" class="progress-score">
                       最佳 <strong>{{ formatScore(paper.bestScore) }}</strong>
                     </span>
                     <span v-if="paper.inProgressCount === 0 && paper.completedCount === 0">
@@ -186,22 +186,6 @@
                 </div>
 
                 <div class="paper-card__actions">
-                  <AppButton
-                    size="medium"
-                    v-if="paper.inProgressCount > 0"
-                    type="secondary"
-                    @click="handleContinuePaper(paper)"
-                  >
-                    查看未完成
-                  </AppButton>
-                  <AppButton
-                    size="medium"
-                    v-if="paper.completedCount > 0 && paper.latestCompletedExamRecordId"
-                    type="secondary"
-                    @click="openPaperReport(paper)"
-                  >
-                    查看报告
-                  </AppButton>
                   <AppButton
                     size="medium"
                     :loading="startingTargetId === paper.id"
@@ -222,6 +206,14 @@
                     @click="handlePaperPrimaryAction(paper)"
                   >
                     {{ paperPrimaryAction(paper) }}
+                  </AppButton>
+                  <AppButton
+                    size="medium"
+                    v-if="paper.completedCount > 0 && paper.latestCompletedExamRecordId"
+                    type="secondary"
+                    @click="openPaperReport(paper)"
+                  >
+                    查看报告
                   </AppButton>
                 </div>
               </article>
@@ -266,9 +258,9 @@
                     :value="option.value"
                   />
                 </el-select>
-                <div v-if="auth.isLoggedIn" class="catalog-filters" aria-label="单项练习状态筛选">
+                <div v-if="auth.isLoggedIn" class="catalog-filters" aria-label="单项状态筛选">
                   <button
-                    v-for="option in moduleStatusOptions"
+                    v-for="option in catalogStatusOptions"
                     :key="option.value"
                     type="button"
                     :class="{ 'is-active': moduleStatus === option.value }"
@@ -365,7 +357,7 @@
                       <el-icon aria-hidden="true"><Collection /></el-icon>
                       {{ module.label }}
                     </span>
-                    <span>
+                    <span :class="{ 'paper-card__suite-link': module.fullExamReady }">
                       {{
                         module.fullExamReady
                           ? `已组成 ${module.sourcePaperTitle} · ${formatMockPaperSequenceNo(module.sourcePaperSequenceNo)}`
@@ -375,17 +367,17 @@
                   </div>
 
                   <div v-if="auth.isLoggedIn" class="paper-card__progress">
-                    <span v-if="module.inProgressCount > 0">
-                      未完成 <strong>{{ module.inProgressCount }}</strong> 场
-                    </span>
-                    <span v-if="module.completedCount > 0">
+                    <span v-if="module.completedCount > 0" class="progress-completed">
                       单项已完成 <strong>{{ module.completedCount }}</strong> 次
                     </span>
-                    <span v-if="module.bestScore !== null">
+                    <span v-if="module.inProgressCount > 0" class="progress-pending">
+                      未完成 <strong>{{ module.inProgressCount }}</strong> 场
+                    </span>
+                    <span v-if="module.bestScore !== null" class="progress-score">
                       最佳 <strong>{{ formatScore(module.bestScore) }}</strong>
                     </span>
                     <span v-if="module.practicedInFull" class="practice-mark">
-                      已在完整模考练习
+                      已在模拟套卷练习
                     </span>
                     <span
                       v-if="
@@ -403,14 +395,6 @@
                 </div>
 
                 <div class="paper-card__actions">
-                  <AppButton
-                    size="medium"
-                    v-if="module.inProgressCount > 0"
-                    type="secondary"
-                    @click="handleContinueModule(module)"
-                  >
-                    查看未完成
-                  </AppButton>
                   <AppButton
                     size="medium"
                     :loading="startingTargetId === module.id"
@@ -481,7 +465,7 @@
                       :class="{ 'is-active': recordStatus === 'in_progress' }"
                       @click="selectRecordStatus('in_progress')"
                     >
-                      未完成
+                      进行中
                     </button>
                     <button
                       type="button"
@@ -516,7 +500,7 @@
                       <div class="record-card__meta">
                         <span>{{ formatMockPaperSequenceNo(record.sequenceNo) }}</span>
                         <b :data-mode="record.mode">
-                          {{ record.mode === 'single' ? '单项模考' : '完整模考' }}
+                          {{ record.mode === 'single' ? '单项模考' : '模拟套卷' }}
                         </b>
                       </div>
                       <div class="record-card__title-line">
@@ -527,7 +511,7 @@
                       </div>
                     </div>
                     <em :data-status="record.status">
-                      {{ record.status === 'in_progress' ? '未完成' : '已完成' }}
+                      {{ record.status === 'in_progress' ? '进行中' : '已完成' }}
                     </em>
                   </div>
                   <div class="record-card__details">
@@ -666,7 +650,7 @@
             <strong>专注完成一个 Module/Paper</strong>
             <p>采用正式题量和正式时长，交卷后生成独立成绩与答题记录。</p>
             <ul>
-              <li>与完整模考共用同一份题目。</li>
+              <li>与模拟套卷共用同一份题目。</li>
               <li>做过的内容会提示“已练习过”。</li>
               <li>单项成绩不计入整卷趋势。</li>
             </ul>
@@ -828,29 +812,6 @@
     </AppDialog>
 
     <AppDialog
-      v-model="attemptDialogVisible"
-      title="选择要继续的模考"
-      :show-footer="false"
-    >
-      <div class="attempt-options">
-        <div v-for="attempt in selectedAttempts" :key="attempt.examRecordId" class="attempt-option">
-          <div class="attempt-option__copy">
-            <strong>{{ attempt.currentModuleLabel || '等待开始' }}</strong>
-            <small>{{ formatDateTime(attempt.updatedAt) }} 更新</small>
-          </div>
-          <span>{{ attempt.answeredCount }}/{{ attempt.totalQuestions }} 题</span>
-          <AppButton
-            size="small"
-            :icon="ArrowRight"
-            icon-position="right"
-            @click="continueAttempt(attempt)"
-            >继续作答</AppButton
-          >
-        </div>
-      </div>
-    </AppDialog>
-
-    <AppDialog
       v-model="abandonDialogVisible"
       title="放弃本次模考？"
       :icon="WarningFilled"
@@ -878,7 +839,7 @@
       :upgrade-message="
         pendingMembershipTarget?.kind === 'module'
           ? '当前单项需要会员权益，开通会员后即可开始单项模考。'
-          : '当前模拟卷需要会员权益，开通会员后即可开始完整模考。'
+          : '当前模拟卷需要会员权益，开通会员后即可开始模拟套卷。'
       "
       @activated="handleDailyCardActivated"
       @upgrade="handleMembershipUpgrade"
@@ -940,7 +901,6 @@ import {
   getMockExamRecordsData,
   startMockExam,
   startSingleMockExam,
-  type MockExamAttemptBrief,
   type MockExamCatalogStatus,
   type MockExamModuleItem,
   type MockExamModuleStatus,
@@ -1002,8 +962,6 @@ const rulesAccepted = ref(false)
 const startingTargetId = ref('')
 const startRequestId = ref('')
 const subjectSetupDialogVisible = ref(false)
-const attemptDialogVisible = ref(false)
-const selectedAttempts = ref<MockExamAttemptBrief[]>([])
 const abandonDialogVisible = ref(false)
 const selectedAbandonRecord = ref<MockExamRecordItem | null>(null)
 const abandoning = ref(false)
@@ -1025,16 +983,9 @@ const catalogStatusOptions: Array<{ label: string; value: MockExamCatalogStatus 
   { label: '已完成', value: 'completed' },
 ]
 
-const moduleStatusOptions: Array<{ label: string; value: MockExamModuleStatus }> = [
-  { label: '全部', value: 'all' },
-  { label: '未练习', value: 'not_started' },
-  { label: '有未完成', value: 'in_progress' },
-  { label: '已练习', value: 'practiced' },
-]
-
 const recordModeOptions: Array<{ label: string; value: MockExamRecordMode }> = [
   { label: '全部', value: 'all' },
-  { label: '完整模考', value: 'full' },
+  { label: '模拟套卷', value: 'full' },
   { label: '单项模考', value: 'single' },
 ]
 
@@ -1140,7 +1091,7 @@ function isPaperLocked(paper: MockExamPaperItem): boolean {
   )
 }
 
-// 单项权限继承所属 Mock，与完整模考使用同一考试会员资格。
+// 单项权限继承所属 Mock，与模拟套卷使用同一考试会员资格。
 function isModuleLocked(module: MockExamModuleItem): boolean {
   return (
     module.accessTier !== PAPER_ACCESS_TIER.FREE &&
@@ -1263,7 +1214,7 @@ function handleModuleCodeChange(): void {
   void loadModules()
 }
 
-// 单项练习状态筛选同时识别独立完成和已在完整模考练习。
+// 单项沿用套卷的三种筛选入口，已完成仅查询独立单项答卷。
 function selectModuleStatus(status: MockExamModuleStatus): void {
   if (moduleStatus.value === status) return
   moduleStatus.value = status
@@ -1287,7 +1238,7 @@ function handleModulePageSizeChange(): void {
   void loadModules()
 }
 
-// 目录只看完整模考，记录页则跟随当前类型筛选统计，避免单项与整卷成绩混淆。
+// 目录只看模拟套卷，记录页则跟随当前类型筛选统计，避免单项与整卷成绩混淆。
 async function loadOverview(): Promise<void> {
   if (!auth.isLoggedIn) {
     overview.value = null
@@ -1400,7 +1351,7 @@ function requireLogin(): boolean {
   return true
 }
 
-// ESAT 完整模考依赖个人中心三科设置；目录只返回能覆盖完整组合的套卷。
+// ESAT 模拟套卷依赖个人中心三科设置；目录只返回能覆盖完整组合的套卷。
 async function handleStartPaper(paper: MockExamPaperItem): Promise<void> {
   if (requireDesktopForExamAction()) return
   if (requireLogin()) return
@@ -1498,54 +1449,6 @@ function clearStartSelection(): void {
   selectedStartModule.value = null
   rulesAccepted.value = false
   startRequestId.value = ''
-}
-
-// 单项有多场未完成时沿用同一选择弹窗，确保不会误进另一份独立答卷。
-function handleContinueModule(module: MockExamModuleItem): void {
-  if (requireDesktopForExamAction()) return
-  if (requireLogin()) return
-  const onlyAttempt = module.inProgressAttempts[0]
-  if (module.inProgressAttempts.length === 1 && onlyAttempt) {
-    continueAttempt(onlyAttempt)
-    return
-  }
-  if (module.inProgressAttempts.length === 0) {
-    recordMode.value = 'single'
-    recordStatus.value = 'in_progress'
-    selectTab('records')
-    return
-  }
-  selectedAttempts.value = [...module.inProgressAttempts]
-  attemptDialogVisible.value = true
-}
-
-// 同一试卷有多场未完成时必须由学生明确选择，单场则直接继续。
-function handleContinuePaper(paper: MockExamPaperItem): void {
-  if (requireDesktopForExamAction()) return
-  if (requireLogin()) return
-  const onlyAttempt = paper.inProgressAttempts[0]
-  if (paper.inProgressAttempts.length === 1 && onlyAttempt) {
-    continueAttempt(onlyAttempt)
-    return
-  }
-  if (paper.inProgressAttempts.length === 0) {
-    recordStatus.value = 'in_progress'
-    selectTab('records')
-    return
-  }
-  selectedAttempts.value = [...paper.inProgressAttempts]
-  attemptDialogVisible.value = true
-}
-
-// 继续已有答卷只携带答卷身份，不重新创建或校验当前会员资格。
-function continueAttempt(attempt: MockExamAttemptBrief): void {
-  if (requireDesktopForExamAction()) return
-  attemptDialogVisible.value = false
-  void router.push({
-    name: 'mock-exam-session',
-    params: { paperId: attempt.paperId },
-    query: { examRecordId: attempt.examRecordId, sourceTab: activeTab.value },
-  })
 }
 
 // 记录页继续操作使用记录自身的 paperId 和 examRecordId。
@@ -2200,10 +2103,6 @@ onMounted(async () => {
   background: linear-gradient(105deg, #fff 0%, #fff 70%, #f7f7f7 100%);
 }
 
-.paper-card--module {
-  grid-template-columns: minmax(0, 1fr) 190px;
-}
-
 .paper-card--offline {
   opacity: 0.68;
 }
@@ -2309,6 +2208,10 @@ onMounted(async () => {
   overflow-wrap: anywhere;
 }
 
+.paper-card__suite-link {
+  font-weight: 700;
+}
+
 .paper-card__progress {
   display: flex;
   gap: 18px;
@@ -2320,8 +2223,21 @@ onMounted(async () => {
 }
 
 .paper-card__progress strong {
-  color: var(--color-ink);
+  color: inherit;
   font-weight: var(--weight-semi);
+}
+
+/* 进度按完成、待完成及成绩着色，与上方中性的试卷信息区分。 */
+.paper-card__progress .progress-completed {
+  color: #059669;
+}
+
+.paper-card__progress .progress-pending {
+  color: #b45309;
+}
+
+.paper-card__progress .progress-score {
+  color: #2563eb;
 }
 
 .paper-card__progress .practice-mark {
@@ -2862,8 +2778,7 @@ onMounted(async () => {
   font-weight: var(--weight-semi);
 }
 
-.start-confirmation__paper small,
-.attempt-options small {
+.start-confirmation__paper small {
   color: var(--color-ink-muted);
   font-size: 11px;
 }
@@ -2894,16 +2809,6 @@ onMounted(async () => {
   gap: 9px;
   cursor: pointer;
   font-size: 12px;
-}
-
-.attempt-options {
-  display: grid;
-  gap: 9px;
-}
-
-.attempt-options strong {
-  color: var(--color-ink);
-  font-weight: var(--weight-semi);
 }
 
 :deep(.app-pagination) {
@@ -3182,28 +3087,4 @@ onMounted(async () => {
   margin-top: 20px;
 }
 
-.attempt-option {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 16px;
-  padding: 14px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  color: var(--color-ink-soft);
-}
-.attempt-option__copy {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-@media (max-width: 640px) {
-  .attempt-option {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-  .attempt-option .app-button {
-    grid-column: 1 / -1;
-    justify-self: end;
-  }
-}
 </style>

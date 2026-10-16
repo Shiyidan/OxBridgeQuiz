@@ -1,4 +1,4 @@
-<!-- 试题库首页：选择知识点与难度，确认练习范围并校验当前考试的会员权益。 -->
+<!-- 试题库首页：按考纲学习知识点、选择难度并校验当前考试的练习权益。 -->
 <template>
   <div class="question-bank">
     <main class="qb-container">
@@ -39,7 +39,7 @@
           </div>
         </aside>
 
-        <section class="qb-content">
+        <section class="qb-content" :class="{ 'qb-content--learning': activeKnowledgeLesson }">
           <header class="qb-content__header">
             <h2 class="qb-content__title">{{ activeTopicTitle }}</h2>
             <span class="qb-content__hint">
@@ -61,7 +61,16 @@
             <AppButton @click="handleContinuePractice"> 继续练习 </AppButton>
           </div>
 
-          <div class="qb-difficulty-grid">
+          <KnowledgeLessonPanel
+            v-if="activeKnowledgeLesson"
+            :key="activeKnowledgeLesson.code"
+            :lesson="activeKnowledgeLesson"
+            :selected-code="selectedNodeCode"
+            @select="handleKnowledgeSelect"
+            @practise="scrollToDifficulties"
+          />
+
+          <div ref="difficultyGridRef" class="qb-difficulty-grid" tabindex="-1" aria-label="选择练习难度">
             <article
               v-for="diff in difficulties"
               :key="diff.id"
@@ -146,6 +155,8 @@ import type { TreeInstance } from 'element-plus'
 import AppDialog from '@/components/AppDialog.vue'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
+import KnowledgeLessonPanel from '@/components/knowledge/KnowledgeLessonPanel.vue'
+import { findKnowledgeLesson } from '@/content/knowledge'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import type { QuestionDifficulty, SyllabusNode } from '@/api/questionBank'
 import { getSyllabusData, getQuestionSummaryData } from '@/api/questionBank'
@@ -187,6 +198,7 @@ function requireLoginForPracticeAction(): boolean {
 
 const treeData = ref<TreeNode[]>([])
 const syllabusTreeRef = ref<TreeInstance>()
+const difficultyGridRef = ref<HTMLElement>()
 const treeProps = { children: 'children', label: 'label' }
 const defaultExpanded = ref<string[]>([])
 const selectedNodeCode = ref<string>('')
@@ -235,6 +247,14 @@ const activeTopicTitle = computed<string>(() => `${selectedNodeLabel.value} · �
 
 // 题库统一读取顶部导航的全局考试类型，不再维护页面级考试选择。
 const activeExamType = computed<ActiveExamType>(() => auth.activeExamType)
+
+// 讲解只绑定当前考纲真实存在的节点；可选知识点也以当前已加载考纲为准。
+const activeKnowledgeLesson = computed(() => {
+  const lesson = findKnowledgeLesson(activeExamType.value, selectedNodeCode.value)
+  if (!lesson || !findTreeNode(treeData.value, selectedNodeCode.value)) return null
+  const sections = lesson.sections.filter((section) => findTreeNode(treeData.value, section.code))
+  return sections.length ? { ...lesson, sections } : null
+})
 
 // 解锁状态以当前考试的有效会员上下文为准。
 const questionBankQuota = computed(
@@ -331,6 +351,24 @@ const handleTreeNodeClick = async (node: TreeNode): Promise<void> => {
   selectedNodeCode.value = node.code
   selectedNodeLabel.value = node.label
   await loadQuestionSummary()
+}
+
+// 面板内换知识点复用树选择流程，使正文、左侧高亮和下方取题范围保持一致。
+async function handleKnowledgeSelect(code: string): Promise<void> {
+  const match = findTreeNode(treeData.value, code)
+  if (!match) return
+  for (const parent of match.parents) syllabusTreeRef.value?.getNode(parent)?.expand()
+  syllabusTreeRef.value?.setCurrentKey(code)
+  await handleTreeNodeClick(match.node)
+}
+
+// 学完后直接定位既有难度入口，并尊重系统减少动态效果的偏好。
+function scrollToDifficulties(): void {
+  difficultyGridRef.value?.scrollIntoView({
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    block: 'start',
+  })
+  difficultyGridRef.value?.focus({ preventScroll: true })
 }
 
 // 全局考试类型变化后重置旧考试数据，并只接受本次切换对应的异步响应。
@@ -679,6 +717,11 @@ async function handlePaymentSuccess(): Promise<void> {
   z-index: 1;
 }
 
+/* 讲解较长时回到正常文档流，避免整个内容区吸顶后遮挡阅读与练习入口。 */
+.qb-content--learning {
+  position: static;
+}
+
 .qb-sidebar__title {
   margin: 0 0 16px;
   color: var(--color-ink-muted);
@@ -764,6 +807,7 @@ async function handlePaymentSuccess(): Promise<void> {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
+  scroll-margin-top: calc(var(--nav-height) + 24px);
 }
 
 .qb-difficulty-card {

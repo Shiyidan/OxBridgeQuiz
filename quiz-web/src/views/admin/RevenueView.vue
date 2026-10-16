@@ -40,7 +40,14 @@
           <el-table-column label="付费用户" width="280" fixed="left">
             <template #default="{ row }">
               <div class="user-cell">
-                <strong>{{ row.user.username }}</strong>
+                <el-button
+                  class="user-name-link"
+                  link
+                  type="primary"
+                  @click.stop="openUserDetail(row.user.id)"
+                >
+                  {{ row.user.username }}
+                </el-button>
                 <span>{{ row.user.email }}</span>
               </div>
             </template>
@@ -61,10 +68,10 @@
           <el-table-column label="支付渠道" min-width="120" align="center">
             <template #default="{ row }">{{ paymentChannelLabel(row.channel) }}</template>
           </el-table-column>
-          <el-table-column label="状态" min-width="120" align="center">
+          <el-table-column label="会员权益" min-width="120" align="center">
             <template #default="{ row }">
-              <el-tag :type="paymentStatusTagType(row.status)" effect="light">
-                {{ paymentStatusLabel(row.status) }}
+              <el-tag :type="row.membershipStatus === 'active' ? 'success' : 'info'" effect="light">
+                {{ row.membershipStatus === 'active' ? '权益中' : '已过期' }}
               </el-tag>
             </template>
           </el-table-column>
@@ -248,6 +255,7 @@
         <el-button type="primary" :loading="submitting" @click="submitCost">保存</el-button>
       </template>
     </el-dialog>
+    <UserDetailDrawer v-model="userDetailVisible" :user-id="selectedUserId" />
   </div>
 </template>
 
@@ -265,6 +273,7 @@ import {
   type RevenuePaymentOverview,
 } from '@/api/admin'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
+import UserDetailDrawer from '@/views/admin/userManagement/UserDetailDrawer.vue'
 import { paymentChannelLabel } from '@/utils/paymentChannel'
 import {
   REVENUE_COST_CATEGORY,
@@ -304,6 +313,15 @@ const reimbursementOptions: Array<{ label: string; value: ReimbursementStatus }>
 const costs = ref<RevenueCost[]>([])
 const payments = ref<RevenuePaymentItem[]>([])
 const paymentsLoading = ref(true)
+const userDetailVisible = ref(false)
+const selectedUserId = ref<string | null>(null)
+
+// 按支付记录关联的账号打开现有详情抽屉，关闭后保留明细列表和分页。
+function openUserDetail(userId: string): void {
+  selectedUserId.value = userId
+  userDetailVisible.value = true
+}
+
 const paymentOverview = reactive<RevenuePaymentOverview>({
   paidUserCount: 0,
   paidOrderCount: 0,
@@ -467,18 +485,6 @@ function paymentPlanLabel(plan: RevenuePaymentItem['plan']): string {
 // 一笔订单可以同时购买多个考试的权益，表格按斜杠合并显示。
 function paymentExamTypes(examTypes: string[]): string {
   return examTypes.length > 0 ? examTypes.join(' / ') : '—'
-}
-
-// 营收明细只区分正常支付和仍在退款处理中的订单。
-function paymentStatusLabel(status: RevenuePaymentItem['status']): string {
-  if (status === 'refunding') return '退款中'
-  return '已支付'
-}
-
-// 支付成功和退款中使用不同视觉状态。
-function paymentStatusTagType(status: RevenuePaymentItem['status']): 'success' | 'warning' {
-  if (status === 'refunding') return 'warning'
-  return 'success'
 }
 
 // 报销状态映射到 Element Plus 标签类型，保持表格状态可扫描。
@@ -761,12 +767,20 @@ onMounted(() => {
   gap: 4px;
 }
 
-.user-cell span {
+.user-cell > span {
   overflow: hidden;
   color: #94a3b8;
   font-size: 0.75rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.user-name-link {
+  align-self: flex-start;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
 }
 
 .net-amount {

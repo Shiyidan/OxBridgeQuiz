@@ -1,6 +1,6 @@
 // 真实支付营收服务：统一排除赠送权益，并汇总付费用户、订单和退款后的净营收。
 import type { Prisma } from '@prisma/client'
-import { MEMBERSHIP_PLAN, PAYMENT_ORDER_STATUS, PAYMENT_PRICE_TYPE } from '../constants/domain.js'
+import { MEMBERSHIP_PLAN, MEMBERSHIP_STATUS, PAYMENT_ORDER_STATUS, PAYMENT_PRICE_TYPE } from '../constants/domain.js'
 import { prisma } from './prisma.js'
 import { parseJsonArray } from '../utils/jsonField.js'
 import { analyticsUserWhere } from './analyticsScope.js'
@@ -80,6 +80,7 @@ export function yuanAmountToCents(amount: number): number {
 
 // 营收接口一次返回全量汇总和当前页明细，保证看板不受分页影响。
 export async function getRevenuePayments(input: { page: number; pageSize: number }) {
+  const now = new Date()
   // 总额、退款、付费人数、套餐分布及明细统一剔除封禁用户，原始订单仍可在支付运营中处理。
   const allPaidWhere = { ...realPaymentOrderWhere(), user: { is: analyticsUserWhere } }
   const detailWhere = { ...revenueDetailOrderWhere(), user: { is: analyticsUserWhere } }
@@ -119,7 +120,19 @@ export async function getRevenuePayments(input: { page: number; pageSize: number
   const safePage = totalPages > 0 ? Math.min(input.page, totalPages) : 1
   const list = await prisma.paymentOrder.findMany({
     where: detailWhere,
-    include: { user: { select: { id: true, username: true, email: true } } },
+    include: {
+      user: {
+        select: {
+          id: true, username: true, email: true,
+          // 判断用户当前权益，续费或已启用的赠送权益同样计入，不局限于本笔订单。
+          memberships: {
+            where: { status: MEMBERSHIP_STATUS.ACTIVE, startsAt: { lte: now }, endsAt: { gt: now } },
+            select: { id: true },
+            take: 1,
+          },
+        },
+      },
+    },
     orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
     skip: (safePage - 1) * input.pageSize,
     take: input.pageSize,
@@ -147,8 +160,10 @@ export async function getRevenuePayments(input: { page: number; pageSize: number
 
   return {
     overview,
-    list: list.map(({ providerPayload: _providerPayload, ...order }) => ({
+    list: list.map(({ providerPayload: _providerPayload, user: { memberships, ...user }, ...order }) => ({
       ...order,
+      user,
+      membershipStatus: memberships.length > 0 ? MEMBERSHIP_STATUS.ACTIVE : MEMBERSHIP_STATUS.EXPIRED,
       examTypes: parseJsonArray<string>(order.examTypes),
       paidAt: order.paidAt?.toISOString() || null,
       createdAt: order.createdAt.toISOString(),

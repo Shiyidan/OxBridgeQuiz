@@ -1,3 +1,4 @@
+<!-- 专业资料库首页：按真题、试题、模考、大纲和教材顺序展示管理入口。 -->
 <template>
   <div class="core-library">
     <div class="page-body">
@@ -50,6 +51,16 @@ interface LibraryCard {
 
 const libraryCards = reactive<LibraryCard[]>([
   {
+    key: 'exams',
+    title: '真题库',
+    desc: '按套卷维度管理历年全套真题及相关配置。',
+    count: 24,
+    unit: '套',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
+    iconBg: '#eff6ff',
+    path: '/admin/core-library/exams',
+  },
+  {
     key: 'questions',
     title: '试题库',
     desc: 'AI 生成题目批次及按考点分类的习题集合。',
@@ -60,14 +71,14 @@ const libraryCards = reactive<LibraryCard[]>([
     path: '/admin/core-library/questions',
   },
   {
-    key: 'textbooks',
-    title: '教材库',
-    desc: '核心参考书、官方指南、知识点总结讲义。',
-    count: 12,
-    unit: '份',
-    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="14" y2="11"/></svg>',
-    iconBg: '#fffbeb',
-    path: '/admin/core-library/textbooks',
+    key: 'mock-exams',
+    title: '模考试卷库',
+    desc: '按模块上传题号、检查题库匹配并管理固定 ESAT / TMUA 模考卷。',
+    count: '—',
+    unit: '套',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h5M8 16h4"/><path d="m15 16 1.5 1.5L20 14"/></svg>',
+    iconBg: '#f5f3ff',
+    path: '/admin/core-library/mock-exams',
   },
   {
     key: 'syllabus',
@@ -80,24 +91,14 @@ const libraryCards = reactive<LibraryCard[]>([
     path: '/admin/core-library/syllabus',
   },
   {
-    key: 'exams',
-    title: '真题库',
-    desc: '按套卷维度管理历年全套真题及相关配置。',
-    count: 24,
-    unit: '套',
-    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
-    iconBg: '#eff6ff',
-    path: '/admin/core-library/exams',
-  },
-  {
-    key: 'mock-exams',
-    title: '模考试卷库',
-    desc: '按模块上传题号、检查题库匹配并管理固定 ESAT / TMUA 模考卷。',
-    count: '—',
-    unit: '套',
-    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h5M8 16h4"/><path d="m15 16 1.5 1.5L20 14"/></svg>',
-    iconBg: '#f5f3ff',
-    path: '/admin/core-library/mock-exams',
+    key: 'textbooks',
+    title: '教材库',
+    desc: '核心参考书、官方指南、知识点总结讲义。',
+    count: 12,
+    unit: '份',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="14" y2="11"/></svg>',
+    iconBg: '#fffbeb',
+    path: '/admin/core-library/textbooks',
   },
 ])
 

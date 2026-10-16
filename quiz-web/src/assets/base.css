@@ -1,8 +1,8 @@
-/* 全局设计令牌（极简黑白灰）——所有页面共享的样式基础。
+/* 全局设计令牌：中性基础色与各模块语义色，供所有页面共享。
  * 单一来源：任何颜色/间距/字号变量都在此定义，禁止在组件里再声明 :root。 */
 
 :root {
-  /* ============ 中性色阶（唯一色系） ============ */
+  /* ============ 中性色阶（基础色系） ============ */
   --color-bg: #f8f8f8;
   --color-surface: #ffffff;
   --color-surface-alt: #fafafa;
@@ -31,6 +31,20 @@
   --color-info-bg: #f0f1f3;
   --color-favorite: #ba861c;
   --color-favorite-bg: #fff8e8;
+
+  /* 学习讲解语义色：概念蓝、图解与例题青绿、易错琥珀、记忆紫。 */
+  --color-learning-blue: #2455c7;
+  --color-learning-blue-soft: #edf4ff;
+  --color-learning-blue-line: #cbdcfa;
+  --color-learning-teal: #0f766e;
+  --color-learning-teal-soft: #edf9f6;
+  --color-learning-teal-line: #c7e8df;
+  --color-learning-amber: #925710;
+  --color-learning-amber-soft: #fff8e9;
+  --color-learning-amber-line: #f4deb2;
+  --color-learning-violet: #6844b5;
+  --color-learning-violet-soft: #f4f0fc;
+  --color-learning-violet-line: #e0d5f5;
 
   /* ============ 诊断报告图表色（仅用于成绩与时间数据编码） ============ */
   --color-report-blue: #3478f6;

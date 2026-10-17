@@ -97,7 +97,14 @@ favoritesRouter.get('/', async (req, res) => {
             { topic: { contains: query.knowledge } },
             {
               knowledgePointLinks: {
-                some: { syllabusNode: { label: { contains: query.knowledge } } },
+                some: {
+                  syllabusNode: {
+                    OR: [
+                      { enLabel: { contains: query.knowledge } },
+                      { cnLabel: { contains: query.knowledge } },
+                    ],
+                  },
+                },
               },
             },
           ],

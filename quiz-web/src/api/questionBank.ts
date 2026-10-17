@@ -5,8 +5,43 @@ import type { KnowledgePoint, Question } from '@/types'
 
 export interface SyllabusNode {
   code: string
+  en_label: string
+  cn_label: string
   label: string
   children?: SyllabusNode[]
+}
+
+interface SyllabusNodePayload {
+  code: string
+  en_label: string
+  cn_label: string
+  children?: SyllabusNodePayload[]
+}
+
+export type SyllabusLabelMode = 'bilingual' | 'en' | 'cn'
+
+/** 页面按使用场景选择中文、英文或双语名称，同名节点不重复拼接。 */
+export function syllabusNodeLabel(
+  node: Pick<SyllabusNodePayload, 'en_label' | 'cn_label'>,
+  mode: SyllabusLabelMode = 'bilingual',
+): string {
+  if (mode === 'en') return node.en_label
+  if (mode === 'cn') return node.cn_label
+  return node.en_label === node.cn_label
+    ? node.en_label
+    : `${node.en_label} (${node.cn_label})`
+}
+
+/** Element Plus 现有树组件继续读取本地派生 label，接口数据本身只保存双语字段。 */
+function withDisplayLabel(node: SyllabusNodePayload): SyllabusNode {
+  const { children, ...fields } = node
+  return {
+    ...fields,
+    label: syllabusNodeLabel(node),
+    ...(children?.length
+      ? { children: children.map(withDisplayLabel) }
+      : {}),
+  }
 }
 
 export type QuestionDifficulty = 'easy' | 'medium' | 'hard'
@@ -100,12 +135,13 @@ export interface QuestionBankImportBatch {
 }
 
 /** 获取当前考试类型的考纲树。 */
-export function getSyllabusData(examType = DEFAULT_EXAM_TYPE) {
-  return callApi<SyllabusNode[]>({
+export async function getSyllabusData(examType = DEFAULT_EXAM_TYPE) {
+  const nodes = await callApi<SyllabusNodePayload[]>({
     url: '/papers/syllabus',
     method: 'GET',
     params: { examType },
   })
+  return nodes.map(withDisplayLabel)
 }
 
 /** 获取考纲节点下已发布题目的数量与难度分布。 */

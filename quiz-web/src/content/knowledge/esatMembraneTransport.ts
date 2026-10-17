@@ -6,7 +6,7 @@ export const esatMembraneTransport: KnowledgeLesson = {
   title: 'Movement across membranes · 跨膜运输',
   subtitle: '梳理物质跨膜的条件、运输方式与细胞水分变化',
   intro:
-    '物质跨膜时，能否通过膜、两侧条件和能量供应共同决定运输过程。本节先梳理扩散、渗透与主动运输的知识，再联系细胞吸失水、交换速率和组织实验。图解帮助你看清移动方向，后面的原有例题则把这些知识用到具体判断与计算中。',
+    '物质跨膜时，能否通过膜、两侧条件和能量供应共同决定运输过程。本节先梳理扩散、渗透与主动运输的知识，再联系细胞吸失水、交换速率和组织实验。图解帮助你看清移动方向，后面精选的诊断测试真题把这些知识用到具体判断与计算中，再用原创改条件变式检验你是否真正理解。',
   memory: [
     '细胞膜有选择透过性。**有浓度差，不等于一定能过膜**；水和不同溶质是否能通过，要分别考虑。',
     '扩散描述的是净移动。两个方向都可能有粒子通过，==净移动是两边通过量的差额==；动态平衡时平均差额为零，分子仍在运动。',
@@ -143,104 +143,99 @@ export const esatMembraneTransport: KnowledgeLesson = {
         },
         examples: [
           {
-            title: '两侧隔着膜，水和溶质分别怎样变化？',
-            question: String.raw`Compartments X and Y initially contain $0.45\,\mathrm{mol/L}$ and $0.15\,\mathrm{mol/L}$ sucrose, respectively, at the same temperature and pressure. Their separating membrane allows water but not sucrose to pass, and their volumes can change. No substances are added or lost from the combined system. Which initial change is expected?`,
-            options: [
-              'Water moves net from X to Y; the mass in X decreases.',
-              'Sucrose diffuses from X to Y; the amount of sucrose in X decreases.',
-              'Water moves net from Y to X; the sucrose concentration in X increases.',
-              'Water moves net from Y to X; the mass in X increases while its amount of sucrose stays constant.',
-            ],
-            answer: 'D：水由 Y 向 X 净移动；X 内质量增加，但蔗糖物质量不变。',
+            title: '扩散更快，图线一定更陡吗？',
+            question: '',
+            source: {
+              questionCode: 'NSAA_2019_S1-Q061',
+              why: '用实际扩散装置和时间—距离图，把扩散速率、实验变量和浓度差联系起来；适合纠正只凭图线陡缓判断快慢的习惯。',
+            },
+            answer: 'G：只有陈述 2 和 3 正确。',
             steps: [
-              '先把“谁能过膜”与“浓度是多少”分开读。题干说 water but not sucrose，即水能过、蔗糖不能，所以先把蔗糖留在原侧，再单独判断水；B 的蔗糖箭头**在这层膜上无法发生**。不能因为两侧浓度不同，就自动让所有物质一起移动。',
-              '现在比较水的方向。起初两侧温度、压力相同，X 的蔗糖浓度较高，因此水势较低；水开始时由 Y 向 X 净移动。注意这说的是两个方向相比，Y 到 X 的量更多，不是每个水分子都只往 X 走。',
-              'X 多了水，质量和允许变化的体积会增加。但蔗糖既不能穿膜，也没有其他来源，所以**X 内蔗糖的总量没有增加**。',
-              '最后再看浓度：同样多的蔗糖分散到更大的体积里，被稀释了，所以浓度下降。这样排除 C，保留 D。题目问的是开始时的变化，不能再凭这些信息算出最终体积或最终浓度。',
-              '最后回到 initially（起初）这个词。我们只确定开始时的净方向，不能把它画成永远等速流动：随着浓度差减小，或反向压力增加，净流速通常会减小。若同类装置接有毛细管，体积增加可表现为液面上升，但也不能直接画成无限直线上升；水势平衡后仍有双向运动。',
+              '先看装置在测什么。石蕊试纸每隔 2 cm 放一片，气体从棉花向外扩散；学生记录各片试纸变色所需的时间。因此，距离是预先选定的条件，**变色时间才是测出来的因变量**。图上时间在纵轴，不在横轴，陈述 1 错。',
+              '再看陈述 2。选定同一个距离，例如离棉花 10 cm，原图读数约为 45 s。如果扩散变慢，到达这里并使试纸变色就要更久，新的点会在原点上方。因此，这张“时间对距离”的图会更陡，陈述 2 对。**这里纵轴不是距离，不能套用“越陡越快”**。',
+              '陈述 3 把气体来源的溶液改得更浓，装置相同。按题目的比较条件，来源处释放的气体形成更大的浓度差，使各处试纸更早达到变色条件；同一距离对应的时间变短，新图线落在原图下方，所以陈述 3 对。',
+              '把判断合起来：1 错、2 对、3 对，对应 G。我们用的是同一距离所需时间的比较；图线不是每一个分子的运动轨迹，气体分子仍在随机运动。',
             ],
             optionNotes: [
-              'A：把初始方向画反了。起初同温同压时，X 较浓、水势较低，水应由 Y 向 X 净移动。',
-              'B：浓度差不能让蔗糖穿过一层明确不允许它通过的膜。',
-              'C：前半句方向正确，后半句却写反。X 吸水以后蔗糖总量不变、体积增大，所以是稀释，不是变浓。',
-              'D：三件事都能解释：水净进入 X，X 因而增重；蔗糖过不了膜，总量仍不变。当两侧达到水势平衡、没有净水流时，水分子仍会双向穿膜。',
+              'A、B：都没有保留正确的陈述 2 和 3；B 还误把横轴距离当成测得的时间。',
+              'C：保留了“慢则用时更长”，却漏掉来源浓度提高带来的用时缩短。',
+              'D：保留了浓度影响，却漏掉时间—距离图中的速率判断。',
+              'E、F：都选入陈述 1。辨认因变量要看实验记录了什么，不能只背“某个轴一定是什么”。',
+              'G：恰好选入陈述 2 和 3，与两次比较都一致。',
             ],
             takeaway:
-              '画完水的箭头，再分别问“总质量变了吗”“溶质总量变了吗”“浓度变了吗”。==溶质总量不变，浓度仍然可以改变==，因为水改变了体积。\n\n把这个思路用于植物细胞图时，要从液泡中的水开始逐段追踪：液泡 → 液泡膜 → 细胞质 → 细胞膜 → 细胞壁 → 外液。**每一段都要接得上**，不能只选最外侧的箭头。随后看外壁是否相对保留、内容物是否已离开它；只有松弛还不能直接判为质壁分离。',
+              '遇到扩散图，先读两条轴，再固定一个位置比较用时。==同一距离用时越短，扩散表现越快；但“时间—距离”图会更低，而不是更高==。试纸变色是观察扩散的指标，不是说只有一个气体分子沿管直线前进。',
             variant: {
-              question: String.raw`Replace the equal-pressure assumption: initial total water potentials are now $-0.20\,\mathrm{MPa}$ in X and $-0.65\,\mathrm{MPa}$ in Y. The membrane properties are unchanged. What is the initial net direction of water?`,
-              answer: 'X → Y。',
+              question:
+                'In a repeat experiment, the student plots distance from the cotton wool on the vertical axis and time taken for the litmus paper to change colour on the horizontal axis. At every chosen distance, the paper changes colour in half the original time. At a fixed distance, how does the ratio distance/time change, and on which side of the original point does the new point lie?',
+              answer: 'distance/time 变为原来的 2 倍；在同一高度，新点位于原点左侧。',
               explanation:
-                '这次不再保证两侧压力相同，而且已经直接给出总水势。按数值比较：$-0.20>-0.65$，所以水由 X 向 Y 净移动。\n\n**原来“同压”的条件已经换掉了**，不能只看之前的蔗糖浓度，沿用上一题的方向。遇到这种变式，先找究竟改了哪句话。\n\n比较负水势时，照普通负数比较大小，不按负号后的绝对值排序。这个变式也说明，较浓的一侧不一定在所有压力条件下都吸水，必须使用题目实际给出的总水势。',
+                '距离不变，用时减半，所以 distance/time 翻倍。这次横轴改成时间，故相同距离对应的点向左移动。**先重新读轴，再判断图的位置**；这里比较的是指定距离与到达时间之比，不把它说成每个分子的恒定速度。',
             },
           },
           {
-            title: '这组实验能判断是哪一种运输吗？',
-            question: String.raw`An uncharged solute S is not metabolised. Its concentration is maintained at $1\,\mathrm{mmol/L}$ outside cells and $4\,\mathrm{mmol/L}$ inside during a short test. Net uptake requires a membrane transport protein. A treatment that selectively lowers the ATP supply strongly reduces uptake, while membrane integrity and these concentrations remain unchanged. Which conclusion is best supported?`,
-            options: [
-              'Uptake is facilitated diffusion because a transport protein is required.',
-              'Uptake is active transport; ATP supplies energy directly or indirectly.',
-              'Uptake is active transport, so this protein must be shown by these results to hydrolyse ATP directly.',
-              'Uptake is passive diffusion; the ATP result proves that S can no longer cross an intact membrane by any route.',
-            ],
-            answer: 'B：支持主动运输；这些证据未区分 ATP 是直接还是间接供能。',
+            title: '先统一单位，再判断离子如何跨膜',
+            question: '',
+            source: {
+              questionCode: 'ESAT-2020-BIOLOGY-012',
+              why: '一张真实浓度表同时考查单位换算、细胞摄取离子的供能、渗透的对象以及浓度梯度；能检验概念是否会用于具体数据。',
+            },
+            answer: 'F：只有陈述 1 和 3 正确。',
             steps: [
-              String.raw`先把摄取方向写清楚：外侧 $1$ → 内侧 $4\,\mathrm{mmol/L}$，是由低浓度进入高浓度。**它不是顺浓度差进入的**。S 不带电、不被代谢，而且题干说浓度一直维持着，因此不能另猜“细胞把 S 用掉了，内部其实更稀”。 本题特意用不带电的 S，使这里可以集中比较浓度；如果另一题改为离子且另外给出了电势条件，就要把那些条件也纳入，不能机械照搬。`,
-              '再看后两条信息：摄取需要膜上的运输蛋白；ATP 供应减少以后，摄取也明显减少。把它们和刚才的逆浓度方向放在一起，就能解释为什么选择主动运输。',
-              '题目还特地说膜保持完整、两侧浓度不变。这很关键：**不能把摄取变慢解释为膜坏了或浓度差变了**，因为这些可能原因已经被题干排除。',
-              '最后比较 B、C。两项都提到主动运输，但 C 还要求我们断定“这个蛋白自己直接水解 ATP”。实验只说明摄取需要代谢供能，没有测出直接水解的步骤，所以选说明直接或间接供能都可能的 B。',
+              '先把表中所有浓度都写成 mmol dm⁻³。1 mmol = 1000 μmol，因此血浆的 4000 μmol dm⁻³ 等于 4 mmol dm⁻³；海水的 3.0 × 10⁴ μmol dm⁻³ 等于 30 mmol dm⁻³。**不要把 4000 和 100 直接比较：它们原来的单位不同。**',
+              '现在看陈述 1：心肌细胞内是 100 mmol dm⁻³，血浆只有 4 mmol dm⁻³。心肌细胞还要从血浆摄取并维持较高的钾离子浓度，需要主动运输的能量供应。心肌细胞依靠呼吸作用提供这种能量，所以陈述 1 对。',
+              '陈述 2 先不用急着比较大小。它说钾离子“by osmosis”离开酵母细胞，但**渗透移动的是水，不是钾离子**。因此这个表述已经错误；也不能只根据钾离子的浓度，就判断所有其他溶质造成的总水势。',
+              '陈述 3 比较细菌和海水：细菌内为 30 mmol dm⁻³，海水换算后也是 30 mmol dm⁻³，所以两者之间没有钾离子的浓度梯度，陈述 3 对。这里仅说明这一种离子的浓度相同，并没有证明整个细胞与海水等渗。',
+              '得到 1 对、2 错、3 对，选 F。对带电离子的真实运输，还可能需要考虑膜两侧电势；本题的心肌细胞背景支持主动维持钾离子梯度，不能把解题结论扩大成“任何离子只要浓度相同就绝无净移动”。',
             ],
             optionNotes: [
-              'A：易化扩散确实也用蛋白，但它不能独自解释本题不带电 S 从低浓度向高浓度的持续净摄取。',
-              'B：既解释了逆浓度方向，也解释了蛋白与 ATP 的作用；同时保留了直接、间接供能两种可能。',
-              'C：错在 must hydrolyse ATP directly，也就是“一定由这个蛋白直接水解 ATP”。实验还没有证明到这一步，代谢能量也可能间接支持运输。',
-              'D：被动扩散解释不了本题的逆浓度净摄取。摄取减少，也不表示 S 的所有可能通路已经全部消失。',
+              'A、C：都漏掉正确的陈述 1 和 3；C 还把钾离子的移动叫作渗透。',
+              'B：心肌细胞供能判断正确，但漏做海水的 μmol → mmol 换算，容易错过陈述 3。',
+              'D：识别出细菌与海水浓度相同，却漏掉心肌细胞摄取钾离子的能量需求。',
+              'E、G、H：都包含陈述 2。只要把移动对象读成钾离子，就应排除“by osmosis”。',
+              'F：既保留陈述 1 和 3，又排除了把离子运输当作渗透的陈述 2。',
             ],
             takeaway:
-              '先解释**它为什么能逆着浓度差进入**，再看减少 ATP 后为什么变慢。两件事都说得通，才能选运输方式；不要把实验没测的分子步骤也说成已经证明。\n\n实际比较时，可把“运输方向”“蛋白是否参与”“供能改变后怎样”“膜与浓度有没有同时改变”分别列出。只看进入细胞、蛋白参与或速率出现平台，都不够单独证明主动运输；若把 ATP 干预换成缺氧，还要注意缺氧不保证所有 ATP 来源与被动运输立即停止。',
+              '这类表格题可以按三件事检查：**单位是否一致、移动的究竟是水还是离子、陈述只谈浓度还是还谈供能**。==一种离子的浓度相等，不等于所有物质都达到平衡，也不等于水势一定相等==。',
             variant: {
-              question: String.raw`S is now maintained at $8\,\mathrm{mmol/L}$ outside and $4\,\mathrm{mmol/L}$ inside. Uptake still needs the membrane protein, but further tests establish that uptake does not require metabolic energy. Which mechanism fits these new conditions?`,
-              answer: '易化扩散 facilitated diffusion。',
-              explanation: String.raw`先重写方向：现在外侧是 $8$，内侧是 $4\,\mathrm{mmol/L}$，进入细胞变成顺浓度梯度。再看题目明确说仍需膜蛋白、却不需代谢供能，因此符合易化扩散。
-
-==同一种溶质，不同条件下要重新判断==。不要因为上一题选了主动运输，这一题就继续沿用。
-
-也可把同一细胞中不同物质分开判断：根毛的某些矿物离子吸收可以用主动运输解释，水进入根毛则要另比较水势，不能因为都在“吸收”就给它们同一个名称。`,
+              question:
+                'In a model experiment, the potassium-ion concentration is 30 mmol dm⁻³ on both sides of a membrane that contains open potassium channels. The electrical potential is also equal on both sides, and no active transport occurs. Is there a net potassium-ion movement? Do individual potassium ions stop moving?',
+              answer: '没有钾离子的净移动；单个钾离子仍可双向通过通道。',
+              explanation:
+                '这次不仅浓度相等，还明确排除了电势差和主动运输，所以没有推动钾离子定向净移动的条件。两边的离子仍在运动，平均而言双向通过量相等。**无净移动不等于没有微观运动**。原题只给浓度表，不能自行补上这些新增条件。',
             },
           },
           {
-            title: '一组增重、一组减重，不变重的浓度在哪里？',
-            question: String.raw`Matched potato cylinders each start at $5.00\,\mathrm{g}$. After the same time, mean final masses are $5.20\,\mathrm{g}$ in $0.20\,\mathrm{mol/L}$ sucrose and $4.70\,\mathrm{g}$ in $0.40\,\mathrm{mol/L}$ sucrose. Assume intact membranes, negligible sucrose passage and other mass changes, stable external conditions and no reversal of net water flow. The mean percentage-change response is approximately linear between these concentrations. Which estimate and interpretation are justified?`,
-            options: [
-              String.raw`About $0.28\,\mathrm{mol/L}$; it estimates the external concentration giving no net mass change under these conditions.`,
-              String.raw`About $0.30\,\mathrm{mol/L}$; the zero point must be the average of the two concentrations.`,
-              String.raw`About $0.32\,\mathrm{mol/L}$; the interval should be weighted by the larger mass loss from the low-concentration end.`,
-              String.raw`Exactly $0.28\,\mathrm{mol/L}$; every cell contains this concentration of sucrose and water molecules stop crossing.`,
-            ],
-            answer: String.raw`A：约 $0.28\,\mathrm{mol/L}$，是该实验条件下零净质量变化外液浓度的估计。`,
+            title: '土豆不增重，能知道细胞内有多少盐吗？',
+            question: '',
+            source: {
+              questionCode: 'NSAA_2023_S1-Q074',
+              why: '用同一实验中的零质量变化点、渗透方向和质量变化幅度，训练区分“图上读到了什么”与“这些数据究竟能说明什么”。',
+            },
+            answer: 'D：只有陈述 3 正确。',
             steps: [
-              String.raw`先算两组相对最初变了多少：低浓度组 $(5.20-5.00)/5.00\times100\%=+4\%$；高浓度组 $(4.70-5.00)/5.00\times100\%=-6\%$。**正号是增重，负号是减重**。`,
-              '先辨清坐标含义：横轴是外液浓度，纵轴是相对初始质量的百分比变化。画出的一个点在零线上方 +4%，另一个在下方 −6%。零点在两者之间，且从 +4% 走到零的距离较短，所以更靠近低浓度端；**不能不看增减幅度，就直接平均两个浓度**。',
-              String.raw`题目允许把这段看成直线。从 $+4\%$ 下降到 0，要走 4 个百分点；从 $+4\%$ 到 $-6\%$ 总共是 10 个百分点。所以浓度也从低端走全程的 $4/10$：$0.20+\dfrac{4}{10}(0.40-0.20)=0.28\,\mathrm{mol/L}$。==比例要从你出发的那一端算==。`,
-              '再读答案的解释。题目已排除膜破坏、明显溶质交换和其他质量变化，外界稳定且净水流没有反向，所以这个零点可估计与组织初始水势相近的外液条件。但它不是细胞内某一种糖的精确浓度，水分子也没有停止双向通过。 还要区分“后来质量不再变化”与“相对初始质量没有变化”：某一组可能先减重再稳定，它的纵坐标仍是负值，不是零点。',
-              '真实实验中，要统一来源、尺寸、时长、温度、外液体积及吸干方法，并重复测量；不吸干会把附着的外液也称进去。若零点附近的小差异可能只是误差，就在 0.28 附近加测几个浓度并比较重复结果，而不是只报更多小数。**这是估计值，不是绝对精确值**；只有本题允许局部近似直线，才使用刚才的比例计算。',
+              '先读图：横轴是外液氯化钠浓度，纵轴是土豆在 30 分钟后的质量百分比变化。曲线在约 0.3 mol dm⁻³ 穿过零线，说明该条件下土豆质量没有净变化；**不是说水分子不再穿膜**。',
+              '陈述 1 多说了一步：它把“这份外液使土豆不增不减”写成“细胞内的氯化钠必须也是 0.3 mol dm⁻³”。土豆细胞内还有糖、其他离子等，水势也受压力影响。外液与组织的水势关系，不能直接给出细胞内某一种盐的精确浓度，所以陈述 1 错。',
+              '陈述 2 把通常同温同压、主要溶质不能自由过膜时的水流方向写反了。水通过部分透膜由较高水势向较低水势净移动；在这里的简化浓度比较中，是从较稀一侧向较浓一侧。它说高溶质浓度到低溶质浓度，所以错。',
+              '最后比较陈述 3。所有土豆块相同，实验时间也都是 30 分钟。0.8 mol dm⁻³ 处约为 −14%，绝对变化幅度比纯水处约 +12% 以及其余各组都大。因此按本实验相同时段的净水分变化比较，0.8 组的平均净渗透速率最大，陈述 3 对。**负号只表示失水，不表示“速率比正值小”。**',
+              '这张图给的是统一时长后的结果，不是连续的质量—时间曲线，所以不要把它进一步解释成“已测得每一时刻的速率”或“已算出准确初始速率”。题目中的速率比较用相同样本、相同时间的净变化量来完成，只有陈述 3 成立，选 D。',
             ],
             optionNotes: [
-              'A：数值按 +4% 到零所占的比例求出，并说“约”“估计”，与题目允许的近似相符。',
-              'B：只有两端一增一减且幅度相同，零点才在正中间。这里是 +4% 与 −6%，不能直接平均两个浓度。',
-              'C：从低浓度端出发，应先走掉那一端的 +4%，所以用 4/10；用另一端的 6/10，就把零点放偏了。',
-              'D：0.28 这个数看着相近，但“完全精确”“每个细胞的蔗糖浓度就是它”“水分子停止”都不成立。细胞还有其他溶质和压力影响，平衡时水也仍在双向移动。',
+              'A：漏掉陈述 3；所有组时间相同，比较质量变化的绝对幅度可以比较这段时间的平均净变化。',
+              'B、F：都保留了陈述 1 的 must。零点能给出外液条件，却不能确定细胞内某一种盐的浓度。',
+              'C、G：都包含陈述 2，把水的通常净移动方向写反。',
+              'E、H：同时包含错误的陈述 1 和 2；不能因零点看起来正好是 0.3 就全盘接受相关说法。',
+              'D：只选陈述 3，既利用了相同实验时长，也没有把零点解释成内部氯化钠浓度。',
             ],
             takeaway:
-              '先算增减百分比，再按比例找浓度；最后多问一句：**这个数是在估计什么？** 算对数字，却把意义解释错，仍然不能选。\n\n若比较的样本尺寸不同，还要先读清 total rate（总速率）还是 per unit volume（每单位体积速率）。先按表面积比较整个样本的初始交换，再除以体积；在每单位面积交换同样快的条件下，边长翻倍对应面积 4 倍、体积 8 倍，每单位体积却只有原来的 1/2。不能只凭“大”或“小”判断快慢。\n\n若改变的是面积、浓度差、距离或温度，就先检查其他条件是否相同：较大面积与浓度差、较短距离通常加快速率，适度升温通常也加快运动，但活组织过热会受损。百分比计算不能替代这些条件的控制。',
+              '读渗透实验图时，把三个问题分开：**正负号说明吸水还是失水，零点说明哪种外液下无净质量变化，同一时长的绝对变化量用于比较平均净变化速率**。不要用一个读数回答三个不同的问题。',
             variant: {
-              question: String.raw`A new cylinder starts at $3.20\,\mathrm{g}$ and finishes at $2.96\,\mathrm{g}$ after the same interval and handling. What is its percentage mass change, and does that alone locate the zero point?`,
-              answer: String.raw`$-7.5\%$；一个负值数据点不能独立确定零点浓度。`,
-              explanation: String.raw`仍用初始质量作分母：$(2.96-3.20)/3.20\times100\%=-7.5\%$，说明它在这段时间变轻了；在题目的假定下，可以解释为净失水。
-
-但我们只有一个负值点，还不知道附近哪种浓度会增重、变化曲线怎样走。**一个点还不够找到零点**，需要其他浓度的数据和适用的估计方法。
-
-如果题目给的是连续的“质量—时间”曲线，则看相应时间处的斜率判断快慢；一个最终质量读数不能代替初始斜率。这与本题用“浓度—百分比变化”寻找零点，是两种不同的读图任务。`,
+              question:
+                'Two initially identical potato cubes are tested under otherwise controlled conditions. Cube P loses 12% of its initial mass in 20 minutes. Cube Q loses 15% in 50 minutes. Using mass change as a measure of net water loss, which cube has the greater average net water-loss rate, expressed as a percentage of initial mass per minute? Can these endpoint measurements alone identify the faster initial rate?',
+              answer:
+                'P 更大：0.60% 初始质量/分钟；Q 为 0.30% 初始质量/分钟。仅凭终点测量不能确定谁的初始速率更快。',
+              explanation:
+                '这次把原题“都放 30 分钟”改掉了，所以不能直接把 15% 和 12% 比大小。先分别除以时间：12 ÷ 20 = 0.60，15 ÷ 50 = 0.30，P 的平均净失水速率为 Q 的两倍。**平均速率与初始瞬时速率不是一回事**；要比较刚开始有多快，需要开始阶段的质量—时间数据。',
             },
           },
         ],
@@ -275,7 +270,7 @@ export const esatMembraneTransport: KnowledgeLesson = {
       id: 'uat-biology-guide',
       title: 'UAT-UK · ESAT Guide: Biology（June 2025）',
       url: 'https://uat-wp.s3.eu-west-2.amazonaws.com/wp-content/uploads/2025/07/06120052/ESAT_Guide_Biology_June_2025.pdf',
-      note: '内部核查 B2 的运输条件、细胞变化与植物组织实验；题干、数据、选项与变式均独立原创。',
+      note: '内部核查 B2 的运输条件、细胞变化与植物组织实验；例题引用诊断题库真题，中文讲解与改条件变式为独立编写。',
     },
     {
       id: 'uat-nsaa-2016',
@@ -305,7 +300,7 @@ export const esatMembraneTransport: KnowledgeLesson = {
       id: 'openstax-cell-size',
       title: 'OpenStax · Biology 2e: Prokaryotic Cells — Cell Size',
       url: 'https://openstax.org/books/biology-2e/pages/4-2-prokaryotic-cells',
-      note: '内部核查面积体积比与交换条件；立方体计算、实验数据和插值例题由基础关系原创设计。',
+      note: '内部核查面积体积比与交换条件；例题引用诊断题库真题，中文解析与改条件变式为原创。',
     },
   ],
 }

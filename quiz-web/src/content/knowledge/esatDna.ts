@@ -3,253 +3,246 @@ import type { KnowledgeExamFocus, KnowledgeLesson, KnowledgeSection } from './ty
 
 const genomeExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '基因、DNA 与染色体，谁包含谁？',
-    question:
-      'A scientist studies an unreplicated chromosome in the nucleus of a plant cell. Which statement correctly describes its organisation?',
-    options: [
-      'It is a protein molecule containing many separate DNA bases but no genes.',
-      'It contains a long DNA molecule associated with proteins, with many genes along the DNA.',
-      'It is one gene, and each nucleotide within it is a chromosome.',
-      'It contains only DNA that codes for proteins; all other DNA lies outside chromosomes.',
-    ],
-    answer: 'B：未复制的核染色体包含一条长 DNA 分子及相关蛋白质，DNA 上有许多基因。',
-    steps: [
-      '先从组成关系理解：染色体不是与 DNA 并列的另一种遗传物质，**DNA 是染色体的重要组成部分**，并与蛋白质结合。',
-      '一条染色体上的 DNA 很长，包含许多基因以及其他序列。基因是一段 DNA，而核苷酸是构成 DNA 的小单位。',
-      '因此 B 同时说对了材料和层级。题干特意给出 unreplicated（未复制），避免把复制后的两条姐妹染色单体当成一条 DNA 分子。',
-    ],
-    optionNotes: [
-      'A：染色体包含 DNA，不能把它说成只有蛋白质；DNA 的碱基也不是零散堆在其中。',
-      'B：DNA 与蛋白质组成染色体，一条 DNA 上可包含多个基因，层级正确。',
-      'C：把染色体、基因和核苷酸的大小关系完全颠倒了。',
-      'D：染色体 DNA 也包含不编码蛋白质的序列，这些序列仍属于遗传物质。',
-    ],
-    takeaway:
-      '记住一条清楚的关系：**核苷酸组成 DNA；基因是 DNA 上的特定片段；核染色体由 DNA 与蛋白质组成**。',
-    variant: {
-      question:
-        'The same chromosome has now replicated but its sister chromatids have not separated. How many double-stranded DNA molecules does this replicated chromosome contain?',
-      answer: '2 条双链 DNA 分子，每条姐妹染色单体各含一条。',
-      explanation:
-        '复制得到两份 DNA，它们分别位于两条姐妹染色单体中。此时仍按一条复制后的染色体计数。**“双链 DNA”里的两条链，与“两条姐妹染色单体”不是一回事**：每条染色单体中的 DNA 本身就是双链。',
+    title: '同一个人的细胞，遗传信息与蛋白质都相同吗？',
+    question: '',
+    source: {
+      questionCode: 'ESAT_LEGACY_2021_NSAA_Q079',
+      why: '把体细胞、配子和不同分化细胞放在同一道判断题中，练习区分遗传物质、染色体份数与基因表达。',
     },
-  },
-  {
-    title: '只把编码蛋白质的部分测完，算完整基因组吗？',
-    question:
-      'An organism has DNA sequences that code for proteins and other DNA sequences that do not. Researchers determine every protein-coding sequence but leave the other DNA unexamined. Which conclusion is justified?',
-    options: [
-      'The entire genome has been determined because a genome contains only protein-coding sequences.',
-      'The unexamined DNA cannot be part of a chromosome.',
-      'The genome is incomplete because it includes both coding and non-coding DNA.',
-      'The unexamined DNA must consist of amino acids rather than nucleotides.',
-    ],
-    answer: 'C：基因组包括全部遗传物质，不能只算编码蛋白质的部分。',
+    answer: 'A：只有陈述 1 正确。',
     steps: [
-      'genome 的关键是“全套遗传物质”。题目已明确还有一部分 DNA 未被研究，所以完整性不能只靠已测出的基因数量判断。',
-      '不编码蛋白质的 DNA 也属于基因组。其中一些序列参与调节基因表达，不能因为不编码就说它不属于 DNA 或没有作用。',
-      '因此只能选 C。题目也没有提供染色体数量、全部基因数量或生物复杂程度的信息，不需要自行猜测。',
+      '先看题干的限制：**同一个人，并且不考虑突变**。颊细胞和胚胎干细胞都来自同一受精卵，通常保留同一套等位基因，所以陈述 1 正确。分化成不同细胞，主要改变的是哪些基因被表达。',
+      '精子经过减数分裂，只带一套染色体；颊细胞是二倍体，带两套。这里比较的是细胞实际携带的遗传物质，不能把“来自同一人”理解成“都带同样完整的两套遗传信息”，陈述 2 不正确。',
+      '再看成熟红细胞这个例外：人的成熟红细胞没有细胞核，也没有线粒体；白细胞有细胞核。因此两者 DNA 碱基数不同，陈述 3 不正确。',
+      '最后区分“有这个基因”和“正在制造这种蛋白质”。胚胎干细胞与白细胞承担的功能不同，表达的蛋白质并非全部相同，陈述 4 不正确。四条判断为真、假、假、假，选 A。',
     ],
     optionNotes: [
-      'A：把“全部 DNA”缩小成“编码蛋白质的 DNA”，漏掉题干明确提到的一部分。',
-      'B：非编码序列可以位于染色体上，位置与是否编码蛋白质不是同一分类。',
-      'C：保留了 genome 的完整范围，与题干信息一致。',
-      'D：DNA 由核苷酸组成；氨基酸组成的是多肽。',
+      'A：只保留陈述 1，正确。',
+      'B：陈述 2 忽略了精子与颊细胞的单倍体、二倍体差别。',
+      'C：陈述 3 忽略了人成熟红细胞不含 DNA 的特点。',
+      'D：陈述 4 把相同遗传信息误当成相同的蛋白质表达。',
+      'E：正确保留 1，但多选了 2。',
+      'F：正确保留 1，但多选了 3。',
+      'G：2 和 4 都不成立，而且漏掉了 1。',
+      'H：3 和 4 都不成立，而且漏掉了 1。',
     ],
     takeaway:
-      '==基因组不等于全部蛋白质编码片段的合集==。题目一旦出现 all、entire 或 complete，就检查有没有漏掉非编码部分。',
+      '==同一个人的不同体细胞通常保留相同遗传信息，但不一定制造相同蛋白质==。遇到配子或成熟红细胞，还要单独检查染色体份数和 DNA 是否存在。',
     variant: {
       question:
-        'A bacterium has no membrane-bound nucleus but has a chromosome and a plasmid. Does the absence of a nucleus mean it has no genetic material?',
-      answer: '不意味着。细菌的染色体与该细菌携带的质粒都含 DNA。',
+        'A human skin cell and a muscle cell have the same alleles and no mutations have occurred. Must they produce exactly the same proteins in the same amounts? Explain your answer.',
+      answer: '不必。具有相同等位基因，不等于表达相同种类、相同数量的蛋白质。',
       explanation:
-        '细胞核是主要遗传物质在真核细胞中的存放位置，不是 DNA 存在的必要条件。**没有核膜包围的细胞核，不等于没有 DNA**；这里还已明确给出了染色体和质粒。',
+        '皮肤细胞与肌肉细胞承担不同功能，可以开启或关闭不同基因，也可以调节表达量。题干把 DNA 差异排除了，仍不能排除基因表达差异。**先分清“保存了什么信息”和“使用了哪些信息”**。',
     },
   },
 ]
 
 const structureExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '先分清碱基对与核苷酸，再算数量',
-    question:
-      'A double-stranded DNA molecule contains 200 base pairs. Across both strands together, 120 of its bases are adenine. How many guanine bases does the molecule contain?',
-    options: ['40', '80', '120', '160'],
-    answer: 'B：80 个 G。',
+    title: '从双链长度算碱基数量',
+    question: '',
+    source: {
+      questionCode: 'ESAT_LEGACY_2018_NSAA_Q63',
+      why: '用很短的一段 DNA 同时考查双链总数、碱基百分比和陈述组合，适合练清数量关系。',
+    },
+    answer: 'A：陈述 1 和 2 正确。',
     steps: [
-      '200 base pairs 是 200 对，每对有两个碱基，因此两条链总共含 400 个碱基，也就是 400 个核苷酸。',
-      '双链整体中 A 与 T 数量相等：A 有 120 个，所以 T 也有 120 个。剩下 G 与 C 共 400−120−120=160 个。',
-      'G 与 C 也一一配对，所以各占一半：G=160÷2=80。**先明确统计范围，再用配对关系**，选 B。',
+      '先不要把 25 直接代入百分比。题目说的是**两条互补链，每条 25 个碱基**，所以这段双链 DNA 共 50 个碱基。',
+      'A 占 14%，因此 A=50×14%=7。A 与 T 配对，T 也是 7；剩下 50−7−7=36 个由 G 与 C 平分，所以 G=C=18。',
+      '代回四条陈述：1 中 A+C=7+18=25，正确；2 中 A+G=25，占总数 50%，正确；3 把 T 说成 14 个，错误；4 把 G+C 的合计 36 当成 G 的数量，错误。',
+      '只有 1 和 2 同时成立，对应 A。最后快速复核：7+7+18+18=50，A=T、G=C，都满足。',
     ],
     optionNotes: [
-      'A：通常来自把总数或剩余数多除了一次 2。',
-      'B：总碱基 400，扣除 A 与 T 后剩 160，G 占其中一半。',
-      'C：A=120 不代表 G=120；相等的是 A 与 T、G 与 C。',
-      'D：160 是 G 与 C 的合计，不是 G 的单独数量。',
+      'A：1 和 2 都成立，正确。',
+      'B：1 对，但 3 错；14 是题给百分数，不是 T 的个数。',
+      'C：1 对，但 4 错；36 是 G 与 C 的合计。',
+      'D：2 对，但 3 错，T 应为 7。',
+      'E：2 对，但 4 错，G 应为 18。',
+      'F：3 和 4 都把数量算错了。',
     ],
     takeaway:
-      '双链 DNA 的 $n$ 对碱基，对应 **$2n$ 个碱基、$2n$ 个核苷酸**。A=T、G=C 的等量关系用于双链整体。',
+      '**先把每条链的长度换成双链总碱基数，再算百分比**。双链中 A=T、G=C；这不意味着四种碱基各占四分之一。',
     variant: {
       question:
-        'In another double-stranded DNA molecule, 30% of all bases are adenine. What percentage are cytosine?',
-      answer: '20%。',
+        'A double-stranded DNA section contains 80 base pairs. Adenine makes up 20% of all bases. How many cytosine bases are present?',
+      answer: '48 个胞嘧啶碱基。',
       explanation:
-        'T 也占 30%，A 与 T 合计 60%；剩下 40% 由 G 与 C 平分，因此 C 占 20%。百分比的分母是**两条链上的全部碱基**。',
+        '80 对碱基共有 160 个碱基。A 与 T 各占 20%，剩下的 60% 由 C 与 G 平分，C 占 30%；160×30%=48。**base pairs 与 bases 的数量相差 2 倍**。',
     },
   },
   {
-    title: '单独一条链，也一定 A 与 T 一样多吗？',
-    question:
-      'One strand of a DNA molecule contains 30 A, 20 T, 40 G and 10 C bases. What are the numbers of A and G bases in its complementary strand?',
-    options: ['A = 30; G = 40', 'A = 20; G = 10', 'A = 20; G = 40', 'A = 50; G = 50'],
-    answer: 'B：互补链有 20 个 A、10 个 G。',
+    title: '已知一条链，怎样填写互补链的表格？',
+    question: '',
+    source: {
+      questionCode: 'NSAA_2016_S1-Q064',
+      why: '用两条链的实验数据表考查互补关系，能够检验是否把单链比例与双链整体比例混淆。',
+    },
+    answer: 'E：P 和 Q 正确。',
     steps: [
-      '原链的 T 要与互补链的 A 配对。因此互补链 A 的数量等于原链 T 的数量，是 20。',
-      '原链的 C 要与互补链的 G 配对。因此互补链 G 的数量等于原链 C 的数量，是 10。',
-      '不要直接复制原链的 A 与 G 数量，也不要在一条链里强行让 A=T。**互补的是对应位置上的碱基**，因此选 B。',
+      '先读完整第一条链：A=26%、G=28%、T=14%。四种碱基合计 100%，所以 C=100−26−28−14=32%。注意**单链内 A 不必等于 T**。',
+      '现在一格一格对应到第二条链：第二条链的 A 对着第一条链的 T，所以 P=14%；第二条链的 C 对着第一条链的 G，所以 Q=28%。',
+      '同理，第二条链的 G 对着第一条链的 C，所以 R=32%；第二条链的 T 对着第一条链的 A，所以 S=26%。两条链长度相同，配对后的个数相等，比例也相等。',
+      '学生填的 P=14%、Q=28% 正确，R=26%、S=28% 都不正确，因此选 E。不要把第一条链的数值按原列照抄过去。',
     ],
     optionNotes: [
-      'A：直接抄了原链的 A、G 数量，没有作互补配对。',
-      'B：原链 T 对应新链 A，原链 C 对应新链 G，正确。',
-      'C：A 换对了，G 却仍用了原链 G 的数量。',
-      'D：这是双链整体的 A 与 G 数量，题目只问互补链。',
+      'A：P 对，但漏掉了同样正确的 Q。',
+      'B：Q 对，但漏掉了同样正确的 P。',
+      'C：R 应为 32%，不是 26%。',
+      'D：S 应为 26%，不是 28%。',
+      'E：P=14%、Q=28%，两项都正确。',
+      'F：R、S 的填写值都不正确。',
     ],
     takeaway:
-      '单链数据先逐项互补：**原链 A→对链 T，原链 T→对链 A，原链 G→对链 C，原链 C→对链 G**。不要把双链整体规律套进任意单链。',
+      '==互补链要交换 A/T、C/G 的对应关系==。先补齐已知链，再按配对填写另一条链，不要强迫单链本身满足 A=T。',
     variant: {
       question:
-        'Only one isolated single-stranded DNA molecule is available. Adenine makes up 30% of its bases. Can the thymine percentage be determined from this information alone?',
-      answer: '不能确定。',
+        'One DNA strand contains 10% A, 20% T, 30% G and 40% C. What percentage of all bases in the complete double-stranded molecule are adenine?',
+      answer: '15%。',
       explanation:
-        '题目只给了单链的 A 比例，没有给它与另一条链的配对数据。单链自身的 A 与 T 数量不必相等，因此 T 不一定是 30%。**条件从双链改成单链，原来的等量结论就不能照搬**。',
+        '互补链的 A 占 20%。两条链长度相同，把两条链的 A 合并后，双链整体的 A 比例为 (10%+20%)÷2=15%。这里求的是**双链整体的比例**，不是互补链单独的 20%。',
     },
   },
 ]
 
 const synthesisExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '三个碱基一个单位，哪些三联体不增加氨基酸？',
-    question:
-      'A mature mRNA has a translated region of 303 nucleotides, measured from the first base of its start codon to the last base of its stop codon. There are no internal stop codons. The stop codon does not specify an amino acid. How many amino acids are in the newly made polypeptide?',
-    options: ['99', '100', '101', '303'],
-    answer: 'B：100 个氨基酸。',
+    title: '不用背密码子表，也能还原氨基酸顺序',
+    question: '',
+    source: {
+      questionCode: 'NSAA_2019_S1-Q072',
+      why: '结合碱基序列、氨基酸计数表和长选项，练习按三联体分组并用重复位置核对翻译结果。',
+    },
+    answer: 'H：Leu–Val–Trp–Trp–Leu–Arg–Pro–Pro–Leu–Leu–Trp–Leu–Val–Val–Trp–Trp–Leu。',
     steps: [
-      '这里给的是从起始到终止的成熟 mRNA 区段，没有要求把整条基因或非编码区算进去。每三个碱基组成一个密码子，因此 303÷3=101 个密码子。',
-      '题干明确提醒终止密码子不指定氨基酸，所以要从 101 中减去 1，得到 100。起始密码子本身指定氨基酸，不能再减一次。',
-      '因此选 B。题目问刚合成的多肽，避免后续加工可能切除部分氨基酸带来的变化。',
+      '先把序列从左至右每三个碱基分一组：CTA / GTC / TGG / TGG / CTA / CGT / CCT / CCT / CTA / CTA / TGG / CTA / GTC / GTC / TGG / TGG / CTA，共 17 组。表中氨基酸总数也是 1+6+2+5+3=17。',
+      '再数各三联体出现几次：CTA 6 次、GTC 3 次、TGG 5 次、CGT 1 次、CCT 2 次。题给五种氨基酸的次数刚好都是不同的，**同一个三联体每次对应同一种氨基酸**，因此可以匹配 CTA→Leu、GTC→Val、TGG→Trp、CGT→Arg、CCT→Pro。',
+      '按原顺序代入，前六个是 Leu–Val–Trp–Trp–Leu–Arg，第七、八个都是 Pro，最后一个仍是 Leu。先用这些关键位置排除选项，再核对全串，得到 H。',
+      '这里不需要另做互补链，也不需要凭记忆换成 RNA 密码子：原题提供的序列与计数表已足够建立对应关系。每一种题给三联体都至少对应一种表内氨基酸；五种三联体与五种已出现的氨基酸在本题中形成一一对应。',
     ],
     optionNotes: [
-      'A：把起始与终止都减去了；起始密码子也编码一个氨基酸。',
-      'B：101 个密码子中，只有最后一个是这里给定的终止信号，故为 100。',
-      'C：把终止密码子也当成了一个氨基酸。',
-      'D：把一个碱基当成一个氨基酸，忘记三联体关系。',
+      'A：只有 16 个氨基酸，而且第二个应为 Val，不是 Trp。',
+      'B：只有 16 个，第二个也错；连续四个 Val 还与题给计数不符。',
+      'C：前 16 个顺序正确，但漏掉最后 CTA 对应的 Leu。',
+      'D：虽然有 17 个，但第二个应为 Val，不是 Trp。',
+      'E：第二个应为 Val；末段多处把 Trp 与 Val 排错。',
+      'F：第二个应为 Val，不是 Leu；末尾应为 Leu，不是 Val。',
+      'G：第六组 CGT 对应唯一的 Arg，不能写成 Leu。',
+      'H：长度、各氨基酸次数和全部位置均与序列相符。',
     ],
     takeaway:
-      '先看给的是**实际被翻译的序列、完整基因，还是双链总碱基数**。只有明确了范围，才能用“每三个碱基”换算；终止信号不贡献氨基酸。',
+      '**先每三个碱基分组，再核对相同三联体的位置**。长选项不用逐字硬比，长度、重复次数和几个关键位置就能帮你快速定位。',
     variant: {
       question:
-        'Two identical newly made polypeptides assemble into one functional protein. Each is translated from a region of 306 nucleotides, including one stop codon and no internal stops. Before any processing, how many amino acids are present in the protein in total?',
-      answer: '202 个。',
+        'Using the same triplet assignments, the coding sequence is changed to CTA GTC TGG TGG CTA CGT CCT CCT CTA CTA TGG CTA GTC GTC TGG TGG CTA GTC. What amino acid is added, and how many amino acids are now encoded?',
+      answer: '末端增加一个 Val，共编码 18 个氨基酸。',
       explanation:
-        '每条多肽有 306÷3−1=101 个氨基酸，两条合起来是 202。**一个功能蛋白质可以由不止一条多肽组成**，所以最后还要看题目问“一条链”还是“整个蛋白质”。',
+        '新增的 GTC 是一个完整三联体，按原题对应关系编码 Val。原来 17 组，现在 18 组；新增的是三个碱基，**不是三个氨基酸**。',
     },
   },
   {
-    title: '一样的原料数量，不一定得到一样的蛋白质',
-    question:
-      'Polypeptides P and Q contain the same numbers of each type of amino acid, but the amino acids occur in different orders. Which statement is most accurate?',
-    options: [
-      'P and Q must have identical three-dimensional shapes because their amino acid totals match.',
-      'P and Q may fold differently and have different functions because their amino acid sequences differ.',
-      'P and Q must contain different types of DNA nucleotide as their building blocks.',
-      'P and Q cannot be proteins unless each contains only one type of amino acid.',
-    ],
-    answer: 'B：氨基酸顺序不同，可能改变折叠方式及功能。',
+    title: '两个碱基改变，会怎样影响蛋白质？',
+    question: '',
+    source: {
+      questionCode: 'NSAA_2017_S1-Q070',
+      why: '题给专用密码表与明确突变位置，适合把三联体分组、终止信号和氨基酸种类数放在一起练习。',
+    },
+    answer: 'H：陈述 1、2、3 都可能正确。',
     steps: [
-      'same numbers 只说明组成数量相同，different orders 则明确顺序不同。蛋白质的性质不仅取决于“有哪些氨基酸”，也取决于“按什么顺序连接”。',
-      '不同位置上的氨基酸基团相互作用，影响多肽折叠。因此两条链可能形成不同的三维结构，并表现出不同功能。',
-      '选 B 的 may 很重要：题目没有给出实际结构或功能测量，不能把“可能改变”说成“一定完全失去功能”。',
+      '先分组：ATG / CGA / GAC / ATG / TTA / AGG / TGG / GAC / CCC / CGA / GTC。第 4 个碱基是第二组三联体 CGA 的第一个 C；第 20 个碱基是第七组 TGG 的第二个 G。**先定位，才知道哪些氨基酸可能受影响**。',
+      '看陈述 1：把第 20 位 G 换成 A，第七组就从 TGG 变成 TAG。题给表把 TAG 标为终止信号，翻译在此停止，因此这段可以只得到前六个氨基酸；终止信号本身不算一个氨基酸。第 4 位仍可发生不引入更早终止信号的替换。',
+      '看陈述 2：把第 4 位 C 换成 A，第二组 CGA 变为 AGA。查题给表，两者都编码 Arg，所以第二个氨基酸可以不变。',
+      '看陈述 3：给出一种符合条件的组合即可。第 4 位 C→G，使第二组变成 GGA（Gly）；第 20 位 G→T，使第七组变成 TTG（Leu）。这时全串包含 Met、Gly、Asp、Leu、Arg、Pro、Val，共七种。三条都“可能”，所以选 H；三条不必由同一对替换同时实现。',
     ],
     optionNotes: [
-      'A：相同组成数量不保证相同排列，不能据此保证形状相同。',
-      'B：把顺序、折叠和功能联系起来，并保留了合理的可能性。',
-      'C：多肽的直接组成单位是氨基酸，不是 DNA 核苷酸。',
-      'D：多肽通常包含多种氨基酸；同一种氨基酸也不是什么必要条件。',
+      'A：三条都能给出具体成立的替换方式，不能全否。',
+      'B：1 成立，但漏掉了可以同义替换的 2，以及七种氨基酸的 3。',
+      'C：2 成立，但终止信号情形证明 1 也可能，3 同样可成立。',
+      'D：3 成立，但并不是唯一可能成立的陈述。',
+      'E：1、2 正确，但漏掉了 3。',
+      'F：1、3 正确，但漏掉了 CGA→AGA 仍编码 Arg 的情形。',
+      'G：2、3 正确，但漏掉了 TGG→TAG 提前终止的情形。',
+      'H：三条各自都有符合题意的例子，正确。',
     ],
     takeaway:
-      '==碱基顺序 → 氨基酸顺序 → 折叠与三维形状 → 功能==。解释基因如何影响性状时，把中间的蛋白质补上，不要只说“基因控制一切”。',
+      '遇到 **could**，试着构造一种符合条件的具体替换。先定位三联体，再按**题给密码表**查结果；别把终止信号计入氨基酸数量。',
     variant: {
       question:
-        'Two DNA sequences differ at one base, but the polypeptides produced have the same amino acid sequence. Under the same conditions, does the DNA difference alone prove that the proteins have different shapes?',
-      answer: '不能。仅有 DNA 差异不足以证明蛋白质形状不同。',
+        'Using the table in the original question, the fourth base changes from C to A and the twentieth base changes from G to A. How many amino acids are translated from the displayed section, and does its second amino acid change?',
+      answer: '翻译出 6 个氨基酸，第二个氨基酸不变，仍是 Arg。',
       explanation:
-        '多个密码子可以指定同一种氨基酸，因此有些碱基改变不改变氨基酸序列。本题已经明确序列相同，不能跳过这个条件，直接断定结构改变。实际蛋白质还受折叠环境与加工等影响，但这里没有给出这些差异。',
+        '第二组 CGA→AGA，两者都编码 Arg；第七组 TGG→TAG，变成终止信号。读到第七组时停止，因此只得到前六个氨基酸。这个变式把原题的“可能发生”改成了**已经指定的两次替换**。',
     },
   },
 ]
 
 const mutationExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '碱基已经改变，为什么氨基酸还能相同？',
-    question:
-      'For the mRNA codons used here, GAA and GAG specify glutamate, GUA specifies valine, and UAA is a stop signal. A substitution changes one DNA coding-strand triplet from GAA to GAG. The mRNA matches the coding strand except that U replaces T. What follows directly?',
-    options: [
-      'No mutation has occurred because glutamate is still specified.',
-      'A mutation has occurred, but the amino acid at this position remains glutamate.',
-      'A mutation has occurred and must change glutamate to valine.',
-      'A mutation has occurred and must shift every subsequent reading group by one base.',
-    ],
-    answer: 'B：DNA 序列发生了突变，但该位置仍编码谷氨酸。',
+    title: '发生基因突变，哪些结果仍可能不变？',
+    question: '',
+    source: {
+      questionCode: 'NSAA_2019_S1-Q065',
+      why: '把突变是否遗传、是否改变蛋白质、是否改变表型拆成三个判断，覆盖本节最容易混淆的因果关系。',
+    },
+    answer: 'H：陈述 1、2、3 都可能保持不变。',
     steps: [
-      '突变的判断依据是 DNA 序列是否改变。GAA 变成 GAG，最后一个碱基已经改变，所以确实发生了突变。',
-      '再用题目给出的密码子信息检查蛋白质：转录后的 GAA 与 GAG 都指定谷氨酸，因此该位置氨基酸不变。',
-      '这里是一个碱基被替换，序列长度没有增减，不能据此声称阅读框整体移动。选 B，区分**序列改变**与**功能改变**。',
+      '题目问的是 **may stay the same（可能不变）**。我们要为每条找到一种合理情况，不需要证明所有突变都没有影响。',
+      '陈述 1 可以成立：例如突变只发生在皮肤体细胞中，没有进入形成下一代的配子，子代就不必携带这次突变，子代基因型可以不受影响。',
+      '陈述 2 可以成立：有些突变并不改变蛋白质功能，或其影响没有表现为可见的个体表型。不能从“DNA 变了”直接跳到“性状一定变了”。',
+      '陈述 3 也可以成立：不同三联体可能编码同一种氨基酸，替换一个碱基后仍编码原来的氨基酸，多肽序列可以不变。三条都有成立的可能，选 H。',
     ],
     optionNotes: [
-      'A：氨基酸没变不代表 DNA 没变；这两层判断必须分开。',
-      'B：同时承认 DNA 突变和氨基酸未变，符合给出的表。',
-      'C：题干说的是 GAG，不是指定缬氨酸的 GUA。',
-      'D：替换没有插入或删除核苷酸，不会因为这次替换而使阅读框整体移位。',
+      'A：把“突变”错误地理解成三个层面都必然改变。',
+      'B：子代基因型可以不变，但蛋白质序列和个体表型也可以不变。',
+      'C：只考虑表型，漏掉了未遗传的体细胞突变和同义替换。',
+      'D：同义替换说明 3 可成立，但不能据此否定 1、2。',
+      'E：漏掉了不同三联体编码同一种氨基酸的情况。',
+      'F：漏掉了突变不改变个体表型的情况。',
+      'G：漏掉了突变没有传入子代的情况。',
+      'H：三个结果都可能不变，符合题目问法。',
     ],
     takeaway:
-      '先问“DNA 变没变”，再问“氨基酸变没变”，最后才问“功能与性状变没变”。==这三个问题的答案可以不同==。',
+      '==DNA 序列改变，不等于氨基酸、表型、子代基因型都必然改变==。分别检查这三个环节，别把它们当成一步。',
     variant: {
       question:
-        'Instead, the DNA coding triplet changes from GAA to TAA. Using the same codon information, what happens if this triplet lies within the translated region before the original stop?',
-      answer: '对应 mRNA 由 GAA 变成 UAA，出现提前终止，产生较短的多肽。',
+        'A mutation changes one DNA triplet, but the new triplet codes for the same amino acid. All other triplets remain unchanged. Does the amino-acid sequence of the encoded polypeptide change?',
+      answer: '不改变。',
       explanation:
-        'coding strand（编码链）中的 T 在对应 mRNA 中写作 U，因此 TAA 对应 UAA。题目已规定 UAA 是终止信号，且位置在原终止之前，所以翻译提前结束。较短多肽可能影响功能，但**不能只凭长度改变就断言一定致死**。',
+        '题目已明确新旧三联体编码同一种氨基酸，其余三联体也没变，因此多肽氨基酸序列不变。这是**同义替换**。我们只据此回答序列问题，不额外断言基因表达量或其他过程必然完全不受影响。',
     },
   },
   {
-    title: '插入一个碱基，与插入三个碱基有何区别？',
-    question:
-      'A coding sequence is read in consecutive groups of three bases from a fixed start. Within this sequence, mutation X inserts one base and mutation Y inserts three bases at a boundary between two groups. No other changes occur. Which statement is correct?',
-    options: [
-      'Both insertions necessarily leave every later group unchanged.',
-      'X changes the grouping downstream; Y preserves the grouping of the original downstream sequence.',
-      'Y changes the downstream reading frame, but X cannot do so.',
-      'Neither event is a mutation because none of the original bases has been replaced.',
-    ],
-    answer: 'B：插入 1 个碱基使后续阅读框移位；在三联体边界插入 3 个碱基保留原下游分组。',
+    title: '两个人有两处序列差异，能直接数出突变次数吗？',
+    question: '',
+    source: {
+      questionCode: 'NSAA_2023_S1-Q075',
+      why: '用两个人的实际序列比较检验推断边界，同时复习三联体、氨基酸与表型之间的关系。',
+    },
+    answer: 'E：陈述 1 和 2 可能正确，陈述 3 错误。',
     steps: [
-      '假设原来按 ABC｜DEF｜GHI 分组。在第一组之后插入一个 X，就变成 ABC｜XDE｜FGH｜I…，后面的分组从插入处开始发生变化。',
-      '如果在同一边界插入 XYZ，序列是 ABC｜XYZ｜DEF｜GHI。多了一组，但原来的 DEF 和 GHI 仍各自成组。',
-      '所以 B 正确。保留阅读框不等于蛋白质完全不受影响：新增密码子可能编码氨基酸，也可能是终止信号；这里只能判断分组变化。',
+      '先找差异：第四组三联体是 CCC 与 CCG，第五组是 TTG 与 TTA，一共两处碱基不同。但题目没有说 person 1 就是原始序列，所以**两个人之间的差异数，不等于 person 2 的突变次数**。',
+      '陈述 1 为什么可能？假设这段序列原本在这两组是 CCC、TTA。person 1 的第五组发生一次替换得到 TTG；person 2 的第四组发生一次替换得到 CCG。这样两个人相差两个碱基，而 person 2 只有一次突变，陈述 1 就有可能成立。这个例子不表示原题已经证明了真实的突变历史。',
+      '陈述 2 也可能成立：不同 DNA 序列不一定产生不同表型。若这些是编码链三联体，CCC/CCG 可编码同一种氨基酸，TTG/TTA 也可编码同一种氨基酸；即使没有确定链的身份，也不能仅凭两处差异就断言表型不同。',
+      '陈述 3 把编码对象说错了：图中有六个三联体，即单链上 18 个碱基；在这里讨论的蛋白质编码关系中，它们至多对应六个氨基酸，不是“编码最多六个碱基”。因此保留 1、2，选 E。',
     ],
     optionNotes: [
-      'A：一个碱基的插入改变后续按三分组的位置，不能说两者都无影响。',
-      'B：抓住了插入数是否为 3 的倍数，以及题目给出的三联体边界。',
-      'C：恰好把两种插入的后果颠倒了。',
-      'D：突变也包括插入与缺失，不只有替换。',
+      'A：忽略了“可能”，把序列差异误当成确定的突变历史和表型变化。',
+      'B：1 可能成立，但 2 也可能成立。',
+      'C：2 可能成立，但不能默认 person 1 是原始序列来排除 1。',
+      'D：3 混淆了 DNA 的组成单位与其编码的氨基酸。',
+      'E：1、2 都有成立的可能，3 的编码对象错误，正确。',
+      'F：1 可成立，但 3 错，而且漏掉 2。',
+      'G：2 可成立，但 3 错，而且漏掉 1。',
+      'H：错误地接受了陈述 3。',
     ],
     takeaway:
-      '先按题目指定的起点每三个一组，再看增减的碱基数。**保留阅读框，只说明后续原有分组不移位，不保证功能正常**。',
+      '比较两条序列，先说清楚**观察到了什么**，再判断**能推出什么**。观察到两处差异，尚不足以指定谁发生了几次突变；序列不同也不保证表型不同。',
     variant: {
       question:
-        'In a human, a mutation occurs only in a skin cell and its descendants. The egg and sperm cells do not carry it. Is that mutation expected to be passed to a child by sexual reproduction?',
-      answer: '通常不会通过这次有性生殖传给孩子。',
+        'Person 1 is now explicitly stated to have the ancestral sequence. Person 2 differs at exactly two positions, and each mutation is restricted to a single-base substitution at one position. What is the minimum number of substitutions needed to produce person 2’s sequence?',
+      answer: '至少 2 次单碱基替换。',
       explanation:
-        '题目把突变限定在皮肤体细胞及其后代中，并明确配子没有携带它。皮肤细胞的突变可以传给其有丝分裂产生的子细胞，却不会因此自动进入精子或卵。**传给子细胞与传给下一代个体，是不同的传播路径**。',
+        '这个变式补上了原题没有给的两个条件：person 1 是原始序列，而且每次突变只能替换一个位置。两个不同位置各需至少一次替换，因此最少两次。**结论变得确定，是因为条件变明确了**。',
     },
   },
 ]
@@ -584,7 +577,7 @@ export const esatDna: KnowledgeLesson = {
       id: 'uat-spec-b5',
       title: 'UAT-UK ESAT Content Specification 2026/27 · B5',
       url: 'https://uat-wp.s3.eu-west-2.amazonaws.com/wp-content/uploads/2024/05/03165424/ESAT_Content_Specification.pdf',
-      note: '内部核对 B5.1–B5.4 范围；讲解、例题与变式为原创。',
+      note: '内部核对 B5.1–B5.4 范围；例题引用诊断题库真题，讲解与改条件变式为原创。',
     },
     {
       id: 'nhgri-genome',

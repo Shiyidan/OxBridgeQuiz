@@ -180,7 +180,12 @@ syllabusRouter.get('/syllabus', async (req, res) => {
     const nodeMap = new Map<string, any>()
     const roots: any[] = []
     for (const n of nodes) {
-      nodeMap.set(n.code, { code: n.code, label: n.label, children: [] })
+      nodeMap.set(n.code, {
+        code: n.code,
+        en_label: n.enLabel,
+        cn_label: n.cnLabel,
+        children: [],
+      })
     }
     for (const n of nodes) {
       const treeNode = nodeMap.get(n.code)!

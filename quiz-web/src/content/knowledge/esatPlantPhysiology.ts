@@ -1,4 +1,4 @@
-// ESAT 植物生理讲义：联系光合作用、叶片结构与运输，用原创例题练习条件分析和速率计算。
+// ESAT 植物生理讲义：联系光合作用、叶片结构与运输，用诊断真题与原创变式练习条件分析和速率计算。
 import type { KnowledgeExamFocus, KnowledgeLesson, KnowledgeSection } from './types'
 
 type PlantSection = Omit<KnowledgeSection, 'example' | 'visual' | 'sourceIds' | 'examFocus'> & {
@@ -21,7 +21,7 @@ export const esatPlantPhysiology: KnowledgeLesson = {
   title: 'Plant physiology · 植物生理',
   subtitle: '叶片怎样制造有机物，水与糖又怎样到达需要它们的地方',
   intro:
-    '一片叶子要制造糖，既需要光和二氧化碳，也离不开根送来的水。气孔让二氧化碳进入，却同时给水蒸气提供了离开的通道。本章把这几件事连起来：先理解光合作用的原料与限制因素，再沿着根、茎和叶认识两套运输组织。例题会练习看实验条件、区分总量与净量，以及把气泡的移动换算成吸水速率。',
+    '一片叶子要制造糖，既需要光和二氧化碳，也离不开根送来的水。气孔让二氧化碳进入，却同时给水蒸气提供了离开的通道。本章把这几件事连起来：先理解光合作用的原料与限制因素，再沿着根、茎和叶认识两套运输组织。我们选用诊断测试中的 NSAA 真题，练习看实验条件、区分总量与净量，以及把气泡位移换算成吸水体积；每题再配一道原创变式，检查换了条件后是否仍会判断。',
   memory: [
     '**光合作用吸收光能，制造有机物；呼吸作用释放有机物中的可用能量**。有光时，绿色植物也仍进行呼吸。',
     '增加某个条件后速率不再上升，说明**这个条件已不再单独限制速率**；不能仅凭平台就指定另一个限制因素。',
@@ -104,62 +104,70 @@ export const esatPlantPhysiology: KnowledgeLesson = {
         },
         examples: [
           {
-            title: '怎样从实验变化判断限制因素？',
-            question:
-              'A plant is kept at a constant temperature. Increasing light intensity from 50 to 100 units does not change its photosynthetic rate of 8 units. At 100 light units, doubling the carbon dioxide concentration increases the rate to 12 units. All other conditions are unchanged. Which conclusion is supported?',
-            options: [
-              'Photosynthesis stops at 100 light units.',
-              'Carbon dioxide availability limited the rate before its concentration was doubled.',
-              'Temperature is proved to be the only limiting factor.',
-              'Further increases in light must always increase the rate.',
-            ],
-            answer: 'B：提高二氧化碳后速率上升，说明此前二氧化碳供应限制了速率。',
+            title: '同样产生 20 个气泡，柱子越高代表越快吗？',
+            source: {
+              questionCode: 'ESAT_LEGACY_2022_NSAA_Q075',
+              why: '把不同光色的实验结果、时间与速率的换算，以及实验能支持什么结论放在一起，适合练习读图后再判断。',
+            },
+            question: '',
+            answer: 'C：只有陈述 3 正确，蓝光下每分钟产生 30 个气泡。',
             steps: [
-              '先比较只改变光照的那一对结果：50 到 100，速率仍为 8，所以这次加光没有解除真正的限制。',
-              '再比较固定在 100 光照单位时的结果：只提高二氧化碳，速率从 8 上升到 12，说明此前二氧化碳确实不足以支持更高速率。',
-              '实验没有改变温度，不能证明温度是唯一限制。速率为 8 也不是停止，A 把“平台”误读成了“零”。',
+              '先读纵轴，它记录的是**产生 20 个气泡所需的时间**，不是每分钟产生多少气泡。任务相同，用时越短，产生气泡就越快；绿光要 160 s，蓝光只要 40 s，所以不能把最高的绿光柱看成最快，陈述 1 错。',
+              '把蓝光结果换成题目要求的单位：20 ÷ 40 = 0.5 个/s，再乘 60，得到 **30 个/min**，陈述 3 对。也可以想成：60 s 是 40 s 的 1.5 倍，所以气泡数是 20 × 1.5。',
+              '陈述 2 的关键是 only。光合作用产生氧气，但这项实验只记录气泡数和时间，**没有鉴定气泡中所有气体的成分**，不能保证每个气泡都只含氧气，因此 2 错。',
+              '用气泡数比较光合作用还有一个测量前提：气泡大小等条件应可比。真正比较产氧体积时，收集气体并量体积通常比只数气泡更可靠。',
             ],
             optionNotes: [
-              'A：平台仍有正的速率，不是停止。',
-              'B：有只改变二氧化碳的对照结果支持。',
-              'C：没有温度对照，更不能说它是唯一因素。',
-              'D：题目已经给出一次加光无效的结果，always 不成立。',
+              'A：1 错，把较长的完成时间当成较高的速率。',
+              'B：2 错，数气泡不能证明气体只含氧。',
+              'C：只保留 3，20 个气泡/40 s 换算为 30 个/min。',
+              'D：1、2 都不成立，还遗漏了正确的 3。',
+              'E：3 正确，但多选了把时间与速率关系颠倒的 1。',
+              'F：3 正确，但多选了没有气体鉴定证据支持的 2。',
+              'G：三条并非都对，应排除 1 和 2。',
             ],
             takeaway:
-              '**判断限制因素，要找“只改变这个条件，速率就上升”的证据**。只看到一段平台，还不能确定由哪一个其他条件限制。',
+              '**先看纵轴测的是“完成时间”还是“单位时间的产量”。**固定气泡数时，速率与时间成反比；“光合作用产生氧”也不能直接改写成“收集的气体一定是纯氧”。',
             variant: {
               question:
-                'At the same temperature, increasing light from 50 to 100 units now raises the rate from 8 to 16 units. Doubling carbon dioxide at 100 light units causes no further increase. Which change has demonstrated a limiting factor?',
-              answer: '增加光照的实验表明原先较低光照限制了速率。',
+                'In a modified experiment, a plant releases 30 bubbles in 60 s under blue light and 20 bubbles in 40 s under green light. The bubbles have equal volumes, and all other conditions are the same. Which light colour gives the greater average rate of gas release?',
+              answer: '两者相同，都是 30 个气泡/min。',
               explanation:
-                '光照改变带来速率变化，而本次加二氧化碳无效。只能说二氧化碳在这次条件下不是可由该改变解除的限制，不能说植物从不受二氧化碳限制。',
+                '这次两组记录的气泡数不同，不能只比较 60 s 和 40 s。蓝光是 30 ÷ 60 × 60 = 30 个/min，绿光是 20 ÷ 40 × 60 = 30 个/min。**只有完成量相同时，才可以直接用时间长短比较速率**；这里的结论是气体释放速率相同，不是已证明气体成分相同。',
             },
           },
           {
-            title: '看到放氧量，先确认是不是净量',
-            question:
-              'In darkness, a leaf consumes 2 cm³ of oxygen per hour. In light, it releases a net 7 cm³ of oxygen per hour. Assume the rate of respiration is unchanged and all gas exchange is measured. What is the oxygen production rate due to photosynthesis in the light?',
-            options: ['5 cm³ per hour', '7 cm³ per hour', '9 cm³ per hour', '14 cm³ per hour'],
-            answer: 'C：9 cm³ h⁻¹。',
+            title: '净放氧为零，光合作用是不是停了？',
+            source: {
+              questionCode: 'ESAT_LEGACY_2022_NSAA_Q079',
+              why: '用一条跨过零点的曲线区分总光合产氧、呼吸耗氧与净气体交换，是理解光照实验的基础题。',
+            },
+            question: '',
+            answer: 'D：只有陈述 3 正确，光合产氧速率等于呼吸耗氧速率。',
             steps: [
-              '黑暗中没有光合作用，耗氧 2 cm³ h⁻¹ 代表呼吸耗氧；题目明确允许把这一速率用于光照条件。',
-              '光照时，仪器看到的是生产后又被呼吸消耗一部分的净剩余：净放氧 = 光合产氧 − 呼吸耗氧。',
-              '因此光合产氧 = 7 + 2 = 9 cm³ h⁻¹。别再减一次，否则把呼吸的影响扣了两遍。',
+              '先圈出纵轴里的 **net（净）**。仪器看到的是两件事相抵后的结果：**净放氧 = 光合作用产氧 − 呼吸耗氧**。植物在有光时仍然呼吸，不能只算光合作用。',
+              'X 位于曲线与零线的交点。这里净量为零，说明产生的氧恰好被呼吸消耗掉，这就是光补偿点。两个过程都可以持续进行，陈述 3 正确。',
+              '陈述 1 把“没有净放氧”说成“没有通过光合作用产氧”。如果仍在呼吸却完全不产氧，净值应为负，而不是 X 处的零，因此 1 不成立。',
+              '陈述 2 断言这个光强下所有气孔都会关闭，但图中没有气孔开闭的数据。**曲线的零点不是所有气孔关闭的证据**，不能用这个额外假设代替光合作用与呼吸的平衡。',
             ],
             optionNotes: [
-              'A：7 − 2，把已经扣过的呼吸再次扣除。',
-              'B：直接把净放氧当成了总产氧。',
-              'C：把被呼吸消耗的 2 加回，正确。',
-              'D：没有“乘 2”的依据，呼吸量是 2 而非净量的一半。',
+              'A：漏掉了正确的 3，净值为零可以由两个相等速率相抵解释。',
+              'B：1 错，没有净放氧不等于没有光合产氧。',
+              'C：2 错，图没有证明所有气孔关闭。',
+              'D：只选 3，符合净放氧的关系式。',
+              'E：1、2 都不成立，而且没有保留 3。',
+              'F：3 正确，但 1 把光合总量误当成净量。',
+              'G：3 正确，但 2 加入了没有证据的气孔结论。',
+              'H：应去掉 1 和 2，只保留 3。',
             ],
             takeaway:
-              '遇到 net，先写一句关系：**净量 = 产生量 − 消耗量**。如果呼吸会随光照条件改变，就不能无条件照搬黑暗测量值。',
+              '==净值为零，先想两个方向是否刚好相抵。==X 左侧净耗氧，表示呼吸耗氧较多；X 右侧净放氧，表示光合产氧较多。不要把过零点读成某个过程突然开始或停止。',
             variant: {
               question:
-                'With respiration still consuming 2 cm³ of oxygen per hour, the light is reduced until there is no net oxygen exchange. What is the photosynthetic oxygen production rate?',
-              answer: '2 cm³ h⁻¹。',
+                'A leaf consumes 2.0 cm³ of oxygen per hour in darkness. At a low light intensity, it takes up a net 0.5 cm³ of oxygen per hour. Assume its respiration rate is unchanged. What is its oxygen production rate due to photosynthesis at this light intensity?',
+              answer: '1.5 cm³ h⁻¹。光合作用仍在进行，但产氧少于呼吸耗氧。',
               explanation:
-                '净量为零，说明光合产氧恰好补上呼吸耗氧：0 + 2 = 2。没有净交换不表示两个过程停止。',
+                '注意这次是净吸氧，因此把净放氧写成 −0.5。由 −0.5 = 光合产氧 − 2.0，得到光合产氧 = 1.5。**净吸氧不能直接理解成没有光合作用**；这里只说明光合作用尚未补足呼吸耗氧。题目明确呼吸速率不变，才可以沿用黑暗测量值。',
             },
           },
         ],
@@ -255,67 +263,74 @@ export const esatPlantPhysiology: KnowledgeLesson = {
         },
         examples: [
           {
-            title: '切断韧皮部后，先看哪条运输路受阻',
-            question:
-              'A narrow ring of bark containing all the phloem is removed from a young tree stem. The xylem remains intact. During the short observation period, mature leaves above the ring are photosynthesising and roots below it depend on sugars from those leaves. Which immediate effect is expected?',
-            options: [
-              'Water flow to the leaves must stop because the xylem has been removed.',
-              'Sugar transport from the leaves to the roots is interrupted at the ring.',
-              'The roots begin absorbing glucose from the soil by osmosis.',
-              'The remaining xylem takes over phloem transport of sucrose.',
-            ],
-            answer: 'B：从叶片经韧皮部到根的糖运输在环剥处受阻。',
+            title: '吸水计读数：追踪同一端，再把位移换成体积',
+            source: {
+              questionCode: 'NSAA_2023_S1-Q065',
+              why: '一张装置图同时检查蒸腾与转运的区别、气泡位移读数以及直径到体积的换算，能把运输知识用到实验中。',
+            },
+            question: '',
+            answer: 'F：研究蒸腾作用，吸水体积为 π × (0.5)² × 15 mm³。',
             steps: [
-              '先分清切掉的是什么：题目说所有韧皮部被切断，但木质部完整。不能把两套运输组织一起判为失效。',
-              '叶片是糖的源，根在本题中是依赖叶片供糖的库。源到库的韧皮部通路被切断，因此糖不能继续沿原路线穿过环剥处。',
-              '短时间内木质部仍能运水，不意味着树长期不受影响；如果根长期缺糖，其呼吸和吸水等活动也可能受损，但那不是题目问的立即效果。',
+              '先认装置。枝条吸水使气泡向枝条一侧移动，所以吸水计可用来研究 **transpiration（蒸腾）**。它直接测量的是吸水，不能把它说成测蔗糖等有机物的 **translocation（转运）**。',
+              '沿图看，枝条在左边，气泡向左移动。开始时气泡右端位于 **5.5 cm**，后来这一端到达 4 cm，移动距离是 5.5 − 4 = **1.5 cm = 15 mm**。原来位于 3 cm 的左端向左移动，不会到达 4 cm；读位移一定要跟踪同一端。',
+              '管的内直径是 1 mm，所以半径是 0.5 mm。被吸走的水相当于一段圆柱：**体积 = 横截面积 × 长度 = πr² × 位移**，因此是 π × (0.5)² × 15 mm³。',
+              '题目表格问的是 5 分钟内吸收的水体积，不是每分钟速率，所以这一步**不用除以 5**。若另问平均吸水速率，才把体积除以 5 min，得到 0.75π mm³/min。',
+              '最后记住实验的边界：稳态下、植物含水量等近似不变时，吸水量才能近似反映蒸腾失水量。它们不是在所有时刻都严格相等。',
             ],
             optionNotes: [
-              'A：与“木质部完整”矛盾。',
-              'B：准确对应受损组织及运输物。',
-              'C：渗透是水的运输，不能让葡萄糖按该方式进入。',
-              'D：两类组织不能直接互相替代。',
+              'A：把蒸腾写成转运，且把位移读成 10 mm；两处不符。',
+              'B：体积表达式正确，但过程应为蒸腾，不是转运。',
+              'C：过程、位移都不对，还把 2πr（周长）当成了横截面积。',
+              'D：15 mm 位移正确，但过程错误，体积也不能用周长乘长度。',
+              'E：过程和面积正确，但位移应为 15 mm，不是 10 mm。',
+              'F：蒸腾、πr² 和 15 mm 三项都符合装置与读数。',
+              'G：过程正确，但位移和几何公式均错误。',
+              'H：过程与位移正确，但 2πr × 长度得到面积量纲，不是体积。',
             ],
             takeaway:
-              '**先把受损结构与它承担的运输联系起来，再区分直接影响和长期连锁影响**。题目的时间范围也是条件。',
+              '**同一端的末读数与初读数之差才是位移；直径要先减半，体积要用 πr²。**再看清题目到底问体积还是速率，避免把给出的时间不加判断地代入。',
             variant: {
               question:
-                'A mature leaf supplies sucrose to a growing shoot above it through living sieve tubes. Which tissue carries this sucrose, and in which direction?',
-              answer: '韧皮部，由下方的成熟叶向上方的生长芽运输。',
+                'A potometer capillary of internal diameter 1.0 mm gives a bubble displacement of 15 mm in 5 minutes. It is replaced with a capillary of internal diameter 2.0 mm. If the water uptake volume in 5 minutes is unchanged, how far will the bubble move in the new capillary?',
+              answer: '3.75 mm。',
               explanation:
-                '成熟叶制造糖，是源；上方的生长芽使用糖，是库。活的筛管属于韧皮部。方向与“成熟叶给下方根供糖”的例子相反，但从源到库的原则不变。',
+                '直径加倍，半径也加倍，横截面积变成原来的 4 倍。同样的水体积只需占四分之一的管长，所以位移 = 15 ÷ 4 = 3.75 mm。**气泡移动更慢不一定表示吸水更少**：比较两套装置时，还要检查毛细管的横截面积。',
             },
           },
           {
-            title: '气泡移动怎样变成吸水速率？',
-            question:
-              'A bubble moves 24 mm along a potometer capillary in 3 minutes. The internal cross-sectional area of the capillary is 0.5 mm². The apparatus is airtight. What is the measured water uptake rate?',
-            options: [
-              '4 mm³ per minute',
-              '8 mm³ per minute',
-              '12 mm³ per minute',
-              '16 mm³ per minute',
-            ],
-            answer: 'A：4 mm³ min⁻¹。',
+            title: '自然环境中的蒸腾曲线，能把变化都归给温度吗？',
+            source: {
+              questionCode: 'ESAT_LEGACY_2022_NSAA_Q073',
+              why: '把气孔开闭机制与自然环境中的多因素数据结合起来，练习区分已经证明的原因和仍然可能的解释。',
+            },
+            question: '',
+            answer: 'D：只有陈述 3 正确。',
             steps: [
-              '气泡走过的距离只给出一段管子的长度。先乘管内横截面积，才能得到被吸走的水体积。',
-              '体积 = 0.5 × 24 = 12 mm³；再除以 3 分钟，得到 4 mm³ min⁻¹。',
-              '这里直接测的是吸水速率。若要用它估计蒸腾，还要满足植物含水量近似稳定等条件，不能只看到气密就认定二者严格相等。',
+              '先留意 natural environment（自然环境）。横轴虽然是温度，但这不是题干已保证“只改变温度、其他条件相同”的实验。湿度、风速、光照和植物水分状态都可能一起变。',
+              '陈述 1 先靠知识判断：通常保卫细胞吸水、膨胀时气孔打开，失水、松弛时气孔关闭。题目把方向说反了，因此 1 错。',
+              '20–27 °C 间图中的蒸腾速率上升，并不证明湿度**一定**下降。温度变化本身、风速或气孔状态等也可能影响结果，图中又没有湿度测量，所以陈述 2 的 must 没有足够证据。',
+              '陈述 3 问 23 °C 时的风速**能不能**比 30 °C 时高，答案是可能。虽然前者蒸腾速率约为 0.06，后者约为 0.08 g m⁻² s⁻¹，但蒸腾由多个因素共同决定；温度、湿度或气孔状态的不同，可以使风速较大的那次仍有较低的总蒸腾速率。',
+              '因此只保留 3。这里接受 could，并不是已经从图算出了风速，也不是说风越大蒸腾越慢；它只是没有被现有数据排除。',
             ],
             optionNotes: [
-              'A：先算体积再除时间，单位也一致。',
-              'B：24 ÷ 3 = 8 是距离速率，单位应是 mm min⁻¹。',
-              'C：12 是总吸水体积，遗漏了除以时间。',
-              'D：把横截面积当除数，与体积公式不符。',
+              'A：漏掉了 3；自然环境没有控制所有其他因素，所述风速关系可能成立。',
+              'B：1 错，把保卫细胞失水与气孔开放联系反了。',
+              'C：2 错，蒸腾上升不能证明湿度一定下降。',
+              'D：只选 3，符合“可能”而非“已证明”的判断。',
+              'E：1、2 都不成立，并漏掉了 3。',
+              'F：3 可以成立，但 1 的气孔机制错误。',
+              'G：3 可以成立，但 2 对湿度作出了过强的结论。',
+              'H：把三条都接受，忽略了气孔机制和 must 的证据要求。',
             ],
             takeaway:
-              '**距离 × 面积 = 体积，体积 ÷ 时间 = 速率**。最后再用单位检查：长度速率与体积速率不是同一个量。',
+              '**受控实验才方便判断单个因素的作用；自然环境的数据往往混合了多个因素。**must 要有足够证据支持，could 只表示仍有可能；二者不能按同一个标准判断。',
             variant: {
               question:
-                'The capillary is replaced with one of internal cross-sectional area 1.0 mm². Water uptake is unchanged. How far will the bubble move in 3 minutes?',
-              answer: '12 mm。',
+                'The same well-watered shoot is tested in a controlled chamber. Temperature, humidity and light intensity are kept constant, and its stomata remain open. Increasing air speed causes its measured water uptake rate to rise from 0.04 to 0.07 cm³ min⁻¹. The shoot remains in a steady state. What does this experiment support, and does it prove that wind always increases transpiration in nature?',
+              answer:
+                '支持在本实验条件下增大风速使吸水速率、近似的蒸腾速率升高；不能证明自然环境中总是如此。',
               explanation:
-                '3 分钟仍吸收 12 mm³，距离 = 12 ÷ 1.0 = 12 mm。截面积加倍，同样体积只需移动一半距离；不能把移动较慢直接判断为吸水较少。',
+                '这次题目明确控制了其他因素，并给出稳态和气孔开放条件，因此可以把本次变化归于风速的改变：空气流动带走叶片附近的水蒸气，有助于保持扩散差异。但自然环境中还可能发生缺水、气孔关闭或湿度变化，不能把有条件的结果扩大成 always。',
             },
           },
         ],
@@ -333,7 +348,7 @@ export const esatPlantPhysiology: KnowledgeLesson = {
       id: 'uat-spec-b11',
       title: 'UAT-UK · ESAT Content Specification (2026/27), B11',
       url: 'https://uat-wp.s3.eu-west-2.amazonaws.com/wp-content/uploads/2024/05/03165424/ESAT_Content_Specification.pdf',
-      note: '用于核对 B11.1 与 B11.2 范围；中文知识总结、英文例题与图解均为原创。',
+      note: '用于核对 B11.1 与 B11.2 范围；中文知识总结、真题讲解、改编变式与图解为原创；例题原文及出处读取诊断题库。',
     },
     {
       id: 'openstax-photosynthesis',

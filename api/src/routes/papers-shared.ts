@@ -9,6 +9,7 @@ import { syncPaperQuestions, getPaperQuestions, formatQuestionRow } from '../uti
 import { parseJsonArray, parseJsonField } from '../utils/jsonField.js'
 import { createNumericId } from '../utils/id.js'
 import { checkMemberAccess, hasDiagnosticPaperAccess } from '../services/member.js'
+import { formatSyllabusLabel, readSyllabusLabels } from '../utils/syllabusLabels.js'
 import {
   EXAM_TYPE,
   QUESTION_BANK_PAPER_TYPES,
@@ -24,15 +25,15 @@ import {
 
 export type RawSyllabusNode = {
   code?: unknown
-  label?: unknown
-  name?: unknown
-  title?: unknown
+  en_label?: unknown
+  cn_label?: unknown
   children?: unknown
 }
 
 export type FlatSyllabusNode = {
   code: string
-  label: string
+  enLabel: string
+  cnLabel: string
   parentCode: string | null
   order: number
 }
@@ -84,7 +85,7 @@ export function getSyllabusRoots(input: unknown): RawSyllabusNode[] {
   if (Array.isArray(obj.syllabus)) return obj.syllabus as RawSyllabusNode[]
   if (Array.isArray(obj.tree)) return obj.tree as RawSyllabusNode[]
   if (Array.isArray(obj.children)) return obj.children as RawSyllabusNode[]
-  if ('code' in obj && ('label' in obj || 'name' in obj || 'title' in obj)) {
+  if ('code' in obj && ('en_label' in obj || 'cn_label' in obj)) {
     return [obj as RawSyllabusNode]
   }
   throw new Error('考纲内容缺少节点数组')
@@ -99,12 +100,11 @@ export function normalizeSyllabusNodes(input: unknown): FlatSyllabusNode[] {
   // 递归校验节点编码唯一性及子节点结构，避免导入后出现歧义映射。
   function visit(node: RawSyllabusNode, parentCode: string | null, order: number): void {
     const code = typeof node.code === 'string' ? node.code.trim() : ''
-    const labelSource = node.label ?? node.name ?? node.title
-    const label = typeof labelSource === 'string' ? labelSource.trim() : ''
-    if (!code || !label) throw new Error('考纲节点必须包含 code 和 label')
+    const { enLabel, cnLabel } = readSyllabusLabels(node)
+    if (!code) throw new Error('考纲节点必须包含 code')
     if (seen.has(code)) throw new Error(`考纲节点编码重复：${code}`)
     seen.add(code)
-    flat.push({ code, label, parentCode, order })
+    flat.push({ code, enLabel, cnLabel, parentCode, order })
 
     if (node.children === undefined) return
     if (!Array.isArray(node.children)) throw new Error(`节点 ${code} 的 children 必须是数组`)
@@ -302,20 +302,23 @@ export async function applySyllabusToTree(syllabus: { id: string; examType: stri
         if (!node || !question.topicCode || !hasAncestor(code, question.topicCode)) {
           throw new Error(`新考纲不再匹配题目 ${question.sourceQuestionCode || question.id} 的知识点 ${code}`)
         }
-        if (point.label !== node.label) knowledgePointLabelChanged = true
+        const nodeLabel = formatSyllabusLabel(node)
+        if (point.label !== nodeLabel) knowledgePointLabelChanged = true
         return {
           ...point,
-          label: node.label,
+          label: nodeLabel,
         }
       })
+      const subjectLabel = formatSyllabusLabel(subjectNode)
+      const topicLabel = formatSyllabusLabel(topicNode)
       return {
         questionId: question.id,
-        subjectLabel: subjectNode.label,
-        topicLabel: topicNode.label,
+        subjectLabel,
+        topicLabel,
         syncedPoints,
         labelChanged:
-          question.subject !== subjectNode.label
-          || question.topic !== topicNode.label
+          question.subject !== subjectLabel
+          || question.topic !== topicLabel
           || knowledgePointLabelChanged,
         links: syncedPoints.map((point) => ({
           questionId: question.id,
@@ -330,6 +333,7 @@ export async function applySyllabusToTree(syllabus: { id: string; examType: stri
       select: { id: true },
     })
 
+    // 正式考纲和历史版本永久保留；切换版本时只更新启用状态，不删除 Syllabus 或 sourceJson。
     await tx.syllabus.updateMany({
       where: { examType: syllabus.examType },
       data: { isActive: false },
@@ -359,7 +363,8 @@ export async function applySyllabusToTree(syllabus: { id: string; examType: stri
     await tx.syllabusNode.createMany({
       data: nodes.map((node) => ({
         code: node.code,
-        label: node.label,
+        enLabel: node.enLabel,
+        cnLabel: node.cnLabel,
         examType: syllabus.examType,
         parentCode: node.parentCode,
         order: node.order,

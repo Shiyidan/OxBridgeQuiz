@@ -1,203 +1,209 @@
-// ESAT 生态系统讲义：用生态小景、物质循环与取样数据连接知识总结、原创例题和变式。
+// ESAT 生态系统讲义：用生态小景、物质循环与诊断真题连接知识总结和原创变式。
 import type { KnowledgeExamFocus, KnowledgeLesson, KnowledgeSection } from './types'
 
 const organisationExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '先确定范围，再计算种群变化',
-    question:
-      'At the start of a month, a defined woodland contains 240 rabbits. During the month, 36 rabbits are born, 18 die, 12 enter the woodland and 30 leave it. No other changes occur. Which statement is correct at the end of the month?',
-    options: [
-      'The rabbit population contains 240 individuals.',
-      'The rabbit population contains 258 individuals.',
-      'The woodland community contains exactly 240 individuals.',
-      'The rabbit population contains 276 individuals.',
-    ],
-    answer: 'A：兔种群仍有 240 个个体。',
+    title: '甲虫、真菌和树，谁从这段关系中获益？',
+    source: {
+      questionCode: 'NSAA_2023_S1-Q061',
+      why: '用同一个情境区分互利共生、寄生和生产者，并练习从食物来源判断生物关系。',
+    },
+    question: '',
+    answer: 'A：甲虫与真菌互利共生。',
     steps: [
-      '先抓住统计边界：同一片林地、同一种兔，属于一个种群 population。群落 community 还包括这里其他物种的所有种群，所以不能把兔的数目当成整个群落的数目。',
-      '出生和迁入增加数量，死亡和迁出减少数量。因此期末数量为 240 + 36 + 12 − 18 − 30 = 240。',
-      '出生比死亡多 18 个，但迁出又比迁入多 18 个，两部分正好抵消。**种群数目稳定，不代表没有个体出生、死亡或迁移**。',
-      'B 只计算了出生与死亡；D 把某些迁移方向算反了。题目给出了四项变化，四项都要计入。',
+      '先分别问“甲虫得到了什么”和“真菌得到了什么”。真菌是甲虫唯一的食物来源；甲虫则帮助真菌传播孢子，并在木材中开出适合真菌生长的隧道。**双方都获益，才叫互利共生 mutualism**。',
+      '再看树。真菌堵塞木质部，最终使树死亡，题目没有给出树获益的证据。因此，不能因为三者生活在一起，就把任意两者都叫作互利共生。',
+      '真菌给甲虫提供食物，却不是生产者。**“被别的生物吃”不等于“能制造有机物”**；真菌是异养生物，利用已有的有机物。',
+      '最后核对 E：树是生产者这一半没错，但题干明确真菌是甲虫的 only food source。不能把“在树上打洞”自行解释为“以树为食”。',
     ],
     optionNotes: [
-      'A：把四项变化按正确方向全部计入。',
-      'B：只计算了 240 + 36 − 18，漏掉净迁出。',
-      'C：240 是兔的数量，不能代表包含树木、鸟、真菌等的整个群落。',
-      'D：将迁出当成增加、迁入当成减少，误算为 240 + 36 − 18 + 30 − 12 = 276。',
+      'A：甲虫得到食物，真菌得到传播与生长空间，两方受益。',
+      'B：树最终受害死亡，不符合双方受益。',
+      'C：真菌为甲虫提供食物；题干没有说甲虫被真菌伤害。',
+      'D：真菌是食物来源，但属于异养生物，不是生产者。',
+      'E：树是生产者，但甲虫在本题中吃真菌，不直接吃树。',
     ],
     takeaway:
-      '**期末种群数 = 期初数 + 出生 + 迁入 − 死亡 − 迁出**。先规定物种、地点和时间，再代入。',
+      '**判断互利或寄生，要逐一说明双方的得失；判断生产者，要看有机物怎样获得。** 同一个选项中的两部分都必须正确。',
     variant: {
       question:
-        'The same initial population, births, deaths and immigration apply, but no rabbits leave the woodland. What is the final population size, and what is the percentage increase from the initial population?',
-      answer: '270 个；比最初增加 12.5%。',
+        'A different fungus is carried between trees by a beetle. The fungus obtains nutrients from the beetle and reduces its reproductive success. The beetle receives no benefit from the fungus. Is the relationship mutualism or parasitism, and which organism is the host?',
+      answer: 'Parasitism（寄生）；甲虫是宿主。',
       explanation:
-        '没有迁出后，期末为 240 + 36 + 12 − 18 = 270，净增 30 个。百分比增加用原来的 240 作分母：30/240 × 100% = 12.5%。',
+        '变式把双方受益改成了真菌获益、甲虫受害，因此应判为寄生。传播孢子这一点没有改变，但仅凭传播行为不能决定两者的完整关系；关键是新的得失条件。',
     },
   },
   {
-    title: '同一个池塘里，谁影响了谁？',
-    question:
-      'In a pond, an alga provides sugars to a small animal living in association with it. The animal provides a protected location and carbon dioxide that the alga can use. Both organisms have greater reproductive success in this association than alone. A fish eats some of the animals. Which description is correct?',
-    options: [
-      'The association is parasitism, and the fish is an abiotic factor.',
-      'The association is mutualism, and the fish is a biotic factor.',
-      'The alga obtains all of its biomass directly from sunlight.',
-      'The alga and animal together form one population because they live in the same pond.',
-    ],
-    answer: 'B：双方受益属于互利共生；捕食者属于生物因素。',
+    title: '食物链里的“损失”，究竟在哪两级之间？',
+    source: {
+      questionCode: 'NSAA_2017_S1-Q061',
+      why: '把营养级名称、逐级传递效率和能量损失计算放在一起，练习读清计算范围。',
+    },
+    question: '',
+    answer: 'B：初级消费者与次级消费者之间损失 13 500 单位能量。',
     steps: [
-      '分别看两方的结果：藻类得到保护和可利用的二氧化碳，动物得到糖，题目还明确两者的繁殖成功都提高，因此是 mutualism（互利共生）。',
-      '鱼是活的捕食者，影响动物的存活，属于 biotic factor（生物因素）。温度、光照和水体 pH 等非生物条件才属于 abiotic factors。',
-      '藻类用光能合成有机物，但**光提供能量，二氧化碳和水等提供物质**。生物量不是太阳光直接变成的质量。',
-      '同住一个池塘不等于同一物种。藻类与动物属于不同种群，它们都可以是这个池塘群落的一部分。',
+      '先把名称放回食物链：仙人掌是生产者，鼠是初级消费者，响尾蛇是次级消费者，鹰再往后一级。题目要算的是**鼠到响尾蛇这一段**，不是从仙人掌开始的总损失。',
+      '题目明确每一级传递 10%，所以鼠获得 150 000 × 10% = 15 000 单位，响尾蛇再获得 15 000 × 10% = 1 500 单位。',
+      '这一段没有传到次级消费者的能量为 15 000 − 1 500 = 13 500 单位。也可以直接算鼠所含能量的 90%。',
+      '**传到下一级的能量与两级之间损失的能量不同。** 没有传给指定消费者的能量可能进入排泄物、未被吃的部分或以热等形式散失，不要把所有损失都说成被动物用于生长。',
     ],
     optionNotes: [
-      'A：寄生要求一方获益而宿主受害；鱼也不是非生物因素。',
-      'B：同时符合双方受益和捕食者为生物的两条信息。',
-      'C：混淆了能量来源与构成有机物的原子来源。',
-      'D：种群必须是同一物种在规定区域内的个体，不能只看生活地点。',
+      'A：1 500 是次级消费者获得的能量，不是损失。',
+      'B：15 000 − 1 500 = 13 500，范围和相减方向均正确。',
+      'C：15 000 是初级消费者获得的全部能量，尚未扣除传出的部分。',
+      'D：135 000 是生产者到初级消费者之间的损失，算错了区段。',
+      'E：148 500 是生产者到次级消费者的累计损失，多算了前一段。',
     ],
     takeaway:
-      '判断种间关系时，**分别说明每一方获益还是受害**；判断生态层级时，始终保留“是否同一物种”这个条件。',
+      '**先标出题目指定的两个营养级，再算“上一级的能量 − 下一级获得的能量”。** 10% 是本题给定条件，不是所有食物链都固定使用的数值。',
     variant: {
       question:
-        "In a different association, an organism takes nutrients from a host and reduces the host's reproductive success. The host is not immediately killed. Which type of interaction does this describe?",
-      answer: 'Parasitism（寄生）。',
+        'In the same food chain, the producer contains 150 000 units of energy. Transfer from cactus to rat is 20%, and transfer from rat to rattlesnake is 15%. How much energy is lost between the primary and secondary consumers?',
+      answer: '25 500 单位能量。',
       explanation:
-        '寄生者获益，宿主受害，符合寄生的特点。寄生并不要求宿主立即死亡；是否立即被杀死也不能代替对双方利益的判断。',
+        '鼠获得 150 000 × 20% = 30 000，响尾蛇获得 30 000 × 15% = 4 500。这一段损失 30 000 − 4 500 = 25 500。两段效率不同，应分别使用对应数字，不能连乘两次 20% 或沿用原题的 10%。',
     },
   },
 ]
 
 const cyclingExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '植物白天也会释放二氧化碳吗？',
-    question:
-      'During one hour in daylight, plants in a closed chamber take up 18 units of carbon dioxide by photosynthesis and release 7 units by respiration. Other organisms in the chamber release 5 units by respiration. There are no other carbon dioxide exchanges. What is the net change in the amount of carbon dioxide in the chamber air?',
-    options: [
-      'A decrease of 18 units.',
-      'An increase of 12 units.',
-      'A decrease of 6 units.',
-      'A decrease of 11 units.',
-    ],
-    answer: 'C：空气中的二氧化碳净减少 6 单位。',
+    title: '没有文字标签，怎样认出碳循环中的四个位置？',
+    source: {
+      questionCode: 'ESAT-2020-BIOLOGY-003',
+      why: '通过碳的输入和输出识别植物、动物、分解者与大气，练习完整核对箭头方向。',
+    },
+    question: '',
+    answer: 'D：大气二氧化碳是 Q，动物是 S，分解者是 P，植物是 R。',
     steps: [
-      '把观察对象固定为空气中的二氧化碳。光合作用从空气中取走 18 单位，植物和其他生物的呼吸分别往空气中加入 7 与 5 单位。',
-      '因此变化量为 −18 + 7 + 5 = −6，即净减少 6 单位。**净吸收量是吸收与释放相抵后的结果，不等于总光合吸收量**。',
-      '植物在白天既光合也呼吸，不能因为看到光照就把植物呼吸的 7 单位删掉。其他生物的呼吸也同样进入空气的收支。',
-      '题目限定没有其他交换，所以这里不再自行加入通风、燃烧或溶解进水体等过程。',
+      '先看每个框收到了哪些箭头。Q 收到 P、R、S 的箭头，却只向 R 输出。把 Q 当作大气二氧化碳、R 当作植物，就能解释为：各类生物呼吸释放二氧化碳，植物光合作用吸收二氧化碳。',
+      '再看 R 的其余去向：R → S 可以表示植物被动物取食，R → P 表示植物有机物进入分解者；因此 S 是动物，P 是分解者。',
+      '把剩余箭头补查一遍：S → P 是动物有机物进入分解者；S → Q 是动物呼吸；P → Q 是分解者呼吸；R → Q 是植物呼吸。**植物既吸收也释放二氧化碳，所以植物与大气之间有两个方向的箭头。**',
+      '最后按选项表的列顺序填写：大气、动物、分解者、植物，依次是 Q、S、P、R，对应 D。不要把自己按 P、Q、R、S 写出的身份顺序直接当作选项顺序。',
     ],
     optionNotes: [
-      'A：只计算光合作用，漏掉全部呼吸释放。',
-      'B：只计算呼吸产生的 12 单位，漏掉光合吸收。',
-      'C：把空气作为同一个收支对象，取出与加入全部计入。',
-      'D：只考虑植物的 18 − 7，漏掉其他生物。',
+      'A：把 P 当大气、S 当植物，但 P 没有指向 S 的光合碳输入箭头。',
+      'B：Q 和 R 两列识别正确，但把动物与分解者倒置；图中 S → P 表示动物有机物进入分解者。',
+      'C：把 S 当大气、P 当植物，无法解释真正植物 R 与大气 Q 之间的双向交换。',
+      'D：Q、S、P、R 依次对应大气、动物、分解者和植物，全部箭头吻合。',
+      'E：把 S 当大气、P 当植物，又把真正大气 Q 当分解者，整体关系不成立。',
+      'F：把植物 R 当大气、把大气 Q 当植物，颠倒了光合作用的碳流向。',
+      'G：P 与 S 被误认作大气和植物，也把 R、Q 误认作动物和分解者。',
+      'H：将 R 当大气、Q 当植物，并把动物 S 与分解者 P 倒置。',
     ],
     takeaway:
-      '碳循环收支题先说清“哪一处的碳”。**植物白天也呼吸；净变化要把同一范围内的所有输入和输出一起算**。',
+      '**先用“哪些生物向大气释放二氧化碳、谁能把它吸收回来”确定植物与大气，再区分取食和分解。** 每个候选答案都要能解释整张图。',
     variant: {
       question:
-        'The chamber is then kept in darkness for one hour. Photosynthesis stops, while both respiration rates remain as stated. What is the change in carbon dioxide in the chamber air?',
-      answer: '增加 12 单位。',
+        'Using the correct identities in the original diagram, photosynthesis stops in darkness while respiration continues. Which of the two arrows between Q and R stops representing a carbon transfer, and which continues?',
+      answer: 'Q → R 的光合碳转移停止；R → Q 的植物呼吸碳转移继续。',
       explanation:
-        '无光时光合作用为零，但题目明确两种呼吸速率不变，因此空气中的二氧化碳增加 7 + 5 = 12 单位。不能把“没有光合作用”误读成“没有任何代谢”。',
+        'Q 是大气二氧化碳，R 是植物。黑暗阻止光合作用，但题目明确呼吸继续，所以两个方向不能一起删掉。记住“植物在黑暗中也呼吸”，就能把文字条件转换成正确箭头。',
     },
   },
   {
-    title: '分解与水循环，分别转移了什么？',
-    question:
-      'Fungi grow on fallen leaves in moist, oxygenated soil. Nearby, water leaves plant leaves as vapour and later forms droplets in a cloud. Which statement correctly describes these processes?',
-    options: [
-      'Fungal respiration can return carbon from leaf material to the atmosphere, while condensation converts water vapour into liquid droplets.',
-      'Decomposition destroys the carbon atoms in the fallen leaves.',
-      'Water vapour leaving the plant is an example of precipitation.',
-      'Energy released as heat by fungi is recycled into sunlight by the water cycle.',
-    ],
-    answer: 'A：分解者的呼吸可把落叶中的碳送回大气；凝结让水蒸气成为液滴。',
+    title: '碳循环中的过程，还受哪些细胞知识约束？',
+    source: {
+      questionCode: 'ESAT_LEGACY_2021_NSAA_Q072',
+      why: '把循环图与细菌结构、光合作用的能量变化以及分解酶的条件联系起来。',
+    },
+    question: '',
+    answer: 'D：只有陈述 3 正确。',
     steps: [
-      '真菌分解落叶中的有机物，并利用其中的物质。它们进行有氧呼吸时，会把部分有机物中的碳以二氧化碳形式释放出去；碳原子没有被消灭。',
-      '水从植物叶片散失为水蒸气属于 transpiration（蒸腾）。水蒸气冷却形成云中小液滴属于 condensation（凝结），之后雨等落到地面才是 precipitation（降水）。',
-      '因此 A 同时正确描述了碳的转移与水的相态变化。虽然都叫循环，但它们不是在把原子或能量凭空制造出来。',
-      '**物质能够循环，能量最终以热等形式散失**。水循环由太阳能等驱动，不会把真菌散失的热“循环还原”为太阳光。',
+      '先认箭头，不急着判断陈述：P 从细菌指向空气中的二氧化碳，表示细菌呼吸；Q 从空气中的二氧化碳指向植物，表示光合作用；R 从植物指向细菌，涉及植物有机物被分解并利用。',
+      '陈述 1 把呼吸与线粒体绑定了。**细菌没有线粒体，但仍能进行呼吸。** 因此，图中的细菌呼吸 P 不以线粒体存在为必要条件，1 错。',
+      '陈述 2 问 overall，即整个光合作用过程的能量变化。光合作用需要吸收光能并把能量储存在有机物中，不能把它说成总体放热过程，2 错。',
+      '陈述 3 对：分解与利用有机物涉及酶催化反应，温度与 pH 都可能改变酶活性。因此 R 对这些条件敏感。这里是把“过程怎样发生”接回“为什么环境会影响过程速率”。',
     ],
     optionNotes: [
-      'A：区分了分解者呼吸与水蒸气凝结两个过程。',
-      'B：分解改变物质的组合与所在位置，不会消灭碳原子。',
-      'C：从叶片进入空气是蒸腾；从云落向地面才是降水。',
-      'D：能量的传递与散失不能写成物质式循环。',
+      'A：漏掉正确的陈述 3，分解过程确实会受 pH 与温度影响。',
+      'B：细菌呼吸不需要线粒体，陈述 1 错。',
+      'C：光合作用总体吸收能量，陈述 2 错。',
+      'D：只保留陈述 3，与三个过程的性质相符。',
+      'E：同时选入错误的 1、2，并漏掉正确的 3。',
+      'F：3 正确，但加入了“细菌呼吸需要线粒体”的错误条件。',
+      'G：3 正确，但把光合作用总体判为放热。',
+      'H：把三条全部选入，未排除 1、2。',
     ],
-    takeaway: '碳循环追踪碳原子，水循环追踪水的移动和相态。**分解者本身也是活生物，也要呼吸**。',
+    takeaway:
+      '**会呼吸不代表有线粒体；光合作用总体吸收能量；分解依赖酶，因而受温度和 pH 影响。** 看懂箭头后，再判断该过程的必要条件。',
     variant: {
       question:
-        'The fallen leaves are burned instead of decomposing. Which carbon transfer can occur during complete combustion, and is living tissue required for that transfer?',
-      answer: '有机物中的碳可转为二氧化碳进入空气；燃烧不需要活的组织。',
+        'In a modified carbon-cycle diagram, process P is aerobic respiration in a mammalian cell instead of a bacterial cell. Which organelle is needed for its aerobic stages, and does this mean that all respiration in all organisms requires that organelle?',
+      answer: '需要线粒体；不能据此推断所有生物的呼吸都需要线粒体。',
       explanation:
-        '燃烧 combustion 能把燃料中的碳以二氧化碳形式释放。它和呼吸都能把有机碳转回二氧化碳，但燃烧不是活细胞的代谢，也不以活组织存在为前提。',
+        '哺乳动物细胞的有氧呼吸在糖酵解之后的阶段依赖线粒体，糖酵解本身在细胞质基质中进行。细菌没有线粒体也可呼吸。改变的是参与呼吸的细胞类型，因此必要结构要随题目条件重新判断。',
     },
   },
 ]
 
 const biodiversityExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '样方里的数字，怎样换算成整块草地？',
-    question:
-      'Twenty non-overlapping quadrats are placed at randomly selected coordinates across a 600 m² meadow. Each quadrat has an area of 0.25 m². A total of 45 plants of one species is counted. Assume that the sample is representative. What is the estimated number of plants of this species in the meadow?',
-    options: ['1350', '5400', '108000', '225'],
-    answer: 'B：估计有 5400 株。',
+    title: '样带上的阴影，是在说“多少种”还是“多少个”？',
+    source: {
+      questionCode: 'ESAT_LEGACY_2022_NSAA_Q070',
+      why: '同一张风筝图同时考查物种丰富度、个体丰度和分布位置，训练按问题选择正确读法。',
+    },
+    question: '',
+    answer: 'F：陈述 1 和 3 正确。',
     steps: [
-      '20 个样方面积共为 20 × 0.25 = 5 m²，这 5 m² 中数到 45 株。先算平均密度：45/5 = 9 株/m²。',
-      '再乘整块草地面积：9 × 600 = 5400 株。**样方的面积必须进入计算**，不能把“每样方平均数”直接当成“每平方米平均数”。',
-      '随机坐标能减少人为挑选位置的偏差，足够分散的多个样方比只在一角计数更有代表性。题目允许把样本密度推广到整片草地，所以这里才能进行外推。',
-      '得到的是估计值，并不表示确实逐株数到了 5400 株。即使取样规范，不同随机样本也可能给出不同结果。',
+      '先读图例：阴影越宽，表示这个物种在该位置的个体越多；各行纵向尺度相同，可以比较宽度。**同一地点有多少种，要数有阴影的物种行；某一种有多少个，要看那一行的宽度。**',
+      '看 35 m 的竖线：R、S、T、V、W 都有非零阴影，共 5 种；Q 在那里已经没有阴影。与其他每隔 5 m 的采样点比较，35 m 的物种数最多，所以 1 对。注意 R 的阴影很窄，但只要不是零，就仍然是一种。',
+      '陈述 2 不能因为 T、V、W 都从相近位置出现就判对。它们在相同距离处的阴影宽度不同，例如 50 m 处 W 最宽、V 次之、T 最窄，因此丰度并不相同，2 错。',
+      '在 5 m 处作同样的竖直检查，只有 Q 一行有阴影，其他五种没有出现，所以 3 对。读某个地点时，不要把整条样带上曾经出现过的物种都算进去。',
     ],
     optionNotes: [
-      'A：45/20 × 600，把每个 0.25 m² 样方误当成了 1 m²。',
-      'B：先算单位面积的平均密度，再乘目标总面积。',
-      'C：45/0.25 × 600，忘了 45 株来自 20 个样方。',
-      'D：45 × 5，既未算出密度，也未使用草地总面积。',
+      'A：1 与 3 都有图中证据，不能全部否定。',
+      'B：正确保留 1，但漏掉“5 m 只有 Q”的 3。',
+      'C：2 错误，T、V、W 的阴影宽度不同。',
+      'D：3 正确，但漏掉 35 m 物种数最多的 1。',
+      'E：多选错误的 2，同时漏掉正确的 3。',
+      'F：保留 1、3，排除 2，符合图中分布和宽度。',
+      'G：错误保留 2，并漏掉正确的 1。',
+      'H：多选 2；共同的分布区间并不代表相同丰度。',
     ],
     takeaway:
-      '**估计总数 = 样本总个体数 ÷ 样本总面积 × 目标面积**。同样要说明取样是否能代表要估计的整个区域。',
+      '**丰富度数种类，丰度看个体数量。** 风筝图中再窄的非零阴影也表示该物种存在，不能因为数量少就漏数。',
     variant: {
       question:
-        'The same quadrat counts are instead obtained only from the wet edge of a meadow, where this species is known to be more abundant than elsewhere. Is 5400 still a reliable estimate for the whole meadow, and in which direction is the estimate likely to be biased?',
-      answer: '不可靠；很可能高估整块草地的数量。',
+        'At one sampling site, species Q, R and S have 80, 10 and 10 individuals. At a second site, species Q and R each have 100 individuals and species S is absent. Which site has greater species richness, and which has more individuals in total?',
+      answer: '第一个地点物种丰富度更高（3 种对 2 种）；第二个地点总个体数更多（200 对 100）。',
       explanation:
-        '计算公式没变，但样本只来自已知密度更高的湿边，不能代表其他区域。把偏高的局部密度乘整块面积通常会高估。**增加同一处的样方数量，不能自动消除选址偏差**。',
+        '丰富度只统计实际出现的种类；总个体数则把各物种个体相加。第二个地点虽然有更多个体，但少了一个物种，不能用总数较大代替丰富度较高。',
     },
   },
   {
-    title: '水变绿后，为什么鱼反而缺氧？',
-    question:
-      'After nutrient-rich runoff enters a lake, algal biomass increases greatly. Later, many algae and submerged plants die. Dissolved oxygen falls sharply and several fish species decline. Which explanation best connects these observations?',
-    options: [
-      'Nitrate ions directly remove all oxygen molecules from the water.',
-      'Photosynthesis by the algae consumes oxygen faster than it releases it.',
-      'More algal individuals necessarily mean that the lake now has greater biodiversity.',
-      'Aerobic decomposers use oxygen while breaking down the increased amount of dead organic matter.',
-    ],
-    answer: 'D：大量有机物被分解时，有氧分解者的呼吸消耗溶解氧。',
+    title: '有机物进入河流，为什么有的生物减少、有的增加？',
+    source: {
+      questionCode: 'ESAT-2020-BIOLOGY-010',
+      why: '用污染情境串起分解者呼吸、溶解氧、浓度梯度与生物多样性的变化。',
+    },
+    question: '',
+    answer: 'F：陈述 1 和 3 正确。',
     steps: [
-      '营养盐输入促进藻类大量繁殖。藻层还可能遮挡光线，使水下植物难以光合；藻类和植物死亡后，水中可供分解的有机物增多。',
-      '有氧分解者利用这些物质并呼吸，氧需求上升。如果消耗快于补充，溶解氧便下降，鱼类等依赖氧气的生物受到影响。D 连接了“死亡物质增多”与“氧下降”。',
-      '植物和藻类的光合作用会释放氧，呼吸才会耗氧。夜间藻类等的呼吸也可能加重缺氧，因此不能只凭白天藻多，就认定全天氧一定充足。',
-      '**一个物种大量增加，不等于生物多样性提高**。其他物种消失、少数种占优势，都可能让生态系统的物种多样性下降。',
+      '题干说加入的是大量有机物。它可以直接为分解者提供更多可利用的物质，**不必先假设发生藻类大量繁殖**。有氧分解者呼吸增强，水中溶解氧可能下降。',
+      '缺氧会使一些需氧生物难以生存，物种可能减少，因而生物多样性可能下降，陈述 1 可以成立。与此同时，得到更多食物的某些分解者种群可能扩大，所以 3 也可以成立。',
+      '再判断 2 的方向。空气中的氧浓度没有被题目改变；水中氧降低后，空气与水之间的氧浓度差趋于增大，而不是减小。不要把“水中的氧少了”误写成“空气和水的差也小了”。',
+      '题目问 could be a result，即哪些变化可能出现，而不是要求每条河流都必然出现相同结果。**某个种群数量上升和整个群落多样性下降，可以同时发生。**',
     ],
     optionNotes: [
-      'A：营养盐是富营养化的起点，典型耗氧环节是生物呼吸，不是硝酸盐把所有氧直接清除。',
-      'B：把光合作用与呼吸的氧气收支方向弄反。',
-      'C：把某一类生物的数量增加等同于物种多样性增加。',
-      'D：与题干的死亡有机物增加及随后缺氧直接对应。',
+      'A：忽略了缺氧引起的多样性下降，以及分解者种群可能增加。',
+      'B：1 可以成立，但不是唯一可能，3 也成立。',
+      'C：水中氧降低会使与空气之间的浓度差趋于增大，2 的方向相反。',
+      'D：3 可以成立，但漏掉 1。',
+      'E：保留 1 却多选 2，并漏掉 3。',
+      'F：1 与 3 可由有机物增加及后续分解解释，排除方向错误的 2。',
+      'G：3 可以成立，但 2 错，且漏掉 1。',
+      'H：将 2 一起选入，混淆了水中氧含量与空气—水之间的氧浓度差。',
     ],
     takeaway:
-      '富营养化要讲完整因果：**营养盐增加 → 藻类增长与遮光 → 死亡有机物增加 → 分解者有氧呼吸耗氧 → 部分物种减少**。',
+      '**有机物增多 → 分解者利用有机物并呼吸 → 水中氧可能减少 → 部分需氧物种受影响。** 解释多样性时看物种变化，解释梯度时比较两侧浓度。',
     variant: {
       question:
-        'An equal-area survey finds four species with counts of 25, 25, 25 and 25 in lake X, and four species with counts of 97, 1, 1 and 1 in lake Y. Which lake has greater species richness, and which has more even species abundances?',
-      answer: '物种丰富度相同，都是 4 种；X 的个体分配更均匀。',
+        'In a follow-up experiment, organic material is added to river water, but aeration keeps dissolved oxygen at its original concentration. Food becomes more available to decomposers. Can the original explanation still predict a decline in oxygen-sensitive species because of oxygen shortage? Could a decomposer population still increase?',
+      answer: '不能再用缺氧预测需氧物种减少；某些分解者种群仍可能增加。',
       explanation:
-        '丰富度 richness 只数有多少种，两湖相同；均匀度 evenness 看各物种的相对数量，X 更均匀。总个体数也同为 100，因此单看总数无法区分这两种群落结构。',
+        '变式把因果链中的“水中氧减少”人为阻断了，因此原来基于缺氧的推断不再成立。更多可利用有机物仍可能支持分解者增长。这里只排除缺氧这一个理由，不能据此保证所有物种数量或整体多样性一定不变。',
     },
   },
 ]
@@ -507,7 +513,7 @@ export const esatEcosystems: KnowledgeLesson = {
       id: 'esat-b10',
       title: 'UAT-UK ESAT Content Specification — B10 Ecosystems',
       url: 'https://uat-wp.s3.eu-west-2.amazonaws.com/wp-content/uploads/2024/05/03165424/ESAT_Content_Specification.pdf',
-      note: '按适用于 2026 年 10 月和 2027 年 1 月的 B10.1–B10.3 核对范围；中文讲解、题目和图解为原创。',
+      note: '按适用于 2026 年 10 月和 2027 年 1 月的 B10.1–B10.3 核对范围；真题取自诊断题库，中文解析、变式和教学图解为原创。',
     },
     {
       id: 'openstax-community',
@@ -519,7 +525,7 @@ export const esatEcosystems: KnowledgeLesson = {
       id: 'openstax-population',
       title: 'OpenStax Biology 2e — Population Demography',
       url: 'https://openstax.org/books/biology-2e/pages/45-1-population-demography',
-      note: '核对种群、取样与数量估计；数据和情境为原创。',
+      note: '核对种群、取样与数量估计；真题之外的教学情境为原创。',
     },
     {
       id: 'openstax-cycles',

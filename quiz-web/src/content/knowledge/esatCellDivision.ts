@@ -1,265 +1,279 @@
-// ESAT 生物 B3：用知识总结、原创例题和分阶段图解解释细胞分裂、繁殖与性别决定。
+// ESAT 生物 B3：结合诊断测试真题、原创变式与分阶段图解讲解细胞分裂、繁殖及性别决定。
 import type { KnowledgeExamFocus, KnowledgeLesson, KnowledgeSection } from './types'
 
 const mitosisExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: 'DNA 已经加倍，染色体数也加倍了吗？',
-    question:
-      'A diploid animal cell has 8 chromosomes and 10 arbitrary units of nuclear DNA before DNA replication. It completes replication but has not started separating sister chromatids. What does this cell now contain?',
-    options: [
-      '8 chromosomes and 10 units of DNA',
-      '8 chromosomes and 20 units of DNA',
-      '16 chromosomes and 10 units of DNA',
-      '16 chromosomes and 20 units of DNA',
-    ],
-    answer: 'B：8 条染色体，20 单位核 DNA。',
+    title: '分离被阻断时，染色体会处于什么状态？',
+    question: '',
+    source: {
+      questionCode: 'NSAA_2023_S1-Q066',
+      why: '用药物干预情境检查有丝分裂的过程、产物与染色体计数，适合检验是否真正理解“复制”和“分离”。',
+    },
+    answer: 'D：只有陈述 3 正确。',
     steps: [
-      '先把两个数量分开：题目同时问 chromosomes（染色体）和 DNA。**复制增加 DNA 的量，但姐妹染色单体还没有分开时，染色体数不变**。',
-      '原来的每条染色体复制后都有两条姐妹染色单体，仍作为一条复制后的染色体计数。因此还是 8 条染色体，共 16 条染色单体。',
-      '每条染色单体含一条 DNA 双链分子。DNA 从 10 增至 20 单位，所以选 B。这里的 20 是相对含量，不能说成 20 个 DNA 分子。',
+      '先圈出 mitosis。题目讨论的是**一次有丝分裂**，不能看到“分裂”就套用减数分裂的四个产物或单倍体配子。',
+      '药物阻止复制后的染色体分离。姐妹染色单体还相连时，不能把两条染色单体各算成一条染色体。**DNA 已复制，并不等于染色体套数已经翻倍**。',
+      '陈述 3 说细胞可能没有完成分裂，并保留二倍体数目的已复制染色体，这与题给干预相符。题目问 could（可能），不需要把这一结果说成药物作用的唯一结局。',
+      '陈述 1 把一次有丝分裂说成形成四个子细胞；陈述 2 又引入形成单倍体配子。它们都不符合本题的分裂过程，因此只保留 3。',
     ],
     optionNotes: [
-      'A：染色体数正确，但漏掉了 DNA 复制。',
-      'B：复制后的姐妹染色单体仍相连，染色体为 8 条，DNA 已加倍。',
-      'C：把染色体数加倍，却没有把 DNA 量加倍，两个判断都不符。',
-      'D：DNA 量正确，但把两条仍相连的姐妹染色单体算成了两条染色体。',
+      'A：遗漏了与题给干预相符的陈述 3。',
+      'B：陈述 1 的“四个子细胞”不符合一次有丝分裂。',
+      'C：陈述 2 把本题的有丝分裂误当成产生单倍体配子的过程。',
+      'D：仅保留 3，与分离受阻后的可能状态一致。',
+      'E：同时选入错误的 1、2，却漏掉 3。',
+      'F：虽然保留 3，但多选了 1。',
+      'G：虽然保留 3，但多选了 2。',
+      'H：把不符合题意的 1、2 也纳入。',
     ],
     takeaway:
-      '看到“复制后”，先问姐妹染色单体是否已经分开。==复制后、分离前：DNA 加倍，染色体数不变==。',
+      '==先区分复制与分离，再判断染色体数==。解释 could 时说明“为什么可能”，不要擅自改成“必然只有这一结果”。',
     variant: {
       question:
-        'The same cell completes normal mitosis and cytokinesis, without mutation. How many chromosomes and how much nuclear DNA does each daughter cell contain, before any further replication?',
-      answer: '每个子细胞有 8 条染色体、10 单位核 DNA。',
+        'A diploid animal cell has 12 chromosomes before DNA replication. After replication, a chemical prevents sister chromatids from separating and cytokinesis does not occur. How many chromosomes and chromatids are present in this cell?',
+      answer: '12 条染色体，24 条染色单体。',
       explanation:
-        '注意 each（每个），不是把两个子细胞加在一起。复制所得的两份遗传信息平均分开，每个子细胞获得原有的一套完整信息。**每个子细胞的染色体数和核 DNA 量都回到复制前的水平**。',
+        '每条染色体已复制成两条相连的姐妹染色单体，所以染色单体有 24 条；但它们还没有分开，染色体仍计 12 条。这里问的是整个未分裂细胞，不能再除以二。',
     },
   },
   {
-    title: '修复伤口时细胞分裂，为什么不等于癌症？',
-    question:
-      'Cells at a wound divide, replace damaged cells and stop dividing when repair is complete. In a second tissue, mutations affecting cell-cycle control allow cells to continue dividing despite signals to stop. Which conclusion is best supported?',
-    options: [
-      'Both tissues must be cancerous because mitosis occurs.',
-      'The first tissue uses meiosis to replace body cells.',
-      'Loss of control in the second tissue can contribute to cancer.',
-      'Every mutation in a body cell immediately causes cancer.',
-    ],
-    answer: 'C：第二组细胞的分裂调控失常可以促成癌症。',
+    title: 'DNA 是配子的四倍，能确定是哪一种分裂吗？',
+    question: '',
+    source: {
+      questionCode: 'ESAT_LEGACY_2022_NSAA_Q067',
+      why: '同一个 DNA 含量对应多个细胞周期阶段，训练对时间词和“可能正确”的准确理解。',
+    },
+    answer: 'G：陈述 1、2、3、4 都可能正确。',
     steps: [
-      '第一组细胞在有需要时分裂，修复完成后停止。这正是有丝分裂维持组织的正常作用，**发生分裂本身不是癌症的证据**。',
-      '第二组的关键条件是“影响细胞周期控制的突变”及“忽略停止信号”。正常调控失效，细胞可能持续增殖。',
-      '因此 C 最有依据。题目没有说所有突变都会破坏调控，也没有说一次突变必然立即形成癌症，不能选 D。',
+      '先把一个正常成熟配子的 DNA 量记为 1C。普通二倍体细胞复制前是 2C，复制后是 4C，所以题给细胞处于**DNA 已复制、尚未把这些 DNA 分到不同细胞**的状态。',
+      'DNA 复制发生在有丝分裂开始之前，也发生在减数第一次分裂开始之前。因此“正要开始有丝分裂”和“正要开始减数分裂”都可以是 4C，陈述 1、2 都成立。',
+      '“刚开始分裂”并不表示 DNA 已经分给子细胞。刚进入有丝分裂或减数第一次分裂时，每个原细胞仍可保有 4C，陈述 3、4 也成立。',
+      '题目问 could be correct，不是让你认定细胞同时经历四种状态。四个描述各自都有可能，故选 G。',
     ],
     optionNotes: [
-      'A：把正常生长和修复也误判成癌症。',
-      'B：正常补充体细胞主要靠有丝分裂，不是制造单倍体的减数分裂。',
-      'C：把已给出的调控变化与失控分裂联系起来，因果解释成立。',
-      'D：不同突变的影响不同，“每个”“立即”都超出了证据。',
+      'A：只接受 1，漏掉另外三个同样可为 4C 的状态。',
+      'B：只接受 2，错误地把这一 DNA 含量限于有丝分裂开始前。',
+      'C：接受分裂前，却误以为刚开始分裂就已经减少了每细胞 DNA 量。',
+      'D：只保留减数分裂相关描述，遗漏有丝分裂。',
+      'E：遗漏同样可能的 1 和 4。',
+      'F：只保留有丝分裂相关描述，遗漏减数分裂。',
+      'G：四个时点都可以出现在复制后、DNA 尚未分配到子细胞的阶段。',
     ],
-    takeaway: '判断癌变要看**分裂是否失去正常控制**，不能只看有没有分裂、分裂是否较快。',
+    takeaway:
+      '**4C 是 DNA 含量，不是四倍体的同义词。** 同一个 DNA 含量可以对应不同分裂类型和阶段。',
     variant: {
       question:
-        'A DNA mutation is detected in a skin cell, but its division remains normally regulated. Does the mutation alone prove that this cell is cancerous?',
-      answer: '不能。',
+        'In a diploid animal, a mature gamete has a nuclear DNA mass of 3 pg. A primary spermatocyte has completed DNA replication. What is its nuclear DNA mass, and what is the mass in each cell after normal meiosis I and cytokinesis?',
+      answer: '初级精母细胞为 12 pg；减数第一次分裂及胞质分裂后，每个细胞为 6 pg。',
       explanation:
-        '突变说明 DNA 发生了改变，却没有证明分裂已经失控。突变可能没有影响控制细胞周期的功能。还需要相应的细胞行为和调控证据，不能把“有突变”直接等同于“患癌”。',
+        '配子是 1C＝3 pg，复制后的二倍体细胞是 4C＝12 pg。第一次分裂把同源染色体分给两个细胞，每个得到 2C＝6 pg；此时虽已是单倍体，每条染色体仍有两条染色单体。',
     },
   },
 ]
 
 const meiosisExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '减数第一次分裂后，细胞里还剩什么？',
-    question:
-      'A diploid cell has 12 chromosomes before replication. It undergoes normal meiosis. Immediately after meiosis I and cytokinesis, before meiosis II, what is present in each daughter cell?',
-    options: [
-      '6 chromosomes, each with one chromatid',
-      '6 chromosomes, each with two chromatids',
-      '12 chromosomes, each with one chromatid',
-      '12 chromosomes, each with two chromatids',
-    ],
-    answer: 'B：每个细胞有 6 条染色体，每条仍含两条姐妹染色单体。',
+    title: '题目问的是 DNA 分子，还是 DNA 单链？',
+    question: '',
+    source: {
+      questionCode: 'NSAA_2016_S1-Q067',
+      why: '把染色体数、DNA 单链数和减数分裂产物数放在一张表中，集中检验容易混淆的三个数量。',
+    },
+    answer: 'D：每个精子有 8 条 DNA 单链，共形成 4 个精子。',
     steps: [
-      '先确定计数位置：题目问第一次分裂及胞质分裂完成后、第二次分裂之前的**每一个**细胞。不要用原细胞或两个子细胞的合计作答。',
-      '减数第一次分裂分开的是同源染色体。原来 12 条、6 对；每对各取一条进入一个子细胞，所以每细胞是 6 条。',
-      '这一阶段姐妹染色单体通常还连在一起，需等第二次分裂才分开，因此每条染色体仍有两条染色单体。选 B。',
-      '这个细胞已经是单倍体，因为每对同源染色体只剩一条。**单倍体不是“每条染色体只有一条染色单体”的意思**。',
+      '题给二倍体细胞有 8 条染色体，因此这个物种的单倍体数是 4。正常减数分裂完成后，每个精子有 4 条染色体。',
+      '接着细读表头：它问 strands of DNA，即 **DNA 单链数**，不是染色体数，也不是 DNA 双链分子数。',
+      '每个成熟精子的每条染色体含一个 DNA 双链分子；4 个双链分子共有 8 条单链。不要在这一步把“双链”误读成“两条姐妹染色单体”。',
+      '正常精子发生中，一个进入减数分裂的细胞经两次分裂形成四个精细胞，随后成熟为四个精子。两列分别为 8 和 4，选 D。',
     ],
     optionNotes: [
-      'A：这是正常第二次分裂结束后的状态，时间点提前了。',
-      'B：同源染色体已经分开，姐妹染色单体还没有分开。',
-      'C：既保留了原数目，又过早拆开了姐妹染色单体。',
-      'D：相当于忽略了第一次分裂对同源染色体的分配。',
+      'A：把 4 条染色体当成 4 条 DNA 单链，又只计一次分裂的两个产物。',
+      'B：精子数正确，但 DNA 单链数少算了一半。',
+      'C：DNA 单链数正确，但把两次分裂只算成产生两个细胞。',
+      'D：4 个 DNA 双链分子对应 8 条单链，精子数为 4。',
+      'E：仍按二倍体细胞的 8 条染色体计算单链数，并少算产物。',
+      'F：产物数正确，但没有把每个精子的染色体数减半。',
     ],
     takeaway:
-      '==第一次分开同源染色体，第二次分开姐妹染色单体==。先说清“分开的是什么”，数目就容易判断。',
+      '==先求每个细胞的染色体数，再按题目所问换算 DNA 分子或单链数==；不要一开始就把所有数混在一起。',
     variant: {
       question:
-        'The same original cell completes meiosis II normally. How many daughter cells are produced in total, and how many chromosomes does each contain?',
-      answer: '共 4 个子细胞，每个有 6 条染色体。',
+        'In a different fly species, diploid cells have 10 chromosomes. After normal meiosis, how many double-stranded nuclear DNA molecules and how many individual DNA strands are present in each sperm cell?',
+      answer: '每个精子有 5 个 DNA 双链分子、10 条 DNA 单链。',
       explanation:
-        '两个细胞再各分一次，得到四个。第二次分裂把姐妹染色单体分配到不同子细胞，最终每细胞仍有 6 条染色体，每条含一个 DNA 双链分子。分裂两次不代表染色体数连续减半两次。',
+        '二倍体 10 条，配子就有 5 条染色体。减数分裂完成后，每条染色体含一个 DNA 双链分子，所以是 5 个分子、10 条单链。改变的是物种的染色体数，换算关系没有改变。',
     },
   },
   {
-    title: '受精为什么不会让每一代的染色体翻倍？',
-    question:
-      'In an animal species, normal diploid body cells contain 18 chromosomes. Which sequence maintains this chromosome number from one generation to the next?',
-    options: [
-      'Gametes with 18 chromosomes fuse to form a zygote with 36.',
-      'Gametes with 9 chromosomes fuse to form a zygote with 18.',
-      'Gametes with 9 chromosomes fuse to form a zygote with 9.',
-      'Gametes with 18 chromosomes fuse and the zygote immediately loses half at random.',
-    ],
-    answer: 'B：9 条的配子相结合，恢复为含 18 条染色体的受精卵。',
+    title: '雄蚁已经是单倍体，还能照搬人类的精子形成过程吗？',
+    question: '',
+    source: {
+      questionCode: 'ESAT_LEGACY_2021_NSAA_Q078',
+      why: '用不同于人类的生活史检查能否按图中的倍性变化判断分裂，避免只靠细胞名称套结论。',
+    },
+    answer: 'A：只有 P 表示减数分裂。',
     steps: [
-      '体细胞是二倍体 2n=18，正常配子是单倍体 n=9。这一减半发生在配子形成的减数分裂过程中。',
-      '受精时两个配子的遗传物质结合，染色体数相加：9+9=18。**减数分裂先减半，受精再恢复二倍体**。',
-      '受精卵随后主要通过有丝分裂增加细胞数，并在正常分裂中保持染色体数。因此只有 B 能让代际数目保持稳定。',
+      '先使用题目给定的规则：**本物种雄蚁为单倍体，雌蚁为二倍体**。这与人类雌雄体细胞都为二倍体不同，不能直接照搬人类的过程。',
+      '在图上标数：成年雌蚁和受精卵为 2n；卵、雄蚁和精子为 n。P 从二倍体雌蚁到单倍体卵，需要把染色体套数减半。',
+      'Q 是 2n 受精卵发育成 2n 雌蚁，S 是未受精的 n 卵发育成 n 雄蚁，都是生长发育时保持倍性的分裂。',
+      'R 虽然通向精子，但雄蚁本身已经是 n，形成的精子仍是 n。按本题生活史，不能因为看见 sperm 就把 R 判为减数分裂。因此仅 P。',
     ],
     optionNotes: [
-      'A：未先减半，染色体数会加倍。',
-      'B：正确体现 n+n=2n。',
-      'C：漏掉了另一配子贡献的一套染色体。',
-      'D：正常过程不是先加倍，再随机丢掉染色体。',
+      'A：P 是唯一由 2n 降到 n 的路径。',
+      'B：Q 是二倍体个体的生长发育，不使倍性减半。',
+      'C：R 的起点雄蚁已经是单倍体，不能套用二倍体雄性产生精子的判断。',
+      'D：S 是单倍体卵发育成单倍体雄蚁，倍性不变。',
+      'E：正确的 P 之外，多选了 Q。',
+      'F：正确的 P 之外，因“形成精子”而多选了 R。',
+      'G：正确的 P 之外，多选了 S。',
+      'H：Q 和 R 都没有题目要求的倍性减半，且遗漏 P。',
     ],
     takeaway:
-      '画出“二倍体亲本 → 单倍体配子 → 二倍体受精卵”，把每一步的数量写在旁边，比只记“减半”更不容易混。',
+      '**判断分裂先看起点和终点的倍性，再看细胞名称。** 人类的配子形成规律不能不加条件地推广到所有物种。',
     variant: {
       question:
-        'An abnormal gamete with 18 chromosomes fuses with a normal gamete with 9 chromosomes. Assuming none are lost, how many chromosomes does the resulting zygote contain?',
-      answer: '27 条。',
+        'In the ant species shown, a female has 24 chromosomes in each diploid body cell. How many chromosomes are present in an unfertilised egg, an adult male body cell, a sperm cell and a fertilised egg, respectively?',
+      answer: '依次为 12、12、12、24 条。',
       explanation:
-        '这次题干明确给出一个未减半的异常配子，不能继续套用正常结果。受精时相加，18+9=27。这里仅能计算染色体数，不能仅凭这一条件判断后代是否存活。',
+        '雌蚁经减数分裂产生含 12 条染色体的卵。未受精卵发育成单倍体雄蚁，雄蚁产生的精子仍有 12 条。受精时卵与精子各贡献 12 条，恢复为 24 条。',
     },
   },
 ]
 
 const reproductionExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '克隆外表不同，就一定发生了突变吗？',
-    question:
-      'Two strawberry plants develop from runners of the same parent. No mutation occurs. One is grown in bright light and the other in shade; their final sizes differ. Which statement is best supported?',
-    options: [
-      'Their different sizes prove that their DNA sequences differ.',
-      'Runner formation must involve fusion of gametes.',
-      'They can have the same genotype but different phenotypes.',
-      'Asexual offspring always look identical in every environment.',
-    ],
-    answer: 'C：基因型可以相同，表现型仍可不同。',
+    title: '细菌二分裂：无性繁殖就不会出现变异吗？',
+    question: '',
+    source: {
+      questionCode: 'NSAA_2019_S1-Q064',
+      why: '把无性繁殖、变异与种群数量计算结合起来，适合练习一题中逐项处理不同知识点。',
+    },
+    answer: 'C：只有陈述 2 正确。',
     steps: [
-      '草莓匍匐茎形成新植株属于无性繁殖。题目还特别排除了突变，因此可以把这两株视为遗传组成相同的克隆。',
-      '环境不同是另一条重要条件：光照能影响光合作用和生长。因此株高、质量等外在表现不必完全一样。',
-      '所以 C 成立。**遗传相同，不等于在不同环境中一定长得相同**；也不能只凭外观差异倒推出 DNA 一定改变。',
+      '陈述 1 的问题在 cannot be any variation。无性繁殖通常保留亲代的遗传组成，但 **DNA 复制仍可能发生突变**，因此不能断言后代绝无变异。',
+      '陈述 2 明确限定没有限制因素。在理想条件下，每一轮二分裂都可以使种群数量翻倍，所以这一项成立。',
+      '24 小时有 1440 分钟；每 20 分钟一轮，共 72 轮。从一个细菌开始，每轮乘 2，最终应是 2 的 72 次方，**不是 72 的平方**。陈述 3 把底数和指数的含义弄反了。',
+      '所以 1 错、2 对、3 错，对应 C。注意细菌二分裂属于无性繁殖，但细菌没有细胞核，不能把它称为有丝分裂。',
     ],
     optionNotes: [
-      'A：忽略了环境也能造成表现差异。',
-      'B：匍匐茎无性繁殖不依赖配子融合。',
-      'C：把遗传组成与受环境影响的表现分开，符合全部条件。',
-      'D：将遗传相同扩大成了任何条件下外观都相同。',
+      'A：否定了无生长限制条件下可以反复翻倍的陈述 2。',
+      'B：错误接受“绝无变异”的陈述 1。',
+      'C：只保留 2，正确。',
+      'D：把 72 轮翻倍误写成 72 的平方。',
+      'E：在正确的 2 之外，多选了过度绝对化的 1。',
+      'F：选入两个错误陈述，并遗漏正确的 2。',
+      'G：在正确的 2 之外，多选了算式错误的 3。',
+      'H：没有排除“不会有任何变异”和错误的指数表达。',
     ],
     takeaway:
-      '先分别看“遗传是否改变”和“生长条件是否改变”。这两个问题有关联，但不能用一个替代另一个。',
+      '==无性繁殖不等于绝无突变；反复翻倍用 2 的轮数次方==。理想增长还必须满足题给“没有限制因素”的条件。',
     variant: {
       question:
-        'A mutation occurs in a cell that gives rise to a new runner plant. Must this offspring remain genetically identical to the parent at every DNA position?',
-      answer: '不一定；发生突变的位置可能不同。',
+        'A culture starts with 3 bacteria. Every bacterium divides once every 30 minutes, all offspring survive, and there are no limiting factors. How many bacteria are present after 3 hours?',
+      answer: '192 个。',
       explanation:
-        '克隆遗传相同的结论以“没有发生突变”为前提。现在前提改变，新植株可能带有变化后的 DNA。无性繁殖没有配子重组，并不意味着 DNA 永远不会改变。',
+        '3 小时是 180 分钟，共 6 轮分裂。每轮整个种群翻倍，因此数量为 3 × 2⁶＝192。起始 3 个是乘数，6 轮是指数；不能把二者交换。',
     },
   },
   {
-    title: '同一株植物的花粉与卵细胞结合，属于哪种繁殖？',
-    question:
-      'A flowering plant produces male and female gametes. A male gamete fuses with an egg from the same plant to form a zygote. Which description is correct?',
-    options: [
-      'Asexual reproduction, because only one individual plant is involved.',
-      'Sexual reproduction, because gametes fuse at fertilisation.',
-      'Mitosis alone, because the zygote must be a clone.',
-      'Binary fission, because two gametes are involved.',
-    ],
-    answer: 'B：有性繁殖；发生了配子融合与受精。',
+    title: '克隆羊没有生物学父亲，为什么仍涉及减数分裂？',
+    question: '',
+    source: {
+      questionCode: 'ESAT_LEGACY_2018_NSAA_Q66',
+      why: '通过完整克隆流程区分核移植、配子形成和胚胎发育，检查能否逐步判断所需的生物学过程。',
+    },
+    answer: 'E：需要过程 2、3、4，即有丝分裂、减数分裂与分化。',
     steps: [
-      '通常有性繁殖由两个亲本提供配子，但有些生物可以自体受精。本题明确给出了同一株的两种配子融合。',
-      '因此判断繁殖方式时，要以**是否发生配子融合**为关键，而不能只数看到了几株植物。选 B。',
-      '自体受精的后代也不必都是克隆。如果亲本有关基因是杂合的，配子中等位基因的不同组合仍可产生遗传差异。',
+      '按图从上往下看。P 提供乳腺细胞的细胞核，Q 提供卵细胞；卵细胞原有的核被去掉，再放入供体核。**核移植本身不等于人为插入或改变某个基因**，所以并不要求过程 1 的 genetic engineering。',
+      '重建的细胞要形成多细胞胚胎，必须不断增加细胞数，涉及有丝分裂，过程 2 必须有。',
+      '最容易漏掉的是过程 3。图中使用了卵细胞；把卵细胞的来源也算进完整流程，卵的形成涉及减数分裂。**没有精卵受精，不代表整个流程从未用到减数分裂**。',
+      '胚胎还要形成不同组织和器官，需要细胞分化，过程 4 也必须有。因此 2、3、4 都需要，选 E。',
     ],
     optionNotes: [
-      'A：把“一个个体”误当作无性繁殖的充分条件，忽略了受精。',
-      'B：正确抓住了有性繁殖的关键过程。',
-      'C：受精卵之后可通过有丝分裂生长，但这不取消前面的有性过程，也不能保证它是亲本克隆。',
-      'D：细菌二分裂是一个细胞复制遗传物质后分开，不是两个配子结合。',
+      'A：误把克隆必需过程认成基因工程，并遗漏卵形成与组织分化。',
+      'B：有丝分裂和减数分裂都涉及，但漏掉了形成不同组织的分化。',
+      'C：虽然有 2、4，却多选不必需的 1，并漏掉卵来源中的 3。',
+      'D：遗漏胚胎增长所需的有丝分裂，又多选基因工程。',
+      'E：把卵的形成、胚胎增长和组织发育三个阶段全部考虑在内。',
     ],
     takeaway:
-      '典型例子帮助记忆，题干的明确过程决定答案。==发生配子融合，即使配子来自同一个体，也不能归为普通无性繁殖==。',
+      '**看完整流程，逐步说明每一种分裂发生在哪里。** 克隆方式与流程中曾使用哪种细胞，是两个不同问题。',
     variant: {
       question:
-        'Instead, a stem cutting from the same plant grows into a new plant without gamete fusion. No mutation occurs. What type of reproduction is this, and what is the expected genetic relationship?',
-      answer: '无性繁殖；新植株与提供插条的亲本遗传组成相同。',
+        'A plant cutting containing no flowers or seeds develops into a new plant. Consider only growth from this cutting after it is removed from the parent. Which are required: mitosis, meiosis, fertilisation and differentiation?',
+      answer: '需要有丝分裂和分化；这一段营养繁殖不需要减数分裂或受精。',
       explanation:
-        '现在是营养器官上的细胞通过有丝分裂生长，没有受精。题目又排除了突变，因而可称为亲本的克隆。注意细菌也能无性繁殖，但其二分裂不属于有丝分裂。',
+        '变式把范围限定在取下插条之后，而且不经过花、种子或配子形成。细胞经有丝分裂增加，再分化形成根等结构。与克隆羊题相比，不能再把供体卵的形成过程带进来。',
     },
   },
 ]
 
 const sexExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '前几个孩子的性别，会改变下一次概率吗？',
-    question:
-      'In a simplified human XX/XY model, X-bearing and Y-bearing sperm are equally likely to fertilise an X-bearing egg. Births are independent. A couple has three XY children. What is the probability that their next child is XX?',
-    options: ['0', '1/4', '1/2', '1'],
-    answer: 'C：1/2。',
+    title: '每代都按 1∶1 分配，第四代有多少 XY 个体？',
+    question: '',
+    source: {
+      questionCode: 'ESAT_LEGACY_2018_NSAA_Q59',
+      why: '将性染色体、性别比例与逐代繁殖数量结合，训练分清“这一代总数”与“这一代某一性别的数量”。',
+    },
+    answer: 'E：256 个 XY 个体。',
     steps: [
-      '卵细胞提供 X；受精精子若提供 X，得到 XX，若提供 Y，得到 XY。题目假定两类精子受精机会相等。',
-      '因此每次受精得到 XX 的概率是 1/2。independent（相互独立）表示前面的结果不会改变本次两种精子的机会。',
-      '连续三个 XY 并不需要下一次“补回”一个 XX。**1:1 是理论比例，不是每个家庭必须凑齐的配额**。',
+      '题目说明大鼠的预期性别比例与人类相同，并且每一代都呈现这一比例。因此按本题条件，**每代一半为 XX 雌性，一半为 XY 雄性**。起始的一对亲代不算第一代后代。',
+      '第一代有 8 只，其中 4 只雌性。每只雌性只生一窝 8 只，因此第二代有 4 × 8＝32 只，其中 16 只雌性。',
+      '第三代有 16 × 8＝128 只，其中 64 只雌性；第四代有 64 × 8＝512 只。',
+      '最后再回答问的是 XY 个体，而非全部第四代：512 ÷ 2＝256。真实的小窝中不保证严格一半雌雄，本题计算使用的是题目明确给出的预期比例及每代条件。',
     ],
     optionNotes: [
-      'A：之前都是 XY，不代表以后只能是 XY。',
-      'B：1/4 可用于两个指定独立结果连续发生，本题只问下一次。',
-      'C：下一次 XX 的机会仍为 1/2。',
-      'D：随机事件不会为了平衡前面的结果而保证 XX。',
+      'A（16）：这是第二代的雌性或雄性数量，代数提前了。',
+      'B（32）：这是第二代总数，既错代数又没有区分性别。',
+      'C（64）：这是第三代的某一性别数量，还少算一代。',
+      'D（128）：这是第三代总数，不是第四代 XY 数量。',
+      'E（256）：第四代总数 512 的一半。',
+      'F（512）：求到了第四代总数，但漏掉最后的性别筛选。',
+      'G（1024）：不能从每代只有一半个体为雌性、每只雌性生 8 只的规则推出该值。',
     ],
     takeaway:
-      '读清题目问的是“接下来一次”，还是“接下来几次都怎样”。独立事件的单次概率不会因历史结果改变。',
+      '==每一代先求能繁殖的雌性数，再乘每窝后代数==；最后检查题目要的是总数、雌性数还是 XY 个体数。',
     variant: {
       question:
-        'Under the same assumptions, what is the probability that the next two children are both XX?',
-      answer: '1/4。',
+        'A pair of rats produces six offspring per litter instead of eight. Each female produces exactly one litter, and every generation has equal numbers of males and females. How many XY individuals are there in the third generation of offspring?',
+      answer: '27 个。',
       explanation:
-        '两次都要满足 XX，因此相乘：(1/2)×(1/2)=1/4。之前三个孩子的结果仍不进入这个乘式，因为题目已经把它们作为发生过的背景。',
+        '第一代 6 只，其中 3 只雌性；第二代 3 × 6＝18 只，其中 9 只雌性；第三代 9 × 6＝54 只，其中 27 只为 XY。亲代不计入后代的代数。',
     },
   },
   {
-    title: '预期人数不是保证人数',
-    question:
-      'In a mammal with the usual XX/XY system, 200 independent offspring are produced under a model giving equal probabilities of XX and XY. Which statement is correct?',
-    options: [
-      'Exactly 100 must be XX.',
-      'The expected number of XX offspring is 100, but the observed number may differ.',
-      'Each egg can contribute either X or Y with equal probability.',
-      'Every offspring receives its Y chromosome from its mother.',
-    ],
-    answer: 'B：XX 的预期数为 100，实际观察数可以不同。',
+    title: '沿精子形成图判断：X 或 Y 是由哪一方提供？',
+    question: '',
+    source: {
+      questionCode: 'ESAT_LEGACY_2022_NSAA_Q078',
+      why: '在精子发生图中同时检查倍性、DNA 复制时机和性别决定，帮助把独立知识连成完整过程。',
+    },
+    answer: 'G：陈述 2、3 正确。',
     steps: [
-      '在通常 XX/XY 模型中，XX 亲本产生带 X 的卵细胞，XY 亲本产生带 X 或 Y 的精子。两种组合的理论概率各为 1/2。',
-      '预期数是总次数乘单次概率，200×1/2=100。这是重复抽样意义上的平均预期，不是对这一组样本的保证。',
-      '因此 B 正确。==样本比例不完全等于 1:1，并不自动说明性别决定规律错误==。还需考虑随机波动与题目给出的其他条件。',
+      '先认清图例。图中两条并排的线代表**一对同源染色体**，并不是凭线条就能数出每阶段的全部 DNA；题干还说明只画了 23 对中的一对。',
+      '精原细胞是形成精子的起始干细胞，但它本身仍是二倍体。不能因为最终产物是单倍体，就把起点也叫单倍体，所以陈述 1 错。',
+      '在人类通常的 XX／XY 模型中，卵细胞提供 X，精子提供 X 或 Y。受精后形成 XX 还是 XY 取决于参与受精的精子，所以陈述 2 对。这里说的是染色体组合的形成，没有任何人为选择或责任含义。',
+      'DNA 在进入减数第一次分裂前已经复制，然后经两次分裂形成精细胞。陈述 3 说复制在精细胞形成之前，这是正确的；不要误读为精细胞成熟成精子时又复制一次。',
     ],
     optionNotes: [
-      'A：把理论预期误说成确定结果。',
-      'B：计算正确，也保留了随机样本可有波动的含义。',
-      'C：通常 XX 亲本的正常卵细胞只含 X，不含 Y。',
-      'D：在此模型中，Y 来自 XY 亲本的精子。',
+      'A：漏掉正确的 2 和 3。',
+      'B：把二倍体精原细胞错认作单倍体。',
+      'C：性别决定判断正确，但遗漏减数分裂前的 DNA 复制。',
+      'D：复制时序判断正确，但遗漏男性配子可提供 X 或 Y。',
+      'E：选入错误的 1，并遗漏正确的 3。',
+      'F：选入错误的 1，并遗漏正确的 2。',
+      'G：只保留 2、3，与人类精子形成及受精过程一致。',
+      'H：除了 2、3，还错误接受了 1。',
     ],
     takeaway:
-      'expected（预期）与 observed（观察到）要分清。理论概率用来计算预期，不保证每一小组都严格符合理论比例。',
+      '**精原细胞是二倍体，成熟精子是单倍体；卵给 X，精子给 X 或 Y。** 看图时先读图例，别把简化图当成全部染色体或染色单体的计数图。',
     variant: {
       question:
-        'A sample contains 112 XX and 88 XY offspring. What is the observed XX percentage, and does this alone disprove the equal-probability model?',
-      answer: '观察到的 XX 比例为 56%；仅凭这一事实不能推翻模型。',
+        'Assume normal human XX/XY sex determination, equal chances of an X-bearing or Y-bearing sperm fertilising an egg, and independent births. What is the probability that exactly one of two children is XY?',
+      answer: '1/2。',
       explanation:
-        '112÷200×100%=56%。观察值与理论 50% 不同可以由随机波动产生；判断差异是否超出随机波动需要进一步统计依据，不能仅凭不相等就下结论。',
+        '“恰好一个”包括 XY 后 XX、XX 后 XY 两种顺序。每种顺序概率为 1/2 × 1/2＝1/4，相加为 1/2。两次出生独立不表示必定一男一女，也不表示第一次结果会改变第二次的概率。',
     },
   },
 ]
@@ -373,7 +387,7 @@ const sections: KnowledgeSection[] = [
       },
       {
         title: '配子与受精',
-        text: '动物的减数分裂参与形成单倍体配子；受精使两个配子的遗传物质结合，n+n 恢复为 2n。受精卵再通过有丝分裂生长。概括为四个单倍体产物，不代表四个都是功能相同的成熟配子：哺乳动物卵细胞形成时胞质分配不均，还会形成极体。',
+        text: '在人类等通常二倍体动物模型中，减数分裂参与形成单倍体配子；受精使两个配子的遗传物质结合，n+n 恢复为 2n。受精卵再通过有丝分裂生长。概括为四个单倍体产物，不代表四个都是功能相同的成熟配子：哺乳动物卵细胞形成时胞质分配不均，还会形成极体。**若题目给出单倍体雄蚁等其他生活史，应按实际倍性变化判断，不能见到配子就认定是减数分裂的产物**。',
       },
     ],
     example: meiosisExamples[0]!,
@@ -569,7 +583,7 @@ export const esatCellDivision: KnowledgeLesson = {
   title: 'Cell division and sex determination · 细胞分裂与性别决定',
   subtitle: '先分清复制与分裂，再理解繁殖、配子和 XX/XY 概率',
   intro:
-    '身体生长时需要保留完整遗传信息，形成配子时却要先把染色体套数减半。这一章从这两个目的出发，梳理有丝分裂、减数分裂和繁殖的关系。分阶段图解可以逐步核对染色体数；例题再带你处理“每个细胞”“复制以后”“恰好一个”等容易读漏的条件。',
+    '身体生长时需要保留完整遗传信息；在人类等通常二倍体动物模型中，形成配子则要先把染色体套数减半。这一章从这两个目的出发，梳理有丝分裂、减数分裂和繁殖的关系。分阶段图解可以逐步核对染色体数；诊断测试真题带你处理“每个细胞”“复制以后”“可能正确”等容易读漏的条件，原创变式再检查换了条件是否仍会判断。',
   memory: [
     '==复制后、姐妹分离前：DNA 加倍，染色体数不变==。先看阶段，再看题目数的是整个细胞还是一个子细胞。',
     '有丝分裂通常产生两个遗传相同的子细胞；无突变等异常时保持原来的染色体数，支持生长、修复与某些无性繁殖。',
@@ -583,7 +597,7 @@ export const esatCellDivision: KnowledgeLesson = {
       id: 'uat-spec-b3',
       title: 'UAT-UK ESAT Content Specification 2026/27 · B3',
       url: 'https://uat-wp.s3.eu-west-2.amazonaws.com/wp-content/uploads/2024/05/03165424/ESAT_Content_Specification.pdf',
-      note: '内部核对 B3.1–B3.4 范围；知识总结与题目为原创。',
+      note: '内部核对 B3.1–B3.4 知识总结范围；例题引用已入库真题，变式为原创。',
     },
     {
       id: 'uat-guide-b3',

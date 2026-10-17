@@ -15,7 +15,7 @@
           </p>
         </div>
         <AppButton type="text" :icon="Back" @click="handleCancel">
-          <span>{{ reportReturnTo ? '返回诊断报告' : '返回练习本' }}</span>
+          <span>{{ returnButtonLabel }}</span>
         </AppButton>
       </header>
 
@@ -318,6 +318,20 @@ const reportReturnTo = computed(() => {
   return /^\/exam-result\/[^/]+\/(?:esat|tmua)(?:\?.*)?$/.test(value) ? value : ''
 })
 
+// 试题库预选入口仅允许返回本站试题库，避免 returnTo 被用于任意地址跳转。
+const questionBankReturnTo = computed(() => {
+  if (queryString('source') !== 'question-bank') return ''
+  const value = queryString('returnTo')
+  return /^\/question-bank(?:\?.*)?$/.test(value) ? value : '/question-bank'
+})
+
+// 返回按钮随合法入口变化，向用户明确保存或取消后会回到哪里。
+const returnButtonLabel = computed(() => {
+  if (questionBankReturnTo.value) return '返回试题库'
+  if (reportReturnTo.value) return '返回诊断报告'
+  return '返回练习本'
+})
+
 const treeProps = { children: 'children', label: 'label' }
 const PRACTICE_NOTEBOOK_NAME_MAX_LENGTH = 60
 const questionCountOptions = [5, 8, 12, 16, 20]
@@ -533,9 +547,9 @@ async function loadSyllabus(): Promise<void> {
   }
 }
 
-// 从报告进入时返回原报告，其余入口仍回练习本列表。
+// 从报告或试题库进入时返回原业务页面，其余入口仍回练习本列表。
 function handleCancel(): void {
-  void router.push(reportReturnTo.value || '/practice-notebook')
+  void router.push(questionBankReturnTo.value || reportReturnTo.value || '/practice-notebook')
 }
 
 // Vue Router 查询参数统一收敛为单个字符串，数组只读取第一项。
@@ -588,6 +602,31 @@ function applyDiagnosticReportPrefill(): void {
     .filter(Boolean)
 }
 
+// 试题库入口只预填考试、名称和当前叶子范围，其余组卷设置仍由用户在本页确认。
+function applyQuestionBankPrefill(): void {
+  if (queryString('source') !== 'question-bank' || isEditing.value) return
+
+  const examType = queryString('examType').toUpperCase()
+  if (examType === 'ESAT' || examType === 'TMUA') {
+    auth.setActiveExamType(examType)
+  }
+
+  const suggestedName = queryString('name')
+  if (suggestedName) {
+    notebookName.value = suggestedName.slice(0, PRACTICE_NOTEBOOK_NAME_MAX_LENGTH)
+  }
+  pendingCheckedCodes.value = queryString('knowledgePointCodes')
+    .split(',')
+    .map((code) => code.trim())
+    .filter(Boolean)
+}
+
+// 新建页根据来源应用对应预填规则，编辑页始终以已保存配置为准。
+function applyCreatePrefill(): void {
+  applyDiagnosticReportPrefill()
+  applyQuestionBankPrefill()
+}
+
 // 表单保存真实配置；后端再次校验知识点归属和稳定选项，成功后回到当前考试列表。
 async function handleSubmit(): Promise<void> {
   if (saving.value) return
@@ -623,7 +662,7 @@ async function handleSubmit(): Promise<void> {
     if (isEditing.value) await updatePracticeNotebook(notebookId.value, payload)
     else await createPracticeNotebook(payload)
     ElMessage.success(isEditing.value ? '练习本已更新' : '练习本已创建')
-    await router.push('/practice-notebook')
+    await router.push(questionBankReturnTo.value || '/practice-notebook')
   } catch {
     // 公共请求层展示后端业务提示；表单内容保留供用户修改或重试。
   } finally {
@@ -671,7 +710,7 @@ onMounted(async () => {
       unseenFirst.value = notebook.unseenFirst
       pendingCheckedCodes.value = notebook.knowledgePointCodes
     } else {
-      applyDiagnosticReportPrefill()
+      applyCreatePrefill()
     }
     await loadSyllabus()
     // 初次考纲与报告预选项恢复完成后，才允许顶部考试切换监听接管页面状态。

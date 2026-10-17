@@ -721,7 +721,8 @@ model DiagnosticReport {
 model SyllabusNode {
   id         String   @id @default(uuid()) @db.VarChar(191)
   code       String   @db.VarChar(100)
-  label      String   @db.VarChar(512)
+  enLabel    String   @db.VarChar(512)
+  cnLabel    String   @db.VarChar(512)
   examType   String   @db.VarChar(32)
   parentCode String?  @db.VarChar(100)
   order      Int      @default(0)

@@ -1,199 +1,143 @@
-// ESAT 生物遗传讲义：串联遗传物质、遗传术语与单基因概率，配套原创例题和图解。
+// ESAT 生物遗传讲义：串联遗传物质、遗传术语与单基因概率，使用诊断真题分析及原创变式。
 import type { KnowledgeExamFocus, KnowledgeLesson } from './types'
 
 const materialExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '细胞核带来了什么，细胞质又留下了什么？',
-    question:
-      'The nucleus of an unfertilised animal egg is removed and replaced with the nucleus of a diploid skin cell from another animal of the same species. Assume successful development, no mutation and that all mitochondria come from the egg. Which statement about the resulting animal is correct?',
-    options: [
-      'All of its DNA must come from the skin-cell donor.',
-      'Its nuclear chromosomes come from the skin-cell donor, but its mitochondrial DNA comes from the egg.',
-      'Its nuclear chromosomes come equally from the egg donor and the skin-cell donor.',
-      'It cannot have nuclear genes because a skin cell has lost all genes needed by other cell types.',
-    ],
-    answer: 'B：核染色体来自皮肤细胞供体，线粒体 DNA 来自卵细胞。',
-    steps: [
-      '先追踪发生了什么变化：卵细胞原来的核被移走，放入的是皮肤细胞的核。因此，核染色体的来源是皮肤细胞供体，并没有发生两个细胞核的融合。',
-      '再看没有被替换的部分。题干明确说线粒体全部来自卵细胞；线粒体也有自己的 DNA，所以这部分遗传物质仍来自卵细胞。',
-      '**细胞核保存主要遗传物质，不等于保存全部 DNA**。B 把核 DNA 与线粒体 DNA 分开说明，因此完整符合题意。',
-      '皮肤细胞已经特化，但一般仍保留形成其他细胞类型所需的核基因；不同细胞主要是使用的基因不同。因此 D 不能成立。题干已经假定发育成功，不需要再讨论实验成功率。',
-    ],
-    optionNotes: [
-      'A：“全部”说得过满，忽略了卵细胞提供的线粒体 DNA。',
-      'B：分别追踪细胞核和线粒体，两个来源都符合题干。',
-      'C：没有受精或两个细胞核融合，不能套用“一半来自每个亲本”。',
-      'D：特化通常改变基因的表达，不是把其他细胞会用到的基因全部删除。',
-    ],
-    takeaway:
-      '遇到遗传物质来源题，把**核 DNA 与细胞器 DNA 分开追踪**。先看题干实际转移了什么，再决定哪些信息会跟着转移。',
-    variant: {
-      question:
-        'A normal egg is fertilised by a normal sperm of the same species instead. Considering nuclear chromosomes only, what fraction of the zygote’s chromosome set comes from each gamete?',
-      answer: '卵细胞和精子各提供一半核染色体。',
-      explanation:
-        '现在改成了正常受精：两个单倍体配子各带一套核染色体，结合成二倍体合子。**受精时的“一半加一半”不能用于上一题的细胞核替换**；两题发生的过程不同。',
+    title: '一人取一个细胞，怎样数隐性等位基因？',
+    source: {
+      questionCode: 'NSAA_2016_S1-Q059',
+      why: '把基因的拷贝数、隐性纯合子与携带者放在同一道计数题里，适合检查遗传字母是否真正对应到了细胞中的结构。',
     },
-  },
-  {
-    title: '同一个位置上的 A 与 a，究竟是什么？',
-    question:
-      'Before DNA replication, a diploid cell has allele A at a particular locus on one autosome and allele a at the corresponding locus on its homologous partner. Which statement is correct?',
-    options: [
-      'A and a must be different genes because their DNA sequences differ.',
-      'The two chromosomes are sister chromatids produced by replication.',
-      'The cell has two copies of this gene, carrying different alleles.',
-      'A and a must be on sex chromosomes because they differ.',
-    ],
-    answer: 'C：这个基因有两个拷贝，分别是 A 与 a 两种等位基因。',
+    question: '',
+    answer: 'E：81 258 个白化病等位基因。',
     steps: [
-      'locus 是基因在染色体上的位置。题目强调一对同源常染色体的对应位置，说明这里讨论的是**同一个基因的两个版本**，不是两个功能无关的基因。',
-      '二倍体细胞的一对同源染色体通常一条来自母方、一条来自父方。复制前，每条在这个位置各有一份基因，因此合计两份。',
-      'A 与 a 表明两个版本不同，也就是杂合。它们仍位于常染色体上；“是否相同”不会把常染色体变成性染色体。',
-      '姐妹染色单体则是同一条染色体复制形成的两份；题目明确在复制之前，不能把两条同源染色体当作姐妹染色单体。',
+      '先别被总人口 580 000 带着走。题目问的是白化病等位基因有多少个，不是有多少人，也不是所有基因的总数。用 a 表示白化病等位基因，A 表示正常等位基因。',
+      '口腔细胞是体细胞。按题目的单基因隐性遗传模型，患者是 aa，每个所取细胞贡献两个 a；无症状携带者是 Aa，每个细胞贡献一个 a；其余 AA 个体贡献零个 a。',
+      '所以目标等位基因数为 **29 × 2 + 81 200 × 1 = 81 258**，与 E 对应。总人口中的 AA 个体再多，也不会增加 a 的数目。',
+      '这道题正好把“基因有两份”和“等位基因有不同版本”分开了：Aa 细胞有这个基因的两份拷贝，但其中只有一份是题目要数的 a。',
     ],
     optionNotes: [
-      'A：等位基因本来就可以有不同的 DNA 序列，不因此变成两个不同基因。',
-      'B：同源染色体与姐妹染色单体来源不同，而且题目尚未发生 DNA 复制。',
-      'C：两个拷贝、两个版本，正是这里的 Aa。',
-      'D：常染色体上的同一基因也可以有不同等位基因。',
+      'A（0）：患病者和携带者都含有 a，不能因为只取体细胞就当作没有遗传物质。',
+      'B（29）：这是患者人数；每位患者所取的细胞含两个 a，而且还漏掉了携带者。',
+      'C（58）：数对了患者的 29 × 2，但没有加上 81 200 个携带者提供的 a。',
+      'D（81 229）：把患者也按每个细胞一个 a 计算了，漏掉患者的另一份。',
+      'E（81 258）：患者各两个、携带者各一个，两部分相加正确。',
+      'F（162 458）：把 Aa 携带者也算成每个细胞两个 a，混淆了基因拷贝总数与隐性版本的数量。',
     ],
     takeaway:
-      '分清三个问题：**有几份基因、这些版本是否相同、它们位于哪类染色体**。数量、版本和位置不能互相替代。',
+      '数某一种等位基因时，先按 **AA、Aa、aa 分别贡献 0、1、2 个 a** 分类。题目问“多少人”还是“多少个等位基因”，计数单位不同。',
     variant: {
       question:
-        'The cell now replicates its DNA without mutation. Before the sister chromatids separate, how many DNA copies of this locus are present, and has the cell become homozygous?',
-      answer: '共四份：两份 A、两份 a；仍是杂合，不会变成纯合。',
+        'From the same population, two cheek cells are collected from each person instead of one. Assume that none of the collected cells has replicated its DNA. How many copies of the albinism allele are present in the collected cells?',
+      answer: '162 516 个。',
       explanation:
-        '复制让原来带 A 的染色体形成两条带 A 的姐妹染色单体，带 a 的也同样复制。**拷贝数增加，不会把不同的等位基因变成相同版本**；该位点的基因型仍记为 Aa，不能因此称为四倍体或纯合。',
+        '人群的基因型没有改变，只是每人取样数翻倍：81 258 × 2 = 162 516。也可以按患者 29 × 2 个细胞 × 2 个 a，再加携带者 81 200 × 2 个细胞 × 1 个 a。**取样细胞数增加，不会把携带者 Aa 变成 aa**。',
     },
   },
 ]
 
 const termExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '显性性状也可以很少见',
-    question:
-      'A fictional plant trait is controlled by one autosomal gene. D is completely dominant to d: DD and Dd plants are striped, while dd plants are plain. In a population of 200 plants, only 10 are striped. Which statement must be correct?',
-    options: [
-      'D is recessive because striped plants are uncommon.',
-      'Every striped plant has genotype DD.',
-      'A plain plant must have genotype dd under this model.',
-      'D must increase survival because it is dominant.',
-    ],
-    answer: 'C：在题目给定模型下，无条纹植株必为 dd。',
-    steps: [
-      '先直接读题目给出的基因型与表现型对应关系：DD、Dd 都有条纹，只有 dd 无条纹。**显性描述杂合子表现什么，不描述群体中谁更多**。',
-      '因此无条纹可以确定为 dd，有条纹却只能确定为 DD 或 Dd。C 是唯一一定成立的结论。',
-      '10 株占 200 株的 5%，说明这个表现型在本次群体中少见；它不能改变 D 在 Dd 中仍然表现出来的事实。',
-      '题干没有任何存活或繁殖数据，也就不能凭“大写字母”认定 D 对生存有利。',
-    ],
-    optionNotes: [
-      'A：把群体频率与显隐性关系混为一谈。',
-      'B：忽略了同样有条纹的 Dd。',
-      'C：符合给定的完整显性模型，且结论唯一。',
-      'D：显性、常见和有利是三件不同的事。',
-    ],
-    takeaway:
-      '从表现型推基因型时，先写出题目给定的对应关系。**完全显性模型里，显性表现型通常有两种可能基因型**。',
-    variant: {
-      question:
-        'In a second population of the same species, 190 of 200 plants are striped. Does this change which allele is dominant?',
-      answer: '不改变，D 仍对 d 显性。',
-      explanation:
-        '群体里有条纹的比例由 5% 变成 95%，改变的是频率。只要 Dd 的表现型仍与 DD 相同，D 对 d 的显性关系就未改变。',
+    title: '基因型、表现型和能否繁殖，不能混在一起数',
+    source: {
+      questionCode: 'ESAT_LEGACY_2022_NSAA_Q077',
+      why: '同一道题分别改变孵化、繁殖能力和样本数量，适合练习把遗传术语落实到题目实际统计的成虫群体。',
     },
-  },
-  {
-    title: '表现型改变，基因型一定改变了吗？',
-    question:
-      'Genetically identical cuttings of a fictional plant are grown in two environments. In bright light their leaves are purple; in shade their leaves are green. No DNA mutation occurs. Which explanation is best supported?',
-    options: [
-      'Shade changes every dominant allele into a recessive allele.',
-      'The environment can change phenotype without changing genotype.',
-      'Green leaves prove that the plants lack all pigment-related genes.',
-      'All plant colour traits must therefore be controlled by a single gene.',
-    ],
-    answer: 'B：环境可以影响表现型，而基因型保持不变。',
+    question: '',
+    answer: 'A：三条陈述都不正确。',
     steps: [
-      '先找实验保持相同的部分：插条遗传组成相同，而且题目排除了突变。我们没有理由把颜色变化解释为 DNA 版本改变。',
-      '再看改变的条件：光照不同，叶色不同。这里支持的是**相同基因型在不同环境下可以出现不同表现型**。',
-      '颜色没有表现出来，不等于相关基因被删除。基因怎样被使用、产生多少色素，都可能受环境影响。',
-      '这个实验也没有提供控制叶色的基因数量。不能从“观察一种性状”直接跳到“只有一个基因参与”。',
+      '先写一个共同起点：两个杂合子 Aa × Aa，在受精时产生 AA、Aa、aA、aa 四种等可能组合。合并相同基因型后是 **1 AA∶2 Aa∶1 aa**。题目要求三条陈述各自独立考虑，不要把前一条的条件带到后一条。',
+      '陈述 1：如果 AA 的卵不能孵化，就只删除 AA。长成的成虫中还剩 2 Aa∶1 aa，基因型比例应为 2∶1，不是 1∶1。**两种基因型不代表数量各占一半**。',
+      '陈述 2：sterile 是不育，不是死亡或不能发育为成虫。aa 个体仍在这次统计的年轻成虫中，并表现为隐性性状；因此不能说所有成虫表现型相同。',
+      '陈述 3：样本少，确实可能使实际数量偏离理论比例，但不会凭空多出一种表现型。按题目的显隐性关系，AA 与 Aa 属于同一种显性表现型，aa 属于隐性表现型，只有两类；1∶2∶1 是三种基因型的理论比例。',
+      '三条都不成立，选择 A。做这类题时，要分别确认 **统计谁、统计哪个阶段、分的是基因型还是表现型**。',
     ],
     optionNotes: [
-      'A：环境影响表现不等于把等位基因的 DNA 版本转换了。',
-      'B：同时保留了遗传组成相同和环境不同这两个条件。',
-      'C：把没有显示某种颜色误判成所有相关基因缺失。',
-      'D：没有基因数量的信息，且许多性状受多个基因共同影响。',
+      'A（none）：三条陈述分别核对后都不成立。',
+      'B（1 only）：删除不能孵化的 AA 后，仍有两份 Aa 和一份 aa，不能写成 1∶1。',
+      'C（2 only）：不育的 aa 仍可属于年轻成虫群体；不育不能直接当作缺席。',
+      'D（3 only）：小样本会改变数量比例，不会把两种表现型变成三种。',
+      'E（1 and 2）：同时误把剩下的基因型等分，并把不育个体从成虫中删除。',
+      'F（1 and 3）：既没有保留 Aa 的两份组合，也把基因型比例当成表现型比例。',
+      'G（2 and 3）：不育与存活、基因型与表现型，这两组概念都被混淆了。',
+      'H（1, 2 and 3）：三条各有不同错误，不能因为都带有熟悉的遗传术语就全部接受。',
     ],
     takeaway:
-      '比较 genotype 与 phenotype 时，可以这样问自己：**变化的是遗传版本，还是最终表现出来的特征？** 看见表现差异，不能自动判定发生了突变。',
+      '先列受精时的基因型，再根据条件判断哪些个体进入统计。==不育不等于死亡，基因型不同也不一定表现型不同==。',
     variant: {
       question:
-        'A different plant trait is stated to depend on several genes and nutrition. Is a 3:1 phenotypic ratio guaranteed when two plants showing that trait are crossed?',
-      answer: '不保证，不能直接套用 3∶1。',
+        'In an Aa × Aa cross with complete dominance, AA embryos die before hatching. All Aa and aa embryos survive to adulthood. In a large population, what fraction of the surviving adults is heterozygous, and what is the expected ratio of dominant to recessive phenotypes?',
+      answer: '杂合子占 2/3；显性∶隐性表现型为 2∶1。',
       explanation:
-        '3∶1 是单基因、完全显性等条件下 Aa × Aa 的理论表现型比例。现在涉及多个基因和营养，已经不符合这个简单模型；亲本有相似表现型也不能确定它们都属于某个单基因的杂合子。',
+        '受精时为 1 AA∶2 Aa∶1 aa，删去 AA 后，幸存者是 2 Aa∶1 aa。杂合子的分母要改成幸存的三份，所以占 2/3；Aa 显性、aa 隐性，因此表现型比例也是 2∶1。**这次问的是幸存成虫，不能继续以全部受精卵作分母**。',
     },
   },
 ]
 
 const crossExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '杂交比例从配子来，不从口诀来',
-    question:
-      'In a fictional species, seed shape is controlled by one autosomal gene with complete dominance: R gives round seeds and rr gives angular seeds. A round-seeded plant crossed with an rr plant produces both round and angular offspring. Assume no mutation and equal viability. What is the expected proportion of angular offspring in further crosses between these same parents?',
-    options: ['0', '1/4', '1/2', '3/4'],
-    answer: 'C：1/2，也就是 50%。',
+    title: '女儿没有患病，为什么仍能确定她是携带者？',
+    source: {
+      questionCode: 'NSAA_2017_S1-Q064',
+      why: '把家系图中的亲子关系转成基因型，再比较两种配偶条件；同时练习读清“女孩且患病”这一完整事件。',
+    },
+    question: '',
+    answer: 'B：男方为显性纯合子时是 0；男方为杂合子时是 0.125。',
     steps: [
-      'rr 亲本只能提供 r。已经出现角形 rr 后代，说明另一个圆形亲本也曾提供 r；而它自己是圆形，必须还有 R，所以它是 Rr。',
-      '于是实际杂交是 Rr × rr。Rr 的配子一半带 R、一半带 r；rr 的配子都带 r，受精后得到一半 Rr、一半 rr。',
-      '题目问角形，而不是杂合子的比例。本题角形是 rr，占 1/2，所以选 C。**先列配子，再把基因型翻译为表现型**。',
-      '曾经生出哪种后代可以帮助我们判断亲本基因型；一旦亲本基因型确定，前面后代的结果不会“用掉”下一次的概率。',
+      '先读图例：黑色表示患病，圆形是女性，方形是男性。图中父亲患病，而两个女儿都未患病。以 a 表示隐性致病等位基因，患病父亲是 aa，给每个女儿的都只能是 a。',
+      '女儿已经从父亲处得到 a，自己却未患病，另一份就必须是 A。因此两个女儿都能确定为 **Aa**，不需要猜哪一位女儿去生孩子。',
+      '第一列把女儿与 AA 男性配对：Aa × AA 的孩子只能是 AA 或 Aa，不会出现 aa，所以“女孩且患病”的概率是 0。',
+      '第二列改成 Aa 男性：Aa × Aa 中 aa 占 1/4。题目问的是 **女孩且患病**，还要乘生女孩的 1/2，得到 1/4 × 1/2 = 1/8 = 0.125。',
+      '核对表中两列的顺序，0 和 0.125 对应 B。这里没有先告诉我们孩子一定是女孩，所以不能省略性别这一半。',
     ],
     optionNotes: [
-      'A：若圆形亲本是 RR 才会全为 Rr，但已出现 rr 后代，排除了这种情况。',
-      'B：1/4 是 Rr × Rr 时 rr 的比例，本题第二个亲本明确为 rr。',
-      'C：Rr × rr 得到 1/2 Rr 与 1/2 rr，符合题意。',
-      'D：3/4 是另一个杂交中显性表现型的比例，本题既不是该杂交，也不是问显性表现型。',
+      'A（0；0）：第一列正确，但两个携带者可以各传下 a，第二列不能为零。',
+      'B（0；0.125）：两种男方基因型分别计算，并在第二列计入女孩概率，正确。',
+      'C（0；0.25）：第二列只算了患病概率，漏掉“还必须是女孩”。',
+      'D（0.5；0）：AA 男性不会传下 a，第一列不可能有患病孩子；第二列也不是零。',
+      'E（0.5；0.125）：第二列正确，但第一列不能直接拿生女孩的概率作答案。',
+      'F（0.5；0.25）：第一列忽略必须患病，第二列忽略必须是女孩，两列都没有满足完整事件。',
     ],
     takeaway:
-      '测交用隐性纯合亲本帮助判断另一方。**出现隐性后代可以证明显性亲本携带隐性等位基因；少量后代全显性却不能绝对证明它纯合**。',
+      '家系图先从**确定的隐性纯合子 aa**入手，沿亲子连线追踪 a；概率计算时再区分“女孩且患病”与“已知是女孩，是否患病”。',
     variant: {
       question:
-        'Now two known Rr plants are crossed. Among 80 offspring with equal viability, how many angular offspring are expected, and must the observed number equal this value?',
-      answer: '期望 20 个；实际数量不必恰好为 20。',
+        'The daughter in the original family tree has a child with a heterozygous man. A scan has already established that the child is a girl. What is the probability that she has the condition, assuming the condition is autosomal?',
+      answer: '1/4。',
       explanation:
-        'Rr × Rr 中 rr 的概率是 1/4，因此期望数为 80 × 1/4 = 20。随机受精会带来抽样波动，**理论比例不是规定每四个后代必须分配出一个 rr**。',
+        '这次已经知道孩子是女孩，计算范围只剩女孩，不再乘一次 1/2。母亲 Aa、父亲 Aa，常染色体基因型与性别独立，因此女孩中的患病比例仍为 1/4。**原题问两件事同时发生；变式把其中一件事变成已知条件**。',
     },
   },
   {
-    title: '未患病的兄弟姐妹，为什么携带概率不是一半？',
-    question:
-      'A condition is autosomal recessive, with aa affected and AA or Aa unaffected. Penetrance is complete, and there is no new mutation. Two unaffected parents have an affected daughter and an unaffected son. The son has a child with a woman known to be Aa. Before any children are born, what is the probability that their child will be affected?',
-    options: ['1/8', '1/6', '1/4', '1/2'],
-    answer: 'B：1/6。',
+    title: '已知女儿未患病，下一代风险该怎样算？',
+    source: {
+      questionCode: 'ESAT_LEGACY_2022_NSAA_Q080',
+      why: '代表家系题中容易失分的一步：上一代的表现型已知时，先重新确定其基因型概率，再计算下一代。',
+    },
+    question: '',
+    answer: 'C：1/6。',
     steps: [
-      '先看父母：女儿是 aa，说明父母各提供了一个 a；父母自己都未患病，所以都必须是 Aa。这一步利用的是孩子已经出现的基因型。',
-      'Aa × Aa 的四种等可能配子组合是 AA、Aa、aA、aa。儿子已经确定未患病，就要排除 aa；**剩下的三种组合中，两种是杂合**，因此儿子是 Aa 的概率为 2/3，AA 的概率为 1/3。',
-      '如果儿子是 AA，他与 Aa 女性不会生出 aa；如果儿子是 Aa，则 Aa × Aa 生出 aa 的概率为 1/4。题干为常染色体遗传，儿子是男性不会改变这里的 2/3。',
-      '把“儿子是携带者”与“双方再各传下 a”连起来：2/3 × 1/4 = 1/6。也可以算 2/3 × 1/2 × 1/2，含义相同。',
+      '从最上面一代开始：父母都是杂合子，所以是 Aa × Aa。四种等可能组合为 AA、Aa、aA、aa，其中 aa 患病。',
+      '题目已经告诉我们女儿未患病，要把 aa 排除。剩下 AA、Aa、aA 三种等可能组合，其中两种是携带者，所以 **女儿为 Aa 的概率是 2/3，为 AA 的概率是 1/3**。',
+      '接着才看女儿与 Aa 男性的孩子。女儿若为 AA，不会有 aa 孩子；女儿若为 Aa，Aa × Aa 生出 aa 的概率是 1/4。',
+      '两层条件连起来，孩子患病概率为 **2/3 × 1/4 = 1/6**，选 C。也可以理解为女儿传下 a 的概率是 2/3 × 1/2，男方再传下 a 的概率是 1/2。',
+      '不要因为女儿只有 AA、Aa 两种可能，就把它们各算一半。**两个基因型名称，不代表两种等可能结果**；Aa 来自两种配子组合。',
     ],
     optionNotes: [
-      'A：把未患病儿子为携带者的概率误当成 1/2，再乘 1/4。',
-      'B：先排除已知不可能的 aa，再乘传递概率，计算完整。',
-      'C：把儿子直接当作已确认的 Aa，忽略了他也可能是 AA。',
-      'D：只考虑了一方传递 a，未同时考虑另一方与儿子的基因型不确定性。',
+      'A（1/12）：把携带者概率当成 1/3，再乘 1/4，会少算一种杂合组合。',
+      'B（1/8）：仍用女儿出生前为 Aa 的 1/2，没有利用她已经未患病这一信息。',
+      'C（1/6）：先算未患病女儿为携带者的 2/3，再乘生出 aa 的 1/4，正确。',
+      'D（3/4）：这是第一代 Aa × Aa 的未患病比例，既不是本题的事件，也没有处理下一代。',
+      'E（11/12）：本题问患病；正确患病概率为 1/6，未患病应为 5/6，也不是 11/12。',
     ],
     takeaway:
-      '“已知未患病”会缩小候选范围。**先删去不符合已知条件的情况，再在剩下的等可能组合中计算**；不要把 AA 与 Aa 两个名字误当成两种等可能结果。',
+      '看到“已知未患病”，先在 AA、Aa、aA、aa 中划掉 aa，再计算余下组合的比例。**先处理已知条件，再进入下一代**。',
     variant: {
       question:
-        'A genetic test now confirms that the son is Aa. After he and the Aa woman have one affected child, what is the probability that their next child will be affected, assuming independent conceptions?',
+        'A genetic test confirms that this daughter is heterozygous. She and the same heterozygous man have one affected child. What is the probability that their next child is affected, assuming independent conceptions and no mutations?',
       answer: '1/4。',
       explanation:
-        '检测后，儿子的基因型不再有 2/3 这一层不确定性，直接使用 Aa × Aa。每次受精独立，因此第一胎患病不会让第二胎“补回正常”；**亲本基因型固定时，下一胎概率仍是 1/4**。',
+        '检测把女儿的基因型确定为 Aa，不再需要乘 2/3。两个亲本都是 Aa，每次受精产生 aa 的概率都是 1/4；上一胎已经患病不会改变下一胎的概率。**基因型的不确定性消失了，但每次受精的随机性仍存在**。',
     },
   },
 ]
@@ -466,7 +410,7 @@ export const esatInheritance: KnowledgeLesson = {
       id: 'uat-spec-b4',
       title: 'UAT-UK · ESAT Content Specification（2026/27）',
       url: 'https://uat-wp.s3.eu-west-2.amazonaws.com/wp-content/uploads/2024/05/03165424/ESAT_Content_Specification.pdf',
-      note: '核对 B4.1–B4.3 范围；讲解、例题与图解均为原创。',
+      note: '核对 B4.1–B4.3 范围；例题引用已入库诊断真题，讲解、变式与图解另行编写。',
     },
     {
       id: 'uat-guide-b4',
@@ -490,7 +434,7 @@ export const esatInheritance: KnowledgeLesson = {
       id: 'openstax-probability',
       title: 'OpenStax · Biology 2e: Mendel’s Experiments and the Laws of Probability',
       url: 'https://openstax.org/books/biology-2e/pages/12-1-mendels-experiments-and-the-laws-of-probability',
-      note: '核对相互独立与互斥事件的概率计算；数值例题另行原创。',
+      note: '核对相互独立与互斥事件的概率计算；真题讲解与改条件变式另行编写。',
     },
     {
       id: 'openstax-inheritance',

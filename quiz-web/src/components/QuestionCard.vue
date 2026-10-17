@@ -2,12 +2,20 @@
 <template>
   <article :class="['question-card', `question-card--${variant}`]">
     <div
+      v-if="
+        showQuestionLabel ||
+        (showFavorite && question.id) ||
+        metaTags.length ||
+        $slots['header-actions']
+      "
       class="question-card__header"
       :class="{ 'question-card__header--with-actions': $slots['header-actions'] }"
     >
-      <div class="question-card__heading">
+      <div v-if="showQuestionLabel || (showFavorite && question.id)" class="question-card__heading">
         <!-- 题号小标 -->
-        <div class="question-card__label">{{ questionLabel || `Question ${index + 1}` }}</div>
+        <div v-if="showQuestionLabel" class="question-card__label">
+          {{ questionLabel || `Question ${index + 1}` }}
+        </div>
         <QuestionFavoriteButton v-if="showFavorite && question.id" :question-id="question.id" />
         <!-- <button
           v-if="showMark"
@@ -138,6 +146,8 @@ interface Props {
   variant?: 'default' | 'exam'
   metaTags?: string[]
   questionLabel?: string
+  // 讲义已在来源中展示题号时，可隐藏重复标识；考试等场景默认保留。
+  showQuestionLabel?: boolean
   disabled?: boolean
   showMark?: boolean
   marked?: boolean
@@ -147,6 +157,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   variant: 'default',
   showAnswer: false,
+  showQuestionLabel: true,
   metaTags: () => [],
   disabled: false,
   showMark: false,

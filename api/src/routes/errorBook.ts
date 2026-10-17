@@ -12,6 +12,7 @@ import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { computeScores } from '../services/scoring.js'
 import type { QuestionResult } from '../services/scoring.js'
 import { logRuntimeError } from '../utils/runtimeLogger.js'
+import { formatSyllabusLabel } from '../utils/syllabusLabels.js'
 import {
   ensureDiagnosticReportTask,
   retryDiagnosticReportTask,
@@ -70,7 +71,8 @@ interface WrongAnswerKnowledgePointLink {
   role: string
   syllabusNode: {
     code: string
-    label: string
+    enLabel: string
+    cnLabel: string
   }
 }
 
@@ -158,7 +160,7 @@ function normalizeWrongAnswerKnowledgePoints(
   if (points.length) return points
   return links.map((link) => ({
     code: link.syllabusNode.code,
-    label: link.syllabusNode.label,
+    label: formatSyllabusLabel(link.syllabusNode),
     role: link.role,
   }))
 }
@@ -274,7 +276,7 @@ errorBookRouter.get('/error-book', requireAuth, async (req, res) => {
             knowledgePointLinks: {
               select: {
                 role: true,
-                syllabusNode: { select: { code: true, label: true } },
+                syllabusNode: { select: { code: true, enLabel: true, cnLabel: true } },
               },
             },
           },

@@ -25,6 +25,7 @@ import type {
   QuestionBankPracticeSnapshot,
   QuestionBankSelectionScopeNode,
 } from './questionBankSelection.js'
+import { formatSyllabusLabel } from '../utils/syllabusLabels.js'
 
 type DatabaseClient = Prisma.TransactionClient | typeof prisma
 
@@ -125,7 +126,7 @@ async function buildDirectPracticeSnapshot(
   if (code) {
     const nodes = await db.syllabusNode.findMany({
       where: { examType },
-      select: { code: true, label: true, parentCode: true },
+      select: { code: true, enLabel: true, cnLabel: true, parentCode: true },
     })
     const nodeMap = new Map(nodes.map((node) => [node.code, node]))
     const requestedNode = nodeMap.get(code)
@@ -142,12 +143,12 @@ async function buildDirectPracticeSnapshot(
         lineage.length > 1 && lineage[0]?.parentCode === null ? lineage.slice(1) : lineage
       const path = (scopedLineage.length ? scopedLineage : [requestedNode]).map((node) => ({
         code: node.code,
-        label: node.label,
+        label: formatSyllabusLabel(node),
       }))
       subject = path[0] || null
       knowledgePoint = {
         code: requestedNode.code,
-        label: requestedNode.label,
+        label: formatSyllabusLabel(requestedNode),
         path,
       }
     }

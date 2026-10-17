@@ -151,9 +151,8 @@ import {
 
 type RawSyllabusNode = {
   code?: unknown
-  label?: unknown
-  name?: unknown
-  title?: unknown
+  en_label?: unknown
+  cn_label?: unknown
   children?: unknown
 }
 
@@ -203,6 +202,7 @@ async function showUploadValidationError(message: string): Promise<void> {
   })
 }
 
+// 上传校验兼容既有树形容器，但节点名称只接受新的双语字段。
 function getSyllabusRoots(input: unknown): RawSyllabusNode[] {
   if (Array.isArray(input)) return input as RawSyllabusNode[]
   if (!input || typeof input !== 'object') {
@@ -214,26 +214,28 @@ function getSyllabusRoots(input: unknown): RawSyllabusNode[] {
   if (Array.isArray(obj.syllabus)) return obj.syllabus as RawSyllabusNode[]
   if (Array.isArray(obj.tree)) return obj.tree as RawSyllabusNode[]
   if (Array.isArray(obj.children)) return obj.children as RawSyllabusNode[]
-  if ('code' in obj && ('label' in obj || 'name' in obj || 'title' in obj)) {
+  if ('code' in obj && ('en_label' in obj || 'cn_label' in obj)) {
     return [obj as RawSyllabusNode]
   }
 
   throw new Error(
-    '考纲内容缺少节点数组，请使用 [{ code, label, children }] 或包含 nodes/children 的结构。',
+    '考纲内容缺少节点数组，请使用 [{ code, en_label, cn_label, children }] 或包含 nodes/children 的结构。',
   )
 }
 
+// 保存前递归校验双语名称、节点编码唯一性和 children 结构。
 function validateSyllabusContent(input: unknown): void {
   const roots = getSyllabusRoots(input)
   const seen = new Set<string>()
 
   function visit(node: RawSyllabusNode, path: string): void {
     const code = typeof node.code === 'string' ? node.code.trim() : ''
-    const labelSource = node.label ?? node.name ?? node.title
-    const label = typeof labelSource === 'string' ? labelSource.trim() : ''
+    const enLabel = typeof node.en_label === 'string' ? node.en_label.trim() : ''
+    const cnLabel = typeof node.cn_label === 'string' ? node.cn_label.trim() : ''
 
     if (!code) throw new Error(`${path} 缺少 code，请为每个考纲节点填写唯一编码。`)
-    if (!label) throw new Error(`${path} 缺少 label，请为每个考纲节点填写节点名称。`)
+    if (!enLabel) throw new Error(`${path} 缺少 en_label，请填写英文名称。`)
+    if (!cnLabel) throw new Error(`${path} 缺少 cn_label，请填写中文名称。`)
     if (seen.has(code)) throw new Error(`节点 code 重复：${code}，请保证同一份考纲内编码唯一。`)
     seen.add(code)
 

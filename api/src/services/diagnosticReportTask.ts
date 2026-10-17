@@ -7,6 +7,7 @@ import { config } from '../config.js'
 import { parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
 import { orderQuestionsByModule } from '../utils/questionOrder.js'
 import { logRuntimeError } from '../utils/runtimeLogger.js'
+import { formatSyllabusLabel } from '../utils/syllabusLabels.js'
 import {
   DIAGNOSTIC_ASSEMBLY,
   DIAGNOSTIC_REPORT_GENERATION_MODE,
@@ -238,7 +239,7 @@ async function buildReportForTask(taskId: string, examRecordId: string): Promise
     prisma.syllabusNode.findMany({
       where: { examType: examRecord.examType },
       orderBy: { order: 'asc' },
-      select: { code: true, label: true },
+      select: { code: true, enLabel: true, cnLabel: true },
     }),
   ])
   const storedPositionsAreComplete = examRecord.answers.every((answer) =>
@@ -307,7 +308,10 @@ async function buildReportForTask(taskId: string, examRecordId: string): Promise
     },
     questions,
     elapsedDurationSeconds: examRecord.durationSeconds,
-    syllabusNodes,
+    syllabusNodes: syllabusNodes.map((node) => ({
+      code: node.code,
+      label: formatSyllabusLabel(node),
+    })),
     learnerProfile,
     onStage: async (stage) => updateTaskStage(taskId, mapBuildStage(stage)),
   })

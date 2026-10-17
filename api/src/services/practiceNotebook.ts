@@ -11,6 +11,7 @@ import {
   isStudentExamTypeAvailable,
 } from '../constants/domain.js'
 import { parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
+import { formatSyllabusLabel } from '../utils/syllabusLabels.js'
 
 type DatabaseClient = Prisma.TransactionClient
 
@@ -109,7 +110,14 @@ export async function resolveKnowledgePointSnapshot(
 ): Promise<{ nodeIds: string[]; snapshot: PracticeKnowledgePointSnapshot[] }> {
   const nodes = await db.syllabusNode.findMany({
     where: { examType },
-    select: { id: true, code: true, label: true, parentCode: true, order: true },
+    select: {
+      id: true,
+      code: true,
+      enLabel: true,
+      cnLabel: true,
+      parentCode: true,
+      order: true,
+    },
   })
   const nodeMap = new Map(nodes.map((node) => [node.code, node]))
   const parentCodes = new Set(nodes.flatMap((node) => node.parentCode ? [node.parentCode] : []))
@@ -133,11 +141,16 @@ export async function resolveKnowledgePointSnapshot(
     }
     const subject = ancestors.length > 1 ? ancestors[1] : ancestors[0]
     const parent = ancestors.at(-1)
+    const nodeLabel = formatSyllabusLabel(node)
     return {
       code: node.code,
-      label: node.label,
-      parentLabel: parent?.label || subject?.label || '当前学科',
-      subjectLabel: subject?.label || node.label,
+      label: nodeLabel,
+      parentLabel: parent
+        ? formatSyllabusLabel(parent)
+        : subject
+          ? formatSyllabusLabel(subject)
+          : '当前学科',
+      subjectLabel: subject ? formatSyllabusLabel(subject) : nodeLabel,
     }
   })
 

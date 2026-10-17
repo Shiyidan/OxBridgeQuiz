@@ -1,4 +1,4 @@
-// ESAT 动物生理学讲义：把器官功能、调节和防御串起来，并用原创题练习解释与计算。
+// ESAT 动物生理学讲义：把器官功能、调节和防御串起来，并用诊断真题与原创变式练习解释和计算。
 import type { KnowledgeExamFocus, KnowledgeLesson, KnowledgeSection } from './types'
 
 type PhysiologyDraft = Omit<KnowledgeSection, 'example' | 'sourceIds' | 'visual' | 'examFocus'> & {
@@ -21,7 +21,7 @@ export const esatAnimalPhysiology: KnowledgeLesson = {
   title: 'Animal physiology · 动物生理学',
   subtitle: '从细胞供能，到器官合作、内环境调节与身体防御',
   intro:
-    '吃进去的食物怎样变成肌肉能用的能量？运动时为什么呼吸和心跳一起加快？这些问题其实连在同一条线上：消化提供小分子，肺提供氧，血液负责运输，细胞完成呼吸。本章先把各部分的工作讲清楚，再看身体怎样调节血糖、水分和温度，以及怎样抵御病原体。例题会带你沿着这个过程找原因，而不是只凭一个熟悉的名词选答案。',
+    '吃进去的食物怎样变成肌肉能用的能量？运动时为什么呼吸和心跳一起加快？这些问题其实连在同一条线上：消化提供小分子，肺提供氧，血液负责运输，细胞完成呼吸。本章先把各部分的工作讲清楚，再看身体怎样调节血糖、水分和温度，以及怎样抵御病原体。精选的诊断真题会带你用数据和图表找原因，再用原创改编变式检查换个条件后是否仍然会判断。',
   memory: [
     '**通气让空气进出肺，气体交换让气体越过交换表面，细胞呼吸在细胞内供能**。三件事相互配合，不能混为一个过程。',
     '动脉从心脏流出，静脉流回心脏；==名称由血流方向决定，不由含氧量决定==。',
@@ -97,61 +97,68 @@ export const esatAnimalPhysiology: KnowledgeLesson = {
         },
         examples: [
           {
-            title: '单位质量的耗氧量，怎样比较？',
-            question:
-              'Two living tissue samples are tested at the same temperature. Carbon dioxide is absorbed and the gas-volume decrease is due only to oxygen uptake. Sample P, mass 2 g, uses 8 mL of oxygen in 4 minutes. Sample Q, mass 3 g, uses 18 mL in 6 minutes. What is the ratio of the oxygen uptake rates per gram, P:Q?',
-            options: ['2:3', '3:2', '1:1', '4:9'],
-            answer: 'C：1:1。两者都是 1 mL g⁻¹ min⁻¹。',
+            title: '运动时，两种呼吸都增强意味着什么？',
+            source: {
+              questionCode: 'ESAT_LEGACY_2021_NSAA_Q068',
+              why: '把跑步前后的呼吸数据与 pH、酶和气体运输放在一起，练习用数据解释身体的变化。',
+            },
+            question: '',
+            answer: 'G：只有陈述 2 和 3 正确。',
             steps: [
-              '问题要比较的是每克、每分钟，不能直接拿 8 和 18 相比。',
-              'P 的速率为 8 ÷ 2 ÷ 4 = 1 mL g⁻¹ min⁻¹；Q 为 18 ÷ 3 ÷ 6 = 1 mL g⁻¹ min⁻¹。',
-              '两个数相同，所以比例是 1:1。二氧化碳已被吸收、温度相同且体积变化仅来自耗氧，这些条件让测量有明确含义。',
+              '先读表：有氧呼吸从 1.01 增至 5.77，无氧呼吸从 0.01 增至 3.67。**两者同时增强**，所以不能看见“无氧增加”就以为有氧已经停止。',
+              '陈述 1 把方向写反了。剧烈运动时肌肉内酸化的趋势是 pH 降低，不是升高；不能因为“pH 会影响酶活性位点”这半句话熟悉，就接受整个陈述。这里也不需要把所有酸化机制都归结为乳酸这一种物质。',
+              '陈述 2 说 may，即“可能有一部分原因”。运动产热使肌肉温度适度升高，在没有使酶变性的范围内，可以加快酶促反应。这是合理的贡献因素，不能夸大成表格已经证明唯一原因就是温度。',
+              '陈述 3 正确：有氧呼吸增强，会产生更多二氧化碳，需要运走。动物的无氧过程不产生二氧化碳，但这并不抵消同时增强的有氧过程。因此选 2 和 3，即 G。',
             ],
             optionNotes: [
-              'A：只比较每分钟耗氧 2:3，遗漏了质量不同。',
-              'B：不是单位质量、单位时间计算得到的比值。',
-              'C：质量与时间都已除去，比较成立。',
-              'D：8:18 化简为 4:9，只比总体积，混入两个差异。',
+              'A（全不正确）：漏掉合理的温度影响和二氧化碳清除需求。',
+              'B（仅 1）：接受了 pH 上升的错误方向，且漏掉 2、3。',
+              'C（仅 2）：温度判断正确，但漏掉有氧呼吸增强所增加的二氧化碳。',
+              'D（仅 3）：二氧化碳判断正确，但漏掉陈述 2 中合理的“可能”。',
+              'E（1 和 2）：误选 1，也漏掉正确的 3。',
+              'F（1 和 3）：误选 1，也漏掉正确的 2。',
+              'G（2 和 3）：既考虑了适度升温，也考虑了有氧呼吸的产物。',
+              'H（1、2、3）：没有检查陈述 1 中 pH 变化的方向。',
             ],
             takeaway:
-              '凡题目写 per gram、per minute，就分别除以质量和时间。**较大的总耗氧量不一定意味着每克组织呼吸更快**。',
+              '看生理数据时，先确认**哪些过程同时在发生**，再分别看它们的产物和影响。题目说“可能”，只需判断机制是否合理；不等于已经证明因果。',
             variant: {
               question:
-                'Q now uses 36 mL in 6 minutes, with all other values unchanged. What is P:Q for the rates per gram?',
-              answer: '1:2。',
+                'During a new exercise period, a muscle has a constant rate of aerobic respiration but an increased rate of anaerobic respiration. Does the increased anaerobic rate alone show that the muscle produces more carbon dioxide?',
+              answer: '不能。',
               explanation:
-                'P 仍为 1；Q 变为 36 ÷ 3 ÷ 6 = 2 mL g⁻¹ min⁻¹。注意新耗氧量翻倍，原来的质量和时间没有改变。',
+                '动物肌肉的无氧过程产生乳酸盐，不直接产生二氧化碳。现在有氧呼吸速率保持不变，不能沿用原题“有氧增强，所以二氧化碳增加”的推理。**先找出变了哪一种呼吸，再判断其产物**。',
             },
           },
           {
-            title: '氧不足时，哪一种产物能帮助判断？',
-            question:
-              'Animal muscle cells continue producing ATP during a short period with no available oxygen. Which statement about the anaerobic pathway is correct?',
-            options: [
-              'It produces ethanol and carbon dioxide from glucose.',
-              'It produces lactate and a smaller ATP yield per glucose than aerobic respiration.',
-              'It produces water and carbon dioxide with the same ATP yield as aerobic respiration.',
-              'It stops whenever glucose is available.',
-            ],
-            answer: 'B：产生乳酸盐，每份葡萄糖提供的 ATP 少于有氧呼吸。',
+            title: '同一张曲线，既要读代谢也要读单位',
+            source: {
+              questionCode: 'NSAA_2023_S1-Q072',
+              why: '用酵母的特殊情境练习尊重题干条件，同时把曲线上的浓度转换成样品实际消耗的质量。',
+            },
+            question: '',
+            answer: 'A：只有陈述 1、2、3 正确；前 10 小时平均消耗葡萄糖 0.4 g h⁻¹。',
             steps: [
-              '先确认题目说 animal muscle cells，所用的是动物无氧途径。',
-              '这个途径在细胞质中进行，可由葡萄糖获得少量 ATP，产物为乳酸盐。',
-              '由于葡萄糖未完全分解，每份葡萄糖的 ATP 收益较低，所以 B 同时满足产物与供能两个条件。',
+              '先圈出题干特别告诉你的条件：这里的酵母即使有足够氧，也先用葡萄糖进行无氧呼吸；葡萄糖耗尽后，才在有氧条件下使用乙醇。**不能拿“有氧就一定只做有氧呼吸”覆盖题设**。',
+              '读图时，葡萄糖和乙醇用左侧的 g dm⁻³，酵母浓度用右侧的任意单位。葡萄糖约在 10 h 耗尽，观察到 32 h，因此只用乙醇的时段为 32 − 10 = 22 h，陈述 2 正确。',
+              '酵母把葡萄糖转成乙醇的无氧过程会放出二氧化碳；随后乙醇的有氧氧化也会放出二氧化碳，所以陈述 1 正确。起始已有葡萄糖，按题设从一开始就进行无氧呼吸，陈述 3 也正确。注意这与动物肌肉产生乳酸盐不同。',
+              '最后查陈述 4 的单位：初始葡萄糖浓度为 40 g dm⁻³，体积 100 cm³ = 0.100 dm³，因此总共只有 40 × 0.100 = 4 g。用 10 小时消耗完，平均速率为 4 ÷ 10 = 0.4 g h⁻¹，不是 4 g h⁻¹。',
             ],
             optionNotes: [
-              'A：把酵母的酒精发酵产物套到了动物肌肉。',
-              'B：两部分都正确。',
-              'C：二氧化碳和水是有氧呼吸总体产物，ATP 产量也不能等同。',
-              'D：葡萄糖是原料，有葡萄糖本身不会让该途径停止。',
+              'A（1、2、3）：三条都符合题设和图像，排除了计算错误的 4。',
+              'B（1、2、4）：漏掉题设明确支持的 3，并接受错误速率 4。',
+              'C（1、3、4）：漏算 10–32 h 的 22 小时，并接受错误速率 4。',
+              'D（2、3、4）：漏掉两种途径都产生二氧化碳，还把浓度变化当成质量速率。',
+              'E（1、2、3、4）：前三条正确，但第 4 条少乘了样品体积 0.100 dm³。',
             ],
-            takeaway: '题目给出不同生物时，先确认是谁在呼吸，再写文字式。**无氧不等于无能量**。',
+            takeaway:
+              '==质量消耗速率 = 浓度下降量 × 体积 ÷ 时间==。先确认曲线对应哪一侧坐标，再计算；还要分清酵母和动物的无氧产物。',
             variant: {
               question:
-                'Oxygen becomes available again. Must all lactate molecules be converted directly into carbon dioxide inside the same muscle cell?',
-              answer: '不必。',
+                'In a separate flask of constant volume 250 cm³, glucose concentration falls from 40 g dm⁻³ to 8 g dm⁻³ over 10 hours. What is the average mass of glucose used per hour?',
+              answer: '0.8 g h⁻¹。',
               explanation:
-                '乳酸盐可以被运走，也可在其他组织被利用或经肝脏等途径转成葡萄糖。恢复氧供应不意味着所有产物只能在原细胞以同一条路线处理；must 和 all 都超出了证据。',
+                '浓度下降为 40 − 8 = 32 g dm⁻³，体积为 0.250 dm³。总消耗量 32 × 0.250 = 8 g，再除以 10 h，得到 0.8 g h⁻¹。这里葡萄糖没有耗尽，不能直接把初始浓度全部算作消耗。',
             },
           },
         ],
@@ -246,62 +253,66 @@ export const esatAnimalPhysiology: KnowledgeLesson = {
         },
         examples: [
           {
-            title: '从 ECG 算出心脏每分钟泵多少血',
-            question:
-              'A regular ECG has 0.75 s between consecutive R peaks. The stroke volume is 60 mL. What is the cardiac output?',
-            options: ['0.080 L min⁻¹', '0.80 L min⁻¹', '4.8 L min⁻¹', '80 L min⁻¹'],
-            answer: 'C：4.8 L min⁻¹。',
+            title: '看血液进出前后的变化，认出器官',
+            source: {
+              questionCode: 'ESAT-2020-BIOLOGY-008',
+              why: '把小肠吸收、肾脏排泄和心腔输送放入同一张数据表，练习从物质变化理解器官分工。',
+            },
+            question: '',
+            answer: 'F：器官 1 是右侧心腔，器官 2 是肾，器官 3 是小肠。',
             steps: [
-              '相邻 R 波间隔表示一个心动周期的时间，不是每分钟的次数。心率 = 60 ÷ 0.75 = 80 min⁻¹。',
-              '每搏泵 60 mL，一分钟 80 搏，所以心输出量 = 80 × 60 = 4800 mL min⁻¹。',
-              '1000 mL = 1 L，因此为 4.8 L min⁻¹。这里用到的是波的时间间隔，不是 ECG 波峰的高度。',
+              '先把题设留在眼前：这是进食富含碳水化合物的食物后 10 分钟。每一行要比较同一种物质“进入”与“离开”的浓度，别横着把不同物质的数值相减。',
+              '器官 3 的葡萄糖从 9.0 升到 12.0 mg dm⁻³，正符合餐后小肠吸收葡萄糖进入血液；氧从 85 降到 70，并不矛盾，因为小肠组织本身也在呼吸。',
+              '器官 2 的尿素从 3.0 降到 2.4 mg dm⁻³，说明有尿素从血液中被移走，符合肾脏的排泄功能。它的氧也下降，提醒我们**肾脏是活组织，处理滤液同样需要能量**。',
+              '器官 1 的三项浓度均不变，符合血液通过右侧心腔被输送出去。这里比较的是心腔内流过的血液，不是供应心肌的冠状动脉与冠状静脉；不能据此说心肌不消耗氧。按 1、2、3 的顺序选 F。',
             ],
             optionNotes: [
-              'A：把心率数值换了单位，却没有乘搏出量。',
-              'B：数量级不符合 80 次、每次 60 mL 的乘积。',
-              'C：心率、搏出量和体积换算都正确。',
-              'D：把心率 80 直接当成以升表示的心输出量。',
+              'A（肾、小肠、右心腔）：尿素减少的是 2，葡萄糖升高的是 3，三个位置都不对应。',
+              'B（肾、右心腔、小肠）：3 正确，但肾应是尿素下降的 2，而不是 1。',
+              'C（小肠、肾、右心腔）：2 正确，但餐后葡萄糖升高的 3 才是小肠。',
+              'D（小肠、右心腔、肾）：把葡萄糖升高与尿素下降两条关键线索都配错了。',
+              'E（右心腔、小肠、肾）：1 正确，但 2、3 的排泄和吸收作用颠倒。',
+              'F（右心腔、肾、小肠）：依次符合成分不变、尿素下降、餐后葡萄糖上升。',
             ],
             takeaway:
-              '把单位写在旁边：次/分钟 × mL/次 = mL/分钟。**ECG 间隔能帮助算心率，波高不能直接当搏出量**。',
+              '认器官先找**最能区分功能的那一项变化**：餐后葡萄糖进入血液指向小肠，尿素离开血液指向肾。多个器官都会耗氧，单靠氧下降通常分不清。',
             variant: {
               question:
-                'The R–R interval falls to 0.50 s while stroke volume remains 60 mL. What is the new cardiac output?',
-              answer: '7.2 L min⁻¹。',
+                'In a separate experiment, blood enters an organ with a urea concentration of 3.0 mg dm⁻³ and leaves at 2.1 mg dm⁻³. If blood volume does not change across the organ, what percentage of the incoming urea is removed?',
+              answer: '30%。',
               explanation:
-                '心率为 60 ÷ 0.50 = 120 min⁻¹，心输出量为 120 × 60 = 7200 mL min⁻¹ = 7.2 L min⁻¹。间隔变短意味着每分钟次数更多。',
+                '减少量为 3.0 − 2.1 = 0.9 mg dm⁻³，用进入时的 3.0 作分母：0.9 ÷ 3.0 × 100% = 30%。题目补充血液体积不变，才可以直接用浓度减少百分比表示尿素量减少百分比。',
             },
           },
           {
-            title: '一份氧怎样从肺到达心肌？',
-            question:
-              'An oxygen molecule diffuses from an alveolus into the blood and is carried to a heart muscle cell through a coronary artery. Which sequence correctly describes the route after leaving the lung capillaries?',
-            options: [
-              'Pulmonary vein → left atrium → left ventricle → aorta → coronary artery',
-              'Pulmonary artery → right atrium → left ventricle → aorta → coronary artery',
-              'Pulmonary vein → right atrium → right ventricle → vena cava → coronary artery',
-              'Pulmonary artery → left ventricle → left atrium → aorta → coronary artery',
-            ],
-            answer: 'A：肺静脉→左心房→左心室→主动脉→冠状动脉。',
+            title: '反射弧图中的标签，也可能是错的',
+            source: {
+              questionCode: 'ESAT_LEGACY_2022_NSAA_Q066',
+              why: '题目直接给出学生画的图，适合练习先按信号方向理解突触，再检查标签，而不是照抄图中文字。',
+            },
+            question: '',
+            answer: 'E：突触后膜上有识别神经递质的化学受体。',
             steps: [
-              '题目从肺毛细血管之后开始，氧已经进入血液，不需要再让血回到肺动脉。',
-              '从肺回心脏的血走肺静脉，先进入左心房，再经房室瓣到左心室。',
-              '左心室把血泵入主动脉，冠状动脉从主动脉发出，供应心肌。因此 A 的每一段连接都正确。',
+              '注意这是 a student’s drawing，图中标签正是要你检查的对象。先沿大箭头走：左边是刺激传来的方向，右边通向肌肉。通向肌肉的这一侧应属于运动传出方向，不能因为旁边写了 sensory neurone 就接受它。',
+              '再看放大的连接处：左侧末端有小泡，右侧膜上有对应受体。这是一处化学突触。电信号到达突触前末端后，引起神经递质释放；递质扩散穿过间隙，与突触后膜上的受体结合。',
+              '因此 B 的“电冲动跳过间隙”不对，D 所指小泡内的是神经递质，不能在这个位置称作激素。**沿神经元传导与跨化学突触传递，信号形式不一样**。',
+              'A 把刺激传入一侧标成 motor neurone，C 把通向肌肉一侧标成 sensory neurone，都与图示方向冲突；E 指出的突触后膜化学受体正确。',
             ],
             optionNotes: [
-              'A：路线连续，并且冠状动脉确实为心肌供血。',
-              'B：肺动脉从右心室到肺，不是从肺流回右心房。',
-              'C：肺静脉不进入右心房，腔静脉也不负责从心室向身体泵血。',
-              'D：心房在心室之前，且肺动脉不把血带入左心室。',
+              'A：把图中刺激传入的一侧错标为运动神经元。',
+              'B：化学突触间隙靠神经递质扩散传递信号，不是电冲动直接跳过去。',
+              'C：通向肌肉的一侧应属于运动传出方向，不是感觉传入方向。',
+              'D：这里释放的是神经递质；不能把局部突触传递与血液运输的激素调节混为一谈。',
+              'E：突触后膜上的受体可与相应神经递质结合，是正确标签。',
             ],
             takeaway:
-              '先沿血流把路线走通，再看含氧量。**“静脉”只告诉你血回心脏，不代表里面一定缺氧**。',
+              '先看**信号从哪里来、往哪里去**，再判断标签。化学突触要记住“小泡释放递质 → 跨间隙扩散 → 受体结合”，不要把整条路线都说成电信号。',
             variant: {
               question:
-                'A red blood cell has just left a skeletal muscle capillary and will next exchange gases in the lungs. Which heart chambers does it pass through first, in order?',
-              answer: '右心房，然后右心室。',
+                'A drug blocks the neurotransmitter receptors on the postsynaptic membrane. Electrical impulses still reach the presynaptic terminal and neurotransmitter is still released. Can this chemical synapse transmit the signal normally?',
+              answer: '不能正常传递。',
               explanation:
-                '体循环静脉回流进入腔静脉，再到右心房、右心室，经肺动脉到肺。不要因为问题提到肌肉需要氧，就把当前仍在回流的红细胞直接放到左心。',
+                '递质虽然到达间隙，却无法与被阻断的受体正常结合，不能照常触发突触后反应。**有递质释放，不等于下一细胞一定接收到信号**；这一变式把阻断位置从整条神经缩小到受体。',
             },
           },
         ],
@@ -387,66 +398,37 @@ export const esatAnimalPhysiology: KnowledgeLesson = {
         },
         examples: [
           {
-            title: 'ADH 增加后，水去了哪里？',
-            question:
-              'A healthy person loses water by sweating without drinking. Other factors are unchanged and the kidneys respond normally. Which combination is expected?',
-            options: [
-              'Less ADH; less water reabsorption; a smaller urine volume',
-              'More ADH; less water reabsorption; a larger urine volume',
-              'More ADH; more water reabsorption; a smaller urine volume',
-              'Less ADH; more water reabsorption; a larger urine volume',
-            ],
-            answer: 'C：ADH 增加，水重吸收增加，尿量减少。',
-            steps: [
-              '出汗失水且没有饮水，血浆通常变浓、水势降低，身体需要保留水。',
-              '正常调节下 ADH 增加，使集合管等部位对水更通透，更多水返回血液。',
-              '已经返回血液的水不会再作为这一部分尿液排出，所以尿量减少。三项依次为“增加、增加、减少”。',
-            ],
-            optionNotes: [
-              'A：尿量方向符合保水，但激素和重吸收方向相反，整项不对。',
-              'B：把 ADH 对水重吸收的作用反了。',
-              'C：从失水到保水的因果关系一致。',
-              'D：激素、重吸收和尿量之间均没有形成正确的关系。',
-            ],
-            takeaway: '画一条水的去向：**滤液中的水 → 回到血液**。回去越多，剩在尿里的越少。',
-            variant: {
-              question:
-                'ADH rises, but the collecting ducts cannot respond to it. Can increased water reabsorption still be inferred from the hormone concentration alone?',
-              answer: '不能。',
-              explanation:
-                '题目改变的是靶器官的反应能力。激素发出信号，不保证靶细胞一定执行；集合管不能响应时，不能由 ADH 高就断言重吸收增加。',
+            title: '血糖升高和降低，为什么都属于负反馈？',
+            source: {
+              questionCode: 'ESAT_LEGACY_2022_NSAA_Q072',
+              why: '在同一流程图里检查调节腺体、两种激素及反馈方向，适合把“恢复正常范围”真正用到读图中。',
             },
-          },
-          {
-            title: '判断负反馈，看最初偏离而非箭头方向',
-            question:
-              'Blood glucose rises after a meal. Insulin secretion increases, glucose uptake and glycogen formation increase, and blood glucose returns towards its usual range. Which statement best explains the feedback?',
-            options: [
-              'It is positive feedback because insulin increases.',
-              'It is negative feedback because the response reduces the original rise in blood glucose.',
-              'It is negative feedback because all quantities decrease.',
-              'It cannot be feedback because more than one organ is involved.',
-            ],
-            answer: 'B：反应减小了最初的血糖升高，属于负反馈。',
+            question: '',
+            answer: 'B：V 是胰腺，W 是胰高血糖素，X 是胰岛素；Y、Z 均为负反馈。',
             steps: [
-              '先选定被调节的量：血糖，而不是把胰岛素浓度当成同一个量。',
-              '原来的偏离是血糖升高；后来的葡萄糖利用与糖原形成增加，帮助使血糖下降。',
-              '后来的作用抵消了最初的变化，因此是负反馈。胰岛素自身增加并不矛盾。',
+              '先把左右两支各读成一句话。左支：血糖降低后，某种激素让肝脏释放葡萄糖。右支：血糖升高后，另一种激素让肝脏摄取并储存葡萄糖。**先想需要什么效果，再填激素名称**。',
+              '左支需要把血糖往上拉，W 是胰高血糖素 glucagon，可促进肝糖原分解等过程。右支需要把血糖往下拉，X 是胰岛素 insulin，可促进葡萄糖利用和糖原合成等过程。两者都由胰腺的内分泌细胞分泌，所以 V 是胰腺。',
+              '两支都把原来的偏差减小：低了就升，高了就降。这就是负反馈。**“负”不是指血糖一定下降，而是调节结果抵消最初的变化**。',
+              '回看 Y、Z 的回路：血糖恢复会减弱相应的调节刺激。它们是激素参与的负反馈，不是图中所列的 nervous response，因此整行匹配的是 B。',
             ],
             optionNotes: [
-              'A：把传递信号的变化方向误当成整个反馈的类型。',
-              'B：以受调节的血糖为标准，判断正确。',
-              'C：负反馈不要求所有量一起下降，本题胰岛素就增加。',
-              'D：反馈经常涉及多个器官，不能据此排除。',
+              'A：胰腺和胰岛素位置有部分正确，但胰腺不分泌肾上腺素，这两条也不是神经反应。',
+              'B：腺体、低血糖与高血糖激素、两条负反馈全部匹配。',
+              'C：胰腺和反馈类型正确，但把胰岛素与胰高血糖素对调。',
+              'D：不仅对调两种激素，还把 Y 误写成神经反应。',
+              'E：垂体、肾上腺素和 ADH 不符合这张胰腺调节血糖的图；Z 也不是神经反应。',
+              'F：V、W、X 均不符合图中的功能，Y 也错写成神经反应。',
+              'G：右侧胰岛素对应合理，但垂体、ADH 和两个神经反应均不符合。',
+              'H：激素顺序正确，却把分泌腺体写成垂体，并把 Z 写成神经反应。',
             ],
             takeaway:
-              '补全一句话：“原来太……，反应让它……”；**只要在纠正最初偏离，就符合负反馈的基本意思**。',
+              '负反馈的判断只问一句：**这个反应有没有把最初的偏差拉回来？** 不要看变量是上升还是下降就给反馈贴标签。',
             variant: {
               question:
-                'Blood glucose falls during fasting and glucagon stimulates the liver to release more glucose. Is this also negative feedback?',
-              answer: '是。',
+                'After a carbohydrate-rich meal, blood glucose rises and insulin secretion increases. As glucose returns towards its normal range, should the original glucose stimulus for insulin secretion become stronger or weaker?',
+              answer: '减弱。',
               explanation:
-                '起初血糖偏低，肝脏释放葡萄糖使其回升，仍在抵消最初偏离。数值向上纠正，也可以是负反馈。',
+                '血糖偏高是这条回路的刺激；当偏差缩小，刺激随之减弱，胰岛素分泌会相应调整。这不是胰岛素完全消失，而是不应继续把餐后升高时的强刺激无限维持下去。',
             },
           },
         ],
@@ -530,67 +512,71 @@ export const esatAnimalPhysiology: KnowledgeLesson = {
         },
         examples: [
           {
-            title: 'LH 峰没有出现，会先影响哪一步？',
-            question:
-              'A treatment prevents the normal mid-cycle LH surge. Follicle growth and oestrogen secretion before this point are otherwise normal. Which event is most directly affected?',
-            options: [
-              'Release of the mature egg from the ovary',
-              'The movement of every hormone through blood',
-              'All thickening of the uterine lining before treatment',
-              'Formation of red blood cells in bone marrow',
-            ],
-            answer: 'A：成熟卵细胞从卵巢释放，也就是排卵。',
+            title: '顺着分泌来源认激素，别只背周期曲线',
+            source: {
+              questionCode: 'NSAA_2023_S1-Q070',
+              why: '用垂体、卵泡和黄体之间的关系识别激素，再把它们的作用与月经发生的时间联系起来。',
+            },
+            question: '',
+            answer: 'E：只有陈述 1 和 2 正确。',
             steps: [
-              '题目限定改变的是 LH 峰，并且告诉我们此前卵泡发育和雌激素分泌正常。',
-              'LH 峰最直接连接的事件是排卵，所以先判断卵细胞释放会受到影响。',
-              '不能因为一种激素受到影响，就把所有血液运输或早已发生的内膜增厚也宣布消失。',
+              '先沿图找来源和作用对象。垂体前叶分泌的 hormone 1 作用于卵泡，是 FSH；hormone 2 是 LH。卵泡分泌的 hormone 3 是雌激素，黄体分泌的 hormone 4 是孕激素。',
+              '陈述 1 正确：FSH 促进卵泡发育，发育中的卵泡分泌雌激素。这里不要把促进卵泡发育的 FSH 与排卵前出现高峰的 LH 对调。',
+              '陈述 2 正确：孕激素帮助维持子宫内膜。陈述 3 则把激素和时间都混了：在没有怀孕的正常周期末，黄体退化，孕激素和雌激素下降，内膜失去维持后脱落；不是 FSH 与 LH 都在此时达到最高峰再下降。',
+              '所以 1、2 正确，3 错误，选 E。图里的反馈符号可以帮助理解调节关系，但不能取代“哪个腺体分泌哪种激素、作用在哪里”的基本判断。',
             ],
             optionNotes: [
-              'A：对应 LH 峰的直接作用。',
-              'B：LH 峰变化不会让血液停止运输全部激素。',
-              'C：题干说此前雌激素分泌正常，不能倒推此前完全未增厚。',
-              'D：不是本题 LH 峰所直接调节的生殖事件。',
+              'A（全不正确）：漏掉 FSH 的卵泡作用和孕激素的内膜作用。',
+              'B（仅 1）：正确识别 FSH，但漏掉正确的陈述 2。',
+              'C（仅 2）：正确识别孕激素，却漏掉 FSH 促进卵泡发育。',
+              'D（仅 3）：把周期末的激素变化认错，也排除了两条正确功能。',
+              'E（1 和 2）：两条功能正确，且没有接受周期末的错误高峰说法。',
+              'F（1 和 3）：漏掉 2，并误把垂体两种激素的最高峰放在月经前。',
+              'G（2 和 3）：漏掉 1，同时接受错误的陈述 3。',
+              'H（1、2、3）：前两条虽正确，第三条的激素种类和时点不成立。',
             ],
             takeaway:
-              '题目问 most directly，优先找**这项激素最直接控制的事件**，不要跳到遥远或无关的后果。',
+              '把月经周期先记成一条有因果的线：**FSH 帮卵泡发育 → LH 峰触发排卵 → 黄体分泌孕激素维持内膜 → 未怀孕时卵巢激素下降，出现月经**。',
             variant: {
               question:
-                'Ovulation has already occurred, but the corpus luteum later degenerates and progesterone falls without pregnancy. What is expected to happen to the uterine lining?',
-              answer: '内膜失去维持，随后脱落，出现月经。',
+                'In a simplified model after ovulation, progesterone and oestrogen are maintained at levels sufficient to support the uterine lining instead of falling at the end of the cycle. Would the withdrawal of these hormones still trigger menstruation?',
+              answer: '不会由这一次“激素撤退”触发月经。',
               explanation:
-                '现在改变的是排卵后的黄体和孕激素，不能继续回答“排卵受阻”。要把事件放到正确阶段：孕激素下降与内膜维持减弱相联系。',
+                '变式明确取消了孕激素和雌激素的下降，因此原题中“激素下降 → 内膜失去维持”的触发链条不再成立。这是在题设模型中判断一个原因，并不等于断言任何情况下都不可能出血。',
             },
           },
           {
-            title: '避孕效果与感染防护要分开判断',
-            question:
-              'Method X uses hormones to suppress ovulation. Method Y is a correctly used condom. Which statement is correct?',
-            options: [
-              'X creates a physical barrier to HIV transmission.',
-              'Y prevents sperm passage by suppressing FSH secretion.',
-              'Both methods must prevent every sexually transmitted infection.',
-              'X acts through hormonal regulation, while Y provides a physical barrier that can reduce transmission of several sexually transmitted infections.',
-            ],
-            answer: 'D：X 改变激素调节，Y 提供可降低多种感染传播风险的物理屏障。',
+            title: '植物向光弯曲，除了激素还需要什么？',
+            source: {
+              questionCode: 'ESAT_LEGACY_2018_NSAA_Q61',
+              why: '把植物激素与生长所需的物质和能量合在一起，练习区分“决定弯向哪里”与“支持细胞生长”。',
+            },
+            question: '',
+            answer: 'H：条件 1、2、3 都需要。',
             steps: [
-              '先分别确认两种方法的作用点：X 是排卵调节，Y 是物理屏障。',
-              '抑制排卵影响卵细胞释放，不会因此在体液交换处形成屏障；避孕套则可阻挡精子和部分病原体传播。',
-              'D 同时说清机制，并使用 can reduce 而非保证完全阻断所有感染，因此最准确。',
+              '题目问茎尖附近的细胞要怎样支持向光生长。我们把它分成两件事：一是细胞能持续生长，二是两侧生长速度不同，从而弯曲。',
+              '单侧光引起生长素分布不均，茎的背光侧通常有较多生长素，促进这一侧细胞伸长，所以茎向光弯曲。**激素分布不均解释的是方向**，条件 2 正确。',
+              '但有激素信号，细胞也不能不消耗物质和能量就伸长。按本题正常生长的有氧呼吸模型，葡萄糖提供呼吸底物，氧支持有氧供能，因此条件 1、3 也需要。不要把答案扩大为“所有植物细胞在任何短暂缺氧条件下都完全不能代谢”。',
+              '三条分别照顾到生长底物、差异伸长的调节和有氧供能，选 H。只选激素的选项，解释了为什么弯，却遗漏了怎么长。',
             ],
             optionNotes: [
-              'A：激素调节不会制造物理屏障。',
-              'B：把避孕套的作用写成抑制垂体激素。',
-              'C：every 过于绝对，且 X 本身不提供屏障保护。',
-              'D：区别了避孕机制和感染传播风险。',
+              'A（全不需要）：既否定差异生长的激素条件，也忽略正常生长的供能。',
+              'B（仅 1）：只保留葡萄糖，漏掉激素分布和氧。',
+              'C（仅 2）：知道向光性的调节，却遗漏生长本身的物质和供能条件。',
+              'D（仅 3）：只保留氧，漏掉葡萄糖和激素分布。',
+              'E（1 和 2）：漏掉本题正常有氧生长所需的氧。',
+              'F（1 和 3）：可支持生长供能，却没有解释两侧为何伸长不同。',
+              'G（2 和 3）：漏掉葡萄糖这一呼吸底物。',
+              'H（1、2、3）：同时满足正常生长与定向弯曲的条件。',
             ],
             takeaway:
-              '比较措施时，分别回答**怎样影响受精或排卵、怎样影响病原传播**。这两个答案不能相互替代。',
+              '激素负责调节，不是凭空提供全部能量。解释生长题时同时想两层：**细胞靠什么长；两侧为什么长得不一样**。',
             variant: {
               question:
-                'A copper intrauterine device contains no contraceptive hormones. Does this make it a hormonal method because it acts inside the body?',
-              answer: '不是。',
+                'A shoot has sufficient glucose and oxygen. Under otherwise identical conditions, auxin is maintained at the same growth-promoting concentration on both sides of its tip. Does this auxin distribution by itself provide a reason for the shoot to bend to one side?',
+              answer: '不能。',
               explanation:
-                '分类看作用机制，不看是否放在体内。铜宫内装置不靠外源激素调节排卵；“体内使用”不能作为激素方法的判断标准。',
+                '两侧生长素浓度相同，单凭这一条件不能推出一侧伸长更快。细胞可以继续生长，但**能够生长与出现定向弯曲不是同一结论**；还需要造成两侧差异的条件。',
             },
           },
         ],
@@ -682,62 +668,35 @@ export const esatAnimalPhysiology: KnowledgeLesson = {
         },
         examples: [
           {
-            title: '免疫记忆为什么有抗原特异性？',
-            question:
-              'A vaccine contains an inactivated pathogen P. After vaccination, a person produces antibodies to P and memory cells. Later the same person encounters P again. Which explanation best accounts for a faster antibody response?',
-            options: [
-              'Memory cells specific to P help generate antibody-producing cells more rapidly.',
-              'All antibodies have become living memory cells.',
-              'The vaccine has killed every P pathogen in the environment.',
-              'The same response must occur equally rapidly to every unrelated pathogen.',
-            ],
-            answer: 'A：针对 P 的记忆细胞帮助更快产生分泌抗体的细胞。',
-            steps: [
-              '题目说明疫苗后形成了抗体和记忆细胞，这两者并不是一种东西。',
-              '再次遇到相同病原的匹配抗原，相应记忆细胞可更快参与反应，产生分泌抗体的细胞。',
-              '这种优势依赖相应抗原的识别，不能扩展成对全部无关病原都同样快，所以 A 最准确。',
-            ],
-            optionNotes: [
-              'A：保留了记忆与特异性两个关键条件。',
-              'B：抗体是蛋白质，不会直接变成细胞。',
-              'C：接种不会清除外界所有病原。',
-              'D：把对匹配抗原的记忆错误推广给全部病原。',
-            ],
-            takeaway:
-              '免疫题里先辨认**抗原是被识别的特征，抗体是结合它的分子，记忆细胞保留再次反应的能力**。',
-            variant: {
-              question:
-                'An unvaccinated person is given ready-made antibodies to P. Does this alone show that the person has formed their own memory cells to P?',
-              answer: '不能。',
-              explanation:
-                '获得现成抗体可带来被动保护，但这本身不证明自己的免疫系统已建立相应记忆。不要把“现在有抗体”与“自己形成长期记忆”画等号。',
+            title: '吞噬、抗生素和抗体，怎样从表格中分清？',
+            source: {
+              questionCode: 'ESAT-2020-BIOLOGY-017',
+              why: '用作用对象、是否需要细胞移动、是否使用人体释放的分子这三类信息，比较身体防御与药物的不同方式。',
             },
-          },
-          {
-            title: '人数不同的两组，怎样比较感染风险？',
-            question:
-              'In a randomised vaccine trial with the same follow-up conditions, 20 of 1000 vaccinated participants and 80 of 1000 control participants develop the target disease. What is the relative reduction in disease risk in the vaccinated group?',
-            options: ['6%', '20%', '75%', '80%'],
-            answer: 'C：75%。',
+            question: '',
+            answer: 'F：X 是吞噬作用，Y 是服用抗生素，Z 是可由灭活病原体接种激发的抗体反应。',
             steps: [
-              '先求两组患病风险：接种组 20/1000 = 2%，对照组 80/1000 = 8%。',
-              '绝对差是 8% − 2% = 6 个百分点；题目问 relative reduction，要再除以对照组风险。',
-              '(8% − 2%) ÷ 8% = 6/8 = 75%。这是这次试验中观察到的相对减少，不等于每个接种者都绝不会患病。',
+              '先找最容易认的一列组合。Y 作用于细菌，不作用于病毒，也不依赖人体细胞移动或释放的分子，符合抗生素。**抗生素不能治疗病毒本身**，不要把它当成能消灭一切病原体的药物。',
+              'X 对细菌和病毒都可发挥作用，且需要人体细胞移动到病原体所在处，符合吞噬细胞接近并吞入病原体。表格的“没有使用人体细胞释放的分子”，是在区分这里列出的主要防御方式，不是在说吞噬细胞内没有酶。',
+              'Z 使用人体细胞释放的分子，不要求吞噬细胞移动后把病原体吞入，符合抗体介导的作用。灭活病原体提供抗原，可以激发相应免疫反应，因此能与“may be stimulated by injections of inactivated pathogen”对应。',
+              '按 X、Y、Z 排列为吞噬作用、抗生素、接种可激发的抗体反应，选 F。注意这里说“可影响细菌和病毒”，不是一份抗体能识别所有细菌和病毒；**抗体仍有特异性**。',
             ],
             optionNotes: [
-              'A：6 是百分点差，不是相对减少百分比。',
-              'B：把接种组患病人数 20 直接当百分数。',
-              'C：以对照组风险为比较基准，计算正确。',
-              'D：把对照组人数 80 当成效果百分比。',
+              'A：Y 的抗生素正确，但把 X 的细胞移动和 Z 的释放分子两种特征对调。',
+              'B：把 X 认成接种后的分子反应、Y 认成吞噬、Z 认成抗生素，均不符合对应特征。',
+              'C：X 同时影响病毒且需要细胞移动，不是抗生素；Y、Z 也与表格不符。',
+              'D：Z 对应接种可激发的反应正确，但把 X、Y 的吞噬与抗生素颠倒。',
+              'E：X 的吞噬正确，但 Y 不使用人体释放的分子，Z 又能影响病毒，二者不能分别认成抗体反应和抗生素。',
+              'F：依次符合细胞移动吞噬、抗生素作用、人体释放抗体的三组特征。',
             ],
             takeaway:
-              '问 absolute difference 就相减；问 relative reduction 就**先相减，再除以对照风险**。组人数不同时，要先换成比例。',
+              '比较防御方式时，别只问“能不能杀病原体”。要问**是谁在作用、通过什么方式、针对哪些对象**。接种提供抗原来激发反应，与直接给抗体也不同。',
             variant: {
               question:
-                'A second trial has 20 cases among 500 vaccinated participants and 80 among 1000 controls. What is the relative risk reduction?',
-              answer: '50%。',
+                'A person receives purified antibodies against a specific pathogen, with no pathogen antigen in the injection. Do these injected antibodies themselves create memory cells against that pathogen?',
+              answer: '不会。直接给予抗体本身不建立针对该病原体的免疫记忆。',
               explanation:
-                '接种组风险为 4%，对照组为 8%，相对减少 (8% − 4%)/8% = 50%。虽然患病人数仍是 20 与 80，但分母改变，不能沿用 75%。',
+                '抗体可暂时提供相应保护，但不是把抗原交给患者免疫系统来训练其自身的特异性反应。没有因这次单纯注入抗体而形成记忆细胞；这与疫苗激发的主动免疫不同。题目限定未注入病原体抗原，也不能额外假设此时发生了感染。',
             },
           },
         ],

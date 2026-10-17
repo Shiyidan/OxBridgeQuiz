@@ -1,271 +1,253 @@
-// ESAT 酶章节：串联催化、专一性、实验条件与消化，配套原创例题、变式和分主题图解。
+// ESAT 酶章节：串联催化、专一性、实验条件与消化，配套诊断真题讲解、原创变式和分主题图解。
 import type { KnowledgeExamFocus, KnowledgeLesson, KnowledgeSection } from './types'
 
 const catalystExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '能量图中，酶究竟改变了哪一段？',
-    question:
-      'In an energy profile, the reactants are at 30 kJ mol⁻¹ and the products at 10 kJ mol⁻¹. The peak is at 100 kJ mol⁻¹ without an enzyme and at 60 kJ mol⁻¹ with an enzyme. What are the activation energy with the enzyme and the overall energy change?',
-    options: [
-      '60 and −20 kJ mol⁻¹',
-      '30 and +20 kJ mol⁻¹',
-      '30 and −20 kJ mol⁻¹',
-      '70 and −40 kJ mol⁻¹',
-    ],
-    answer: 'C：催化后的活化能为 30 kJ mol⁻¹，反应总能量变化为 −20 kJ mol⁻¹。',
+    title: '曲线变平，能不能说酶已经用完？',
+    question: '',
+    source: {
+      questionCode: 'ESAT_LEGACY_2021_NSAA_Q067',
+      why: '把产物—时间曲线、初始速率单位换算和催化剂的特点放在同一道题中，适合检查你是否真正会解释平台。',
+    },
+    answer: 'D：只有陈述 3 正确。',
     steps: [
-      '活化能是从反应物所在位置到峰顶的高度差。加入酶后，峰顶是 60，反应物是 30，因此活化能为 60 − 30 = 30 kJ mol⁻¹。**峰顶的纵坐标本身不等于活化能**。',
-      '总能量变化看终点与起点：10 − 30 = −20 kJ mol⁻¹。负号表示产物能量低于反应物，而不是反应不能发生。',
-      '酶把峰降低，但起点和终点都没变。因此它能加快速率，却不改变这次反应的总能量变化，选 C。',
+      '先看纵轴：它表示**累计产物质量**，所以反应速率要看曲线斜率。曲线后段接近水平，只说明产物几乎不再增加，不能直接说明酶发生了什么。',
+      '陈述 1 把酶当成了会被反应消耗的原料。酶完成催化后可以继续使用，因此不能用“酶在反应中用完了”解释平台。酶可能失活，与酶被反应净消耗是两回事。',
+      '陈述 2 要用起始直线段计算：前 10 s 约生成 5 g，初始速率约为 5 ÷ 10 = 0.5 g/s；换成每分钟是 0.5 × 60 = **30 g/min**，并非 120 g/min。',
+      '陈述 3 用的是 may：产物在高浓度下抑制酶，确实是反应变慢的一种可能原因。图不能证明一定发生了产物抑制，但本题只要求判断是否可能，因此 3 正确。',
     ],
     optionNotes: [
-      'A：把峰顶 60 直接当成活化能，漏减了反应物的 30。',
-      'B：活化能算对，但把“产物减反应物”的顺序颠倒了。',
-      'C：分别计算“峰顶减起点”和“终点减起点”，两项都正确。',
-      'D：70 是未加酶时的活化能；−40 则把两条路径的峰高变化当成总能量变化。',
+      'A：漏掉了陈述 3；产物抑制可以使反应减慢。',
+      'B：陈述 1 错，酶不是按反应次数被净消耗的原料。',
+      'C：陈述 2 错，初始速率约为 30 g/min。',
+      'D：只保留陈述 3，与逐条判断一致。',
+      'E：选入的 1、2 都错误，而且漏掉 3。',
+      'F：3 可以成立，但 1 把酶的失活与酶被消耗混淆。',
+      'G：3 可以成立，但 2 的速率数值不对。',
+      'H：把三条都接受，漏查了酶的作用特点和时间单位。',
     ],
     takeaway:
-      '先认清图里的**起点、终点和峰顶**。催化作用改变跨过反应障碍的难易，不把反应物或产物换成另一种能量状态。',
+      '**曲线平台告诉你反应慢下来了，不会自动告诉你原因。**先算斜率，再用酶的性质排除不成立的解释，最后区分“可能”与“已经证明”。',
     variant: {
       question:
-        'A different enzyme gives an alternative pathway with a peak at 50 kJ mol⁻¹, while the same reactants and products remain at 30 and 10. What changes in your answer?',
-      answer: '活化能改为 20 kJ mol⁻¹；总能量变化仍为 −20 kJ mol⁻¹。',
+        'In a separate experiment, the initial straight section rises from 0 g at 0 s to 9 g at 15 s. What is the initial rate in g min⁻¹? Would a later plateau by itself prove that the enzyme had denatured?',
+      answer: '初始速率为 36 g/min；后来的平台不能单独证明酶已变性。',
       explanation:
-        '新的峰顶更低，所以 50 − 30 = 20。起点、终点没有改变，10 − 30 仍为 −20。**酶不是通过改变反应总能量来加速反应的**。',
+        '先算 9 ÷ 15 = 0.6 g/s，再乘 60 得 36 g/min。平台还可能由底物不足、产物抑制等原因造成；要判断变性，需要恢复适宜条件或补加底物等进一步对照。',
     },
   },
   {
-    title: '反应停下来，是不是酶已经用完了？',
-    question:
-      'An enzyme converts all of a limited supply of substrate into product. The temperature and pH remain suitable. The products do not inhibit the enzyme. More of the same substrate is then added and product formation resumes without adding more enzyme. Which statement best explains this?',
-    options: [
-      'The enzyme can be reused after releasing its products.',
-      'The original substrate molecules have turned into new enzyme molecules.',
-      'The enzyme was consumed and then recreated from the products.',
-      'The enzyme permanently increases the total amount of energy released per substrate molecule.',
-    ],
-    answer: 'A：酶释放产物后可以继续催化下一批底物。',
+    title: '两条曲线到达同一终点，能推断什么？',
+    question: '',
+    source: {
+      questionCode: 'ESAT-2020-BIOLOGY-011',
+      why: '用同一张图同时比较反应快慢和最终产物量，并要求判断不同 pH 条件是否可能产生该结果。',
+    },
+    answer: 'C：陈述 1 和 3 都可能正确。',
     steps: [
-      '先看停止前最明确的条件：底物已经全部转成产物。没有底物可作用，即使酶仍正常，产物也不会继续增加。',
-      '加回底物后，不补充酶也能重新反应，说明原来的酶还能使用。它在一个完整催化循环结束后被再生，**不是按“每消耗一份底物就消耗一份酶”工作**。',
-      '题干没有发生蛋白质合成，也没有提供酶改变反应总能量的证据，因此 B、C、D 都不能解释现象。',
+      '先读出两个独立的信息：X 的初始斜率较大，说明早期反应较快；X、Y 最后到达相同高度，说明**最终产物质量相同**。不要只看到 X 先到终点，就说 X 产物更多。',
+      '陈述 1 和 3 是分别提出的可能解释，不是说 X 的 pH 同时更高又更低。若两组都在最适 pH 以下，提高 pH 可能让 X 更接近最适值；若都在最适值以上，降低 pH 也可能让 X 更接近最适值。因此 1、3 都可能。',
+      '陈述 2、4 只改变底物供应量。按本题通常采用的**底物最终反应完毕**模型，在其余条件相同的比较中，底物总量改变会使最终产物量不同，不能解释这里相同的平台，因此不选 2、4。这一步依赖这个模型：如果还有产物抑制或酶失活等终止原因，就不能仅凭相同平台断定初始底物量相同。',
+      '关键不是背“pH 越高反应越快”，而是看它离该酶的适宜范围有多远。图中没有给出 pH 数值，不能仅凭斜率确定谁的 pH 更高。',
     ],
     optionNotes: [
-      'A：符合“加底物即可恢复”的观察。',
-      'B：底物转成反应产物，不会自动变成负责催化的酶。',
-      'C：酶没有在这个反应中被净消耗，不需要由产物重新制造。',
-      'D：催化作用改变反应速率，不改变每份底物的总能量变化。',
+      'A：1、3 都是可能的 pH 解释，不能全部排除。',
+      'B：1 可能，但 2 与相同的终点产物量不符。',
+      'C：1、3 是两个分别成立的可能情形，符合题目 could 的问法。',
+      'D：1 可能，但 4 不能解释相同的平台。',
+      'E：3 可能，但 2 把较快或较慢混同为底物总量不同。',
+      'F：2、4 都是改变底物供应量，不符合本题同终点的比较。',
+      'G：3 可能，但 4 与相同终点不符。',
+      'H：1、3 可以解释速率差异；2、4 不能一并接受。',
     ],
     takeaway:
-      '看到产物曲线变平，先问**底物是否耗尽、条件是否变化**。曲线变平本身不能证明酶被用完或变性。',
+      '**斜率看快慢，平台高度看最终量。**只有在底物最终反应完毕的模型下，才能用最终产物量比较起始底物量；平台本身不能排除其他终止原因。比较 pH 时要问“谁更接近最适条件”，不能只按数值高低判断。',
     variant: {
       question:
-        'The enzyme is now strongly heated before fresh substrate is added, and no further product forms at the original temperature. Is substrate shortage still a sufficient explanation?',
-      answer: '不是；已经补足底物，需要考虑酶受到高温损伤。',
+        'For the same enzyme, the optimum pH is 7. Both experiments start with equal amounts of substrate. X is at pH 6 and Y at pH 4, and both reactions eventually convert all the substrate into the same product. Which curve is expected to have the greater initial slope, and should their final product masses differ?',
+      answer: '通常 X 的初始斜率较大；两组最终产物质量相同。',
       explanation:
-        '条件改变后，原来“缺底物”的解释不再够用。高温可能使酶变性，活性位点不再正常工作；但判断原因仍应有未加热对照，不能只凭一次反应失败断言全部酶都已变性。',
+        '在题设两点都低于最适 pH、且 X 更接近适宜条件的比较中，X 通常更快。题目已明确两组相同底物最终都完全转化，所以速度差异不改变最终产物量。',
     },
   },
 ]
 
 const specificityExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '从底物对照中能得出多大范围的结论？',
-    question:
-      'Purified enzyme E is tested separately with substrates X and Y. The assays detect products from either reaction, and all other conditions are suitable and controlled. With E, X produces product at 12 units per minute and Y at 0. Without E, both rates are 0. Which conclusion is supported?',
-    options: [
-      'E is consumed whenever X is converted into product.',
-      'E catalyses the conversion of X but shows no detectable activity on Y under these conditions.',
-      'E must catalyse every reaction involving a molecule the same size as X.',
-      'Y must be an enzyme because it does not form product.',
-    ],
-    answer: 'B：E 在这些条件下催化 X 的反应，但对 Y 没有检测到活性。',
-    steps: [
-      '先用无酶对照判断是否与 E 有关：X 在没有 E 时为 0，加入 E 后为 12，说明 E 加快了这里测量的反应。',
-      'Y 在加酶后仍是 0，表示在本次条件和检测范围内，没有检测到 E 对 Y 的催化作用。这个结果符合**酶有专一性**。',
-      '大小相同不代表形状和化学性质都适合活性位点；也不能因为 Y 没反应，就把它改判成酶。因此能得到的结论是 B。',
-    ],
-    optionNotes: [
-      'A：速率数据没有测量酶的消耗，酶也不因完成催化而被净消耗。',
-      'B：同时说明 X 的结果和 Y 的结果，并保留了实验条件的限制。',
-      'C：只比较分子大小不足以判断是否能结合和被催化。',
-      'D：不能反应的底物候选并不会因此成为酶。',
-    ],
-    takeaway:
-      '实验支持多大的结论，就说到多大范围。**没有检测到某次反应，不等于已经证明它在所有条件下都不可能发生**。',
-    variant: {
-      question:
-        'A second enzyme F converts Y to product in a separate controlled assay. Does this contradict the result for enzyme E?',
-      answer: '不矛盾。',
-      explanation:
-        '不同酶具有不同的活性位点和催化作用。Y 不适合 E，并不妨碍它适合 F。专一性说的是**某种酶与它能作用的底物、反应之间的关系**，不是说一种分子永远不能被任何酶转化。',
+    title: '透明圈能告诉我们是哪一种酶在起作用吗？',
+    question: '',
+    source: {
+      questionCode: 'NSAA_2023_S1-Q064',
+      why: '把酶的底物专一性放进淀粉琼脂实验，同时考查面积读图和煮沸对酶活性的影响。',
     },
-  },
-  {
-    title: '改变活性位点后，为什么反应可能变慢？',
-    question:
-      'A mutation changes one amino acid in a protein enzyme. Equal amounts of the original and altered enzyme are compared at the same temperature, pH and substrate concentration. The altered enzyme binds the substrate less effectively. Which explanation is most consistent with a lower reaction rate?',
-    options: [
-      'Every mutation changes the enzyme into a carbohydrate.',
-      'The substrate must now be consumed without forming products.',
-      'The enzyme must now supply more energy to the reaction.',
-      'The altered active site forms fewer productive enzyme–substrate complexes per unit time.',
-    ],
-    answer: 'D：改变后的活性位点更难与底物形成能完成催化的复合物。',
+    answer: 'F：陈述 1 和 3 正确。',
     steps: [
-      '先把 DNA、蛋白质和功能连起来：突变改变氨基酸，可能改变酶的折叠或活性位点附近的化学性质。题干已经给出本题的具体后果——底物结合变差。',
-      '酶需要先与合适底物结合，才更容易完成催化。结合变差时，单位时间内有效的酶—底物复合物可能减少，因而产物形成更慢。',
-      '用量和外部条件都相同，所以不能把差别推给“酶加少了”或温度不同。D 直接连接了已知变化与速率结果。',
+      '先弄清楚“透明”代表什么：碘遇到淀粉呈蓝黑色，所以透明区域表示那里的淀粉已被消化。题目特意说琼脂不会被这些酶消化，不能把透明圈解释为琼脂本身被吃掉。',
+      '陈述 1 要比较面积，不是只比较直径。图中 W 的透明圈直径约为 X 的 2 倍，孔的面积可忽略，所以面积比约为 2² = **4 倍**，陈述 1 正确。',
+      '陈述 2 的前半句可以成立：淀粉酶能消化淀粉。但蛋白酶作用于蛋白质，不能解释 X 周围的淀粉消失。**一条陈述有两部分，必须两部分都成立**，所以 2 错。',
+      'Z 没有明显透明圈，与煮沸使酶变性、无法有效消化淀粉相容。因此“可能含有煮沸的酶”成立。但不能反过来断言 Z 一定放了煮沸的酶，因为水等其他处理也可能不产生透明圈。',
     ],
     optionNotes: [
-      'A：氨基酸改变不会把蛋白质直接变成糖类；并非每次突变都会改变功能。',
-      'B：底物不能有效结合，不等于它会无缘无故消失。',
-      'C：酶通过降低活化能催化，不是给每份底物提供反应能量。',
-      'D：把活性位点、结合和产物形成串起来，符合题干。',
+      'A：漏掉正确的面积比较和煮沸解释。',
+      'B：1 正确，但漏掉了 3 的可能性。',
+      'C：2 错，蛋白酶不能消化淀粉。',
+      'D：3 正确，但漏掉了 1 的面积关系。',
+      'E：1 正确，2 错；同时漏掉 3。',
+      'F：保留 1、3，排除 2，判断完整。',
+      'G：错误接受 2，并漏掉 1。',
+      'H：多选了 2，没有检查蛋白酶的底物。',
     ],
     takeaway:
-      '解释“结构改变影响功能”时，把中间一步说出来：**活性位点改变 → 与底物结合或催化变差 → 速率降低**。不要只重复“酶变了，所以慢了”。',
+      '先把实验现象翻译成**哪一种底物减少了**，再判断酶是否能作用于它。图形上的直径比、面积比也要分清。',
     variant: {
       question:
-        'A different mutation leaves substrate binding and all measured catalytic properties unchanged. Must the reaction rate fall?',
-      answer: '不必。',
+        'In a new starch-agar experiment, the clear-circle radii around W and X are 3.0 mm and 2.0 mm. The well areas are negligible. What is the ratio of the digested areas? Could purified protease alone explain the clear circle around X?',
+      answer: '面积比为 9∶4；单独使用纯蛋白酶不能解释 X 的透明圈。',
       explanation:
-        '这里没有证据表明活性位点或催化过程受到影响。**基因发生变化不等于酶功能必然下降**；要看变化发生在哪里、是否改变实际功能。',
+        '圆面积与半径平方成正比，因此 3²∶2² = 9∶4。透明圈反映淀粉被消化，而蛋白酶的底物是蛋白质；换了半径数据，并没有改变酶的专一性。',
     },
   },
 ]
 
 const conditionsExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '回到同一温度，才能看清低温和高温的区别',
-    question:
-      'Equal samples of an enzyme are kept for 10 minutes at 5°C, 35°C or 85°C. All samples are then tested at 35°C with fresh substrate at the same pH. Their initial rates are 18, 18 and 1 units per minute, respectively. Which explanation best fits the results?',
-    options: [
-      'Both 5°C and 85°C must permanently denature all enzyme molecules.',
-      'The 5°C sample contains more substrate because cold creates substrate molecules.',
-      'The effect of cooling is reversible here, whereas heating to 85°C causes a persistent loss of activity.',
-      'The 85°C sample must work fastest because higher temperature always gives a higher rate.',
-    ],
-    answer: 'C：本实验中低温造成的影响可恢复，高温处理后仍有明显活性损失。',
+    title: '气泡少了多少？高温又改变了什么？',
+    question: '',
+    source: {
+      questionCode: 'NSAA_2016_S1-Q058',
+      why: '把温度实验的百分比计算与酶变性的解释放在同一组选项里，要求数值和生物学原因都正确。',
+    },
+    answer: 'C：气泡数下降 75%，高温破坏维持酶结构的作用力。',
     steps: [
-      '最关键的是测量时都在 35°C。现在比较的是**先前处理留下的影响**，不能再用“测量时分子运动快慢不同”解释三组差异。',
-      '5°C 处理组恢复到 18，与未受高温影响的 35°C 组相同，说明低温处理没有造成这里能检测到的持久损伤。',
-      '85°C 处理组回到 35°C 仍只有 1，符合高温使大量酶失去正常结构、活性位点受损。速率不是 0，也不能说每一个酶分子都已完全失活。',
-      '因此选 C。高温下碰撞增多与高温造成变性是两种影响，不能只记前一条。',
+      '装置测的是土豆中的酶分解过氧化氢时产生的氧气气泡。看表中题目指定的两行：30°C 时每分钟 32 个气泡，60°C 时为 8 个。',
+      '减少量是 32 − 8 = 24。百分比下降必须以**原来的 32**为分母：(32 − 8) ÷ 32 × 100% = 75%。8 ÷ 32 = 25% 是剩余比例，不是下降比例。',
+      '高温可能破坏维持蛋白质酶三维结构的作用力，使活性位点不能正常工作，反应速率下降。这里说的是**酶变性或失活**，不是“酶死了”；酶本身不是活细胞。',
+      '把两列一起核对：只有 C 同时给出 75% 和正确的结构解释。',
     ],
     optionNotes: [
-      'A：低温组已恢复，且高温组仍有少量活性，“全部永久变性”超出数据。',
-      'B：各组使用新鲜底物且条件相同，冷却不会制造底物。',
-      'C：准确概括回温后的差异，也没有把现象说成绝对规律。',
-      'D：忽略变性，而且三组真正测量速率时的温度相同。',
+      'A：结构解释合理，但 20% 与 32 降到 8 的计算不符。',
+      'B：20% 算错，而且“酶死了”也不准确。',
+      'C：75% 的计算和高温改变酶结构的解释都正确。',
+      'D：75% 正确，但酶不是活生物，不能说它死亡。',
+      'E：300% 是把减少量 24 除以最终值 8，分母用错。',
+      'F：既把最终值当分母算出 300%，又把酶失活写成死亡。',
     ],
     takeaway:
-      '想区分“暂时变慢”和“持续失活”，就看**恢复适宜条件后能否恢复活性**，并用同一温度、pH 和底物条件作比较。',
+      '多列选项必须**每一列都对**。百分比变化先圈出原值；解释高温效应时，说清楚结构和活性位点怎样受到影响。',
     variant: {
       question:
-        'The three rates had instead been measured directly at 5°C, 35°C and 85°C. Would the low rate at 5°C alone prove irreversible damage?',
-      answer: '不能。',
+        'Equal samples of an enzyme are prepared. One sample is strongly heated and then cooled back to the initial temperature; the other is kept unheated as a control. Both are tested at the initial temperature with equal amounts of fresh substrate and the same pH. The unheated control produces 40 oxygen bubbles per minute and the heated sample produces 10. Calculate the percentage decrease relative to the control. Do these results support a persistent loss of enzyme activity after heating?',
+      answer: '下降 75%；回温并补加新底物后仍低活性，支持发生了持续的活性损失。',
       explanation:
-        '直接在低温测得慢速，可能只是分子运动和有效碰撞减少。还没有做回温实验，就不能断定结构已被永久破坏。',
+        '(40 − 10) ÷ 40 × 100% = 75%。两组酶的起始用量相同，测量时温度、pH 和新鲜底物条件也相同。加热组回到原温度后仍明显低于未加热对照，支持高温留下了持续的活性损失，与变性相符；这不是只在高温下测到暂时的速率差异。',
     },
   },
   {
-    title: '同一终点的反应，时间怎样换成相对速率？',
-    question:
-      'Two starch–amylase mixtures contain equal amounts of starch and enzyme at the same temperature. Only pH differs. At pH 6, the iodine test first shows no detectable starch after 40 s; at pH 4, this takes 100 s. Assuming the same reaction endpoint, what is the ratio of average starch breakdown rates at pH 6 to pH 4?',
-    options: ['2 : 5', '5 : 2', '3 : 2', '1 : 1'],
-    answer: 'B：pH 6 与 pH 4 的平均速率之比为 5∶2。',
+    title: '剩下的淀粉越少，酶的作用是越强还是越弱？',
+    question: '',
+    source: {
+      questionCode: 'ESAT_LEGACY_2022_NSAA_Q071',
+      why: '纵轴改成反应后的底物剩余量，需要把读图结果转换为酶的作用强弱，再判断 pH 对结构和活性的影响。',
+    },
+    answer: 'G：陈述 2 和 3 可以正确。',
     steps: [
-      '两组从相同淀粉量到相同检测终点，比较的反应量相同。平均速率等于反应量除以时间，因此用时越少，平均速率越大。',
-      '速率比为 (1/40)∶(1/100) = 100∶40 = 5∶2。**时间比要取倒数，不能把 40∶100 直接当成速率比**。',
-      '这说明本实验中 pH 6 的平均速率更高；只测两个 pH，还不能确定最适 pH 恰好等于 6。检测间隔也会影响终点时间的精确程度。',
+      '这张图的纵轴是**5 分钟后剩余的淀粉百分比**，不是反应速率。各组起始条件相同，所以留下的淀粉越少，说明这 5 分钟内分解得越多。曲线最低处约在 pH 7。',
+      '陈述 1 比较 pH 4.5 和 pH 6。前者留下的淀粉更多，表示分解量更小；不能说前者形成了更多酶—产物复合物，因此 1 错。',
+      '陈述 2 问结构“可能”不同。pH 会影响蛋白质中的相互作用和活性位点，在 pH 5 与 pH 7 下酶的形状可能不同。这与活性差异相容，所以 2 可以正确；不是说仅靠这条曲线就已经直接看到了结构。',
+      '陈述 3 保留了 approximately 和 under the conditions：本实验中 pH 7 左右的残留淀粉最少，支持最适 pH 约为 7。因此 3 可以正确。',
     ],
     optionNotes: [
-      'A：这是时间之比，方向与速率相反。',
-      'B：在反应量相同的前提下正确使用时间的倒数。',
-      'C：把两组时间的差与某个时间相比，不能得到所求速率比。',
-      'D：起始底物相同只保证比较公平，并不表示速率相同。',
+      'A：2、3 都有合理依据，不能全部否定。',
+      'B：1 把较多底物剩余误解成较强反应。',
+      'C：2 可能，但漏掉了最低点对 3 的支持。',
+      'D：3 可能，但漏掉了 pH 改变结构的可能性。',
+      'E：2 可以成立，1 的比较方向相反。',
+      'F：3 可以成立，1 的比较方向相反。',
+      'G：选 2、3，符合纵轴含义和题目的“可能”措辞。',
+      'H：错误地把 1 也接受了。',
     ],
     takeaway:
-      '使用 **速率与 1/时间成正比** 前，先确认两组达到的是同一终点。若反应量不同，就必须分别计算“反应量 ÷ 时间”。',
+      '看酶图时先读纵轴：**产物增加通常表示作用更强，底物剩余更多却通常表示作用更弱**。不要把所有曲线的最高点都当成最适条件。',
     variant: {
       question:
-        'A third mixture at pH 7 reaches the same endpoint in 25 s. What is its average rate relative to the pH 6 mixture, and is pH 7 now proven to be the exact optimum?',
-      answer: '平均速率为 pH 6 组的 1.6 倍；仍不能证明最适 pH 恰好是 7。',
+        'With equal starting amounts of starch, 40% remains at pH 5 and 10% remains at pH 7 after 5 minutes. What is the ratio of the average amounts of starch broken down per minute at pH 7 to pH 5?',
+      answer: '3∶2。',
       explanation:
-        '40/25 = 1.6。pH 7 只是目前测试条件中最快；峰值也可能位于 6 与 7 之间、7 与其他未测值之间，需更密集的取点确认。',
+        '先从剩余量换成已分解量：pH 7 分解 90%，pH 5 分解 60%。时间相同，平均分解速率比就是 90∶60 = 3∶2；不能直接用 10∶40 比较反应速率。',
     },
   },
 ]
 
 const digestionExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '淀粉变成葡萄糖，中间还需要哪一步？',
-    question:
-      'A starch solution is treated with purified amylase, producing maltose and shorter carbohydrate chains. A sample containing maltose is then treated with maltase, producing glucose. Which statement is correct?',
-    options: [
-      'Amylase must be a substrate for maltase.',
-      'The two enzymes catalyse different steps in carbohydrate digestion.',
-      'Amylase alone directly converts all starch into amino acids.',
-      'Maltase absorbs glucose across the intestinal wall.',
-    ],
-    answer: 'B：两种酶分别催化糖类消化中的不同步骤。',
+    title: '同是蛋白酶，为什么适合消化道的不同位置？',
+    question: '',
+    source: {
+      questionCode: 'ESAT-2020-BIOLOGY-005',
+      why: '同时考查消化道环境、酶活性曲线以及酶本身的化学成分，避免只背“某种酶在哪个器官工作”。',
+    },
+    answer: 'G：陈述 1、2、3 正确。',
     steps: [
-      '把顺序读清楚：淀粉先被淀粉酶分解成麦芽糖和较短糖链；其中的麦芽糖再被麦芽糖酶分解为葡萄糖。两种酶各有自己的底物和作用。',
-      '不能因为糖类消化最终得到葡萄糖，就把每一步都写成“淀粉酶直接制造葡萄糖”。题干已经明确给出了中间产物。',
-      '葡萄糖形成属于消化；葡萄糖随后跨过肠壁进入体内属于吸收。**酶催化分解，不替代肠上皮的运输过程**，所以选 B。',
+      '按图例辨认曲线：胃蛋白酶 pepsin 是实线，约在 pH 2 最活跃；胰蛋白酶 trypsin 是虚线，约在 pH 8 最活跃。**低 pH 对应强酸性**，不是低酸性。',
+      '胃内是酸性环境，符合胃蛋白酶的适宜条件，所以 1 正确。图中胰蛋白酶在胃内典型的低 pH 下没有活性，因此 2 正确。',
+      '陈述 3 容易被“酶”这个名称干扰：胃蛋白酶本身也是蛋白质。在适合胰蛋白酶作用的条件下，它可能成为胰蛋白酶的底物，因此 3 的 could 可以成立。不能把这句话理解成胰蛋白酶一定在胃内把它消化。',
+      '陈述 4 把酸性方向说反了：胃蛋白酶适合高酸性、低 pH；胰蛋白酶适合较碱性的环境。因此 4 错，选择 G。',
     ],
     optionNotes: [
-      'A：麦芽糖是这里麦芽糖酶的底物，不是淀粉酶。',
-      'B：把两个不同底物、不同反应步骤正确连接起来。',
-      'C：氨基酸来自蛋白质消化；这里也不是“一步完成全部过程”。',
-      'D：把消化和吸收混为一谈，跨膜运输不由麦芽糖酶代办。',
+      'A：1、2 正确，但漏掉 3；酶本身也可能成为另一种酶的底物。',
+      'B：1、3 正确，但漏掉 2 对胃内酸性环境的判断。',
+      'C：1 正确，4 把低 pH 与低酸性混淆。',
+      'D：2、3 正确，但漏掉胃蛋白酶适于胃内环境的 1。',
+      'E：2 正确，4 的酸性方向错误。',
+      'F：3 正确，4 错误。',
+      'G：保留 1、2、3，排除 4，判断完整。',
+      'H：多选了 4，同时漏掉正确的 1。',
     ],
     takeaway:
-      '问“某一种酶的作用”时，明确写出**这一步的底物和产物**；问“某类食物消化的最终产物”时，才把整个过程合起来。',
+      '把三件事连起来：**器官里的环境、酶的最适条件、酶本身也是蛋白质**。“催化者”和“底物”是具体反应中的角色，不是永远不能互换的身份。',
     variant: {
       question:
-        'Protein is first broken into shorter peptides in the stomach and later digested further in the small intestine. What are the main final products absorbed from complete protein digestion?',
-      answer: '氨基酸。',
+        'A purified sample of pepsin is transferred to pH 8 and mixed with active trypsin. Could pepsin be digested even though it was originally used as an enzyme? Explain why this does not require trypsin to be active in the stomach.',
+      answer: '可能。胃蛋白酶本身是蛋白质；此实验在 pH 8 进行，并不是在胃内。',
       explanation:
-        '胃蛋白酶先把蛋白质切成较短肽链，后续蛋白酶和肽酶继续分解，最终主要以氨基酸形式吸收。不能因此说“胃蛋白酶单独一步就把所有蛋白质完全变成氨基酸”。',
+        '酶的名称不改变它作为蛋白质的化学本质。胰蛋白酶在适宜条件下可能水解其可作用的肽键。题目已把环境改成 pH 8，因此不需要假设胰蛋白酶在强酸性的胃内也有活性。',
     },
   },
   {
-    title: '胆汁怎样帮助脂肪酶，却不充当脂肪酶？',
-    question:
-      'Two mixtures contain equal masses of fat and equal amounts of lipase at the same buffered pH and temperature. Bile salts are added only to mixture X and divide the fat into smaller droplets. Fat digestion is faster in X. Which explanation best accounts for the difference?',
-    options: [
-      'Bile salts are enzymes that replace lipase.',
-      'Bile salts increase the total mass of fat available.',
-      'Smaller droplets provide a larger total surface area for lipase to act on.',
-      'The smaller droplets must already be fatty acid molecules.',
-    ],
-    answer: 'C：小脂肪滴提供更大的总接触面积，使脂肪酶更容易作用。',
+    title: '脂肪酶实验中，为什么要读“变色所需时间”？',
+    question: '',
+    source: {
+      questionCode: 'NSAA_2023_S1-Q071',
+      why: '把脂肪消化产物、指示剂变化和实验曲线合在一起，要求从测量量出发判断曲线，而不是套用熟悉的速率图。',
+    },
+    answer: 'F：时间随底物浓度增大而下降；本实验比较底物浓度的影响；pH 下降。',
     steps: [
-      '先找题干真正改变了什么：脂肪总质量、脂肪酶量、温度与 pH 都相同，改变的是脂肪滴的大小。',
-      '同样一份脂肪分散成许多小滴，总表面积增大，脂肪酶可接触的脂肪—水界面增多，因此水解可加快。',
-      '胆盐使脂肪分散叫乳化，这一步没有把脂肪分子本身变成脂肪酸。**乳化提供接触条件，脂肪酶催化化学分解**，选 C。',
-      '胆汁还参与提供适宜的肠道环境，但本题已用缓冲液保持两组 pH 相同，不能拿 pH 改变解释本次差异。',
+      '先问颜色为什么变：脂肪酶分解乳脂产生脂肪酸，使原来呈碱性的混合液 pH 下降，指示剂从粉红色变为无色。**不是脂肪减少直接让指示剂褪色，而是产物改变了 pH**。',
+      '再看纵轴写的是什么：这里是达到同一颜色终点所需的时间。题设各组碱液和指示剂用量相同，在本次有响应的浓度范围内，底物浓度较高，达到变色所需的酸量更快，时间就更短，应该沿右侧的下降曲线选择。',
+      '温度已保持在脂肪酶最适温度，各组其他变量也保持相同。造成这些组之间时间差异的是底物浓度，而不是温度变化，所以沿“substrate concentration”分支。',
+      '最后选择“decrease in pH”，得到 F。这里的判断限于题给实验范围；不能推广成“底物浓度无论多高，继续增加都一定继续提速”。',
     ],
     optionNotes: [
-      'A：胆盐不是消化酶，也不会替代脂肪酶的催化作用。',
-      'B：总质量相同，只是分散程度改变。',
-      'C：抓住控制 pH 后仍不同的变量——接触面积。',
-      'D：脂肪滴是许多脂肪分子的集合，变小不等于分子已水解。',
+      'A：把时间当成速率，且把脂肪酸导致的 pH 变化方向判反。',
+      'B：pH 方向正确，但更快达到终点应表现为时间下降。',
+      'C：曲线、限制因素和 pH 方向三项都不符合本题条件。',
+      'D：pH 下降正确，但时间曲线和温度分支都错。',
+      'E：曲线和底物浓度分支正确，但脂肪酸应使 pH 下降。',
+      'F：下降的时间曲线、底物浓度分支、pH 下降三项均正确。',
+      'G：时间曲线正确，但温度固定在最适条件，pH 也应下降。',
+      'H：曲线与 pH 判断正确，但温度不能解释本题各组差异。',
     ],
     takeaway:
-      '先区分**物理分散与化学水解**，再看实验控制了哪些因素。原理虽然都知道，也只能用未被控制掉的变化解释差异。',
+      '先把**底物 → 产物 → 检测信号**说清楚，再看纵轴是速率还是达到终点的时间。相同终点下，反应更快通常表现为用时更短。',
     variant: {
       question:
-        'In an unbuffered lipase assay, fatty acids accumulate and pH falls. Why might the rate later decrease even while some fat remains?',
-      answer: 'pH 改变可能使脂肪酶偏离适宜条件，活性下降。',
+        'With the same amount of alkali and the same colour endpoint, milk samples A and B become colourless after 30 s and 75 s. Assume the colour endpoint requires the same amount of fatty acid in each sample. What is the ratio of their average fatty-acid production rates, A : B?',
+      answer: '5∶2。',
       explanation:
-        '底物尚有剩余，不保证速率恒定。脂肪酸使环境酸化，可能影响活性位点的化学性质与结构，因此使反应变慢。需要结合 pH 数据或缓冲对照判断，不能只凭后期变慢就断言酶被消耗了。',
+        '产生相同量脂肪酸，平均速率与时间成反比。因此 A∶B = (1/30)∶(1/75) = 75∶30 = 5∶2。不能把时间比 30∶75 直接写成速率比。',
     },
   },
 ]
-
 // 同一章共享图解与内部核查来源，保留旧版示例字段以兼容讲义数据结构。
 function enzymeSection(
   section: Omit<KnowledgeSection, 'example' | 'visual' | 'sourceIds'> & {
@@ -603,7 +585,7 @@ export const esatEnzymes: KnowledgeLesson = {
       id: 'uat-spec-b8',
       title: 'UAT-UK ESAT Content Specification 2026/27 · B8',
       url: 'https://uat-wp.s3.eu-west-2.amazonaws.com/wp-content/uploads/2024/05/03165424/ESAT_Content_Specification.pdf',
-      note: '内部核查 B8.1–B8.4 的酶成分、作用机制、温度与 pH 和消化酶范围；例题为原创。',
+      note: '内部核查 B8.1–B8.4 的酶成分、作用机制、温度与 pH 和消化酶范围；例题选自诊断测试中的历年真题，变式为原创。',
     },
     {
       id: 'openstax-enzyme',

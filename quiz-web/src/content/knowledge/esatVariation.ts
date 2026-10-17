@@ -1,140 +1,146 @@
-// ESAT 生物变异讲义：解释变异来源、自然选择与进化，配套原创数据题、变式及群体图解。
+// ESAT 生物变异讲义：以诊断真题讲解变异来源和自然选择，配套原创变式及群体图解。
 import type { KnowledgeExamFocus, KnowledgeLesson } from './types'
 
 const selectionExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '数量变少，比例却可能上升',
-    question:
-      'Before an antibiotic treatment, a bacterial population contains 20 resistant and 980 susceptible bacteria. Immediately after treatment, 10 resistant and 90 susceptible bacteria remain alive. Assume that no reproduction, mutation or gene transfer occurs during treatment. Which statement is correct?',
-    options: [
-      'The number of resistant bacteria has increased fivefold.',
-      'The resistant proportion has risen from 2% to 10% because resistant bacteria had a higher survival rate.',
-      'The antibiotic converted 10 susceptible bacteria into resistant bacteria.',
-      'Resistance must be disadvantageous because half the resistant bacteria died.',
-    ],
-    answer: 'B：耐药菌的比例从 2% 上升到 10%，因为它们在这次处理中的存活率更高。',
+    title: '慈鲷的口型与食性：自然选择怎样发生？',
+    question: '',
+    source: {
+      questionCode: 'ESAT_LEGACY_2022_NSAA_Q068',
+      why: '用同一祖先演化出的不同鱼类，练习把图中的结构、食物和进化解释联系起来。',
+    },
+    answer: 'G：只有陈述 2 和 3 正确。',
     steps: [
-      '先分别算处理前后的总数：原来是 20 + 980 = 1000，处理后是 10 + 90 = 100。耐药菌比例因此从 20/1000 = 2% 变成 10/100 = 10%。',
-      '**比例增加不等于数量增加**。耐药菌从 20 个减到 10 个，但敏感菌减少得更多，所以耐药菌在幸存者中所占的份额上升。',
-      '比较存活率：耐药菌是 10/20 = 50%，敏感菌是 90/980，明显低于 10%。这里的优势是相对于另一类细菌而言，不要求耐药菌全部存活。',
-      '题目排除了繁殖、突变和基因转移，因此不能把结果解释成细菌在处理时获得了耐药基因。若幸存者继续繁殖并传递耐药性，这种遗传差异就可能在后代中变得更常见。',
+      '先看图，不需要记住鱼的拉丁学名。注意它们的口部等结构和所吃食物不同：有的吃昆虫，有的吃其他鱼，有的吃软体动物。题目要你解释这些适应性差异怎样形成。',
+      '陈述 1 把“存在不同食物”直接当作祖先 DNA 发生相应突变的原因，这个解释不成立。**食物能够形成选择压力，但不能因为鱼需要某种口型，就按需要产生对应突变**。这里也没有证据说明这些食物具有致突变作用。',
+      '陈述 2 正确。影响这些性状的基因存在不同等位基因，群体就可能具有可遗传的差异。不同个体不是一开始都完全一样，自然选择才有差异可以作用。',
+      '陈述 3 正确。适合某种食物或环境的表现型，可能使个体更容易获得食物、存活并留下后代。经过许多代，相应遗传特征在该环境中的群体里就可能更常见。',
+      '把三个判断连起来：**可遗传差异提供材料，环境影响繁殖成功，群体随世代改变**。不要把顺序写成“先需要，再定向突变”。',
     ],
     optionNotes: [
-      'A：增加五倍的是比例（10% ÷ 2% = 5），数量实际减半。',
-      'B：分母、百分比与两类细菌的存活差异都判断正确。',
-      'C：题目没有发生遗传改变，原有耐药菌的幸存已经足够解释结果。',
-      'D：相对优势看的是两类细菌的存活和繁殖表现，不是某类是否零死亡。',
+      'A：把三个陈述全否定，漏掉可遗传差异和环境选择这两个关键条件。',
+      'B：只保留陈述 1，反而选中了错误的突变因果解释。',
+      'C：陈述 2 正确，但陈述 3 所说的环境选择也成立。',
+      'D：陈述 3 正确，但不能漏掉陈述 2 中的遗传变异基础。',
+      'E：包含错误的陈述 1，并漏掉正确的陈述 3。',
+      'F：包含错误的陈述 1，并漏掉正确的陈述 2。',
+      'G：恰好保留正确的陈述 2 和 3。',
+      'H：多选了陈述 1；不同食物不是相应突变按需发生的证据。',
     ],
     takeaway:
-      '读群体变化数据时，**数量、所占比例、存活率分别计算**。自然选择能提高某类个体的比例，即使整个群体和该类个体的数量都在减少。',
+      '解释适应性进化时，先说群体具有**可遗传差异**，再说环境怎样影响**相对繁殖成功**。结构与食物相配，不代表食物主动“制造”了这种结构的基因。',
     variant: {
       question:
-        'The 100 survivors are then grown without antibiotic. Each surviving bacterium divides exactly twice, all descendants survive, and resistance is inherited without change. How many resistant bacteria are present, and what proportion of the final population is resistant?',
-      answer: '40 个耐药菌，占 10%。',
+        'Two groups of cichlid fish develop different feeding structures while living in different parts of a lake. When brought together, they interbreed freely and produce fertile offspring. Does the difference in feeding structures alone establish that they are separate species under the biological species concept? Explain.',
+      answer: '不能。结构不同不足以证明它们已经成为不同物种。',
       explanation:
-        '每个幸存者分裂两次后形成 4 个后代，耐药菌为 10 × 4 = 40，总数为 100 × 4 = 400。**两类按相同比例繁殖，数量都增加，但耐药比例不会继续上升**。要让比例再变，还需要不同的相对繁殖成功等条件。',
+        '这道变式把问题从“怎样形成适应性差异”改成“是否已经形成新物种”。同种群体之间也可以有明显差异；题目又明确说它们能够自由交配并产生可育后代，因此没有提供生殖隔离的证据。**出现适应性差异与形成新物种，需要的证据不同**。',
     },
   },
   {
-    title: '分开生活以后，能说明什么？',
-    question:
-      'Two populations of a sexually reproducing animal become geographically isolated. After many generations, their inherited characteristics differ. Which additional observation provides the strongest evidence that they have become different species under the biological species concept?',
-    options: [
-      'The populations have lived apart for exactly 100 generations.',
-      'The average body mass differs between the populations.',
-      'Their habitats contain different types of food.',
-      'When they meet again, reproductive barriers prevent them from producing fertile offspring with one another.',
-    ],
-    answer: 'D：重新接触后仍存在生殖隔离，不能彼此产生可育后代。',
+    title: '疟疾与镰状细胞贫血：优势取决于什么？',
+    question: '',
+    source: {
+      questionCode: 'ESAT-2020-BIOLOGY-009',
+      why: '从三种基因型的表现表格出发，比较不同环境中的选择，并检查结论是否说得过于绝对。',
+    },
+    answer: 'B：只有陈述 1 正确。',
     steps: [
-      '地理隔离可以减少两个群体之间的基因交流。不同环境下的选择、突变等过程，会让它们逐渐积累遗传差异，但**分开生活本身还不等于已经形成新物种**。',
-      '本题明确采用生物学物种概念，而且对象是有性生殖动物。关键证据是两个群体之间存在生殖隔离，不能彼此产生可育后代；D 直接提供了这一点。',
-      '体重或食物不同可能仍然出现在同一物种内。它们能提示差异，却不足以单独证明两个群体已成为不同物种。',
-      '也不存在“隔离满 100 代必定成为新物种”的固定期限。考纲说进化可能导致新物种形成，**可能不等于每次都一定发生**。',
+      '先把表格完整读一遍：MM 不表现镰状细胞贫血，但可感染疟疾；Mm 不表现该贫血，并有疟疾抗性；mm 的疟疾抗性更强，却表现镰状细胞贫血。**不能只看一列的抗性高低，就认定整体生存和繁殖表现一定更好**。',
+      '陈述 1 正确。在没有疟疾的地区，m 带来的抗疟优势不再起作用，而 mm 仍有镰状细胞贫血的风险。因此，在题目讨论的选择作用下，携带 m 的人数倾向较少。这是趋势判断，不是说 m 会立即消失，也不是每个携带者都会患病。',
+      '陈述 2 错在 only。两种疾病都“可能致死”，不等于 MM 和 mm 的所有人都一定在繁殖前死亡。杂合子可能有相对优势，但不能推出只有杂合子能把等位基因传给下一代。',
+      '陈述 3 把疟疾的选择作用误写成定向产生 m 的原因。相关变异并不是为了抵抗疟疾才按需出现；疟疾改变的是不同基因型的相对存活与繁殖机会。',
     ],
     optionNotes: [
-      'A：代数不是物种形成的固定门槛。',
-      'B：同一物种内也可以有明显的体型差异。',
-      'C：环境不同有助于解释选择方向不同，但不是生殖隔离的直接证据。',
-      'D：与题目指定的物种判断标准直接对应。',
+      'A：漏掉了陈述 1 所描述的无疟疾环境中的选择趋势。',
+      'B：只保留陈述 1，符合表格和题目措辞。',
+      'C：陈述 2 中“只有杂合子能繁殖”的结论过于绝对。',
+      'D：陈述 3 把选择压力当成了有利突变按需发生的原因。',
+      'E：虽然保留了陈述 1，但多选了陈述 2。',
+      'F：虽然保留了陈述 1，但多选了陈述 3。',
+      'G：同时选择两个错误陈述，并漏掉陈述 1。',
+      'H：把“相对优势”误扩展成“只有它能繁殖”，又接受了错误的突变因果解释。',
     ],
     takeaway:
-      '区分**群体出现遗传变化**与**已经形成不同物种**。后者需要额外证据；对本题的有性生殖动物，重点是生殖隔离。',
+      '**优势要结合环境和整个生存、繁殖过程判断**。抗一种病更强，不一定总体更有利；“可能致死”也不能改写成“全部无法繁殖”。',
     variant: {
       question:
-        'The populations instead interbreed freely when reunited and produce fertile offspring. Their average body masses still differ. Must the observed mass difference show that they are different species?',
-      answer: '不必；体重差异本身不能证明它们是不同物种。',
+        'Malaria is eliminated from a large, randomly mating population in which both M and m are present. Assume there is no migration or new mutation, MM and Mm have equal reproductive success, and mm has lower reproductive success. Is the frequency of m expected to fall over generations? Must m disappear in the next generation?',
+      answer: 'm 的频率预计会随世代下降，但不必在下一代消失。',
       explanation:
-        '同种个体和群体之间可以有遗传或环境造成的表现差异。现在题干明确提供了自由交配并产生可育后代的信息，不能只凭体重不同就认定已形成生殖隔离。',
+        'mm 的相对繁殖成功较低，使选择倾向于减少 m。不过 m 也存在于能正常繁殖的 Mm 中，这些携带者仍能将它传给后代。**选择造成的频率变化，与一代之内完全清除某个等位基因，是两回事**。',
     },
   },
 ]
 
 const sourceExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '同一组数据里，分清两种影响',
-    question:
-      'Two plant lines, A and B, have different genotypes. Genetically identical cuttings within each line are randomly assigned to low- or high-nutrient conditions. All other conditions are controlled and no mutation occurs. Mean heights are: A, low 12 cm and high 20 cm; B, low 18 cm and high 28 cm. The differences are reproducible. Which conclusion is best supported?',
-    options: [
-      'Height is determined only by genes because A and B differ.',
-      'Height is determined only by nutrients because each line grows taller with more nutrients.',
-      'Both genetic differences between the lines and nutrient conditions contribute to the height differences.',
-      'High nutrient availability has converted the genotype of line A into that of line B.',
-    ],
-    answer: 'C：这些差异支持遗传因素与营养条件都影响株高。',
+    title: '克隆植物的生长实验：相同结果能怎样解释？',
+    question: '',
+    source: {
+      questionCode: 'NSAA_2019_S1-Q070',
+      why: '把克隆、控制变量和柱状图放在同一道实验题里，练习判断哪些解释仍然可能成立。',
+    },
+    answer: 'H：陈述 1、2、3 都可能解释结果。',
     steps: [
-      '先固定遗传背景看环境：同为 A，低营养 12 cm、高营养 20 cm；同为 B，也从 18 cm 变成 28 cm。**基因型相同而处理条件不同**，支持营养对株高有影响。',
-      '再固定环境看品系：低营养时 A 与 B 相差 6 cm，高营养时相差 8 cm。题目说明其余条件受控、差异可重复，因此也支持两条遗传不同的品系之间存在遗传影响。',
-      '两组比较要合起来读，不能因为一种因素起作用就排除另一种因素。C 同时解释了同品系的环境差异和同环境的品系差异。',
-      'A 的株高变大，是表现型变化；题目排除了突变，并没有说营养会把 A 的等位基因变成 B 的。这里也不能把 8 cm 或 10 cm 简单解释为所有环境下通用的“营养贡献”。',
+      '先整理实验：20 株来自同一植物的克隆，初始高度相同，每组 5 株，生长时间都是六个月。温度是组间改变的条件；土壤质量、养分、浇水量和光照强度被控制。**克隆控制了遗传差异，并没有让基因对生长失去作用**。',
+      '陈述 1 可以成立。盆 1 与盆 2 的平均高度不同，而温度不同属于环境差异，所以环境可以解释这种差异。题目问 could，不需要把温度宣称为已被证明的唯一原因。',
+      '陈述 2 也可以成立。盆 3 与盆 4 的温度不同、平均高度却相等，可能是另一个环境因素限制了两组生长。**被保持相同的因素仍可能成为共同的限制**；例如相同但不足的资源供应，可以使继续升温不再增加最终高度。',
+      '陈述 3 同样可以成立。它们共享基因型，可能具有相同的生长潜力或反应上限；在盆 3 与盆 4 的条件下，都可能接近这一限制。因此，基因型也可以解释为什么最终平均高度相同。',
+      '这里不必在 2 和 3 之间二选一。题目问的是哪些解释“可能”，现有实验并未进一步区分共同的环境限制和遗传限制，三个陈述都可保留。**可能解释不等于实验已经证明的原因**。',
     ],
     optionNotes: [
-      'A：忽略了同一品系在两种营养条件下也有不同株高。',
-      'B：忽略了同一营养条件下 A 与 B 仍有可重复的差异。',
-      'C：同时保留两类受控比较支持的结论。',
-      'D：把表现型变化误认为遗传版本发生转换。',
+      'A：全部排除，没有承认环境和共同基因型都可能影响结果。',
+      'B：只接受温度对盆 1、2 的可能影响，漏掉盆 3、4 结果的两种可能解释。',
+      'C：接受其他环境因素，却漏掉温度影响和共同基因型的可能作用。',
+      'D：只接受基因型，忽略环境条件也会影响克隆的表现。',
+      'E：漏掉陈述 3；克隆共享基因型，不代表基因型不能解释相同的生长表现。',
+      'F：漏掉陈述 2；某个环境因素被控制为相同值，也仍可能限制两组生长。',
+      'G：漏掉陈述 1；温度差异本来就是环境差异。',
+      'H：保留所有仍与实验相容的可能解释，没有把其中一种说成唯一结论。',
     ],
     takeaway:
-      '看遗传与环境的比较实验，可以**先在同一遗传背景内比较环境，再在同一环境内比较遗传背景**。两种影响可以同时存在。',
+      '读实验题时，分清**变量被控制、变量不起作用、原因已被证明**这三件事。相同基因型仍影响生长，相同环境因素也仍可能限制生长。',
     variant: {
       question:
-        'In a new experiment, line A is grown only in low nutrients and line B only in high nutrients. Their mean heights differ. Can this experiment alone separate the effects of genotype and nutrients?',
-      answer: '不能，两种因素同时改变，无法分清各自造成了多少差异。',
+        'The experiment is changed so that plant line A is grown only at 15 degrees Celsius and genetically different line B only at 25 degrees Celsius. Their mean heights differ after six months. Can this comparison alone separate the effects of genotype and temperature? Describe a better comparison.',
+      answer: '不能；应把 A、B 两条品系都分别放在两个温度下培养。',
       explanation:
-        'A 与 B 不仅遗传背景不同，营养条件也不同，因此缺少“只改变一个因素”的对照。需要把两条品系都放进两种营养环境，才能分别比较。**看到差异不等于已经找到了唯一原因**。',
+        '原真题用克隆尽量保持遗传背景相同；变式却同时改变了遗传背景和温度，差异便无法单独归给其中一项。把两条品系都放在两个温度下，再控制其余条件并设置足够重复，就能比较同品系的温度影响，以及同温度下的品系差异。',
     },
   },
   {
-    title: '分布图能告诉我们什么？',
-    question:
-      'The body masses of many animals of the same age and sex form a continuous range, with many intermediate values. No information about their genotypes or diets is available. Which conclusion is justified?',
-    options: [
-      'Every different body mass must correspond to a different allele of one gene.',
-      'The variation must be caused entirely by the environment.',
-      'The pattern alone does not show how much of the variation is genetic or environmental.',
-      'Genes cannot affect a characteristic with intermediate values.',
-    ],
-    answer: 'C：连续分布本身不能分清遗传与环境各自的影响。',
+    title: '身高累计频数图：读出的是什么，解释又是什么？',
+    question: '',
+    source: {
+      questionCode: 'ESAT_LEGACY_2022_NSAA_Q065',
+      why: '同时练习累计频数图的统计量识别，以及连续性状中遗传、环境解释的证据范围。',
+    },
+    answer: 'D：只有陈述 3 正确。',
     steps: [
-      '连续变异描述的是数据怎样分布：体重有许多中间值，可以沿数轴测量。它首先是一种**表现型的分布特征**。',
-      '体重等性状常受多个基因和环境共同影响。不过本题没有提供基因型、饮食或对照实验，不能从一张分布图算出各因素的贡献。',
-      '因此 C 的结论与证据范围相符。A 把许多测量值误当成单个基因的许多等位基因；B 和 D 则把遗传影响无根据地排除了。',
-      '离散类别同样不能自动证明“只有遗传作用”。例如某次外伤是否留下疤痕可记录成有、无两类，但这种分类方式不能把外伤变成等位基因差异。',
+      '先看纵轴：两组累计频数都到 25，表示各有 25 人。累计频数 12.5 位于总数的一半，在这种累计频数图上用于估计中位数位置。**在这里读出的身高不是算术平均数 mean**，所以陈述 1 不成立。',
+      '陈述 2 说男性之间的身高差异完全由环境解释，alone 把话说过头了。同一性别的人也有遗传差异，身高通常受到多个基因及营养等环境因素共同影响；图上的连续分布没有排除遗传因素。',
+      '陈述 3 只说 could。Y 染色体上的基因可以通过影响性别发育及相关激素，间接参与两组身高分布的差异，因此这是一种可能的解释。**这并不表示身高只由 Y 染色体决定，也不表示图已经找到了某个具体致因基因**。',
+      '最后分开两种判断：图告诉我们样本身高怎样分布；生物学知识帮助判断哪些成因可能成立。不能把曲线分开这一现象，直接当成某种遗传机制已经被证明。',
     ],
     optionNotes: [
-      'A：一个表现型数值不是一个等位基因的身份证，多基因和环境都可能影响测量值。',
-      'B：连续分布没有排除遗传因素。',
-      'C：把观察到的分布与尚未确定的成因分开了。',
-      'D：多个基因的共同作用常可产生许多中间表现。',
+      'A：陈述 3 提出的是可能解释，不能把它一并排除。',
+      'B：把累计频数中点读出的中位数误称为平均数。',
+      'C：把男性之间的身高差异全部归给环境，忽略遗传差异。',
+      'D：仅陈述 3 与题目所要求的“可能”解释相符。',
+      'E：同时接受了统计量混淆和“仅环境造成”的错误解释。',
+      'F：虽然保留陈述 3，却多选了错误的陈述 1。',
+      'G：虽然保留陈述 3，却多选了错误的陈述 2。',
+      'H：陈述 1、2 都不能成立，不能全选。',
     ],
     takeaway:
-      '**连续或不连续说的是差异的形式，遗传或环境说的是差异的来源**。两组概念不能直接一一对应。',
+      '**分布形式、统计量和变异成因要分别判断**。累计频数一半处用于估计中位数；连续变异不等于纯环境作用；“可能参与”不等于“唯一决定”。',
     variant: {
       question:
-        'Flower colours are recorded as red, purple or white. In genetically identical plants, a controlled change in soil conditions changes the recorded colour without mutation. Does the presence of three separate colour categories prove that the variation is entirely genetic?',
-      answer: '不能；本题的对照已经说明环境可以改变颜色表现。',
+        'For a new sample of 40 students, a height is read from a cumulative-frequency curve at a cumulative frequency of 20. Which measure of central tendency is being estimated? Does the continuous distribution of heights show that environmental factors alone caused the variation?',
+      answer: '估计的是中位数；连续分布不能证明变异只来自环境。',
       explanation:
-        '红、紫、白是记录时的三个类别；类别清楚不代表成因必定只有基因。题目保持遗传背景相同并改变土壤，显示环境有作用，但也不能反过来断言所有植物的花色都不受基因影响。',
+        '20 是 40 的一半，因此仍是在累计频数图上估计中位数。人数改变不会把这个方法变成求平均数的方法。连续分布描述的是表现型有许多中间值；要分清遗传与环境的影响，还需要额外的比较或实验。',
     },
   },
 ]
@@ -144,7 +150,7 @@ export const esatVariation: KnowledgeLesson = {
   title: 'Variation · 变异',
   subtitle: '理解个体为什么不同，以及这些差异怎样影响后代',
   intro:
-    '同一物种的个体并不完全相同：有些差异来自遗传，有些与生长环境有关，很多性状同时受两者影响。这一章先把差异的来源讲清楚，再看自然选择怎样改变一个群体。耐药菌、植物培养和物种形成的例题，会帮助你区分“个体发生变化”“某类个体变得更常见”和“形成新物种”这几件不同的事。',
+    '同一物种的个体并不完全相同：有些差异来自遗传，有些与生长环境有关，很多性状同时受两者影响。这一章先把差异的来源讲清楚，再看自然选择怎样改变一个群体。慈鲷演化、疟疾选择、克隆植物培养和身高分布的诊断真题，会帮助你判断：变化来自哪里，哪些解释有证据，哪些结论还不能下。每道真题后再用原创改条件变式练习迁移。',
   memory: [
     '**群体通常先有遗传差异，环境再影响不同个体留下后代的机会**。不能写成生物因为需要某种特征，就主动产生对应突变。',
     '==自然选择中的优势与环境有关，也要落实到存活和繁殖==；“更强壮”“更显性”都不自动等于更有利。',
@@ -334,7 +340,7 @@ export const esatVariation: KnowledgeLesson = {
       id: 'uat-b7',
       title: 'UAT-UK · ESAT Content Specification（2026/27）',
       url: 'https://uat-wp.s3.eu-west-2.amazonaws.com/wp-content/uploads/2024/05/03165424/ESAT_Content_Specification.pdf',
-      note: '核对 B7.1 自然选择、耐药性与物种形成，以及 B7.2 遗传和环境变异范围；内容与题目原创。',
+      note: '核对 B7.1 自然选择、耐药性与物种形成，以及 B7.2 遗传和环境变异范围；知识点讲解、真题解析与改条件变式为原创编写；例题引用诊断题库中的历史真题。',
     },
     {
       id: 'openstax-population',

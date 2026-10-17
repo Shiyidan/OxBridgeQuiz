@@ -3,203 +3,171 @@ import type { KnowledgeExamFocus, KnowledgeLesson, KnowledgeSection } from './ty
 
 const engineeringExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '两个酶分别完成哪一步？',
-    question:
-      'A DNA fragment and a bacterial plasmid are cut to produce complementary sticky ends. The fragment pairs with the opened plasmid. Which enzyme is needed to seal the sugar–phosphate backbones and form a recombinant plasmid?',
-    options: ['A restriction enzyme', 'DNA ligase', 'A protease', 'Amylase'],
-    answer: 'B：DNA ligase（DNA 连接酶）。',
+    title: '沿着基因工程流程，数清 DNA 在哪里',
+    question: '',
+    source: {
+      questionCode: 'NSAA_2019_S1-Q062',
+      why: '同一条流程同时比较人体细胞、重组质粒和最终产品，适合练习读图时分清每一步正在处理的材料。',
+    },
+    answer: 'D：X、Y、Z 依次是 2、1、0 份。',
     steps: [
-      '先把题目进行到哪一步说清楚：DNA 已经切开，互补末端也已经配上。因此，这里不缺“剪开”的步骤。',
-      '黏性末端上的互补碱基可以配对，但两段 DNA 的糖—磷酸骨架仍需要连接。**末端配对与骨架封口是两件事**。',
-      '连接酶形成连接 DNA 骨架的共价键，使插入片段与质粒连成重组 DNA，所以选 B。',
-      '限制性内切酶负责在特定序列处切割 DNA；蛋白酶和淀粉酶处理的则分别是蛋白质和淀粉，都不完成这一步。',
+      '先找到图中的 X、Y、Z。X 是一个人肝细胞，Y 是插入一个目的基因的一个质粒，Z 是纯化后的人体蛋白质。题目数的是指定的 DNA 碱基序列，不是细胞数或蛋白质数。',
+      '看 X：按本题采用的二倍体体细胞模型，一对同源染色体上有该基因的两个等位基因。题干特别说这个序列存在于每一个等位基因中，因此计 2 份。**每个基因里只出现一次，不等于整个二倍体细胞里只出现一次**。',
+      '看 Y：流程写明取出一个基因拷贝，插入一个细菌质粒，因此这个质粒上计 1 份。质粒是环形双链 DNA，也不能因为有两条链就把同一个基因算成两份。',
+      '看 Z：这里已经是纯化的蛋白质。蛋白质由氨基酸构成，并不含编码它的那段 DNA，所以是 0 份。把三个结果按图中的列顺序排好，得到 2、1、0，选 D。',
     ],
     optionNotes: [
-      'A：负责切割，题目中的切割步骤已经完成。',
-      'B：把相邻 DNA 片段的糖—磷酸骨架连接起来。',
-      'C：蛋白酶水解蛋白质，不能封闭 DNA 骨架。',
-      'D：淀粉酶作用于淀粉，不是 DNA。',
+      'A（1、1、0）：Y、Z 正确，但漏算二倍体细胞另一条同源染色体上的等位基因。',
+      'B（1、2、1）：X 少算一份，Y 把一个插入拷贝多算成两份，Z 又把蛋白质误当成含有 DNA。',
+      'C（1、1、1）：Y 正确；X 忽略二倍体，Z 混淆蛋白质与 DNA。',
+      'D（2、1、0）：分别符合二倍体细胞、单个插入拷贝和纯蛋白质三个阶段。',
+      'E（2、1、1）：前两步正确，但纯化蛋白质不携带编码序列，Z 应为 0。',
+      'F（2、2、0）：X、Z 正确；Y 只有一个目的基因拷贝，并不是两个。',
     ],
     takeaway:
-      '题目给出酶的名字时，先对应它真正改变了什么：**限制性内切酶切 DNA，连接酶接 DNA，核糖体才负责把氨基酸连成多肽**。',
+      '读技术流程图时，每一步都先问一句：**现在拿在手里的是细胞、DNA，还是蛋白质？** 再按这一份材料实际含有的基因拷贝来计数。',
     variant: {
       question:
-        'The plasmid and insert instead have incompatible sticky ends. Is adding more DNA ligase alone a reliable way to obtain the intended recombinant plasmid?',
-      answer: '不是。必须先使待连接的末端相容。',
+        'At a new stage Y, one bacterial cell contains four recombinant plasmids. Each plasmid contains one copy of the same human gene, and the sequence is absent from the bacterial chromosome. How many copies of the specified DNA sequence are present in this cell?',
+      answer: '4 份。',
       explanation:
-        '这次障碍出现在末端匹配，而不是连接酶数量。连接酶不会把不互补的碱基改成互补序列；需要重新设计或处理片段。别把“同一种酶切割”当作唯一办法，但要记住**待连接末端必须适合连接**。',
+        '计数对象从原题的“一个质粒”变成“一个含四个质粒的细胞”。每个质粒带一份指定序列，细菌染色体不含该序列，因此总数为 4 × 1 = 4。**先确认计数范围，再乘拷贝数**，不能沿用原题 Y 的 1。',
     },
   },
   {
-    title: '制造药物和改变患者细胞，有什么区别？',
-    question:
-      'Method P uses genetically engineered bacteria to produce a purified human protein that is injected into a patient. Method Q introduces a working gene copy into some of the patient’s liver cells. No gametes are altered. Which statement is justified?',
-    options: [
-      'P necessarily inserts the bacterial plasmid into the patient’s chromosomes.',
-      'Q necessarily changes the genotype of every cell in the patient.',
-      'Both methods necessarily make the genetic change heritable by the patient’s children.',
-      'P supplies a protein, whereas Q aims to make some treated cells produce a functional gene product.',
-    ],
-    answer: 'D：P 提供蛋白质，Q 让被处理的细胞产生相应基因产物。',
+    title: '给骨髓干细胞加入基因，能改变哪些细胞？',
+    question: '',
+    source: {
+      questionCode: 'ESAT-2020-BIOLOGY-007',
+      why: '用 SCID 治疗情境把基因导入、细胞分化和遗传给后代放在一起，适合检查能否说清技术作用的范围。',
+    },
+    answer: 'E：只有陈述 1 和 3 正确。',
     steps: [
-      '先看进入患者体内的是什么。P 明确注射的是纯化后的蛋白质，不能把它说成质粒或细菌被注入了患者染色体。',
-      'Q 转入的是功能基因拷贝，接受处理的是部分肝细胞。它有机会帮助这些细胞制造所需产物，但题干没有说全部细胞都接受了基因。',
-      '两种方法都不能推出子女必然继承改动。尤其 Q 明确没有改动配子，**体细胞的基因改变通常不经有性生殖传给下一代**。',
-      '因此 D 准确区分了两种医疗用途。至于效果持续多久、表达量是否合适、是否发生不良反应，还需要额外证据。',
+      '先用自己的话复述病因：题中的白细胞无法制造有功能的 ADA 酶，因此不能正常完成免疫应答所需的有丝分裂。治疗把功能基因插入患者骨髓干细胞的 DNA，再把这些细胞送回体内。',
+      '陈述 1 正确：处理后的干细胞分化成白细胞，如果导入的基因能正常表达，这些白细胞就可以制造功能性 ADA。这正是题目设想的治疗效果。',
+      '陈述 2 错误：这里处理的是形成血细胞的骨髓干细胞，不能把它当成能形成所有细胞的全能细胞。**治疗患者的体细胞，不等于改变患者的配子**，所以不能据此保证子女不再遗传 SCID。',
+      '陈述 3 正确：基因被插入 DNA，处理后的细胞及其后代白细胞就带有这段新增序列。改变的是这些细胞的 DNA，不是只给它们临时补了一些酶。因此选 1 和 3，即 E。',
     ],
     optionNotes: [
-      'A：把注射蛋白质误当作转移 DNA。',
-      'B：“部分肝细胞”不能扩大成“每个细胞”。',
-      'C：忽略了体细胞和生殖细胞的区别。',
-      'D：同时符合两种方法的实际作用对象。',
+      'A（仅 1）：认可治疗作用，但漏掉插入基因同时改变 DNA 序列这一事实。',
+      'B（仅 2）：把骨髓干细胞的分化范围扩大到了配子。',
+      'C（仅 3）：只注意 DNA 改变，漏掉功能基因可以使后代白细胞制造 ADA。',
+      'D（1 和 2）：包含不能成立的配子推断，也漏掉正确的陈述 3。',
+      'E（1 和 3）：同时说明治疗的功能效果和被处理细胞的 DNA 改变。',
+      'F（2 和 3）：陈述 3 正确，但陈述 2 错误，且缺少正确的陈述 1。',
+      'G（1、2、3）：误把体细胞治疗扩大成对下一代的遗传保证。',
     ],
     takeaway:
-      '比较医疗技术时，依次确认**转移的是 DNA、细胞还是蛋白质；改变了谁；结论能到哪一步**。名称相似，不代表作用过程相同。',
+      '这类题把两条线分开看：**基因能否帮助被处理的细胞恢复功能；处理是否涉及配子**。第一条成立，第二条并不自动成立。',
     variant: {
       question:
-        'The inserted gene in Q disrupts a gene that normally limits cell division. What risk could this create even if the therapeutic protein is produced?',
-      answer: '可能增加细胞异常增殖、形成肿瘤的风险。',
+        'Instead of inserting a gene, purified functional ADA protein is delivered into the affected white blood cells. No DNA or modified cells are introduced. Does this treatment by itself change the DNA sequence of those white blood cells or prevent the patient from passing on the condition?',
+      answer: '两者都不能由这一处理推出。',
       explanation:
-        '能够制造治疗所需的蛋白质，并不排除插入位置带来的副作用。若控制分裂的基因受到破坏，细胞可能失去正常调控。这里说的是**可能的风险，不是每次基因转移必然致癌**。',
+        '现在提供的是蛋白质，不是 DNA；即使能补充酶功能，也没有插入功能基因。配子同样未被改变，因此不能保证后代不遗传该病。这个变式强调的是**补充基因产物与改变遗传信息是两种不同操作**，并不评价具体治疗的临床效果。',
     },
   },
 ]
 
 const stemExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '能形成许多细胞，是否就能形成完整个体？',
-    question:
-      'Three cell populations are described. X can generate all cell types needed for a complete mammal, including the supporting extraembryonic tissues. Y can generate all body cell types but cannot by itself generate a complete mammal. Z can generate several blood cell types but not nerve cells. Which classification is correct?',
-    options: [
-      'X pluripotent; Y totipotent; Z multipotent',
-      'X totipotent; Y multipotent; Z pluripotent',
-      'X totipotent; Y pluripotent; Z multipotent',
-      'X multipotent; Y pluripotent; Z totipotent',
-    ],
-    answer: 'C：X 全能，Y 多能，Z 多潜能。',
+    title: '细胞功能不同，就一定拥有不同基因吗？',
+    question: '',
+    source: {
+      questionCode: 'NSAA_2017_S1-Q058',
+      why: '用三条短陈述同时检查干细胞的遗传信息、染色体和分裂产物，适合纠正把分化误解为丢掉基因的想法。',
+    },
+    answer: 'E：只有陈述 1 和 2 正确。',
     steps: [
-      'X 的关键条件是能形成完整个体所需的所有细胞，包括支持胚胎发育的胚外组织，因此对应 totipotent（全能）。',
-      'Y 能形成身体各类细胞，却不能单独形成完整个体，符合 pluripotent（多能）。**“身体的各种细胞”与“完整个体所需的全部组织”不能混写**。',
-      'Z 的分化范围限制在血细胞等相关类型，不能跨到所有身体细胞，符合 multipotent（多潜能）。',
-      '用这三个能力范围逐个对应，只有 C 同时满足条件；不能仅凭“能形成很多种”就把 Y、Z 都判成全能。',
+      '先保留题干条件：这是健康女性的细胞，并且假定没有突变。比较的是同一个人的成体干细胞与上皮细胞，不是不同个体的细胞。',
+      '陈述 1 正确：这两类有核体细胞通常具有相同的基因。功能不同主要因为表达的基因不同，**不是上皮细胞把干细胞所需的基因全部丢掉了**。',
+      '陈述 2 正确：按题目采用的正常人类性染色体模型，这位女性的体细胞干细胞含两条 X 染色体。分化成哪类体细胞，并不会把 XX 改成 XY。',
+      '陈述 3 错误：一次正常细胞分裂产生两个子细胞，原句却说“一个新干细胞加两个特化细胞”，合计三个。干细胞也不是每次都以固定的分化组合产生子细胞。因此 1、2 正确，选 E。',
     ],
     optionNotes: [
-      'A：把全能与多能的定义交换了。',
-      'B：把 Y 的全身体细胞范围与 Z 的有限范围交换了。',
-      'C：每一项都按实际分化能力分类。',
-      'D：X 的范围最广，Z 的范围受限，与该项相反。',
+      'A（全不正确）：忽略同一个体的基因相同，以及题设女性的 XX 条件。',
+      'B（仅 1）：漏掉正确的性染色体判断 2。',
+      'C（仅 2）：漏掉不同体细胞通常具有相同基因这一事实。',
+      'D（仅 3）：一次分裂不会直接产生题目所说的三个子细胞。',
+      'E（1 和 2）：同时满足基因与染色体条件，排除了错误的分裂产物数量。',
+      'F（1 和 3）：虽然基因判断正确，但包含错误的陈述 3，并漏掉 2。',
+      'G（2 和 3）：虽然染色体判断正确，但包含错误的陈述 3，并漏掉 1。',
+      'H（1、2、3）：没有检查陈述 3 中子细胞的总数。',
     ],
     takeaway:
-      '不要只数“能变几种”。记住分化范围：**完整个体所需的全部类型 → 身体各类细胞 → 有限的相关细胞类型**。',
+      '遇到干细胞陈述题，可以分别检查**有什么基因、有什么染色体、一次产生几个子细胞**。把这三件事分开，句子再长也不容易混。',
     variant: {
       question:
-        'A fourth culture is observed to produce nerve cells in one experiment. Is this observation alone enough to prove that the culture is pluripotent?',
-      answer: '不够。一次形成神经细胞，只证明这一次表现出的分化能力。',
+        'A stem cell from a healthy human male divides once by mitosis to produce one stem cell and one specialised cell. Assume no mutation or chromosome loss. Do the two daughter cells have the same genes and sex chromosomes, and must they express all genes at the same levels?',
+      answer: '两者具有相同的基因和 XY 性染色体；不要求所有基因的表达量相同。',
       explanation:
-        '多能意味着具有形成身体各类细胞的潜能，不能只凭一个细胞类型就证明。观察结果与完整能力范围之间还有距离；反过来，本次没有观察到其他类型，也不等于已经证明它们绝不可能形成。',
+        '有丝分裂把复制后的遗传信息传给两个子细胞。不同的分化命运可以伴随不同的基因表达，所以“遗传信息相同”与“细胞功能相同”不能画等号；这次子细胞合计两个，数量也符合一次分裂。',
     },
   },
   {
-    title: '用自己的细胞，是否就没有风险？',
-    question:
-      'A proposed treatment uses a patient’s own cells to generate replacement tissue. Testing shows that a small number of undifferentiated, rapidly dividing cells remain in the final preparation. Which concern is most directly supported?',
-    options: [
-      'The remaining cells could divide uncontrollably or form inappropriate tissue.',
-      'All replacement cells must be rejected because they come from the patient.',
-      'Every transplanted cell will become a complete embryo.',
-      'Using the patient’s own cells guarantees that no harmful mutations are present.',
-    ],
-    answer: 'A：残留细胞可能异常增殖，或形成不需要的组织。',
+    title: '分裂以后，干细胞数量是增加、维持还是减少？',
+    question: '',
+    source: {
+      questionCode: 'ESAT_LEGACY_2021_NSAA_Q075',
+      why: '三幅分裂结果图能直接比较自我更新与分化，适合练习先读图例、再解释细胞群体变化。',
+    },
+    answer: 'B：某些癌症可涉及图 1 这种产生更多未分化细胞的失控增殖。',
     steps: [
-      '题干已经指出直接的问题：有尚未按目标方向分化、又能快速分裂的细胞残留。治疗需要的是功能合适、数量受控的细胞。',
-      '这些残留细胞可能继续增殖，或分化成不合适的组织，因此 A 是数据直接支持的风险。',
-      '自体来源通常有助于降低免疫不匹配的问题，但**降低一种风险，不等于消除全部风险**；仍要考虑突变、污染、异常增殖和功能是否正常。',
-      '也不能把“未分化”自动理解成全能，更不能推断每个移植细胞都会形成胚胎。',
+      '先认图例，再数“干细胞”这一类，而不是只数总细胞。图 1 从一个干细胞得到两个干细胞，数量增加；图 2 得到一个干细胞和一个特化细胞，干细胞数量维持；图 3 得到两个特化细胞，干细胞数量减少。',
+      '三幅图的子细胞命运不同，不代表只有图 1 才是有丝分裂。有丝分裂描述遗传物质怎样分配，分化描述子细胞后来承担什么功能，两者可以同时发生。',
+      '选项 B 的关键是 some cancers：如果产生更多未分化、可继续增殖细胞的过程失去控制，就可能与癌症有关。**图 1 本身也可以是正常自我更新；不是只要产生两个干细胞就一定患癌**。',
+      '图 2 不会增加干细胞数量，图 3 也不能维持它。成体组织需要保留能继续补充细胞的干细胞，不能用图 3 概括所有成体干细胞的更新。因此选 B。',
     ],
     optionNotes: [
-      'A：正好对应残留细胞的增殖与分化控制问题。',
-      'B：自体来源并不意味着所有细胞必然被排斥。',
-      'C：未分化不等于全能，形成完整胚胎也不能这样推断。',
-      'D：细胞来自本人不能排除原有或培养期间产生的有害变化。',
+      'A：把子细胞的外观和分化差异误当成不同的分裂方式；三种结果都可以涉及有丝分裂。',
+      'B：用“某些癌症”描述未分化细胞不断扩增的情形合理，但不能反过来说图 1 必然是癌症。',
+      'C：图 2 分裂前后各有一个干细胞，是维持，不是增加。',
+      'D：不能用图 3 概括成体干细胞；如果一味产生特化细胞，干细胞会逐渐耗尽。这里并不是说成体干细胞绝不可能走向图 3 的命运。',
+      'E：图 3 的干细胞数从一个变成零，无法维持原有数量。',
     ],
     takeaway:
-      '评价细胞治疗时要把**分化正确、增殖受控、移植后存活并发挥功能**分别考虑；细胞来源只是其中一个条件。',
+      '**分裂增加总细胞数，分化结果决定还剩多少干细胞。** 读完图后写下干细胞数量的变化：1→2、1→1、1→0，比只背“干细胞能分裂”更有用。',
     variant: {
       question:
-        'The same correctly differentiated cells are instead obtained from an unrelated donor. Which additional compatibility issue becomes particularly important?',
-      answer: '供受者之间的免疫相容性及排斥风险。',
+        'A culture starts with ten stem cells. Every stem cell divides twice using the pattern shown for stem cell 2. Specialised cells do not divide or die, and no cells are lost. How many stem cells and specialised cells are present at the end?',
+      answer: '10 个干细胞，20 个特化细胞。',
       explanation:
-        '异体细胞可能被患者免疫系统识别为外来成分。即使细胞已经正确分化，也需要考虑组织匹配与排斥；同时，原有的质量控制仍然重要。',
+        '每轮中每个干细胞仍留下一个干细胞，同时新增一个特化细胞。第一轮为 10 个干细胞加 10 个特化细胞；第二轮这 10 个干细胞再产生 10 个特化细胞，所以最终为 10 和 20。不能把全部细胞都按两轮连续翻倍，因为题目说特化细胞不再分裂。',
     },
   },
 ]
 
 const breedingExamples: KnowledgeExamFocus['examples'] = [
   {
-    title: '选择要经过繁殖，才能改变后代',
-    question:
-      'A crop population contains heritable variation in seed mass. A breeder grows plants under comparable conditions, selects plants with heavier seeds as parents, crosses them and repeats this process for several generations. Which explanation best accounts for a rise in mean seed mass?',
-    options: [
-      'The breeder causes every seed to mutate in the required direction.',
-      'Plants acquire larger seeds because they know they have been selected.',
-      'Selected parents contribute more of the inherited variants associated with heavier seeds to later generations.',
-      'All offspring must be genetically identical because their parents were deliberately chosen.',
-    ],
-    answer: 'C：被选亲本向后代贡献了更多与较重种子有关的遗传变异。',
-    steps: [
-      '题目首先给出可遗传变异：原群体里已经有与种子质量差异有关的遗传因素。选择不是按需要制造突变。',
-      '人挑选较重种子的植株繁殖，使这些亲本对下一代的遗传贡献增大。**选择通过繁殖改变后代群体，而不是让同一株植物主动改变基因**。',
-      '反复进行选择与杂交后，相关遗传变异可能更常见，群体平均性状随之改变，所以 C 合理。',
-      '题目使用有性杂交，后代仍可能有遗传差异。人工选择不等于克隆，也不保证每颗种子都比上一代重。',
-    ],
-    optionNotes: [
-      'A：选择已有变异不等于定向诱发所有突变。',
-      'B：生物不会因为“知道目标”而主动产生所需遗传变化。',
-      'C：正确连接了可遗传变异、亲本选择和世代变化。',
-      'D：有性生殖仍会重新组合遗传信息。',
-    ],
-    takeaway:
-      '解释选择育种时，把链条讲完整：**有可遗传差异 → 选择亲本 → 繁殖传递 → 多代后群体改变**。',
-    variant: {
-      question:
-        'In a second experiment all plants are genetically identical, and seed mass differs only because some receive more water. Does selecting the largest seeds alone demonstrate a heritable response to selection?',
-      answer: '不能。这里的差异被说明为环境造成，不能据此证明遗传改良。',
-      explanation:
-        '原题最重要的条件“可遗传变异”被拿掉了。较大种子可能影响下一代早期生长，但这仍不等于相关等位基因频率已经改变；要比较遗传响应，需要排除水分和种子储备等环境影响。',
+    title: '关联真题：自然选择与人工选择，有什么共同点？',
+    question: '',
+    source: {
+      questionCode: 'NSAA_2016_S1-Q055',
+      why: '当前诊断题库没有直接考选择育种的匹配真题。本题原考自然选择，用来比较自然与人工选择的共同原理；后面的原创变式再改为人挑选亲本。',
     },
-  },
-  {
-    title: '育种成功以后，为什么还要保留多样性？',
-    question:
-      'A livestock population is repeatedly bred from a few closely related animals selected for high yield. Compared with breeding from many unrelated animals, which outcome is a plausible genetic risk?',
-    options: [
-      'A guaranteed increase in the number of different alleles at every locus.',
-      'Greater homozygosity, allowing some harmful recessive alleles to be expressed more often.',
-      'The immediate disappearance of every harmful allele.',
-      'Complete protection against any future infectious disease.',
-    ],
-    answer: 'B：近交可增加纯合程度，使某些有害隐性等位基因更容易表现。',
+    answer: 'C：只有陈述 1 和 3 可以成立。',
     steps: [
-      '“少数近亲反复繁殖”会让亲本携带相同等位基因的机会更高，后代更容易在一些位点得到相同的两个版本。',
-      '某些有害隐性等位基因在杂合时未明显表现，变成隐性纯合后就可能出现不利性状，所以 B 是合理风险。',
-      '只从少数个体繁殖还可能使群体丢失部分遗传变异。**产量提高与遗传多样性下降可以同时发生**。',
-      '这些影响是风险而非对每个位点、每个个体的绝对断言；不能因此说所有疾病都会出现，也不能说所有有害等位基因都会消失。',
+      '先看原题真正的情境：铜污染改变了河流环境，某类彩虹鱼仍能生存。这里没有育种者挑亲本，所以原题讨论的是自然选择，不是选择育种。',
+      '陈述 1 可以成立，但“适应”要理解为种群在世代更替中发生变化：如果个体本来就有可遗传的耐铜差异，较耐受的个体更可能存活并留下后代。不能说鱼因为需要就主动产生了指定突变。',
+      '陈述 2 不能成立为合理解释。其他鱼类消失，不代表它们完全没有任何遗传变异；它们可以存在很多差异，只是这些差异不足以让它们承受当时的污染。**没有合适的耐受性，与没有任何遗传变异，是两回事**。',
+      '陈述 3 可以成立：铜离子使不同耐受性的个体面临不同的存活与繁殖机会，因此构成选择压力。得到 1 和 3，选 C。',
+      '再联系本节：自然选择由环境影响哪些个体留下更多后代；选择育种由人按照目标挑选亲本。共同点是利用可遗传差异和繁殖贡献的不同，而不是按需要创造新等位基因。',
     ],
     optionNotes: [
-      'A：少数亲本并不保证每个位点的等位基因种类增加。',
-      'B：符合近交提高纯合度的遗传机制。',
-      'C：有害等位基因可以保留，尤其可能在杂合个体中隐藏。',
-      'D：遗传背景相似可能增加共同易感性，不保证抵抗所有新疾病。',
+      'A（仅 1）：漏掉铜污染作为选择压力的作用。',
+      'B（1 和 2）：错误地把鱼类消失解释成完全没有遗传变异，还漏掉正确的陈述 3。',
+      'C（1 和 3）：同时符合种群适应和环境选择压力的解释。',
+      'D（2 和 3）：陈述 3 可以成立，但陈述 2 过度概括，且漏掉 1。',
+      'E（1、2、3）：多选了没有依据的“完全没有任何遗传变异”。',
     ],
     takeaway:
-      '评价育种结果，要同时看**目标性状有没有改善、群体保留了多少遗传差异、是否积累了其他代价**。',
+      '比较两类选择时，抓住两个问题：**差异能不能遗传？哪些个体获得更多繁殖机会？** 人改变环境造成选择压力，也不自动等于人按目标挑亲本的选择育种。',
     variant: {
       question:
-        'If unrelated breeding animals carrying useful genetic variation are introduced, must the frequency of every harmful allele fall immediately?',
-      answer:
-        '不一定。引入无亲缘个体可以增加可用变异、降低近交程度，但不保证所有有害等位基因立刻减少。',
+        'In a controlled breeding programme, fish are tested under the same conditions. Only fish with high inherited copper tolerance are chosen as parents, and this is repeated for several generations. Is this selective breeding or natural selection, and does the process require new mutations directed by the breeder?',
+      answer: '这是选择育种；不需要育种者定向制造新突变。',
       explanation:
-        '新亲本也可能携带某些有害等位基因。具体频率取决于原有与引入个体的遗传组成和后续选择；不要把降低近交风险说成“清除全部有害基因”。',
+        '这次题目明确由人按耐铜性挑选亲本，因此是人工选择。统一测试条件帮助区分环境影响与可遗传差异；反复让具有目标性状的亲本繁殖，可使相关遗传变异在后代中更常出现。**选中已有变异，不等于按意愿产生新突变**，也不能保证每条后代鱼都具有完全相同的性状。',
     },
   },
 ]
@@ -474,7 +442,7 @@ export const esatGeneTechnologies: KnowledgeLesson = {
       id: 'esat-b6',
       title: 'UAT-UK · ESAT Content Specification (2026/27)',
       url: 'https://uat-wp.s3.eu-west-2.amazonaws.com/wp-content/uploads/2024/05/03165424/ESAT_Content_Specification.pdf',
-      note: '内部核对 B6.1–B6.3 的范围；讲解、例题、变式及图解为原创。',
+      note: '内部核对 B6.1–B6.3 的范围；例题引用诊断题库中的历年真题，教学讲解、变式及图解为原创。',
     },
     {
       id: 'openstax-biotechnology',

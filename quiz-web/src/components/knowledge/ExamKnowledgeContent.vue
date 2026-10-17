@@ -1,19 +1,33 @@
-<!-- 生物备考讲义：先总结知识与图解，再在原创例题和变式中讲清解题方法。 -->
+<!-- 生物备考讲义：先总结知识与图解，再用诊断真题和原创变式讲清解题方法。 -->
 <template>
   <div class="exam-knowledge">
     <el-tabs v-model="activeTab" class="exam-tabs" aria-label="备考讲解内容">
-      <el-tab-pane label="知识点总结" name="summary">
-        <div class="exam-overview">
-          <div class="exam-section-label">
-            <Reading aria-hidden="true" />
-            <h5>先把知识串起来</h5>
+      <el-tab-pane label="概念与方法" name="summary">
+        <div
+          class="exam-story"
+          :class="{
+            'exam-story--illustrated': section.visual,
+            'exam-story--atlas':
+              section.visual === 'eukaryotic-cell' || section.visual === 'prokaryotic-cell',
+          }"
+        >
+          <div class="exam-story__narrative">
+            <div class="exam-overview">
+              <div class="exam-section-label">
+                <Reading aria-hidden="true" />
+                <h5>先把知识串起来</h5>
+              </div>
+              <p><KnowledgeText :text="focus.goal" /></p>
+            </div>
+            <div class="exam-summary-copy">
+              <p v-for="(paragraph, index) in section.paragraphs" :key="index">
+                <KnowledgeText :text="paragraph" />
+              </p>
+            </div>
           </div>
-          <p><KnowledgeText :text="focus.goal" /></p>
-        </div>
-        <div class="exam-summary-copy">
-          <p v-for="(paragraph, index) in section.paragraphs" :key="index">
-            <KnowledgeText :text="paragraph" />
-          </p>
+          <div v-if="section.visual" class="exam-story__visual">
+            <KnowledgeVisual :kind="section.visual" :topic="section.code" />
+          </div>
         </div>
         <section class="exam-concepts" aria-label="核心知识要点">
           <div class="exam-section-label">
@@ -31,8 +45,6 @@
             </section>
           </div>
         </section>
-
-        <KnowledgeVisual v-if="section.visual" :kind="section.visual" :topic="section.code" />
 
         <div v-if="focus.comparison" class="exam-comparison">
           <div class="exam-section-label">
@@ -78,15 +90,12 @@
         </div>
       </el-tab-pane>
 
-      <el-tab-pane label="例题与变式" name="examples">
-        <div class="exam-section-label">
+      <el-tab-pane label="例题拆解" name="examples" lazy>
+        <div class="exam-section-label exam-example-intro">
           <EditPen aria-hidden="true" />
-          <h5 ref="examplesHeadingRef" tabindex="-1">先自己选，再看每一步为什么这样想</h5>
+          <h5 ref="examplesHeadingRef" tabindex="-1">先作答，再看解析；用改编变式巩固。</h5>
         </div>
-        <p class="exam-helper">
-          原创专项题：先读英文题目，想好理由后再看中文讲解。随后换一个条件，试试答案会不会改变。
-        </p>
-        <div class="exam-example-picker" role="group" aria-label="选择原创例题">
+        <div class="exam-example-picker" role="group" aria-label="选择真题例题">
           <AppButton
             v-for="(item, index) in focus.examples"
             :key="index"
@@ -100,12 +109,21 @@
         </div>
         <article v-if="example" :key="exampleIndex" class="exam-worked-example">
           <div class="exam-question-card">
-            <div class="exam-card-title">
-              <span>原创专项题 {{ exampleIndex + 1 }}</span>
+            <div class="exam-card-title exam-card-title--inline">
+              <span>{{ example.source ? '真题例题' : '专项例题' }} {{ exampleIndex + 1 }}</span>
               <h6>{{ example.title }}</h6>
             </div>
-            <p class="exam-question" lang="en"><KnowledgeText :text="example.question" /></p>
-            <ol v-if="example.options" class="exam-options" aria-label="例题选项">
+            <PastPaperQuestion
+              v-if="example.source"
+              :source="example.source"
+              @ready="loadedSource = $event"
+            />
+            <p v-else class="exam-question" lang="en"><KnowledgeText :text="example.question" /></p>
+            <ol
+              v-if="!example.source && example.options"
+              class="exam-options"
+              aria-label="例题选项"
+            >
               <li v-for="(option, index) in example.options" :key="index">
                 <span>{{ String.fromCharCode(65 + index) }}</span
                 ><KnowledgeText :text="option" />
@@ -116,13 +134,14 @@
               type="secondary"
               size="small"
               :aria-expanded="revealedExamples.includes(exampleIndex)"
+              :disabled="!exampleReady"
               @click="toggleExample"
               >{{
                 revealedExamples.includes(exampleIndex) ? '收起解析' : '查看推理与选项分析'
               }}</AppButton
             >
           </div>
-          <div v-if="revealedExamples.includes(exampleIndex)" class="exam-solution">
+          <div v-if="exampleReady && revealedExamples.includes(exampleIndex)" class="exam-solution">
             <div class="exam-answer">
               <span>正确答案</span><strong><KnowledgeText :text="example.answer" /></strong>
             </div>
@@ -145,9 +164,9 @@
               <strong>下次遇到类似题，记住这一点</strong><KnowledgeText :text="example.takeaway" />
             </p>
           </div>
-          <div class="exam-variant">
+          <div v-if="exampleReady" class="exam-variant">
             <div class="exam-card-title">
-              <span>换一个条件</span>
+              <span>原创改编变式 · 换一个条件（非原卷真题）</span>
               <h6>这次结论还成立吗？</h6>
             </div>
             <p><KnowledgeText :text="example.variant.question" /></p>
@@ -185,7 +204,7 @@
         </div>
       </el-tab-pane>
 
-      <el-tab-pane label="易错与自测" name="check">
+      <el-tab-pane label="易错与自测" name="check" lazy>
         <div class="exam-pitfalls">
           <div class="exam-section-label">
             <Warning aria-hidden="true" />
@@ -197,34 +216,7 @@
             </li>
           </ul>
         </div>
-        <fieldset class="exam-check">
-          <legend>独立判断 · 原创自测</legend>
-          <p><KnowledgeText :text="section.check.question" /></p>
-          <el-radio-group v-model="selectedAnswer" aria-label="自测选项" :disabled="submitted">
-            <el-radio v-for="(option, index) in section.check.options" :key="index" :value="index">
-              <span class="exam-option-letter">{{ String.fromCharCode(65 + index) }}.</span
-              ><KnowledgeText :text="option" />
-            </el-radio>
-          </el-radio-group>
-          <AppButton
-            v-if="!submitted"
-            class="exam-button"
-            type="secondary"
-            size="small"
-            :disabled="selectedAnswer === null"
-            @click="submitted = true"
-            >检查答案</AppButton
-          >
-          <div v-else class="exam-feedback" :class="{ 'is-correct': isCorrect }" role="status">
-            <strong
-              >{{ isCorrect ? '答对了，再确认一下理由' : '再看看题目给出的条件' }} · 正确答案
-              {{ String.fromCharCode(65 + section.check.answerIndex) }}</strong
-            >
-            <p><KnowledgeText :text="section.check.explanation" /></p>
-            <AppButton type="link" size="small" @click="resetCheck">重新作答</AppButton>
-          </div>
-          <p class="exam-helper">仅用于即时复习，不计入练习记录。</p>
-        </fieldset>
+        <KnowledgeSelfCheck :key="section.code" :code="section.code" />
         <div class="exam-checklist">
           <div class="exam-section-label">
             <CircleCheck aria-hidden="true" />
@@ -255,22 +247,30 @@ import {
 import AppButton from '@/components/AppButton.vue'
 import KnowledgeText from './KnowledgeText.vue'
 import KnowledgeVisual from './KnowledgeVisual.vue'
+import PastPaperQuestion from './PastPaperQuestion.vue'
+import KnowledgeSelfCheck from './KnowledgeSelfCheck.vue'
 import type { KnowledgeExamFocus, KnowledgeSection } from '@/content/knowledge/types'
 
 const props = defineProps<{ section: KnowledgeSection; focus: KnowledgeExamFocus }>()
 const activeTab = ref('summary')
 const exampleIndex = ref(0)
+const loadedSource = ref('')
 const revealedExamples = ref<number[]>([])
 const revealedVariants = ref<number[]>([])
-const selectedAnswer = ref<number | null>(null)
-const submitted = ref(false)
 const examplesHeadingRef = ref<HTMLElement>()
 const checkHeadingRef = ref<HTMLElement>()
 
+// 离开缓存工作区时卸载自测，避免下次进入沿用上一次答案。
+onDeactivated(() => {
+  activeTab.value = 'summary'
+})
+
 // 同一知识点中只展开当前选定的一道例题，减少长篇讲解的阅读负担。
 const example = computed(() => props.focus.examples[exampleIndex.value])
-// 自测结果只用于当前面板的反馈，不表示长期掌握度。
-const isCorrect = computed(() => selectedAnswer.value === props.section.check.answerIndex)
+// 原题尚未加载时不展示脱离题干的解析或变式，旧请求不能解锁另一道题。
+const exampleReady = computed(
+  () => !example.value?.source || loadedSource.value === example.value.source.questionCode,
+)
 
 // 底部学习入口切换后把焦点与阅读位置交给下一阶段，避免停留在已隐藏的按钮上。
 async function goToTab(tab: 'examples' | 'check'): Promise<void> {
@@ -300,15 +300,6 @@ function toggleVariant(): void {
     ? revealedVariants.value.filter((index) => index !== exampleIndex.value)
     : [...revealedVariants.value, exampleIndex.value]
 }
-
-// 学生可清空即时判断再试一次，不创建或更新正式答卷。
-function resetCheck(): void {
-  selectedAnswer.value = null
-  submitted.value = false
-}
-
-// 工作区缓存页面时，离开仍应清空本次自测，避免再次进入看到旧结果。
-onDeactivated(resetCheck)
 </script>
 
 <style scoped>
@@ -316,8 +307,27 @@ onDeactivated(resetCheck)
   min-width: 0;
   color: var(--color-ink-soft);
 }
+.exam-story {
+  display: grid;
+  gap: 22px;
+  align-items: start;
+}
+.exam-story--illustrated {
+  grid-template-columns: minmax(240px, 0.72fr) minmax(0, 1.28fr);
+}
+/* 细胞图解自带结构说明栏，整行展示才能让插图与交互说明同时可读。 */
+.exam-story--atlas {
+  grid-template-columns: minmax(0, 1fr);
+}
+.exam-story__narrative,
+.exam-story__visual {
+  min-width: 0;
+}
+.exam-story__visual :deep(figure) {
+  margin-top: 0;
+}
 .exam-overview {
-  padding: 18px 20px;
+  padding: 15px 18px;
   border-left: 3px solid var(--color-learning-blue);
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
   background: var(--color-learning-blue-soft);
@@ -333,7 +343,7 @@ onDeactivated(resetCheck)
   line-height: 1.8;
 }
 .exam-summary-copy {
-  margin: 18px 0 24px;
+  margin: 16px 0 0;
   font-size: var(--text-sm);
   line-height: 1.9;
 }
@@ -382,6 +392,15 @@ onDeactivated(resetCheck)
   font-size: var(--text-sm);
   line-height: 1.7;
 }
+/* 例题区只保留一行轻量提示，为题目和解析留出阅读空间。 */
+.exam-example-intro {
+  margin: 8px 0 12px;
+}
+.exam-example-intro h5 {
+  color: var(--color-ink-soft);
+  font-size: 14px;
+  font-weight: var(--weight-normal);
+}
 .exam-concept-count {
   margin-left: auto;
   color: var(--color-ink-soft);
@@ -389,37 +408,26 @@ onDeactivated(resetCheck)
 }
 .exam-concept-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
-  gap: 14px;
-  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 32px;
+  margin: 8px 0 24px;
 }
 .exam-concept-card {
   --concept-color: var(--color-learning-blue);
-  --concept-line: var(--color-learning-blue-line);
-  --concept-soft: var(--color-learning-blue-soft);
   min-width: 0;
-  border: 1px solid var(--concept-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
+  padding: 15px 0 17px;
+  border-top: 1px solid var(--color-line);
 }
 .exam-concept-card:nth-child(3n + 2) {
   --concept-color: var(--color-learning-teal);
-  --concept-line: var(--color-learning-teal-line);
-  --concept-soft: var(--color-learning-teal-soft);
 }
 .exam-concept-card:nth-child(3n + 3) {
   --concept-color: var(--color-learning-violet);
-  --concept-line: var(--color-learning-violet-line);
-  --concept-soft: var(--color-learning-violet-soft);
 }
 .exam-concept-card header {
   display: flex;
   align-items: baseline;
   gap: 10px;
-  padding: 14px 16px;
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-  border-bottom: 1px solid var(--concept-line);
-  background: var(--concept-soft);
 }
 .exam-concept-card header > span {
   flex: none;
@@ -436,10 +444,9 @@ onDeactivated(resetCheck)
   line-height: 1.7;
 }
 .exam-concept-card > p {
-  margin: 0;
-  padding: 16px;
+  margin: 7px 0 0 28px;
   font-size: var(--text-sm);
-  line-height: 1.9;
+  line-height: 1.8;
 }
 .exam-reasoning-title {
   margin: 20px 0 12px;
@@ -543,6 +550,20 @@ onDeactivated(resetCheck)
   font-size: var(--text-lg);
   font-weight: var(--weight-semi);
   line-height: 1.6;
+}
+/* 例题序号与问题并排呈现，避免辅助标签单独占据一行。 */
+.exam-card-title--inline {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.exam-card-title--inline > span {
+  flex-shrink: 0;
+  margin-bottom: 0;
+  font-size: var(--text-lg);
+}
+.exam-card-title--inline h6 {
+  min-width: 0;
 }
 .exam-question {
   margin: 18px 0;
@@ -803,6 +824,11 @@ onDeactivated(resetCheck)
 .exam-knowledge :deep(.latex-text) {
   overflow-wrap: anywhere;
 }
+@media (max-width: 1180px) {
+  .exam-story--illustrated {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 @media (max-width: 760px) {
   .exam-tabs :deep(.el-tabs__item) {
     padding: 0 12px;
@@ -813,9 +839,11 @@ onDeactivated(resetCheck)
   .exam-check {
     padding: 16px;
   }
-  .exam-concept-card header,
+  .exam-concept-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .exam-concept-card > p {
-    padding: 12px;
+    margin-left: 26px;
   }
   .exam-question {
     font-size: var(--text-sm);

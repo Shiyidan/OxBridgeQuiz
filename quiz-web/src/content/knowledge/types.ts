@@ -42,6 +42,7 @@ export interface KnowledgeExamFocus {
   comparison?: { title: string; columns: string[]; rows: string[][] }
   examples: Array<{
     title: string
+    source?: { questionCode: string; why: string }
     question: string
     options?: string[]
     answer: string

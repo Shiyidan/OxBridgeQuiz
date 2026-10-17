@@ -2,29 +2,76 @@
 <template>
   <div class="question-bank">
     <main class="qb-container">
-      <header class="qb-header">
-        <div class="qb-header__lead">
-          <span class="page-eyebrow">Question Bank</span>
-          <h1 class="qb-header__title">试题库</h1>
-          <p class="qb-header__subtitle">包含专项试题练习与全真模拟考试系统。</p>
-        </div>
-        <div class="qb-header__actions">
-          <span class="qb-usage-count">
-            {{ questionBankQuota ? (questionBankQuota.unlimited ? '会员专享 · 已解锁' : '会员专享 · 开通后练习') : '会员专享' }}
-          </span>
-          <AppButton type="link" @click="router.push('/practice-records')">
-            练习记录
-          </AppButton>
-          <AppButton type="secondary" :icon="Notebook" @click="handleOpenPracticeNotebook"
-            >练习本</AppButton
-          >
-        </div>
-      </header>
+      <section class="qb-top-shell" aria-labelledby="question-bank-title">
+        <div class="qb-overview">
+          <div class="qb-overview__identity">
+            <span class="qb-overview__mark" aria-hidden="true"><Reading /></span>
+            <div class="qb-overview__copy">
+              <span class="qb-overview__eyebrow">Question Bank</span>
+              <div class="qb-overview__title-row">
+                <h1 id="question-bank-title">试题库</h1>
+                <span
+                  class="qb-overview__access"
+                  :class="{
+                    'qb-overview__access--unlocked': questionBankQuota?.unlimited,
+                  }"
+                >
+                  <component
+                    :is="questionBankQuota?.unlimited ? CircleCheck : Lock"
+                    aria-hidden="true"
+                  />
+                  {{ questionBankQuota?.unlimited ? '会员练习已解锁' : '会员练习需开通' }}
+                </span>
+              </div>
+              <p>沿考纲学习核心知识，通过例题、自测与专项练习逐步检验掌握情况。</p>
+            </div>
+          </div>
 
-      <section class="qb-main">
+          <div class="qb-overview__actions">
+            <nav class="qb-mode-cards" aria-label="试题库功能">
+              <button type="button" class="qb-mode-card qb-mode-card--active" aria-current="page">
+                <span class="qb-mode-card__icon" aria-hidden="true"><Reading /></span>
+                <span class="qb-mode-card__copy">
+                  <strong>学习平台</strong>
+                  <small>课程 · 例题 · 自测</small>
+                </span>
+                <em>当前</em>
+              </button>
+              <button type="button" class="qb-mode-card" @click="handleOpenPracticeNotebook">
+                <span class="qb-mode-card__icon" aria-hidden="true"><Notebook /></span>
+                <span class="qb-mode-card__copy">
+                  <strong>我的练习本</strong>
+                  <small>{{ notebookSummaryText }}</small>
+                </span>
+                <span v-if="auth.isLoggedIn" class="qb-mode-card__count">{{
+                  notebooks.length
+                }}</span>
+                <ArrowRight v-else class="qb-mode-card__arrow" aria-hidden="true" />
+              </button>
+            </nav>
+            <button type="button" class="qb-record-entry" @click="router.push('/practice-records')">
+              <span><Clock aria-hidden="true" />查看练习记录</span>
+              <span>复盘正确率与历史练习 <ArrowRight aria-hidden="true" /></span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="qb-main" :class="{ 'qb-main--collapsed': syllabusCollapsed }">
         <aside class="qb-sidebar">
-          <h3 class="qb-sidebar__title">考点大纲 (SYLLABUS)</h3>
-          <div class="qb-sidebar__tree-scroll">
+          <header class="qb-sidebar__header">
+            <h3 v-if="!syllabusCollapsed" class="qb-sidebar__title">考点大纲 (SYLLABUS)</h3>
+            <button
+              type="button"
+              class="qb-sidebar__toggle"
+              :aria-label="syllabusCollapsed ? '展开考点大纲' : '收起考点大纲'"
+              :title="syllabusCollapsed ? '展开考点大纲' : '收起考点大纲'"
+              @click="toggleSyllabus"
+            >
+              <component :is="syllabusCollapsed ? ArrowRight : ArrowLeft" />
+            </button>
+          </header>
+          <div v-show="!syllabusCollapsed" class="qb-sidebar__tree-scroll">
             <el-tree
               ref="syllabusTreeRef"
               :key="activeExamType"
@@ -35,83 +82,123 @@
               :current-node-key="selectedNodeCode"
               highlight-current
               @node-click="handleTreeNodeClick"
-            />
+            >
+              <template #default="{ data }">
+                <SyllabusTreeNode :node="data" />
+              </template>
+            </el-tree>
+          </div>
+          <div v-show="syllabusCollapsed" class="qb-sidebar__collapsed-label" aria-hidden="true">
+            <Notebook />
+            <span>考纲</span>
           </div>
         </aside>
 
-        <section class="qb-content" :class="{ 'qb-content--learning': activeKnowledgeLesson }">
-          <header class="qb-content__header">
-            <h2 class="qb-content__title">{{ activeTopicTitle }}</h2>
-            <span class="qb-content__hint">
-              当前范围共 {{ totalQuestionCount }} 题，每次随机练习最多
-              {{ DIRECT_PRACTICE_QUESTION_COUNT }} 题
-            </span>
-          </header>
-
-          <div v-if="activePractice" class="qb-active-practice" role="status">
-            <div>
-              <strong>你有一份 {{ activePractice.examType }} 练习尚未交卷</strong>
-              <span
-                >已答 {{ activePractice.answeredCount }}/{{
-                  activePractice.totalQuestions
-                }}
-                题</span
-              >
-            </div>
-            <AppButton @click="handleContinuePractice"> 继续练习 </AppButton>
-          </div>
-
-          <KnowledgeLessonPanel
-            v-if="activeKnowledgeLesson"
-            :key="activeKnowledgeLesson.code"
-            :lesson="activeKnowledgeLesson"
-            :selected-code="selectedNodeCode"
-            @select="handleKnowledgeSelect"
-            @practise="scrollToDifficulties"
-          />
-
-          <div ref="difficultyGridRef" class="qb-difficulty-grid" tabindex="-1" aria-label="选择练习难度">
-            <article
-              v-for="diff in difficulties"
-              :key="diff.id"
-              class="qb-difficulty-card"
-              :class="{ 'qb-difficulty-card--target': targetDifficulty === diff.id }"
-              :data-theme="diff.id"
-            >
-              <div class="qb-difficulty-card__visual">
-                <span class="qb-difficulty-card__english">{{ diff.englishLabel }}</span>
-                <h3 class="qb-difficulty-card__title">{{ diff.label }}难度</h3>
-                <AppButton
-                  class="qb-difficulty-card__cta"
-                  :size="compactViewport ? 'mini' : 'medium'"
-                  :disabled="diff.count === 0 || Boolean(activePractice)"
-                  :loading="startingDifficultyId === diff.id"
-                  @click="handleStartPractice(diff)"
-                >
-                  <span v-if="startingDifficultyId === diff.id">正在生成</span>
-                  <span v-else-if="diff.count === 0">暂无题目</span>
-                  <span v-else>立即练习</span>
-                </AppButton>
+        <div class="qb-study-layout">
+          <section class="qb-content" :class="{ 'qb-content--learning': activeKnowledgeLesson }">
+            <header class="qb-content__header">
+              <div>
+                <nav v-if="selectedBreadcrumb.length" class="qb-content__breadcrumb" aria-label="考纲路径">
+                  <template v-for="item in selectedBreadcrumb" :key="item.code">
+                    <button type="button" :title="item.label" @click="handleKnowledgeSelect(item.code)">
+                      {{ item.label }}
+                    </button>
+                    <ArrowRightBold aria-hidden="true" />
+                  </template>
+                  <span aria-current="location">{{ currentScopeCnLabel }}</span>
+                </nav>
+                <span v-else class="qb-content__eyebrow">当前学习范围</span>
+                <h2 class="qb-content__title">{{ selectedNodeLabel }}</h2>
               </div>
-              <div class="qb-difficulty-card__body">
-                <span class="qb-difficulty-card__icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path d="m7.5 16.5 9-9M9 7.5h7.5V15" stroke="currentColor" stroke-width="1.8" />
-                    <path
-                      d="M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                    />
-                  </svg>
+              <div class="qb-content__tools">
+                <span class="qb-content__hint">
+                  {{ totalQuestionCount }} 题 · 每次最多 {{ DIRECT_PRACTICE_QUESTION_COUNT }} 题
                 </span>
-                <div>
-                  <strong>{{ diff.label }}练习</strong>
-                  <p class="qb-difficulty-card__desc">{{ diff.description }}</p>
-                </div>
+                <AppButton
+                  class="qb-notebook-action"
+                  type="secondary"
+                  size="small"
+                  :disabled="!currentScopeLeafCodes.length"
+                  @click="handleOpenAddToNotebook"
+                >加入练习本</AppButton>
               </div>
-            </article>
-          </div>
-        </section>
+            </header>
+
+            <div v-if="activePractice" class="qb-active-practice" role="status">
+              <div>
+                <strong>你有一份 {{ activePractice.examType }} 练习尚未交卷</strong>
+                <span
+                  >已答 {{ activePractice.answeredCount }}/{{
+                    activePractice.totalQuestions
+                  }}
+                  题</span
+                >
+              </div>
+              <AppButton class="qb-continue-action" type="secondary" @click="handleContinuePractice">继续练习</AppButton>
+            </div>
+
+            <KnowledgeLessonPanel
+              v-if="activeKnowledgeLesson"
+              :key="activeKnowledgeLesson.code"
+              :lesson="activeKnowledgeLesson"
+              :selected-code="selectedNodeCode"
+              @select="handleKnowledgeSelect"
+              @practise="scrollToDifficulties"
+            />
+
+            <div
+              ref="difficultyGridRef"
+              class="qb-difficulty-grid"
+              tabindex="-1"
+              aria-label="选择练习难度"
+            >
+              <article
+                v-for="diff in difficulties"
+                :key="diff.id"
+                class="qb-difficulty-card"
+                :class="{ 'qb-difficulty-card--target': targetDifficulty === diff.id }"
+                :data-theme="diff.id"
+              >
+                <div class="qb-difficulty-card__visual">
+                  <span class="qb-difficulty-card__english">{{ diff.englishLabel }}</span>
+                  <h3 class="qb-difficulty-card__title">{{ diff.label }}难度</h3>
+                  <AppButton
+                    class="qb-difficulty-card__cta"
+                    :size="compactViewport ? 'mini' : 'medium'"
+                    :disabled="diff.count === 0 || Boolean(activePractice)"
+                    :loading="startingDifficultyId === diff.id"
+                    @click="handleStartPractice(diff)"
+                  >
+                    <span v-if="startingDifficultyId === diff.id">正在生成</span>
+                    <span v-else-if="diff.count === 0">暂无题目</span>
+                    <span v-else>立即练习</span>
+                  </AppButton>
+                </div>
+                <div class="qb-difficulty-card__body">
+                  <span class="qb-difficulty-card__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="m7.5 16.5 9-9M9 7.5h7.5V15"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                      />
+                      <path
+                        d="M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                      />
+                    </svg>
+                  </span>
+                  <div>
+                    <strong>{{ diff.label }}练习</strong>
+                    <p class="qb-difficulty-card__desc">{{ diff.description }}</p>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </section>
+
+        </div>
       </section>
     </main>
 
@@ -125,6 +212,22 @@
     >
       <p>{{ selectionDialogMessage }}</p>
     </AppDialog>
+
+    <AddToPracticeNotebookDialog
+      v-model="addNotebookDialogVisible"
+      :notebooks="notebooks"
+      :selected-notebook-id="selectedNotebookId"
+      :scope-codes="currentScopeLeafCodes"
+      :scope-cn-label="currentScopeCnLabel"
+      :scope-en-label="currentScopeEnLabel"
+      :scope-leaf-count="currentScopeLeafCodes.length"
+      :loading="notebookLoading"
+      :saving="addingToNotebook"
+      @select="selectedNotebookId = $event"
+      @confirm="handleConfirmAddToNotebook"
+      @cancel="handleCancelAddToNotebook"
+      @create="handleCreateNotebookFromScope"
+    />
 
     <DailyCardAccessDialog
       v-model="upgradeDialogVisible"
@@ -147,15 +250,26 @@
 <script setup lang="ts">
 import AppButton from '@/components/AppButton.vue'
 // 试题库首页：按考试、考纲和难度选择题目范围并开始专项练习。
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Notebook } from '@element-plus/icons-vue'
+import {
+  ArrowLeft,
+  ArrowRight,
+  ArrowRightBold,
+  CircleCheck,
+  Clock,
+  Lock,
+  Notebook,
+  Reading,
+} from '@element-plus/icons-vue'
 import type { TreeInstance } from 'element-plus'
 import AppDialog from '@/components/AppDialog.vue'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
+import SyllabusTreeNode from '@/components/SyllabusTreeNode.vue'
 import KnowledgeLessonPanel from '@/components/knowledge/KnowledgeLessonPanel.vue'
+import AddToPracticeNotebookDialog from '@/components/practiceNotebook/AddToPracticeNotebookDialog.vue'
 import { findKnowledgeLesson } from '@/content/knowledge'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import type { QuestionDifficulty, SyllabusNode } from '@/api/questionBank'
@@ -163,6 +277,11 @@ import { getSyllabusData, getQuestionSummaryData } from '@/api/questionBank'
 import { getActiveQuestionBankPractice, type ActiveQuestionBankPractice } from '@/api/exam'
 import { checkMemberAccess, getMember } from '@/api/member'
 import { createLoginRequiredRouteLocation } from '@/utils/authRedirect'
+import {
+  getPracticeNotebooks,
+  updatePracticeNotebook,
+  type PracticeNotebookSummary,
+} from '@/api/practiceNotebook'
 
 const router = useRouter()
 const route = useRoute()
@@ -188,6 +307,7 @@ interface PendingDirectPractice {
 }
 
 const DIRECT_PRACTICE_QUESTION_COUNT = 5
+const SYLLABUS_COLLAPSED_STORAGE_KEY = 'question-bank:syllabus-collapsed'
 
 // 游客可浏览考纲与题量，开始专项练习时再进入登录并回到试题库。
 function requireLoginForPracticeAction(): boolean {
@@ -213,10 +333,18 @@ const upgradeDialogVisible = ref(false)
 const paymentVisible = ref(false)
 const paymentExamType = ref<ActiveExamType>(auth.activeExamType)
 const pendingDirectPractice = ref<PendingDirectPractice | null>(null)
+const syllabusCollapsed = ref(false)
+const notebooks = ref<PracticeNotebookSummary[]>([])
+const notebookLoading = ref(false)
+const notebookHasActivePractice = ref(false)
+const addNotebookDialogVisible = ref(false)
+const selectedNotebookId = ref('')
+const addingToNotebook = ref(false)
 let examContentInitialized = false
 let examLoadSequence = 0
 let summaryLoadSequence = 0
 let practiceLoadSequence = 0
+let notebookLoadSequence = 0
 
 const difficulties = ref<DifficultyOption[]>([
   {
@@ -242,9 +370,6 @@ const difficulties = ref<DifficultyOption[]>([
   },
 ])
 
-// 当前考点标题同步反映树选择或学习路径传入的考纲 code。
-const activeTopicTitle = computed<string>(() => `${selectedNodeLabel.value} · 试题`)
-
 // 题库统一读取顶部导航的全局考试类型，不再维护页面级考试选择。
 const activeExamType = computed<ActiveExamType>(() => auth.activeExamType)
 
@@ -254,6 +379,55 @@ const activeKnowledgeLesson = computed(() => {
   if (!lesson || !findTreeNode(treeData.value, selectedNodeCode.value)) return null
   const sections = lesson.sections.filter((section) => findTreeNode(treeData.value, section.code))
   return sections.length ? { ...lesson, sections } : null
+})
+
+// 当前树节点同时提供双语标题，右侧练习本弹窗不再从混合 label 反向拆分。
+const selectedTreeNode = computed(
+  () => findTreeNode(treeData.value, selectedNodeCode.value)?.node || null,
+)
+
+// 中文范围名称优先使用新版考纲字段，兼容无匹配节点时的页面标题。
+const currentScopeCnLabel = computed(
+  () => selectedTreeNode.value?.cn_label || selectedNodeLabel.value,
+)
+
+// 顶部路径沿用当前考纲树的祖先节点，父级可直接返回对应的学习和练习范围。
+const selectedBreadcrumb = computed(() => {
+  const match = findTreeNode(treeData.value, selectedNodeCode.value)
+  if (!match) return []
+  return match.parents.flatMap((code) => {
+    const node = findTreeNode(treeData.value, code)?.node
+    return node ? [{ code: node.code, label: node.cn_label || node.label }] : []
+  })
+})
+
+// 英文范围名称随考纲节点直接读取，供加入练习本弹窗双语展示。
+const currentScopeEnLabel = computed(
+  () => selectedTreeNode.value?.en_label || selectedNodeLabel.value,
+)
+
+// 章节或学科范围统一展开为叶子知识点，保证练习本保存的都是可组卷节点。
+const currentScopeLeafCodes = computed<string[]>(() => {
+  const root = selectedTreeNode.value
+  if (!root) return []
+  const codes: string[] = []
+  const appendLeaves = (node: TreeNode): void => {
+    if (!node.children?.length) {
+      codes.push(node.code)
+      return
+    }
+    node.children.forEach(appendLeaves)
+  }
+  appendLeaves(root)
+  return Array.from(new Set(codes))
+})
+
+// 右侧练习本摘要合并总数和当前是否存在练习本进行中任务。
+const notebookSummaryText = computed(() => {
+  if (!auth.isLoggedIn) return '登录后创建和管理'
+  if (notebookLoading.value) return '正在读取...'
+  const activeText = notebookHasActivePractice.value ? ' · 1 项进行中' : ''
+  return `${notebooks.value.length} 本练习本${activeText}`
 })
 
 // 解锁状态以当前考试的有效会员上下文为准。
@@ -292,6 +466,38 @@ async function expandDefaultSyllabusNodes(): Promise<void> {
   await nextTick()
   for (const code of defaultExpanded.value) {
     syllabusTreeRef.value?.getNode(code)?.expand()
+  }
+}
+
+// 收起状态只影响本机布局，重新展开后 Element Plus 树会恢复原选择与展开路径。
+function toggleSyllabus(): void {
+  syllabusCollapsed.value = !syllabusCollapsed.value
+  window.localStorage.setItem(SYLLABUS_COLLAPSED_STORAGE_KEY, syllabusCollapsed.value ? '1' : '0')
+  if (!syllabusCollapsed.value) void expandDefaultSyllabusNodes()
+}
+
+// 登录用户进入学习平台后读取练习本摘要，为顶部入口和加入弹窗提供真实数据。
+async function loadNotebookSummary(): Promise<void> {
+  const requestSequence = ++notebookLoadSequence
+  const requestedExamType = activeExamType.value
+  notebooks.value = []
+  notebookHasActivePractice.value = false
+  if (!auth.isLoggedIn) return
+  notebookLoading.value = true
+  try {
+    const result = await getPracticeNotebooks(requestedExamType)
+    if (requestSequence !== notebookLoadSequence || requestedExamType !== activeExamType.value) {
+      return
+    }
+    notebooks.value = result.notebooks
+    notebookHasActivePractice.value = result.activePractice?.source === 'notebook'
+  } catch {
+    if (requestSequence === notebookLoadSequence) {
+      notebooks.value = []
+      notebookHasActivePractice.value = false
+    }
+  } finally {
+    if (requestSequence === notebookLoadSequence) notebookLoading.value = false
   }
 }
 
@@ -430,8 +636,15 @@ watch(activeExamType, () => {
   selectionDialogVisible.value = false
   upgradeDialogVisible.value = false
   pendingDirectPractice.value = null
+  addNotebookDialogVisible.value = false
+  selectedNotebookId.value = ''
+  notebookLoadSequence += 1
+  notebooks.value = []
   if (!paymentVisible.value) paymentExamType.value = activeExamType.value
-  if (examContentInitialized) void loadExamContent(false)
+  if (examContentInitialized) {
+    void loadExamContent(false)
+    void loadNotebookSummary()
+  }
 })
 
 // 窄屏卡片使用 Mini，随窗口变化同步组件尺寸，不覆盖按钮内部样式。
@@ -441,6 +654,7 @@ function syncCompactViewport(): void {
   compactViewport.value = compactViewportQuery?.matches ?? false
 }
 onMounted(() => {
+  syllabusCollapsed.value = window.localStorage.getItem(SYLLABUS_COLLAPSED_STORAGE_KEY) === '1'
   compactViewportQuery = window.matchMedia('(max-width: 780px)')
   syncCompactViewport()
   compactViewportQuery.addEventListener('change', syncCompactViewport)
@@ -457,12 +671,93 @@ onMounted(async () => {
     // 偏好加载失败时继续使用全局默认 TMUA，公共请求层负责错误提示。
   }
   examContentInitialized = true
-  await loadExamContent(true)
+  await Promise.all([loadExamContent(true), loadNotebookSummary()])
+})
+
+// 从新建或编辑练习本返回 KeepAlive 页面时刷新摘要，保证数量和配置立即同步。
+onActivated(() => {
+  if (examContentInitialized) void loadNotebookSummary()
 })
 
 // 练习本作为同一学习工作区的下一页，由外层布局提供向左滑动切换。
 function handleOpenPracticeNotebook(): void {
   void router.push('/practice-notebook')
+}
+
+// 打开弹窗时优先选择尚未包含当前范围的练习本，已完整包含的练习本仍可见但不可重复加入。
+async function handleOpenAddToNotebook(): Promise<void> {
+  if (requireLoginForPracticeAction()) return
+  if (!currentScopeLeafCodes.value.length) {
+    ElMessage.info('当前考纲范围没有可加入的叶子知识点')
+    return
+  }
+  addNotebookDialogVisible.value = true
+  await loadNotebookSummary()
+  selectedNotebookId.value =
+    notebooks.value.find(
+      (notebook) =>
+        !currentScopeLeafCodes.value.every((code) => notebook.knowledgePointCodes.includes(code)),
+    )?.id || ''
+}
+
+// 取消加入时清空本次选择，避免再次打开误用上一次目标练习本。
+function handleCancelAddToNotebook(): void {
+  addNotebookDialogVisible.value = false
+  selectedNotebookId.value = ''
+}
+
+// 加入只补充缺失叶子节点，练习本原有难度、题量、时间和未做优先设置保持不变。
+async function handleConfirmAddToNotebook(): Promise<void> {
+  const notebook = notebooks.value.find((item) => item.id === selectedNotebookId.value)
+  if (!notebook || addingToNotebook.value) return
+  const missingCodes = currentScopeLeafCodes.value.filter(
+    (code) => !notebook.knowledgePointCodes.includes(code),
+  )
+  if (!missingCodes.length) {
+    ElMessage.info('该练习本已包含当前知识点')
+    return
+  }
+  addingToNotebook.value = true
+  try {
+    const updated = await updatePracticeNotebook(notebook.id, {
+      name: notebook.name,
+      examType: notebook.examType,
+      knowledgePointCodes: Array.from(new Set([...notebook.knowledgePointCodes, ...missingCodes])),
+      questionCount: notebook.questionCount,
+      difficultyMode: notebook.difficultyMode,
+      durationMinutes: notebook.durationMinutes,
+      unseenFirst: notebook.unseenFirst,
+    })
+    notebooks.value = notebooks.value.map((item) =>
+      item.id === updated.id ? { ...item, ...updated } : item,
+    )
+    addNotebookDialogVisible.value = false
+    selectedNotebookId.value = ''
+    ElMessage.success(`已将 ${missingCodes.length} 个知识点加入“${updated.name}”`)
+  } catch {
+    // 公共请求层统一提示失败原因，弹窗保持当前选择以便重试。
+  } finally {
+    addingToNotebook.value = false
+  }
+}
+
+// 新建入口携带当前范围并返回试题库，创建页仍由用户确认难度、题量和时间。
+function handleCreateNotebookFromScope(): void {
+  const returnTo = router.resolve({
+    path: '/question-bank',
+    query: { code: selectedNodeCode.value },
+  }).fullPath
+  addNotebookDialogVisible.value = false
+  void router.push({
+    path: '/practice-notebook/new',
+    query: {
+      source: 'question-bank',
+      examType: activeExamType.value,
+      name: `${currentScopeCnLabel.value}练习本`,
+      knowledgePointCodes: currentScopeLeafCodes.value.join(','),
+      returnTo,
+    },
+  })
 }
 
 // 移动端仅开放题库与考纲浏览，正式练习统一提示切换到电脑端。
@@ -734,44 +1029,31 @@ async function handlePaymentSuccess(): Promise<void> {
 .qb-sidebar__tree-scroll {
   width: 100%;
   padding-bottom: 8px;
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: visible;
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-ink-muted) var(--color-line-soft);
-}
-
-.qb-sidebar__tree-scroll::-webkit-scrollbar {
-  height: 8px;
-}
-
-.qb-sidebar__tree-scroll::-webkit-scrollbar-track {
-  border-radius: var(--radius-pill);
-  background: var(--color-line-soft);
-}
-
-.qb-sidebar__tree-scroll::-webkit-scrollbar-thumb {
-  border-radius: var(--radius-pill);
-  background: var(--color-ink-muted);
 }
 
 .qb-sidebar__tree-scroll :deep(.el-tree) {
-  display: inline-block;
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
   background: transparent;
   color: var(--color-ink-soft);
 }
 
 .qb-sidebar__tree-scroll :deep(.el-tree-node),
 .qb-sidebar__tree-scroll :deep(.el-tree-node__content) {
-  width: max-content;
+  width: 100%;
   min-width: 100%;
 }
 
 .qb-sidebar__tree-scroll :deep(.el-tree-node__content) {
-  min-height: 36px;
+  box-sizing: border-box;
+  min-height: 52px;
   padding-right: 12px;
   border-radius: var(--radius-sm);
+}
+
+.qb-sidebar__tree-scroll :deep(.el-tree-node__expand-icon) {
+  flex: 0 0 auto;
 }
 
 .qb-sidebar__tree-scroll :deep(.el-tree-node__content:hover) {
@@ -1037,7 +1319,8 @@ async function handlePaymentSuccess(): Promise<void> {
 
   .qb-sidebar__tree-scroll {
     max-height: 206px;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   .qb-sidebar__tree-scroll :deep(.el-tree) {
@@ -1045,7 +1328,7 @@ async function handlePaymentSuccess(): Promise<void> {
   }
 
   .qb-sidebar__tree-scroll :deep(.el-tree-node__content) {
-    min-height: 32px;
+    min-height: 46px;
     padding-right: 6px;
   }
 
@@ -1149,6 +1432,537 @@ async function handlePaymentSuccess(): Promise<void> {
   }
   .qb-difficulty-grid {
     grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  }
+}
+
+/* 顶部沿用导航栏宽度，考纲与正文的整体留白由学习工作区控制。 */
+.qb-container {
+  width: 100%;
+  padding: 28px 0 72px;
+}
+
+.qb-top-shell {
+  width: var(--fluid-shell-width);
+  margin: 0 auto 16px;
+}
+
+.qb-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(430px, 0.88fr);
+  gap: 28px;
+  align-items: center;
+}
+
+.qb-overview__identity {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.qb-overview__mark {
+  display: inline-flex;
+  width: 58px;
+  height: 58px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--color-learning-blue-soft);
+  color: var(--color-learning-blue);
+}
+
+.qb-overview__mark svg {
+  width: 27px;
+  height: 27px;
+}
+
+.qb-overview__copy {
+  min-width: 0;
+}
+
+.qb-overview__eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--color-learning-blue);
+  font-size: 11px;
+  font-weight: var(--weight-semi);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.qb-overview__title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.qb-overview__title-row h1 {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 30px;
+  line-height: 1.2;
+}
+
+.qb-overview__access {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-learning-amber-line);
+  border-radius: 5px;
+  background: var(--color-learning-amber-soft);
+  color: var(--color-learning-amber);
+  font-size: 12px;
+  font-weight: var(--weight-semi);
+}
+
+.qb-overview__access--unlocked {
+  border-color: var(--color-learning-teal-line);
+  background: var(--color-learning-teal-soft);
+  color: var(--color-learning-teal);
+}
+
+.qb-overview__access svg {
+  width: 15px;
+  height: 15px;
+}
+
+.qb-overview__copy p {
+  max-width: 520px;
+  margin: 8px 0 0;
+  color: var(--color-ink-soft);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.qb-overview__actions {
+  display: grid;
+  gap: 8px;
+}
+
+.qb-mode-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.qb-mode-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  min-height: 66px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--color-ink);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.qb-mode-card:hover {
+  border-color: var(--color-learning-blue-line);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.qb-mode-card:focus-visible,
+.qb-record-entry:focus-visible {
+  outline: 2px solid var(--color-learning-blue);
+  outline-offset: 2px;
+}
+
+.qb-mode-card--active {
+  border-color: var(--color-learning-blue-line);
+  background: var(--color-learning-blue-soft);
+  color: var(--color-learning-blue);
+  cursor: default;
+}
+
+.qb-mode-card--active:hover {
+  border-color: var(--color-learning-blue-line);
+  box-shadow: none;
+  transform: none;
+}
+
+.qb-mode-card__icon {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: var(--color-learning-blue-soft);
+  color: var(--color-learning-blue);
+}
+
+.qb-mode-card--active .qb-mode-card__icon {
+  background: var(--color-surface);
+  color: var(--color-learning-blue);
+}
+
+.qb-mode-card__icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.qb-mode-card__copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.qb-mode-card__copy strong {
+  font-size: 13px;
+}
+
+.qb-mode-card__copy small {
+  overflow: hidden;
+  color: var(--color-ink-muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qb-mode-card--active .qb-mode-card__copy small {
+  color: var(--color-ink-soft);
+}
+
+.qb-mode-card em,
+.qb-mode-card__count {
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: var(--weight-semi);
+}
+
+.qb-mode-card em {
+  background: var(--color-surface);
+  color: var(--color-learning-blue);
+}
+
+.qb-mode-card__count {
+  min-width: 22px;
+  background: var(--color-learning-blue-soft);
+  color: var(--color-learning-blue);
+  text-align: center;
+}
+
+.qb-mode-card__arrow {
+  width: 14px;
+  color: var(--color-ink-muted);
+}
+
+.qb-record-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--color-ink-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+
+.qb-record-entry:hover {
+  border-color: var(--color-learning-blue-line);
+  color: var(--color-learning-blue);
+}
+
+.qb-record-entry span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.qb-record-entry span:last-child {
+  color: var(--color-ink-muted);
+  font-size: 10px;
+}
+
+.qb-record-entry svg {
+  width: 13px;
+  height: 13px;
+}
+
+.qb-main {
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 16px;
+  /* 考纲和正文作为整体，距离页面左右边缘各留 50px。 */
+  margin-inline: 50px;
+  transition: grid-template-columns 180ms ease;
+}
+
+.qb-main--collapsed {
+  grid-template-columns: 48px minmax(0, 1fr);
+}
+
+.qb-sidebar {
+  top: 16px;
+  max-height: calc(100vh - var(--nav-height) - 32px);
+  padding: 12px;
+  border-radius: 10px;
+}
+
+.qb-sidebar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.qb-sidebar__title {
+  margin: 0;
+  font-size: 12px;
+}
+
+.qb-sidebar__toggle {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-ink-soft);
+  cursor: pointer;
+}
+
+.qb-sidebar__toggle:hover {
+  border-color: var(--color-learning-blue-line);
+  color: var(--color-learning-blue);
+}
+
+.qb-sidebar__toggle :deep(svg) {
+  width: 15px;
+  height: 15px;
+}
+
+.qb-sidebar__tree-scroll {
+  margin-top: 8px;
+}
+
+.qb-sidebar__collapsed-label {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 16px;
+  color: var(--color-ink-muted);
+  font-size: 11px;
+}
+
+.qb-sidebar__collapsed-label svg {
+  width: 18px;
+  height: 18px;
+  color: var(--color-learning-blue);
+}
+
+.qb-study-layout {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.qb-content,
+.qb-content--learning {
+  position: static;
+  top: auto;
+  min-width: 0;
+  padding: 18px;
+  border-radius: 10px;
+}
+
+.qb-content__header {
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+}
+.qb-content--learning .qb-content__header {
+  margin-bottom: 4px;
+  padding-bottom: 0;
+}
+.qb-content__tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.qb-content__eyebrow {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--color-ink-muted);
+  font-size: 11px;
+}
+.qb-content__breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 5px;
+  color: var(--color-ink-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.qb-content__breadcrumb button {
+  max-width: 180px;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.qb-content__breadcrumb button:hover,
+.qb-content__breadcrumb button:focus-visible {
+  color: var(--color-learning-blue);
+}
+.qb-content__breadcrumb button:focus-visible {
+  outline: 2px solid var(--color-learning-blue);
+  outline-offset: 2px;
+}
+.qb-content__breadcrumb svg {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  color: var(--color-ink-muted);
+}
+.qb-content__breadcrumb [aria-current] {
+  max-width: min(280px, 100%);
+  overflow: hidden;
+  color: var(--color-ink-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qb-content__title {
+  font-size: 20px;
+}
+
+.qb-content__hint {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.qb-content :deep(.qb-notebook-action.app-button.el-button),
+.qb-content :deep(.qb-continue-action.app-button.el-button) {
+  --app-button-bg: var(--color-learning-blue-soft);
+  --app-button-color: var(--color-learning-blue);
+  --app-button-border: var(--color-learning-blue-line);
+  --app-button-hover-bg: var(--color-learning-blue-line);
+  --app-button-hover-border: var(--color-learning-blue);
+  --app-button-active-bg: var(--color-learning-blue-line);
+  --app-button-active-border: var(--color-learning-blue);
+}
+
+.qb-active-practice {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+}
+
+.qb-difficulty-grid {
+  gap: 12px;
+}
+
+@media (max-width: 1040px) {
+  .qb-overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+}
+
+@media (max-width: 900px) {
+  .qb-main,
+  .qb-main--collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .qb-sidebar {
+    position: static;
+    max-height: none;
+  }
+
+  .qb-main--collapsed .qb-sidebar {
+    display: none;
+  }
+}
+
+@media (max-width: 780px), (max-device-width: 780px) {
+  .qb-container {
+    width: auto;
+    padding: 16px 12px 36px;
+  }
+
+  .qb-main {
+    margin-inline: 0;
+  }
+
+  .qb-top-shell {
+    width: 100%;
+  }
+
+  .qb-overview {
+    gap: 18px;
+  }
+
+  .qb-overview__identity {
+    align-items: flex-start;
+  }
+
+  .qb-overview__mark {
+    width: 48px;
+    height: 48px;
+  }
+
+  .qb-overview__title-row h1 {
+    font-size: 25px;
+  }
+
+  .qb-mode-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .qb-record-entry span:last-child {
+    display: none;
+  }
+
+  .qb-study-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .qb-content,
+  .qb-content--learning {
+    padding: 12px;
+  }
+
+  .qb-content__header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
   }
 }
 </style>

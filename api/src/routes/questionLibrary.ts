@@ -33,6 +33,7 @@ import { createAsyncRouter } from "../utils/asyncRouter.js";
 import { formatQuestionRow, syncPaperQuestions } from "../utils/questionSync.js";
 import { resolveQuestionModuleCode } from "../utils/questionModule.js";
 import { fail, success } from "../utils/response.js";
+import { formatSyllabusLabel } from "../utils/syllabusLabels.js";
 import {
   parsePositiveInt,
 } from "./papers-shared.js";
@@ -451,7 +452,8 @@ questionLibraryRouter.post(
             id: true,
             examType: true,
             code: true,
-            label: true,
+            enLabel: true,
+            cnLabel: true,
             parentCode: true,
           },
         });
@@ -537,13 +539,15 @@ questionLibraryRouter.post(
             return [
               question.code,
               {
-                subject: subject.label,
+                subject: formatSyllabusLabel(subject),
                 subjectCode: classification.subjectCode,
-                topic: topic.label,
+                topic: formatSyllabusLabel(topic),
                 topicCode: classification.topicCode,
                 knowledgePoints: classification.knowledgePoints.map((point) => ({
                   ...point,
-                  label: nodeMap.get(`${question.examType}:${point.code}`)!.label,
+                  label: formatSyllabusLabel(
+                    nodeMap.get(`${question.examType}:${point.code}`)!,
+                  ),
                 })),
               },
             ] as const;

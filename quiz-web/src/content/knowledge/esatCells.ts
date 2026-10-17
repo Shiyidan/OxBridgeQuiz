@@ -6,7 +6,7 @@ export const esatCells: KnowledgeLesson = {
   title: 'Cells · 细胞',
   subtitle: '梳理细胞结构、功能与生物体的组成层级',
   intro:
-    '细胞里的不同结构各有分工，动植物与细菌也有共同点和差别。本节先把这些知识放在一起讲清楚，再用原有例题练习如何应用：认识细胞类型，解释结构与功能，以及区分组织、器官和系统。图解可以随时对照查看，例题中的条件变化会帮助你理解知识适用的范围。',
+    '细胞里的不同结构各有分工，动植物与细菌也有共同点和差别。本节先把这些知识放在一起讲清楚，再用诊断测试收录的历年真题练习如何应用：认识细胞类型，解释结构与功能，以及区分组织、器官和系统。图解可以随时对照查看，例题中的条件变化会帮助你理解知识适用的范围。',
   memory: [
     '**细胞膜控制物质进出，细胞壁主要提供支撑**。植物细胞壁位于膜外，不能替代细胞膜。',
     '细胞核保存大部分遗传信息，核糖体合成蛋白质，线粒体参与有氧 ATP 供应。==储存信息、制造蛋白质和供能是不同的工作==。',
@@ -105,64 +105,62 @@ export const esatCells: KnowledgeLesson = {
         },
         examples: [
           {
-            title: '细胞选对了，后面的功能解释也对吗？',
-            question:
-              'Cell X has a cellulose wall, a membrane-bound nucleus and a large vacuole. Chloroplasts are confirmed absent. It takes up mineral ions against a concentration gradient. Which identification and explanation best fit X?',
-            options: [
-              'An underground root hair cell; its cellulose wall uses ATP to pump ions in.',
-              'An intestinal epithelial cell; mitochondria support the ATP supply for uptake.',
-              'An underground root hair cell; mitochondria support the ATP supply for uptake.',
-              'A green palisade cell; mitochondria support the ATP supply for uptake.',
-            ],
-            answer: 'C：普通地下根毛细胞；线粒体参与供应主动吸收所需的 ATP。',
+            title: '用三个结构条件判断细胞类型',
+            source: {
+              questionCode: 'NSAA_2016_S1-Q057',
+              why: '把细胞数量、细胞器和细胞壁放在同一道分类题中，适合练习同时核对多条条件。',
+            },
+            question: '',
+            answer: 'A · algae（藻类）。',
             steps: [
-              '先把所有特点放在一起，而不是读到“有细胞壁”就选植物。核膜包围的细胞核与典型细菌不同；接着用壁的材料、叶绿体和吸收活动，逐项检查给出的候选。could be（可能是）或 most likely（最可能是）都要求候选**与题干全部条件相容**。',
-              '先看纤维素细胞壁。B 的肠上皮细胞虽然也有细胞核、也需要 ATP，却是动物细胞；**动物细胞没有纤维素细胞壁**，所以 B 不能选。',
-              '再看“已证实没有叶绿体”。绿色栅栏叶肉细胞通常有叶绿体，与这一条件冲突，因此排除 D。这里用的是题干明确说明的“没有”，不是从照片里猜的。',
-              '剩下 A、C，都说是根毛细胞。这时不能停：A 让细胞壁用 ATP 泵入离子，但==运输发生在细胞膜上，细胞壁不能泵入离子==；C 说线粒体参与 ATP 供应，才说得通，所以选 C。',
-              '把 C 的功能再解释完整：矿物离子的主动吸收需要代谢供能，线粒体参与有氧 ATP 供应，因此能支持这种活动。回答“为什么某结构较多”也沿这条思路：**结构做什么 → 这项工作怎样帮助细胞**。但本题没有比较线粒体数量，不能额外断定它的供能速率一定最高。',
+              '先把题干的三个条件分别读清楚：单细胞、有叶绿体、有细胞壁。答案必须**同时满足三个条件**，只符合其中一条还不够。',
+              '有些藻类是单细胞生物，同时具有叶绿体和细胞壁，所以 algae 可以符合题意。题目问 could，找到能够符合条件的类型即可，不要求所有藻类都长成这样。',
+              '细菌虽然可以是单细胞、具有细胞壁，却没有叶绿体。有些细菌能光合作用，也不代表它们有叶绿体。真菌可以有细胞壁，但同样没有叶绿体。',
+              '蕨类和开花植物有叶绿体、也有细胞壁，不过它们是多细胞生物，不符合 single celled。因此只留下 A。',
             ],
             optionNotes: [
-              'A：根毛细胞判断对了，但细胞壁不会用 ATP 泵入离子。**前半句对，不能让后半句也变对**。',
-              'B：线粒体供能的解释没有问题，问题在于肠上皮细胞没有题干要求的纤维素细胞壁。',
-              'C：既符合根毛细胞的结构，也正确说明了线粒体的作用。没有叶绿体，并不妨碍细胞呼吸供能。',
-              'D：叶肉细胞也需要线粒体供能，但绿色栅栏叶肉细胞通常有叶绿体，与题干明确给出的条件不符。',
+              'A：有些藻类能够同时满足三个条件。',
+              'B：细菌没有叶绿体，不能因为单细胞且有壁就选它。',
+              'C、E：蕨类和开花植物是多细胞生物。',
+              'D：真菌没有叶绿体；有细胞壁不等于能光合作用。',
             ],
-            takeaway:
-              '一项里如果同时回答了“是什么细胞”和“这个结构做什么”，就**把两句话分别检查一遍**。只要一句不对，整项就不能选。',
+            takeaway: '分类时逐条核对结构；**有细胞壁不一定是植物，能光合作用也不一定有叶绿体**。',
             variant: {
               question:
-                'X is now confirmed to contain many chloroplasts and is taken from the green interior of a leaf. Which identification becomes suitable?',
-              answer: 'D：绿色栅栏叶肉细胞成为合适候选，其线粒体供能解释仍成立。',
+                'A single-celled organism has a membrane-bound nucleus and a cell wall. It has no chloroplasts and absorbs organic nutrients. Which group could it belong to?\nA. Animals\nB. Bacteria\nC. Fungi\nD. Ferns',
+              answer: 'C · Fungi。',
               explanation:
-                '现在关键条件变成“有很多叶绿体，而且来自绿色叶片内部”，因此绿色栅栏叶肉细胞变得合适。**重新读改变的条件**，不要沿用上一题的字母；它有叶绿体进行光合作用，也仍有线粒体参与呼吸供能。\n\n再把“典型”和“所有”分开：地下根毛这一例子已说明，并非所有植物细胞都有叶绿体。若一句话声称“所有植物细胞都光合”，一个根毛细胞这样的反例就足以否定它，不能把绿色叶肉的特点套给全部植物细胞。',
+                '这次删除了叶绿体条件，增加了细胞核和吸收有机营养的条件。酵母等单细胞真菌可以符合全部描述。动物细胞没有细胞壁；细菌没有核膜包围的细胞核；蕨类是多细胞生物。**条件一变，要重新核对，而不是沿用上一题的藻类答案。**',
             },
           },
           {
-            title: '照片中没看见的结构，是否就不存在？',
-            question:
-              'A low-magnification light micrograph of non-dividing plant cells shows cell outlines and stained nuclei. Individual ribosomes are not resolved. Consider: 1 ribosomes are absent; 2 nuclear DNA may be present although separate chromosomes are not resolved; 3 mitochondria must be absent because they are not identified. Which statement is justified?',
-            options: ['1 only', '2 only', '1 and 2 only', '2 and 3 only'],
-            answer: 'B：只有陈述 2 有依据。',
+            title: '细胞里有的结构，低倍镜下都能看见吗？',
+            source: {
+              questionCode: 'NSAA_2016_S1-Q062',
+              why: '将低倍光学显微镜与非分裂细胞的条件结合起来，检验是否分得清结构存在与图像可见。',
+            },
+            question: '',
+            answer: 'B · 1 only（只有细胞壁）。',
             steps: [
-              '题目问 justified，也就是“哪句话能根据已知情况成立”。先圈出 low-magnification（低倍率）、light micrograph（光学显微照片）和 non-dividing（非分裂状态），明确它问的是**这张图允许我们说什么**，再逐句判断，不先猜组合选项。',
-              '陈述 1 把“未分辨出核糖体”改成“没有核糖体”，因此错误。普通光学显微镜本来就不能分辨单独核糖体，染色、切片位置或图像省略也会影响结构显示。陈述 2 则正确：非分裂细胞核内可以有 DNA，即使不能看清一条条凝缩染色体。**存在与这张图能看清，是两个问题**。',
-              '陈述 3 也犯了同样的错误：没有识别出线粒体，不等于它一定不存在。所以三句话依次是“错、对、错”，只有 2 正确，选 B。',
+              '先留意两个限制：使用光学显微镜，放大倍数只有 40 倍；观察的是 non-dividing tissue，即细胞没有处于分裂状态。**这题问的是可能看见什么，不是细胞里有什么。**',
+              '大型中央液泡和染色的圆形结构符合植物细胞的特点，圆形结构可理解为细胞核。细胞壁构成较明显的外部边界，在这样的观察中可能辨认，陈述 1 成立。',
+              '线粒体体积小，在题设的 40 倍观察条件下不能据此辨认。这里不能把结论扩大成“任何光学显微镜都绝不可能看见线粒体”，关键是本题的具体条件。',
+              '非分裂细胞仍有 DNA 和染色体，但通常没有凝缩成分裂时容易辨认的独立染色体。因此不能把细胞核内的染色部分当成一条条可见染色体，陈述 3 不成立。只选 1。',
             ],
             optionNotes: [
-              'A：把“图像分辨不出来”说成“细胞里没有”，陈述 1 不成立。',
-              'B：只选陈述 2。核中有遗传物质，与这张图看不清独立染色体，可以同时成立。',
-              'C：陈述 2 虽然正确，但这项还包含错误的陈述 1，因此不能选。',
-              'D：这项多选了陈述 3。题干没有证明线粒体缺失，不能自行补上“必定没有”。',
+              'A：忽略了细胞壁在题设条件下可能被观察到。',
+              'B：保留细胞壁，没有把另外两种结构的存在误当成可见。',
+              'C、E、G、H：包含陈述 2，超出了低倍观察能够支持的结论。',
+              'D、F、G、H：包含陈述 3，忽略了 non-dividing 的限制。',
             ],
             takeaway:
-              '遇到“1 和 2”“2 和 3”这种选项，先在每句话旁边判断对错，再找匹配的一项。==不要因为其中一句正确，就顺手把另一句也选进去==。\n\n如果另一题只说“没看到细胞核”，还不能直接判成细菌：先分清图像未显示与已经证实缺失，再考虑题干是否点名了特殊细胞。例如成熟哺乳动物红细胞虽无核，却不能归为原核细胞。',
+              '先判断细胞里可能有什么，再问仪器和细胞状态是否允许辨认。==未看见，不等于不存在==。',
             variant: {
               question:
-                'The same image is digitally enlarged four times, with no new image data. Does this alone make individual ribosomes resolvable?',
-              answer: '不能。',
+                'A digital image of a non-dividing plant cell is enlarged from 40× to 400× without collecting any new image data. Which statement is correct?\nA. Individual ribosomes must become visible.\nB. The enlargement makes the chromosomes condense.\nC. An organelle absent from the image must be absent from the cell.\nD. Existing details become larger, but no new structural detail is recorded.',
+              answer: 'D。',
               explanation:
-                '数字放大只是把已有像素显示得更大，没有获得新的图像信息。就像把模糊照片放大，模糊的部分仍然模糊。**放大倍数增加，不等于分辨细节的能力提高**。',
+                '这里只放大已有照片，没有更换显微镜、重新成像或改变细胞状态。图像中的已有细节可以变大，**原先没有记录的细节却不会凭空出现**。A 混淆放大与分辨，B 把图像处理误当成细胞变化，C 则把未显示当成不存在。',
             },
           },
         ],
@@ -281,58 +279,64 @@ export const esatCells: KnowledgeLesson = {
         },
         examples: [
           {
-            title: '三个特点放在一起，应该选哪个结构？',
-            question:
-              'Structure P occurs in a typical bacterium and in the cytoplasm of a plant cell. P has no surrounding membrane, contains RNA and protein, and assembles amino acids into proteins. What is P?',
-            options: ['A plasmid', 'A ribosome', 'A nucleus', 'A mitochondrion'],
-            answer: 'B：核糖体 ribosome。',
+            title: '细菌和精子，有哪些共同点？',
+            source: {
+              questionCode: 'NSAA_2019_S1-Q055',
+              why: '同时比较原核细胞与特化动物细胞，集中检验 DNA、细胞核、呼吸和分裂几个容易混淆的概念。',
+            },
+            question: '',
+            answer: 'D · 2 and 5 only。',
             steps: [
-              '先把“典型细菌中有”和“植物细胞中有”分别检查。核糖体两边都有；细胞核和线粒体虽能在典型植物细胞中出现，却不在典型细菌中，所以 C、D 可以排除。**不能只满足其中一类细胞的条件**。它们有包围膜，也与后面的“无膜”条件不符。',
-              '剩下 A 质粒和 B 核糖体。现在用上组成这一条：质粒是 DNA，而**核糖体由 RNA 和蛋白质组成**，因此保留 B。',
-              '最后再检查作用。题干说把氨基酸组装成蛋白质，这正是核糖体的工作。这样，位置、组成和作用都检查过了。',
+              '题目中的 both 表示每一条都要对细菌和精子**同时成立**。可以心里画两列，分别判断，不能只看自己熟悉的那一类。',
+              '两者都有 DNA：细菌的主要 DNA 不在核膜包围的细胞核内，精子的 DNA 则主要位于细胞核。因此陈述 2 是共同点；陈述 4 不是，因为细菌没有细胞核。',
+              '两者都能进行呼吸作用，释放可供细胞活动利用的能量。精子可以利用线粒体参与有氧呼吸；细菌没有线粒体，也仍有相应的呼吸酶。**没有线粒体，不等于不会呼吸。**所以陈述 5 成立。',
+              '细菌能够分裂，但成熟精子不会再自行分裂，因此陈述 1 不是共同点。精子没有细胞壁，陈述 3 也不是共同点。最后只剩 2 和 5。',
             ],
             optionNotes: [
-              'A：质粒的确没有包围膜，但它是 DNA。只符合“无膜”还不够，它不符合 RNA 与蛋白质组成，也不是合成蛋白质的结构。',
-              'B：典型细菌和植物细胞都有核糖体；它没有包围膜，组成和作用也都符合题干。',
-              'C：细胞核有核膜，而且典型细菌没有真正的细胞核。',
-              'D：线粒体有膜，主要参与有氧呼吸供能；典型细菌也没有这种结构。',
+              'A：漏掉两者都能进行呼吸作用。',
+              'B、E、H：把有细胞核当成细菌的特征。',
+              'C、G、H：把成熟精子误当成能够继续分裂的细胞。',
+              'D：DNA 和呼吸作用是题目中成立的两个共同点。',
+              'E、F、H：精子没有细胞壁，不能把这点列为共同特征。',
             ],
             takeaway:
-              '排除一部分选项后，**把还没用过的条件接着用完**。这题只看“无膜”不够，还要看它由什么组成、做什么。\n\n比较两个结构是否在两类细胞中都存在时，也要拆开检查。例如“细胞膜和线粒体”不能因为细胞膜两边都有就整项通过，细菌没有线粒体。只有“两个结构、两类细胞”都符合，整项才成立。',
+              '==DNA 不等于细胞核，呼吸作用也不等于必须有线粒体==；比较时还要考虑精子这类特化细胞的特点。',
             variant: {
               question:
-                'P is instead a small circular DNA molecule outside the main bacterial chromosome and can replicate independently. What is P now?',
-              answer: '质粒 plasmid。',
+                'A typical bacterial cell is compared with a typical underground root hair cell. Which pair of structures is present in both?\nA. A membrane-bound nucleus and mitochondria\nB. A cell membrane and ribosomes\nC. Chloroplasts and mitochondria\nD. A cellulose cell wall and a membrane-bound nucleus',
+              answer: 'B · A cell membrane and ribosomes。',
               explanation:
-                '这次题干不再说 RNA 与蛋白质，而是明确说“主要染色体外的小环状 DNA，可以独立复制”，因此应改选质粒。**条件变了，答案也要重新判断**。题目仍没说这个质粒带什么基因，不能再猜它一定使细菌耐药。',
+                '两者都有细胞膜和核糖体，所以都能控制物质进出并合成蛋白质。根毛有细胞核和线粒体，细菌没有；普通地下根毛通常也没有叶绿体。两者通常有细胞壁，**但细菌的细胞壁不是植物式的纤维素细胞壁**，所以 D 不能成立。',
             },
           },
           {
-            title: '三句话分别判断，再找正确组合',
-            question:
-              'Bacterial isolates X and Y each have a large circular chromosome not enclosed by a nuclear membrane. X has a plasmid; Y is confirmed to have no plasmids. Consider: 1 both are prokaryotic; 2 every bacterium must have a plasmid; 3 these observations alone do not establish resistance to antibiotic Z. Which statements are correct?',
-            options: ['1 only', '1 and 2 only', '1 and 3 only', '2 and 3 only'],
-            answer: 'C：陈述 1 和 3 正确。',
+            title: '细菌没有细胞核，DNA 在哪里复制？',
+            source: {
+              questionCode: 'NSAA_2017_S1-Q062',
+              why: '把原核细胞结构用于解释繁殖过程，帮助区分二分裂、有丝分裂和 DNA 复制的位置。',
+            },
+            question: '',
+            answer: 'D · 3 only。',
             steps: [
-              '先看陈述 1。X、Y 都是细菌，主要 DNA 也都没有核膜包围，所以“两者都是原核”正确。',
-              '陈述 2 中 every 表示“每一个”，must 表示“一定”。它声称每个细菌都必须有质粒，可是 Y 已被确认没有质粒，仍是细菌；**只用 Y 这个反例，就能否定“所有”**。不必去证明所有其他细菌是否有质粒。',
-              '陈述 3 说这些观察还不能确定它们对 Z 的抗性。题目没说质粒带什么基因，也没做 Z 的抗性实验，因此 3 正确。X 有质粒不能证明耐 Z，Y 无质粒也不能证明一定怕 Z。',
-              '现在把结果放回选项：1 对、2 错、3 对，要选“1 和 3”，也就是 C。',
+              '细菌的染色体 DNA 位于细胞质中的拟核区域，没有核膜把它围起来。因此染色体复制发生在细胞质中，陈述 3 正确。',
+              '复制完遗传物质后，细菌可通过 binary fission（二分裂）形成两个子细胞。**得到两个子细胞，不代表这个过程就是有丝分裂**；有丝分裂涉及真核细胞的细胞核分裂，所以陈述 2 错误。',
+              '在没有突变等遗传改变时，子细胞与母细胞的遗传物质非常相似。分裂本身不会让每个子细胞自动产生很大的遗传差异，陈述 1 错误。',
+              '将三条判断合在一起：1 错、2 错、3 对，对应 D。这里没有把细菌说成“永远不会变异”；只是不能把大幅遗传差异当成每次二分裂的结果。',
             ],
             optionNotes: [
-              'A：1 的确正确，但 3 也正确；“1 only”表示“只有 1”，因此少选了 3。',
-              'B：把错误的 2 放了进来。Y 没有质粒，已经推翻了“每个细菌都必须有质粒”。',
-              'C：保留了正确的 1、3，也排除了错误的 2。',
-              'D：既包含错误的 2，又漏掉正确的 1，不能选。',
+              'A：漏掉了染色体在细胞质内复制这一正确陈述。',
+              'B、E、F、H：把很大的遗传差异当成细菌每次分裂的正常结果。',
+              'C、E、G、H：把二分裂误称为有丝分裂。',
+              'D：只有陈述 3 符合原核细胞的结构。',
             ],
             takeaway:
-              '**“看见了什么结构”和“这个结构使它具有什么能力”要分开回答**。判断抗性时，需要相应基因或功能实验的信息。\n\n处理一组陈述时，先分别写出对错，再找组合；只研究了一个菌株，也不能直接把它的特点推广给所有细菌。尤其要分清 some（有些）与 all/every（所有、每一个）。',
+              '**细菌没有细胞核，但有染色体 DNA，也会复制 DNA**。二分裂与有丝分裂不能只凭“分成两个”来区分。',
             variant: {
               question:
-                'The plasmid in X is now shown to carry an expressed gene that gives resistance to Z. Nothing further is known about Y. What additional conclusion is supported?',
-              answer: '支持 X 对 Z 有抗性；仍不能据此判断 Y 必定敏感。',
+                'A bacterium has one circular chromosome. Before binary fission, the chromosome is copied. No mutation occurs, and one copy enters each daughter cell. Which statement is correct?\nA. Both daughter cells lack DNA because the parent has no nucleus.\nB. Chromosome replication must occur inside a newly formed nucleus.\nC. Each daughter receives a chromosome with the same base sequence as the original.\nD. Producing two daughter cells proves that mitosis has occurred.',
+              answer: 'C。',
               explanation:
-                '现在题目补充说，X 的质粒携带并表达了使它耐受 Z 的基因，所以可以判断 X 对 Z 有抗性。但 Y 的情况没有新增信息，==不能顺带判定 Y 必定敏感==；它还可能通过染色体上的相关基因等其他途径获得抗性。',
+                '题目明确说复制时没有突变，而且每个子细胞获得一份染色体，因此每份的碱基序列与原来的相同。A、B 都把 DNA 与细胞核混为一谈；D 只看子细胞数量，却没有区分二分裂和有丝分裂。',
             },
           },
         ],
@@ -430,67 +434,65 @@ export const esatCells: KnowledgeLesson = {
         },
         examples: [
           {
-            title: '不认识 P、Q、R 的名称，也能判断它们的层级',
-            question:
-              'P is a sheet of related cells forming a protective lining. Q contains this lining plus muscle and nervous tissues working together. R contains Q and several other organs coordinating digestion. What are P, Q and R, respectively?',
-            options: [
-              'Cell, tissue, organ',
-              'Tissue, organ, organ system',
-              'Organ, tissue, organism',
-              'Tissue, organ system, organ',
-            ],
-            answer: 'B：组织、器官、器官系统。',
+            title: '从胃壁的功能理解“组织组成器官”',
+            source: {
+              questionCode: 'NSAA_2019_S1-Q056',
+              why: '从一个器官中的组织功能切入，同时辨别分化、内分泌和神经信号的常见表述。',
+            },
+            question: '',
+            answer: 'E · 胃壁中的肌肉组织能够通过收缩推动和搅拌食物。',
             steps: [
-              '先不管 P 叫什么，把题干中“由什么组成”圈出来：P 是一层相关细胞形成的保护层，因此是**组织**。一个完整外观或一张较大的图片，都不能把这群细胞变成单个细胞，也不能直接让它成为器官。',
-              '再读 Q：它含有这层组织，还包括肌肉和神经组织。多种组织共同工作，因此 Q 是器官。',
-              '最后读 R：它含 Q 和其他多个器官，一起参与消化。因此 R 是器官系统，还不是整个生物体。依次得到“组织、器官、器官系统”，选 B。',
+              '先看能够直接解释结构与功能的 E：胃壁含有平滑肌组织。肌肉细胞收缩时，组织共同产生力量，帮助胃搅拌和移动食物，所以这句话正确。',
+              '胃本身是器官，因为它由肌肉、上皮等多种组织组成；肌肉组织只是其中的一部分。**“胃能运动”不意味着胃本身就是一种组织。**',
+              '再核对 A、C。成年干细胞的分化范围通常有限，不能说任何成年干细胞都能自然形成所有组织。胚胎干细胞通过有丝分裂增加细胞数，并可分化；减数分裂不是产生身体所有细胞类型的通用方式。',
+              '最后看 B、D。内分泌腺向血液释放的是激素，而不是把酶作为其定义性分泌物。沿神经元传导的神经冲动是电信号；化学递质主要用于典型化学突触处的传递，不能把整条神经元上的信号都称为化学冲动。',
             ],
             optionNotes: [
-              'A：P 已是许多细胞形成的组织，不能写成 cell（单个细胞）；后面的 Q、R 也相应被判断低了一层。',
-              'B：三个位置都和题干的组成对应：相关细胞形成组织，多种组织形成器官，多个器官形成系统。',
-              'C：P 还没有题干所说的多种组织，不能叫器官；Q 却已经有多种组织，不能只叫组织。R 也只是系统，不是完整个体。',
-              'D：第一项 P 正确，但 Q 由多种组织组成，应是器官；R 由多个器官组成，应是系统，后两项写反了。',
+              'A：any 和 all 把成年干细胞的分化能力说得过宽。',
+              'B：混淆激素 hormone 与酶 enzyme。',
+              'C：混淆有丝分裂 mitosis 与减数分裂 meiosis。',
+              'D：混淆神经元内的电信号与化学突触处的递质传递。',
+              'E：正确联系了胃壁肌肉组织与食物运动。',
             ],
             takeaway:
-              '三个位置要**一个接一个检查**。先判断对 P，不代表同一选项中的 Q、R 也一定正确。\n\n遇到没有熟悉名称的样本，先找组成单位：相关细胞、多种组织、多个器官，然后看它们是否共同完成相关任务。不能只用“数量很多”或“外观完整”来决定层级。',
+              '判断组织与器官时，先说清**哪种组织在做什么、它属于哪个器官**，再检查选项中的关键术语。',
             variant: {
               question:
-                'A smaller piece is cut from P and still contains many cells forming the same lining. Does it become an organ simply because it is now a separate sample?',
-              answer: '不会，仍是该组织的一部分。',
+                'A treatment selectively prevents smooth muscle in the stomach wall from contracting. The lining cells can still secrete normally. Which is the most direct consequence?\nA. The stomach can no longer mix its contents effectively.\nB. The stomach immediately ceases to be an organ.\nC. All hormone secretion throughout the body stops.\nD. The stomach lining becomes a muscle cell.',
+              answer: 'A。',
               explanation:
-                '切下的小块仍然是许多相关细胞形成的同一种保护层，并没有变成多种组织共同工作的器官。**单独拿出来，不等于成为器官**；决定层级的仍是它怎样组成。\n\n同理，放大样本照片不改变组成，把完整器官取出也不会仅因离体就变成组织。只有组成关系真的改变，才需要重新判断层级。',
+                '变化只发生在胃壁肌肉的收缩功能上，最直接受到影响的是搅拌和推动内容物。胃仍由多种组织构成，仍然是器官；题干还说内壁细胞仍能正常分泌，不能把局部改变扩展成所有功能都停止，更不能推断细胞类型立刻改变。',
             },
           },
           {
-            title: '叶的层级和组织功能，两部分都判断对了吗？',
-            question:
-              'A leaf contains epidermal, photosynthetic and transport tissues. Which row correctly gives its level of organisation and explains a function of one of its tissues?',
-            options: [
-              'Tissue; its photosynthetic cells absorb light using chloroplasts.',
-              'Organ; all its tissues carry out photosynthesis because the leaf is green.',
-              'Organ system; its tissues cooperate in protection, photosynthesis and transport.',
-              'Organ; photosynthetic tissue uses chloroplasts to capture light energy.',
-            ],
-            answer: 'D：叶是器官，其中光合组织中的叶绿体捕获光能。',
+            title: '两种结构的层级和功能，都说对了吗？',
+            source: {
+              questionCode: 'ESAT_LEGACY_2022_NSAA_Q064',
+              why: '用成对比较同时考查层级和功能，覆盖植物运输组织、神经元与内分泌器官，适合检查是否真正理解这些名称。',
+            },
+            question: '',
+            answer: 'B · pancreas 和 ovary 都是具有内分泌功能的器官。',
             steps: [
-              '先读组成：题干给出了表皮、光合和输导三类组织。多种组织组成一片叶，所以叶是器官。A 写成组织、C 写成器官系统，都可以先排除。',
-              '再看 B、D 的后半句。B 中 all 是“所有”的意思，但一片叶能光合作用，**不代表里面每一种组织都负责光合作用**；保护和运输也各有分工，所以 B 不成立。',
-              'D 既正确地把叶称为器官，也正确说明光合组织中的叶绿体捕获光能。两部分都对，因此选 D。',
+              '每一行同时描述两种结构，先问“它们是细胞、组织还是器官”，再问“后面的功能是否对两者都成立”。只看见一个熟悉的关键词，容易漏掉同一行中的另一处错误。',
+              '胰腺 pancreas 和卵巢 ovary 都是由多种组织组成的器官。胰腺可向血液释放胰岛素、胰高血糖素；卵巢可释放雌激素、孕激素，因此二者都具有内分泌功能，B 成立。',
+              'C 中的木质部和韧皮部是运输组织，不是器官；木质部通常将水和无机盐由根运向地上部分，也不符合“都由叶向根”的描述。D 中的感觉神经元和运动神经元是细胞，不是组织；典型反射弧中，信息由感觉神经元传向中继神经元，再传给运动神经元。',
+              'A 把支气管也说成专门进行气体交换的组织，不正确：支气管主要输送空气，肺泡才是主要气体交换部位。E 则混淆了纤毛与微绒毛：气管上皮有帮助移动黏液的纤毛，小肠吸收细胞以增加吸收面积的微绒毛为特征。',
             ],
             optionNotes: [
-              'A：叶绿体吸收光能这部分可以成立，但整片叶含多种组织，不能只叫一种组织。',
-              'B：器官这一判断正确，错在“所有组织都光合作用”。它把整片叶能够完成的活动，误当成每一种组织都要完成的活动。',
-              'C：保护、光合与运输的分工说得对，但多种组织先构成器官；有多种功能并不让它自动变成器官系统。',
-              'D：叶的层级判断正确，光合组织与叶绿体的作用也解释正确。',
+              'A：支气管主要输气，不能与肺泡一起概括为专门气体交换的组织。',
+              'B：两者的器官层级和内分泌功能都正确；胰腺另有外分泌功能也不妨碍这句话成立。',
+              'C：组织误写成器官，木质部的运输方向也不对。',
+              'D：神经元是细胞；感觉神经元与中继神经元的常规信息传递方向也写反了。',
+              'E：小肠的微绒毛不是气管上皮那样的纤毛。',
             ],
             takeaway:
-              '遇到一整行的选择，先问“**分类对吗？**”，再问“作用也对吗？”。两次都通过，才能保留。\n\n按层级排序时，再检查每个箭头是不是组成关系。叶绿体是叶肉细胞内部的细胞器，不能插到“组织与器官”之间；一项突出功能，也不能代替这些组成关系。',
+              '成对比较要把**两个对象、层级、功能**都核对完。“具有内分泌功能”也不等于“只具有内分泌功能”。',
             variant: {
               question:
-                'The sample is changed to one independently living unicellular alga. Must it have tissues and organs to count as an organism?',
-              answer: '不需要；该单细胞本身可以是完整生物体。',
+                'Which comparison is correct?\nA. A motor neurone and a muscle fibre are both organs.\nB. Xylem and phloem are both transport tissues within plant organs.\nC. A leaf and a root hair are both single cells.\nD. The pancreas and the ovary both release digestive enzymes through ducts.',
+              answer: 'B。',
               explanation:
-                '题干这次明确说是独立生活的单细胞藻类。它只有一个细胞，但这个细胞就能作为完整个体生活，所以也叫生物体。==不是每个生物都必须有组织和器官==，多细胞生物的层级顺序不能硬套到这里。',
+                '木质部和韧皮部都属于运输组织，分布在根、茎、叶等器官中。运动神经元和一条骨骼肌纤维都属于细胞层级；叶是器官，根毛是根表皮细胞的一部分；胰腺可通过导管释放消化酶，卵巢却不具有这个功能。不能把一个对象的特点套到同一行的另一个对象上。',
             },
           },
         ],

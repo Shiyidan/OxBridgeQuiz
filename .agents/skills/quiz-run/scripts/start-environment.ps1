@@ -14,7 +14,6 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$ExpectedTestApiOrigin = 'http://114.215.189.215'
 
 # Resolve the repository independently of the caller's current directory.
 function Resolve-RepositoryRoot {
@@ -237,11 +236,17 @@ switch ($Environment) {
     Assert-PathExists -LiteralPath $localMysqlStartScript -Description 'Local MySQL startup script'
   }
   'test' {
+    # Share the deployment target instead of duplicating a private host in this script.
+    $ExpectedTestApiOrigin = Get-EnvValue -LiteralPath (Join-Path $resolvedRepoRoot '.env.deploy.local') -Key 'QUIZ_TEST_PUBLIC_URL'
+    Assert-HttpOrigin -Origin $ExpectedTestApiOrigin -Key 'QUIZ_TEST_PUBLIC_URL'
+    if (([uri]$ExpectedTestApiOrigin).Scheme -ne 'http' -or ([uri]$ExpectedTestApiOrigin).Port -ne 8082) {
+      throw 'QUIZ_TEST_PUBLIC_URL must use the test HTTP gateway on port 8082'
+    }
     $testEnvPath = Join-Path $webRoot '.env.test.local'
     $remoteOrigin = Get-EnvValue -LiteralPath $testEnvPath -Key 'VITE_TEST_API_ORIGIN'
     Assert-HttpOrigin -Origin $remoteOrigin -Key 'VITE_TEST_API_ORIGIN'
     if (-not $remoteOrigin.Equals($ExpectedTestApiOrigin, [System.StringComparison]::OrdinalIgnoreCase)) {
-      throw "VITE_TEST_API_ORIGIN must be $ExpectedTestApiOrigin in $testEnvPath"
+      throw 'VITE_TEST_API_ORIGIN must match QUIZ_TEST_PUBLIC_URL in .env.deploy.local'
     }
     $frontendNpmArguments = 'run dev:test'
     $backendTarget = 'test backend (database owned by remote backend)'

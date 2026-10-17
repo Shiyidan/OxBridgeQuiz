@@ -18,6 +18,7 @@ fi
 
 case "$ENVIRONMENT" in
   test)
+    NGINX_HEALTH_URL="http://127.0.0.1:8082/api/health"
     if [[ "$PREFLIGHT_ONLY" != "true" ]]; then
       [[ -n "$TEST_ARTIFACT_DIR" ]] || {
         echo "Test deployment requires DEPLOY_TEST_ARTIFACT_DIR from the local artifact builder." >&2
@@ -30,6 +31,7 @@ case "$ENVIRONMENT" in
     fi
     ;;
   prod)
+    NGINX_HEALTH_URL="http://127.0.0.1/api/health"
     FRONTEND_BUILD_COMMAND=(npm run build-only)
     ;;
   *)
@@ -387,6 +389,14 @@ git rev-parse --short HEAD
 
 if [[ "$SCOPE" == "backend" || "$SCOPE" == "all" ]]; then
   if [[ "$ENVIRONMENT" == "test" ]]; then
+    # Preserve the legacy Client until backed-up question and syllabus backfills finish.
+    step "test pre-migration runtime backup"
+    bash "$SCRIPT_DIR/backup-rds-runtime.sh" "before_deploy" "$STAMP" "$ENVIRONMENT"
+    step "test staged question storage migration"
+    run_with_env_file \
+      "$API_RUNTIME/.env" \
+      node "$REPO_DIR/api/scripts/deploy-question-storage.mjs" \
+      "$ENVIRONMENT" "$EXPECTED_DATABASE" "$REPO_DIR/api" "$ARTIFACT_STAGE/api" "$API_RUNTIME" "$SCRIPT_DIR/question-storage"
     ensure_test_runtime_dependencies
     TEST_PRISMA_BIN="$API_RUNTIME/node_modules/.bin/prisma"
     ln -sfn "$API_RUNTIME/node_modules" "$ARTIFACT_STAGE/api/node_modules"
@@ -404,7 +414,9 @@ if [[ "$SCOPE" == "backend" || "$SCOPE" == "all" ]]; then
 
   step "runtime backup"
   mkdir -p "$BACKUP_DIR"
-  if [[ -f "$SCRIPT_DIR/backup-rds-runtime.sh" ]]; then
+  if [[ "$ENVIRONMENT" == "test" ]]; then
+    echo "Using the completed pre-migration test backup."
+  elif [[ -f "$SCRIPT_DIR/backup-rds-runtime.sh" ]]; then
     bash "$SCRIPT_DIR/backup-rds-runtime.sh" "before_deploy" "$STAMP" "$ENVIRONMENT"
   else
     echo "backup-rds-runtime.sh not found; aborting before database-impacting deployment." >&2
@@ -514,9 +526,9 @@ fi
 
 step "validation local"
 wait_for_health http://127.0.0.1:3001/api/health
-wait_for_health http://127.0.0.1/api/health
+wait_for_health "$NGINX_HEALTH_URL"
 pm2 status --no-color
-bash "$SCRIPT_DIR/verify-request-id.sh" http://127.0.0.1/api/health quiz-api
+bash "$SCRIPT_DIR/verify-request-id.sh" "$NGINX_HEALTH_URL" quiz-api
 
 step "deploy done"
 echo "remote_timing total_seconds=$(($(date +%s) - DEPLOY_STARTED_AT))"

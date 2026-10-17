@@ -9,7 +9,9 @@ Use exactly one column for each deployment:
 | ECS host | `QUIZ_TEST_SSH_HOST` | `QUIZ_PROD_SSH_HOST` |
 | SSH user | `QUIZ_TEST_SSH_USER` | `QUIZ_PROD_SSH_USER` |
 | SSH private-key path | `QUIZ_TEST_SSH_KEY` | `QUIZ_PROD_SSH_KEY` |
-| Public URL | `QUIZ_TEST_PUBLIC_URL` | `QUIZ_PROD_PUBLIC_URL` |
+| Public URL | `QUIZ_TEST_PUBLIC_URL` (HTTP, port 8082) | `QUIZ_PROD_PUBLIC_URL` (canonical HTTPS) |
+| Local Nginx health | `http://127.0.0.1:8082/api/health` | `http://127.0.0.1/api/health` |
+| Internal API health | `http://127.0.0.1:3001/api/health` | `http://127.0.0.1:3001/api/health` |
 | Expected RDS database | `QUIZ_TEST_DATABASE` | `QUIZ_PROD_DATABASE` |
 | Private API runtime file for first deployment | `QUIZ_TEST_RUNTIME_ENV_FILE` | `QUIZ_PROD_RUNTIME_ENV_FILE` |
 | Expected `API_RUNTIME_ENV` | `test` | `prod` |
@@ -29,7 +31,7 @@ Rules:
 
 - Never commit `.env.deploy.local`, SSH keys, credentials, real infrastructure addresses, database names, or report recipients.
 - The selected environment controls the whole column.
-- Never deploy to one host while validating another URL or database.
+- Never deploy to one host while validating another URL or database. The test ECS shares ports 80/443 with another application; only 8082 is the QuizTestDemo gateway. Local `VITE_TEST_API_ORIGIN` must match the private `QUIZ_TEST_PUBLIC_URL`.
 - Never infer `prod` from `main`, or `test` from a feature branch.
 - Missing private configuration is a hard stop; do not use public example placeholders.
 - On a new ECS, `*_RUNTIME_ENV_FILE` must refer to a local, Git-ignored API runtime file. Upload it with mode `0600` to `/opt/quiz/api/.env` only when that remote file does not yet exist; never replace an existing runtime file through the bootstrap path.

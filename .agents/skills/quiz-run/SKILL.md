@@ -1,6 +1,6 @@
 ---
 name: quiz-run
-description: Start or switch the QuizTestDemo local integration environment. Use when the user says “启动开发环境”, “启动测试环境”, “启动线上环境”, “切换到开发/测试/线上环境”, or asks to restart the frontend against the local, test, or production backend. For development, stop existing listeners on ports 5173, 3001, and 3307 before restarting local MySQL, API, and Vue; for test integration, require http://114.215.189.215 as the backend origin; for online integration, restart only the local Vue frontend with the production proxy configuration.
+description: Start or switch the QuizTestDemo local integration environment. Use when the user says “启动开发环境”, “启动测试环境”, “启动线上环境”, “切换到开发/测试/线上环境”, or asks to restart the frontend against the local, test, or production backend. For development, stop existing listeners on ports 5173, 3001, and 3307 before restarting local MySQL, API, and Vue; for test integration, require the private test HTTP gateway on port 8082 as the backend origin; for online integration, restart only the local Vue frontend with the production proxy configuration.
 ---
 
 # Quiz Run
@@ -41,7 +41,7 @@ Require successful port checks and `/api/health` before reporting success.
 
 ### Test
 
-Restart only the local frontend listener on port `5173` with `npm.cmd run dev:test`. Require `quiz-web/.env.test.local` to contain `VITE_TEST_API_ORIGIN=http://114.215.189.215`. Reject stale or different test origins, then verify `http://127.0.0.1:5173/api/health` through the Vite proxy.
+Restart only the local frontend listener on port `5173` with `npm.cmd run dev:test`. Require `VITE_TEST_API_ORIGIN` in `quiz-web/.env.test.local` to match `QUIZ_TEST_PUBLIC_URL` in the project-root `.env.deploy.local` (HTTP port `8082`). Ports `80/443` on the test ECS serve another application. Reject stale or different test origins, then verify `http://127.0.0.1:5173/api/health` through the Vite proxy.
 
 The frontend never connects to the test database directly. The test backend owns its database configuration.
 

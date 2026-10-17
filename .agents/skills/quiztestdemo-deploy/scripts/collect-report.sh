@@ -25,6 +25,12 @@ if [[ ! "$PUBLIC_URL" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]+)?$ ]]; then
   exit 2
 fi
 
+# Match the selected QuizTestDemo gateway, not other sites on the same ECS.
+NGINX_HEALTH_URL="http://127.0.0.1/api/health"
+if [[ "$ENVIRONMENT" == "test" ]]; then
+  NGINX_HEALTH_URL="http://127.0.0.1:8082/api/health"
+fi
+
 echo "--- deploy-meta ---"
 echo "environment=${ENVIRONMENT}"
 echo "scope=${SCOPE}"
@@ -59,7 +65,7 @@ curl -sS http://127.0.0.1:3001/api/health
 echo
 
 echo "--- health-local-nginx ---"
-curl -sS http://127.0.0.1/api/health
+curl -fsS "$NGINX_HEALTH_URL"
 echo
 
 echo "--- disk ---"
@@ -74,7 +80,7 @@ uptime
 nproc
 
 echo "--- ports ---"
-ss -ltnp 2>/dev/null | grep -E ':80|:443|:3001' || true
+ss -ltnp 2>/dev/null | grep -E ':(80|443|8082|3001)[[:space:]]' || true
 
 echo "--- pm2 ---"
 pm2 status --no-color

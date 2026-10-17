@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-HEALTH_URL="${1:-http://127.0.0.1/api/health}"
+# Require the caller to select the environment gateway; never silently probe another site.
+HEALTH_URL="${1:?explicit environment health URL is required}"
 PROCESS_NAME="${2:-quiz-api}"
 HEADERS_FILE="$(mktemp)"
 BODY_FILE="$(mktemp)"

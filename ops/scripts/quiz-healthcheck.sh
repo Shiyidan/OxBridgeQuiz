@@ -2,7 +2,8 @@
 set -euo pipefail
 
 API_HEALTH_URL="${API_HEALTH_URL:-http://127.0.0.1:3001/api/health}"
-NGINX_HEALTH_URL="${NGINX_HEALTH_URL:-http://127.0.0.1/api/health}"
+# Supplied by the environment-specific systemd drop-in or an explicit manual check.
+NGINX_HEALTH_URL="${NGINX_HEALTH_URL:?explicit environment Nginx health URL is required}"
 PROCESS_NAME="${PROCESS_NAME:-quiz-api}"
 DISK_THRESHOLD="${DISK_THRESHOLD:-85}"
 

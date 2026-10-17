@@ -190,6 +190,10 @@ $expectedDatabase = $config['QUIZ_TEST_DATABASE']
 Assert-TextValue -Name 'QUIZ_TEST_SSH_HOST' -Value $hostName -Pattern '^[A-Za-z0-9.-]+$'
 Assert-TextValue -Name 'QUIZ_TEST_SSH_USER' -Value $sshUser -Pattern '^[A-Za-z0-9._-]+$'
 Assert-TextValue -Name 'QUIZ_TEST_PUBLIC_URL' -Value $publicUrl -Pattern '^https?://[A-Za-z0-9.-]+(?::[0-9]+)?$'
+# Test HTTP belongs to QuizTestDemo on 8082; port 80 serves another application.
+if (([uri]$publicUrl).Scheme -ne 'http' -or ([uri]$publicUrl).Port -ne 8082) {
+    throw 'QUIZ_TEST_PUBLIC_URL must use the verified test HTTP gateway on port 8082.'
+}
 Assert-TextValue -Name 'QUIZ_TEST_DATABASE' -Value $expectedDatabase -Pattern '^[A-Za-z0-9_-]+$'
 if (-not (Test-Path -LiteralPath $sshKey)) { throw 'Test SSH private key is missing.' }
 if (-not (Get-Command tar.exe -ErrorAction SilentlyContinue)) { throw 'tar.exe is required to package test build artifacts.' }
@@ -263,6 +267,8 @@ try {
             if ($LASTEXITCODE -ne 0) { throw "Local Prisma client generation failed with exit code $LASTEXITCODE." }
             & npm.cmd run build
             if ($LASTEXITCODE -ne 0) { throw "Local API build failed with exit code $LASTEXITCODE." }
+            & node scripts/build-deployment-maintenance.mjs
+            if ($LASTEXITCODE -ne 0) { throw "Local maintenance build failed with exit code $LASTEXITCODE." }
         }
         $webBuildTask = {
             param([string]$SourceRoot)
@@ -378,7 +384,7 @@ try {
         curl.exe -fsS "$publicUrl/api/payment/config"
     }
     Invoke-NativeLogged -Name 'Request ID runtime log validation' -LogPath (Join-Path $localDir 'request-id-runtime.log') -Command {
-        ssh.exe -i $sshKey -o IdentitiesOnly=yes $target "bash $remoteDir/verify-request-id.sh http://127.0.0.1/api/health quiz-api"
+        ssh.exe -i $sshKey -o IdentitiesOnly=yes $target "bash $remoteDir/verify-request-id.sh http://127.0.0.1:8082/api/health quiz-api"
     }
     Write-DeploymentTiming -Stage 'post_deploy_validation'
 

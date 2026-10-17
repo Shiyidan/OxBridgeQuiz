@@ -13,7 +13,7 @@ Read `references/environments.md` for the private configuration contract. Read `
 
 ## Mandatory Preflight
 
-Before any SSH, SCP, Git update, build, migration, runtime sync, or PM2 command, obtain three target values:
+For a deployment, before any SSH, SCP, Git update, build, migration, runtime sync, or PM2 command, obtain three target values:
 
 1. Environment: `test` or `prod`
 2. Scope: `frontend`, `backend`, or `all`
@@ -23,7 +23,7 @@ Ask only for values the user has not already stated exactly. Never infer the env
 
 After collecting the values, repeat the environment, ECS host, public URL, expected database, scope, and branch. For `prod`, require the user to confirm this exact summary before running mutating commands unless their latest message already explicitly confirms the same production target, scope, and branch.
 
-If the user asks only for status or explanation, do not deploy.
+If the user asks only for status or explanation, do not deploy. A requested read-only server/configuration audit may inspect the relevant configured environments without a deployment branch or scope; this does not authorize remote mutation.
 
 ## Environment Isolation
 
@@ -35,6 +35,15 @@ Use two independent guards:
 2. Run `remote-deploy.sh <environment> <scope> <branch> <expected-database>`; it must reject the server when `/opt/quiz/api/.env` has a different `API_RUNTIME_ENV` or database name.
 
 An environment mismatch is a hard stop. Do not rewrite the server `.env` to make the guard pass.
+
+## Gateway routing
+
+The verified test gateway is HTTP port **8082**, serving `/opt/quiz/web/dist` and proxying `/api/` to `127.0.0.1:3001`. Ports **80/443 on the test ECS belong to another application**; a `200` response there is not QuizTestDemo validation. Production keeps canonical HTTPS on **443**, with its existing local Nginx health endpoint on **80**. The API port remains **3001** in both environments.
+
+- Set private `QUIZ_TEST_PUBLIC_URL` to the test origin including `:8082`; local test integration `VITE_TEST_API_ORIGIN` must match it. Never rewrite production URLs to 8082.
+- Use `http://127.0.0.1:8082/api/health` for test Nginx and Request ID verification; use `http://127.0.0.1/api/health` for production local Nginx verification. Always pass the selected URL explicitly to `verify-request-id.sh`.
+- `install-ops-baseline.sh` installs a matching `NGINX_HEALTH_URL` systemd drop-in. Manual health checks must explicitly supply this URL too.
+- The test Nginx template is for initial bootstrap only. Preserve existing unrelated sites, default 80/443 listeners, extra locations, and systemd overrides; routine code deployment must not replace live Nginx configuration. Never fall back to port 80 after an 8082 failure.
 
 ## Deployment Workflow
 
@@ -82,6 +91,8 @@ For `scope=all`, the isolated API and frontend dependency-install/build tasks ru
 Both the local orchestrator and remote runner emit machine-readable `local_timing` / `remote_timing` lines for major stages. Use them during the active deployment to diagnose slow builds, uploads, backups, migration checks and validations; remove them with the transient evidence after recording the concise result.
 
 The remote runner validates the uploaded manifest and archive checksums before updating the server Git checkout. A malformed, mismatched or corrupt artifact must therefore fail before repository mutation, migration, runtime sync or PM2 reload.
+
+For upgrades containing the question content or bilingual syllabus migrations, the local API build also runs `api/scripts/build-deployment-maintenance.mjs`. Before replacing runtime dependencies, the test runner creates the full runtime/database backup and invokes `api/scripts/deploy-question-storage.mjs`. It audits legacy temporary practice records (stopping for explicit deletion approval if any exist), pauses the API, keeps the old Client isolated, applies original migration prefixes, runs both question backfills and the syllabus backfill, then verifies protected historical rows before finalizing the schema. Backups remain under `/opt/quiz/backups/`; the API stays stopped on migration failure until recovery is verified. Never bypass this sequence with a full-directory migration before backfill.
 
 `prisma` remains a production dependency because the server must run `prisma generate` and `prisma migrate deploy` without TypeScript development dependencies. The server rejects artifacts whose test environment, scope, branch, commit or SHA-256 values differ from the selected deployment.
 
@@ -171,7 +182,13 @@ Always verify on the selected server:
 
 ```bash
 curl -sS http://127.0.0.1:3001/api/health
-curl -sS http://127.0.0.1/api/health
+# Set from the confirmed target: test=8082, prod=80.
+case "$ENVIRONMENT" in
+  test) NGINX_HEALTH_URL=http://127.0.0.1:8082/api/health ;;
+  prod) NGINX_HEALTH_URL=http://127.0.0.1/api/health ;;
+  *) echo "Select test or prod first" >&2; exit 2 ;;
+esac
+curl -fsS "$NGINX_HEALTH_URL"
 pm2 status --no-color
 ```
 

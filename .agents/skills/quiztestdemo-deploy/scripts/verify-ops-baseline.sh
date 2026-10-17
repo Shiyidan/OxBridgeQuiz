@@ -8,6 +8,12 @@ ENVIRONMENT="${1:?environment is required: test or prod}"
   exit 90
 }
 
+# Match the selected QuizTestDemo gateway, not other sites on the same ECS.
+NGINX_HEALTH_URL="http://127.0.0.1/api/health"
+if [[ "$ENVIRONMENT" == "test" ]]; then
+  NGINX_HEALTH_URL="http://127.0.0.1:8082/api/health"
+fi
+
 echo "--- identity ---"
 date '+time=%Y-%m-%d %H:%M:%S %z'
 id
@@ -32,7 +38,7 @@ systemctl list-timers --all --no-pager |
   grep -E 'quiz-rds-backup|quiz-healthcheck'
 
 echo "--- healthcheck ---"
-bash /opt/quiz/ops/quiz-healthcheck.sh
+NGINX_HEALTH_URL="$NGINX_HEALTH_URL" bash /opt/quiz/ops/quiz-healthcheck.sh
 
 echo "--- logrotate ---"
 test -f /etc/logrotate.d/quiz-pm2
@@ -54,6 +60,6 @@ gzip -t "$latest_dump"
 echo "--- final-health ---"
 curl -fsS http://127.0.0.1:3001/api/health
 echo
-curl -fsS http://127.0.0.1/api/health
+curl -fsS "$NGINX_HEALTH_URL"
 echo
 echo "ops_baseline=verified environment=$ENVIRONMENT"

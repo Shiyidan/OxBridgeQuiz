@@ -49,6 +49,18 @@ for unit in \
     "/etc/systemd/system/$unit"
 done
 
+# Bind health checks to this application gateway on the shared test ECS.
+NGINX_HEALTH_URL="http://127.0.0.1/api/health"
+if [[ "$ENVIRONMENT" == "test" ]]; then
+  NGINX_HEALTH_URL="http://127.0.0.1:8082/api/health"
+fi
+install -d -m 0755 -o root -g root /etc/systemd/system/quiz-healthcheck.service.d
+cat > /etc/systemd/system/quiz-healthcheck.service.d/environment.conf <<EOF
+[Service]
+Environment=NGINX_HEALTH_URL=$NGINX_HEALTH_URL
+EOF
+chmod 0644 /etc/systemd/system/quiz-healthcheck.service.d/environment.conf
+
 # Bind the shared backup service to the explicitly selected runtime environment.
 install -d -m 0755 -o root -g root \
   /etc/systemd/system/quiz-rds-backup.service.d

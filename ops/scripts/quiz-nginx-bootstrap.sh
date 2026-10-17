@@ -6,7 +6,6 @@ ENVIRONMENT="${1:?environment is required}"
 REPO_ROOT="${2:-/opt/quiz/repo}"
 TARGET="/etc/nginx/sites-available/quiztestdemo"
 ENABLED="/etc/nginx/sites-enabled/quiztestdemo"
-DEFAULT_ENABLED="/etc/nginx/sites-enabled/default"
 
 [[ "$ENVIRONMENT" == "test" ]] || {
   echo "Initial Nginx bootstrap is supported only for test." >&2
@@ -27,7 +26,7 @@ DEFAULT_ENABLED="/etc/nginx/sites-enabled/default"
 
 install -m 0644 -o root -g root "$REPO_ROOT/ops/nginx/quiztestdemo-test.conf" "$TARGET"
 ln -s "$TARGET" "$ENABLED"
-rm -f "$DEFAULT_ENABLED"
+# Shared ECS: preserve every other site and the default 80/443 gateway.
 
 if ! /usr/sbin/nginx -t; then
   rm -f "$ENABLED" "$TARGET"

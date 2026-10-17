@@ -233,9 +233,15 @@ Server-local:
 
 ```bash
 curl -sS http://127.0.0.1:3001/api/health
-curl -sS http://127.0.0.1/api/health
+# Select the gateway from the confirmed environment; test port 80 is another app.
+case "$ENVIRONMENT" in
+  test) NGINX_HEALTH_URL=http://127.0.0.1:8082/api/health ;;
+  prod) NGINX_HEALTH_URL=http://127.0.0.1/api/health ;;
+  *) echo "Select test or prod first" >&2; exit 2 ;;
+esac
+curl -fsS "$NGINX_HEALTH_URL"
 pm2 status --no-color
-bash /tmp/quiz-deploy-*/verify-request-id.sh http://127.0.0.1/api/health quiz-api
+bash /tmp/quiz-deploy-*/verify-request-id.sh "$NGINX_HEALTH_URL" quiz-api
 ```
 
 Public:

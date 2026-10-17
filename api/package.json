@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "sync:test-annual-diagnostics": "tsx scripts/sync-development-annual-diagnostics.ts",
     "migrate:diagnostic-history": "tsx scripts/migrate-diagnostic-history.ts",
     "test:diagnostic-history-migration": "tsx scripts/test-diagnostic-history-migration.ts",
     "migrate:annual-diagnostics": "tsx scripts/migrate-annual-diagnostics.ts",

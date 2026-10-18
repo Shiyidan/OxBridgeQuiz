@@ -1,4 +1,4 @@
-<!-- 试题库知识讲解示意：按知识类型分发数学或生物互动图解。 -->
+<!-- 试题库知识讲解示意：按知识类型分发数学、生物与化学互动图解。 -->
 <template>
   <component :is="chapterDiagram" v-if="chapterDiagram" :key="topic" :topic="topic" />
   <BiologyKnowledgeVisual v-else-if="isBiologyVisual" :kind="kind" />
@@ -142,6 +142,14 @@ const chapterFiles = {
   'animal-physiology': 'AnimalPhysiologyDiagram',
   ecosystems: 'EcosystemsDiagram',
   'plant-physiology': 'PlantPhysiologyDiagram',
+  'atomic-structure': 'AtomicStructureDiagram',
+  'periodic-table': 'PeriodicTableDiagram',
+  'chemical-reactions': 'ChemicalReactionsDiagram',
+  'quantitative-chemistry': 'QuantitativeChemistryDiagram',
+  redox: 'RedoxDiagram',
+  'chemical-bonding': 'ChemicalBondingDiagram',
+  'group-chemistry': 'GroupChemistryDiagram',
+  'separation-techniques': 'SeparationTechniquesDiagram',
 } as const
 const chapterDiagrams = Object.fromEntries(
   Object.entries(chapterFiles).flatMap(([kind, filename]) => {

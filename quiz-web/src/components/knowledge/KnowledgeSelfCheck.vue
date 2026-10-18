@@ -10,7 +10,7 @@
       <div class="knowledge-self-check__question">
         <header class="knowledge-self-check__header">
           <h5>知识点自测</h5>
-          <span>精选试题库题目 · 不计入练习记录</span>
+          <span>{{ data.sourceLabel || '精选试题库题目' }} · 不计入练习记录</span>
         </header>
         <QuestionCard
           :question="result?.question || data.question"

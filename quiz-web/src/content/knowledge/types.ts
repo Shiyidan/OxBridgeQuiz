@@ -12,9 +12,9 @@ export interface KnowledgeSection {
   summary: string
   paragraphs: string[]
   rules: Array<{ title: string; text: string }>
-  example: { question: string; steps: string[]; answer: string }
+  example?: { question: string; steps: string[]; answer: string }
   pitfalls: string[]
-  check: { question: string; options: string[]; answerIndex: number; explanation: string }
+  check?: { question: string; options: string[]; answerIndex: number; explanation: string }
   sourceIds: string[]
   examFocus?: KnowledgeExamFocus
   visual?:
@@ -34,22 +34,46 @@ export interface KnowledgeSection {
     | 'animal-physiology'
     | 'ecosystems'
     | 'plant-physiology'
+    | 'atomic-structure'
+    | 'periodic-table'
+    | 'chemical-reactions'
+    | 'quantitative-chemistry'
+    | 'redox'
+    | 'chemical-bonding'
+    | 'group-chemistry'
+    | 'separation-techniques'
 }
 
-// 生物先用正文与规则梳理知识，再通过例题推理和变式学习方法。
+export type KnowledgeExamStage = 'summary' | 'examples' | 'check'
+
+// 科学章节先梳理知识；考法以实际真题为依据，题库仿题不能充当历年证据。
 export interface KnowledgeExamFocus {
   goal: string
+  pastPaperSummary?: string
+  pastPaperPatterns?: Array<{
+    form: string
+    description: string
+    reference: string
+    // 保留该考法对应的全部来源编号，供跨年覆盖核验；前台只展示归纳与年份。
+    sourceCodes?: string[]
+  }>
+  pastPaperNote?: string
   comparison?: { title: string; columns: string[]; rows: string[][] }
   examples: Array<{
     title: string
-    source?: { questionCode: string; why: string }
+    source?: {
+      questionCode: string
+      why: string
+      subject?: 'biology' | 'chemistry'
+      kind?: 'annual' | 'bank'
+    }
     question: string
     options?: string[]
     answer: string
     steps: string[]
     optionNotes?: string[]
     takeaway: string
-    variant: { question: string; answer: string; explanation: string }
+    variant?: { question: string; answer: string; explanation: string }
   }>
   checklist: string[]
 }

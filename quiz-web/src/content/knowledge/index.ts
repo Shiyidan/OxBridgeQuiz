@@ -12,6 +12,14 @@ import { esatEnzymes } from './esatEnzymes'
 import { esatAnimalPhysiology } from './esatAnimalPhysiology'
 import { esatEcosystems } from './esatEcosystems'
 import { esatPlantPhysiology } from './esatPlantPhysiology'
+import { esatAtomicStructure } from './esatAtomicStructure'
+import { esatPeriodicTable } from './esatPeriodicTable'
+import { esatChemicalReactions } from './esatChemicalReactions'
+import { esatQuantitativeChemistry } from './esatQuantitativeChemistry'
+import { esatRedox } from './esatRedox'
+import { esatChemicalBonding } from './esatChemicalBonding'
+import { esatGroupChemistry } from './esatGroupChemistry'
+import { esatSeparationTechniques } from './esatSeparationTechniques'
 import type { KnowledgeLesson } from './types'
 
 const esatLessons: KnowledgeLesson[] = [
@@ -28,6 +36,14 @@ const esatLessons: KnowledgeLesson[] = [
   esatAnimalPhysiology,
   esatEcosystems,
   esatPlantPhysiology,
+  esatAtomicStructure,
+  esatPeriodicTable,
+  esatChemicalReactions,
+  esatQuantitativeChemistry,
+  esatRedox,
+  esatChemicalBonding,
+  esatGroupChemistry,
+  esatSeparationTechniques,
 ]
 
 // 仅已编写的章节与叶子节点可打开讲解；其他考试及学科总节点保持原有题库。

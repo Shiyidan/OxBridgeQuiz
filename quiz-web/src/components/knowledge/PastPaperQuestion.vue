@@ -1,22 +1,29 @@
-<!-- 生物讲义精选真题：显示原卷出处，复用通用题卡加载完整题干、图表与选项。 -->
+<!-- 科学讲义精选题：保留真实来源，复用通用题卡加载完整题干、图表与选项。 -->
 <template>
   <div class="past-paper-question" :aria-busy="loading">
-    <p v-if="loading" class="past-paper-status" role="status">正在加载诊断真题…</p>
+    <p v-if="loading" class="past-paper-status" role="status">正在加载题目…</p>
     <div v-else-if="error" class="past-paper-status" role="alert">
       <p>{{ error }}</p>
-      <AppButton type="secondary" size="small" @click="retryKey++">重新加载真题</AppButton>
+      <AppButton type="secondary" size="small" @click="retryKey++">重新加载题目</AppButton>
     </div>
     <template v-else-if="data">
       <p class="past-paper-source">
-        <span
-          >收录于：{{ data.source.diagnosticTitle }} · 生物第
-          {{ data.source.diagnosticQuestionNumber }} 题</span
-        >
-        <span class="past-paper-source__divider" aria-hidden="true">｜</span>
-        <span
-          >来源：{{ data.source.year }} {{ data.source.exam }} · {{ data.source.paper }} · 第
-          {{ data.source.questionNumber }} 题</span
-        >
+        <template v-if="'collectionLabel' in data.source">
+          <span>收录于：{{ data.source.collectionLabel }}</span>
+          <span class="past-paper-source__divider" aria-hidden="true">｜</span>
+          <span>来源：{{ data.source.originLabel }}</span>
+        </template>
+        <template v-else>
+          <span
+            >收录于：{{ data.source.diagnosticTitle }} · 生物第
+            {{ data.source.diagnosticQuestionNumber }} 题</span
+          >
+          <span class="past-paper-source__divider" aria-hidden="true">｜</span>
+          <span
+            >来源：{{ data.source.year }} {{ data.source.exam }} · {{ data.source.paper }} · 第
+            {{ data.source.questionNumber }} 题</span
+          >
+        </template>
       </p>
       <p class="past-paper-reason"><strong>这道题练什么：</strong>{{ source.why }}</p>
       <QuestionCard
@@ -35,12 +42,24 @@
 import { ref, watch } from 'vue'
 import AppButton from '@/components/AppButton.vue'
 import QuestionCard from '@/components/QuestionCard.vue'
-import { getBiologyLearningExample, type BiologyLearningExample } from '@/api/learningExamples'
+import {
+  getBiologyLearningExample,
+  getChemistryLearningExample,
+  type BiologyLearningExample,
+  type ChemistryLearningExample,
+} from '@/api/learningExamples'
 import { getApiErrorMessage } from '@/utils/request'
 
-const props = defineProps<{ source: { questionCode: string; why: string } }>()
+const props = defineProps<{
+  source: {
+    questionCode: string
+    why: string
+    subject?: 'biology' | 'chemistry'
+    kind?: 'annual' | 'bank'
+  }
+}>()
 const emit = defineEmits<{ ready: [sourceCode: string] }>()
-const data = ref<BiologyLearningExample | null>(null)
+const data = ref<BiologyLearningExample | ChemistryLearningExample | null>(null)
 const loading = ref(false)
 const error = ref('')
 const retryKey = ref(0)
@@ -48,7 +67,7 @@ const selectedAnswer = ref<string>()
 
 // 切题或重试立即清空旧题；迟到请求不能把上一道题及来源写回当前讲义。
 watch(
-  () => [props.source.questionCode, retryKey.value] as const,
+  () => [props.source.questionCode, props.source.subject, retryKey.value] as const,
   async ([code], _previous, onCleanup) => {
     let active = true
     onCleanup(() => {
@@ -60,13 +79,16 @@ watch(
     loading.value = true
     emit('ready', '')
     try {
-      const result = await getBiologyLearningExample(code)
+      const result =
+        props.source.subject === 'chemistry'
+          ? await getChemistryLearningExample(code)
+          : await getBiologyLearningExample(code)
       if (!active) return
-      if (result.sourceCode !== code) throw new Error('真题来源不匹配，请重新加载。')
+      if (result.sourceCode !== code) throw new Error('题目来源不匹配，请重新加载。')
       data.value = result
       emit('ready', code)
     } catch (cause) {
-      if (active) error.value = getApiErrorMessage(cause, '真题暂时无法加载，请重试。')
+      if (active) error.value = getApiErrorMessage(cause, '题目暂时无法加载，请重试。')
     } finally {
       if (active) loading.value = false
     }

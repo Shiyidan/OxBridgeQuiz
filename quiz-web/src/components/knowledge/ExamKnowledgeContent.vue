@@ -1,6 +1,6 @@
-<!-- 生物备考讲义：先总结知识与图解，再用诊断真题和原创变式讲清解题方法。 -->
+<!-- 科学备考讲义：图文结合梳理知识，复用真题与题库题讲清推理及易错原因。 -->
 <template>
-  <div class="exam-knowledge">
+  <div class="exam-knowledge" :class="{ 'exam-knowledge--chemistry': isChemistry }">
     <el-tabs v-model="activeTab" class="exam-tabs" aria-label="备考讲解内容">
       <el-tab-pane label="概念与方法" name="summary">
         <div
@@ -8,7 +8,9 @@
           :class="{
             'exam-story--illustrated': section.visual,
             'exam-story--atlas':
-              section.visual === 'eukaryotic-cell' || section.visual === 'prokaryotic-cell',
+              section.visual === 'eukaryotic-cell' ||
+              section.visual === 'prokaryotic-cell' ||
+              isChemistry,
           }"
         >
           <div class="exam-story__narrative">
@@ -85,7 +87,7 @@
             :icon="Right"
             icon-position="right"
             @click="goToTab('examples')"
-            >进入例题与变式</AppButton
+            >{{ isChemistry ? '进入例题拆解' : '进入例题与变式' }}</AppButton
           >
         </div>
       </el-tab-pane>
@@ -93,9 +95,40 @@
       <el-tab-pane label="例题拆解" name="examples" lazy>
         <div class="exam-section-label exam-example-intro">
           <EditPen aria-hidden="true" />
-          <h5 ref="examplesHeadingRef" tabindex="-1">先作答，再看解析；用改编变式巩固。</h5>
+          <h5 ref="examplesHeadingRef" tabindex="-1">
+            {{
+              focus.pastPaperSummary || focus.pastPaperPatterns?.length || focus.pastPaperNote
+                ? '真题怎么考'
+                : isChemistry
+                  ? '先作答，再看判断依据与易错点。'
+                  : '先作答，再看解析；用改编变式巩固。'
+            }}
+          </h5>
         </div>
-        <div class="exam-example-picker" role="group" aria-label="选择真题例题">
+        <section
+          v-if="focus.pastPaperSummary || focus.pastPaperPatterns?.length || focus.pastPaperNote"
+          class="exam-patterns"
+          aria-label="本知识点历年真题考法"
+        >
+          <p v-if="focus.pastPaperSummary" class="exam-patterns__summary">
+            <KnowledgeText :text="focus.pastPaperSummary" />
+          </p>
+          <dl v-if="focus.pastPaperPatterns?.length" class="exam-patterns__list">
+            <div
+              v-for="pattern in focus.pastPaperPatterns"
+              :key="pattern.form"
+              class="exam-patterns__row"
+            >
+              <dt>{{ pattern.form }}</dt>
+              <dd>
+                <p><KnowledgeText :text="pattern.description" /></p>
+                <span class="exam-patterns__reference">{{ pattern.reference }}</span>
+              </dd>
+            </div>
+          </dl>
+          <p v-if="focus.pastPaperNote" class="exam-patterns__note">{{ focus.pastPaperNote }}</p>
+        </section>
+        <div class="exam-example-picker" role="group" aria-label="选择精选例题">
           <AppButton
             v-for="(item, index) in focus.examples"
             :key="index"
@@ -110,7 +143,16 @@
         <article v-if="example" :key="exampleIndex" class="exam-worked-example">
           <div class="exam-question-card">
             <div class="exam-card-title exam-card-title--inline">
-              <span>{{ example.source ? '真题例题' : '专项例题' }} {{ exampleIndex + 1 }}</span>
+              <span
+                >{{
+                  example.source?.kind === 'bank'
+                    ? '题库例题'
+                    : example.source
+                      ? '真题例题'
+                      : '专项例题'
+                }}
+                {{ exampleIndex + 1 }}</span
+              >
               <h6>{{ example.title }}</h6>
             </div>
             <PastPaperQuestion
@@ -164,7 +206,7 @@
               <strong>下次遇到类似题，记住这一点</strong><KnowledgeText :text="example.takeaway" />
             </p>
           </div>
-          <div v-if="exampleReady" class="exam-variant">
+          <div v-if="exampleReady && example.variant" class="exam-variant">
             <div class="exam-card-title">
               <span>原创改编变式 · 换一个条件（非原卷真题）</span>
               <h6>这次结论还成立吗？</h6>
@@ -249,16 +291,37 @@ import KnowledgeText from './KnowledgeText.vue'
 import KnowledgeVisual from './KnowledgeVisual.vue'
 import PastPaperQuestion from './PastPaperQuestion.vue'
 import KnowledgeSelfCheck from './KnowledgeSelfCheck.vue'
-import type { KnowledgeExamFocus, KnowledgeSection } from '@/content/knowledge/types'
+import type {
+  KnowledgeExamFocus,
+  KnowledgeExamStage,
+  KnowledgeSection,
+} from '@/content/knowledge/types'
 
 const props = defineProps<{ section: KnowledgeSection; focus: KnowledgeExamFocus }>()
-const activeTab = ref('summary')
+// 将当前学习阶段交给外层面板，让例题页的速记显隐跟随标签和底部导航同步。
+const activeTab = defineModel<KnowledgeExamStage>('stage', { default: 'summary' })
 const exampleIndex = ref(0)
 const loadedSource = ref('')
 const revealedExamples = ref<number[]>([])
 const revealedVariants = ref<number[]>([])
 const examplesHeadingRef = ref<HTMLElement>()
 const checkHeadingRef = ref<HTMLElement>()
+
+// 化学需要宽幅图解及紧凑规则列表，章节阅读不套用生物的多卡片排版。
+const isChemistry = computed(
+  () =>
+    props.section.visual != null &&
+    [
+      'atomic-structure',
+      'periodic-table',
+      'chemical-reactions',
+      'quantitative-chemistry',
+      'redox',
+      'chemical-bonding',
+      'group-chemistry',
+      'separation-techniques',
+    ].includes(props.section.visual),
+)
 
 // 离开缓存工作区时卸载自测，避免下次进入沿用上一次答案。
 onDeactivated(() => {
@@ -307,6 +370,48 @@ function toggleVariant(): void {
   min-width: 0;
   color: var(--color-ink-soft);
 }
+.exam-patterns {
+  margin: 0 0 24px;
+  font-size: var(--text-sm);
+}
+.exam-patterns__summary {
+  margin: 0 0 14px;
+  color: var(--color-ink);
+  line-height: var(--leading-relaxed);
+}
+.exam-patterns__list {
+  margin: 0;
+  border-top: 1px solid var(--color-learning-blue-line);
+}
+.exam-patterns__row {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.27fr) minmax(0, 1fr);
+  gap: 18px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--color-learning-blue-line);
+}
+.exam-patterns__row dt {
+  color: var(--color-ink);
+  font-weight: var(--weight-semi);
+  line-height: var(--leading-relaxed);
+}
+.exam-patterns__row dd,
+.exam-patterns__row p {
+  margin: 0;
+  line-height: var(--leading-relaxed);
+}
+.exam-patterns__reference {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-learning-blue);
+  font-size: var(--text-xs);
+}
+.exam-patterns__note {
+  margin: 10px 0 0;
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+}
 .exam-story {
   display: grid;
   gap: 22px;
@@ -318,6 +423,39 @@ function toggleVariant(): void {
 /* 细胞图解自带结构说明栏，整行展示才能让插图与交互说明同时可读。 */
 .exam-story--atlas {
   grid-template-columns: minmax(0, 1fr);
+}
+/* 化学把简短导读与正文接成一个阅读区域，让结构图、反应图和计算路线使用完整宽度。 */
+.exam-knowledge--chemistry .exam-story__narrative {
+  display: grid;
+  grid-template-columns: minmax(200px, 0.7fr) minmax(0, 1.3fr);
+  gap: 22px;
+  align-items: start;
+}
+.exam-knowledge--chemistry .exam-summary-copy {
+  margin-top: 0;
+}
+.exam-knowledge--chemistry .exam-concept-grid {
+  display: block;
+}
+.exam-knowledge--chemistry .exam-concept-card {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.3fr) minmax(0, 1fr);
+  gap: 18px;
+  padding: 14px 0;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  background: transparent;
+}
+.exam-knowledge--chemistry .exam-concept-card > p {
+  margin: 0;
+}
+@media (max-width: 900px) {
+  .exam-knowledge--chemistry .exam-story__narrative,
+  .exam-knowledge--chemistry .exam-concept-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
 }
 .exam-story__narrative,
 .exam-story__visual {
@@ -830,6 +968,10 @@ function toggleVariant(): void {
   }
 }
 @media (max-width: 760px) {
+  .exam-patterns__row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
   .exam-tabs :deep(.el-tabs__item) {
     padding: 0 12px;
     font-size: var(--text-sm);

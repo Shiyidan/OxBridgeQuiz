@@ -91,6 +91,7 @@
           <ExamKnowledgeContent
             v-if="section.examFocus"
             :key="`${lesson.code}:${selectedCode}`"
+            v-model:stage="examStage"
             :section="section"
             :focus="section.examFocus"
           />
@@ -136,7 +137,7 @@
                 </div>
               </div>
             </el-tab-pane>
-            <el-tab-pane label="例题拆解" name="example">
+            <el-tab-pane v-if="section.example" label="例题拆解" name="example">
               <template #label><EditPen aria-hidden="true" /><span>例题拆解</span></template>
               <div class="knowledge-example-prompt">
                 <div class="knowledge-card-heading">
@@ -184,7 +185,7 @@
           </el-tabs>
         </article>
 
-        <div class="knowledge-memory">
+        <div v-if="showMemory" class="knowledge-memory">
           <div class="knowledge-card-heading">
             <CollectionTag aria-hidden="true" /><strong>{{
               section.examFocus ? '考前速记' : '整节记忆卡'
@@ -238,7 +239,7 @@ import KnowledgeVisual from './KnowledgeVisual.vue'
 import KnowledgeText from './KnowledgeText.vue'
 import ExamKnowledgeContent from './ExamKnowledgeContent.vue'
 import KnowledgeSelfCheck from './KnowledgeSelfCheck.vue'
-import type { KnowledgeLesson } from '@/content/knowledge/types'
+import type { KnowledgeExamStage, KnowledgeLesson } from '@/content/knowledge/types'
 
 const props = defineProps<{ lesson: KnowledgeLesson; selectedCode: string }>()
 type LearningStage = 'concept' | 'example' | 'check'
@@ -249,6 +250,7 @@ const emit = defineEmits<{
 }>()
 const expanded = ref(true)
 const activeTab = ref<LearningStage>('concept')
+const examStage = ref<KnowledgeExamStage>('summary')
 const exampleRevealed = ref(false)
 const sectionHeadingRef = ref<HTMLElement>()
 const outlineRef = ref<HTMLDetailsElement>()
@@ -263,6 +265,10 @@ const sectionIndex = computed(() =>
 )
 // 当前讲解只取当前章节内的知识点，不从其他章节回退。
 const section = computed(() => props.lesson.sections[sectionIndex.value])
+// 例题页专注真题考法与推理，不再重复整章速记；概念与自测仍可回看记忆要点。
+const showMemory = computed(() =>
+  section.value?.examFocus ? examStage.value !== 'examples' : activeTab.value !== 'example',
+)
 // 章节入口保留总导读，进入叶子知识点后改用该点概述，避免重复显示固定章节标题。
 const learningLead = computed(() =>
   props.selectedCode === props.lesson.code
@@ -277,6 +283,7 @@ watch(
     expanded.value = true
     closeOutline()
     activeTab.value = 'concept'
+    examStage.value = 'summary'
     exampleRevealed.value = false
   },
 )
@@ -285,6 +292,7 @@ watch(
 onDeactivated(() => {
   closeOutline()
   activeTab.value = 'concept'
+  examStage.value = 'summary'
 })
 
 // 目录只覆盖正文，不参与正文宽度；关闭后可将键盘焦点还给入口。

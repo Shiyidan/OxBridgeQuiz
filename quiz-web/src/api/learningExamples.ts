@@ -6,6 +6,7 @@ import type { ExamQuestion } from '@/api/exam'
 export interface LearningSelfCheck {
   question: RenderableQuestion | null
   message: string
+  sourceLabel?: string
 }
 
 export interface LearningSelfCheckResult {
@@ -24,6 +25,13 @@ export interface BiologyLearningExample {
     diagnosticTitle: string
     diagnosticQuestionNumber: number | null
   }
+  question: RenderableQuestion
+}
+
+export interface ChemistryLearningExample {
+  sourceCode: string
+  kind: 'annual' | 'bank'
+  source: { collectionLabel: string; originLabel: string }
   question: RenderableQuestion
 }
 
@@ -51,6 +59,15 @@ export function getBiologyLearningExample(sourceCode: string) {
   return callApi<BiologyLearningExample>({
     method: 'GET',
     url: `/learning/biology/examples/${encodeURIComponent(sourceCode)}`,
+    silent: true,
+  })
+}
+
+// 化学例题同时允许已审核的年度真题和独立题库题，具体来源由服务端白名单决定。
+export function getChemistryLearningExample(sourceCode: string) {
+  return callApi<ChemistryLearningExample>({
+    method: 'GET',
+    url: `/learning/chemistry/examples/${encodeURIComponent(sourceCode)}`,
     silent: true,
   })
 }

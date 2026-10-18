@@ -28,6 +28,8 @@ configureRequestAuth({
 if (window.location.pathname !== '/account-restricted') await auth.restoreSession()
 
 app.use(router)
+// 初始路由完成后再替换静态首屏，避免 RouterView 尚未就绪时短暂清空页面。
+await router.isReady()
 app.mount('#app')
 
 // 管理员内部访问不进入公开流量；匿名访客和学生每次完整加载应用上报一次访问。

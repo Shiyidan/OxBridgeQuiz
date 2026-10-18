@@ -414,7 +414,12 @@ function scrollToSharedContent(): void {
       <span class="home-feedback-index">MY HOME</span>
       <h1>正在读取你的备考记录</h1>
       <p>诊断、模考、练习、错题与会员状态都以服务端最新记录为准。</p>
-      <div class="home-feedback-loader" aria-hidden="true"></div>
+      <div class="home-student-skeleton" aria-hidden="true">
+        <el-skeleton animated :rows="2" />
+        <div class="home-student-skeleton-cards">
+          <el-skeleton v-for="card in 3" :key="card" animated :rows="3" />
+        </div>
+      </div>
     </section>
 
     <section

@@ -1,13 +1,19 @@
-// ESAT 化学前八章逐知识点自测映射；精选真实题源，不生成题目或复制原解析。
+// ESAT 化学全部89个知识点自测映射；精选真实题源，不生成题目或复制原解析。
 import type { ChemistryLearningSelection } from './chemistryLearningSources.js'
+import { chemistryChapters9To11SelfChecks } from './chemistryChapters9To11.js'
+import { chemistryChapters12To14SelfChecks } from './chemistryChapters12To14.js'
+import { chemistryChapters15To17SelfChecks } from './chemistryChapters15To17.js'
 
 export interface ChemistryLearningSelfCheck {
   title: string
   selection: ChemistryLearningSelection | null
 }
 
-// 2026-10-18 依据已发布题目正文审阅；跨章节复用保留具体考查角度，缺题不随机回退。
+// 2026-10-23补齐全考纲；跨章节复用保留具体考查角度，缺题不随机回退。
 export const chemistryLearningSelfChecks: Record<string, ChemistryLearningSelfCheck> = {
+  ...chemistryChapters9To11SelfChecks,
+  ...chemistryChapters12To14SelfChecks,
+  ...chemistryChapters15To17SelfChecks,
   '140101': {
     title: '原子模型',
     selection: {

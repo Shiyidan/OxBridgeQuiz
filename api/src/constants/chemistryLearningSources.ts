@@ -1,4 +1,7 @@
-// ESAT 化学前八章的精选题来源；只保存稳定编号与教学用途，正文和答案始终读取 Question。
+// ESAT 化学全部17章的精选题来源；只保存稳定编号与教学用途，正文和答案始终读取 Question。
+import { chemistryChapters9To11Sources } from './chemistryChapters9To11.js'
+import { chemistryChapters12To14Sources } from './chemistryChapters12To14.js'
+import { chemistryChapters15To17Sources } from './chemistryChapters15To17.js'
 export interface ChemistryLearningSelection {
   kind: 'annual' | 'bank'
   questionCode: string
@@ -9,8 +12,12 @@ export interface ChemistryLearningSelection {
   reason: string
 }
 
-// 2026-10-18 按题干、选项、答案和图表逐题审阅；年度来源同时限定年份，避免旧组合卷重名。
+// 前八章于2026-10-18审阅，后九章于2026-10-23补齐；年度来源限定年份，避免旧组合卷重名。
 export const chemistryLearningSources: Record<string, ChemistryLearningSelection> = {
+  // 跨章共用题保留前八章已核准的原卷位置；每一知识点的选择理由由各讲义独立说明。
+  ...chemistryChapters9To11Sources,
+  ...chemistryChapters12To14Sources,
+  ...chemistryChapters15To17Sources,
   'NSAA_2017_S1-Q054': {
     kind: 'annual',
     questionCode: 'NSAA_2017_S1-Q054',

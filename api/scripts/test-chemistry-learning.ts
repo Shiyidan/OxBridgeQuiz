@@ -1,4 +1,4 @@
-// 化学前八章精选例题与自测的契约回归：验证题源边界、答案隔离、重复来源与判分。
+// 化学全考纲讲义、精选例题与自测回归：验证覆盖、题源边界、答案隔离和判分。
 import assert from 'node:assert/strict'
 import { prisma } from '../src/services/prisma.js'
 import { chemistryLearningSources } from '../src/constants/chemistryLearningSources.js'
@@ -8,6 +8,7 @@ import {
   getChemistryLearningExample,
 } from '../src/services/chemistryLearning.js'
 import { checkLearningSelfCheck, getLearningSelfCheck } from '../src/services/learningSelfCheck.js'
+import { findKnowledgeLesson } from '../../quiz-web/src/content/knowledge/index.js'
 
 const originalMany = prisma.question.findMany
 const originalFirst = prisma.question.findFirst
@@ -70,7 +71,81 @@ assert.deepEqual(Object.keys(chemistryLearningSelfChecks).sort(), [
   '140802',
   '140803',
   '140804',
+  '140901',
+  '140902',
+  '140903',
+  '141001',
+  '141002',
+  '141003',
+  '141004',
+  '141005',
+  '141006',
+  '141101',
+  '141102',
+  '141103',
+  '141104',
+  '141105',
+  '141201',
+  '141202',
+  '141203',
+  '141204',
+  '141205',
+  '141206',
+  '141301',
+  '141302',
+  '141303',
+  '141304',
+  '141305',
+  '141306',
+  '141401',
+  '141402',
+  '141403',
+  '141404',
+  '141405',
+  '141501',
+  '141502',
+  '141601',
+  '141602',
+  '141603',
+  '141604',
+  '141605',
+  '141701',
+  '141702',
+  '141703',
+  '141704',
 ])
+// 前后端必须引用同一组考纲与真实题源；章节接入遗漏不能被接口的模拟数据掩盖。
+for (const code of Object.keys(chemistryLearningSelfChecks)) {
+  const lesson = findKnowledgeLesson('ESAT', code)
+  assert(lesson, `${code} 缺少已注册讲义`)
+  const section = lesson.sections.find((item) => item.code === code)
+  assert(section, `${code} 缺少叶子讲解`)
+  assert(section.summary && section.paragraphs.length && section.rules.length)
+  assert(section.visual && section.pitfalls.length && lesson.memory.length)
+  assert(section.examFocus?.examples.length, `${code} 缺少精选例题`)
+  assert(section.examFocus.pastPaperSummary, `${code} 缺少真题审阅结论`)
+  assert(
+    section.examFocus.pastPaperPatterns?.length || section.examFocus.pastPaperNote,
+    `${code} 无直接真题时须解释题源边界`,
+  )
+  for (const pattern of section.examFocus.pastPaperPatterns ?? []) {
+    assert(pattern.sourceCodes?.length, `${code} 考法缺少真实题号依据`)
+    assert.equal(new Set(pattern.sourceCodes).size, pattern.sourceCodes.length)
+  }
+  for (const example of section.examFocus.examples) {
+    assert(example.source, `${code} 必须使用真实题源`)
+    const selection = chemistryLearningSources[example.source.questionCode]
+    assert(selection, `${code} 的例题未加入读取白名单`)
+    assert.equal(example.source.subject, 'chemistry')
+    assert.equal(example.source.kind, selection.kind)
+    assert(example.answer && example.steps.length && example.takeaway)
+    assert.equal(example.question, '', '原题正文从 Question 读取，不复制到讲义')
+  }
+  for (const sourceId of section.sourceIds) {
+    assert(lesson.sources.some((source) => source.id === sourceId), `${code} 参考来源缺失`)
+  }
+  assert.equal(findKnowledgeLesson('TMUA', code), null)
+}
 let count = 1
 let reads = 0
 const row = {
@@ -163,7 +238,7 @@ try {
     assert.equal(Object.hasOwn(result.question, 'learning_analysis'), false)
     assert.equal(JSON.stringify(result).includes('Submission-only'), false)
   }
-  // 新旧47个知识点逐一验证答案隔离、题目绑定和提交后判分，保留复盘题的正常作答能力。
+  // 全部89个知识点逐一验证答案隔离、题目绑定和提交后判分，保留复盘题的正常作答能力。
   for (const [code, entry] of Object.entries(chemistryLearningSelfChecks)) {
     assert(entry.selection, `${code} 应配置已审阅的自测来源`)
     const result = await getLearningSelfCheck(code)
@@ -193,7 +268,7 @@ try {
       reason: '',
     }),
   )
-  console.log('化学47点映射、全部精选例题、两类题源、答案隔离、判分、重复来源及下架检查通过')
+  console.log('化学89点讲义与映射、全部精选例题、两类题源、答案隔离、判分、重复来源及下架检查通过')
 } finally {
   prisma.question.findMany = originalMany
   prisma.question.findFirst = originalFirst

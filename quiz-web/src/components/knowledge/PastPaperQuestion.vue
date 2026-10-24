@@ -1,4 +1,4 @@
-<!-- 科学讲义精选题：保留真实来源，复用通用题卡加载完整题干、图表与选项。 -->
+<!-- 备考讲义精选题：保留真实来源，复用通用题卡加载完整题干、图表与选项。 -->
 <template>
   <div class="past-paper-question" :aria-busy="loading">
     <p v-if="loading" class="past-paper-status" role="status">正在加载题目…</p>
@@ -45,6 +45,8 @@ import QuestionCard from '@/components/QuestionCard.vue'
 import {
   getBiologyLearningExample,
   getChemistryLearningExample,
+  getMathematicsLearningExample,
+  getPhysicsLearningExample,
   type BiologyLearningExample,
   type ChemistryLearningExample,
 } from '@/api/learningExamples'
@@ -54,7 +56,7 @@ const props = defineProps<{
   source: {
     questionCode: string
     why: string
-    subject?: 'biology' | 'chemistry'
+    subject?: 'biology' | 'chemistry' | 'mathematics1' | 'physics'
     kind?: 'annual' | 'bank'
   }
 }>()
@@ -80,9 +82,13 @@ watch(
     emit('ready', '')
     try {
       const result =
-        props.source.subject === 'chemistry'
-          ? await getChemistryLearningExample(code)
-          : await getBiologyLearningExample(code)
+        props.source.subject === 'physics'
+          ? await getPhysicsLearningExample(code)
+          : props.source.subject === 'mathematics1'
+            ? await getMathematicsLearningExample(code)
+            : props.source.subject === 'chemistry'
+              ? await getChemistryLearningExample(code)
+              : await getBiologyLearningExample(code)
       if (!active) return
       if (result.sourceCode !== code) throw new Error('题目来源不匹配，请重新加载。')
       data.value = result

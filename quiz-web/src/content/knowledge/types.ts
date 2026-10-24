@@ -21,6 +21,20 @@ export interface KnowledgeSection {
     | 'unit-scale'
     | 'number-line'
     | 'bounds'
+    | 'maths-units'
+    | 'maths-number'
+    | 'maths-ratio'
+    | 'maths-algebra'
+    | 'maths-geometry'
+    | 'maths-statistics'
+    | 'maths-probability'
+    | 'physics-electricity'
+    | 'physics-magnetism'
+    | 'physics-mechanics'
+    | 'physics-thermal'
+    | 'physics-matter'
+    | 'physics-waves'
+    | 'physics-radioactivity'
     | 'eukaryotic-cell'
     | 'prokaryotic-cell'
     | 'organisation'
@@ -42,11 +56,20 @@ export interface KnowledgeSection {
     | 'chemical-bonding'
     | 'group-chemistry'
     | 'separation-techniques'
+    | 'acids-bases-salts'
+    | 'reaction-rates'
+    | 'energy-changes'
+    | 'electrolysis'
+    | 'organic-chemistry'
+    | 'metals'
+    | 'particle-theory'
+    | 'chemical-tests'
+    | 'air-water'
 }
 
 export type KnowledgeExamStage = 'summary' | 'examples' | 'check'
 
-// 科学章节先梳理知识；考法以实际真题为依据，题库仿题不能充当历年证据。
+// 备考章节先梳理知识；考法以实际真题为依据，题库仿题不能充当历年证据。
 export interface KnowledgeExamFocus {
   goal: string
   pastPaperSummary?: string
@@ -58,13 +81,15 @@ export interface KnowledgeExamFocus {
     sourceCodes?: string[]
   }>
   pastPaperNote?: string
+  // 题源只能覆盖关联技能时，在自测前说明范围，避免把迁移题当成本点直接题。
+  selfCheckNote?: string
   comparison?: { title: string; columns: string[]; rows: string[][] }
   examples: Array<{
     title: string
     source?: {
       questionCode: string
       why: string
-      subject?: 'biology' | 'chemistry'
+      subject?: 'biology' | 'chemistry' | 'mathematics1' | 'physics'
       kind?: 'annual' | 'bank'
     }
     question: string

@@ -35,6 +35,12 @@ export interface ChemistryLearningExample {
   question: RenderableQuestion
 }
 
+// 数学与化学共用题卡和来源展示契约，科目读取边界分别由服务端控制。
+export type MathematicsLearningExample = ChemistryLearningExample
+
+// 物理复用已校验的来源展示与题卡契约，读取范围由物理服务独立限定。
+export type PhysicsLearningExample = ChemistryLearningExample
+
 // 固定精选题由服务端知识点白名单决定，学生无需筛选。
 export function getLearningSelfCheck(code: string) {
   return callApi<LearningSelfCheck>({
@@ -68,6 +74,24 @@ export function getChemistryLearningExample(sourceCode: string) {
   return callApi<ChemistryLearningExample>({
     method: 'GET',
     url: `/learning/chemistry/examples/${encodeURIComponent(sourceCode)}`,
+    silent: true,
+  })
+}
+
+// 数学 1 精选题限定在已审核的本学科题源，不回退到数学 2 或其他考试。
+export function getMathematicsLearningExample(sourceCode: string) {
+  return callApi<MathematicsLearningExample>({
+    method: 'GET',
+    url: `/learning/mathematics1/examples/${encodeURIComponent(sourceCode)}`,
+    silent: true,
+  })
+}
+
+// 只加载编辑确认的物理题源，不允许用其他学科的同名编号兜底。
+export function getPhysicsLearningExample(sourceCode: string) {
+  return callApi<PhysicsLearningExample>({
+    method: 'GET',
+    url: `/learning/physics/examples/${encodeURIComponent(sourceCode)}`,
     silent: true,
   })
 }

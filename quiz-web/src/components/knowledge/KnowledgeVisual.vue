@@ -1,4 +1,4 @@
-<!-- 试题库知识讲解示意：按知识类型分发数学、生物与化学互动图解。 -->
+<!-- 试题库知识讲解示意：按知识类型分发数学、生物、化学与物理互动图解。 -->
 <template>
   <component :is="chapterDiagram" v-if="chapterDiagram" :key="topic" :topic="topic" />
   <BiologyKnowledgeVisual v-else-if="isBiologyVisual" :kind="kind" />
@@ -133,6 +133,20 @@ const props = defineProps<{ kind: NonNullable<KnowledgeSection['visual']>; topic
 
 const diagramModules = import.meta.glob<{ default: Component }>('./*Diagram.vue')
 const chapterFiles = {
+  'maths-units': 'UnitsLearningDiagram',
+  'maths-number': 'NumberLearningDiagram',
+  'maths-ratio': 'RatioLearningDiagram',
+  'maths-algebra': 'AlgebraLearningDiagram',
+  'maths-geometry': 'GeometryLearningDiagram',
+  'maths-statistics': 'StatisticsLearningDiagram',
+  'maths-probability': 'ProbabilityLearningDiagram',
+  'physics-electricity': 'ElectricityDiagram',
+  'physics-magnetism': 'MagnetismDiagram',
+  'physics-mechanics': 'MechanicsDiagram',
+  'physics-thermal': 'ThermalPhysicsDiagram',
+  'physics-matter': 'MatterDiagram',
+  'physics-waves': 'WavesDiagram',
+  'physics-radioactivity': 'RadioactivityDiagram',
   'cell-division': 'CellDivisionDiagram',
   inheritance: 'InheritanceDiagram',
   dna: 'DnaDiagram',
@@ -150,6 +164,15 @@ const chapterFiles = {
   'chemical-bonding': 'ChemicalBondingDiagram',
   'group-chemistry': 'GroupChemistryDiagram',
   'separation-techniques': 'SeparationTechniquesDiagram',
+  'acids-bases-salts': 'AcidsBasesSaltsDiagram',
+  'reaction-rates': 'ReactionRatesDiagram',
+  'energy-changes': 'EnergyChangesDiagram',
+  electrolysis: 'ElectrolysisDiagram',
+  'organic-chemistry': 'OrganicChemistryDiagram',
+  metals: 'MetalsDiagram',
+  'particle-theory': 'ParticleTheoryDiagram',
+  'chemical-tests': 'ChemicalTestsDiagram',
+  'air-water': 'AirWaterDiagram',
 } as const
 const chapterDiagrams = Object.fromEntries(
   Object.entries(chapterFiles).flatMap(([kind, filename]) => {

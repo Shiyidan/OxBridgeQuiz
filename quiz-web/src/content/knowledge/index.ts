@@ -1,6 +1,18 @@
 // 按考试与精确考纲编号匹配讲解，避免章节前缀或名称相似时串用内容。
 import { esatUnits } from './esatUnits'
 import { esatNumber } from './esatNumber'
+import { esatRatioProportion } from './esatRatioProportion'
+import { esatAlgebra } from './esatAlgebra'
+import { esatGeometry } from './esatGeometry'
+import { esatStatistics } from './esatStatistics'
+import { esatProbability } from './esatProbability'
+import { esatElectricity } from './esatElectricity'
+import { esatMagnetism } from './esatMagnetism'
+import { esatMechanics } from './esatMechanics'
+import { esatThermalPhysics } from './esatThermalPhysics'
+import { esatMatter } from './esatMatter'
+import { esatWaves } from './esatWaves'
+import { esatRadioactivity } from './esatRadioactivity'
 import { esatCells } from './esatCells'
 import { esatMembraneTransport } from './esatMembraneTransport'
 import { esatCellDivision } from './esatCellDivision'
@@ -20,11 +32,32 @@ import { esatRedox } from './esatRedox'
 import { esatChemicalBonding } from './esatChemicalBonding'
 import { esatGroupChemistry } from './esatGroupChemistry'
 import { esatSeparationTechniques } from './esatSeparationTechniques'
+import { esatAcidsBasesSalts } from './esatAcidsBasesSalts'
+import { esatReactionRates } from './esatReactionRates'
+import { esatEnergyChanges } from './esatEnergyChanges'
+import { esatElectrolysis } from './esatElectrolysis'
+import { esatOrganicChemistry } from './esatOrganicChemistry'
+import { esatMetals } from './esatMetals'
+import { esatParticleTheory } from './esatParticleTheory'
+import { esatChemicalTests } from './esatChemicalTests'
+import { esatAirWater } from './esatAirWater'
 import type { KnowledgeLesson } from './types'
 
 const esatLessons: KnowledgeLesson[] = [
   esatUnits,
   esatNumber,
+  esatRatioProportion,
+  esatAlgebra,
+  esatGeometry,
+  esatStatistics,
+  esatProbability,
+  esatElectricity,
+  esatMagnetism,
+  esatMechanics,
+  esatThermalPhysics,
+  esatMatter,
+  esatWaves,
+  esatRadioactivity,
   esatCells,
   esatMembraneTransport,
   esatCellDivision,
@@ -44,6 +77,15 @@ const esatLessons: KnowledgeLesson[] = [
   esatChemicalBonding,
   esatGroupChemistry,
   esatSeparationTechniques,
+  esatAcidsBasesSalts,
+  esatReactionRates,
+  esatEnergyChanges,
+  esatElectrolysis,
+  esatOrganicChemistry,
+  esatMetals,
+  esatParticleTheory,
+  esatChemicalTests,
+  esatAirWater,
 ]
 
 // 仅已编写的章节与叶子节点可打开讲解；其他考试及学科总节点保持原有题库。

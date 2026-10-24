@@ -1,6 +1,6 @@
-<!-- 科学备考讲义：图文结合梳理知识，复用真题与题库题讲清推理及易错原因。 -->
+<!-- 学科备考讲义：图文结合梳理知识，复用真题与题库题讲清推理及易错原因。 -->
 <template>
-  <div class="exam-knowledge" :class="{ 'exam-knowledge--chemistry': isChemistry }">
+  <div class="exam-knowledge" :class="{ 'exam-knowledge--compact': usesCompactLayout }">
     <el-tabs v-model="activeTab" class="exam-tabs" aria-label="备考讲解内容">
       <el-tab-pane label="概念与方法" name="summary">
         <div
@@ -10,7 +10,7 @@
             'exam-story--atlas':
               section.visual === 'eukaryotic-cell' ||
               section.visual === 'prokaryotic-cell' ||
-              isChemistry,
+              usesCompactLayout,
           }"
         >
           <div class="exam-story__narrative">
@@ -87,7 +87,7 @@
             :icon="Right"
             icon-position="right"
             @click="goToTab('examples')"
-            >{{ isChemistry ? '进入例题拆解' : '进入例题与变式' }}</AppButton
+            >{{ usesCompactLayout ? '进入例题拆解' : '进入例题与变式' }}</AppButton
           >
         </div>
       </el-tab-pane>
@@ -99,7 +99,7 @@
             {{
               focus.pastPaperSummary || focus.pastPaperPatterns?.length || focus.pastPaperNote
                 ? '真题怎么考'
-                : isChemistry
+                : usesCompactLayout
                   ? '先作答，再看判断依据与易错点。'
                   : '先作答，再看解析；用改编变式巩固。'
             }}
@@ -258,6 +258,9 @@
             </li>
           </ul>
         </div>
+        <p v-if="focus.selfCheckNote" class="exam-self-check-note">
+          <KnowledgeText :text="focus.selfCheckNote" />
+        </p>
         <KnowledgeSelfCheck :key="section.code" :code="section.code" />
         <div class="exam-checklist">
           <div class="exam-section-label">
@@ -307,11 +310,25 @@ const revealedVariants = ref<number[]>([])
 const examplesHeadingRef = ref<HTMLElement>()
 const checkHeadingRef = ref<HTMLElement>()
 
-// 化学需要宽幅图解及紧凑规则列表，章节阅读不套用生物的多卡片排版。
-const isChemistry = computed(
+// 数学、化学与物理使用宽幅互动图解和紧凑规则列表，保留生物既有的图文布局。
+const usesCompactLayout = computed(
   () =>
     props.section.visual != null &&
     [
+      'maths-units',
+      'maths-number',
+      'maths-ratio',
+      'maths-algebra',
+      'maths-geometry',
+      'maths-statistics',
+      'maths-probability',
+      'physics-electricity',
+      'physics-magnetism',
+      'physics-mechanics',
+      'physics-thermal',
+      'physics-matter',
+      'physics-waves',
+      'physics-radioactivity',
       'atomic-structure',
       'periodic-table',
       'chemical-reactions',
@@ -320,6 +337,15 @@ const isChemistry = computed(
       'chemical-bonding',
       'group-chemistry',
       'separation-techniques',
+      'acids-bases-salts',
+      'reaction-rates',
+      'energy-changes',
+      'electrolysis',
+      'organic-chemistry',
+      'metals',
+      'particle-theory',
+      'chemical-tests',
+      'air-water',
     ].includes(props.section.visual),
 )
 
@@ -425,19 +451,19 @@ function toggleVariant(): void {
   grid-template-columns: minmax(0, 1fr);
 }
 /* 化学把简短导读与正文接成一个阅读区域，让结构图、反应图和计算路线使用完整宽度。 */
-.exam-knowledge--chemistry .exam-story__narrative {
+.exam-knowledge--compact .exam-story__narrative {
   display: grid;
   grid-template-columns: minmax(200px, 0.7fr) minmax(0, 1.3fr);
   gap: 22px;
   align-items: start;
 }
-.exam-knowledge--chemistry .exam-summary-copy {
+.exam-knowledge--compact .exam-summary-copy {
   margin-top: 0;
 }
-.exam-knowledge--chemistry .exam-concept-grid {
+.exam-knowledge--compact .exam-concept-grid {
   display: block;
 }
-.exam-knowledge--chemistry .exam-concept-card {
+.exam-knowledge--compact .exam-concept-card {
   display: grid;
   grid-template-columns: minmax(150px, 0.3fr) minmax(0, 1fr);
   gap: 18px;
@@ -447,12 +473,12 @@ function toggleVariant(): void {
   border-radius: 0;
   background: transparent;
 }
-.exam-knowledge--chemistry .exam-concept-card > p {
+.exam-knowledge--compact .exam-concept-card > p {
   margin: 0;
 }
 @media (max-width: 900px) {
-  .exam-knowledge--chemistry .exam-story__narrative,
-  .exam-knowledge--chemistry .exam-concept-card {
+  .exam-knowledge--compact .exam-story__narrative,
+  .exam-knowledge--compact .exam-concept-card {
     grid-template-columns: minmax(0, 1fr);
     gap: 10px;
   }
@@ -635,6 +661,15 @@ function toggleVariant(): void {
   margin-top: 24px;
   padding-top: 20px;
   border-top: 1px solid var(--color-line);
+}
+.exam-self-check-note {
+  margin: 16px 0 12px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--color-learning-blue);
+  background: var(--color-learning-blue-soft);
+  color: var(--color-ink-soft);
+  font-size: var(--text-sm);
+  line-height: 1.8;
 }
 .exam-next-step p {
   margin: 0;

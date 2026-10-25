@@ -26,6 +26,7 @@
     "test:learning-self-check": "tsx scripts/test-learning-self-check.ts",
     "test:chemistry-learning": "tsx scripts/test-chemistry-learning.ts",
     "test:mathematics-learning": "tsx scripts/test-mathematics-learning.ts",
+    "test:mathematics2-learning": "tsx scripts/test-mathematics2-learning.ts",
     "test:physics-learning": "tsx scripts/test-physics-learning.ts",
     "backfill:question-module-codes": "tsx scripts/backfill-question-module-codes.ts",
     "revalidate:mock-paper-sets": "tsx scripts/revalidate-mock-paper-sets.ts",

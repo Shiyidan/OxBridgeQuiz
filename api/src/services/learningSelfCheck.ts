@@ -12,6 +12,8 @@ import { chemistryLearningSelfChecks } from "../constants/chemistryLearningSelfC
 import { chemistryQuestionWhere } from "./chemistryLearning.js";
 import { mathematicsLearningSelfChecks } from "../constants/mathematicsLearningSelfChecks.js";
 import { mathematicsQuestionWhere } from "./mathematicsLearning.js";
+import { mathematics2LearningSelfChecks } from "../constants/mathematics2LearningSelfChecks.js";
+import { mathematics2QuestionWhere } from "./mathematics2Learning.js";
 import { physicsLearningSelfChecks } from "../constants/physicsLearningSelfChecks.js";
 import { physicsQuestionWhere } from "./physicsLearning.js";
 import type { Prisma } from "@prisma/client";
@@ -31,6 +33,15 @@ function selectionFor(code: string) {
     const selected = mathematicsLearningSelfChecks[code]!.selection;
     return {
       where: selected ? mathematicsQuestionWhere(selected) : null,
+      reason: selected?.reason || "",
+      annual: selected?.kind === "annual",
+      sourceLabel: `${selected?.kind === "annual" ? "精选真题" : "精选试题库题目"}${selected?.reason.startsWith("复盘") ? " · 本节例题复盘" : ""}`,
+    };
+  }
+  if (Object.hasOwn(mathematics2LearningSelfChecks, code)) {
+    const selected = mathematics2LearningSelfChecks[code]!.selection;
+    return {
+      where: selected ? mathematics2QuestionWhere(selected) : null,
       reason: selected?.reason || "",
       annual: selected?.kind === "annual",
       sourceLabel: `${selected?.kind === "annual" ? "精选真题" : "精选试题库题目"}${selected?.reason.startsWith("复盘") ? " · 本节例题复盘" : ""}`,

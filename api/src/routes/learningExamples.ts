@@ -6,6 +6,7 @@ import { getBiologyLearningExample } from "../services/learningExamples.js";
 import { learningSelfCheckRouter } from "./learningSelfCheck.js";
 import { getChemistryLearningExample } from "../services/chemistryLearning.js";
 import { getMathematicsLearningExample } from "../services/mathematicsLearning.js";
+import { getMathematics2LearningExample } from "../services/mathematics2Learning.js";
 import { getPhysicsLearningExample } from "../services/physicsLearning.js";
 
 export const learningExamplesRouter = createAsyncRouter();
@@ -41,6 +42,32 @@ learningExamplesRouter.get(
       return;
     }
     const example = await getMathematicsLearningExample(code);
+    if (!example) {
+      res
+        .status(404)
+        .json(
+          fail(
+            "这道精选题暂不可用，请稍后重试或选择其他例题。",
+            "LEARNING_EXAMPLE_UNAVAILABLE",
+          ),
+        );
+      return;
+    }
+    res.json(success(example));
+  },
+);
+
+// 数学2精选例题
+learningExamplesRouter.get(
+  "/mathematics2/examples/:sourceCode",
+  optionalAuth,
+  async (req, res) => {
+    const code = req.params.sourceCode;
+    if (!/^[A-Za-z0-9_-]{1,100}$/.test(code)) {
+      res.status(400).json(fail("例题编号不正确", "LEARNING_EXAMPLE_INVALID"));
+      return;
+    }
+    const example = await getMathematics2LearningExample(code);
     if (!example) {
       res
         .status(404)

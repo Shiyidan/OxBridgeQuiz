@@ -4,6 +4,12 @@ import { esatNumber } from './esatNumber'
 import { esatRatioProportion } from './esatRatioProportion'
 import { esatAlgebra } from './esatAlgebra'
 import { esatGeometry } from './esatGeometry'
+import { esatMath2Algebra } from './esatMath2Algebra'
+import { esatMath2Sequences } from './esatMath2Sequences'
+import { esatMath2Coordinate } from './esatMath2Coordinate'
+import { esatMath2Trigonometry } from './esatMath2Trigonometry'
+import { esatMath2Exponentials } from './esatMath2Exponentials'
+import { esatMath2Differentiation } from './esatMath2Differentiation'
 import { esatStatistics } from './esatStatistics'
 import { esatProbability } from './esatProbability'
 import { esatElectricity } from './esatElectricity'
@@ -51,6 +57,12 @@ const esatLessons: KnowledgeLesson[] = [
   esatGeometry,
   esatStatistics,
   esatProbability,
+  esatMath2Algebra,
+  esatMath2Sequences,
+  esatMath2Coordinate,
+  esatMath2Trigonometry,
+  esatMath2Exponentials,
+  esatMath2Differentiation,
   esatElectricity,
   esatMagnetism,
   esatMechanics,

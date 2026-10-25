@@ -28,6 +28,12 @@ export interface KnowledgeSection {
     | 'maths-geometry'
     | 'maths-statistics'
     | 'maths-probability'
+    | 'maths2-algebra'
+    | 'maths2-sequences'
+    | 'maths2-coordinate'
+    | 'maths2-trigonometry'
+    | 'maths2-exponentials'
+    | 'maths2-differentiation'
     | 'physics-electricity'
     | 'physics-magnetism'
     | 'physics-mechanics'
@@ -89,7 +95,7 @@ export interface KnowledgeExamFocus {
     source?: {
       questionCode: string
       why: string
-      subject?: 'biology' | 'chemistry' | 'mathematics1' | 'physics'
+      subject?: 'biology' | 'chemistry' | 'mathematics1' | 'mathematics2' | 'physics'
       kind?: 'annual' | 'bank'
     }
     question: string

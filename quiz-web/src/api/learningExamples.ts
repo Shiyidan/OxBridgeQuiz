@@ -87,6 +87,15 @@ export function getMathematicsLearningExample(sourceCode: string) {
   })
 }
 
+// 数学 2 与数学 1 共用来源展示与题卡契约，读取范围由数学 2 服务独立限定。
+export function getMathematics2LearningExample(sourceCode: string) {
+  return callApi<MathematicsLearningExample>({
+    method: 'GET',
+    url: `/learning/mathematics2/examples/${encodeURIComponent(sourceCode)}`,
+    silent: true,
+  })
+}
+
 // 只加载编辑确认的物理题源，不允许用其他学科的同名编号兜底。
 export function getPhysicsLearningExample(sourceCode: string) {
   return callApi<PhysicsLearningExample>({

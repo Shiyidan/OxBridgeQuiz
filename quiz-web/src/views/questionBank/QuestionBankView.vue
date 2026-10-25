@@ -69,12 +69,21 @@
                     <template v-for="(item, index) in selectedBreadcrumb" :key="item.code">
                       <ArrowRight v-if="index" aria-hidden="true" />
                       <button
+                        v-if="index < selectedBreadcrumb.length - 1"
                         type="button"
                         :title="item.label"
                         @click="handleKnowledgeSelect(item.code)"
                       >
                         {{ item.label }}
                       </button>
+                      <span
+                        v-else
+                        class="qb-breadcrumb__current"
+                        aria-current="page"
+                        :title="item.label"
+                      >
+                        {{ item.label }}
+                      </span>
                     </template>
                   </nav>
                   <h2 class="qb-content__title">{{ currentScopeCnLabel }}</h2>
@@ -444,11 +453,11 @@ const currentScopeCnLabel = computed(
   () => selectedTreeNode.value?.cn_label || selectedNodeLabel.value,
 )
 
-// 顶部路径沿用当前考纲树的祖先节点，父级可直接返回对应的学习和练习范围。
+// 路径包含祖先与当前节点，切换章节或知识点时同步更新末项；父级保留返回入口。
 const selectedBreadcrumb = computed(() => {
   const match = findTreeNode(treeData.value, selectedNodeCode.value)
   if (!match) return []
-  return match.parents.flatMap((code) => {
+  return [...match.parents, match.node.code].flatMap((code) => {
     const node = findTreeNode(treeData.value, code)?.node
     return node ? [{ code: node.code, label: node.cn_label || node.label }] : []
   })
@@ -1230,6 +1239,12 @@ async function handlePaymentSuccess(): Promise<void> {
 }
 .qb-breadcrumb button:hover {
   color: var(--color-learning-blue);
+}
+.qb-breadcrumb__current {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
 }
 .qb-breadcrumb svg {
   width: 12px;

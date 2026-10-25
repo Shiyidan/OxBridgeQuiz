@@ -57,19 +57,10 @@
           @click="emit('practise')"
           >去练习</AppButton
         >
-        <AppButton
-          class="knowledge-secondary"
-          type="secondary"
-          size="small"
-          :aria-expanded="expanded"
-          aria-controls="knowledge-panel-body"
-          @click="toggleLesson"
-          >{{ expanded ? '收起讲解' : '展开讲解' }}</AppButton
-        >
       </div>
     </header>
 
-    <div v-if="section" v-show="expanded" id="knowledge-panel-body" class="knowledge-body-layout">
+    <div v-if="section" id="knowledge-panel-body" class="knowledge-body-layout">
       <div class="knowledge-reading">
         <div v-if="!section.examFocus" class="knowledge-intro">
           <span class="knowledge-label">本节导读</span>
@@ -248,7 +239,6 @@ const emit = defineEmits<{
   select: [code: string]
   practise: []
 }>()
-const expanded = ref(true)
 const activeTab = ref<LearningStage>('concept')
 const examStage = ref<KnowledgeExamStage>('summary')
 const exampleRevealed = ref(false)
@@ -280,7 +270,6 @@ const learningLead = computed(() =>
 watch(
   () => [props.lesson.code, props.selectedCode],
   () => {
-    expanded.value = true
     closeOutline()
     activeTab.value = 'concept'
     examStage.value = 'summary'
@@ -299,12 +288,6 @@ onDeactivated(() => {
 function closeOutline(restoreFocus = false): void {
   if (outlineRef.value) outlineRef.value.open = false
   if (restoreFocus) outlineToggleRef.value?.focus()
-}
-
-// 收起讲解时一并收起目录，避免浮层留在已隐藏的内容上方。
-function toggleLesson(): void {
-  expanded.value = !expanded.value
-  if (!expanded.value) closeOutline()
 }
 
 // 将面板内选择交回页面，让考纲高亮、题量和练习范围一起更新。

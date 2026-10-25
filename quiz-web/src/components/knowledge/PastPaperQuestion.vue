@@ -46,6 +46,7 @@ import {
   getBiologyLearningExample,
   getChemistryLearningExample,
   getMathematicsLearningExample,
+  getMathematics2LearningExample,
   getPhysicsLearningExample,
   type BiologyLearningExample,
   type ChemistryLearningExample,
@@ -56,7 +57,7 @@ const props = defineProps<{
   source: {
     questionCode: string
     why: string
-    subject?: 'biology' | 'chemistry' | 'mathematics1' | 'physics'
+    subject?: 'biology' | 'chemistry' | 'mathematics1' | 'mathematics2' | 'physics'
     kind?: 'annual' | 'bank'
   }
 }>()
@@ -86,9 +87,11 @@ watch(
           ? await getPhysicsLearningExample(code)
           : props.source.subject === 'mathematics1'
             ? await getMathematicsLearningExample(code)
-            : props.source.subject === 'chemistry'
-              ? await getChemistryLearningExample(code)
-              : await getBiologyLearningExample(code)
+            : props.source.subject === 'mathematics2'
+              ? await getMathematics2LearningExample(code)
+              : props.source.subject === 'chemistry'
+                ? await getChemistryLearningExample(code)
+                : await getBiologyLearningExample(code)
       if (!active) return
       if (result.sourceCode !== code) throw new Error('题目来源不匹配，请重新加载。')
       data.value = result

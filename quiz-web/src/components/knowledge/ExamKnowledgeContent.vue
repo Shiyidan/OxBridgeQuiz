@@ -3,10 +3,20 @@
   <div class="exam-knowledge" :class="{ 'exam-knowledge--compact': usesCompactLayout }">
     <el-tabs v-model="activeTab" class="exam-tabs" aria-label="备考讲解内容">
       <el-tab-pane label="概念与方法" name="summary">
+        <PythagorasMethods v-if="section.code === '110507'" />
+        <CircleTheoremMethods v-else-if="section.code === '110509'" />
+        <KnowledgeConceptFlow
+          v-else-if="section.conceptFlow && section.visual"
+          :flow="section.conceptFlow"
+          :visual="section.visual"
+          :topic="section.code"
+        />
         <div
+          v-else
           class="exam-story"
           :class="{
             'exam-story--illustrated': section.visual,
+            'exam-story--division': section.visual === 'cell-division',
             'exam-story--atlas':
               section.visual === 'eukaryotic-cell' ||
               section.visual === 'prokaryotic-cell' ||
@@ -30,7 +40,6 @@
           <div v-if="section.visual" class="exam-story__visual">
             <KnowledgeVisual :kind="section.visual" :topic="section.code" />
           </div>
-        </div>
         <section class="exam-concepts" aria-label="核心知识要点">
           <div class="exam-section-label">
             <CollectionTag aria-hidden="true" />
@@ -47,6 +56,7 @@
             </section>
           </div>
         </section>
+        </div>
 
         <div v-if="focus.comparison" class="exam-comparison">
           <div class="exam-section-label">
@@ -78,6 +88,7 @@
             </table>
           </div>
         </div>
+        <slot name="memory" />
         <div class="exam-next-step">
           <p>知识理清楚后，跟着例题学习怎样判断条件、排除选项。</p>
           <AppButton
@@ -95,53 +106,74 @@
       <el-tab-pane label="例题拆解" name="examples" lazy>
         <div class="exam-section-label exam-example-intro">
           <EditPen aria-hidden="true" />
-          <h5 ref="examplesHeadingRef" tabindex="-1">
-            {{
-              focus.pastPaperSummary || focus.pastPaperPatterns?.length || focus.pastPaperNote
-                ? '真题怎么考'
-                : usesCompactLayout
-                  ? '先作答，再看判断依据与易错点。'
-                  : '先作答，再看解析；用改编变式巩固。'
-            }}
-          </h5>
+          <h5 ref="examplesHeadingRef" tabindex="-1">{{ patternHeading }}</h5>
         </div>
         <section
-          v-if="focus.pastPaperSummary || focus.pastPaperPatterns?.length || focus.pastPaperNote"
+          v-if="displayPatterns.length"
           class="exam-patterns"
           aria-label="本知识点历年真题考法"
         >
-          <p v-if="focus.pastPaperSummary" class="exam-patterns__summary">
-            <KnowledgeText :text="focus.pastPaperSummary" />
-          </p>
-          <dl v-if="focus.pastPaperPatterns?.length" class="exam-patterns__list">
+          <dl class="exam-patterns__list">
             <div
-              v-for="pattern in focus.pastPaperPatterns"
+              v-for="(pattern, index) in displayPatterns"
               :key="pattern.form"
               class="exam-patterns__row"
+              :class="{ 'is-active': getPatternExampleIndex(pattern) === exampleIndex && getPatternExampleIndex(pattern) >= 0 }"
+              @click="selectPattern(pattern)"
             >
-              <dt>{{ pattern.form }}</dt>
+              <dt>
+                <span class="exam-patterns__number">{{ String(index + 1).padStart(2, '0') }}</span>
+                <button
+                  type="button"
+                  class="exam-patterns__title"
+                  :disabled="patternSourcesLoading || getPatternExampleIndex(pattern) < 0"
+                  :aria-pressed="getPatternExampleIndex(pattern) === exampleIndex && getPatternExampleIndex(pattern) >= 0"
+                  aria-controls="exam-worked-example"
+                  @click.stop="selectPattern(pattern)"
+                >{{ pattern.form }}</button>
+                <span v-if="getPatternExampleIndex(pattern) === exampleIndex && getPatternExampleIndex(pattern) >= 0" class="exam-patterns__selected">当前例题</span>
+              </dt>
               <dd>
                 <p><KnowledgeText :text="pattern.description" /></p>
-                <span class="exam-patterns__reference">{{ pattern.reference }}</span>
+                <div class="exam-patterns__source">
+                  <span class="exam-patterns__source-label">题目来源</span>
+                  <div class="exam-patterns__source-items">
+                    <span v-for="item in getPatternSourceLabels(pattern)" :key="item.key" class="exam-patterns__source-item">
+                      <template v-if="item.source">
+                        {{ item.source.origin }} · 收录于
+                        <RouterLink
+                          v-if="item.source.year && item.source.paperTitle"
+                          class="exam-patterns__link"
+                          :to="{ name: 'assessment', query: { year: String(item.source.year), examType } }"
+                          @click.stop
+                        >{{ item.source.paperTitle }}</RouterLink>
+                        <template v-else>{{ item.source.collection.split(' · ')[0] }}</template>
+                      </template>
+                      <template v-else>{{ item.text }}</template>
+                    </span>
+                  </div>
+                </div>
               </dd>
             </div>
           </dl>
-          <p v-if="focus.pastPaperNote" class="exam-patterns__note">{{ focus.pastPaperNote }}</p>
         </section>
-        <div class="exam-example-picker" role="group" aria-label="选择精选例题">
+        <p v-if="patternSourcesError" role="status">部分考法对应的真题暂时无法加载，请稍后重试。</p>
+        <div v-if="otherExamples.length" class="exam-example-picker" role="group" aria-label="其他例题">
+          <span class="exam-example-picker__label">其他例题</span>
           <AppButton
-            v-for="(item, index) in focus.examples"
-            :key="index"
+            v-for="item in otherExamples"
+            :key="item.index"
             type="secondary"
             size="small"
-            :class="{ 'is-selected': exampleIndex === index }"
-            :aria-pressed="exampleIndex === index"
-            @click="exampleIndex = index"
-            >{{ String(index + 1).padStart(2, '0') }} · {{ item.title }}</AppButton
+            :class="{ 'is-selected': exampleIndex === item.index }"
+            :aria-pressed="exampleIndex === item.index"
+            :disabled="patternSourcesLoading"
+            @click="selectExample(item.index)"
+            >{{ getExampleTitle(item.example) }}</AppButton
           >
         </div>
-        <article v-if="example" :key="exampleIndex" class="exam-worked-example">
-          <div class="exam-question-card">
+        <article v-if="example && !patternSourcesLoading" id="exam-worked-example" :key="exampleIndex" class="exam-worked-example">
+          <div ref="exampleCardRef" class="exam-question-card" :class="{ 'exam-question-card--paper': example.source }" :style="{ minHeight: reservedExampleHeight ? `${reservedExampleHeight}px` : undefined }">
             <div class="exam-card-title exam-card-title--inline">
               <span
                 >{{
@@ -153,12 +185,15 @@
                 }}
                 {{ exampleIndex + 1 }}</span
               >
-              <h6>{{ example.title }}</h6>
+              <h6>{{ getExampleTitle(example) }}</h6>
             </div>
             <PastPaperQuestion
               v-if="example.source"
               :source="example.source"
+              :hide-source="sourceInPattern"
+              :hide-reason="exampleHasPattern"
               @ready="loadedSource = $event"
+              @source-info="exampleSourceInfo = $event"
             />
             <p v-else class="exam-question" lang="en"><KnowledgeText :text="example.question" /></p>
             <ol
@@ -171,24 +206,27 @@
                 ><KnowledgeText :text="option" />
               </li>
             </ol>
-            <AppButton
-              class="exam-button"
-              type="secondary"
-              size="small"
-              :aria-expanded="revealedExamples.includes(exampleIndex)"
-              :disabled="!exampleReady"
-              @click="toggleExample"
-              >{{
-                revealedExamples.includes(exampleIndex) ? '收起解析' : '查看推理与选项分析'
-              }}</AppButton
-            >
+            <div class="exam-example-actions">
+              <AppButton
+                class="exam-button"
+                type="secondary"
+                size="small"
+                :aria-expanded="revealedExamples.includes(exampleIndex)"
+                :disabled="!exampleReady"
+                @click="toggleExample"
+                >{{
+                  revealedExamples.includes(exampleIndex) ? '收起解析' : '查看推理与选项分析'
+                }}</AppButton
+              >
+              <div v-if="exampleReady && revealedExamples.includes(exampleIndex) && (example.answer || originalAnswer)" class="exam-answer">
+                <span>正确答案</span><strong><KnowledgeText :text="example.answer || originalAnswer" /></strong>
+              </div>
+            </div>
           </div>
           <div v-if="exampleReady && revealedExamples.includes(exampleIndex)" class="exam-solution">
-            <div class="exam-answer">
-              <span>正确答案</span><strong><KnowledgeText :text="example.answer" /></strong>
-            </div>
-            <h6 class="exam-reasoning-title">把知识用到这道题里</h6>
-            <ol class="exam-reasoning">
+            <OriginalQuestionAnalysis v-if="example.source" :subject="example.source.subject || 'biology'" :source-code="example.source.questionCode" @answer="originalAnswer = $event" />
+            <h6 v-if="example.steps.length" class="exam-reasoning-title">把知识用到这道题里</h6>
+            <ol v-if="example.steps.length" class="exam-reasoning">
               <li v-for="(step, index) in example.steps" :key="index">
                 <span>{{ index + 1 }}</span
                 ><KnowledgeText :text="step" />
@@ -202,7 +240,7 @@
                 </li>
               </ul>
             </div>
-            <p class="exam-takeaway">
+            <p v-if="example.takeaway" class="exam-takeaway">
               <strong>下次遇到类似题，记住这一点</strong><KnowledgeText :text="example.takeaway" />
             </p>
           </div>
@@ -258,10 +296,7 @@
             </li>
           </ul>
         </div>
-        <p v-if="focus.selfCheckNote" class="exam-self-check-note">
-          <KnowledgeText :text="focus.selfCheckNote" />
-        </p>
-        <KnowledgeSelfCheck :key="section.code" :code="section.code" />
+        <KnowledgeSelfCheck :key="section.code" :code="section.code" :exam-type="examType" />
         <div class="exam-checklist">
           <div class="exam-section-label">
             <CircleCheck aria-hidden="true" />
@@ -279,7 +314,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onDeactivated, ref } from 'vue'
+import { computed, nextTick, onDeactivated, ref, watch } from 'vue'
 import {
   CircleCheck,
   CollectionTag,
@@ -294,21 +329,59 @@ import KnowledgeText from './KnowledgeText.vue'
 import KnowledgeVisual from './KnowledgeVisual.vue'
 import PastPaperQuestion from './PastPaperQuestion.vue'
 import KnowledgeSelfCheck from './KnowledgeSelfCheck.vue'
+import KnowledgeConceptFlow from './KnowledgeConceptFlow.vue'
+import PythagorasMethods from './PythagorasMethods.vue'
+import CircleTheoremMethods from './CircleTheoremMethods.vue'
+import OriginalQuestionAnalysis from './OriginalQuestionAnalysis.vue'
+import { getLearningPatternSources, type LearningPatternSource } from '@/api/learningExamples'
 import type {
   KnowledgeExamFocus,
   KnowledgeExamStage,
   KnowledgeSection,
 } from '@/content/knowledge/types'
 
-const props = defineProps<{ section: KnowledgeSection; focus: KnowledgeExamFocus }>()
-// 将当前学习阶段交给外层面板，让例题页的速记显隐跟随标签和底部导航同步。
+const props = defineProps<{
+  section: KnowledgeSection
+  focus: KnowledgeExamFocus
+  examType: 'ESAT' | 'TMUA'
+}>()
+// 将当前学习阶段交给外层面板，让速记显隐跟随标签和底部导航同步。
 const activeTab = defineModel<KnowledgeExamStage>('stage', { default: 'summary' })
 const exampleIndex = ref(0)
+const exampleCardRef = ref<HTMLElement | null>(null)
+const reservedExampleHeight = ref(0)
 const loadedSource = ref('')
+const exampleSourceInfo = ref<{ code: string; origin: string; collection: string } | null>(null)
+const patternSources = ref<LearningPatternSource[]>([])
+const patternSourcesError = ref(false)
+const patternSourcesLoading = ref(false)
+const originalAnswer = ref('')
 const revealedExamples = ref<number[]>([])
 const revealedVariants = ref<number[]>([])
 const examplesHeadingRef = ref<HTMLElement>()
 const checkHeadingRef = ref<HTMLElement>()
+
+// 单一试卷类型的年份逐一标出来源；混合卷别不能推断逐年的对应关系。
+function formatPastPaperReference(reference: string): string {
+  if (props.examType !== 'ESAT' || !/NSAA|ENGAA/i.test(reference)) return reference
+  const singlePaper = /^(\d{4}(?:[—–-]\d{4})?(?:[、,，]\s*\d{4}(?:[—–-]\d{4})?)*)\s+(NSAA|ENGAA)(.*)$/i.exec(reference)
+  let formatted = reference
+  if (singlePaper && !/NSAA|ENGAA/i.test(singlePaper[3] || '')) {
+    const years: string[] = []
+    for (const part of singlePaper[1]!.split(/[、,，]/)) {
+      const bounds = part.trim().split(/[—–-]/).map(Number)
+      const start = bounds[0]!
+      const end = bounds[1] ?? start
+      // 超出正常年度范围时保留原文，避免把异常字符串当作完整年份列表。
+      if (end < start || end - start > 20) return reference
+      for (let year = start; year <= end; year++) years.push(`${year} ${singlePaper[2]}`)
+    }
+    formatted = years.join('、') + singlePaper[3]
+  }
+  const subjects: Record<string, string> = { '13': '物理', '14': '化学', '15': '生物' }
+  const subject = subjects[props.section.code.slice(0, 2)]
+  return subject && !formatted.includes(subject) ? `${formatted} · ${subject}` : formatted
+}
 
 // 数学、化学与物理使用宽幅互动图解和紧凑规则列表，保留生物既有的图文布局。
 const usesCompactLayout = computed(
@@ -328,6 +401,15 @@ const usesCompactLayout = computed(
       'maths2-trigonometry',
       'maths2-exponentials',
       'maths2-differentiation',
+      'maths2-integration',
+      'maths2-graphs',
+      'tmua-quadratic',
+      'tmua-simultaneous',
+      'tmua-indices',
+      'tmua-surds',
+      'tmua-inequalities',
+      'tmua-polynomials',
+      'tmua-functions',
       'physics-electricity',
       'physics-magnetism',
       'physics-mechanics',
@@ -361,7 +443,128 @@ onDeactivated(() => {
 })
 
 // 同一知识点中只展开当前选定的一道例题，减少长篇讲解的阅读负担。
-const example = computed(() => props.focus.examples[exampleIndex.value])
+// 旧讲义缺少历年归纳时，只从标明真题来源的精选例题提取考法，不冒充全量统计。
+const displayPatterns = computed(() => {
+  if (props.focus.pastPaperPatterns?.length) return props.focus.pastPaperPatterns
+  return props.focus.examples
+    .filter((item) => item.source && item.source.kind !== 'bank')
+    .map((item) => ({
+      form: item.title,
+      description: item.source!.why,
+      reference: item.source!.questionCode,
+      sourceCodes: [item.source!.questionCode],
+    }))
+})
+// 区分历年归纳和例题线索，避免让学生误认为单题代表完整考查范围。
+const patternHeading = computed(() =>
+  props.focus.pastPaperPatterns?.length ? '真题怎么考' : displayPatterns.value.length ? '精选真题怎么考' : '例题拆解',
+)
+// 每个考法优先沿用已有拆解；缺失时展示已关联的真题及其原始解析。
+const displayExamples = computed<KnowledgeExamFocus['examples']>(() => {
+  if (!props.focus.pastPaperPatterns?.length) return props.focus.examples
+  const used = new Set<KnowledgeExamFocus['examples'][number]>()
+  const examples: KnowledgeExamFocus['examples'] = []
+  for (const pattern of props.focus.pastPaperPatterns) {
+    const existing = props.focus.examples.find((item) => item.source && pattern.sourceCodes?.includes(item.source.questionCode))
+    if (existing) {
+      used.add(existing)
+      examples.push({ ...existing, title: pattern.form })
+      continue
+    }
+    const source = patternSources.value.find((item) => item.exampleAvailable && pattern.sourceCodes?.includes(item.code))
+    if (source) {
+      examples.push({ title: pattern.form, source: { questionCode: source.code, subject: 'pattern', kind: 'annual', why: pattern.description }, question: '', answer: '', steps: [], takeaway: '' })
+    }
+  }
+  return [...examples, ...props.focus.examples.filter((item) => !used.has(item))]
+})
+// 已选择的例题随考法列表读取，切换知识点时按既有流程恢复第一题。
+const example = computed(() => displayExamples.value[exampleIndex.value])
+// 已在考法中说明的题目不再重复显示练习目的。
+const exampleHasPattern = computed(() => {
+  const code = example.value?.source?.questionCode
+  return Boolean(code && displayPatterns.value.some((pattern) => pattern.sourceCodes?.includes(code)))
+})
+// 同一真题可能涉及多条考法，优先按生成的考法标题确定对应入口。
+function getPatternExampleIndex(pattern: { form: string; sourceCodes?: string[] }): number {
+  const codes = pattern.sourceCodes || []
+  const exact = displayExamples.value.findIndex((item) => item.title === pattern.form && item.source && codes.includes(item.source.questionCode))
+  return exact >= 0 ? exact : displayExamples.value.findIndex((item) => item.source && codes.includes(item.source.questionCode))
+}
+// 不属于任何已展示考法的例题保留独立入口，避免原有例题无法访问。
+const otherExamples = computed(() => {
+  const linked = new Set(displayPatterns.value.map(getPatternExampleIndex).filter((index) => index >= 0))
+  return displayExamples.value.map((item, index) => ({ example: item, index })).filter((item) => !linked.has(item.index))
+})
+// 更换例题时清除上题原始答案，解析展开后再读取当前题答案。
+watch(() => example.value?.source?.questionCode, () => { originalAnswer.value = '' })
+
+// 考法行负责选择对应例题，来源链接仍单独处理诊断卷导航。
+function selectPattern(pattern: { form: string; sourceCodes?: string[] }): void {
+  if (patternSourcesLoading.value) return
+  const index = getPatternExampleIndex(pattern)
+  if (index >= 0) selectExample(index)
+}
+
+// 切题时保留适度题卡高度，避免加载占位导致页面先收缩再撑开。
+function selectExample(index: number): void {
+  if (index === exampleIndex.value) return
+  reservedExampleHeight.value = Math.min(exampleCardRef.value?.offsetHeight || 0, 420)
+  exampleIndex.value = index
+}
+// 按真题来源匹配唯一考法，关联不明确时保留题目原有标题。
+function getExampleTitle(item: KnowledgeExamFocus['examples'][number]): string {
+  const code = item.source?.questionCode
+  if (!code) return item.title
+  const matches = displayPatterns.value.filter((pattern) => pattern.sourceCodes?.includes(code))
+  return matches.length === 1 ? matches[0]!.form : item.title
+}
+// 阅读例题时批量读取考法涉及的诊断卷位置，切换知识点时丢弃旧请求。
+watch(
+  () => [activeTab.value, props.examType, displayPatterns.value] as const,
+  async ([stage, examType, patterns], _previous, onCleanup) => {
+    let active = true
+    onCleanup(() => { active = false })
+    patternSources.value = []
+    patternSourcesError.value = false
+    patternSourcesLoading.value = false
+    if (stage !== 'examples') return
+    const codes = [...new Set(patterns.flatMap((pattern) => pattern.sourceCodes || []))]
+    if (!codes.length) return
+    patternSourcesLoading.value = true
+    try {
+      const sources = await getLearningPatternSources(examType, codes)
+      if (active) patternSources.value = sources
+    } catch {
+      // 来源接口暂不可用时保留讲义中已有的来源文字。
+      if (active) patternSourcesError.value = true
+    } finally {
+      if (active) patternSourcesLoading.value = false
+    }
+  },
+  { immediate: true },
+)
+
+// 多道来源逐题展示；未能匹配的来源保留原有归纳，避免丢失考查范围。
+function getPatternSourceLabels(pattern: { reference: string; sourceCodes?: string[] }): Array<{ key: string; source?: LearningPatternSource; text?: string }> {
+  const codes = pattern.sourceCodes || []
+  const matches = patternSources.value.filter((source) => codes.includes(source.code))
+  if (exampleSourceInfo.value && codes.includes(exampleSourceInfo.value.code) && !matches.some((source) => source.code === exampleSourceInfo.value?.code)) {
+    matches.push(exampleSourceInfo.value)
+  }
+  const labels = [...new Map(matches.map((source) => [ `${source.origin} · ${source.collection}`, { key: `${source.origin} · ${source.collection}`, source } ])).values()]
+  if (!labels.length || codes.some((code) => !matches.some((source) => source.code === code))) {
+    const text = formatPastPaperReference(pattern.reference)
+    return [...labels, { key: `fallback:${text}`, text }]
+  }
+  return labels
+}
+// 仅在来源编号与考法明确对应时上移，避免把例题归到不相关的考法。
+const sourceInPattern = computed(() =>
+  Boolean(exampleSourceInfo.value && displayPatterns.value.some((pattern) =>
+    pattern.sourceCodes?.includes(exampleSourceInfo.value!.code),
+  )),
+)
 // 原题尚未加载时不展示脱离题干的解析或变式，旧请求不能解锁另一道题。
 const exampleReady = computed(
   () => !example.value?.source || loadedSource.value === example.value.source.questionCode,
@@ -406,25 +609,26 @@ function toggleVariant(): void {
   margin: 0 0 24px;
   font-size: var(--text-sm);
 }
-.exam-patterns__summary {
-  margin: 0 0 14px;
-  color: var(--color-ink);
-  line-height: var(--leading-relaxed);
-}
 .exam-patterns__list {
   margin: 0;
-  border-top: 1px solid var(--color-learning-blue-line);
+  border-top: 1px solid var(--color-line);
 }
 .exam-patterns__row {
-  display: grid;
-  grid-template-columns: minmax(140px, 0.27fr) minmax(0, 1fr);
-  gap: 18px;
-  padding: 13px 0;
-  border-bottom: 1px solid var(--color-learning-blue-line);
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-line);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+}
+.exam-patterns__row.is-active {
+  border-left-color: var(--color-learning-teal);
+  background: var(--color-learning-teal-soft);
 }
 .exam-patterns__row dt {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
   color: var(--color-ink);
-  font-weight: var(--weight-semi);
+  font-weight: 700;
   line-height: var(--leading-relaxed);
 }
 .exam-patterns__row dd,
@@ -432,17 +636,67 @@ function toggleVariant(): void {
   margin: 0;
   line-height: var(--leading-relaxed);
 }
-.exam-patterns__reference {
-  display: block;
+.exam-patterns__row dd {
   margin-top: 4px;
-  color: var(--color-learning-blue);
-  font-size: var(--text-xs);
 }
-.exam-patterns__note {
-  margin: 10px 0 0;
+.exam-patterns__number {
+  flex: none;
+  color: var(--color-learning-blue);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.exam-patterns__title {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.exam-patterns__title:focus-visible {
+  outline: 2px solid var(--color-learning-blue);
+  outline-offset: 3px;
+}
+.exam-patterns__title:disabled {
+  cursor: default;
+}
+.exam-patterns__selected {
+  color: var(--color-learning-teal);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.exam-patterns__source {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 5px;
+  color: var(--color-ink-soft);
+  font-size: 13px;
+}
+.exam-patterns__source-label {
   color: var(--color-ink-muted);
-  font-size: var(--text-xs);
-  line-height: var(--leading-relaxed);
+}
+.exam-patterns__source-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.exam-patterns__source-item {
+  display: inline;
+}
+.exam-patterns__link {
+  color: var(--color-learning-blue);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.exam-patterns__link:hover {
+  color: var(--color-ink);
 }
 .exam-story {
   display: grid;
@@ -450,7 +704,31 @@ function toggleVariant(): void {
   align-items: start;
 }
 .exam-story--illustrated {
-  grid-template-columns: minmax(240px, 0.72fr) minmax(0, 1.28fr);
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr);
+  gap: 24px;
+}
+/* 细胞分裂讲解将要点延续在文字列，与较高的互动图解并行阅读。 */
+.exam-story > .exam-concepts {
+  grid-column: 1 / -1;
+}
+.exam-story--division {
+  grid-template-areas: 'narrative visual' 'concepts visual';
+  grid-template-rows: auto 1fr;
+  row-gap: 0;
+}
+.exam-story--division .exam-story__narrative {
+  grid-area: narrative;
+}
+.exam-story--division .exam-story__visual {
+  grid-area: visual;
+}
+.exam-story--division > .exam-concepts {
+  grid-area: concepts;
+  min-width: 0;
+}
+.exam-story--division .exam-concept-grid {
+  grid-template-columns: minmax(0, 1fr);
+  margin-bottom: 0;
 }
 /* 细胞图解自带结构说明栏，整行展示才能让插图与交互说明同时可读。 */
 .exam-story--atlas {
@@ -513,7 +791,7 @@ function toggleVariant(): void {
   line-height: 1.8;
 }
 .exam-summary-copy {
-  margin: 16px 0 0;
+  margin: 12px 0 0;
   font-size: var(--text-sm);
   line-height: 1.9;
 }
@@ -524,7 +802,7 @@ function toggleVariant(): void {
   --el-color-primary: var(--color-learning-blue);
 }
 .exam-tabs :deep(.el-tabs__header) {
-  margin-bottom: 24px;
+  margin-bottom: 18px;
 }
 .exam-tabs :deep(.el-tabs__item) {
   font-weight: var(--weight-semi);
@@ -668,15 +946,6 @@ function toggleVariant(): void {
   padding-top: 20px;
   border-top: 1px solid var(--color-line);
 }
-.exam-self-check-note {
-  margin: 16px 0 12px;
-  padding: 10px 14px;
-  border-left: 3px solid var(--color-learning-blue);
-  background: var(--color-learning-blue-soft);
-  color: var(--color-ink-soft);
-  font-size: var(--text-sm);
-  line-height: 1.8;
-}
 .exam-next-step p {
   margin: 0;
   font-size: var(--text-sm);
@@ -697,6 +966,11 @@ function toggleVariant(): void {
   gap: 10px;
   margin: 16px 0 20px;
 }
+.exam-example-picker__label {
+  align-self: center;
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+}
 .exam-example-picker :deep(.app-button) {
   max-width: 100%;
   min-height: 38px;
@@ -709,12 +983,23 @@ function toggleVariant(): void {
 .exam-example-picker .is-selected {
   box-shadow: inset 0 0 0 1px var(--color-learning-teal);
 }
+.exam-example-picker :deep(.app-button.el-button:active:not(:disabled)) {
+  transform: none;
+}
 .exam-question-card {
+  box-sizing: border-box;
+  overflow-anchor: none;
   padding: 22px;
   border: 1px solid var(--color-learning-teal-line);
   border-top: 3px solid var(--color-learning-teal);
   border-radius: var(--radius-lg);
   background: linear-gradient(140deg, var(--color-learning-teal-soft), var(--color-surface));
+}
+/* 外层使用轻色底，将在线答题组件的白色题干和选项从页面中区分出来。 */
+.exam-question-card--paper {
+  border: 1px solid #dfe6ef;
+  border-radius: var(--radius-md);
+  background: #f5f8fc;
 }
 .exam-card-title > span {
   display: block;
@@ -776,16 +1061,25 @@ function toggleVariant(): void {
   min-width: 0;
 }
 .exam-solution {
-  margin: 18px 0 24px;
+  margin: 12px 0 24px;
+  padding: 20px 22px;
+  border: 1px solid var(--color-learning-teal-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.exam-example-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
 }
 .exam-answer {
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
   gap: 6px;
-  padding: 16px 20px;
-  border-radius: var(--radius-md);
-  background: var(--color-learning-teal-soft);
-  line-height: 1.8;
+  min-width: 0;
+  line-height: 1.5;
 }
 .exam-answer > span {
   color: var(--color-learning-teal);
@@ -1007,11 +1301,18 @@ function toggleVariant(): void {
   .exam-story--illustrated {
     grid-template-columns: minmax(0, 1fr);
   }
+  .exam-story--division {
+    grid-template-areas: 'narrative' 'visual' 'concepts';
+    grid-template-rows: auto;
+    row-gap: 18px;
+  }
 }
 @media (max-width: 760px) {
+  .exam-solution {
+    padding: 16px;
+  }
   .exam-patterns__row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 4px;
+    padding: 10px 0;
   }
   .exam-tabs :deep(.el-tabs__item) {
     padding: 0 12px;

@@ -40,6 +40,14 @@ export interface ExamPreferenceRecord {
   weeklyHours?: number;
 }
 
+const ESAT_SUBJECT_MODULE_CODE: Record<string, string> = {
+  数学1: "maths1",
+  数学2: "maths2",
+  物理: "physics",
+  化学: "chemistry",
+  生物: "biology",
+};
+
 export interface StudyPreferences {
   examTypes: string[];
   primaryExamType: StudyExamType | null;
@@ -486,6 +494,28 @@ export async function getMemberContext(userId: string) {
 // 读取历史或空偏好时统一返回数组，避免会员上下文输出不稳定结构。
 function safeParseExamPreferences(raw: unknown): ExamPreferenceRecord[] {
   return parseJsonArray<ExamPreferenceRecord>(raw);
+}
+
+// ESAT 完整套卷统一读取个人中心保存的三科目标，并转换为模块代码。
+export function resolveEsatModuleCodes(rawPreferences: unknown): string[] | null {
+  const preference = safeParseExamPreferences(rawPreferences).find(
+    (item) => item.examType.toUpperCase() === "ESAT",
+  );
+  const codes = (preference?.subjects || [])
+    .map((subject) => ESAT_SUBJECT_MODULE_CODE[subject])
+    .filter((code): code is string => Boolean(code));
+  if (codes.length !== 3 || new Set(codes).size !== 3 || !codes.includes("maths1")) return null;
+  return codes;
+}
+
+// 开考和目录接口复用同一份用户科目读取，避免诊断与模考采用不同规则。
+export async function getUserEsatModuleCodes(userId?: string): Promise<string[] | null> {
+  if (!userId) return null;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { examPreferences: true },
+  });
+  return resolveEsatModuleCodes(user?.examPreferences);
 }
 
 // 历史申请季和完整日期统一映射到个人中心支持的考试月份。

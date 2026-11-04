@@ -1,5 +1,7 @@
-// 数学2前六章讲义、精选例题与自测回归：验证覆盖、题源边界、答案隔离和判分。
+// 数学2全部八章讲义、精选例题与自测回归：验证覆盖、题源边界、答案隔离和判分。
 import assert from "node:assert/strict";
+import { selfCheckOriginalReplacements } from "../src/constants/selfCheckOriginalReplacements.js";
+import { createRequire } from "node:module";
 import { prisma } from "../src/services/prisma.js";
 import { mathematics2LearningSources } from "../src/constants/mathematics2LearningSources.js";
 import { mathematics2LearningSelfChecks } from "../src/constants/mathematics2LearningSelfChecks.js";
@@ -12,6 +14,46 @@ import {
   getLearningSelfCheck,
 } from "../src/services/learningSelfCheck.js";
 import { findKnowledgeLesson } from "../../quiz-web/src/content/knowledge/index.js";
+
+const requireFrontend = createRequire(
+  new URL("../../quiz-web/package.json", import.meta.url),
+);
+const katex = requireFrontend("katex") as {
+  renderToString: (
+    formula: string,
+    options: { throwOnError: boolean; strict: string },
+  ) => string;
+};
+
+function validateLessonFormulas(value: unknown, path: string): void {
+  if (typeof value === "string") {
+    assert(
+      !/[\u0000-\u0008\u000b-\u001f\t]/.test(value),
+      `${path} 含公式转义生成的控制字符`,
+    );
+    for (const match of value.matchAll(
+      /\$\$([\s\S]*?)\$\$|\$([^$\n]+)\$|\\\(([\s\S]*?)\\\)|\\\[([\s\S]*?)\\\]/g,
+    )) {
+      const formula = match[1] ?? match[2] ?? match[3] ?? match[4]!;
+      assert.doesNotThrow(
+        () =>
+          katex.renderToString(formula, {
+            throwOnError: true,
+            strict: "error",
+          }),
+        `${path}: ${formula}`,
+      );
+    }
+  } else if (Array.isArray(value)) {
+    value.forEach((item, index) =>
+      validateLessonFormulas(item, `${path}[${index}]`),
+    );
+  } else if (value && typeof value === "object") {
+    Object.entries(value).forEach(([key, item]) =>
+      validateLessonFormulas(item, `${path}.${key}`),
+    );
+  }
+}
 
 const originalMany = prisma.question.findMany;
 const originalFirst = prisma.question.findFirst;
@@ -58,6 +100,19 @@ assert.deepEqual(Object.keys(mathematics2LearningSelfChecks).sort(), [
   "120601",
   "120602",
   "120603",
+  "120701",
+  "120702",
+  "120703",
+  "120704",
+  "120705",
+  "120706",
+  "120801",
+  "120802",
+  "120803",
+  "120804",
+  "120805",
+  "120806",
+  "120807",
 ]);
 // 前后端必须引用同一组考纲与真实题源；章节接入遗漏不能被接口的模拟数据掩盖。
 for (const code of Object.keys(mathematics2LearningSelfChecks)) {
@@ -150,7 +205,7 @@ for (const section of exponentials.sections) {
     "同一知识点的自测不得重复已展示答案的例题",
   );
 }
-assert.equal(findKnowledgeLesson("ESAT", "120700"), null);
+assert.equal(findKnowledgeLesson("ESAT", "120900"), null);
 // 微分证据覆盖直接求导和相关优化应用，不以精选例题子集代替完整年度审阅。
 const differentiation = findKnowledgeLesson("ESAT", "120600")!;
 assert.deepEqual(
@@ -194,6 +249,106 @@ for (const section of differentiation.sections) {
     "微分自测须使用与同节例题不同的题目",
   );
 }
+// 完成章末两章时核对精确叶子范围，并禁止例题答案提前泄露同节自测。
+const integrationEvidence = new Set(
+  findKnowledgeLesson("ESAT", "120700")!.sections.flatMap((section) =>
+    (section.examFocus?.pastPaperPatterns ?? []).flatMap(
+      (pattern) => pattern.sourceCodes ?? [],
+    ),
+  ),
+);
+assert.deepEqual(
+  [...integrationEvidence].sort(),
+  [
+    "ENGAA_2016_S1-Q051",
+    "ESAT_LEGACY_2018_ENGAA_Q29",
+    "ESAT_LEGACY_2018_ENGAA_Q49",
+    "ESAT_LEGACY_2018_ENGAA_Q51",
+    "NSAA_2019_S1-Q073",
+    "NSAA_2019_S1-Q083",
+    "NSAA_2019_S1-Q085",
+    "ESAT-2020-MATHS2-002",
+    "ESAT_LEGACY_2022_ENGAA_Q021",
+    "ENGAA_2023_S1-Q031",
+  ].sort(),
+);
+for (const [chapterCode, count] of [
+  ["120700", 6],
+  ["120800", 7],
+] as const) {
+  const lesson = findKnowledgeLesson("ESAT", chapterCode)!;
+  assert(lesson, `${chapterCode} 缺少章节入口`);
+  validateLessonFormulas(lesson, chapterCode);
+  assert.deepEqual(
+    lesson.sections.map((section) => section.code),
+    Array.from({ length: count }, (_, index) =>
+      String(Number(chapterCode) + index + 1),
+    ),
+  );
+  for (const section of lesson.sections) {
+    const self = mathematics2LearningSelfChecks[section.code]?.selection;
+    assert(self, `${section.code} 缺少固定自测`);
+    assert(
+      section.examFocus!.examples.every(
+        (example) => example.source?.questionCode !== self.questionCode,
+      ),
+      `${section.code} 自测与同节例题重复`,
+    );
+  }
+}
+// 图像考法含直接图像题与已标明的关联题，回归保留全量审阅后的40道证据。
+const graphEvidence = new Set(
+  findKnowledgeLesson("ESAT", "120800")!.sections.flatMap((section) =>
+    (section.examFocus?.pastPaperPatterns ?? []).flatMap(
+      (pattern) => pattern.sourceCodes ?? [],
+    ),
+  ),
+);
+assert.deepEqual(
+  [...graphEvidence].sort(),
+  [
+    "ENGAA_2016_S1-Q039",
+    "ENGAA_2016_S1-Q041",
+    "ENGAA_2016_S1-Q043",
+    "ENGAA_2016_S1-Q045",
+    "ENGAA_2016_S1-Q047",
+    "ENGAA_2016_S1-Q049",
+    "ENGAA_2016_S1-Q053",
+    "ENGAA_2017_S1-Q031",
+    "ENGAA_2017_S1-Q039",
+    "ENGAA_2017_S1-Q041",
+    "ENGAA_2017_S1-Q045",
+    "ENGAA_2017_S1-Q049",
+    "ENGAA_2017_S1-Q051",
+    "ENGAA_2017_S1-Q053",
+    "ENGAA_2023_S1-Q021",
+    "ENGAA_2023_S1-Q029",
+    "ENGAA_2023_S1-Q039",
+    "ESAT-2020-MATHS2-001",
+    "ESAT-2020-MATHS2-003",
+    "ESAT-2020-MATHS2-005",
+    "ESAT-2020-MATHS2-007",
+    "ESAT-2020-MATHS2-008",
+    "ESAT_LEGACY_2018_ENGAA_Q29",
+    "ESAT_LEGACY_2018_ENGAA_Q31",
+    "ESAT_LEGACY_2018_ENGAA_Q33",
+    "ESAT_LEGACY_2021_ENGAA_Q025",
+    "ESAT_LEGACY_2021_ENGAA_Q031",
+    "ESAT_LEGACY_2021_ENGAA_Q035",
+    "ESAT_LEGACY_2021_ENGAA_Q039",
+    "ESAT_LEGACY_2021_NSAA_Q004",
+    "ESAT_LEGACY_2022_ENGAA_Q023",
+    "ESAT_LEGACY_2022_ENGAA_Q031",
+    "ESAT_LEGACY_2022_ENGAA_Q033",
+    "ESAT_LEGACY_2022_ENGAA_Q035",
+    "ESAT_LEGACY_2022_ENGAA_Q037",
+    "NSAA_2019_S1-Q073",
+    "NSAA_2019_S1-Q075",
+    "NSAA_2019_S1-Q089",
+    "NSAA_2023_S1-Q016",
+    "NSAA_2023_S1-Q019",
+  ].sort(),
+);
 let count = 1;
 let reads = 0;
 let canReadSolutions = false;
@@ -294,10 +449,14 @@ try {
     assert.equal(Object.hasOwn(result.question, "learning_analysis"), false);
     assert.equal(JSON.stringify(result).includes("Submission-only"), false);
   }
-  // 全部26个知识点逐一验证答案隔离、题目绑定和提交后判分，保留复盘题的正常作答能力。
+  // 全部39个知识点逐一验证答案隔离、题目绑定和提交后判分，保留复盘题的正常作答能力。
   for (const [code, entry] of Object.entries(mathematics2LearningSelfChecks)) {
     assert(entry.selection, `${code} 应配置已审阅的自测来源`);
     const result = await getLearningSelfCheck(code);
+    if (Object.hasOwn(selfCheckOriginalReplacements, code) && selfCheckOriginalReplacements[code] === null) {
+      assert.equal(result?.question, null);
+      continue;
+    }
     assert(result?.question);
     assert.equal(Object.hasOwn(result.question, "answer"), false);
     canReadSolutions = true;
@@ -320,10 +479,6 @@ try {
   }
   count = 2;
   assert.equal(await getMathematics2LearningExample(annual[0]), null);
-  assert.equal((await getLearningSelfCheck(annualCheck[0]))?.question, null);
-  canReadSolutions = true;
-  assert.equal(await checkLearningSelfCheck(annualCheck[0], row.id, "A"), null);
-  canReadSolutions = false;
   count = 0;
   assert.equal(await getMathematics2LearningExample(bank[0]), null);
   assert.equal((await getLearningSelfCheck(bankCheck[0]))?.question, null);
@@ -335,7 +490,7 @@ try {
     }),
   );
   console.log(
-    "数学2前六章26点讲义与映射、全部精选例题、两类题源、答案隔离、判分、重复来源及下架检查通过",
+    "数学2全部八章39点讲义与映射、全部精选例题、两类题源、答案隔离、判分、重复来源及下架检查通过",
   );
 } finally {
   prisma.question.findMany = originalMany;

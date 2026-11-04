@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { prisma } from "../src/services/prisma.js";
 import { mathematicsLearningSources } from "../src/constants/mathematicsLearningSources.js";
 import { mathematicsLearningSelfChecks } from "../src/constants/mathematicsLearningSelfChecks.js";
+import { selfCheckOriginalReplacements } from "../src/constants/selfCheckOriginalReplacements.js";
 import {
   mathematicsQuestionWhere,
   getMathematicsLearningExample,
@@ -302,10 +303,14 @@ try {
     assert.equal(Object.hasOwn(result.question, "learning_analysis"), false);
     assert.equal(JSON.stringify(result).includes("Submission-only"), false);
   }
-  // 全部76个知识点逐一验证答案隔离、题目绑定和提交后判分，保留复盘题的正常作答能力。
+  // 验证自研题答案隔离和判分；缺少自研题的知识点不得回退到真题。
   for (const [code, entry] of Object.entries(mathematicsLearningSelfChecks)) {
     assert(entry.selection, `${code} 应配置已审阅的自测来源`);
     const result = await getLearningSelfCheck(code);
+    if (Object.hasOwn(selfCheckOriginalReplacements, code) && selfCheckOriginalReplacements[code] === null) {
+      assert.equal(result?.question, null);
+      continue;
+    }
     assert(result?.question);
     assert.equal(Object.hasOwn(result.question, "answer"), false);
     assert.equal(await checkLearningSelfCheck(code, "wrong-id", "A"), null);
@@ -326,8 +331,6 @@ try {
   }
   count = 2;
   assert.equal(await getMathematicsLearningExample(annual[0]), null);
-  assert.equal((await getLearningSelfCheck(annualCheck[0]))?.question, null);
-  assert.equal(await checkLearningSelfCheck(annualCheck[0], row.id, "A"), null);
   count = 0;
   assert.equal(await getMathematicsLearningExample(bank[0]), null);
   assert.equal((await getLearningSelfCheck(bankCheck[0]))?.question, null);

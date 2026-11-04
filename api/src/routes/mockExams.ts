@@ -15,7 +15,11 @@ import {
   QUESTION_STATUS,
 } from '../constants/domain.js'
 import { prisma } from '../services/prisma.js'
-import { hasDiagnosticPaperAccess, type ExamPreferenceRecord } from '../services/member.js'
+import {
+  getUserEsatModuleCodes,
+  hasDiagnosticPaperAccess,
+  type ExamPreferenceRecord,
+} from '../services/member.js'
 import { computeScores, type QuestionResult, type ScoringResult } from '../services/scoring.js'
 import {
   buildModuleExamSnapshot,
@@ -38,14 +42,6 @@ import {
 } from '../utils/mockPaperState.js'
 
 export const mockExamRouter = createAsyncRouter()
-
-const ESAT_SUBJECT_CODE: Record<string, string> = {
-  数学1: 'maths1',
-  数学2: 'maths2',
-  物理: 'physics',
-  化学: 'chemistry',
-  生物: 'biology',
-}
 
 type MockModuleRow = {
   id: string
@@ -85,23 +81,6 @@ function paginationMeta(page: number, pageSize: number, total: number) {
     hasPrev: page > 1,
     hasNext: totalPages > 0 && page < totalPages,
   }
-}
-
-// ESAT 使用用户保存的三个科目；没有完整偏好时目录展示结构占位，开考时要求先完善资料。
-async function getEsatModuleCodes(userId?: string): Promise<string[] | null> {
-  if (!userId) return null
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { examPreferences: true },
-  })
-  const preference = parseJsonArray<ExamPreferenceRecord>(user?.examPreferences).find(
-    (item) => item.examType.toUpperCase() === EXAM_TYPE.ESAT,
-  )
-  const codes = (preference?.subjects || [])
-    .map((subject) => ESAT_SUBJECT_CODE[subject])
-    .filter(Boolean)
-  if (codes.length !== 3 || new Set(codes).size !== 3 || !codes.includes('maths1')) return null
-  return codes
 }
 
 // ESAT 目录与开考均按个人中心三科映射，不能完整覆盖三科的套卷不作为可用套卷。
@@ -239,7 +218,7 @@ mockExamRouter.get('/catalog', optionalAuth, async (req, res) => {
     (set) => deriveMockPaperReadiness(set.examType, set.modules).fullExamReady,
   )
   const esatModuleCodes = examType === EXAM_TYPE.ESAT
-    ? await getEsatModuleCodes(userId)
+    ? await getUserEsatModuleCodes(userId)
     : null
   const visibleSets = sets.filter((set) => (
     set.examType !== EXAM_TYPE.ESAT
@@ -1034,7 +1013,7 @@ mockExamRouter.post('/papers/:id/attempts', requireAuth, async (req, res) => {
     return
   }
   const esatModuleCodes = set.examType === EXAM_TYPE.ESAT
-    ? await getEsatModuleCodes(req.user!.userId)
+    ? await getUserEsatModuleCodes(req.user!.userId)
     : null
   if (set.examType === EXAM_TYPE.ESAT && !esatModuleCodes) {
     res.status(422).json(fail(

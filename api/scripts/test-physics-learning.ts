@@ -1,5 +1,6 @@
 // 物理全七章讲义、精选例题与自测回归：验证覆盖、题源边界、答案隔离和判分。
 import assert from "node:assert/strict";
+import { selfCheckOriginalReplacements } from "../src/constants/selfCheckOriginalReplacements.js";
 import { prisma } from "../src/services/prisma.js";
 import { physicsLearningSources } from "../src/constants/physicsLearningSources.js";
 import { physicsLearningSelfChecks } from "../src/constants/physicsLearningSelfChecks.js";
@@ -221,6 +222,10 @@ try {
   for (const [code, entry] of Object.entries(physicsLearningSelfChecks)) {
     assert(entry.selection, `${code} 应配置已审阅的自测来源`);
     const result = await getLearningSelfCheck(code);
+    if (Object.hasOwn(selfCheckOriginalReplacements, code) && selfCheckOriginalReplacements[code] === null) {
+      assert.equal(result?.question, null);
+      continue;
+    }
     assert(result?.question);
     assert.equal(Object.hasOwn(result.question, "answer"), false);
     canReadSolutions = true;
@@ -243,10 +248,6 @@ try {
   }
   count = 2;
   assert.equal(await getPhysicsLearningExample(annual[0]), null);
-  assert.equal((await getLearningSelfCheck(annualCheck[0]))?.question, null);
-  canReadSolutions = true;
-  assert.equal(await checkLearningSelfCheck(annualCheck[0], row.id, "A"), null);
-  canReadSolutions = false;
   count = 0;
   assert.equal(await getPhysicsLearningExample(bank[0]), null);
   assert.equal((await getLearningSelfCheck(bankCheck[0]))?.question, null);

@@ -5,6 +5,8 @@ import { maths2CoordinateSources } from "./maths2Coordinate.js";
 import { maths2TrigonometrySources } from "./maths2Trigonometry.js";
 import { maths2ExponentialsSources } from "./maths2Exponentials.js";
 import { maths2DifferentiationSources } from "./maths2Differentiation.js";
+import { maths2IntegrationSources } from "./maths2Integration.js";
+import { maths2GraphsSources } from "./maths2Graphs.js";
 import type { MathematicsLearningSelection } from "./mathematicsLearningTypes.js";
 
 export const mathematics2LearningSources: Record<
@@ -17,4 +19,6 @@ export const mathematics2LearningSources: Record<
   ...maths2TrigonometrySources,
   ...maths2ExponentialsSources,
   ...maths2DifferentiationSources,
+  ...maths2IntegrationSources,
+  ...maths2GraphsSources,
 };

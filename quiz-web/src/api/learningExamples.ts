@@ -1,7 +1,8 @@
 // 学习讲义的精选真题与固定自测请求，沿用项目统一题卡数据契约。
 import { callApi } from '@/utils/request'
-import type { RenderableQuestion } from '@/types'
+import type { LearningAnalysis, RenderableQuestion } from '@/types'
 import type { ExamQuestion } from '@/api/exam'
+import type { ActiveExamType } from '@/stores/auth'
 
 export interface LearningSelfCheck {
   question: RenderableQuestion | null
@@ -41,21 +42,73 @@ export type MathematicsLearningExample = ChemistryLearningExample
 // 物理复用已校验的来源展示与题卡契约，读取范围由物理服务独立限定。
 export type PhysicsLearningExample = ChemistryLearningExample
 
+export interface LearningPatternSource {
+  code: string
+  origin: string
+  collection: string
+  year?: number
+  paperTitle?: string
+  location?: string
+  exampleAvailable?: boolean
+}
+
+// 批量读取考法关联真题的诊断卷位置，不请求题干或答案。
+export function getLearningPatternSources(examType: ActiveExamType, codes: string[]) {
+  return callApi<LearningPatternSource[]>({
+    method: 'POST',
+    url: '/learning/pattern-sources',
+    body: { examType, codes },
+    silent: true,
+  })
+}
+
+// 读取考法已关联的年度真题，题面不包含答案与解析。
+export function getLearningPatternExample(code: string) {
+  return callApi<MathematicsLearningExample>({
+    method: 'GET',
+    url: `/learning/pattern/examples/${encodeURIComponent(code)}`,
+    silent: true,
+  })
+}
+
+// 原解析仅在学生展开例题后读取，题目仍由已审核题源限定。
+export function getLearningExampleAnalysis(subject: string, sourceCode: string) {
+  return callApi<{ sourceCode: string; answer: string[]; analysis: LearningAnalysis }>({
+    method: 'GET',
+    url: `/learning/${encodeURIComponent(subject)}/examples/${encodeURIComponent(sourceCode)}/analysis`,
+    silent: true,
+  })
+}
+
 // 固定精选题由服务端知识点白名单决定，学生无需筛选。
-export function getLearningSelfCheck(code: string) {
+export function getLearningSelfCheck(code: string, examType: ActiveExamType = 'ESAT') {
   return callApi<LearningSelfCheck>({
     method: 'GET',
-    url: `/learning/esat/self-check/${encodeURIComponent(code)}`,
+    url: `/learning/${examType.toLowerCase()}/self-check/${encodeURIComponent(code)}`,
     silent: true,
   })
 }
 
 // 提交选项后才返回题库解析，不产生正式练习记录。
-export function checkLearningSelfCheck(code: string, questionId: string, answer: string) {
+export function checkLearningSelfCheck(
+  code: string,
+  questionId: string,
+  answer: string,
+  examType: ActiveExamType = 'ESAT',
+) {
   return callApi<LearningSelfCheckResult>({
     method: 'POST',
-    url: `/learning/esat/self-check/${encodeURIComponent(code)}/answer`,
+    url: `/learning/${examType.toLowerCase()}/self-check/${encodeURIComponent(code)}/answer`,
     body: { questionId, answer },
+    silent: true,
+  })
+}
+
+// TMUA 使用独立审核题源，复用现有题卡与来源展示契约。
+export function getTmuaLearningExample(sourceCode: string) {
+  return callApi<MathematicsLearningExample>({
+    method: 'GET',
+    url: `/learning/tmua/examples/${encodeURIComponent(sourceCode)}`,
     silent: true,
   })
 }

@@ -7,28 +7,29 @@
       <AppButton type="secondary" size="small" @click="retryKey++">重新加载题目</AppButton>
     </div>
     <template v-else-if="data">
-      <p class="past-paper-source">
+      <p v-if="!hideSource" class="past-paper-source">
         <template v-if="'collectionLabel' in data.source">
-          <span>收录于：{{ data.source.collectionLabel }}</span>
-          <span class="past-paper-source__divider" aria-hidden="true">｜</span>
-          <span>来源：{{ data.source.originLabel }}</span>
+          <span>题目来源：{{ data.source.originLabel }}</span>
+          <span class="past-paper-source__divider" aria-hidden="true"> · </span>
+          <span>收录于 {{ data.source.collectionLabel }}</span>
         </template>
         <template v-else>
           <span
-            >收录于：{{ data.source.diagnosticTitle }} · 生物第
-            {{ data.source.diagnosticQuestionNumber }} 题</span
-          >
-          <span class="past-paper-source__divider" aria-hidden="true">｜</span>
-          <span
-            >来源：{{ data.source.year }} {{ data.source.exam }} · {{ data.source.paper }} · 第
+            >题目来源：{{ data.source.year }} {{ data.source.exam }} · {{ data.source.paper }} · 第
             {{ data.source.questionNumber }} 题</span
+          >
+          <span class="past-paper-source__divider" aria-hidden="true"> · </span>
+          <span
+            >收录于 {{ data.source.diagnosticTitle }} · 生物第
+            {{ data.source.diagnosticQuestionNumber }} 题</span
           >
         </template>
       </p>
-      <p class="past-paper-reason"><strong>这道题练什么：</strong>{{ source.why }}</p>
+      <p v-if="!hideReason" class="past-paper-reason"><strong>这道题练什么：</strong>{{ source.why }}</p>
       <QuestionCard
         :question="data.question"
         :index="0"
+        variant="exam"
         :show-question-label="false"
         :selected-answer="selectedAnswer"
         :show-favorite="false"
@@ -48,6 +49,8 @@ import {
   getMathematicsLearningExample,
   getMathematics2LearningExample,
   getPhysicsLearningExample,
+  getTmuaLearningExample,
+  getLearningPatternExample,
   type BiologyLearningExample,
   type ChemistryLearningExample,
 } from '@/api/learningExamples'
@@ -57,11 +60,16 @@ const props = defineProps<{
   source: {
     questionCode: string
     why: string
-    subject?: 'biology' | 'chemistry' | 'mathematics1' | 'mathematics2' | 'physics'
+    subject?: 'biology' | 'chemistry' | 'mathematics1' | 'mathematics2' | 'physics' | 'tmua' | 'pattern'
     kind?: 'annual' | 'bank'
   }
+  hideSource?: boolean
+  hideReason?: boolean
 }>()
-const emit = defineEmits<{ ready: [sourceCode: string] }>()
+const emit = defineEmits<{
+  ready: [sourceCode: string]
+  sourceInfo: [info: { code: string; origin: string; collection: string } | null]
+}>()
 const data = ref<BiologyLearningExample | ChemistryLearningExample | null>(null)
 const loading = ref(false)
 const error = ref('')
@@ -81,20 +89,35 @@ watch(
     error.value = ''
     loading.value = true
     emit('ready', '')
+    emit('sourceInfo', null)
     try {
       const result =
-        props.source.subject === 'physics'
-          ? await getPhysicsLearningExample(code)
-          : props.source.subject === 'mathematics1'
-            ? await getMathematicsLearningExample(code)
-            : props.source.subject === 'mathematics2'
-              ? await getMathematics2LearningExample(code)
-              : props.source.subject === 'chemistry'
-                ? await getChemistryLearningExample(code)
-                : await getBiologyLearningExample(code)
+        props.source.subject === 'pattern'
+          ? await getLearningPatternExample(code)
+          : props.source.subject === 'tmua'
+          ? await getTmuaLearningExample(code)
+          : props.source.subject === 'physics'
+            ? await getPhysicsLearningExample(code)
+            : props.source.subject === 'mathematics1'
+              ? await getMathematicsLearningExample(code)
+              : props.source.subject === 'mathematics2'
+                ? await getMathematics2LearningExample(code)
+                : props.source.subject === 'chemistry'
+                  ? await getChemistryLearningExample(code)
+                  : await getBiologyLearningExample(code)
       if (!active) return
       if (result.sourceCode !== code) throw new Error('题目来源不匹配，请重新加载。')
       data.value = result
+      const source = result.source
+      emit('sourceInfo', {
+        code,
+        origin: 'originLabel' in source
+          ? source.originLabel
+          : `${source.year} ${source.exam} · ${source.paper} · 第 ${source.questionNumber} 题`,
+        collection: 'collectionLabel' in source
+          ? source.collectionLabel
+          : `${source.diagnosticTitle} · 生物第 ${source.diagnosticQuestionNumber} 题`,
+      })
       emit('ready', code)
     } catch (cause) {
       if (active) error.value = getApiErrorMessage(cause, '题目暂时无法加载，请重试。')
@@ -111,7 +134,7 @@ watch(
   min-width: 0;
   margin: 8px 0 20px;
 }
-/* 原卷出处与诊断卷位置合并展示，长文本在窄屏自然换行。 */
+/* 原卷出处与收录位置连成一条来源信息，长文本在窄屏自然换行。 */
 .past-paper-source {
   margin: 0 0 12px;
   color: var(--color-ink-soft);
@@ -133,8 +156,5 @@ watch(
   border-radius: var(--radius-md);
   background: var(--color-learning-amber-soft);
   line-height: 1.8;
-}
-.past-paper-question :deep(.question-card) {
-  box-shadow: none;
 }
 </style>

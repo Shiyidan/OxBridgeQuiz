@@ -10,6 +10,8 @@ export interface KnowledgeSection {
   code: string
   title: string
   summary: string
+  // 知识点可提供专属速记，未配置时沿用章节级速记。
+  memory?: string[]
   paragraphs: string[]
   rules: Array<{ title: string; text: string }>
   example?: { question: string; steps: string[]; answer: string }
@@ -17,6 +19,15 @@ export interface KnowledgeSection {
   check?: { question: string; options: string[]; answerIndex: number; explanation: string }
   sourceIds: string[]
   examFocus?: KnowledgeExamFocus
+  // 图文交织的思维讲解，适用于需要逐步解释推理条件的知识点。
+  conceptFlow?: {
+    eyebrow: string
+    title: string
+    lead: string
+    visualPrompt: string
+    observations: Array<{ title: string; text: string }>
+    steps: Array<{ label: string; title: string; paragraphs: string[]; takeaway: string }>
+  }
   visual?:
     | 'unit-scale'
     | 'number-line'
@@ -26,6 +37,7 @@ export interface KnowledgeSection {
     | 'maths-ratio'
     | 'maths-algebra'
     | 'maths-geometry'
+    | 'pythagoras-strategy'
     | 'maths-statistics'
     | 'maths-probability'
     | 'maths2-algebra'
@@ -34,6 +46,15 @@ export interface KnowledgeSection {
     | 'maths2-trigonometry'
     | 'maths2-exponentials'
     | 'maths2-differentiation'
+    | 'maths2-integration'
+    | 'maths2-graphs'
+    | 'tmua-quadratic'
+    | 'tmua-simultaneous'
+    | 'tmua-indices'
+    | 'tmua-surds'
+    | 'tmua-inequalities'
+    | 'tmua-polynomials'
+    | 'tmua-functions'
     | 'physics-electricity'
     | 'physics-magnetism'
     | 'physics-mechanics'
@@ -95,7 +116,7 @@ export interface KnowledgeExamFocus {
     source?: {
       questionCode: string
       why: string
-      subject?: 'biology' | 'chemistry' | 'mathematics1' | 'mathematics2' | 'physics'
+      subject?: 'biology' | 'chemistry' | 'mathematics1' | 'mathematics2' | 'physics' | 'tmua' | 'pattern'
       kind?: 'annual' | 'bank'
     }
     question: string
@@ -111,6 +132,8 @@ export interface KnowledgeExamFocus {
 
 export interface KnowledgeLesson {
   code: string
+  // 部分章节只开放已完成的叶子，避免把试点误标为整章完成。
+  partial?: boolean
   title: string
   subtitle: string
   intro: string

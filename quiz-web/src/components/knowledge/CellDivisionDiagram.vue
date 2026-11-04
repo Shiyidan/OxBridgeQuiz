@@ -623,7 +623,9 @@ const fertilisedChromosomes = computed(() =>
 
 <style scoped>
 .division-illustration {
-  min-width: 600px;
+  min-width: 0;
+  max-width: 620px;
+  margin-inline: auto;
 }
 .surface-stop {
   stop-color: var(--color-surface);

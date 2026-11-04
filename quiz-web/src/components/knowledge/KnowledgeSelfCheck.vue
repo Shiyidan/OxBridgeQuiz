@@ -10,11 +10,13 @@
       <div class="knowledge-self-check__question">
         <header class="knowledge-self-check__header">
           <h5>知识点自测</h5>
-          <span>{{ data.sourceLabel || '精选试题库题目' }} · 不计入练习记录</span>
+          <span>{{ data.sourceLabel || '精选试题库题目' }}</span>
+          <span class="knowledge-self-check__difficulty">{{ difficultyLabel }}</span>
         </header>
         <QuestionCard
           :question="result?.question || data.question"
           :index="0"
+          variant="exam"
           :show-question-label="false"
           :show-favorite="false"
           :selected-answer="selectedAnswer"
@@ -117,10 +119,16 @@ import {
 } from '@/api/learningExamples'
 import { getApiErrorMessage } from '@/utils/request'
 
-const props = defineProps<{ code: string }>()
+const props = defineProps<{ code: string; examType: 'ESAT' | 'TMUA' }>()
 const data = ref<LearningSelfCheck | null>(null)
 const result = ref<LearningSelfCheckResult | null>(null)
 const explanationOpen = ref(true)
+// 难度以题库中该题的实际标注为准，未标注时不推测难度。
+const difficultyLabel = computed(() => {
+  const labels: Record<string, string> = { easy: '简单', medium: '中等', hard: '困难' }
+  const difficulty = data.value?.question?.difficulty
+  return difficulty && labels[difficulty] ? `难度：${labels[difficulty]}` : '难度未标注'
+})
 // 解析仅来自提交后的题库响应，未作答时不读取或显示答案。
 const analysis = computed(() => result.value?.question.learning_analysis)
 // 完整解析优先，结构化推理作为缺失时的兜底，避免同一解法重复出现。
@@ -162,8 +170,8 @@ onActivated(() => {
 
 // 切知识点或卸载时使旧请求失效，确保题目、选项与判分不会跨知识点串用。
 watch(
-  () => [props.code, retryKey.value] as const,
-  async ([code], _previous, onCleanup) => {
+  () => [props.code, props.examType, retryKey.value] as const,
+  async ([code, examType], _previous, onCleanup) => {
     const current = ++generation
     onCleanup(() => {
       generation++
@@ -173,7 +181,7 @@ watch(
     loading.value = true
     loadError.value = ''
     try {
-      const loaded = await getLearningSelfCheck(code)
+      const loaded = await getLearningSelfCheck(code, examType)
       if (generation === current) data.value = loaded
     } catch (error) {
       if (generation === current) loadError.value = getApiErrorMessage(error, '自测题暂时加载失败')
@@ -204,6 +212,7 @@ async function submitAnswer() {
       props.code,
       data.value.question.id,
       selectedAnswer.value,
+      props.examType,
     )
     if (generation === current) result.value = checked
   } catch (error) {
@@ -220,13 +229,12 @@ async function submitAnswer() {
   margin: 20px 0;
   min-width: 0;
 }
-/* 与例题拆解一致：浅青色题面、连续推理正文，提交前后保留同一题卡。 */
+/* 自测和例题共用考试题卡与背景层次，提交后仍保留答案反馈。 */
 .knowledge-self-check__question {
   padding: 22px;
-  border: 1px solid var(--color-learning-teal-line);
-  border-top: 3px solid var(--color-learning-teal);
-  border-radius: var(--radius-lg);
-  background: linear-gradient(140deg, var(--color-learning-teal-soft), var(--color-surface));
+  border: 1px solid #dfe6ef;
+  border-radius: var(--radius-md);
+  background: #f5f8fc;
 }
 .knowledge-self-check__header {
   display: flex;
@@ -245,6 +253,13 @@ async function submitAnswer() {
   color: var(--color-ink-soft);
   font-size: 14px;
 }
+.knowledge-self-check__header .knowledge-self-check__difficulty {
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #e8eef7;
+  color: #405776;
+  font-size: 13px;
+}
 .knowledge-self-check__actions {
   display: flex;
   flex-wrap: wrap;
@@ -252,7 +267,11 @@ async function submitAnswer() {
   margin-top: 16px;
 }
 .knowledge-self-check__solution {
-  margin: 18px 0 24px;
+  margin: 12px 0 24px;
+  padding: 20px 22px;
+  border: 1px solid var(--color-learning-teal-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
 }
 .knowledge-self-check__answer {
   display: flex;
@@ -363,6 +382,9 @@ async function submitAnswer() {
 @media (max-width: 640px) {
   .knowledge-self-check__question {
     padding: 14px;
+  }
+  .knowledge-self-check__solution {
+    padding: 16px;
   }
 }
 </style>

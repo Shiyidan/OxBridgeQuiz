@@ -1,5 +1,6 @@
 // 化学全考纲讲义、精选例题与自测回归：验证覆盖、题源边界、答案隔离和判分。
 import assert from 'node:assert/strict'
+import { selfCheckOriginalReplacements } from '../src/constants/selfCheckOriginalReplacements.js'
 import { prisma } from '../src/services/prisma.js'
 import { chemistryLearningSources } from '../src/constants/chemistryLearningSources.js'
 import { chemistryLearningSelfChecks } from '../src/constants/chemistryLearningSelfChecks.js'
@@ -242,6 +243,10 @@ try {
   for (const [code, entry] of Object.entries(chemistryLearningSelfChecks)) {
     assert(entry.selection, `${code} 应配置已审阅的自测来源`)
     const result = await getLearningSelfCheck(code)
+    if (Object.hasOwn(selfCheckOriginalReplacements, code) && selfCheckOriginalReplacements[code] === null) {
+      assert.equal(result?.question, null)
+      continue
+    }
     assert(result?.question)
     assert.equal(Object.hasOwn(result.question, 'answer'), false)
     assert.equal(await checkLearningSelfCheck(code, 'wrong-id', 'A'), null)
@@ -256,8 +261,6 @@ try {
   }
   count = 2
   assert.equal(await getChemistryLearningExample(annual[0]), null)
-  assert.equal((await getLearningSelfCheck(annualCheck[0]))?.question, null)
-  assert.equal(await checkLearningSelfCheck(annualCheck[0], row.id, 'A'), null)
   count = 0
   assert.equal(await getChemistryLearningExample(bank[0]), null)
   assert.equal((await getLearningSelfCheck(bankCheck[0]))?.question, null)

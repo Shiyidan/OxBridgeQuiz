@@ -8,7 +8,7 @@ import { formatQuestionRow } from '../utils/questionSync.js'
 import { getQuestionAnswer } from '../utils/questionDocument.js'
 import { AnnualDiagnosticError, selectAnnualModules } from '../services/annualDiagnostic.js'
 import { parseJsonField, parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
-import { hasDiagnosticPaperAccess } from '../services/member.js'
+import { getUserEsatModuleCodes, hasDiagnosticPaperAccess } from '../services/member.js'
 import { requireQuestionBankAttemptMembership } from '../middleware/questionBankMembership.js'
 import { withUserTransaction } from '../services/transactionRetry.js'
 import { syncSubmittedWrongQuestions } from '../services/wrongQuestionSummary.js'
@@ -160,7 +160,10 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
     }
     const isModuleSequence = targetDeliveryMode === PAPER_DELIVERY_MODE.MODULE_SEQUENCE
     const isAnnual = targetPaper.assemblyType === DIAGNOSTIC_ASSEMBLY.ANNUAL
-    const selectedModules = isAnnual ? selectAnnualModules(targetExamType, targetPaper.moduleConfig, moduleCodes) : null
+    // 旧客户端仍可用原组合恢复进行中测试；新测试会在下方改用账户备考目标。
+    let selectedModules = isAnnual && moduleCodes !== undefined
+      ? selectAnnualModules(targetExamType, targetPaper.moduleConfig, moduleCodes)
+      : null
     const usesContinuousClock = usesContinuousExamClock(targetPaperType, targetDeliveryMode)
     const existingRecord = isDiagnostic
       ? await prisma.examRecord.findFirst({
@@ -280,6 +283,23 @@ examSessionRouter.post('/start', requireAuth, async (req, res) => {
         'PAPER_STRUCTURE_INVALID',
       ))
       return
+    }
+
+    if (isAnnual) {
+      const preferredModuleCodes = targetExamType === EXAM_TYPE.ESAT
+        ? await getUserEsatModuleCodes(req.user!.userId)
+        : moduleCodes
+      if (targetExamType === EXAM_TYPE.ESAT && !preferredModuleCodes) {
+        throw new AnnualDiagnosticError(
+          '请先在个人中心完成 ESAT 三科选择后再开始诊断测试',
+          'ESAT_SUBJECTS_REQUIRED',
+        )
+      }
+      selectedModules = selectAnnualModules(
+        targetExamType,
+        targetPaper.moduleConfig,
+        preferredModuleCodes,
+      )
     }
 
     const storedQuestionRows = await prisma.question.findMany({

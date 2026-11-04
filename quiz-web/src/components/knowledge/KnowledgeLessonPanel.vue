@@ -1,65 +1,6 @@
 <!-- 试题库章节学习面板：通用讲解与备考讲义随考纲选择同步。 -->
 <template>
   <section class="knowledge-panel" aria-labelledby="knowledge-panel-title">
-    <header class="knowledge-header">
-      <p id="knowledge-panel-title" class="knowledge-lead">
-        <KnowledgeText :text="learningLead" />
-      </p>
-      <div class="knowledge-actions">
-        <details ref="outlineRef" class="knowledge-outline">
-          <summary ref="outlineToggleRef" class="knowledge-outline__toggle">
-            <List aria-hidden="true" />
-            <span>本节目录</span>
-          </summary>
-          <nav
-            class="knowledge-navigation"
-            aria-label="本节知识点"
-            @keydown.esc.stop="closeOutline(true)"
-          >
-            <header class="knowledge-navigation__header">
-              <strong>本节知识点</strong>
-              <span>{{ sectionIndex + 1 }} / {{ lesson.sections.length }}</span>
-            </header>
-            <button
-              type="button"
-              class="knowledge-navigation__chapter"
-              :class="{ 'is-active': selectedCode === lesson.code }"
-              :aria-current="selectedCode === lesson.code ? 'location' : undefined"
-              @click="selectSection(lesson.code)"
-            >
-              整章阅读
-            </button>
-            <ol class="knowledge-navigation__list">
-              <li v-for="(item, index) in lesson.sections" :key="item.code">
-                <button
-                  type="button"
-                  :class="{ 'is-active': selectedCode === item.code }"
-                  :aria-current="selectedCode === item.code ? 'location' : undefined"
-                  @click="selectSection(item.code)"
-                >
-                  <span class="knowledge-navigation__number">{{
-                    String(index + 1).padStart(2, '0')
-                  }}</span>
-                  <span>{{ item.title }}</span>
-                </button>
-              </li>
-            </ol>
-            <p v-if="selectedCode === lesson.code" class="knowledge-range-note">
-              当前练习范围为整节；选择具体知识点后，练习范围会同步切换。
-            </p>
-          </nav>
-        </details>
-        <AppButton
-          class="knowledge-primary"
-          size="small"
-          :icon="Right"
-          icon-position="right"
-          @click="emit('practise')"
-          >去练习</AppButton
-        >
-      </div>
-    </header>
-
     <div v-if="section" id="knowledge-panel-body" class="knowledge-body-layout">
       <div class="knowledge-reading">
         <div v-if="!section.examFocus" class="knowledge-intro">
@@ -67,15 +8,46 @@
           <p><KnowledgeText :text="lesson.intro" /></p>
         </div>
         <article :key="section.code" class="knowledge-article">
-          <div class="knowledge-section-heading">
-            <span class="knowledge-section-number" aria-hidden="true">{{
-              String(sectionIndex + 1).padStart(2, '0')
-            }}</span>
-            <div>
-              <h4 ref="sectionHeadingRef" tabindex="-1">{{ section.title }}</h4>
-              <p v-if="selectedCode === lesson.code" class="knowledge-summary">
-                <KnowledgeText :text="section.summary" />
-              </p>
+          <div class="knowledge-section-bar">
+            <div class="knowledge-section-heading">
+              <span v-if="!lesson.partial" class="knowledge-section-number" aria-hidden="true">{{
+                String(sectionIndex + 1).padStart(2, '0')
+              }}</span>
+              <div>
+                <h4 id="knowledge-panel-title" ref="sectionHeadingRef" tabindex="-1">{{ section.title }}</h4>
+                <p class="knowledge-summary"><KnowledgeText :text="section.summary" /></p>
+              </div>
+            </div>
+            <div class="knowledge-actions">
+              <details v-if="!lesson.partial || lesson.sections.length > 1" ref="outlineRef" class="knowledge-outline">
+                <summary ref="outlineToggleRef" class="knowledge-outline__toggle">
+                  <List aria-hidden="true" /><span>本节目录</span>
+                </summary>
+                <nav class="knowledge-navigation" aria-label="本节知识点" @keydown.esc.stop="closeOutline(true)">
+                  <header class="knowledge-navigation__header">
+                    <strong>本节知识点</strong><span>{{ sectionIndex + 1 }} / {{ lesson.sections.length }}</span>
+                  </header>
+                  <button v-if="!lesson.partial" type="button" class="knowledge-navigation__chapter"
+                    :class="{ 'is-active': selectedCode === lesson.code }"
+                    :aria-current="selectedCode === lesson.code ? 'location' : undefined"
+                    @click="selectSection(lesson.code)">整章阅读</button>
+                  <ol class="knowledge-navigation__list">
+                    <li v-for="(item, index) in lesson.sections" :key="item.code">
+                      <button type="button" :class="{ 'is-active': selectedCode === item.code }"
+                        :aria-current="selectedCode === item.code ? 'location' : undefined"
+                        @click="selectSection(item.code)">
+                        <span class="knowledge-navigation__number">{{ String(index + 1).padStart(2, '0') }}</span>
+                        <span>{{ item.title }}</span>
+                      </button>
+                    </li>
+                  </ol>
+                  <p v-if="selectedCode === lesson.code" class="knowledge-range-note">
+                    当前练习范围为整节；选择具体知识点后，练习范围会同步切换。
+                  </p>
+                </nav>
+              </details>
+              <AppButton class="knowledge-primary" size="small" :icon="Right" icon-position="right"
+                @click="emit('practise')">去练习</AppButton>
             </div>
           </div>
 
@@ -85,7 +57,22 @@
             v-model:stage="examStage"
             :section="section"
             :focus="section.examFocus"
-          />
+            :exam-type="examType"
+          >
+            <template #memory>
+              <div class="knowledge-memory">
+                <div class="knowledge-card-heading">
+                  <CollectionTag aria-hidden="true" /><strong>考前速记</strong>
+                  <span>记住这些关键要点</span>
+                </div>
+                <ul>
+                  <li v-for="(tip, index) in section.memory || lesson.memory" :key="index">
+                    <KnowledgeText :text="tip" />
+                  </li>
+                </ul>
+              </div>
+            </template>
+          </ExamKnowledgeContent>
           <el-tabs
             v-else
             v-model="activeTab"
@@ -171,16 +158,14 @@
                   </li>
                 </ul>
               </div>
-              <KnowledgeSelfCheck :key="section.code" :code="section.code" />
+              <KnowledgeSelfCheck :key="section.code" :code="section.code" :exam-type="examType" />
             </el-tab-pane>
           </el-tabs>
         </article>
 
-        <div v-if="showMemory" class="knowledge-memory">
+        <div v-if="showMemory && !section.examFocus" class="knowledge-memory">
           <div class="knowledge-card-heading">
-            <CollectionTag aria-hidden="true" /><strong>{{
-              section.examFocus ? '考前速记' : '整节记忆卡'
-            }}</strong
+            <CollectionTag aria-hidden="true" /><strong>整节记忆卡</strong
             ><span>记住这些关键要点</span>
           </div>
           <ul>
@@ -189,25 +174,18 @@
             </li>
           </ul>
         </div>
-        <footer class="knowledge-footer">
-          <AppButton
-            type="secondary"
-            size="small"
-            :disabled="sectionIndex === 0"
-            @click="moveSection(-1)"
-            >上一个知识点</AppButton
-          >
-          <AppButton
-            v-if="sectionIndex < lesson.sections.length - 1"
-            class="knowledge-secondary"
-            type="secondary"
-            size="small"
-            @click="moveSection(1)"
-            >下一个知识点</AppButton
-          >
-          <AppButton v-else class="knowledge-primary" size="small" @click="emit('practise')"
-            >开始巩固练习</AppButton
-          >
+        <footer v-if="isCheckStage" class="knowledge-footer">
+            <AppButton
+              v-if="sectionIndex < lesson.sections.length - 1"
+              class="knowledge-secondary"
+              type="secondary"
+              size="small"
+              @click="moveSection(1)"
+              >下一个知识点</AppButton
+            >
+            <AppButton v-else class="knowledge-primary" size="small" @click="emit('practise')"
+              >开始巩固练习</AppButton
+            >
         </footer>
       </div>
     </div>
@@ -232,7 +210,11 @@ import ExamKnowledgeContent from './ExamKnowledgeContent.vue'
 import KnowledgeSelfCheck from './KnowledgeSelfCheck.vue'
 import type { KnowledgeExamStage, KnowledgeLesson } from '@/content/knowledge/types'
 
-const props = defineProps<{ lesson: KnowledgeLesson; selectedCode: string }>()
+const props = defineProps<{
+  lesson: KnowledgeLesson
+  selectedCode: string
+  examType: 'ESAT' | 'TMUA'
+}>()
 type LearningStage = 'concept' | 'example' | 'check'
 
 const emit = defineEmits<{
@@ -255,17 +237,14 @@ const sectionIndex = computed(() =>
 )
 // 当前讲解只取当前章节内的知识点，不从其他章节回退。
 const section = computed(() => props.lesson.sections[sectionIndex.value])
-// 例题页专注真题考法与推理，不再重复整章速记；概念与自测仍可回看记忆要点。
+// 速记只在概念与方法展示，例题和自测专注各自的练习内容。
 const showMemory = computed(() =>
-  section.value?.examFocus ? examStage.value !== 'examples' : activeTab.value !== 'example',
+  section.value?.examFocus ? examStage.value === 'summary' : activeTab.value === 'concept',
 )
-// 章节入口保留总导读，进入叶子知识点后改用该点概述，避免重复显示固定章节标题。
-const learningLead = computed(() =>
-  props.selectedCode === props.lesson.code
-    ? props.lesson.subtitle
-    : section.value?.summary || props.lesson.subtitle,
+// 完成自测后才显示下一知识点入口，避免提前跳过当前内容。
+const isCheckStage = computed(() =>
+  section.value?.examFocus ? examStage.value === 'check' : activeTab.value === 'check',
 )
-
 // 切换讲解时回到概念页并清空上个知识点的作答与例题展开状态。
 watch(
   () => [props.lesson.code, props.selectedCode],
@@ -318,24 +297,13 @@ function moveSection(offset: number): void {
   border-radius: var(--radius-xl);
   background: var(--color-surface);
 }
-.knowledge-header {
+/* 目录和练习入口跟随当前知识点，窄屏时移到标题下方。 */
+.knowledge-section-bar {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 20px;
-  padding: 28px;
-  border-top: 4px solid var(--color-learning-blue);
-  border-bottom: 1px solid var(--color-learning-blue-line);
-  background: linear-gradient(115deg, var(--color-learning-blue-soft), var(--color-surface));
-}
-.knowledge-lead {
-  min-width: 0;
-  flex: 1 1 320px;
-  margin: 0;
-  color: var(--color-ink-soft);
-  font-size: var(--text-base);
-  line-height: var(--leading-relaxed);
+  gap: 12px 20px;
 }
 .knowledge-actions {
   display: flex;
@@ -375,7 +343,9 @@ function moveSection(offset: number): void {
 }
 .knowledge-section-heading {
   display: flex;
-  align-items: end;
+  flex: 1 1 320px;
+  min-width: 0;
+  align-items: flex-start;
   gap: 14px;
   margin-bottom: 24px;
 }
@@ -736,7 +706,7 @@ function moveSection(offset: number): void {
 .knowledge-footer {
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
   margin-top: 24px;
 }
@@ -773,12 +743,6 @@ function moveSection(offset: number): void {
   outline-color: var(--color-learning-blue);
 }
 @media (max-width: 780px) {
-  .knowledge-header {
-    padding: 20px 16px;
-  }
-  .knowledge-lead {
-    font-size: var(--text-sm);
-  }
   #knowledge-panel-body {
     padding: 0 16px 20px;
   }
@@ -826,20 +790,6 @@ function moveSection(offset: number): void {
   border: 0;
   border-radius: 0;
   background: transparent;
-}
-
-.knowledge-header {
-  gap: 10px;
-  padding: 0 0 10px;
-  border-top: 0;
-  background: transparent;
-}
-
-.knowledge-lead {
-  color: var(--color-ink-muted);
-  font-size: 14px;
-  font-weight: var(--weight-medium);
-  line-height: 1.55;
 }
 
 #knowledge-panel-body {
@@ -1076,10 +1026,6 @@ function moveSection(offset: number): void {
 }
 
 @media (max-width: 780px) {
-  .knowledge-header {
-    padding: 4px 0 10px;
-  }
-
   #knowledge-panel-body {
     padding: 0 14px 16px;
   }

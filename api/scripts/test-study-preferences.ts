@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   buildStudyPreferences,
   expandStudyPreferences,
+  resolveEsatModuleCodes,
   type StudyPreferencesUpdate,
 } from '../src/services/member.js'
 import { profileStudyPreferencesSchema } from '../src/utils/authSchemas.js'
@@ -26,6 +27,24 @@ function main(): void {
     { examType: 'TMUA', subjects: ['Paper 1', 'Paper 2'] },
   ])
   assert.equal(legacyPreferences.primaryExamType, null)
+  assert.deepEqual(
+    resolveEsatModuleCodes([
+      { examType: 'ESAT', subjects: ['数学1', '化学', '生物'] },
+    ]),
+    ['maths1', 'chemistry', 'biology'],
+  )
+  assert.equal(
+    resolveEsatModuleCodes([
+      { examType: 'ESAT', subjects: ['数学1', '数学2'] },
+    ]),
+    null,
+  )
+  assert.equal(
+    resolveEsatModuleCodes([
+      { examType: 'ESAT', subjects: ['数学2', '物理', '化学'] },
+    ]),
+    null,
+  )
 
   const expandedPreferences = expandStudyPreferences(validPreferences)
   assert.equal(expandedPreferences.length, 2)

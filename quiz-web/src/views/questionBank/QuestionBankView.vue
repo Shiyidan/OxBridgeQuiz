@@ -2,6 +2,18 @@
 <template>
   <div class="question-bank">
     <main class="qb-container" :class="{ 'qb-container--collapsed': syllabusCollapsed }">
+      <header class="qb-overview">
+        <div>
+          <h1 id="question-bank-title">试题库</h1>
+          <p>按考点练习，按需学习。</p>
+        </div>
+        <nav class="qb-shortcuts" aria-label="练习管理">
+          <RouterLink to="/practice-notebook"
+            ><Reading aria-hidden="true" />我的练习本</RouterLink
+          >
+          <RouterLink to="/practice-records"><Clock aria-hidden="true" />练习记录</RouterLink>
+        </nav>
+      </header>
       <aside class="qb-sidebar" aria-label="考点大纲">
         <header class="qb-sidebar__header">
           <h2 v-if="!syllabusCollapsed" class="qb-sidebar__title">考点大纲</h2>
@@ -42,19 +54,6 @@
       </aside>
 
       <section class="qb-workspace" aria-labelledby="question-bank-title">
-        <header class="qb-overview">
-          <div>
-            <h1 id="question-bank-title">试题库</h1>
-            <p>按考点练习，按需学习。</p>
-          </div>
-          <nav class="qb-shortcuts" aria-label="练习管理">
-            <RouterLink to="/practice-notebook"
-              ><Reading aria-hidden="true" />我的练习本</RouterLink
-            >
-            <RouterLink to="/practice-records"><Clock aria-hidden="true" />练习记录</RouterLink>
-          </nav>
-        </header>
-
         <el-tabs v-model="activeMode" class="qb-mode-tabs" aria-label="学习与做题">
           <el-tab-pane
             v-for="mode in workspaceModes"
@@ -62,7 +61,15 @@
             :name="mode.id"
             :label="mode.label"
           >
-            <section class="qb-content" :aria-label="mode.label">
+            <section
+              class="qb-content"
+              :class="{
+                'qb-content--index': mode.id === 'learning' && !activeKnowledgeLesson,
+                'qb-content--lesson': mode.id === 'learning' && activeKnowledgeLesson,
+                'qb-content--practice': mode.id !== 'learning',
+              }"
+              :aria-label="mode.label"
+            >
               <header class="qb-content__header">
                 <div class="qb-content__heading">
                   <nav v-if="selectedBreadcrumb.length" class="qb-breadcrumb" aria-label="考纲路径">
@@ -86,20 +93,13 @@
                       </span>
                     </template>
                   </nav>
-                  <h2 class="qb-content__title">{{ currentScopeCnLabel }}</h2>
-                  <p v-if="currentScopeEnLabel !== currentScopeCnLabel" class="qb-content__english">
-                    {{ currentScopeEnLabel }}
-                  </p>
+                  <div v-if="!activeKnowledgeLesson || mode.id !== 'learning'" class="qb-content__title-line">
+                    <h2 class="qb-content__title">{{ currentScopeCnLabel }}</h2>
+                    <p v-if="currentScopeEnLabel !== currentScopeCnLabel" class="qb-content__english">
+                      {{ currentScopeEnLabel }}
+                    </p>
+                  </div>
                 </div>
-                <AppButton
-                  class="qb-secondary"
-                  type="secondary"
-                  size="small"
-                  :icon="Notebook"
-                  :disabled="!currentScopeLeafCodes.length"
-                  @click="handleOpenAddToNotebook"
-                  >加入练习本</AppButton
-                >
               </header>
 
               <template v-if="mode.id === 'learning'">
@@ -109,6 +109,7 @@
                     :key="activeKnowledgeLesson.code"
                     :lesson="activeKnowledgeLesson"
                     :selected-code="selectedNodeCode"
+                    :exam-type="activeExamType"
                     @select="handleKnowledgeSelect"
                     @practise="openPracticeMode"
                   />
@@ -118,12 +119,13 @@
                     <h3>选择章节开始学习</h3>
                     <div class="qb-chapter-list">
                       <button
-                        v-for="chapter in availableLearningChapters"
+                        v-for="(chapter, index) in availableLearningChapters"
                         :key="chapter.code"
                         type="button"
                         @click="handleKnowledgeSelect(chapter.code)"
                       >
-                        <span
+                        <span class="qb-chapter-list__number">{{ String(index + 1).padStart(2, '0') }}</span>
+                        <span class="qb-chapter-list__name"
                           >{{ chapter.cn_label }}<small>{{ chapter.en_label }}</small></span
                         >
                         <ArrowRight aria-hidden="true" />
@@ -167,7 +169,6 @@
                   >
                 </div>
 
-                <h3 class="qb-difficulty-heading">练习难度</h3>
                 <div class="qb-difficulty-grid" aria-label="选择练习难度">
                   <article
                     v-for="diff in difficulties"
@@ -255,22 +256,6 @@
       <p>{{ selectionDialogMessage }}</p>
     </AppDialog>
 
-    <AddToPracticeNotebookDialog
-      v-model="addNotebookDialogVisible"
-      :notebooks="notebooks"
-      :selected-notebook-id="selectedNotebookId"
-      :scope-codes="currentScopeLeafCodes"
-      :scope-cn-label="currentScopeCnLabel"
-      :scope-en-label="currentScopeEnLabel"
-      :scope-leaf-count="currentScopeLeafCodes.length"
-      :loading="notebookLoading"
-      :saving="addingToNotebook"
-      @select="selectedNotebookId = $event"
-      @confirm="handleConfirmAddToNotebook"
-      @cancel="handleCancelAddToNotebook"
-      @create="handleCreateNotebookFromScope"
-    />
-
     <DailyCardAccessDialog
       v-model="upgradeDialogVisible"
       :exam-type="paymentExamType"
@@ -304,13 +289,12 @@ import {
 } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, ArrowRight, Clock, Notebook, Reading } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, Clock, Reading } from '@element-plus/icons-vue'
 import type { TreeInstance } from 'element-plus'
 import AppDialog from '@/components/AppDialog.vue'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
 import SyllabusTreeNode from '@/components/SyllabusTreeNode.vue'
-import AddToPracticeNotebookDialog from '@/components/practiceNotebook/AddToPracticeNotebookDialog.vue'
 import { findKnowledgeLesson } from '@/content/knowledge'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import type { QuestionDifficulty, SyllabusNode } from '@/api/questionBank'
@@ -318,11 +302,6 @@ import { getSyllabusData, getQuestionSummaryData } from '@/api/questionBank'
 import { getActiveQuestionBankPractice, type ActiveQuestionBankPractice } from '@/api/exam'
 import { checkMemberAccess, getMember } from '@/api/member'
 import { createLoginRequiredRouteLocation } from '@/utils/authRedirect'
-import {
-  getPracticeNotebooks,
-  updatePracticeNotebook,
-  type PracticeNotebookSummary,
-} from '@/api/practiceNotebook'
 
 // 做题页不装载讲解及图示组件，进入学习后再使用原有课程面板。
 const KnowledgeLessonPanel = defineAsyncComponent(
@@ -384,7 +363,7 @@ const treeProps = { children: 'children', label: 'label' }
 const defaultExpanded = ref<string[]>([])
 const selectedNodeCode = ref<string>('')
 const selectedNodeLabel = ref<string>('综合考点')
-const targetDifficulty = ref<DifficultyId>('medium')
+const targetDifficulty = ref<DifficultyId | null>(null)
 const syllabusLoading = ref(true)
 const summaryLoading = ref(true)
 const summaryFailed = ref(false)
@@ -397,16 +376,10 @@ const paymentVisible = ref(false)
 const paymentExamType = ref<ActiveExamType>(auth.activeExamType)
 const pendingDirectPractice = ref<PendingDirectPractice | null>(null)
 const syllabusCollapsed = ref(false)
-const notebooks = ref<PracticeNotebookSummary[]>([])
-const notebookLoading = ref(false)
-const addNotebookDialogVisible = ref(false)
-const selectedNotebookId = ref('')
-const addingToNotebook = ref(false)
 let examContentInitialized = false
 let examLoadSequence = 0
 let summaryLoadSequence = 0
 let practiceLoadSequence = 0
-let notebookLoadSequence = 0
 
 const difficulties = ref<DifficultyOption[]>([
   {
@@ -463,26 +436,10 @@ const selectedBreadcrumb = computed(() => {
   })
 })
 
-// 英文范围名称随考纲节点直接读取，供加入练习本弹窗双语展示。
+// 英文范围名称随当前选中的考纲节点更新。
 const currentScopeEnLabel = computed(
   () => selectedTreeNode.value?.en_label || selectedNodeLabel.value,
 )
-
-// 章节或学科范围统一展开为叶子知识点，保证练习本保存的都是可组卷节点。
-const currentScopeLeafCodes = computed<string[]>(() => {
-  const root = selectedTreeNode.value
-  if (!root) return []
-  const codes: string[] = []
-  const appendLeaves = (node: TreeNode): void => {
-    if (!node.children?.length) {
-      codes.push(node.code)
-      return
-    }
-    node.children.forEach(appendLeaves)
-  }
-  appendLeaves(root)
-  return Array.from(new Set(codes))
-})
 
 // 学科总节点列出已有讲解的章节，避免让学生在学习模式下看到空白页。
 const availableLearningChapters = computed(() => {
@@ -497,11 +454,6 @@ const availableLearningChapters = computed(() => {
   visit(selectedTreeNode.value?.children || [])
   return chapters
 })
-
-// 推荐卡片按既有难度编码定位，不改变服务端组卷及权益规则。
-const selectedDifficulty = computed(() =>
-  difficulties.value.find((item) => item.id === targetDifficulty.value),
-)
 
 // 所有难度均无题时显示空范围提示，加载失败则使用独立的重试状态。
 const hasPracticeQuestions = computed(() => difficulties.value.some((item) => item.count > 0))
@@ -582,28 +534,6 @@ function toggleSyllabus(): void {
   if (!syllabusCollapsed.value) void expandDefaultSyllabusNodes()
 }
 
-// 登录用户进入学习平台后读取练习本摘要，为顶部入口和加入弹窗提供真实数据。
-async function loadNotebookSummary(): Promise<void> {
-  const requestSequence = ++notebookLoadSequence
-  const requestedExamType = activeExamType.value
-  notebooks.value = []
-  if (!auth.isLoggedIn) return
-  notebookLoading.value = true
-  try {
-    const result = await getPracticeNotebooks(requestedExamType)
-    if (requestSequence !== notebookLoadSequence || requestedExamType !== activeExamType.value) {
-      return
-    }
-    notebooks.value = result.notebooks
-  } catch {
-    if (requestSequence === notebookLoadSequence) {
-      notebooks.value = []
-    }
-  } finally {
-    if (requestSequence === notebookLoadSequence) notebookLoading.value = false
-  }
-}
-
 // 进行中练习由服务端唯一活动键决定，切换考试类型后重新读取对应会话。
 async function loadActivePractice(): Promise<void> {
   const requestSequence = ++practiceLoadSequence
@@ -644,9 +574,6 @@ async function loadQuestionSummary(): Promise<void> {
         ...d,
         count: data.difficultyCount[d.id] || 0,
       }))
-    }
-    if (!selectedDifficulty.value?.count) {
-      targetDifficulty.value = difficulties.value.find((item) => item.count > 0)?.id || 'medium'
     }
   } catch {
     if (requestSequence === summaryLoadSequence) {
@@ -729,7 +656,7 @@ async function loadExamContent(useRouteContext: boolean): Promise<void> {
   selectedNodeLabel.value = '综合考点'
   activePractice.value = null
   resetQuestionSummary()
-  if (!useRouteContext) targetDifficulty.value = 'medium'
+  if (!useRouteContext) targetDifficulty.value = null
 
   try {
     const nodes = await getSyllabusData(requestedExamType)
@@ -754,7 +681,7 @@ async function loadExamContent(useRouteContext: boolean): Promise<void> {
       const requestedDifficulty = String(route.query.difficulty || '') as DifficultyId
       targetDifficulty.value = difficulties.value.some((item) => item.id === requestedDifficulty)
         ? requestedDifficulty
-        : 'medium'
+        : null
     }
 
     await expandDefaultSyllabusNodes()
@@ -781,14 +708,9 @@ watch(activeExamType, () => {
   selectionDialogVisible.value = false
   upgradeDialogVisible.value = false
   pendingDirectPractice.value = null
-  addNotebookDialogVisible.value = false
-  selectedNotebookId.value = ''
-  notebookLoadSequence += 1
-  notebooks.value = []
   if (!paymentVisible.value) paymentExamType.value = activeExamType.value
   if (examContentInitialized) {
     void loadExamContent(false)
-    void loadNotebookSummary()
   }
 })
 
@@ -825,96 +747,15 @@ onMounted(async () => {
     // 偏好加载失败时继续使用全局默认 TMUA，公共请求层负责错误提示。
   }
   examContentInitialized = true
-  await Promise.all([loadExamContent(true), loadNotebookSummary()])
+  await loadExamContent(true)
 })
 
-// 从新建或编辑练习本返回 KeepAlive 页面时刷新摘要，保证数量和配置立即同步。
+// 返回缓存页面时刷新进行中的练习，避免使用过期状态。
 onActivated(() => {
   if (examContentInitialized) {
-    void loadNotebookSummary()
     void loadActivePractice()
   }
 })
-
-// 打开弹窗时优先选择尚未包含当前范围的练习本，已完整包含的练习本仍可见但不可重复加入。
-async function handleOpenAddToNotebook(): Promise<void> {
-  if (requireLoginForPracticeAction()) return
-  if (!currentScopeLeafCodes.value.length) {
-    ElMessage.info('当前考纲范围没有可加入的叶子知识点')
-    return
-  }
-  addNotebookDialogVisible.value = true
-  await loadNotebookSummary()
-  selectedNotebookId.value =
-    notebooks.value.find(
-      (notebook) =>
-        !currentScopeLeafCodes.value.every((code) => notebook.knowledgePointCodes.includes(code)),
-    )?.id || ''
-}
-
-// 取消加入时清空本次选择，避免再次打开误用上一次目标练习本。
-function handleCancelAddToNotebook(): void {
-  addNotebookDialogVisible.value = false
-  selectedNotebookId.value = ''
-}
-
-// 加入只补充缺失叶子节点，练习本原有难度、题量、时间和未做优先设置保持不变。
-async function handleConfirmAddToNotebook(): Promise<void> {
-  const notebook = notebooks.value.find((item) => item.id === selectedNotebookId.value)
-  if (!notebook || addingToNotebook.value) return
-  const missingCodes = currentScopeLeafCodes.value.filter(
-    (code) => !notebook.knowledgePointCodes.includes(code),
-  )
-  if (!missingCodes.length) {
-    ElMessage.info('该练习本已包含当前知识点')
-    return
-  }
-  addingToNotebook.value = true
-  try {
-    const updated = await updatePracticeNotebook(notebook.id, {
-      name: notebook.name,
-      examType: notebook.examType,
-      knowledgePointCodes: Array.from(new Set([...notebook.knowledgePointCodes, ...missingCodes])),
-      questionCount: notebook.questionCount,
-      difficultyMode: notebook.difficultyMode,
-      durationMinutes: notebook.durationMinutes,
-      unseenFirst: notebook.unseenFirst,
-    })
-    notebooks.value = notebooks.value.map((item) =>
-      item.id === updated.id ? { ...item, ...updated } : item,
-    )
-    addNotebookDialogVisible.value = false
-    selectedNotebookId.value = ''
-    ElMessage.success(`已将 ${missingCodes.length} 个知识点加入“${updated.name}”`)
-  } catch {
-    // 公共请求层统一提示失败原因，弹窗保持当前选择以便重试。
-  } finally {
-    addingToNotebook.value = false
-  }
-}
-
-// 新建入口携带当前范围并返回试题库，创建页仍由用户确认难度、题量和时间。
-function handleCreateNotebookFromScope(): void {
-  const returnTo = router.resolve({
-    path: '/question-bank',
-    query: {
-      code: selectedNodeCode.value,
-      mode: activeMode.value,
-      difficulty: targetDifficulty.value,
-    },
-  }).fullPath
-  addNotebookDialogVisible.value = false
-  void router.push({
-    path: '/practice-notebook/new',
-    query: {
-      source: 'question-bank',
-      examType: activeExamType.value,
-      name: `${currentScopeCnLabel.value}练习本`,
-      knowledgePointCodes: currentScopeLeafCodes.value.join(','),
-      returnTo,
-    },
-  })
-}
 
 // 移动端仅开放题库与考纲浏览，正式练习统一提示切换到电脑端。
 function requireDesktopForQuestionBankPractice(): boolean {
@@ -1063,7 +904,7 @@ async function handlePaymentSuccess(): Promise<void> {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
   align-items: start;
-  gap: 40px;
+  gap: 24px 40px;
   margin: 0 50px;
   padding: 32px 0 72px;
 }
@@ -1138,11 +979,13 @@ async function handlePaymentSuccess(): Promise<void> {
   min-width: 0;
 }
 .qb-overview {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  margin-bottom: 30px;
+  /* 标题相对页面边缘内移，与顶部导航的视觉位置保持协调。 */
+  padding-left: 156px;
 }
 .qb-overview h1 {
   margin: 0;
@@ -1205,6 +1048,56 @@ async function handlePaymentSuccess(): Promise<void> {
 }
 .qb-content {
   padding-top: 32px;
+}
+/* 学科入口以紧凑标题和章节目录为主，讲义与做题页保留原有阅读间距。 */
+.qb-content--index {
+  padding-top: 20px;
+}
+.qb-content--index .qb-content__header {
+  margin-bottom: 20px;
+}
+.qb-content--index .qb-breadcrumb {
+  margin-bottom: 8px;
+}
+.qb-content--index .qb-breadcrumb:has(.qb-breadcrumb__current:only-child) {
+  display: none;
+}
+.qb-content--index .qb-content__title {
+  font-size: 24px;
+  line-height: 1.3;
+}
+.qb-content--index .qb-content__english {
+  margin-top: 3px;
+  font-size: 14px;
+}
+/* 已选讲义将章节标题与正文连成一组，优先留出可见的学习内容。 */
+.qb-content--lesson {
+  padding-top: 22px;
+}
+.qb-content--lesson .qb-content__header {
+  margin-bottom: 8px;
+}
+/* 做题入口收紧标题与练习设置的距离，学习讲义保留自己的排版。 */
+.qb-content--practice .qb-content__header {
+  margin-bottom: 18px;
+}
+.qb-content--lesson .qb-breadcrumb {
+  margin-bottom: 8px;
+}
+.qb-content--lesson .qb-content__title {
+  font-size: 25px;
+  line-height: 1.3;
+}
+/* 学习标题与英文名称同组，简介紧随其后；名称过长时自然换行。 */
+.qb-content--lesson .qb-content__title-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+}
+.qb-content--lesson .qb-content__english {
+  margin: 0;
+  font-size: 15px;
 }
 .qb-content__header {
   display: flex;
@@ -1271,11 +1164,6 @@ async function handlePaymentSuccess(): Promise<void> {
   scroll-margin-top: calc(var(--nav-height) + 20px);
 }
 /* 做题模式沿用原试题库三色难度卡片，每张卡片独立发起该难度的练习。 */
-.qb-difficulty-heading {
-  margin: 0 0 16px;
-  font-size: 16px;
-  font-weight: 600;
-}
 .qb-difficulty-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1488,7 +1376,7 @@ async function handlePaymentSuccess(): Promise<void> {
   justify-content: space-between;
   gap: 16px;
   padding: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   border-radius: 5px;
   background: var(--color-learning-blue-soft);
 }
@@ -1503,11 +1391,11 @@ async function handlePaymentSuccess(): Promise<void> {
   font-size: 13px;
 }
 .qb-learning-index {
-  padding: 8px 0 24px;
+  padding: 0 0 24px;
 }
 .qb-learning-index h3 {
-  margin: 0 0 16px;
-  font-size: 17px;
+  margin: 0 0 10px;
+  font-size: 16px;
   font-weight: 600;
 }
 .qb-learning-index p {
@@ -1517,14 +1405,16 @@ async function handlePaymentSuccess(): Promise<void> {
 .qb-chapter-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 32px;
+  gap: 0 24px;
+  border-top: 1px solid var(--color-line);
 }
 .qb-chapter-list button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 18px 0;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 10px;
   border: 0;
   border-bottom: 1px solid var(--color-line);
   background: none;
@@ -1535,12 +1425,27 @@ async function handlePaymentSuccess(): Promise<void> {
 }
 .qb-chapter-list button:hover {
   color: var(--color-learning-blue);
+  background: var(--color-learning-blue-soft);
+}
+.qb-chapter-list__number {
+  align-self: flex-start;
+  padding-top: 2px;
+  color: var(--color-ink-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.qb-chapter-list__name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 .qb-chapter-list small {
   display: block;
-  margin-top: 4px;
+  margin-top: 2px;
   color: var(--color-ink-muted);
   font-size: 13px;
+  font-weight: 400;
 }
 .qb-chapter-list svg {
   width: 16px;
@@ -1560,11 +1465,6 @@ async function handlePaymentSuccess(): Promise<void> {
   }
   .qb-container--collapsed {
     grid-template-columns: 44px minmax(0, 1fr);
-  }
-  .qb-overview {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 18px;
   }
   .qb-content__header {
     align-items: flex-start;
@@ -1608,7 +1508,11 @@ async function handlePaymentSuccess(): Promise<void> {
   }
   .qb-overview {
     gap: 16px;
-    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .qb-overview,
+  .qb-container--collapsed .qb-overview {
+    padding-left: 0;
   }
   .qb-shortcuts {
     margin-right: 0;

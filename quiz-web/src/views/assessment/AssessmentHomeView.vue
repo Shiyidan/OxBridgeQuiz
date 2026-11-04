@@ -34,11 +34,15 @@
         <div v-else-if="!assessmentYears.length" class="empty-state">
           暂无已上线的 {{ activeExamType }} 诊断试卷年份，请先在后台发布诊断卷。
         </div>
-        <div v-else class="assessment-year-grid">
+        <div v-else ref="yearGridRef" class="assessment-year-grid">
           <div v-for="item in assessmentYears" :key="item.year" class="assessment-year-card-stack">
             <article
               class="assessment-year-card"
-              :class="{ 'assessment-year-card--locked': isYearLocked(item) }"
+              :class="{
+                'assessment-year-card--locked': isYearLocked(item),
+                'assessment-year-card--target': targetYear === item.year,
+              }"
+              :data-year="item.year"
             >
               <div
                 v-if="isYearLocked(item)"
@@ -175,47 +179,31 @@
       width="680px"
       :loading="Boolean(startingPaperId)"
       :title="
-        subjectSelectionYear ? `ESAT ${subjectSelectionYear} 年 · 选择诊断科目` : '选择诊断科目'
+        subjectSelectionYear ? `ESAT ${subjectSelectionYear} 年 · 确认诊断科目` : '确认诊断科目'
       "
       destroy-on-close
     >
       <div class="esat-subject-dialog__intro">
         <div>
-          <strong>选择 3 个科目</strong>
-          <p>Mathematics 1 为 ESAT 必考科目，再从其余 4 科中选择 2 科。</p>
+          <strong>已根据备考目标匹配 3 个科目</strong>
+          <p>诊断测试与模考中心使用同一组 ESAT 备考科目。</p>
         </div>
-        <span>{{ selectedEsatSubjects.length }}/3</span>
+        <div class="esat-subject-dialog__goal-actions">
+          <span>{{ selectedEsatSubjects.length }}/3</span>
+          <AppButton type="text" size="small" @click="goToSubjectSettings">
+            修改备考目标
+          </AppButton>
+        </div>
       </div>
 
-      <div v-if="subjectPapersLoading" class="esat-subject-dialog__state">
-        正在读取该年份可选科目...
-      </div>
-      <div
-        v-else-if="subjectPapersError"
-        class="esat-subject-dialog__state esat-subject-dialog__state--error"
-      >
-        <p>{{ subjectPapersError }}</p>
-        <AppButton type="secondary" size="small" @click="loadSubjectSelectionPapers">
-          重新加载
-        </AppButton>
-      </div>
-      <div v-else class="esat-subject-options" role="group" aria-label="ESAT 诊断科目">
-        <button
-          v-for="subject in esatSubjectOptions"
+      <div class="esat-subject-options" role="list" aria-label="当前备考目标中的 ESAT 诊断科目">
+        <div
+          v-for="subject in selectedEsatSubjectOptions"
           :key="subject.code"
-          type="button"
-          class="esat-subject-option"
-          :class="{
-            'esat-subject-option--selected': selectedEsatSubjects.includes(subject.code),
-            'esat-subject-option--required': subject.required,
-          }"
-          :aria-pressed="selectedEsatSubjects.includes(subject.code)"
-          :aria-disabled="subject.required"
-          @click="toggleEsatSubject(subject.code)"
+          class="esat-subject-option esat-subject-option--selected esat-subject-option--readonly"
+          role="listitem"
         >
-          <span class="esat-subject-option__check" aria-hidden="true">
-            {{ selectedEsatSubjects.includes(subject.code) ? '✓' : '' }}
-          </span>
+          <span class="esat-subject-option__check" aria-hidden="true">✓</span>
           <span>
             <strong>{{ subject.label }}</strong>
             <small>
@@ -224,11 +212,28 @@
               }}
             </small>
           </span>
-          <em v-if="subject.required">必选</em>
-        </button>
+          <em v-if="subject.required">必考</em>
+          <em v-else>目标科目</em>
+        </div>
       </div>
 
-      <div v-if="selectedPaperPreview" class="esat-subject-dialog__match">
+      <div
+        v-if="subjectPapersLoading"
+        class="esat-subject-dialog__state esat-subject-dialog__state--compact"
+      >
+        正在匹配该年份的目标科目试卷...
+      </div>
+      <div
+        v-else-if="subjectPapersError"
+        class="esat-subject-dialog__state esat-subject-dialog__state--compact esat-subject-dialog__state--error"
+      >
+        <p>{{ subjectPapersError }}</p>
+        <AppButton type="secondary" size="small" @click="loadSubjectSelectionPapers">
+          重新加载
+        </AppButton>
+      </div>
+
+      <div v-if="!subjectPapersLoading && selectedPaperPreview" class="esat-subject-dialog__match">
         <span>
           本次诊断组合
           <em v-if="isPaperLocked(selectedPaperPreview)">
@@ -243,10 +248,10 @@
         >
       </div>
       <p
-        v-else-if="selectedEsatSubjects.length === 3 && !subjectPapersLoading"
+        v-else-if="!subjectPapersLoading && !subjectPapersError"
         class="esat-subject-dialog__unmatched"
       >
-        该年份所选科目尚未准备完整，暂时无法开始。
+        该年份尚未准备完整的备考目标科目组合，暂时无法开始。
       </p>
 
       <template #footer="{ cancel }">
@@ -270,7 +275,7 @@
         <AppButton
           size="small"
           :loading="Boolean(startingPaperId)"
-          :disabled="!selectedPaperPreview"
+          :disabled="subjectPapersLoading || Boolean(subjectPapersError) || !selectedPaperPreview"
           @click="startSelectedEsatPaper"
         >
           {{
@@ -282,6 +287,16 @@
           }}
         </AppButton>
       </template>
+    </AppDialog>
+
+    <AppDialog
+      v-model="subjectSetupDialogVisible"
+      title="设置 ESAT 备考科目"
+      confirm-text="前往设置"
+      cancel-text="暂不设置"
+      @confirm="goToSubjectSettings"
+    >
+      <p>诊断测试会根据个人中心保存的三科备考目标自动匹配试卷。请先完成 ESAT 科目设置。</p>
     </AppDialog>
 
     <AppDialog
@@ -403,8 +418,8 @@
 </template>
 
 <script setup lang="ts">
-// 诊断测试中心：按年份进入 ESAT 选科或 TMUA 双 Paper 诊断流程。
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+// 诊断测试中心：按年份进入 ESAT 目标科目确认或 TMUA 双 Paper 诊断流程。
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Lock, Right } from '@element-plus/icons-vue'
@@ -434,6 +449,12 @@ const router = useRouter()
 const auth = useAuthStore()
 const startingPaperId = ref('')
 const assessmentYears = ref<AssessmentYearSummary[]>([])
+const yearGridRef = ref<HTMLElement | null>(null)
+// 从学习平台进入时仅定位年份入口，不绕过会员校验或自动开始答题。
+const targetYear = computed(() => {
+  const year = typeof route.query.year === 'string' ? route.query.year : ''
+  return /^\d{4}$/.test(year) ? Number(year) : null
+})
 const yearLoading = ref(false)
 const yearError = ref('')
 const openingYear = ref<number | null>(null)
@@ -443,6 +464,7 @@ const tmuaPaperDialogVisible = ref(false)
 const tmuaSelectionYear = ref<number | null>(null)
 const selectedTmuaPaper = ref<AssessmentPaperItem | null>(null)
 const subjectDialogVisible = ref(false)
+const subjectSetupDialogVisible = ref(false)
 const subjectSelectionYear = ref<number | null>(null)
 const subjectSelectionPapers = ref<AssessmentPaperItem[]>([])
 const subjectPapersLoading = ref(false)
@@ -489,7 +511,15 @@ const esatSubjectOptions: EsatSubjectOption[] = [
   { code: 'chemistry', label: '化学', englishLabel: 'Chemistry', required: false },
   { code: 'biology', label: '生物', englishLabel: 'Biology', required: false },
 ]
-const selectedEsatSubjects = ref<EsatSubjectCode[]>(['maths1'])
+const selectedEsatSubjects = ref<EsatSubjectCode[]>([])
+
+const esatPreferenceSubjectCodes: Record<string, EsatSubjectCode> = {
+  数学1: 'maths1',
+  数学2: 'maths2',
+  物理: 'physics',
+  化学: 'chemistry',
+  生物: 'biology',
+}
 
 // 移动端仅开放诊断卷浏览，正式答题需要回到电脑端完成。
 function requireDesktopForDiagnosticAction(): boolean {
@@ -525,24 +555,37 @@ const activeExamType = computed<ActiveExamType>(() => auth.activeExamType)
 // 待启用日卡决定锁定态是否需要同时展示免费与付费两种解锁入口。
 const hasPendingDailyCard = computed(() => Boolean(auth.memberContext?.pendingDailyCards.length))
 
-// 选科弹窗主按钮优先突出免费日卡，同时由相邻按钮保留付费会员选择。
+// 目标科目确认弹窗的主按钮优先突出免费日卡，同时由相邻按钮保留付费会员选择。
 const lockedMembershipActionLabel = computed(() =>
   hasPendingDailyCard.value ? '使用免费日卡' : '开通会员',
 )
 
-// 年份页说明分别对应 ESAT 选科和 TMUA 双 Paper 确认两种流程。
+// 个人中心保存的 ESAT 三科是诊断与模考共用的唯一科目来源。
+const preferredEsatSubjects = computed<EsatSubjectCode[]>(() => {
+  const codes = (auth.memberContext?.studyPreferences.esatSubjects || [])
+    .map((subject) => esatPreferenceSubjectCodes[subject])
+    .filter((code): code is EsatSubjectCode => Boolean(code))
+  return codes.length === 3 && new Set(codes).size === 3 && codes.includes('maths1') ? codes : []
+})
+
+// 确认弹窗只展示备考目标中的三科，并沿用年度题库定义的固定展示顺序。
+const selectedEsatSubjectOptions = computed(() =>
+  esatSubjectOptions.filter((subject) => selectedEsatSubjects.value.includes(subject.code)),
+)
+
+// 年份页说明分别对应 ESAT 目标科目匹配和 TMUA 双 Paper 确认两种流程。
 const yearOverviewDescription = computed(() =>
   activeExamType.value === 'ESAT'
-    ? '选择年份和三个测试科目，系统按当年科目题库组成诊断卷。'
+    ? '选择年份后，系统按备考目标自动匹配三个科目的诊断卷。'
     : '选择年份后确认 Paper 1 与 Paper 2，即可开始完整 TMUA 诊断。',
 )
 
 // 卡片摘要只说明该考试的必要组成，不再显示内部试卷数量。
 const yearCardConfigurationLabel = computed(() =>
-  activeExamType.value === 'ESAT' ? '5 科选 3 科' : 'Paper 1 + Paper 2',
+  activeExamType.value === 'ESAT' ? '备考目标 3 科' : 'Paper 1 + Paper 2',
 )
 
-// 年度题库覆盖所选三科后，摘要只统计本次考试需要的模块。
+// 年度题库覆盖目标三科后，摘要只统计本次考试需要的模块。
 const selectedPaperPreview = computed(() => {
   if (selectedEsatSubjects.value.length !== 3) return null
   const paper = subjectSelectionPapers.value.find(
@@ -575,7 +618,7 @@ const tmuaModuleQuestionCounts = computed<{ paper1: number | null; paper2: numbe
   return result
 })
 
-// ESAT 选科显示当前已发布年度题库的科目题量，不混入历史组合卷。
+// ESAT 目标确认显示当前已发布年度题库的科目题量，不混入历史组合卷。
 const esatSubjectQuestionCounts = computed<Partial<Record<EsatSubjectCode, number>>>(() => {
   const result: Partial<Record<EsatSubjectCode, number>> = {}
   for (const paper of subjectSelectionPapers.value.filter(
@@ -667,20 +710,6 @@ function isTmuaCompositePaper(paper: AssessmentPaperItem): boolean {
   )
 }
 
-// Mathematics 1 始终必选；其余科目最多再选两项。
-function toggleEsatSubject(code: EsatSubjectCode): void {
-  if (code === 'maths1') return
-  if (selectedEsatSubjects.value.includes(code)) {
-    selectedEsatSubjects.value = selectedEsatSubjects.value.filter((item) => item !== code)
-    return
-  }
-  if (selectedEsatSubjects.value.length >= 3) {
-    ElMessage.info('已选满 3 个科目，请先取消一个选项')
-    return
-  }
-  selectedEsatSubjects.value = [...selectedEsatSubjects.value, code]
-}
-
 // 年份首层只请求当前考试的数据库聚合摘要，避免下载全部试卷再由浏览器分组。
 async function loadAssessmentYears(): Promise<void> {
   const requestSequence = ++assessmentLoadSequence
@@ -709,7 +738,7 @@ async function refreshAssessmentData(): Promise<void> {
   await loadAssessmentYears()
 }
 
-// 年份弹窗读取年度模块及当前用户旧进行中记录，分别承接选科和继续作答。
+// 年份弹窗读取年度模块及当前用户旧进行中记录，分别承接目标匹配和继续作答。
 async function loadSubjectSelectionPapers(): Promise<boolean> {
   const requestedYear = subjectSelectionYear.value
   const requestedExamType = activeExamType.value
@@ -738,7 +767,7 @@ async function loadSubjectSelectionPapers(): Promise<boolean> {
   }
 }
 
-// 若任一年份存在未完成测试，优先定位该 attempt 并询问是否继续，不打开选科弹窗。
+// 若任一年份存在未完成测试，优先定位该 attempt 并询问是否继续，不打开目标确认弹窗。
 async function handleYearSelection(year: number): Promise<void> {
   if (requireDesktopForDiagnosticAction()) return
   if (requireLoginForDiagnosticAction()) return
@@ -747,7 +776,7 @@ async function handleYearSelection(year: number): Promise<void> {
   if (inProgressYear) {
     openingYear.value = year
     subjectSelectionYear.value = inProgressYear.year
-    selectedEsatSubjects.value = ['maths1']
+    selectedEsatSubjects.value = []
     subjectSelectionPapers.value = []
     subjectPapersError.value = ''
     try {
@@ -778,10 +807,15 @@ async function handleYearSelection(year: number): Promise<void> {
   }
 
   subjectSelectionYear.value = year
-  selectedEsatSubjects.value = ['maths1']
+  selectedEsatSubjects.value = []
   subjectSelectionPapers.value = []
   subjectPapersError.value = ''
   if (activeExamType.value === 'ESAT') {
+    if (preferredEsatSubjects.value.length !== 3) {
+      subjectSetupDialogVisible.value = true
+      return
+    }
+    selectedEsatSubjects.value = [...preferredEsatSubjects.value]
     subjectDialogVisible.value = true
     void loadSubjectSelectionPapers()
     return
@@ -838,8 +872,24 @@ onMounted(async () => {
   } catch {
     // 偏好加载失败时继续使用全局默认 TMUA，公共请求层负责错误提示。
   }
+  const requestedExam = route.query.examType
+  if (targetYear.value && (requestedExam === 'ESAT' || requestedExam === 'TMUA')) {
+    auth.setActiveExamType(requestedExam)
+  }
   assessmentInitialized = true
   await refreshAssessmentData()
+
+  if (targetYear.value && !yearError.value) {
+    if (assessmentYears.value.some((item) => item.year === targetYear.value)) {
+      await nextTick()
+      const card = yearGridRef.value?.querySelector<HTMLElement>(
+        `[data-year="${targetYear.value}"]`,
+      )
+      card?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    } else {
+      ElMessage.info(`${activeExamType.value} ${targetYear.value} 年诊断卷暂不可用`)
+    }
+  }
 
   // 答题页发现其他未完成诊断时回到唯一入口，数据就绪后直接复用继续作答弹窗。
   if (route.query.resumeDiagnostic === '1') {
@@ -862,10 +912,11 @@ watch(activeExamType, () => {
   tmuaSelectionYear.value = null
   selectedTmuaPaper.value = null
   subjectDialogVisible.value = false
+  subjectSetupDialogVisible.value = false
   subjectPapersLoadSequence += 1
   subjectSelectionYear.value = null
   subjectSelectionPapers.value = []
-  selectedEsatSubjects.value = ['maths1']
+  selectedEsatSubjects.value = []
   historyDialogVisible.value = false
   historyLoading.value = false
   historyError.value = ''
@@ -905,7 +956,7 @@ function handlePurchaseForYear(year: number): void {
   openMembershipPayment(activeExamType.value, { kind: 'select-year', year })
 }
 
-// ESAT 选科弹窗中的付费选择冻结当前组合卷，支付后继续原开始流程。
+// ESAT 目标确认弹窗中的付费选择冻结当前组合卷，支付后继续原开始流程。
 function handlePurchaseForSelectedEsatPaper(): void {
   const paper = selectedPaperPreview.value
   if (!paper) return
@@ -1264,6 +1315,13 @@ async function startSelectedEsatPaper(): Promise<void> {
   subjectDialogVisible.value = false
 }
 
+// 诊断与模考共用个人中心的长期目标设置，不在业务页维护临时科目选择。
+function goToSubjectSettings(): void {
+  subjectDialogVisible.value = false
+  subjectSetupDialogVisible.value = false
+  void router.push({ path: '/profile', query: { editGoals: '1' } })
+}
+
 // 重新测试走正式权益校验并创建新的 attempt，不再提供客户端调试绕过参数。
 async function handleRetestPaper(paper: AssessmentPaperItem): Promise<void> {
   if (requireLoginForDiagnosticAction()) return
@@ -1307,10 +1365,7 @@ function routeToDiagnosticPaper(paper: AssessmentPaperItem, resume: boolean): vo
   if (paper.deliveryMode === 'module_sequence') {
     router.push({
       path: `/assessment/exam/${paper.id}`,
-      query:
-        resume && paper.examRecordId
-          ? { examRecordId: paper.examRecordId }
-          : { moduleCodes: paper.modules.map((module) => module.code).join(',') },
+      query: resume && paper.examRecordId ? { examRecordId: paper.examRecordId } : undefined,
     })
     return
   }
@@ -1513,6 +1568,12 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
     transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 260ms ease,
     border-color 180ms ease;
+}
+.assessment-year-card--target {
+  border-color: var(--color-learning-blue);
+  box-shadow:
+    0 0 0 2px var(--color-learning-blue),
+    0 18px 42px rgba(25, 51, 64, 0.13);
 }
 
 .assessment-year-card:hover,
@@ -1987,7 +2048,7 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
   line-height: var(--leading-relaxed);
 }
 
-.esat-subject-dialog__intro > span {
+.esat-subject-dialog__goal-actions > span {
   min-width: 48px;
   height: 30px;
   display: grid;
@@ -1997,6 +2058,12 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
   color: #187b71;
   font-size: var(--text-sm);
   font-weight: var(--weight-bold);
+}
+
+.esat-subject-dialog__goal-actions {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
 }
 
 .esat-subject-options {
@@ -2048,6 +2115,14 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
 
 .esat-subject-option--required {
   cursor: default;
+}
+
+.esat-subject-option--readonly {
+  cursor: default;
+}
+
+.esat-subject-option--readonly:hover {
+  border-color: rgba(35, 140, 136, 0.6);
 }
 
 .esat-subject-option__check {
@@ -2107,6 +2182,10 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
 
 .esat-subject-dialog__state p {
   margin: 0;
+}
+
+.esat-subject-dialog__state--compact {
+  min-height: 88px;
 }
 
 .esat-subject-dialog__state > .app-button.el-button {

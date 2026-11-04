@@ -5,6 +5,8 @@ import { maths2CoordinateSelfChecks } from "./maths2Coordinate.js";
 import { maths2TrigonometrySelfChecks } from "./maths2Trigonometry.js";
 import { maths2ExponentialsSelfChecks } from "./maths2Exponentials.js";
 import { maths2DifferentiationSelfChecks } from "./maths2Differentiation.js";
+import { maths2IntegrationSelfChecks } from "./maths2Integration.js";
+import { maths2GraphsSelfChecks } from "./maths2Graphs.js";
 import type { MathematicsLearningSelection } from "./mathematicsLearningTypes.js";
 
 export const mathematics2LearningSelfChecks: Record<
@@ -20,4 +22,6 @@ export const mathematics2LearningSelfChecks: Record<
   ...maths2TrigonometrySelfChecks,
   ...maths2ExponentialsSelfChecks,
   ...maths2DifferentiationSelfChecks,
+  ...maths2IntegrationSelfChecks,
+  ...maths2GraphsSelfChecks,
 };

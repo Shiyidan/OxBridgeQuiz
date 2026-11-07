@@ -138,6 +138,7 @@ export interface MockExamRecordParams {
   examType: string
   status?: MockExamRecordStatus
   mode?: MockExamRecordMode
+  targetRecordId?: string
   page?: number
   pageSize?: number
 }
@@ -208,6 +209,7 @@ export function getMockExamRecordsData(params: MockExamRecordParams) {
       examType: params.examType,
       status: params.status,
       mode: params.mode === 'all' ? undefined : params.mode,
+      targetRecordId: params.targetRecordId,
       page: String(params.page || 1),
       pageSize: String(params.pageSize || 10),
     },

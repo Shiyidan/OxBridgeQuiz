@@ -1,8 +1,12 @@
 <!-- 数学1单位图解：以总量/单位量和逐项消去单位演示复合量、面积及体积换算。 -->
 <template>
-  <figure class="units-atlas" aria-label="单位与换算交互图解">
+  <figure
+    class="units-atlas"
+    :class="{ 'units-atlas--compact': compact }"
+    aria-label="单位与换算交互图解"
+  >
     <figcaption>
-      <span class="eyebrow">MATHEMATICS 1 · UNITS</span>
+      <span v-if="!compact" class="eyebrow">MATHEMATICS 1 · UNITS</span>
       <h5>{{ conversion ? '单位也参加运算' : '把“每”放到分母' }}</h5>
       <p>
         {{
@@ -63,9 +67,9 @@
     <template v-else>
       <div class="conversion-path" aria-live="polite">
         <LatexText :text="route.start" />
-        <span class="path-arrow" aria-hidden="true">↓</span>
+        <span class="path-arrow" aria-hidden="true">{{ compact ? '→' : '↓' }}</span>
         <LatexText :text="route.factor" />
-        <span class="path-arrow" aria-hidden="true">↓</span>
+        <span class="path-arrow" aria-hidden="true">{{ compact ? '→' : '↓' }}</span>
         <LatexText class="equation" :text="route.end" />
       </div>
       <div
@@ -88,8 +92,8 @@ import { computed, ref, watch } from 'vue'
 import AppButton from '@/components/AppButton.vue'
 import LatexText from '@/components/LatexText.vue'
 
-const props = defineProps<{ topic: string }>()
-const selected = ref(0)
+const props = defineProps<{ topic: string; compact?: boolean }>()
+const selected = ref(props.compact && props.topic === '110102' ? 3 : 0)
 // 第二个叶子节点使用单位消去路线；整章阅读沿用复合量导读。
 const conversion = computed(() => props.topic === '110102')
 const quantities = [
@@ -211,10 +215,11 @@ const choices = computed(() => (conversion.value ? routes : quantities))
 const current = computed(() => quantities[selected.value] ?? quantities[0]!)
 // 换算路线逐项显示单位消去，不依赖口诀猜乘除方向。
 const route = computed(() => routes[selected.value] ?? routes[0]!)
+// 紧凑讲义从分子、分母同时换算的速度路线开始，切换节点不残留上节索引。
 watch(
-  () => props.topic,
+  () => [props.topic, props.compact],
   () => {
-    selected.value = 0
+    selected.value = props.compact && props.topic === '110102' ? 3 : 0
   },
 )
 </script>
@@ -370,5 +375,59 @@ svg {
   --app-button-hover-border: var(--color-learning-blue);
   --app-button-active-bg: var(--color-learning-blue);
   --app-button-active-border: var(--color-learning-blue);
+}
+
+/* 讲义路线保持公式字号，改为可换行的横向算式，减少外框和纵向堆叠。 */
+.units-atlas--compact {
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: #f6f9fe;
+  h5 {
+    margin: 0 0 4px;
+    font-size: 17px;
+    font-weight: 700;
+  }
+  figcaption p {
+    margin: 0 0 10px;
+    font-size: 14px;
+  }
+  .controls {
+    margin-bottom: 12px;
+    gap: 6px;
+  }
+  .conversion-path {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 4px;
+    min-width: 0;
+    font-size: 16px;
+  }
+  .conversion-path > :deep(.latex-text) {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .equation {
+    padding: 0;
+  }
+  .dimension-grid {
+    margin: 10px 0;
+  }
+  .dimension-grid div {
+    flex: 0 1 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 5px 9px;
+    font-size: 13px;
+  }
+  .insight {
+    margin-top: 10px;
+    padding: 4px 0 4px 10px;
+    font-size: 14px;
+  }
 }
 </style>

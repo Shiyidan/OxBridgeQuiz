@@ -12,6 +12,13 @@ import tmuaDiagnosticQuestion03Url from '@/assets/home/tmua-diagnostic-question-
 import tmuaDiagnosticQuestion05Url from '@/assets/home/tmua-diagnostic-question-05.png'
 import tmuaDiagnosticQuestion07Url from '@/assets/home/tmua-diagnostic-question-07.png'
 import HomeFooter from './HomeFooter.vue'
+import DesktopMarketingHero from './DesktopMarketingHero.vue'
+import DesktopDiagnosticIntro from './DesktopDiagnosticIntro.vue'
+import DesktopLearningIntro from './DesktopLearningIntro.vue'
+import DesktopMockExamIntro from './DesktopMockExamIntro.vue'
+import DesktopMistakeIntro from './DesktopMistakeIntro.vue'
+import DesktopMembershipIntro from './DesktopMembershipIntro.vue'
+import type { ActiveExamType } from '@/stores/auth'
 
 interface MarketingHomeProps {
   memberPriceLabel?: string
@@ -71,6 +78,10 @@ const heroSlides: readonly MarketingHeroSlide[] = [
 ]
 const HERO_TRANSITION_DELAY_MS = 5000
 const activeHeroId = ref<MarketingHeroId>('diagnostic')
+const desktopHeroQuery = '(min-width: 861px)'
+const isDesktopHero = ref(typeof window !== 'undefined' && window.matchMedia(desktopHeroQuery).matches)
+let desktopHeroPreference: MediaQueryList | null = null
+// 移动端保留现有轮播内容，桌面端改用独立的浅色学习轨迹首屏。
 const activeHero = computed<MarketingHeroSlide>(
   () => heroSlides.find((slide) => slide.id === activeHeroId.value) ?? diagnosticHeroSlide,
 )
@@ -214,7 +225,7 @@ function preloadHeroImages(): void {
 // 首屏仅在可见、启用且用户允许动效时安排下一次切换；减少动效模式固定展示模考内容。
 function syncHeroTransition(): void {
   clearHeroTransition()
-  if (!props.includeHero || document.visibilityState !== 'visible') return
+  if (!props.includeHero || isDesktopHero.value || document.visibilityState !== 'visible') return
   if (heroPrefersReducedMotion) {
     activeHeroId.value = 'mock-exam'
     return
@@ -234,6 +245,13 @@ function handleHeroMotionPreferenceChange(event: MediaQueryListEvent): void {
   syncHeroTransition()
 }
 
+// 与原首页 860px 断点一致，窗口缩放回移动端时恢复原有轮播。
+function handleDesktopHeroChange(event: MediaQueryListEvent): void {
+  isDesktopHero.value = event.matches
+  if (!event.matches && props.includeHero && heroImagePreloads.length === 0) preloadHeroImages()
+  syncHeroTransition()
+}
+
 // 两组轮播仅在各自模块可见且页面处于前台时运行，避免后台持续消耗渲染资源。
 function syncGalleryMotion(): void {
   diagnosticGalleryActive.value = diagnosticGalleryInView && document.visibilityState === 'visible'
@@ -245,7 +263,7 @@ const emit = defineEmits<{
   register: [targetPath: string]
   login: [targetPath: string]
   navigate: [targetPath: string]
-  'open-payment': [planId: 'monthly' | 'quarterly']
+  'open-payment': [planId: 'monthly' | 'quarterly', examType?: ActiveExamType]
   'scroll-top': []
 }>()
 
@@ -305,8 +323,8 @@ function requestLogin(targetPath: string) {
 }
 
 // 购买入口由父级处理登录分流、考试类型选择与支付结果回写。
-function requestPayment(planId: 'monthly' | 'quarterly') {
-  emit('open-payment', planId)
+function requestPayment(planId: 'monthly' | 'quarterly', examType?: ActiveExamType) {
+  emit('open-payment', planId, examType)
 }
 
 // 页脚产品入口回到营销首页顶部，由父级兼容滚动容器实现。
@@ -315,7 +333,10 @@ function requestScrollTop() {
 }
 
 onMounted(() => {
-  if (props.includeHero) preloadHeroImages()
+  desktopHeroPreference = window.matchMedia(desktopHeroQuery)
+  isDesktopHero.value = desktopHeroPreference.matches
+  desktopHeroPreference.addEventListener('change', handleDesktopHeroChange)
+  if (props.includeHero && !isDesktopHero.value) preloadHeroImages()
   heroMotionPreference = window.matchMedia('(prefers-reduced-motion: reduce)')
   heroPrefersReducedMotion = heroMotionPreference.matches
   heroMotionPreference.addEventListener('change', handleHeroMotionPreferenceChange)
@@ -367,6 +388,7 @@ onBeforeUnmount(() => {
   statsObserver?.disconnect()
   heroImagePreloads.length = 0
   heroMotionPreference?.removeEventListener('change', handleHeroMotionPreferenceChange)
+  desktopHeroPreference?.removeEventListener('change', handleDesktopHeroChange)
   diagnosticGalleryObserver?.disconnect()
   practiceGalleryObserver?.disconnect()
   document.removeEventListener('visibilitychange', syncHeroTransition)
@@ -381,7 +403,7 @@ watch(
       activeHeroId.value = 'diagnostic'
       return
     }
-    if (heroImagePreloads.length === 0) preloadHeroImages()
+    if (!isDesktopHero.value && heroImagePreloads.length === 0) preloadHeroImages()
     syncHeroTransition()
   },
 )
@@ -393,11 +415,16 @@ watch(
       THESIS: 用可追溯的真题诊断证明“测清楚再练”，拒绝以空泛功能卡堆砌价值。
       OWN-WORLD: 黑白高对比编辑式页面、编号叙事、数据台账与深色报告面板。
       STORY: 访客先理解真题命题模型，再看诊断、报告、训练与错题如何形成闭环，最后选择注册或会员。
-      FIRST VIEWPORT: 深色首屏以循环淡出切换串联真题诊断与全真模考，右侧只保留对应的真实产品证据。
+      FIRST VIEWPORT: 桌面以浅色学习轨迹承接诊断与学习入口；移动端保留原有诊断与模考轮播。
       FORM: 绑定参考 HTML 的纵向分屏叙事；营销说服模式；视觉结构由用户给定参考确定。
     -->
+    <DesktopMarketingHero
+      v-if="props.includeHero && isDesktopHero"
+      @register="requestRegistration"
+      @navigate="(path) => emit('navigate', path)"
+    />
     <section
-      v-if="props.includeHero"
+      v-else-if="props.includeHero"
       id="home-marketing-hero"
       class="home-section home-snap-screen home-hero-screen"
       aria-labelledby="home-hero-title"
@@ -489,8 +516,23 @@ watch(
       </div>
     </section>
 
+    <DesktopDiagnosticIntro v-if="isDesktopHero" />
+    <DesktopLearningIntro v-if="isDesktopHero" @navigate="path => emit('navigate', path)" />
+    <DesktopMockExamIntro v-if="isDesktopHero" @navigate="path => emit('navigate', path)" />
+    <DesktopMistakeIntro v-if="isDesktopHero" />
+    <DesktopMembershipIntro
+      v-if="isDesktopHero"
+      :member-price-label="props.memberPriceLabel"
+      :quarterly-price-label="props.quarterlyPriceLabel"
+      :quarterly-original-price-label="props.quarterlyOriginalPriceLabel"
+      :quarterly-discount-label="props.quarterlyDiscountLabel"
+      @register="requestRegistration"
+      @payment="requestPayment"
+    />
+
     <div class="home-marketing-story-background">
       <section
+        v-if="!isDesktopHero"
         id="home-question-model"
         class="home-section home-snap-screen home-story-screen home-model-screen"
         aria-labelledby="home-model-title"
@@ -547,6 +589,7 @@ watch(
       </section>
 
       <section
+        v-if="!isDesktopHero"
         id="home-learning-loop"
         class="home-section home-snap-screen home-loop-screen home-marketing-loop-screen"
         aria-labelledby="home-loop-title"
@@ -586,6 +629,7 @@ watch(
     </div>
 
     <section
+      v-if="!isDesktopHero"
       id="home-diagnostic-preview"
       class="home-section home-snap-screen home-public-screen home-diagnostic-screen"
       aria-labelledby="home-diagnostic-title"
@@ -654,6 +698,7 @@ watch(
     </section>
 
     <section
+      v-if="!isDesktopHero"
       id="home-report-preview"
       class="home-section home-snap-screen home-growth-screen"
       aria-labelledby="home-growth-title"
@@ -686,6 +731,7 @@ watch(
     </section>
 
     <section
+      v-if="!isDesktopHero"
       id="home-practice-preview"
       class="home-section home-snap-screen home-public-screen home-practice-screen"
       aria-labelledby="home-practice-title"
@@ -736,9 +782,10 @@ watch(
       </div>
     </section>
 
-    <div class="home-school-view-gap" aria-hidden="true"></div>
+    <div v-if="!isDesktopHero" class="home-school-view-gap" aria-hidden="true"></div>
 
     <section
+      v-if="!isDesktopHero"
       id="home-mistake-preview"
       class="home-section home-snap-screen home-public-screen home-mistake-screen"
       aria-labelledby="home-mistake-title"
@@ -771,6 +818,7 @@ watch(
     </section>
 
     <section
+      v-if="!isDesktopHero"
       id="home-pricing"
       class="home-section home-snap-screen home-action-screen"
       aria-labelledby="home-pricing-title"

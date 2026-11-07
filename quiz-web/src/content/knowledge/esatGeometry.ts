@@ -1,5 +1,10 @@
 // ESAT 数学1几何讲义：以结构、对应关系和真实题源覆盖十九个考纲知识点。
 import type { KnowledgeLesson } from './types'
+import { geometryInferenceMethods, circleVocabularyMethods, solidVocabularyMethods, plansElevationsMethods } from './geometryReadingMethods'
+import { geometryNotationMethods, anglePropertiesMethods, shapePropertiesMethods, triangleCongruenceMethods } from './geometryFoundationMethods'
+import { coordinateMethods, transformationMethods } from './coordinateTransformMethods'
+import { similarityMethods, trigonometryMethods, vectorReasoningMethods } from './geometryReasoningMethods'
+import { mapsBearingsMethods, basicMeasureMethods, circularSolidsMethods, sectorMethods } from './geometryMeasurementMethods'
 
 export const esatGeometry: KnowledgeLesson = {
   code: '110500',
@@ -18,7 +23,8 @@ export const esatGeometry: KnowledgeLesson = {
     {
       code: '110501',
       title: '几何术语与记号',
-      summary: '先把语言变成图上的关系：角看中间字母，平行和垂直看明确标记。',
+      summary: '认清常用记号，重点检查夹角、点的位置与对称条件。',
+      memory: geometryNotationMethods.memory,
       paragraphs: [
         '点表示位置，线段有两个端点，直线向两侧无限延伸；射线有一个端点。三维图形的边界线称棱，平的表面位于平面内。不要把图上画出的线段长度当作实际长度。',
         '读角 ∠ABC 时，中间的 B 是顶点，两边是 BA、BC。AB ∥ CD 表示平行，AB ⟂ CD 表示垂直；等长刻痕、直角小方框、平行箭头才是能写进推理的条件。',
@@ -95,7 +101,8 @@ export const esatGeometry: KnowledgeLesson = {
     {
       code: '110502',
       title: '角度性质',
-      summary: '遇多边形先想外角，遇交线先找平行，再把角度关系写成等式。',
+      summary: '基本角和直接用；重点掌握平行线、外角和动态夹角。',
+      memory: anglePropertiesMethods.memory,
       paragraphs: [
         '一点周角为 360°，直线上相邻角之和为 180°，垂直相交形成 90°，对顶角相等。平行线被截时，同位角、内错角相等，同旁内角互补；这些关系必须先有平行条件。',
         '三角形内角和 180°，外角等于两个不相邻内角之和；四边形内角和 360°。把 n 边形从一个顶点分成 n−2 个三角形，可得内角和 (n−2)×180°。',
@@ -177,7 +184,8 @@ export const esatGeometry: KnowledgeLesson = {
     {
       code: '110503',
       title: '四边形与三角形性质',
-      summary: '性质要能推出，分类要有包含关系：正方形同时是矩形和菱形。',
+      summary: '分清对角线性质，用半对角线、半底和三角不等式解决问题。',
+      memory: shapePropertiesMethods.memory,
       paragraphs: [
         '平行四边形的对边平行且等长，对角相等，对角线互相平分。矩形再增加四个直角，因此对角线等长；菱形再增加四边等长，因此对角线互相垂直并平分顶角；正方形同时满足两组性质。',
         '梯形有一组对边平行，面积中的高是这两条平行线的垂直距离。风筝形有两组相邻等边，一条对角线是对称轴并垂直平分另一条；不能把“互相平分”套给一般风筝形。',
@@ -257,7 +265,8 @@ export const esatGeometry: KnowledgeLesson = {
     {
       code: '110504',
       title: '三角形全等',
-      summary: '全等不只说明大小相同，还必须给出正确的顶点对应顺序。',
+      summary: '对应要正确，判据要够用；重点辨清 SAS、RHS 与一般 SSA。',
+      memory: triangleCongruenceMethods.memory,
       paragraphs: [
         '全等三角形可以通过平移、旋转、反射完全重合，对应边和对应角分别相等。写 △ABC ≅ △DEF 时，必须对应 A↔D、B↔E、C↔F。',
         'SSS 是三边对应相等；SAS 是两边及它们的夹角对应相等；ASA 是两角及夹边对应相等。已知两角和另一边也可先用角和补第三角，再转成 ASA。',
@@ -322,7 +331,8 @@ export const esatGeometry: KnowledgeLesson = {
     {
       code: '110505',
       title: '角、全等与相似推理',
-      summary: '每一步只引用已有证据：先证对应角，再写对应边的比例。',
+      summary: '先判定全等或相似，再对应边角；分段比先换成整段占比。',
+      memory: geometryInferenceMethods.memory,
       paragraphs: [
         '几何推理常用链条是“平行 → 相等角 → 三角形相似 → 对应边比例”。每个箭头都应能说出依据，不能看到两图形外观相像就直接写比例。',
         '相似三角形可用 AA、三边成比例、两边成比例且夹角相等来判定。全等是对应长度比为 1 的特殊相似；两边比例相同但夹角不相等，不足以保证相似。',
@@ -397,7 +407,8 @@ export const esatGeometry: KnowledgeLesson = {
     {
       code: '110506',
       title: '几何变换与平移向量',
-      summary: '变换要交代中心、方向和顺序；同样两步，交换顺序可能改变终点。',
+      summary: '用不变量辨认变换，围绕中心计算；用中间位置和逆序还原控制组合过程。',
+      memory: transformationMethods.memory,
       paragraphs: [
         '平移用列向量 (a,b) 表示所有点横坐标加 a、纵坐标加 b。反射必须给出对称轴；旋转必须给出中心、角度和顺/逆时针方向。三者保持边长和角度，反射会改变图形的朝向。',
         '以原点为中心顺时针旋转 90°，(x,y) 变为 (y,−x)；旋转 180° 变为 (−x,−y)。关于 x 轴反射为 (x,−y)。中心不在原点时，先减去中心坐标，再变换，再加回中心。',
@@ -564,7 +575,8 @@ export const esatGeometry: KnowledgeLesson = {
     {
       code: '110508',
       title: '圆的术语',
-      summary: '分清圆上的线、弧和区域；“半径、直径、周长”不能互换。',
+      summary: '认清半径、直径与弦，区分扇形、弓形和完整边界。',
+      memory: circleVocabularyMethods.memory,
       paragraphs: [
         '圆心到圆上一点的线段是半径，过圆心且两端在圆上的弦是直径。弦只要求两端在圆上，不必过圆心。切线只在切点与圆相切，并与该点半径垂直。',
         '弧是圆周的一部分；扇形由两条半径和一条弧围成，弓形由一条弦和一条弧围成。优弧、优扇形和优弓形取较大的那一部分，劣弧等取较小的部分；直径把圆分成两个相等半圆。',
@@ -716,7 +728,8 @@ export const esatGeometry: KnowledgeLesson = {
     {
       code: '110510',
       title: '坐标几何问题',
-      summary: '把图形性质翻译成坐标差、距离、中点或斜率，再检查特殊情况。',
+      summary: '先用图形性质减少未知，再选坐标关系；分清顶点身份，并用原条件筛选参数解。',
+      memory: coordinateMethods.memory,
       paragraphs: [
         '两点距离来自勾股，横向差与纵向差都要平方。中点则分别取两坐标平均。线段长度不能用两个点到原点的距离相减，除非已知它们在同一射线上。',
         '直线斜率是 Δy/Δx：平行的非竖直直线斜率相同，互相垂直且都非竖直的直线斜率乘积为 −1。竖直线的斜率不存在，水平线斜率为 0，要单独处理。',
@@ -791,7 +804,8 @@ export const esatGeometry: KnowledgeLesson = {
     {
       code: '110511',
       title: '三维图形术语',
-      summary: '分清平面面、曲面、棱和顶点，尤其不要把面内对角线当体对角线。',
+      summary: '名称简单记，重点分清面对角线、体对角线和垂直高。',
+      memory: solidVocabularyMethods.memory,
       paragraphs: [
         '长方体有 6 个矩形面、12 条棱、8 个顶点；正方体是六个面全为正方形的长方体。面内对角线连接同一个面上的不相邻顶点，体对角线连接不在同一面内的一对顶点。',
         '直棱柱沿长度方向保持同样的截面，两个底面全等且平行；三角柱的底面是三角形，并不要求摆放时三角形在下方。棱锥有一个多边形底面，侧面三角形汇聚在一个顶点。',
@@ -867,7 +881,8 @@ export const esatGeometry: KnowledgeLesson = {
     {
       code: '110512',
       title: '平面图与立面图',
-      summary: '俯视看占地，正视看列的最高处；看到的格子数不等于立方体总数。',
+      summary: '俯视定占地，立面看轮廓；方块总数要看各位置的柱高。',
+      memory: plansElevationsMethods.memory,
       paragraphs: [
         '平面图通常从正上方看，表示哪些位置被占据；正面立面图从指定箭头方向水平看，表示每个横向位置的最高轮廓；侧面立面图则从垂直的另一方向看。',
         '若单位立方体竖直堆叠，一列后面的较矮方块会被挡住。因此立面上高度为 3，表示该视线方向至少有一摞达到 3，而不表示每一摞都是 3。',
@@ -930,7 +945,8 @@ export const esatGeometry: KnowledgeLesson = {
     {
       code: '110513',
       title: '地图、比例图与方位角',
-      summary: '方位角从北向顺时针量，必须说清“从谁看谁”。',
+      summary: '先统一尺度和单位，再标观察点与北线；区分路线、位移和最终方位。',
+      memory: mapsBearingsMethods.memory,
       paragraphs: [
         '地图比例 1:n 表示图上 1 个长度单位对应实际 n 个同种单位。换算距离先统一单位；比例图的长度倍数不改变角度，面积比则是长度比的平方。',
         '三位数方位角从所在地的正北方向开始，顺时针量至目标方向：东 090°、南 180°、西 270°。060° 是北偏东 60°，不是从水平线量起。',
@@ -1011,7 +1027,8 @@ export const esatGeometry: KnowledgeLesson = {
     {
       code: '110514',
       title: '基础图形面积与体积',
-      summary: '先找垂直高和固定截面，再决定加、减还是建立方程。',
+      summary: '把底与垂直高配对，用分割、补集或固定截面减少未知，再由几何限制筛选尺寸。',
+      memory: basicMeasureMethods.memory,
       paragraphs: [
         '三角形面积为底×垂直高的一半，平行四边形面积为底×垂直高，梯形面积为两平行边之和×垂直高的一半。高度可以落在图形外，不必等于图上的斜边。',
         '长方体体积是长×宽×高；直棱柱体积是固定截面积×长度。面积单位要平方换算、体积单位要立方换算，不能因为公式都含高度就把面积和体积混在一起。',
@@ -1093,7 +1110,8 @@ export const esatGeometry: KnowledgeLesson = {
     {
       code: '110515',
       title: '圆、圆柱与复合立体',
-      summary: '先列哪些边或面真正外露，再套公式；空心和封闭是两类不同条件。',
+      summary: '先确定半径和统计范围，再处理展开、挖空与拼接；材料体积和外露面积分别清点。',
+      memory: circularSolidsMethods.memory,
       paragraphs: [
         '圆周长 2πr、圆面积 πr²、直圆柱体积 πr²h 是基本关系。圆柱侧面展开为长 2πr、宽 h 的矩形；闭圆柱表面积还要加两个圆形底面。',
         '把矩形卷成圆柱时，一条边成为圆周，另一条边成为高，原矩形边不能直接当半径。若交换卷法，侧面积保持不变，但半径、体积和底面积会改变。',
@@ -1180,7 +1198,8 @@ export const esatGeometry: KnowledgeLesson = {
     {
       code: '110516',
       title: '弧长与扇形',
-      summary: '把整圆乘上角度占比；求周长时记得加上两条半径。',
+      summary: '用角度占比连接弧长与面积，按边界区分扇形、弓形及圆环扇形。',
+      memory: sectorMethods.memory,
       paragraphs: [
         '同一圆内，弧长和扇形面积都按圆心角占整周的比例缩放。用度数 θ 时，占比为 θ/360°；不要用弧长占比去线性缩放半径平方。',
         '弧长是圆周的一部分，扇形周长还包括两条半径。扇形面积是两半径与弧围成的区域；弓形面积可由扇形减去相应三角形，但优弓形要重新确认取哪一侧。',
@@ -1255,7 +1274,8 @@ export const esatGeometry: KnowledgeLesson = {
     {
       code: '110517',
       title: '全等、相似与比例关系',
-      summary: '长度乘 k，面积乘 k²，体积乘 k³；先判断题目给的是哪一层比例。',
+      summary: '先判定、再对应；区分长度、面积与体积比例，处理同高、截线和剩余区域。',
+      memory: similarityMethods.memory,
       paragraphs: [
         '相似图形的对应角相等，对应长度成同一个比例 k。只有角相等不足以说明任意多边形相似，例如所有矩形的角相同，长宽比却可能不同；三角形的 AA 判据才允许以两角判相似。',
         '长度比例为 k 时，面积比例 k²、体积比例 k³。反过来给面积比 a，要先开平方得到长度比，再立方得到体积比，不能把面积比直接当体积比。',
@@ -1342,7 +1362,8 @@ export const esatGeometry: KnowledgeLesson = {
     {
       code: '110518',
       title: '直角三角形三角比',
-      summary: '相对指定角认对边和邻边，再选一个只含已知量与目标量的比。',
+      summary: '固定参考角，选择直接连接已知量与目标的比；用边比、精确值和共享高度减少计算。',
+      memory: trigonometryMethods.memory,
       paragraphs: [
         '对锐角 θ，sinθ=对边/斜边，cosθ=邻边/斜边，tanθ=对边/邻边。对边和邻边随所选锐角改变，斜边始终对着直角。',
         '特殊角用两种三角形记：等腰直角三角形边比 1:1:√2；等边三角形劈成两半得到 30°–60°–90°边比 1:√3:2。由此重建精确值，比孤立背小数可靠。',
@@ -1431,7 +1452,8 @@ export const esatGeometry: KnowledgeLesson = {
     {
       code: '110519',
       title: '向量与几何论证',
-      summary: '向量要带方向；共线要说明同一直线上的起点关系，而不只说“平行”。',
+      summary: '统一起点与方向，用分点和两条路径建立等式，再核验共线、平行和交点的位置。',
+      memory: vectorReasoningMethods.memory,
       paragraphs: [
         '向量用方向与大小描述位移，列向量第一项横向、第二项纵向。向量加法是首尾相接，减法可看作加相反向量；位置向量满足 AB=b−a。',
         '数乘 k·v 使长度变成 |k| 倍；k<0 时方向相反。两个非零向量互为倍数则平行；若 AB=t·AC，它们又从同一点 A 出发，才可据此说明 A、B、C 共线。',

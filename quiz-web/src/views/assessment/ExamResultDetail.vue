@@ -163,7 +163,7 @@ const resolvedTargetQuestionId = ref<string | undefined>(targetQuestionId.value)
 // 错题本使用专用单题模式，不能从当前入口回退为整卷解析。
 const singleQuestionMode = computed(() => Boolean(isQuestionReview.value && targetQuestionId.value))
 
-// 模考记录的错题回顾只展示错误或未作答题目，不混入本场正确题。
+// 诊断历史和模考记录的错题回顾只展示本次错误或未作答题目。
 const wrongOnlyMode = computed(() => route.query.wrongOnly === '1')
 
 // 普通练习标题优先使用试卷标题，缺失时回退到题目科目。
@@ -182,6 +182,8 @@ const analysisSource = computed<'diagnostic' | 'question-bank'>(() => {
 const cameFromMistakeNotebook = computed(() => route.query.from === 'mistake-notebook')
 // 保留模考记录入口语义，用于错题回顾标题和返回导航。
 const cameFromMockExam = computed(() => route.query.from === 'mock-exam')
+// 诊断历史的错题入口返回年份列表，不依赖报告是否已生成。
+const cameFromAssessmentHistory = computed(() => route.query.from === 'assessment-history')
 // 识别练习本来路，解析结束后回到原练习本流程。
 const cameFromPracticeNotebook = computed(() => route.query.from === 'practice-notebook')
 // 识别练习记录来路，保留历史列表的返回入口。
@@ -256,7 +258,7 @@ const questionModuleLabel = computed(() => {
 const analysisPageTitle = computed(() =>
   singleQuestionMode.value
     ? [pageContextTitle.value, questionModuleLabel.value, '错题解析'].filter(Boolean).join(' · ')
-    : cameFromMockExam.value && wrongOnlyMode.value
+    : wrongOnlyMode.value
       ? `${pageContextTitle.value} · 错题回顾`
       : `${pageContextTitle.value} · 题目逐题解析`,
 )
@@ -265,15 +267,17 @@ const analysisPageTitle = computed(() =>
 const returnLabel = computed(() =>
   cameFromMistakeNotebook.value
     ? '返回错题本'
-    : cameFromMockExam.value
-      ? '返回模考中心'
-      : cameFromPracticeNotebook.value
-        ? '返回练习本'
-        : cameFromPracticeRecords.value
-          ? '返回练习记录'
-          : analysisSource.value === 'diagnostic'
-            ? '返回诊断报告'
-            : '返回试题库',
+    : cameFromAssessmentHistory.value
+      ? '返回诊断历史'
+      : cameFromMockExam.value
+        ? '返回模考中心'
+        : cameFromPracticeNotebook.value
+          ? '返回练习本'
+          : cameFromPracticeRecords.value
+            ? '返回练习记录'
+            : analysisSource.value === 'diagnostic'
+              ? '返回诊断报告'
+              : '返回试题库',
 )
 
 // 页面加载后先识别 paperType 和 examType，诊断记录随即跳到独立考试报告页。
@@ -389,6 +393,13 @@ async function loadMistakeAttemptHistory(): Promise<void> {
 
 // 返回目标由来源和考试类型固定决定，不依赖浏览器历史栈，刷新页面后仍能保持正确去向。
 function returnToSource(): void {
+  if (cameFromAssessmentHistory.value) {
+    const returnTo = String(route.query.returnTo || '')
+    void router.push(
+      returnTo === '/assessment' || returnTo.startsWith('/assessment?') ? returnTo : '/assessment',
+    )
+    return
+  }
   if (cameFromMistakeNotebook.value) {
     void router.push(mistakeNotebookReturnTo.value)
     return

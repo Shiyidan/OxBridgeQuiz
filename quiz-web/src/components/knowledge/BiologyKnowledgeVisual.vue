@@ -5,8 +5,8 @@
     v-else-if="kind === 'eukaryotic-cell' || kind === 'prokaryotic-cell'"
     :kind="kind"
   />
-  <figure v-else class="biology-visual">
-    <figcaption><span class="biology-label">层级图解</span>从一个细胞，到协作的整体</figcaption>
+  <figure v-else class="biology-visual" :class="{ 'biology-visual--compact': compact }">
+    <figcaption><span class="biology-label">层级图解</span>{{ compact ? '用动植物实例对照组成关系' : '从一个细胞，到协作的整体' }}</figcaption>
     <div class="biology-controls" role="group" aria-label="选择生物体层级示例">
       <AppButton
         v-for="item in organismOptions"
@@ -23,13 +23,15 @@
         <span class="level-number">{{ String(index + 1).padStart(2, '0') }}</span>
         <strong>{{ level.name }}</strong
         ><small>{{ level.english }}</small>
-        <span>{{ level.example }}</span>
+        <p v-if="compact" class="level-definition">{{ level.definition }}</p>
+        <span class="level-example">{{ level.example }}</span>
       </li>
     </ol>
     <p class="biology-note">
       <KnowledgeText :text="organisationExplanation" />
     </p>
-    <p class="biology-caution">
+    <p v-if="compact" class="biology-caution">箭头表示组成关系，不是同一个细胞依次变成组织、器官和系统。</p>
+    <p v-else class="biology-caution">
       <KnowledgeText
         text="沿箭头往右看，是把组成部分放进更大的整体：**箭头表示组成关系**，不是一个细胞先变成组织、再变成器官。组织可以含有不止一种细胞；单细胞生物只靠一个细胞生活，没有图中这套组织和器官层级。"
       />
@@ -43,7 +45,9 @@ import CellStructureDiagram from './CellStructureDiagram.vue'
 import MembraneTransportDiagram from './MembraneTransportDiagram.vue'
 import KnowledgeText from './KnowledgeText.vue'
 import type { KnowledgeSection } from '@/content/knowledge/types'
-const props = defineProps<{ kind: NonNullable<KnowledgeSection['visual']> }>()
+import { organisationMethods } from '@/content/knowledge/organisationMethods'
+// 层级复习讲义将定义放进图内，其他图解入口继续保留原有完整说明。
+const props = defineProps<{ kind: NonNullable<KnowledgeSection['visual']>; compact?: boolean }>()
 const organism = ref<'animal' | 'plant'>('animal')
 const organismOptions = [
   { id: 'animal', label: '动物：循环系统' },
@@ -62,13 +66,7 @@ const organisationLevels = computed(() => {
     organism.value === 'animal'
       ? ['心肌细胞', '心肌组织', '心脏', '循环系统', '人体']
       : ['栅栏叶肉细胞', '栅栏叶肉组织', '叶', '地上部系统', '整株植物']
-  return [
-    { name: '细胞', english: 'cell' },
-    { name: '组织', english: 'tissue' },
-    { name: '器官', english: 'organ' },
-    { name: '器官系统', english: 'organ system' },
-    { name: '生物体', english: 'organism' },
-  ].map((level, index) => ({ ...level, example: examples[index] }))
+  return organisationMethods.levels.map((level, index) => ({ ...level, example: examples[index] }))
 })
 // 用完整实例解释“多种组织组成器官”，避免学生只机械背诵层级名称。
 const organisationExplanation = computed(() =>
@@ -199,6 +197,12 @@ svg text {
   color: var(--color-ink);
 }
 
+.biology-visual--compact { margin-top: 0; padding: 16px; }
+.biology-visual--compact .organisation-chain { gap: 18px; margin: 16px 0; }
+.biology-visual--compact .organisation-chain li { padding: 12px 10px; }
+.biology-visual--compact .level-definition { flex: 1; margin: 10px 0 0; font-size: 14px; line-height: 1.65; }
+.biology-visual--compact .level-example { font-weight: 600; }
+.biology-visual--compact .biology-caution { margin-top: 10px; padding-top: 10px; }
 @media (max-width: 700px) {
   .biology-visual {
     padding: 14px;
@@ -214,5 +218,7 @@ svg text {
     left: 50%;
     content: '↓';
   }
+  .biology-visual--compact .organisation-chain { gap: 24px; }
+  .biology-visual--compact .organisation-chain li { align-items: flex-start; text-align: left; }
 }
 </style>

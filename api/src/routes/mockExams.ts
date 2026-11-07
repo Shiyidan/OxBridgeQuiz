@@ -724,7 +724,11 @@ mockExamRouter.get('/records', requireAuth, async (req, res) => {
     : allRecords.filter((record) => mockExamMode(record.structureSnapshot) === requestedMode)
   const total = filteredRecords.length
   const totalPages = Math.ceil(total / pageSize)
-  const page = totalPages > 0 ? Math.min(requestedPage, totalPages) : 1
+  // 目录中的未完成入口定位到该用户筛选结果内的答卷，不受当前分页影响。
+  const targetRecordId = typeof req.query.targetRecordId === 'string' ? req.query.targetRecordId : ''
+  const targetIndex = targetRecordId ? filteredRecords.findIndex((record) => record.id === targetRecordId) : -1
+  const targetPage = targetIndex >= 0 ? Math.floor(targetIndex / pageSize) + 1 : requestedPage
+  const page = totalPages > 0 ? Math.min(targetPage, totalPages) : 1
   const records = filteredRecords.slice((page - 1) * pageSize, page * pageSize)
   // 单项移出原容器后，历史答卷仍以冻结的模块 ID 找到同一个编号系列。
   const snapshotModuleIds = [...new Set(records.flatMap((record) => {

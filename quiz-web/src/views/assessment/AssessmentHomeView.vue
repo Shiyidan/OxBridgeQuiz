@@ -9,19 +9,23 @@
   >
     <NavBar />
     <main class="assessment-shell">
+      <img :src="headerWaveUrl" class="assessment-background-wave" alt="" aria-hidden="true" />
       <header class="page-header">
         <div class="page-header__lead">
-          <span class="page-eyebrow">Diagnostic Assessment</span>
-          <h1>诊断测试中心</h1>
-          <p>{{ assessmentSubtitle }}</p>
+          <h1>诊断测试</h1>
+          <p class="assessment-mobile-copy">{{ assessmentSubtitle }}</p>
+          <p class="assessment-desktop-copy">{{ yearOverviewDescription }}</p>
         </div>
       </header>
 
       <section class="assessment-year-overview" aria-labelledby="assessment-year-title">
         <div class="assessment-year-overview__heading">
           <div>
-            <span>{{ activeExamType }} Collections</span>
-            <h2 id="assessment-year-title">按年份选择 {{ activeExamType }} 诊断试卷</h2>
+            <span class="assessment-mobile-copy">{{ activeExamType }} Collections</span>
+            <h2 id="assessment-year-title">
+              <span class="assessment-mobile-copy">按年份选择 {{ activeExamType }} 诊断试卷</span
+              ><span class="assessment-desktop-copy">选择年份</span>
+            </h2>
           </div>
           <p>{{ yearOverviewDescription }}</p>
         </div>
@@ -143,78 +147,59 @@
 
     <AppDialog
       v-model="tmuaPaperDialogVisible"
-      :title="
-        tmuaSelectionYear ? `TMUA ${tmuaSelectionYear} 年 · 确认诊断试卷` : '确认 TMUA 诊断试卷'
-      "
-      confirm-text="确认开始"
-      cancel-text="取消"
-      @confirm="startSelectedTmuaPaper"
+      title="本次诊断"
+      width="560px"
+      class="diagnostic-confirm-dialog"
+      modal-class="diagnostic-confirm-overlay"
+      :show-header-divider="false"
       @cancel="clearTmuaPaperSelection"
     >
-      <template #default>
-        <div class="tmua-paper-confirmation">
-          <p>本次诊断包含以下两个 Paper，确认开始答题吗？</p>
-          <div class="tmua-paper-confirmation__options" aria-label="TMUA 必做试卷">
-            <div>
-              <span aria-hidden="true">✓</span>
-              <strong>Paper 1</strong>
-              <small>{{
-                formatModuleSubtitle(tmuaModuleQuestionCounts.paper1, '数学知识应用')
-              }}</small>
-              <em>必做</em>
-            </div>
-            <div>
-              <span aria-hidden="true">✓</span>
-              <strong>Paper 2</strong>
-              <small>{{ formatModuleSubtitle(tmuaModuleQuestionCounts.paper2, '数学推理') }}</small>
-              <em>必做</em>
-            </div>
+      <div class="diagnostic-confirm-summary">
+        <h3>{{ selectedTmuaPaper?.title || `TMUA ${tmuaSelectionYear} 年诊断卷` }}</h3>
+        <p class="diagnostic-confirm-description">本次诊断包含两个必做 Paper。</p>
+        <p class="diagnostic-confirm-subjects">Paper 1 · Paper 2</p>
+        <div v-if="selectedTmuaPaper" class="diagnostic-confirm-metrics">
+          <span><Document aria-hidden="true" />{{ selectedTmuaPaper.totalQuestions }} 题</span>
+          <span><Clock aria-hidden="true" />{{ selectedTmuaPaper.duration }} 分钟</span>
+        </div>
+      </div>
+      <template #footer="{ cancel }">
+        <div class="diagnostic-confirm-footer">
+          <div class="diagnostic-confirm-buttons">
+            <AppButton type="secondary" @click="cancel">取消</AppButton>
+            <AppButton :icon="Right" icon-position="right" @click="startSelectedTmuaPaper"
+              >确认开始</AppButton
+            >
           </div>
+          <p>确认后进入限时作答。</p>
         </div>
       </template>
     </AppDialog>
 
     <AppDialog
       v-model="subjectDialogVisible"
-      width="680px"
+      width="560px"
+      class="diagnostic-confirm-dialog"
+      modal-class="diagnostic-confirm-overlay"
+      :show-header-divider="false"
       :loading="Boolean(startingPaperId)"
-      :title="
-        subjectSelectionYear ? `ESAT ${subjectSelectionYear} 年 · 确认诊断科目` : '确认诊断科目'
-      "
+      title="本次诊断"
       destroy-on-close
     >
-      <div class="esat-subject-dialog__intro">
-        <div>
-          <strong>已根据备考目标匹配 3 个科目</strong>
-          <p>诊断测试与模考中心使用同一组 ESAT 备考科目。</p>
-        </div>
-        <div class="esat-subject-dialog__goal-actions">
-          <span>{{ selectedEsatSubjects.length }}/3</span>
-          <AppButton type="text" size="small" @click="goToSubjectSettings">
-            修改备考目标
-          </AppButton>
-        </div>
-      </div>
-
-      <div class="esat-subject-options" role="list" aria-label="当前备考目标中的 ESAT 诊断科目">
-        <div
-          v-for="subject in selectedEsatSubjectOptions"
-          :key="subject.code"
-          class="esat-subject-option esat-subject-option--selected esat-subject-option--readonly"
-          role="listitem"
+      <div class="diagnostic-confirm-summary">
+        <h3>{{ selectedPaperPreview?.title || `ESAT ${subjectSelectionYear} 年诊断卷` }}</h3>
+        <p class="diagnostic-confirm-description">已按备考目标匹配。</p>
+        <p class="diagnostic-confirm-subjects">
+          {{ selectedEsatSubjectOptions.map((subject) => subject.label).join(' · ') }}
+        </p>
+        <AppButton
+          type="text"
+          class="diagnostic-confirm-settings"
+          :icon="Right"
+          icon-position="right"
+          @click="goToSubjectSettings"
+          >修改备考目标</AppButton
         >
-          <span class="esat-subject-option__check" aria-hidden="true">✓</span>
-          <span>
-            <strong>{{ subject.label }}</strong>
-            <small>
-              {{
-                formatModuleSubtitle(esatSubjectQuestionCounts[subject.code], subject.englishLabel)
-              }}
-            </small>
-          </span>
-          <em v-if="subject.required">必考</em>
-          <em v-else>目标科目</em>
-        </div>
       </div>
 
       <div
@@ -233,18 +218,11 @@
         </AppButton>
       </div>
 
-      <div v-if="!subjectPapersLoading && selectedPaperPreview" class="esat-subject-dialog__match">
-        <span>
-          本次诊断组合
-          <em v-if="isPaperLocked(selectedPaperPreview)">
-            <el-icon><Lock /></el-icon>
-            会员专享
-          </em>
-        </span>
-        <strong>{{ selectedPaperPreview.title }}</strong>
-        <small
-          >{{ selectedPaperPreview.totalQuestions }} 题 ·
-          {{ selectedPaperPreview.duration }} 分钟</small
+      <div v-if="!subjectPapersLoading && selectedPaperPreview" class="diagnostic-confirm-metrics">
+        <span><Document aria-hidden="true" />{{ selectedPaperPreview.totalQuestions }} 题</span>
+        <span><Clock aria-hidden="true" />{{ selectedPaperPreview.duration }} 分钟</span>
+        <span v-if="isPaperLocked(selectedPaperPreview)" class="diagnostic-confirm-membership"
+          ><Lock aria-hidden="true" />会员专享</span
         >
       </div>
       <p
@@ -255,37 +233,41 @@
       </p>
 
       <template #footer="{ cancel }">
-        <AppButton
-          type="secondary"
-          size="small"
-          :disabled="Boolean(startingPaperId)"
-          @click="cancel"
-        >
-          取消
-        </AppButton>
-        <AppButton
-          v-if="selectedPaperPreview && isPaperLocked(selectedPaperPreview) && hasPendingDailyCard"
-          type="secondary"
-          size="small"
-          :disabled="Boolean(startingPaperId)"
-          @click="handlePurchaseForSelectedEsatPaper"
-        >
-          开通会员
-        </AppButton>
-        <AppButton
-          size="small"
-          :loading="Boolean(startingPaperId)"
-          :disabled="subjectPapersLoading || Boolean(subjectPapersError) || !selectedPaperPreview"
-          @click="startSelectedEsatPaper"
-        >
-          {{
-            startingPaperId
-              ? '正在检查...'
-              : selectedPaperPreview && isPaperLocked(selectedPaperPreview)
-                ? lockedMembershipActionLabel
-                : '开始诊断测试'
-          }}
-        </AppButton>
+        <div class="diagnostic-confirm-footer">
+          <div class="diagnostic-confirm-buttons">
+            <AppButton type="secondary" :disabled="Boolean(startingPaperId)" @click="cancel">
+              取消
+            </AppButton>
+            <AppButton
+              v-if="
+                selectedPaperPreview && isPaperLocked(selectedPaperPreview) && hasPendingDailyCard
+              "
+              type="secondary"
+              :disabled="Boolean(startingPaperId)"
+              @click="handlePurchaseForSelectedEsatPaper"
+            >
+              开通会员
+            </AppButton>
+            <AppButton
+              :loading="Boolean(startingPaperId)"
+              :disabled="
+                subjectPapersLoading || Boolean(subjectPapersError) || !selectedPaperPreview
+              "
+              :icon="Right"
+              icon-position="right"
+              @click="startSelectedEsatPaper"
+            >
+              {{
+                startingPaperId
+                  ? '正在检查...'
+                  : selectedPaperPreview && isPaperLocked(selectedPaperPreview)
+                    ? lockedMembershipActionLabel
+                    : '确认开始'
+              }}
+            </AppButton>
+          </div>
+          <p>确认后进入限时作答。</p>
+        </div>
       </template>
     </AppDialog>
 
@@ -366,16 +348,25 @@
                 <dd>{{ formatReportTime(record) }}</dd>
               </div>
             </dl>
-            <AppButton
-              size="small"
-              class="diagnostic-history__action"
-              :type="record.hasReport ? 'primary' : 'secondary'"
-              :icon="Right"
-              icon-position="right"
-              @click="handleHistoryAction(record)"
-            >
-              {{ historyActionLabel(record) }}
-            </AppButton>
+            <div class="diagnostic-history__actions">
+              <AppButton
+                size="small"
+                class="diagnostic-history__action"
+                :type="record.hasReport ? 'primary' : 'secondary'"
+                @click="handleHistoryAction(record)"
+              >
+                {{ historyActionLabel(record) }}
+              </AppButton>
+              <AppButton
+                size="small"
+                type="secondary"
+                class="diagnostic-history__action"
+                :disabled="record.isExpired || record.correctCount >= record.totalQuestions"
+                @click="openHistoryWrongQuestions(record)"
+              >
+                {{ record.correctCount >= record.totalQuestions ? '暂无错题' : '查看错题' }}
+              </AppButton>
+            </div>
           </div>
           <p v-if="record.isExpired" class="diagnostic-history__notice">
             当前试卷已失效，请查看最新版试卷
@@ -422,8 +413,9 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Lock, Right } from '@element-plus/icons-vue'
+import { Lock, Right, Document, Clock } from '@element-plus/icons-vue'
 import NavBar from '@/components/NavBar.vue'
+import headerWaveUrl from '@/assets/home/hero-learning-wave.webp'
 import AppDialog from '@/components/AppDialog.vue'
 import AppButton from '@/components/AppButton.vue'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
@@ -580,9 +572,9 @@ const yearOverviewDescription = computed(() =>
     : '选择年份后确认 Paper 1 与 Paper 2，即可开始完整 TMUA 诊断。',
 )
 
-// 卡片摘要只说明该考试的必要组成，不再显示内部试卷数量。
+// 年份卡片区分 ESAT 的选科组合与 TMUA 的双卷必考规则。
 const yearCardConfigurationLabel = computed(() =>
-  activeExamType.value === 'ESAT' ? '备考目标 3 科' : 'Paper 1 + Paper 2',
+  activeExamType.value === 'ESAT' ? '必选数学 1 + 任选两科' : 'Paper 1 + Paper 2 均必考',
 )
 
 // 年度题库覆盖目标三科后，摘要只统计本次考试需要的模块。
@@ -606,32 +598,6 @@ const selectedPaperPreview = computed(() => {
     totalQuestions: modules.reduce((sum, module) => sum + module.questionCount, 0),
     duration: modules.reduce((sum, module) => sum + module.durationSeconds, 0) / 60,
   }
-})
-
-// TMUA 确认弹窗从年度模块读取双 Paper 题量，不根据总题量进行推算。
-const tmuaModuleQuestionCounts = computed<{ paper1: number | null; paper2: number | null }>(() => {
-  const result = { paper1: null as number | null, paper2: null as number | null }
-  for (const module of selectedTmuaPaper.value?.modules || []) {
-    const paperKey = normalizeTmuaModule(module)
-    if (paperKey && module.questionCount > 0) result[paperKey] = module.questionCount
-  }
-  return result
-})
-
-// ESAT 目标确认显示当前已发布年度题库的科目题量，不混入历史组合卷。
-const esatSubjectQuestionCounts = computed<Partial<Record<EsatSubjectCode, number>>>(() => {
-  const result: Partial<Record<EsatSubjectCode, number>> = {}
-  for (const paper of subjectSelectionPapers.value.filter(
-    (item) => item.assemblyType === 'annual_subjects' && isPaperPublished(item),
-  )) {
-    for (const module of paper.modules || []) {
-      const subjectCode = normalizeEsatSubject(module)
-      if (subjectCode && module.questionCount > 0 && result[subjectCode] === undefined) {
-        result[subjectCode] = module.questionCount
-      }
-    }
-  }
-  return result
 })
 
 // 同一历史弹窗同时承载单卷和年份聚合两种上下文。
@@ -695,11 +661,6 @@ function normalizeTmuaModule(module: PaperModuleOutline): 'paper1' | 'paper2' | 
   if (identity.includes('paper1')) return 'paper1'
   if (identity.includes('paper2')) return 'paper2'
   return null
-}
-
-// 旧卷缺少可靠模块题量时仅显示模块名，避免用总题数猜测单模块数量。
-function formatModuleSubtitle(questionCount: number | null | undefined, label: string): string {
-  return questionCount && questionCount > 0 ? `${questionCount} 题 · ${label}` : label
 }
 
 // TMUA 新考试只使用同时包含 Paper 1 与 Paper 2 的年度题库。
@@ -878,6 +839,15 @@ onMounted(async () => {
   }
   assessmentInitialized = true
   await refreshAssessmentData()
+
+  // 从本次错题回顾返回时恢复对应年份的历史列表。
+  if (route.query.history === '1' && !yearError.value) {
+    const historyItem = assessmentYears.value.find((item) => item.year === targetYear.value)
+    if (historyItem) openYearHistory(historyItem)
+    const nextQuery = { ...route.query }
+    delete nextQuery.history
+    await router.replace({ path: route.path, query: nextQuery })
+  }
 
   if (targetYear.value && !yearError.value) {
     if (assessmentYears.value.some((item) => item.year === targetYear.value)) {
@@ -1185,6 +1155,21 @@ function handleHistoryAction(record: AssessmentPaperHistoryItem): void {
       correct: String(record.correctCount),
       source: 'assessment',
     },
+  })
+}
+
+// 错题入口只读取本次答卷，并携带年份和考试类型以恢复历史列表。
+function openHistoryWrongQuestions(record: AssessmentPaperHistoryItem): void {
+  if (record.isExpired || record.correctCount >= record.totalQuestions) return
+  const returnTo = router.resolve({
+    path: '/assessment',
+    query: { examType: activeExamType.value, year: String(historyYear.value), history: '1' },
+  }).fullPath
+  historyDialogVisible.value = false
+  void router.push({
+    name: 'exam-question-review',
+    params: { id: record.examRecordId },
+    query: { from: 'assessment-history', recordSource: 'diagnostic', wrongOnly: '1', returnTo },
   })
 }
 
@@ -2439,6 +2424,16 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
   align-self: center;
 }
 
+.diagnostic-history__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  .app-button.el-button {
+    margin: 0;
+  }
+}
+
 .diagnostic-history__notice {
   margin: 14px 0 0;
   padding: 8px 12px;
@@ -2669,5 +2664,11 @@ function isPaperLocked(item: AssessmentPaperItem): boolean {
     grid-column: 1 / -1;
     width: 100%;
   }
+
+  .diagnostic-history__actions {
+    grid-column: 1 / -1;
+  }
 }
 </style>
+
+<style scoped lang="scss" src="./assessment-desktop.scss"></style>

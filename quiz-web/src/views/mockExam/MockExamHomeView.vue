@@ -4,11 +4,9 @@
     <NavBar />
 
     <main class="mock-exam-shell">
+      <img :src="mockBackgroundUrl" class="mock-exam-background" alt="" aria-hidden="true" />
       <header class="mock-hero">
         <div class="mock-hero__copy">
-          <div class="mock-hero__eyebrow-line">
-            <span class="mock-hero__eyebrow">FULL-LENGTH MOCK EXAMS</span>
-          </div>
           <h1>模考中心</h1>
           <p>按正式考试结构完成整卷训练，熟悉节奏，追踪每一次进步。</p>
         </div>
@@ -110,9 +108,12 @@
             <div v-else class="paper-list">
               <article
                 v-for="paper in papers"
+                :id="`mock-paper-${paper.id}`"
                 :key="paper.id"
                 class="paper-card"
+                tabindex="-1"
                 :class="{
+                  'paper-card--located': locatedPaperId === paper.id,
                   'paper-card--locked': isPaperLocked(paper),
                   'paper-card--offline': paper.publicationStatus !== 'published',
                 }"
@@ -170,9 +171,16 @@
                     <span v-if="paper.completedCount > 0" class="progress-completed">
                       已完成 <strong>{{ paper.completedCount }}</strong> 次
                     </span>
-                    <span v-if="paper.inProgressCount > 0" class="progress-pending">
+                    <AppButton
+                      v-if="paper.inProgressCount > 0"
+                      type="link"
+                      size="mini"
+                      class="progress-pending"
+                      :aria-label="`查看${paper.title}的未完成记录`"
+                      @click="openPendingRecords(paper, 'full')"
+                    >
                       未完成 <strong>{{ paper.inProgressCount }}</strong> 场
-                    </span>
+                    </AppButton>
                     <span v-if="paper.bestScore !== null" class="progress-score">
                       最佳 <strong>{{ formatScore(paper.bestScore) }}</strong>
                     </span>
@@ -357,22 +365,35 @@
                       <el-icon aria-hidden="true"><Collection /></el-icon>
                       {{ module.label }}
                     </span>
-                    <span :class="{ 'paper-card__suite-link': module.fullExamReady }">
-                      {{
-                        module.fullExamReady
-                          ? `已组成 ${module.sourcePaperTitle} · ${formatMockPaperSequenceNo(module.sourcePaperSequenceNo)}`
-                          : '目前无所属模拟套卷'
-                      }}
+                    <span v-if="module.fullExamReady" class="paper-card__suite-link">
+                      已组成
+                      <AppButton
+                        type="link"
+                        size="mini"
+                        :aria-label="`查看所属套卷：${module.sourcePaperTitle}`"
+                        @click="openSourcePaper(module)"
+                      >
+                        {{ module.sourcePaperTitle }} ·
+                        {{ formatMockPaperSequenceNo(module.sourcePaperSequenceNo) }}
+                      </AppButton>
                     </span>
+                    <span v-else>目前无所属模拟套卷</span>
                   </div>
 
                   <div v-if="auth.isLoggedIn" class="paper-card__progress">
                     <span v-if="module.completedCount > 0" class="progress-completed">
                       单项已完成 <strong>{{ module.completedCount }}</strong> 次
                     </span>
-                    <span v-if="module.inProgressCount > 0" class="progress-pending">
+                    <AppButton
+                      v-if="module.inProgressCount > 0"
+                      type="link"
+                      size="mini"
+                      class="progress-pending"
+                      :aria-label="`查看${module.title}的未完成记录`"
+                      @click="openPendingRecords(module, 'single')"
+                    >
                       未完成 <strong>{{ module.inProgressCount }}</strong> 场
-                    </span>
+                    </AppButton>
                     <span v-if="module.bestScore !== null" class="progress-score">
                       最佳 <strong>{{ formatScore(module.bestScore) }}</strong>
                     </span>
@@ -494,7 +515,14 @@
                 <el-empty description="当前无模考记录" :image-size="72" />
               </div>
               <div v-else class="record-list">
-                <article v-for="record in records" :key="record.examRecordId" class="record-card">
+                <article
+                  v-for="record in records"
+                  :id="`mock-record-${record.examRecordId}`"
+                  :key="record.examRecordId"
+                  class="record-card"
+                  :class="{ 'record-card--located': locatedRecordId === record.examRecordId }"
+                  tabindex="-1"
+                >
                   <div class="record-card__top">
                     <div>
                       <div class="record-card__meta">
@@ -856,9 +884,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import mockBackgroundUrl from '@/assets/home/hero-learning-wave.webp'
 import {
   ArrowRight,
   Calendar,
@@ -929,6 +958,8 @@ const catalogPageSize = ref(10)
 const catalogLoading = ref(false)
 const catalogError = ref('')
 const papers = ref<MockExamPaperItem[]>([])
+const locatedPaperId = ref('')
+let pendingPaperId = ''
 const catalogPagination = ref<PaginationMeta>(emptyPagination(10))
 const moduleKeywordDraft = ref('')
 const moduleKeyword = ref('')
@@ -954,6 +985,8 @@ const recordPageSize = ref(10)
 const recordsLoading = ref(false)
 const recordsError = ref('')
 const records = ref<MockExamRecordItem[]>([])
+const locatedRecordId = ref('')
+let pendingRecordId = ''
 const recordPagination = ref<PaginationMeta>(emptyPagination(10))
 const startDialogVisible = ref(false)
 const selectedStartPaper = ref<MockExamPaperItem | null>(null)
@@ -1101,6 +1134,10 @@ function isModuleLocked(module: MockExamModuleItem): boolean {
 
 // 页面切换保留各自分页状态，并按需请求个人记录。
 function selectTab(tab: PageTab): void {
+  pendingPaperId = ''
+  locatedPaperId.value = ''
+  pendingRecordId = ''
+  locatedRecordId.value = ''
   activeTab.value = tab
   void router.replace({
     query: {
@@ -1115,8 +1152,21 @@ function selectTab(tab: PageTab): void {
   if (auth.isLoggedIn) void loadOverview()
 }
 
+// 单项所属套卷使用真实编号搜索，清除关系筛选后定位到对应版本的卡片。
+function openSourcePaper(module: MockExamModuleItem): void {
+  if (!module.fullExamReady) return
+  selectTab('catalog')
+  keywordDraft.value = module.sourcePaperSequenceNo || module.sourcePaperTitle
+  keyword.value = keywordDraft.value
+  catalogStatus.value = 'all'
+  catalogPage.value = 1
+  pendingPaperId = module.mockPaperSetId
+  void loadCatalog()
+}
+
 // 搜索只在提交时刷新目录，避免每个输入字符都发请求。
 function applySearch(): void {
+  pendingPaperId = ''
   keyword.value = keywordDraft.value.trim()
   catalogPage.value = 1
   void loadCatalog()
@@ -1126,12 +1176,14 @@ function applySearch(): void {
 function selectCatalogStatus(status: MockExamCatalogStatus): void {
   if (catalogStatus.value === status) return
   catalogStatus.value = status
+  pendingPaperId = ''
   catalogPage.value = 1
   void loadCatalog()
 }
 
 // 空结果清除搜索与关系筛选后回到完整目录。
 function clearCatalogFilters(): void {
+  pendingPaperId = ''
   keywordDraft.value = ''
   keyword.value = ''
   catalogStatus.value = 'all'
@@ -1148,6 +1200,8 @@ function handleCatalogPageSizeChange(): void {
 // 公开目录允许游客请求；后端按登录状态选择是否附带个人汇总。
 async function loadCatalog(): Promise<void> {
   const sequence = ++catalogLoadSequence
+  const targetPaperId = pendingPaperId
+  locatedPaperId.value = ''
   catalogLoading.value = true
   catalogError.value = ''
   try {
@@ -1163,6 +1217,14 @@ async function loadCatalog(): Promise<void> {
     papers.value = data.list
     catalogPagination.value = data.pagination
     catalogPage.value = data.pagination.page
+    if (targetPaperId) {
+      pendingPaperId = ''
+      if (data.list.some((paper) => paper.id === targetPaperId)) {
+        locatedPaperId.value = targetPaperId
+      } else {
+        ElMessage.info('该套卷已更新或暂不可用，请查看当前目录。')
+      }
+    }
   } catch (error: unknown) {
     if (sequence !== catalogLoadSequence) return
     papers.value = []
@@ -1171,6 +1233,14 @@ async function loadCatalog(): Promise<void> {
   } finally {
     if (sequence === catalogLoadSequence) catalogLoading.value = false
   }
+  await nextTick()
+  if (sequence !== catalogLoadSequence || activeTab.value !== 'catalog' || !locatedPaperId.value) return
+  const target = document.getElementById(`mock-paper-${locatedPaperId.value}`)
+  target?.focus({ preventScroll: true })
+  target?.scrollIntoView({
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+    block: 'center',
+  })
 }
 
 // 单项目录与完整套卷独立加载，切换标签时保留各自的筛选和分页。
@@ -1267,10 +1337,25 @@ async function loadOverview(): Promise<void> {
   }
 }
 
+// 从试卷目录进入未完成列表，使用真实答卷 ID 定位最近一次未完成记录。
+function openPendingRecords(item: MockExamPaperItem | MockExamModuleItem, mode: 'full' | 'single'): void {
+  pendingRecordId = item.inProgressAttempts[0]?.examRecordId || ''
+  locatedRecordId.value = ''
+  activeTab.value = 'records'
+  recordStatus.value = 'in_progress'
+  recordMode.value = mode
+  recordPage.value = 1
+  void router.replace({ query: { ...route.query, tab: 'records', status: 'in_progress', mode } })
+  void loadRecords()
+  void loadOverview()
+}
+
 // 未完成与已完成分别分页，切换状态时回到第一页。
 function selectRecordStatus(status: MockExamRecordStatus): void {
   if (recordStatus.value === status) return
   recordStatus.value = status
+  pendingRecordId = ''
+  locatedRecordId.value = ''
   recordPage.value = 1
   void router.replace({
     query: {
@@ -1287,6 +1372,8 @@ function selectRecordStatus(status: MockExamRecordStatus): void {
 function selectRecordMode(mode: MockExamRecordMode): void {
   if (recordMode.value === mode) return
   recordMode.value = mode
+  pendingRecordId = ''
+  locatedRecordId.value = ''
   recordPage.value = 1
   void router.replace({
     query: {
@@ -1310,6 +1397,8 @@ function handleRecordPageSizeChange(): void {
 async function loadRecords(): Promise<void> {
   if (!auth.isLoggedIn) return
   const sequence = ++recordsLoadSequence
+  const targetRecordId = pendingRecordId
+  locatedRecordId.value = ''
   recordsLoading.value = true
   recordsError.value = ''
   try {
@@ -1317,6 +1406,7 @@ async function loadRecords(): Promise<void> {
       examType: activeExamType.value,
       status: recordStatus.value,
       mode: recordMode.value,
+      targetRecordId: targetRecordId || undefined,
       page: recordPage.value,
       pageSize: recordPageSize.value,
     }
@@ -1325,6 +1415,14 @@ async function loadRecords(): Promise<void> {
     records.value = data.list
     recordPagination.value = data.pagination
     recordPage.value = data.pagination.page
+    if (targetRecordId) {
+      pendingRecordId = ''
+      if (data.list.some((record) => record.examRecordId === targetRecordId)) {
+        locatedRecordId.value = targetRecordId
+      } else {
+        ElMessage.info('这场记录的状态已更新，已展示当前未完成记录。')
+      }
+    }
   } catch (error: unknown) {
     if (sequence !== recordsLoadSequence) return
     records.value = []
@@ -1333,6 +1431,14 @@ async function loadRecords(): Promise<void> {
   } finally {
     if (sequence === recordsLoadSequence) recordsLoading.value = false
   }
+  await nextTick()
+  if (sequence !== recordsLoadSequence || activeTab.value !== 'records' || !locatedRecordId.value) return
+  const target = document.getElementById(`mock-record-${locatedRecordId.value}`)
+  target?.focus({ preventScroll: true })
+  target?.scrollIntoView({
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+    block: 'center',
+  })
 }
 
 // 电脑端限制与现有诊断测试一致，只在开始或继续正式答题时拦截。
@@ -1754,6 +1860,10 @@ function formatRemainingTime(seconds: number | null): string {
 
 // 考试类型切换后清理旧考试页面状态并重新读取当前目录和个人概览。
 watch(activeExamType, () => {
+  pendingPaperId = ''
+  locatedPaperId.value = ''
+  pendingRecordId = ''
+  locatedRecordId.value = ''
   keywordDraft.value = ''
   keyword.value = ''
   catalogStatus.value = 'all'
@@ -1816,7 +1926,7 @@ onMounted(async () => {
   align-items: flex-end;
   justify-content: space-between;
   gap: 48px;
-  padding: 8px 4px 34px;
+  padding: 8px 4px 25px;
   border-bottom: 1px solid var(--color-line);
 }
 
@@ -2212,6 +2322,11 @@ onMounted(async () => {
   font-weight: 700;
 }
 
+.paper-card__suite-link :deep(.app-button--link .app-button__label),
+.paper-card__progress .progress-pending :deep(.app-button__label) {
+  text-decoration: none;
+}
+
 .paper-card__progress {
   display: flex;
   gap: 18px;
@@ -2234,6 +2349,17 @@ onMounted(async () => {
 
 .paper-card__progress .progress-pending {
   color: #b45309;
+}
+
+.paper-card__progress {
+  align-items: center;
+}
+
+.record-card.record-card--located,
+.paper-card.paper-card--located {
+  border-color: #82ade8;
+  box-shadow: 0 0 0 3px rgb(71 134 221 / 12%);
+  scroll-margin-top: calc(var(--nav-height, 72px) + 24px);
 }
 
 .paper-card__progress .progress-score {
@@ -3088,3 +3214,5 @@ onMounted(async () => {
 }
 
 </style>
+
+<style scoped lang="scss" src="@/views/mockExam/mock-exam-desktop.scss"></style>

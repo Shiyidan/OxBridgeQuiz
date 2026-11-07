@@ -141,3 +141,19 @@ export interface KnowledgeLesson {
   sections: KnowledgeSection[]
   sources: KnowledgeSource[]
 }
+
+
+// 概念讲义的语义内容结构；图示由各知识点通过插槽提供，不绑定学科或题源。
+export interface KnowledgeMethodBlock {
+  title: string
+  paragraphs?: string[]
+  formula?: string
+  points?: { title: string; text: string }[]
+  table?: { caption: string; columns: string[]; rows: string[][] }
+  diagram?: boolean
+  note?: string
+}
+export interface KnowledgeMethodArticle {
+  intro: string
+  blocks: KnowledgeMethodBlock[]
+}

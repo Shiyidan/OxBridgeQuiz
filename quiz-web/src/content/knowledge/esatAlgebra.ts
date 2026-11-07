@@ -1,5 +1,10 @@
 // ESAT 数学1代数讲义：覆盖19个考纲叶节点，真实题源由学习接口读取，考法保留全量相关年度证据。
 import type { KnowledgeLesson } from './types'
+import { algebraFoundationsMethods } from './algebraFoundationsMethods'
+import { algebraManipulationMethods } from './algebraManipulationMethods'
+import { algebraGraphMethods } from './algebraGraphMethods'
+import { algebraApplicationsMethods } from './algebraApplicationsMethods'
+import { algebraFinalMethods } from './algebraFinalMethods'
 
 export const esatAlgebra: KnowledgeLesson = {
   code: '110400',
@@ -17,22 +22,12 @@ export const esatAlgebra: KnowledgeLesson = {
     {
       code: '110401',
       title: '代数记号',
-      summary: '字母代表量，括号保留整体；先翻译关系，再计算。',
-      paragraphs: [
-        '代数把可变化的数写成字母。$3x$ 表示三个 x 相加或 3 乘 x，$xy$ 表示 x 乘 y，$x^2y$ 表示 x 乘 x 再乘 y。$3x$、$x^3$ 和 $3+x$ 是不同结构，不能靠“看起来相近”替换。',
-        '读应用题时给字母写清对象和单位：单价 x、数量 n，则总价 nx；“比 x 多 3”是 x+3，“x 的三倍再减 2”是 3x−2。**先确定减法、除法的顺序**：“5 less than x”是 x−5，不是5−x。',
-        '括号与分数线都是分组工具。三人的费用总和再打八折，要把总和整个乘0.8；分母是一整项和时，不能只除其中一个字母。列式后用一个简单数值或单位检查含义。',
-      ],
-      rules: [
-        {
-          title: '乘法可省略，次序不能乱',
-          text: '$a\\times b=ab,\\quad a\\div b=\\frac ab\\ (b\\ne0)$。分子分母互换通常改变值。',
-        },
-        {
-          title: '整体量加括号',
-          text: '$2(x+3)=2x+6$；$2x+3$ 只把 x 乘2。',
-        },
-      ],
+      summary: algebraFoundationsMethods['110401'].summary,
+      paragraphs: [algebraFoundationsMethods['110401'].intro],
+      memory: algebraFoundationsMethods['110401'].memory,
+      rules: algebraFoundationsMethods['110401'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '把3x读作x的三次方。',
         '把“少于”和“除以”的前后对象写反。',
@@ -89,22 +84,12 @@ export const esatAlgebra: KnowledgeLesson = {
     {
       code: '110402',
       title: '代数指数律',
-      summary: '先分底数、再算指数；负指数取倒数，外层幂作用于每个因子。',
-      paragraphs: [
-        '同底数相乘指数相加，相除指数相减，幂的幂指数相乘：$x^m x^n=x^{m+n}$，$\\frac{x^m}{x^n}=x^{m-n}$，$(x^m)^n=x^{mn}$。分母和负幂要求底数非零；涉及分数幂时还要检查实数定义域。',
-        '负指数表示倒数而不是负数：$x^{-2}=1/x^2$。正数 x 下，$x^{1/2}=\\sqrt x$，$x^{3/2}=x\\sqrt x$。偶次根取非负主值，因此一般有 $\\sqrt{x^2}=|x|$，不能没有条件就写成x。',
-        '多字母式建议分三栏：数值系数、x的指数、y的指数。括号外有平方或负三次幂时，系数也必须被乘方。加法不服从乘法指数律：x²+x³不能变成x⁵。',
-      ],
-      rules: [
-        {
-          title: '逐底数记账',
-          text: '$(3x^{1/2}y^{-2})^2=9xy^{-4}$，先乘外幂，再合并外面的同底数因子。',
-        },
-        {
-          title: '倒数和根式顺序',
-          text: '正数 $a$ 下，$a^{-m/n}=1/\\sqrt[n]{a^m}$。先化根式再取倒数，也应得到同一结果。',
-        },
-      ],
+      summary: algebraFoundationsMethods['110402'].summary,
+      paragraphs: [algebraFoundationsMethods['110402'].intro],
+      memory: algebraFoundationsMethods['110402'].memory,
+      rules: algebraFoundationsMethods['110402'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '只平方字母，忘记系数3也变成9。',
         '把负指数写成负号。',
@@ -164,22 +149,12 @@ export const esatAlgebra: KnowledgeLesson = {
     {
       code: '110403',
       title: '代入与代数术语',
-      summary: '代入整个数值并保留括号；分清求式值与解方程。',
-      paragraphs: [
-        'expression（表达式）没有等号；equation（方程）要求找满足等式的未知量；formula（公式）表示量之间的关系；identity（恒等式）在允许取值内总成立。term（项）由最外层加减分隔，factor（因式）是乘法中的整体。',
-        '代入负数时先加括号：当$x=-2$，$x^2=4$，而$-x^2=-4$。代入含多个字母的式子要逐个替换，按括号、幂、乘除、加减的顺序计算；有单位的科学公式要先统一单位。',
-        '给图像上的点 (a,b) 就是给x=a、y=b，不是给两个x值。题目定义新符号时，它只是新的运算说明；应把每一层按定义改写，再由内到外代入。',
-      ],
-      rules: [
-        {
-          title: '看清项与因式',
-          text: '$3x^2-2x+1$ 有三项；$(x+1)(x-2)$ 有两个因式。不能在加减的项之间随意约分。',
-        },
-        {
-          title: '点代入后成为条件',
-          text: '$y=px^2+qx$ 经过(2,6)，得到$4p+2q=6$；不是$2p+2q=6$。',
-        },
-      ],
+      summary: algebraFoundationsMethods['110403'].summary,
+      paragraphs: [algebraFoundationsMethods['110403'].intro],
+      memory: algebraFoundationsMethods['110403'].memory,
+      rules: algebraFoundationsMethods['110403'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '负数平方时漏括号。',
         '把函数记号f(x)误当成f乘x。',
@@ -235,22 +210,12 @@ export const esatAlgebra: KnowledgeLesson = {
     {
       code: '110404',
       title: '合并、展开与提公因式',
-      summary: '同类项只合系数；展开逐项相乘，提因式反向检查。',
-      paragraphs: [
-        '同类项的字母和指数必须相同：3x²与−x²可合并为2x²；x²与x不能合并。先把每项连同符号抄下来，再按同类归组，能减少漏负号。',
-        '展开使用分配律。两个二项式中，每一项都要与另一括号的每一项相乘；三个或更多括号先展开其中两个，整理后再乘下一括号。减去一个括号相当于每一项乘−1，不能只改首项。',
-        '提公因式时同时检查数字公因数和所有项共有的最低字母幂。提完之后括号里不应仍有公共因子；最后重新乘开核对。面积分块图能解释正长度乘积，含负系数时应改用有符号代数运算。',
-      ],
-      rules: [
-        {
-          title: '展开保留中间项',
-          text: '$ (a+b)^2=a^2+2ab+b^2$；$ (a-b)^2=a^2-2ab+b^2$。',
-        },
-        {
-          title: '多个括号逐次处理',
-          text: '$ (x+1)(x-1)(x+2)=(x^2-1)(x+2)=x^3+2x^2-x-2$。',
-        },
-      ],
+      summary: algebraFoundationsMethods['110404'].summary,
+      paragraphs: [algebraFoundationsMethods['110404'].intro],
+      memory: algebraFoundationsMethods['110404'].memory,
+      rules: algebraFoundationsMethods['110404'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '把(a+b)²写成a²+b²。',
         '括号前的负号只作用于第一项。',
@@ -309,22 +274,12 @@ export const esatAlgebra: KnowledgeLesson = {
     {
       code: '110405',
       title: '二次式因式分解',
-      summary: '找乘积与和；首项非1时拆中项，平方差先认结构。',
-      paragraphs: [
-        '因式分解是把和变成积。对于$x^2+bx+c$，找两个数p、q满足$p+q=b,\\ pq=c$，得到$(x+p)(x+q)$。c为负时两数异号；c为正时两数同号。',
-        '对于ax²+bx+c，先提公因式，再找乘积ac、和b的两个数，把bx拆成两项并分组。比如12x²+x−1拆成12x²+4x−3x−1，分组得到(3x+1)(4x−1)。',
-        '平方差a²−b²=(a−b)(a+b)，而a²+b²一般不能在实数范围这样分解。展开回去检查首项、中项和常数，尤其检查常数项符号。若没有整洁的有理因式，解方程可转配方或求根公式，不必硬猜整数。',
-      ],
-      rules: [
-        {
-          title: '先提，再分',
-          text: '$4x^3-13x^2-12x=x(4x+3)(x-4)$。题目要求完全分解时不能止于提x。',
-        },
-        {
-          title: '平方差保留两个因式',
-          text: '$25x^2-9=(5x-3)(5x+3)$，不是$(5x-3)^2$。',
-        },
-      ],
+      summary: algebraManipulationMethods['110405'].summary,
+      paragraphs: [algebraManipulationMethods['110405'].intro],
+      memory: algebraManipulationMethods['110405'].memory,
+      rules: algebraManipulationMethods['110405'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '只检查常数乘积，没检查中间项。',
         '把平方差当完全平方。',
@@ -393,22 +348,12 @@ export const esatAlgebra: KnowledgeLesson = {
     {
       code: '110406',
       title: '表达式与代数分式化简',
-      summary: '只约公共因式；先写原定义域，再通分或乘倒数。',
-      paragraphs: [
-        '分式中的约分是把分子、分母同时除以同一非零因式。需要先把和式因式分解，不能把x+3中的x与分母x直接删掉。原分母的零点即使在化简时消失，也仍是不允许的取值。',
-        '乘法先因式分解再约分；除法先保留“除式不能为0”的条件，再乘除式的倒数。加减法则找公分母，把整项分子乘上所缺因式，最后再合并；括号前的减号应分配到所有项。',
-        '嵌套分式也看结构：$\\frac a{b/c}=\\frac{ac}b$，而$\\frac{a/b}c=\\frac a{bc}$，这里b、c均非零。写成一层分数后再相减，比边看边约可靠。',
-      ],
-      rules: [
-        {
-          title: '约掉因式，不恢复禁值',
-          text: '$\\frac{x^2-4}{x-2}=x+2$，但仍要求$x\\ne2$。化简式与原式只在原定义域等价。',
-        },
-        {
-          title: '分式除法检查两处',
-          text: '原来每个分母都不能为0，同时被除的那个分式本身不能为0；乘倒数后仍保留全部限制。',
-        },
-      ],
+      summary: algebraManipulationMethods['110406'].summary,
+      paragraphs: [algebraManipulationMethods['110406'].intro],
+      memory: algebraManipulationMethods['110406'].memory,
+      rules: algebraManipulationMethods['110406'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '直接约掉加法中的一项。',
         '除以分式却不取倒数。',
@@ -477,22 +422,12 @@ export const esatAlgebra: KnowledgeLesson = {
     {
       code: '110407',
       title: '公式变形',
-      summary: '把目标字母集中成一个整体，最后才开方或除以系数。',
-      paragraphs: [
-        'make x the subject指把x单独放在等号一边。先移开最外层加减，再处理乘除和幂；每一步要在等号两边做同一种运算。不要凭“移项变号”跳过中间结构。',
-        '目标字母在两边都有时，先去分母、展开，把所有含目标的项集中到一边，再提公因式。目标是x²或x³时，可暂把这个整体当新字母，最后恢复。',
-        '开平方通常给两个分支：$x^2=k$ 得$x=\\pm\\sqrt k$（k≥0），开立方在实数范围只得一个值。除以某表达式前要检查它非零；若题目允许该表达式为零，需要单独讨论，而不是把那部分情况静默丢掉。',
-      ],
-      rules: [
-        {
-          title: '目标在分母也先隔离',
-          text: '$y=p-\\frac{q-r}{s-x}$ 可先写$p-y=\\frac{q-r}{s-x}$，再解出$x=s-\\frac{q-r}{p-y}$，适用时需$p-y\\ne0$。',
-        },
-        {
-          title: '平方和平方根不同',
-          text: '从$b^2=k$恢复b要保留正负；若题干明确b为长度且为正，再选正根。',
-        },
-      ],
+      summary: algebraManipulationMethods['110407'].summary,
+      paragraphs: [algebraManipulationMethods['110407'].intro],
+      memory: algebraManipulationMethods['110407'].memory,
+      rules: algebraManipulationMethods['110407'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '交叉相乘后漏乘括号内的常数。',
         '开平方只保留正根而题目没有正数条件。',
@@ -557,22 +492,12 @@ export const esatAlgebra: KnowledgeLesson = {
     {
       code: '110408',
       title: '方程、恒等式与等价证明',
-      summary: '解方程找允许的值；证恒等式必须覆盖所有允许值。',
-      paragraphs: [
-        '方程2x+1=7只在x=3成立；恒等式2(x+1)≡2x+2对所有实数x都成立。“某个数代进去相等”只能验证这一点，不能证明对所有x都成立。',
-        '证明两个表达式等价，可以从一边用分配律、因式分解、通分等合法变形得到另一边，或将两边之差化成0。分式等价还需说明共同定义域，不允许在原本无意义的取值上比较。',
-        '多项式恒等式可以比较对应幂次的系数：二次项对二次项，一次项对一次项，常数对常数。由系数关系得到参数后，仍须检查题干的正性或次序条件；抽查几个数值仅适合作为验算。',
-      ],
-      rules: [
-        {
-          title: '恒等式带来多条系数关系',
-          text: '$ (2x+p)(x+q)\\equiv2x^2+8x+2$ 给出$p+2q=8$和$pq=2$。',
-        },
-        {
-          title: '反例能推翻，例子不能证明',
-          text: '只要找到一个允许值使两边不相等，就能否定“恒等”；几次相等不能代替全范围的推理。',
-        },
-      ],
+      summary: algebraManipulationMethods['110408'].summary,
+      paragraphs: [algebraManipulationMethods['110408'].intro],
+      memory: algebraManipulationMethods['110408'].memory,
+      rules: algebraManipulationMethods['110408'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '把等号两边各自为0当成解方程的必需条件。',
         '只代入x=0就宣称恒等成立。',
@@ -637,22 +562,12 @@ export const esatAlgebra: KnowledgeLesson = {
     {
       code: '110409',
       title: '四象限坐标',
-      summary: '先横后纵，符号定方向；坐标是位置，差值才是移动。',
-      paragraphs: [
-        '坐标(x,y)先沿水平轴走x，再沿竖直方向走y。第一至第四象限的符号依次是(+,+)、(−,+)、(−,−)、(+,−)。坐标轴上的点不属于任何象限；原点(0,0)同时在两轴上。',
-        '同一点的坐标必须成对使用。横向距离看x之差的绝对值，纵向距离看y之差的绝对值；从A到B的位移则要保留B−A的符号。画草图能及时发现把坐标次序或方向弄反。',
-        '平移是在相应坐标上加位移；关于x轴反射改y符号，关于y轴反射改x符号。以非原点为中心旋转时先减中心坐标、旋转相对向量、再加回中心，不能直接套原点旋转规则。',
-      ],
-      rules: [
-        {
-          title: '四象限用符号检查',
-          text: '点(−3,2)在第二象限；点(0,2)在y轴上。不要因为y为正就归到第一象限。',
-        },
-        {
-          title: '关于原点顺时针90°',
-          text: '$ (x,y)\\mapsto(y,-x)$。这个规则的旋转中心是原点。',
-        },
-      ],
+      summary: algebraGraphMethods['110409'].summary,
+      paragraphs: [algebraGraphMethods['110409'].intro],
+      memory: algebraGraphMethods['110409'].memory,
+      rules: algebraGraphMethods['110409'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '把(x,y)读成先纵后横。',
         '轴上的点也强行分配象限。',
@@ -719,22 +634,12 @@ export const esatAlgebra: KnowledgeLesson = {
     {
       code: '110410',
       title: '线性函数、斜率与直线',
-      summary: '斜率是纵向变化除以横向变化；截距是与坐标轴相交的位置。',
-      paragraphs: [
-        '直线$y=mx+c$中，m为斜率，c为纵截距。已知两点时$m=(y_2-y_1)/(x_2-x_1)$，分子分母必须使用相同减法顺序；横截距用y=0求。',
-        '一般式ax+by=d不直接把a当斜率，应先整理成y=mx+c。水平线斜率0，竖直线x=k斜率不存在，不能把所有直线都硬写为y=mx+c。',
-        '非竖直平行线斜率相同；两条均有有限非零斜率的垂线满足m₁m₂=−1。水平线与竖直线也互相垂直，但不能用除以0的负倒数公式。已知一点和斜率，可写y−y₀=m(x−x₀)再整理。',
-      ],
-      rules: [
-        {
-          title: '点斜式减少代数步骤',
-          text: '$y-y_0=m(x-x_0)$，把已知点代回可立即检查常数项。',
-        },
-        {
-          title: '平行与垂直分清',
-          text: '$m_2=m_1$ 为平行方向；$m_2=-1/m_1$ 为有限非零斜率的垂直方向。',
-        },
-      ],
+      summary: algebraGraphMethods['110410'].summary,
+      paragraphs: [algebraGraphMethods['110410'].intro],
+      memory: algebraGraphMethods['110410'].memory,
+      rules: algebraGraphMethods['110410'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '把方程x的系数直接当斜率。',
         '计算两点差时分子、分母方向相反。',
@@ -795,22 +700,12 @@ export const esatAlgebra: KnowledgeLesson = {
     {
       code: '110411',
       title: '二次图像、根与转折点',
-      summary: '三种形式各有用途：一般式看纵截距，因式看根，顶点式看转折点。',
-      paragraphs: [
-        '二次函数$y=ax^2+bx+c$要求a≠0。a>0开口向上，a<0开口向下；c是纵截距。与x轴的交点满足y=0，可能有两个、一个相切点或没有实交点。',
-        '因式形式$a(x-r_1)(x-r_2)$直接给出根$r_1,r_2$。顶点形式$a(x-h)^2+k$直接给出顶点(h,k)和对称轴x=h。h在括号内的符号要反读。',
-        '配方的核心是保等价：x²+6x=(x+3)²−9，若前面有系数a，要先提出来再把补偿项也乘回a。图像是否整体在x轴上方，需同时检查开口向上且最小值严格为正；相切不算“在上方”。',
-      ],
-      rules: [
-        {
-          title: '配方保留整体系数',
-          text: '$3x^2+18x=3(x+3)^2-27$，顶点(−3,−27)。',
-        },
-        {
-          title: '根与判别式对应',
-          text: '$\\Delta=b^2-4ac$ 大于、等于、小于0，分别对应两个、一个重合、没有实根。',
-        },
-      ],
+      summary: algebraGraphMethods['110411'].summary,
+      paragraphs: [algebraGraphMethods['110411'].intro],
+      memory: algebraGraphMethods['110411'].memory,
+      rules: algebraGraphMethods['110411'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '顶点式x+3误读成顶点横坐标3。',
         '补平方时忘记乘外系数。',
@@ -867,23 +762,12 @@ export const esatAlgebra: KnowledgeLesson = {
     {
       code: '110412',
       title: '常见函数图像',
-      summary: '先认形状与定义域，再用关键点、对称和渐近线定位。',
-      paragraphs: [
-        '一次函数是直线，二次函数是抛物线；y=x³穿过原点且在两侧符号相反。y=1/x在第一、三象限，x=0没有定义，两坐标轴是渐近线，曲线不穿过它们。',
-        '指数函数y=kˣ要求k>0：k>1时增长，0<k<1时衰减，k=1是水平线y=1；所有这些图像都过(0,1)，值为正。不要把kˣ与xᵏ互换，x在指数位置才是指数函数。',
-        '三角函数横轴用角度：sin和cos周期360°，值域[−1,1]；tan周期180°，在90°+180°n处无定义。画大范围图时先重复一个周期，注意跨渐近线不能连线。',
-        '求f(x)=g(x)的解，就是两图交点的横坐标；应按题目规定的区间数交点，单独检查端点。读图近似值只保留图的刻度支持的精度，不把草图画出的“看起来相切”当作严格证明。',
-      ],
-      rules: [
-        {
-          title: '平移方向看输入',
-          text: '$f(x-h)+k$ 将原图向右h、向上k；$-f(x)$ 关于x轴反射。',
-        },
-        {
-          title: '正切不能跨断点',
-          text: '$\\tan90^\\circ$ 无定义，不能在左右分支间补一条竖线作为函数图像。',
-        },
-      ],
+      summary: algebraGraphMethods['110412'].summary,
+      paragraphs: [algebraGraphMethods['110412'].intro],
+      memory: algebraGraphMethods['110412'].memory,
+      rules: algebraGraphMethods['110412'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '把三角函数度数当弧度。',
         '把1/x画成穿过原点。',
@@ -945,22 +829,12 @@ export const esatAlgebra: KnowledgeLesson = {
     {
       code: '110413',
       title: '实际情境中的图像',
-      summary: '先读两条轴的物理意义，再判断高度、变化率和区间。',
-      paragraphs: [
-        '图线下降不一定代表物体减速。离家距离—时间图下降表示正在靠近家；速度—时间图下降才表示速率降低。先在草稿写横轴、纵轴、单位，再解释每段的趋势。',
-        '离家距离或位置图的水平段表示位置未变，通常是在停留；速率图的水平段表示匀速运动。往返到起点时净位移为0，但总路程仍应把各段实际行程相加。平均速率的分母按题意使用总时间或仅运动时间。',
-        '实际函数未必是直线。固定路程所需时间t=d/v呈反比例，倍速使时间减半；连续按比例折旧呈指数曲线，每期减少的金额并非相同。遇到无公式的实测曲线，从目标纵值画水平线与曲线相交，再向时间轴读出近似值；不要把有限资料外推成确定规律。',
-      ],
-      rules: [
-        {
-          title: '先问分母包括什么',
-          text: 'average speed while moving应去掉停留时间；整个旅程平均速率则应包括停留。',
-        },
-        {
-          title: '同一图高低不代表同一物理量',
-          text: '位置图的纵值是位置，斜率才对应速度；速度图的纵值才是速度。',
-        },
-      ],
+      summary: algebraApplicationsMethods['110413'].summary,
+      paragraphs: [algebraApplicationsMethods['110413'].intro],
+      memory: algebraApplicationsMethods['110413'].memory,
+      rules: algebraApplicationsMethods['110413'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '用往返净位移代替总路程。',
         '把位置图水平段解释成匀速前进。',
@@ -1004,23 +878,12 @@ export const esatAlgebra: KnowledgeLesson = {
     {
       code: '110414',
       title: '图像斜率与面积',
-      summary: '斜率做除法，面积做乘法；先用单位判断所求是什么。',
-      paragraphs: [
-        '图像斜率是纵向变化量除以横向变化量。位置—时间图的斜率单位m/s，对应速度；速度—时间图的斜率单位m/s²，对应加速度。直线段斜率恒定，曲线上某时刻的斜率用该点切线估计，不能用整段首尾割线代替。',
-        '速率—时间图下方面积是路程，速度—时间图与时间轴之间的有向面积是位移。若速度有正负，求总路程时应把每一段面积的绝对值相加。图轴的小时、分钟和秒需要先统一。',
-        '曲线面积可用小矩形或梯形分割估算。每小段按两端高度平均值乘宽度，再相加；分割更细通常更接近真实值，但有限梯形结果仍应写约等于。对于上凸的v=t²曲线，连两端点的弦在曲线上方，梯形法会高估面积。',
-        '金融图像也用同一单位逻辑：收入速率（元/天）—天数图的面积是收入，累计收入—天数图的斜率才是收入速率。不是任何面积都自动表示距离。',
-      ],
-      rules: [
-        {
-          title: '梯形面积',
-          text: '每小段面积约为$\\frac{v_i+v_{i+1}}2\\Delta t$，直线段时这个结果是精确值。',
-        },
-        {
-          title: '切线取大三角形',
-          text: '在切线上选两个相距较远、容易读数的点求斜率。它们无需都位于原曲线上。',
-        },
-      ],
+      summary: algebraApplicationsMethods['110414'].summary,
+      paragraphs: [algebraApplicationsMethods['110414'].intro],
+      memory: algebraApplicationsMethods['110414'].memory,
+      rules: algebraApplicationsMethods['110414'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '看到图像就算斜率，实际题目要的是面积。',
         '速度为负的面积直接抵消后当作总路程。',
@@ -1064,23 +927,12 @@ export const esatAlgebra: KnowledgeLesson = {
     {
       code: '110415',
       title: '方程与联立方程',
-      summary: '先把情境翻译成独立条件，再用消元或代入锁定同一个解。',
-      paragraphs: [
-        '一次方程用逆运算隔离未知量，含分式时先保留分母限制。两元一次方程需要两条独立条件；加减消元时整条等式乘同一系数，包括右边常数，目标是让一个未知量的系数相同或相反。',
-        '代入法适合某个字母已经容易表示：由y=3x−2代入第二式，得到只含x的方程，再把每个x解代回求配套y。直线和二次曲线联立通常产生0、1或2组实数解，不能把一个x解和另一个y解随意配对。',
-        '图像法的解是交点坐标。两条不同平行线无解，同一直线有无穷多解，普通相交直线有唯一解。读图可以估算或检查代数结果，但坐标读数精度受刻度限制。',
-        '应用题最终解释原对象：票价不能为负，人数可能必须为整数，时间要在指定范围内。方程算出的候选值必须回到全部原条件检查，尤其平方、去分母后得到的值。',
-      ],
-      rules: [
-        {
-          title: '消元整行相乘',
-          text: '$2a+3c=20$ 与$4a+4c=34$：第一式乘2后相减得$2c=6$，所以c=3、a=5.5。',
-        },
-        {
-          title: '直线与曲线先相等',
-          text: '$y=x+1$ 与$y=x^2-1$联立，先解$x^2-x-2=0$，再分别配对y。',
-        },
-      ],
+      summary: algebraApplicationsMethods['110415'].summary,
+      paragraphs: [algebraApplicationsMethods['110415'].intro],
+      memory: algebraApplicationsMethods['110415'].memory,
+      rules: algebraApplicationsMethods['110415'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '只乘等号左边忘记右边。',
         '解出x就结束，或x、y没有一一对应。',
@@ -1149,23 +1001,12 @@ export const esatAlgebra: KnowledgeLesson = {
     {
       code: '110416',
       title: '二次方程',
-      summary: '先整理成零，再选因式分解、配方或公式；两个根都要检查。',
-      paragraphs: [
-        '二次方程标准形式$ax^2+bx+c=0$，a≠0。能因式分解时用零乘积法：(x−r)(x−s)=0推出x=r或x=s。直接除以x会丢掉x=0这个可能解。',
-        '不能顺利因式分解时可配方或用$x=\\frac{-b\\pm\\sqrt{b^2-4ac}}{2a}$。分母2a要除整个分子，b带原来的符号。判别式决定实根数，图像与x轴交点给近似检查。',
-        '若只问两根的和、积或组合，不一定要完整求根：$r+s=-b/a,\\ rs=c/a$，$(r-s)^2=(r+s)^2-4rs$。使用这些关系前必须先把方程整理为标准形式。',
-        '含重复整体的方程可换元，例如u=x/4+3，把二次式先解成u的值，再回代求x。几何问题中求到负长度应剔除；但没有物理限制的纯代数题不能随意丢掉负根。',
-      ],
-      rules: [
-        {
-          title: '一项移到右边不是零乘积',
-          text: '只有乘积等于0时才能令某个因式为0；乘积等于6不能这样拆。',
-        },
-        {
-          title: '目标是根差先平方',
-          text: '两根差的平方为$\\Delta/a^2$。求正差取$\\sqrt\\Delta/|a|$，保留绝对值。',
-        },
-      ],
+      summary: algebraApplicationsMethods['110416'].summary,
+      paragraphs: [algebraApplicationsMethods['110416'].intro],
+      memory: algebraApplicationsMethods['110416'].memory,
+      rules: algebraApplicationsMethods['110416'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '除以x丢掉零根。',
         '把−b或分母2a的符号写错。',
@@ -1240,22 +1081,12 @@ export const esatAlgebra: KnowledgeLesson = {
     {
       code: '110417',
       title: '一次不等式',
-      summary: '负数乘除翻方向；联立条件取交集，边界按含不含等号画。',
-      paragraphs: [
-        '一次不等式可像方程一样移项、合并，但乘或除负数必须反转不等号。乘除含字母的表达式时如果符号未知，应分情况；不能无条件照抄不等号。',
-        '数轴上严格小于/大于用空心端点，包含等号用实心端点。“同时满足”表示交集，“至少满足一个”表示并集。若求最大整数，先得到实数区间，再检查端点是否被包含。',
-        '二元一次不等式先画边界直线，再代入一个不在直线上的测试点决定哪半平面。≤、≥边界画实线，<、>画虚线；多个条件取阴影重叠区。画y>x+1时，应选直线上方，不能把所有含>的式子都直接理解为右侧。',
-      ],
-      rules: [
-        {
-          title: '负数除法翻方向',
-          text: '$-2x<6$ 除以−2得到$x>-3$，用x=0可快速验算。',
-        },
-        {
-          title: '整条链同时处理',
-          text: '$-3<2x+1\\le9$ 得$-2<x\\le4$，两个端点的开放性不同。',
-        },
-      ],
+      summary: algebraFinalMethods['110417'].summary,
+      paragraphs: [algebraFinalMethods['110417'].intro],
+      memory: algebraFinalMethods['110417'].memory,
+      rules: algebraFinalMethods['110417'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '除以负数忘记反向。',
         '严格不等式的边界也包含进答案。',
@@ -1305,22 +1136,12 @@ export const esatAlgebra: KnowledgeLesson = {
     {
       code: '110418',
       title: '生成数列',
-      summary: '项数是位置，项值是结果；递推向前走，通项直接定位。',
-      paragraphs: [
-        'term-to-term rule告诉如何由前项得到后项，需要给出初始项；position-to-term rule告诉如何由n直接算第n项。不应把通项式中的常数项误读为每次变化量。',
-        '按递推生成时每一步用上一项的新值，写下项号表可避免漏算首项。等差数列每步加相同的d，d可以为负或0；等比型每步乘同一倍率，负倍率会交替变号。给前几项但不给规则时，一般并不能唯一确定后续项。',
-        '图形或排列表中，也应先看一行放多少个、每行末项如何变化，再定位指定项和同行位置。判断一个数是否出现时，通项反解出的n须为正整数，不能把n=3.5说成“第3.5项”。',
-      ],
-      rules: [
-        {
-          title: '通项的差是相邻两次代入之差',
-          text: '$a_n=2n-5$ 给$a_{n+1}-a_n=2$；常数−5不是公差。',
-        },
-        {
-          title: '递推与通项检查首项',
-          text: '$a_1=2, a_{n+1}=2a_n+1$依次为2、5、11、23；不是每次都把初值2代进去。',
-        },
-      ],
+      summary: algebraFinalMethods['110418'].summary,
+      paragraphs: [algebraFinalMethods['110418'].intro],
+      memory: algebraFinalMethods['110418'].memory,
+      rules: algebraFinalMethods['110418'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '把第n项的n与项值互换。',
         '递推每次都使用第一项。',
@@ -1380,23 +1201,12 @@ export const esatAlgebra: KnowledgeLesson = {
     {
       code: '110419',
       title: '数列第n项',
-      summary: '先看一阶差，再看二阶差；拟出通项后回代多个项验证。',
-      paragraphs: [
-        '等差数列$a_n=a_1+(n-1)d$，也可写dn+c。已知第r项和第s项，$d=(a_s-a_r)/(s-r)$；分母是项号之差，不是这段里数出多少项。',
-        '二次数列$a_n=An^2+Bn+C$的一阶差随n线性变化，二阶差恒为2A。先由二阶差求A，再从原数列减去An²，剩下的一次数列用等差方法处理。',
-        '例如2、17、42、77的一阶差为15、25、35，二阶差10，先取5n²；原项减5n²都为−3，所以通项5n²−3。首项和另外两项都对得上，比只验首项可靠。',
-        '题干同时给两数列的某项关系时，先把对应项号准确代进去再列式；比较第n项大小后，还应按n是正整数取最小合法项号。不要把两数列的不同项号写成同一个n。',
-      ],
-      rules: [
-        {
-          title: '项号从1开始',
-          text: '$a_n=dn+c$ 的首项是d+c，不是c。',
-        },
-        {
-          title: '二阶差确定二次系数',
-          text: '$a_{n+2}-2a_{n+1}+a_n=2A$；先除2得到A，再求B、C。',
-        },
-      ],
+      summary: algebraFinalMethods['110419'].summary,
+      paragraphs: [algebraFinalMethods['110419'].intro],
+      memory: algebraFinalMethods['110419'].memory,
+      rules: algebraFinalMethods['110419'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: ['把公差直接当首项。', '二阶差忘记除以2。', '反解项号后不检查正整数条件。'],
       sourceIds: ['esat-algebra-spec', 'openstax-algebra', 'openstax-sequences'],
       visual: 'maths-algebra',

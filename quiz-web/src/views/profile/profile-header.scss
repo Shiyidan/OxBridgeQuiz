@@ -1,0 +1,207 @@
+// 个人中心身份区：透明数学图层与真实个人资料组成轻量档案页头。
+.profile-identity-card {
+  grid-template-columns: 112px minmax(0, 1fr) minmax(290px, 40%);
+  gap: 28px;
+  min-height: 300px;
+  padding: 16px 0 24px;
+  border: 0;
+  border-bottom: 1px solid #e0e7ea;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+
+  &::before {
+    display: none;
+  }
+
+  .avatar-frame {
+    width: 112px;
+    height: 112px;
+    border: 6px solid #eef3f3;
+    background: #eaf4f3;
+    color: #20383d;
+    box-shadow: 0 0 0 1px #e0e9e9;
+  }
+}
+
+.profile-avatar-wrap {
+  align-self: center;
+}
+.profile-identity-copy {
+  padding-left: 0;
+}
+.profile-name-line {
+  gap: 12px;
+  h2 {
+    color: #172831;
+    font-size: 30px;
+    line-height: 1.3;
+  }
+}
+.profile-membership-chip {
+  color: #087c8c;
+  background: #e4f7fa;
+  border-color: transparent;
+}
+.profile-name-line .profile-identity-edit {
+  margin-left: auto;
+}
+.profile-identity-email {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 22px;
+  color: #263740;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.profile-identity-details {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8eb;
+  font-size: 13px;
+  line-height: 1.7;
+  strong {
+    color: #263740;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .el-icon {
+    flex-shrink: 0;
+    font-size: 16px;
+  }
+}
+.profile-detail-label,
+.profile-detail-address {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #6a7982;
+}
+.profile-identity-schools strong {
+  display: block;
+  padding-left: 26px;
+  margin-top: 5px;
+}
+.profile-identity-network {
+  border-left: 1px solid #e2e8eb;
+  padding-left: 20px;
+}
+.profile-detail-address {
+  margin-top: 5px;
+  flex-wrap: wrap;
+}
+.profile-study-illustration {
+  width: 100%;
+  max-width: 540px;
+  pointer-events: none;
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+}
+
+@media (min-width: 1001px) {
+  .profile-page {
+    background: #fff;
+  }
+  .profile-identity-card {
+    grid-template-columns: 112px minmax(0, 1fr) minmax(260px, 32%);
+    min-height: 216px;
+    padding-block: 16px;
+  }
+  .profile-name-line h2 {
+    font-size: 26px;
+  }
+  .profile-identity-email {
+    margin-block: 12px;
+  }
+  .profile-identity-details {
+    padding-top: 12px;
+  }
+  // 限制装饰图高度，避免图片按宽度等比撑高整行资料区。
+  .profile-study-illustration {
+    height: 184px;
+    img {
+      height: 100%;
+      object-fit: contain;
+      object-position: right center;
+    }
+  }
+}
+@media (min-width: 1001px) and (max-width: 1250px) {
+  .profile-identity-card {
+    grid-template-columns: 88px minmax(0, 1fr) 32%;
+    gap: 20px;
+  }
+  .profile-identity-card .avatar-frame {
+    width: 88px;
+    height: 88px;
+  }
+  .profile-name-line h2 {
+    font-size: 26px;
+  }
+  .profile-identity-details {
+    gap: 12px;
+  }
+  .profile-identity-network {
+    padding-left: 12px;
+  }
+}
+@media (max-width: 1000px) {
+  .profile-identity-card {
+    grid-template-columns: 80px minmax(0, 1fr);
+    gap: 20px;
+    min-height: 0;
+    padding: 20px 0;
+  }
+  .profile-identity-card .avatar-frame {
+    width: 80px;
+    height: 80px;
+  }
+  .profile-study-illustration {
+    display: none;
+  }
+  .profile-name-line h2 {
+    font-size: 24px;
+  }
+}
+@media (max-width: 620px) {
+  .profile-identity-card {
+    grid-template-columns: 58px minmax(0, 1fr);
+    gap: 14px;
+  }
+  .profile-identity-card .avatar-frame {
+    width: 58px;
+    height: 58px;
+    border-width: 4px;
+  }
+  .profile-avatar-wrap {
+    align-self: start;
+  }
+  .profile-name-line {
+    gap: 8px;
+  }
+  .profile-name-line h2 {
+    font-size: 21px;
+  }
+  .profile-name-line .profile-identity-edit {
+    margin-left: 0;
+  }
+  .profile-identity-email {
+    font-size: 13px;
+    margin: 14px 0;
+  }
+  .profile-identity-details {
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: 14px;
+    gap: 12px;
+  }
+  .profile-identity-network {
+    border-left: 0;
+    padding-left: 0;
+  }
+}

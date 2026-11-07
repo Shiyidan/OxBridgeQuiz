@@ -3,7 +3,6 @@
   <aside class="attempt-timeline" aria-label="历次错误记录">
     <header class="attempt-timeline__header">
       <span>答题轨迹</span>
-      <h2>历次作答</h2>
       <p>共 {{ total }} 次记录，最近一次优先</p>
     </header>
 
@@ -121,10 +120,12 @@ function formatDuration(seconds: number): string {
 }
 
 .attempt-timeline__header > span {
+  display: block;
   color: var(--color-report-orange);
-  font-size: 12px;
-  font-weight: var(--weight-bold);
-  letter-spacing: 0.14em;
+  font-size: 14px;
+  font-weight: var(--weight-medium);
+  line-height: 1.5;
+  letter-spacing: normal;
 }
 
 .attempt-timeline__header h2 {

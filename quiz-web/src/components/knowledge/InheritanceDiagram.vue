@@ -1,7 +1,7 @@
 <!-- 遗传章节原创图谱：核与基因定位、等位基因比较及可切换杂交和三代家系。 -->
 <template>
-  <BiologyAtlasFrame :title="title" :subtitle="subtitle" :note="note">
-    <template #controls>
+  <BiologyAtlasFrame :title="title" :subtitle="subtitle" :note="note" :compact="compact">
+    <template v-if="topic === '150402' || topic === '150403'" #controls>
       <template v-if="topic === '150402'">
         <AppButton
           v-for="item in genotypes"
@@ -15,6 +15,7 @@
       </template>
       <template v-else-if="topic === '150403'">
         <AppButton
+          v-if="!view"
           type="secondary"
           size="small"
           :aria-pressed="mode === 'cross'"
@@ -22,6 +23,7 @@
           >杂交表</AppButton
         >
         <AppButton
+          v-if="!view"
           type="secondary"
           size="small"
           :aria-pressed="mode === 'pedigree'"
@@ -57,6 +59,7 @@
 
     <div
       class="inheritance-canvas"
+      :class="{ 'inheritance-canvas--compact': compact }"
       role="region"
       aria-label="遗传图解，可在窄屏横向滚动"
       tabindex="0"
@@ -375,7 +378,7 @@
           <text x="280" y="271" class="label centered">
             {{ confirmed ? 'Aa 已确认' : 'AA 或 Aa' }}
           </text>
-          <text x="391" y="271" class="label centered">Aa</text>
+          <text x="391" y="271" class="label centered">Aa（已知）</text>
           <path d="M336 319L362 345L336 371L310 345Z" class="future-person" />
           <text x="336" y="393" class="small centered">预计下一胎</text>
           <rect x="462" y="55" width="254" height="350" rx="25" class="result-panel" />
@@ -441,18 +444,28 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, useId } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
 import AppButton from '../AppButton.vue'
 import BiologyAtlasFrame from './BiologyAtlasFrame.vue'
 import KnowledgeText from './KnowledgeText.vue'
 
-const props = defineProps<{ topic?: string }>()
+const props = defineProps<{ topic?: string; view?: 'cross' | 'pedigree'; compact?: boolean }>()
 const instanceId = useId()
 const genotypes = ['AA', 'Aa', 'aa'] as const
 const genotype = ref<(typeof genotypes)[number]>('Aa')
-const mode = ref<'cross' | 'pedigree'>('cross')
+const mode = ref<'cross' | 'pedigree'>(props.view ?? 'cross')
 const partner = ref<'Aa' | 'aa'>('Aa')
 const confirmed = ref(false)
+// 讲义可将两种图就近放在各自方法下；切换考点或展示用途时恢复初始条件。
+watch(
+  () => [props.topic, props.view],
+  () => {
+    mode.value = props.view ?? 'cross'
+    genotype.value = 'Aa'
+    partner.value = 'Aa'
+    confirmed.value = false
+  },
+)
 const pollen = [
   { x: 0, y: 0 },
   { x: -11, y: -9 },
@@ -571,6 +584,13 @@ const explanation = computed(() => {
 }
 .inheritance-canvas svg {
   min-width: 620px;
+}
+.inheritance-canvas--compact svg {
+  min-width: 560px;
+}
+/* 缩小画布时适度放大辅助标注，避免整体缩放后文字难以辨认。 */
+.inheritance-canvas--compact .small {
+  font-size: 15px;
 }
 .inheritance-canvas:focus-visible {
   outline: 2px solid var(--color-learning-blue);

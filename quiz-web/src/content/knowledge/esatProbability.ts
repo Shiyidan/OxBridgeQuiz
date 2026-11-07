@@ -1,5 +1,7 @@
 // 数学1概率学习讲义：覆盖七个最小知识点，年度考法基于151题正文审阅，缺少直接证据处明确标注。
 import type { KnowledgeLesson } from './types'
+import { probabilityFoundationsMethods } from './probabilityFoundationsMethods'
+import { probabilityReasoningMethods } from './probabilityReasoningMethods'
 
 export const esatProbability: KnowledgeLesson = {
   code: '110700',
@@ -16,22 +18,11 @@ export const esatProbability: KnowledgeLesson = {
     {
       code: '110701',
       title: '结果频率',
-      summary: '先把人数放回所属类别，再用行列合计补全频数。',
-      paragraphs: [
-        '频数是某种结果实际出现的次数，单位是“次”或“人”，不是概率。记录一次实验或调查时，要先确定分类标准：例如是否通过考试，再按性别分组；同一个人只进入一个交叉格。',
-        '双向表的每一行、每一列都能相加核对总数。频数树表达同样的数据：根节点是全体，第一层分组，第二层再分类；每个父节点的频数等于其所有子节点之和。先补容易的一行，再用另一方向的合计补空格。',
-        '若题目后来问“从男生中随机选一人”，才把男生这一行作为新总体。把频数转成概率时，分子和分母必须对应同一个筛选范围。问人数时无需额外除以总数。',
-      ],
-      rules: [
-        {
-          title: '频数守恒',
-          text: '每个分支的子类不能重叠或遗漏；子类频数之和等于母类频数。',
-        },
-        {
-          title: '空格用总数反推',
-          text: '某类未出现次数 $=\\text{该类总次数}-\\text{该类已出现次数}$。先求人数，再求比例。',
-        },
-      ],
+      summary: probabilityFoundationsMethods['110701'].summary,
+      paragraphs: [probabilityFoundationsMethods['110701'].intro],
+      memory: probabilityFoundationsMethods['110701'].memory,
+      rules: probabilityFoundationsMethods['110701'].blocks.flatMap(block =>
+        block.points ?? (block.paragraphs ?? []).map(text => ({ title: block.title, text }))),
       pitfalls: [
         '把百分比与人数直接相减。',
         '把“未通过”的143人误填进“通过”一格。',
@@ -88,22 +79,11 @@ export const esatProbability: KnowledgeLesson = {
     {
       code: '110702',
       title: '随机性与期望结果',
-      summary: '公平描述每个基本结果；期望次数描述长期平均，不保证下一次。',
-      paragraphs: [
-        '随机意味着事前不能确定本次结果，并不意味着所有名称的结果都同样可能。公平骰子的六个“面”等可能；如果两个面写同一数字，这个数字就比只出现一次的数字更容易出现。',
-        '同一条件下重复N次，每次事件概率为p，期望出现次数是Np。比如公平硬币正面概率为1/2，抛30次期望正面15次；这并不承诺这一批恰好15次，更不要求每两次就有一次正面。期望可为非整数；实际计数必须为整数。',
-        '独立重复时，过去连续未出现某结果，不会使下一次“该轮到它”。检验公平性要结合足够多的观察及实验条件；小样本偏离期望可能只是随机波动，不能只靠几次结果下结论。',
-      ],
-      rules: [
-        {
-          title: '预测次数',
-          text: '期望次数 $=Np$；若每次概率不同，则把各次概率相加。$Np$ 本身不要求各次独立，但求连续同时发生通常要检查独立性。',
-        },
-        {
-          title: '先辨等可能单位',
-          text: '公平转盘应看等角度小区域，公平骰子应看面；重复标签不能合并后平均。',
-        },
-      ],
+      summary: probabilityFoundationsMethods['110702'].summary,
+      paragraphs: [probabilityFoundationsMethods['110702'].intro],
+      memory: probabilityFoundationsMethods['110702'].memory,
+      rules: probabilityFoundationsMethods['110702'].blocks.flatMap(block =>
+        block.points ?? (block.paragraphs ?? []).map(text => ({ title: block.title, text }))),
       pitfalls: [
         '把“期望15次”理解成“必然15次”。',
         '连续三次正面后认定反面更容易。',
@@ -164,22 +144,11 @@ export const esatProbability: KnowledgeLesson = {
     {
       code: '110703',
       title: '相对频率与概率尺度',
-      summary: '实测比例用于估计，理论概率来自模型；两者都放在0到1之间比较。',
-      paragraphs: [
-        '相对频率是事件出现次数除以实验总次数。例如20次中出现7次，相对频率为0.35。理论概率则由公平性、几何比例或已知模型确定；公平硬币出现正面的理论概率仍为0.5，不会因这20次记录而改成0.35。',
-        '实验条件稳定、试验有代表性且次数增加时，相对频率通常更稳定地反映真实概率；这不意味着每加一次就更接近理论值，也不保证某个有限次数时恰好相等。偏倚样本、变化的装置或记录错误不能靠“多做几次”自动消除。',
-        '概率0表示不可能，1表示必然，0.5表示发生与不发生同样可能。比较分数、百分数、小数前统一形式。相对频率用于预测未来时，是基于条件保持相近的估计，要用“约”“估计”表达，不把它包装成确定结论。',
-      ],
-      rules: [
-        {
-          title: '从实验估计',
-          text: '$\\widehat p=\\frac{\\text{事件出现次数}}{\\text{总试验次数}}$。若预测再做 $N$ 次，则预计约 $N\\widehat p$ 次。',
-        },
-        {
-          title: '概率尺度',
-          text: '$0\\le P(A)\\le1$；$25\\%=\\frac14=0.25$。估计很小的概率时保留科学记数法，避免过早舍入为0。',
-        },
-      ],
+      summary: probabilityFoundationsMethods['110703'].summary,
+      paragraphs: [probabilityFoundationsMethods['110703'].intro],
+      memory: probabilityFoundationsMethods['110703'].memory,
+      rules: probabilityFoundationsMethods['110703'].blocks.flatMap(block =>
+        block.points ?? (block.paragraphs ?? []).map(text => ({ title: block.title, text }))),
       pitfalls: [
         '把一次未观察到直接理解为事件不可能。',
         '看到相对频率变远，就说大数规律失效。',
@@ -226,22 +195,12 @@ export const esatProbability: KnowledgeLesson = {
     {
       code: '110704',
       title: '完备与互斥事件',
-      summary: '“不重不漏”才能直接相加到1；遇到“至少一个”先想反面。',
-      paragraphs: [
-        '互斥表示同一次试验中不能同时发生，完备表示列出的事件覆盖所有可能。一次投骰的“奇数/偶数”既互斥又完备；“1/2”互斥但不完备；“不大于4/不小于3”覆盖全部却在3、4重叠。',
-        '把所有基本结果分成不重叠的类别，概率之和才是1。A发生与A不发生天然构成这样的两类。遇到“至少一个成功”，反面是“一个成功也没有”；遇到“全都成功”，反面是“至少一个失败”，不是“全失败”。',
-        '互斥与独立并非同义词。两个概率均大于0的互斥事件，一旦其中一个发生，另一个概率立即变成0，因此并不独立。不同次独立投骰的事件可以同时发生；一次投骰里的两个不同点数则互斥。',
-      ],
-      rules: [
-        {
-          title: '补事件',
-          text: '$P(A)+P(\\text{非}A)=1$；$P(\\text{至少一次})=1-P(\\text{零次})$。',
-        },
-        {
-          title: '相加的条件',
-          text: '$P(A\\text{ 或 }B)=P(A)+P(B)-P(A\\text{ 且 }B)$。只有交集为空时，才不需要减去重叠。',
-        },
-      ],
+      summary: probabilityReasoningMethods['110704'].summary,
+      paragraphs: [probabilityReasoningMethods['110704'].intro],
+      memory: probabilityReasoningMethods['110704'].memory,
+      rules: probabilityReasoningMethods['110704'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '只要覆盖全部，就把有重叠的概率直接相加到1。',
         '把“至少一次”的反面写成“恰好一次”。',
@@ -305,22 +264,12 @@ export const esatProbability: KnowledgeLesson = {
     {
       code: '110705',
       title: '系统列举',
-      summary: '先决定顺序是否重要，再固定第一项逐层展开，做到不重不漏。',
-      paragraphs: [
-        '列表不是凭感觉凑结果。先说明结果的记法：先红后蓝和先蓝后红是两条不同路径；选同一组人而不分顺序时，则不应重复计数。一个规则必须同时用于分子和分母。',
-        '两步实验适合方格：行固定第一次，列固定第二次；多步实验适合树：每层只做一个决定；两类成员关系适合维恩图：先交集，再各自独有，最后补外部。分类情况很多时，固定最小元素，再让其余元素递增，容易核对遗漏。',
-        '不是所有树叶都等可能。不放回的逐个对象抽样，等可能单位通常是带身份的对象；将同色结果合并成一条路径后，路径权重可能不同。若有提前停止规则，画树时在停止点终止，不要继续制造不存在的结果。',
-      ],
-      rules: [
-        {
-          title: '顺序一致',
-          text: '组合式列举可只写递增顺序；有序抽取则保留位置。分子不分顺序、分母却分顺序，会得到错误的概率。',
-        },
-        {
-          title: '维恩图填法',
-          text: '两类总人数 $=\\text{A人数}+\\text{B人数}-\\text{同时属于两类的人数}+\\text{两类都不属于的人数}$。',
-        },
-      ],
+      summary: probabilityReasoningMethods['110705'].summary,
+      paragraphs: [probabilityReasoningMethods['110705'].intro],
+      memory: probabilityReasoningMethods['110705'].memory,
+      rules: probabilityReasoningMethods['110705'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '把AB和BA一会儿算一种、一会儿算两种。',
         '填维恩图时把总人数直接写进“仅A”。',
@@ -393,22 +342,12 @@ export const esatProbability: KnowledgeLesson = {
     {
       code: '110706',
       title: '理论样本空间',
-      summary: '把等可能的基本结果铺成网格，再数符合条件的格子。',
-      paragraphs: [
-        '样本空间是一次完整实验所有可能结果的集合。单次公平骰子有六个面；两颗独立公平骰子有36个有序面组合。第二颗和第一颗可以得到相同数字，因此“不同的骰子”不表示结果必须不同。',
-        '只有基本结果等可能时，概率才能直接用有利结果数除以总结果数。两个骰子的和从2到12共有11种数值，但它们不是等可能：和2只有(1,1)，和7有六个组合。',
-        '重复标签要保留重复的面，例如X的两个1是两个等可能面，不是一个。相反，不等角度转盘的四个扇区不能各算1/4；均匀旋转时应按角度除以360°。判断等可能的对象，通常比做分数运算更重要。',
-      ],
-      rules: [
-        {
-          title: '等可能模型',
-          text: '$P(A)=\\frac{\\text{满足A的等可能基本结果数}}{\\text{所有等可能基本结果数}}$。先核准“等可能”，再计数。',
-        },
-        {
-          title: '组合规模',
-          text: '第一步有 $m$ 个结果，每个第一步后第二步均有 $n$ 个结果，则共 $mn$ 个有序组合；是否等可能仍要另行判断。',
-        },
-      ],
+      summary: probabilityReasoningMethods['110706'].summary,
+      paragraphs: [probabilityReasoningMethods['110706'].intro],
+      memory: probabilityReasoningMethods['110706'].memory,
+      rules: probabilityReasoningMethods['110706'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '把不同的总和当成等可能结果。',
         '重复标签去重，导致分母从36变小。',
@@ -470,23 +409,12 @@ export const esatProbability: KnowledgeLesson = {
     {
       code: '110707',
       title: '加乘概率与条件概率',
-      summary: '沿同一路径相乘，不同互斥路径相加；条件一变，分母也要变。',
-      paragraphs: [
-        '“先A且后B”用路径乘法：先乘A的概率，再乘已经发生A时B的概率。只有A不改变B的概率时，第二个因子才可直接用原来的P(B)。放回并充分混合通常保持下一次比例；不放回时要更新总数和相应颜色数量。',
-        '同一目标可能从多条路线实现。例如先选箱A再抽红球，或先选箱B再抽红球；两条路线互斥，所以分别计算后相加。两只箱子不自动各占1/2：选箱规则可能给出1/4和3/4的权重。',
-        '条件概率是缩小观察范围：已知抽到的是男生，就在全部男生中比较游泳人数。用双向表时锁定条件所在行列，用维恩图时只保留条件区域；分母是条件发生的总概率或人数，不能沿用原总体。',
-        '转移问题先分“转移了什么”，再更新第二容器；相同颜色的球也要区分是否为那一颗原来的球。反推数量时，把概率关系列成方程，最后检查非负整数、总数以及抽取是否可行。',
-      ],
-      rules: [
-        {
-          title: '同一路径',
-          text: '$P(A\\text{ 且 }B)=P(A)P(B\\mid A)$；独立时 $P(B\\mid A)=P(B)$。竖线读作“已知A”。',
-        },
-        {
-          title: '条件分母',
-          text: '$P(B\\mid A)=\\frac{P(A\\text{ 且 }B)}{P(A)}$，要求 $P(A)>0$。不同互斥路径的概率可相加。',
-        },
-      ],
+      summary: probabilityReasoningMethods['110707'].summary,
+      paragraphs: [probabilityReasoningMethods['110707'].intro],
+      memory: probabilityReasoningMethods['110707'].memory,
+      rules: probabilityReasoningMethods['110707'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '不放回第二次仍用原来的总数。',
         '两条不同顺序都能成功，却只算一条。',

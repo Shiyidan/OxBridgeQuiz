@@ -9,23 +9,52 @@
         <p>回顾做错的题目，收藏值得再看的题目，让每次复习更有方向。</p>
       </header>
 
-      <div class="notebook-tabs" role="tablist" aria-label="复习内容">
-        <button
-          role="tab"
-          :aria-selected="activeTab === 'mistakes'"
-          :class="{ active: activeTab === 'mistakes' }"
-          @click="switchTab('mistakes')"
+      <div class="notebook-toolbar">
+        <div class="notebook-tabs" role="tablist" aria-label="复习内容">
+          <button
+            role="tab"
+            :aria-selected="activeTab === 'mistakes'"
+            :class="{ active: activeTab === 'mistakes' }"
+            @click="switchTab('mistakes')"
+          >
+            我的错题 <span>{{ favoriteSummary?.wrongCount ?? '—' }}</span>
+          </button>
+          <button
+            role="tab"
+            :aria-selected="activeTab === 'favorites'"
+            :class="{ active: activeTab === 'favorites' }"
+            @click="switchTab('favorites')"
+          >
+            我的收藏 <span>{{ favoriteSummary?.total ?? '—' }}</span>
+          </button>
+        </div>
+        <form
+          v-show="activeTab === 'mistakes'"
+          class="notebook-quick-search"
+          aria-label="题目搜索"
+          @submit.prevent="applyFilters"
         >
-          我的错题 <span>{{ favoriteSummary?.wrongCount ?? '—' }}</span>
-        </button>
-        <button
-          role="tab"
-          :aria-selected="activeTab === 'favorites'"
-          :class="{ active: activeTab === 'favorites' }"
-          @click="switchTab('favorites')"
-        >
-          我的收藏 <span>{{ favoriteSummary?.total ?? '—' }}</span>
-        </button>
+          <AppButton
+            type="text"
+            size="small"
+            :icon="filtersExpanded ? ArrowUp : ArrowDown"
+            icon-position="right"
+            :aria-expanded="filtersExpanded"
+            aria-controls="mistake-filters"
+            @click="filtersExpanded = !filtersExpanded"
+          >
+            {{ filtersExpanded ? '收起筛选' : '展开筛选' }}
+          </AppButton>
+          <el-input
+            v-model="draftFilters.keyword"
+            aria-label="题目搜索"
+            placeholder="输入题干关键词"
+            maxlength="100"
+            clearable
+            :prefix-icon="Search"
+          />
+          <AppButton native-type="submit" size="small" :loading="wrongLoading">搜索</AppButton>
+        </form>
       </div>
       <div
         ref="notebookContentRef"
@@ -42,7 +71,12 @@
           @loaded="restoreScroll"
         />
         <section v-show="activeTab === 'mistakes'" class="notebook-section">
-          <div class="notebook-filter-bar" aria-label="错题筛选">
+          <div
+            id="mistake-filters"
+            class="notebook-filter-bar mistake-filters"
+            :class="{ 'is-collapsed': !filtersExpanded }"
+            aria-label="错题筛选"
+          >
             <label class="filter-field">
               <span class="filter-field__label">来源</span>
               <el-select
@@ -243,20 +277,14 @@
 
           <div v-else class="wrong-results" :aria-busy="wrongLoading">
             <header class="wrong-results__header">
-              <div>
-                <h2>错题列表</h2>
-                <span>{{ pagination.total }} 题</span>
-              </div>
-              <div class="wrong-results__actions">
-                <p>排序：<strong>最新收录</strong></p>
-                <AppButton
-                  type="secondary"
-                  size="small"
-                  :disabled="wrongLoading || wrongRemoving"
-                  @click="toggleWrongBatch"
-                  >{{ wrongBatchMode ? '完成管理' : '批量管理' }}</AppButton
-                >
-              </div>
+              <AppButton
+                type="secondary"
+                size="small"
+                :disabled="wrongLoading || wrongRemoving"
+                @click="toggleWrongBatch"
+                >{{ wrongBatchMode ? '完成管理' : '批量管理' }}</AppButton
+              >
+              <p>排序：<strong>最新收录</strong></p>
             </header>
 
             <div v-if="wrongBatchMode" class="wrong-batch-toolbar">
@@ -401,7 +429,7 @@ import LatexText from '@/components/LatexText.vue'
 import AppPagination from '@/components/AppPagination.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppDialog from '@/components/AppDialog.vue'
-import { Delete } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowUp, Delete, Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import {
   getMistakeNotebookData,
@@ -433,6 +461,12 @@ const router = useRouter()
 const auth = useAuthStore()
 const favorites = useFavoritesStore()
 const notebookReady = ref(false)
+// 默认收起桌面筛选；从带有高级条件的地址返回时展开，避免隐藏已应用的条件。
+const filtersExpanded = ref(
+  ['sources', 'subjects', 'knowledge', 'difficulties', 'startDate', 'endDate'].some((key) =>
+    Boolean(route.query[key]),
+  ),
+)
 const notebookContentRef = ref<HTMLElement | null>(null)
 const contentMinHeight = ref(0)
 const wrongBatchMode = ref(false)
@@ -979,6 +1013,10 @@ function dateOnly(value?: string | null): string | null {
 </script>
 
 <style scoped lang="scss">
+.notebook-quick-search {
+  display: none;
+}
+
 .notebook-content {
   // 列表增减时不让浏览器跟随题目或分页的位置自动移动视口。
   overflow-anchor: none;
@@ -1223,16 +1261,6 @@ function dateOnly(value?: string | null): string | null {
   margin-bottom: 10px;
 }
 
-.wrong-results__header > div {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-}
-
-.wrong-results__header .wrong-results__actions {
-  align-items: center;
-}
-
 .wrong-batch-toolbar {
   display: flex;
   align-items: center;
@@ -1268,17 +1296,10 @@ function dateOnly(value?: string | null): string | null {
   color: var(--color-danger);
 }
 
-.wrong-results__header h2,
 .wrong-results__header p {
   margin: 0;
 }
 
-.wrong-results__header h2 {
-  font-size: var(--text-lg);
-  font-weight: var(--weight-bold);
-}
-
-.wrong-results__header > div > span,
 .wrong-results__header p {
   color: var(--color-ink-muted);
   font-size: var(--text-xs);
@@ -1299,6 +1320,7 @@ function dateOnly(value?: string | null): string | null {
 
 .wrong-item {
   display: grid;
+  cursor: pointer;
   grid-template-columns: 32px minmax(0, 1fr) auto;
   gap: 16px;
   align-items: center;
@@ -1497,6 +1519,175 @@ function dateOnly(value?: string | null): string | null {
   .inline-error {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+// 桌面端与模考中心共用视觉规格，错题和收藏沿用现有筛选、列表及操作布局。
+@media (min-width: 861px) {
+  .notebook-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 18px;
+  }
+
+  .notebook-toolbar .notebook-tabs {
+    flex-shrink: 0;
+    margin-bottom: 0;
+  }
+
+  .notebook-quick-search {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: calc(min(480px, 50%) - 20px);
+  }
+
+  .notebook-quick-search :deep(.el-input) {
+    flex: 1;
+    min-width: 100px;
+  }
+
+  .notebook-quick-search :deep(.el-input__wrapper) {
+    border-radius: 5px;
+    background: #f9fbff;
+  }
+
+  .mistake-filters.is-collapsed,
+  .mistake-filters .filter-field--keyword {
+    display: none;
+  }
+
+  .mistake-notebook-page {
+    background: #fff;
+  }
+
+  .mistake-notebook-main {
+    --color-ink: #17252e;
+    --color-ink-soft: #536b83;
+    --color-ink-muted: #718397;
+    --color-line: #dce7f2;
+    --color-line-soft: #e9f0f7;
+    --color-surface-alt: #f5f9ff;
+    --color-hover: #edf4fc;
+    --color-info-bg: #edf3fb;
+    --color-success: #16847b;
+    --color-success-bg: #e6f7f3;
+    --el-border-color: #dce7f2;
+    --el-border-color-light: #e9f0f7;
+    --el-text-color-regular: #536b83;
+    --el-text-color-placeholder: #8091a3;
+    position: relative;
+    isolation: isolate;
+    padding-top: 44px;
+    color: var(--color-ink);
+  }
+
+  .mistake-notebook-main::before,
+  .mistake-notebook-main::after {
+    content: '';
+    position: fixed;
+    inset: var(--nav-height) 0 0;
+    pointer-events: none;
+  }
+
+  .mistake-notebook-main::before {
+    z-index: -2;
+    background:
+      radial-gradient(ellipse at 84% 28%, #e3f1ff99, transparent 58%),
+      radial-gradient(ellipse at 28% 75%, #edf7ff80, transparent 60%);
+  }
+
+  .mistake-notebook-main::after {
+    z-index: -1;
+    background: url('@/assets/home/hero-learning-wave.webp') 62% center / cover no-repeat;
+    opacity: 0.22;
+    mix-blend-mode: multiply;
+    mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
+  }
+
+  .page-eyebrow {
+    display: none;
+  }
+
+  .mistake-notebook-header h1 {
+    font-size: 38px;
+    line-height: 1.3;
+    letter-spacing: -0.04em;
+  }
+
+  .mistake-notebook-header p {
+    margin-top: 12px;
+    font-size: var(--text-base);
+  }
+
+  .notebook-tabs button {
+    color: var(--color-ink-muted);
+  }
+
+  .notebook-tabs button:hover {
+    color: #356da6;
+  }
+
+  .notebook-tabs button.active {
+    color: var(--color-ink);
+    border-bottom-color: #c2eb40;
+  }
+
+  .notebook-tabs span {
+    background: #edf3fb;
+    color: #536b83;
+  }
+
+  .notebook-tabs button.active span {
+    background: #edfab6;
+    color: #17252e;
+  }
+
+  :deep(.notebook-filter-bar),
+  .section-card,
+  .wrong-list {
+    border-color: #d4e3f4;
+    border-radius: 16px;
+    background: #ffffffed;
+    box-shadow: 0 4px 16px #264f7a08;
+  }
+
+  :deep(.filter-field .el-select__wrapper),
+  :deep(.filter-field .el-input__wrapper) {
+    background: #f9fbff;
+  }
+
+  :deep(.favorite-item),
+  :deep(.favorite-state) {
+    border-color: #dce7f2;
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  :deep(.favorite-item__meta),
+  :deep(.sort-label),
+  :deep(.favorite-state) {
+    color: var(--color-ink-muted);
+  }
+
+  :deep(.favorite-state h3) {
+    color: var(--color-ink);
+  }
+
+  :deep(.category-tabs > button) {
+    color: var(--color-ink-soft);
+  }
+
+  :deep(.category-tabs > button:hover),
+  :deep(.batch-toolbar) {
+    background: #edf4fc;
+  }
+
+  :deep(.category-tabs > button.active) {
+    background: #edfab6;
+    border-color: #dce7f2;
+    color: #17252e;
   }
 }
 </style>

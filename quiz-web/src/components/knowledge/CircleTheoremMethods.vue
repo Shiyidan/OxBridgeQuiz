@@ -119,7 +119,7 @@ const tangentCaption = '$\\angle TAB=\\angle ACB$；若切线射线反向，需�
 </script>
 
 <style scoped>
-.circle-review { min-width: 0; color: var(--color-ink); }
+.circle-review { container-type: inline-size; min-width: 0; color: var(--color-ink); }
 .circle-intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, .72fr); align-items: end; gap: 28px; padding: 2px 0 22px; border-bottom: 1px solid #dce5f3; }
 .circle-intro__label { color: #2451c5; font-size: 13px; font-weight: 700; }
 .circle-intro h5 { margin: 8px 0; color: #142033; font-size: 22px; line-height: 1.4; }
@@ -139,7 +139,7 @@ const tangentCaption = '$\\angle TAB=\\angle ACB$；若切线射线反向，需�
 .recognition-list article > span { flex: none; color: #2451c5; font-size: 12px; font-weight: 700; line-height: 1.8; }
 .circle-note { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 17px !important; padding: 12px 15px; border-left: 3px solid #d99a38; border-radius: 0 6px 6px 0; background: #fff8ec; }
 .circle-note strong { color: #845a1c; }
-.circle-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(250px, .75fr); align-items: start; gap: 24px; }
+.circle-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(300px, .75fr); align-items: start; gap: 24px; }
 .relation-list { min-width: 0; }
 .relation { padding: 13px 0; border-top: 1px solid #e6ebf1; }
 .relation:first-child { padding-top: 0; border-top: 0; }
@@ -149,10 +149,10 @@ const tangentCaption = '$\\angle TAB=\\angle ACB$；若切线射线反向，需�
 .circle-figure--teal { border-color: #d5e9e3; background: #f2f9f7; }
 .circle-figure figcaption { display: grid; gap: 4px; color: #182b49; font-size: 14px; line-height: 1.5; }
 .circle-figure figcaption span { color: #65748a; font-size: 12px; }
-.circle-figure svg { display: block; width: 100%; max-width: 250px; max-height: 210px; height: auto; margin: 12px auto; }
-.circle-figure svg text { fill: #34455e; font-size: 13px; font-weight: 600; }
-.circle-figure svg .figure-blue { fill: #2451c5; }
-.circle-figure svg .figure-teal { fill: #11786f; }
+.circle-figure > svg { display: block; width: 100%; max-width: 300px; height: auto; margin: 12px auto; }
+.circle-figure > svg text { fill: #34455e; font-size: 13px; font-weight: 600; }
+.circle-figure > svg .figure-blue { fill: #2451c5; }
+.circle-figure > svg .figure-teal { fill: #11786f; }
 .figure-circle { fill: white; stroke: #9db4d1; stroke-width: 1.8; }
 .figure-arc { fill: none; stroke: #2451c5; stroke-width: 4; stroke-linecap: round; }
 .figure-radius { fill: none; stroke: #2451c5; stroke-width: 1.8; }
@@ -166,6 +166,10 @@ const tangentCaption = '$\\angle TAB=\\angle ACB$；若切线射线反向，需�
 .circle-check article { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
 .circle-check article > span { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #d9eeea; color: #11786f; font-size: 12px; font-weight: 700; }
 .circle-check article strong { font-size: 14px; }
+/* 圆周角和切线图按正文宽度重排，让角标、弧线和切点保持清晰。 */
+@container (max-width: 820px) {
+  .circle-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+}
 @media (max-width: 900px) {
   .circle-intro, .circle-layout, .recognition-list, .circle-three-column, .circle-check > div { grid-template-columns: minmax(0, 1fr); }
   .circle-intro, .circle-layout { gap: 16px; }

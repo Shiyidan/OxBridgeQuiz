@@ -3,7 +3,7 @@
   <div class="profile-page">
     <!--
       THESIS: 个人中心是一张可继续编辑的升学档案，不是统计卡片集合。
-      OWN-WORLD: 冷白档案纸、柔紫会员区、细线信息表与轻量升学插画。
+      OWN-WORLD: 白色档案、透明数学图层、青色光学细节与细线信息表。
       STORY: 学生先确认身份、网络与目标，再查看当前权益和订单。
       FIRST VIEWPORT: 标题下是一张横向个人档案，下一行并列会员权益与目标偏好。
       FORM: 依据用户截图重建的桌面档案仪表板，保留导航栏同宽的流体外壳。
@@ -23,71 +23,32 @@
           <div class="avatar-frame">
             <AppAvatar :source="auth.user?.avatar" :name="displayName" />
           </div>
-          <button type="button" class="profile-account-edit" @click="openAccountDialog">
-            修改信息
-          </button>
         </div>
-
         <div class="profile-identity-copy">
           <div class="profile-name-line">
             <h2 id="profile-student-name">{{ displayName }}</h2>
             <span class="profile-membership-chip">{{ membershipTags.join(' · ') }}</span>
+            <AppButton type="secondary" size="small" class="profile-identity-edit" @click="openAccountDialog">
+              修改信息
+            </AppButton>
           </div>
-          <ul class="profile-identity-list">
-            <li>
-              <el-icon aria-hidden="true"><Message /></el-icon>
-              <span>{{ auth.user?.email || '尚未绑定邮箱' }}</span>
-            </li>
-            <li>
-              <el-icon aria-hidden="true"><School /></el-icon>
-              <span>目标院校　{{ profileTargetSchoolsText }}</span>
-            </li>
-            <li>
-              <el-icon aria-hidden="true"><Location /></el-icon>
-              <span>{{ profileIpLocationText }}</span>
-            </li>
-            <li>
-              <el-icon aria-hidden="true"><Connection /></el-icon>
-              <span>IP　{{ profileIpAddressText }}</span>
-            </li>
-          </ul>
+          <p class="profile-identity-email">
+            <el-icon aria-hidden="true"><Message /></el-icon>
+            <span>{{ auth.user?.email || '尚未绑定邮箱' }}</span>
+          </p>
+          <div class="profile-identity-details">
+            <div class="profile-identity-schools">
+              <span class="profile-detail-label"><el-icon aria-hidden="true"><School /></el-icon>目标院校</span>
+              <strong>{{ profileTargetSchoolsText }}</strong>
+            </div>
+            <div class="profile-identity-network">
+              <span class="profile-detail-label"><el-icon aria-hidden="true"><Location /></el-icon>{{ profileIpLocationText }}</span>
+              <span class="profile-detail-address"><el-icon aria-hidden="true"><Connection /></el-icon><span>IP</span><strong>{{ profileIpAddressText }}</strong></span>
+            </div>
+          </div>
         </div>
-
         <div class="profile-study-illustration" aria-hidden="true">
-          <svg viewBox="0 0 320 170" focusable="false">
-            <defs>
-              <linearGradient id="profileCap" x1="0" x2="1" y1="0" y2="1">
-                <stop offset="0" stop-color="#8f7cff" />
-                <stop offset="1" stop-color="#4d3bfa" />
-              </linearGradient>
-              <linearGradient id="profileBook" x1="0" x2="1">
-                <stop offset="0" stop-color="#ffd79f" />
-                <stop offset="1" stop-color="#ffb56a" />
-              </linearGradient>
-            </defs>
-            <ellipse cx="179" cy="146" rx="115" ry="12" fill="#dcdafa" opacity=".65" />
-            <path d="M96 106h136l14 18H88z" fill="url(#profileBook)" />
-            <path
-              d="M88 124h158v17H95c-8 0-12-10-7-17Z"
-              fill="#fff"
-              stroke="#7565ff"
-              stroke-width="3"
-            />
-            <path d="M116 82h111l12 18H106z" fill="#b8b0ff" />
-            <path
-              d="M106 100h133v17H112c-8 0-12-10-6-17Z"
-              fill="#fff"
-              stroke="#5d4dff"
-              stroke-width="3"
-            />
-            <path d="m92 46 83-28 89 30-87 30z" fill="url(#profileCap)" />
-            <path d="M130 61v28c24 13 68 14 94 0V61l-48 17z" fill="#5947f7" />
-            <path d="M263 49v38" stroke="#4938e9" stroke-width="4" stroke-linecap="round" />
-            <circle cx="263" cy="89" r="5" fill="#ffbd6f" />
-            <circle cx="287" cy="30" r="6" fill="#9bbcff" />
-            <circle cx="302" cy="71" r="9" fill="#dedbff" />
-            <path d="m44 69 10-20 10 20z" fill="#f5d7ff" />
-          </svg>
+          <img :src="profileMathPlanes" alt="" width="1440" height="1080" decoding="async" />
         </div>
       </section>
 
@@ -186,10 +147,7 @@
 
         <LearningFootprintPanel />
 
-        <section
-          class="profile-target-panel"
-          aria-labelledby="profile-target-title"
-        >
+        <section class="profile-target-panel" aria-labelledby="profile-target-title">
           <ProfileModuleHeading
             class="profile-card-heading"
             kicker="TARGET & PREFERENCES"
@@ -197,11 +155,7 @@
             description="管理备考考试、目标分数与学习计划"
             title-id="profile-target-title"
           >
-            <button
-              type="button"
-              class="profile-inline-action"
-              @click="startEditExam"
-            >
+            <button type="button" class="profile-inline-action" @click="startEditExam">
               <el-icon aria-hidden="true"><EditPen /></el-icon>编辑目标偏好
             </button>
           </ProfileModuleHeading>
@@ -216,279 +170,244 @@
             :exam-date="profileExamDateText"
           />
 
-          <el-dialog
+          <AppDialog
             v-model="examEditing"
-            class="profile-target-dialog"
+            class="preferences-dialog"
             title="编辑目标偏好"
-            width="700px"
-            align-center
-            destroy-on-close
-            :show-close="!examSaving"
-            :close-on-click-modal="!examSaving"
-            :close-on-press-escape="!examSaving"
+            width="900px"
+            :show-header-divider="false"
+            :loading="examSaving"
+            :close-on-press-escape="true"
             @closed="cancelEditExam"
           >
-            <p class="profile-target-dialog-intro">让学习计划更贴合您的升学目标</p>
-            <dl class="profile-target-list profile-target-list--editing">
-            <div class="profile-target-field">
-              <dt>
-                <el-icon aria-hidden="true"><OfficeBuilding /></el-icon>目标院校层级
-              </dt>
-              <dd>
-                <el-select
-                  v-if="examEditing"
-                  v-model="editTargetUniversities"
-                  class="profile-target-row-select"
-                  multiple
-                  :multiple-limit="2"
-                  aria-label="目标院校"
-                  placeholder="请选择目标院校"
-                >
-                  <el-option
-                    v-for="university in TARGET_UNIVERSITY_OPTIONS"
-                    :key="university"
-                    :label="university"
-                    :value="university"
+            <p class="preferences-intro">按你的目标，设置备考方向。</p>
+            <nav class="preferences-steps" aria-label="偏好设置步骤">
+              <button
+                v-for="(label, index) in preferenceSteps"
+                :key="label"
+                type="button"
+                :class="{
+                  'is-active': preferenceStep === index,
+                  'is-complete': preferenceStep > index,
+                }"
+                :aria-current="preferenceStep === index ? 'step' : undefined"
+                :disabled="examSaving"
+                @click="goPreferenceStep(index)"
+              >
+                <span>{{ label }}</span
+                ><el-icon v-if="preferenceStep > index" aria-hidden="true"><Check /></el-icon>
+              </button>
+            </nav>
+            <section v-show="preferenceStep === 0" class="preferences-panel">
+              <h3>你希望去哪里，学习什么？</h3>
+              <p class="preferences-hint">选择目标院校与专业，让备考更有方向。</p>
+              <div class="preferences-goals">
+                <label class="preferences-field">
+                  <span>目标院校 <small>最多选择 2 所</small></span>
+                  <el-select
+                    v-model="editTargetUniversities"
+                    multiple
+                    :multiple-limit="2"
+                    :disabled="examSaving"
+                    aria-label="目标院校"
+                    placeholder="请选择目标院校"
+                  >
+                    <el-option
+                      v-for="university in TARGET_UNIVERSITY_OPTIONS"
+                      :key="university"
+                      :label="university"
+                      :value="university"
+                    />
+                  </el-select>
+                </label>
+                <label class="preferences-field">
+                  <span>目标专业方向</span>
+                  <el-input
+                    v-model="editTargetMajor"
+                    :disabled="examSaving"
+                    aria-label="目标专业方向"
+                    placeholder="例如：数学与统计、计算机科学"
                   />
-                </el-select>
-                <template v-else>
-                  {{ profileTargetSchoolsText }}
-                </template>
-              </dd>
-            </div>
-            <div class="profile-target-field">
-              <dt>
-                <el-icon aria-hidden="true"><CollectionTag /></el-icon>目标专业方向
-              </dt>
-              <dd>
-                <input
-                  v-if="examEditing"
-                  v-model="editTargetMajor"
-                  class="profile-target-row-input"
-                  type="text"
-                  aria-label="目标专业方向"
-                  placeholder="例如：数学与统计"
-                />
-                <template v-else>
-                  {{ profileTargetMajorText }}
-                </template>
-              </dd>
-            </div>
-            <div class="profile-target-exam-row">
-              <dt>
-                <el-icon aria-hidden="true"><Aim /></el-icon>目标考试
-              </dt>
-              <dd class="profile-target-exam-content">
-                <div v-if="examEditing" class="profile-exam-editor">
-                  <div class="profile-exam-type-group" role="group" aria-label="目标考试">
-                    <button
-                      v-for="item in examTypes"
-                      :key="item.value"
-                      class="profile-exam-choice"
+                </label>
+              </div>
+            </section>
+            <section v-show="preferenceStep === 1" class="preferences-panel">
+              <div class="preferences-exam-heading">
+                <div>
+                  <h3>你准备参加哪些考试？</h3>
+                  <p class="preferences-hint">可同时选择 ESAT 和 TMUA。</p>
+                </div>
+                <div class="preferences-exams" role="group" aria-label="目标考试">
+                  <label
+                    v-for="item in examTypes"
+                    :key="item.value"
+                    class="preferences-choice"
+                    :class="{ 'is-selected': editExamTypes.includes(item.value) }"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="editExamTypes.includes(item.value)"
+                      :disabled="examSaving"
+                      @change="toggleProfileExamType(item.value)"
+                    /><span>{{ item.label }}</span>
+                  </label>
+                </div>
+              </div>
+              <div class="preferences-subjects" :class="{ 'has-both': editExamTypes.length > 1 }">
+                <section v-if="editExamTypes.includes('ESAT')" aria-labelledby="preferences-esat">
+                  <div class="preferences-subject-title">
+                    <h3 id="preferences-esat">ESAT 备考科目</h3>
+                    <span class="preferences-count">已选 {{ editEsatSubjects.length }} / 3</span>
+                  </div>
+                  <p class="preferences-hint">数学1必选，另外选择两科。</p>
+                  <div class="preferences-subject-grid">
+                    <label
+                      v-for="subject in ESAT_SUBJECT_OPTIONS"
+                      :key="subject"
+                      class="preferences-choice"
                       :class="{
-                        'is-active': editExamTypes.includes(item.value),
-                        'is-unavailable': !item.available,
+                        'is-selected': editEsatSubjects.includes(subject),
+                        'is-required': subject === '数学1',
+                        'is-unavailable':
+                          isProfileEsatSubjectDisabled(subject) && subject !== '数学1',
                       }"
-                      type="button"
-                      :disabled="!item.available"
-                      @click="toggleProfileExamType(item.value)"
                     >
-                      {{ item.label }}
-                      <small v-if="!item.available">推进中</small>
-                    </button>
+                      <input
+                        type="checkbox"
+                        :checked="editEsatSubjects.includes(subject)"
+                        :disabled="examSaving || isProfileEsatSubjectDisabled(subject)"
+                        @change="toggleProfileEsatSubject(subject)"
+                      /><span>{{ subject }}</span
+                      ><small v-if="subject === '数学1'">必选</small>
+                    </label>
                   </div>
-
-                  <section
-                    v-if="editExamTypes.length > 1"
-                    class="profile-primary-exam-editor"
-                    aria-labelledby="profile-primary-exam-label"
-                  >
-                    <div>
-                      <strong id="profile-primary-exam-label">默认学习考试</strong>
-                      <small>诊断、模考和题库将优先展示该考试，可随时在个人中心修改</small>
-                    </div>
-                    <div
-                      class="profile-primary-exam-options"
-                      role="radiogroup"
-                      aria-labelledby="profile-primary-exam-label"
+                  <p class="preferences-selection-hint">更换科目时，请先取消一项已选科目。</p>
+                  <label class="preferences-score"
+                    ><span>ESAT 目标分数 <small>可选 · 1.0–9.0</small></span
+                    ><el-input-number
+                      v-model="targetScoreDrafts.ESAT"
+                      :min="1"
+                      :max="9"
+                      :step="0.1"
+                      :precision="1"
+                      controls-position="right"
+                      :disabled="examSaving"
+                      aria-label="ESAT 目标分数"
+                      placeholder="未设置"
+                  /></label>
+                </section>
+                <section v-if="editExamTypes.includes('TMUA')" aria-labelledby="preferences-tmua">
+                  <div class="preferences-subject-title"><h3 id="preferences-tmua">TMUA</h3></div>
+                  <p class="preferences-hint">两项均为必选。</p>
+                  <div class="preferences-tmua-papers">
+                    <label
+                      v-for="paper in ['Paper 1', 'Paper 2']"
+                      :key="paper"
+                      class="preferences-choice is-selected"
+                      ><input type="checkbox" checked disabled /><span>{{ paper }}</span
+                      ><small>必选</small></label
                     >
-                      <label
-                        v-for="examType in editExamTypes"
-                        :key="examType"
-                        class="profile-primary-exam-option"
-                        :class="{ 'is-active': editPrimaryExamType === examType }"
-                      >
-                        <input
-                          type="radio"
-                          name="profile-primary-exam"
-                          :value="examType"
-                          :checked="editPrimaryExamType === examType"
-                          @change="setPrimaryExamType(examType)"
-                        />
-                        <span>{{ examType }}</span>
-                      </label>
-                    </div>
-                  </section>
-
-                  <div v-if="editExamTypes.length" class="profile-exam-subject-editor">
-                    <section v-if="editExamTypes.includes('ESAT')">
-                      <header class="profile-exam-subject-heading">
-                        <div>
-                          <strong>ESAT 备考科目</strong>
-                          <small>五项中恰好选择三项，数学1为必选项</small>
-                        </div>
-                        <span>已选 {{ editEsatSubjects.length }} / 3</span>
-                      </header>
-                      <div class="profile-exam-subject-choices">
-                        <button
-                          v-for="subject in ESAT_SUBJECT_OPTIONS"
-                          :key="subject"
-                          class="profile-exam-subject-choice"
-                          :class="{
-                            'is-active': editEsatSubjects.includes(subject),
-                            'is-required': subject === '数学1',
-                          }"
-                          type="button"
-                          :disabled="isProfileEsatSubjectDisabled(subject)"
-                          @click="toggleProfileEsatSubject(subject)"
-                        >
-                          {{ subject }}
-                        </button>
-                      </div>
-                      <label class="profile-exam-target-score">
-                        <span>ESAT 目标分数</span>
-                        <el-input-number
-                          v-model="targetScoreDrafts.ESAT"
-                          class="profile-target-row-number"
-                          :min="1"
-                          :max="9"
-                          :step="0.1"
-                          :precision="1"
-                          controls-position="right"
-                          aria-label="ESAT 目标分数"
-                          placeholder="1.0-9.0"
-                        />
-                      </label>
-                    </section>
-
-                    <section v-if="editExamTypes.includes('TMUA')">
-                      <header class="profile-exam-subject-heading">
-                        <div>
-                          <strong>TMUA 备考科目</strong>
-                        </div>
-                        <span>两项均为必选</span>
-                      </header>
-                      <div class="profile-exam-subject-choices">
-                        <span class="profile-exam-subject-choice is-active is-required"
-                          >Paper 1</span
-                        >
-                        <span class="profile-exam-subject-choice is-active is-required"
-                          >Paper 2</span
-                        >
-                      </div>
-                      <label class="profile-exam-target-score">
-                        <span>TMUA 目标分数</span>
-                        <el-input-number
-                          v-model="targetScoreDrafts.TMUA"
-                          class="profile-target-row-number"
-                          :min="1"
-                          :max="9"
-                          :step="0.1"
-                          :precision="1"
-                          controls-position="right"
-                          aria-label="TMUA 目标分数"
-                          placeholder="1.0-9.0"
-                        />
-                      </label>
-                    </section>
                   </div>
-                  <span v-else class="profile-exam-editor-hint">选择考试后设置对应科目</span>
-                </div>
-
-                <div v-else class="profile-target-subjects">
-                  <div
-                    v-if="displayedTargetExamTypes.includes('ESAT')"
-                    class="profile-subject-group"
-                  >
-                    <span class="profile-subject-exam">ESAT</span>
-                    <span>{{ profileEsatSubjectsText }}</span>
-                  </div>
-                  <div
-                    v-if="displayedTargetExamTypes.includes('TMUA')"
-                    class="profile-subject-group"
-                  >
-                    <span class="profile-subject-exam">TMUA</span>
-                    <span>Paper 1、Paper 2</span>
-                  </div>
-                  <span v-if="!displayedTargetExamTypes.length"> 尚未设置 </span>
-                </div>
-              </dd>
-            </div>
-            <div class="profile-target-field">
-              <dt>
-                <el-icon aria-hidden="true"><Clock /></el-icon>每周可投入时长
-              </dt>
-              <dd>
-                <el-input-number
-                  v-if="examEditing"
-                  v-model="weeklyHoursDraft"
-                  class="profile-target-row-number"
-                  :min="1"
-                  :max="80"
-                  :step="1"
-                  :precision="0"
-                  controls-position="right"
-                  aria-label="每周可投入时长"
-                />
-                <template v-else>
-                  {{ profileWeeklyHoursText }}
-                </template>
-              </dd>
-            </div>
-            <div class="profile-target-field">
-              <dt>
-                <el-icon aria-hidden="true"><Calendar /></el-icon>考试日期
-              </dt>
-              <dd>
-                <el-select
-                  v-if="examEditing"
-                  v-model="examDateDraft"
-                  class="profile-target-row-select"
-                  aria-label="考试日期"
-                  placeholder="请选择考试日期"
+                  <label class="preferences-score"
+                    ><span>TMUA 目标分数 <small>可选 · 1.0–9.0</small></span
+                    ><el-input-number
+                      v-model="targetScoreDrafts.TMUA"
+                      :min="1"
+                      :max="9"
+                      :step="0.1"
+                      :precision="1"
+                      controls-position="right"
+                      :disabled="examSaving"
+                      aria-label="TMUA 目标分数"
+                      placeholder="未设置"
+                  /></label>
+                </section>
+                <p v-if="!editExamTypes.length" class="preferences-hint">
+                  请至少选择一项考试，再设置备考科目。
+                </p>
+              </div>
+            </section>
+            <section v-show="preferenceStep === 2" class="preferences-panel">
+              <h3>安排适合自己的备考节奏。</h3>
+              <p class="preferences-hint">设置每周投入时间和目标考期，之后也可以随时调整。</p>
+              <div class="preferences-schedule">
+                <label class="preferences-field"
+                  ><span>每周可投入时长 <small>1–80 小时</small></span>
+                  <div class="preferences-hours">
+                    <el-input-number
+                      v-model="weeklyHoursDraft"
+                      :min="1"
+                      :max="80"
+                      :step="1"
+                      :precision="0"
+                      controls-position="right"
+                      :disabled="examSaving"
+                      aria-label="每周可投入时长"
+                    /><span>小时 / 周</span>
+                  </div></label
                 >
-                  <el-option
-                    v-for="option in EXAM_DATE_OPTIONS"
-                    :key="option.value"
-                    :label="option.label"
-                    :value="option.value"
-                  />
-                </el-select>
-                <template v-else>
-                  {{ profileExamDateText }}
-                </template>
-              </dd>
-            </div>
-            </dl>
+                <label class="preferences-field"
+                  ><span>考试日期</span
+                  ><el-select
+                    v-model="examDateDraft"
+                    :disabled="examSaving"
+                    aria-label="考试日期"
+                    placeholder="请选择考试月份"
+                    ><el-option
+                      v-for="option in EXAM_DATE_OPTIONS"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value" /></el-select
+                ></label>
+              </div>
+              <div class="preferences-review">
+                <span>本次备考目标</span><strong>{{ editTargetUniversities.join('、') }}</strong>
+                <p>{{ editTargetMajor }}</p>
+                <p>
+                  {{ editExamTypes.join(' · ')
+                  }}
+                </p>
+              </div>
+            </section>
+            <p v-if="preferenceError" class="preferences-error" role="alert">
+              {{ preferenceError }}
+            </p>
             <template #footer>
-              <button
-                type="button"
-                class="profile-target-dialog-cancel"
-                :disabled="examSaving"
-                @click="cancelEditExam"
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                class="profile-target-dialog-save"
-                :disabled="examSaving"
-                @click="saveExam"
-              >
-                {{ examSaving ? '保存中...' : '保存偏好' }}
-              </button>
+              <div class="preferences-footer">
+                <span>{{
+                  preferenceStep === 2 ? '保存后应用到你的备考设置。' : '完成设置后统一保存。'
+                }}</span>
+                <div class="preferences-footer-actions">
+                  <AppButton
+                    type="secondary"
+                    size="small"
+                    :disabled="examSaving"
+                    @click="cancelEditExam"
+                    >取消</AppButton
+                  >
+                  <AppButton
+                    v-if="preferenceStep > 0"
+                    type="secondary"
+                    size="small"
+                    :disabled="examSaving"
+                    @click="goPreferenceStep(preferenceStep - 1)"
+                    >上一步</AppButton
+                  >
+                  <AppButton
+                    v-if="preferenceStep < 2"
+                    size="small"
+                    :icon="ArrowRight"
+                    icon-position="right"
+                    @click="goPreferenceStep(preferenceStep + 1)"
+                    >下一步</AppButton
+                  >
+                  <AppButton v-else size="small" :loading="examSaving" @click="saveExam"
+                    >保存偏好</AppButton
+                  >
+                </div>
+              </div>
             </template>
-          </el-dialog>
+          </AppDialog>
         </section>
       </div>
 
@@ -822,11 +741,11 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
+  ArrowRight,
+  Check,
   Aim,
   Calendar,
   CircleCheck,
-  Clock,
-  CollectionTag,
   Connection,
   Document,
   Download,
@@ -834,12 +753,14 @@ import {
   Location,
   Message,
   Money,
-  OfficeBuilding,
   School,
   Tickets,
   Trophy,
 } from '@element-plus/icons-vue'
 import AppAvatar from '@/components/AppAvatar.vue'
+import profileMathPlanes from '@/assets/profile/profile-math-planes.png'
+import AppButton from '@/components/AppButton.vue'
+import AppDialog from '@/components/AppDialog.vue'
 import NavBar from '@/components/NavBar.vue'
 import MembershipBenefitsDialog from '@/components/MembershipBenefitsDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
@@ -955,6 +876,9 @@ const profileIpLocationText = computed(() => {
 // 报考目标编辑
 type ScoreExamType = 'ESAT' | 'TMUA'
 const examEditing = ref(false)
+const preferenceSteps = ['升学目标', '考试与科目', '学习安排'] as const
+const preferenceStep = ref(0)
+const preferenceError = ref('')
 const examSaving = ref(false)
 const editExamTypes = ref<string[]>([])
 const editPrimaryExamType = ref<ScoreExamType>('TMUA')
@@ -1023,16 +947,6 @@ function toggleProfileExamType(examType: string): void {
   }
 }
 
-// 双目标用户在个人中心明确默认学习上下文，业务页面不再依赖顶部临时切换。
-function setPrimaryExamType(examType: string): void {
-  if (
-    (examType === 'ESAT' || examType === 'TMUA') &&
-    editExamTypes.value.includes(examType)
-  ) {
-    editPrimaryExamType.value = examType
-  }
-}
-
 // 数学1不可取消，已选满三科时锁定其余未选科目。
 function isProfileEsatSubjectDisabled(subject: string): boolean {
   if (subject === '数学1') return true
@@ -1049,6 +963,8 @@ function toggleProfileEsatSubject(subject: string): void {
 
 // 打开弹窗时把已保存偏好复制为独立草稿，关闭前不影响原页面展示。
 function startEditExam(): void {
+  preferenceStep.value = 0
+  preferenceError.value = ''
   const preferences = auth.memberContext?.studyPreferences
   editExamTypes.value = preferences?.examTypes.length ? [...preferences.examTypes] : []
   const savedPrimaryExamType = preferences?.primaryExamType
@@ -1075,6 +991,8 @@ function startEditExam(): void {
 
 // 关闭弹窗时清空本次草稿，服务端已保存的会员上下文保持不变。
 function cancelEditExam(): void {
+  if (examSaving.value) return
+  preferenceError.value = ''
   editExamTypes.value = []
   editPrimaryExamType.value = 'TMUA'
   editTargetUniversities.value = []
@@ -1087,54 +1005,88 @@ function cancelEditExam(): void {
   examEditing.value = false
 }
 
-// 保存前按考试验证目标分数，避免 ESAT 与 TMUA 的目标值写入同一条偏好。
-async function saveExam(): Promise<void> {
-  if (!editExamTypes.value.length) {
-    ElMessage.warning('请至少选择一个目标考试')
-    return
+// 每一步只验证该组草稿；保存前复用同一规则，失败时返回对应步骤。
+function preferenceStepError(step: number): string {
+  if (step === 0) {
+    if (!editTargetUniversities.value.length) return '请至少选择一所目标院校'
+    if (editTargetUniversities.value.length > 2) return '目标院校最多选择两所'
+    if (!editTargetMajor.value.trim()) return '请输入目标专业方向'
   }
-  if (!editExamTypes.value.includes(editPrimaryExamType.value)) {
-    ElMessage.warning('请选择默认学习考试')
-    return
-  }
-  if (!editTargetUniversities.value.length) {
-    ElMessage.warning('请至少选择一所目标院校')
-    return
-  }
-  const targetMajor = editTargetMajor.value.trim()
-  if (!targetMajor) {
-    ElMessage.warning('请输入目标专业方向')
-    return
-  }
-  if (
-    editExamTypes.value.includes('ESAT') &&
-    (editEsatSubjects.value.length !== 3 || !editEsatSubjects.value.includes('数学1'))
-  ) {
-    ElMessage.warning('ESAT 需选择 3 个科目，且数学1为必选科目')
-    return
-  }
-  for (const examType of targetScoreExamTypes.value) {
-    const targetScore = targetScoreDrafts[examType]
+  if (step === 1) {
+    if (!editExamTypes.value.length) return '请至少选择一个目标考试'
+    if (!editExamTypes.value.includes(editPrimaryExamType.value)) return '请选择默认学习考试'
     if (
-      targetScore !== undefined &&
-      (!Number.isFinite(targetScore) || targetScore < 1 || targetScore > 9)
+      editExamTypes.value.includes('ESAT') &&
+      (editEsatSubjects.value.length !== 3 || !editEsatSubjects.value.includes('数学1'))
+    )
+      return 'ESAT 需选择 3 个科目，且数学1为必选科目'
+    for (const examType of targetScoreExamTypes.value) {
+      const score = targetScoreDrafts[examType]
+      if (score !== undefined && (!Number.isFinite(score) || score < 1 || score > 9)) {
+        return examType + ' 目标分数需为 1.0–9.0'
+      }
+    }
+  }
+  if (step === 2) {
+    if (
+      !Number.isInteger(weeklyHoursDraft.value) ||
+      weeklyHoursDraft.value < 1 ||
+      weeklyHoursDraft.value > 80
     ) {
-      ElMessage.warning(`${examType} 目标分数需为 1.0-9.0`)
+      return '每周可投入时长需为 1–80 小时'
+    }
+    if (!EXAM_DATE_OPTIONS.some((option) => option.value === examDateDraft.value)) {
+      return '请选择有效的考试日期'
+    }
+  }
+  return ''
+}
+
+// 切换步骤后将弹窗滚动到顶部并聚焦标题，键盘用户可从当前内容继续填写。
+async function focusPreferenceStep(): Promise<void> {
+  await nextTick()
+  const panel = document.querySelectorAll<HTMLElement>('.preferences-dialog .preferences-panel')[
+    preferenceStep.value
+  ]
+  const title = panel?.querySelector('h3')
+  title?.setAttribute('tabindex', '-1')
+  title?.focus({ preventScroll: true })
+  document.querySelector('.preferences-dialog .el-dialog__body')?.scrollTo({ top: 0 })
+}
+
+// 可随时返回已填步骤；前进或点击后续步骤时，先校验所有前置步骤。
+async function goPreferenceStep(target: number): Promise<void> {
+  if (examSaving.value || target < 0 || target >= preferenceSteps.length) return
+  preferenceError.value = ''
+  if (target > preferenceStep.value) {
+    for (let step = 0; step < target; step += 1) {
+      const error = preferenceStepError(step)
+      if (error) {
+        preferenceStep.value = step
+        preferenceError.value = error
+        await focusPreferenceStep()
+        return
+      }
+    }
+  }
+  preferenceStep.value = target
+  await focusPreferenceStep()
+}
+
+// 最后一步统一保存全部草稿，继续使用既有 API 与会员上下文刷新流程。
+async function saveExam(): Promise<void> {
+  if (examSaving.value) return
+  preferenceError.value = ''
+  for (let step = 0; step < preferenceSteps.length; step += 1) {
+    const error = preferenceStepError(step)
+    if (error) {
+      preferenceStep.value = step
+      preferenceError.value = error
+      await focusPreferenceStep()
       return
     }
   }
-  if (
-    !Number.isInteger(weeklyHoursDraft.value) ||
-    weeklyHoursDraft.value < 1 ||
-    weeklyHoursDraft.value > 80
-  ) {
-    ElMessage.warning('每周可投入时长需为 1-80 小时')
-    return
-  }
-  if (!EXAM_DATE_OPTIONS.some((option) => option.value === examDateDraft.value)) {
-    ElMessage.warning('请选择有效的考试日期')
-    return
-  }
+  const targetMajor = editTargetMajor.value.trim()
   examSaving.value = true
   try {
     const preferences: StudyPreferencesUpdate = {
@@ -1161,8 +1113,9 @@ async function saveExam(): Promise<void> {
     setCurrentExamType(auth.activeExamType)
     examEditing.value = false
     ElMessage.success('报考目标已更新')
-  } catch {
-    // Axios 公共响应处理会展示后端 errMsg。
+  } catch (error: unknown) {
+    preferenceError.value = getApiErrorMessage(error, '偏好保存失败，请重试。')
+    // 请求失败保留全部草稿，允许在当前步骤重试。
   } finally {
     examSaving.value = false
   }
@@ -1200,14 +1153,10 @@ const profileTargetMajorItems = computed(() => {
     .map((item) => item.trim())
     .filter(Boolean)
 })
-const profileTargetMajorText = computed(() => profileTargetMajorItems.value.join('、'))
 const profileEsatSubjectItems = computed(() => {
   const subjects = studyPreferences.value?.esatSubjects || []
   return subjects.length ? subjects : []
 })
-const profileEsatSubjectsText = computed(() =>
-  profileEsatSubjectItems.value.length ? profileEsatSubjectItems.value.join('、') : '尚未设置',
-)
 // 概览按考试展示已保存目标分数，空值交由子组件统一显示为未设置。
 const profileTargetScores = computed<Record<ScoreExamType, number | null>>(
   () => studyPreferences.value?.targetScores || { ESAT: null, TMUA: null },
@@ -1324,19 +1273,20 @@ const billingRecords = computed<BillingRecord[]>(() => {
       : undefined
     if (membership) matchedMembershipIds.add(membership.id)
     const membershipStatus = membership ? normalizeBillingStatus(membership.status) : null
-    const activatedCardStatus = membership
-      && ['weekly_reward', 'daily_gift'].includes(membership.plan)
-      && ['active', 'queued'].includes(membershipStatus || '')
+    const activatedCardStatus =
+      membership &&
+      ['weekly_reward', 'daily_gift'].includes(membership.plan) &&
+      ['active', 'queued'].includes(membershipStatus || '')
     const status =
       order.status === 'refunding' || order.status === 'refunded'
         ? normalizeBillingStatus(order.status)
         : activatedCardStatus
           ? 'activated'
-        : membership
-          ? membershipStatus || 'failed'
-          : order.status === 'pending' && new Date(order.expiresAt).getTime() <= Date.now()
-            ? 'closed'
-            : normalizeBillingStatus(order.status)
+          : membership
+            ? membershipStatus || 'failed'
+            : order.status === 'pending' && new Date(order.expiresAt).getTime() <= Date.now()
+              ? 'closed'
+              : normalizeBillingStatus(order.status)
     const examType = order.examTypes.join('、') || '—'
     return {
       id: `order-${order.id}`,
@@ -5601,3 +5551,7 @@ onBeforeUnmount(() => {
   }
 }
 </style>
+
+<style scoped lang="scss" src="@/views/profile/preferences-dialog.scss"></style>
+
+<style scoped lang="scss" src="@/views/profile/profile-header.scss"></style>

@@ -5,6 +5,59 @@
       <el-tab-pane label="概念与方法" name="summary">
         <PythagorasMethods v-if="section.code === '110507'" />
         <CircleTheoremMethods v-else-if="section.code === '110509'" />
+        <UnitsMethods
+          v-else-if="section.code === '110101' || section.code === '110102'"
+          :code="section.code"
+        />
+        <ProbabilityFoundationsMethods
+          v-else-if="section.code === '110701' || section.code === '110702' || section.code === '110703'"
+          :code="section.code"
+        />
+        <ProbabilityReasoningMethods
+          v-else-if="section.code === '110704' || section.code === '110705' || section.code === '110706' || section.code === '110707'"
+          :code="section.code"
+        />
+        <AlgebraFoundationsMethods
+          v-else-if="section.code === '110401' || section.code === '110402' || section.code === '110403' || section.code === '110404'"
+          :code="section.code"
+        />
+        <AlgebraManipulationMethods
+          v-else-if="section.code === '110405' || section.code === '110406' || section.code === '110407' || section.code === '110408'"
+          :code="section.code"
+        />
+        <AlgebraGraphMethods
+          v-else-if="section.code === '110409' || section.code === '110410' || section.code === '110411' || section.code === '110412'"
+          :code="section.code"
+        />
+        <AlgebraApplicationsMethods
+          v-else-if="section.code === '110413' || section.code === '110414' || section.code === '110415' || section.code === '110416'"
+          :code="section.code"
+        />
+        <AlgebraFinalMethods
+          v-else-if="section.code === '110417' || section.code === '110418' || section.code === '110419'"
+          :code="section.code"
+        />
+        <StatisticsMethods
+          v-else-if="section.code === '110601' || section.code === '110602' || section.code === '110603' || section.code === '110604'"
+          :code="section.code"
+        />
+        <EukaryoticCellMethods v-else-if="section.code === '150101'" />
+        <ProkaryoticCellMethods v-else-if="section.code === '150102'" />
+        <OrganisationMethods v-else-if="section.code === '150103'" />
+        <MembraneTransportMethods v-else-if="section.code === '150201'" />
+        <CellDivisionMethods
+          v-else-if="section.code === '150301' || section.code === '150302' || section.code === '150303' || section.code === '150304'"
+          :code="section.code"
+        />
+        <InheritanceMethods
+          v-else-if="section.code === '150401' || section.code === '150402' || section.code === '150403'"
+          :code="section.code"
+        />
+        <GeometryMethodsReview
+          v-else-if="section.code === '110501' || section.code === '110502' || section.code === '110503' || section.code === '110504' || section.code === '110505' || section.code === '110506' || section.code === '110508' || section.code === '110510' || section.code === '110511' || section.code === '110512' || section.code === '110513' || section.code === '110514' || section.code === '110515' || section.code === '110516' || section.code === '110517' || section.code === '110518' || section.code === '110519'"
+          :key="section.code"
+          :code="section.code"
+        />
         <KnowledgeConceptFlow
           v-else-if="section.conceptFlow && section.visual"
           :flow="section.conceptFlow"
@@ -58,7 +111,7 @@
         </section>
         </div>
 
-        <div v-if="focus.comparison" class="exam-comparison">
+        <div v-if="focus.comparison && !['110401', '110402', '110403', '110404', '110405', '110406', '110407', '110408', '110409', '110410', '110411', '110412', '110413', '110414', '110415', '110416', '110417', '110418', '110419', '110701', '110702', '110703', '110704', '110705', '110706', '110707', '110601', '110602', '110603', '110604', '110101', '110102', '150101', '150102', '150103', '150201', '150301', '150302', '150303', '150304', '150401', '150402', '150403'].includes(section.code)" class="exam-comparison">
           <div class="exam-section-label">
             <List aria-hidden="true" />
             <h5>{{ focus.comparison.title }}</h5>
@@ -332,6 +385,22 @@ import KnowledgeSelfCheck from './KnowledgeSelfCheck.vue'
 import KnowledgeConceptFlow from './KnowledgeConceptFlow.vue'
 import PythagorasMethods from './PythagorasMethods.vue'
 import CircleTheoremMethods from './CircleTheoremMethods.vue'
+import UnitsMethods from './UnitsMethods.vue'
+import StatisticsMethods from './StatisticsMethods.vue'
+import ProbabilityFoundationsMethods from './ProbabilityFoundationsMethods.vue'
+import ProbabilityReasoningMethods from './ProbabilityReasoningMethods.vue'
+import AlgebraFoundationsMethods from './AlgebraFoundationsMethods.vue'
+import AlgebraManipulationMethods from './AlgebraManipulationMethods.vue'
+import AlgebraGraphMethods from './AlgebraGraphMethods.vue'
+import AlgebraApplicationsMethods from './AlgebraApplicationsMethods.vue'
+import AlgebraFinalMethods from './AlgebraFinalMethods.vue'
+import EukaryoticCellMethods from './EukaryoticCellMethods.vue'
+import ProkaryoticCellMethods from './ProkaryoticCellMethods.vue'
+import OrganisationMethods from './OrganisationMethods.vue'
+import MembraneTransportMethods from './MembraneTransportMethods.vue'
+import CellDivisionMethods from './CellDivisionMethods.vue'
+import InheritanceMethods from './InheritanceMethods.vue'
+import GeometryMethodsReview from './GeometryMethodsReview.vue'
 import OriginalQuestionAnalysis from './OriginalQuestionAnalysis.vue'
 import { getLearningPatternSources, type LearningPatternSource } from '@/api/learningExamples'
 import type {

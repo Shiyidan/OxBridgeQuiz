@@ -2,7 +2,7 @@
 <script setup lang="ts">
 import brandIconUrl from '@/assets/brand/acemock-icon.png'
 import contactQrUrl from '@/assets/home/contact-qr.png'
-import wechatQrUrl from '@/assets/home/wechat-qr.png'
+import wechatQrUrl from '@/assets/home/wechat-study-group-qr.jpg'
 
 withDefaults(
   defineProps<{
@@ -40,7 +40,23 @@ const emit = defineEmits<{
         <h2 id="home-footer-contact-title" class="home-footer-group-title">联系我们</h2>
         <div class="home-footer-contact-codes">
           <div class="home-footer-contact-code">
-            <img :src="wechatQrUrl" alt="AceMock 微信二维码" class="home-footer-contact-qr" />
+            <a
+              :href="wechatQrUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="查看 AceMock 备考群微信二维码大图"
+              title="点击查看二维码大图"
+            >
+              <!-- 仅以视窗呈现原图二维码区域并保留白边，原始图片供放大扫码使用。 -->
+              <svg
+                viewBox="100 502 766 766"
+                class="home-footer-contact-qr"
+                role="img"
+                aria-label="AceMock 备考群微信二维码"
+              >
+                <image :href="wechatQrUrl" width="966" height="1488" />
+              </svg>
+            </a>
             <p>微信</p>
           </div>
           <div class="home-footer-contact-code">

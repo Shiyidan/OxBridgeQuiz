@@ -1,6 +1,10 @@
 <!-- TMUA 二次函数与方程互动图解：通过参数和反例连接图像、实根与等价变形。 -->
 <template>
-  <figure class="tmua-quadratic" aria-labelledby="tmua-quadratic-title">
+  <figure
+    class="tmua-quadratic"
+    :class="{ 'tmua-quadratic--compact': compact }"
+    aria-labelledby="tmua-quadratic-title"
+  >
     <figcaption>
       <span>TMUA · QUADRATIC THINKING</span>
       <h5 id="tmua-quadratic-title">
@@ -15,7 +19,7 @@
       </p>
     </figcaption>
 
-    <div class="controls modes" role="group" aria-label="选择观察方式">
+    <div v-if="!compact" class="controls modes" role="group" aria-label="选择观察方式">
       <AppButton
         size="small"
         :type="mode === 'roots' ? 'primary' : 'secondary'"
@@ -136,7 +140,23 @@
       </g>
     </svg>
 
-    <div class="legend" aria-label="图例">
+    <aside v-if="compact" class="home-observations" aria-live="polite">
+      <h6>把图像和结论连起来</h6>
+      <div>
+        <strong>开口向{{ a > 0 ? '上' : '下' }}</strong
+        ><span>a = {{ a }}，顶点是{{ a > 0 ? '最低' : '最高' }}点。</span>
+      </div>
+      <div>
+        <strong>顶点 ({{ h }}, {{ k }})</strong><span>改变 h 和 k，观察图像的平移。</span>
+      </div>
+      <div>
+        <strong>{{
+          roots.length === 2 ? '两个不同实根' : roots.length === 1 ? '一个实根（重根）' : '没有实根'
+        }}</strong
+        ><span>Δ = {{ discriminant }}，与 x 轴有 {{ roots.length }} 个交点。</span>
+      </div>
+    </aside>
+    <div v-if="!compact" class="legend" aria-label="图例">
       <template v-if="mode === 'roots'"
         ><span class="curve-key">二次函数</span><span class="root-key">与 x 轴的交点</span
         ><span class="vertex-key">顶点</span></template
@@ -147,18 +167,20 @@
       ></template>
     </div>
 
-    <p v-if="mode === 'roots'" class="result" aria-live="polite">
+    <p v-if="!compact && mode === 'roots'" class="result" aria-live="polite">
       <LatexText :text="rootConclusion" />
     </p>
-    <p v-else class="result" aria-live="polite"><LatexText :text="candidateConclusion" /></p>
-    <p v-if="mode === 'roots'" class="note">
+    <p v-else-if="!compact" class="result" aria-live="polite">
+      <LatexText :text="candidateConclusion" />
+    </p>
+    <p v-if="!compact && mode === 'roots'" class="note">
       <LatexText
         :text="
           String.raw`对任意二次函数 $ax^2+bx+c$，$a\ne0$；定义域为全体实数。开口与顶点共同决定图像和实根。`
         "
       />
     </p>
-    <p v-else class="note">
+    <p v-else-if="!compact" class="note">
       平方从原方程推出新方程；逆向回到原方程时，必须保留条件并逐一验证。图中只表示实数范围。
     </p>
   </figure>
@@ -169,7 +191,7 @@ import { computed, ref } from 'vue'
 import AppButton from '../AppButton.vue'
 import LatexText from '../LatexText.vue'
 
-defineProps<{ topic?: string }>()
+defineProps<{ topic?: string; compact?: boolean }>()
 
 const mode = ref<'roots' | 'equivalence'>('roots')
 const a = ref(1)
@@ -418,6 +440,114 @@ svg text {
 }
 .note {
   color: #4c6876;
+}
+/* 首页复用同一组参数与绘图，将操作、图像和结论并排呈现。 */
+.tmua-quadratic--compact {
+  display: grid;
+  grid-template-columns: 250px minmax(180px, 1fr) minmax(180px, 230px);
+  grid-template-rows: auto auto repeat(3, 36px);
+  align-content: center;
+  column-gap: 24px;
+  padding: 18px 24px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #17252e;
+}
+.tmua-quadratic--compact figcaption {
+  grid-column: 1;
+  grid-row: 1;
+}
+.tmua-quadratic--compact figcaption > span,
+.tmua-quadratic--compact figcaption > p {
+  display: none;
+}
+.tmua-quadratic--compact h5 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+.tmua-quadratic--compact .formula {
+  grid-column: 1;
+  grid-row: 2;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 13px;
+}
+.tmua-quadratic--compact .controls {
+  grid-column: 1;
+  margin: 0;
+  gap: 5px;
+}
+.tmua-quadratic--compact .control-label {
+  min-width: 45px;
+  font-size: 12px;
+}
+.tmua-quadratic--compact .controls :deep(.app-button.el-button) {
+  min-width: 28px;
+  height: 27px;
+  padding: 0 7px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+.tmua-quadratic--compact svg {
+  grid-column: 2;
+  grid-row: 1 / 6;
+  align-self: center;
+  height: 230px;
+  margin: 0;
+}
+.tmua-quadratic--compact .grid {
+  stroke: #edf2f7;
+}
+.tmua-quadratic--compact .curve {
+  stroke: #428eff;
+}
+.tmua-quadratic--compact .root {
+  fill: #c5f232;
+}
+.tmua-quadratic--compact .vertex {
+  fill: #17252e;
+}
+.home-observations {
+  grid-column: 3;
+  grid-row: 1 / 6;
+  align-self: center;
+  padding-left: 22px;
+  border-left: 1px solid #eaf0f5;
+}
+.home-observations h6 {
+  font-size: 15px;
+  margin: 0 0 14px;
+}
+.home-observations > div {
+  margin-top: 13px;
+  padding-left: 10px;
+  border-left: 2px solid #b9dbfe;
+}
+.home-observations strong,
+.home-observations span {
+  display: block;
+}
+.home-observations strong {
+  font-size: 13px;
+}
+.home-observations span {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #728397;
+  margin-top: 3px;
+}
+@media (max-width: 1200px) {
+  .tmua-quadratic--compact {
+    column-gap: 12px;
+    grid-template-columns: 230px minmax(160px, 1fr) 180px;
+    padding: 18px;
+  }
+  .home-observations {
+    padding-left: 12px;
+  }
 }
 @media (max-width: 600px) {
   .tmua-quadratic {

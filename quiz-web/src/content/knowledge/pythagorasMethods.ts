@@ -4,7 +4,7 @@ export const pythagorasMethods = {
     {
       title: '平面：识别直角与斜边',
       formula: '$a^2+b^2=c^2$',
-      detail: '$c$ 是直角所对的边。先确认直角，再判断已知的是两条直角边，还是斜边与一条直角边。',
+      detail: '$c$ 是斜边，正对直角；a、b 是两条直角边。',
     },
     {
       title: '空间：连续使用两次勾股',
@@ -42,7 +42,7 @@ export const pythagorasMethods = {
     {
       title: '逆定理：从边长判断是否为直角',
       formula: '$a^2+b^2=c^2$',
-      detail: '三边必须为正，且较短两边之和大于最长边。令 $c$ 为最长边，再检验平方和；等式成立才可断定 $c$ 所对的角为直角。',
+      detail: '取最长边为 $c$。若三条正边长满足平方和关系，则 $c$ 所对的角为直角。',
     },
     {
       title: '相似或三角比：用勾股补全边比',

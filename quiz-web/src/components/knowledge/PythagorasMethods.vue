@@ -122,7 +122,7 @@ const triplesNote = '它们的正整数倍也成立，例如 $(6,8,10)$ 和 $(15
 </script>
 
 <style scoped>
-.pythagoras-review { min-width: 0; color: var(--color-ink); }
+.pythagoras-review { container-type: inline-size; min-width: 0; color: var(--color-ink); }
 .review-intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, .65fr); align-items: end; gap: 28px; padding: 2px 0 22px; border-bottom: 1px solid #dce5f3; }
 .review-intro__copy > span { color: #2451c5; font-size: 13px; font-weight: 700; letter-spacing: .04em; }
 .review-intro h5 { margin: 8px 0; font-size: 22px; line-height: 1.4; }
@@ -138,10 +138,10 @@ const triplesNote = '它们的正整数倍也成立，例如 $(6,8,10)$ 和 $(15
 .review-heading h5, .review-workflow h5 { margin: 0; color: #142033; font-size: 18px; font-weight: 700; line-height: 1.5; }
 .review-section h6 { margin: 0; color: var(--color-ink); font-size: 15px; line-height: 1.5; }
 .formula-grid, .triangle-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.formula-block { display: flex; align-items: center; gap: 14px; min-width: 0; padding: 18px 20px; border: 1px solid #dce6f5; border-radius: 10px; background: #f5f8fd; }
-.formula-block__copy { min-width: 0; flex: 1; }
+.formula-block { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; min-width: 0; padding: 18px 20px; border: 1px solid #dce6f5; border-radius: 10px; background: #f5f8fd; }
+.formula-block__copy { min-width: 0; flex: 1 1 200px; }
 .formula-block__equation { margin: 8px 0 !important; color: #173f9d !important; font-size: 20px !important; }
-.formula-diagram { display: block; flex: 0 0 126px; width: 126px; max-width: 32%; height: auto; overflow: visible; }
+.formula-diagram { display: block; flex: 0 0 160px; width: 160px; max-width: 100%; height: auto; overflow: visible; }
 .formula-diagram__plane { fill: #e6efff; stroke: #3f66c6; stroke-width: 2; stroke-linejoin: round; }
 .formula-diagram__right { fill: none; stroke: #3f66c6; stroke-width: 2; }
 .formula-diagram__solid { fill: none; stroke: #8b9cad; stroke-width: 1.7; stroke-linejoin: round; }
@@ -157,14 +157,14 @@ const triplesNote = '它们的正整数倍也成立，例如 $(6,8,10)$ 和 $(15
 .scenario-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 28px; }
 .scenario { display: grid; grid-template-columns: 25px minmax(0, 1fr); gap: 8px; min-width: 0; padding-top: 12px; border-top: 1px solid #e5ebf1; }
 .scenario__index { color: var(--color-learning-blue); font-size: 12px; font-weight: 700; line-height: 1.8; }
-.triangle { display: flex; align-items: center; gap: 16px; min-width: 0; padding: 16px; background: #f2f8f7; border: 1px solid #d7e8e4; border-radius: 8px; }
-.triangle__copy { flex: 1; min-width: 0; }
+.triangle { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; min-width: 0; padding: 16px; background: #f2f8f7; border: 1px solid #d7e8e4; border-radius: 8px; }
+.triangle__copy { flex: 1 1 200px; min-width: 0; }
 .triangle__ratio { color: #11786f !important; font-size: 18px !important; font-weight: 700; }
 .triangle__takeaway { padding-top: 8px; border-top: 1px solid #d7e8e4; }
-.triangle svg { width: min(32%, 140px); flex: none; overflow: visible; }
-.triangle svg path { fill: #e3eeff; stroke: #315cc6; stroke-width: 2; stroke-linejoin: round; }
-.triangle svg .triangle__right { fill: none; stroke: #315cc6; stroke-width: 1.5; }
-.triangle svg text { fill: #34445b; font-size: 11px; font-weight: 600; }
+.triangle > svg { display: block; width: 168px; max-width: 100%; height: auto; flex: none; overflow: visible; }
+.triangle > svg path { fill: #e3eeff; stroke: #315cc6; stroke-width: 2; stroke-linejoin: round; }
+.triangle > svg .triangle__right { fill: none; stroke: #315cc6; stroke-width: 1.5; }
+.triangle > svg text { fill: #34445b; font-size: 12px; font-weight: 600; }
 .triples { display: flex; flex-wrap: wrap; gap: 10px; }
 .triples > span { padding: 6px 10px; border: 1px solid var(--color-learning-blue-line); border-radius: 6px; background: var(--color-learning-blue-soft); }
 .pitfall-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 26px; }
@@ -174,6 +174,10 @@ const triplesNote = '它们的正整数倍也成立，例如 $(6,8,10)$ 和 $(15
 .review-workflow li { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
 .review-workflow li > span { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #d9eeea; color: #11786f; font-size: 12px; font-weight: 700; }
 .review-workflow li strong { font-size: 14px; }
+/* 公式配图保留可读字高；正文变窄时减少列数，不再按卡片百分比缩成图标。 */
+@container (max-width: 880px) {
+  .formula-grid, .triangle-grid { grid-template-columns: minmax(0, 1fr); }
+}
 @media (max-width: 900px) {
   .review-intro, .formula-grid, .triangle-grid, .scenario-list, .pitfall-list { grid-template-columns: minmax(0, 1fr); }
   .review-intro { gap: 16px; }

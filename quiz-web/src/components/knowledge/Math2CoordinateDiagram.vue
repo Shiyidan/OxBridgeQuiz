@@ -472,8 +472,8 @@ const lineInsight = computed(() => {
   }
   const slopePart =
     m > 0
-      ? `斜率 $m=${formatNumber(m)}>0$，直线从左下向右上，$x$ 每增加 1，$y$ 增加 ${formatNumber(m)}$。`
-      : `斜率 $m=${formatNumber(m)}<0$，直线从左上向右下，$x$ 每增加 1，$y$ 减少 ${formatNumber(
+      ? `斜率 $m=${formatNumber(m)}>0$，直线从左下向右上，$x$ 每增加 1，$y$ 增加 $${formatNumber(m)}$。`
+      : `斜率 $m=${formatNumber(m)}<0$，直线从左上向右下，$x$ 每增加 1，$y$ 减少 $${formatNumber(
           Math.abs(m),
         )}$。`
   const steepPart = Math.abs(m) === 2 ? '斜率绝对值是 2，比 $45^\\circ$ 更陡。' : '斜率绝对值是 1，正好与 $x$ 轴成 $45^\\circ$。'

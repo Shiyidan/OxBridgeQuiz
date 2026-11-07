@@ -1,23 +1,27 @@
 <!-- 生物章节共用图谱外框：统一图解、控制按钮、图例与解释的阅读层级。 -->
 <template>
-  <figure class="biology-atlas" :aria-label="title">
+  <figure class="biology-atlas" :class="{ 'biology-atlas--compact': compact }" :aria-label="title">
     <figcaption>
-      <span class="atlas-eyebrow">BIOLOGY ATLAS · 生物图解</span>
+      <span v-if="!compact" class="atlas-eyebrow">BIOLOGY ATLAS · 生物图解</span>
       <h5>{{ title }}</h5>
       <p v-if="subtitle"><KnowledgeText :text="subtitle" /></p>
     </figcaption>
     <div v-if="$slots.controls" class="atlas-controls"><slot name="controls" /></div>
-    <div class="atlas-stage"><slot /></div>
-    <div v-if="$slots.legend" class="atlas-legend"><slot name="legend" /></div>
-    <div v-if="$slots.explanation" class="atlas-explanation"><slot name="explanation" /></div>
-    <p class="atlas-note"><KnowledgeText :text="note" /></p>
+    <div class="atlas-body">
+      <div class="atlas-stage"><slot /></div>
+      <div class="atlas-details">
+        <div v-if="$slots.legend" class="atlas-legend"><slot name="legend" /></div>
+        <div v-if="$slots.explanation" class="atlas-explanation"><slot name="explanation" /></div>
+        <p class="atlas-note"><KnowledgeText :text="note" /></p>
+      </div>
+    </div>
   </figure>
 </template>
 
 <script setup lang="ts">
 import KnowledgeText from './KnowledgeText.vue'
 
-defineProps<{ title: string; subtitle?: string; note: string }>()
+defineProps<{ title: string; subtitle?: string; note: string; compact?: boolean }>()
 </script>
 
 <style scoped>
@@ -133,6 +137,69 @@ figcaption p,
   border-top: 1px solid var(--color-learning-teal-line);
   font-size: var(--text-xs);
 }
+/* 紧凑模式由讲义主动启用；其余生物图谱继续使用原有纵向布局。 */
+.atlas-body,
+.atlas-details {
+  display: contents;
+}
+.biology-atlas--compact {
+  container-type: inline-size;
+  padding: 16px 0;
+  border: 0;
+  border-top: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line);
+  border-radius: 0;
+  background: none;
+}
+.biology-atlas--compact figcaption h5 {
+  margin: 0;
+  font-size: 17px;
+}
+.biology-atlas--compact figcaption p {
+  margin: 4px 0 12px;
+  font-size: 13px;
+}
+.biology-atlas--compact .atlas-controls {
+  margin: 10px 0 14px;
+}
+.biology-atlas--compact .atlas-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.biology-atlas--compact .atlas-stage {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 600px;
+  padding: 8px;
+  background: var(--color-learning-blue-soft);
+  border-color: var(--color-line);
+}
+.biology-atlas--compact .atlas-details {
+  display: block;
+  min-width: 0;
+}
+.biology-atlas--compact .atlas-legend {
+  padding: 0 0 10px;
+  gap: 6px 12px;
+}
+.biology-atlas--compact .atlas-explanation {
+  margin: 0;
+  padding: 10px 14px;
+  line-height: 1.75;
+}
+.biology-atlas--compact .atlas-note {
+  margin-top: 10px;
+  padding-top: 10px;
+  line-height: 1.6;
+}
+@container (min-width: 900px) {
+  .biology-atlas--compact .atlas-body {
+    grid-template-columns: minmax(0, 600px) minmax(280px, 1fr);
+    gap: 20px;
+  }
+}
 @media (max-width: 760px) {
   .biology-atlas {
     padding: 14px;
@@ -145,6 +212,9 @@ figcaption p,
   }
   figcaption h5 {
     font-size: var(--text-base);
+  }
+  .biology-atlas--compact {
+    padding: 12px 0;
   }
 }
 </style>

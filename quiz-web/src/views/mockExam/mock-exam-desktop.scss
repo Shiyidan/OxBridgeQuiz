@@ -1,0 +1,258 @@
+// 模考中心桌面视觉：沿用诊断页的星云背景与蓝灰配色，保留原有布局和操作。
+.mock-exam-background {
+  display: none;
+}
+
+@media (min-width: 861px) {
+  .mock-exam-page {
+    background: #fff;
+  }
+
+  .mock-exam-shell {
+    --color-ink: #17252e;
+    --color-ink-soft: #536b83;
+    --color-ink-muted: #718397;
+    --color-line: #dce7f2;
+    --color-line-soft: #e9f0f7;
+    --color-surface-alt: #f5f9ff;
+    --color-hover: #edf4fc;
+    --color-info-bg: #edf3fb;
+    --color-success: #16847b;
+    --color-success-bg: #e6f7f3;
+    position: relative;
+    isolation: isolate;
+    color: var(--color-ink);
+  }
+
+  .mock-exam-shell::before {
+    content: '';
+    position: fixed;
+    inset: var(--nav-height) 0 0;
+    z-index: -2;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse at 84% 28%, #e3f1ff99, transparent 58%),
+      radial-gradient(ellipse at 28% 75%, #edf7ff80, transparent 60%);
+  }
+
+  .mock-exam-background {
+    display: block;
+    position: fixed;
+    inset: var(--nav-height) 0 0;
+    z-index: -1;
+    width: 100%;
+    height: calc(100dvh - var(--nav-height));
+    object-fit: cover;
+    object-position: 62% center;
+    opacity: 0.22;
+    mix-blend-mode: multiply;
+    mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
+    pointer-events: none;
+  }
+
+  .mock-hero {
+    align-items: flex-start;
+    padding-top: 0;
+    padding-inline: 0;
+  }
+
+  .mock-hero__eyebrow {
+    color: #66809a;
+  }
+
+  .mock-hero h1 {
+    margin: 0;
+    color: #17252e;
+    line-height: 1.3;
+  }
+
+  .mock-hero__structure,
+  .mock-content,
+  .overview-card,
+  .countdown-card,
+  .notice-card {
+    border-color: #d4e3f4;
+    border-radius: 16px;
+    background: #ffffffed;
+    box-shadow: 0 4px 16px #264f7a08;
+  }
+
+  .mock-tabs {
+    height: 48px;
+  }
+
+  .catalog-toolbar,
+  .record-toolbar {
+    padding: 14px 0;
+  }
+
+  .mock-tabs button,
+  .catalog-filters button,
+  .record-mode-switch button,
+  .record-status-switch button {
+    transition:
+      color 160ms ease,
+      background-color 160ms ease;
+  }
+
+  .mock-tabs button:hover {
+    color: #356da6;
+  }
+
+  .mock-tabs button.is-active::after {
+    height: 3px;
+    border-radius: 2px;
+    background: #c2eb40;
+  }
+
+  .catalog-search {
+    background: #f9fbff;
+  }
+
+  .catalog-search input::placeholder {
+    color: #8091a3;
+  }
+
+  .catalog-search:focus-within {
+    border-color: #7ea9d7;
+    box-shadow: 0 0 0 3px #e8f2ff;
+  }
+
+  .catalog-search button:hover {
+    background: #edf4fc;
+  }
+
+  .catalog-filters,
+  .record-mode-switch,
+  .record-status-switch {
+    background: #f2f6fc;
+    box-shadow: inset 0 0 0 1px #dce7f2;
+  }
+
+  .catalog-filters button.is-active,
+  .record-mode-switch button.is-active,
+  .record-status-switch button.is-active {
+    border-radius: 5px;
+    background: #edfab6;
+    color: #17252e;
+    box-shadow: none;
+  }
+
+  .module-filter-select :deep(.el-select__wrapper) {
+    background: #f9fbff;
+    box-shadow: 0 0 0 1px #dce7f2 inset;
+  }
+
+  .module-filter-select :deep(.el-select__wrapper.is-focused) {
+    box-shadow: 0 0 0 1px #7ea9d7 inset;
+  }
+
+  .paper-card,
+  .record-card {
+    border-color: #dce7f2;
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .paper-card:hover {
+    border-color: #aac7e5;
+    box-shadow: 0 6px 18px #264f7a0d;
+  }
+
+  .paper-card--locked .paper-card__accent {
+    background: #356da6;
+  }
+
+  .paper-card__actions {
+    background: #f5f8fc;
+  }
+
+  .paper-card__badges span,
+  .record-card__top em {
+    border-radius: 5px;
+  }
+
+  .paper-card__badges .paper-badge--member {
+    background: #eaf2ff;
+    color: #315caa;
+  }
+
+  .paper-card__badges .paper-badge--module {
+    background: #2857a4;
+    color: #fff;
+    box-shadow: none;
+    min-height: 24px;
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .record-card__meta b[data-mode='single'] {
+    background: #e8f6f5;
+    color: #267c82;
+  }
+
+  .paper-card--locked .paper-card__actions > .app-button--primary:last-child {
+    --app-button-bg: #fff;
+    --app-button-border: #356da6;
+    --app-button-color: #285c96;
+    --app-button-hover-bg: #edf4fc;
+    --app-button-hover-border: #285c96;
+    --app-button-active-bg: #e1edfc;
+    --app-button-active-border: #285c96;
+  }
+
+  .overview-metrics > div:first-child {
+    border-color: #d1e3fa;
+    background: #edf5ff;
+  }
+
+  .overview-metrics > div:last-child {
+    border-color: #c9e8e7;
+    background: #e9f7f6;
+  }
+
+  .overview-metrics > div:last-child strong {
+    color: #16847b;
+  }
+
+  .overview-metrics > div:last-child span,
+  .overview-metrics > div:last-child small {
+    color: #527b81;
+  }
+
+  .sidebar-card__heading small[data-exam-type='TMUA'] {
+    border-color: #c9e8e7;
+    background: #e9f7f6;
+    color: #267c82;
+  }
+
+  .countdown-card {
+    background: #f5f9ff;
+  }
+
+  .countdown-card__icon {
+    background: #e4effe;
+    color: #315caa;
+    box-shadow: none;
+  }
+
+  .countdown-card__copy strong,
+  .countdown-card > a {
+    color: #315caa;
+  }
+
+  .countdown-card__copy > span,
+  .countdown-card__copy small {
+    color: #627f9d;
+  }
+
+  .catalog-filters button:focus-visible,
+  .record-mode-switch button:focus-visible,
+  .record-status-switch button:focus-visible,
+  .mock-tabs button:focus-visible,
+  .catalog-search button:focus-visible {
+    outline: 2px solid #356da6;
+    outline-offset: 2px;
+  }
+}

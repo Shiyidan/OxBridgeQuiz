@@ -63,7 +63,7 @@
     <PaymentModal
       v-if="auth.isLoggedIn"
       v-model="paymentOpen"
-      :default-exam-type="currentExam || auth.activeExamType"
+      :default-exam-type="paymentDefaultExam || currentExam || auth.activeExamType"
       :default-plan-id="paymentDefaultPlan"
       @paid="handlePaymentPaid"
     />
@@ -100,6 +100,7 @@ const route = useRoute()
 const router = useRouter()
 const paymentOpen = ref(false)
 const paymentDefaultPlan = ref<PaymentPlanId>('monthly')
+const paymentDefaultExam = ref<ActiveExamType | null>(null)
 const goalDialogOpen = ref(false)
 const goalSaving = ref(false)
 const pendingGoalExam = ref<ActiveExamType | null>(null)
@@ -220,16 +221,17 @@ async function saveGoal(value: { examType: ActiveExamType; subjects: string[] })
 }
 
 // 访客购买先完成认证，登录返回首页后再打开正式支付流程。
-function openPayment(planId: PaymentPlanId = 'monthly'): void {
+function openPayment(planId: PaymentPlanId = 'monthly', examType?: ActiveExamType): void {
   if (!MEMBERSHIP_PURCHASE_ENABLED) {
     ElMessage.info(MEMBERSHIP_PURCHASE_PENDING_MESSAGE)
     return
   }
   if (!auth.isLoggedIn) {
-    openAuthPage('login', `/?purchase=1&plan=${planId}`)
+    openAuthPage('login', `/?purchase=1&plan=${planId}${examType ? `&exam=${examType}` : ''}`)
     return
   }
   paymentDefaultPlan.value = planId
+  paymentDefaultExam.value = examType || null
   paymentOpen.value = true
 }
 
@@ -285,10 +287,14 @@ async function loadMarketingPrice(): Promise<void> {
 async function consumePurchaseIntent(): Promise<void> {
   if (!auth.isLoggedIn || route.query.purchase !== '1') return
   paymentDefaultPlan.value = route.query.plan === 'quarterly' ? 'quarterly' : 'monthly'
+  // 首页选择的考试随购买意图回跳，避免登录后被个人默认考试覆盖。
+  paymentDefaultExam.value =
+    route.query.exam === 'ESAT' || route.query.exam === 'TMUA' ? route.query.exam : null
   paymentOpen.value = true
   const nextQuery = { ...route.query }
   delete nextQuery.purchase
   delete nextQuery.plan
+  delete nextQuery.exam
   await router.replace({ path: route.path, query: nextQuery })
 }
 

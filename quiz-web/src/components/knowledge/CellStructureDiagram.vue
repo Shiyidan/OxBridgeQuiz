@@ -1,9 +1,9 @@
 <!-- 备考细胞识图：原创矢量结构、可键盘操作的引线标注及结构功能联动。 -->
 <template>
-  <figure class="cell-atlas">
+  <figure class="cell-atlas" :class="{ 'cell-atlas--compact': compact }">
     <figcaption class="atlas-heading">
       <div>
-        <span class="atlas-eyebrow">CELL STRUCTURE · 细胞识图</span>
+        <span v-if="!compact" class="atlas-eyebrow">CELL STRUCTURE · 细胞识图</span>
         <h5>{{ cellTitle }}</h5>
       </div>
       <span class="atlas-type">{{ cellType === 'bacterium' ? '原核细胞' : '真核细胞' }}</span>
@@ -313,11 +313,11 @@
             <text :x="part.label[0]" :y="part.label[1]" dy=".35em">{{ part.number }}</text>
           </g>
         </svg>
-        <p class="stage-note">原创结构示意 · 非显微照片 · 不按真实比例</p>
+        <p class="stage-note">结构示意 · 非显微照片 · 不按真实比例</p>
       </div>
 
       <div class="structure-inspector">
-        <p class="inspector-label">选一个结构，一起看它长什么样、有什么作用</p>
+        <p v-if="!compact" class="inspector-label">选一个结构，一起看它长什么样、有什么作用</p>
         <div class="structure-index" role="group" aria-label="选择结构查看功能与题干线索">
           <AppButton
             v-for="part in cellParts"
@@ -338,7 +338,8 @@
               <span>{{ activePart.english }}</span>
             </div>
           </header>
-          <dl>
+          <p v-if="compact" class="compact-appearance"><KnowledgeText :text="activePart.appearance" /></p>
+          <dl v-else>
             <div>
               <dt>在图上怎么看</dt>
               <dd><KnowledgeText :text="activePart.appearance" /></dd>
@@ -352,19 +353,21 @@
               <dd><KnowledgeText :text="activePart.clue" /></dd>
             </div>
           </dl>
-          <p class="detail-trap">
+          <p v-if="!compact" class="detail-trap">
             <strong>这里容易混淆</strong><KnowledgeText :text="activePart.trap" />
           </p>
         </div>
       </div>
     </div>
 
-    <div class="atlas-reading">
+    <div v-if="!compact" class="atlas-reading">
       <span>跟着图看一遍</span>
       <p><KnowledgeText :text="readingStrategy" /></p>
     </div>
-    <p class="atlas-caution"><KnowledgeText :text="cellCaution" /></p>
-    <p v-if="cellType !== 'bacterium'" class="atlas-microdetail">
+    <p v-if="!compact" class="atlas-caution"><KnowledgeText :text="cellCaution" /></p>
+    <p v-else-if="cellType === 'plant'" class="atlas-caution">植物图以光合细胞为例；并非所有植物细胞都有叶绿体。</p>
+    <p v-else-if="cellType === 'bacterium'" class="atlas-caution">图中质粒仅为结构示意，并非每个细菌都有质粒。</p>
+    <p v-if="!compact && cellType !== 'bacterium'" class="atlas-microdetail">
       <KnowledgeText
         text="再看一眼细胞核内部：深色小团是**核仁**，细丝是含有 DNA 的**染色质**。画出这些结构是为了帮助认图，不能据此认定细胞正在分裂。"
       />
@@ -405,7 +408,8 @@ interface CellPart extends StructureCopy {
 }
 type PartLocation = [PartKey, [number, number], [number, number]]
 
-const props = defineProps<{ kind: 'eukaryotic-cell' | 'prokaryotic-cell' }>()
+// 紧凑模式用于已有功能速查的讲义，只补充识图位置，避免重复整套结构说明。
+const props = defineProps<{ kind: 'eukaryotic-cell' | 'prokaryotic-cell'; compact?: boolean }>()
 const diagramId = useId().replace(/:/g, '')
 const cellType = ref<CellType>(props.kind === 'prokaryotic-cell' ? 'bacterium' : 'animal')
 const selectedPart = ref<PartKey>('nucleus')
@@ -1228,6 +1232,18 @@ watch(
     margin-top: 6px;
   }
 }
+.cell-atlas--compact { margin: 0; padding: 16px; border: 1px solid var(--color-learning-blue-line); border-radius: 12px; background: var(--color-learning-blue-soft); }
+.cell-atlas--compact .atlas-heading h5 { margin: 0; font-size: 17px; }
+.cell-atlas--compact .atlas-workspace { grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 12px; }
+.cell-atlas--compact .cell-stage { position: static; }
+.cell-atlas--compact .cell-illustration { max-width: 370px; }
+.cell-atlas--compact .stage-caption { padding: 8px 12px 0; }
+.cell-atlas--compact .stage-note { padding: 0 8px 8px; }
+.cell-atlas--compact .structure-index { display: flex; flex-wrap: wrap; gap: 6px; }
+.cell-atlas--compact .structure-index :deep(.app-button.el-button) { width: auto; min-height: 32px; padding: 0 8px; }
+.cell-atlas--compact .structure-detail { margin-top: 12px; padding: 12px; }
+.cell-atlas--compact .structure-detail header div { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.cell-atlas--compact .compact-appearance { margin: 8px 0 0; color: var(--color-ink-soft); font-size: 14px; line-height: 1.7; }
 @media (prefers-reduced-motion: reduce) {
   .cell-structure,
   .annotation-badge {

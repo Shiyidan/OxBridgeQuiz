@@ -43,6 +43,19 @@ export interface FavoriteDetail {
   question: Question
 }
 
+export interface FavoriteReviewAccess {
+  examType: string
+  allowed: boolean
+}
+
+// 收藏独立于答卷，按收藏题目所属考试实时检查查看资格。
+export function getFavoriteReviewAccess(questionId: string) {
+  return callApi<FavoriteReviewAccess>({
+    method: 'GET',
+    url: `/favorites/${encodeURIComponent(questionId)}/review-access`,
+  })
+}
+
 // 分类数量始终统计整个考试工作区，不受列表搜索条件影响。
 export function getFavoriteSummary(examType: string) {
   return callApi<FavoriteSummary>({
@@ -96,6 +109,8 @@ export function getFavoriteDetail(questionId: string) {
   return callApi<FavoriteDetail>({
     method: 'GET',
     url: `/favorites/${encodeURIComponent(questionId)}`,
+    // 详情页负责到期弹窗与可重试错误，避免预检后刚好到期时重复提示。
+    silent: true,
   })
 }
 // 收藏题目成功显示后记录查看，分类修改和列表浏览不触发。

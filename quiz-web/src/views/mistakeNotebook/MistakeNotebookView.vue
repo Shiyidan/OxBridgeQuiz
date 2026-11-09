@@ -28,33 +28,6 @@
             我的收藏 <span>{{ favoriteSummary?.total ?? '—' }}</span>
           </button>
         </div>
-        <form
-          v-show="activeTab === 'mistakes'"
-          class="notebook-quick-search"
-          aria-label="题目搜索"
-          @submit.prevent="applyFilters"
-        >
-          <AppButton
-            type="text"
-            size="small"
-            :icon="filtersExpanded ? ArrowUp : ArrowDown"
-            icon-position="right"
-            :aria-expanded="filtersExpanded"
-            aria-controls="mistake-filters"
-            @click="filtersExpanded = !filtersExpanded"
-          >
-            {{ filtersExpanded ? '收起筛选' : '展开筛选' }}
-          </AppButton>
-          <el-input
-            v-model="draftFilters.keyword"
-            aria-label="题目搜索"
-            placeholder="输入题干关键词"
-            maxlength="100"
-            clearable
-            :prefix-icon="Search"
-          />
-          <AppButton native-type="submit" size="small" :loading="wrongLoading">搜索</AppButton>
-        </form>
       </div>
       <div
         ref="notebookContentRef"
@@ -74,7 +47,6 @@
           <div
             id="mistake-filters"
             class="notebook-filter-bar mistake-filters"
-            :class="{ 'is-collapsed': !filtersExpanded }"
             aria-label="错题筛选"
           >
             <label class="filter-field">
@@ -354,24 +326,17 @@
                     :disabled="wrongLoading || wrongRemoving"
                     @click="requestWrongRemoval([item.questionId])"
                   />
-                  <router-link
+                  <AppButton
                     v-if="item.examRecord?.id"
-                    v-slot="{ href, navigate }"
-                    :to="analysisLink(item)"
-                    custom
+                    type="secondary"
+                    size="small"
+                    class="wrong-item__action"
+                    aria-label="查看试题解析"
+                    :disabled="analysisChecking"
+                    @click="openAnalysis(item)"
                   >
-                    <AppButton
-                      tag="a"
-                      :href="href"
-                      type="secondary"
-                      size="small"
-                      class="wrong-item__action"
-                      aria-label="查看试题解析"
-                      @click="navigate"
-                    >
-                      查看解析
-                    </AppButton>
-                  </router-link>
+                    查看解析
+                  </AppButton>
                   <AppButton
                     v-else
                     class="wrong-item__action"
@@ -398,6 +363,11 @@
         </section>
       </div>
     </main>
+    <AnalysisMembershipDialog
+      v-model="analysisMembershipOpen"
+      :exam-type="analysisExamType"
+      @renewed="resumeAnalysis"
+    />
     <AppDialog
       v-model="removeWrongOpen"
       :title="removeWrongIds.length > 1 ? '批量删除错题' : '删除错题'"
@@ -429,10 +399,12 @@ import LatexText from '@/components/LatexText.vue'
 import AppPagination from '@/components/AppPagination.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppDialog from '@/components/AppDialog.vue'
-import { ArrowDown, ArrowUp, Delete, Search } from '@element-plus/icons-vue'
+import AnalysisMembershipDialog from '@/components/AnalysisMembershipDialog.vue'
+import { Delete } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import {
   getMistakeNotebookData,
+  getExamReviewAccess,
   removeMistakeQuestions,
   type MistakeNotebookDifficulty,
   type WrongAnswer,
@@ -461,12 +433,44 @@ const router = useRouter()
 const auth = useAuthStore()
 const favorites = useFavoritesStore()
 const notebookReady = ref(false)
-// 默认收起桌面筛选；从带有高级条件的地址返回时展开，避免隐藏已应用的条件。
-const filtersExpanded = ref(
-  ['sources', 'subjects', 'knowledge', 'difficulties', 'startDate', 'endDate'].some((key) =>
-    Boolean(route.query[key]),
-  ),
-)
+const analysisMembershipOpen = ref(false)
+const analysisChecking = ref(false)
+const analysisExamType = ref<string>(auth.activeExamType)
+const pendingAnalysis = ref<WrongAnswer | null>(null)
+let notebookActive = true
+onBeforeUnmount(() => {
+  notebookActive = false
+})
+
+// 保留错题列表，只有点击解析时实时检查该答卷对应考试的会员资格。
+async function openAnalysis(item: WrongAnswer): Promise<void> {
+  if (analysisChecking.value || !item.examRecord?.id) return
+  analysisChecking.value = true
+  pendingAnalysis.value = item
+  const openedPath = route.fullPath
+  const openedExamType = auth.activeExamType
+  try {
+    const access = await getExamReviewAccess(item.examRecord.id)
+    if (!notebookActive || route.fullPath !== openedPath || auth.activeExamType !== openedExamType)
+      return
+    analysisExamType.value = access.examType
+    if (!access.allowed) {
+      analysisMembershipOpen.value = true
+      return
+    }
+    pendingAnalysis.value = null
+    await router.push(analysisLink(item))
+  } catch {
+    // 请求层提示真实错误，网络故障不能误显示为会员到期。
+  } finally {
+    analysisChecking.value = false
+  }
+}
+
+// 续费完成后仍检查原答卷，避免其他考试的购买解锁当前解析。
+async function resumeAnalysis(): Promise<void> {
+  if (pendingAnalysis.value) await openAnalysis(pendingAnalysis.value)
+}
 const notebookContentRef = ref<HTMLElement | null>(null)
 const contentMinHeight = ref(0)
 const wrongBatchMode = ref(false)
@@ -1013,10 +1017,6 @@ function dateOnly(value?: string | null): string | null {
 </script>
 
 <style scoped lang="scss">
-.notebook-quick-search {
-  display: none;
-}
-
 .notebook-content {
   // 列表增减时不让浏览器跟随题目或分页的位置自动移动视口。
   overflow-anchor: none;
@@ -1536,28 +1536,6 @@ function dateOnly(value?: string | null): string | null {
     margin-bottom: 0;
   }
 
-  .notebook-quick-search {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: calc(min(480px, 50%) - 20px);
-  }
-
-  .notebook-quick-search :deep(.el-input) {
-    flex: 1;
-    min-width: 100px;
-  }
-
-  .notebook-quick-search :deep(.el-input__wrapper) {
-    border-radius: 5px;
-    background: #f9fbff;
-  }
-
-  .mistake-filters.is-collapsed,
-  .mistake-filters .filter-field--keyword {
-    display: none;
-  }
-
   .mistake-notebook-page {
     background: #fff;
   }
@@ -1655,7 +1633,7 @@ function dateOnly(value?: string | null): string | null {
 
   :deep(.filter-field .el-select__wrapper),
   :deep(.filter-field .el-input__wrapper) {
-    background: #f9fbff;
+    background: var(--color-surface);
   }
 
   :deep(.favorite-item),

@@ -10,11 +10,6 @@
 
     <div class="head-summary-row">
       <p class="report-subtitle">{{ reportSubtitle }}</p>
-      <div class="head-actions">
-        <button type="button" class="button button--primary" @click="emit('questionAnalysis')">
-          查看题目解析
-        </button>
-      </div>
     </div>
 
     <div class="data-window">
@@ -1199,7 +1194,6 @@ button { font: inherit; }
 .report-head h1 { margin: 0; font-size: clamp(25px, 3vw, 32px); }
 .head-summary-row { display: flex; align-items: center; gap: 24px; margin-top: 14px; }
 .report-subtitle { margin: 0; color: var(--v2-muted); font-size: 13px; }
-.head-actions { display: flex; flex: 0 0 auto; justify-content: flex-end; margin-left: auto; }
 .button { padding: 10px 16px; border: 1px solid #cbd4cf; border-radius: 10px; background: #fff; color: var(--v2-ink); cursor: pointer; font-weight: 700; }
 .button--primary { border-color: var(--v2-forest); background: var(--v2-forest); color: #fff; }
 .button:hover, .button:focus-visible { transform: translateY(-1px); outline: 2px solid transparent; box-shadow: 0 8px 20px rgba(28,43,38,.12); }
@@ -1379,7 +1373,6 @@ button { font: inherit; }
 @media (max-width: 760px) {
   .report-head, .data-window { align-items: flex-start; flex-direction: column; }
   .head-summary-row { align-items: flex-start; flex-direction: column; }
-  .head-actions { margin-left: 0; }
   .data-window small { margin-left: 0; }
   .primary-tabs { gap: 18px; overflow-x: auto; }
   .opening-copy { padding-left: 14px; }
@@ -1399,7 +1392,7 @@ button { font: inherit; }
 }
 
 @media print {
-  .primary-tabs, .head-actions, .opening-actions, .section-rail, button { display: none !important; }
+  .primary-tabs, .opening-actions, .section-rail, button { display: none !important; }
   .section-switcher { grid-template-columns: 1fr; }
   .report-block { break-inside: avoid; }
 }

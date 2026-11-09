@@ -174,10 +174,17 @@
       @update:model-value="handlePaymentVisibilityChange"
       @paid="handlePaymentSuccess"
     />
+    <AnalysisMembershipDialog
+      v-model="analysisMembershipOpen"
+      :exam-type="analysisExamType"
+      @renewed="resumeAnalysis"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+import AnalysisMembershipDialog from '@/components/AnalysisMembershipDialog.vue'
+import { useAnalysisMembershipAccess } from '@/composables/useAnalysisMembershipAccess'
 import AppButton from '@/components/AppButton.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -231,6 +238,8 @@ const DIFFICULTY_LABELS: Record<string, string> = {
 }
 
 const router = useRouter()
+const { analysisMembershipOpen, analysisExamType, checkAnalysisAccess, resumeAnalysis } =
+  useAnalysisMembershipAccess()
 const auth = useAuthStore()
 const notebooks = ref<PracticeNotebookSummary[]>([])
 const activePractice = ref<ActiveNotebookPractice | null>(null)
@@ -501,11 +510,13 @@ function handleEditNotebook(id: string): void {
 
 // 历史详情复用题库逐题解析，并固定返回练习本首页。
 function handleOpenHistory(examRecordId: string): void {
-  void router.push({
-    name: 'exam-result-detail',
-    params: { id: examRecordId },
-    query: { from: 'practice-notebook', recordSource: 'question-bank' },
-  })
+  void checkAnalysisAccess(examRecordId, () =>
+    router.push({
+      name: 'exam-result-detail',
+      params: { id: examRecordId },
+      query: { from: 'practice-notebook', recordSource: 'question-bank' },
+    }),
+  )
 }
 
 // 时间使用本地化展示；缺失交卷时间时不伪造成当前时间。

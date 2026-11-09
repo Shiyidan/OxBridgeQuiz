@@ -85,6 +85,7 @@
             :icon="Right"
             icon-position="right"
             class="record-row__detail"
+            :disabled="analysisChecking"
             @click="openRecord(record.id)"
             >查看解析</AppButton
           >
@@ -105,15 +106,22 @@
         <AppButton @click="handleBackToQuestionBank"> 前往试题库 </AppButton>
       </section>
     </main>
+    <AnalysisMembershipDialog
+      v-model="analysisMembershipOpen"
+      :exam-type="analysisExamType"
+      @renewed="resumeAnalysis"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import AppButton from '@/components/AppButton.vue'
 import { Back, Right } from '@element-plus/icons-vue'
-import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import AppPagination from '@/components/AppPagination.vue'
+import AnalysisMembershipDialog from '@/components/AnalysisMembershipDialog.vue'
+import { getExamReviewAccess } from '@/api/exam'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import {
   getPracticeNotebooks,
@@ -124,7 +132,16 @@ import {
 import { getApiErrorMessage } from '@/utils/request'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
+const analysisMembershipOpen = ref(false)
+const analysisChecking = ref(false)
+const analysisExamType = ref<string>(auth.activeExamType)
+const pendingAnalysisId = ref<string | null>(null)
+let recordsPageActive = true
+onBeforeUnmount(() => {
+  recordsPageActive = false
+})
 const records = ref<TemporaryPracticeHistoryRecord[]>([])
 const activePractice = ref<ActiveNotebookPractice | null>(null)
 const loading = ref(true)
@@ -196,13 +213,38 @@ function continuePractice(): void {
   })
 }
 
-// 已交卷记录复用题库逐题解析，同时固定返回到当前记录列表。
-function openRecord(examRecordId: string): void {
-  void router.push({
-    name: 'exam-result-detail',
-    params: { id: examRecordId },
-    query: { from: 'practice-records', recordSource: 'question-bank' },
-  })
+// 跳转前实时校验答卷权益，会员到期时保留记录列表及当前分页作为弹窗背景。
+async function openRecord(examRecordId: string): Promise<void> {
+  if (analysisChecking.value) return
+  analysisChecking.value = true
+  pendingAnalysisId.value = examRecordId
+  const openedPath = route.fullPath
+  const openedExamType = activeExamType.value
+  try {
+    const access = await getExamReviewAccess(examRecordId)
+    if (!recordsPageActive || route.fullPath !== openedPath || activeExamType.value !== openedExamType)
+      return
+    analysisExamType.value = access.examType
+    if (!access.allowed) {
+      analysisMembershipOpen.value = true
+      return
+    }
+    pendingAnalysisId.value = null
+    await router.push({
+      name: 'exam-result-detail',
+      params: { id: examRecordId },
+      query: { from: 'practice-records', recordSource: 'question-bank' },
+    })
+  } catch {
+    // 请求层展示真实错误，网络故障不能误提示会员到期，也不触发跳转。
+  } finally {
+    analysisChecking.value = false
+  }
+}
+
+// 续费后重新校验原答卷，避免购买其他考试会员后误进入解析。
+async function resumeAnalysis(): Promise<void> {
+  if (pendingAnalysisId.value) await openRecord(pendingAnalysisId.value)
 }
 
 // 练习内容使用提交时快照中的最深考纲节点，不再降级展示缺失范围的旧记录。
@@ -275,6 +317,8 @@ function handleBackToQuestionBank(): void {
 
 // 顶部考试类型切换后从第一页读取对应记录，避免混入上一考试的数据。
 watch(activeExamType, () => {
+  analysisMembershipOpen.value = false
+  pendingAnalysisId.value = null
   if (!initialized) return
   page.value = 1
   records.value = []

@@ -5,6 +5,11 @@
     <main class="report-main">
       <div v-if="loading" class="state-card">正在识别报告类型...</div>
       <DiagnosticExpiredNotice v-else-if="paperExpired" />
+      <div v-else-if="membershipRequired" class="state-card">
+        <p>当前会员已到期，续费后即可继续查看题目解析。</p>
+        <AppButton type="primary" @click="analysisMembershipOpen = true">立即续费</AppButton>
+        <AppButton type="text" @click="returnToSource">{{ returnLabel }}</AppButton>
+      </div>
       <div v-else-if="loadError" class="state-card state-card--error">{{ loadError }}</div>
       <section v-else class="practice-result">
         <header class="analysis-page-header">
@@ -53,6 +58,11 @@
         </div>
       </section>
     </main>
+    <AnalysisMembershipDialog
+      v-model="analysisMembershipOpen"
+      :exam-type="recordExamType"
+      @renewed="loadAnalysis"
+    />
     <AppDialog
       v-model="removeMistakeOpen"
       title="移出错题本"
@@ -80,11 +90,13 @@ import { ElMessage } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppDialog from '@/components/AppDialog.vue'
+import AnalysisMembershipDialog from '@/components/AnalysisMembershipDialog.vue'
 import ExamQuestionAnalysis from '@/components/report/ExamQuestionAnalysis.vue'
 import MistakeAttemptTimeline from '@/views/mistakeNotebook/MistakeAttemptTimeline.vue'
 import {
   getDiagnosticReportStatus,
   getExamResultData,
+  getExamReviewAccess,
   getMistakeAttemptHistory,
   recordMistakeQuestionView,
   removeMistakeQuestions,
@@ -125,6 +137,8 @@ const questions = ref<ReportQuestion[]>([])
 const paper = ref<PaperMeta | null>(null)
 const isDiagnosticRecord = ref(false)
 const recordExamType = ref('')
+const membershipRequired = ref(false)
+const analysisMembershipOpen = ref(false)
 const practiceNotebookName = ref('')
 const mistakeAttempts = ref<MistakeAttemptHistoryItem[]>([])
 const mistakeAttemptTotal = ref(0)
@@ -281,10 +295,24 @@ const returnLabel = computed(() =>
 )
 
 // 页面加载后先识别 paperType 和 examType，诊断记录随即跳到独立考试报告页。
-onMounted(async () => {
+async function loadAnalysis(): Promise<void> {
+  loading.value = true
+  loadError.value = ''
+  paperExpired.value = false
+  membershipRequired.value = false
+  questions.value = []
   const openedPath = route.fullPath
   try {
+    const access = await getExamReviewAccess(examId.value)
+    if (!detailActive || route.fullPath !== openedPath) return
+    recordExamType.value = access.examType
+    if (!access.allowed) {
+      membershipRequired.value = true
+      analysisMembershipOpen.value = true
+      return
+    }
     const data = await getExamResultData(examId.value)
+    if (!detailActive || route.fullPath !== openedPath) return
     const isDiagnostic =
       normalizePaperType(data.examRecord.paper?.paperType) === PAPER_TYPE.REAL_PAPER
     isDiagnosticRecord.value = isDiagnostic
@@ -354,6 +382,9 @@ onMounted(async () => {
     correctCount.value = visibleQuestions.filter((question) => question.isCorrect).length
     questions.value = visibleQuestions
   } catch (error: unknown) {
+    if (!detailActive || route.fullPath !== openedPath) return
+    membershipRequired.value = hasApiErrorCode(error, 'ANALYSIS_MEMBERSHIP_REQUIRED')
+    analysisMembershipOpen.value = membershipRequired.value
     paperExpired.value = hasApiErrorCode(error, 'DIAGNOSTIC_PAPER_EXPIRED')
     loadError.value = getApiErrorMessage(error, '加载答卷失败，请稍后重试')
   } finally {
@@ -371,7 +402,10 @@ onMounted(async () => {
       void recordMistakeQuestionView(question.questionId || question.id).catch(() => undefined)
     }
   }
-})
+}
+
+// 旧链接和续费后的重试共用同一解析加载流程。
+onMounted(loadAnalysis)
 
 // 时间轴独立加载，失败时只在右侧提供重试，不阻断题目和解析正文。
 async function loadMistakeAttemptHistory(): Promise<void> {

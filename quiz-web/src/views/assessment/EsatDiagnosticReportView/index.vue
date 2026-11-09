@@ -23,7 +23,11 @@
       <template v-else-if="report && activeModule">
         <header class="report-header">
           <div>
-          <span>{{ reportMeta?.sourcePaperType === 'mockPaper' ? '来源：模考中心' : 'ESAT Diagnostic Report' }}</span>
+            <span>{{
+              reportMeta?.sourcePaperType === 'mockPaper'
+                ? '来源：模考中心'
+                : 'ESAT Diagnostic Report'
+            }}</span>
             <h1>{{ report.header.title }}</h1>
           </div>
           <button type="button" class="question-analysis-button" @click="viewQuestionAnalysis()">
@@ -33,11 +37,17 @@
         <p v-if="report.learningPath?.profile.subjectMismatch" class="report-warning">
           个人资料中的报考科目与本次实际作答模块不一致；本报告已按本次试卷的实际模块生成，避免遗漏需要补强的科目。
         </p>
-        <section v-if="needsReportUpgrade" class="report-upgrade" aria-labelledby="report-upgrade-title">
+        <section
+          v-if="needsReportUpgrade"
+          class="report-upgrade"
+          aria-labelledby="report-upgrade-title"
+        >
           <div>
             <strong id="report-upgrade-title">这份报告仍在使用旧版诊断分析</strong>
             <p>可以直接使用原答卷重新生成科目整体评价与学习路径；成绩和作答记录不会改变。</p>
-            <small v-if="upgradeMessage" role="status" aria-live="polite">{{ upgradeMessage }}</small>
+            <small v-if="upgradeMessage" role="status" aria-live="polite">{{
+              upgradeMessage
+            }}</small>
           </div>
           <button
             type="button"
@@ -63,23 +73,24 @@
           v-if="report.knowledgeMastery"
           :knowledge-mastery="report.knowledgeMastery"
         />
-        <EsatAiImprovementPlan
-          v-if="report.aiImprovementPlan"
-          :plan="report.aiImprovementPlan"
-        />
-        <EsatLearningPath
-          v-if="report.learningPath"
-          :path="report.learningPath"
-        />
+        <EsatAiImprovementPlan v-if="report.aiImprovementPlan" :plan="report.aiImprovementPlan" />
+        <EsatLearningPath v-if="report.learningPath" :path="report.learningPath" />
       </template>
       <div v-else-if="report" class="state-card" role="status">
         这份答卷没有可用于生成 ESAT 诊断报告的计分模块。
       </div>
     </main>
+    <AnalysisMembershipDialog
+      v-model="analysisMembershipOpen"
+      :exam-type="analysisExamType"
+      @renewed="resumeAnalysis"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+import AnalysisMembershipDialog from '@/components/AnalysisMembershipDialog.vue'
+import { useAnalysisMembershipAccess } from '@/composables/useAnalysisMembershipAccess'
 import DiagnosticExpiredNotice from '@/components/DiagnosticExpiredNotice.vue'
 import { hasApiErrorCode } from '@/utils/request'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -104,6 +115,8 @@ defineOptions({ name: 'EsatDiagnosticReportView' })
 
 const route = useRoute()
 const router = useRouter()
+const { analysisMembershipOpen, analysisExamType, checkAnalysisAccess, resumeAnalysis } =
+  useAnalysisMembershipAccess()
 const loading = ref(true)
 const paperExpired = ref(false)
 const errorMessage = ref('')
@@ -128,8 +141,9 @@ interface PracticePrefill {
 const examId = computed(() => String(route.params.id || ''))
 
 // 当前模块只服务于等效评估分内部切换，不代表整份诊断报告的全局科目。
-const activeModule = computed(() =>
-  report.value?.assessment.modules.find((module) => module.id === activeModuleId.value) || null,
+const activeModule = computed(
+  () =>
+    report.value?.assessment.modules.find((module) => module.id === activeModuleId.value) || null,
 )
 
 // 当页面展示上一份有效报告时，题目解析必须读取该报告对应的答卷，而不是本次失败或分析中的答卷。
@@ -171,18 +185,21 @@ function viewQuestionAnalysis(target?: {
   questionNumber?: number
   wrongOnly?: boolean
 }): void {
-  void router.push({
-    name: 'exam-question-review',
-    params: { id: questionReviewExamId.value },
-    query: {
-      from: 'diagnostic',
-      report: 'esat',
-      ...(target?.moduleId && target.questionNumber
-        ? { moduleId: target.moduleId, questionNumber: String(target.questionNumber) }
-        : {}),
-      ...(target?.wrongOnly ? { wrongOnly: '1' } : {}),
-    },
-  })
+  const targetExamId = questionReviewExamId.value
+  void checkAnalysisAccess(targetExamId, () =>
+    router.push({
+      name: 'exam-question-review',
+      params: { id: targetExamId },
+      query: {
+        from: 'diagnostic',
+        report: 'esat',
+        ...(target?.moduleId && target.questionNumber
+          ? { moduleId: target.moduleId, questionNumber: String(target.questionNumber) }
+          : {}),
+        ...(target?.wrongOnly ? { wrongOnly: '1' } : {}),
+      },
+    }),
+  )
 }
 
 // 报告行动仅预填练习本表单，由学生确认题量、知识点和时长后再创建。
@@ -325,7 +342,10 @@ async function loadReport(): Promise<void> {
   cursor: pointer;
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
-  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .question-analysis-button:hover {

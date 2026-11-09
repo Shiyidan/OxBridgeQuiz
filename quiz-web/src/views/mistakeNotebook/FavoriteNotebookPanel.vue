@@ -40,6 +40,15 @@
       </div>
     </form>
     <div class="favorites-toolbar">
+      <div class="favorites-toolbar__actions">
+        <AppButton
+          type="secondary"
+          size="small"
+          :disabled="loading || (!items.length && !batchMode)"
+          @click="toggleBatch"
+          >{{ batchMode ? '完成管理' : '批量管理' }}</AppButton
+        >
+      </div>
       <div class="category-bar">
         <div class="category-tabs" role="group" aria-label="收藏分类">
           <button type="button" :class="{ active: !query.categoryId }" @click="selectCategory('')">
@@ -79,16 +88,6 @@
         </div>
         <AppButton type="text" size="small" :icon="FolderOpened" @click="managerOpen = true"
           >管理分类</AppButton
-        >
-      </div>
-      <div class="favorites-toolbar__actions">
-        <span class="sort-label">按收藏时间倒序</span>
-        <AppButton
-          type="secondary"
-          size="small"
-          :disabled="loading || (!items.length && !batchMode)"
-          @click="toggleBatch"
-          >{{ batchMode ? '完成管理' : '批量管理' }}</AppButton
         >
       </div>
     </div>
@@ -178,7 +177,11 @@
               ></template
             >
           </el-select>
-          <AppButton type="secondary" size="small" @click="viewQuestion(item.questionId)"
+          <AppButton
+            type="secondary"
+            size="small"
+            :disabled="reviewChecking"
+            @click="viewQuestion(item.questionId)"
             >查看题目</AppButton
           >
         </div>
@@ -190,6 +193,11 @@
       :total="total"
       @page-change="changePage"
       @page-size-change="changePageSize"
+    />
+    <AnalysisMembershipDialog
+      v-model="membershipOpen"
+      :exam-type="reviewExamType"
+      @renewed="resumeQuestion"
     />
     <FavoriteCategoryManager v-model="managerOpen" :exam-type="examType" :categories="categories" />
     <AppDialog
@@ -205,11 +213,12 @@
   </section>
 </template>
 <script setup lang="ts">
-import { computed, nextTick, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowDown, FolderOpened, Star } from '@element-plus/icons-vue'
 import AppButton from '@/components/AppButton.vue'
 import AppDialog from '@/components/AppDialog.vue'
+import AnalysisMembershipDialog from '@/components/AnalysisMembershipDialog.vue'
 import AppPagination from '@/components/AppPagination.vue'
 import LatexText from '@/components/LatexText.vue'
 import QuestionFavoriteButton from './QuestionFavoriteButton.vue'
@@ -217,6 +226,7 @@ import QuestionDifficultyTag from './QuestionDifficultyTag.vue'
 import FavoriteCategoryManager from './FavoriteCategoryManager.vue'
 import {
   getFavorites,
+  getFavoriteReviewAccess,
   type FavoriteSummary,
   type FavoriteItem,
   type FavoriteQuery,
@@ -237,6 +247,14 @@ const batchMode = ref(false)
 const selected = ref<string[]>([])
 const working = ref(false)
 const removeOpen = ref(false)
+const membershipOpen = ref(false)
+const reviewChecking = ref(false)
+const reviewExamType = ref(props.examType)
+const pendingQuestionId = ref('')
+let panelActive = true
+onBeforeUnmount(() => {
+  panelActive = false
+})
 let sequence = 0
 const query = reactive<FavoriteQuery>({
   examType: props.examType,
@@ -411,14 +429,44 @@ async function moveSelected(categoryId: string) {
 async function removeSelected() {
   await organize([...selected.value], 'remove')
 }
-// 详情保存完整列表地址，返回时可恢复分类、筛选和页码。
+// 点击查看时才校验会员，保留收藏列表、分类和滚动上下文。
 async function viewQuestion(questionId: string) {
-  await syncRoute()
-  await router.push({
-    name: 'favorite-question',
-    params: { questionId },
-    query: { returnTo: route.fullPath },
-  })
+  if (reviewChecking.value) return
+  reviewChecking.value = true
+  pendingQuestionId.value = questionId
+  const openedExamType = props.examType
+  const openedPath = route.fullPath
+  try {
+    const access = await getFavoriteReviewAccess(questionId)
+    if (
+      !panelActive ||
+      !props.active ||
+      props.examType !== openedExamType ||
+      route.fullPath !== openedPath
+    )
+      return
+    reviewExamType.value = access.examType
+    if (!access.allowed) {
+      membershipOpen.value = true
+      return
+    }
+    await syncRoute()
+    if (!panelActive || !props.active || props.examType !== openedExamType) return
+    pendingQuestionId.value = ''
+    await router.push({
+      name: 'favorite-question',
+      params: { questionId },
+      query: { returnTo: route.fullPath },
+    })
+  } catch {
+    // 公共请求层显示真实错误，网络失败不误判为会员到期。
+  } finally {
+    reviewChecking.value = false
+  }
+}
+// 续费后重查原题资格，其他考试的购买不能解锁当前收藏。
+async function resumeQuestion() {
+  if (pendingQuestionId.value) await viewQuestion(pendingQuestionId.value)
 }
 // 收藏日期按用户本地时区显示。
 function formatDate(value: string) {
@@ -474,6 +522,7 @@ watch(categories, () => {
   gap: 16px;
 }
 .category-bar {
+  justify-content: flex-end;
   flex: 1;
   min-width: 0;
   min-height: 32px;
@@ -538,12 +587,6 @@ watch(categories, () => {
 }
 .favorites-toolbar__actions {
   flex-shrink: 0;
-  margin-left: auto;
-}
-.sort-label {
-  color: #8c94a0;
-  font-size: var(--text-xs);
-  white-space: nowrap;
 }
 .batch-toolbar {
   padding: 14px 20px;

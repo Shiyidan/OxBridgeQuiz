@@ -6,6 +6,7 @@ import { requireAuth } from '../middleware/auth.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { success, fail } from '../utils/response.js'
 import { formatQuestionRow } from '../utils/questionSync.js'
+import { hasActiveExamMembershipAccess } from '../services/member.js'
 import { USER_ROLE, isQuestionDifficulty, isExamType } from '../constants/domain.js'
 
 export const favoritesRouter = createAsyncRouter()
@@ -242,9 +243,38 @@ favoritesRouter.post('/:questionId/view', async (req, res) => {
   res.json(success({ recorded: true }))
 })
 
+// 收藏解析查看资格
+favoritesRouter.get('/:questionId/review-access', async (req, res) => {
+  const favorite = await prisma.questionFavorite.findUnique({
+    where: { userId_questionId: { userId: req.user!.userId, questionId: req.params.questionId } },
+    select: { question: { select: { examType: true } } },
+  })
+  if (!favorite) {
+    res.status(404).json(fail('题目已取消收藏或不存在'))
+    return
+  }
+  res.json(success({
+    examType: favorite.question.examType,
+    allowed: await hasActiveExamMembershipAccess(req.user!.userId, favorite.question.examType),
+  }))
+})
+
 // 收藏题目详情
 favoritesRouter.get('/:questionId', async (req, res) => {
   const userId = req.user!.userId
+  // 先读取所属考试并验证权益，未授权时不查询题目答案和解析。
+  const access = await prisma.questionFavorite.findUnique({
+    where: { userId_questionId: { userId, questionId: req.params.questionId } },
+    select: { question: { select: { examType: true } } },
+  })
+  if (!access) {
+    res.status(404).json(fail('题目已取消收藏或不存在'))
+    return
+  }
+  if (!(await hasActiveExamMembershipAccess(userId, access.question.examType))) {
+    res.status(403).json(fail('当前会员已到期，续费后即可继续查看题目解析。', 'ANALYSIS_MEMBERSHIP_REQUIRED'))
+    return
+  }
   const favorite = await prisma.questionFavorite.findUnique({
     where: { userId_questionId: { userId, questionId: req.params.questionId } },
     include: { question: true },

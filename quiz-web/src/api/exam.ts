@@ -6,6 +6,11 @@ import type { AttemptQuestion, Question } from '@/types'
 
 export type AnswerState = 'unseen' | 'skipped' | 'answered'
 
+export interface ExamReviewAccess {
+  examType: string
+  allowed: boolean
+}
+
 export interface ExamResponseInput {
   questionId: string
   selectedAnswer: string | null
@@ -756,11 +761,21 @@ export function submitExam(examId: string, params: SubmitParams) {
   })
 }
 
+// 每次查看解析按答卷所属考试实时检查权益，不使用页面缓存的会员状态。
+export function getExamReviewAccess(examId: string) {
+  return callApi<ExamReviewAccess>({
+    method: 'GET',
+    url: `/exams/${examId}/review-access`,
+  })
+}
+
 // 获取答卷详情
 export function getExamResultData(examId: string) {
   return callApi<ExamResult>({
     url: `/exams/${examId}/result`,
     method: 'GET',
+    // 详情页按错误码展示统一续费弹窗或加载错误，避免到期时额外叠加错误提示。
+    silent: true,
   })
 }
 

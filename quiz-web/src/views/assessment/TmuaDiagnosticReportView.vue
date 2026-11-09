@@ -23,7 +23,11 @@
       <template v-else-if="report">
         <header class="report-header">
           <div>
-          <span>{{ reportMeta?.sourcePaperType === 'mockPaper' ? '来源：模考中心' : 'TMUA Diagnostic Report' }}</span>
+            <span>{{
+              reportMeta?.sourcePaperType === 'mockPaper'
+                ? '来源：模考中心'
+                : 'TMUA Diagnostic Report'
+            }}</span>
             <h1>{{ report.header.title }}</h1>
           </div>
           <button type="button" class="question-analysis-button" @click="viewQuestionAnalysis()">
@@ -31,11 +35,19 @@
           </button>
         </header>
 
-        <section v-if="needsReportUpgrade" class="report-upgrade" aria-labelledby="tmua-upgrade-title">
+        <section
+          v-if="needsReportUpgrade"
+          class="report-upgrade"
+          aria-labelledby="tmua-upgrade-title"
+        >
           <div>
             <strong id="tmua-upgrade-title">这份报告仍在使用旧版 TMUA 分析</strong>
-            <p>可基于原答卷补充两卷深度评价、知识掌握、提升优先级和学习路径，成绩与作答记录不会改变。</p>
-            <small v-if="upgradeMessage" role="status" aria-live="polite">{{ upgradeMessage }}</small>
+            <p>
+              可基于原答卷补充两卷深度评价、知识掌握、提升优先级和学习路径，成绩与作答记录不会改变。
+            </p>
+            <small v-if="upgradeMessage" role="status" aria-live="polite">{{
+              upgradeMessage
+            }}</small>
           </div>
           <button
             type="button"
@@ -62,20 +74,21 @@
           :knowledge-mastery="report.knowledgeMastery"
           exam-type="TMUA"
         />
-        <EsatAiImprovementPlan
-          v-if="report.aiImprovementPlan"
-          :plan="report.aiImprovementPlan"
-        />
-        <EsatLearningPath
-          v-if="report.learningPath"
-          :path="report.learningPath"
-        />
+        <EsatAiImprovementPlan v-if="report.aiImprovementPlan" :plan="report.aiImprovementPlan" />
+        <EsatLearningPath v-if="report.learningPath" :path="report.learningPath" />
       </template>
     </main>
+    <AnalysisMembershipDialog
+      v-model="analysisMembershipOpen"
+      :exam-type="analysisExamType"
+      @renewed="resumeAnalysis"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+import AnalysisMembershipDialog from '@/components/AnalysisMembershipDialog.vue'
+import { useAnalysisMembershipAccess } from '@/composables/useAnalysisMembershipAccess'
 import DiagnosticExpiredNotice from '@/components/DiagnosticExpiredNotice.vue'
 import { hasApiErrorCode } from '@/utils/request'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
@@ -100,6 +113,8 @@ defineOptions({ name: 'TmuaDiagnosticReportView' })
 
 const route = useRoute()
 const router = useRouter()
+const { analysisMembershipOpen, analysisExamType, checkAnalysisAccess, resumeAnalysis } =
+  useAnalysisMembershipAccess()
 const loading = ref(true)
 const paperExpired = ref(false)
 const errorMessage = ref('')
@@ -141,18 +156,21 @@ function viewQuestionAnalysis(target?: {
   questionNumber?: number
   wrongOnly?: boolean
 }): void {
-  void router.push({
-    name: 'exam-question-review',
-    params: { id: reportExamRecordId.value || examId.value },
-    query: {
-      from: 'diagnostic',
-      report: 'tmua',
-      ...(target?.moduleId && target.questionNumber
-        ? { moduleId: target.moduleId, questionNumber: String(target.questionNumber) }
-        : {}),
-      ...(target?.wrongOnly ? { wrongOnly: '1' } : {}),
-    },
-  })
+  const targetExamId = reportExamRecordId.value || examId.value
+  void checkAnalysisAccess(targetExamId, () =>
+    router.push({
+      name: 'exam-question-review',
+      params: { id: targetExamId },
+      query: {
+        from: 'diagnostic',
+        report: 'tmua',
+        ...(target?.moduleId && target.questionNumber
+          ? { moduleId: target.moduleId, questionNumber: String(target.questionNumber) }
+          : {}),
+        ...(target?.wrongOnly ? { wrongOnly: '1' } : {}),
+      },
+    }),
+  )
 }
 
 // 报告行动只把建议带入练习本创建页，不在后台静默创建内容。

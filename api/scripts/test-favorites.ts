@@ -9,7 +9,7 @@ import { signAccessToken } from '../src/services/jwt.js'
 import { favoritesRouter } from '../src/routes/favorites.js'
 import { globalErrorHandler } from '../src/middleware/error.js'
 import { syncPaperQuestions } from '../src/utils/questionSync.js'
-import { EXAM_TYPE, EXAM_RECORD_STATUS } from '../src/constants/domain.js'
+import { EXAM_TYPE, EXAM_RECORD_STATUS, MEMBERSHIP_PLAN, MEMBERSHIP_STATUS, MEMBERSHIP_SOURCE } from '../src/constants/domain.js'
 
 if (
   config.runtimeEnv !== 'local' ||
@@ -103,12 +103,21 @@ try {
   })
   await request('', '/summary?examType=ESAT', 'GET', undefined, 401)
   await request(stranger.token, `/${q1}`, 'PUT', {}, 404)
-  // 并发收藏具有相同身份，尚未作答或交卷也能保存并查看解析。
+  // 收藏和列表不要求会员；完整解析需要当前考试的有效会员。
   await Promise.all(Array.from({ length: 6 }, () => request(owner.token, `/${q1}`, 'PUT', {})))
   await request(owner.token, `/${q2}`, 'PUT', {})
   await request(owner.token, `/${q3}`, 'PUT', {})
   assert.equal(await prisma.questionFavorite.count({ where: { userId: owner.id } }), 3)
   const originalAnswers = await prisma.answerRecord.findMany({ where: { examRecordId: exam.id } })
+  assert.equal((await request(owner.token, `/${q1}/review-access`)).allowed, false)
+  await request(owner.token, `/${q1}`, 'GET', undefined, 403)
+  const membership = await prisma.userMembership.create({ data: {
+    userId: owner.id, examType: EXAM_TYPE.ESAT, plan: MEMBERSHIP_PLAN.MONTHLY,
+    sourceType: MEMBERSHIP_SOURCE.PAYMENT, status: MEMBERSHIP_STATUS.ACTIVE,
+    startsAt: new Date(Date.now() - 60000), endsAt: new Date(Date.now() + 3600000),
+  } })
+  assert.equal((await request(owner.token, `/${q1}/review-access`)).allowed, true)
+  assert.equal((await request(owner.token, `/${q3}/review-access`)).allowed, false)
   const detail = await request(owner.token, `/${q1}`)
   assert.equal((await request(owner.token, `/${q1}/view`, 'POST')).recorded, true)
   await request(stranger.token, `/${q1}/view`, 'POST', undefined, 404)
@@ -189,6 +198,9 @@ try {
   await prisma.examRecord.delete({ where: { id: exam.id } })
   assert.equal((await request(owner.token, '/summary?examType=ESAT')).total, 2)
   assert.deepEqual((await request(owner.token, `/${q1}`)).question, detail.question)
+  await prisma.userMembership.update({ where: { id: membership.id }, data: { endsAt: new Date(Date.now() - 1000) } })
+  await request(owner.token, `/${q1}`, 'GET', undefined, 403)
+  assert.equal((await request(owner.token, '/summary?examType=ESAT')).total, 2)
   await request(owner.token, '/batch', 'PUT', {
     examType: 'ESAT',
     questionIds: [q1, q2, q3],
@@ -202,6 +214,7 @@ try {
 } finally {
   await prisma.examRecord.deleteMany({ where: { paperId } })
   await prisma.paper.deleteMany({ where: { id: paperId } })
+  await prisma.userMembership.deleteMany({ where: { userId: { in: userIds } } })
   await prisma.user.deleteMany({ where: { id: { in: userIds } } })
   await new Promise<void>((resolve, reject) =>
     server.close((error) => (error ? reject(error) : resolve())),

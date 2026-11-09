@@ -8,7 +8,7 @@ import { formatQuestionRow } from '../utils/questionSync.js'
 import { diagnosticHistoryQuestionFields, parseDiagnosticHistorySnapshot } from '../utils/diagnosticHistorySnapshot.js'
 import { parseJsonField, parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
 import { orderQuestionsForResult } from '../utils/questionOrder.js'
-import { checkMemberAccess } from '../services/member.js'
+import { checkMemberAccess, hasActiveExamMembershipAccess } from '../services/member.js'
 import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { buildMockPaperNumber } from '../utils/mockPaperNumber.js'
 import { computeScores } from '../services/scoring.js'
@@ -143,6 +143,23 @@ examResultRouter.get('/profile-stats', requireAuth, async (req, res) => {
 })
 
 // Exam result
+// 解析查看资格
+examResultRouter.get('/:id/review-access', requireAuth, async (req, res) => {
+  const record = await prisma.examRecord.findFirst({
+    where: { id: req.params.id, userId: req.user!.userId },
+    select: { examType: true },
+  })
+  if (!record) {
+    res.status(404).json(fail('Exam record not found'))
+    return
+  }
+  res.json(success({
+    examType: record.examType,
+    allowed: await hasActiveExamMembershipAccess(req.user!.userId, record.examType),
+  }))
+})
+
+// 答卷解析
 examResultRouter.get('/:id/result', requireAuth, requireAvailableDiagnosticHistory, async (req, res) => {
   try {
     const examRecord = await prisma.examRecord.findFirst({
@@ -156,6 +173,12 @@ examResultRouter.get('/:id/result', requireAuth, requireAvailableDiagnosticHisto
 
     if (examRecord.status !== EXAM_RECORD_STATUS.SUBMITTED || !examRecord.submittedAt) {
       res.status(409).json(fail('考试尚未交卷，暂不能查看结果', 'EXAM_NOT_SUBMITTED'))
+      return
+    }
+
+    // 读取答案前重新验证权益，旧链接及预检后刚好到期的请求也不能获取解析。
+    if (!(await hasActiveExamMembershipAccess(req.user!.userId, examRecord.examType))) {
+      res.status(403).json(fail('当前会员已到期，续费后即可继续查看题目解析。', 'ANALYSIS_MEMBERSHIP_REQUIRED'))
       return
     }
 

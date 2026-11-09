@@ -611,7 +611,9 @@
                     </div>
                     <div
                       class="record-card__actions"
-                      :class="{ 'record-card__actions--in-progress': record.status === 'in_progress' }"
+                      :class="{
+                        'record-card__actions--in-progress': record.status === 'in_progress',
+                      }"
                     >
                       <AppButton
                         type="text"
@@ -626,7 +628,7 @@
                         type="secondary"
                         size="medium"
                         v-if="record.status !== 'in_progress'"
-                        :disabled="record.wrongCount === 0"
+                        :disabled="record.wrongCount === 0 || wrongReviewChecking"
                         @click="openWrongReview(record)"
                       >
                         {{
@@ -853,6 +855,11 @@
       <p>放弃后本次进度将永久删除且无法恢复，不会生成成绩、报告或错题记录。</p>
     </AppDialog>
 
+    <AnalysisMembershipDialog
+      v-model="wrongReviewMembershipOpen"
+      :exam-type="wrongReviewExamType"
+      @renewed="resumeWrongReview"
+    />
     <DiagnosticAnalysisDialog
       :model-value="analysisDialogVisible"
       :exam-id="analysisExamRecordId"
@@ -884,7 +891,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import mockBackgroundUrl from '@/assets/home/hero-learning-wave.webp'
@@ -906,6 +913,7 @@ import NavBar from '@/components/NavBar.vue'
 import AppPagination from '@/components/AppPagination.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppDialog from '@/components/AppDialog.vue'
+import AnalysisMembershipDialog from '@/components/AnalysisMembershipDialog.vue'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import DiagnosticAnalysisDialog from '@/components/DiagnosticAnalysisDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
@@ -921,7 +929,7 @@ import {
   resolveExamCountdown,
 } from '@/utils/examSittings'
 import { getMember } from '@/api/member'
-import { retryDiagnosticReport } from '@/api/exam'
+import { getExamReviewAccess, retryDiagnosticReport } from '@/api/exam'
 import {
   abandonMockExam,
   getMockExamCatalogData,
@@ -947,6 +955,14 @@ type MembershipTarget = { kind: 'paper' | 'module'; id: string }
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const wrongReviewMembershipOpen = ref(false)
+const wrongReviewChecking = ref(false)
+const wrongReviewExamType = ref<string>(auth.activeExamType)
+const pendingWrongReview = ref<MockExamRecordItem | null>(null)
+let pageActive = true
+onBeforeUnmount(() => {
+  pageActive = false
+})
 const activeTab = ref<PageTab>(
   route.query.tab === 'records' ? 'records' : route.query.tab === 'modules' ? 'modules' : 'catalog',
 )
@@ -1338,7 +1354,10 @@ async function loadOverview(): Promise<void> {
 }
 
 // 从试卷目录进入未完成列表，使用真实答卷 ID 定位最近一次未完成记录。
-function openPendingRecords(item: MockExamPaperItem | MockExamModuleItem, mode: 'full' | 'single'): void {
+function openPendingRecords(
+  item: MockExamPaperItem | MockExamModuleItem,
+  mode: 'full' | 'single',
+): void {
   pendingRecordId = item.inProgressAttempts[0]?.examRecordId || ''
   locatedRecordId.value = ''
   activeTab.value = 'records'
@@ -1723,20 +1742,44 @@ function handleAnalysisReturn(): void {
   void loadRecords()
 }
 
-// 已完成答卷的错题回顾复用逐题解析，并保留返回模考记录页的固定地址。
-function openWrongReview(record: MockExamRecordItem): void {
-  if (record.wrongCount === 0) return
-  void router.push({
-    name: 'exam-question-review',
-    params: { id: record.examRecordId },
-    query: {
-      from: 'mock-exam',
-      recordSource: 'diagnostic',
-      report: activeExamType.value.toLowerCase(),
-      wrongOnly: '1',
-      returnTo: `/mock-exams?tab=records&status=completed&mode=${record.mode}`,
-    },
-  })
+// 点击错题回顾时按原答卷实时校验权益，到期提示在模考列表内展示。
+async function openWrongReview(record: MockExamRecordItem): Promise<void> {
+  if (record.wrongCount === 0 || wrongReviewChecking.value) return
+  wrongReviewChecking.value = true
+  pendingWrongReview.value = record
+  const openedPath = route.fullPath
+  const openedExamType = activeExamType.value
+  try {
+    const access = await getExamReviewAccess(record.examRecordId)
+    if (!pageActive || route.fullPath !== openedPath || activeExamType.value !== openedExamType)
+      return
+    wrongReviewExamType.value = access.examType
+    if (!access.allowed) {
+      wrongReviewMembershipOpen.value = true
+      return
+    }
+    pendingWrongReview.value = null
+    await router.push({
+      name: 'exam-question-review',
+      params: { id: record.examRecordId },
+      query: {
+        from: 'mock-exam',
+        recordSource: 'diagnostic',
+        report: access.examType.toLowerCase(),
+        wrongOnly: '1',
+        returnTo: `/mock-exams?tab=records&status=completed&mode=${record.mode}`,
+      },
+    })
+  } catch {
+    // 请求层提示实际错误，网络故障不能误报为会员到期。
+  } finally {
+    wrongReviewChecking.value = false
+  }
+}
+
+// 续费后重新验证原答卷，避免购买其他考试会员后错误解锁。
+async function resumeWrongReview(): Promise<void> {
+  if (pendingWrongReview.value) await openWrongReview(pendingWrongReview.value)
 }
 
 // ESAT 与 TMUA 报告复用现有路由，并由报告页面标记模考来源。
@@ -1860,6 +1903,8 @@ function formatRemainingTime(seconds: number | null): string {
 
 // 考试类型切换后清理旧考试页面状态并重新读取当前目录和个人概览。
 watch(activeExamType, () => {
+  wrongReviewMembershipOpen.value = false
+  pendingWrongReview.value = null
   pendingPaperId = ''
   locatedPaperId.value = ''
   pendingRecordId = ''
@@ -2005,6 +2050,8 @@ onMounted(async () => {
 }
 
 .mock-content {
+  /* 随同一网格行拉伸，记录较少时容器底部仍与右侧概览对齐。 */
+  align-self: stretch;
   min-height: 650px;
   padding: 0 28px 24px;
   border-radius: var(--radius-xl);
@@ -3176,7 +3223,6 @@ onMounted(async () => {
     max-width: 100%;
     overflow-x: auto;
   }
-
 }
 
 @media (max-width: 480px) {
@@ -3212,7 +3258,6 @@ onMounted(async () => {
   justify-content: center;
   margin-top: 20px;
 }
-
 </style>
 
 <style scoped lang="scss" src="@/views/mockExam/mock-exam-desktop.scss"></style>

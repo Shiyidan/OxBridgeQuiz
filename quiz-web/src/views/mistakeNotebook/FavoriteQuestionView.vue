@@ -1,4 +1,4 @@
-<!-- 收藏详情：复用逐题解析组件，收藏后即可查看完整题目、答案与解析。 -->
+<!-- 收藏详情：复用逐题解析组件，有效会员可查看完整题目、答案与解析。 -->
 <template>
   <div class="favorite-detail-page">
     <NavBar />
@@ -27,6 +27,10 @@
         </el-select>
       </header>
       <div v-if="loading" class="detail-state">正在加载题目…</div>
+      <div v-else-if="membershipRequired" class="detail-state">
+        <p>当前会员已到期，续费后即可继续查看题目解析。</p>
+        <AppButton type="primary" @click="membershipOpen = true">立即续费</AppButton>
+      </div>
       <div v-else-if="error" class="detail-state" role="alert">
         <p>{{ error }}</p>
         <AppButton type="secondary" @click="load">重试</AppButton>
@@ -40,6 +44,11 @@
         show-favorite
       />
     </main>
+    <AnalysisMembershipDialog
+      v-model="membershipOpen"
+      :exam-type="reviewExamType"
+      @renewed="load"
+    />
     <FavoriteCategoryManager
       v-model="managerOpen"
       :exam-type="detail?.question.examType || auth.activeExamType"
@@ -53,10 +62,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { Back } from '@element-plus/icons-vue'
 import NavBar from '@/components/NavBar.vue'
 import AppButton from '@/components/AppButton.vue'
+import AnalysisMembershipDialog from '@/components/AnalysisMembershipDialog.vue'
 import ExamQuestionAnalysis from '@/components/report/ExamQuestionAnalysis.vue'
 import FavoriteCategoryManager from './FavoriteCategoryManager.vue'
 import {
   getFavoriteDetail,
+  getFavoriteReviewAccess,
   getFavoriteSummary,
   recordFavoriteQuestionView,
   type FavoriteDetail,
@@ -64,7 +75,7 @@ import {
 } from '@/api/favorites'
 import { useFavoritesStore } from '@/stores/favorites'
 import { useAuthStore } from '@/stores/auth'
-import { getApiErrorMessage } from '@/utils/request'
+import { getApiErrorMessage, hasApiErrorCode } from '@/utils/request'
 const route = useRoute()
 const router = useRouter()
 const store = useFavoritesStore()
@@ -74,6 +85,9 @@ const summary = ref<FavoriteSummary | null>(null)
 const loading = ref(false)
 const error = ref('')
 const managerOpen = ref(false)
+const membershipOpen = ref(false)
+const membershipRequired = ref(false)
+const reviewExamType = ref<string>(auth.activeExamType)
 let sequence = 0
 // 离开详情时作废请求，避免迟到的数据触发查看统计。
 onBeforeUnmount(() => {
@@ -81,20 +95,34 @@ onBeforeUnmount(() => {
 })
 // 收藏详情直接使用官方题目 ID，无需定位某张答卷。
 const questionId = computed(() => String(route.params.questionId || ''))
-// 正常取消收藏后保留当前题目供继续阅读，返回列表时自然移除。
+// 旧链接与续费后重试均先验证当前题目权益，再读取完整正文。
 async function load() {
   const request = ++sequence
   const openedQuestionId = questionId.value
   loading.value = true
   error.value = ''
+  detail.value = null
+  membershipRequired.value = false
+  membershipOpen.value = false
   try {
+    const access = await getFavoriteReviewAccess(openedQuestionId)
+    if (request !== sequence) return
+    reviewExamType.value = access.examType
+    if (!access.allowed) {
+      membershipRequired.value = true
+      membershipOpen.value = true
+      return
+    }
     const result = await getFavoriteDetail(openedQuestionId)
     if (request !== sequence) return
     detail.value = result
     store.states[questionId.value] = { questionId: questionId.value, categoryId: result.categoryId }
     void loadSummary()
   } catch (err) {
-    if (request === sequence) error.value = getApiErrorMessage(err, '收藏题目加载失败')
+    if (request !== sequence) return
+    membershipRequired.value = hasApiErrorCode(err, 'ANALYSIS_MEMBERSHIP_REQUIRED')
+    membershipOpen.value = membershipRequired.value
+    error.value = getApiErrorMessage(err, '收藏题目加载失败')
   } finally {
     if (request === sequence) loading.value = false
     await nextTick()

@@ -361,7 +361,7 @@
                 size="small"
                 type="secondary"
                 class="diagnostic-history__action"
-                :disabled="record.isExpired || record.correctCount >= record.totalQuestions"
+                :disabled="record.isExpired || record.correctCount >= record.totalQuestions || wrongReviewChecking"
                 @click="openHistoryWrongQuestions(record)"
               >
                 {{ record.correctCount >= record.totalQuestions ? '暂无错题' : '查看错题' }}
@@ -388,6 +388,12 @@
         </div>
       </div>
     </AppDialog>
+
+    <AnalysisMembershipDialog
+      v-model="wrongReviewMembershipOpen"
+      :exam-type="wrongReviewExamType"
+      @renewed="resumeWrongReview"
+    />
 
     <DailyCardAccessDialog
       v-model="membershipAccessVisible"
@@ -418,6 +424,8 @@ import NavBar from '@/components/NavBar.vue'
 import headerWaveUrl from '@/assets/home/hero-learning-wave.webp'
 import AppDialog from '@/components/AppDialog.vue'
 import AppButton from '@/components/AppButton.vue'
+import AnalysisMembershipDialog from '@/components/AnalysisMembershipDialog.vue'
+import { getExamReviewAccess } from '@/api/exam'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
 import { getMember } from '@/api/member'
@@ -462,6 +470,11 @@ const subjectSelectionPapers = ref<AssessmentPaperItem[]>([])
 const subjectPapersLoading = ref(false)
 const subjectPapersError = ref('')
 const historyDialogVisible = ref(false)
+const wrongReviewMembershipOpen = ref(false)
+const wrongReviewChecking = ref(false)
+const wrongReviewExamType = ref<string>(auth.activeExamType)
+const pendingWrongReview = ref<AssessmentPaperHistoryItem | null>(null)
+let pageActive = true
 const historyLoading = ref(false)
 const historyError = ref('')
 const historyYear = ref<number | null>(null)
@@ -1099,6 +1112,8 @@ watch(
   historyDialogVisible,
   (visible) => {
     if (visible) return
+    wrongReviewMembershipOpen.value = false
+    pendingWrongReview.value = null
     historyLoadSequence += 1
     historyLoading.value = false
     historyObserver?.disconnect()
@@ -1109,6 +1124,7 @@ watch(
 
 // 离开诊断首页时使在途历史请求失效，并停止滚动加载观察。
 onBeforeUnmount(() => {
+  pageActive = false
   historyLoadSequence += 1
   historyObserver?.disconnect()
 })
@@ -1158,19 +1174,45 @@ function handleHistoryAction(record: AssessmentPaperHistoryItem): void {
   })
 }
 
-// 错题入口只读取本次答卷，并携带年份和考试类型以恢复历史列表。
-function openHistoryWrongQuestions(record: AssessmentPaperHistoryItem): void {
-  if (record.isExpired || record.correctCount >= record.totalQuestions) return
-  const returnTo = router.resolve({
-    path: '/assessment',
-    query: { examType: activeExamType.value, year: String(historyYear.value), history: '1' },
-  }).fullPath
-  historyDialogVisible.value = false
-  void router.push({
-    name: 'exam-question-review',
-    params: { id: record.examRecordId },
-    query: { from: 'assessment-history', recordSource: 'diagnostic', wrongOnly: '1', returnTo },
-  })
+// 查看错题前实时校验权益，到期时保持诊断历史列表作为提醒背景。
+async function openHistoryWrongQuestions(record: AssessmentPaperHistoryItem): Promise<void> {
+  if (record.isExpired || record.correctCount >= record.totalQuestions || wrongReviewChecking.value) return
+  wrongReviewChecking.value = true
+  pendingWrongReview.value = record
+  const openedPath = route.fullPath
+  const openedExamType = activeExamType.value
+  const openedYear = historyYear.value
+  const openedSequence = historyLoadSequence
+  try {
+    const access = await getExamReviewAccess(record.examRecordId)
+    if (!pageActive || route.fullPath !== openedPath || activeExamType.value !== openedExamType
+      || !historyDialogVisible.value || historyYear.value !== openedYear
+      || historyLoadSequence !== openedSequence) return
+    wrongReviewExamType.value = access.examType
+    if (!access.allowed) {
+      wrongReviewMembershipOpen.value = true
+      return
+    }
+    const returnTo = router.resolve({
+      path: '/assessment',
+      query: { examType: openedExamType, year: String(openedYear), history: '1' },
+    }).fullPath
+    historyDialogVisible.value = false
+    await router.push({
+      name: 'exam-question-review',
+      params: { id: record.examRecordId },
+      query: { from: 'assessment-history', recordSource: 'diagnostic', wrongOnly: '1', returnTo },
+    })
+  } catch {
+    // 请求层提示真实错误，网络故障不能误提示会员到期或触发跳转。
+  } finally {
+    wrongReviewChecking.value = false
+  }
+}
+
+// 续费后重新验证原答卷，避免其他考试的会员错误解锁当前解析。
+async function resumeWrongReview(): Promise<void> {
+  if (pendingWrongReview.value) await openHistoryWrongQuestions(pendingWrongReview.value)
 }
 
 // 日期按学生浏览器本地时区展示，并统一为便于核对的年月日时分格式。

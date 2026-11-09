@@ -143,10 +143,17 @@
       @update:model-value="handlePaymentVisibilityChange"
       @paid="handlePaymentSuccess"
     />
+    <AnalysisMembershipDialog
+      v-model="analysisMembershipOpen"
+      :exam-type="analysisExamType"
+      @renewed="resumeAnalysis"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+import AnalysisMembershipDialog from '@/components/AnalysisMembershipDialog.vue'
+import { useAnalysisMembershipAccess } from '@/composables/useAnalysisMembershipAccess'
 import AppButton from '@/components/AppButton.vue'
 // 在线答题页：试题库按考点取题，诊断测试按 paperId 取整套真题。
 import { ref, computed, shallowRef, onMounted, onBeforeUnmount } from 'vue'
@@ -186,6 +193,8 @@ import { hasApiErrorCode } from '@/utils/request'
 
 const route = useRoute()
 const router = useRouter()
+const { analysisMembershipOpen, analysisExamType, checkAnalysisAccess, resumeAnalysis } =
+  useAnalysisMembershipAccess()
 const auth = useAuthStore()
 
 const examNavRef = ref<InstanceType<typeof ExamVue> | null>(null)
@@ -465,7 +474,10 @@ async function loadQuestions(): Promise<void> {
       questions.value = []
       // 新开始请求也可能恢复另一考试的活动练习，按原记录引导开通会员。
       const active = await getActiveQuestionBankPractice(activeExamType.value).catch(() => null)
-      if (active?.examRecordId && (!route.query.examId || active.examRecordId === route.query.examId)) {
+      if (
+        active?.examRecordId &&
+        (!route.query.examId || active.examRecordId === route.query.examId)
+      ) {
         activeExamType.value = normalizeExamType(active.examType)
       }
       showMembershipRequired()
@@ -877,18 +889,21 @@ async function handleSubmit(): Promise<void> {
 // 题库练习交卷后直接进入本次逐题解析，不再经过已废弃的结果汇总页。
 async function handleViewPracticeAnalysis(): Promise<void> {
   if (!submittedExamRecordId.value) return
-  practiceResultDialogVisible.value = false
-  await router.push({
-    name: 'exam-result-detail',
-    params: { id: submittedExamRecordId.value },
-    query: {
-      from: cameFromPracticeNotebook.value
-        ? 'practice-notebook'
-        : cameFromPracticeRecords.value
-          ? 'practice-records'
-          : 'question-bank',
-      recordSource: 'question-bank',
-    },
+  const targetExamId = submittedExamRecordId.value
+  await checkAnalysisAccess(targetExamId, async () => {
+    practiceResultDialogVisible.value = false
+    await router.push({
+      name: 'exam-result-detail',
+      params: { id: targetExamId },
+      query: {
+        from: cameFromPracticeNotebook.value
+          ? 'practice-notebook'
+          : cameFromPracticeRecords.value
+            ? 'practice-records'
+            : 'question-bank',
+        recordSource: 'question-bank',
+      },
+    })
   })
 }
 

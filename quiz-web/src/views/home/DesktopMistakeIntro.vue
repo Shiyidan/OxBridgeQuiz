@@ -91,7 +91,7 @@ const history = [
       <div class="mistake-layout">
         <figure class="mistake-shot">
           <div class="shot-heading">
-            <span><Document />原题与答案对照</span><small>真实页面节选 · 示例</small>
+            <span><Document />原题与答案对照</span>
           </div>
           <div class="shot-viewport">
             <img
@@ -228,10 +228,6 @@ const history = [
   width: 14px;
   height: 14px;
   color: #6b9bd3;
-}
-.shot-heading small {
-  font-size: 10px;
-  color: #95a4b3;
 }
 .shot-viewport {
   aspect-ratio: 1.8;

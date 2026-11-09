@@ -269,15 +269,11 @@ function closeOutline(restoreFocus = false): void {
   if (restoreFocus) outlineToggleRef.value?.focus()
 }
 
-// 将面板内选择交回页面，让考纲高亮、题量和练习范围一起更新。
+// 页面统一处理切节滚动；面板只恢复标题焦点，避免两处滚动争抢位置。
 async function selectSection(code: string): Promise<void> {
   closeOutline()
   emit('select', code)
   await nextTick()
-  sectionHeadingRef.value?.scrollIntoView({
-    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-    block: 'start',
-  })
   sectionHeadingRef.value?.focus({ preventScroll: true })
 }
 

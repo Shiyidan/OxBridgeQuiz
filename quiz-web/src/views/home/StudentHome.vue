@@ -1,6 +1,8 @@
 <!-- 登录后首页首屏：仅用学生真实记录驱动当前任务，后续内容由公开首页模块统一承接。 -->
 <script setup lang="ts">
 import { computed } from 'vue'
+import { DocumentChecked, Aim, Timer, Collection } from '@element-plus/icons-vue'
+import './student-home-desktop.css'
 import type { ActiveQuestionBankPractice } from '@/api/exam'
 import type { AssessmentPaperItem } from '@/api/papers'
 import type { ActiveExamType } from '@/stores/auth'
@@ -75,6 +77,8 @@ const emit = defineEmits<{
   retry: []
   'manage-goals': []
 }>()
+
+const entryIcons = { '01': DocumentChecked, '02': Aim, '03': Timer, '04': Collection }
 
 // 考试名称在未选择目标时保持中性，避免从缓存或历史记录猜测当前考试。
 const examLabel = computed(() => props.currentExam ?? 'ESAT / TMUA')
@@ -189,7 +193,7 @@ const heroContent = computed<HeroContent>(() => {
 
   if (props.state === 'idle') {
     return {
-      kicker: '继续巩固提升',
+      kicker: '',
       title: '阶段诊断已完成，选择下一步练习',
       description:
         '从知识点练习开始，针对需要提升的内容集中训练；也可以选择模考、重新诊断或回看错题。',
@@ -399,13 +403,6 @@ function handleGoalSettingsNavigation(): void {
   emit('navigate', '/profile')
 }
 
-// 登录态首屏向下入口定位到公共首页首个内容模块，并遵循系统的减弱动态效果设置。
-function scrollToSharedContent(): void {
-  document.getElementById('home-question-model')?.scrollIntoView({
-    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-    block: 'start',
-  })
-}
 </script>
 
 <template>
@@ -446,7 +443,7 @@ function scrollToSharedContent(): void {
           <div class="home-student-hero">
             <div class="home-student-hero-copy">
               <p class="home-hello">欢迎回来，{{ username }}</p>
-              <p class="home-hero-kicker">{{ heroContent.kicker }}</p>
+              <p v-if="heroContent.kicker" class="home-hero-kicker">{{ heroContent.kicker }}</p>
               <h1
                 id="home-student-title"
                 :class="{ 'is-multiline': heroContent.title.includes('\n') }"
@@ -530,7 +527,10 @@ function scrollToSharedContent(): void {
               :disabled="!entry.path"
               @click="handleEntrySelection(entry)"
             >
-              <span class="home-entry-index">{{ entry.index }}</span>
+              <span class="home-entry-index" aria-hidden="true">
+                <component :is="entryIcons[entry.index as keyof typeof entryIcons]" class="home-entry-icon" />
+                <span class="home-entry-number">{{ entry.index }}</span>
+              </span>
               <strong>{{ entry.title }}</strong>
               <p>{{ entry.description }}</p>
               <span class="home-entry-action"
@@ -657,3 +657,4 @@ function scrollToSharedContent(): void {
     </template>
   </div>
 </template>
+

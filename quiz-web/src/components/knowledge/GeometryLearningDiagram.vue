@@ -167,7 +167,12 @@
     </template>
 
     <template v-else-if="mode === 6 || mode === 10 || mode === 19">
-      <div v-if="mode === 6" class="controls" role="group" aria-label="选择几何变换">
+      <div
+        v-if="mode === 6 && !displayOnly"
+        class="controls"
+        role="group"
+        aria-label="选择几何变换"
+      >
         <AppButton
           v-for="item in transforms"
           :key="item.key"
@@ -178,7 +183,7 @@
           >{{ item.label }}</AppButton
         >
       </div>
-      <div v-else class="controls" role="group" aria-label="显示几何推理步骤">
+      <div v-else-if="!displayOnly" class="controls" role="group" aria-label="显示几何推理步骤">
         <AppButton
           size="small"
           :type="showRoute ? 'primary' : 'secondary'"
@@ -223,9 +228,16 @@
             <polygon :points="coordinatePolygon(transformedTriangle)" class="highlight" />
             <text x="451" y="80">原图：蓝</text>
             <text x="451" y="110">新图：绿</text>
-            <text x="451" y="165">原点 O</text>
-            <text x="451" y="192">是旋转/</text>
-            <text x="451" y="219">放缩中心</text>
+            <template v-if="displayOnly">
+              <text x="451" y="165">x → x + 2</text>
+              <text x="451" y="192">y → y − 1</text>
+              <text x="451" y="230">形状不变</text>
+            </template>
+            <template v-else>
+              <text x="451" y="165">原点 O</text>
+              <text x="451" y="192">是旋转/</text>
+              <text x="451" y="219">放缩中心</text>
+            </template>
           </template>
           <template v-else-if="mode === 10">
             <path d="M165 195L315 95" class="accent" />
@@ -639,7 +651,9 @@
       </div>
       <p class="result"><LatexText :text="cylinderText" /></p>
     </template>
-    <p class="footnote">互动示意用于理解关系；考试图是否按比例，仍以原题说明为准。</p>
+    <p v-if="!displayOnly" class="footnote">
+      互动示意用于理解关系；考试图是否按比例，仍以原题说明为准。
+    </p>
   </figure>
 </template>
 
@@ -648,7 +662,9 @@ import { computed, ref } from 'vue'
 import AppButton from '@/components/AppButton.vue'
 import LatexText from '@/components/LatexText.vue'
 
-const props = defineProps<{ topic: string }>()
+const props = withDefaults(defineProps<{ topic: string; displayOnly?: boolean }>(), {
+  displayOnly: false,
+})
 // 节点后两位直接对应官方几何十九个小节，保持切换后的模型针对性。
 const mode = computed(() => Number(props.topic.slice(-2)))
 const headings = [
@@ -696,7 +712,11 @@ const leads = [
   '蓝色路径先 u 后 v，绿色线直接抵达终点；交换路径仍到同一点。',
 ]
 // 提示只描述本节可操作模型，不依赖题目答案或后端状态。
-const lead = computed(() => leads[mode.value - 1] || '')
+const lead = computed(() =>
+  props.displayOnly && mode.value === 6
+    ? '把每个顶点代入同一个坐标规则，从图形位置理解平移向量。'
+    : leads[mode.value - 1] || '',
+)
 const sides = ref(5)
 const quad = ref(0)
 const criterion = ref('SSS')

@@ -1,5 +1,6 @@
 // ESAT数学1数学习讲义：概念图解、年度考法归纳与真实题源练习对齐现行考纲。
 import type { KnowledgeLesson } from './types'
+import { numberFoundationsMethods } from './numberFoundationsMethods'
 
 export const esatNumber: KnowledgeLesson = {
   code: '110200',
@@ -17,30 +18,16 @@ export const esatNumber: KnowledgeLesson = {
     {
       code: '110201',
       title: '数的大小与不等号',
-      summary: '先统一形式，再判断数轴位置；比较含根式的正数可以比较平方。',
-      paragraphs: [
-        '数轴上的位置决定大小。负数的绝对值越大，位置越靠左，例如 $-8<-3$；绝对值表示到零的距离，不表示这个数本身更大。',
-        '比较分数、小数和整数时，可先统一成小数或同分母分数。分母为正时，也可交叉相乘比较：$\\frac{a}{b}<\\frac{c}{d}$ 等价于 $ad<bc$（$b,d>0$）。不要用过早舍入的小数比较接近的数。',
-      ],
-      rules: [
-        {
-          title: '符号要读完整',
-          text: '$=$ 表示相等，$\\ne$ 表示不等；$<$、$>$ 不包含相等，$\\le$、$\\ge$ 包含相等。“至少 3”写成 $x\\ge3$，“小于 3”写成 $x<3$。',
-        },
-        {
-          title: '负号与方向',
-          text: '两边加减同一个数，大小关系不变；同乘或同除一个负数，不等号反向，例如 $2<5$ 推出 $-2>-5$。',
-        },
-        {
-          title: '小数补零不改值',
-          text: '$0.6=0.60$，按相同位值逐位比较，不能仅按小数位数判断大小。',
-        },
-      ],
+      summary: numberFoundationsMethods['110201'].summary,
+      paragraphs: [numberFoundationsMethods['110201'].intro],
+      memory: numberFoundationsMethods['110201'].memory,
+      rules: numberFoundationsMethods['110201'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '负数排序不能只比较去掉负号后的数字。',
         '$\\frac13$ 与 $0.333$ 并不相等，前者还带着无限循环的尾数。',
       ],
-      visual: 'maths-number',
       sourceIds: ['number-spec', 'number-decimals', 'number-fractions'],
       examFocus: {
         goal: '先统一形式，再判断数轴位置；比较含根式的正数可以比较平方。',
@@ -100,31 +87,17 @@ export const esatNumber: KnowledgeLesson = {
     {
       code: '110202',
       title: '四则运算与位值',
-      summary: '让每个数字回到它的位值，带分数与负数先转换后运算。',
-      paragraphs: [
-        '十进制相邻数位相差 10 倍。例如 $30.407=3\\times10+4\\times\\frac1{10}+7\\times\\frac1{1000}$；这里的 0 占住百分位，不能删掉。乘 10 是每一位的值变为原来的 10 倍。',
-        '加减小数时对齐小数点；乘小数可先当整数相乘，再按原来的总小数位数还原。除以小数时，将被除数、除数同时乘同一个 10 的幂，把除数变为整数。负带分数 $-1\\frac12$ 表示 $-(1+\\frac12)$。',
-      ],
-      rules: [
-        {
-          title: '符号规则',
-          text: '减去负数等于加上对应正数。乘除同号得正、异号得负；零不能作除数。',
-        },
-        {
-          title: '分数四则',
-          text: '加减先通分；乘法分子相乘、分母相乘；除以非零分数等于乘其倒数。带分数先化成假分数，例如 $2\\frac13=\\frac73$。',
-        },
-        {
-          title: '先估后算',
-          text: '$0.48\\div0.06$ 是“0.48 中有几个 0.06”，应得到 8；不能看到小数就猜结果也小于 1。',
-        },
-      ],
+      summary: numberFoundationsMethods['110202'].summary,
+      paragraphs: [numberFoundationsMethods['110202'].intro],
+      memory: numberFoundationsMethods['110202'].memory,
+      rules: numberFoundationsMethods['110202'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '$\\frac12+\\frac13$ 不是 $\\frac25$；分母表示分成多大的份，必须先统一。',
         '除法中只把除数扩大、没有同步扩大被除数，会改变答案。',
       ],
       sourceIds: ['number-spec', 'number-arithmetic', 'number-fractions'],
-      visual: 'maths-number',
       examFocus: {
         goal: '让每个数字回到它的位值，带分数与负数先转换后运算。',
         pastPaperSummary:
@@ -178,31 +151,17 @@ export const esatNumber: KnowledgeLesson = {
     {
       code: '110203',
       title: '素数、因数与倍数',
-      summary: '把整数拆成素因子；公因数取少，公倍数取足。',
-      paragraphs: [
-        '正整数 $a$ 能整除 $b$ 时，$a$ 是 $b$ 的因数（factor / divisor），$b$ 是 $a$ 的倍数（multiple）。素数（prime）是大于 1、只有 1 和自身两个正因数的整数；1 不是素数，2 是唯一的偶素数。',
-        '大于 1 的整数都能分解成素数的乘积；除排列顺序外，分解唯一。最大公因数 HCF 取双方共有的素因子及较小指数；最小公倍数 LCM 要装下双方所需的全部素因子，取较大指数。',
-      ],
-      rules: [
-        {
-          title: '因数成对找',
-          text: '列 $n$ 的正因数时，从 1 检查到 $\\sqrt n$，每找到 $d$ 就配上 $n/d$；完全平方数的中间一对只记一次。',
-        },
-        {
-          title: 'HCF 与 LCM',
-          text: '例如 $a=2^3\\times3$、$b=2\\times3^2$，则 $\\operatorname{HCF}=2\\times3$，$\\operatorname{LCM}=2^3\\times3^2$。缺少的素因子视为指数 0。',
-        },
-        {
-          title: '快速验算',
-          text: '对两个正整数，$\\operatorname{HCF}(a,b)\\times\\operatorname{LCM}(a,b)=ab$；互素的两个数 HCF 为 1，但它们不一定都是素数。',
-        },
-      ],
+      summary: numberFoundationsMethods['110203'].summary,
+      paragraphs: [numberFoundationsMethods['110203'].intro],
+      memory: numberFoundationsMethods['110203'].memory,
+      rules: numberFoundationsMethods['110203'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '最小公倍数通常不是简单相乘；两数有共同因子时，相乘会多算。',
         '素数不是“所有奇数”；例如 21 是奇数，却等于 3 × 7。',
       ],
       sourceIds: ['number-spec', 'number-factors'],
-      visual: 'maths-number',
       examFocus: {
         goal: '把整数拆成素因子；公因数取少，公倍数取足。',
         pastPaperSummary:
@@ -239,31 +198,17 @@ export const esatNumber: KnowledgeLesson = {
     {
       code: '110204',
       title: '逆运算与运算顺序',
-      summary: '先看整体结构，再按优先级算；分数线本身就是一层括号。',
-      paragraphs: [
-        '逆运算（inverse operation）可以撤销原操作：加 7 对应减 7，乘 4 对应除以 4。非零数 $a$ 的倒数是 $1/a$，因为它们的乘积为 1；减法与除法不能随意交换顺序。',
-        '按“括号内 → 幂与根 → 乘除 → 加减”理解优先级。同级从左到右。分数横线把整个分子和整个分母分别分组，根号横线也限定了根号作用的范围。',
-      ],
-      rules: [
-        {
-          title: '同级有先后',
-          text: '$18\\div3\\times2=(18\\div3)\\times2=12$，不是 $18\\div(3\\times2)$。',
-        },
-        {
-          title: '约分的对象',
-          text: '$\\frac{6\\times7}{6\\times5}=\\frac75$；但 $\\frac{6+7}{6}$ 不能把两个 6 划掉。先提成公因子的乘积，才能约分。',
-        },
-        {
-          title: '括号保护负号',
-          text: '$(-4)^2=16$，而 $-4^2=-(4^2)=-16$。平方与开平方互为逆操作时，还要留意正负号。',
-        },
-      ],
+      summary: numberFoundationsMethods['110204'].summary,
+      paragraphs: [numberFoundationsMethods['110204'].intro],
+      memory: numberFoundationsMethods['110204'].memory,
+      rules: numberFoundationsMethods['110204'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '口诀里的乘除是同一优先级，不是“所有乘法永远先于所有除法”。',
         '去括号时，括号前的减号必须作用于括号内整个表达式。',
       ],
       sourceIds: ['number-spec', 'number-operations'],
-      visual: 'maths-number',
       examFocus: {
         goal: '先看整体结构，再按优先级算；分数线本身就是一层括号。',
         pastPaperSummary:
@@ -314,31 +259,17 @@ export const esatNumber: KnowledgeLesson = {
     {
       code: '110205',
       title: '系统列举策略',
-      summary: '先确定顺序与重复规则，再固定第一项逐行列举，不漏不重。',
-      paragraphs: [
-        '列举前先定义“一个结果”：是否区分顺序、是否允许重复、第一位是否可为零。按第一步分组，再在每组内列完第二步，可用表格或树状分支防止漏项。',
-        '乘法计数原理不是随意把两个数字相乘：如果第一步有 $m$ 种选择，且每一种第一步之后都恰有 $n$ 种第二步选择，才可直接用 $mn$。各分支可选数量不同，就分别计数后相加；无需假设概率独立。',
-      ],
-      rules: [
-        {
-          title: '顺序是否重要',
-          text: '选队长与副队长时，甲乙和乙甲不同；只选两人组成小组时，它们是同一个小组。',
-        },
-        {
-          title: '重复是否允许',
-          text: '用 4 个不同数字组成两位代码，允许重复时有 $4\\times4$ 种，不允许重复时有 $4\\times3$ 种；若是两位整数，还须排除首位为 0。',
-        },
-        {
-          title: '分类后相加',
-          text: '分类必须覆盖全部情况，并且类别互不重叠，否则会漏算或重复计算。',
-        },
-      ],
+      summary: numberFoundationsMethods['110205'].summary,
+      paragraphs: [numberFoundationsMethods['110205'].intro],
+      memory: numberFoundationsMethods['110205'].memory,
+      rules: numberFoundationsMethods['110205'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '首位为 0 的代码可能合法，但首位为 0 的“两位整数”不合法。',
         '不能见到两个位置就直接相乘；限制可能让不同分支有不同数量的选项。',
       ],
       sourceIds: ['number-spec', 'number-counting'],
-      visual: 'maths-number',
       examFocus: {
         goal: '先确定顺序与重复规则，再固定第一项逐行列举，不漏不重。',
         pastPaperSummary:
@@ -394,31 +325,17 @@ export const esatNumber: KnowledgeLesson = {
     {
       code: '110206',
       title: '平方、根、立方',
-      summary: '根号取非负主值；平方方程考虑正负，长度再用情境筛选。',
-      paragraphs: [
-        '平方（square）是数乘自身，立方（cube）是三个相同因数相乘。$5^2=(-5)^2=25$，所以 25 的平方根有 5 和 −5；但符号 $\\sqrt{25}$ 专指非负的算术平方根，值为 5。',
-        '求根可反问：“哪个数的几次方得到它？”因为 $(-3)^3=-27$，所以 $\\sqrt[3]{-27}=-3$。在实数范围，负数没有平方根，但任何实数都有且仅有一个实立方根。',
-      ],
-      rules: [
-        {
-          title: '根号值与解方程',
-          text: '$\\sqrt a\\ge0$（$a\\ge0$）；$x^2=a$ 在 $a>0$ 时有 $x=\\pm\\sqrt a$，在 $a=0$ 时只有 $x=0$。',
-        },
-        {
-          title: '平方再开根',
-          text: '$\\sqrt{x^2}=|x|$，不是总等于 $x$。例如 $\\sqrt{(-7)^2}=7$。',
-        },
-        {
-          title: '用邻近平方定位',
-          text: '$7^2<55<8^2$ 推出 $7<\\sqrt{55}<8$，可帮助判断根式的数量级。',
-        },
-      ],
+      summary: numberFoundationsMethods['110206'].summary,
+      paragraphs: [numberFoundationsMethods['110206'].intro],
+      memory: numberFoundationsMethods['110206'].memory,
+      rules: numberFoundationsMethods['110206'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '不能写 $\\sqrt{81}=\\pm9$；“±”属于解方程的结果。',
         '根号一般不能拆加法：$\\sqrt{9+16}=5$，而 $\\sqrt9+\\sqrt{16}=7$。',
       ],
       sourceIds: ['number-spec', 'number-radicals'],
-      visual: 'maths-number',
       examFocus: {
         goal: '根号取非负主值；平方方程考虑正负，长度再用情境筛选。',
         pastPaperSummary:
@@ -485,31 +402,17 @@ export const esatNumber: KnowledgeLesson = {
     {
       code: '110207',
       title: '数值指数律',
-      summary: '先统一底数；乘法加指数，除法减指数，幂的幂乘指数。',
-      paragraphs: [
-        '$a^3a^2$ 是把 3 个 $a$ 与 2 个 $a$ 接在一起相乘，所以等于 $a^5$。同底数相除则约去公共因子。指数规律的本质是因子的个数和结构，不适用于把两个幂直接相加。',
-        '对正底数 $a$，$a^{m/n}=(\\sqrt[n]{a})^m$（$n$ 为正整数），分母告诉你开几次根，分子告诉你取几次方；负指数再取倒数。先开根通常比先算大整数更省力。',
-      ],
-      rules: [
-        {
-          title: '运算表',
-          text: '对 $a>0$，$a^ma^n=a^{m+n}$，$a^m/a^n=a^{m-n}$，$(a^m)^n=a^{mn}$。对 $a,b>0$，$(ab)^n=a^nb^n$，$(a/b)^n=a^n/b^n$。',
-        },
-        {
-          title: '零次方与负指数',
-          text: '$a^0=1$、$a^{-n}=1/a^n$ 都要求 $a\\ne0$。$0^0$ 不在这里定义，零的负次方无意义。',
-        },
-        {
-          title: '负底数先判断定义域',
-          text: '整数指数可用于负底数。分数指数先约成最简分数：奇数分母可按实数奇次根理解，如 $(-8)^{1/3}=-2$；偶数分母不对负数定义实数值。不要把正底数的全部变形规则无条件搬到负底数。',
-        },
-      ],
+      summary: numberFoundationsMethods['110207'].summary,
+      paragraphs: [numberFoundationsMethods['110207'].intro],
+      memory: numberFoundationsMethods['110207'].memory,
+      rules: numberFoundationsMethods['110207'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '$3^{-2}=\\frac19$，不是 $-9$，也不是 $-\\frac19$。',
         '$2^3+2^2=12$，不能用乘法指数律写成 $2^5$。',
       ],
       sourceIds: ['number-spec', 'number-indices', 'number-radicals'],
-      visual: 'maths-number',
       examFocus: {
         goal: '先统一底数；乘法加指数，除法减指数，幂的幂乘指数。',
         pastPaperSummary:
@@ -564,31 +467,17 @@ export const esatNumber: KnowledgeLesson = {
     {
       code: '110208',
       title: '科学计数法',
-      summary: '系数和10的幂分开算；加减先同指数，最后检查标准形式。',
-      paragraphs: [
-        '正数的标准形式（standard form）写成 $a\\times10^n$，其中 $1\\le a<10$、$n$ 为整数。大数通常对应正指数，小于 1 的正数对应负指数，例如 $0.00056=5.6\\times10^{-4}$。负数可把负号保留在整个标准形式前。',
-        '乘除时把系数与 10 的幂分开处理，最后检查系数是否回到标准范围。加减时先把指数统一，否则是在把不同大小的“份”直接相加。比较正数时先比较指数，指数相同再比较系数。',
-      ],
-      rules: [
-        {
-          title: '乘除分两路',
-          text: '$(a\\times10^m)(b\\times10^n)=ab\\times10^{m+n}$；除法把系数相除、指数相减，分母必须非零。',
-        },
-        {
-          title: '加减先对齐',
-          text: '$3.2\\times10^4+6\\times10^3=(3.2+0.6)\\times10^4$。',
-        },
-        {
-          title: '结果要标准化',
-          text: '$24\\times10^{-6}=2.4\\times10^{-5}$；系数除以 10，10 的指数就加 1，保持原值不变。',
-        },
-      ],
+      summary: numberFoundationsMethods['110208'].summary,
+      paragraphs: [numberFoundationsMethods['110208'].intro],
+      memory: numberFoundationsMethods['110208'].memory,
+      rules: numberFoundationsMethods['110208'].blocks.flatMap((block) =>
+        block.points ?? (block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ),
       pitfalls: [
         '负指数表示倒数，不表示这个数为负。',
         '只把小数点移走、却忘记同步调整指数，会改变原数。',
       ],
       sourceIds: ['number-spec', 'number-indices'],
-      visual: 'maths-number',
       examFocus: {
         goal: '系数和10的幂分开算；加减先同指数，最后检查标准形式。',
         pastPaperSummary:

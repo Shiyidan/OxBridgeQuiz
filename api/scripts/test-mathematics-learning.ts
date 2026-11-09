@@ -13,6 +13,7 @@ import {
   getLearningSelfCheck,
 } from "../src/services/learningSelfCheck.js";
 import { findKnowledgeLesson } from "../../quiz-web/src/content/knowledge/index.js";
+import { numberFoundationsMethods } from "../../quiz-web/src/content/knowledge/numberFoundationsMethods.js";
 
 const originalMany = prisma.question.findMany;
 const originalFirst = prisma.question.findFirst;
@@ -119,7 +120,19 @@ for (const code of Object.keys(mathematicsLearningSelfChecks)) {
   assert(section.summary && section.paragraphs.length && section.rules.length);
   assert.equal(section.example, undefined, "旧原创例题须由固定题源取代");
   assert.equal(section.check, undefined, "自测不得退回客户端内置答案");
-  assert(section.visual && section.pitfalls.length && lesson.memory.length);
+  assert(section.pitfalls.length && (section.memory ?? lesson.memory).length);
+  const textLesson = numberFoundationsMethods[code as keyof typeof numberFoundationsMethods];
+  if (textLesson) {
+    assert(textLesson.blocks.length, `${code} 缺少复习讲义`);
+    for (const block of textLesson.blocks) {
+      assert(block.title && (block.paragraphs?.length || block.table?.rows.length), `${code} 讲义块没有有效内容`);
+    }
+    assert.equal(section.summary, textLesson.summary);
+    assert.deepEqual(section.memory, textLesson.memory);
+    assert.equal(section.visual, undefined, `${code} 不应恢复基础运算大图`);
+  } else {
+    assert(section.visual, `${code} 缺少既有图解`);
+  }
   assert(section.examFocus?.examples.length, `${code} 缺少精选例题`);
   assert(section.examFocus.pastPaperSummary, `${code} 缺少真题审阅结论`);
   assert(

@@ -53,7 +53,7 @@
         >
       </aside>
 
-      <section class="qb-workspace" aria-labelledby="question-bank-title">
+      <section ref="workspaceRef" class="qb-workspace" aria-labelledby="question-bank-title">
         <el-tabs v-model="activeMode" class="qb-mode-tabs" aria-label="学习与做题">
           <el-tab-pane
             v-for="mode in workspaceModes"
@@ -358,6 +358,7 @@ function requireLoginForPracticeAction(): boolean {
 
 const treeData = ref<TreeNode[]>([])
 const syllabusTreeRef = ref<TreeInstance>()
+const workspaceRef = ref<HTMLElement>()
 const difficultyGridRef = ref<HTMLElement[]>([])
 const treeProps = { children: 'children', label: 'label' }
 const defaultExpanded = ref<string[]>([])
@@ -590,14 +591,19 @@ function resetQuestionSummary(): void {
   difficulties.value = difficulties.value.map((item) => ({ ...item, count: 0 }))
 }
 
-// 大纲选择同步到地址，刷新或登录返回时仍能恢复当前知识点。
+// 大纲选择同步地址和练习范围；正文更新后立即回到学习顶部，不等待题量接口。
 const handleTreeNodeClick = async (node: TreeNode): Promise<void> => {
   selectedNodeCode.value = node.code
   selectedNodeLabel.value = node.label
   if (route.query.code !== node.code) {
     void router.replace({ query: { ...route.query, code: node.code } })
   }
-  await loadQuestionSummary()
+  const summaryRequest = loadQuestionSummary()
+  await nextTick()
+  if (activeMode.value === 'learning' && selectedNodeCode.value === node.code) {
+    workspaceRef.value?.scrollIntoView({ behavior: 'auto', block: 'start' })
+  }
+  await summaryRequest
 }
 
 // 同一工作区的链接也可能指定新范围，KeepAlive 恢复时只处理实际变化的上下文。
@@ -977,6 +983,8 @@ async function handlePaymentSuccess(): Promise<void> {
 }
 .qb-workspace {
   min-width: 0;
+  /* 顶部导航固定时，仍完整露出学习标签、面包屑和当前知识点标题。 */
+  scroll-margin-top: calc(var(--nav-height) + 20px);
 }
 .qb-overview {
   grid-column: 1 / -1;

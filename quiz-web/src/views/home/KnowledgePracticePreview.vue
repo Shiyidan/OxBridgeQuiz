@@ -1,4 +1,4 @@
-<!-- 首页知识图练习预览：按知识点和难度联动概念题，提供提示、判定和解析。 -->
+<!-- 首页知识图练习预览：按知识点和难度展示题库精选题，提供作答判定和原题解析。 -->
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { Right, RefreshRight, Reading } from '@element-plus/icons-vue'
@@ -18,19 +18,18 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ learn: []; practice: [] }>()
 const selectedAnswer = ref<number | null>(null)
-const hintVisible = ref(false)
-const answerLabels = ['A', 'B', 'C', 'D']
-// 同一个选择组合同时决定训练目标、题目、提示与解析，避免只切换外观。
+// 同一个选择组合同时决定训练目标、题目与解析，避免只切换外观。
 const exercise = computed(() => knowledgePracticeExamples[props.topic][props.difficulty])
+// 直接使用题库的原始选项标签，与正确答案及解析保持一致。
+const answerLabels = computed(() => exercise.value.answerLabels)
 // 组合键让切换内容有轻微入场反馈，并重建题目内的临时交互状态。
 const exerciseKey = computed(() => `${props.topic}-${props.difficulty}`)
 // 回答前不展示正确选项；回答后给出当前示例的即时反馈。
 const isCorrect = computed(() => selectedAnswer.value === exercise.value.answerIndex)
 
-// 切换知识点或难度时清空上一题的答案与提示，避免旧结果串入新内容。
+// 切换知识点或难度时清空上一题的答案，避免旧结果串入新内容。
 function resetExercise() {
   selectedAnswer.value = null
-  hintVisible.value = false
 }
 
 // 首次选择后锁定本次反馈；用户可通过重新作答再次体验。
@@ -69,23 +68,15 @@ watch(exerciseKey, resetExercise, { flush: 'sync' })
 
       <section class="quick-exercise" aria-labelledby="home-exercise-title">
         <header class="exercise-heading">
-          <span id="home-exercise-title">概念小练习 <small>示例</small></span>
-          <AppButton
-            id="home-exercise-hint"
-            type="text"
-            size="small"
-            :aria-expanded="hintVisible"
-            aria-controls="home-exercise-hint-text"
-            @click="hintVisible = !hintVisible"
-          >
-            {{ hintVisible ? '收起提示' : '给我一点提示' }}
-          </AppButton>
+          <span id="home-exercise-title">试题库</span>
+          <p class="answer-prompt">
+            选一个答案，立即查看解析。切换上方知识点或难度，可以体验另一道题。
+          </p>
         </header>
-        <p class="exercise-question"><KnowledgeText :text="exercise.question" /></p>
-        <p v-if="hintVisible" id="home-exercise-hint-text" class="exercise-hint">
-          <KnowledgeText :text="exercise.hint" />
-        </p>
-        <div class="exercise-options" role="group" aria-label="选择概念小练习答案">
+        <div class="exercise-question">
+          <KnowledgeText :text="exercise.displayQuestion ?? exercise.question" />
+        </div>
+        <div class="exercise-options" role="group" aria-label="选择练习答案">
           <button
             v-for="(option, index) in exercise.options"
             :id="`home-exercise-option-${index}`"
@@ -109,7 +100,12 @@ watch(exerciseKey, resetExercise, { flush: 'sync' })
             <span v-else-if="selectedAnswer === index" class="option-result">你的选择</span>
           </button>
         </div>
-        <div class="exercise-response" aria-live="polite" aria-atomic="true">
+        <div
+          class="exercise-response"
+          :class="{ 'exercise-response--answered': selectedAnswer !== null }"
+          aria-live="polite"
+          aria-atomic="true"
+        >
           <div v-if="selectedAnswer !== null" class="answer-feedback">
             <div class="feedback-heading">
               <strong>{{
@@ -126,11 +122,8 @@ watch(exerciseKey, resetExercise, { flush: 'sync' })
                 >重新作答</AppButton
               >
             </div>
-            <p><KnowledgeText :text="exercise.explanation" /></p>
+            <div class="answer-explanation"><KnowledgeText :text="exercise.explanation" /></div>
           </div>
-          <p v-else class="answer-prompt">
-            选一个答案，立即查看解析。切换上方知识点或难度，可以体验另一道题。
-          </p>
         </div>
       </section>
     </div>
@@ -201,25 +194,14 @@ watch(exerciseKey, resetExercise, { flush: 'sync' })
 .exercise-heading {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
 }
 .exercise-heading > span {
-  color: #5c7388;
+  color: #000;
   font-size: 12px;
   font-weight: 600;
-}
-.exercise-heading small {
-  margin-left: 10px;
-  padding: 3px 7px;
-  color: #8096aa;
-  background: #f3f7fb;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 400;
-}
-.exercise-heading :deep(.app-button) {
-  font-size: 11px;
+  flex-shrink: 0;
 }
 .exercise-question {
   min-height: 28px;
@@ -283,22 +265,13 @@ watch(exerciseKey, resetExercise, { flush: 'sync' })
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.exercise-hint {
-  border-left: 2px solid #a6cdf8;
-  background: #f5f9ff;
-  padding: 8px 12px;
-  color: #597894;
-  font-size: 12px;
-  line-height: 1.8;
-}
-.exercise-response {
-  min-height: 92px;
+.exercise-response--answered {
   margin-top: 16px;
   border-top: 1px solid #edf2f7;
   padding-top: 12px;
 }
 .answer-prompt {
-  margin: 8px 0;
+  margin: 0;
   font-size: 11px;
   color: #8b9bac;
   line-height: 1.8;
@@ -318,7 +291,7 @@ watch(exerciseKey, resetExercise, { flush: 'sync' })
   font-size: 11px;
   flex-shrink: 0;
 }
-.answer-feedback p {
+.answer-explanation {
   margin: 5px 0 0;
   color: #61798e;
   font-size: 12px;

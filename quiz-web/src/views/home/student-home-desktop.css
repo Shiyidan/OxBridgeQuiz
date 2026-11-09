@@ -1,0 +1,296 @@
+/* 登录后桌面首屏：沿用首页色彩与真实状态，移动端继续使用原有布局。 */
+.home-student .home-entry-icon {
+  display: none;
+}
+
+@media (min-width: 861px) {
+  /* 首屏内容已采用紧凑布局，外层不再额外撑满视口，避免模块之间露出白底。 */
+  .home-main > .home-student {
+    min-height: 0;
+  }
+  .home-student .home-student-overview {
+    isolation: isolate;
+    min-height: 0;
+    background: linear-gradient(160deg, var(--home-paper) 35%, var(--home-blue-soft) 160%);
+    border-bottom: 1px solid var(--home-line);
+  }
+  .home-student .home-student-overview::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: url('../../assets/home/hero-learning-wave.webp') 62% center / cover no-repeat;
+    opacity: 0.22;
+    mask-image: linear-gradient(to bottom, transparent, black 18%, black 82%, transparent);
+  }
+  .home-student .home-student-overview-inner {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100svh - var(--home-header-height));
+    padding-block: 48px 0;
+    row-gap: 32px;
+  }
+  /* 状态详情位于入口之前，让连续四栏始终收在首屏模块底部。 */
+  .home-student .home-state-detail {
+    margin-top: 0;
+  }
+  .home-student .home-student-hero {
+    grid-template-columns: minmax(0, 1.45fr) minmax(330px, 0.85fr);
+    gap: clamp(36px, 5vw, 80px);
+    align-items: center;
+  }
+  .home-student .home-student-hero-copy {
+    padding-block: 12px;
+  }
+  .home-student .home-student-hero .home-hello {
+    margin: 0 0 22px;
+    color: var(--home-muted);
+    font-size: var(--text-sm);
+  }
+  .home-student .home-hero-kicker {
+    gap: 8px;
+    margin-bottom: 16px;
+    color: var(--home-blue);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1.7;
+  }
+  .home-student .home-hero-kicker::before {
+    width: 6px;
+    height: 6px;
+    flex-shrink: 0;
+    border-radius: var(--radius-pill);
+    background: var(--home-blue);
+    box-shadow: 0 0 0 4px var(--home-blue-soft);
+  }
+  .home-student .home-student-hero h1 {
+    max-width: 760px;
+    font-size: clamp(32px, 2.8vw, 44px);
+    font-weight: 750;
+    line-height: 1.35;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+    overflow-wrap: anywhere;
+  }
+  .home-student .home-student-hero-description {
+    max-width: 620px;
+    margin-top: 20px;
+    color: var(--home-muted);
+    font-size: var(--text-sm);
+    line-height: 1.9;
+  }
+  .home-student .home-hero-actions {
+    margin-top: 28px;
+    gap: 12px;
+  }
+  .home-student .home-hero-actions .home-btn {
+    min-height: 46px;
+    height: auto;
+    padding: 12px 20px;
+    border-radius: var(--radius-button);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: normal;
+  }
+  .home-student .home-btn--secondary {
+    border-color: var(--home-line);
+  }
+  .home-student .home-context-panel {
+    min-height: 0;
+    padding: 24px 28px 18px;
+    border: 1px solid var(--home-line);
+    border-radius: var(--radius-xl);
+    background: var(--home-paper);
+    box-shadow: var(--shadow-md);
+    transform: none;
+  }
+  .home-student .home-context-panel:hover,
+  .home-student .home-context-panel:focus-within {
+    transform: none;
+    box-shadow: var(--shadow-md);
+  }
+  .home-student .home-context-panel::after {
+    display: none;
+  }
+  .home-student .home-context-head {
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin: 0 0 8px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--home-line);
+  }
+  .home-student .home-context-head > span {
+    font-size: var(--text-xs);
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+  .home-student .home-context-head b {
+    font-size: var(--text-sm);
+    text-align: right;
+  }
+  .home-student .home-context-signal {
+    margin: 0;
+    padding: 16px 0 16px 24px;
+    border: 0;
+    background: transparent;
+  }
+  .home-student .home-context-signal::before {
+    content: '';
+    position: absolute;
+    top: 22px;
+    left: 0;
+    width: 7px;
+    height: 7px;
+    border: 2px solid var(--home-blue);
+    border-radius: var(--radius-pill);
+    background: var(--home-paper);
+  }
+  .home-student .home-context-signal--good::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 36px;
+    bottom: -16px;
+    width: 1px;
+    background: var(--home-line);
+  }
+  .home-student .home-context-signal--focus::before {
+    border-color: var(--home-teal);
+  }
+  .home-student .home-context-signal > span {
+    font-size: var(--text-xs);
+    font-weight: 400;
+    margin-bottom: 5px;
+  }
+  .home-student .home-context-signal strong {
+    font-size: var(--text-base);
+    line-height: 1.5;
+  }
+  .home-student .home-context-signal p {
+    font-size: var(--text-xs);
+    line-height: 1.7;
+    margin-top: 5px;
+  }
+  .home-student .home-context-scope {
+    margin-top: 4px;
+    padding-top: 12px;
+  }
+  .home-student .home-context-scope button,
+  .home-student .home-context-goal-link button {
+    color: var(--home-blue);
+    font-size: var(--text-xs);
+    padding: 5px 0;
+  }
+  .home-student .home-context-goal-link {
+    padding-top: 12px;
+    border-top: 1px solid var(--home-line);
+  }
+  .home-student .home-entry-grid {
+    order: 1;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0;
+    margin-top: auto;
+    border: 0;
+    border-top: 1px solid var(--home-ink);
+  }
+  .home-student .home-entry {
+    min-height: 150px;
+    padding: 22px 20px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto 1fr;
+    gap: 8px 12px;
+    align-content: start;
+    border: 0;
+    border-right: 1px solid var(--home-line);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .home-student .home-entry:last-child {
+    border-right: 0;
+  }
+  .home-student .home-entry-index {
+    display: block;
+    color: var(--home-muted);
+  }
+  .home-student .home-entry-icon {
+    display: none;
+  }
+  .home-student .home-entry-number {
+    display: inline;
+  }
+  .home-student .home-entry > strong {
+    font-size: var(--text-base);
+    letter-spacing: 0;
+  }
+  .home-student .home-entry > p {
+    grid-column: 2;
+    grid-row: 2;
+    font-size: var(--text-xs);
+    line-height: 1.8;
+  }
+  .home-student .home-entry-action {
+    grid-column: 2;
+    padding-top: 8px;
+    border: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--home-ink);
+    font-size: var(--text-xs);
+    font-weight: 600;
+  }
+  .home-student .home-entry-action i {
+    color: var(--home-blue);
+  }
+  .home-student .home-entry .home-entry-mark {
+    grid-row: 1 / -1;
+    grid-column: 3;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0 8px;
+    border-radius: 50%;
+    background: var(--home-soft);
+    color: var(--home-muted);
+    font-size: var(--text-xs);
+    font-variant-numeric: tabular-nums;
+  }
+  .home-student .home-entry:hover:not(:disabled),
+  .home-student .home-entry:focus-visible:not(:disabled) {
+    transform: none;
+    background: var(--home-blue-soft);
+    box-shadow: none;
+  }
+  .home-student button:focus-visible {
+    outline: 2px solid var(--home-blue);
+    outline-offset: 4px;
+  }
+}
+
+@media (min-width: 861px) and (max-width: 1100px) {
+  .home-student .home-student-hero {
+    grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
+    gap: 28px;
+  }
+  .home-student .home-context-panel {
+    padding: 20px;
+  }
+  .home-student .home-entry {
+    padding-inline: 12px;
+    column-gap: 8px;
+  }
+  .home-student .home-entry .home-entry-mark {
+    min-width: 28px;
+    min-height: 28px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-student .home-entry {
+    transition: none;
+  }
+}

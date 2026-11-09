@@ -103,9 +103,14 @@
               </header>
 
               <template v-if="mode.id === 'learning'">
+                <div v-if="!learningAllowed" class="qb-learning-index">
+                  <h3>{{ learningChecking ? '正在确认学习权益…' : '学习平台为年卡专享' }}</h3>
+                  <p>开通当前考试的学习平台年卡或组合年卡，即可查看知识点讲解、例题和自测。</p>
+                  <AppButton :disabled="learningChecking" @click="openLearningPayment">开通学习平台年卡</AppButton>
+                </div>
                 <KeepAlive :max="1">
                   <KnowledgeLessonPanel
-                    v-if="activeMode === 'learning' && activeKnowledgeLesson"
+                    v-if="learningAllowed && activeMode === 'learning' && activeKnowledgeLesson"
                     :key="activeKnowledgeLesson.code"
                     :lesson="activeKnowledgeLesson"
                     :selected-code="selectedNodeCode"
@@ -114,7 +119,7 @@
                     @practise="openPracticeMode"
                   />
                 </KeepAlive>
-                <div v-if="!activeKnowledgeLesson" class="qb-learning-index">
+                <div v-if="learningAllowed && !activeKnowledgeLesson" class="qb-learning-index">
                   <template v-if="availableLearningChapters.length">
                     <h3>选择章节开始学习</h3>
                     <div class="qb-chapter-list">
@@ -268,6 +273,7 @@
     <PaymentModal
       :model-value="paymentVisible"
       :default-exam-type="paymentExamType"
+      :default-plan-id="paymentPlan"
       @update:model-value="handlePaymentVisibilityChange"
       @paid="handlePaymentSuccess"
     />
@@ -294,6 +300,7 @@ import type { TreeInstance } from 'element-plus'
 import AppDialog from '@/components/AppDialog.vue'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
+import type { AnnualPlan } from '@/constants/annualMembership'
 import SyllabusTreeNode from '@/components/SyllabusTreeNode.vue'
 import { findKnowledgeLesson } from '@/content/knowledge'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
@@ -340,7 +347,6 @@ const workspaceModes: { id: WorkspaceMode; label: string }[] = [
   { id: 'practice', label: '做题' },
 ]
 const activeMode = ref<WorkspaceMode>('practice')
-
 // 游客可浏览考纲与题量，开始专项练习时再进入登录并回到试题库。
 function requireLoginForPracticeAction(): boolean {
   if (auth.isLoggedIn) return false
@@ -381,6 +387,34 @@ let examContentInitialized = false
 let examLoadSequence = 0
 let summaryLoadSequence = 0
 let practiceLoadSequence = 0
+
+const paymentPlan = ref<AnnualPlan>('annual_practice')
+const learningChecking = ref(false)
+const learningAllowed = ref(false)
+let learningRequest = 0
+// 学习正文仅在最新权益确认后装载，切换考试时立即清除旧授权。
+watch(() => [activeMode.value, auth.activeExamType, selectedNodeCode.value] as const, async ([mode, exam], _old, onCleanup) => {
+  const request = ++learningRequest
+  learningAllowed.value = false
+  if (mode !== 'learning') return
+  learningChecking.value = true
+  let valid = true
+  onCleanup(() => { valid = false })
+  try {
+    const context = await getMember()
+    if (valid && request === learningRequest) {
+      learningAllowed.value = context.isAdmin || Boolean(context.quotas[exam]?.learningAccess)
+    }
+  } catch { /* 请求层显示读取错误，不向未确认权益的用户展示讲义。 */ }
+  finally { if (request === learningRequest) learningChecking.value = false }
+}, { immediate: true })
+// 学习购买默认选中学习年卡，支付后重新读取对应考试权益。
+function openLearningPayment(): void {
+  paymentPlan.value = 'annual_learning'
+  paymentExamType.value = auth.activeExamType
+  paymentVisible.value = true
+}
+
 
 const difficulties = ref<DifficultyOption[]>([
   {
@@ -872,6 +906,7 @@ function handleCancelMembershipAccess(): void {
 
 // 没有可用日卡或用户主动升级时再进入支付，并结束当前免费练习尝试。
 function handleOpenPayment(): void {
+  paymentPlan.value = 'annual_practice'
   upgradeDialogVisible.value = false
   paymentVisible.value = true
 }
@@ -886,7 +921,9 @@ function handlePaymentVisibilityChange(visible: boolean): void {
 async function handlePaymentSuccess(): Promise<void> {
   paymentVisible.value = false
   try {
-    auth.setMemberContext(await getMember())
+    const context = await getMember()
+    auth.setMemberContext(context)
+    learningAllowed.value = context.isAdmin || Boolean(context.quotas[auth.activeExamType]?.learningAccess)
     if (pendingDirectPractice.value) {
       await handleConfirmSelectedPractice()
     } else {

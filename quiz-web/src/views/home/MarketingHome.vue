@@ -1,5 +1,7 @@
 <!-- 访客营销首页：按 PRD 展示公开演示内容，并把注册、登录与功能跳转交给首页容器处理。 -->
 <script setup lang="ts">
+import AnnualMembershipPlans from '@/components/AnnualMembershipPlans.vue'
+import type { AnnualPlan } from '@/constants/annualMembership'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Connection, DocumentChecked, MagicStick } from '@element-plus/icons-vue'
 import diagnosticScoreDistributionUrl from '@/assets/home/diagnostic-score-distribution.png'
@@ -21,10 +23,6 @@ import DesktopMembershipIntro from './DesktopMembershipIntro.vue'
 import type { ActiveExamType } from '@/stores/auth'
 
 interface MarketingHomeProps {
-  memberPriceLabel?: string
-  quarterlyPriceLabel?: string
-  quarterlyOriginalPriceLabel?: string
-  quarterlyDiscountLabel?: string
   includeHero?: boolean
   authenticated?: boolean
 }
@@ -42,12 +40,8 @@ interface MarketingHeroSlide {
   imageAlt: string
 }
 
-// 会员价格由首页容器根据公开支付配置传入，购买入口始终交给父级完成认证分流。
+// 会员卡片读取公开定价；购买入口交给父级完成认证分流。
 const props = withDefaults(defineProps<MarketingHomeProps>(), {
-  memberPriceLabel: '¥198',
-  quarterlyPriceLabel: '¥356',
-  quarterlyOriginalPriceLabel: '594',
-  quarterlyDiscountLabel: '6折',
   includeHero: true,
   authenticated: false,
 })
@@ -263,7 +257,7 @@ const emit = defineEmits<{
   register: [targetPath: string]
   login: [targetPath: string]
   navigate: [targetPath: string]
-  'open-payment': [planId: 'monthly' | 'quarterly', examType?: ActiveExamType]
+  'open-payment': [planId: AnnualPlan, examType?: ActiveExamType]
   'scroll-top': []
 }>()
 
@@ -323,7 +317,7 @@ function requestLogin(targetPath: string) {
 }
 
 // 购买入口由父级处理登录分流、考试类型选择与支付结果回写。
-function requestPayment(planId: 'monthly' | 'quarterly', examType?: ActiveExamType) {
+function requestPayment(planId: AnnualPlan, examType?: ActiveExamType) {
   emit('open-payment', planId, examType)
 }
 
@@ -522,10 +516,6 @@ watch(
     <DesktopMistakeIntro v-if="isDesktopHero" />
     <DesktopMembershipIntro
       v-if="isDesktopHero"
-      :member-price-label="props.memberPriceLabel"
-      :quarterly-price-label="props.quarterlyPriceLabel"
-      :quarterly-original-price-label="props.quarterlyOriginalPriceLabel"
-      :quarterly-discount-label="props.quarterlyDiscountLabel"
       @register="requestRegistration"
       @payment="requestPayment"
     />
@@ -831,87 +821,7 @@ watch(
           </h2>
         </header>
 
-        <div class="home-pricing-grid">
-          <article class="home-price-card home-price-card-free">
-            <div class="home-price-card-head">
-              <div class="home-price-card-heading">
-                <span>免费注册</span>
-                <strong>¥0</strong>
-              </div>
-              <p>注册即可体验免费诊断与练习，学习过程持续为你保留。</p>
-            </div>
-            <ul class="home-benefit-list">
-              <li class="home-benefit-item">1套诊断测试卷随做随出报告</li>
-              <li class="home-benefit-item">开通对应考试会员，解锁试题库练习</li>
-              <li class="home-benefit-item">诊断报告与历史学习记录持续保留</li>
-              <li class="home-benefit-item">已完成内容的错题与解析随时回看</li>
-            </ul>
-            <button
-              class="home-btn home-btn-secondary home-btn-block"
-              type="button"
-              @click="requestRegistration('/assessment')"
-            >
-              开始诊断
-            </button>
-          </article>
-
-          <article class="home-price-card home-price-card-monthly">
-            <div class="home-price-card-head">
-              <div class="home-price-card-heading">
-                <span>月度会员</span>
-                <div class="home-price-main-line home-price-main-line-light">
-                  <strong>{{ props.memberPriceLabel }}</strong>
-                  <span class="home-price-unit">元</span>
-                </div>
-              </div>
-              <p>适合单月集中备考，会员权益按所选 ESAT 或 TMUA 独立生效。</p>
-            </div>
-            <ul class="home-benefit-list">
-              <li class="home-benefit-item">解锁全部会员诊断卷</li>
-              <li class="home-benefit-item">不限次生成能力诊断报告</li>
-              <li class="home-benefit-item">完整专项练习题库</li>
-              <li class="home-benefit-item">30 天错题攻克与学习建议</li>
-            </ul>
-            <button
-              class="home-btn home-btn-secondary home-btn-block"
-              type="button"
-              @click="requestPayment('monthly')"
-            >
-              开通月卡
-            </button>
-          </article>
-
-          <article class="home-price-card home-price-card-member">
-            <div class="home-price-recommended">推荐</div>
-            <div class="home-price-card-head">
-              <div class="home-price-card-heading">
-                <span>季度会员</span>
-                <div class="home-price-main-line">
-                  <strong>{{ props.quarterlyPriceLabel }}</strong>
-                  <del
-                    >/{{ props.quarterlyOriginalPriceLabel
-                    }}<span class="home-price-unit">元</span></del
-                  >
-                  <b>{{ props.quarterlyDiscountLabel }}</b>
-                </div>
-              </div>
-              <p>适合完整备考周期，会员权益按所选 ESAT 或 TMUA 独立生效。</p>
-            </div>
-            <ul class="home-benefit-list">
-              <li class="home-benefit-item">解锁全部会员诊断卷</li>
-              <li class="home-benefit-item">不限次生成能力诊断报告</li>
-              <li class="home-benefit-item">完整专项练习题库</li>
-              <li class="home-benefit-item">90 天错题攻克与学习建议</li>
-            </ul>
-            <button
-              class="home-btn home-btn-primary home-btn-block"
-              type="button"
-              @click="requestPayment('quarterly')"
-            >
-              开通季卡
-            </button>
-          </article>
-        </div>
+        <AnnualMembershipPlans @select="requestPayment($event)" />
 
         <p class="home-pricing-note">会员权益以实际产品说明为准</p>
       </div>

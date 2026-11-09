@@ -1,36 +1,19 @@
 <!-- 桌面首页会员方案：承接现有公开价格，所选考试与套餐交给首页支付流程。 -->
 <script setup lang="ts">
 import { ref } from 'vue'
-import { CircleCheck, Right, TopRight } from '@element-plus/icons-vue'
+import AnnualMembershipPlans from '@/components/AnnualMembershipPlans.vue'
+import type { AnnualPlan } from '@/constants/annualMembership'
+import { Right, TopRight } from '@element-plus/icons-vue'
 import AppButton from '@/components/AppButton.vue'
 import type { ActiveExamType } from '@/stores/auth'
 
-defineProps<{
-  memberPriceLabel: string
-  quarterlyPriceLabel: string
-  quarterlyOriginalPriceLabel: string
-  quarterlyDiscountLabel: string
-}>()
 const emit = defineEmits<{
   register: [path: string]
-  payment: [plan: 'monthly' | 'quarterly', exam: ActiveExamType]
+  payment: [plan: AnnualPlan, exam: ActiveExamType]
 }>()
 const exam = ref<ActiveExamType>('ESAT')
 const exams: ActiveExamType[] = ['ESAT', 'TMUA']
 const pricing = ref<HTMLElement | null>(null)
-const freeBenefits = [
-  '1 套免费诊断，随做随出报告',
-  '保留诊断报告与历史学习记录',
-  '回看已完成内容的错题与解析',
-  '按备考需要选择对应考试会员',
-]
-const memberBenefits = [
-  '解锁所选考试的全部诊断卷',
-  '不限次生成能力诊断报告',
-  '完整专项练习题库',
-  '错题复习与针对性学习建议',
-]
-
 // 收尾入口回到本页套餐选择，保留当前所选考试并尊重减少动效偏好。
 function showMembershipPlans() {
   pricing.value?.scrollIntoView({
@@ -52,7 +35,6 @@ function showMembershipPlans() {
         <div>
           <span class="section-eyebrow">MEMBERSHIP / 会员方案</span>
           <h2 id="membership-intro-title">按你的节奏，选择备考方案。</h2>
-          <p>先体验，再选择适合自己的备考周期。</p>
         </div>
         <div class="membership-exams" role="group" aria-label="选择会员适用考试">
           <span>选择备考考试</span
@@ -71,69 +53,7 @@ function showMembershipPlans() {
       <p class="membership-scope" aria-live="polite">
         当前选择 {{ exam }} · 会员权益按考试独立生效，ESAT 与 TMUA 不通用。
       </p>
-      <div class="membership-grid">
-        <article class="membership-card free-card">
-          <span class="plan-name">免费注册</span>
-          <div class="plan-price"><strong>¥0</strong><span>/ 免费体验</span></div>
-          <p class="plan-description">从一次诊断，认识当前的自己。</p>
-          <ul>
-            <li v-for="benefit in freeBenefits" :key="benefit">
-              <CircleCheck aria-hidden="true" /><span>{{ benefit }}</span>
-            </li>
-          </ul>
-          <AppButton
-            type="secondary"
-            :icon="TopRight"
-            icon-position="right"
-            @click="emit('register', '/assessment')"
-            >免费开始诊断</AppButton
-          >
-        </article>
-        <article class="membership-card">
-          <span class="plan-name">月度会员</span>
-          <div class="plan-price">
-            <strong>{{ memberPriceLabel }}</strong
-            ><span>/ 30 天</span>
-          </div>
-          <p class="plan-description">适合短期集中提升，专注当前目标。</p>
-          <ul>
-            <li v-for="benefit in memberBenefits" :key="benefit">
-              <CircleCheck aria-hidden="true" /><span>{{ benefit }}</span>
-            </li>
-          </ul>
-          <AppButton
-            :icon="TopRight"
-            icon-position="right"
-            :aria-label="`开通 ${exam} 月卡`"
-            @click="emit('payment', 'monthly', exam)"
-            >开通月卡</AppButton
-          >
-        </article>
-        <article class="membership-card recommended-card">
-          <span class="recommendation">推荐</span><span class="plan-name">季度会员</span>
-          <div class="plan-price">
-            <strong>{{ quarterlyPriceLabel }}</strong
-            ><span>/ 90 天</span>
-          </div>
-          <p class="plan-description">
-            <del>¥{{ quarterlyOriginalPriceLabel }}</del
-            ><b>{{ quarterlyDiscountLabel }}</b
-            ><span>覆盖更完整的备考周期</span>
-          </p>
-          <ul>
-            <li v-for="benefit in memberBenefits" :key="benefit">
-              <CircleCheck aria-hidden="true" /><span>{{ benefit }}</span>
-            </li>
-          </ul>
-          <AppButton
-            :icon="TopRight"
-            icon-position="right"
-            :aria-label="`开通 ${exam} 季卡`"
-            @click="emit('payment', 'quarterly', exam)"
-            >开通季卡</AppButton
-          >
-        </article>
-      </div>
+      <AnnualMembershipPlans @select="emit('payment', $event, exam)" />
       <p class="pricing-note">价格与权益以开通时的实际说明为准。</p>
     </div>
   </section>

@@ -35,20 +35,17 @@
 
           <div class="payment-body">
             <div class="payment-options">
-              <div class="option-section">
-                <div class="option-heading">
-                  <span class="option-step">1</span>
-                  <div class="option-heading__content">
-                    <h3>选择备考类型</h3>
-                    <p>不同考试类型的题库、解析与学习建议将有所区别</p>
-                  </div>
+              <div class="purchase-exam-row">
+                <div class="purchase-exam-copy">
+                  <h3>备考考试</h3>
+                  <p>权益按考试独立开通</p>
                 </div>
-                <div class="exam-options">
+                <div class="purchase-exam-switch" role="group" aria-label="选择备考考试">
                   <label
                     v-for="exam in examOptions"
                     :key="exam.value"
-                    class="exam-option"
-                    :class="{ 'exam-option--active': selectedExam === exam.value }"
+                    class="purchase-exam"
+                    :class="{ 'is-selected': selectedExam === exam.value }"
                   >
                     <input
                       v-model="selectedExam"
@@ -57,105 +54,53 @@
                       :value="exam.value"
                       :disabled="resumedExistingOrder"
                     />
-                    <span
-                      class="exam-option__icon"
-                      :class="`exam-option__icon--${exam.value.toLowerCase()}`"
-                      aria-hidden="true"
-                    >
-                      <svg v-if="exam.value === 'ESAT'" viewBox="0 0 32 32">
-                        <path d="M9 22L16.5 9M15.5 25L23 12" />
-                      </svg>
-                      <svg v-else viewBox="0 0 32 32">
-                        <path d="M16 5L27 25H5L16 5Z" />
-                        <path d="M10.5 15H21.5M10.5 15L16 25M21.5 15L16 25" />
-                      </svg>
-                    </span>
-                    <strong>{{ exam.label }}</strong>
-                    <span class="radio-control" aria-hidden="true">
-                      <svg v-if="selectedExam === exam.value" viewBox="0 0 16 16">
-                        <path d="M3.5 8.2l2.7 2.7 6.3-6.1" />
-                      </svg>
-                    </span>
+                    <span>{{ exam.label }}</span>
                   </label>
                 </div>
               </div>
-
-              <div class="option-section plan-section">
-                <div class="option-heading">
-                  <span class="option-step">2</span>
-                  <div class="option-heading__content">
-                    <h3>选择订阅计划</h3>
-                    <p>按需选择，随时开启高效备考</p>
-                  </div>
-                </div>
+              <div class="purchase-plan-heading">
+                <h3>选择适合你的年卡</h3>
+                <span>一次购买 · 365 天</span>
+              </div>
+              <div class="purchase-plans" role="group" aria-label="选择年卡套餐">
                 <button
                   v-for="plan in plans"
                   :key="plan.id"
-                  class="plan-option"
-                  :class="{ 'plan-option--active': selectedPlanId === plan.id }"
+                  class="purchase-plan"
+                  :class="{ 'is-selected': selectedPlanId === plan.id }"
                   type="button"
+                  :aria-pressed="selectedPlanId === plan.id"
                   :disabled="resumedExistingOrder"
                   @click="selectedPlanId = plan.id"
                 >
-                  <span v-if="plan.recommended" class="recommend-badge">
-                    <svg viewBox="0 0 16 16" aria-hidden="true">
-                      <path
-                        d="M8 1.6l1.7 3.1 3.5.7-2.4 2.7.4 3.6L8 10.2l-3.2 1.5.4-3.6-2.4-2.7 3.5-.7L8 1.6z"
-                      />
-                    </svg>
-                    最受欢迎
-                  </span>
-                  <span class="plan-name">{{ plan.name }}</span>
-                  <span class="plan-price">
-                    <span v-if="plan.promo" class="plan-promo">{{ plan.promo }}</span>
-                    <strong>¥{{ plan.price }}</strong>
-                    <small>/{{ plan.period }}</small>
-                    <span
-                      v-if="plan.originalPrice"
-                      class="plan-original-group"
-                      :aria-label="`原价${plan.originalPrice}元`"
+                  <span class="purchase-plan-check" aria-hidden="true"
+                    ><svg v-if="selectedPlanId === plan.id" viewBox="0 0 16 16">
+                      <path d="M3.5 8.2l2.7 2.7 6.3-6.1" /></svg
+                  ></span>
+                  <span class="purchase-plan-copy">
+                    <span class="purchase-plan-title"
+                      >{{ plan.name.replace('做题', '题库')
+                      }}<span v-if="plan.recommended" class="purchase-recommendation"
+                        >推荐组合</span
+                      ></span
                     >
-                      <del class="plan-original-price">¥{{ plan.originalPrice }}</del>
-                    </span>
+                    <span class="purchase-plan-description">{{ plan.description }}</span>
                   </span>
-                  <span
-                    class="plan-selected"
-                    :class="{ 'plan-selected--active': selectedPlanId === plan.id }"
-                    aria-hidden="true"
-                  >
-                    <svg v-if="selectedPlanId === plan.id" viewBox="0 0 16 16">
-                      <path d="M3.5 8.2l2.7 2.7 6.3-6.1" />
-                    </svg>
+                  <span class="purchase-plan-price">
+                    <span class="purchase-price-value"><small>¥</small>{{ plan.price }}</span>
+                    <span class="purchase-price-offer"
+                      ><del>¥{{ plan.originalPrice }}</del
+                      ><span>{{ plan.promo }}</span></span
+                    >
                   </span>
                 </button>
               </div>
-
-              <div class="member-benefits">
-                <h3>会员权益</h3>
-                <ul>
-                  <li v-for="benefit in benefits" :key="benefit.title">
-                    <span class="benefit-icon" aria-hidden="true">
-                      <svg v-if="benefit.icon === 'document'" viewBox="0 0 24 24">
-                        <path d="M6 3.5h10l2 2v15H6zM9 9h6M9 13h6M9 17h4" />
-                      </svg>
-                      <svg v-else-if="benefit.icon === 'report'" viewBox="0 0 24 24">
-                        <path d="M5 20V11h3v9M10.5 20V5h3v15M16 20v-7h3v7" />
-                      </svg>
-                      <svg v-else-if="benefit.icon === 'library'" viewBox="0 0 24 24">
-                        <path d="M4 7l8-4 8 4-8 4zM4 12l8 4 8-4M4 16l8 4 8-4" />
-                      </svg>
-                      <svg v-else viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="8.5" />
-                        <path d="M12 7v5l3 2" />
-                      </svg>
-                    </span>
-                    <span class="benefit-copy">
-                      <strong>{{ benefit.title }}</strong>
-                      <span>{{ benefit.description }}</span>
-                    </span>
-                  </li>
-                </ul>
-              </div>
+              <p class="purchase-note">
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M10 2l6 2.3v4.5c0 4-2.5 7-6 8.8-3.5-1.8-6-4.8-6-8.8V4.3L10 2z" />
+                  <path d="m7 9.7 2 2 4-4" /></svg
+                >仅开通所选考试 · 不自动续费
+              </p>
             </div>
 
             <div class="payment-checkout">
@@ -276,6 +221,12 @@
 </template>
 
 <script setup lang="ts">
+import {
+  ANNUAL_PLAN,
+  ANNUAL_PLAN_LABELS,
+  DEFAULT_ANNUAL_PRICING,
+  type AnnualPlan,
+} from '@/constants/annualMembership'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import QRCode from 'qrcode'
@@ -297,7 +248,7 @@ import {
 interface Props {
   modelValue: boolean
   defaultExamType?: string
-  defaultPlanId?: 'monthly' | 'quarterly'
+  defaultPlanId?: AnnualPlan | 'monthly' | 'quarterly'
   resumeOrderNo?: string
 }
 
@@ -305,7 +256,8 @@ interface PaymentPlan {
   id: string
   name: string
   price: string
-  period: '30天' | '90天'
+  description: string
+  period: '365天'
   promo?: string
   originalPrice?: string
   recommended: boolean
@@ -329,7 +281,7 @@ const emit = defineEmits<{
 
 const examOptions = EXAM_TYPE_OPTIONS.filter((item) => item.available)
 const selectedExam = ref('TMUA')
-const selectedPlanId = ref('monthly')
+const selectedPlanId = ref<string>(ANNUAL_PLAN.PRACTICE)
 const creatingOrder = ref(false)
 const orderCreationFailed = ref(false)
 const createdOrderNo = ref('')
@@ -345,40 +297,52 @@ let paymentStatusQueryInFlight = false
 let paidEmittedOrderNo = ''
 const configStatus = ref<'active' | 'inactive'>('active')
 const providerReady = ref(false)
-const priceConfig = ref({
-  monthlyPriceCents: 19800,
-  quarterlyOriginalPriceCents: 59400,
-  quarterlyPriceCents: 35600,
-})
+const priceConfig = ref({ ...DEFAULT_ANNUAL_PRICING })
 
+// 套餐仅按功能区分，服务期限统一为 365 天。
 const plans = computed<PaymentPlan[]>(() => [
   {
-    id: 'monthly',
-    name: '月卡',
-    price: formatPrice(priceConfig.value.monthlyPriceCents),
-    period: '30天',
+    id: ANNUAL_PLAN.PRACTICE,
+    name: '做题年卡',
+    description: '诊断、模考、专项练习与答卷解析',
+    price: formatPrice(priceConfig.value.practicePriceCents),
+    period: '365天',
+    promo: formatDiscountLabel(
+      priceConfig.value.practicePriceCents,
+      priceConfig.value.practiceOriginalPriceCents,
+    ),
+    originalPrice: formatPrice(priceConfig.value.practiceOriginalPriceCents),
     recommended: false,
   },
   {
-    id: 'quarterly',
-    name: '季卡',
-    price: formatPrice(priceConfig.value.quarterlyPriceCents),
-    period: '90天',
+    id: ANNUAL_PLAN.LEARNING,
+    name: '学习平台年卡',
+    description: '知识点讲解、教学例题与自测',
+    price: formatPrice(priceConfig.value.learningPriceCents),
+    period: '365天',
     promo: formatDiscountLabel(
-      priceConfig.value.quarterlyPriceCents,
-      priceConfig.value.quarterlyOriginalPriceCents,
+      priceConfig.value.learningPriceCents,
+      priceConfig.value.learningOriginalPriceCents,
     ),
-    originalPrice: formatPrice(priceConfig.value.quarterlyOriginalPriceCents),
+    originalPrice: formatPrice(priceConfig.value.learningOriginalPriceCents),
+    recommended: false,
+  },
+  {
+    id: ANNUAL_PLAN.BUNDLE,
+    name: '做题＋学习平台年卡',
+    description: '包含两项年卡全部权益，学习练习一步到位',
+    price: formatPrice(priceConfig.value.bundlePriceCents),
+    period: '365天',
+    promo: formatDiscountLabel(
+      priceConfig.value.bundlePriceCents,
+      priceConfig.value.practiceOriginalPriceCents + priceConfig.value.learningOriginalPriceCents,
+    ),
+    originalPrice: formatPrice(
+      priceConfig.value.practiceOriginalPriceCents + priceConfig.value.learningOriginalPriceCents,
+    ),
     recommended: true,
   },
 ])
-
-const benefits = [
-  { icon: 'document', title: '解锁全部', description: '会员诊断卷' },
-  { icon: 'report', title: '不限次数', description: '生成能力诊断报告' },
-  { icon: 'library', title: '不限题量', description: '专项题库与练习本' },
-  { icon: 'history', title: '查看完整解析', description: '与历史学习数据' },
-] as const
 
 // 聚合码支持的扫码工具只作静态提示，不参与订单创建或二维码切换。
 const channels = [
@@ -388,12 +352,9 @@ const channels = [
 ] as const
 
 const displayAmount = computed(() =>
-  formatPrice(
-    orderAmountCents.value ??
-      (selectedPlanId.value === 'monthly'
-        ? priceConfig.value.monthlyPriceCents
-        : priceConfig.value.quarterlyPriceCents),
-  ),
+  orderAmountCents.value !== null
+    ? formatPrice(orderAmountCents.value)
+    : plans.value.find((plan) => plan.id === selectedPlanId.value)?.price || '—',
 )
 
 // 付款摘要展示当前订单对应的考试名称。
@@ -404,7 +365,11 @@ const selectedExamLabel = computed(
 // 付款摘要使用当前套餐名称与固定服务期限，避免用户只看到金额。
 const selectedPlanLabel = computed(() => {
   const selectedPlan = plans.value.find((item) => item.id === selectedPlanId.value)
-  return selectedPlan ? `${selectedPlan.name}（${selectedPlan.period}）` : ''
+  return selectedPlan
+    ? `${selectedPlan.name}（${selectedPlan.period}）`
+    : { monthly: '历史月卡（30天）', quarterly: '历史季卡（90天）', yearly: '历史年卡' }[
+        selectedPlanId.value
+      ] || '历史订单'
 })
 
 function closeModal(): void {
@@ -418,7 +383,7 @@ function formatPrice(valueCents: number): string {
     : (valueCents / 100).toFixed(2)
 }
 
-// 季卡优惠文案随后台价格同步计算，避免价格调整后仍展示失真的固定折扣。
+// 折扣按划线原价计算并展示到一位小数，实付采用后台设置的固定金额。
 function formatDiscountLabel(priceCents: number, originalPriceCents: number): string | undefined {
   if (priceCents >= originalPriceCents) return undefined
   const discount = Number(((priceCents / originalPriceCents) * 10).toFixed(1))
@@ -428,11 +393,7 @@ function formatDiscountLabel(priceCents: number, originalPriceCents: number): st
 async function loadPaymentConfig(): Promise<boolean> {
   try {
     const config = await getPaymentConfig()
-    priceConfig.value = {
-      monthlyPriceCents: config.monthlyPriceCents,
-      quarterlyOriginalPriceCents: config.quarterlyOriginalPriceCents,
-      quarterlyPriceCents: config.quarterlyPriceCents,
-    }
+    priceConfig.value = config.annualPricing
     configStatus.value = config.status
     providerReady.value = config.providerReady
     return config.status === 'active' && config.providerReady
@@ -539,7 +500,7 @@ async function handleCreateOrder(): Promise<void> {
   try {
     const result = await createPaymentOrder({
       examTypes: [selectedExam.value],
-      plan: selectedPlanId.value as 'monthly' | 'quarterly',
+      plan: selectedPlanId.value as AnnualPlan,
       legalVersions: { ...MEMBERSHIP_LEGAL_VERSIONS },
     })
     if (currentGeneration !== orderGeneration || !props.modelValue) {
@@ -607,7 +568,10 @@ async function initializePaymentModal(): Promise<void> {
   initializingPayment = true
   const defaultExam = examOptions.find((item) => item.value === props.defaultExamType)
   selectedExam.value = defaultExam?.value || 'TMUA'
-  selectedPlanId.value = props.defaultPlanId || 'monthly'
+  selectedPlanId.value =
+    props.defaultPlanId && props.defaultPlanId in ANNUAL_PLAN_LABELS
+      ? props.defaultPlanId
+      : ANNUAL_PLAN.PRACTICE
   resetPaymentOrder()
   const currentInitialization = orderGeneration
   creatingOrder.value = true
@@ -692,7 +656,11 @@ onBeforeUnmount(() => {
 }
 
 .payment-modal {
-  width: min(970px, 100%);
+  display: flex;
+  flex-direction: column;
+  width: min(1040px, 100%);
+  max-height: calc(100dvh - 32px);
+  min-height: 0;
   overflow: hidden;
   color: #172033;
   background: #fff;
@@ -705,8 +673,10 @@ onBeforeUnmount(() => {
   position: relative;
   display: flex;
   align-items: center;
-  min-height: 78px;
-  padding: 15px 30px 12px;
+  flex: 0 0 auto;
+  min-height: 68px;
+  padding: 12px 26px;
+  padding-right: 64px;
   border-bottom: 0;
 }
 
@@ -753,393 +723,228 @@ onBeforeUnmount(() => {
 
 .payment-body {
   display: grid;
-  grid-template-columns: minmax(0, 62%) minmax(340px, 38%);
-  min-height: 490px;
+  grid-template-columns: minmax(0, 1fr) 310px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .payment-options {
-  padding: 14px 30px 20px;
+  min-width: 0;
+  padding: 12px 26px 22px;
   border-right: 1px solid #e8eef7;
 }
-
-.option-section + .option-section {
-  margin-top: 20px;
-}
-
-.option-heading {
+.purchase-exam-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e8edf3;
 }
-
-.option-step {
-  display: grid;
-  flex: 0 0 27px;
-  width: 27px;
-  height: 27px;
-  place-items: center;
-  color: #2874ff;
+.purchase-exam-copy h3,
+.purchase-plan-heading h3 {
+  margin: 0;
+  color: #233248;
   font-size: 14px;
-  font-weight: 800;
-  background: #e7f0ff;
-  border-radius: 50%;
+  font-weight: 650;
 }
-
-.option-heading__content {
+.purchase-exam-copy p {
+  margin: 5px 0 0;
+  color: #7b8797;
+  font-size: 12px;
+}
+.purchase-exam-switch {
   display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 10px;
+  flex-shrink: 0;
+  gap: 4px;
+  padding: 4px;
+  background: #f0f3f7;
+  border-radius: 9px;
 }
-
-.option-heading__content h3 {
-  flex: 0 0 auto;
-  margin: 0;
-  padding-right: 10px;
-  color: #172033;
-  font-size: 16px;
-  font-weight: 760;
-  border-right: 1px solid #d7dfeb;
-}
-
-.option-heading__content p {
-  margin: 0;
-  overflow: hidden;
-  color: #8792a5;
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.exam-options {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.exam-option {
+.purchase-exam {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  min-height: 68px;
-  padding: 10px 14px;
-  color: #1c2639;
-  font-size: 16px;
-  background: #fff;
-  border: 1px solid #d9e1ec;
-  border-radius: 5px;
+  display: grid;
+  min-width: 84px;
+  min-height: 38px;
+  place-items: center;
+  color: #69778b;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 650;
   cursor: pointer;
-  transition:
-    border-color 160ms ease,
-    box-shadow 160ms ease,
-    background 160ms ease;
 }
-
-.exam-option input {
+.purchase-exam.is-selected {
+  color: #2265d9;
+  background: #fff;
+  border-color: #e1e7ef;
+  box-shadow: 0 2px 5px rgb(34 55 81 / 6%);
+}
+.purchase-exam input {
   position: absolute;
   width: 1px;
   height: 1px;
   opacity: 0;
 }
-
-.exam-option__icon {
-  display: grid;
-  place-items: center;
-  flex: 0 0 45px;
-  width: 45px;
-  height: 45px;
-  border-radius: 50%;
-}
-
-.exam-option__icon svg {
-  width: 27px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2.4;
-}
-
-.exam-option__icon--esat {
-  color: #ef3f74;
-  background: linear-gradient(145deg, #ffe9f0, #fff3f6);
-}
-
-.exam-option__icon--tmua {
-  color: #e47613;
-  background: linear-gradient(145deg, #fff0df, #fff8ee);
-}
-
-.exam-option strong {
-  font-size: 16px;
-  font-weight: 750;
-}
-
-.radio-control {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  display: grid;
-  width: 21px;
-  height: 21px;
-  place-items: center;
-  color: #fff;
-  background: #fff;
-  border: 1.5px solid #cbd5e2;
-  border-radius: 50%;
-}
-
-.radio-control svg {
-  width: 13px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2;
-}
-
-.exam-option input:focus-visible ~ .radio-control {
-  outline: 2px solid #1a1a1a;
+.purchase-exam:has(input:focus-visible) {
+  outline: 2px solid #2873ff;
   outline-offset: 2px;
 }
-
-.exam-option--active {
-  background: linear-gradient(145deg, #fff, #f7faff);
-  border-color: #3478ff;
-  box-shadow: 0 8px 22px rgb(47 115 255 / 8%);
-}
-
-.exam-option--active .radio-control {
-  background: #2f73ff;
-  border-color: #2f73ff;
-}
-
-.exam-option:has(input:disabled),
-.plan-option:disabled {
+.purchase-exam:has(input:disabled) {
   cursor: default;
 }
-
-.plan-section {
-  display: block;
-}
-
-.plan-option + .plan-option {
-  margin-top: 20px;
-}
-
-.plan-option {
-  position: relative;
+.purchase-plan-heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+  margin: 20px 0 12px;
+}
+.purchase-plan-heading > span {
+  font-size: 11px;
+  color: #7b8797;
+}
+.purchase-plans {
+  display: grid;
+  gap: 10px;
+}
+.purchase-plan {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 92px;
   width: 100%;
-  min-height: 62px;
-  padding: 0 17px;
-  color: #172033;
+  padding: 15px 16px;
+  color: #233248;
   text-align: left;
+  font-family: inherit;
   background: #fff;
-  border: 1px solid #d8e0eb;
-  border-radius: 5px;
+  border: 1px solid #dfe6ef;
+  border-radius: 10px;
   cursor: pointer;
   transition:
     border-color 160ms ease,
-    box-shadow 160ms ease,
     background 160ms ease;
 }
-
-.plan-option--active {
-  background: linear-gradient(145deg, #fff, #f7faff);
-  border: 1.5px solid #3478ff;
-  box-shadow: 0 8px 22px rgb(47 115 255 / 7%);
+.purchase-plan:not(:disabled):hover {
+  border-color: #91b5f0;
+  background: #fafcff;
 }
-
-.plan-option:disabled {
-  opacity: 1;
+.purchase-plan.is-selected {
+  border-color: #3478ff;
+  background: #f5f9ff;
+  box-shadow: inset 0 0 0 1px #3478ff;
 }
-
-.plan-name {
-  font-size: 16px;
-  font-weight: 750;
+.purchase-plan:focus-visible {
+  outline: 2px solid #2873ff;
+  outline-offset: 3px;
 }
-
-.plan-price {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  margin-left: auto;
-  padding-right: 25px;
+.purchase-plan:disabled {
+  cursor: default;
 }
-
-.plan-price strong {
-  color: #2672ff;
-  font-size: 23px;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.plan-price > small {
-  color: #77849a;
-  font-size: 12px;
-}
-
-.plan-promo {
-  margin-right: 4px;
-  color: #f2a20c;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.plan-original-group {
-  display: inline-flex;
-  align-items: baseline;
-  color: #8792a5;
-  font-size: 12px;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.plan-original-price {
-  position: relative;
-  display: inline-block;
-  text-decoration: none;
-}
-
-.plan-original-group small {
-  font-size: 11px;
-}
-
-.plan-original-price::after {
-  position: absolute;
-  top: 50%;
-  right: -2px;
-  left: -2px;
-  height: 1.5px;
-  background: #4f5662;
-  border-radius: 999px;
-  content: '';
-  transform: translateY(-50%);
-}
-
-.recommend-badge {
-  position: absolute;
-  top: -12px;
-  left: 18px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 9px;
-  color: #fff;
-  font-size: 11px;
-  background: linear-gradient(135deg, #ffbd21, #ff7a00);
-  border-radius: 999px;
-  box-shadow: 0 3px 8px rgb(255 138 0 / 25%);
-}
-
-.recommend-badge svg {
-  width: 12px;
-  fill: currentColor;
-}
-
-.plan-selected {
-  position: absolute;
-  top: 10px;
-  right: 10px;
+.purchase-plan-check {
   display: grid;
   place-items: center;
-  width: 21px;
-  height: 21px;
-  color: #fff;
-  background: #fff;
-  border: 1.5px solid #cbd5e2;
+  width: 20px;
+  height: 20px;
+  border: 1px solid #cbd5e2;
   border-radius: 50%;
+  background: #fff;
 }
-
-.plan-selected--active {
-  background: #2f73ff;
-  border-color: #2f73ff;
+.is-selected > .purchase-plan-check {
+  color: #fff;
+  background: #3478ff;
+  border-color: #3478ff;
 }
-
-.plan-selected svg {
-  width: 12px;
+.purchase-plan-check svg {
+  width: 13px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
 }
-
-.member-benefits {
-  margin-top: 18px;
-}
-
-.member-benefits h3 {
-  margin: 0 0 9px;
-  color: #172033;
-  font-size: 15px;
-  font-weight: 760;
-}
-
-.member-benefits ul {
+.purchase-plan-copy {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.member-benefits li {
-  position: relative;
-  display: flex;
+  gap: 7px;
   min-width: 0;
+}
+.purchase-plan-title {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  flex-direction: column;
-  gap: 5px;
-  padding: 0 8px;
-  color: #637087;
-  font-size: 12px;
-  line-height: 1.35;
-  text-align: center;
-}
-
-.member-benefits li + li::before {
-  position: absolute;
-  top: 18px;
-  bottom: 2px;
-  left: 0;
-  width: 1px;
-  background: #e2e8f1;
-  content: '';
-}
-
-.benefit-icon {
-  display: grid;
-  width: 37px;
-  height: 37px;
-  place-items: center;
-  color: #637087;
-  background: linear-gradient(145deg, #f1f3f6, #f8f9fb);
-  border-radius: 50%;
-}
-
-.benefit-icon svg {
-  width: 21px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
-}
-
-.benefit-copy {
-  display: grid;
-  gap: 2px;
-}
-
-.benefit-copy strong {
-  color: #536078;
-  font-size: 12px;
+  gap: 7px;
+  font-size: 15px;
   font-weight: 650;
+  line-height: 1.5;
+}
+.purchase-recommendation {
+  padding: 2px 6px;
+  color: #57722b;
+  background: #edf5d8;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.purchase-plan-description {
+  color: #718096;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.purchase-plan-price {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.purchase-price-value {
+  color: #233248;
+  font-size: 27px;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.is-selected .purchase-price-value {
+  color: #2873ff;
+}
+.purchase-price-value small {
+  margin-right: 2px;
+  font-size: 15px;
+  font-weight: 500;
+}
+.purchase-price-offer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.purchase-price-offer del {
+  color: #8490a0;
+}
+.purchase-price-offer > span {
+  color: #986620;
+}
+.purchase-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 16px 0 0;
+  color: #7b8797;
+  font-size: 11px;
+}
+.purchase-note svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  fill: none;
+  stroke: #7e9a68;
+  stroke-width: 1.4;
 }
 
 .payment-checkout {
@@ -1148,7 +953,9 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   flex-direction: column;
-  padding: 20px 28px 18px;
+  justify-content: center;
+  min-width: 0;
+  padding: 20px 18px;
   overflow: hidden;
   background:
     radial-gradient(circle at 112% 25%, rgb(203 226 255 / 65%) 0 24%, transparent 24.2%),
@@ -1197,7 +1004,8 @@ onBeforeUnmount(() => {
 
 .amount-summary p {
   margin: 4px 0 0;
-  color: #68758b;
+  color: #000;
+  font-family: 'SimHei', 'Heiti SC', 'Microsoft YaHei', sans-serif;
   font-size: 12px;
   font-weight: 600;
 }
@@ -1209,7 +1017,7 @@ onBeforeUnmount(() => {
 
 .qr-card {
   position: relative;
-  width: 202px;
+  width: 184px;
   padding: 10px;
   background: #fff;
   border: 1px solid #e4eaf2;
@@ -1411,7 +1219,8 @@ onBeforeUnmount(() => {
 }
 
 .payment-footer {
-  padding: 12px 24px 14px;
+  flex: 0 0 auto;
+  padding: 10px 24px;
   color: #8792a5;
   font-size: 12px;
   text-align: center;
@@ -1440,7 +1249,7 @@ onBeforeUnmount(() => {
   transform: translateY(12px) scale(0.985);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 820px) {
   .payment-overlay {
     padding: 0;
   }
@@ -1456,7 +1265,7 @@ onBeforeUnmount(() => {
   }
   .payment-header {
     flex: 0 0 auto;
-    min-height: 74px;
+    min-height: 64px;
     padding: 12px 20px 10px;
   }
   .payment-header h2 {
@@ -1480,20 +1289,8 @@ onBeforeUnmount(() => {
     -webkit-overflow-scrolling: touch;
   }
   .payment-options {
-    padding: 18px 20px 24px;
+    padding: 12px 20px 18px;
     border-right: 0;
-  }
-  .exam-options {
-    gap: 12px;
-  }
-  .plan-option {
-    min-height: 68px;
-    padding: 12px 18px;
-  }
-  .plan-price {
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    max-width: 66%;
   }
   .payment-checkout {
     padding: 24px 20px 28px;
@@ -1511,25 +1308,40 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 560px) {
-  .option-heading__content p {
-    display: none;
+  .payment-options {
+    padding: 10px 16px 18px;
   }
-  .exam-options {
-    grid-template-columns: 1fr;
+  .purchase-exam-row {
+    gap: 10px;
+    padding-bottom: 16px;
   }
-  .exam-option {
-    min-height: 70px;
+  .purchase-exam {
+    min-width: 66px;
   }
-  .member-benefits ul {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    row-gap: 22px;
+  .purchase-plan {
+    grid-template-columns: 18px minmax(0, 1fr) auto;
+    gap: 9px;
+    padding: 13px 11px;
   }
-  .member-benefits li:nth-child(3)::before {
-    display: none;
+  .purchase-plan-title {
+    font-size: 13px;
   }
-  .plan-price {
-    max-width: 70%;
-    padding-right: 25px;
+  .purchase-plan-check {
+    width: 18px;
+    height: 18px;
+  }
+  .purchase-price-value {
+    font-size: 24px;
+  }
+  .purchase-price-offer {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .purchase-plan {
+    transition: none;
   }
 }
 </style>

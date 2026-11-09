@@ -100,7 +100,7 @@
         <div class="card-heading">
           <div>
             <h2>会员定价策略</h2>
-            <p>保存后，首页支付弹窗再次打开时会读取最新价格。</p>
+            <p>仅售年卡，每个考试分别购买，有效期 365 天。保存后支付弹窗会读取最新价格。</p>
           </div>
           <el-switch
             v-model="form.status"
@@ -113,17 +113,25 @@
         </div>
 
         <el-form class="price-form" label-position="top" @submit.prevent="saveConfig">
-          <el-form-item label="月卡价格">
-            <el-input-number v-model="form.monthlyPrice" :disabled="!editing" :min="0.01" :max="100000" :precision="2" :step="1" controls-position="right" />
-            <span class="field-hint">月卡固定 30 天</span>
+          <el-form-item label="做题年卡原价">
+            <el-input-number v-model="form.practiceOriginalPrice" :disabled="!editing" :min="0.01" :max="100000" :precision="2" :step="1" controls-position="right" />
+            <span class="field-hint">固定 365 天，仅做题权益</span>
           </el-form-item>
-          <el-form-item label="季卡原价">
-            <el-input-number v-model="form.quarterlyOriginalPrice" :disabled="!editing" :min="0.01" :max="100000" :precision="2" :step="1" controls-position="right" />
-            <span class="field-hint">支付弹窗用于展示划线原价</span>
+          <el-form-item label="做题年卡优惠价">
+            <el-input-number v-model="form.practicePrice" :disabled="!editing" :min="0.01" :max="100000" :precision="2" :step="1" controls-position="right" />
+            <span class="field-hint">8 折优惠，默认 398 元</span>
           </el-form-item>
-          <el-form-item label="季卡折扣价">
-            <el-input-number v-model="form.quarterlyPrice" :disabled="!editing" :min="0.01" :max="100000" :precision="2" :step="1" controls-position="right" />
-            <span class="field-hint">季卡固定 90 天，当前按 6 折展示</span>
+          <el-form-item label="学习平台年卡原价">
+            <el-input-number v-model="form.learningOriginalPrice" :disabled="!editing" :min="0.01" :max="100000" :precision="2" :step="1" controls-position="right" />
+            <span class="field-hint">固定 365 天，仅学习平台权益</span>
+          </el-form-item>
+          <el-form-item label="学习平台年卡优惠价">
+            <el-input-number v-model="form.learningPrice" :disabled="!editing" :min="0.01" :max="100000" :precision="2" :step="1" controls-position="right" />
+            <span class="field-hint">8 折优惠，默认 198 元</span>
+          </el-form-item>
+          <el-form-item label="组合年卡优惠价">
+            <el-input-number v-model="form.bundlePrice" :disabled="!editing" :min="0.01" :max="100000" :precision="2" :step="1" controls-position="right" />
+            <span class="field-hint">做题＋学习平台，7 折优惠，默认 520 元</span>
           </el-form-item>
         </el-form>
 
@@ -541,15 +549,19 @@ const reconciliationOverview = reactive<AdminPaymentReconciliationOverview>({
   scope: 'local_orders_with_provider_query',
 })
 const form = reactive({
-  monthlyPrice: 198,
-  quarterlyOriginalPrice: 594,
-  quarterlyPrice: 356,
+  practiceOriginalPrice: 498,
+  practicePrice: 398,
+  learningOriginalPrice: 248,
+  learningPrice: 198,
+  bundlePrice: 520,
   status: 'active' as 'active' | 'inactive',
 })
 const savedForm = reactive({
-  monthlyPrice: 198,
-  quarterlyOriginalPrice: 594,
-  quarterlyPrice: 356,
+  practiceOriginalPrice: 498,
+  practicePrice: 398,
+  learningOriginalPrice: 248,
+  learningPrice: 198,
+  bundlePrice: 520,
   status: 'active' as 'active' | 'inactive',
 })
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
@@ -635,9 +647,7 @@ function formatJson(value: unknown): string {
 }
 
 function syncSavedForm(): void {
-  savedForm.monthlyPrice = form.monthlyPrice
-  savedForm.quarterlyOriginalPrice = form.quarterlyOriginalPrice
-  savedForm.quarterlyPrice = form.quarterlyPrice
+  Object.assign(savedForm, form)
   savedForm.status = form.status
 }
 
@@ -647,9 +657,7 @@ function startEditing(): void {
 }
 
 function cancelEditing(): void {
-  form.monthlyPrice = savedForm.monthlyPrice
-  form.quarterlyOriginalPrice = savedForm.quarterlyOriginalPrice
-  form.quarterlyPrice = savedForm.quarterlyPrice
+  Object.assign(form, savedForm)
   form.status = savedForm.status
   editing.value = false
 }
@@ -661,6 +669,9 @@ function normalizeExamTypes(value: unknown): string[] {
 function planText(plan: string, priceType: string): string {
   if (plan === 'daily_gift' || priceType === 'admin_gift') return '管理员赠送日卡'
   if (plan === 'weekly_reward' || priceType === 'invitation_reward') return '邀请奖励周卡'
+  if (plan === 'annual_practice') return '做题年卡（365天）'
+  if (plan === 'annual_learning') return '学习平台年卡（365天）'
+  if (plan === 'annual_bundle') return '做题＋学习平台年卡（365天）'
   if (plan === 'quarterly') return '季卡会员'
   if (plan === 'yearly') return '年度会员（历史）'
   return priceType === 'first_monthly' ? '月度会员（历史首购）' : '月卡会员'
@@ -777,9 +788,11 @@ function reconciliationUserText(item: AdminPaymentReconciliationItem): string {
 async function loadConfig(): Promise<void> {
   try {
     const config = await getAdminPaymentConfig()
-    form.monthlyPrice = centsToYuan(config.monthlyPriceCents)
-    form.quarterlyOriginalPrice = centsToYuan(config.quarterlyOriginalPriceCents)
-    form.quarterlyPrice = centsToYuan(config.quarterlyPriceCents)
+    form.practiceOriginalPrice = centsToYuan(config.annualPricing.practiceOriginalPriceCents)
+    form.practicePrice = centsToYuan(config.annualPricing.practicePriceCents)
+    form.learningOriginalPrice = centsToYuan(config.annualPricing.learningOriginalPriceCents)
+    form.learningPrice = centsToYuan(config.annualPricing.learningPriceCents)
+    form.bundlePrice = centsToYuan(config.annualPricing.bundlePriceCents)
     form.status = config.status
     updatedAt.value = config.updatedAt
     syncSavedForm()
@@ -791,16 +804,20 @@ async function loadConfig(): Promise<void> {
 // 管理员保存价格后，前台下一次打开支付弹窗即使用新策略。
 async function saveConfig(): Promise<void> {
   if (!editing.value) return
-  if (form.quarterlyPrice > form.quarterlyOriginalPrice) {
-    ElMessage.warning('季卡折扣价不能高于季卡原价')
+  if (form.practicePrice > form.practiceOriginalPrice || form.learningPrice > form.learningOriginalPrice || form.bundlePrice > form.practicePrice + form.learningPrice) {
+    ElMessage.warning('优惠价不能高于原价，组合价不能高于两项单购合计')
     return
   }
   saving.value = true
   try {
     const config = await updateAdminPaymentConfig({
-      monthlyPriceCents: yuanToCents(form.monthlyPrice),
-      quarterlyOriginalPriceCents: yuanToCents(form.quarterlyOriginalPrice),
-      quarterlyPriceCents: yuanToCents(form.quarterlyPrice),
+      annualPricing: {
+        practiceOriginalPriceCents: yuanToCents(form.practiceOriginalPrice),
+        practicePriceCents: yuanToCents(form.practicePrice),
+        learningOriginalPriceCents: yuanToCents(form.learningOriginalPrice),
+        learningPriceCents: yuanToCents(form.learningPrice),
+        bundlePriceCents: yuanToCents(form.bundlePrice),
+      },
       status: form.status,
     })
     updatedAt.value = config.updatedAt

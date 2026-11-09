@@ -545,7 +545,7 @@ function requireLoginForDiagnosticAction(): boolean {
 // 缓存显示为会员时在关键开始动作前向服务端复核，承接24小时日卡自然到期的长会话。
 async function refreshCachedMembership(examType?: string): Promise<boolean> {
   const targetExamType = examType || activeExamType.value
-  if (auth.isAdmin || !auth.memberContext?.quotas?.[targetExamType]?.isMember) return true
+  if (auth.isAdmin || !auth.memberContext?.quotas?.[targetExamType]?.practiceAccess) return true
   try {
     auth.setMemberContext(await getMember())
     return true
@@ -646,7 +646,7 @@ function yearStatusLabel(item: AssessmentYearSummary): string {
 function isYearLocked(item: AssessmentYearSummary): boolean {
   if (item.inProgressPaperCount > 0 || auth.isAdmin) return false
   if (item.memberPaperCount === 0 || item.freePaperCount > 0) return false
-  return !auth.memberContext?.quotas?.[activeExamType.value]?.isMember
+  return !auth.memberContext?.quotas?.[activeExamType.value]?.practiceAccess
 }
 
 // 模块代码优先，并兼容旧数据中的英文科目名。
@@ -951,7 +951,7 @@ async function handleDailyCardActivated(): Promise<void> {
   const action = pendingMembershipAction.value
   pendingMembershipAction.value = null
   if (!action) return
-  if (!auth.memberContext?.quotas?.[paymentExamType.value]?.isMember) {
+  if (!auth.memberContext?.quotas?.[paymentExamType.value]?.practiceAccess) {
     ElMessage.error('会员权益尚未生效，请稍后重试。')
     return
   }
@@ -1420,7 +1420,7 @@ function isPaperPublished(item: AssessmentPaperItem): boolean {
 function isPaperLocked(item: AssessmentPaperItem): boolean {
   if (!isPaperAvailable(item) || item.testStatus === 'in_progress') return false
   if (item.accessTier === PAPER_ACCESS_TIER.FREE || auth.isAdmin) return false
-  return !auth.memberContext?.quotas?.[item.examType || 'TMUA']?.isMember
+  return !auth.memberContext?.quotas?.[item.examType || 'TMUA']?.practiceAccess
 }
 </script>
 

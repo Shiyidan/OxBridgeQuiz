@@ -106,7 +106,7 @@ function enterPractice(code = selectedNode.value.code, exam: ActiveExamType = 'T
     <div class="learning-container">
       <header class="section-heading">
         <div>
-          <h2 id="learning-intro-title">学习平台 · 看懂 再练透。</h2>
+          <h2 id="learning-intro-title">学习平台 · 学懂 再练透。</h2>
           <p>从概念与图解，到真题推理与即时自测。</p>
         </div>
         <AppButton type="text" :icon="Right" icon-position="right" @click="enterLearning()"

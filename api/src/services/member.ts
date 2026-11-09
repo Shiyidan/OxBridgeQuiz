@@ -1,4 +1,5 @@
 // 会员权益上下文汇总与权限判定。用于会员接口和考试开始、交卷阶段的额度预检。
+import { planIncludesFeature, type MembershipFeature } from "../constants/annualMembership.js";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma.js";
 import { parseJsonArray } from "../utils/jsonField.js";
@@ -116,13 +117,14 @@ async function getActiveMembership(
   examType: string,
   now: Date,
   db: MemberDatabase,
+  feature: MembershipFeature = "practice",
 ) {
   const memberships = await db.userMembership.findMany({
     where: { userId, examType },
     orderBy: { endsAt: "desc" },
   });
   return (
-    memberships.find((membership) => isMembershipActive(membership, now)) ||
+    memberships.find((membership) => isMembershipActive(membership, now) && planIncludesFeature(membership.plan, feature)) ||
     null
   );
 }
@@ -132,6 +134,7 @@ export async function hasActiveExamMembershipAccess(
   userId: string,
   examType: string,
   db: MemberDatabase = prisma,
+  feature: MembershipFeature = "practice",
 ): Promise<boolean> {
   const user = await db.user.findUnique({
     where: { id: userId },
@@ -139,7 +142,7 @@ export async function hasActiveExamMembershipAccess(
   });
   if (!user) return false;
   if (user.role === USER_ROLE.ADMIN) return true;
-  return Boolean(await getActiveMembership(userId, examType, new Date(), db));
+  return Boolean(await getActiveMembership(userId, examType, new Date(), db, feature));
 }
 
 // 新诊断测试按试卷级访问设置授权；已创建的进行中测试由考试记录本身承接当次授权。
@@ -377,7 +380,9 @@ export async function getMemberContext(userId: string) {
         countQuestionBankUsed(userId, examType, prisma),
       ]);
 
-      const unlimited = isAdmin || !!activeMembership;
+      const practiceMembership = userMemberships.find((membership) => isMembershipActive(membership, now) && planIncludesFeature(membership.plan, "practice"));
+      const learningMembership = userMemberships.find((membership) => isMembershipActive(membership, now) && planIncludesFeature(membership.plan, "learning"));
+      const unlimited = isAdmin || !!practiceMembership;
       const plan =
         activeMembership?.plan ||
         latestMembership?.plan ||
@@ -391,7 +396,11 @@ export async function getMemberContext(userId: string) {
       return {
         examType,
         status,
-        isMember: unlimited,
+        isMember: isAdmin || !!activeMembership,
+        practiceAccess: isAdmin || !!practiceMembership,
+        learningAccess: isAdmin || !!learningMembership,
+        practiceEndsAt: toTimestamp(practiceMembership?.endsAt),
+        learningEndsAt: toTimestamp(learningMembership?.endsAt),
         plan,
         startsAt: toTimestamp(
           activeMembership?.startsAt || latestMembership?.startsAt,

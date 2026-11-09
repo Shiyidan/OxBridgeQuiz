@@ -1,4 +1,5 @@
 // 支付退款服务：管理全额退款状态、银联结果确认与会员权益回收。
+import { isAnnualPlan, ANNUAL_DURATION_DAYS } from '../constants/annualMembership.js'
 import { Prisma } from '@prisma/client'
 import {
   LEGACY_MEMBERSHIP_PLAN,
@@ -99,6 +100,7 @@ function refundPaidAt(response: ChinaumsBillResponse): Date {
 }
 
 function subtractPlanDuration(plan: string, value: Date): Date {
+  if (isAnnualPlan(plan)) return new Date(value.getTime() - ANNUAL_DURATION_DAYS * 86400000)
   if (plan === LEGACY_MEMBERSHIP_PLAN.YEARLY) {
     const legacyResult = new Date(value)
     legacyResult.setFullYear(legacyResult.getFullYear() - 1)

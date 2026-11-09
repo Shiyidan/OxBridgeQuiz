@@ -1242,7 +1242,7 @@ const diagnosticQuotaItems = computed(() => {
   return EXAM_TYPE_OPTIONS.map((item) => {
     const quota = quotas[item.value]
     const available = isExamTypeAvailable(item.value)
-    const isMember = Boolean(auth.isAdmin || quota?.isMember)
+    const isMember = Boolean(auth.isAdmin || quota?.practiceAccess)
     const text = available ? (isMember ? '会员权益' : '免费权益') : '正在推进中'
 
     return {
@@ -1666,6 +1666,9 @@ function normalizeExamType(value: unknown): ExamType {
 
 // 套餐内部值集中映射为中文名称，避免各卡片重复维护文案。
 function planName(plan: string): string {
+  if (plan === 'annual_practice') return '做题年卡（365天）'
+  if (plan === 'annual_learning') return '学习平台年卡（365天）'
+  if (plan === 'annual_bundle') return '做题＋学习平台年卡（365天）'
   if (plan === 'quarterly') return '季卡版'
   if (plan === 'yearly') return '年度版（历史）'
   if (plan === 'monthly') return '月卡版'
@@ -1723,6 +1726,9 @@ function formatTimestamp(value: number | string | null): string {
 
 // 会员记录套餐名忠实反映后端值，不使用价格页营销名称替代历史数据。
 function membershipPlanText(plan: string): string {
+  if (plan === 'annual_practice') return '做题年卡（365天）'
+  if (plan === 'annual_learning') return '学习平台年卡（365天）'
+  if (plan === 'annual_bundle') return '做题＋学习平台年卡（365天）'
   if (plan === 'quarterly') return '季卡套餐（90天）'
   if (plan === 'yearly') return '年度套餐（历史）'
   if (plan === 'monthly') return '月卡套餐（30天）'
@@ -1744,6 +1750,9 @@ function paymentPlanText(order: Pick<PaymentOrder, 'plan' | 'priceType'>): strin
     return '邀请奖励周卡'
   }
   if (order.priceType === 'first_monthly') return '月度套餐（历史首购）'
+  if (order.plan === 'annual_practice') return '做题年卡（365天）'
+  if (order.plan === 'annual_learning') return '学习平台年卡（365天）'
+  if (order.plan === 'annual_bundle') return '做题＋学习平台年卡（365天）'
   if (order.plan === 'quarterly') return '季卡套餐（90天）'
   if (order.plan === 'yearly') return '年度套餐（历史）'
   return '月卡套餐（30天）'

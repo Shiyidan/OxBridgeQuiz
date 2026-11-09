@@ -1,3 +1,4 @@
+import type { AnnualPricing } from '@/constants/annualMembership'
 /**
  * 管理后台 相关 API
  */
@@ -409,9 +410,7 @@ export interface BehaviorAnalyticsResult {
 }
 
 export interface AdminPaymentConfig {
-  monthlyPriceCents: number
-  quarterlyOriginalPriceCents: number
-  quarterlyPriceCents: number
+  annualPricing: AnnualPricing
   status: 'active' | 'inactive'
   updatedBy?: string | null
   updatedAt: string

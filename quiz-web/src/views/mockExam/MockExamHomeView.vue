@@ -1118,12 +1118,12 @@ const hasTrendData = computed(() =>
 
 // 当前考试会员只解锁相同考试类型的会员卷。
 function hasExamMembership(examType: string): boolean {
-  return Boolean(auth.isAdmin || auth.memberContext?.quotas?.[examType]?.isMember)
+  return Boolean(auth.isAdmin || auth.memberContext?.quotas?.[examType]?.practiceAccess)
 }
 
 // 缓存显示为会员时在新建模考前向服务端复核，承接24小时日卡自然到期的长会话。
 async function refreshCachedExamMembership(examType: string): Promise<boolean> {
-  if (auth.isAdmin || !auth.memberContext?.quotas?.[examType]?.isMember) return true
+  if (auth.isAdmin || !auth.memberContext?.quotas?.[examType]?.practiceAccess) return true
   try {
     auth.setMemberContext(await getMember())
     return true

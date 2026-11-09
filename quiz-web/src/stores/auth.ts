@@ -77,7 +77,8 @@ export const useAuthStore = defineStore('auth', () => {
         examType,
         {
           examType,
-          isMember: item.isMember,
+          isMember: item.practiceAccess ?? item.isMember,
+          learningAccess: item.learningAccess ?? item.isMember,
           membershipPlan: item.plan,
           membershipEndsAt: item.endsAt,
           diagnostic: item.diagnostic,

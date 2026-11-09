@@ -65,6 +65,7 @@
     "test:question-bank-membership": "tsx scripts/test-question-bank-membership.ts",
     "test:question-bank-start": "tsx scripts/test-question-bank-start.ts",
     "test:invitations": "tsx scripts/test-invitations.ts",
+    "test:annual-membership": "tsx scripts/test-annual-membership.ts",
     "test:payment-runtime": "tsx scripts/test-payment-runtime-safety.ts",
     "test:revenue-payments": "tsx scripts/test-revenue-payments.ts",
     "test:study-preferences": "tsx scripts/test-study-preferences.ts",

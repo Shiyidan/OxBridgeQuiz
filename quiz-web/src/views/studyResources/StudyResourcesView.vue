@@ -291,7 +291,7 @@ async function handleDownload(
     resource.accessTier === 'member' &&
     (resource.examType === 'ESAT' || resource.examType === 'TMUA') &&
     !auth.memberContext?.isAdmin &&
-    !auth.memberContext?.quotas?.[resource.examType]?.isMember
+    !auth.memberContext?.quotas?.[resource.examType]?.practiceAccess
   ) {
     pendingDownload.value = { resourceId: resource.id, fileId: file.id }
     paymentExamType.value = resource.examType

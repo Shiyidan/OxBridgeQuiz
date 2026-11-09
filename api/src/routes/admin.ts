@@ -1,3 +1,5 @@
+// 后台管理接口：会员、支付配置及运营管理。
+import { annualPricing, DEFAULT_ANNUAL_PRICING } from '../constants/annualMembership.js'
 import { Request, Response } from 'express'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../services/prisma.js'
@@ -105,6 +107,7 @@ function parsePaymentAmount(value: unknown): number | null {
 }
 
 function formatPaymentConfig(config: {
+  annualPricing?: unknown
   monthlyPriceCents: number
   quarterlyOriginalPriceCents: number
   quarterlyPriceCents: number
@@ -112,7 +115,7 @@ function formatPaymentConfig(config: {
   updatedBy: string | null
   updatedAt: Date
 }) {
-  return { ...config, updatedAt: config.updatedAt.toISOString() }
+  return { ...config, annualPricing: annualPricing(config.annualPricing), updatedAt: config.updatedAt.toISOString() }
 }
 
 function formatPaymentRefund(refund: {
@@ -636,52 +639,34 @@ adminRouter.get('/payment-config', async (_req, res) => {
 // 保存支付策略后，前台支付弹窗立即读取最新价格。
 adminRouter.put('/payment-config', async (req, res) => {
   try {
-    const monthlyPriceCents = parsePaymentAmount(req.body.monthlyPriceCents)
-    const quarterlyOriginalPriceCents = parsePaymentAmount(req.body.quarterlyOriginalPriceCents)
-    const quarterlyPriceCents = parsePaymentAmount(req.body.quarterlyPriceCents)
-    const status = req.body.status
-    if (monthlyPriceCents === null || quarterlyOriginalPriceCents === null || quarterlyPriceCents === null) {
-      res.status(422).json(fail('价格必须是大于 0 的整数分'))
+    const raw = req.body.annualPricing
+    const keys = Object.keys(DEFAULT_ANNUAL_PRICING) as (keyof typeof DEFAULT_ANNUAL_PRICING)[]
+    if (!raw || typeof raw !== 'object' || keys.some((key) => typeof raw[key] !== 'number' || parsePaymentAmount(raw[key]) === null)) {
+      res.status(422).json(fail('年卡价格必须是大于 0 的整数分'))
       return
     }
+    const prices = annualPricing(raw)
+    const status = req.body.status
     if (status !== PAYMENT_CONFIG_STATUS.ACTIVE && status !== PAYMENT_CONFIG_STATUS.INACTIVE) {
       res.status(422).json(fail('无效的支付策略状态'))
       return
     }
-    if (quarterlyPriceCents > quarterlyOriginalPriceCents) {
-      res.status(422).json(fail('季卡折扣价不能高于季卡原价'))
+    if (prices.practicePriceCents > prices.practiceOriginalPriceCents
+      || prices.learningPriceCents > prices.learningOriginalPriceCents
+      || prices.bundlePriceCents > prices.practicePriceCents + prices.learningPriceCents) {
+      res.status(422).json(fail('优惠价不能高于原价，组合价不能高于两项单购合计'))
       return
     }
-
     const previousConfig = await getOrCreatePaymentConfig()
-    const config = await prisma.paymentConfig.upsert({
+    const config = await prisma.paymentConfig.update({
       where: { id: 'default' },
-      create: {
-        id: 'default',
-        monthlyPriceCents,
-        quarterlyOriginalPriceCents,
-        quarterlyPriceCents,
-        status,
-        updatedBy: req.user!.userId,
-      },
-      update: {
-        monthlyPriceCents,
-        quarterlyOriginalPriceCents,
-        quarterlyPriceCents,
-        status,
-        updatedBy: req.user!.userId,
-      },
+      data: { annualPricing: prices, status, updatedBy: req.user!.userId },
     })
     setOperationAuditContext(req, {
       resourceId: config.id,
       changes: buildOperationAuditChanges(
-        {
-          monthlyPriceCents: previousConfig.monthlyPriceCents,
-          quarterlyOriginalPriceCents: previousConfig.quarterlyOriginalPriceCents,
-          quarterlyPriceCents: previousConfig.quarterlyPriceCents,
-          status: previousConfig.status,
-        },
-        { monthlyPriceCents, quarterlyOriginalPriceCents, quarterlyPriceCents, status },
+        { ...annualPricing(previousConfig.annualPricing), status: previousConfig.status },
+        { ...prices, status },
       ),
     })
     res.json(success(formatPaymentConfig(config)))

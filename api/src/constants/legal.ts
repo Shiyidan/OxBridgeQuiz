@@ -1,9 +1,9 @@
 // 协议版本常量：认证与支付审计统一记录用户操作当时对应的正式文档版本。
 export const LEGAL_DOCUMENT_VERSIONS = {
-  userAgreement: 'V1.0',
+  userAgreement: 'V1.1',
   privacyPolicy: 'V1.0',
-  membershipServiceAgreement: 'V1.4',
-  membershipPurchaseNotice: 'V1.4',
+  membershipServiceAgreement: 'V1.5',
+  membershipPurchaseNotice: 'V1.5',
 } as const
 
 export const LEGAL_DOCUMENT_TYPE = {

@@ -817,6 +817,7 @@ model PaymentConfig {
   monthlyPriceCents           Int      @default(19800)
   quarterlyOriginalPriceCents Int      @default(59400)
   quarterlyPriceCents         Int      @default(35600)
+  annualPricing              Json?
   status                      String   @default("active") @db.VarChar(32)
   updatedBy                   String?  @db.VarChar(191)
   createdAt                   DateTime @default(now())

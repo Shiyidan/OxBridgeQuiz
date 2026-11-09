@@ -1,8 +1,10 @@
 /** 支付策略与用户支付订单 API。 */
+import type { AnnualPlan, AnnualPricing } from '@/constants/annualMembership'
 import { callApi } from '@/utils/request'
 import type { MembershipLegalVersions } from '@/constants/legal'
 
 export interface PaymentConfig {
+  annualPricing: AnnualPricing
   monthlyPriceCents: number
   quarterlyOriginalPriceCents: number
   quarterlyPriceCents: number
@@ -15,8 +17,8 @@ export interface PaymentOrder {
   id: string
   orderNo: string
   examTypes: string[]
-  plan: 'monthly' | 'quarterly' | 'yearly' | 'daily_gift' | 'weekly_reward'
-  priceType: 'monthly' | 'quarterly' | 'yearly' | 'first_monthly' | 'admin_gift' | 'invitation_reward'
+  plan: AnnualPlan | 'monthly' | 'quarterly' | 'yearly' | 'daily_gift' | 'weekly_reward'
+  priceType: AnnualPlan | 'monthly' | 'quarterly' | 'yearly' | 'first_monthly' | 'admin_gift' | 'invitation_reward'
   amountCents: number
   refundedAmountCents: number
   currency: string
@@ -73,7 +75,7 @@ export function getPaymentConfig() {
 /** 创建支付订单并由后端向银联商务换取一次性聚合支付二维码。 */
 export function createPaymentOrder(payload: {
   examTypes: string[]
-  plan: 'monthly' | 'quarterly'
+  plan: AnnualPlan
   legalVersions: MembershipLegalVersions
 }) {
   return callApi<CreatePaymentOrderResult>({

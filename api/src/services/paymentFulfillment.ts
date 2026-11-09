@@ -1,4 +1,5 @@
 // 支付履约服务：以银联商务查询结果为准，幂等更新订单并创建或延长会员权益。
+import { isAnnualPlan, ANNUAL_DURATION_DAYS } from '../constants/annualMembership.js'
 import { Prisma } from '@prisma/client'
 import {
   LEGACY_MEMBERSHIP_PLAN,
@@ -25,6 +26,7 @@ export class PaymentFulfillmentError extends Error {
 }
 
 function extendMembership(plan: string, start: Date): Date {
+  if (isAnnualPlan(plan)) return new Date(start.getTime() + ANNUAL_DURATION_DAYS * 86400000)
   if (plan === LEGACY_MEMBERSHIP_PLAN.YEARLY) {
     const legacyEnd = new Date(start)
     legacyEnd.setFullYear(legacyEnd.getFullYear() + 1)
@@ -110,6 +112,7 @@ export async function fulfillPaidOrder(
           where: {
             userId: order.userId,
             examType,
+            ...(isAnnualPlan(order.plan) ? { plan: order.plan } : {}),
             status: MEMBERSHIP_STATUS.ACTIVE,
             endsAt: { gt: now },
           },

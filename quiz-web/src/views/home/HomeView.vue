@@ -42,10 +42,6 @@
       <MarketingHome
         :include-hero="!auth.isLoggedIn"
         :authenticated="auth.isLoggedIn"
-        :member-price-label="marketingPriceLabel"
-        :quarterly-price-label="marketingQuarterlyPriceLabel"
-        :quarterly-original-price-label="marketingQuarterlyOriginalPriceLabel"
-        :quarterly-discount-label="marketingQuarterlyDiscountLabel"
         @register="(targetPath) => openAuthPage('register', targetPath)"
         @login="(targetPath) => openAuthPage('login', targetPath)"
         @navigate="handleNavigation"
@@ -71,13 +67,13 @@
 </template>
 
 <script setup lang="ts">
+import type { AnnualPlan } from '@/constants/annualMembership'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
 import { getMember, updateStudyPreferences, type StudyPreferencesUpdate } from '@/api/member'
-import { getPaymentConfig } from '@/api/payment'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import {
   createAuthRouteLocation,
@@ -93,21 +89,17 @@ import StudentHome from './StudentHome.vue'
 import { useHomeDashboard } from './useHomeDashboard'
 
 type AuthPage = 'login' | 'register'
-type PaymentPlanId = 'monthly' | 'quarterly'
+type PaymentPlanId = AnnualPlan
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const paymentOpen = ref(false)
-const paymentDefaultPlan = ref<PaymentPlanId>('monthly')
+const paymentDefaultPlan = ref<PaymentPlanId>('annual_practice')
 const paymentDefaultExam = ref<ActiveExamType | null>(null)
 const goalDialogOpen = ref(false)
 const goalSaving = ref(false)
 const pendingGoalExam = ref<ActiveExamType | null>(null)
-const marketingPriceLabel = ref('¥198')
-const marketingQuarterlyPriceLabel = ref('¥356')
-const marketingQuarterlyOriginalPriceLabel = ref('594')
-const marketingQuarterlyDiscountLabel = ref('6折')
 
 const {
   currentExam,
@@ -221,7 +213,7 @@ async function saveGoal(value: { examType: ActiveExamType; subjects: string[] })
 }
 
 // 访客购买先完成认证，登录返回首页后再打开正式支付流程。
-function openPayment(planId: PaymentPlanId = 'monthly', examType?: ActiveExamType): void {
+function openPayment(planId: PaymentPlanId = 'annual_practice', examType?: ActiveExamType): void {
   if (!MEMBERSHIP_PURCHASE_ENABLED) {
     ElMessage.info(MEMBERSHIP_PURCHASE_PENDING_MESSAGE)
     return
@@ -247,46 +239,10 @@ async function handlePaymentPaid(): Promise<void> {
   }
 }
 
-// 营销价格保留整数元或两位小数，避免后台非整数价格在首页被错误四舍五入。
-function formatMarketingAmount(valueCents: number): string {
-  const yuan = valueCents / 100
-  return Number.isInteger(yuan) ? String(yuan) : yuan.toFixed(2)
-}
-
-// 首页各价格字段共用人民币符号，组合折扣文案时可单独复用无符号金额。
-function formatMarketingPrice(valueCents: number): string {
-  return `¥${formatMarketingAmount(valueCents)}`
-}
-
-// 季卡折扣由实时原价和实付价计算，确保营销卡与支付弹窗保持一致。
-function formatMarketingDiscount(priceCents: number, originalPriceCents: number): string {
-  if (priceCents >= originalPriceCents) return '当前价'
-  const discount = Number(((priceCents / originalPriceCents) * 10).toFixed(1))
-  return `${discount}折`
-}
-
-// 营销价格读取公开支付配置；读取失败时保留默认展示价格，不阻断登录与支付入口。
-async function loadMarketingPrice(): Promise<void> {
-  try {
-    const config = await getPaymentConfig()
-    marketingPriceLabel.value = formatMarketingPrice(config.monthlyPriceCents)
-    marketingQuarterlyPriceLabel.value = formatMarketingPrice(config.quarterlyPriceCents)
-    marketingQuarterlyOriginalPriceLabel.value = formatMarketingAmount(
-      config.quarterlyOriginalPriceCents,
-    )
-    marketingQuarterlyDiscountLabel.value = formatMarketingDiscount(
-      config.quarterlyPriceCents,
-      config.quarterlyOriginalPriceCents,
-    )
-  } catch {
-    // 默认价格只用于营销展示，最终金额和服务可用性由支付弹窗的实时接口确认。
-  }
-}
-
 // 登录回跳中的购买意图只消费一次，避免刷新其他首页状态时反复弹出。
 async function consumePurchaseIntent(): Promise<void> {
   if (!auth.isLoggedIn || route.query.purchase !== '1') return
-  paymentDefaultPlan.value = route.query.plan === 'quarterly' ? 'quarterly' : 'monthly'
+  paymentDefaultPlan.value = route.query.plan === 'annual_learning' ? 'annual_learning' : route.query.plan === 'annual_bundle' ? 'annual_bundle' : 'annual_practice'
   // 首页选择的考试随购买意图回跳，避免登录后被个人默认考试覆盖。
   paymentDefaultExam.value =
     route.query.exam === 'ESAT' || route.query.exam === 'TMUA' ? route.query.exam : null
@@ -343,7 +299,6 @@ watch(goalDialogOpen, (visible, previousVisible) => {
 // 首页专用 body 标记只在本路由存在，用于解除旧版全站最小宽度并启用响应式布局。
 onMounted(() => {
   document.body.classList.add('home-route')
-  void loadMarketingPrice()
   void consumePurchaseIntent()
 })
 

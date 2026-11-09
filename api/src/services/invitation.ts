@@ -1,4 +1,5 @@
 // 邀请码服务：统一处理邀请绑定、双边周卡发放、考试类型激活和退款撤回。
+import { ANNUAL_PLAN } from '../constants/annualMembership.js'
 import crypto from 'node:crypto'
 import { Prisma } from '@prisma/client'
 import {
@@ -167,6 +168,7 @@ export async function bindInvitationForUser(
             MEMBERSHIP_PLAN.MONTHLY,
             MEMBERSHIP_PLAN.QUARTERLY,
             LEGACY_MEMBERSHIP_PLAN.YEARLY,
+            ...Object.values(ANNUAL_PLAN),
           ],
         },
         status: {
@@ -374,6 +376,7 @@ export async function getInvitationOverview(userId: string) {
           MEMBERSHIP_PLAN.MONTHLY,
           MEMBERSHIP_PLAN.QUARTERLY,
           LEGACY_MEMBERSHIP_PLAN.YEARLY,
+          ...Object.values(ANNUAL_PLAN),
         ],
       },
       status: {

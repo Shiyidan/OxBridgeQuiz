@@ -1,12 +1,12 @@
 /** 正式协议版本：认证与支付请求提交用户当前看到的文档版本。 */
 export const AUTH_LEGAL_VERSIONS = {
-  userAgreement: 'V1.0',
+  userAgreement: 'V1.1',
   privacyPolicy: 'V1.0',
 } as const
 
 export const MEMBERSHIP_LEGAL_VERSIONS = {
-  membershipServiceAgreement: 'V1.4',
-  membershipPurchaseNotice: 'V1.4',
+  membershipServiceAgreement: 'V1.5',
+  membershipPurchaseNotice: 'V1.5',
 } as const
 
 export interface AuthLegalVersions {

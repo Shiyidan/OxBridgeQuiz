@@ -132,7 +132,7 @@ const pendingDailyCardCount = computed(() => pendingDailyCards.value.length)
 function hasMembershipForExam(examType: 'ESAT' | 'TMUA'): boolean {
   return (
     Boolean(auth.memberContext?.isAdmin) ||
-    Boolean(auth.memberContext?.quotas?.[examType]?.isMember)
+    Boolean(auth.memberContext?.quotas?.[examType]?.practiceAccess)
   )
 }
 

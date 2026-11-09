@@ -1,5 +1,6 @@
 // 支付前台接口：提供价格、银联商务聚合码下单、查询、关单和异步通知处理。
 import crypto from 'crypto'
+import { annualPricing, annualPlanPrice, isAnnualPlan, DEFAULT_ANNUAL_PRICING } from '../constants/annualMembership.js'
 import { Prisma } from '@prisma/client'
 import { config } from '../config.js'
 import { optionalAuth, requireAuth } from '../middleware/auth.js'
@@ -30,20 +31,19 @@ import { normalizeIpAddress } from '../utils/ipAddress.js'
 import { parseJsonArray, parseJsonObject } from '../utils/jsonField.js'
 import {
   EXAM_TYPES,
-  MEMBERSHIP_PLAN,
   PAYMENT_CHANNEL,
   PAYMENT_CONFIG_STATUS,
   PAYMENT_NOTIFICATION_STATUS,
   PAYMENT_ORDER_STATUS,
   PAYMENT_PRICE_TYPE,
   PAYMENT_REFUND_STATUS,
-  isMembershipPlan,
   isStudentExamTypeAvailable,
 } from '../constants/domain.js'
 
 export const paymentRouter = createAsyncRouter()
 
 const DEFAULT_CONFIG = {
+  annualPricing: DEFAULT_ANNUAL_PRICING,
   monthlyPriceCents: 19800,
   quarterlyOriginalPriceCents: 59400,
   quarterlyPriceCents: 35600,
@@ -51,6 +51,7 @@ const DEFAULT_CONFIG = {
 
 function formatConfig(
   paymentConfig: {
+    annualPricing?: unknown
     monthlyPriceCents: number
     quarterlyOriginalPriceCents: number
     quarterlyPriceCents: number
@@ -59,6 +60,7 @@ function formatConfig(
   },
 ) {
   return {
+    annualPricing: annualPricing(paymentConfig.annualPricing),
     monthlyPriceCents: paymentConfig.monthlyPriceCents,
     quarterlyOriginalPriceCents: paymentConfig.quarterlyOriginalPriceCents,
     quarterlyPriceCents: paymentConfig.quarterlyPriceCents,
@@ -315,8 +317,8 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
       res.status(422).json(fail('STEP 考试相关功能正在推进中，暂不支持购买', 'EXAM_NOT_AVAILABLE'))
       return
     }
-    if (!isMembershipPlan(plan)) {
-      res.status(422).json(fail('请选择有效的订阅计划'))
+    if (!isAnnualPlan(plan)) {
+      res.status(422).json(fail('请选择有效的年卡套餐'))
       return
     }
     if (
@@ -338,11 +340,8 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
       return
     }
 
-    const isMonthly = plan === MEMBERSHIP_PLAN.MONTHLY
-    const priceType = isMonthly ? PAYMENT_PRICE_TYPE.MONTHLY : PAYMENT_PRICE_TYPE.QUARTERLY
-    const amountCents = isMonthly
-      ? paymentConfig.monthlyPriceCents
-      : paymentConfig.quarterlyPriceCents
+    const priceType = plan
+    const amountCents = annualPlanPrice(plan, annualPricing(paymentConfig.annualPricing))
 
     const agreementsAcceptedAt = new Date()
     const expiresAt = new Date(Date.now() + config.chinaums.orderExpireMinutes * 60 * 1000)
@@ -383,7 +382,7 @@ paymentRouter.post('/orders', requireAuth, async (req, res) => {
       orderNo: order.orderNo,
       amountCents,
       expiresAt,
-      description: `${config.chinaums.orderDescription}-${isMonthly ? 'Monthly' : 'Quarterly'}`,
+      description: `${config.chinaums.orderDescription}-${plan}`,
     })
     if (!qrResponse.billQRCode || !qrResponse.billDate) {
       throw new ChinaumsRequestError('银联商务未返回有效二维码', 'CHINAUMS_QR_MISSING', qrResponse)

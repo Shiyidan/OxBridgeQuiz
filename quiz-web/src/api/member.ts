@@ -44,6 +44,10 @@ export interface UsageQuota {
 }
 
 export interface ExamQuota {
+  practiceAccess: boolean
+  learningAccess: boolean
+  practiceEndsAt: number | null
+  learningEndsAt: number | null
   status: string
   isMember: boolean
   plan: string

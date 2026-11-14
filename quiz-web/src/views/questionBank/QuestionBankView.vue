@@ -5,7 +5,7 @@
       <header class="qb-overview">
         <div>
           <h1 id="question-bank-title">试题库</h1>
-          <p>按考点练习，按需学习。</p>
+          <p>{{ learningEnabled ? '按考点练习，按需学习。' : '按考点选择难度，进行专项练习。' }}</p>
         </div>
         <nav class="qb-shortcuts" aria-label="练习管理">
           <RouterLink to="/practice-notebook"
@@ -54,7 +54,7 @@
       </aside>
 
       <section ref="workspaceRef" class="qb-workspace" aria-labelledby="question-bank-title">
-        <el-tabs v-model="activeMode" class="qb-mode-tabs" aria-label="学习与做题">
+        <el-tabs v-model="activeMode" class="qb-mode-tabs" :class="{ 'qb-mode-tabs--practice-only': !learningEnabled }" :aria-label="learningEnabled ? '学习与做题' : '做题'">
           <el-tab-pane
             v-for="mode in workspaceModes"
             :key="mode.id"
@@ -93,7 +93,7 @@
                       </span>
                     </template>
                   </nav>
-                  <div v-if="!activeKnowledgeLesson || mode.id !== 'learning'" class="qb-content__title-line">
+                  <div v-if="mode.id !== 'learning' || (learningAllowed && !activeKnowledgeLesson)" class="qb-content__title-line">
                     <h2 class="qb-content__title">{{ currentScopeCnLabel }}</h2>
                     <p v-if="currentScopeEnLabel !== currentScopeCnLabel" class="qb-content__english">
                       {{ currentScopeEnLabel }}
@@ -103,12 +103,48 @@
               </header>
 
               <template v-if="mode.id === 'learning'">
-                <div v-if="!learningAllowed" class="qb-learning-index">
-                  <h3>{{ learningChecking ? '正在确认学习权益…' : '学习平台为年卡专享' }}</h3>
-                  <p>开通当前考试的学习平台年卡或组合年卡，即可查看知识点讲解、例题和自测。</p>
-                  <AppButton :disabled="learningChecking" @click="openLearningPayment">开通学习平台年卡</AppButton>
+                <div v-if="learningChecking || syllabusLoading" class="qb-learning-loading" role="status" aria-label="正在加载学习内容" aria-busy="true">
+                  <el-skeleton :rows="6" />
                 </div>
-                <KeepAlive :max="1">
+                <div v-else-if="learningError" class="qb-learning-error" role="alert">
+                  <p>学习内容暂时加载失败，请重试。</p>
+                  <AppButton type="secondary" size="small" @click="refreshLearningAccess">重新加载</AppButton>
+                </div>
+                <div v-else-if="!learningAllowed" class="qb-locked-learning">
+                  <LockedLearningPreview class="qb-locked-learning__preview" />
+                  <div class="qb-locked-learning__veil" aria-hidden="true"></div>
+                  <section class="qb-learning-gate" aria-label="学习平台权益">
+                    <div class="qb-learning-gate__heading">
+                      <span class="qb-learning-gate__lock" aria-hidden="true"><Lock /></span>
+                      <span class="qb-learning-gate__badge">{{ activeExamType }} · 学习年卡</span>
+                    </div>
+                    <h3>解锁知识背后的方法</h3>
+                    <p class="qb-learning-gate__intro">知识点讲解、精选例题与即时自测，串起从理解到应用的完整学习过程。</p>
+                    <div class="qb-learning-gate__features">
+                      <div>
+                        <Reading aria-hidden="true" />
+                        <strong>知识点讲解</strong>
+                        <p>理清概念与方法，建立知识联系</p>
+                      </div>
+                      <div>
+                        <EditPen aria-hidden="true" />
+                        <strong>精选例题</strong>
+                        <p>跟随解题思路，理解关键步骤</p>
+                      </div>
+                      <div>
+                        <CircleCheck aria-hidden="true" />
+                        <strong>即时自测</strong>
+                        <p>学完及时检验，找到薄弱环节</p>
+                      </div>
+                    </div>
+                    <div class="qb-learning-gate__footer">
+                      <AppButton :icon="ArrowRight" icon-position="right" @click="openLearningPayment">
+                        开通学习平台年卡
+                      </AppButton>
+                    </div>
+                  </section>
+                </div>
+                <KeepAlive v-if="learningAllowed" :max="1">
                   <KnowledgeLessonPanel
                     v-if="learningAllowed && activeMode === 'learning' && activeKnowledgeLesson"
                     :key="activeKnowledgeLesson.code"
@@ -291,18 +327,19 @@ import {
   onBeforeUnmount,
   onMounted,
   ref,
+  shallowRef,
   watch,
 } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, ArrowRight, Clock, Reading } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, CircleCheck, Clock, EditPen, Lock, Reading } from '@element-plus/icons-vue'
 import type { TreeInstance } from 'element-plus'
 import AppDialog from '@/components/AppDialog.vue'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
 import type { AnnualPlan } from '@/constants/annualMembership'
+import { isFreeLearningScope } from '@/constants/freeLearningAccess'
 import SyllabusTreeNode from '@/components/SyllabusTreeNode.vue'
-import { findKnowledgeLesson } from '@/content/knowledge'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import type { QuestionDifficulty, SyllabusNode } from '@/api/questionBank'
 import { getSyllabusData, getQuestionSummaryData } from '@/api/questionBank'
@@ -313,6 +350,10 @@ import { createLoginRequiredRouteLocation } from '@/utils/authRedirect'
 // 做题页不装载讲解及图示组件，进入学习后再使用原有课程面板。
 const KnowledgeLessonPanel = defineAsyncComponent(
   () => import('@/components/knowledge/KnowledgeLessonPanel.vue'),
+)
+// 未解锁背景仅含装饰色块，不引用课程文字或图示。
+const LockedLearningPreview = defineAsyncComponent(
+  () => import('@/components/knowledge/LockedLearningPreview.vue'),
 )
 
 const router = useRouter()
@@ -342,11 +383,22 @@ interface PendingDirectPractice {
 const DIRECT_PRACTICE_QUESTION_COUNT = 5
 const SYLLABUS_COLLAPSED_STORAGE_KEY = 'question-bank:syllabus-collapsed'
 const WORKSPACE_MODE_STORAGE_KEY = 'question-bank:mode'
-const workspaceModes: { id: WorkspaceMode; label: string }[] = [
+const allWorkspaceModes: { id: WorkspaceMode; label: string }[] = [
   { id: 'learning', label: '学习' },
   { id: 'practice', label: '做题' },
 ]
-const activeMode = ref<WorkspaceMode>('practice')
+// TMUA 暂时只开放做题，保留课程实现，恢复时只需调整此入口开关。
+const learningEnabled = computed(() => auth.activeExamType !== 'TMUA')
+// 关闭学习入口的考试不创建学习页签及其解锁组件。
+const workspaceModes = computed(() =>
+  allWorkspaceModes.filter((mode) => learningEnabled.value || mode.id === 'practice'),
+)
+const preferredMode = ref<WorkspaceMode>('practice')
+// 统一收敛旧链接、缓存偏好和页签赋值，防止 TMUA 再次进入学习模式。
+const activeMode = computed<WorkspaceMode>({
+  get: () => learningEnabled.value ? preferredMode.value : 'practice',
+  set: (mode) => { preferredMode.value = mode },
+})
 // 游客可浏览考纲与题量，开始专项练习时再进入登录并回到试题库。
 function requireLoginForPracticeAction(): boolean {
   if (auth.isLoggedIn) return false
@@ -390,26 +442,48 @@ let practiceLoadSequence = 0
 
 const paymentPlan = ref<AnnualPlan>('annual_practice')
 const learningChecking = ref(false)
+const learningError = ref(false)
 const learningAllowed = ref(false)
+const learningContent = shallowRef<typeof import('@/content/knowledge') | null>(null)
 let learningRequest = 0
-// 学习正文仅在最新权益确认后装载，切换考试时立即清除旧授权。
-watch(() => [activeMode.value, auth.activeExamType, selectedNodeCode.value] as const, async ([mode, exam], _old, onCleanup) => {
+// 先确认当前考试权益，再请求讲义模块；选择切换和离开页面会令旧请求失效。
+async function refreshLearningAccess(): Promise<void> {
   const request = ++learningRequest
+  const exam = auth.activeExamType
+  const code = selectedNodeCode.value
   learningAllowed.value = false
-  if (mode !== 'learning') return
+  learningContent.value = null
+  learningChecking.value = false
+  learningError.value = false
+  if (!learningEnabled.value || activeMode.value !== 'learning') return
+  const freeScope = isFreeLearningScope(exam, code)
+  if (!freeScope && !auth.isLoggedIn) return
   learningChecking.value = true
-  let valid = true
-  onCleanup(() => { valid = false })
   try {
-    const context = await getMember()
-    if (valid && request === learningRequest) {
-      learningAllowed.value = context.isAdmin || Boolean(context.quotas[exam]?.learningAccess)
-    }
-  } catch { /* 请求层显示读取错误，不向未确认权益的用户展示讲义。 */ }
+    const context = auth.isLoggedIn ? await getMember() : null
+    const memberAllowed = Boolean(context?.isAdmin || context?.quotas[exam]?.learningAccess)
+    if (request !== learningRequest || (!freeScope && !memberAllowed)) return
+    const content = memberAllowed
+      ? await import('@/content/knowledge')
+      : await import('@/content/knowledge/freeLessons')
+    if (request !== learningRequest) return
+    learningContent.value = content
+    learningAllowed.value = true
+  } catch {
+    // 请求失败不能等同于没有会员，尤其不能向免费知识点显示付费提示。
+    if (request === learningRequest) learningError.value = true
+  }
   finally { if (request === learningRequest) learningChecking.value = false }
-}, { immediate: true })
+}
+// 身份、考试和知识点改变时同步撤销旧授权，避免使用上一次的确认结果。
+watch(
+  () => [activeMode.value, auth.activeExamType, selectedNodeCode.value, auth.isLoggedIn, auth.user?.id] as const,
+  () => { void refreshLearningAccess() },
+  { immediate: true, flush: 'sync' },
+)
 // 学习购买默认选中学习年卡，支付后重新读取对应考试权益。
 function openLearningPayment(): void {
+  if (!learningEnabled.value) return
   paymentPlan.value = 'annual_learning'
   paymentExamType.value = auth.activeExamType
   paymentVisible.value = true
@@ -445,7 +519,8 @@ const activeExamType = computed<ActiveExamType>(() => auth.activeExamType)
 
 // 讲解只绑定当前考纲真实存在的节点；可选知识点也以当前已加载考纲为准。
 const activeKnowledgeLesson = computed(() => {
-  const lesson = findKnowledgeLesson(activeExamType.value, selectedNodeCode.value)
+  if (!learningAllowed.value) return null
+  const lesson = learningContent.value?.findKnowledgeLesson(activeExamType.value, selectedNodeCode.value)
   if (!lesson || !findTreeNode(treeData.value, selectedNodeCode.value)) return null
   const sections = lesson.sections.filter((section) => findTreeNode(treeData.value, section.code))
   return sections.length ? { ...lesson, sections } : null
@@ -478,11 +553,12 @@ const currentScopeEnLabel = computed(
 
 // 学科总节点列出已有讲解的章节，避免让学生在学习模式下看到空白页。
 const availableLearningChapters = computed(() => {
+  if (!learningAllowed.value || !learningContent.value) return []
   const chapters: TreeNode[] = []
   // 已匹配章节时不再展开其叶子，避免同一讲义在入口重复出现。
   const visit = (nodes: TreeNode[]): void => {
     for (const node of nodes) {
-      if (findKnowledgeLesson(activeExamType.value, node.code)) chapters.push(node)
+      if (learningContent.value?.findKnowledgeLesson(activeExamType.value, node.code)) chapters.push(node)
       else visit(node.children || [])
     }
   }
@@ -515,7 +591,7 @@ function restoreWorkspaceMode(): void {
 // 记住上次使用的入口，学习与做题切换不重置考点、不创建答卷。
 watch(activeMode, (mode) => {
   try {
-    window.localStorage.setItem(WORKSPACE_MODE_STORAGE_KEY, mode)
+    if (learningEnabled.value) window.localStorage.setItem(WORKSPACE_MODE_STORAGE_KEY, mode)
   } catch {
     // 存储不可用时保留本次页面内的选择。
   }
@@ -776,6 +852,7 @@ onMounted(() => {
   compactViewportQuery.addEventListener('change', syncCompactViewport)
 })
 onBeforeUnmount(() => {
+  learningRequest += 1
   compactViewportQuery?.removeEventListener('change', syncCompactViewport)
 })
 
@@ -793,6 +870,7 @@ onMounted(async () => {
 // 返回缓存页面时刷新进行中的练习，避免使用过期状态。
 onActivated(() => {
   if (examContentInitialized) {
+    void refreshLearningAccess()
     void loadActivePractice()
   }
 })
@@ -923,7 +1001,7 @@ async function handlePaymentSuccess(): Promise<void> {
   try {
     const context = await getMember()
     auth.setMemberContext(context)
-    learningAllowed.value = context.isAdmin || Boolean(context.quotas[auth.activeExamType]?.learningAccess)
+    await refreshLearningAccess()
     if (pendingDirectPractice.value) {
       await handleConfirmSelectedPractice()
     } else {
@@ -1074,6 +1152,12 @@ async function handlePaymentSuccess(): Promise<void> {
 }
 .qb-mode-tabs :deep(> .el-tabs__header) {
   margin: 0;
+}
+.qb-mode-tabs--practice-only :deep(> .el-tabs__header) {
+  display: none;
+}
+.qb-mode-tabs--practice-only .qb-content {
+  padding-top: 0;
 }
 .qb-mode-tabs :deep(.el-tabs__nav-wrap::after) {
   height: 1px;
@@ -1434,6 +1518,137 @@ async function handlePaymentSuccess(): Promise<void> {
 .qb-active-practice span {
   color: var(--color-ink-soft);
   font-size: 13px;
+}
+.qb-learning-loading {
+  min-height: 400px;
+  padding: 24px 0;
+}
+.qb-learning-error {
+  padding: 24px 0;
+  color: var(--color-ink-muted);
+}
+.qb-learning-error p {
+  margin: 0 0 16px;
+}
+.qb-locked-learning {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  align-items: center;
+  min-height: 560px;
+  overflow: hidden;
+  border-radius: 16px;
+}
+.qb-locked-learning__preview {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  filter: blur(9px);
+  opacity: 0.65;
+}
+.qb-locked-learning__veil {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: rgb(246 249 253 / 30%);
+}
+.qb-learning-gate {
+  width: calc(100% - 64px);
+  box-sizing: border-box;
+  max-width: 720px;
+  margin: 80px auto;
+  padding: 24px 28px;
+  border: 1px solid var(--color-learning-blue-line);
+  border-radius: 16px;
+  background: var(--color-surface);
+  box-shadow: 0 16px 48px rgb(31 52 78 / 10%);
+}
+.qb-learning-gate__heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.qb-learning-gate__lock {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--color-learning-blue-line);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-learning-blue);
+}
+.qb-learning-gate__lock svg {
+  width: 22px;
+  height: 22px;
+}
+.qb-learning-gate__badge {
+  color: var(--color-learning-blue);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.qb-learning-gate h3 {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+.qb-learning-gate__intro {
+  margin: 12px 0 0;
+  color: var(--color-ink-soft);
+  font-size: 14px;
+  line-height: 1.8;
+}
+.qb-learning-gate__features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  margin: 22px 0;
+}
+.qb-learning-gate__features > div {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-content: start;
+  gap: 8px 10px;
+}
+.qb-learning-gate__features svg {
+  width: 20px;
+  height: 20px;
+  color: var(--color-learning-blue);
+}
+.qb-learning-gate__features strong {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+.qb-learning-gate__features p {
+  grid-column: 2;
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.qb-learning-gate__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-learning-blue-line);
+}
+@media (max-width: 640px) {
+  .qb-learning-gate {
+    width: calc(100% - 24px);
+    margin-block: 48px;
+  }
+  .qb-learning-gate__features {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    margin-block: 24px;
+  }
 }
 .qb-learning-index {
   padding: 0 0 24px;

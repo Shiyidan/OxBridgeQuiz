@@ -42,6 +42,12 @@ let refreshPromise: Promise<string> | null = null
 let authFailureRedirectScheduled = false
 let accountBanned = false
 let practiceRefreshScheduled = false
+let browserGuardRedirectScheduled = false
+
+const browserGuardEnabled =
+  import.meta.env.PROD &&
+  import.meta.env.MODE === 'production' &&
+  import.meta.env.VITE_BROWSER_GUARD_ENABLED === 'true'
 
 const AUTH_FAILURE_REDIRECT_DELAY_MS = 1800
 const AUTH_SESSION_EXPIRED_CODE = 'AUTH_SESSION_EXPIRED'
@@ -89,6 +95,14 @@ const instance = axios.create({
 })
 
 instance.interceptors.request.use((request) => {
+  // 所有接口（含刷新会话和重试）发送前检查；webdriver 不代表远程调试开关。
+  if (browserGuardEnabled && (browserGuardRedirectScheduled || navigator.webdriver === true)) {
+    if (!browserGuardRedirectScheduled) {
+      browserGuardRedirectScheduled = true
+      window.location.replace('about:blank')
+    }
+    throw new axios.CanceledError('自动化浏览器访问已停止', request)
+  }
   if (accountBanned)
     throw new ApiError(
       '该账号已被暂停使用。如需申请恢复，请联系客服。',
@@ -263,6 +277,8 @@ instance.interceptors.response.use(
         return instance(original)
       } catch (refreshError: unknown) {
         const apiError = toApiError(refreshError)
+        // 刷新会话被自动化检查取消时，不再展示网络错误或进入登录失效流程。
+        if (apiError.code === REQUEST_CANCELED_CODE) return Promise.reject(apiError)
         if (handleAccountBanned(apiError, '/auth/refresh')) return Promise.reject(apiError)
         if (apiError.code === AUTH_IP_LIMIT_CODE) return Promise.reject(apiError)
         if (isSessionExpired(apiError)) {

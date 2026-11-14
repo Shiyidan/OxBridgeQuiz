@@ -1,6 +1,5 @@
 // 学习平台精选真题入口，不创建答卷、不消耗练习权益、不下发整份诊断卷。
 import { requireLearningMembership } from '../middleware/learningMembership.js';
-import { requireAuth } from '../middleware/auth.js';
 import { optionalAuth } from "../middleware/auth.js";
 import { createAsyncRouter } from "../utils/asyncRouter.js";
 import { fail, success } from "../utils/response.js";
@@ -18,7 +17,7 @@ import { getLearningPatternExample, getLearningPatternSources } from "../service
 import { learningPatternExamples } from "../constants/learningPatternExamples.js";
 
 export const learningExamplesRouter = createAsyncRouter();
-learningExamplesRouter.use(requireAuth, requireLearningMembership);
+learningExamplesRouter.use(optionalAuth, requireLearningMembership);
 learningExamplesRouter.use(learningSelfCheckRouter);
 
 // 考法来源只返回已发布年度诊断卷的位置，不向学生下发题目解析。

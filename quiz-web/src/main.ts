@@ -1,3 +1,4 @@
+// 网站入口：初始化 Vue 应用、认证和访问统计，接口访问由统一请求层检查。
 // 顺序很重要：先加载 Element Plus 默认样式，再让 main.css 里的覆盖生效
 import 'element-plus/dist/index.css'
 import './assets/main.css'

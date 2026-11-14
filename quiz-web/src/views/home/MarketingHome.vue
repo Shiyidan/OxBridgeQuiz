@@ -91,7 +91,7 @@ const STATS_ANIMATION_DURATION_MS = 900
 const statsTargets: Readonly<MarketingStatsCounts> = {
   diagnostic: 15,
   mockExam: 30,
-  practice: 3000,
+  practice: 5000,
   coverage: 100,
 }
 const statsSectionRef = ref<HTMLElement | null>(null)

@@ -135,6 +135,7 @@ export function checkMemberAccess(params: {
   action: 'diagnostic' | 'question-bank'
   examType: string
   questionCount?: number
+  code?: string
 }) {
   return callApi<MemberAccessResult>({
     url: '/getMember/check-access',

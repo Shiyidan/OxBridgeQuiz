@@ -2,6 +2,7 @@
 import { planIncludesFeature, type MembershipFeature } from "../constants/annualMembership.js";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma.js";
+import { isFreePracticeScope } from "../constants/freeLearningAccess.js";
 import { parseJsonArray } from "../utils/jsonField.js";
 import {
   ADMIN_GIFT_DAILY_DURATION_HOURS,
@@ -21,7 +22,7 @@ import {
 } from "../constants/domain.js";
 
 const DEFAULT_DIAGNOSTIC_LIMIT = 1;
-// 试题库只向当前考试的有效会员开放，历史配置中的免费题量不再授予权限。
+// 全库不提供免费题量；免费知识点按精确考纲范围单独授权。
 const QUESTION_BANK_FREE_LIMIT = 0;
 
 export type EntitlementAction = "diagnostic" | "question-bank";
@@ -222,6 +223,7 @@ export async function checkMemberAccess(
   examType: string,
   requiredCount = 1,
   db: MemberDatabase = prisma,
+  scopeCode?: string,
 ) {
   const now = new Date();
   const user = await db.user.findUnique({
@@ -264,7 +266,8 @@ export async function checkMemberAccess(
       ? await countDiagnosticUsed(userId, examType, db)
       : await countQuestionBankUsed(userId, examType, db);
   const remaining = unlimited ? null : Math.max(0, limit - used);
-  const allowed = unlimited || (action !== "question-bank" && (remaining ?? 0) >= requiredCount);
+  const freeScope = action === "question-bank" && isFreePracticeScope(examType, scopeCode || "");
+  const allowed = unlimited || freeScope || (action !== "question-bank" && (remaining ?? 0) >= requiredCount);
 
   return {
     allowed,

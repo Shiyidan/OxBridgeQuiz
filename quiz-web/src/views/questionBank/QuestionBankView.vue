@@ -4,7 +4,7 @@
     <main class="qb-container" :class="{ 'qb-container--collapsed': syllabusCollapsed }">
       <header class="qb-overview">
         <div>
-          <h1 id="question-bank-title">试题库</h1>
+          <h1 id="question-bank-title">学习平台</h1>
           <p>{{ learningEnabled ? '按考点练习，按需学习。' : '按考点选择难度，进行专项练习。' }}</p>
         </div>
         <nav class="qb-shortcuts" aria-label="练习管理">
@@ -45,7 +45,9 @@
             highlight-current
             @node-click="handleTreeNodeClick"
           >
-            <template #default="{ data }"><SyllabusTreeNode :node="data" /></template>
+            <template #default="{ data }">
+              <SyllabusTreeNode :node="data" :badge="isFreePracticeScope(activeExamType, data.code) ? '免费' : undefined" />
+            </template>
           </el-tree>
         </div>
         <span v-show="syllabusCollapsed" class="qb-sidebar__collapsed-label" aria-hidden="true"
@@ -300,7 +302,7 @@
     <DailyCardAccessDialog
       v-model="upgradeDialogVisible"
       :exam-type="paymentExamType"
-      upgrade-message="试题库为会员专享，开通当前考试类型的会员后即可不限题量练习。"
+      upgrade-message="当前练习范围需开通对应考试的做题会员，也可以选择标有免费的知识点练习。"
       @activated="handleDailyCardActivated"
       @upgrade="handleOpenPayment"
       @cancel="handleCancelMembershipAccess"
@@ -338,7 +340,7 @@ import AppDialog from '@/components/AppDialog.vue'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
 import type { AnnualPlan } from '@/constants/annualMembership'
-import { isFreeLearningScope } from '@/constants/freeLearningAccess'
+import { isFreeLearningScope, isFreePracticeScope } from '@/constants/freeLearningAccess'
 import SyllabusTreeNode from '@/components/SyllabusTreeNode.vue'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import type { QuestionDifficulty, SyllabusNode } from '@/api/questionBank'
@@ -951,6 +953,7 @@ async function handleConfirmSelectedPractice(): Promise<void> {
       action: 'question-bank',
       examType: pending.examType,
       questionCount: pending.questionCount,
+      code: pending.code,
     })
     if (access.allowed) {
       pendingDirectPractice.value = null

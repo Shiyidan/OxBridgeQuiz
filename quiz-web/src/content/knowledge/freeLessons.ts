@@ -1,13 +1,30 @@
-// 免费讲义目录仅装载单位与数的导学内容，返回的章节严格裁剪为四个开放知识点。
+// 免费讲义只展示各科前两个知识点，章节入口与下一节均限定在开放范围内。
 import { esatUnits } from './esatUnits'
-import { esatNumber } from './esatNumber'
+import { esatMath2Algebra } from './esatMath2Algebra'
+import { esatElectricity } from './esatElectricity'
+import { esatAtomicStructure } from './esatAtomicStructure'
+import { esatCells } from './esatCells'
 import type { KnowledgeLesson } from './types'
-import { FREE_LEARNING_SECTION_CODES, isFreeLearningScope } from '../../constants/freeLearningAccess'
+import {
+  FREE_LEARNING_SECTION_CODES,
+  isFreeLearningScope,
+} from '../../constants/freeLearningAccess'
 
-// 章级导航仅包含免费叶子，避免通过下一节或本节目录绕过后续知识点的会员校验。
+const freeLessons: KnowledgeLesson[] = [
+  esatUnits,
+  esatMath2Algebra,
+  esatElectricity,
+  esatAtomicStructure,
+  esatCells,
+]
+
+// 在所属章节中精确匹配，再裁剪免费叶子，避免整章导航绕过会员校验。
 export function findKnowledgeLesson(examType: string, code: string): KnowledgeLesson | null {
   if (!isFreeLearningScope(examType, code)) return null
-  const lesson = code.startsWith('1101') ? esatUnits : esatNumber
+  const lesson = freeLessons.find(
+    (item) => item.code === code || item.sections.some((section) => section.code === code),
+  )
+  if (!lesson) return null
   const sections = lesson.sections.filter((section) =>
     FREE_LEARNING_SECTION_CODES.some((item) => item === section.code),
   )

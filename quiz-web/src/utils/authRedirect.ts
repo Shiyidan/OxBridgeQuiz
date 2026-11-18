@@ -8,7 +8,7 @@ const AUTH_REDIRECT_STORAGE_KEY = 'auth:pending-redirect'
 
 const LOGIN_REQUIRED_FEATURES = [
   { pathPrefix: '/assessment', label: '诊断测试' },
-  { pathPrefix: '/question-bank', label: '试题库' },
+  { pathPrefix: '/question-bank', label: '学习平台' },
   { pathPrefix: '/mock-exams', label: '模考中心' },
   { pathPrefix: '/mistake-notebook', label: '错题本' },
   { pathPrefix: '/practice-notebook', label: '练习本' },

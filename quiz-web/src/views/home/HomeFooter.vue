@@ -42,12 +42,12 @@ const emit = defineEmits<{
           <div class="home-footer-contact-code">
             <!-- 以视窗展示原图二维码区域并保留扫码所需的白边。 -->
             <svg
-              viewBox="100 502 766 766"
+              viewBox="126 420 748 748"
               class="home-footer-contact-qr"
               role="img"
-              aria-label="AceMock 备考群微信二维码"
+              aria-label="AceMock 微信联系二维码"
             >
-              <image :href="wechatQrUrl" width="966" height="1539" />
+              <image :href="wechatQrUrl" width="1000" height="1478" />
             </svg>
             <p>微信</p>
           </div>

@@ -1,10 +1,27 @@
-// ESAT 数学1免费学习范围：仅四个叶子知识点及其章节入口，与后端免费资源白名单对应。
-export const FREE_LEARNING_SECTION_CODES = ['110101', '110102', '110201', '110202'] as const
+// ESAT 各科前两个叶子知识点免费学习与练习，章节入口仅展示免费子节点。
+export const FREE_LEARNING_SECTION_CODES = [
+  '110101',
+  '110102',
+  '120101',
+  '120102',
+  '130101',
+  '130102',
+  '140101',
+  '140102',
+  '150101',
+  '150102',
+] as const
 
-// 章节入口只展示免费子节点，不把整个“数”章节视作免费。
+// 免费练习只接受精确知识点，不能通过父章节扩大选题范围。
+export function isFreePracticeScope(examType: string, code: string): boolean {
+  return examType === 'ESAT' && FREE_LEARNING_SECTION_CODES.some((item) => item === code)
+}
+
+// 学习章节入口会裁剪为免费叶子，其他知识点继续校验会员。
 export function isFreeLearningScope(examType: string, code: string): boolean {
-  return examType === 'ESAT' && (
-    code === '110100' || code === '110200' ||
-    FREE_LEARNING_SECTION_CODES.some((item) => item === code)
+  return (
+    isFreePracticeScope(examType, code) ||
+    (examType === 'ESAT' &&
+      FREE_LEARNING_SECTION_CODES.some((item) => item.slice(0, 4) + '00' === code))
   )
 }

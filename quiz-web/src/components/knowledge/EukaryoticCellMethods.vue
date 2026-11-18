@@ -14,7 +14,10 @@
             <dd>{{ structure.role }}</dd>
           </div>
         </dl>
-        <CellStructureDiagram kind="eukaryotic-cell" compact />
+      </div>
+      <div class="cell-methods__figures">
+        <CellStructureDiagram kind="eukaryotic-cell" fixed-type="animal" compact />
+        <CellStructureDiagram kind="eukaryotic-cell" fixed-type="plant" compact />
       </div>
     </section>
 
@@ -84,6 +87,7 @@ import KnowledgeText from './KnowledgeText.vue'
 
 <style scoped>
 .cell-methods {
+  container-type: inline-size;
   color: var(--color-ink);
   min-width: 0;
 }
@@ -119,13 +123,32 @@ import KnowledgeText from './KnowledgeText.vue'
   line-height: 1.55;
 }
 .cell-methods__overview {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
+  min-width: 0;
 }
 .cell-methods__definitions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 24px;
   margin: 0;
+}
+.cell-methods__figures {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  margin-top: 20px;
+  align-items: start;
+}
+.cell-methods__figures > :deep(.cell-atlas) {
+  width: 100%;
+  max-width: 600px;
+  box-sizing: border-box;
+  justify-self: center;
+}
+@container (min-width: 900px) {
+  .cell-methods__definitions,
+  .cell-methods__figures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .cell-methods__definitions > div {
   display: grid;

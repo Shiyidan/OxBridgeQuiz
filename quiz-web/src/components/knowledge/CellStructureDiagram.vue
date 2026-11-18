@@ -10,7 +10,7 @@
     </figcaption>
 
     <div
-      v-if="kind === 'eukaryotic-cell'"
+      v-if="kind === 'eukaryotic-cell' && !fixedType"
       class="cell-switch"
       role="group"
       aria-label="选择细胞类型"
@@ -338,7 +338,9 @@
               <span>{{ activePart.english }}</span>
             </div>
           </header>
-          <p v-if="compact" class="compact-appearance"><KnowledgeText :text="activePart.appearance" /></p>
+          <p v-if="compact" class="compact-appearance">
+            <KnowledgeText :text="activePart.appearance" />
+          </p>
           <dl v-else>
             <div>
               <dt>在图上怎么看</dt>
@@ -365,8 +367,12 @@
       <p><KnowledgeText :text="readingStrategy" /></p>
     </div>
     <p v-if="!compact" class="atlas-caution"><KnowledgeText :text="cellCaution" /></p>
-    <p v-else-if="cellType === 'plant'" class="atlas-caution">植物图以光合细胞为例；并非所有植物细胞都有叶绿体。</p>
-    <p v-else-if="cellType === 'bacterium'" class="atlas-caution">图中质粒仅为结构示意，并非每个细菌都有质粒。</p>
+    <p v-else-if="cellType === 'plant'" class="atlas-caution">
+      植物图以光合细胞为例；并非所有植物细胞都有叶绿体。
+    </p>
+    <p v-else-if="cellType === 'bacterium'" class="atlas-caution">
+      图中质粒仅为结构示意，并非每个细菌都有质粒。
+    </p>
     <p v-if="!compact && cellType !== 'bacterium'" class="atlas-microdetail">
       <KnowledgeText
         text="再看一眼细胞核内部：深色小团是**核仁**，细丝是含有 DNA 的**染色质**。画出这些结构是为了帮助认图，不能据此认定细胞正在分裂。"
@@ -409,7 +415,11 @@ interface CellPart extends StructureCopy {
 type PartLocation = [PartKey, [number, number], [number, number]]
 
 // 紧凑模式用于已有功能速查的讲义，只补充识图位置，避免重复整套结构说明。
-const props = defineProps<{ kind: 'eukaryotic-cell' | 'prokaryotic-cell'; compact?: boolean }>()
+const props = defineProps<{
+  kind: 'eukaryotic-cell' | 'prokaryotic-cell'
+  compact?: boolean
+  fixedType?: 'animal' | 'plant'
+}>()
 const diagramId = useId().replace(/:/g, '')
 const cellType = ref<CellType>(props.kind === 'prokaryotic-cell' ? 'bacterium' : 'animal')
 const selectedPart = ref<PartKey>('nucleus')
@@ -721,9 +731,9 @@ const cellCaution = computed(() =>
 
 // 同一组件切到另一考纲图时，回到该类细胞的核心鉴别结构。
 watch(
-  () => props.kind,
-  (kind) => {
-    cellType.value = kind === 'prokaryotic-cell' ? 'bacterium' : 'animal'
+  () => [props.kind, props.fixedType] as const,
+  ([kind, fixedType]) => {
+    cellType.value = kind === 'prokaryotic-cell' ? 'bacterium' : (fixedType ?? 'animal')
     selectedPart.value = kind === 'prokaryotic-cell' ? 'chromosome' : 'nucleus'
   },
   { immediate: true },
@@ -1232,18 +1242,66 @@ watch(
     margin-top: 6px;
   }
 }
-.cell-atlas--compact { margin: 0; padding: 16px; border: 1px solid var(--color-learning-blue-line); border-radius: 12px; background: var(--color-learning-blue-soft); }
-.cell-atlas--compact .atlas-heading h5 { margin: 0; font-size: 17px; }
-.cell-atlas--compact .atlas-workspace { grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 12px; }
-.cell-atlas--compact .cell-stage { position: static; }
-.cell-atlas--compact .cell-illustration { max-width: 370px; }
-.cell-atlas--compact .stage-caption { padding: 8px 12px 0; }
-.cell-atlas--compact .stage-note { padding: 0 8px 8px; }
-.cell-atlas--compact .structure-index { display: flex; flex-wrap: wrap; gap: 6px; }
-.cell-atlas--compact .structure-index :deep(.app-button.el-button) { width: auto; min-height: 32px; padding: 0 8px; }
-.cell-atlas--compact .structure-detail { margin-top: 12px; padding: 12px; }
-.cell-atlas--compact .structure-detail header div { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.cell-atlas--compact .compact-appearance { margin: 8px 0 0; color: var(--color-ink-soft); font-size: 14px; line-height: 1.7; }
+.cell-atlas--compact {
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--color-learning-blue-line);
+  border-radius: 12px;
+  background: var(--color-learning-blue-soft);
+}
+.cell-atlas--compact .atlas-heading h5 {
+  margin: 0;
+  font-size: 17px;
+}
+.cell-atlas--compact .atlas-workspace {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+.cell-atlas--compact .cell-stage {
+  position: static;
+}
+.cell-atlas--compact .cell-illustration {
+  max-width: 520px;
+}
+.cell-atlas--compact .cell-annotation text {
+  font-size: 26px;
+}
+.cell-atlas--compact .annotation-badge {
+  r: 22px;
+}
+.cell-atlas--compact .stage-caption {
+  padding: 8px 12px 0;
+}
+.cell-atlas--compact .stage-note {
+  padding: 0 8px 8px;
+}
+.cell-atlas--compact .structure-index {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cell-atlas--compact .structure-index :deep(.app-button.el-button) {
+  width: auto;
+  min-height: 32px;
+  padding: 0 8px;
+}
+.cell-atlas--compact .structure-detail {
+  margin-top: 12px;
+  padding: 12px;
+}
+.cell-atlas--compact .structure-detail header div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cell-atlas--compact .compact-appearance {
+  margin: 8px 0 0;
+  color: var(--color-ink-soft);
+  font-size: 14px;
+  line-height: 1.7;
+}
 @media (prefers-reduced-motion: reduce) {
   .cell-structure,
   .annotation-badge {

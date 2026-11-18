@@ -1,12 +1,12 @@
 // ESAT 化学「原子结构」复习讲义：以粒子计数、电子层和丰度联系知识，原题由题库组件按来源加载。
 import type { KnowledgeLesson } from './types'
+import { atomicStructureMethods } from './atomicStructureMethods'
 
 export const esatAtomicStructure: KnowledgeLesson = {
   code: '140100',
   title: 'Atomic structure · 原子结构',
   subtitle: '看懂原子图，读准核素符号，用粒子数与丰度完成判断',
-  intro:
-    '这一章把“原子长什么样”“符号怎样读”“平均质量怎样算”连起来。先用图解找准质子、中子和电子，再把它们与题干数字对应；同位素题则从单个原子转向一批原子的比例。例题与自测均选自已收录真题或试题库，中文讲解带你检查每一步的依据。',
+  intro: '从核内组成、粒子计数到电子排布，再用同位素丰度计算平均质量。基础关系简明速查，计算按条件选择方法。',
   memory: [
     '**核内有质子和中子，核外是电子；氢-1没有中子。**原子核极小，却集中了绝大部分质量。',
     '**质子定元素，中子定同位素，电子得失定离子。**普通化学反应中不要随电荷改变质子数。',
@@ -19,25 +19,14 @@ export const esatAtomicStructure: KnowledgeLesson = {
     {
       code: '140101',
       title: '原子模型',
-      summary: '把原子分为极小的原子核与核外电子层，建立大小、位置和质量的直观认识。',
-      paragraphs: [
-        '复习时先在心里画一个很小的核心：原子核 nucleus 位于原子中央，核内通常有质子 proton 和中子 neutron；电子 electron 分布在核外的电子层 shell，也称能级 energy level。**核外的范围很大，但不表示质量主要在核外。**',
-        '课本把核画大、把电子画成小球，是为了让我们数清组成。真实原子中，核与整个原子的尺度相差很大；电子层也不是一条条看得见的跑道。看图先读图例、看清是否按比例，再用题目给的数量或倍率判断。',
-      ],
-      rules: [
-        {
-          title: '位置：核内与核外',
-          text: '**质子和中子在核内，电子在核外。**原子核整体带正电，核外电子带负电；中性原子是总正负电荷恰好相抵，不是每种粒子都没有电荷。',
-        },
-        {
-          title: '尺度：小核心，大范围',
-          text: '原子核相对原子极小。尺度题给了半径比，就对半径使用这个比；不要改成面积比或体积比。**同类长度可以直接按倍数换算，先统一单位能减少数量级错误。**',
-        },
-        {
-          title: '模型：能说明什么',
-          text: '电子层图适合表达组成和电子排布；放大的核有助于辨认粒子，却不能据图估算真实核半径。普通氢-1的核只有一个质子，**不能因为一般结构图画了中子，就断定所有原子都有中子**。',
-        },
-      ],
+      summary: atomicStructureMethods['140101'].summary,
+      paragraphs: [atomicStructureMethods['140101'].intro],
+      memory: atomicStructureMethods['140101'].memory,
+      rules: atomicStructureMethods['140101'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({ title: row[0]!, text: row.slice(1).join('；') })),
+      ]),
       visual: 'atomic-structure',
       pitfalls: [
         '把原子核画得大，是为了展示结构；示意图中的面积比例不能直接当作真实比例。',
@@ -103,25 +92,14 @@ export const esatAtomicStructure: KnowledgeLesson = {
     {
       code: '140102',
       title: '相对质量与电荷',
-      summary: '记清三种粒子的质量与电荷，把“很轻”“不带电”和“数量相等”分开判断。',
-      paragraphs: [
-        '质子与中子的质量接近，学习计算中相对质量通常都取约1；电子小得多，约为质子的1/1836。因此原子的质量主要在核内。**电子很轻，却不能在电荷计算中忽略**：一个电子的负电荷恰好抵消一个质子的正电荷。',
-        '做粒子比较题时，把质量线索和电荷线索分成两列。质量数告诉我们核内有多少个核子；净电荷告诉我们质子比电子多多少。题目要求“同中子数且同电子数”时，两项都要满足，不能只凭带相同电荷或电子相同就选。',
-      ],
-      rules: [
-        {
-          title: '质量：重粒子在核内',
-          text: '**质子≈1，中子≈1，电子≈1/1836。**前两个值是基础计算中的相对近似，并不是说质子、中子实际质量完全相等。电子有质量，不能写成“质量为0”。',
-        },
-        {
-          title: '电荷：大小相等，正负相反',
-          text: '相对电荷分别是质子+1、中子0、电子−1。中子不贡献净电荷，却贡献质量；电子质量小，却决定原子得失电子后的电荷。**质量小与带电量小没有这样的对应关系。**',
-        },
-        {
-          title: '比较：每个条件独立过关',
-          text: String.raw`先算中子 $n=A-Z$，再算电子。电荷量以基本电荷为单位时 $q=p-e$；中性时 $p=e$。同电子数不保证同中子数，更不保证是同一元素。`,
-        },
-      ],
+      summary: atomicStructureMethods['140102'].summary,
+      paragraphs: [atomicStructureMethods['140102'].intro],
+      memory: atomicStructureMethods['140102'].memory,
+      rules: atomicStructureMethods['140102'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({ title: row[0]!, text: row.slice(1).join('；') })),
+      ]),
       visual: 'atomic-structure',
       pitfalls: [
         '中子电荷为0，并不意味着质量为0；电子很轻，也不意味着电荷可以忽略。',
@@ -216,25 +194,14 @@ export const esatAtomicStructure: KnowledgeLesson = {
     {
       code: '140103',
       title: '原子序数、质量数与记号',
-      summary: '读懂核素符号的三个位置，用原子序数、质量数和电荷准确算出p、n、e。',
-      paragraphs: [
-        '看到核素符号时，不要把几个数字一次塞进计算。左下角原子序数 atomic number，记作Z，决定质子数；左上角质量数 mass number，记作A，是质子与中子的总数；右上角的电荷则反映质子数与电子数的差。**先读核，再处理电子。**',
-        '形成普通离子时，改变的是电子数，而不是原子核。例如一个原子失去2个电子，正电荷比负电荷多2，便成为2+离子。核内的质子、中子以及质量数都保持不变。把“正号”理解为电子的缺口，就不容易把加减号用反。',
-      ],
-      rules: [
-        {
-          title: '左下Z：元素的身份证',
-          text: '原子序数Z等于质子数。只要质子数不变，它仍然是同一元素；增加中子改变同位素，得失电子改变电荷，都不会改变元素符号。',
-        },
-        {
-          title: '左上A：核子总人数',
-          text: String.raw`质量数 $A=p+n$，所以 $n=A-Z$。它是单个核素的整数计数，**不是周期表中可能带小数的相对原子质量**，也不能用电子数代替质子数去相减。`,
-        },
-        {
-          title: '右上电荷：最后算电子',
-          text: String.raw`设带符号的电荷数为 $q$，则 $e=Z-q$。如 $2+$ 用 $q=+2$，电子为 $Z-2$；$2-$ 用 $q=-2$，电子为 $Z+2$。**正少负多，只改电子。**`,
-        },
-      ],
+      summary: atomicStructureMethods['140103'].summary,
+      paragraphs: [atomicStructureMethods['140103'].intro],
+      memory: atomicStructureMethods['140103'].memory,
+      rules: atomicStructureMethods['140103'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({ title: row[0]!, text: row.slice(1).join('；') })),
+      ]),
       visual: 'atomic-structure',
       pitfalls: [
         '看到2+就给质子数加2，会把离子误变成另一种元素。',
@@ -333,25 +300,14 @@ export const esatAtomicStructure: KnowledgeLesson = {
     {
       code: '140104',
       title: '前20号元素的电子排布',
-      summary: '从总电子数出发分层，熟悉H到Ca，并区分同位素、原子和离子的电子数。',
-      paragraphs: [
-        '电子排布 electron configuration 是把电子数按层写出来，例如钠的2,8,1表示三层依次有2、8、1个电子。第一步不是直接背排布，而是确认对象有多少电子：中性原子取Z，离子先按电荷增减。**相同电子数的这些简单原子或离子，可以有相同的基态电子排布。**',
-        '对前20号元素的基态中性原子，先填第一层至2，第二层至8；第三周期到氩写成2,8,8，随后钾和钙开始第四层。这个规律足够应对当前范围，但不能推广成“任何元素的第三层最多8个电子”。同位素只改中子时，中性原子的电子排布不变。',
-      ],
-      rules: [
-        {
-          title: '先定总数，再分层',
-          text: String.raw`中性原子 $e=Z$；离子先用电荷得到实际电子数。写完逗号排布后，将每一项相加，必须回到这个总数。不要把质量数A当成电子总数。`,
-        },
-        {
-          title: '抓住四个参照点',
-          text: '**He：2；Ne：2,8；Ar：2,8,8；Ca：2,8,8,2。**钾在氩之后多1个电子，写2,8,8,1。氦的第一层只有2个电子就已满层，不需要凑成8。',
-        },
-        {
-          title: '电子相同，不代表原子相同',
-          text: 'Mg²⁺与O²⁻都是10个电子，简单分层均为2,8；但质子数不同，仍是不同元素。氧-16与氧-18若都为中性，电子排布相同，中子数却不同。**把电子问题和核内问题分开算。**',
-        },
-      ],
+      summary: atomicStructureMethods['140104'].summary,
+      paragraphs: [atomicStructureMethods['140104'].intro],
+      memory: atomicStructureMethods['140104'].memory,
+      rules: atomicStructureMethods['140104'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({ title: row[0]!, text: row.slice(1).join('；') })),
+      ]),
       visual: 'atomic-structure',
       pitfalls: [
         '钾的基态排布是2,8,8,1，不是2,8,9；当前规则只覆盖H到Ca。',
@@ -442,25 +398,14 @@ export const esatAtomicStructure: KnowledgeLesson = {
     {
       code: '140105',
       title: '同位素与丰度',
-      summary: '以质子数认元素、以中子数辨同位素，从质谱或平均质量读出样品中的比例。',
-      paragraphs: [
-        '同位素 isotopes 是同一元素中质子数相同、中子数不同的原子。先抓住“同一元素”：如果质子数不同，即使质量数相同也不是同位素。中性同位素有相同电子排布，所以化学性质通常很相近，但质量以及某些物理性质可以不同。',
-        '丰度 abundance 描述一批原子中，各同位素按个数所占的比例。它不是某个原子有几成中子，也不是各同位素的总质量占比。简化质谱中，在确认每个峰都对应同种元素的单电荷原子离子后，横轴位置帮助识别同位素，纵轴相对信号用来求比例。',
-      ],
-      rules: [
-        {
-          title: '同位素：同质子，异中子',
-          text: '**先查Z是否相同，再查A是否不同。**氯-35与氯-37都是17个质子，但中子分别为18、20；它们的中性原子都为17个电子。改变电子数得到离子，不是定义另一同位素的依据。',
-        },
-        {
-          title: '读质谱：先看条件与坐标',
-          text: String.raw`质谱横轴是 $m/z$（质荷比），不总是质量本身。在题设的单电荷原子离子条件下，可用峰位置读相对同位素质量。**不把分子峰、碎片峰或不同电荷态的峰盲目当成新的同位素。**`,
-        },
-        {
-          title: '丰度：先归一，再计算',
-          text: '如果相对信号是3:1，就按3÷4与1÷4得到75%和25%，不能当作3%和1%。两种同位素的丰度和为100%；若给平均质量，可以用加权关系反推比例。',
-        },
-      ],
+      summary: atomicStructureMethods['140105'].summary,
+      paragraphs: [atomicStructureMethods['140105'].intro],
+      memory: atomicStructureMethods['140105'].memory,
+      rules: atomicStructureMethods['140105'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({ title: row[0]!, text: row.slice(1).join('；') })),
+      ]),
       visual: 'atomic-structure',
       pitfalls: [
         '同质量数不保证同元素；判断同位素要先检查质子数。',
@@ -574,25 +519,14 @@ export const esatAtomicStructure: KnowledgeLesson = {
     {
       code: '140106',
       title: '相对原子质量',
-      summary: '把丰度作为权重计算平均质量，先估范围与方向，再处理百分数和题给精度。',
-      paragraphs: [
-        '相对原子质量 relative atomic mass，记作Ar，是元素原子的平均质量与一个碳-12原子质量的1/12相比得到的比值。它没有单位。因为样品可能混有多种同位素，这个平均值可以不是整数；**它不是说某个原子含有小数个核子。**',
-        '平均时，数量多的同位素影响更大。可以想成把一批原子逐个称量后再求平均；丰度恰好告诉我们每一种出现多少次。考试中通常无需真的列出100个原子，只要“每种质量×个数权重”，再除以总权重即可。',
-      ],
-      rules: [
-        {
-          title: '一条公式，三种权重',
-          text: String.raw`$A_r=\dfrac{\sum(m_i\times w_i)}{\sum w_i}$。百分数权重总和为100；小数丰度总和为1；比值或相对峰高则除以它们的总和。**分子与分母使用同一种权重尺度。**`,
-        },
-        {
-          title: '先估：必须落在两端之间',
-          text: '平均值不能小于最轻同位素的质量，也不能大于最重同位素的质量；两种同位素都存在时，平均值在两端之间。较多的一种会把平均值拉向自己，数量相等时才是普通中点。',
-        },
-        {
-          title: '再算：基准法减少计算',
-          text: '可以先以最轻同位素为基准，再加各同位素“比基准重多少×丰度”的贡献。这与完整加权式等价，尤其适合无计算器运算。题目给精确质量时用精确质量，只给质量数时按题意作近似。',
-        },
-      ],
+      summary: atomicStructureMethods['140106'].summary,
+      paragraphs: [atomicStructureMethods['140106'].intro],
+      memory: atomicStructureMethods['140106'].memory,
+      rules: atomicStructureMethods['140106'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({ title: row[0]!, text: row.slice(1).join('；') })),
+      ]),
       visual: 'atomic-structure',
       pitfalls: [
         '将24、25、26直接求平均，只适用于三者丰度相同，不能忽略80%、10%、10%。',

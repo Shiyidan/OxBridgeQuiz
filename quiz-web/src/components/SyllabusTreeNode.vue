@@ -8,7 +8,10 @@
     popper-class="syllabus-tree-node-tooltip"
   >
     <div ref="nodeRef" class="syllabus-tree-node" :aria-label="tooltipContent">
-      <span ref="cnLabelRef" class="syllabus-tree-node__cn">{{ node.cn_label }}</span>
+      <div class="syllabus-tree-node__title">
+        <span ref="cnLabelRef" class="syllabus-tree-node__cn">{{ node.cn_label }}</span>
+        <span v-if="badge" class="syllabus-tree-node__badge">{{ badge }}</span>
+      </div>
       <span ref="enLabelRef" class="syllabus-tree-node__en">{{ node.en_label }}</span>
     </div>
   </el-tooltip>
@@ -25,6 +28,7 @@ interface SyllabusTreeNodeData {
 
 const props = defineProps<{
   node: SyllabusTreeNodeData
+  badge?: string
 }>()
 
 const nodeRef = ref<HTMLElement>()
@@ -86,9 +90,28 @@ onBeforeUnmount(() => resizeObserver?.disconnect())
 }
 
 .syllabus-tree-node__cn {
+  min-width: 0;
   color: var(--color-ink);
   font-size: 14px;
   font-weight: var(--weight-semi);
+}
+
+.syllabus-tree-node__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.syllabus-tree-node__badge {
+  flex-shrink: 0;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #e7f5ef;
+  color: #14735a;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
 }
 
 .syllabus-tree-node__en {

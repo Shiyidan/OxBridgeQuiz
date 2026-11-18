@@ -51,7 +51,7 @@ export const geneTechnologyMethods: Record<GeneTechnologyCode, GeneTechnologyLes
           columns: ['应用', '作用与限制'],
           rows: [
             [
-              '工程细胞生产药用蛋白质',
+              '工程细菌或酵母生产人胰岛素',
               '生产细胞表达产物，再进行提取和纯化。使用纯化蛋白质不等于改写患者 DNA。',
             ],
             [
@@ -59,7 +59,7 @@ export const geneTechnologyMethods: Record<GeneTechnologyCode, GeneTechnologyLes
               '需递送到合适细胞并有效表达。只改变体细胞，不表示配子也改变或子女必然不再遗传有关变异。',
             ],
             [
-              '改良作物等生物性状',
+              '导入抗虫基因的作物，如 Bt 玉米',
               '目的基因可影响特定性状；仍须检验实际表现和具体环境影响，不能由“已转入”推成全面有利。',
             ],
           ],

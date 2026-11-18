@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { prisma } from './prisma.js'
 import { withUserTransaction } from './transactionRetry.js'
 import { checkMemberAccess } from './member.js'
+import { freePracticeRecordScope } from './freePracticeAccess.js'
 import { assertAccountActive } from './accountStatus.js'
 import { AuthError } from '../utils/authError.js'
 import { AUTH_ERROR, AUTH_SESSION_EXPIRED_MESSAGE } from '../constants/auth.js'
@@ -73,8 +74,9 @@ async function assertPracticeMembership(
   userId: string,
   examType: string,
   count: number,
+  scopeCode?: string,
 ): Promise<void> {
-  const entitlement = await checkMemberAccess(userId, 'question-bank', examType, count, tx)
+  const entitlement = await checkMemberAccess(userId, 'question-bank', examType, count, tx, scopeCode)
   if (!entitlement.allowed)
     throw new QuestionBankPracticeError(
       QUESTION_BANK_MEMBERSHIP_MESSAGE,
@@ -213,7 +215,7 @@ export async function startDirectQuestionBankPractice(
     await lockQuestionBankUser(tx, userId)
     const previous = await tx.examRecord.findUnique({ where: { startRequestKey } })
     if (previous) {
-      await assertPracticeMembership(tx, userId, previous.examType, previous.totalQuestions)
+      await assertPracticeMembership(tx, userId, previous.examType, previous.totalQuestions, freePracticeRecordScope(previous))
       return { record: previous, isResumed: true }
     }
     const active = await tx.examRecord.findFirst({
@@ -225,10 +227,10 @@ export async function startDirectQuestionBankPractice(
       },
     })
     if (active) {
-      await assertPracticeMembership(tx, userId, active.examType, active.totalQuestions)
+      await assertPracticeMembership(tx, userId, active.examType, active.totalQuestions, freePracticeRecordScope(active))
       return { record: active, isResumed: true }
     }
-    await assertPracticeMembership(tx, userId, input.examType, QUESTION_BANK_DIRECT_PRACTICE_COUNT)
+    await assertPracticeMembership(tx, userId, input.examType, QUESTION_BANK_DIRECT_PRACTICE_COUNT, input.code)
     const where = {
       ...(await buildPublishedQuestionWhere(input, tx)),
       questionType: 'single_choice',

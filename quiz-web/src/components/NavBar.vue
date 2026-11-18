@@ -30,7 +30,7 @@
             :class="{ 'nav-link--active': isLearningWorkspaceRoute }"
             active-class="nav-link--active"
             @click="handleRouteNavigation($event, '/question-bank')"
-            >试题库</router-link
+            >学习平台</router-link
           >
           <router-link
             to="/mock-exams"

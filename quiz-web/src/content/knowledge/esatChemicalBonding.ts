@@ -1,5 +1,6 @@
 // ESAT 化学第六章讲义：用粒子、成键和载流方式解释性质，并保存全量年度真题考法的来源映射。
 import type { KnowledgeExamFocus, KnowledgeLesson } from './types'
+import { chemicalBondingMethods } from './chemicalBondingMethods'
 
 const examples = {
   '140601': [
@@ -226,33 +227,17 @@ export const esatChemicalBonding: KnowledgeLesson = {
     {
       code: '140601',
       title: '元素、化合物与混合物',
-      summary: '先问有几种化学物质，再问每种物质由哪些元素组成。',
-      paragraphs: [
-        '**元素 element** 由质子数相同的原子定义。纯单质可以由单原子组成，如 Ar，也可以由分子组成，如 O₂；“两个原子连在一起”并不自动意味着化合物。**化合物 compound** 含两种或更多元素，按确定比例化学结合，例如 H₂O、NaCl。',
-        '**混合物 mixture** 含两种或更多化学物质，组成比例可以改变，通常可利用物理性质差异分离。化合物要变回其组成元素则需要化学变化。识图时先辨认连接关系和物质身份，不能直接用颜色数、球数或有没有液体来判断纯净与否。',
-      ],
-      rules: [
-        {
-          title: '单质不等于单原子',
-          text: 'O₂ 是氧单质的分子；H₂O 才是由不同元素结合成的化合物。氢、氮、氧和卤素的常见单质不能漏写双原子形式。',
-        },
-        {
-          title: '一份化合物不等于一种粒子',
-          text: '纯 NaCl 晶体含 Na⁺ 与 Cl⁻ 两种离子，仍是一种化合物；不能把“有两种粒子”直接当成混合物。',
-        },
-        {
-          title: '比例与分离方式',
-          text: '化合物的组成由化学式限定；混合物的配比可变。蒸馏、过滤等物理分离不把一种化合物拆成元素。',
-        },
-        {
-          title: '纯度证据有条件',
-          text: '色谱出现多个分开的组分可支持混合物判断；一个斑点未必证明纯净，除非题目保证组分完全分开。自测中的 Rf = 斑点移动距离 ÷ 溶剂前沿移动距离，两段距离都从同一起点测量。同一体系中 Rf 较大，表示相对于固定相（stationary phase），该物质更易随流动相（mobile phase）迁移。',
-        },
-        {
-          title: '元素相同也可有不同物质',
-          text: 'O₂ 与 O₃ 都只含氧元素，但属于不同单质；二者混在一起仍是混合物。同位素质量不同本身则不意味着是不同元素。',
-        },
-      ],
+      summary: chemicalBondingMethods['140601'].summary,
+      paragraphs: [chemicalBondingMethods['140601'].intro],
+      memory: chemicalBondingMethods['140601'].memory,
+      rules: chemicalBondingMethods['140601'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '看见两个不同颜色的球就判混合物，忽略它们是否已经化学结合。',
         '把任何双原子分子都叫化合物。',
@@ -286,33 +271,17 @@ export const esatChemicalBonding: KnowledgeLesson = {
     {
       code: '140602',
       title: '稀有气体结构与成键类型',
-      summary: '稳定外层是判断线索；不同原子可通过转移、共享或离域电子形成不同结构。',
-      paragraphs: [
-        '稀有气体的外层排布较稳定，He 的第一层有 2 个电子；Ne、Ar 等常见例子的外层有 8 个。许多主族原子成键后可形成类似排布，但这是常用规律，不是所有元素、离子或化合物都必须满足的绝对定律。',
-        '金属与非金属的常见组合往往形成离子结构；非金属之间通常形成共价键；金属单质中外层电子可在整体结构中离域。做题时先结合具体元素判断，再用电子数和已有性质检验，不能单凭“需要凑满 8 个”就决定整个物质的结构。',
-      ],
-      rules: [
-        {
-          title: '电子改变，元素不变',
-          text: 'Na 失去一个电子变成 Na⁺，排布与 Ne 相同，但质子数仍为 11；得到相同排布不等于变成同一种元素。',
-        },
-        {
-          title: '氦的规则是 2',
-          text: 'H₂ 中每个 H 周围共享到 2 个电子，对应第一层的稳定排布；不要给氢画出八电子外层。',
-        },
-        {
-          title: '先分三种模型',
-          text: '离子键看异号离子的静电吸引；共价键看共享电子对与两个原子核的吸引；金属键看正离子实与离域电子的整体吸引。',
-        },
-        {
-          title: '口诀需要核验',
-          text: 'NH₄Cl 全由非金属元素组成，却含 NH₄⁺ 与 Cl⁻，整体属于离子化合物。过渡金属离子等也不一定具有稀有气体排布。',
-        },
-        {
-          title: '惰性不是绝不反应',
-          text: 'Ar 在常见条件下很不活泼，常作保护气氛；这不表示所有稀有气体在任何条件下都不能形成化合物。',
-        },
-      ],
+      summary: chemicalBondingMethods['140602'].summary,
+      paragraphs: [chemicalBondingMethods['140602'].intro],
+      memory: chemicalBondingMethods['140602'].memory,
+      rules: chemicalBondingMethods['140602'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '把离子与等电子稀有气体当成同一元素。',
         '把“常见”稳定排布写成所有成键的绝对条件。',
@@ -357,33 +326,17 @@ export const esatChemicalBonding: KnowledgeLesson = {
     {
       code: '140603',
       title: '离子键',
-      summary: '电子转移形成离子；异号离子的静电吸引形成晶格。',
-      paragraphs: [
-        '金属原子失去电子形成阳离子，非金属原子得到电子形成阴离子。**离子键 ionic bonding** 是这些相反电荷之间的静电吸引，不是“电子转移”这个过程本身。在晶体中，一个离子同时受到周围许多离子的作用，不是各自独立的一对 NaCl 分子。',
-        '离子化合物的化学式给出正、负离子的最简比例，使整体电荷为零。写对电荷后再配数，比直接交叉下标更可靠；遇到复合离子，把整个离子当成一个带电单位，不能把其中的原子拆散后单独配比。',
-      ],
-      rules: [
-        {
-          title: '常见简单离子',
-          text: '第 1 族常见 +1，第 2 族 +2，Al 为 +3；第 16 族常见 −2，第 17 族 −1。由得失电子核验正负号，不改质子数。',
-        },
-        {
-          title: '复合离子要整体计数',
-          text: '常见 NH₄⁺、OH⁻、NO₃⁻、CO₃²⁻、SO₄²⁻。Ca²⁺ 与 OH⁻ 组成 Ca(OH)₂；Al³⁺ 与 SO₄²⁻ 组成 Al₂(SO₄)₃。',
-        },
-        {
-          title: '罗马数字说明价态',
-          text: 'iron(II) chloride 为 FeCl₂，iron(III) chloride 为 FeCl₃；copper(II) 表明 Cu²⁺。罗马数字不是原子个数，也不能把所有铁、铜盐都套同一个电荷。',
-        },
-        {
-          title: '高熔点与脆性',
-          text: '熔化常见离子晶体需克服强静电吸引，通常熔点较高。晶层受力错位后，同号离子可能相邻而排斥，晶体容易碎裂，不像金属那样容易延展。',
-        },
-        {
-          title: '导电取决于离子能否迁移',
-          text: '固体中离子不能穿过晶格移动，通常不导电；熔融时或溶于水后，若有可移动离子便可载流。不是所有离子化合物都易溶于水。',
-        },
-      ],
+      summary: chemicalBondingMethods['140603'].summary,
+      paragraphs: [chemicalBondingMethods['140603'].intro],
+      memory: chemicalBondingMethods['140603'].memory,
+      rules: chemicalBondingMethods['140603'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '只说“电子转移就是离子键”，漏掉维持结构的静电吸引。',
         '把 SO₄²⁻ 拆成五个离子，或漏掉复合离子外的括号。',
@@ -474,33 +427,17 @@ export const esatChemicalBonding: KnowledgeLesson = {
     {
       code: '140604',
       title: '共价键',
-      summary: '共享电子对形成键；同样的共价键可以连接成小分子，也可以延伸成巨型网络。',
-      paragraphs: [
-        '**共价键 covalent bond** 通常在非金属原子之间形成，共享的一对电子受到两个原子核吸引。单键、双键、三键分别对应 1、2、3 对共享电子；点叉图用不同符号追踪电子来源，不表示两种电子在性质上不同。',
-        '水、氨和甲烷有独立的小分子；金刚石、石墨和 SiO₂ 则含延伸的共价网络。问性质时，不能只回答“有共价键”，还要说清这些键连接到哪里。小分子熔沸通常无需拆开分子内共价键，巨型网络发生熔化或破坏结构则需要破坏大量共价连接。',
-      ],
-      rules: [
-        {
-          title: '共享不是一人拿走',
-          text: '共享电子对计入两个相邻原子的外层，但统计整个分子的电子总数时只能数一次。H 通常形成 1 键，O 常见 2 键，N 常见 3 键，C 常见 4 键。',
-        },
-        {
-          title: '点叉图先数总电子',
-          text: '只画价电子时，先加总所有原子的价电子，安排共享对，再补孤对。H 周围满足 2 电子；本章常见第二周期例子通常满足 8。',
-        },
-        {
-          title: '读式与数键分开',
-          text: 'O₂ 含一个双键，N₂ 含一个三键，CO₂ 含两个双键。一个双键不是两根彼此无关的单键；键能题要使用相应键型的数据。',
-        },
-        {
-          title: '巨型网络的局部连接',
-          text: '金刚石每 C 连 4 个 C，形成三维网络；石墨每 C 连 3 个 C，第四个价电子参与离域。SiO₂ 每 Si 连 4 个 O，每 O 桥联 2 个 Si，整体比例为 1∶2。',
-        },
-        {
-          title: '网络不是分子堆积',
-          text: 'SiO₂ 的式子表示比例，不是独立 O—Si—O 分子。石墨层内共价作用强，层间作用弱；不能把整块石墨简化成只有局域单键。',
-        },
-      ],
+      summary: chemicalBondingMethods['140604'].summary,
+      paragraphs: [chemicalBondingMethods['140604'].intro],
+      memory: chemicalBondingMethods['140604'].memory,
+      rules: chemicalBondingMethods['140604'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '把共享的一对电子只算给其中一个原子，或把总电子数重复计数。',
         '见到共价物质就断言熔点低、不导电，忽略巨型结构和石墨。',
@@ -571,29 +508,17 @@ export const esatChemicalBonding: KnowledgeLesson = {
     {
       code: '140605',
       title: '金属键',
-      summary: '正离子实排列成整体，离域电子把它们联系起来，也承担固态导电。',
-      paragraphs: [
-        '**金属键 metallic bonding** 是金属正离子实与离域电子之间的静电吸引。离域电子 delocalised electrons 不固定属于某一对原子，可在整个金属中移动；金属整体仍然电中性，不能把图里的正号理解成整块金属带正电。',
-        '这一模型同时解释导电与延展性：电场下电子可定向迁移；受力时晶层发生滑移，正离子仍受到离域电子吸引，不必像定向共价网络那样逐个拆断固定连接。许多金属熔点较高，但强弱有差异，汞等低熔点例外说明不能使用“金属一定高熔点”的绝对说法。',
-      ],
-      rules: [
-        {
-          title: '固态载流者是电子',
-          text: '正离子实在晶格位置附近振动，电子可以穿过金属传递电荷。不要把质子、整个原子或正离子穿过固体作为主要导电机制。',
-        },
-        {
-          title: '熔融后仍有离域电子',
-          text: '金属熔化后规则晶格消失，但金属中的离域电子仍可载流；与离子熔体主要靠离子迁移的模型不同。',
-        },
-        {
-          title: '滑层时吸引仍在',
-          text: '正离子层滑动后仍被电子体系吸引，因此许多金属具有延展性。合金中不同大小原子往往妨碍层间滑移，硬度可能提高。',
-        },
-        {
-          title: '性质需要完整比较条件',
-          text: '不能只凭“有自由电子”排列所有金属的熔点。结构、粒子与吸引强度共同影响性质；非金属石墨也能导电，因此导电不是金属的专属证据。',
-        },
-      ],
+      summary: chemicalBondingMethods['140605'].summary,
+      paragraphs: [chemicalBondingMethods['140605'].intro],
+      memory: chemicalBondingMethods['140605'].memory,
+      rules: chemicalBondingMethods['140605'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '把离域电子画成固定在一个原子旁的电子对。',
         '认为固态金属导电是正离子不断越过晶格位置。',
@@ -634,29 +559,17 @@ export const esatChemicalBonding: KnowledgeLesson = {
     {
       code: '140606',
       title: '分子间作用力',
-      summary: '分子内的键把原子连在一起，分子间作用力决定分子彼此多难分开。',
-      paragraphs: [
-        '小分子物质有两层连接：分子内部是较强共价键，分子之间存在较弱的**分子间作用力 intermolecular forces**。在不伴随分解或反应的熔化、沸腾过程中，主要克服的是分子间作用，分子的化学组成通常保持不变；气态并不是分子内共价键已经消失。',
-        '各种分子都有色散作用，较大的电子云通常更容易极化；在卤素这类相似分子中，Cl₂、Br₂、I₂ 的分子间作用随电子云增大而增强。不同类型分子还受极性、形状和氢键等影响，不能只凭相对分子质量排所有物质的沸点。',
-      ],
-      rules: [
-        {
-          title: '先说清变化过程',
-          text: '液态水变成水蒸气时，主要克服水分子间作用，不是把每个 H₂O 分解为 H₂ 和 O₂。化学分解与物态变化不可混说。',
-        },
-        {
-          title: '比较相似分子才用大小趋势',
-          text: '同类卤素分子从 Cl₂ 到 Br₂、I₂，色散作用总体增强；常温下分别为气、液、固。不是因为分子内共价键越多。',
-        },
-        {
-          title: '氢键不是分子内 O—H 键',
-          text: '典型氢键涉及与 N、O、F 相连的 H 和另一处合适的孤对电子。水分子内的 O—H 是共价键；分子之间的氢键属于另一层作用。',
-        },
-        {
-          title: '不能套给所有结构',
-          text: 'NaCl 熔化需要克服离子晶格吸引；SiO₂ 等巨型共价结构没有独立的小分子可分开。先判结构，再判需要克服的作用。',
-        },
-      ],
+      summary: chemicalBondingMethods['140606'].summary,
+      paragraphs: [chemicalBondingMethods['140606'].intro],
+      memory: chemicalBondingMethods['140606'].memory,
+      rules: chemicalBondingMethods['140606'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '把沸腾解释成断开分子内所有共价键。',
         '用“分子量大”替代对结构、极性和作用力的分析。',
@@ -706,33 +619,17 @@ export const esatChemicalBonding: KnowledgeLesson = {
     {
       code: '140607',
       title: '结构、成键与物理性质',
-      summary: '把粒子、吸引与可移动电荷连成一条因果链，再联合多个实验事实筛选结构。',
-      paragraphs: [
-        '解释性质可用固定路线：**什么粒子 → 怎样吸引和排列 → 改变状态要克服什么 → 有无可移动电荷**。小分子物质的低熔沸点、离子晶体的固液导电差异、金属的电子载流，都能沿这条路线得到理由，而不只是背“能”或“不能”。',
-        '巨型共价结构必须具体看：金刚石每个 C 连 4 个 C，三维网络坚硬，通常没有可自由迁移的电子；石墨每个 C 连 3 个 C，层内有离域电子、层间易滑移，因此既能导电又较软；SiO₂ 具有连续 Si—O 网络，通常熔点高而不导电。不能把三者的性质全部归为同一条。',
-      ],
-      rules: [
-        {
-          title: '高熔点不是唯一身份证',
-          text: '离子晶体、许多金属和巨型共价结构都可能熔点高；要再结合物态导电、硬度等证据。常压下碳的高温行为还涉及升华，不能忽略条件。',
-        },
-        {
-          title: '导电先找载流者',
-          text: '金属与石墨主要靠离域电子；离子熔体和含离子的溶液主要靠离子迁移。金刚石与常见纯小分子物质通常缺少足够可移动电荷。',
-        },
-        {
-          title: '水溶液另起一栏',
-          text: 'HCl 纯物质由分子构成，入水后形成 H₃O⁺、Cl⁻；盐类溶解释放已有离子；糖溶解主要保留中性分子。不能仅凭“溶于水”就推导能导电。',
-        },
-        {
-          title: '石墨的两种方向分开',
-          text: '层内共价连接强，电子可在层内离域；层间作用较弱，层可以相对滑动。“软”不意味着所有 C—C 共价键都弱。',
-        },
-        {
-          title: '物性推断采用多证据',
-          text: '溶解性由物质与溶剂相互作用决定，不能说所有离子物质都可溶、所有共价物质都不溶。优先使用题目给出的实际数据，逐列核验。',
-        },
-      ],
+      summary: chemicalBondingMethods['140607'].summary,
+      paragraphs: [chemicalBondingMethods['140607'].intro],
+      memory: chemicalBondingMethods['140607'].memory,
+      rules: chemicalBondingMethods['140607'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '把石墨导电归因于可移动离子，或把金刚石硬度归因于分子间力。',
         '由水溶液能导电就断言原物质一定是离子晶体。',

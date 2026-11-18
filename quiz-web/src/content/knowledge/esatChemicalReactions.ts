@@ -1,12 +1,13 @@
 // ESAT 化学反应、式与方程讲义：由守恒连接化学式、物态、配平与平衡，例题正文统一取自现有题库。
 import type { KnowledgeLesson } from './types'
+import { chemicalReactionMethods } from './chemicalReactionMethods'
 
 export const esatChemicalReactions: KnowledgeLesson = {
   code: '140300',
   title: 'Chemical reactions, formulae and equations · 反应、式与方程',
   subtitle: '先认物质，再数原子与电荷；分清反应发生了多少、是否达到平衡',
   intro:
-    '这一章是化学题的“读写工具”。化学式说明有什么，状态符号说明以什么形式存在，方程说明怎样转变。复习时把每个符号对应到粒子与实验现象，遇到陌生反应也能从原子、电荷和题给条件开始推理。',
+    '用化学式确定组成，用原子与电荷守恒配平方程；可逆反应还要区分实际转化量、反应速率与平衡组成。',
   memory: [
     '**普通化学反应改变原子的连接与电子分布，不创造或消灭原子核。**封闭体系总质量守恒；开放容器的读数可以因气体进出而变。',
     '**先写正确化学式，再配平。**系数乘整个式子，下标决定物质组成；括号外下标乘括号内每一种原子。',
@@ -18,26 +19,17 @@ export const esatChemicalReactions: KnowledgeLesson = {
     {
       code: '140301',
       title: '原子与电子重排',
-      summary: '物质改变了，原子的种类与总数仍在；把原子账目与电子变化分开检查。',
-      paragraphs: [
-        '想象把一套积木拆开再拼：普通化学反应 chemical reaction 生成新物质，原子重新组合，电子的分布也随之改变。**被改变的是连接、共享或转移电子的方式，不是原子核的身份。**因此碳原子不会在燃烧中变成氧原子，反应前后每种元素的原子总数都应对得上。',
-        '有的反应通过原子间共享电子形成新键，有的涉及电子转移；沉淀反应则可能只是原有离子重新组合成固体。不要把“发生化学反应”直接等同于“必有电子从一种原子转移给另一种原子”。后续氧化还原章节会专门判断电子转移。',
-        '质量守恒指的是把相关物质全部算进去。镁与酸在敞口容器中反应，氢气离开后，天平上的物体变轻；这不表示原子消失。先画清你称量的是整个封闭装置，还是允许气体进出的容器，再解释质量变化。',
-      ],
-      rules: [
-        {
-          title: '原子守恒：逐种数，不只数总个数',
-          text: '左边有多少个 C、H、O，右边必须分别保留。不同元素之间不能相互“抵数”；题干写 only、no other product 时，未列出的原子不能随意放进另一种产物。',
-        },
-        {
-          title: '电子重排：共享、转移与离子组合',
-          text: '共价反应需识别哪些键改变；电子转移形成离子时，元素仍由质子数确定。沉淀中的阳、阴离子可以保持原有电荷，**有新物质不代表一定是氧化还原**。',
-        },
-        {
-          title: '质量守恒：先说明体系边界',
-          text: '封闭体系的反应前后总质量相同。开放体系若气体逸出，容器读数可减小；若吸收空气中的物质，读数可增大。不能只比较可见固体或溶液。',
-        },
-      ],
+      summary: chemicalReactionMethods['140301'].summary,
+      paragraphs: [chemicalReactionMethods['140301'].intro],
+      memory: chemicalReactionMethods['140301'].memory,
+      rules: chemicalReactionMethods['140301'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       visual: 'chemical-reactions',
       pitfalls: [
         '把反应中的电子得失理解为原子核改变，或把同元素不同离子当成不同元素。',
@@ -156,29 +148,17 @@ export const esatChemicalReactions: KnowledgeLesson = {
     {
       code: '140302',
       title: '常见化合物的化学式',
-      summary: '离子化合物用电荷定最简比，共价分子保留真实组成；括号与下标都要读全。',
-      paragraphs: [
-        '化学式 formula 不是名字的缩写装饰，而是组成信息。离子化合物通常用最简整数比表示离子的组合，例如 MgCl₂ 表示每个 Mg²⁺ 对应两个 Cl⁻，不表示一个独立的“氯化镁分子”。**总正电荷与总负电荷相抵，是写离子化学式的依据。**',
-        '把复合离子当成一个整体记：NH₄⁺ 是铵根，OH⁻ 是氢氧根，NO₃⁻ 是硝酸根，CO₃²⁻ 是碳酸根，SO₄²⁻ 是硫酸根，PO₄³⁻ 是磷酸根。需要两个硝酸根时写 (NO₃)₂，不能只把氧的下标改成 6。熟悉的共价分子如 H₂O、CO₂、NH₃、CH₄ 则要记实际组成，不能用离子电荷法随意约简。',
-      ],
-      rules: [
-        {
-          title: '电荷配平：求最简比后再写下标',
-          text: 'Al³⁺ 与 O²⁻ 的电荷最小公倍数是 6，所以需要 2 个 Al³⁺、3 个 O²⁻，得到 Al₂O₃。Ca²⁺ 与 O²⁻ 则是 1:1，写 CaO，而不是 Ca₂O₂。',
-        },
-        {
-          title: '复合离子：保留内部组成',
-          text: 'Ca(OH)₂ 含 1 个 Ca、2 个 O、2 个 H；Al₂(SO₄)₃ 含 2 个 Al、3 个 S、12 个 O。只有复合离子超过一组时才需要外括号。',
-        },
-        {
-          title: '先认名字与电荷，再识别数字位置',
-          text: '铁(II)、铁(III)中的罗马数字说明铁离子电荷；FeCl₂ 与 FeCl₃ 因此不同。右上角表示电荷，右下角表示个数，化学式前的系数则乘整个式子。',
-        },
-        {
-          title: '分子式与结晶水：不能随意约简或丢项',
-          text: 'H₂O₂ 不能约成 HO；O₂、N₂、H₂、Cl₂ 等常见单质也要保留分子组成。CuSO₄·5H₂O 中的点号表示结晶水比例，算组成或质量时要把 5 份水计入。',
-        },
-      ],
+      summary: chemicalReactionMethods['140302'].summary,
+      paragraphs: [chemicalReactionMethods['140302'].intro],
+      memory: chemicalReactionMethods['140302'].memory,
+      rules: chemicalReactionMethods['140302'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       visual: 'chemical-reactions',
       pitfalls: [
         '机械交叉电荷后忘记约成最简比，或把离子的正负号也写成下标。',
@@ -291,25 +271,17 @@ export const esatChemicalReactions: KnowledgeLesson = {
     {
       code: '140303',
       title: '状态符号',
-      summary: '用 (s)、(l)、(g)、(aq) 把式子与实验对应；先判断物态，再决定哪些量应计入。',
-      paragraphs: [
-        '状态符号 state symbols 写在化学式后，告诉我们物质在题给条件下怎样存在：(s) solid 是固体，(l) liquid 是液体，(g) gas 是气体，(aq) aqueous 表示溶于水。**NaCl(l) 是熔融氯化钠，NaCl(aq) 是氯化钠水溶液，二者不是同一套反应条件。**',
-        '状态符号能直接影响答案。Ag⁺(aq) 与 Cl⁻(aq) 形成 AgCl(s)，表示溶液中的离子生成可分离的沉淀；水在高温燃烧气中写 H₂O(g)，冷却后大部分凝成 H₂O(l)，此时不能仍把全部生成水计入气体总体积。物质的化学式相同，不代表状态永远相同。',
-      ],
-      rules: [
-        {
-          title: '先读题给温度和实验环境',
-          text: '状态取决于实际条件，不只取决于物质名称。题目明确写 steam 或高温测量时，把水作为气体；冷却后计算气量时按题目模型处理冷凝，不能自动把所有产物都算成气体。',
-        },
-        {
-          title: '(aq) 表示水溶液，不表示纯液体',
-          text: 'HCl(g) 是氯化氢气体，HCl(aq) 才是盐酸。NaCl(aq) 中有水以及水合离子；熔融 NaCl(l) 则没有这些水，电解产物因此可能不同。',
-        },
-        {
-          title: '沉淀与滤液要分开追踪',
-          text: '净离子式把生成沉淀的物质写成 (s)，仍溶于水的粒子写成 (aq)。过滤通常分离不溶固体，不能直接除去溶解的盐；晶体结晶析出也要与溶液区分。',
-        },
-      ],
+      summary: chemicalReactionMethods['140303'].summary,
+      paragraphs: [chemicalReactionMethods['140303'].intro],
+      memory: chemicalReactionMethods['140303'].memory,
+      rules: chemicalReactionMethods['140303'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       visual: 'chemical-reactions',
       pitfalls: [
         '把 (aq) 当成液态，漏掉水参与反应或电解的可能性。',
@@ -422,30 +394,17 @@ export const esatChemicalReactions: KnowledgeLesson = {
     {
       code: '140304',
       title: '构造与配平方程',
-      summary: '化学式写对以后，只调整系数；完整式、离子式与半方程都要守恒。',
-      paragraphs: [
-        '构造方程先确定实际的反应物和产物，再考虑系数。配平 balancing 调整的是每种粒子的份数，不能改变化学式内部的下标。例如水分解时写 2H₂O → 2H₂ + O₂，而不是把水改成 H₂O₂ 来凑氧原子。',
-        '有三种常用写法：完整反应式写出参与的物质；净离子方程 ionic equation 只保留实际变化的离子和物质；半反应方程 half-equation 单独显示一边的电子得失。**它们都守恒原子与电荷，但不是把同一串式子随意删短。**',
-        '配平时先挑只在左右各出现一次的元素或保持完整的复合离子，再处理分散在多处的 H、O。系数暂时出现分数不影响守恒，需要最简整数时再整式同乘。最后同时检查原子数、净电荷与题干指定的状态和条件。',
-      ],
-      rules: [
-        {
-          title: '完整式：式子先正确，系数后调整',
-          text: '燃烧题可先配 C，再配 H，最后配 O；含氧燃料自身带来的 O 也要计入。原子数相同并不保证产物化学上合理，物质身份仍须符合题干。',
-        },
-        {
-          title: '净离子式：旁观离子左右抵消',
-          text: '把水中可充分电离的可溶电解质拆为离子，保留固体、气体、水及通常不完全电离的弱酸等；只删两边完全相同的旁观离子。Ag⁺(aq)+Cl⁻(aq)→AgCl(s) 两边电荷都为0。',
-        },
-        {
-          title: '半方程：用电子补电荷，再合并',
-          text: 'Cu²⁺+2e⁻→Cu 为得电子；2Cl⁻→Cl₂+2e⁻ 为失电子。合并时先使两边电子数量相同再相加；完整反应式中不能留下凭空多出的电子。',
-        },
-        {
-          title: '遇到复杂离子：仍逐项列守恒',
-          text: '题给含 H、O 的离子反应可直接按原子和净电荷列关系。若需要补 H₂O、H⁺ 或 OH⁻，必须符合题给水溶液的酸碱条件，不能为凑数擅自加入不存在的物质。',
-        },
-      ],
+      summary: chemicalReactionMethods['140304'].summary,
+      paragraphs: [chemicalReactionMethods['140304'].intro],
+      memory: chemicalReactionMethods['140304'].memory,
+      rules: chemicalReactionMethods['140304'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       visual: 'chemical-reactions',
       pitfalls: [
         '通过修改下标配平，把原来的物质变成另一种物质。',
@@ -596,30 +555,17 @@ export const esatChemicalReactions: KnowledgeLesson = {
     {
       code: '140305',
       title: '可逆反应与平衡',
-      summary: '平衡时两边仍在反应；先分清速率与产率，再判断浓度、温度和压强的影响。',
-      paragraphs: [
-        '可逆反应 reversible reaction 可以同时沿正向与逆向进行。在适当条件的封闭体系中，正向与逆向速率最终相等，达到动态平衡 dynamic equilibrium。**反应没有停止，反应物也不必全部用完；宏观组成不再随时间改变，是因为两种变化刚好抵消。**',
-        '平衡位置 position of equilibrium 描述体系中反应物、产物的相对组成。加入反应物、移走产物或改变温度、气体压强，可能让体系重新调整。判断时一次只改变一个条件，并明确是在问达到平衡的快慢，还是最后的产物比例。',
-        '用勒夏特列原理 Le Châtelier’s principle 作定性预测：体系向减弱扰动的方向调整。它不是万能的“全部抵消”规则，也不保证反应完全进行。催化剂同时加快正逆过程，使体系更快到达同一平衡位置，不能单独提高平衡产率。',
-      ],
-      rules: [
-        {
-          title: '浓度：消耗加入的，补充移走的',
-          text: '在适用的气相或溶液体系中，增加反应物浓度通常使平衡向产物方向移动，增加产物则相反；移走某物质时，平衡倾向于补充它。纯固体、纯液体的“多少”不能直接当作溶质浓度；但酯化混合液中的水属于混合物成分，不能仅凭写了(l)就断定加入水不影响平衡。',
-        },
-        {
-          title: '温度：先确定哪一边吸热',
-          text: '升温有利于吸热方向，降温有利于放热方向。正反应 ΔH<0 时，升温有利于逆反应；正反应 ΔH>0 时则相反。不要把“升温反应更快”误写成“升温产率更高”。',
-        },
-        {
-          title: '压强：明确由压缩改变，再数气体系数',
-          text: '在温度不变、压缩容器提高压强时，平衡倾向气体总物质的量较少的一侧；两边气体系数和相同则位置不变。固体和液体不计入气体系数，添加惰性气体也不能不看体积条件直接套这条。',
-        },
-        {
-          title: '催化与终点：快不等于多，停止不等于平衡',
-          text: '催化剂缩短达到平衡所需时间，不改变相同条件下的平衡组成。气体体积或温度曲线变平，也可能是某反应物耗尽，不能仅凭一条平台认定建立动态平衡。',
-        },
-      ],
+      summary: chemicalReactionMethods['140305'].summary,
+      paragraphs: [chemicalReactionMethods['140305'].intro],
+      memory: chemicalReactionMethods['140305'].memory,
+      rules: chemicalReactionMethods['140305'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       visual: 'chemical-reactions',
       pitfalls: [
         '把平衡写成正逆反应停止，或写成反应物与产物浓度相等。',

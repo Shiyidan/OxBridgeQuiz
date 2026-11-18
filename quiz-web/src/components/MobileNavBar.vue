@@ -146,7 +146,7 @@ const examIntroPath = computed(() => `/exam-intro/${(props.currentExam || 'TMUA'
 const menuItems = computed<MobileMenuItem[]>(() => [
   { key: 'home', label: '首页', path: null },
   { key: 'assessment', label: '诊断测试', path: '/assessment' },
-  { key: 'question-bank', label: '试题库', path: '/question-bank' },
+  { key: 'question-bank', label: '学习平台', path: '/question-bank' },
   { key: 'mock-exams', label: '模考中心', path: '/mock-exams' },
   {
     key: 'mistake-notebook',

@@ -1,12 +1,14 @@
 // ESAT 氧化还原复习讲义：用氧、电子与氧化态连接六个考点，原题由现有题库组件读取。
 import type { KnowledgeLesson } from './types'
+import { oxygenRedoxMethods } from './oxygenRedoxMethods'
+import { redoxMethods } from './redoxMethods'
 
 export const esatRedox: KnowledgeLesson = {
   code: '140500',
   title: 'Oxidation, reduction and redox · 氧化、还原与氧化还原',
   subtitle: '先找谁发生变化，再看电子去向；最后判断反应与物质的角色',
   intro:
-    '氧化还原题的词很多，判断却可以沿一条线走：跟踪同一种元素在反应前后的变化。氧的得失提供直观入口，电子的得失给出方向，氧化态帮助处理没有直接写出电子的方程。复习时把“物质发生了什么”和“它使别人发生了什么”分开，就不容易把氧化剂与还原剂叫反。',
+    '从氧的得失过渡到电子与氧化态，判断反应中的变化，再确定物质的角色。电子数量、反应分类与氧化还原剂分别核对。',
   memory: [
     '**氧化：失电子、氧化态升高；还原：得电子、氧化态降低。**有氧参与的简单反应可先看得氧、失氧，复杂式子再用氧化态确认。',
     '**单质为 0，单原子离子的氧化态等于电荷。**多原子粒子中，各原子氧化态乘个数后相加，等于整个粒子的电荷。',
@@ -18,26 +20,17 @@ export const esatRedox: KnowledgeLesson = {
     {
       code: '140501',
       title: '基于氧的氧化与还原',
-      summary: '先跟踪氧从哪里来、到哪里去；含氧或失去含氧基团，都不自动等于氧化还原。',
-      paragraphs: [
-        '最直观的氧化 oxidation 是一种物质与氧结合，例如镁变成氧化镁；还原 reduction 则可表现为从氧化物中除去氧，例如氧化铜变成铜。**先指定正在观察哪一种物质**，再说它得氧还是失氧，不要笼统地说整条反应“只发生氧化”。',
-        '在 CuO + H₂ → Cu + H₂O 中，CuO 的氧转到氢上：氧化铜被还原，氢被氧化。两种变化是同一次反应的两个观察角度。高炉中一氧化碳从铁的氧化物中取得氧，也可以这样理解。',
-        '得失氧是入门判断，不能替代所有情况的电子与氧化态分析。CaCO₃ 分解为 CaO 和 CO₂，不是钙被还原；PCl₅ 与水形成 POCl₃ 虽然引入了氧，磷的氧化态仍为 +5。**遇到基团交换、分解或水解，不能只比较式子里有几个 O。**',
-      ],
-      rules: [
-        {
-          title: '把氧的去向画出来',
-          text: '在简单氧转移中，给出氧的氧化物被还原，取得氧的另一反应物被氧化；氧原子仍然守恒。',
-        },
-        {
-          title: '同一反应，分别描述两种物质',
-          text: '在 Fe₂O₃ 与 CO 的反应中，铁的氧化物失氧，CO 得氧变为 CO₂。说“铁的氧化物被还原”，不代表 CO 也被还原。',
-        },
-        {
-          title: '氧的个数不是通用判据',
-          text: '先确认同一元素的化学状态有无改变。碳酸盐分解、酸碱反应等即使涉及含氧物质，也可能完全没有氧化态变化。',
-        },
-      ],
+      summary: oxygenRedoxMethods.summary,
+      paragraphs: [oxygenRedoxMethods.intro],
+      memory: oxygenRedoxMethods.memory,
+      rules: oxygenRedoxMethods.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       visual: 'redox',
       pitfalls: [
         '把整条反应都叫作氧化，漏看另一种物质的还原。',
@@ -120,31 +113,17 @@ export const esatRedox: KnowledgeLesson = {
     {
       code: '140502',
       title: '电子转移中的氧化与还原',
-      summary: '失电子是氧化，得电子是还原；连接两侧之前，先把电子数配成相等。',
-      paragraphs: [
-        '氧化还原的范围比“有没有氧”更广。钙形成 Ca²⁺ 时失去两个电子，所以被氧化；Cl₂ 形成 Cl⁻ 时得到电子，所以被还原。记忆 OIL RIG：Oxidation Is Loss，Reduction Is Gain，省略的宾语都是 electrons。',
-        '正电荷增加通常表示电子减少，而不是得到更多电子。Fe²⁺ → Fe³⁺ 是失去一个电子的氧化；Cu²⁺ → Cu 是得到两个电子的还原。**看的是电荷怎样变化，不是初态是否带正电。**',
-        '把两个半反应连接时，失去的电子数必须等于得到的电子数。Zn → Zn²⁺ + 2e⁻ 与 Ag⁺ + e⁻ → Ag 相配，需要两份银离子的还原。半反应表示电子账目，不表示电子会在水溶液中作为普通产物积存。',
-        '在电极情境中，阴极 cathode 发生还原，阳极 anode 发生氧化。电解池的阴极接电源负极；原电池的正负号关系不同，所以跨情境最可靠的是“阴还阳氧”，不能把“负极永远氧化”或“负极永远还原”当作统一规则。',
-      ],
-      rules: [
-        {
-          title: '先看电子写在哪一边',
-          text: '电子在右边是失电子的氧化半反应；电子在左边是得电子的还原半反应。每边的原子数与总电荷都要相等。',
-        },
-        {
-          title: '用电荷差数电子',
-          text: 'Fe²⁺ → Fe³⁺ + e⁻ 中，+2 = +3 − 1。Cl₂ + 2e⁻ → 2Cl⁻ 中，每个 Cl 得一个电子，一整个 Cl₂ 共得两个。',
-        },
-        {
-          title: '合并前统一电子数',
-          text: '取两侧电子数的最小公倍数，把整个半反应乘相应倍数，再抵消电子；不能只把电子系数改大，其他粒子不变。',
-        },
-        {
-          title: '电路和溶液分别看',
-          text: '外电路以电子传递电荷；电解质内部主要靠离子移动。电极名称依据氧化或还原定义，正负号要结合电解池或原电池情境。',
-        },
-      ],
+      summary: redoxMethods['140502'].summary,
+      paragraphs: [redoxMethods['140502'].intro],
+      memory: redoxMethods['140502'].memory,
+      rules: redoxMethods['140502'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       visual: 'redox',
       pitfalls: [
         '把失去负电子误认为电荷变得更负。',
@@ -261,31 +240,17 @@ export const esatRedox: KnowledgeLesson = {
     {
       code: '140503',
       title: '氧化态',
-      summary: '先写总和约束，再求未知数；平均氧化态不能自动分配给每一个原子。',
-      paragraphs: [
-        '氧化态 oxidation state 是追踪电子归属变化的记账数，不是所有原子的真实电荷。单原子离子中它与离子电荷相同；在 CO₂ 这样的共价分子中，C 为 +4 不表示分子里存在一个游离的 C⁴⁺。',
-        '先确定整个粒子的电荷，再把每种原子的氧化态乘数量后求和。硫酸根中四个 O 各为 −2，总共 −8；整个 SO₄²⁻ 为 −2，因此 S 必须为 +6。**式子右边写的是整个粒子的电荷，不能看到离子就仍写 0。**',
-        '单质总为 0；常见化合物中 H 通常 +1、O 通常 −2。例外需要单独记：NaH 中 H 为 −1，H₂O₂ 中 O 为 −1，OF₂ 中 F 为 −1，因此 O 为 +2。先认物质类别，再套常用规则。',
-        '同一种元素的多个原子可能处在不同环境。只用分子式求出的可能是平均氧化态；平均值不是整数，并不自动表示算错，也不意味着每个原子都有这个氧化态。要确定各原子的分配，还需结构信息或题目给出的候选条件。',
-      ],
-      rules: [
-        {
-          title: '从已知规则开始',
-          text: '单质 0；单原子离子等于电荷；常见第 1 族金属 +1、第 2 族金属 +2、Al 通常 +3；F 在化合物中为 −1。',
-        },
-        {
-          title: '总和等于粒子电荷',
-          text: '中性物质为 0，多原子离子为其总电荷。例如 SO₄²⁻：\\(x+4(-2)=-2\\)，所以 \\(x=+6\\)。',
-        },
-        {
-          title: '普通规则带着例外记',
-          text: 'O 通常 −2，但过氧化物中为 −1，与 F 结合时可为正；H 通常 +1，但金属氢化物中为 −1。单质 O₂、H₂ 仍然都是 0。',
-        },
-        {
-          title: '平均值与逐原子值分开',
-          text: '先求同元素的氧化态总和；题目要求各个原子时，不能把平均值机械复制。满足总和只是必要条件，还要符合元素与结构的合理范围。',
-        },
-      ],
+      summary: redoxMethods['140503'].summary,
+      paragraphs: [redoxMethods['140503'].intro],
+      memory: redoxMethods['140503'].memory,
+      rules: redoxMethods['140503'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       visual: 'redox',
       pitfalls: [
         '漏乘括号或下标，把总电荷误写成 0。',
@@ -386,26 +351,17 @@ export const esatRedox: KnowledgeLesson = {
     {
       code: '140504',
       title: '识别氧化还原反应',
-      summary: '比较反应前后的氧化态；区分只氧化、只还原、完整 redox 和无氧化还原。',
-      paragraphs: [
-        '题目可能问“发生氧化吗”，也可能问“这条方程是 redox 吗”。前者只要求出现失电子或升价；后者在本考纲的分类中要求方程同时体现氧化与还原。**先认题目需要的分类，再检查方程。**',
-        '完整氧化还原反应中，失去和得到的电子要相互配对；电子可能没有显式写在总方程中。单独的 Al³⁺ + 3e⁻ → Al 则只显示还原，是还原半反应，并未写出提供电子的另一侧。',
-        '沉淀、放气、变色、分解和水解描述的是现象或反应形式，不直接决定是不是 redox。Ag⁺ 与 Cl⁻ 形成 AgCl 时都保持原价；但 Cu²⁺ 与 I⁻ 反应可同时生成 CuI 沉淀与 I₂，既有沉淀又有氧化还原。',
-      ],
-      rules: [
-        {
-          title: '先标重点，再查其余元素',
-          text: '优先看单质、价态可变元素与题目圈出的粒子；找到变化后，仍需确认相配的升价与降价过程，避免漏掉歧化。',
-        },
-        {
-          title: '半反应不冒充总反应',
-          text: '电子写在反应物侧且只有降价，分类为还原；只在产物侧且只有升价，分类为氧化。两者都体现，才是完整 redox。',
-        },
-        {
-          title: '物态和外观不作最终证据',
-          text: '沉淀不一定非 redox，分解也不一定是 redox。可靠依据是相关元素的氧化态是否改变，而非气泡、颜色或方程长短。',
-        },
-      ],
+      summary: redoxMethods['140504'].summary,
+      paragraphs: [redoxMethods['140504'].intro],
+      memory: redoxMethods['140504'].memory,
+      rules: redoxMethods['140504'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       visual: 'redox',
       pitfalls: [
         '把所有化学反应都视为电子转移反应。',
@@ -493,27 +449,17 @@ export const esatRedox: KnowledgeLesson = {
     {
       code: '140505',
       title: '歧化反应',
-      summary: '从同一起点分出升、降两条路；用每个原子的变化幅度核对产物比例。',
-      paragraphs: [
-        '歧化 disproportionation 是一种特殊氧化还原：同一种起始物种中、处在同一氧化态的元素，一部分被氧化，另一部分被还原。它不是“一个原子同时变成两个原子”，而是同一批原子分别走向两种产物。',
-        'H₂O₂ 中 O 为 −1，分解后有的 O 进入水变为 −2，有的进入 O₂ 变为 0。因此同一种反应物同时承担氧化剂和还原剂的角色。催化剂能改变反应快慢，但不是据此判断歧化的依据。',
-        '歧化的两边未必各占一半。Cl₂ 形成 Cl⁻ 与 ClO₃⁻ 时，一个 Cl 由 0 升到 +5，相当于失去 5 个电子；另一个 Cl 降到 −1 只得到 1 个电子，所以需要五个走下降方向的 Cl 与一个走上升方向的 Cl 配对。',
-        '反过来，两个不同起始氧化态汇合到一个中间值，是归中 comproportionation，不是歧化。例如 C 与 CO₂ 生成 CO，碳从 0 与 +4 合到 +2。没有必要死记名称，只要把“一个起点分叉”与“两个起点汇合”画出来。',
-      ],
-      rules: [
-        {
-          title: '三个条件一起检查',
-          text: '同一种元素、同一起始氧化态、产物中既有升高又有降低；只看到两个产物，或两个不同元素各自升降，都不够。',
-        },
-        {
-          title: '一升一降之后再数原子',
-          text: '总失电子数 = 总得电子数。变化幅度不同，两个方向的原子数量就不同；比较的是变价元素原子数，不一定直接等于所有产物分子的系数。',
-        },
-        {
-          title: '中间氧化态只是可能性',
-          text: '中间氧化态提供继续升或降的空间，但是否真的歧化还取决于具体物种与条件；不能说所有中间价物种都会自发歧化。',
-        },
-      ],
+      summary: redoxMethods['140505'].summary,
+      paragraphs: [redoxMethods['140505'].intro],
+      memory: redoxMethods['140505'].memory,
+      rules: redoxMethods['140505'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       visual: 'redox',
       pitfalls: [
         '把一个元素有两种产物就当作歧化，没有比较价态。',
@@ -590,27 +536,17 @@ export const esatRedox: KnowledgeLesson = {
     {
       code: '140506',
       title: '氧化剂与还原剂',
-      summary: '名称说的是它对别人的作用；先判断自己的电子变化，再给角色命名。',
-      paragraphs: [
-        '氧化剂 oxidising agent 使另一物质被氧化；它接收对方给出的电子，自己被还原。还原剂 reducing agent 把电子给另一物质，使对方被还原，自己却被氧化。**“什么剂”与“自己发生什么”恰好相对。**',
-        '在 Zn + Cu²⁺ → Zn²⁺ + Cu 中，Zn 是电子供体、还原剂，Cu²⁺ 是电子受体、氧化剂。被问到角色时，要回答反应物 Zn 或 Cu²⁺，不能把还原后的产物 Cu 当成这次反应的氧化剂。',
-        '金属较易失电子，常以单质形式作还原剂；卤素单质能得电子，常作氧化剂。比较活泼性时也要说清比较的是金属原子还是它的离子、卤素单质还是卤离子，不能把同一元素的各种物种混为一谈。',
-        '角色取决于具体反应。H₂O₂ 可作氧化剂或还原剂；歧化时同一种起始物质可以同时承担两种角色。催化剂改变速率，酸碱试剂可能参与其他作用，这些名称都不能单靠“加进去了”就替代氧化还原判断。',
-      ],
-      rules: [
-        {
-          title: '用一句话核对角色',
-          text: '“它得到电子，自己被还原，所以是氧化剂”；或“它失去电子，自己被氧化，所以是还原剂”。一句话里的方向必须彼此一致。',
-        },
-        {
-          title: '从参与变化的反应物中找',
-          text: '先删去旁观离子的干扰，写出真正得失电子的粒子；Cu²⁺ 与 Cu 是不同物种，Cl₂ 与 Cl⁻ 也不是同一个角色。',
-        },
-        {
-          title: '强弱比较要跟着反应证据',
-          text: '金属能置换另一金属离子，说明在该反应条件下它更易提供电子；卤素置换卤离子时，则比较单质得到电子的能力，不能把供受方向反过来。',
-        },
-      ],
+      summary: redoxMethods['140506'].summary,
+      paragraphs: [redoxMethods['140506'].intro],
+      memory: redoxMethods['140506'].memory,
+      rules: redoxMethods['140506'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       visual: 'redox',
       pitfalls: [
         '把氧化剂理解为自己被氧化。',

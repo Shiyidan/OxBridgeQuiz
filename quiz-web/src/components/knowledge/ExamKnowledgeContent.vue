@@ -54,6 +54,31 @@
           v-else-if="section.code === '110601' || section.code === '110602' || section.code === '110603' || section.code === '110604'"
           :code="section.code"
         />
+        <ChemicalBondingMethods
+          v-else-if="section.code === '140601' || section.code === '140602' || section.code === '140603' || section.code === '140604' || section.code === '140605' || section.code === '140606' || section.code === '140607'"
+          :code="section.code"
+        />
+        <RedoxMethods
+          v-else-if="section.code === '140502' || section.code === '140503' || section.code === '140504' || section.code === '140505' || section.code === '140506'"
+          :code="section.code"
+        />
+        <OxygenRedoxMethods v-else-if="section.code === '140501'" />
+        <QuantitativeChemistryMethods
+          v-else-if="section.code === '140401' || section.code === '140402' || section.code === '140403' || section.code === '140404' || section.code === '140405' || section.code === '140406' || section.code === '140407' || section.code === '140408' || section.code === '140409' || section.code === '140410' || section.code === '140411'"
+          :code="section.code"
+        />
+        <ChemicalReactionMethods
+          v-else-if="section.code === '140301' || section.code === '140302' || section.code === '140303' || section.code === '140304' || section.code === '140305'"
+          :code="section.code"
+        />
+        <PeriodicTableMethods
+          v-else-if="section.code === '140201' || section.code === '140202' || section.code === '140203' || section.code === '140204' || section.code === '140205'"
+          :code="section.code"
+        />
+        <AtomicStructureMethods
+          v-else-if="section.code === '140101' || section.code === '140102' || section.code === '140103' || section.code === '140104' || section.code === '140105' || section.code === '140106'"
+          :code="section.code"
+        />
         <EukaryoticCellMethods v-else-if="section.code === '150101'" />
         <ProkaryoticCellMethods v-else-if="section.code === '150102'" />
         <OrganisationMethods v-else-if="section.code === '150103'" />
@@ -72,6 +97,26 @@
         />
         <GeneTechnologyMethods
           v-else-if="section.code === '150601' || section.code === '150602' || section.code === '150603'"
+          :code="section.code"
+        />
+        <VariationMethods
+          v-else-if="section.code === '150701' || section.code === '150702'"
+          :code="section.code"
+        />
+        <EnzymeMethods
+          v-else-if="section.code === '150801' || section.code === '150802' || section.code === '150803' || section.code === '150804'"
+          :code="section.code"
+        />
+        <AnimalPhysiologyMethods
+          v-else-if="section.code === '150901' || section.code === '150902' || section.code === '150903' || section.code === '150904' || section.code === '150905'"
+          :code="section.code"
+        />
+        <EcosystemMethods
+          v-else-if="section.code === '151001' || section.code === '151002' || section.code === '151003'"
+          :code="section.code"
+        />
+        <PlantPhysiologyMethods
+          v-else-if="section.code === '151101' || section.code === '151102'"
           :code="section.code"
         />
         <GeometryMethodsReview
@@ -132,7 +177,7 @@
         </section>
         </div>
 
-        <div v-if="focus.comparison && !['110201', '110202', '110203', '110204', '110205', '110206', '110207', '110208', '110209', '110210', '110211', '110212', '110213', '110214', '110401', '110402', '110403', '110404', '110405', '110406', '110407', '110408', '110409', '110410', '110411', '110412', '110413', '110414', '110415', '110416', '110417', '110418', '110419', '110701', '110702', '110703', '110704', '110705', '110706', '110707', '110601', '110602', '110603', '110604', '110101', '110102', '150101', '150102', '150103', '150201', '150301', '150302', '150303', '150304', '150401', '150402', '150403', '150501', '150502', '150503', '150504', '150601', '150602', '150603'].includes(section.code)" class="exam-comparison">
+        <div v-if="focus.comparison && !['140601', '140602', '140603', '140604', '140605', '140606', '140607', '140502', '140503', '140504', '140505', '140506', '140501', '140401', '140402', '140403', '140404', '140405', '140406', '140407', '140408', '140409', '140410', '140411', '140301', '140302', '140303', '140304', '140305', '140201', '140202', '140203', '140204', '140205', '140101', '140102', '140103', '140104', '140105', '140106', '110201', '110202', '110203', '110204', '110205', '110206', '110207', '110208', '110209', '110210', '110211', '110212', '110213', '110214', '110401', '110402', '110403', '110404', '110405', '110406', '110407', '110408', '110409', '110410', '110411', '110412', '110413', '110414', '110415', '110416', '110417', '110418', '110419', '110701', '110702', '110703', '110704', '110705', '110706', '110707', '110601', '110602', '110603', '110604', '110101', '110102', '150101', '150102', '150103', '150201', '150301', '150302', '150303', '150304', '150401', '150402', '150403', '150501', '150502', '150503', '150504', '150601', '150602', '150603', '150701', '150702', '150801', '150802', '150803', '150804', '150901', '150902', '150903', '150904', '150905', '151001', '151002', '151003', '151101', '151102'].includes(section.code)" class="exam-comparison">
           <div class="exam-section-label">
             <List aria-hidden="true" />
             <h5>{{ focus.comparison.title }}</h5>
@@ -419,6 +464,13 @@ import AlgebraManipulationMethods from './AlgebraManipulationMethods.vue'
 import AlgebraGraphMethods from './AlgebraGraphMethods.vue'
 import AlgebraApplicationsMethods from './AlgebraApplicationsMethods.vue'
 import AlgebraFinalMethods from './AlgebraFinalMethods.vue'
+import AtomicStructureMethods from './AtomicStructureMethods.vue'
+import PeriodicTableMethods from './PeriodicTableMethods.vue'
+import ChemicalReactionMethods from './ChemicalReactionMethods.vue'
+import QuantitativeChemistryMethods from './QuantitativeChemistryMethods.vue'
+import OxygenRedoxMethods from './OxygenRedoxMethods.vue'
+import RedoxMethods from './RedoxMethods.vue'
+import ChemicalBondingMethods from './ChemicalBondingMethods.vue'
 import EukaryoticCellMethods from './EukaryoticCellMethods.vue'
 import ProkaryoticCellMethods from './ProkaryoticCellMethods.vue'
 import OrganisationMethods from './OrganisationMethods.vue'
@@ -427,6 +479,11 @@ import CellDivisionMethods from './CellDivisionMethods.vue'
 import InheritanceMethods from './InheritanceMethods.vue'
 import DnaMethods from './DnaMethods.vue'
 import GeneTechnologyMethods from './GeneTechnologyMethods.vue'
+import VariationMethods from './VariationMethods.vue'
+import EnzymeMethods from './EnzymeMethods.vue'
+import AnimalPhysiologyMethods from './AnimalPhysiologyMethods.vue'
+import EcosystemMethods from './EcosystemMethods.vue'
+import PlantPhysiologyMethods from './PlantPhysiologyMethods.vue'
 import GeometryMethodsReview from './GeometryMethodsReview.vue'
 import OriginalQuestionAnalysis from './OriginalQuestionAnalysis.vue'
 import { getLearningPatternSources, type LearningPatternSource } from '@/api/learningExamples'

@@ -1,5 +1,6 @@
 // ESAT 化学周期表讲义：把元素位置、电子排布和反应性串成可用于真题与题库练习的复习路径。
 import type { KnowledgeExamFocus, KnowledgeLesson } from './types'
+import { periodicTableMethods } from './periodicTableMethods'
 
 const positionExamples: KnowledgeExamFocus['examples'] = [
   {
@@ -158,7 +159,7 @@ export const esatPeriodicTable: KnowledgeLesson = {
   title: 'The Periodic Table · 周期表',
   subtitle: '从位置读结构，用结构解释性质',
   intro:
-    '周期表可以当作一张解题地图：原子序数决定元素次序，电子排布连接周期与族，相似的外层结构帮助判断性质。本章先练定位，再练比较；遇到离子先还原中性原子，遇到趋势先写清比较的元素族与性质。',
+    '原子序数决定元素位置，电子排布连接周期、族与化学性质；同族反应性的变化要结合电子得失判断。',
   memory: [
     '==横排周期，竖列元素族==；本章采用 IUPAC 的第 1—18 族编号。',
     '**原子序数 = 质子数**。得失电子、改变中子数都不会把元素移动到另一个格子。',
@@ -171,25 +172,17 @@ export const esatPeriodicTable: KnowledgeLesson = {
     {
       code: '140201',
       title: '周期与族',
-      summary: '横向数周期、纵向找元素族，用一组坐标读清元素位置。',
-      paragraphs: [
-        '把周期表当成座位图：**周期 period 是横排，族 group 是竖列**。氯在第 3 周期、第 17 族，意思是“第 3 排、第 17 列”；两个数字回答的是不同问题，不能交换。',
-        '一排元素的性质并不都相同。Na、Mg、Cl、Ar 同在第 3 周期，却分别具有不同的外层电子排布。同一主族则常表现出相似化学性质，例如 Li、Na、K 都容易形成 +1 离子；原因需要联系最外层电子，而不是仅因它们画在一起。',
-      ],
-      rules: [
-        {
-          title: '先记方向，再读编号',
-          text: '**横排是周期，竖列是族**。图中留白只是排版反映的电子结构安排，不代表周期或族的编号被取消；第 2 周期的 B 仍在第 13 族。',
-        },
-        {
-          title: '同周期不等于性质相同',
-          text: '对本章的前 20 号中性基态原子，同周期意味着已占据电子层数相同，最外层电子数却会改变。Na 与 Cl 同周期，不能据此说两者反应方式相同。',
-        },
-        {
-          title: '两套编号不要混用',
-          text: '本章固定用 **1—18 族**。部分旧资料称卤素为 Group 7、稀有气体为 Group 0，对应这里的第 17、18 族；本章第 7 族位于中央区域，不能直接当卤素。',
-        },
-      ],
+      summary: periodicTableMethods['140201'].summary,
+      paragraphs: [periodicTableMethods['140201'].intro],
+      memory: periodicTableMethods['140201'].memory,
+      rules: periodicTableMethods['140201'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '把 period 和 group 读反，导致第 3 周期第 17 族变成不存在的第 17 周期。',
         '看到同一横排就认定最外层电子数相同。',
@@ -255,25 +248,17 @@ export const esatPeriodicTable: KnowledgeLesson = {
     {
       code: '140202',
       title: '按原子序数排列',
-      summary: '用质子数确定元素次序，分开原子序数、质量数与离子电子数。',
-      paragraphs: [
-        '现代周期表按**原子序数 atomic number 递增**排列，而原子序数等于核内质子数。每个元素格子对应一种质子数；同位素的中子数可以不同，离子的电子数也可以不同，但它们仍属于原来的元素。',
-        '沿着元素顺序读，Ne 为 10、Na 为 11；Ar 为 18、K 为 19。跨到下一行，原子序数仍继续加 1。图上空白格的宽度不参与计数，原子量的小数也不是排序依据。',
-      ],
-      rules: [
-        {
-          title: '决定身份的是 Z',
-          text: '==Z = 质子数==。化学反应中的电子得失不会改变 Z，所以 Na⁺ 仍位于钠的元素格；不能因为 Na⁺ 与 Ne 电子数相同，就把它归为氖。',
-        },
-        {
-          title: 'A 与相对原子质量不是排序号',
-          text: '质量数 A 是一种核素的质子数加中子数；相对原子质量反映样品同位素组成与相对质量。它们都不是现代周期表确定先后的编号。',
-        },
-        {
-          title: '顺序与连续是两种结论',
-          text: '由等电子粒子的电荷可以比较质子数大小，但只有进一步知道电荷数差，才可能判断原子序数是否连续。**能排大小，不等于差值一定为 1**。',
-        },
-      ],
+      summary: periodicTableMethods['140202'].summary,
+      paragraphs: [periodicTableMethods['140202'].intro],
+      memory: periodicTableMethods['140202'].memory,
+      rules: periodicTableMethods['140202'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '按相对原子质量的小数从小到大重新给元素排序。',
         '把阴离子的电子数当成该元素的原子序数。',
@@ -328,25 +313,17 @@ export const esatPeriodicTable: KnowledgeLesson = {
     {
       code: '140203',
       title: '金属与非金属的位置',
-      summary: '先用左右与中央定位，再记住关键元素族和分界处的例外。',
-      paragraphs: [
-        '看周期表的大轮廓：金属主要集中在左侧和中央，非金属多在右上方。这个轮廓帮助你快速定位，却不是一条没有例外的直线：**氢画在左上但不是金属，硼和硅处在分界附近，通常称为类金属 metalloids**。',
-        '复习时把位置与族名配对：第 1 族中除氢之外的碱金属 alkali metals、第 2 族碱土金属 alkaline earth metals、第 17 族卤素 halogens、第 18 族稀有气体 noble gases。第 16 族的氧、硫也是需要快速识别的常见非金属。',
-      ],
-      rules: [
-        {
-          title: '左侧两列',
-          text: '**第 1 族碱金属不包括 H**，常见 Li、Na、K；第 2 族有 Be、Mg、Ca。不要把“1 个外层电子”直接等同于“碱金属”，氢就是要单独记的情况。',
-        },
-        {
-          title: '右侧重点列',
-          text: 'O、S 在第 16 族，F、Cl、Br、I 在第 17 族，He、Ne、Ar 在第 18 族。右侧还包括金属与类金属，**不能把右半边或第 16 族从上到下全部判为非金属**。',
-        },
-        {
-          title: '中央过渡区',
-          text: '过渡金属 transition metals 主要位于周期表中央，从第 4 周期开始出现。铁、铜等属于此区；不要把主族的“族号对应外层电子数”直接套到中央元素。',
-        },
-      ],
+      summary: periodicTableMethods['140203'].summary,
+      paragraphs: [periodicTableMethods['140203'].intro],
+      memory: periodicTableMethods['140203'].memory,
+      rules: periodicTableMethods['140203'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '把氢算进碱金属，或因为氦外层有 2 个电子把它算进碱土金属。',
         '忽略 B、Si 等分界附近的元素，把整张表机械分成左金属、右非金属。',
@@ -412,29 +389,17 @@ export const esatPeriodicTable: KnowledgeLesson = {
     {
       code: '140204',
       title: '位置与电子排布',
-      summary: '先还原中性原子，再用电子层数定周期、最外层电子数定主族。',
-      paragraphs: [
-        '电子排布像周期表位置的“地址信息”。以 **2,8,7** 为例，三个数表示三个已占据电子层，最后一个数 7 表示最外层有 7 个电子：对应第 3 周期、第 17 族。这比孤立地背“氯在哪里”更容易迁移到陌生元素。',
-        '但先看清题干讨论的是原子还是离子。K⁺ 的排布是 2,8,8，它所属元素仍为第 4 周期、第 1 族，因为中性 K 是 2,8,8,1。**离子形成不会让原子核搬到另一个元素格**。',
-      ],
-      rules: [
-        {
-          title: '周期看层数',
-          text: '本节前 20 号中性基态原子的排布中，有几个已占据电子层就是第几周期。2,8,8,1 中的 4 个数字对应第 4 周期，不能把总电子数 19 当周期数。',
-        },
-        {
-          title: '主族看最外层',
-          text: '第 1、2 族的中性原子通常分别有 1、2 个最外层电子；第 13—18 族对应 3—8 个，**族号 = 最外层电子数 + 10**。这条快捷关系不能直接套到过渡金属，也不能漏掉氦。',
-        },
-        {
-          title: 'He 满的是第一层',
-          text: '氦的排布为 2，只有第一层且已满，位于第 1 周期、第 18 族。**满外层不总是 8 个**；He 与 Ne、Ar 的共同点是外层已满，而不是外层电子数相同。',
-        },
-        {
-          title: '层式排布有适用范围',
-          text: 'K、Ca 分别写成 2,8,8,1 和 2,8,8,2；这是前 20 号元素的基态排布，不表示第三层最多只能容纳 8 个电子。图中的圆环是计数模型，不是实际电子运行轨道。',
-        },
-      ],
+      summary: periodicTableMethods['140204'].summary,
+      paragraphs: [periodicTableMethods['140204'].intro],
+      memory: periodicTableMethods['140204'].memory,
+      rules: periodicTableMethods['140204'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '直接用阳离子已占据的层数决定所属元素周期。',
         '把第 17 族理解成有 17 个最外层电子。',
@@ -507,29 +472,17 @@ export const esatPeriodicTable: KnowledgeLesson = {
     {
       code: '140205',
       title: '族性质与反应性趋势',
-      summary: '把同族相似与向下变化分开记，用电子得失解释碱金属和卤素的相反趋势。',
-      paragraphs: [
-        '同族主族元素有相似的外层电子结构，因此常有相似的反应方式。Li、Na、K 都常失去 1 个电子形成 +1 离子；卤素在与金属形成离子化合物时常得到 1 个电子形成 −1 离子。**相似反应方式不等于反应性完全相同**。',
-        '向下增加已占据电子层，外层离核更远，内层电子的屏蔽也更多。碱金属比较“失去外层电子是否容易”，卤素比较“取得电子的能力”，因此这两组的反应性方向相反。先明确比较的是哪一种电子变化，趋势就有了原因。',
-      ],
-      rules: [
-        {
-          title: '碱金属：向下更易失电子',
-          text: '对 Li、Na、K，层数和屏蔽增加，核对外层电子的有效吸引减弱，所以失电子更容易，反应性增强。与水反应均可产生碱性氢氧化物与氢气，通常 K 比 Na 更剧烈、Na 比 Li 更剧烈。',
-        },
-        {
-          title: '卤素：向下得电子能力减弱',
-          text: '对 F、Cl、Br、I，外层离核更远、屏蔽增加，卤素单质的氧化性总体向下减弱。较活泼卤素可以从较不活泼卤素的卤化物溶液中将其置换出来；如 Cl₂ 可以置换 Br⁻ 生成 Br₂，反向不成立。',
-        },
-        {
-          title: '同族也有例外与边界',
-          text: 'He、Ne、Ar 外层已满，通常反应性很低；不能给它们硬套“非金属向下就更不活泼”的单一口诀。趋势应写清元素族、比较范围和反应类型，不能从碱金属、卤素推广到所有金属与非金属。',
-        },
-        {
-          title: '物理性质另开一栏',
-          text: '本节真题还比较物理性质：Li、Na、K 的熔点向下降低，而 F₂、Cl₂、Br₂ 的沸点向下升高。**熔沸点不是反应性**；判断时分别列趋势，不用同一理由解释全部性质。',
-        },
-      ],
+      summary: periodicTableMethods['140205'].summary,
+      paragraphs: [periodicTableMethods['140205'].intro],
+      memory: periodicTableMethods['140205'].memory,
+      rules: periodicTableMethods['140205'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '只说“向下质子更多，所以更容易吸引电子”，漏掉层数、距离和屏蔽变化。',
         '把碱金属的反应性方向用到卤素。',

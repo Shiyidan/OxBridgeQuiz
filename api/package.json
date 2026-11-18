@@ -24,6 +24,7 @@
     "test:question-meta": "tsx scripts/test-question-meta.ts",
     "test:syllabus-labels": "tsx scripts/test-syllabus-labels.ts",
     "test:learning-self-check": "tsx scripts/test-learning-self-check.ts",
+    "test:free-learning-access": "tsx scripts/test-free-learning-access.ts",
     "test:learning-example-analysis": "tsx scripts/test-learning-example-analysis.ts",
     "test:learning-pattern-coverage": "tsx scripts/test-learning-pattern-coverage.ts",
     "test:chemistry-learning": "tsx scripts/test-chemistry-learning.ts",

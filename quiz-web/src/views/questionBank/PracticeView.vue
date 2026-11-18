@@ -130,7 +130,7 @@
     <DailyCardAccessDialog
       v-model="upgradeDialogVisible"
       :exam-type="activeExamType === 'ESAT' ? 'ESAT' : 'TMUA'"
-      upgrade-message="试题库为会员专享，开通当前考试类型的会员后即可不限题量练习。"
+      upgrade-message="当前练习范围需开通对应考试的做题会员，也可以返回学习平台选择免费知识点练习。"
       cancel-text="返回试题库"
       @activated="handleDailyCardActivated"
       @upgrade="handleOpenPayment"

@@ -51,10 +51,12 @@ memberRouter.post('/check-access', requireAuth, async (req, res) => {
       action,
       examType = 'TMUA',
       questionCount = 1,
+      code,
     } = req.body as {
       action?: EntitlementAction
       examType?: string
       questionCount?: number
+      code?: string
     }
 
     if (action !== 'diagnostic' && action !== 'question-bank') {
@@ -67,11 +69,18 @@ memberRouter.post('/check-access', requireAuth, async (req, res) => {
       return
     }
 
+    if (code !== undefined && (typeof code !== 'string' || code.length > 191)) {
+      res.status(422).json(fail('无效的知识点编号'))
+      return
+    }
+
     const result = await checkMemberAccess(
       req.user!.userId,
       action,
       examType,
       Math.max(1, Number(questionCount) || 1),
+      prisma,
+      code,
     )
 
     res.json(success(result))

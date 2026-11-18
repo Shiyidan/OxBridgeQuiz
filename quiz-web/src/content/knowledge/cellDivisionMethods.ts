@@ -92,11 +92,11 @@ export const cellDivisionMethods: Record<CellDivisionMethodCode, CellDivisionMet
       {
         title: '单倍体也可以含复制后的染色体',
         paragraphs: [
-          '**n 表示染色体套数，C 表示 DNA 含量**，两者不能互换。判断单倍体看每类染色体有几份，不看画成 I 形还是 X 形。',
+          '**n 是一套染色体的条数，n、2n 分别用于表示单倍体、二倍体；C 是一套未复制染色体的 DNA 含量**。判断倍性看染色体有几套，不看画成 I 形还是 X 形。',
         ],
         table: {
           caption: '以复制前 2n=4 为例；C 表示一套未复制染色体的 DNA 含量。下表均按每个细胞计数。',
-          columns: ['阶段', '染色体数', '套数', '核 DNA 含量'],
+          columns: ['阶段', '染色体数', '倍性', '核 DNA 含量'],
           rows: [
             ['复制前', '4', '2n', '2C'],
             ['复制后、第一次分裂前', '4', '2n', '4C'],

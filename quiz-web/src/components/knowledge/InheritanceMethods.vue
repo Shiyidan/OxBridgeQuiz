@@ -46,14 +46,37 @@
         <h4>{{ point.title }}</h4>
         <p><KnowledgeText :text="point.text" /></p>
       </div>
-      <div v-if="block.diagram" class="inheritance-figure">
+      <div v-if="block.diagram === 'cross'" class="inheritance-crosses">
+        <figure v-for="cross in crosses" :key="cross.title">
+          <figcaption>{{ cross.title }}</figcaption>
+          <table>
+            <caption>
+              行、列为两位亲本的配子及概率
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">配子</th>
+                <th scope="col">A（1/2）</th>
+                <th scope="col">a（1/2）</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in cross.rows" :key="row[0]">
+                <th scope="row">{{ row[0] }}</th>
+                <td>{{ row[1] }}</td>
+                <td>{{ row[2] }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p><KnowledgeText :text="cross.result" /></p>
+        </figure>
+      </div>
+      <div v-else-if="block.diagram" class="inheritance-figure">
         <InheritanceDiagram
           compact
           :key="`${code}-${block.diagram}`"
           :topic="code"
-          :view="
-            block.diagram === 'cross' || block.diagram === 'pedigree' ? block.diagram : undefined
-          "
+          :view="block.diagram === 'pedigree' ? block.diagram : undefined"
         />
       </div>
       <p v-if="block.note" class="bio-methods__note"><KnowledgeText :text="block.note" /></p>
@@ -72,9 +95,76 @@ import InheritanceDiagram from './InheritanceDiagram.vue'
 const props = defineProps<{ code: InheritanceMethodCode }>()
 // 父章节与叶节点入口均按当前考纲 code 取得本节讲义。
 const content = computed(() => inheritanceMethods[props.code])
+const crosses = [
+  {
+    title: 'Aa × Aa · 两位亲本都是杂合子',
+    rows: [
+      ['A（1/2）', 'AA · 1/4', 'Aa · 1/4'],
+      ['a（1/2）', 'Aa · 1/4', 'aa · 1/4'],
+    ],
+    result: '基因型 **1∶2∶1**；A 完全显性时，表现型 **3∶1**。',
+  },
+  {
+    title: 'Aa × aa · 与隐性纯合子测交',
+    rows: [['a（1）', 'Aa · 1/2', 'aa · 1/2']],
+    result: '基因型 **1∶1**；A 完全显性时，表现型也为 **1∶1**。aa 只产生 a 配子。',
+  },
+]
 </script>
 <style scoped lang="scss">
 @use './biologyMethods';
+.inheritance-methods {
+  container-type: inline-size;
+}
+.inheritance-crosses {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  max-width: 1080px;
+  margin: 16px 0;
+}
+.inheritance-crosses figure {
+  min-width: 0;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--color-learning-teal-line);
+  border-radius: 10px;
+}
+.inheritance-crosses figcaption {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-learning-teal);
+}
+.inheritance-crosses table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+.inheritance-crosses caption {
+  padding: 10px 0;
+  color: var(--color-ink-soft);
+  font-size: 13px;
+  text-align: left;
+}
+.inheritance-crosses th,
+.inheritance-crosses td {
+  padding: 12px 6px;
+  border: 1px solid var(--color-line);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.inheritance-crosses td {
+  background: var(--color-learning-teal-soft);
+}
+.inheritance-crosses p {
+  font-size: 14px;
+}
+@container (min-width: 760px) {
+  .inheritance-crosses {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 .inheritance-figure {
   width: 100%;
   max-width: 1120px;

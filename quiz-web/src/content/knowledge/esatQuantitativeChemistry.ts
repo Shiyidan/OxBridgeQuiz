@@ -1,5 +1,6 @@
 // ESAT 化学定量计算讲义：用单位、粒子、摩尔比串联计算路线，并保留全量年度真题考法的来源映射。
 import type { KnowledgeExamFocus, KnowledgeLesson } from './types'
+import { quantitativeChemistryMethods } from './quantitativeChemistryMethods'
 
 const examples = {
   '140401': [
@@ -316,7 +317,7 @@ export const esatQuantitativeChemistry: KnowledgeLesson = {
   title: 'Quantitative Chemistry · 定量化学',
   subtitle: '先统一单位，再沿摩尔比完成计算',
   intro:
-    '质量、粒子数、气体体积和溶液浓度看起来是不同题型，背后都可汇入物质的量 n。先认清物质与单位，再借配平方程连接两种物质，最后换成题目所问的量。多种反应物都给量时，先确定谁先用完；出现剩余、纯度或产率时，把它们放回各自正确的位置。',
+    '质量、粒子数、气体体积和浓度通过物质的量相连；跨物质计算用方程系数，再按限量、剩余、取样和产率修正。',
   memory: [
     '**同一种物质的单位转换**：\\(n=m/M\\)，\\(N=nN_A\\)，\\(n=V/V_m\\)，\\(n=cV\\)。先写清粒子名称。',
     '**两种物质之间靠方程系数**：\\(n(A)/a=n(B)/b\\)；限量问题先比较各反应物的 \\(n/\\text{系数}\\)。',
@@ -329,29 +330,17 @@ export const esatQuantitativeChemistry: KnowledgeLesson = {
     {
       code: '140401',
       title: '相对分子质量与相对式量',
-      summary: '先展开整个化学式，再相加；Mᵣ 无单位，M 的常用单位是 g mol⁻¹。',
-      paragraphs: [
-        '**相对分子质量 relative molecular mass** 是一个分子的相对质量；离子晶体没有独立的“一个分子”，通常使用**相对式量 relative formula mass**。两者都可按化学式中各元素的相对原子质量加权求和，记为 \\(M_r\\)，本身没有单位。',
-        '计算时把化学式当成一张原子清单。括号外的下标作用于括号内每一种原子；结晶水也属于所称晶体的一部分。例如 CuSO₄·5H₂O 的 5 乘整个 H₂O，不能只乘 H。**摩尔质量 molar mass** 记为 M，表示每 mol 物质的质量；本章按题给精度使用与 Mᵣ 相同的数值，并加上 g mol⁻¹。',
-      ],
-      rules: [
-        {
-          title: '按下标加权',
-          text: '\\(M_r=\\sum(\\text{原子个数}\\times A_r)\\)。CO₂ 要算 1 个 C 与 2 个 O，不能把元素符号各加一次。',
-        },
-        {
-          title: '括号和结晶水一起展开',
-          text: 'Ca(OH)₂ 含 1 Ca、2 O、2 H；CuSO₄·5H₂O 含 1 Cu、1 S、9 O、10 H。点号不表示乘整个硫酸铜。',
-        },
-        {
-          title: '系数不属于 Mᵣ',
-          text: '方程中的 2H₂O 表示两份水；水的 Mᵣ 仍为 18，不能改为 36。只有在计算两摩尔水的质量时才再乘 2。',
-        },
-        {
-          title: '未知部分可以用差额',
-          text: '若完整化合物的 Mᵣ 与其中某一组原子的贡献已知，先按下标列式，再求未知部分；不要把离子电荷当成要加减的质量。',
-        },
-      ],
+      summary: quantitativeChemistryMethods['140401'].summary,
+      paragraphs: [quantitativeChemistryMethods['140401'].intro],
+      memory: quantitativeChemistryMethods['140401'].memory,
+      rules: quantitativeChemistryMethods['140401'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '把 Mᵣ 写成 g 或 g mol⁻¹，混淆相对量与摩尔质量。',
         '把 O₂ 的摩尔质量写成 16，或漏掉括号、结晶水。',
@@ -423,25 +412,17 @@ export const esatQuantitativeChemistry: KnowledgeLesson = {
     {
       code: '140402',
       title: '阿伏伽德罗常数',
-      summary: 'mol 是计数单位；先指定数的是原子、分子、离子还是电子。',
-      paragraphs: [
-        '一打表示 12 个，一摩尔表示固定数量的指定粒子。SI 定义 \\(N_A=6.02214076\\times10^{23}\\,\\mathrm{mol^{-1}}\\)；考试可能给 6.00 × 10²³ 等近似值，**计算应使用题给值**。不同物质的 1 mol 含有相同数目的指定粒子，但质量可以不同。',
-        '粒子名称不能省掉。1 mol CO₂ 分子含 1 mol C 原子和 2 mol O 原子，总原子数为 3 mol 原子。1 mol Mg(NO₃)₂ 完全溶解时对应 1 mol Mg²⁺ 和 2 mol NO₃⁻；硝酸根里的 4 个原子不是额外 4 个离子。',
-      ],
-      rules: [
-        {
-          title: '粒子数与物质的量',
-          text: '\\(N=nN_A\\)，反过来 \\(n=N/N_A\\)。N 是个数，n 的单位是 mol，Nₐ 的单位是 mol⁻¹。',
-        },
-        {
-          title: '先计一份，再放大',
-          text: '问原子总数时先数一个分子含几个原子；问溶液离子总数时先写电离的离子比例。计数倍数来自实际化学式。',
-        },
-        {
-          title: '一种粒子的 mol 不等于另一种',
-          text: '电子、原子与离子都可用 mol 计数，但互相换算要靠关系式。Cu²⁺ 得 2 个电子变成 Cu，1 mol Cu 对应 2 mol 电子。',
-        },
-      ],
+      summary: quantitativeChemistryMethods['140402'].summary,
+      paragraphs: [quantitativeChemistryMethods['140402'].intro],
+      memory: quantitativeChemistryMethods['140402'].memory,
+      rules: quantitativeChemistryMethods['140402'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '把 1 mol O₂ 分子与 1 mol O 原子当成相同量的氧。',
         '把离子电荷数当成每个式量单位中的离子个数。',
@@ -484,29 +465,17 @@ export const esatQuantitativeChemistry: KnowledgeLesson = {
     {
       code: '140403',
       title: '摩尔与质量换算',
-      summary: '质量除以摩尔质量得到 mol，反向乘回；先统一 g、kg、tonnes 与 mg。',
-      paragraphs: [
-        '天平给的是质量，方程需要的是粒子份数。连接两者的是 \\(n=m/M\\)：同样的质量，摩尔质量越大，包含的 mol 越少。比较不同物质时，不能直接拿克数比当成摩尔比。',
-        '把计算写成一条有单位的路线，比同时记三个孤立公式更可靠。若 M 用 g mol⁻¹，就把 m 变为 g；若只比较质量比，也可以全程用同一质量单位，但要保证摩尔质量与物质的量换算的一步仍然一致。混合物则应分开各成分计算，再相加。',
-      ],
-      rules: [
-        {
-          title: '三个量互相转换',
-          text: '\\(n=m/M\\)，\\(m=nM\\)，\\(M=m/n\\)。n 是物质的量，不是“一个粒子的质量”。',
-        },
-        {
-          title: '把单位放在数值旁',
-          text: '1 kg = 10³ g，1 tonne = 10⁶ g，1 g = 10³ mg。题问 mg 或 tonnes 时，最后再换回目标单位。',
-        },
-        {
-          title: '混合物先拆开',
-          text: '总质量 \\(m=\\sum n_iM_i\\)。平均摩尔质量取决于组成；已知质量或质量分数时先换成各成分的 mol，再用总质量除以总 mol，不能直接把各成分的 M 作算术平均。',
-        },
-        {
-          title: '剩余量和纯物质量',
-          text: '需要的可能是“反应前 − 已反应”，或“样品质量 × 纯度”。先确定哪一份质量对应所求物质，再除以 M。',
-        },
-      ],
+      summary: quantitativeChemistryMethods['140403'].summary,
+      paragraphs: [quantitativeChemistryMethods['140403'].intro],
+      memory: quantitativeChemistryMethods['140403'].memory,
+      rules: quantitativeChemistryMethods['140403'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '质量用 mg、M 用 g mol⁻¹，却没有先除以 1000。',
         '给的是总混合物质量，却按其中一种物质的 M 全部换算。',
@@ -608,29 +577,17 @@ export const esatQuantitativeChemistry: KnowledgeLesson = {
     {
       code: '140404',
       title: '质量百分组成',
-      summary: '部分质量除以整体质量；先说清分母是一种化合物还是整份样品。',
-      paragraphs: [
-        '质量百分组成 percentage composition by mass 描述某元素占化合物总质量的比例。已知化学式时，先算该元素在一份化学式中的质量贡献，再除以完整 Mᵣ；原子数较多不一定代表质量占比更大。',
-        '“含 80% 某元素”“纯度 80%”“产率 80%”不是同一件事。元素组成以化合物为分母，纯度以整份样品为分母，产率以理论产物为分母。矿石等混合物题可能要先乘纯度，再乘纯化合物中目标元素的质量分数。',
-      ],
-      rules: [
-        {
-          title: '从式子求组成',
-          text: '\\(w(E)=kA_r(E)/M_r\\)，百分数再乘 100%。k 是该元素在化学式中的原子个数，整个化学式必须放在分母。',
-        },
-        {
-          title: '从占比反求整体',
-          text: '已知某元素每 mol 化合物的质量贡献与质量分数，可反求 Mᵣ；若不知道每个分子含几个该元素原子，则仍需额外信息。',
-        },
-        {
-          title: '样品只含两种元素时',
-          text: '一种元素的质量可由总质量减去另一种得到；但有杂质或第三种元素时不能这样补差。',
-        },
-        {
-          title: '多层百分数逐层写基数',
-          text: '矿石中的金属质量 = 矿石质量 × 有效矿物质量分数 × 金属在该矿物中的质量分数。结晶水属于矿物质量，也要进入分母。',
-        },
-      ],
+      summary: quantitativeChemistryMethods['140404'].summary,
+      paragraphs: [quantitativeChemistryMethods['140404'].intro],
+      memory: quantitativeChemistryMethods['140404'].memory,
+      rules: quantitativeChemistryMethods['140404'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '用原子个数占比替代质量占比。',
         '把结晶水或其他元素从分母漏掉。',
@@ -676,29 +633,17 @@ export const esatQuantitativeChemistry: KnowledgeLesson = {
     {
       code: '140405',
       title: '经验式与分子式',
-      summary: '质量先变 mol，比例化成最小整数；分子式还需要确定整体倍数。',
-      paragraphs: [
-        '**经验式 empirical formula** 给出最简单的整数原子数比；**分子式 molecular formula** 给出一个分子中实际的原子个数。C₂H₄ 与 C₃H₆ 都可有相同经验式 CH₂，所以知道元素百分比一般还不能确定分子大小。',
-        '实验先得到质量，化学式却表达原子数比。把各元素质量分别除以 Aᵣ，所得 mol 比就是原子数比；再同除最小值，必要时整体乘 2、3 等变成整数。1∶1.5 应转成 2∶3，不能把 1.5 草率四舍五入为 2。',
-      ],
-      rules: [
-        {
-          title: '固定计算次序',
-          text: '元素质量 → 各元素 mol → 最简整数比。百分数组成可取假想 100 g 样品，保持比例即可。',
-        },
-        {
-          title: '分子式需要倍数',
-          text: '\\(k=M_r(\\text{分子})/M_r(\\text{经验式})\\)。分子式的每个下标都乘同一个正整数 k。',
-        },
-        {
-          title: '气体或沉淀可以提供原子数',
-          text: 'O₂ 的 mol 要乘 2 才是 O 原子的 mol；一份 CO₂ 对应一个 C，一份 H₂O 对应两个 H。先明确被测物与目标元素的对应关系。',
-        },
-        {
-          title: '比值不合理时回查条件',
-          text: '明显偏离简单比例时，先检查未计元素、杂质、实验误差与单位；不能为凑常见式子随意改数字。离子晶体通常使用最简式，不另套“分子倍数”。',
-        },
-      ],
+      summary: quantitativeChemistryMethods['140405'].summary,
+      paragraphs: [quantitativeChemistryMethods['140405'].intro],
+      memory: quantitativeChemistryMethods['140405'].memory,
+      rules: quantitativeChemistryMethods['140405'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '直接把质量比写成化学式下标。',
         '把分数比四舍五入，而不是同时乘一个数。',
@@ -760,29 +705,17 @@ export const esatQuantitativeChemistry: KnowledgeLesson = {
     {
       code: '140406',
       title: '方程质量计算与限量',
-      summary: '已知量先变 mol，按系数换物质，再转回质量；两种反应物都给量时先找限量。',
-      paragraphs: [
-        '配平方程中的系数给出**反应中消耗或生成的摩尔比**。若 \\(aA\\rightarrow bB\\)，则 \\(n(B)=n(A)\\times b/a\\)，但只有参加这一步反应的 A 才能代入。未反应的过量 A、杂质与旁观物质不属于这份计量。',
-        '当两种反应物都给起始量时，比较各自 \\(n/\\text{系数}\\)，较小者是限量反应物 limiting reactant。它确定理论最大产物量；不是质量较小的物质一定限量，也不是摩尔数较小就一定先用完。',
-      ],
-      rules: [
-        {
-          title: '跨物质的三段路线',
-          text: '\\(m(A)\\rightarrow n(A)\\rightarrow n(B)\\rightarrow m(B)\\)。第一段除 M(A)，第二段乘系数比 b/a，第三段乘 M(B)。',
-        },
-        {
-          title: '限量用同一基准比较',
-          text: '对 \\(aA+bB\\rightarrow cC\\)，完全反应时的理论最大反应程度由 \\(\\min(n_A/a,n_B/b)\\) 决定，产物的理论 mol 数为该值乘 c。',
-        },
-        {
-          title: '反推也沿原路走',
-          text: '从气体、沉淀或金属产物的量，可以反推某一反应物；先确定测量对应哪一步，再倒用系数比。',
-        },
-        {
-          title: '多步反应逐步列账',
-          text: '前一步产物可能成为后一步反应物；分别计算各步消耗与生成，最后合计目标物，不重复计算中间体。开放容器的称量还要考虑逸出气体。',
-        },
-      ],
+      summary: quantitativeChemistryMethods['140406'].summary,
+      paragraphs: [quantitativeChemistryMethods['140406'].intro],
+      memory: quantitativeChemistryMethods['140406'].memory,
+      rules: quantitativeChemistryMethods['140406'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '把系数 2∶1 当成质量 2∶1。',
         '直接用过量反应物全部起始量求产物。',
@@ -876,29 +809,17 @@ export const esatQuantitativeChemistry: KnowledgeLesson = {
     {
       code: '140407',
       title: '由实验数量构造方程',
-      summary: '把恰好反应的质量或同温同压气体体积转为摩尔比，再用原子守恒补全方程。',
-      paragraphs: [
-        '上一节从方程走向数量，本节反过来：由实验测得的消耗与生成量确定方程系数。质量先除以摩尔质量；同温同压且按题设气体模型处理时，气体体积比可直接作为摩尔比。**起始加入量不一定等于实际消耗量**，有剩余时必须扣除。',
-        '得到一组摩尔比后，还要检查每种元素原子守恒，必要时检查电荷守恒。若未知化学式也在题中，就把它的下标与方程系数分开设未知量；方程的整体倍数不改变反应，但不能擅自改动某物质的下标来配平。',
-      ],
-      rules: [
-        {
-          title: '先确认实际变化量',
-          text: '能直接用于系数比的是反应所消耗或生成的量。“过量”“剩余”“转化了多少”都提示先计算差额。',
-        },
-        {
-          title: '质量先除 M',
-          text: '从克数得到的比必须先换成 mol；气体体积只有在相同温压、相同模型下才能直接比较。',
-        },
-        {
-          title: '归一化遵循题面',
-          text: '一般把比值化成最简整数；但若题目固定某种物质的系数为 1，其余系数可为分数，应保留该基准回答。',
-        },
-        {
-          title: '未知产物用守恒补余量',
-          text: '先分配已知产物带走的元素，剩余元素再进入未知产物；同时用气量、反应物消耗或氧化态等独立条件交叉验证。',
-        },
-      ],
+      summary: quantitativeChemistryMethods['140407'].summary,
+      paragraphs: [quantitativeChemistryMethods['140407'].intro],
+      memory: quantitativeChemistryMethods['140407'].memory,
+      rules: quantitativeChemistryMethods['140407'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '拿初始投入的气体体积比直接当反应系数，漏掉过量部分。',
         '将质量比当摩尔比，或改变下标来配平。',
@@ -949,29 +870,17 @@ export const esatQuantitativeChemistry: KnowledgeLesson = {
     {
       code: '140408',
       title: '气体体积与摩尔数',
-      summary: '题给摩尔体积优先；同温同压体积比可接系数比，剩余气体与水的状态不能漏。',
-      paragraphs: [
-        '气体体积随温度和压力变化。题目若给室温压下 \\(V_m=24\\,\\mathrm{dm^3\\,mol^{-1}}\\)，可用 \\(n=V/V_m\\)。有些真题在其他温度给出 60 dm³ mol⁻¹，或仅允许使用“同温同压等 mol 气体占相同体积”，都应按题给条件计算。',
-        '在同一温压下比较同一反应中的气体，体积比可直接使用摩尔比。反应后总气体不仅有产物，还可能有过量反应物。水在高温时计作水蒸气，冷却并凝结后通常不再计入气体总体积；是否冷却必须读题。',
-      ],
-      rules: [
-        {
-          title: '体积与 Vₘ 单位一致',
-          text: 'Vₘ 用 24 dm³ mol⁻¹ 时 V 用 dm³；也可对应使用 24000 cm³ mol⁻¹。不能把 cm³ 数值直接除以 24。',
-        },
-        {
-          title: '体积比也要找限量',
-          text: '同温同压下比较各气体的 V/系数即可判限量；这不等于给任意气体体积都套同一固定摩尔体积。',
-        },
-        {
-          title: '总量与变化量分开',
-          text: '最终气体总量 = 每种气体剩余量之和；体积变化 = 终态 − 初态。题问“变化了多少”时不能只报产物体积。',
-        },
-        {
-          title: '分阶段合计',
-          text: '多步反应、部分转化或读图时，先算每一步实际反应量。曲线平台代表最终产量，某时刻读数只代表截至该时刻已经生成的量。',
-        },
-      ],
+      summary: quantitativeChemistryMethods['140408'].summary,
+      paragraphs: [quantitativeChemistryMethods['140408'].intro],
+      memory: quantitativeChemistryMethods['140408'].memory,
+      rules: quantitativeChemistryMethods['140408'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '高温题照搬 24 dm³ mol⁻¹。',
         '只合计气态产物，遗漏剩余气体；或把液态水也算成气体。',
@@ -1050,33 +959,17 @@ export const esatQuantitativeChemistry: KnowledgeLesson = {
     {
       code: '140409',
       title: '溶液、浓度与溶解度',
-      summary: '浓度看最终溶液体积；溶解度先读温度与“每多少溶剂”的基数。',
-      paragraphs: [
-        '**物质的量浓度 concentration** \\(c=n/V\\) 的分母是最终溶液体积，不是加进去的水体积。“溶于水并定容至 250 cm³”与“加入 250 cm³ 水”不保证相同。稀释只加溶剂、没有反应或损失时，溶质 n 守恒；发生反应时则先更新 n。',
-        '**饱和溶液 saturated solution** 在给定温度等条件下已达到溶解限度。溶解度 solubility 常以“每 100 g 水可溶多少克溶质”给出，它与 mol dm⁻³ 不同。读曲线先看横纵轴和基数；固体溶解度随温度的方向要依实际数据，不能说所有固体都随升温增加。',
-      ],
-      rules: [
-        {
-          title: '浓度与质量浓度',
-          text: '\\(c=n/V\\)，质量浓度 \\(\\rho_m=m/V=cM\\)。使用 mol dm⁻³ 时 V 用 dm³；g dm⁻³ 与 mol dm⁻³ 之间用 M 转换。',
-        },
-        {
-          title: '稀释守恒的是溶质',
-          text: '无反应、无损失时 \\(c_1V_1=c_2V_2\\)。V₂ 是稀释后的总体积，不是所加水量；两种会反应的溶液混合不能直接套这个式子。',
-        },
-        {
-          title: '离子浓度先写比例',
-          text: '溶质的 c 与各离子的 c 可能不同。若 Mg(NO₃)₂ 完全电离且不考虑其他反应，每 mol 溶质产生 1 mol Mg²⁺ 与 2 mol NO₃⁻。',
-        },
-        {
-          title: '溶解度与饱和量',
-          text: '若溶解度 S 的单位为 g/100 g 水，则 \\(m_{\\max}=S\\times m_{\\text{水}}/100\\)。达到饱和后再加固体，多出的部分不计入已溶解量。',
-        },
-        {
-          title: '降温析晶先守住水的质量',
-          text: '水不蒸发且析出的为无水溶质时，先分别按两温度的溶解度求可溶量，再相减。若晶体带结晶水或有蒸发，水的量也改变，不能直接照减。',
-        },
-      ],
+      summary: quantitativeChemistryMethods['140409'].summary,
+      paragraphs: [quantitativeChemistryMethods['140409'].intro],
+      memory: quantitativeChemistryMethods['140409'].memory,
+      rules: quantitativeChemistryMethods['140409'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '把加入水的体积当成最终溶液体积。',
         '浓度降低就认为溶质的 mol 一定减少。',
@@ -1163,29 +1056,17 @@ export const esatQuantitativeChemistry: KnowledgeLesson = {
     {
       code: '140410',
       title: '滴定计算',
-      summary: '先写反应比例，再用 cV；遇到反滴定先算剩余，遇到取样再放大。',
-      paragraphs: [
-        '滴定 titration 用已知浓度与用量的试剂测定另一种物质。滴定达到计量点、按所写方程恰好反应时，根据 \\(aA+bB\\rightarrow\\cdots\\)，有 \\(c_AV_A/a=c_BV_B/b\\)。只有系数相同才可直接写 \\(c_AV_A=c_BV_B\\)，二元酸并不自动与一元碱按 1∶1 反应。',
-        '先画清实验顺序：原样品是否定容、取了其中多少、加的是恰好还是过量试剂。反滴定 back titration 用第二次滴定测剩余试剂，再从最初加入量中扣除；分取 aliquot 只是整瓶的一部分，反推原样品时要按总体积与取样体积的比放大。',
-      ],
-      rules: [
-        {
-          title: '酸强弱与中和总量分开',
-          text: '完全中和时按可反应的酸性氢与 OH⁻ 数量计量。弱酸的初始电离程度小，不意味着整份酸只能中和很少碱。',
-        },
-        {
-          title: '系数决定 cV 的比例',
-          text: 'H₂SO₄ 与 NaOH 完全中和按 1∶2；先写式子，再把 c、V 代进去。体积可同用 cm³ 求比例，但求具体 mol 前必须转成 dm³。',
-        },
-        {
-          title: '反滴定有两套比例',
-          text: '先用第二次滴定比例得到剩余试剂 mol；初始减剩余后，再用第一次反应比例求样品。两次比例不一定相同。',
-        },
-        {
-          title: '取样和稀释分别回算',
-          text: '从 aliquot 算整瓶乘总体积/取样体积；从稀释后浓度求原液浓度再乘稀释倍数。每个倍数都应对应真实实验步骤。',
-        },
-      ],
+      summary: quantitativeChemistryMethods['140410'].summary,
+      paragraphs: [quantitativeChemistryMethods['140410'].intro],
+      memory: quantitativeChemistryMethods['140410'].memory,
+      rules: quantitativeChemistryMethods['140410'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '所有酸碱滴定都直接套 c₁V₁ = c₂V₂。',
         '把反滴定测得的剩余酸当成被样品消耗的酸。',
@@ -1249,29 +1130,17 @@ export const esatQuantitativeChemistry: KnowledgeLesson = {
     {
       code: '140411',
       title: '百分产率',
-      summary: '先算纯原料与限量决定的理论产量，再用同一种产物的实际量去比较。',
-      paragraphs: [
-        '**理论产量 theoretical yield** 是按原料有效量与配平方程能得到的最大目标产物量；**实际产量 actual yield** 是实际获得的目标产物量。百分产率 \\(\\eta=\\text{实际产量}/\\text{理论产量}\\times100\\%\\)，分子和分母必须针对同一种产物、使用相同单位。',
-        '实际收集量可能因反应未完全、副反应、转移或分离损失而较少。若结果超过 100%，先查产物是否未干燥、夹带杂质、单位错误或理论量算错，而不是认为创造了额外原子。能量传递效率、原料纯度、转化率与平衡产率还需按各自定义处理，不能只因出现百分数就套此公式。',
-      ],
-      rules: [
-        {
-          title: '理论量先由限量决定',
-          text: '先去除原料杂质，再换 mol、比 n/系数并算目标产物质量。不能将所有原料质量直接当成理论产物质量。',
-        },
-        {
-          title: '产率方向',
-          text: '\\(\\eta=m_{\\text{实际}}/m_{\\text{理论}}\\times100\\%\\)；已知产率求实际量时乘产率小数，反求理论量时除以它。',
-        },
-        {
-          title: '纯度和产率位于不同端',
-          text: '纯度修正原料中能参与反应的部分；产率修正理论上可生成的产物中实际获得的部分。两者可以连续使用，但必须分别标注基数。',
-        },
-        {
-          title: '多步产率看中间体',
-          text: '若前一步获得的全部中间体进入下一步，且每步定义清楚，整体比例可乘各步产率小数；各步计量关系仍需先处理。',
-        },
-      ],
+      summary: quantitativeChemistryMethods['140411'].summary,
+      paragraphs: [quantitativeChemistryMethods['140411'].intro],
+      memory: quantitativeChemistryMethods['140411'].memory,
+      rules: quantitativeChemistryMethods['140411'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
       pitfalls: [
         '实际量与理论量的分子分母倒置。',
         '把纯度、回收率或热效率直接叫作化学产率。',

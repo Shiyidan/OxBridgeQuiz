@@ -86,9 +86,6 @@
           >
             {{ item.label }}
           </button>
-          <button v-if="oralPromotion.available" type="button" @click="openOralCourse">
-            一对一培训
-          </button>
         </nav>
 
         <footer class="home-mobile-nav__footer">
@@ -108,7 +105,6 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import brandIconUrl from '@/assets/brand/acemock-icon.png'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
-import { useOralPromotionStore } from '@/stores/oralPromotion'
 
 interface MobileMenuItem {
   key: string
@@ -138,7 +134,6 @@ const emit = defineEmits<{
 }>()
 
 const auth = useAuthStore()
-const oralPromotion = useOralPromotionStore()
 const menuOpen = ref(false)
 const accountMenuOpen = ref(false)
 const overlayRef = ref<HTMLElement | null>(null)
@@ -174,13 +169,6 @@ function openMenu(): void {
 // 收起菜单并恢复当前页面内容区域。
 function closeMenu(): void {
   menuOpen.value = false
-}
-
-// 先收起全屏导航再打开课程介绍，避免两个遮罩争夺焦点。
-async function openOralCourse(): Promise<void> {
-  closeMenu()
-  await nextTick()
-  oralPromotion.open('navigation')
 }
 
 // 首页入口先关闭全屏层，再由公共导航决定滚动定位或返回首页。

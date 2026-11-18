@@ -1,4 +1,4 @@
-<!-- 全局导航栏：所有前台页面共用学习入口、账号操作与口语推广。 -->
+<!-- 全局导航栏：所有前台页面共用学习入口与账号操作。 -->
 <template>
   <header class="navbar">
     <div class="nav-inner">
@@ -83,15 +83,6 @@
               </el-dropdown-menu>
             </template>
           </el-dropdown>
-          <AppButton
-            v-if="oralPromotion.available"
-            type="text"
-            size="small"
-            class="oral-nav-entry"
-            @click="oralPromotion.open('navigation')"
-          >
-            一对一培训
-          </AppButton>
         </nav>
       </div>
 
@@ -242,7 +233,6 @@
     @navigate="handleMobileRouteNavigation"
     @logout="handleLogout"
   />
-  <OralPromotionCharm />
 </template>
 
 <script setup lang="ts">
@@ -254,9 +244,6 @@ import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import { EXAM_TYPE_OPTIONS } from '@/constants/examTypes'
 import AppAvatar from '@/components/AppAvatar.vue'
 import MobileNavBar from '@/components/MobileNavBar.vue'
-import AppButton from '@/components/AppButton.vue'
-import OralPromotionCharm from '@/components/OralPromotionCharm.vue'
-import { useOralPromotionStore } from '@/stores/oralPromotion'
 import brandIconUrl from '@/assets/brand/acemock-icon.png'
 
 interface NavBarProps {
@@ -282,11 +269,11 @@ const emit = defineEmits<{
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
-const oralPromotion = useOralPromotionStore()
 const showDropdown = ref(false)
 const entitlementClock = ref(Date.now())
 let entitlementExpiryTimer: ReturnType<typeof setTimeout> | null = null
-const examMenuItems = EXAM_TYPE_OPTIONS.map((item) => ({
+// 考试介绍仅展示已开放考试，未开放考试的页面内容仍保留。
+const examMenuItems = EXAM_TYPE_OPTIONS.filter((item) => item.available).map((item) => ({
   type: item.value.toLowerCase(),
   label: item.label,
 }))
@@ -647,11 +634,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   gap: clamp(12px, 1.25vw, 24px);
 }
-.oral-nav-entry.app-button {
-  --app-button-color: #65509b;
-  padding: 0 4px;
-}
-/* 平板横屏仍使用完整导航，缩减品牌和间距为课程入口与账号操作留出空间。 */
+/* 平板横屏仍使用完整导航，缩减品牌和间距为学习入口与账号操作留出空间。 */
 @media (min-width: 861px) and (max-width: 1024px) {
   .logo-text {
     display: none;
@@ -810,9 +793,12 @@ onBeforeUnmount(() => {
   background: var(--color-hover);
   color: var(--color-ink);
 }
-.nav-link:hover,
+.nav-link:hover {
+  color: var(--color-ink);
+}
 .nav-link--active {
   color: var(--color-ink);
+  font-weight: var(--weight-bold);
 }
 .btn-ghost {
   display: inline-flex;

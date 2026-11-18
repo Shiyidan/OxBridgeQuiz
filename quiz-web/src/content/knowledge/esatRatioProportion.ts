@@ -1,5 +1,8 @@
 // 数学 1 比与比例讲义：以基准、份额与倍率串联11个考纲节点，例题与自测均使用真实题源。
 import type { KnowledgeLesson } from './types'
+import { scaleFactorsMethods } from './scaleFactorsMethods'
+import { ratioFoundationsMethods } from './ratioFoundationsMethods'
+import { ratioApplicationsMethods } from './ratioApplicationsMethods'
 
 export const esatRatioProportion: KnowledgeLesson = {
   code: '110300',
@@ -19,26 +22,13 @@ export const esatRatioProportion: KnowledgeLesson = {
     {
       code: '110301',
       title: '比例因子、比例图与地图',
-      summary: '先对齐新旧对象，再对齐单位；比例尺的分母不是放缩倍率。',
-      paragraphs: [
-        '比例因子把同一类长度联系起来。由原图到新图的倍率是“新长度 ÷ 原长度”；图放大后，所有对应长度一起变化，角度保持不变。比较对应长度前要统一单位。',
-        '比例尺 1:N 表示图上 1 个长度单位对应实际 N 个相同单位。地图上 4 cm、比例尺 1:25000，对应实地 100000 cm，也就是 1 km。地图复印放大时，地面的真实距离没有变化，因此比例尺分母反而变小。',
-        '遇到连续放大和缩小，先把各次变化写成乘数相乘。面积与体积还要另外平方或立方，不能把线性倍率直接用到所有量。',
-      ],
-      rules: [
-        {
-          title: '从新到旧要取倒数',
-          text: '$k=L_{\\rm new}/L_{\\rm old}$，反向倍率为 $1/k$。缩小到原来的 $3/4$ 与缩小了 $3/4$ 含义不同。',
-        },
-        {
-          title: '地图复印后的比例尺',
-          text: '原比例尺为 $1:N$，图上长度变为 $k$ 倍后，新比例尺为 $1:(N/k)$；实际距离保持不变。',
-        },
-        {
-          title: '识别尺度层级',
-          text: '相似图形的长度、面积、体积倍率分别为 $k,k^2,k^3$。已知面积倍率时，先开平方才得到长度倍率。',
-        },
-      ],
+      summary: scaleFactorsMethods.summary,
+      paragraphs: [scaleFactorsMethods.intro],
+      memory: scaleFactorsMethods.memory,
+      rules: scaleFactorsMethods.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ]),
       pitfalls: [
         '将 120% 误写为增加 120%。',
         '复印缩小后仍把比例尺分母乘缩小倍率。',
@@ -90,26 +80,13 @@ export const esatRatioProportion: KnowledgeLesson = {
     {
       code: '110302',
       title: '一个量占另一个量的分数',
-      summary: '“占谁的”决定分母；分数大于 1 并不代表错误。',
-      paragraphs: [
-        '把 A 表示为 B 的几分之几，就是 A÷B。B 是参照量而不是自动取总量。若 A 比 B 大，得到假分数完全合理；例如 A:B=5:3，则 A 是 B 的5/3，而 A 占两者总量的5/8。',
-        '比较有单位的量先统一单位。若题目写“第一数的80%等于第二数的三分之二”，先给两个未知量不同字母，写等式后再求第一数除以第二数，不直接拿80与2/3作比。',
-        '参照量随情境变化。两人薪资分别上涨后，应比较两份新薪资；用旧工资作为分母，会把“变化率”和“新占比”混在一起。',
-      ],
-      rules: [
-        {
-          title: '部分对部分与部分对整体',
-          text: '$A:B=a:b$ 时，$A/B=a/b$；$A/(A+B)=a/(a+b)$。反过来，若 $A/T=f$，则 $A:(T-A)=f:(1-f)$。',
-        },
-        {
-          title: '从等量条件倒推比',
-          text: '若 $uA=vB$ 且参照量非零，则 $A/B=v/u$，系数与对应数量的比要反向。',
-        },
-        {
-          title: '检查分数大小',
-          text: '被比较量小于、等于、大于参照量时，所得分数应分别小于、等于、大于1。',
-        },
-      ],
+      summary: ratioFoundationsMethods['110302'].summary,
+      paragraphs: [ratioFoundationsMethods['110302'].intro],
+      memory: ratioFoundationsMethods['110302'].memory,
+      rules: ratioFoundationsMethods['110302'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ]),
       pitfalls: [
         '把 A 占 B 的比例写成 A/(A+B)。',
         '见到假分数就取倒数。',
@@ -161,26 +138,13 @@ export const esatRatioProportion: KnowledgeLesson = {
     {
       code: '110303',
       title: '比的记号',
-      summary: '比中的每一项代表份数；连接两个比，先统一公共量。',
-      paragraphs: [
-        'A:B=3:2 表示可以把 A、B 写成3t、2t。同一个比的各项必须同时乘除相同非零数；交换顺序就要把两项一起交换。比不自带实际总量，要等题目给总量、差值或某一项才可确定t。',
-        '有分数或小数的比，先乘以公分母或适当的10的幂，再约去公因数。例如1/2:3/4可以化为2:3；不能分别把两项化成“1”。',
-        '连接 Q:R 与 R:S 时，R 在两条关系中必须代表同一个数量。先把R的份数调成相同，再读取三项比。不要把Q:R的第一个数直接和R:S的最后一个数拼起来。',
-      ],
-      rules: [
-        {
-          title: '把比写成代数模型',
-          text: '$A:B:C=a:b:c$ 可写为 $A=at,B=bt,C=ct$。同一组数量只用同一个 $t$。',
-        },
-        {
-          title: '公共量对齐',
-          text: '$A:B=a:b,\\ B:C=c:d$，可得到 $A:B:C=ac:bc:bd$，然后统一约分。',
-        },
-        {
-          title: '化简保留顺序',
-          text: '先标清各项名称，再去掉共同因子；数量差与比值不能互相替换。',
-        },
-      ],
+      summary: ratioFoundationsMethods['110303'].summary,
+      paragraphs: [ratioFoundationsMethods['110303'].intro],
+      memory: ratioFoundationsMethods['110303'].memory,
+      rules: ratioFoundationsMethods['110303'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ]),
       pitfalls: [
         '忽略同一量在两个比中的份数不同。',
         '只放大比中的一项。',
@@ -232,26 +196,13 @@ export const esatRatioProportion: KnowledgeLesson = {
     {
       code: '110304',
       title: '按比例分配',
-      summary: '先认总份数、差份数，或已知某项对应的份数。',
-      paragraphs: [
-        '把总量按3:5分配时，总量对应8份；先用总量除以8求一份，再乘3或5。若已知的是两者相差20，则20对应2份，不能仍然除以8。',
-        '多组比要先合并为共同尺度的三项比，再计算总份数。嵌套分配则相反：先求第一层份额，第二层只对这份额分配，不能两次都用原总量。',
-        '如果分配后每人花掉同样金额，原来的比通常会变化；但两人的金额差保持不变。用原金额减同一个未知数，再根据新比列方程。',
-      ],
-      rules: [
-        {
-          title: '总量分配',
-          text: '总量 $T$ 按 $a:b:c$ 分配，三份分别为 $\\frac{aT}{a+b+c},\\frac{bT}{a+b+c},\\frac{cT}{a+b+c}$。',
-        },
-        {
-          title: '差值分配',
-          text: '若 $A:B=a:b$，$a>b$，且 $A-B=D$，则一份为 $D/(a-b)$。',
-        },
-        {
-          title: '分配后反求比',
-          text: '先把各自实际数量写出，再同时约分。比的份数不一定等于最终分配金额。',
-        },
-      ],
+      summary: ratioFoundationsMethods['110304'].summary,
+      paragraphs: [ratioFoundationsMethods['110304'].intro],
+      memory: ratioFoundationsMethods['110304'].memory,
+      rules: ratioFoundationsMethods['110304'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ]),
       pitfalls: ['总份数漏掉一项。', '把差值按总份数分配。', '第二次分配误用全体总量。'],
       sourceIds: ['uat-spec', 'uat-preparation'],
       visual: 'maths-ratio',
@@ -299,27 +250,13 @@ export const esatRatioProportion: KnowledgeLesson = {
     {
       code: '110305',
       title: '实际情境中的比',
-      summary: '先把情境还原为总量、组成量、时间或速率，再决定比谁。',
-      paragraphs: [
-        '配方、涂料、合金与溶液都可以用“组成量 = 总量 × 占比”计算。混合时把真正的组成量相加，最后除以新的总量；不同大小的两桶不能直接平均百分浓度。',
-        '若从充分混合的溶液取走一部分，各成分按当前比例一起减少；只加入纯水时，溶质的量保持不变。写明哪个量没变，比死记混合公式更稳。',
-        '运动中“同一时间”意味着路程比等于速度比；“同一路程”意味着用时与速度成反比。全程平均速度必须用总路程除以总用时，不是各段速度随意平均。',
-        '单位换算与商品比较也用同样逻辑：统一单位后才比较单价、用量、浓度或效率。题目若含起步费、分段价格等固定项，不能将总价直接当作与数量正比。',
-      ],
-      rules: [
-        {
-          title: '混合先守恒',
-          text: '若组成量可加，混合占比 $c=\\frac{m_1c_1+m_2c_2}{m_1+m_2}$。质量分数用质量作权重，体积分数用题目允许相加的体积作权重，二者不能混用。',
-        },
-        {
-          title: '路程和时间分别加总',
-          text: '$v_{\\rm avg}=(d_1+d_2)/(t_1+t_2)$；等路程两段的平均速度为 $2v_1v_2/(v_1+v_2)$。',
-        },
-        {
-          title: '同一时刻比较距离',
-          text: '若用时相同，则 $d_A/d_B=v_A/v_B$；先确定某人到终点的时刻，再求另一人的路程。',
-        },
-      ],
+      summary: ratioFoundationsMethods['110305'].summary,
+      paragraphs: [ratioFoundationsMethods['110305'].intro],
+      memory: ratioFoundationsMethods['110305'].memory,
+      rules: ratioFoundationsMethods['110305'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ]),
       pitfalls: [
         '不同容量的混合物直接平均浓度。',
         '只加入某一种成分，却把两种成分都按同倍数增加。',
@@ -403,26 +340,13 @@ export const esatRatioProportion: KnowledgeLesson = {
     {
       code: '110306',
       title: '比例与分数/函数',
-      summary: '从固定的比值认出正比例；直线不一定经过原点。',
-      paragraphs: [
-        '当y与x的比值始终是同一个常数k，就有y=kx。表格中每行y/x相等、图像是一条经过原点的直线、文字说“每单位固定多少”，是同一关系的不同表达。',
-        '关系y=kx+c若c不为零，仍是线性函数，却不是y与x成正比例。例如出租车有起步费，里程翻倍时总价并不翻倍。看到“直线”还要检查截距。',
-        '如果文字说与x²成正比，则保持固定的是y/x²，而不是y/x。多个比例关系连接时，要分别求常数，再将中间量代入；不同关系不能默认使用同一个常数。',
-      ],
-      rules: [
-        {
-          title: '比与函数互译',
-          text: '$y:x=k:1 \\Longleftrightarrow y/x=k \\Longleftrightarrow y=kx$（$x\\ne0$）。在模型允许时延伸到原点。',
-        },
-        {
-          title: '用两个数据点检查',
-          text: '计算每行对应的比值；只看两个量一起增加，无法确认正比例。',
-        },
-        {
-          title: '连接不同的比例关系',
-          text: '若 $P=aQ^2$ 且 $Q=b/R$，则 $P=ab^2/R^2$。代入时连同常数一起平方。',
-        },
-      ],
+      summary: ratioApplicationsMethods['110306'].summary,
+      paragraphs: [ratioApplicationsMethods['110306'].intro],
+      memory: ratioApplicationsMethods['110306'].memory,
+      rules: ratioApplicationsMethods['110306'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ]),
       pitfalls: [
         '把所有直线都说成正比例。',
         '与平方成正比时仍使用y/x。',
@@ -481,26 +405,13 @@ export const esatRatioProportion: KnowledgeLesson = {
     {
       code: '110307',
       title: '比例题中的分数',
-      summary: '部分比、整体分数、剩余份额，要在同一张图中认清。',
-      paragraphs: [
-        '若一条线段被分成1:3，短段占全长的1/4，长段占3/4；这里的3不是全长份数。先把所有部分的份数加起来，再把指定部分写成整体分数。',
-        '连续取一部分时，后一步通常以“剩余量”为整体。例如先花35%，再花剩下的1/3，最后留下原量的65%×2/3，而不是直接用1−35%−1/3。',
-        '人数比例与收入比例也不相同。不同票价时，应先用各自人数乘各自票价，再用指定收入除以总收入；分母必须回到题目真正要比较的整体。',
-      ],
-      rules: [
-        {
-          title: '部分比转整体分数',
-          text: '$A:B=a:b$ 则 $A/(A+B)=a/(a+b)$；已知 $A/T=f$ 时，另一部分是 $1-f$。',
-        },
-        {
-          title: '多阶段剩余量',
-          text: '先去掉比例 $p$，再去掉余量的比例 $q$，剩余量为原量的 $(1-p)(1-q)$。',
-        },
-        {
-          title: '几何中的长度份额',
-          text: '线段按比划分后，先求每段长度；这些长度进入勾股或面积公式时，仍要按公式平方或相乘。',
-        },
-      ],
+      summary: ratioApplicationsMethods['110307'].summary,
+      paragraphs: [ratioApplicationsMethods['110307'].intro],
+      memory: ratioApplicationsMethods['110307'].memory,
+      rules: ratioApplicationsMethods['110307'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ]),
       pitfalls: [
         '把1:3写为短段占全长1/3。',
         '每次百分数都乘最初的总量。',
@@ -562,27 +473,13 @@ export const esatRatioProportion: KnowledgeLesson = {
     {
       code: '110308',
       title: '百分比与百分比变化',
-      summary: '百分比先写成倍率；比较与变化都要先确定基准。',
-      paragraphs: [
-        '百分数表示每100份中的份数。150%等于1.5倍，而增加150%意味着变成2.5倍。“是原来的百分之几”与“增加百分之几”相差整整一个原量。',
-        '百分比变化是变化量除以原量。原价降25%后剩75%，要找回原价应除以0.75；乘1.25只能把现价增加25%，不会自动回到原价。',
-        '连续变化时，各次倍率相乘。下降10%再上升10%得到0.9×1.1=0.99，整体下降1%。同两个倍率顺序交换不改变最终乘积，但不能将增长率直接相加。',
-        '单利每期按最初本金计息，利息是本金×利率×期数。复利则每期以当期余额为基准，在增长衰减一节继续处理。比较两个人或两个商品时，也要说清变化率以哪一个原值作分母。',
-      ],
-      rules: [
-        {
-          title: '变化率与倍率',
-          text: '变化率 $r=(\\text{新值}-\\text{原值})/\\text{原值}$；新值 $=\\text{原值}(1+r)$。百分数显示时再乘100%。',
-        },
-        {
-          title: '逆百分比',
-          text: '原值 = 结果 ÷ 连续倍率的乘积。上涨与下降同一百分数通常不能互相抵消。',
-        },
-        {
-          title: '单利与百分比比较',
-          text: '单利总额 $A=P(1+nr)$，$r$ 为每期小数利率。A比B大多少百分比，应算 $(A-B)/B$。',
-        },
-      ],
+      summary: ratioApplicationsMethods['110308'].summary,
+      paragraphs: [ratioApplicationsMethods['110308'].intro],
+      memory: ratioApplicationsMethods['110308'].memory,
+      rules: ratioApplicationsMethods['110308'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ]),
       pitfalls: [
         '“增加125%”只乘1.25。',
         '打折后加回同百分比当原价。',
@@ -645,27 +542,13 @@ export const esatRatioProportion: KnowledgeLesson = {
     {
       code: '110309',
       title: '正比例与反比例',
-      summary: '先写带常数的式子，再代数据；倍率法能减少计算。',
-      paragraphs: [
-        'y与x成正比例意味着y=kx；y与x成反比例意味着y=k/x，等价于xy=k。不是任何一起增长都叫正比例，也不是任何一个增长另一个下降都叫反比例。',
-        '平方、立方、平方根也可以是比例关系中的整体。与x²成反比写成y=k/x²；x翻倍则y变为1/4。把语言中“与谁成比例”的对象完整圈出来。',
-        '通常先代一组已知值求k，再求未知量；若只问倍数变化，可以让常数直接约去。开平方反推正变量时只保留正根，不能忘记题目限定。',
-        '图像也可验证模型：y=kx过原点；在正量且k>0时，y=k/x在第一象限下降并逐渐贴近坐标轴，但不会到达轴。反比例图不是直线。',
-      ],
-      rules: [
-        {
-          title: '统一为幂模型',
-          text: '$y=kx^a$，$a=1,-1,2,-2,\\frac12,-\\frac12$ 分别对应不同直接或倒数关系。应遵守变量的定义域。',
-        },
-        {
-          title: '用倍率省去常数',
-          text: '$\\frac{y_2}{y_1}=(x_2/x_1)^a$。若 $y=kx^2/z$，则x乘2、z乘3，y乘 $4/3$。',
-        },
-        {
-          title: '反求变量先处理指数',
-          text: '$y=k/x^2$ 且 $x>0$ 时，$x=\\sqrt{k/y}$；不能只取 $k/y$。',
-        },
-      ],
+      summary: ratioApplicationsMethods['110309'].summary,
+      paragraphs: [ratioApplicationsMethods['110309'].intro],
+      memory: ratioApplicationsMethods['110309'].memory,
+      rules: ratioApplicationsMethods['110309'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ]),
       pitfalls: [
         '“增加700%”误当7倍。',
         '与平方根成反比时写成平方的反比。',
@@ -729,27 +612,13 @@ export const esatRatioProportion: KnowledgeLesson = {
     {
       code: '110310',
       title: '长度、面积、体积比',
-      summary: '相似才有统一的 k、k²、k³；不同形状不能直接套用。',
-      paragraphs: [
-        '相似图形的所有对应长度有相同倍率k。面积由两个方向的长度相乘，所以面积倍率为k²；体积由三个方向相乘，所以体积倍率为k³。',
-        '如果只告诉两个图形面积之比，却没有相似条件，不能推出边长比。圆、球等同类形状天然相似，长方体则需要各对应边同倍放缩。',
-        '已知面积比先开平方，已知体积比先开立方，再转成另一种比。比例也保持对应顺序，例如小:大与大:小不能中途颠倒。',
-        '相似还解释三角比为什么只由角度决定：相似直角三角形的对边、邻边、斜边都乘k，任何两边的比值中k约掉。周长和对角线同属长度，也只乘k。',
-      ],
-      rules: [
-        {
-          title: '三种倍率的转换',
-          text: '$L_2/L_1=k,\\ A_2/A_1=k^2,\\ V_2/V_1=k^3$；由面积到体积用 $(A_2/A_1)^{3/2}$。',
-        },
-        {
-          title: '增减的是线性尺寸',
-          text: '半径减25%意味着k=0.75；体积剩0.75³，不是体积减25%。',
-        },
-        {
-          title: '给差值时引入原量',
-          text: '若 $V_2=k^3V_1$ 且体积差为D，则 $(k^3-1)V_1=D$。',
-        },
-      ],
+      summary: ratioApplicationsMethods['110310'].summary,
+      paragraphs: [ratioApplicationsMethods['110310'].intro],
+      memory: ratioApplicationsMethods['110310'].memory,
+      rules: ratioApplicationsMethods['110310'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ]),
       pitfalls: [
         '把面积比直接当体积比。',
         '球的半径变化率与体积变化率混淆。',
@@ -816,31 +685,13 @@ export const esatRatioProportion: KnowledgeLesson = {
     {
       code: '110311',
       title: '增长、衰减与迭代',
-      summary: '固定比例重复乘，固定金额重复加；每一步都从上一步出发。',
-      paragraphs: [
-        '固定百分比增长或衰减时，每一期都对当期数量作用。每周减少60%，下一周剩40%，连续三周就是乘0.4三次。百分数的“损失”与“保留”必须分清。',
-        '复利把上一期利息也作为下一期本金，所以余额按固定倍率增长；单利的每期利息按原本金固定计算。面对真实情境还要核对计息期、利率周期与期数一致。',
-        '一般迭代未必只有乘法。例如每期先保留一部分再加固定金额，可写成下一项等于当前项的某个倍数再加常数。按指定顺序更新，不要把每一步都作用于最初值。',
-        '有的迭代会靠近一个稳定值L。先解L=aL+b找到可能的平衡点，再看与L的误差是否每次缩小。仅有平衡方程不能保证收敛；例如倍率绝对值大于1时误差可能越变越大。',
-      ],
-      rules: [
-        {
-          title: '增长、折旧与复利',
-          text: '$A_n=A_0(1+r)^n$；固定衰减率d使用 $(1-d)^n$。总减少量为 $A_0-A_n$。',
-        },
-        {
-          title: '一般迭代',
-          text: '$x_{n+1}=ax_n+b$，起点为 $x_0$ 时，算到 $x_n$ 恰好进行了n次更新。先乘后加与先加后乘不同。',
-        },
-        {
-          title: '稳定值与误差',
-          text: '当 $a\\ne1$，平衡点为 $L=b/(1-a)$；$x_n-L=a^n(x_0-L)$。若 $|a|<1$，误差趋近0。',
-        },
-        {
-          title: '最小次数',
-          text: '“小于”不能在边界相等时停下。用连续倍率比较临界两期，可避免把次数少算1。',
-        },
-      ],
+      summary: ratioApplicationsMethods['110311'].summary,
+      paragraphs: [ratioApplicationsMethods['110311'].intro],
+      memory: ratioApplicationsMethods['110311'].memory,
+      rules: ratioApplicationsMethods['110311'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ]),
       pitfalls: [
         '把减少60%写成保留60%。',
         '求价值下降多少时只报剩余价值。',

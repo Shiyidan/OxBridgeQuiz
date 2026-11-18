@@ -1,4 +1,4 @@
-<!-- 数学1数的前八节概念与方法：紧凑算式与对照表替代基础运算的大幅交互图。 -->
+<!-- 数学1数的全章概念与方法：紧凑算式与对照表替代基础运算的大幅交互图。 -->
 <template>
   <KnowledgeMethodsArticle :lesson="lesson" label="数的概念与方法" />
 </template>

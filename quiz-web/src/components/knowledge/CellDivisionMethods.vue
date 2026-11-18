@@ -46,7 +46,11 @@
           </tbody>
         </table>
       </div>
-      <div v-if="block.diagram" class="division-figure">
+      <div
+        v-if="block.diagram"
+        class="division-figure"
+        :class="{ 'division-figure--comparison': code === '150303' || code === '150304' }"
+      >
         <CellDivisionDiagram :key="code" :topic="code" />
       </div>
       <p v-if="block.note" class="bio-methods__note"><KnowledgeText :text="block.note" /></p>
@@ -73,6 +77,9 @@ const content = computed(() => cellDivisionMethods[props.code])
   max-width: 800px;
   min-width: 0;
   margin: 20px auto;
+}
+.division-figure--comparison {
+  max-width: 1200px;
 }
 .division-figure :deep(.biology-atlas) {
   margin: 0;

@@ -202,9 +202,9 @@ const heroContent = computed<HeroContent>(() => {
       goodTitle: props.completedAttemptCount
         ? `已完成 ${props.completedAttemptCount} 次诊断`
         : '备考目标已经同步',
-      goodDetail: '历史记录仍可在对应功能页查看。',
+      goodDetail: '回顾诊断报告，了解自己的薄弱知识点。',
       focusTitle: '下一步由你选择',
-      focusDetail: '诊断、模考、练习和错题入口都保留在首屏。',
+      focusDetail: '针对薄弱点练习，或通过模考检验学习成果。',
       scopeTitle: '当前考试',
       scopeText: exam,
       scopeAction: '管理目标',

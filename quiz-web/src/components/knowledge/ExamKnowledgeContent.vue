@@ -5,8 +5,17 @@
       <el-tab-pane label="概念与方法" name="summary">
         <PythagorasMethods v-if="section.code === '110507'" />
         <CircleTheoremMethods v-else-if="section.code === '110509'" />
+        <ScaleFactorsMethods v-else-if="section.code === '110301'" />
+        <RatioApplicationsMethods
+          v-else-if="section.code === '110306' || section.code === '110307' || section.code === '110308' || section.code === '110309' || section.code === '110310' || section.code === '110311'"
+          :code="section.code"
+        />
+        <RatioFoundationsMethods
+          v-else-if="section.code === '110302' || section.code === '110303' || section.code === '110304' || section.code === '110305'"
+          :code="section.code"
+        />
         <NumberFoundationsMethods
-          v-else-if="section.code === '110201' || section.code === '110202' || section.code === '110203' || section.code === '110204' || section.code === '110205' || section.code === '110206' || section.code === '110207' || section.code === '110208'"
+          v-else-if="section.code === '110201' || section.code === '110202' || section.code === '110203' || section.code === '110204' || section.code === '110205' || section.code === '110206' || section.code === '110207' || section.code === '110208' || section.code === '110209' || section.code === '110210' || section.code === '110211' || section.code === '110212' || section.code === '110213' || section.code === '110214'"
           :code="section.code"
         />
         <UnitsMethods
@@ -55,6 +64,14 @@
         />
         <InheritanceMethods
           v-else-if="section.code === '150401' || section.code === '150402' || section.code === '150403'"
+          :code="section.code"
+        />
+        <DnaMethods
+          v-else-if="section.code === '150501' || section.code === '150502' || section.code === '150503' || section.code === '150504'"
+          :code="section.code"
+        />
+        <GeneTechnologyMethods
+          v-else-if="section.code === '150601' || section.code === '150602' || section.code === '150603'"
           :code="section.code"
         />
         <GeometryMethodsReview
@@ -115,7 +132,7 @@
         </section>
         </div>
 
-        <div v-if="focus.comparison && !['110201', '110202', '110203', '110204', '110205', '110206', '110207', '110208', '110401', '110402', '110403', '110404', '110405', '110406', '110407', '110408', '110409', '110410', '110411', '110412', '110413', '110414', '110415', '110416', '110417', '110418', '110419', '110701', '110702', '110703', '110704', '110705', '110706', '110707', '110601', '110602', '110603', '110604', '110101', '110102', '150101', '150102', '150103', '150201', '150301', '150302', '150303', '150304', '150401', '150402', '150403'].includes(section.code)" class="exam-comparison">
+        <div v-if="focus.comparison && !['110201', '110202', '110203', '110204', '110205', '110206', '110207', '110208', '110209', '110210', '110211', '110212', '110213', '110214', '110401', '110402', '110403', '110404', '110405', '110406', '110407', '110408', '110409', '110410', '110411', '110412', '110413', '110414', '110415', '110416', '110417', '110418', '110419', '110701', '110702', '110703', '110704', '110705', '110706', '110707', '110601', '110602', '110603', '110604', '110101', '110102', '150101', '150102', '150103', '150201', '150301', '150302', '150303', '150304', '150401', '150402', '150403', '150501', '150502', '150503', '150504', '150601', '150602', '150603'].includes(section.code)" class="exam-comparison">
           <div class="exam-section-label">
             <List aria-hidden="true" />
             <h5>{{ focus.comparison.title }}</h5>
@@ -390,6 +407,9 @@ import KnowledgeConceptFlow from './KnowledgeConceptFlow.vue'
 import PythagorasMethods from './PythagorasMethods.vue'
 import CircleTheoremMethods from './CircleTheoremMethods.vue'
 import NumberFoundationsMethods from './NumberFoundationsMethods.vue'
+import ScaleFactorsMethods from './ScaleFactorsMethods.vue'
+import RatioApplicationsMethods from './RatioApplicationsMethods.vue'
+import RatioFoundationsMethods from './RatioFoundationsMethods.vue'
 import UnitsMethods from './UnitsMethods.vue'
 import StatisticsMethods from './StatisticsMethods.vue'
 import ProbabilityFoundationsMethods from './ProbabilityFoundationsMethods.vue'
@@ -405,6 +425,8 @@ import OrganisationMethods from './OrganisationMethods.vue'
 import MembraneTransportMethods from './MembraneTransportMethods.vue'
 import CellDivisionMethods from './CellDivisionMethods.vue'
 import InheritanceMethods from './InheritanceMethods.vue'
+import DnaMethods from './DnaMethods.vue'
+import GeneTechnologyMethods from './GeneTechnologyMethods.vue'
 import GeometryMethodsReview from './GeometryMethodsReview.vue'
 import OriginalQuestionAnalysis from './OriginalQuestionAnalysis.vue'
 import { getLearningPatternSources, type LearningPatternSource } from '@/api/learningExamples'

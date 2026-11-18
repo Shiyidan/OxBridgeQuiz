@@ -1325,7 +1325,7 @@ function dateOnly(value?: string | null): string | null {
   gap: 16px;
   align-items: center;
   min-height: 82px;
-  padding: 14px 16px;
+  padding: 14px 16px 4px;
   border-bottom: 1px solid var(--color-line-soft);
   transition: background-color var(--duration-fast) ease;
 }

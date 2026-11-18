@@ -526,31 +526,18 @@ export const esatNumber: KnowledgeLesson = {
     {
       code: '110209',
       title: '小数、百分数与分数转换',
-      summary: '有限小数用位值；循环小数用错位相减，把“永远重复”变成整数关系。',
-      paragraphs: [
-        '百分数（percentage）表示每一百份：$p\\%=p/100$。有限小数可按位值写成分母为 10 的幂的分数再约分，例如 $0.045=45/1000=9/200=4.5\\%$。分数转小数就是分子除以分母。',
-        '循环小数（recurring decimal）的横线只标循环部分：$0.1\\overline6=0.1666\\ldots$。设它等于 $x$，乘合适的 10 的幂，让两个式子的小数尾部完全对齐，相减即可消去无限重复部分。',
-      ],
-      rules: [
-        {
-          title: '转换不改变值',
-          text: '$\\frac18=0.125=12.5\\%$；从小数到百分数，将数值乘 100 并加上百分号。',
-        },
-        {
-          title: '纯循环与混循环',
-          text: '$0.\\overline{27}$ 可用 $100x-x$；$0.1\\overline6$ 要用 $100x-10x$。关键是小数部分相同，不能只按小数位数机械添 9。',
-        },
-        {
-          title: '何时能写成有限小数',
-          text: '最简分数的正分母只含素因子 2 与 5 时，小数会终止；否则小数会循环。先约分后判断，例如 $3/6=1/2$ 会终止。',
-        },
-      ],
+      summary: numberFoundationsMethods['110209'].summary,
+      paragraphs: [numberFoundationsMethods['110209'].intro],
+      memory: numberFoundationsMethods['110209'].memory,
+      rules: numberFoundationsMethods['110209'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ]),
       pitfalls: [
         '$0.\\overline{27}$ 和 $0.2\\overline7$ 不同；循环横线覆盖的数字必须读准。',
         '$0.5\\%=0.005$，不是 $0.5$。',
       ],
       sourceIds: ['number-spec', 'number-decimal-fractions', 'number-percent', 'number-guide'],
-      visual: 'maths-number',
       examFocus: {
         goal: '有限小数用位值；循环小数用错位相减，把“永远重复”变成整数关系。',
         pastPaperSummary:
@@ -604,31 +591,18 @@ export const esatNumber: KnowledgeLesson = {
     {
       code: '110210',
       title: '分数小数百分数计算',
-      summary: '选择最省力的等值形式；每次求“几分之几”先圈出它的整体。',
-      paragraphs: [
-        '等值分数（equivalent fractions）的分子与分母同乘或同除一个非零数，大小不变。计算前换一种写法常能大幅简化：$12.5\\%=1/8$，$0.75=3/4$，先约分比长除法更方便。',
-        '“某量的 $p\\%$”是这个量乘 $p/100$。连续两次取比例时，第二次可能以剩余量为基准；只有百分比对应同一基数时才可直接相加。先写出基准量，再写运算。',
-      ],
-      rules: [
-        {
-          title: '常用等值形式',
-          text: '$\\frac14=0.25=25\\%$；$\\frac25=0.4=40\\%$；$\\frac58=0.625=62.5\\%$。记住几组，再由倍数拆分。',
-        },
-        {
-          title: '用倍数求部分',
-          text: '$p\\%$ of $N=N\\times p/100$；如果已知部分 $A$ 是总量的 $p\\%$，则总量为 $A\\div(p/100)$（$p\\ne0$）。',
-        },
-        {
-          title: '先保留精确形式',
-          text: '$\\frac13\\times60=20$。若先把 $1/3$ 约为 0.33，就会得到错误的精确结果 19.8。',
-        },
-      ],
+      summary: numberFoundationsMethods['110210'].summary,
+      paragraphs: [numberFoundationsMethods['110210'].intro],
+      memory: numberFoundationsMethods['110210'].memory,
+      rules: numberFoundationsMethods['110210'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ]),
       pitfalls: [
         '连续“用去 10%”与“用去剩余的 10%”不能合成用去原量的 20%。',
         '百分数超过 100% 合法，表示超过一整份；例如 150% 表示 1.5 倍。',
       ],
       sourceIds: ['number-spec', 'number-fractions', 'number-percent'],
-      visual: 'maths-number',
       examFocus: {
         goal: '选择最省力的等值形式；每次求“几分之几”先圈出它的整体。',
         pastPaperSummary:
@@ -699,31 +673,18 @@ export const esatNumber: KnowledgeLesson = {
     {
       code: '110211',
       title: '分数、根式与π的精确计算',
-      summary: '提取平方因子、保留精确形式；分母含根式时用共轭把它变成有理数。',
-      paragraphs: [
-        '精确值（exact value）不丢失信息；$\\sqrt2$ 和 $\\pi$ 是精确符号，而 1.414 和 3.14 是近似值。根式化简先找完全平方因子：$\\sqrt{75}=\\sqrt{25\\times3}=5\\sqrt3$。',
-        '有理化（rationalising the denominator）是在分子、分母同乘一个非零量，保持原值却让分母不含根式。单项根式乘同一个根式；两项和差乘共轭（conjugate），利用平方差消去根式。',
-      ],
-      rules: [
-        {
-          title: '根式计算条件',
-          text: '$\\sqrt{ab}=\\sqrt a\\sqrt b$（$a,b\\ge0$），$\\sqrt{a/b}=\\sqrt a/\\sqrt b$（$a\\ge0,b>0$）。只合并同类根式，如 $2\\sqrt3+5\\sqrt3=7\\sqrt3$。',
-        },
-        {
-          title: '两类有理化',
-          text: '$\\frac3{\\sqrt5}=\\frac{3\\sqrt5}{5}$；$\\frac1{2+\\sqrt3}=\\frac{2-\\sqrt3}{4-3}=2-\\sqrt3$。共轭只是改变两项之间的符号，分子也必须同步相乘。',
-        },
-        {
-          title: 'π 也可约分',
-          text: '$\\frac{15\\pi}{6\\pi}=\\frac52$；$\\pi\\ne3.14$，题目要求精确值时保留 $\\pi$。',
-        },
-      ],
+      summary: numberFoundationsMethods['110211'].summary,
+      paragraphs: [numberFoundationsMethods['110211'].intro],
+      memory: numberFoundationsMethods['110211'].memory,
+      rules: numberFoundationsMethods['110211'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ]),
       pitfalls: [
         '$\\sqrt{a+b}$ 通常不等于 $\\sqrt a+\\sqrt b$。',
         '有理化只改变写法，不改变数值；乘完后检查分母正负与是否还可约分。',
       ],
       sourceIds: ['number-spec', 'number-radicals'],
-      visual: 'maths-number',
       examFocus: {
         goal: '提取平方因子、保留精确形式；分母含根式时用共轭把它变成有理数。',
         pastPaperSummary:
@@ -817,31 +778,18 @@ export const esatNumber: KnowledgeLesson = {
     {
       code: '110212',
       title: '上下界',
-      summary: '先写每个量的区间，再用表达式的增减关系选端点。',
-      paragraphs: [
-        '显示的测量值通常不是精确真值。例如正长度按最近的 1 cm 四舍五入显示 12 cm，真值满足 $11.5\\le L<12.5$。下界（lower bound）与上界（upper bound）描述可能范围；上界可能只能趋近，不能真正取到。',
-        '求式子的范围，先判断它随每个量增大而增大还是减小。正数相乘时都取大得到上界；正数相除时，分子取大且分母取小才得到上界。若变量可能为负，需重新检查符号与端点，不能照搬正数口诀。',
-      ],
-      rules: [
-        {
-          title: '加减看方向',
-          text: '若 $a_L\\le a\\le a_U$、$b_L\\le b\\le b_U$，则和在 $[a_L+b_L,a_U+b_U]$ 内，差在 $[a_L-b_U,a_U-b_L]$ 内。实际端点是否可取还须看原区间。',
-        },
-        {
-          title: '正数乘除',
-          text: '当 $a_L,b_L>0$，乘积边界为 $a_Lb_L$ 与 $a_Ub_U$；商的边界为 $a_L/b_U$ 与 $a_U/b_L$。分母区间含 0 时不能直接这样除。',
-        },
-        {
-          title: '端点与可达到性',
-          text: '计算出边界后，回看取到该边界需要的原变量端点是否都允许；若有一个必要端点被排除，就用严格不等号。',
-        },
-      ],
+      summary: numberFoundationsMethods['110212'].summary,
+      paragraphs: [numberFoundationsMethods['110212'].intro],
+      memory: numberFoundationsMethods['110212'].memory,
+      rules: numberFoundationsMethods['110212'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ]),
       pitfalls: [
         '商的上界不是“上界 ÷ 上界”；分母越小，正数商越大。',
         '上界不一定是最大值。若上端点取不到，就不存在那个端点对应的最大值。',
       ],
       sourceIds: ['number-spec', 'number-guide'],
-      visual: 'maths-number',
       examFocus: {
         goal: '先写每个量的区间，再用表达式的增减关系选端点。',
         pastPaperSummary:
@@ -879,30 +827,17 @@ export const esatNumber: KnowledgeLesson = {
     {
       code: '110213',
       title: '取近似与误差区间',
-      summary: '先定位要保留的最后一位；舍入用半格，截断用整格。',
-      paragraphs: [
-        '小数位（decimal places, d.p.）从小数点后第一位开始数；有效数字（significant figures, s.f.）从第一个非零数字开始数。$0.004786$ 保留 2 位有效数字是 $0.0048$，保留 2 位小数则是 $0.00$。',
-        '误差区间（error interval）是所有会产生同一记录值的真值范围。正数按最近单位 $u>0$、恰好一半向上舍入，记录为正数 $r$ 时：$r-u/2\\le x<r+u/2$。若舍入结果为 0，或题目另给范围限制，还须与原数的允许范围取交集。这里采用通常的四舍五入；若题目明确规定其他中点规则，端点归属随之改变。',
-      ],
-      rules: [
-        {
-          title: '先找到舍入单位',
-          text: '保留 1 位小数时 $u=0.1$，半单位是 0.05；保留到最近的 100 时 $u=100$，半单位是 50。',
-        },
-        {
-          title: '截断不等于四舍五入',
-          text: '正数截断（truncation）到 1 位小数显示 2.4，范围是 $2.4\\le x<2.5$；若对负数按向零截断，显示 −2.4 的范围是 $-2.5<x\\le-2.4$。',
-        },
-        {
-          title: '保留精度的写法',
-          text: '$9.96$ 保留 2 位有效数字写成 $1.0\\times10^1$，明确两个有效数字。中间步骤尽量不舍入，避免连续舍入改变最终结果。',
-        },
-      ],
+      summary: numberFoundationsMethods['110213'].summary,
+      paragraphs: [numberFoundationsMethods['110213'].intro],
+      memory: numberFoundationsMethods['110213'].memory,
+      rules: numberFoundationsMethods['110213'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ]),
       pitfalls: [
         '误差区间的宽度等于一个舍入单位，不是两倍舍入单位。',
         '不能把所有“保留几位”都当作小数位；有效数字前面的占位零不计数。',
       ],
-      visual: 'maths-number',
       sourceIds: ['number-spec', 'number-decimals', 'number-guide'],
       examFocus: {
         goal: '先定位要保留的最后一位；舍入用半格，截断用整格。',
@@ -941,31 +876,18 @@ export const esatNumber: KnowledgeLesson = {
     {
       code: '110214',
       title: '估算',
-      summary: '估算先定数量级；若答案是范围，就用能保证方向的界限。',
-      paragraphs: [
-        '估算（estimation）是有目的地简化：为了判断数量级，可把数取成 1 位有效数字或容易约分的邻近数。例如 $\\frac{39.8\\times0.51}{1.98}\\approx\\frac{40\\times0.5}{2}=10$。用 $\\approx$ 表示近似，不要写成精确相等。',
-        '若要判断一定大于还是小于某值，就必须追踪近似方向。正数乘积的两个因子都调大，结果调大；正数商的分子调大、分母调小，结果调大。一个因子调大、另一个调小，误差可能抵消，也可能不抵消，不能直接宣布上下界。',
-      ],
-      rules: [
-        {
-          title: 'π 与根式的近似',
-          text: '粗估时可取 $\\pi\\approx3.14$ 或更粗的 3；根式可用邻近平方夹住，如 $1.4^2<2<1.5^2$，所以 $1.4<\\sqrt2<1.5$。近似精度应服务于题目需求。',
-        },
-        {
-          title: '用界限排除选项',
-          text: '若 $4<\\sqrt{20}<5$，则 $\\frac15<\\frac1{\\sqrt{20}}<\\frac14$；取正数倒数后大小方向反转。',
-        },
-        {
-          title: '判断后再细化',
-          text: '先用粗估排除数量级明显不对的答案；若剩余选项很接近，再保留更多数字或做精确计算。',
-        },
-      ],
+      summary: numberFoundationsMethods['110214'].summary,
+      paragraphs: [numberFoundationsMethods['110214'].intro],
+      memory: numberFoundationsMethods['110214'].memory,
+      rules: numberFoundationsMethods['110214'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+      ]),
       pitfalls: [
         '估算答案不代表精确答案，也不自动代表上界或下界。',
         '若答案选项很接近，粗略取 π 为 3 可能不足以区分选项。',
       ],
       sourceIds: ['number-spec', 'number-guide', 'number-arithmetic'],
-      visual: 'maths-number',
       examFocus: {
         goal: '估算先定数量级；若答案是范围，就用能保证方向的界限。',
         pastPaperSummary:

@@ -1,304 +1,381 @@
-<!-- ESAT B3 互动图谱：按真实计数绘制染色体分配、繁殖和通常 XX/XY 受精模型。 -->
+<!-- ESAT B3 图谱：分裂阶段可切换，繁殖与 XX/XY 两种情况并排比较。 -->
 <template>
-  <BiologyAtlasFrame :title="title" :subtitle="subtitle" :note="note">
-    <template #controls>
-      <AppButton
-        v-for="(item, index) in choices"
-        :key="item.label"
-        type="secondary"
-        size="small"
-        :aria-pressed="selected === index"
-        @click="selected = index"
-        >{{ item.label }}</AppButton
+  <div class="division-diagrams" :class="{ 'division-diagrams--comparison': comparison }">
+    <div class="division-diagrams__grid">
+      <BiologyAtlasFrame
+        v-for="{ index: stageIndex, stage } in displayedStages"
+        :key="mode + '-' + stageIndex"
+        :title="comparison ? stage.label : title"
+        :subtitle="comparison ? stage.headline : subtitle"
+        :note="note"
+        :compact="comparison"
       >
-    </template>
-    <svg
-      class="division-illustration"
-      viewBox="0 0 800 440"
-      role="img"
-      :aria-labelledby="id('title') + ' ' + id('description')"
-    >
-      <title :id="id('title')">{{ title }}：{{ current.label }}</title>
-      <desc :id="id('description')">{{ current.accessible }}</desc>
-      <defs>
-        <radialGradient :id="id('cytoplasm')" cx="35%" cy="30%" r="80%">
-          <stop offset="0" class="surface-stop" />
-          <stop offset="0.7" class="blue-soft-stop" />
-          <stop offset="1" class="blue-line-stop" />
-        </radialGradient>
-        <radialGradient :id="id('nucleus')" cx="30%" cy="25%" r="85%">
-          <stop offset="0" class="surface-stop" />
-          <stop offset="1" class="violet-soft-stop" />
-        </radialGradient>
-        <linearGradient :id="id('leaf')" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" class="teal-soft-stop" />
-          <stop offset="1" class="teal-line-stop" />
-        </linearGradient>
-        <g :id="id('cell')">
-          <path
-            class="cell-border"
-            :fill="paint('cytoplasm')"
-            d="M-137-11C-149-67-105-120-45-123C2-144 75-121 112-79C154-47 147 28 120 66C99 120 33 137-22 120C-80 132-126 89-133 40C-148 22-149 4-137-11Z"
-          />
-          <path
-            class="membrane-inner"
-            d="M-130-9C-142-63-101-113-43-116C3-137 71-114 107-74C147-44 140 26 114 62C94 113 33 130-21 113C-76 125-119 85-126 38C-141 20-142 6-130-9Z"
-          />
-          <g class="cytoplasm-granules">
-            <circle
-              v-for="point in granules"
-              :key="point[0] + ':' + point[1]"
-              :cx="point[0]"
-              :cy="point[1]"
-              r="2"
-            />
-          </g>
-          <g
-            v-for="(mito, i) in [
-              [-97, -51, -20],
-              [93, 69, 35],
-              [-66, 95, 10],
-            ]"
-            :key="i"
-            :transform="`translate(${mito[0]} ${mito[1]}) rotate(${mito[2]})`"
+        <template v-if="!comparison" #controls>
+          <AppButton
+            v-for="(item, index) in choices"
+            :key="item.label"
+            type="secondary"
+            size="small"
+            :aria-pressed="stageIndex === index"
+            @click="selected = index"
+            >{{ item.label }}</AppButton
           >
-            <ellipse class="mitochondrion" rx="15" ry="7" />
-            <path class="mitochondrial-fold" d="M-10 0L-6-3-3 3 1-3 5 3 10 0" />
-          </g>
-        </g>
-        <g :id="id('centrosome')">
-          <path class="aster" d="M-12 0H12M0-12V12M-9-9L9 9M-9 9L9-9M-5-12L5 12M-12-5L12 5" />
-          <rect
-            class="centriole"
-            x="-6"
-            y="-4"
-            width="9"
-            height="4"
-            rx="1"
-            transform="rotate(25)"
-          />
-          <rect class="centriole" x="0" y="0" width="4" height="9" rx="1" transform="rotate(25)" />
-        </g>
-        <g :id="id('leaf-shape')">
-          <path class="leaf" :fill="paint('leaf')" d="M0 0C-43-6-71-34-61-66C-28-72 3-39 0 0Z" />
-          <path class="leaf-vein" d="M-2-4L-54-59M-19-24L-39-28M-32-39L-34-54M-40-45L-55-47" />
-        </g>
-        <g :id="id('plant')">
-          <path class="stem" d="M0 0C-2-30 4-58 0-86M0-44L-22-66M0-65L25-92" />
-          <use :href="'#' + id('leaf-shape')" transform="translate(-4 -48) rotate(-25)" />
-          <use
-            :href="'#' + id('leaf-shape')"
-            transform="translate(5 -65) scale(-1 1) rotate(-20)"
-          />
-          <use :href="'#' + id('leaf-shape')" transform="translate(0 -85) rotate(35) scale(.7)" />
-          <path
-            class="roots"
-            d="M0 0L-5 38M-3 10L-27 31M-1 17L18 42M-6 24L-17 45M11 31L29 38M-19 24L-32 24"
-          />
-        </g>
-        <marker :id="id('arrow')" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-          <path class="arrow-head" d="M0 0L7 4L0 8Z" />
-        </marker>
-      </defs>
-
-      <template v-if="mode === 'mitosis' || mode === 'meiosis'">
-        <text class="stage-kicker" x="400" y="30" text-anchor="middle">{{ current.headline }}</text>
-        <g
-          v-for="(cell, index) in cells"
-          :key="index"
-          :transform="`translate(${cell.x} ${cell.y}) scale(${cell.scale})`"
+        </template>
+        <svg
+          class="division-illustration"
+          viewBox="0 0 800 440"
+          role="img"
+          :aria-labelledby="id('title', stageIndex) + ' ' + id('description', stageIndex)"
         >
-          <use :href="'#' + id('cell')" />
-          <g v-if="cell.nucleus">
-            <ellipse class="nuclear-envelope" rx="85" ry="91" :fill="paint('nucleus')" />
-            <ellipse class="nuclear-inner" rx="80" ry="86" />
-            <path class="nuclear-pores" d="M-85-9h7M-40-80l4 6M47-74l-4 6M82 23l-7-2M-30 86l2-7" />
-          </g>
-          <g v-if="cell.spindle">
-            <path
-              v-for="(chromosome, i) in cell.chromosomes"
-              :key="'fibre-' + i"
-              class="spindle"
-              :d="spindlePath(chromosome, cell.spindle)"
-            />
-            <path class="spindle-faint" d="M-112 0Q0-133 112 0M-112 0Q0 133 112 0" />
-            <use :href="'#' + id('centrosome')" x="-112" />
-            <use :href="'#' + id('centrosome')" x="112" />
-          </g>
-          <g
-            v-for="(chromosome, i) in cell.chromosomes"
-            :key="i"
-            :transform="`translate(${chromosome.x} ${chromosome.y})`"
-            :class="['chromosome', chromosome.origin]"
-          >
-            <template v-if="chromosome.paired">
+          <title :id="id('title', stageIndex)">{{ title }}：{{ stage.label }}</title>
+          <desc :id="id('description', stageIndex)">{{ stage.accessible }}</desc>
+          <defs>
+            <radialGradient :id="id('cytoplasm', stageIndex)" cx="35%" cy="30%" r="80%">
+              <stop offset="0" class="surface-stop" />
+              <stop offset="0.7" class="blue-soft-stop" />
+              <stop offset="1" class="blue-line-stop" />
+            </radialGradient>
+            <radialGradient :id="id('nucleus', stageIndex)" cx="30%" cy="25%" r="85%">
+              <stop offset="0" class="surface-stop" />
+              <stop offset="1" class="violet-soft-stop" />
+            </radialGradient>
+            <linearGradient :id="id('leaf', stageIndex)" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" class="teal-soft-stop" />
+              <stop offset="1" class="teal-line-stop" />
+            </linearGradient>
+            <g :id="id('cell', stageIndex)">
               <path
-                class="chromatid"
-                :d="`M-10 ${-chromosome.length / 2}Q-12 -10 0 0Q10 10 10 ${chromosome.length / 2}`"
+                class="cell-border"
+                :fill="paint('cytoplasm', stageIndex)"
+                d="M-137-11C-149-67-105-120-45-123C2-144 75-121 112-79C154-47 147 28 120 66C99 120 33 137-22 120C-80 132-126 89-133 40C-148 22-149 4-137-11Z"
               />
               <path
-                class="chromatid"
-                :d="`M10 ${-chromosome.length / 2}Q12 -10 0 0Q-10 10-10 ${chromosome.length / 2}`"
+                class="membrane-inner"
+                d="M-130-9C-142-63-101-113-43-116C3-137 71-114 107-74C147-44 140 26 114 62C94 113 33 130-21 113C-76 125-119 85-126 38C-141 20-142 6-130-9Z"
               />
-              <path class="chromatid-shine" :d="`M-11 ${-chromosome.length / 2 + 4}Q-10 -8 1 1`" />
-            </template>
-            <template v-else>
+              <g class="cytoplasm-granules">
+                <circle
+                  v-for="point in granules"
+                  :key="point[0] + ':' + point[1]"
+                  :cx="point[0]"
+                  :cy="point[1]"
+                  r="2"
+                />
+              </g>
+              <g
+                v-for="(mito, i) in [
+                  [-97, -51, -20],
+                  [93, 69, 35],
+                  [-66, 95, 10],
+                ]"
+                :key="i"
+                :transform="`translate(${mito[0]} ${mito[1]}) rotate(${mito[2]})`"
+              >
+                <ellipse class="mitochondrion" rx="15" ry="7" />
+                <path class="mitochondrial-fold" d="M-10 0L-6-3-3 3 1-3 5 3 10 0" />
+              </g>
+            </g>
+            <g :id="id('centrosome', stageIndex)">
+              <path class="aster" d="M-12 0H12M0-12V12M-9-9L9 9M-9 9L9-9M-5-12L5 12M-12-5L12 5" />
+              <rect
+                class="centriole"
+                x="-6"
+                y="-4"
+                width="9"
+                height="4"
+                rx="1"
+                transform="rotate(25)"
+              />
+              <rect
+                class="centriole"
+                x="0"
+                y="0"
+                width="4"
+                height="9"
+                rx="1"
+                transform="rotate(25)"
+              />
+            </g>
+            <g :id="id('leaf-shape', stageIndex)">
               <path
-                class="chromatid"
-                :d="`M2 ${-chromosome.length / 2}Q-5 -9 0 0T-1 ${chromosome.length / 2}`"
+                class="leaf"
+                :fill="paint('leaf', stageIndex)"
+                d="M0 0C-43-6-71-34-61-66C-28-72 3-39 0 0Z"
               />
-              <path class="chromatid-shine" :d="`M0 ${-chromosome.length / 2 + 4}Q-6 -7-2 1`" />
-            </template>
-            <ellipse class="centromere" :rx="chromosome.paired ? 5 : 4.4" ry="4" />
-          </g>
-        </g>
-        <g v-for="(cell, index) in cells" :key="'label-' + index">
-          <text class="cell-label" :x="cell.x" y="392" text-anchor="middle">{{ cell.label }}</text>
-          <text class="cell-count" :x="cell.x" y="420" text-anchor="middle">{{ cell.count }}</text>
-        </g>
-        <g v-if="mode === 'mitosis' && selected === 2" class="callout">
-          <path d="M400 129L550 88H650" />
-          <text x="558" y="78">着丝粒区域</text>
-          <circle cx="400" cy="129" r="3" />
-        </g>
-        <g v-if="mode === 'meiosis' && selected === 0" class="callout">
-          <path d="M345 177L226 90H100" />
-          <text x="100" y="79">同源的一对</text>
-        </g>
-      </template>
+              <path class="leaf-vein" d="M-2-4L-54-59M-19-24L-39-28M-32-39L-34-54M-40-45L-55-47" />
+            </g>
+            <g :id="id('plant', stageIndex)">
+              <path class="stem" d="M0 0C-2-30 4-58 0-86M0-44L-22-66M0-65L25-92" />
+              <use
+                :href="'#' + id('leaf-shape', stageIndex)"
+                transform="translate(-4 -48) rotate(-25)"
+              />
+              <use
+                :href="'#' + id('leaf-shape', stageIndex)"
+                transform="translate(5 -65) scale(-1 1) rotate(-20)"
+              />
+              <use
+                :href="'#' + id('leaf-shape', stageIndex)"
+                transform="translate(0 -85) rotate(35) scale(.7)"
+              />
+              <path
+                class="roots"
+                d="M0 0L-5 38M-3 10L-27 31M-1 17L18 42M-6 24L-17 45M11 31L29 38M-19 24L-32 24"
+              />
+            </g>
+            <marker
+              :id="id('arrow', stageIndex)"
+              markerWidth="8"
+              markerHeight="8"
+              refX="6"
+              refY="4"
+              orient="auto"
+            >
+              <path class="arrow-head" d="M0 0L7 4L0 8Z" />
+            </marker>
+          </defs>
 
-      <template v-else-if="mode === 'reproduction' && selected === 0">
-        <text class="stage-kicker" x="400" y="32" text-anchor="middle">
-          匍匐茎形成新植株：没有配子融合
-        </text>
-        <path class="soil-fill" d="M40 275Q220 266 400 276T760 274V350H40Z" />
-        <path class="soil-line" d="M40 275Q220 266 400 276T760 274" />
-        <g
-          v-for="x in [70, 105, 140, 250, 310, 390, 450, 515, 660, 710]"
-          :key="x"
-          class="soil-speck"
-        >
-          <ellipse :cx="x" :cy="302 + (x % 3) * 9" rx="4" ry="2" />
-        </g>
-        <use :href="'#' + id('plant')" transform="translate(205 274) scale(1.4)" />
-        <path class="runner" d="M208 264C310 245 375 280 454 270S545 251 600 273" />
-        <use :href="'#' + id('plant')" transform="translate(600 274) scale(.88)" />
-        <g class="callout">
-          <path d="M385 268L417 187H508" />
-          <text x="423" y="175">匍匐茎</text>
-          <circle cx="385" cy="268" r="3" />
-        </g>
-        <text class="cell-label" x="200" y="378" text-anchor="middle">亲本植株</text>
-        <text class="cell-label" x="600" y="378" text-anchor="middle">新植株</text>
-        <text class="cell-count" x="400" y="413" text-anchor="middle">
-          无突变时，遗传组成相同；生长环境仍可影响外观
-        </text>
-      </template>
+          <template v-if="mode === 'mitosis' || mode === 'meiosis'">
+            <text v-if="!comparison" class="stage-kicker" x="400" y="30" text-anchor="middle">
+              {{ stage.headline }}
+            </text>
+            <g
+              v-for="(cell, index) in cells"
+              :key="index"
+              :transform="`translate(${cell.x} ${cell.y}) scale(${cell.scale})`"
+            >
+              <use :href="'#' + id('cell', stageIndex)" />
+              <g v-if="cell.nucleus">
+                <ellipse
+                  class="nuclear-envelope"
+                  rx="85"
+                  ry="91"
+                  :fill="paint('nucleus', stageIndex)"
+                />
+                <ellipse class="nuclear-inner" rx="80" ry="86" />
+                <path
+                  class="nuclear-pores"
+                  d="M-85-9h7M-40-80l4 6M47-74l-4 6M82 23l-7-2M-30 86l2-7"
+                />
+              </g>
+              <g v-if="cell.spindle">
+                <path
+                  v-for="(chromosome, i) in cell.chromosomes"
+                  :key="'fibre-' + i"
+                  class="spindle"
+                  :d="spindlePath(chromosome, cell.spindle)"
+                />
+                <path class="spindle-faint" d="M-112 0Q0-133 112 0M-112 0Q0 133 112 0" />
+                <use :href="'#' + id('centrosome', stageIndex)" x="-112" />
+                <use :href="'#' + id('centrosome', stageIndex)" x="112" />
+              </g>
+              <g
+                v-for="(chromosome, i) in cell.chromosomes"
+                :key="i"
+                :transform="`translate(${chromosome.x} ${chromosome.y})`"
+                :class="['chromosome', chromosome.origin]"
+              >
+                <template v-if="chromosome.paired">
+                  <path
+                    class="chromatid"
+                    :d="`M-10 ${-chromosome.length / 2}Q-12 -10 0 0Q10 10 10 ${chromosome.length / 2}`"
+                  />
+                  <path
+                    class="chromatid"
+                    :d="`M10 ${-chromosome.length / 2}Q12 -10 0 0Q-10 10-10 ${chromosome.length / 2}`"
+                  />
+                  <path
+                    class="chromatid-shine"
+                    :d="`M-11 ${-chromosome.length / 2 + 4}Q-10 -8 1 1`"
+                  />
+                </template>
+                <template v-else>
+                  <path
+                    class="chromatid"
+                    :d="`M2 ${-chromosome.length / 2}Q-5 -9 0 0T-1 ${chromosome.length / 2}`"
+                  />
+                  <path class="chromatid-shine" :d="`M0 ${-chromosome.length / 2 + 4}Q-6 -7-2 1`" />
+                </template>
+                <ellipse class="centromere" :rx="chromosome.paired ? 5 : 4.4" ry="4" />
+              </g>
+            </g>
+            <g v-for="(cell, index) in cells" :key="'label-' + index">
+              <text class="cell-label" :x="cell.x" y="392" text-anchor="middle">
+                {{ cell.label }}
+              </text>
+              <text class="cell-count" :x="cell.x" y="420" text-anchor="middle">
+                {{ cell.count }}
+              </text>
+            </g>
+            <g v-if="mode === 'mitosis' && stageIndex === 2" class="callout">
+              <path d="M400 129L550 88H650" />
+              <text x="558" y="78">着丝粒区域</text>
+              <circle cx="400" cy="129" r="3" />
+            </g>
+            <g v-if="mode === 'meiosis' && stageIndex === 0" class="callout">
+              <path d="M345 177L226 90H100" />
+              <text x="100" y="79">同源的一对</text>
+            </g>
+          </template>
 
-      <template v-else>
-        <text class="stage-kicker" x="400" y="32" text-anchor="middle">{{ current.headline }}</text>
-        <g transform="translate(155 202)">
-          <circle class="egg-coat" r="87" />
-          <circle class="egg-coat-inner" r="80" />
-          <circle class="egg-membrane" r="69" :fill="paint('cytoplasm')" />
-          <g class="egg-follicles">
-            <circle
-              v-for="angle in eggAngles"
-              :key="angle"
-              :cx="97 * Math.cos(angle)"
-              :cy="97 * Math.sin(angle)"
-              r="7"
-            />
-          </g>
-          <ellipse class="nuclear-envelope" rx="38" ry="44" :fill="paint('nucleus')" />
-          <g class="chromosome maternal">
-            <path class="chromatid" d="M-10-24Q-16-7-11 4T-12 26" />
-            <ellipse class="centromere" cx="-12" rx="4" ry="3.5" />
-          </g>
-          <g v-if="mode === 'reproduction'" class="chromosome maternal">
-            <path class="chromatid" d="M15-15Q9-2 15 9T14 20" />
-            <ellipse class="centromere" cx="13" cy="2" rx="4" ry="3.5" />
-          </g>
-          <text v-else class="chromosome-letter" x="10" y="5">X</text>
-        </g>
-        <g transform="translate(345 117) rotate(22)">
-          <path class="sperm-tail" d="M0 25C-16 51 25 58 7 82S-24 106-1 133" />
-          <path class="sperm-tail-inner" d="M0 25C-16 51 25 58 7 82S-24 106-1 133" />
-          <rect class="sperm-midpiece" x="-5" y="11" width="10" height="26" rx="5" />
-          <path class="midpiece-stripes" d="M-4 16H4M-4 21H4M-4 26H4M-4 31H4" />
-          <ellipse class="sperm-head" rx="23" ry="31" :fill="paint('cytoplasm')" />
-          <path class="acrosome" d="M-21-8Q-19-31 0-31T21-8Q0-17-21-8Z" />
-          <g class="chromosome paternal">
+          <template v-else-if="mode === 'reproduction' && stageIndex === 0">
+            <text v-if="!comparison" class="stage-kicker" x="400" y="32" text-anchor="middle">
+              匍匐茎形成新植株：没有配子融合
+            </text>
+            <path class="soil-fill" d="M40 275Q220 266 400 276T760 274V350H40Z" />
+            <path class="soil-line" d="M40 275Q220 266 400 276T760 274" />
+            <g
+              v-for="x in [70, 105, 140, 250, 310, 390, 450, 515, 660, 710]"
+              :key="x"
+              class="soil-speck"
+            >
+              <ellipse :cx="x" :cy="302 + (x % 3) * 9" rx="4" ry="2" />
+            </g>
+            <use :href="'#' + id('plant', stageIndex)" transform="translate(205 274) scale(1.4)" />
+            <path class="runner" d="M208 264C310 245 375 280 454 270S545 251 600 273" />
+            <use :href="'#' + id('plant', stageIndex)" transform="translate(600 274) scale(.88)" />
+            <g class="callout">
+              <path d="M385 268L417 187H508" />
+              <text x="423" y="175">匍匐茎</text>
+              <circle cx="385" cy="268" r="3" />
+            </g>
+            <text class="cell-label" x="200" y="378" text-anchor="middle">亲本植株</text>
+            <text class="cell-label" x="600" y="378" text-anchor="middle">新植株</text>
+            <text v-if="!comparison" class="cell-count" x="400" y="413" text-anchor="middle">
+              无突变时，遗传组成相同；生长环境仍可影响外观
+            </text>
+          </template>
+
+          <template v-else>
+            <text v-if="!comparison" class="stage-kicker" x="400" y="32" text-anchor="middle">
+              {{ stage.headline }}
+            </text>
+            <g transform="translate(155 202)">
+              <circle class="egg-coat" r="87" />
+              <circle class="egg-coat-inner" r="80" />
+              <circle class="egg-membrane" r="69" :fill="paint('cytoplasm', stageIndex)" />
+              <g class="egg-follicles">
+                <circle
+                  v-for="angle in eggAngles"
+                  :key="angle"
+                  :cx="97 * Math.cos(angle)"
+                  :cy="97 * Math.sin(angle)"
+                  r="7"
+                />
+              </g>
+              <ellipse
+                class="nuclear-envelope"
+                rx="38"
+                ry="44"
+                :fill="paint('nucleus', stageIndex)"
+              />
+              <g class="chromosome maternal">
+                <path class="chromatid" d="M-10-24Q-16-7-11 4T-12 26" />
+                <ellipse class="centromere" cx="-12" rx="4" ry="3.5" />
+              </g>
+              <g v-if="mode === 'reproduction'" class="chromosome maternal">
+                <path class="chromatid" d="M15-15Q9-2 15 9T14 20" />
+                <ellipse class="centromere" cx="13" cy="2" rx="4" ry="3.5" />
+              </g>
+              <text v-else class="chromosome-letter" x="10" y="5">X</text>
+            </g>
+            <g transform="translate(345 117) rotate(22)">
+              <path class="sperm-tail" d="M0 25C-16 51 25 58 7 82S-24 106-1 133" />
+              <path class="sperm-tail-inner" d="M0 25C-16 51 25 58 7 82S-24 106-1 133" />
+              <rect class="sperm-midpiece" x="-5" y="11" width="10" height="26" rx="5" />
+              <path class="midpiece-stripes" d="M-4 16H4M-4 21H4M-4 26H4M-4 31H4" />
+              <ellipse class="sperm-head" rx="23" ry="31" :fill="paint('cytoplasm', stageIndex)" />
+              <path class="acrosome" d="M-21-8Q-19-31 0-31T21-8Q0-17-21-8Z" />
+              <g class="chromosome paternal">
+                <path
+                  class="chromatid narrow"
+                  :d="mode === 'sex' && stageIndex === 1 ? 'M-5-4V12' : 'M-5-12V15'"
+                />
+                <ellipse class="centromere" cx="-5" cy="1" rx="3" ry="2.5" />
+              </g>
+              <g v-if="mode === 'reproduction'" class="chromosome paternal">
+                <path class="chromatid narrow" d="M8-5V13" />
+                <ellipse class="centromere" cx="8" cy="2" rx="3" ry="2.5" />
+              </g>
+              <text v-else class="small-letter" x="4" y="7">
+                {{ stageIndex === 0 ? 'X' : 'Y' }}
+              </text>
+            </g>
             <path
-              class="chromatid narrow"
-              :d="mode === 'sex' && selected === 1 ? 'M-5-4V12' : 'M-5-12V15'"
+              class="fertilisation-arrow"
+              :marker-end="paint('arrow', stageIndex)"
+              d="M295 262C360 291 425 291 476 258"
             />
-            <ellipse class="centromere" cx="-5" cy="1" rx="3" ry="2.5" />
-          </g>
-          <g v-if="mode === 'reproduction'" class="chromosome paternal">
-            <path class="chromatid narrow" d="M8-5V13" />
-            <ellipse class="centromere" cx="8" cy="2" rx="3" ry="2.5" />
-          </g>
-          <text v-else class="small-letter" x="4" y="7">{{ selected === 0 ? 'X' : 'Y' }}</text>
-        </g>
-        <path
-          class="fertilisation-arrow"
-          :marker-end="paint('arrow')"
-          d="M295 262C360 291 425 291 476 258"
-        />
-        <text class="arrow-label" x="390" y="321" text-anchor="middle">受精</text>
-        <g transform="translate(625 215) scale(.85)">
-          <use :href="'#' + id('cell')" />
-          <ellipse class="nuclear-envelope" rx="74" ry="78" :fill="paint('nucleus')" />
-          <g
-            v-for="(chromosome, i) in fertilisedChromosomes"
-            :key="i"
-            :transform="`translate(${chromosome.x} ${chromosome.y})`"
-            :class="['chromosome', chromosome.origin]"
+            <text class="arrow-label" x="390" y="321" text-anchor="middle">受精</text>
+            <g transform="translate(625 215) scale(.85)">
+              <use :href="'#' + id('cell', stageIndex)" />
+              <ellipse
+                class="nuclear-envelope"
+                rx="74"
+                ry="78"
+                :fill="paint('nucleus', stageIndex)"
+              />
+              <g
+                v-for="(chromosome, i) in fertilisedChromosomes(stageIndex)"
+                :key="i"
+                :transform="`translate(${chromosome.x} ${chromosome.y})`"
+                :class="['chromosome', chromosome.origin]"
+              >
+                <path
+                  class="chromatid"
+                  :d="`M1 ${-chromosome.length / 2}Q-5-6 0 0T-1 ${chromosome.length / 2}`"
+                />
+                <ellipse class="centromere" rx="4" ry="3.5" />
+              </g>
+              <text v-if="mode === 'sex'" class="zygote-letters" x="0" y="64" text-anchor="middle">
+                {{ stageIndex === 0 ? 'XX' : 'XY' }}
+              </text>
+            </g>
+            <text class="cell-label" x="155" y="370" text-anchor="middle">卵细胞</text>
+            <text class="cell-count" x="155" y="398" text-anchor="middle">
+              {{ mode === 'sex' ? '提供 X' : '单倍体 n=2' }}
+            </text>
+            <text class="sperm-label" x="345" y="73" text-anchor="middle">
+              {{
+                mode === 'sex'
+                  ? stageIndex === 0
+                    ? '带 X 的精子'
+                    : '带 Y 的精子'
+                  : '单倍体精子 n=2'
+              }}
+            </text>
+            <text class="cell-label" x="625" y="370" text-anchor="middle">受精卵</text>
+            <text class="cell-count" x="625" y="398" text-anchor="middle">
+              {{
+                mode === 'sex'
+                  ? stageIndex === 0
+                    ? '通常 XX → 雌性'
+                    : '通常 XY → 雄性'
+                  : '二倍体 2n=4'
+              }}
+            </text>
+          </template>
+        </svg>
+        <template #legend>
+          <template v-if="mode !== 'reproduction' || stageIndex === 1"
+            ><span><i class="legend-dot maternal-dot" />母方来源</span
+            ><span><i class="legend-dot paternal-dot" />父方来源</span></template
           >
-            <path
-              class="chromatid"
-              :d="`M1 ${-chromosome.length / 2}Q-5-6 0 0T-1 ${chromosome.length / 2}`"
-            />
-            <ellipse class="centromere" rx="4" ry="3.5" />
-          </g>
-          <text v-if="mode === 'sex'" class="zygote-letters" x="0" y="64" text-anchor="middle">
-            {{ selected === 0 ? 'XX' : 'XY' }}
-          </text>
-        </g>
-        <text class="cell-label" x="155" y="370" text-anchor="middle">卵细胞</text>
-        <text class="cell-count" x="155" y="398" text-anchor="middle">
-          {{ mode === 'sex' ? '提供 X' : '单倍体 n=2' }}
-        </text>
-        <text class="sperm-label" x="345" y="73" text-anchor="middle">
-          {{ mode === 'sex' ? (selected === 0 ? '带 X 的精子' : '带 Y 的精子') : '单倍体精子 n=2' }}
-        </text>
-        <text class="cell-label" x="625" y="370" text-anchor="middle">受精卵</text>
-        <text class="cell-count" x="625" y="398" text-anchor="middle">
-          {{
-            mode === 'sex' ? (selected === 0 ? '通常 XX → 雌性' : '通常 XY → 雄性') : '二倍体 2n=4'
-          }}
-        </text>
-      </template>
-    </svg>
-    <template #legend>
-      <template v-if="mode !== 'reproduction' || selected === 1"
-        ><span><i class="legend-dot maternal-dot" />母方来源</span
-        ><span><i class="legend-dot paternal-dot" />父方来源</span></template
-      >
-      <span v-if="mode === 'mitosis' || mode === 'meiosis'"
-        ><i class="legend-dot centromere-dot" />深色连接处：着丝粒区域</span
-      >
-      <span v-if="mode === 'mitosis' || mode === 'meiosis'"
-        >同样长短表示同类染色体；颜色与长度一起辨认</span
-      >
-    </template>
-    <template #explanation
-      ><div aria-live="polite">
-        <h6>{{ current.heading }}</h6>
-        <p><KnowledgeText :text="current.explanation" /></p></div
-    ></template>
-  </BiologyAtlasFrame>
+          <span v-if="mode === 'mitosis' || mode === 'meiosis'"
+            ><i class="legend-dot centromere-dot" />深色连接处：着丝粒区域</span
+          >
+          <span v-if="mode === 'mitosis' || mode === 'meiosis'"
+            >同样长短表示同类染色体；颜色与长度一起辨认</span
+          >
+        </template>
+        <template #explanation
+          ><div aria-live="polite">
+            <h6>{{ stage.heading }}</h6>
+            <p><KnowledgeText :text="stage.explanation" /></p></div
+        ></template>
+      </BiologyAtlasFrame>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -422,7 +499,7 @@ const stages: Record<string, Stage[]> = {
   reproduction: [
     {
       label: '无性 · 匍匐茎',
-      headline: '',
+      headline: '匍匐茎形成新植株，没有配子融合',
       heading: '有丝分裂形成新植株',
       explanation:
         '亲本长出匍匐茎，节点处的新植株逐渐长出叶和根。这里没有配子融合；**无突变时新植株是亲本的克隆**。若水分、光照不同，即使遗传相同，大小也可不同。',
@@ -470,8 +547,13 @@ const mode = computed(() =>
 )
 // 各主题只呈现与当前知识点有关的阶段按钮。
 const choices = computed(() => stages[mode.value]!)
-// 防止考纲切换后沿用上一个图解中不存在的阶段。
-const current = computed(() => choices.value[selected.value] ?? choices.value[0]!)
+// 两种独立情况直接对照；多阶段过程仍由按钮逐步查看。
+const comparison = computed(() => mode.value === 'reproduction' || mode.value === 'sex')
+// 每张图的结构、标注和说明绑定同一个阶段，避免并排时共享当前选择。
+const displayedStages = computed(() => {
+  const indices = comparison.value ? [0, 1] : [Math.min(selected.value, choices.value.length - 1)]
+  return indices.map((index) => ({ index, stage: choices.value[index]! }))
+})
 // 标题与选择的考纲主题保持一致，便于屏幕阅读器识别图谱。
 const title = computed(
   () =>
@@ -486,7 +568,7 @@ const title = computed(
 const subtitle = computed(() =>
   mode.value === 'mitosis' || mode.value === 'meiosis'
     ? '点击阶段，观察染色体如何变化。C 表示一套未复制染色体的 DNA 含量。'
-    : '切换按钮比较过程，图形中的结构与文字解释同步变化。',
+    : '并排比较两种情况，图示下方分别说明关键过程。',
 )
 // 主动说明计数模型省略的内容，避免把清晰绘图误认为完整实物图。
 const note = computed(() =>
@@ -494,7 +576,9 @@ const note = computed(() =>
     ? '原创计数图；只画 2n=4 的一种分配，未画交叉互换。四个单倍体产物不等于四个功能相同的成熟卵细胞。'
     : mode.value === 'sex'
       ? '原创通常哺乳动物模型；仅示性染色体，形状和大小不按比例。卵与精子中的染色体按未复制状态画成单条。'
-      : '原创结构与过程图；不按实物比例。分裂计数图把 DNA 绘成便于辨认的条形，间期实际通常呈较松散染色质。',
+      : mode.value === 'reproduction'
+        ? '结构与过程示意，不按实物比例。配子与受精卵采用 n=2、2n=4 的计数模型。'
+        : '原创结构与过程图；不按实物比例。分裂计数图把 DNA 绘成便于辨认的条形，间期实际通常呈较松散染色质。',
 )
 
 // 考纲点变化后从该主题的第一幅图开始，避免错误阶段残留。
@@ -506,12 +590,12 @@ watch(
 )
 
 // 所有渐变和图形定义均使用组件实例 ID，避免同页多图引用冲突。
-function id(name: string): string {
-  return instanceId + '-' + name
+function id(name: string, stageIndex: number): string {
+  return instanceId + '-' + stageIndex + '-' + name
 }
 // 与当前实例内的 SVG 定义建立引用。
-function paint(name: string): string {
-  return 'url(#' + id(name) + ')'
+function paint(name: string, stageIndex: number): string {
+  return 'url(#' + id(name, stageIndex) + ')'
 }
 // 染色体的长短区分同源种类，颜色区分亲本来源；paired 表示复制后姐妹尚未分开。
 function chromosome(
@@ -611,17 +695,52 @@ function spindlePath(chromosome: Chromosome, phase: DrawnCell['spindle']): strin
   return phase === 'aligned' ? left + right : chromosome.x < 0 ? left : right
 }
 // 有性繁殖图展示全部四条；性别图只显示 X/X 或 X/Y，避免把名称 X 画成复制后的 X 形。
-const fertilisedChromosomes = computed(() =>
-  mode.value === 'sex'
+function fertilisedChromosomes(stageIndex: number): Chromosome[] {
+  return mode.value === 'sex'
     ? [
         chromosome(-24, -8, 60, 'maternal', false),
-        chromosome(24, -8, selected.value === 0 ? 60 : 32, 'paternal', false),
+        chromosome(24, -8, stageIndex === 0 ? 60 : 32, 'paternal', false),
       ]
-    : diploid(false),
-)
+    : diploid(false)
+}
 </script>
 
 <style scoped>
+.division-diagrams--comparison {
+  container-type: inline-size;
+}
+.division-diagrams--comparison .division-diagrams__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+}
+.division-diagrams--comparison :deep(.biology-atlas) {
+  margin: 0;
+  min-width: 0;
+}
+.division-diagrams--comparison :deep(.atlas-body) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.division-diagrams--comparison :deep(.atlas-stage) {
+  max-width: none;
+  padding: 6px;
+}
+.division-diagrams--comparison .division-illustration {
+  max-width: 620px;
+}
+.division-diagrams--comparison .cell-label,
+.division-diagrams--comparison .cell-count,
+.division-diagrams--comparison .arrow-label,
+.division-diagrams--comparison .sperm-label,
+.division-diagrams--comparison .callout text {
+  font-size: 30px;
+}
+@container (min-width: 860px) {
+  .division-diagrams--comparison .division-diagrams__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .division-illustration {
   min-width: 0;
   max-width: 620px;

@@ -1,7 +1,9 @@
-// 数学1“数”前八节复习讲义：基础定义短写，用精确运算、分类计数和条件判断代替启蒙演示。
+// 数学1“数”全章复习讲义：基础定义短写，用精确运算、分类计数和条件判断代替启蒙演示。
 import type { KnowledgeMethodArticle } from './types'
+import { numberCalculationMethods, type NumberCalculationCode } from './numberCalculationMethods'
 
 export type NumberFoundationCode =
+  | NumberCalculationCode
   | '110201' | '110202' | '110203' | '110204'
   | '110205' | '110206' | '110207' | '110208'
 interface NumberFoundationLesson extends KnowledgeMethodArticle {
@@ -10,6 +12,7 @@ interface NumberFoundationLesson extends KnowledgeMethodArticle {
 }
 
 export const numberFoundationsMethods: Record<NumberFoundationCode, NumberFoundationLesson> = {
+  ...numberCalculationMethods,
   '110201': {
     summary: '先看正负和范围，再选通分、作差或平方；接近的数保留精确值比较。',
     intro: String.raw`$<$、$>$ 不含相等，$\le$、$\ge$ 包含相等；“至少”对应 $\ge$，“至多”对应 $\le$。负数比较时，绝对值越大，数反而越小。`,

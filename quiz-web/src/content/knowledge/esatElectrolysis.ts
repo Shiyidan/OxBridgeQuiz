@@ -1,5 +1,6 @@
 // ESAT 第十二章电解讲义：用电荷流向、条件判断与真实电极题连接概念和计算。
 import type { KnowledgeLesson } from './types'
+import { electrolysisMethods } from './electrolysisMethods'
 
 export const esatElectrolysis: KnowledgeLesson = {
   code: '141200',
@@ -18,27 +19,17 @@ export const esatElectrolysis: KnowledgeLesson = {
     {
       code: '141201',
       title: '电解术语',
-      summary: '分清电源、电极与电解质，理解“导电”由谁移动完成。',
-      paragraphs: [
-        '**电解 electrolysis** 是利用外部电源驱动化学变化。浸入介质并连接电源的导体叫电极 electrode；含有可移动离子、能通过离子迁移导电的介质叫电解质 electrolyte。电解质可以是熔融盐，也可以是含离子的水溶液。',
-        '阴极 cathode 发生还原，阳极 anode 发生氧化。在本章的电解池中，阴极连电源负极，阳极连正极。阳离子趋向阴极，阴离子趋向阳极；**“被吸引到电极”与“最终被放电”不是同一判断**，水溶液中有竞争反应。',
-        '固态 NaCl 不导电，不是因为没有带电粒子，而是晶格中的离子位置受限。熔融后 Na⁺、Cl⁻ 能移动；溶解后也有可移动离子。铜导线则靠离域电子导电，不能把这种金属模型套给熔融盐。',
-        '获得电子成为中性金属原子，不保证原子具有稀有气体电子排布。离子与原子的电子数不同；判断时要回到原子序数和电荷，而不能把“稳定离子”的排布原封不动搬给金属单质。',
-      ],
-      rules: [
-        {
-          title: '装置图只需先做三处标记',
-          text: '电源的 +/− → 阳极/阴极 → 氧化/还原。电极的左右位置不决定名称。',
-        },
-        {
-          title: '载流子按位置区分',
-          text: '导线与金属电极中：电子；电解质内部：阳离子和阴离子。两类载流子共同构成闭合回路。',
-        },
-        {
-          title: '熔融条件是题干信息',
-          text: 'molten 表示无水的熔融物；aqueous 表示水溶液，水可能参与电极反应。',
-        },
-      ],
+      summary: electrolysisMethods['141201']!.summary,
+      paragraphs: [electrolysisMethods['141201']!.intro],
+      rules: electrolysisMethods['141201']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: electrolysisMethods['141201']!.memory,
       pitfalls: [
         '把阴极解释为“吸引阴离子的电极”。',
         '认为熔融盐靠自由电子导电。',
@@ -99,27 +90,17 @@ export const esatElectrolysis: KnowledgeLesson = {
     {
       code: '141202',
       title: '电解中的直流',
-      summary: '直流保持电极角色固定；电源负责转移电子，溶液内由离子接力。',
-      paragraphs: [
-        '直流电源 d.c. supply 保持端子极性不变，使同一电极持续发生同一类反应。负极向阴极提供电子，正极从阳极抽走电子。直流不是“所有带电粒子向同一个方向移动”：正、负离子在电解质中的移动方向相反。',
-        '外部回路中的电子迁移与传统电流方向相反。在解释装置时，应明确说“电子从电源负极进入阴极，阳极的电子进入电源正极”，不要画出电子直接穿过水溶液的路线。',
-        '交换电源接线会交换两个物理电极的角色。交流电则周期性反转极性，因此不能用于本章要求的稳定定向镀层和分离收集产物；这不是说任何交流条件下都绝无化学反应。',
-        '两电极反应传递的电子数相等。由电流和时间获得电量时用 Q = It；若题目直接给每秒通过的电子物质的量，则乘时间即可，接着按半方程换算产物。',
-      ],
-      rules: [
-        {
-          title: '接线决定电解池极性',
-          text: '电源 − → 阴极 → 还原；电源 + → 阳极 → 氧化。不要把原电池的正负极结论搬过来。',
-        },
-        {
-          title: '相同电量先换成相同电子量',
-          text: '$n(e^-)=Q/F$；如果每个金属离子需 z 个电子，金属的物质的量为电子物质的量除以 z。只在题目提供或需要法拉第常数时使用 F。',
-        },
-        {
-          title: '两个端点并非相同摩尔产物',
-          text: 'Pb²⁺ + 2e⁻ → Pb；2Br⁻ → Br₂ + 2e⁻。相同 2 mol 电子分别对应 1 mol Pb 和 1 mol Br₂。',
-        },
-      ],
+      summary: electrolysisMethods['141202']!.summary,
+      paragraphs: [electrolysisMethods['141202']!.intro],
+      rules: electrolysisMethods['141202']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: electrolysisMethods['141202']!.memory,
       pitfalls: [
         '把常规电流箭头当作电子箭头。',
         '认为一个 Br⁻ 直接生成一个 Br₂。',
@@ -177,27 +158,17 @@ export const esatElectrolysis: KnowledgeLesson = {
     {
       code: '141203',
       title: '电极过程',
-      summary: '电极是电子转移界面；先检查得失电子，再检查原子与电荷守恒。',
-      paragraphs: [
-        '还原 reduction 是得到电子，发生于阴极；氧化 oxidation 是失去电子，发生于阳极。它们在同一装置中配对发生，电子不会只在一端无限积累。',
-        '铜离子在阴极放电：Cu²⁺ + 2e⁻ → Cu。氯离子在相应条件下于阳极放电：2Cl⁻ → Cl₂ + 2e⁻。化合价下降对应还原，升高对应氧化，可以用来反查电子应写在哪侧。',
-        '石墨或铂常作为惰性电极，但“惰性”是题目条件，不是所有电极都不参与。铜阳极可氧化为 Cu²⁺，银阳极可氧化为 Ag⁺；在可溶性阳极装置中，不能照搬惰性阳极析气的结论。',
-        '电极附近的局部变化与混合后整个溶液的变化要分开。水的电解可在阳极附近产生 H⁺、阴极附近产生 OH⁻；不能只看其中一端，就说整个混合溶液必定变成强酸。',
-      ],
-      rules: [
-        {
-          title: '还原半方程电子在左侧',
-          text: '$\\mathrm{Cu^{2+}+2e^-\\rightarrow Cu}$；左侧净电荷为 0，与右侧中性金属一致。',
-        },
-        {
-          title: '氧化半方程电子在右侧',
-          text: '2Cl⁻ → Cl₂ + 2e⁻；两侧都有两个氯原子，净电荷同为 −2。',
-        },
-        {
-          title: '先读电极材料',
-          text: '惰性阳极：考虑溶液中的阴离子或水；铜/银阳极：还要考虑电极金属自身氧化。',
-        },
-      ],
+      summary: electrolysisMethods['141203']!.summary,
+      paragraphs: [electrolysisMethods['141203']!.intro],
+      rules: electrolysisMethods['141203']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: electrolysisMethods['141203']!.memory,
       pitfalls: [
         '电子符号放对了，但电荷仍未配平。',
         '认为阳离子到阴极后失电子。',
@@ -212,7 +183,8 @@ export const esatElectrolysis: KnowledgeLesson = {
         pastPaperPatterns: [
           {
             form: '电极变化联系化学键',
-            description: '在盐水电解等过程中区分水分子共价键断裂和气体分子形成，不把所有导电过程都理解为仅有离子移动。',
+            description:
+              '在盐水电解等过程中区分水分子共价键断裂和气体分子形成，不把所有导电过程都理解为仅有离子移动。',
             reference: '2016 NSAA',
             sourceCodes: ['NSAA_2016_S1-Q039'],
           },
@@ -265,27 +237,17 @@ export const esatElectrolysis: KnowledgeLesson = {
     {
       code: '141204',
       title: '预测电解产物',
-      summary: '按熔融或水溶液、阴极或阳极、电极材料的顺序判断。',
-      paragraphs: [
-        '熔融二元离子化合物只有相应阳离子、阴离子参与基本判断。例如熔融 PbBr₂ 在阴极得铅、阳极得溴；熔融 NaCl 可以生成钠，但水溶液中通常不能这样提取钠。',
-        '水溶液阴极有竞争：较不活泼的金属离子如 Cu²⁺、Ag⁺通常被还原为金属；很活泼的金属离子如 Na⁺、K⁺通常留在溶液，水或 H⁺被还原生成 H₂。使用题目给出的实际条件，不把简化规则当作所有电化学条件下的绝对定律。',
-        '惰性阳极上，浓卤化物溶液常生成相应卤素；硫酸盐、硝酸盐等常见水溶液通常由水或 OH⁻产生 O₂。卤离子与水的竞争受浓度和电极条件影响；氟离子水溶液不能套用“所有卤化物都得卤素”。',
-        '浓盐水用惰性电极电解，阴极得 H₂、阳极得 Cl₂，剩余溶液可含 NaOH。这与“把 NaCl 分成 Na 和 Cl₂”不同。判断气体后可接检验：H₂ 点燃有爆鸣声；Cl₂ 可使湿润有色试纸褪色。',
-      ],
-      rules: [
-        {
-          title: '先列粒子再筛选',
-          text: 'CuBr₂(aq) 要考虑 Cu²⁺、Br⁻及水；浓溶液、惰性电极下可得 Cu 和 Br₂。KCl(aq) 的阴极则通常得 H₂。',
-        },
-        {
-          title: '氧阴离子不等于析出对应非金属',
-          text: 'Na₂SO₄(aq) 不会简单析出钠和硫；常见惰性电极条件下相当于电解水。',
-        },
-        {
-          title: '剩余溶液也属于产物判断',
-          text: '浓盐水净反应：2NaCl + 2H₂O → 2NaOH + H₂ + Cl₂；气体逸出和混合条件会影响后续观察。',
-        },
-      ],
+      summary: electrolysisMethods['141204']!.summary,
+      paragraphs: [electrolysisMethods['141204']!.intro],
+      rules: electrolysisMethods['141204']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: electrolysisMethods['141204']!.memory,
       pitfalls: [
         '忽略 aqueous 与 molten 的区别。',
         '在水溶液中把 Na⁺还原为可收集的钠。',
@@ -352,24 +314,17 @@ export const esatElectrolysis: KnowledgeLesson = {
     {
       code: '141205',
       title: '半方程',
-      summary: '电子是两极的共同单位，产物比例从配平后的电子数得到。',
-      paragraphs: [
-        '写半方程时先列反应物、产物，再配原子，最后配电荷。以 Cu²⁺还原为例，铜原子已守恒，左侧多 +2，因此加 2e⁻在左侧。氯离子氧化先写 2Cl⁻ → Cl₂，再把 2e⁻写到右侧。',
-        '水参与时，根据题目介质使用对应形式。阴极可写 2H₂O + 2e⁻ → H₂ + 2OH⁻；酸性表示为 2H⁺ + 2e⁻ → H₂。两种写法要与给定介质和题目表达匹配。',
-        '合并两条半方程，电子数必须相同并消去。电解水的阴极产 1 mol H₂需 2 mol 电子，阳极产 1 mol O₂放出 4 mol 电子，因此 H₂ : O₂ = 2 : 1，而不是 1 : 1。',
-        '由相同电子量比较不同金属产量时，要比较 M/z。相同 1 mol 电子可得到 1 mol K，却只得到 0.5 mol Cu；原子量较大的铜不必生成更大质量。',
-      ],
-      rules: [
-        {
-          title: '两次检查不能合并省略',
-          text: '原子守恒检查元素个数；电荷守恒检查含电子在内的总电荷。电子本身不增加原子。',
-        },
-        { title: '水的总反应', text: '将阴极反应乘 2 后与阳极反应相加，可得到 2H₂O → 2H₂ + O₂。' },
-        {
-          title: '质量比例不等于气体体积比例',
-          text: 'H₂ : O₂ 的摩尔比为 2 : 1；质量比为 4 : 32 = 1 : 8；同温同压体积比仍为 2 : 1。',
-        },
-      ],
+      summary: electrolysisMethods['141205']!.summary,
+      paragraphs: [electrolysisMethods['141205']!.intro],
+      rules: electrolysisMethods['141205']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: electrolysisMethods['141205']!.memory,
       pitfalls: [
         '只配原子，不配电荷。',
         '把 H₂与 O₂摩尔比直接当质量比。',
@@ -432,27 +387,17 @@ export const esatElectrolysis: KnowledgeLesson = {
     {
       code: '141206',
       title: '电镀',
-      summary: '镀件放阴极；阳极是否补充金属离子决定浓度变化。',
-      paragraphs: [
-        '**电镀 electroplating** 在物件表面沉积薄金属层，可改善外观或耐腐蚀性。要让金属离子得到电子成为金属，待镀物必须作为阴极，并使用含镀层金属离子的电解质。',
-        '镀铜时阴极反应是 Cu²⁺ + 2e⁻ → Cu。若阳极为铜，铜可溶解补充 Cu²⁺；在适当条件下两极质量变化相互对应，溶液浓度可近似稳定。',
-        '若阳极是惰性石墨，它不会补充铜离子；阴极持续沉积铜使溶液中的 Cu²⁺减少。求最终浓度时，先求剩余铜离子摩尔数，再除以题目给出的最终溶液体积。不要把补水误当成补铜。',
-        '实际沉积还可能受金属离子库存、竞争析氢和电流效率限制。按电量计算的理论铜量不能超过溶液中可用的铜量；若部分电量用于析氢，实际铜质量比“所有电子都镀铜”的预测值小。',
-      ],
-      rules: [
-        {
-          title: '三件套记忆',
-          text: '镀件：阴极；电解质：含镀层金属离子；阳极：依据题目选择可溶性同种金属或惰性材料。',
-        },
-        {
-          title: '库存再除体积',
-          text: '惰性阳极镀铜且无其他铜来源：剩余 n(Cu²⁺) = 初始 n(Cu²⁺) − 沉积 n(Cu)；c = n/V。',
-        },
-        {
-          title: '镀层并非任意条件下永久保护',
-          text: '完整金属层能隔离环境，但破损后的保护效果还取决于镀层与基体的反应性。',
-        },
-      ],
+      summary: electrolysisMethods['141206']!.summary,
+      paragraphs: [electrolysisMethods['141206']!.intro],
+      rules: electrolysisMethods['141206']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: electrolysisMethods['141206']!.memory,
       pitfalls: [
         '把待镀物接到阳极。',
         '不看石墨阳极，自动认为铜离子浓度保持不变。',

@@ -1,5 +1,6 @@
 // ESAT 第十四章金属讲义：以电子转移、提取边界和材料结构解释真实金属题。
 import type { KnowledgeLesson } from './types'
+import { metalsMethods } from './metalsMethods'
 
 export const esatMetals: KnowledgeLesson = {
   code: '141400',
@@ -18,27 +19,17 @@ export const esatMetals: KnowledgeLesson = {
     {
       code: '141401',
       title: '反应性与提取',
-      summary: '用失电子倾向判断提取方法，同时保留矿物与工艺的条件。',
-      paragraphs: [
-        '金属反应性可理解为形成阳离子、失去电子的倾向。非常活泼的金属如 K、Na、Ca 与冷水反应明显；Mg 等在冷水与蒸气中的表现不同；一些金属能与稀酸反应放出 H₂，但 Cu 不会与普通稀盐酸按此方式反应。',
-        '金属与水、酸或盐溶液的反应是不同证据。比较时必须使用可比条件；铝表面致密氧化膜会妨碍反应，肉眼反应慢不能单独推断铝本身活性低。',
-        '提取是把化合物中的金属离子还原为金属。活泼金属常需要熔融电解；碳下方的多种金属可用碳或 CO 还原氧化物。金、银等很不活泼金属有时可呈游离态，但不代表全部矿石都不需处理。',
-        '活性顺序是起点，不是完整工业流程。钛生产常先制 TiCl₄，再用 Mg 或 Na 还原，在惰性气氛下控制副反应；不能因一个简单的碳分界就忽略碳化物、纯度和能耗等限制。',
-      ],
-      rules: [
-        {
-          title: '按碳的分界提出初步方法',
-          text: '碳以上的活泼金属通常不能用碳还原其稳定氧化物；碳以下可考虑化学还原，仍须结合具体矿物与题目条件。',
-        },
-        {
-          title: '氧化与还原同时发生',
-          text: 'Mg + Cu²⁺ → Mg²⁺ + Cu：Mg 被氧化，Cu²⁺被还原；还原剂是失电子的 Mg。',
-        },
-        {
-          title: '钛提取的计量',
-          text: 'TiCl₄ + 2Mg → Ti + 2MgCl₂；TiCl₄ + 4Na → Ti + 4NaCl。反应金属摩尔比不同。',
-        },
-      ],
+      summary: metalsMethods['141401']!.summary,
+      paragraphs: [metalsMethods['141401']!.intro],
+      rules: metalsMethods['141401']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: metalsMethods['141401']!.memory,
       pitfalls: [
         '把表面氧化膜造成的慢反应当作低活性。',
         '认为电解能从普通水溶液收集 Na。',
@@ -100,27 +91,17 @@ export const esatMetals: KnowledgeLesson = {
     {
       code: '141402',
       title: '置换与反应性顺序',
-      summary: '每条观察转成一个大小关系，再合并成没有矛盾的顺序。',
-      paragraphs: [
-        '金属置换盐中的另一种金属时，单质金属失电子成为离子，盐中的金属离子得电子成为单质。如 Zn + Cu²⁺ → Zn²⁺ + Cu，说明 Zn 在相应条件下比 Cu 更活泼。',
-        '不能把置换方向倒过来：Cu 放入 ZnSO₄通常不会置换 Zn。也不能把“有沉淀”都当作金属置换；AgNO₃与 NaCl 生成 AgCl 是沉淀反应，银仍为 +1，并未生成金属银。',
-        '给多个字母金属时，把“P 置换 Q”写成 P > Q；把“R 置换 P”写成 R > P，合成 R > P > Q。无反应结论只有在题目说明适当条件、且无钝化等干扰时才可直接用于排序。',
-        '电化学装置也能提供失电子倾向差。电子从更容易氧化的一端流出；若题目给出各金属相对于共同参照的电势差，可以把它们放在同一数轴上比较，但不能只把电压绝对值最大的金属判为最活泼。',
-      ],
-      rules: [
-        {
-          title: '把句子改成方向',
-          text: 'M 置换 N 的离子 → M 更容易失电子 → M > N；被还原的是 N 的离子，而不是 M。',
-        },
-        {
-          title: '共同参照才能比较差值',
-          text: '若 P 比 Q 高 0.62，S 比 Q 高 0.30，则 P > S > Q；再加入 S 与 R 的差值，推 R 的位置。',
-        },
-        {
-          title: '方程里旁观离子可约去',
-          text: 'Zn + CuSO₄ → ZnSO₄ + Cu 的净变化是 Zn + Cu²⁺ → Zn²⁺ + Cu，SO₄²⁻不决定置换方向。',
-        },
-      ],
+      summary: metalsMethods['141402']!.summary,
+      paragraphs: [metalsMethods['141402']!.intro],
+      rules: metalsMethods['141402']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: metalsMethods['141402']!.memory,
       pitfalls: [
         '把“被置换出来”的金属认作更活泼。',
         '把不同参照的电压直接排序。',
@@ -182,27 +163,17 @@ export const esatMetals: KnowledgeLesson = {
     {
       code: '141403',
       title: '金属与合金用途和性质',
-      summary: '用结构解释性能，再判断哪种性能适合具体用途。',
-      paragraphs: [
-        '金属键可描述为正金属离子与离域电子之间的静电吸引。可移动电子使金属通常善于导电、导热；原子层可滑移而整体金属键仍维持，使许多纯金属可锻、可拉成丝。',
-        '合金 alloy 是以金属为基础、与其他元素组成的材料；它不是必须按固定化学式结合的纯化合物。不同大小原子扰乱规则层状排列，常使层间滑移更困难，因此许多合金比相应纯金属更硬。',
-        '材料选择要把性能和用途连接：铜导电好且可延展，适合电线；铝密度低且氧化膜提供保护，适合轻质结构；钢可提供强度，具体成分影响硬度和韧性；不锈钢的耐腐蚀性与合金成分形成保护膜有关。',
-        '银导电性好但价格较高，金不易腐蚀且易延展，钛具有较高比强度和耐腐蚀性。不能只凭“贵”或“熔点高”选材料，也不能说所有合金在全部性能上都更优。合金的化学分析还可利用不同组分的反应性差异。',
-      ],
-      rules: [
-        {
-          title: '性能题写成因果链',
-          text: '离域电子可移动 → 导电；规则层易滑移 → 延展；不同大小原子扰乱排列 → 常使合金更硬。',
-        },
-        {
-          title: '合金组分不一定同样反应',
-          text: '适当稀酸中 Mg 可放出 H₂而 Cu 不按此方式反应；气体量可用于求合金中的 Mg 含量。',
-        },
-        {
-          title: '对用途至少检查两项',
-          text: '电线看导电与延展；交通结构看密度与强度；潮湿环境看耐腐蚀；再结合成本及题目限制。',
-        },
-      ],
+      summary: metalsMethods['141403']!.summary,
+      paragraphs: [metalsMethods['141403']!.intro],
+      rules: metalsMethods['141403']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: metalsMethods['141403']!.memory,
       pitfalls: [
         '说合金更硬是因为所有原子更大。',
         '把导电归因于金属阳离子在固体中自由移动。',
@@ -247,27 +218,17 @@ export const esatMetals: KnowledgeLesson = {
     {
       code: '141404',
       title: '金属矿石与还原',
-      summary: '矿石、含金属化合物和纯金属是三个层级，计算时逐层换算。',
-      paragraphs: [
-        '矿石 ore 是在一定条件下可经济提取金属的天然材料，常含金属氧化物或其他化合物及杂质。提取金属通常涉及还原；“矿石质量”包含不进入金属的部分，不能直接拿来当产物质量。',
-        '高炉炼铁中焦炭提供热量并参与生成 CO；CO 还原铁氧化物：Fe₂O₃ + 3CO → 2Fe + 3CO₂。铁从 +3 变为 0，CO 中的碳从 +2 变为 +4。焦炭不只是一个无变化的催化剂。',
-        '石灰石 CaCO₃受热分解为 CaO 和 CO₂；CaO 与酸性杂质 SiO₂形成炉渣 CaSiO₃。这两步不是把金属离子还原成金属的步骤，不能因为发生在高炉就统称还原反应。',
-        '铝的工业提取电解熔融体系中的氧化铝，使用冰晶石降低所需操作温度；碳阳极会被消耗。对于含水氧化铝矿，结晶水的质量也要计入原料摩尔质量，但不贡献铝。',
-      ],
-      rules: [
-        {
-          title: '矿石计算的层级',
-          text: '矿石质量 × 有用化合物质量分数 × 化合物中的金属质量分数 × 回收率 = 实际金属质量。反求矿石时逐项相除。',
-        },
-        {
-          title: '高炉过程分别识别',
-          text: '生成 CO、CO 还原铁氧化物涉及氧化还原；CaCO₃分解及 CaO 与 SiO₂成渣不是金属提取还原步骤。',
-        },
-        {
-          title: '水合物质量不漏水',
-          text: 'Al₂O₃·2H₂O 中一式量含 2 Al；其式量为 102+36=138，金属铝质量为 54。',
-        },
-      ],
+      summary: metalsMethods['141404']!.summary,
+      paragraphs: [metalsMethods['141404']!.intro],
+      rules: metalsMethods['141404']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: metalsMethods['141404']!.memory,
       pitfalls: [
         '把矿石纯度与金属质量分数混为同一个百分比。',
         '把结晶水中的质量也算作能产铝的部分。',
@@ -329,27 +290,17 @@ export const esatMetals: KnowledgeLesson = {
     {
       code: '141405',
       title: '过渡金属性质',
-      summary: '记典型特征，也记“常见”与“所有”的边界。',
-      paragraphs: [
-        '课程中常见的过渡金属包括 Fe、Cu、Ni 等，位于周期表中间区域。许多具有较高密度、较高熔点、较好导电性和强度；它们通常不像第 1 族金属那样与冷水剧烈反应。',
-        '过渡金属常能形成不同电荷的离子，例如 Fe²⁺和 Fe³⁺；化合物名称中的罗马数字指定当前价态。Cu(I) 与 Cu(II) 不是同一个离子，写盐的化学式时要按相应电荷配平。',
-        '许多过渡金属化合物有颜色，例如水合 Cu²⁺常呈蓝色；但不能说所有金属单质或所有化合物都同色，配体、价态和水合状态都可能影响颜色。白色无水硫酸铜和蓝色水合体系也不能混淆。',
-        '过渡金属及其化合物常用作催化剂，如铁用于合成氨、镍用于烯烃加氢、某些金属氧化物用于其他过程。催化剂提供较低活化能的路径，在总反应中再生，不改变平衡位置或凭空增加理论产量。',
-      ],
-      rules: [
-        {
-          title: '三条特征分开记',
-          text: '可变氧化态；许多化合物有颜色；常见催化作用。任何一条都不能改写成绝无例外的“所有”。',
-        },
-        {
-          title: '罗马数字用于写化学式',
-          text: 'Fe(II) 为 Fe²⁺，氯化物 FeCl₂；Fe(III) 为 Fe³⁺，氯化物 FeCl₃。',
-        },
-        {
-          title: '与碱金属比较',
-          text: '典型过渡金属通常更硬、更高密度，且与冷水反应不如第 1 族剧烈；具体数据仍以题目为准。',
-        },
-      ],
+      summary: metalsMethods['141405']!.summary,
+      paragraphs: [metalsMethods['141405']!.intro],
+      rules: metalsMethods['141405']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: metalsMethods['141405']!.memory,
       pitfalls: [
         '把过渡金属与冷水的反应性说成普遍强于第 1 族。',
         '把“有色化合物”改成“所有化合物都必有颜色”。',

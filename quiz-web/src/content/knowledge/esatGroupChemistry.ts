@@ -1,5 +1,6 @@
 // ESAT 第七章族化学讲义：以典型反应、可观察性质和有边界的趋势连接复习与真实题目。
 import type { KnowledgeLesson } from './types'
+import { groupChemistryMethods } from './groupChemistryMethods'
 
 export const esatGroupChemistry: KnowledgeLesson = {
   code: '140700',
@@ -18,44 +19,17 @@ export const esatGroupChemistry: KnowledgeLesson = {
     {
       code: '140701',
       title: '碱金属、卤素与稀有气体',
-      summary: '用粒子形式、典型反应和实际物态，建立三族各自的性质画像。',
-      paragraphs: [
-        '**碱金属 alkali metals** 是第 1 族的金属，常见例子为 Li、Na、K。它们是较软、密度较低的银白色金属，新鲜表面会很快失去光泽；最外层的一个电子容易失去，形成 M⁺。与水反应生成金属氢氧化物和氢气，溶液呈碱性，不是直接生成氧化物。',
-        '**卤素 halogens** 位于第 17 族。F₂、Cl₂、Br₂、I₂ 是双原子单质，颜色与物态不同；卤离子 F⁻、Cl⁻、Br⁻、I⁻ 则是得到电子后的粒子。氯气有颜色，不代表氯化钠溶液也有氯气的颜色；金属与卤素形成卤化物时，要按离子电荷配比，而不是照抄单质 X₂ 的下标。',
-        '卤素与氢可形成氢卤化物 HX，例如氢气与氯气在光照下可快速反应生成 HCl，HCl 溶于水形成酸性溶液。氯气与水还会部分反应形成 HCl 和 HClO：氯水具有酸性和漂白作用，漂白依赖湿润条件。**Cl₂、HCl 和 Cl⁻ 是三个不同的观察对象**，不能因为都含氯就赋予相同的颜色与作用。',
-        '**稀有气体 noble gases** 位于第 18 族，He、Ne、Ar 在常温下是无色、单原子气体，熔沸点很低。稳定的外层排布使它们通常很不活泼：He 外层为 2 个电子，Ne、Ar 为 8 个。氩气可提供保护气氛，减少热金属与空气反应；它不是因为作了催化剂才保护金属。',
-        '同族性质用于提出预测，具体粒子和条件用于检查预测。LiCl、NaCl、KCl 中的金属已经是阳离子，不会像相应金属单质一样与水剧烈反应。稀有气体“很不活泼”也不等于任何条件下绝不成键；较重的稀有气体可以形成一些化合物。',
-      ],
-      rules: [
-        {
-          title: '碱金属与水的共同反应',
-          text: '对 Li、Na、K，可写 $2\\mathrm{M}+2\\mathrm{H_2O}\\rightarrow2\\mathrm{MOH}+\\mathrm{H_2}$。2 mol 金属对应 1 mol H₂；碱性来自水中的 OH⁻。',
-        },
-        {
-          title: '卤化物从电荷写起',
-          text: 'M⁺ 与 X⁻ 组成 MX；Ca²⁺ 与 Br⁻ 组成 CaBr₂。Br₂ 是溴单质的分子式，不能据此写出 KBr₂。',
-        },
-        {
-          title: '碱性与溶解性分别判断',
-          text: 'NaOH、KOH 易溶于水，形成含 OH⁻ 的碱性溶液；Mg(OH)₂ 等许多金属氢氧化物溶解度很小。过滤能除去不溶颗粒，但不能除去已经溶解的 NaOH。',
-        },
-        {
-          title: '焰色用于鉴别，不用于排活性',
-          text: '含锂、钠、钾的盐分别可呈深红色、黄色、淡紫色焰色，可用于区分相应金属离子。盐的焰色不是金属与水反应的剧烈程度，不能据此给金属活性排序。',
-        },
-        {
-          title: '氧气与水不能混作一种反应',
-          text: '锂与氧气可生成 Li₂O，锂与水生成 LiOH 和 H₂。其他碱金属与氧气还可能形成过氧化物或超氧化物，不能把所有燃烧产物一律写成 M₂O；依题目条件判断。',
-        },
-        {
-          title: '物态和粒子形式要一起读',
-          text: '常温常压下，F₂ 为淡黄色气体、Cl₂ 为黄绿色气体、Br₂ 为红棕色液体、I₂ 为灰黑色固体；碘蒸气为紫色。He、Ne、Ar 为单原子气体。',
-        },
-        {
-          title: '把共同反应迁移到新情境',
-          text: '碱金属也能与醇的 O—H 部分反应，形成醇盐并放出 H₂，例如乙醇与钠生成乙醇钠，不是乙酸钠。相同质量金属生成气体多少，要再换算摩尔数。',
-        },
-      ],
+      summary: groupChemistryMethods['140701']!.summary,
+      paragraphs: [groupChemistryMethods['140701']!.intro],
+      rules: groupChemistryMethods['140701']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: groupChemistryMethods['140701']!.memory,
       pitfalls: [
         '把“第 1 族”与“碱金属”完全画等号，将非金属氢也算进去。',
         '把 Ar 写成 Ar₂，或把卤素单质 X₂ 与无色卤离子 X⁻ 混淆。',
@@ -170,35 +144,17 @@ export const esatGroupChemistry: KnowledgeLesson = {
     {
       code: '140702',
       title: '碱金属的性质趋势',
-      summary: '向下更易失电子，但反应速度、熔沸点与最终产量是三件事。',
-      paragraphs: [
-        '沿第 1 族从上到下，先记住 **Li → Na → K**。电子层增多，外层电子离核更远，内层电子的屏蔽也更多；虽然质子数增加，外层电子受到的有效束缚总体减弱，更容易失去。因此与水的反应性一般向下增强。',
-        '在可比的少量金属与水的演示中，锂浮在水上并放出气泡；钠常因反应放热熔成小球，在水面移动；钾反应更剧烈，并可能出现淡紫色火焰。共同产物都是相应氢氧化物和 H₂。**浮起、熔成球与起火的原因不同**：分别涉及密度、熔点与放热，不应全都解释成“更活泼”。',
-        'Li、Na、K 的熔点和沸点向下总体降低，金属也通常更软。密度不能照着原子序数机械排序：按 RSC 数据取近似值，Li 0.53、Na 0.97、K 0.89 g/cm³，三者都小于水，但 K 的密度低于 Na。具体数据优先于一条没有例外的口诀。',
-        '同样质量的 Li、Na、K 不代表同样多的原子。若都完全反应，1 mol 金属对应 0.5 mol H₂，因此较小摩尔质量的金属在相同质量下可放出更多氢气。这不与“钾反应更快”矛盾：一个是最终量，一个是完成过程的快慢。',
-      ],
-      rules: [
-        {
-          title: '用外层电子解释反应性',
-          text: '沿 Li → Na → K，失电子更容易，形成 M⁺ 的倾向增强。不能只数质子增加，就说最外层电子一定被吸得更紧。',
-        },
-        {
-          title: '两个相反方向分开记',
-          text: '向下：与水反应性增加，熔沸点总体降低。低熔点不代表化学反应不活泼，反应剧烈也不代表金属熔点高。',
-        },
-        {
-          title: '预测先限定条件',
-          text: '比较相同温度、可比用量与表面状态下的反应表现。图像若同时改变质量或表面积，不能把全部差异归因于元素本身。',
-        },
-        {
-          title: '等量要问清是哪一种量',
-          text: '不同碱金属各取等摩尔、完全反应时生成相同量 H₂，每 1 mol 金属对应 0.5 mol H₂；等质量金属则先用 n = m/M。最终量由比例和限量条件决定，不能用剧烈程度替代。',
-        },
-        {
-          title: '金属趋势不能直接套给盐',
-          text: 'Li⁺、Na⁺、K⁺ 已失去外层电子。它们的氯化物与 AgNO₃ 混合时，主要反应是 Ag⁺ + Cl⁻ → AgCl；金属钾更活泼并不使 KCl 必然生成更多沉淀。',
-        },
-      ],
+      summary: groupChemistryMethods['140702']!.summary,
+      paragraphs: [groupChemistryMethods['140702']!.intro],
+      rules: groupChemistryMethods['140702']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: groupChemistryMethods['140702']!.memory,
       pitfalls: [
         '记成“第 1 族向下所有性质都增加”。',
         '认为 K 的密度一定大于 Na，或把浮在水上解释成反应快。',
@@ -281,35 +237,17 @@ export const esatGroupChemistry: KnowledgeLesson = {
     {
       code: '140703',
       title: '卤素的趋势与置换',
-      summary: '向下更难获得电子，却更难沸腾；置换要比较单质与另一种卤离子。',
-      paragraphs: [
-        '先把位置按 **F → Cl → Br → I** 排好。作为氧化剂的反应性总体向下减弱；在常见卤素置换中，Cl₂ 能从溴化物或碘化物溶液中置换出 Br₂、I₂，Br₂ 能置换 I₂，I₂ 则不能置换出 Cl₂ 或 Br₂。这里比较的是卤素单质得到电子的能力，不是比较它们的卤离子谁“更活泼”。',
-        '解释时看外层：向下原子更大、内层电子屏蔽更多，外来电子受到的有效吸引减弱，因此卤素氧化能力总体降低。但孤立气态原子的电子亲和能有 F/Cl 等细节例外，不能把“卤素总体反应性顺序”说成每一种相关能量都严格单调。',
-        '物理性质走另一条线：向下分子电子云增大，同类分子的色散作用总体增强，熔沸点升高，颜色也通常加深。常温下 F₂、Cl₂ 是气体，Br₂ 是液体，I₂ 是固体；碘在水中通常呈棕色体系，在适当有机溶剂中常呈紫色，不能只记一个“碘是紫色”而不问物态与溶剂。',
-        '置换 displacement 是反应性竞争：较强的卤素单质从较弱卤素的卤离子夺取电子，自己成为卤离子，另一种卤素成为单质。Na⁺ 或 K⁺ 常是旁观离子，删掉后更容易看清主线。只有两种卤化物盐溶液混合，没有加入卤素单质，不会自动发生这种置换。',
-      ],
-      rules: [
-        {
-          title: '先标 X₂，再标 X⁻',
-          text: '例如 $\\mathrm{Cl_2}+2\\mathrm{Br^-}\\rightarrow2\\mathrm{Cl^-}+\\mathrm{Br_2}$。Cl₂ 得到 2e⁻ 被还原；两个 Br⁻ 各失去 1e⁻ 被氧化，原子与电荷同时守恒。',
-        },
-        {
-          title: '向下置换，不能反过来',
-          text: '在常见 Cl₂/Br₂/I₂ 水溶液比较中，上方的卤素能置换下方的卤离子；同一种卤素与自己的卤离子无净置换。F₂ 与水本身反应很强，不把它当作普通氟水参与这套演示。',
-        },
-        {
-          title: '颜色判断写出条件',
-          text: '氯水通常淡黄绿色、溴水橙色、碘的水溶液棕色；具体深浅随浓度变化。无置换时也可能因稀释变浅，因此不能把任何褪色都当成化学反应。',
-        },
-        {
-          title: '反应性和沸点方向相反',
-          text: 'F₂ → Cl₂ → Br₂ → I₂：氧化能力减弱，熔沸点升高。前者讨论电子转移，后者讨论分子间作用，不是卤素内部共价键越来越多。',
-        },
-        {
-          title: '看见变化不一定是置换',
-          text: 'Ag⁺ 与 I⁻ 生成黄色 AgI 沉淀，是沉淀反应；Cl₂ 与 I⁻ 生成碘，是氧化还原置换。中和也可以发生化学反应而没有明显颜色或沉淀变化。',
-        },
-      ],
+      summary: groupChemistryMethods['140703']!.summary,
+      paragraphs: [groupChemistryMethods['140703']!.intro],
+      rules: groupChemistryMethods['140703']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: groupChemistryMethods['140703']!.memory,
       pitfalls: [
         '把“卤素单质氧化性向下减弱”误写为“卤离子得电子能力向下减弱”。',
         '认为 Br₂ 能置换 Cl⁻，或认为两种无色卤化物盐混合就会出卤素。',

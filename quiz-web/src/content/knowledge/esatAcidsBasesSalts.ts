@@ -1,5 +1,6 @@
 // ESAT 第九章酸碱盐讲义：区分酸的强弱、碱的溶解性与中和计量，衔接真实题源练习。
 import type { KnowledgeLesson } from './types'
+import { acidsMethods } from './acidsMethods'
 
 export const esatAcidsBasesSalts: KnowledgeLesson = {
   code: '140900',
@@ -17,33 +18,17 @@ export const esatAcidsBasesSalts: KnowledgeLesson = {
     {
       code: '140901',
       title: '酸',
-      summary: '把电离程度、溶液浓度和可中和的总量分开，性质判断就不会互相打架。',
-      paragraphs: [
-        '酸在水中增加 H⁺（更准确地说是 H₃O⁺）的浓度，也可用**提供质子**理解。盐酸、硫酸和乙酸都能表现酸性；乙酸虽然弱，仍能使蓝色石蕊变红，与碳酸盐放出 CO₂，并被碱完全中和。',
-        '**strong / weak 描述电离程度，concentrated / dilute 描述浓度。**相同分析浓度的一元酸中，强酸通常具有更高的 H⁺ 浓度、更低的 pH、更强的导电性，并与相同表面积的活泼金属反应更快。但相同体积、浓度的一元酸完全中和所需的碱相同，因为弱酸会随 H⁺ 被消耗继续电离。',
-        '常见反应分三组记：稀酸 + 活泼金属 → 盐 + H₂；酸 + 金属氧化物或氢氧化物 → 盐 + 水；酸 + 碳酸盐 → 盐 + 水 + CO₂。盐的阴离子来自酸：盐酸形成氯化物，硫酸形成硫酸盐，硝酸形成硝酸盐。硝酸与金属常涉及氧化还原，不能机械套“酸加金属必出氢气”。',
-        'pH 不是“酸分子个数”的直接读数，而与 H⁺ 活度有关；本阶段按浓度近似理解。室温下 pH 小于 7 为酸性。观察到气泡只能证明发生了放气反应；没有反应速度、浓度与对照条件，不能由“镁会冒泡”判为强酸。多元酸能逐步失去多个质子，也不代表每一步都完全电离。',
-        'pH 每降低 1，H⁺ 浓度增为原来的 10 倍；降低 2 则增为 100 倍，而不是 2 倍。mono-/di-/tri-/polyprotic 分别表示一元、二元、三元和多元：HCl 是一元酸，H₂SO₄ 完全中和按二元酸计，H₃PO₄ 按三元酸计。CH₃COOH 只有羧基的一个 H 是本章通常计入的酸性质子。',
-        '一些非金属氧化物与水反应形成酸性溶液，例如 CO₂ 与水建立形成碳酸的平衡，SO₃ 与水生成 H₂SO₄。不能把“非金属氧化物”全部当成会与水成酸：CO 不符合这个常用规律。',
-      ],
-      rules: [
-        {
-          title: '比较强弱必须控制条件',
-          text: '在相同浓度、温度和酸的元数下比较 pH、导电性或相同金属的反应速率。仅比较耗碱总量，通常是在测酸的总量。',
-        },
-        {
-          title: '酸的元数来自中和比例',
-          text: '完全中和时，$z n(\\mathrm{acid})=n(\\mathrm{OH^-})$。z 是每个酸分子可提供的酸性质子数，不能把化学式中的所有 H 都算进去。',
-        },
-        {
-          title: '碳酸盐的共同行为',
-          text: '$\\mathrm{CO_3^{2-}+2H^+\\rightarrow CO_2+H_2O}$。每摩尔碳酸根消耗 2 mol H⁺，生成 1 mol CO₂。',
-        },
-        {
-          title: '酸性和氧化性分开',
-          text: 'Cu 与稀盐酸一般不放氢；Cu 与浓硝酸可反应并生成氮氧化物。先看指定试剂和条件，再使用反应规律。',
-        },
-      ],
+      summary: acidsMethods['140901']!.summary,
+      paragraphs: [acidsMethods['140901']!.intro],
+      rules: acidsMethods['140901']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: acidsMethods['140901']!.memory,
       pitfalls: [
         '用“弱”推断乙酸不能中和或不能与碳酸盐反应。',
         '把相同酸浓度当成相同 H⁺ 浓度。',
@@ -120,32 +105,17 @@ export const esatAcidsBasesSalts: KnowledgeLesson = {
     {
       code: '140902',
       title: '碱',
-      summary: '先辨能否接受 H⁺，再辨是否溶于水；碱性不要求化学式一定含 OH。',
-      paragraphs: [
-        '本章的 base 指能与酸反应、接受质子的物质；alkali 是可溶于水并产生碱性溶液的碱。NaOH、KOH 属于 alkalis；CuO 是不溶性碱性氧化物，可以中和酸，但不是可溶性碱。**“不溶”不等于“不能与酸反应”。**',
-        '氨的化学式没有 OH，却能与水反应建立 $\\mathrm{NH_3+H_2O\\rightleftharpoons NH_4^++OH^-}$，使溶液呈碱性。氨是弱碱；不能因它不完全电离，就在完全中和时少算一部分氨。',
-        '常见金属氧化物可以体现碱性，如 CaO 与酸生成钙盐和水。Al₂O₃、ZnO 是两性氧化物，能与酸或强碱反应；所以“金属氧化物全部只显碱性”不是可靠规则。判定氧化物的酸碱性，要用反应性质，而不是只看元素名称。',
-        '做混合物分离题时，先根据溶解性确定滤液里有什么，再决定中和对象。NaOH 溶于水，Mg(OH)₂ 溶解度很小；若题目明确按完全不溶处理，过滤后耗酸量对应 NaOH，不能把两种碱的总质量直接代入同一个摩尔质量。',
-        '碱也要分清强弱与浓稀：NaOH 在水中溶解的部分充分解离，氨与水仅部分反应生成 OH⁻；前者为强碱，后者为弱碱。浓度则描述每单位体积含多少溶质，因此可以有稀的强碱和浓的弱碱。CaO 与水生成 Ca(OH)₂，后者溶解的部分使水呈碱性；CuO 则不因为是碱性氧化物，就必然与水反应或形成可溶性碱。',
-      ],
-      rules: [
-        {
-          title: '碱性氧化物与酸',
-          text: '$\\mathrm{CaO+2HCl\\rightarrow CaCl_2+H_2O}$。氧化物里的 O²⁻ 接受两个 H⁺ 形成水。',
-        },
-        {
-          title: '每个化学式单位的 OH⁻ 数量',
-          text: '1 mol NaOH 提供 1 mol OH⁻；1 mol Ca(OH)₂ 完全反应对应 2 mol OH⁻。浓度相同不代表中和能力相同。',
-        },
-        {
-          title: '氨接受质子',
-          text: '$\\mathrm{NH_3+H^+\\rightarrow NH_4^+}$，1 mol NH₃ 中和 1 mol H⁺；氨不是靠金属离子与酸反应。',
-        },
-        {
-          title: '碱性溶液的观察',
-          text: '室温下通常 pH > 7，使红色石蕊变蓝。指示剂用于判断范围，不能直接给出所有溶液的精确浓度。',
-        },
-      ],
+      summary: acidsMethods['140902']!.summary,
+      paragraphs: [acidsMethods['140902']!.intro],
+      rules: acidsMethods['140902']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: acidsMethods['140902']!.memory,
       pitfalls: [
         '把 base 和 alkali 完全等同。',
         '因为 NH₃ 不含 OH 就否认氨水碱性。',
@@ -214,31 +184,17 @@ export const esatAcidsBasesSalts: KnowledgeLesson = {
     {
       code: '140903',
       title: '中和',
-      summary: '把体积换成摩尔数，按质子与 OH⁻ 配对，再处理剩余、稀释和盐的制备。',
-      paragraphs: [
-        '强酸与强碱的净离子反应是 $\\mathrm{H^++OH^-\\rightarrow H_2O}$。旁观离子组合形成盐。若是弱酸 HA，则净离子式应保留 HA：$\\mathrm{HA+OH^-\\rightarrow A^-+H_2O}$，不能把未完全电离的弱酸全部拆成自由离子。',
-        '中和计算先写完整配平式，再用 n = cV，V 换成 dm³。用酸和碱的分子浓度直接写 c₁V₁ = c₂V₂ 只适用于 1:1 比例；H₂SO₄、H₃PO₄ 和 Ca(OH)₂ 都需要额外考虑系数。反应恰好完全不意味着所有盐溶液的 pH 都为 7，盐的组成也会影响酸碱性。',
-        '回滴有三个量：加入的酸、剩下的酸、被原样品消耗的酸。先由滴定碱量求剩余酸，再作差，最后按原反应的系数求样品。若滴定的是稀释液的一小份，先求这一份中的物质的量，再按总体积与取样体积之比放大。',
-        '制备可溶性盐时，不溶性碱可加至过量以确保酸用尽，再过滤除去剩余固体、适当蒸发、冷却结晶。酸与可溶性碱则可用滴定确定比例，再按相同体积重做而不加指示剂。不要把制得晶体必须“蒸干”当作通用步骤，也不能靠过滤除去溶解的过量 NaOH。',
-      ],
-      rules: [
-        {
-          title: '统一为可中和的量',
-          text: '完全反应时，酸可提供的 H⁺ 摩尔数 = 碱可接受的 H⁺ 摩尔数。二元酸与 NaOH 完全中和时的物质的量比为 1:2。',
-        },
-        {
-          title: '回滴顺序',
-          text: '酸的已反应量 = 加入量 − 由回滴测得的剩余量，再除以反应方程中的酸系数。',
-        },
-        {
-          title: '混合后的 pH',
-          text: '先按化学计量抵消 H⁺ 与 OH⁻，再以混合后的总体积求剩余浓度；不能平均两瓶溶液的 pH。',
-        },
-        {
-          title: '量热与滴定的交点',
-          text: '温度最高处通常接近酸碱恰好反应的位置；之后加入过量液体可使温度下降，并不表示逆向中和正在大量发生。',
-        },
-      ],
+      summary: acidsMethods['140903']!.summary,
+      paragraphs: [acidsMethods['140903']!.intro],
+      rules: acidsMethods['140903']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: acidsMethods['140903']!.memory,
       pitfalls: [
         '所有酸碱组合都直接套 c₁V₁ = c₂V₂。',
         '回滴把剩余酸当成样品消耗的酸。',

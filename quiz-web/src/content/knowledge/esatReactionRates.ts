@@ -1,5 +1,6 @@
 // ESAT 第十章反应速率讲义：用实验变量、曲线斜率和能垒连接宏观读数与微观解释。
 import type { KnowledgeLesson, KnowledgeExamFocus } from './types'
+import { reactionRateMethods } from './reactionRateMethods'
 
 const rateGraphs: NonNullable<KnowledgeExamFocus['pastPaperPatterns']> = [
   {
@@ -54,31 +55,17 @@ export const esatReactionRates: KnowledgeLesson = {
     {
       code: '141001',
       title: '影响速率的因素',
-      summary: '先保证目标产量能够达到，再比较浓度、温度、表面积和催化条件。',
-      paragraphs: [
-        '比较反应速率需要控制其他条件。对常见气体和溶液反应，提高反应物浓度或压缩气体通常提高单位体积内的碰撞频率；对固液反应，把同质量固体磨成粉末增加暴露表面积，让更多粒子同时接触。',
-        '升温使粒子运动更快，更重要的是能量达到活化能的比例增大。催化剂提供另一条活化能较低的路径。这两种方法都能加快反应，但升温没有降低原反应路径的活化能，催化剂也没有提高粒子的平均动能。',
-        '速率与产量分开问。等摩尔同种反应物，在充分反应且条件不改变平衡限制时，磨碎或加催化剂通常不增加理论产量；增加反应物量则可能改变平台。若提高酸浓度的同时体积不变，酸的总摩尔数也增大，必须重新判断限制试剂。',
-        '题目问“最短时间生成指定量”，先用方程式筛掉原料不足的实验，再在合格项里比较速度。否则会选到虽然起初最快，却根本达不到目标量的粉末实验。反应物身份也重要，不能将金属单质的活性顺序套到已经形成的盐离子。',
-      ],
-      rules: [
-        {
-          title: '列控制变量',
-          text: '比较温度时控制质量、浓度、体积和表面积；比较表面积时保持质量和物质种类相同。',
-        },
-        {
-          title: '先够量再比快',
-          text: '由目标产物量倒推各反应物最低需要量，排除不足项，再比较剩余条件。',
-        },
-        {
-          title: '浓度与总量分别计算',
-          text: '$n=cV$。浓度翻倍但体积减半，总摩尔数不变；初始速率仍可能不同。',
-        },
-        {
-          title: '不擅自假定倍数',
-          text: '浓度翻倍不必然使速率翻倍；倍数关系应由题目数据或给出的速率规律决定。',
-        },
-      ],
+      summary: reactionRateMethods['141001']!.summary,
+      paragraphs: [reactionRateMethods['141001']!.intro],
+      rules: reactionRateMethods['141001']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: reactionRateMethods['141001']!.memory,
       pitfalls: [
         '见粉末就选最快，忘记它可能达不到目标产量。',
         '把加压的作用解释成平均动能增加。',
@@ -131,32 +118,17 @@ export const esatReactionRates: KnowledgeLesson = {
     {
       code: '141002',
       title: '测量反应速率',
-      summary: '选一个随反应改变、又能可靠测量的量，把变化除以对应时间。',
-      paragraphs: [
-        '生成气体的反应可以记录气体体积随时间的变化，用气体注射器或合适的排水装置收集；若气体能逸出，也可记录反应容器的质量下降。测量方法要适合气体性质，易溶于水的气体不宜简单用排水法。',
-        '平均速率是某一时间段内的变化量除以时间间隔。跟踪 CO₂ 体积可用 cm³/s，跟踪镁消耗质量可用 g/s。它们描述同一反应，却不是同一个数值，需要摩尔质量和方程式比例转换。',
-        '质量下降法测的是逃逸物质的质量，不是所有产物的总质量。容器可以用合适的棉塞减少液滴飞溅，但不能密闭堵住气体；若水蒸发或液滴飞出，失重就不完全来自目标气体，测得的速率会偏大。',
-        '浑浊出现或十字消失实验测达到相同视觉终点的时间。只有相同条件下终点对应近似相同反应量时，1/t 才能作为相对速率指标。不能把 1/t 当成任意反应的绝对 mol/s，也不能忽略起计时、混合和读数的延迟。',
-        '若反应物或产物有特征颜色，可记录吸光度或颜色强度随时间变化；离子数量明显变化时也可监测电导。封闭、恒温且体积固定的产气实验可测压强变化。选择方法的关键是所测物理量确实随反应进度规律变化，并能建立对应关系；不是所有反应都适合失重或收集气体。',
-      ],
-      rules: [
-        {
-          title: '平均速率',
-          text: '$\\text{average rate}=\\Delta(\\text{measured quantity})/\\Delta t$。分母是所考察时间段，不总是从零开始的时刻。',
-        },
-        {
-          title: '体积转质量',
-          text: '先用气体摩尔体积把 V 转为 n，按反应系数求目标反应物的 n，再乘摩尔质量。',
-        },
-        {
-          title: '从失重到累计气体',
-          text: '若只有目标气体逸出，累计气体质量 = 初始总质量 − 当前总质量；相邻累计量之差才是该时间段的产量。',
-        },
-        {
-          title: '实验误差方向',
-          text: '漏气使收集体积偏小；飞溅会使失重偏大。选方法时同时考虑气体溶解性、气密性和时间分辨率。',
-        },
-      ],
+      summary: reactionRateMethods['141002']!.summary,
+      paragraphs: [reactionRateMethods['141002']!.intro],
+      rules: reactionRateMethods['141002']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: reactionRateMethods['141002']!.memory,
       pitfalls: [
         '把前两秒的总生成量直接写成每秒速率。',
         'cm³ 没换成 dm³ 就除以 24。',
@@ -208,31 +180,17 @@ export const esatReactionRates: KnowledgeLesson = {
     {
       code: '141003',
       title: '速率图像数据',
-      summary: '每条曲线分三处读：起始斜率、当前斜率和最终平台。',
-      paragraphs: [
-        '产物体积—时间图中，曲线斜率代表生成速度。起点处更陡表示初始速率更快；曲线逐渐变平通常表示反应物消耗后速率减小；平台表示可测产物不再增加。平台高度对应最终量，不能用来代替速率。',
-        '求某一时间段平均速率，在曲线上取该段两端点作差；求某时刻瞬时速率，则在该处作切线并取切线上的两个相距较远的点求斜率。不要把该点与原点连成的割线当作瞬时速率。',
-        '反应物质量—时间图向下走，原始斜率为负；消耗速率通常取其正的大小。若图画的是累计逸出气体质量，则应向上走并逐渐接近平台。先看纵轴文字，不能仅凭曲线外观套答案。',
-        '浓度变化后的新平台，要由限制试剂重新计算。若酸从不足变为过量，平台增加可能小于浓度的增加倍数，因为另一反应物会转而限制。仅加催化剂或增大表面积时，在相同初始量和完全反应条件下应更早到达相同平台。',
-      ],
-      rules: [
-        {
-          title: '初始快慢',
-          text: '比较 t = 0 附近的斜率，不比较同一时刻的高度，更不能比较最终平台高度。',
-        },
-        {
-          title: '平台核对',
-          text: '先算各试剂 n/系数，最小者决定最大反应进度，再换算最终气体量。',
-        },
-        {
-          title: '累计与分段',
-          text: '累计量不会在正常产气过程中自行下降；相邻读数差可以逐渐减小，表示反应变慢。',
-        },
-        {
-          title: '拐点不能凭形猜',
-          text: '读清是否存在延迟、温度变化或额外加入试剂；无此条件时不要自行补充实验过程。',
-        },
-      ],
+      summary: reactionRateMethods['141003']!.summary,
+      paragraphs: [reactionRateMethods['141003']!.intro],
+      rules: reactionRateMethods['141003']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: reactionRateMethods['141003']!.memory,
       pitfalls: [
         '把最终体积大等同于初始速率快。',
         '按浓度倍数直接放大平台。',
@@ -275,25 +233,17 @@ export const esatReactionRates: KnowledgeLesson = {
     {
       code: '141004',
       title: '碰撞理论',
-      summary: '发生碰撞只是第一步；方向合适且能量足够，才可能成为有效碰撞。',
-      paragraphs: [
-        '反应粒子必须相遇，且碰撞的能量足以越过活化能、取向适合形成或断裂相应化学键，才可能发生反应。每秒的有效碰撞数越多，反应通常越快；不是所有碰撞都有效。',
-        '提高浓度使同体积中粒子更多，增加碰撞机会。恒温压缩气体有类似作用：粒子更密集，但平均动能由温度决定，没有因压力增大而自动提高。气体压力的作用也不能照搬到几乎不可压缩的固体和液体。',
-        '升温使平均动能增加，碰撞更频繁，且能量分布中超过活化能的比例增加。在解释中，“粒子运动更快”通常不够完整，应补上“更多碰撞具有足够能量”。催化剂则降低所需门槛，而不是让分布整体变成高温状态。',
-        '固体内部的粒子难以直接接触溶液反应物；磨碎后露出更多表面位点，提高发生碰撞的可用区域。因此“同质量粉末更快”不需要假设固体变成更多摩尔，也不需要改变反应焓。',
-      ],
-      rules: [
-        {
-          title: '有效碰撞的两个条件',
-          text: '能量达到门槛，并有合适取向；仅增加相遇次数不等于所有相遇都发生反应。',
-        },
-        { title: '恒温改变压力', text: '平均动能不变，单位体积粒子数改变，碰撞频率随之改变。' },
-        { title: '升温的关键补句', text: '超过活化能的粒子比例增加，从而单位时间内有效碰撞更多。' },
-        {
-          title: '解释必须对应变量',
-          text: '表面积说暴露位点，浓度说数密度，温度说能量分布，催化说替代路径；不要混用理由。',
-        },
-      ],
+      summary: reactionRateMethods['141004']!.summary,
+      paragraphs: [reactionRateMethods['141004']!.intro],
+      rules: reactionRateMethods['141004']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: reactionRateMethods['141004']!.memory,
       pitfalls: [
         '认为所有碰撞都能反应。',
         '恒温加压时说粒子平均动能增加。',
@@ -345,28 +295,17 @@ export const esatReactionRates: KnowledgeLesson = {
     {
       code: '141005',
       title: '活化能',
-      summary: '从反应物所在高度量到峰顶，别把能垒当成反应总能量差。',
-      paragraphs: [
-        '活化能 Eₐ 是反应路径的能量门槛。能量图中，正反应从反应物能级量到峰顶，逆反应从产物能级量到同一峰顶。峰顶的绝对纵坐标不是活化能，除非反应物恰好被定义为零。',
-        '反应焓 ΔH 是产物与反应物能级的差；它说明净吸热或放热，不直接说明快慢。放热反应仍可有很高能垒，需要点燃或加热启动，不能因为放热就认为会立即剧烈发生。',
-        '对于同一条单步路径，Eₐ(正) − Eₐ(逆) = ΔH。若正反应放热，产物较低，从产物返回峰顶的距离更长，所以逆反应活化能更大。先画两端和峰顶的小草图，比记不带符号的加减口诀稳妥。',
-        '比较不同反应的速率，只有温度、浓度、碰撞与取向等条件受控时，较小活化能才能作为主要判据。题目若没有给定可比条件，不能单凭两张能量图断言现实中的全部速率关系。',
-      ],
-      rules: [
-        {
-          title: '三条垂直距离',
-          text: '$E_{a,f}=E_{peak}-E_R$；$E_{a,r}=E_{peak}-E_P$；$\\Delta H=E_P-E_R$。',
-        },
-        { title: '逆反应能垒', text: '$E_{a,r}=E_{a,f}-\\Delta H$。ΔH 为负时，减去负数等于增加。' },
-        {
-          title: '升温与能垒',
-          text: '沿同一反应路径升温，不表示峰顶相对反应物降低，而是更多粒子有足够能量越过它。',
-        },
-        {
-          title: '催化改变路径',
-          text: '催化后门槛降低，两端能量保持；同温下更多粒子可沿新路径反应。',
-        },
-      ],
+      summary: reactionRateMethods['141005']!.summary,
+      paragraphs: [reactionRateMethods['141005']!.intro],
+      rules: reactionRateMethods['141005']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: reactionRateMethods['141005']!.memory,
       pitfalls: [
         '把峰顶高度直接当活化能。',
         '放热反应的逆反应能垒用 150 − 100，而忽略 ΔH 的负号。',
@@ -414,25 +353,17 @@ export const esatReactionRates: KnowledgeLesson = {
     {
       code: '141006',
       title: '催化剂',
-      summary: '让粒子走更容易的路径，循环后再生；改变到达速度，不改终点位置。',
-      paragraphs: [
-        '催化剂参与反应的中间步骤并在循环末再生，整体上不被消耗。它提供活化能较低的替代反应路径，使单位时间内成功反应的粒子增多。“不被消耗”不是说催化剂从不与任何物质作用。',
-        '固体催化剂的表面可以吸附反应物，使其接近并有利于断键、成键，产物再解吸离开，空出活性位。颗粒更细通常有更大表面积；若位点被杂质占据，活性可能下降。吸附不是把整个反应物吸收到固体内部。',
-        '催化剂不改变反应物和产物的能级，因此不改变 ΔH。在固定温度下不改变平衡常数与最终平衡组成；它能使正、逆反应都加快，帮助系统更快达到原有平衡。工业上在有限生产时间内增加实际产出，不等于改变理论平衡产率。',
-        '判断一个物质是否催化剂，可以把各步反应按倍数相加，检查它是否先消耗后再生并在总式中消去。氩气等惰性保护气氛用于减少副反应，不会因此自动成为催化剂。',
-      ],
-      rules: [
-        {
-          title: '能量图的变化',
-          text: '峰变低，两端不动；不是把反应物加热，也不是改变 ΔH 的正负。',
-        },
-        { title: '平衡边界', text: '同温下，催化剂改变达到平衡的时间，不改变平衡组成或 K。' },
-        { title: '表面循环', text: '吸附 → 表面反应 → 解吸；产物离开才能释放位点供下一轮使用。' },
-        {
-          title: '总式识别',
-          text: '配好中间步骤的倍数后相加；催化剂在起始步骤消耗、随后再生，中间体则先生成后消耗。',
-        },
-      ],
+      summary: reactionRateMethods['141006']!.summary,
+      paragraphs: [reactionRateMethods['141006']!.intro],
+      rules: reactionRateMethods['141006']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: reactionRateMethods['141006']!.memory,
       pitfalls: [
         '认为催化剂从不参与反应。',
         '把“有限时间产量增加”说成平衡产率增加。',

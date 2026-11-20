@@ -1,5 +1,6 @@
 // ESAT 分离技术讲义：用物质身份、物性与目标产物串联装置选择和真实题目。
 import type { KnowledgeLesson } from './types'
+import { separationMethods } from './separationMethods'
 
 export const esatSeparationTechniques: KnowledgeLesson = {
   code: '140800',
@@ -19,28 +20,17 @@ export const esatSeparationTechniques: KnowledgeLesson = {
     {
       code: '140801',
       title: '从化合物中取得元素',
-      summary: '先辨认化合物和混合物；从化合物得到单质，必须改变物质的化学身份。',
-      paragraphs: [
-        '空气中的氮气原本就是 N₂，分馏只是把它与其他气体分开。氯化钠中的钠则是 Na⁺，不是被盐包住的小块钠金属。**要从化合物得到组成元素的单质，需要化学变化**，不能靠普通过滤、蒸发或分液直接取出。',
-        '化学过程不只包括名称叫 displacement 的单置换反应。CuO 经还原得到 Cu，熔融 NaCl 经电解得到 Na 和 Cl₂，都是化合物转为组成单质的例子。加热本身不是判断标准：水沸腾是物态变化，某些化合物热分解则是化学变化。',
-        '在合适的反应条件下，较活泼的金属可将较不活泼的金属从其盐中置换出来。例如 Fe 与 CuSO₄ 溶液反应时，Fe 形成 Fe²⁺，Cu²⁺ 变成 Cu；硫酸根主要是旁观离子。判断的是**加入的金属与盐中金属的相对活泼性**，不是看盐溶液有没有颜色。',
-        '提取方法取决于化合物和条件。适用时可用碳或其他还原剂还原金属氧化物；较活泼金属常需电解熔体。水溶液电解还存在水参与的竞争：不能从“盐里有 Na⁺”就断言会析出 Na。这里先理解化学变化的必要性，具体电极规则在电解章节展开。',
-        '活泼性排序还可借氢作为桥梁：在题给的普通稀盐酸等条件下，能置换酸中氢生成 H₂ 的金属位于氢前；不能发生该反应的金属通常位于氢后。若 R 能置换 T、T 能与稀盐酸反应而 M 不能，就可以连接为 R > T > H > M。不要把这条规则套到具有特殊氧化性的浓硝酸等条件。',
-      ],
-      rules: [
-        {
-          title: '先问产物身份',
-          text: '蒸干盐水：NaCl 仍是 NaCl，属于物理分离；熔盐电解：生成 Na 和 Cl₂，是化学变化。得到更纯的化合物，不等于把它拆成单质。',
-        },
-        {
-          title: '置换看竞争方向',
-          text: '若 A 能从 B 的盐中置换 B，在题设条件下 A 比 B 活泼。反向一般不发生；同一金属放入自身盐溶液，没有这种净置换。',
-        },
-        {
-          title: '先反应，再分离产物',
-          text: '化学反应制得金属后，还可能需要过滤、洗涤或蒸馏把它从其他物质中取出。前一步改变化学身份，后一步利用物性，两步不能混称。',
-        },
-      ],
+      summary: separationMethods['140801']!.summary,
+      paragraphs: [separationMethods['140801']!.intro],
+      rules: separationMethods['140801']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: separationMethods['140801']!.memory,
       visual: 'separation-techniques',
       pitfalls: [
         '认为盐水蒸发能得到钠与氯。',
@@ -145,27 +135,17 @@ export const esatSeparationTechniques: KnowledgeLesson = {
     {
       code: '140802',
       title: '混合物的物理分离',
-      summary: '先看是否溶解、是否互溶，再追踪目标在固体、液层或蒸气中的去向。',
-      paragraphs: [
-        '混合物的各成分没有因为混在一起就变成一个新化合物。物理分离利用它们的性质差异，把已有成分分开。**溶液也属于混合物**：看起来透明均一，不代表只含一种物质。',
-        '固液混合时，先分“已溶 dissolved”和“不溶 insoluble”。沙留在滤纸上形成滤渣 residue；盐水可通过成为滤液 filtrate，其中仍有溶解的盐。若将盐与沙加水，溶解只是让盐进入液相，之后还要过滤和结晶才能分别回收。',
-        '两种液体若不互溶 immiscible，静置可形成液层，使用分液漏斗；下层通常密度较大，应根据题给密度判断，不能默认“有机层总在上面”。互溶 miscible 的液体混成一相，不能分液，要考虑挥发性等其他差异。',
-        '一条路线可以组合多种方法。例如不互溶液体与两种互溶液体同在一个样品中，可先按液层分液，再对需要的那层蒸馏。**每次操作只分开满足该条件的部分**；不要把一层液体自动当成纯物质。',
-      ],
-      rules: [
-        {
-          title: '滤液不等于纯水',
-          text: '过滤除去不溶固体，不除去普通滤纸可透过的溶解粒子；判断后续滴定或结晶时，先写出滤液里留下的溶质。',
-        },
-        {
-          title: '液层与成分数不是一回事',
-          text: '一层可含两种或更多互溶物质；两层表示出现不同液相，不表示总共恰好两种化合物。',
-        },
-        {
-          title: '写出目标走向',
-          text: '过滤分成滤渣与滤液；分液分成上层与下层；蒸馏分成馏出液与残液。先选对那一份，再安排下一步。',
-        },
-      ],
+      summary: separationMethods['140802']!.summary,
+      paragraphs: [separationMethods['140802']!.intro],
+      rules: separationMethods['140802']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: separationMethods['140802']!.memory,
       visual: 'separation-techniques',
       pitfalls: [
         '用过滤去除盐水中已经溶解的盐。',
@@ -249,33 +229,17 @@ export const esatSeparationTechniques: KnowledgeLesson = {
     {
       code: '140803',
       title: '选择分离方法',
-      summary: '把目标物、可利用的性质和操作顺序连起来；装置名称必须与收集位置对应。',
-      paragraphs: [
-        '先问“想要哪一个成分”。从盐水取水，适合简单蒸馏 simple distillation：加热产生蒸气，再冷凝收集液体；从盐水取盐，则可蒸发浓缩、结晶。只把水蒸走不收集，不能完成“回收水”的目标。',
-        '分馏 fractional distillation 在分馏柱中发生反复汽化和冷凝，适合利用互溶液体的挥发性差异。较易挥发的成分通常在上升蒸气中富集。液态空气可据沸点判断收集次序；纯物质的沸点数据要按相同压力比较。乙醇与水分馏能提高乙醇比例，但普通分馏不能保证得到无水纯乙醇。',
-        '分液漏斗 separating funnel 用于不互溶液层；过滤 filtration 用于不溶固体与液体。离心 centrifugation 加快悬浮颗粒沉降，得到沉淀与上清液，适合细小颗粒的分离；**离心不是把溶解盐从水中甩出去**。',
-        '溶解 dissolving 可选择性地把混合固体中的一种转入合适溶剂。蒸发 evaporation 除去溶剂；结晶 crystallisation 利用浓缩或降温导致的过饱和来形成晶体，再过滤、适量冷溶剂洗涤和干燥。不要把易分解溶质一律强热蒸干；热过滤除不溶杂质与冷却后的过滤收晶体，保留的部分不同。',
-        '纸色谱 paper chromatography 利用组分在固定相与流动相之间作用的差异。纸支撑固定相，溶剂是向前移动的流动相；在同一体系中，越容易随流动相走的组分通常迁移越远。用铅笔画基线，点样处高于初始溶剂液面，展开后及时标记溶剂前沿。',
-        'Rf 比较相对路程：\\(R_f=\\frac{\\text{斑点中心距基线的距离}}{\\text{溶剂前沿距基线的距离}}\\)。它没有单位。相同纸、溶剂和温度等条件下，可用近似相同的 Rf 比较；换溶剂后不能照搬数值。二维色谱每一方向有自己的前沿和路程，不能混用两个分母。',
-      ],
-      rules: [
-        {
-          title: '留固体还是留溶剂',
-          text: '收溶剂要把蒸气冷凝；收溶质考虑蒸发或结晶。滤纸上的固体与穿过滤纸的溶液，需按目标选择保留。',
-        },
-        {
-          title: '分馏的依据是挥发性',
-          text: '同压下较低沸点成分通常先富集并被收集；柱中反复交换改善分离，不保证每一馏分绝对纯，也不产生新元素。',
-        },
-        {
-          title: '离心与过滤的共同限制',
-          text: '两者都能用于悬浮颗粒的分离，但普通条件下不能直接除去已经溶解的盐。离心后还需要取出上清液或沉淀。',
-        },
-        {
-          title: 'Rf 三个对齐',
-          text: '起点同为基线，方向同为该次展开方向，距离单位相同。比较色谱身份须同条件；斑点远不表示浓度一定高。',
-        },
-      ],
+      summary: separationMethods['140803']!.summary,
+      paragraphs: [separationMethods['140803']!.intro],
+      rules: separationMethods['140803']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: separationMethods['140803']!.memory,
       visual: 'separation-techniques',
       pitfalls: [
         '只蒸发不冷凝，却声称收到了溶剂。',
@@ -389,27 +353,17 @@ export const esatSeparationTechniques: KnowledgeLesson = {
     {
       code: '140804',
       title: '用色谱判断纯度',
-      summary: '先数可分辨斑点，再比较同条件的迁移；把证据与结论的强度对应起来。',
-      paragraphs: [
-        '对一个点样样品，若展开后出现多个可分辨的有效斑点，说明在该条件下检测到了多个成分。**看到一个斑点并不无条件证明纯净**：不同物质可能重叠，也可能有成分未被当前显色方法检出。',
-        '考试若明确混合物中的全部组分已经完全分离，便可按该前提用单斑点筛选纯样品。先按题设判哪些样品符合，再对其斑点求 Rf；不要未经纯度筛选就拿整张纸上最高的斑点作答。',
-        '与已知样品比较时，使用相同展开条件。相同 Rf 支持可能是同一种成分，但不是唯一身份的充分证明。改换溶剂或进行二维展开可以拆开第一次重叠的成分，提高判断的可靠性。',
-        '二维色谱先用一种溶剂展开、干燥，再转动方向用第二种溶剂展开。每个最终斑点的两个坐标分别对应两种溶剂的迁移；**两次各看一维可能都不能分全，组合后却能分开**。不要把斑点数量、距离和浓度混为一谈。',
-      ],
-      rules: [
-        {
-          title: '单点是有条件的证据',
-          text: '题目明确完全分离时遵守该前提；一般实验中，“一个斑点”应表述为本检测条件下未发现多组分，而不是绝对纯。',
-        },
-        {
-          title: '同条件才比较身份',
-          text: '同一纸、同一溶剂和相近温度下比较 Rf。展开前沿不同不能直接比绝对距离；不同物质也可能恰好重叠。',
-        },
-        {
-          title: '两方向分别读',
-          text: '横向路程除以横向溶剂前沿，纵向路程除以纵向前沿。重合的纵坐标不代表最终仍重合，还要检查横坐标。',
-        },
-      ],
+      summary: separationMethods['140804']!.summary,
+      paragraphs: [separationMethods['140804']!.intro],
+      rules: separationMethods['140804']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: separationMethods['140804']!.memory,
       visual: 'separation-techniques',
       pitfalls: [
         '看到一斑点就无条件宣称绝对纯。',

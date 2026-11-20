@@ -1,5 +1,6 @@
 // ESAT 第十六章化学检验：以试剂、现象、结论的证据链组织复习，题目始终读取现有题源。
 import type { KnowledgeLesson } from './types'
+import { chemicalTestMethods } from './chemicalTestMethods'
 
 export const esatChemicalTests: KnowledgeLesson = {
   code: '141600',
@@ -19,27 +20,17 @@ export const esatChemicalTests: KnowledgeLesson = {
     {
       code: '141601',
       title: '气体检验',
-      summary: '由特征观察确认气体身份；产气反应和检验反应是两步。',
-      paragraphs: [
-        '先把常见气体分成三类：与燃烧有关的 H₂、O₂；改变溶液或指示纸的 CO₂、NH₃、Cl₂。氢气用点燃的木条在少量气体样品的管口检验，出现爆鸣声；氧气使带火星的木条复燃。**点燃的木条和带火星的木条不是同一检验条件**。',
-        '二氧化碳通入澄清石灰水后出现白色浑浊，因为生成不溶的 CaCO₃。石灰水本来是 Ca(OH)₂ 的澄清水溶液，不能把浑浊归因于“生成了氢氧化钙”。持续通入过量 CO₂，沉淀可转化为可溶的碳酸氢钙而使浑浊减弱，因此要记录现象顺序。',
-        '氯气使**湿润蓝色石蕊先变红，随后被漂白为白色**。干燥纸与湿润纸效果不同，不能省略“湿润”。补充理解：氨气使湿润红色石蕊变蓝，因为溶于水后形成碱性环境。不要凭刺激性气味去直接吸闻未知气体。',
-        '无色、气泡、使火焰熄灭都不够唯一：多种气体无色，也有多种气体不支持燃烧。考试给“酸加金属”或“酸加碳酸盐”时，可先预测气体，但仍要用对应检验闭合证据。实验图也要注意导管是否实际把气体送入检验液。',
-      ],
-      rules: [
-        {
-          title: '石灰水检验的净变化',
-          text: '$\\mathrm{CO_2+Ca(OH)_2\\rightarrow CaCO_3\\downarrow+H_2O}$。看到的是固体小颗粒悬浮，属于沉淀现象。',
-        },
-        {
-          title: '两步分开写',
-          text: '产气：碳酸盐 + 酸 → CO₂；检验：CO₂ + 石灰水 → CaCO₃。两个反应中的钙、钠来源不同。',
-        },
-        {
-          title: '最小结论',
-          text: '写“符合某气体的特征检验”，不要把“气体产生”直接写成“必为氢气”。混合气还需结合其他证据。',
-        },
-      ],
+      summary: chemicalTestMethods['141601']!.summary,
+      paragraphs: [chemicalTestMethods['141601']!.intro],
+      rules: chemicalTestMethods['141601']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: chemicalTestMethods['141601']!.memory,
       pitfalls: [
         '把H₂的点燃木条与O₂的带火星木条交换。',
         '忘记氨气和氯气检验需要湿润指示纸。',
@@ -104,28 +95,17 @@ export const esatChemicalTests: KnowledgeLesson = {
     {
       code: '141602',
       title: '阴离子检验',
-      summary: '试剂先后次序用于排除干扰，颜色必须与检验体系一起读。',
-      paragraphs: [
-        '**碳酸根 CO₃²⁻** 加稀酸产生 CO₂，进一步通入石灰水验证。对于未知盐，要观察加酸当下是否冒泡，而不是只盯最后一管的沉淀；这一步本身可能已经区分出碳酸盐。',
-        '**卤离子 Cl⁻、Br⁻、I⁻** 的常用检验是先加稀硝酸酸化，再加硝酸银：分别得到白色 AgCl、奶油色 AgBr、黄色 AgI。酸化减少碳酸根等干扰；不能用盐酸酸化，因为它会额外引入 Cl⁻，使氯离子检验出现假阳性。',
-        '**硫酸根 SO₄²⁻** 可用稀盐酸酸化后加氯化钡，出现白色 BaSO₄ 沉淀。酸化先除去能形成其他钡盐沉淀的干扰离子；不能用硫酸酸化检验硫酸根，因为试剂本身引入待检离子。酸化钡硝酸盐也是相应可用体系，按题给试剂判断。',
-        '同样是白色，AgCl、BaSO₄ 与 CaCO₃ 的试剂不同。把“银盐—卤离子”“钡盐—硫酸根”“酸产气—碳酸根”配成三条路线。要检验多个离子时，通常使用不同的小份样品，避免上一项试剂污染下一项检验。',
-        '写盐的化学式时，要把阳、阴离子证据汇合，再以总电荷为零配比。Fe³⁺ 与 SO₄²⁻ 不是 FeSO₄，而是 Fe₂(SO₄)₃；检验题接式量计算时，这一步比背相对原子质量更容易出错。',
-      ],
-      rules: [
-        {
-          title: '卤化银离子方程',
-          text: '$\\mathrm{Ag^++X^-\\rightarrow AgX(s)}$，X 为 Cl、Br 或 I。硝酸根通常为旁观离子。',
-        },
-        {
-          title: '硫酸钡离子方程',
-          text: '$\\mathrm{Ba^{2+}+SO_4^{2-}\\rightarrow BaSO_4(s)}$；反应前后的硫仍为 +6 价，不属于氧化还原。',
-        },
-        {
-          title: '鉴别题检查唯一性',
-          text: '列出每种样品的全部观察；若两行观察相同，该方法就不能独立区分它们，即使认出了第三种。',
-        },
-      ],
+      summary: chemicalTestMethods['141602']!.summary,
+      paragraphs: [chemicalTestMethods['141602']!.intro],
+      rules: chemicalTestMethods['141602']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: chemicalTestMethods['141602']!.memory,
       pitfalls: [
         '用盐酸酸化卤离子检验。',
         '只见白色沉淀就选氯离子。',
@@ -202,27 +182,17 @@ export const esatChemicalTests: KnowledgeLesson = {
     {
       code: '141603',
       title: '氢氧化钠检验金属阳离子',
-      summary: '先记颜色，再看过量；白色不是最终答案。',
-      paragraphs: [
-        '向金属离子溶液中逐滴加入 NaOH，OH⁻ 可与阳离子形成难溶的金属氢氧化物。Cu²⁺ 形成蓝色 Cu(OH)₂，Fe²⁺ 形成绿色 Fe(OH)₂，Fe³⁺ 形成棕色 Fe(OH)₃。要记的是“离子—氢氧化物—颜色”三者，而不是说NaOH本身有这些颜色。',
-        '核心要求中 Mg²⁺、Ca²⁺、Al³⁺ 均形成白色沉淀，所以白色只能缩小范围。补充比较 Zn²⁺ 及过量碱：Zn²⁺也形成白色沉淀；继续加入过量 NaOH，Al(OH)₃ 与 Zn(OH)₂ 可溶解，Mg(OH)₂、Ca(OH)₂ 通常不溶。Al 与 Zn 都能溶于过量碱，因此这一项仍不能总是把两者区分开。',
-        'Fe(OH)₂ 在空气中可逐渐被氧化而变棕，观察“立即形成的颜色”与“放置后的颜色”可能不同。题目特别写 immediately 时不要忽略；同样，淡溶液、试剂量与浓度会影响沉淀是否明显，按已给条件判断。',
-        '串联鉴别不是找一条“差不多”的线索。金属与酸反应的产物数、盐与 NaOH 的沉淀色、焰色结果必须全部一致。白色沉淀可支持 Mg²⁺，但若有砖红焰色，则还要考虑 Ca²⁺；把证据取交集比一见白色就选镁更可靠。',
-      ],
-      rules: [
-        {
-          title: '电荷决定OH⁻的数量',
-          text: '$\\mathrm{Cu^{2+}+2OH^-\\rightarrow Cu(OH)_2(s)}$；$\\mathrm{Fe^{3+}+3OH^-\\rightarrow Fe(OH)_3(s)}$。括号下标不能随颜色猜。',
-        },
-        {
-          title: '先少量，再过量',
-          text: '先记录是否有沉淀和初始颜色，再记录是否在过量NaOH中消失；两个阶段的信息不能互相覆盖。',
-        },
-        {
-          title: '“可溶于过量碱”的边界',
-          text: 'Al、Zn的白色氢氧化物具有两性；并非所有白色沉淀都会溶，也不能凭这一步单独区分Al与Zn。',
-        },
-      ],
+      summary: chemicalTestMethods['141603']!.summary,
+      paragraphs: [chemicalTestMethods['141603']!.intro],
+      rules: chemicalTestMethods['141603']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: chemicalTestMethods['141603']!.memory,
       pitfalls: [
         '把Cu(OH)₂蓝色写成铜焰色的蓝绿色。',
         '把立即出现棕色的Fe³⁺误判成后来被氧化的Fe²⁺。',
@@ -292,23 +262,17 @@ export const esatChemicalTests: KnowledgeLesson = {
     {
       code: '141604',
       title: '焰色反应',
-      summary: '把火焰颜色与金属离子配对，再判断方法是否足够区分全部样品。',
-      paragraphs: [
-        '焰色反应观察受热样品发出的特征光。常见配对是 Li⁺ 深红色 crimson、Na⁺ 黄色至黄橙色 yellow-orange、K⁺ 淡紫色 lilac、Ca²⁺ 橙红或砖红色 red-orange/brick-red、Cu²⁺ 绿色至蓝绿色 green/blue-green。英文颜色词也是题目条件，要区分 crimson 与 brick-red。',
-        '用于试验的铂丝或镍铬丝应清洁，放在无色或非明亮火焰中观察，避免背景颜色掩盖信号。钠的黄色强，少量污染就可能掩盖其他焰色；混合物不一定能凭肉眼焰色逐一鉴别所有离子。',
-        '焰色表里的对象是盐中金属离子，不代表反应性大小。K⁺ 的淡紫色不会证明某盐比钠盐“更活泼”。更不要把蓝色Cu(OH)₂沉淀、蓝绿色铜焰色与铜金属红棕色混成一个颜色。',
-        '问“哪种检验能独立区分三种盐”时，把三种盐的焰色横排。如果每种不同，方法有效；若两种都无特征焰色或颜色被混合物掩盖，就需要辅助检验。考查的不是记住其中一个颜色，而是整张观察表能否唯一对应。',
-      ],
-      rules: [
-        {
-          title: '离子配颜色，化合物不配活性',
-          text: 'Li⁺深红、Na⁺黄、K⁺淡紫、Ca²⁺砖红、Cu²⁺蓝绿；焰色与盐的酸碱性、沉淀色分别记录。',
-        },
-        {
-          title: '证据要求无重行',
-          text: '若同一检验下两个样品给出相同观察，这个检验不能独立鉴别两者。可结合NaOH或阴离子检验取交集。',
-        },
-      ],
+      summary: chemicalTestMethods['141604']!.summary,
+      paragraphs: [chemicalTestMethods['141604']!.intro],
+      rules: chemicalTestMethods['141604']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: chemicalTestMethods['141604']!.memory,
       pitfalls: [
         '混淆锂的深红与钙的砖红。',
         '用沉淀颜色替代焰色。',
@@ -366,27 +330,17 @@ export const esatChemicalTests: KnowledgeLesson = {
     {
       code: '141605',
       title: '水的检验',
-      summary: '显色检验回答“有没有水”，熔沸点证据回答“是否接近纯水”。',
-      paragraphs: [
-        '**白色无水硫酸铜**接触水后转为蓝色，可用于检验水的存在。必须从无水试剂开始；如果试剂原本已经蓝色，便没有可辨认的白变蓝证据。常见蓝色晶体CuSO₄·5H₂O含结晶水，它与无水CuSO₄的组成、式量不同。',
-        '补充检验：**干燥的蓝色氯化钴试纸**遇水变粉红。把方向与ESAT核心要求的无水硫酸铜分开记：铜盐白→蓝，钴纸蓝→粉红。两种试剂都通过颜色变化表明水存在，不能互换起止颜色。',
-        '盐水、糖水也能产生水的阳性检验，因此“检测到水”不等于“样品是纯水”。考查纯度时，要在已知压强下使用熔点、沸点等物理证据；约1个标准大气压下纯水熔点0 °C、沸点100 °C，压强改变时不能硬套100 °C。清澈也不能证明可饮用。',
-        '结晶水写在点号之后，却仍属于所称量晶体的组成。1 mol CuSO₄·5H₂O含1 mol CuSO₄对应的盐单位及5 mol结晶水；相同质量的水合盐比无水盐含有更少的Cu²⁺。这是本节选取的现有题源所覆盖的关联应用，而不是显色检验本身。',
-      ],
-      rules: [
-        {
-          title: '两种颜色变化分别记',
-          text: '无水CuSO₄：白→蓝；干CoCl₂试纸：蓝→粉红。结论限于样品含水。',
-        },
-        {
-          title: '结晶水进入摩尔质量',
-          text: '$M_r(\\mathrm{CuSO_4\\cdot5H_2O})=M_r(\\mathrm{CuSO_4})+5M_r(\\mathrm{H_2O})$。不能称水合盐却除以无水盐式量。',
-        },
-        {
-          title: '检验存在与检验纯度分开',
-          text: '颜色变化证明含水；在已知压强下的尖锐熔点/沸点可支持纯度判断。饮用安全还需其他指标，不能用这两项直接推出。',
-        },
-      ],
+      summary: chemicalTestMethods['141605']!.summary,
+      paragraphs: [chemicalTestMethods['141605']!.intro],
+      rules: chemicalTestMethods['141605']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: chemicalTestMethods['141605']!.memory,
       pitfalls: [
         '把无水硫酸铜写成蓝色。',
         '颠倒氯化钴试纸的颜色变化。',

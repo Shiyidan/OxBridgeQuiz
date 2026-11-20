@@ -1,5 +1,6 @@
 // ESAT 第十一章能量变化讲义：以体系、能级差和反应计量统一热效应、量热与键能计算。
 import type { KnowledgeLesson, KnowledgeExamFocus } from './types'
+import { energyMethods } from './energyMethods'
 
 const calorimetryPatterns: NonNullable<KnowledgeExamFocus['pastPaperPatterns']> = [
   {
@@ -55,31 +56,17 @@ export const esatEnergyChanges: KnowledgeLesson = {
     {
       code: '141101',
       title: '放热与吸热反应',
-      summary: '同一份热，从反应看是流出，从周围看是流入；先明确你站在哪一边。',
-      paragraphs: [
-        '把参与反应的物质视为体系，把水、溶液、容器和空气视为周围。放热反应把能量转移到周围，体系焓降低，ΔH 为负；吸热反应从周围吸收能量，体系焓升高，ΔH 为正。温度计测到的通常是周围的温度变化，不是直接显示 ΔH 的符号。',
-        '燃烧和许多中和反应放热；许多热分解过程需要持续供热。反应需要点火不说明总体吸热：火焰首先帮助粒子越过能垒，之后反应可以净释放能量。是否易启动和总体吸放热是两个维度。',
-        '能量图上，产物低于反应物是放热，产物高于反应物是吸热。决定 ΔH 的只有两端差，不是峰顶有多高、图画得多宽，也不是曲线面积。放热越多不自动等于反应越快。',
-        '在实验中，外部加热、散热、蒸发和容器吸热会影响温度读数。因此“温度上升说明这份周围吸热”可靠，但把读数直接当成无损反应热，需要题目给出的近似条件。混合后温度降低也要结合体系是否有外部散热解释。',
-      ],
-      rules: [
-        {
-          title: '符号从反应体系出发',
-          text: '恒压、只考虑体积功时，反应焓变对应体系吸收的热。放热负，吸热正。',
-        },
-        {
-          title: '能量守恒',
-          text: '理想绝热量热装置中，$q_{reaction}+q_{surroundings}=0$。水升温时 q水 为正，q反应 为负。',
-        },
-        {
-          title: '图像看端点',
-          text: '$\\Delta H=H_{products}-H_{reactants}$，不包含从起点到峰顶再下降的“路程”。',
-        },
-        {
-          title: '热量和产量',
-          text: '固定反应条件下释放的总热量随实际反应量变化；限制试剂耗尽后再加过量另一试剂，不继续按同一比例放热。',
-        },
-      ],
+      summary: energyMethods['141101']!.summary,
+      paragraphs: [energyMethods['141101']!.intro],
+      rules: energyMethods['141101']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: energyMethods['141101']!.memory,
       pitfalls: [
         '看到温度升高就写 ΔH > 0。',
         '把需要点燃判为吸热反应。',
@@ -137,31 +124,17 @@ export const esatEnergyChanges: KnowledgeLesson = {
     {
       code: '141102',
       title: '可逆反应能量方向',
-      summary: '正反方向交换，能量收支变号；升温偏向吸热方向，不代表所有产物都增多。',
-      paragraphs: [
-        '若 A → B 在相同状态和相同反应量下释放能量，B → A 就需要吸收等量能量。因此逆反应 ΔH 与正反应大小相同、符号相反；反应式全部乘二时，所对应焓变也乘二。必须确认题目“每摩尔”指的是哪一种物质或所写反应。',
-        '对达到平衡的体系，升温使平衡向吸热方向移动，降温使其向放热方向移动。若正向为放热，升温虽通常加快达到平衡的过程，却降低正向产物的平衡比例。必须把快慢与最终组成分别作答。',
-        '气体平衡加压通常有利于气体摩尔数较少的一侧；若两侧气体总系数相同，压强变化对平衡组成可无影响，但碰撞更频繁仍可能使反应更快。这里气体的总系数与 ΔH 的符号是两项独立信息。',
-        '催化剂让正逆反应更快，并不改变平衡常数或平衡位置。题目问平衡产物量，不能按反应“加快”就说“产物增加”。若反应并未完全转化，总放热应按实际已反应量或生成量计算，而不是按最初加入量。',
-      ],
-      rules: [
-        {
-          title: '逆转与倍乘',
-          text: '$\\Delta H_{reverse}=-\\Delta H_{forward}$。倍乘方程时同步倍乘 ΔH，物态改变则不能直接照用原数值。',
-        },
-        {
-          title: '温度判断顺序',
-          text: '先圈出哪一个方向吸热，再决定升温使哪边增加，最后独立判断反应速率。',
-        },
-        {
-          title: '按实际反应量算热',
-          text: '若每 1 mol O₂ 反应放热 116 kJ，但平衡时仅生成 z mol NO₂，且 O₂:NO₂ = 1:2，则放热为 58z kJ。',
-        },
-        {
-          title: '平衡不是停止',
-          text: '平衡时正逆速率相等而非都为零；催化剂加快两方向，不改变原有平衡组成。',
-        },
-      ],
+      summary: energyMethods['141102']!.summary,
+      paragraphs: [energyMethods['141102']!.intro],
+      rules: energyMethods['141102']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: energyMethods['141102']!.memory,
       pitfalls: [
         '升温总使“产物更多”，忘记正反应可能放热。',
         '把初始加入量当成可逆反应实际转化量。',
@@ -219,28 +192,17 @@ export const esatEnergyChanges: KnowledgeLesson = {
     {
       code: '141103',
       title: '能级图',
-      summary: '把起点、每个峰、每个中间谷和终点标清，所有能量都是两层之间的差。',
-      paragraphs: [
-        '能级图的纵轴为能量，横轴为反应进程，不是时间。反应物和产物的水平高度表示相对能量；峰顶表示路径中的高能过渡状态。图的横向宽度不能告诉你反应用了几秒。',
-        '单步图中，正向活化能从反应物量到峰顶，逆向从产物量到峰顶，反应焓只取产物减反应物。画图时可以自行选择零点，但换零点不会改变这些差值。',
-        '多步图中，每一步的活化能必须从该步的起始物或中间体能级量到该步峰顶。例如第二步应从中间谷出发，不能仍从最初反应物或整张图的零点开始。中间体是谷，过渡状态是峰，两者不是同一个东西。',
-        '加入催化剂后的路径可以有不同的峰数或更低的有效能垒，但若总体反应及物态相同，起点、终点和 ΔH 不变。比较能量图时先检查两端是否相同，再比较能垒，避免把完全不同反应误当成催化前后。',
-      ],
-      rules: [
-        { title: '横轴不是时间', text: '用图求能量差，不从峰的位置或宽度直接读反应时间。' },
-        {
-          title: '分步从本步起点量',
-          text: '$E_{a,2}=E_{peak,2}-E_{intermediate}$；第二个峰虽更低，仍需检查中间体的基准。',
-        },
-        {
-          title: '总焓变与路径无关',
-          text: '同样反应物、产物及物态，ΔH 为两端能级差，分成多步不重复计算峰的升降。',
-        },
-        {
-          title: '催化对比核对项',
-          text: '反应物高度不变、产物高度不变、门槛降低；净能量变化保持。',
-        },
-      ],
+      summary: energyMethods['141103']!.summary,
+      paragraphs: [energyMethods['141103']!.intro],
+      rules: energyMethods['141103']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: energyMethods['141103']!.memory,
       pitfalls: [
         '把第二步活化能量自第一步反应物。',
         '把峰顶叫作稳定中间体。',
@@ -292,28 +254,17 @@ export const esatEnergyChanges: KnowledgeLesson = {
     {
       code: '141104',
       title: '量热能量变化',
-      summary: '水或溶液先算吸收多少热，再按效率与实际反应量还原反应焓。',
-      paragraphs: [
-        '量热的起点是 $q=mc\\Delta T$。m 是被测温的水或溶液质量，c 是同一种物质的比热容，ΔT 是末温减初温。若题目已经说“温度升高 60°C”，60 就是 ΔT，不应再减去初温。',
-        'J/(g·°C) 要搭配 g，kJ/(kg·K) 要搭配 kg；温差 1°C 与 1 K 的数值相同。求出 q 后，若题目要求 kJ/mol，先把 J 除以 1000，再除以实际反应的摩尔数，并按反应体系补上符号。',
-        '燃烧加热水时，水吸收的热只是燃料释放热的一部分。若效率为 η，q水 = η × q燃料释放；由目标温升倒推燃料时，应除以 η。效率小于 1 时，需要的燃料更多，这是检查乘除方向的好方法。',
-        '混合酸碱量热时，若题目给密度近似 1 g/cm³，m 通常为两份溶液总体积对应的总质量，而不是仅酸或仅碱。分母 n 则取限制试剂所对应的实际反应量。容器吸热和向空气散热若未计入，常使由温升估计的放热绝对值偏小。',
-      ],
-      rules: [
-        {
-          title: '四步书写',
-          text: '温差 → 周围吸热 q → 实际反应摩尔数 n → ΔH。不要把总热量 kJ 写成 kJ/mol。',
-        },
-        {
-          title: '效率反推',
-          text: '$q_{released}=q_{water}/\\eta$。效率用 0.80，不用 80 直接参与乘除。',
-        },
-        {
-          title: '中和焓符号',
-          text: '若溶液升温且假设热量全被溶液吸收，$\\Delta H=-mc\\Delta T/n$，再按单位换算。',
-        },
-        { title: '最终温度', text: '若问末温，先求温升，再加初温；若问温升，不能重复加初温。' },
-      ],
+      summary: energyMethods['141104']!.summary,
+      paragraphs: [energyMethods['141104']!.intro],
+      rules: energyMethods['141104']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: energyMethods['141104']!.memory,
       pitfalls: [
         '把温升 60°C 误算成 60 − 12。',
         '用燃料质量替代被加热水的质量。',
@@ -356,31 +307,17 @@ export const esatEnergyChanges: KnowledgeLesson = {
     {
       code: '141105',
       title: '键能计算',
-      summary: '先数每一侧的键，再做断键减成键；相同键可抵消，但不能漏掉系数。',
-      paragraphs: [
-        '断开化学键需要吸收能量，形成化学键释放能量。平均键能通常是气相中一摩尔特定类型键断裂所需能量的平均值，因此是正数。放热来自成键释放超过断键吸收，不是因为“断键释放能量”。',
-        '计算反应焓近似用 Σ反应物断键能 − Σ产物成键能。先写配平方程并画出必要的结构，每种键数等于分子内键数乘化学计量系数。2NH₃ 含 6 根 N—H，不是 2 根；H₂O 含 2 根 O—H。',
-        '两侧完全相同的键能项可以在代数上抵消，减少运算；但双键变单键时，C=C 与 C—C 是不同数据，不能把双键看成两根相同的单键随意替代。涉及未知键能时先设 x，保留其系数，最后再求解。',
-        '平均键能是估算工具，不等于某一个分子中特定键的精确断裂能。题目给定物态和数据应优先使用；若水产物从气态改成液态，额外相变热不能由气相 O—H 平均键能自动包含。算完后检查符号与题目“释放”“吸收”的描述一致。',
-      ],
-      rules: [
-        {
-          title: '总公式',
-          text: '$\\Delta H\\approx\\sum D(\\text{broken})-\\sum D(\\text{formed})$。断键项加，成键项减。',
-        },
-        {
-          title: '先数后代',
-          text: '列“键类型—每分子数量—方程系数—总数”四项，再代数据，避免只看化学式下标。',
-        },
-        {
-          title: '约去相同项',
-          text: '乙烯加氢中，两侧共有的 4 根 C—H 可抵消，净变化为断 1 C=C、1 H—H，成 1 C—C、2 C—H。',
-        },
-        {
-          title: '逆算未知量',
-          text: '把未知键能写成 x，使用带符号的 ΔH 建式；求得键能应为合理的正值，负值常提示符号或键数错误。',
-        },
-      ],
+      summary: energyMethods['141105']!.summary,
+      paragraphs: [energyMethods['141105']!.intro],
+      rules: energyMethods['141105']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: energyMethods['141105']!.memory,
       pitfalls: [
         '断键写成放热。',
         '合成两分子 NH₃ 只数两根 N—H。',

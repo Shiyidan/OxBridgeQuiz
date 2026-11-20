@@ -1,5 +1,6 @@
 // ESAT 第十三章有机化学讲义：把结构识别、官能团反应和原子守恒连接成可迁移的解题路径。
 import type { KnowledgeLesson } from './types'
+import { organicMethods } from './organicMethods'
 
 export const esatOrganicChemistry: KnowledgeLesson = {
   code: '141300',
@@ -18,29 +19,17 @@ export const esatOrganicChemistry: KnowledgeLesson = {
     {
       code: '141301',
       title: '有机化学通用概念',
-      summary: '区分分子式、结构式与通式，用官能团和碳骨架辨认同分异构。',
-      paragraphs: [
-        '烃只含碳和氢；含氧的醇、羧酸属于有机物，但不是烃。碳通常形成四个共价键，可构成直链、支链和环；双键按两键计，三键按三键计，补氢时必须一起计算。',
-        '分子式 molecular formula 说明各元素原子总数；结构式 structural formula 说明连接关系；显示式 displayed formula 显示各键；骨架式 skeletal formula 省略碳符号及连在碳上的氢。每个未标元素的转角、端点是碳；O、Cl 等显式标出的原子不是隐藏的碳。',
-        '同系物 homologous series 具有相同官能团和相似化学性质，相邻成员常相差 CH₂。官能团是主要反应位置，例如 C=C、–OH、–COOH。结构异构体具有相同分子式，但原子连接方式不同，不能把旋转同一个结构得到的图重复计数。',
-        '经验式只是最简原子比，通式只是某一类化合物的数量关系。非环、只有一个双键的烯烃均为 CₙH₂ₙ，碳氢质量百分比相同；要确定 n，通常还需相对分子质量或等效信息。',
-        '原油是烃的重要来源，分馏按沸点范围把混合物分成不同馏分，是物理分离。对于相近结构的烃，碳链增长通常使沸点和黏度升高、挥发性降低、点燃更不容易；“更长”不等于“更容易燃烧”。裂解则是化学反应，例如 C₁₀H₂₂ → C₈H₁₈ + C₂H₄，短烷烃和烯烃的碳、氢总数都必须守恒。',
-        '系统命名先找含目标官能团的主链，再从使双键或主官能团位次较小的一端编号。C1—C6 的词根依次是 meth-、eth-、prop-、but-、pent-、hex-；常用后缀分别为 -ane、-ene、-ol、-oic acid。读 but-2-ene 时，2 表示双键从第 2 个碳开始，而不是共有两个双键；支链名称与位次也要与结构对应。',
-      ],
-      rules: [
-        {
-          title: '读骨架式的顺序',
-          text: '数端点与转角 → 标出多重键与杂原子 → 每个碳补足四价 → 合计分子式。',
-        },
-        {
-          title: '通式要带适用条件',
-          text: '非环饱和烷烃 CₙH₂ₙ₊₂；非环单烯烃 CₙH₂ₙ。环或额外双键都会改变氢数。',
-        },
-        {
-          title: '同分异构不靠摆放方向区分',
-          text: '正丁烷与 2-甲基丙烷同为 C₄H₁₀；把正丁烷左右翻转仍是同一个结构。',
-        },
-      ],
+      summary: organicMethods['141301']!.summary,
+      paragraphs: [organicMethods['141301']!.intro],
+      rules: organicMethods['141301']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: organicMethods['141301']!.memory,
       pitfalls: [
         '见 CₙH₂ₙ就断定必为烯烃，忽略环。',
         '把骨架式的 O 当作另一个碳。',
@@ -102,28 +91,17 @@ export const esatOrganicChemistry: KnowledgeLesson = {
     {
       code: '141302',
       title: '烷烃',
-      summary: '把饱和结构、燃烧配平与燃料应用串起来，留意水的物态。',
-      paragraphs: [
-        '烷烃是只有 C–C 单键的饱和烃。非环烷烃通式 CₙH₂ₙ₊₂：甲烷 methane CH₄、乙烷 ethane C₂H₆、丙烷 propane C₃H₈、丁烷 butane C₄H₁₀、戊烷 pentane C₅H₁₂、己烷 hexane C₆H₁₄。相邻成员相差 CH₂；直链结构可以写成 CH₃–(CH₂)ₙ₋₂–CH₃（n≥2）。',
-        '随着链长增加，分子间作用通常增强，沸点和黏度总体升高、挥发性降低。分馏利用不同沸点范围分离原油馏分，不能把分馏说成裂解，也不能认为链长越长越容易点燃。',
-        '完全燃烧生成 CO₂和 H₂O；先配碳、再配氢、最后配氧最稳妥。供氧不足可能生成 CO 或碳烟，CO 有毒；题目指定产物时必须按给定产物守恒，不能总写完全燃烧式。',
-        '烷烃与卤素可在紫外光条件下发生取代：如 CH₄ + Cl₂ → CH₃Cl + HCl。碳骨架不需要先有双键；这与烯烃常温对溴的加成不同。实际取代可继续发生，不能把单一产物视作所有条件下的唯一结果。',
-        '长链烃裂解可产生较短烷烃和烯烃，是化学变化；加热及催化条件与简单蒸馏不同。做计量题时先核对产物碳氢总数，再判断其中哪一种能够加成。',
-      ],
-      rules: [
-        {
-          title: '完全燃烧通式',
-          text: 'CₙH₂ₙ₊₂ + (3n+1)/2 O₂ → nCO₂ + (n+1)H₂O。允许先用分数系数，再整体倍乘。',
-        },
-        {
-          title: '气体总量分三份',
-          text: '未反应的过量气体 + CO₂ + 仍为气态的水。高于沸点且题目说明为蒸气时不能漏水；冷却后按条件处理。',
-        },
-        {
-          title: '反应条件区分类别',
-          text: '紫外光卤化：取代；裂解：断成长短链组合；完全燃烧：与足量氧气生成 CO₂和 H₂O。',
-        },
-      ],
+      summary: organicMethods['141302']!.summary,
+      paragraphs: [organicMethods['141302']!.intro],
+      rules: organicMethods['141302']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: organicMethods['141302']!.memory,
       pitfalls: [
         '把燃烧方程的氧原子数当成 O₂系数。',
         '求最终气体体积时漏剩余氧气或水蒸气。',
@@ -176,29 +154,17 @@ export const esatOrganicChemistry: KnowledgeLesson = {
     {
       code: '141303',
       title: '烯烃',
-      summary: '圈出每一个 C=C；加成多少试剂由双键数量决定。',
-      paragraphs: [
-        '烯烃含碳碳双键，属于不饱和烃。单个非环烯烃可用 CₙH₂ₙ，但环和多个双键要求重新数氢。双键中的一部分键可参与加成，两端碳各连接新增原子或基团。',
-        '与氢加成形成更饱和的产物，通常使用镍等催化剂；与溴加成使溴的颜色消退；与蒸气在酸催化条件下加成可制醇。对每一个 C=C，完全加成通常分别消耗 1 mol H₂或 1 mol Br₂。',
-        '烯烃还可与氢卤酸 HX 加成，例如 CH₂=CH₂ + HBr → CH₃CH₂Br：一端加 H，另一端加 Br，不能误画成加 Br₂得到的二溴产物。非对称烯烃可能涉及不同连接位置，按题目限定判断，不需要用反应机理猜未经说明的唯一产物。',
-        'C2—C6 直链烯烃名称包括 ethene、propene、but-1-ene/but-2-ene、pent-1-ene/pent-2-ene、hex-1-ene/hex-2-ene/hex-3-ene。编号从靠近双键的一端开始，所以把同一结构反过来写不会创造“另一种”异构体。',
-        '常温、无紫外光条件下，烯烃可使溴水褪色；饱和烷烃通常不发生同样快速的加成。检测结论要有条件，且不能把所有能使溴水褪色的物质都不加限制地判为烯烃。',
-        '环上有两个双键的分子，每摩尔完全加成需 2 mol Br₂。若题目给液体体积和密度，要先 m = ρV，再 n = m/M，最后由溶液浓度求试剂体积。',
-      ],
-      rules: [
-        {
-          title: '画加成产物',
-          text: '保持原碳骨架，把 C=C 改为 C–C，再把试剂的两部分分别接到两个原双键碳，最后检查碳四价。',
-        },
-        {
-          title: '消耗量按双键数',
-          text: '完全加成所需 n(Br₂) = 双键数 × n(有机分子)；若题目另给转化率，再乘转化比例。',
-        },
-        {
-          title: '烯烃与烷烃的试剂条件',
-          text: '烯烃溴加成通常不需紫外光；烷烃卤化取代通常需要光照条件，且会生成卤化氢。',
-        },
-      ],
+      summary: organicMethods['141303']!.summary,
+      paragraphs: [organicMethods['141303']!.intro],
+      rules: organicMethods['141303']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: organicMethods['141303']!.memory,
       pitfalls: [
         '看到一个分子就只乘 1 mol Br₂。',
         '把 Br₂中的两个 Br 当成两份反应试剂。',
@@ -262,30 +228,17 @@ export const esatOrganicChemistry: KnowledgeLesson = {
     {
       code: '141304',
       title: '聚合物',
-      summary: '加聚保留所有原子；缩聚连接官能团并释放小分子。',
-      paragraphs: [
-        '聚合物 polymer 由大量单体 monomer 连接而成。重复单元 repeating unit 是链中重复的最小结构片段，不一定等于图上任意截取的一整段。写括号时要有穿出两边的主链延伸键，并在括号外标 n。',
-        '加成聚合中，烯烃的两个双键碳成为主链相邻碳；原来接在它们上的取代基保留。聚丁-1-烯重复单元为 –CH₂–CH(CH₂CH₃)–；不是把四个碳都强行排进主链，也不能保留原来的 C=C。',
-        '缩合聚合需要每个单体有能继续连接的两个或更多官能团。例如二醇和二羧酸形成聚酯，连接处含 –COO–，并脱去水。加聚不损失小分子，缩聚要在重复单元和端基计数中考虑损失。',
-        '二胺与二羧酸可缩合形成聚酰胺，连接处是 –C(=O)–NH–，不能把它画成聚酯的 –C(=O)–O–。一般结构可写成 [–NH–R–NH–CO–R′–CO–]ₙ。反推单体时沿酰胺键断开，含氮一端补回 –NH₂，含羰基一端补回 –COOH。',
-        '氨基酸同时带有氨基和羧基，能通过肽键（酰胺键）形成多肽及蛋白质；肽链片段为 –NH–CH(R)–CO–，R 侧链保留。两个氨基酸形成一个肽键释放一分子水；由 N 个氨基酸形成一条无环线性链时形成 N−1 个肽键，不能漏掉端基。',
-        '由聚合物反推单体：先定位主链及重复边界；对常见加聚物，将相邻两个主链碳恢复双键并保留侧链。聚酯则沿酯键断开，分别补回醇的 –OH 和羧酸的 –COOH。',
-        '可生物降解 biodegradable 指可被微生物及其酶等生物作用分解；非生物降解材料在通常环境中不易被这些过程分解。能水解的酯键、酰胺键提供潜在断裂位置，但不代表每一种聚酯或聚酰胺在所有环境中都快速降解；也不能把光照碎裂或简单焚烧等同于生物降解。',
-      ],
-      rules: [
-        {
-          title: '加聚三步',
-          text: '圈两个双键碳 → 双键变单键并接出两条延伸键 → 原取代基原位保留。',
-        },
-        {
-          title: '质量是否改变取决于聚合类型',
-          text: '加聚的重复单元原子组成等于单体；缩聚需扣除形成连接时离去的小分子，有限链还需考虑端基。',
-        },
-        {
-          title: '环境影响看材料性质',
-          text: '许多加聚塑料稳定且不易生物降解；回收要分离材料并考虑能耗，不能把“可燃烧”直接等同于无污染处理。',
-        },
-      ],
+      summary: organicMethods['141304']!.summary,
+      paragraphs: [organicMethods['141304']!.intro],
+      rules: organicMethods['141304']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: organicMethods['141304']!.memory,
       pitfalls: [
         '把所有单体碳都放进聚合物主链。',
         '重复单元里仍保留被用于加聚的 C=C。',
@@ -339,25 +292,17 @@ export const esatOrganicChemistry: KnowledgeLesson = {
     {
       code: '141305',
       title: '醇',
-      summary: '把 –OH 的位置与反应条件一起读，区分氧化、燃烧和酯化。',
-      paragraphs: [
-        '醇含连在饱和碳上的羟基 –OH，常见例子为甲醇、乙醇、丙-1-醇、丙-2-醇。–OH 是共价基团，不等于溶液中游离的 OH⁻，所以“含 OH”不能推出“像 NaOH 一样呈强碱性”。',
-        '非环饱和一元醇通式为 CₙH₂ₙ₊₁OH。C1—C6 直链醇的命名使用 methanol、ethanol、propan-、butan-、pentan-、hexan-；三碳及以上还要结合 -ol 前的位次读结构，例如 butan-2-ol 是 CH₃CH(OH)CH₂CH₃；hexan-1-ol 是 CH₃(CH₂)₅OH。优先给 –OH 较小位次，不把碳链反向重复计数。',
-        '乙醇可由糖发酵，也可由乙烯与蒸气水合制得。发酵需要适合酶作用的温度和缺氧条件，产物较稀；工业水合是催化反应，不能混用两种制法的条件。',
-        '伯醇可氧化为醛，再继续氧化为羧酸；及时蒸馏移走醛可限制进一步氧化，过量氧化剂并回流通常利于得到酸。仲醇可氧化为酮；常见温和氧化条件下叔醇不按同样方式氧化。酸化重铬酸盐由橙色变绿色是常见观察。',
-        '醇与钠反应生成醇盐和 H₂；与羧酸在酸催化下形成酯和水。燃烧时还要计入醇本身已有的氧；如果题目指定 CO、CO₂共同生成，不得直接套完全燃烧。',
-      ],
-      rules: [
-        {
-          title: '氧化路线靠位置判断',
-          text: '伯醇 → 醛 → 羧酸；仲醇 → 酮。先看连接 –OH 的那个碳，而不是整个分子总碳数。',
-        },
-        { title: '钠与醇的比例', text: '2ROH + 2Na → 2RONa + H₂；2 mol 单羟基醇对应 1 mol H₂。' },
-        {
-          title: '醇燃烧的氧来自两边',
-          text: '先把 C、H 分配到指定产物，再从产物总氧数扣除醇自带的氧，剩余才由 O₂提供。',
-        },
-      ],
+      summary: organicMethods['141305']!.summary,
+      paragraphs: [organicMethods['141305']!.intro],
+      rules: organicMethods['141305']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: organicMethods['141305']!.memory,
       pitfalls: [
         '把乙醇与钠的产物写成乙酸钠。',
         '忽略蒸馏与回流对进一步氧化的影响。',
@@ -425,29 +370,17 @@ export const esatOrganicChemistry: KnowledgeLesson = {
     {
       code: '141306',
       title: '羧酸',
-      summary: '–COOH 决定酸性；酯化要保留碳骨架，并扣除一分子水。',
-      paragraphs: [
-        '羧酸含 –COOH，既有 C=O 又有 O–H，但整个羧基必须作为一个官能团识别。甲酸、乙酸是常见例子；命名和计碳时，羧基中的碳也属于总碳数。',
-        '饱和单羧酸可写成 CₙH₂ₙ₊₁COOH，注意总碳数是 n+1。C1—C6 直链羧酸依次为 methanoic acid HCOOH、ethanoic acid CH₃COOH、propanoic acid C₂H₅COOH、butanoic acid C₃H₇COOH、pentanoic acid C₄H₉COOH、hexanoic acid C₅H₁₁COOH；羧基碳从第 1 位计。',
-        '羧酸成盐时失去羧基的酸性 H，形成 RCOO⁻，再按金属离子电荷配比。例如乙酸钠为 CH₃COONa，乙酸镁为 Mg(CH₃COO)₂；不能把醇与钠生成的 RO⁻盐写成羧酸盐。',
-        '羧酸通常是弱酸，在水中部分电离；“弱”描述电离程度，不是浓度低，也不是无法完全中和碱。乙酸可使蓝色石蕊变红、与活泼金属生成 H₂、与碳酸盐生成 CO₂。',
-        '羧酸与醇在酸催化下发生可逆酯化，生成酯和水。酸提供的含 C=O 片段与醇提供的烃基通过 –COO–连接；命名时要分清哪部分来自酸，哪部分来自醇。',
-        '每形成一个酯键，普通酸醇酯化相对于反应物总组成失去一分子水。二羧酸有两个可中和的酸性氢，不能按所有羧酸都是一元酸处理；多官能团也为缩聚提供连续连接点。',
-      ],
-      rules: [
-        {
-          title: '酯化质量关系',
-          text: '普通单羧酸与一元醇：Mᵣ(酯) = Mᵣ(酸) + Mᵣ(醇) − 18。反求酸时要把 18 加回。',
-        },
-        {
-          title: '弱酸与中和总量',
-          text: 'CH₃COOH + NaOH → CH₃COONa + H₂O；同摩尔一元酸完全中和需同摩尔 OH⁻，不因弱酸就自动少耗碱。',
-        },
-        {
-          title: '平衡与催化剂',
-          text: '增加反应物可改变平衡组成；催化剂加快达到平衡，不改变同温度下的平衡位置。',
-        },
-      ],
+      summary: organicMethods['141306']!.summary,
+      paragraphs: [organicMethods['141306']!.intro],
+      rules: organicMethods['141306']!.blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: organicMethods['141306']!.memory,
       pitfalls: [
         '计算羧酸碳数时漏掉 –COOH 的碳。',
         '把弱酸理解为同浓度时需要更少碱才能完全中和。',

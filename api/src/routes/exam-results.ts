@@ -15,6 +15,7 @@ import { computeScores } from '../services/scoring.js'
 import type { QuestionResult } from '../services/scoring.js'
 import { logRuntimeError } from '../utils/runtimeLogger.js'
 import { setOperationAuditContext } from '../middleware/operationAudit.js'
+import { diagnosticViewSummary } from '../utils/diagnosticAudit.js'
 import {
   ensureDiagnosticReportTask,
   regenerateDiagnosticReportTask,
@@ -160,7 +161,7 @@ examResultRouter.get('/:id/review-access', requireAuth, async (req, res) => {
 })
 
 // 答卷解析
-examResultRouter.get('/:id/result', requireAuth, requireAvailableDiagnosticHistory, async (req, res) => {
+examResultRouter.get(['/:id/result', '/:id/diagnostic-wrong-questions'], requireAuth, requireAvailableDiagnosticHistory, async (req, res) => {
   try {
     const examRecord = await prisma.examRecord.findFirst({
       where: { id: req.params.id, userId: req.user!.userId },
@@ -246,6 +247,11 @@ examResultRouter.get('/:id/result', requireAuth, requireAvailableDiagnosticHisto
     const isAnnualDiagnostic = paper?.assemblyType === DIAGNOSTIC_ASSEMBLY.ANNUAL
       || paper?.assemblyType === DIAGNOSTIC_ASSEMBLY.RETIRED
     const historicalPaper = parseDiagnosticHistorySnapshot(examRecord.structureSnapshot)?.sourcePaper
+    const viewingDiagnosticWrongQuestions = req.path.endsWith('/diagnostic-wrong-questions')
+    if (viewingDiagnosticWrongQuestions && normalizePaperType(paper?.paperType) !== PAPER_TYPE.REAL_PAPER) {
+      res.status(400).json(fail('该记录不是诊断测试', 'DIAGNOSTIC_RECORD_REQUIRED'))
+      return
+    }
     // 年度选科的全卷题号来自本次答卷，旧组合卷仍保留原题号；模块归属始终按快照恢复。
     const answeredQuestions = orderedAnswers.flatMap((answerRecord, answerIndex) => {
       const question = questionMap.get(answerRecord.questionId)
@@ -324,6 +330,14 @@ examResultRouter.get('/:id/result', requireAuth, requireAvailableDiagnosticHisto
         )
       : singleModule?.title || historicalPaper?.title || paper?.title || ''
 
+    // 专用错题入口在权限校验及题目读取成功后记录，普通解析和错题本入口不计入此行为。
+    if (viewingDiagnosticWrongQuestions) {
+      setOperationAuditContext(req, {
+        summary: diagnosticViewSummary(examRecord.examType, paper?.year, examRecord.structureSnapshot, 'wrong-questions'),
+        resourceType: 'ExamRecord',
+        resourceId: examRecord.id,
+      })
+    }
     res.json(success({
       examRecord: {
         id: examRecord.id,
@@ -483,7 +497,7 @@ examResultRouter.get('/:id/diagnostic-report/summary', requireAuth, requireAvail
     const examRecord = await prisma.examRecord.findFirst({
       where: { id: req.params.id, userId: req.user!.userId },
       include: {
-        paper: { select: { paperType: true } },
+        paper: { select: { paperType: true, year: true } },
         diagnosticReportTask: true,
       },
     })
@@ -524,7 +538,9 @@ examResultRouter.get('/:id/diagnostic-report/summary', requireAuth, requireAvail
 
     // 报告正文成功读取才计为一次查看，状态轮询与尚未生成的请求不会进入成功统计。
     setOperationAuditContext(req, {
-      summary: `查看 ${examRecord.examType} 诊断分析报告`,
+      summary: normalizePaperType(examRecord.paper.paperType) === PAPER_TYPE.REAL_PAPER
+        ? diagnosticViewSummary(examRecord.examType, examRecord.paper.year, examRecord.structureSnapshot, 'report')
+        : `查看 ${examRecord.examType} 诊断分析报告`,
       resourceType: 'ExamRecord',
       resourceId: report.examRecordId,
     })

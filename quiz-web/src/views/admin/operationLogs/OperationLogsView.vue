@@ -477,10 +477,16 @@ function operationDisplayLabel(
   >,
 ): string {
   const displayName = resourcePrimaryLabel(log)
+  // 新日志已保存考试和原卷年份，优先保留快照摘要，避免迁移后的试卷名覆盖它。
+  if ((log.action === 'diagnostic_report.view' || log.action === 'diagnostic_wrong_questions.view')
+    && /^查看 (ESAT|TMUA) \d{4} (诊断报告|错题记录)$/.test(log.summary)) return log.summary
   if (displayName === '-' || displayName === resourceTypeLabel(log.resourceType)) return log.summary
   if (log.summary.includes(displayName)) return log.summary
   if (log.action === 'diagnostic_report.view') {
     return `查看 ${diagnosticReportSubject(displayName)} 诊断报告`
+  }
+  if (log.action === 'diagnostic_wrong_questions.view') {
+    return `查看 ${diagnosticReportSubject(displayName)} 错题记录`
   }
   if (log.resourceType === 'User') return `${displayName} ${log.summary}`
   return `${log.summary} ${displayName}`

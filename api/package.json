@@ -51,6 +51,7 @@
     "reset:test-business-data": "tsx scripts/reset-test-business-data.ts",
     "smoke:auth": "tsx scripts/smoke-auth.ts",
     "test:behavior-analytics": "tsx scripts/test-behavior-analytics.ts",
+    "test:diagnostic-view-audit": "tsx scripts/test-diagnostic-view-audit.ts",
     "test:oral-promotion": "tsx scripts/test-oral-promotion.ts",
     "test:conversion-analytics": "tsx scripts/test-conversion-analytics.ts",
     "test:product-trend-override": "tsx scripts/test-product-trend-override.ts",

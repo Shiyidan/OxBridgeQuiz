@@ -765,6 +765,7 @@ onMounted(() => {
   min-width: 0;
   flex-direction: column;
   gap: 4px;
+  text-align: center;
 }
 
 .user-cell > span {
@@ -776,11 +777,11 @@ onMounted(() => {
 }
 
 .user-name-link {
-  align-self: flex-start;
+  align-self: center;
   max-width: 100%;
   white-space: normal;
   overflow-wrap: anywhere;
-  text-align: left;
+  text-align: center;
 }
 
 .net-amount {

@@ -311,7 +311,13 @@ async function loadAnalysis(): Promise<void> {
       analysisMembershipOpen.value = true
       return
     }
-    const data = await getExamResultData(examId.value)
+    // 诊断错题使用独立读取入口，和报告、普通解析及错题本的查看日志分开。
+    const data = await getExamResultData(
+      examId.value,
+      isQuestionReview.value && wrongOnlyMode.value && route.query.recordSource === 'diagnostic'
+        ? 'diagnostic-wrong-questions'
+        : undefined,
+    )
     if (!detailActive || route.fullPath !== openedPath) return
     const isDiagnostic =
       normalizePaperType(data.examRecord.paper?.paperType) === PAPER_TYPE.REAL_PAPER

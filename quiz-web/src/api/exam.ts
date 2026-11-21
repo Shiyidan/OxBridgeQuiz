@@ -770,9 +770,9 @@ export function getExamReviewAccess(examId: string) {
 }
 
 // 获取答卷详情
-export function getExamResultData(examId: string) {
+export function getExamResultData(examId: string, view?: 'diagnostic-wrong-questions') {
   return callApi<ExamResult>({
-    url: `/exams/${examId}/result`,
+    url: `/exams/${examId}/${view || 'result'}`,
     method: 'GET',
     // 详情页按错误码展示统一续费弹窗或加载错误，避免到期时额外叠加错误提示。
     silent: true,

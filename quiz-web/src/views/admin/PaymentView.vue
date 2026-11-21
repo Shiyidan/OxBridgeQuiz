@@ -63,14 +63,18 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="套餐" min-width="135">
+          <el-table-column label="套餐" min-width="260">
             <template #default="{ row }">
-              <strong>{{ planText(row.plan, row.priceType) }}</strong>
-              <div class="exam-tags">{{ normalizeExamTypes(row.examTypes).join(' / ') }}</div>
+              <div class="order-plan-cell">
+                <strong>{{ planText(row.plan, row.priceType) }}</strong>
+                <div class="exam-tags">{{ normalizeExamTypes(row.examTypes).join(' / ') }}</div>
+              </div>
             </template>
           </el-table-column>
-          <el-table-column label="金额" width="105">
-            <template #default="{ row }">¥{{ formatMoney(row.amountCents) }}</template>
+          <el-table-column label="金额" min-width="135">
+            <template #default="{ row }">
+              <span class="order-amount">¥{{ formatMoney(row.amountCents) }}</span>
+            </template>
           </el-table-column>
           <el-table-column label="渠道" width="125">
             <template #default="{ row }">{{ channelText(row.channel) }}</template>
@@ -85,7 +89,11 @@
           <el-table-column label="创建时间" width="160">
             <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
           </el-table-column>
-          <el-table-column prop="orderNo" label="订单号" min-width="215" />
+          <el-table-column label="订单号" width="180">
+            <template #default="{ row }">
+              <span class="order-number">{{ row.orderNo }}</span>
+            </template>
+          </el-table-column>
           <el-table-column label="操作" width="105" fixed="right" align="center">
             <template #default="{ row }">
               <el-button link type="primary" @click="handleOpenOrderDetail(row.orderNo)">
@@ -1114,8 +1122,11 @@ onMounted(() => {
 .user-cell { display: grid; gap: 3px; }
 .user-cell strong { color: #273244; font-size: 0.86rem; }
 .user-cell > span, .exam-tags { color: #8490a2; font-size: 0.75rem; }
-.user-name-link { justify-self: start; max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+.user-name-link { justify-self: center; max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: center; }
 .exam-tags { margin-top: 4px; }
+.order-plan-cell { white-space: nowrap; }
+.order-amount { white-space: nowrap; }
+.order-number { white-space: normal; overflow-wrap: anywhere; word-break: break-all; }
 .orders-card :deep(.app-pagination), .reconciliation-card :deep(.app-pagination) { padding: 18px 24px; }
 .order-detail-drawer { min-height: 240px; padding: 0 4px 28px; }
 .detail-section { padding: 4px 0 26px; }

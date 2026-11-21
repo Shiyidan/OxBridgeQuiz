@@ -64,6 +64,7 @@ const OPERATION_DEFINITIONS: OperationDefinition[] = [
   { method: 'POST', pattern: /^\/api\/question-library\/practice$/, module: OPERATION_AUDIT_MODULE.EXAM, action: 'exam.start', summary: '开始题库练习', resourceType: 'ExamRecord' },
   { method: 'POST', pattern: /^\/api\/exams\/([^/]+)\/submit$/, module: OPERATION_AUDIT_MODULE.EXAM, action: 'exam.submit', summary: '提交考试', resourceType: 'ExamRecord', resourceIdGroup: 1 },
   { method: 'GET', pattern: /^\/api\/exams\/([^/]+)\/diagnostic-report\/summary$/, module: OPERATION_AUDIT_MODULE.EXAM, action: 'diagnostic_report.view', summary: '查看诊断分析报告', resourceType: 'ExamRecord', resourceIdGroup: 1 },
+  { method: 'GET', pattern: /^\/api\/exams\/([^/]+)\/diagnostic-wrong-questions$/, module: OPERATION_AUDIT_MODULE.EXAM, action: 'diagnostic_wrong_questions.view', summary: '查看诊断错题记录', resourceType: 'ExamRecord', resourceIdGroup: 1 },
   { method: 'POST', pattern: /^\/api\/exams\/error-book\/([^/]+)\/view$/, module: OPERATION_AUDIT_MODULE.EXAM, action: 'mistake_notebook.view', summary: '查看错题本', resourceType: 'Question', resourceIdGroup: 1 },
   { method: 'POST', pattern: /^\/api\/favorites\/([^/]+)\/view$/, module: OPERATION_AUDIT_MODULE.EXAM, action: 'favorite_notebook.question_view', summary: '查看收藏夹题目', resourceType: 'Question', resourceIdGroup: 1 },
   { method: 'DELETE', pattern: /^\/api\/exams\/error-book$/, module: OPERATION_AUDIT_MODULE.EXAM, action: 'mistake_notebook.remove', summary: '删除错题', resourceType: 'WrongQuestionSummary' },

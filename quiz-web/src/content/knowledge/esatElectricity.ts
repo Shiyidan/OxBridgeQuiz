@@ -1,5 +1,6 @@
 // 物理电学讲义：以全量年度题归纳考法，覆盖静电与电路的条件、符号和单位。
 import type { KnowledgeLesson } from './types'
+import { electricityMethods } from './electricityMethods'
 
 export const esatElectricity: KnowledgeLesson = {
   code: '130100',
@@ -16,26 +17,17 @@ export const esatElectricity: KnowledgeLesson = {
     {
       code: '130101',
       title: '静电',
-      summary: '看电子去哪、总电荷是否守恒；排斥能判同号，吸引不一定能判异号。',
-      paragraphs: [
-        '摩擦起电是两种材料接触、分离时电子发生转移。普通摩擦中原子核仍留在材料内；失去电子的一侧带正电，得到电子的一侧带负电。把两物体看作隔离整体，转移前后总电荷不变。',
-        '绝缘体 insulator 的电荷不易自由移动，塑料、干燥玻璃容易在局部积累电荷。金属等导体 conductor 中自由电子能移动；手持未绝缘的金属棒时电荷容易经人体流向大地，不容易保留静电。',
-        '同号电荷相斥、异号电荷相吸。带电棒也会吸引中性导体：电子重新分布，近端出现异号电荷、远端出现同号电荷，近端吸引通常较强。因此“吸引”不能单独证明两者带异号电。',
-      ],
-      rules: [
-        {
-          title: '电子与电荷的账本',
-          text: '转移 $n$ 个电子，电荷量大小为 $ne$，其中 $e=1.60\\times10^{-19}\\,\\mathrm C$。得电子变负，失电子变正；不是正电荷从原子核中跑出来。',
-        },
-        {
-          title: '接地 earthing：给电荷一条通路',
-          text: '大地可接收或提供电子。负导体接地时电子流向大地；正导体接地时电子可由大地流入。接地不是把所有情形都解释成“负电流走”。绝缘体上的局部电荷不一定能通过简单接触立即全部消失。',
-        },
-        {
-          title: '应用与危险',
-          text: '静电喷涂让带电微粒相互排斥而分散，并被工件吸引；静电除尘让带电烟尘被集尘板吸引。加油、粉尘环境中的放电火花可能点燃可燃混合物，所以用导电连接和接地避免电荷积累；不要把这类风险与电池持续供电混为一谈。',
-        },
-      ],
+      summary: electricityMethods['130101'].summary,
+      paragraphs: [electricityMethods['130101'].intro],
+      rules: electricityMethods['130101'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: electricityMethods['130101'].memory,
       pitfalls: [
         '摩擦会转移电子，不会把中子变成电子，也不会凭空制造净电荷。',
         '有吸引不等于两物体都带电；观察到静电排斥才可判同号带电。',
@@ -85,38 +77,17 @@ export const esatElectricity: KnowledgeLesson = {
     {
       code: '130102',
       title: '电路',
-      summary: '把电路压缩成节点关系，再沿电荷—电流—电压—功率这条链求解。',
-      paragraphs: [
-        '电流 current 是单位时间通过截面的电荷量，单位A；电压 potential difference 是每库仑电荷转移的能量，单位V。电荷在完整电路中持续流动，电能在元件中转移，不能说“电流被灯泡用掉”。约定电流方向是正电荷运动方向，金属中电子漂移方向与之相反。',
-        '直流 dc 的方向不随时间反转，大小可以变化；交流 ac 周期性改变方向。金属、石墨常可导电，塑料、橡胶、玻璃常作绝缘材料。电路图只表示电连接，弯线长短不决定串并联；两端连在同一对节点上的元件才并联。',
-        '符号要认功能：电池由长短线表示，长线为正极；灯泡是圈内交叉，电阻通常为矩形，可变电阻带斜箭头；A圈为电流表、V圈为电压表，开关用断开或闭合接触表示，二极管按方向允许电流通过。看图先标电源、支路、开关状态，再找被问的元件。',
-      ],
-      rules: [
-        {
-          title: '电荷与电能',
-          text: '$I=Q/t$、$V=E/Q$，所以 $E=VIt$。$Q$ 用C，$t$ 用s，$E$ 用J。注意同一个字母Q在热学可表示热量，电路题的Q是电荷。',
-        },
-        {
-          title: '欧姆关系与电表',
-          text: '$R=V/I$，单位 $\\Omega$。电流表串联，理想内阻为零；电压表并联在待测元件两端，理想内阻无限大。不要把理想电流表直接跨接电池，这会短路。',
-        },
-        {
-          title: '串联与并联',
-          text: '串联各处电流相同，电压相加，$R_{\\rm total}=R_1+R_2+\\cdots$。并联支路电压相同，总电流等于支路电流和；因此并联等效电阻小于任何一条有限正电阻支路，可由 $1/R_{\\rm total}=1/R_1+1/R_2+\\cdots$ 计算。',
-        },
-        {
-          title: '读 V–I 图：先确认横纵轴',
-          text: '定温定值电阻的V对I图为过原点直线，斜率是R。灯丝温度随电流增大而升高，电阻也增大，V对I图越来越陡；若坐标交换为I对V，曲线则越来越平。非线性元件某点的电阻是V/I，不等于该点切线斜率。',
-        },
-        {
-          title: '传感元件与理想二极管',
-          text: 'NTC热敏电阻升温时电阻下降；LDR光敏电阻光照增强时电阻下降。串联定值电阻时，先算总电流再求各段电压，不能只凭阻值变化猜所有电压一起升降。理想二极管正向导通时压降为零，反向截止时电流为零；若给实际特性图，应按图读压降。',
-        },
-        {
-          title: '功率：所用电压、电流必须属于同一元件',
-          text: '$P=VI=I^2R=V^2/R$，$E=Pt$。串联比较电阻发热可用相同I下的 $I^2R$；并联比较可用相同V下的 $V^2/R$。不能把整个电源电压代入只含一个串联元件的公式。',
-        },
-      ],
+      summary: electricityMethods['130102'].summary,
+      paragraphs: [electricityMethods['130102'].intro],
+      rules: electricityMethods['130102'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: electricityMethods['130102'].memory,
       pitfalls: [
         '开关改变支路后，要重新识别拓扑，不是看到电阻减少就随意减去一个数。',
         'mA先除1000，分钟先乘60；W是每秒能量，不是总能量。',

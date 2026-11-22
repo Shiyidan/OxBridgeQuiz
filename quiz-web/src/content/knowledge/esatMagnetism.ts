@@ -1,5 +1,6 @@
 // 物理磁学讲义：区分磁化、场、力和感应，按全部年度题归纳并明示无直接真题的范围。
 import type { KnowledgeLesson } from './types'
+import { magnetismMethods } from './magnetismMethods'
 
 export const esatMagnetism: KnowledgeLesson = {
   code: '130200',
@@ -18,26 +19,17 @@ export const esatMagnetism: KnowledgeLesson = {
       visual: 'physics-magnetism',
       code: '130201',
       title: '磁体的性质',
-      summary: '分清磁极、磁场和材料：软铁易磁化易退磁，钢适合保留磁性。',
-      paragraphs: [
-        '条形磁体有北极N与南极S，同名磁极相斥、异名相吸。磁场方向定义为小磁针北极的受力指向；磁体外部从N极指向S极。画出的线越密表示场越强，磁力线不相交，也不是有形的细线。',
-        '软磁材料如软铁，容易被外场磁化，撤去外场后磁性大多消失；硬磁材料如钢较难磁化，但磁化后能较长时间保留磁性。“软、硬”在这里描述磁性保持能力，不是手感或机械硬度。',
-        '感应磁化 induced magnetisation 可在没有接触时发生：磁体N极靠近未磁化铁块，铁块近端成为S、远端成为N，通常受到吸引。因此吸引不能单独证明铁块原来就是永久磁体；排斥是辨认同名磁极更有力的证据。',
-      ],
-      rules: [
-        {
-          title: '读磁场图',
-          text: '从箭头判N/S，从疏密判强弱，从平行且等间距判近似均匀。条形磁体外部N到S，内部回到N，形成闭合路径；均匀磁场不是“没有磁场”。',
-        },
-        {
-          title: '按用途选材料',
-          text: '需要随电流快速开关磁性，选软铁，如电磁继电器、起重电磁铁、变压器铁芯。需要断电仍保持磁性，选硬磁材料制作永久磁体。',
-        },
-        {
-          title: '感应磁化不等于电磁感应',
-          text: '感应磁化是材料在外场中出现磁性；电磁感应是磁场变化引起电压。铁块被磁体吸引，不表示其中必定有持续感应电流。',
-        },
-      ],
+      summary: magnetismMethods['130201'].summary,
+      paragraphs: [magnetismMethods['130201'].intro],
+      rules: magnetismMethods['130201'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: magnetismMethods['130201'].memory,
       pitfalls: [
         '铁被吸引不能证明原来已经带有永久磁极。',
         '把磁体切开不会得到孤立N极和S极，每段仍有两极。',
@@ -87,30 +79,17 @@ export const esatMagnetism: KnowledgeLesson = {
       visual: 'physics-magnetism',
       code: '130202',
       title: '电流产生的磁场',
-      summary: '右手握拳看方向；电流、匝密度和铁芯决定场强。',
-      paragraphs: [
-        '直导线周围的磁场是一圈圈围绕导线的同心圆。右手拇指指约定电流方向，四指弯曲方向是磁场方向；电流朝你用点表示，背离你用叉表示。反转电流，磁场方向反转。',
-        '线圈每匝的磁场在内部叠加。长螺线管中央的磁场近似均匀，整体类似条形磁体；右手四指沿线圈电流方向弯曲，拇指指向内部磁场方向及N端。端部与外部不能照搬“均匀”的近似。',
-        '增大电流、在相同长度内增加匝数、放入合适软铁芯，通常会增强线圈磁场。电磁铁能通断、调强弱、反转极性；永久磁体不需要持续电流来保持其磁性。',
-      ],
-      rules: [
-        {
-          title: '直导线：方向与强弱分开读',
-          text: '同样电流，离长直导线越近场越强；同样距离，电流越大场越强。右手定则只给方向，不给数值大小。',
-        },
-        {
-          title: '匝数要与长度一起看',
-          text: '对长螺线管且其他条件相同，场强与 $nI$ 成正比，$n=N/L$ 是单位长度匝数。若同时把总匝数和长度加倍，匝密度不变，不能仅凭“匝数更多”断言场更强。题目给出比例式时可据此定量比较。',
-        },
-        {
-          title: '电流先由题目给的量恢复',
-          text: '已知V与R用 $I=V/R$；已知功率用 $I=P/V$；已知电荷和时间用 $I=Q/t$。相同电压不等于相同电流，增加线圈匝数还可能改变电阻；比较时必须看哪些量保持不变。',
-        },
-        {
-          title: '电磁铁应用',
-          text: '继电器用控制线圈吸引铁片闭合另一电路；电磁起重机通电吸住铁料、断电释放。需要快速释放时软铁比保持磁性的钢更合适。',
-        },
-      ],
+      summary: magnetismMethods['130202'].summary,
+      paragraphs: [magnetismMethods['130202'].intro],
+      rules: magnetismMethods['130202'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: magnetismMethods['130202'].memory,
       pitfalls: [
         '方向使用约定电流，不用电子移动方向。',
         '场线密集表示场强，不表示电流在场线上流动。',
@@ -154,26 +133,17 @@ export const esatMagnetism: KnowledgeLesson = {
       visual: 'physics-magnetism',
       code: '130203',
       title: '电动机效应',
-      summary: '电流与外磁场共同产生力；先确定方向，再代入真正处于场内的有效长度。',
-      paragraphs: [
-        '载流导线在外磁场中可受到力。左手食指指磁场N到S，中指指约定电流，拇指指受力；三者相互垂直。只反转电流或只反转磁场，力反向；两者同时反转，力方向不变。',
-        '均匀磁场中，直导线与场垂直时 $F=BIL$。这里L是既有电流又处于磁场中的长度，单位m；B单位T，I单位A，F单位N。导线平行于场时力为零，不能不看夹角机械套用最大力公式。',
-        '直流电动机的线圈两侧电流相反，受力相反，构成转动作用。分裂环换向器每半周改变线圈电流，使线圈越过相应位置后仍沿原方向转动；电刷保持与外电路接触。增强磁场、增大安全范围内电流、增加线圈匝数可增强转动效果。',
-      ],
-      rules: [
-        {
-          title: '先受力分析，再求数值',
-          text: '导线悬浮时磁力需平衡重力 $BIL=mg$；若有加速度，先写合力 $F_{\\rm net}=ma$。磁力不是总合力的同义词。',
-        },
-        {
-          title: '反向前后秤读数差是两倍力',
-          text: '若电流大小不变而反向，秤的支持力从 $mg+F$ 变成 $mg-F$；读数差对应 $2F$。磁体受力与导线受力方向相反，别把测量对象画错。',
-        },
-        {
-          title: '电动机与发电机区别',
-          text: '电动机由电源提供电流，在磁场中产生运动；发电机由机械运动引起感应电压。看到线圈旋转时，先查能量从哪端输入。扬声器也用载流线圈受力驱动振膜。',
-        },
-      ],
+      summary: magnetismMethods['130203'].summary,
+      paragraphs: [magnetismMethods['130203'].intro],
+      rules: magnetismMethods['130203'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: magnetismMethods['130203'].memory,
       pitfalls: [
         '称重质量要从g换kg，导线长度要从cm换m。',
         '用左手定则时先写约定电流，不能把电子方向当电流。',
@@ -235,30 +205,17 @@ export const esatMagnetism: KnowledgeLesson = {
       visual: 'physics-magnetism',
       code: '130204',
       title: '电磁感应',
-      summary: '有磁场不够，穿过线圈的磁场必须变化；越快变化，感应电压越大。',
-      paragraphs: [
-        '导线切割磁力线，或穿过线圈的磁场发生变化，都可能产生感应电压。磁体与线圈相对静止、磁场也不变时，即使场很强，仍没有持续感应电压。有电压不代表必有电流：还需要闭合导电回路。',
-        '把磁体推近与拉远线圈时，感应电压方向相反；把磁极反转也会反向。感应电流产生的磁效应阻碍引起它的变化，称楞次规律。这意味着感应不是“永远排斥磁体”：磁体远离时，线圈可以吸引它以阻碍远离。',
-        '交流发电机让线圈在磁场中转动，或让磁体在固定线圈旁转动，使穿过线圈的磁场周期变化。输出电压正负交替；滑环保持接触而不把每半周电流再反转为同向。与电动机的分裂环换向器要区分。',
-      ],
-      rules: [
-        {
-          title: '改变大小与方向',
-          text: '更强磁场、更快相对运动、更多匝数通常增大电压；软铁芯可增强穿过线圈的磁场。只把磁体停得更近，待其静止后并不会维持感应电压。',
-        },
-        {
-          title: '读运动与电压图',
-          text: '线圈处磁场变化率同时受磁体速度和位置影响。匀速移近时，磁场随位置变化并非均匀，因此电压未必恒定；不能把v–t图原封不动当电压图。停顿对应零电压，往返方向相反对应极性反转。',
-        },
-        {
-          title: '读交流波形',
-          text: '简化匀速转动模型的电压近似正弦波。最大值表示变化最快，电压过零不是磁场消失，而是那一刻穿过线圈的磁场变化率为零。增快转动同时增大峰值、缩短周期。',
-        },
-        {
-          title: '机械功从哪里来',
-          text: '发电时必须克服感应效应产生的阻力，机械能转为电能，再转入负载。自行车发电机、动态麦克风与无线感应供能都利用变化磁场，不能从静止恒定磁场无限取能。',
-        },
-      ],
+      summary: magnetismMethods['130204'].summary,
+      paragraphs: [magnetismMethods['130204'].intro],
+      rules: magnetismMethods['130204'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: magnetismMethods['130204'].memory,
       pitfalls: [
         '磁体在动但磁场穿过线圈的情况没变，也未必产生电压。',
         '产生感应电压不要求电路闭合；产生持续感应电流需要闭合路径。',
@@ -309,30 +266,17 @@ export const esatMagnetism: KnowledgeLesson = {
       visual: 'physics-magnetism',
       code: '130205',
       title: '变压器',
-      summary: '电压随匝数，电流由功率；远距离输电在相同功率下用高电压降损耗。',
-      paragraphs: [
-        '变压器利用原线圈的交流电产生变化磁场，通过铁芯使副线圈出现感应电压。两个线圈不必有直接电连接。恒定直流只在接通或断开的短暂变化时可能感应，不能用普通变压器持续升降恒定直流。',
-        '副线圈匝数比原线圈多是升压，少则降压。电压和匝数同方向变化；理想变压器输入输出功率相等，所以电流与电压反向变化。升高电压不是凭空增加功率。',
-        '远距离电缆有电阻。同样输送功率，先升压可降低线路电流，减小 $I^2R$ 发热；到用户附近再降压。若题目明确电缆阻力可忽略，可把两端功率相等；现实系统不能一边算电缆损耗，一边又把全系统说成无损。',
-      ],
-      rules: [
-        {
-          title: '先写电压匝数比',
-          text: '$V_s/V_p=N_s/N_p$，下标s为副线圈、p为原线圈。比值要同侧对应，先判断升压/降压，能快速发现倒比。',
-        },
-        {
-          title: '理想电流由功率守恒',
-          text: '$V_pI_p=V_sI_s$，所以 $I_s/I_p=N_p/N_s$。交流题中按题给的有效值使用这些关系。理想指功率不损失，不意味着没有电压变化。',
-        },
-        {
-          title: '非理想效率',
-          text: '$\\eta=P_{\\rm out}/P_{\\rm in}$，百分效率再乘100%。若题目只保证电压符合匝比，仍必须用实际输出电流求功率，不能强行令输入输出相等。',
-        },
-        {
-          title: '线路损耗是线路上的电流',
-          text: '$P_{\\rm loss}=I_{\\rm cable}^2R_{\\rm cable}$。先确认电缆在哪一侧，再取该侧电流；同输送功率下电压提高k倍，电流降为1/k，线路发热降为 $1/k^2$。',
-        },
-      ],
+      summary: magnetismMethods['130205'].summary,
+      paragraphs: [magnetismMethods['130205'].intro],
+      rules: magnetismMethods['130205'].blocks.flatMap((block) => [
+        ...(block.points ?? []),
+        ...(block.paragraphs ?? []).map((text) => ({ title: block.title, text })),
+        ...(block.table?.rows ?? []).map((row) => ({
+          title: row[0]!,
+          text: row.slice(1).join('；'),
+        })),
+      ]),
+      memory: magnetismMethods['130205'].memory,
       pitfalls: [
         '升压时理想输出电流减小，不是电压电流一起增大。',
         '匝数比不是效率，效率必须比较功率。',

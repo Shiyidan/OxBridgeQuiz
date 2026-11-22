@@ -1,5 +1,7 @@
 <!-- 首页数学1静态讲义：用双路径交点推导呈现学习平台向量与几何论证的方法。 -->
 <script setup lang="ts">
+import { t } from '@/locales'
+
 import KnowledgeText from '@/components/knowledge/KnowledgeText.vue'
 import { vectorReasoningMethods } from '@/content/knowledge/geometryReasoningMethods'
 
@@ -19,18 +21,22 @@ const paths = [
 </script>
 
 <template>
-  <section class="vector-preview" aria-label="向量双路径求交点讲解">
+  <section class="vector-preview" :aria-label="t('向量双路径求交点讲解')">
     <header>
-      <h3>同一个交点，两条推理路径。</h3>
-      <p>{{ method.title }}</p>
+      <h3>{{ t('同一个交点，两条推理路径。') }}</h3>
+      <p>{{ t(method.title) }}</p>
     </header>
     <div class="reasoning-layout">
       <div class="geometry">
-        <p class="given"><KnowledgeText text="$BD:DC=2:1$，E 为 AC 的中点，AD 与 BE 交于 P。" /></p>
+        <p class="given">
+          <KnowledgeText :text="t('$BD:DC=2:1$，E 为 AC 的中点，AD 与 BE 交于 P。')" />
+        </p>
         <svg
           viewBox="0 0 580 330"
           role="img"
-          aria-label="三角形ABC中，D将BC按2比1分割，E是AC中点，AD与BE相交于P；AP比PD为3比2。"
+          :aria-label="
+            t('三角形ABC中，D将BC按2比1分割，E是AC中点，AD与BE相交于P；AP比PD为3比2。')
+          "
         >
           <path d="M120 40 L40 280 H520 Z" class="triangle" />
           <path d="M120 40 L264 184 L40 280 Z" class="region" />
@@ -70,30 +76,36 @@ const paths = [
         </svg>
         <p class="basis">
           <KnowledgeText
-            text="以 A 为原点，设 $\overrightarrow{AB}=\mathbf b$，$\overrightarrow{AC}=\mathbf c$。"
+            :text="
+              t(
+                '以 A 为原点，设 $\\overrightarrow{AB}=\\mathbf b$，$\\overrightarrow{AC}=\\mathbf c$。',
+              )
+            "
           />
         </p>
       </div>
       <div class="derivation">
         <div class="path-equations">
           <div v-for="path in paths" :key="path.label" class="path-row">
-            <span>{{ path.label }}</span
-            ><KnowledgeText :text="path.formula" />
+            <span>{{ t(path.label) }}</span
+            ><KnowledgeText :text="t(path.formula)" />
           </div>
         </div>
         <div class="coefficient-step">
-          <strong>不平行的基向量，系数分别相等</strong>
+          <strong>{{ t('不平行的基向量，系数分别相等') }}</strong>
           <KnowledgeText
             text="$\frac t3=1-s,\quad \frac{2t}{3}=\frac s2\quad\Longrightarrow\quad t=\frac35,\ s=\frac45$"
           />
         </div>
         <div class="conclusion">
-          <span>把代数结果，读回几何关系</span>
+          <span>{{ t('把代数结果，读回几何关系') }}</span>
           <KnowledgeText text="$AP:PD=3:2\qquad BP:PE=4:1$" />
         </div>
         <p class="boundary">
           <KnowledgeText
-            text="$0<t,s<1$，交点在线段内部；比较系数的前提是 $\mathbf b,\mathbf c$ 不平行。"
+            :text="
+              t('$0<t,s<1$，交点在线段内部；比较系数的前提是 $\\mathbf b,\\mathbf c$ 不平行。')
+            "
           />
         </p>
       </div>

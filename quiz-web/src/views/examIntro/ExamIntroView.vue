@@ -7,14 +7,14 @@
       <section class="exam-hero">
         <div class="exam-hero__grid" aria-hidden="true"></div>
         <div class="exam-shell exam-hero__content">
-          <div class="exam-kicker">AceMock 云舟备考 · Exam Intro</div>
+          <div class="exam-kicker">{{ t('AceMock 云舟备考 · Exam Intro') }}</div>
           <h1>{{ currentExam.title }}</h1>
           <p>{{ currentExam.subtitle }}</p>
         </div>
       </section>
 
       <div class="exam-shell exam-content">
-        <nav class="exam-tabs" aria-label="考试介绍内容">
+        <nav class="exam-tabs" :aria-label="t('考试介绍内容')">
           <button
             v-for="tab in tabs"
             :key="tab.id"
@@ -36,15 +36,15 @@
               <path d="M5 19V9M12 19V5M19 19v-7"></path>
               <path d="M3 19h18"></path>
             </svg>
-            {{ tab.label }}
+            {{ t(tab.label) }}
           </button>
         </nav>
 
         <div :key="`${examType}-${activeTab}`" class="exam-panel">
           <template v-if="activeTab === 'overview'">
             <article
-              v-for="section in currentExam.overview"
-              :key="section.title"
+              v-for="(section, sectionIndex) in currentExam.overview"
+              :key="sectionIndex"
               class="content-card"
             >
               <SectionTitle :title="section.title" />
@@ -53,10 +53,14 @@
           </template>
 
           <template v-else-if="activeTab === 'faq'">
-            <section v-for="group in currentExam.faq" :key="group.title" class="faq-group">
+            <section
+              v-for="(group, groupIndex) in currentExam.faq"
+              :key="groupIndex"
+              class="faq-group"
+            >
               <SectionTitle :title="group.title" />
               <div class="faq-list">
-                <details v-for="item in group.items" :key="item.question" class="faq-item">
+                <details v-for="(item, itemIndex) in group.items" :key="itemIndex" class="faq-item">
                   <summary>
                     <span>{{ item.question }}</span>
                     <span class="faq-item__toggle" aria-hidden="true">
@@ -101,7 +105,8 @@ import { computed, defineComponent, h, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import NavBar from '@/components/NavBar.vue'
-import { examIntroData, isExamType, type ExamType } from './examIntroData'
+import { i18n, t } from '@/locales'
+import { examIntroData, examIntroEnglishData, isExamType, type ExamType } from './examIntroData'
 
 type TabId = 'overview' | 'faq' | 'comparison'
 
@@ -120,7 +125,9 @@ const examType = computed<ExamType>(() => {
   const value = String(route.params.examType || '').toLowerCase()
   return isExamType(value) ? value : 'tmua'
 })
-const currentExam = computed(() => examIntroData[examType.value])
+const currentExam = computed(
+  () => (i18n.global.locale.value === 'en' ? examIntroEnglishData : examIntroData)[examType.value],
+)
 
 // 产品提供的 Markdown 是受信任的本地静态内容，渲染时保留表格、列表和原始换行。
 function renderMarkdown(markdown: string): string {

@@ -1,5 +1,7 @@
 <!-- 桌面首页学习介绍：复用真实课程图解与讲解，以知识关系承接专项练习。 -->
 <script setup lang="ts">
+import { t } from '@/locales'
+
 import { computed, ref } from 'vue'
 import { Right, ArrowRight } from '@element-plus/icons-vue'
 import AppButton from '@/components/AppButton.vue'
@@ -106,15 +108,17 @@ function enterPractice(code = selectedNode.value.code, exam: ActiveExamType = 'T
     <div class="learning-container">
       <header class="section-heading">
         <div>
-          <h2 id="learning-intro-title">学习平台 · 不仅是 Knowledge，更是 Know-how。</h2>
-          <p>从概念与图解，到真题推理与即时自测。</p>
+          <h2 id="learning-intro-title">
+            {{ t('学习平台 · 不仅是 Knowledge，更是 Know-how。') }}
+          </h2>
+          <p>{{ t('从概念与图解，到真题推理与即时自测。') }}</p>
         </div>
-        <AppButton type="text" :icon="Right" icon-position="right" @click="enterLearning()"
-          >进入学习</AppButton
-        >
+        <AppButton type="text" :icon="Right" icon-position="right" @click="enterLearning()">{{
+          t('进入学习')
+        }}</AppButton>
       </header>
 
-      <div class="subject-nav" role="group" aria-label="选择学习预览科目">
+      <div class="subject-nav" role="group" :aria-label="t('选择学习预览科目')">
         <span class="exam-label" :class="{ 'exam-label--active': activeSubject.exam === 'ESAT' }"
           >ESAT</span
         >
@@ -124,17 +128,17 @@ function enterPractice(code = selectedNode.value.code, exam: ActiveExamType = 'T
           class="subject-tab"
           type="text"
           size="small"
-          :aria-label="`预览${subject.label}`"
+          :aria-label="t('预览{p0}', { p0: t(subject.label) })"
           :aria-pressed="selectedSubjectId === subject.id"
           :class="{ 'subject-active': selectedSubjectId === subject.id }"
           @click="selectedSubjectId = subject.id"
-          >{{ subject.label }}</AppButton
+          >{{ t(subject.label) }}</AppButton
         >
         <span class="subject-divider" aria-hidden="true"></span>
         <AppButton
           type="text"
           size="small"
-          aria-label="预览TMUA"
+          :aria-label="t('预览TMUA')"
           class="exam-tab"
           :aria-pressed="activeSubject.exam === 'TMUA'"
           :class="{ 'subject-active': activeSubject.exam === 'TMUA' }"
@@ -147,25 +151,28 @@ function enterPractice(code = selectedNode.value.code, exam: ActiveExamType = 'T
           type="text"
           size="small"
           class="subject-tab"
-          :aria-label="`预览TMUA${subject.label}`"
+          :aria-label="t('预览TMUA{p0}', { p0: t(subject.label) })"
           :aria-pressed="selectedSubjectId === subject.id"
           :class="{ 'subject-active': selectedSubjectId === subject.id }"
           @click="selectedSubjectId = subject.id"
-          >{{ subject.label }}</AppButton
+          >{{ t(subject.label) }}</AppButton
         >
       </div>
 
       <div class="lesson-workspace">
         <header class="workspace-heading">
-          <span><i aria-hidden="true"></i> 试题库</span>
+          <span><i aria-hidden="true"></i>{{ t('试题库') }}</span>
           <div class="workspace-modes">
-            <span class="current-mode">学习</span>
-            <span class="workspace-practice-label">做题</span>
+            <span class="current-mode">{{ t('学习') }}</span>
+            <span class="workspace-practice-label">{{ t('做题') }}</span>
           </div>
         </header>
         <div class="lesson-body">
-          <aside class="chapter-nav" :aria-label="`${activeSubject.label}考纲展示`">
-            <span class="chapter-caption">考纲节选</span>
+          <aside
+            class="chapter-nav"
+            :aria-label="t('{p0}考纲展示', { p0: t(activeSubject.label) })"
+          >
+            <span class="chapter-caption">{{ t('考纲节选') }}</span>
             <ul class="chapter-tree">
               <li v-for="chapter in activeSubject.chapters" :key="chapter.code">
                 <span
@@ -173,7 +180,7 @@ function enterPractice(code = selectedNode.value.code, exam: ActiveExamType = 'T
                   :class="{ 'chapter-heading--open': chapter.children }"
                 >
                   <ArrowRight class="chapter-chevron" aria-hidden="true" />
-                  {{ chapter.label }}
+                  {{ t(chapter.label) }}
                 </span>
                 <ul v-if="chapter.children" class="chapter-children">
                   <li v-for="child in chapter.children" :key="child.code">
@@ -181,7 +188,7 @@ function enterPractice(code = selectedNode.value.code, exam: ActiveExamType = 'T
                       class="chapter-label"
                       :class="{ 'selected-chapter': child.code === lesson.code }"
                       :aria-current="child.code === lesson.code ? 'true' : undefined"
-                      >{{ child.label }}</span
+                      >{{ t(child.label) }}</span
                     >
                   </li>
                 </ul>
@@ -192,7 +199,7 @@ function enterPractice(code = selectedNode.value.code, exam: ActiveExamType = 'T
             <div
               :key="selectedSubjectId"
               class="subject-preview"
-              :aria-label="`${lesson.title}图解展示`"
+              :aria-label="t('{p0}图解展示', { p0: t(lesson.title) })"
             >
               <HomeVectorReasoning
                 v-if="['mathematics1', 'tmua-math1'].includes(selectedSubjectId)"
@@ -206,12 +213,12 @@ function enterPractice(code = selectedNode.value.code, exam: ActiveExamType = 'T
       <section class="knowledge-section" aria-labelledby="knowledge-map-title">
         <header class="knowledge-heading">
           <div>
-            <h3 id="knowledge-map-title">把理解，转化成解题能力。</h3>
-            <p>知识关系示意</p>
+            <h3 id="knowledge-map-title">{{ t('把理解，转化成解题能力。') }}</h3>
+            <p>{{ t('知识关系示意') }}</p>
           </div>
-          <p class="map-hint">选择知识点，试一道概念题</p>
+          <p class="map-hint">{{ t('选择知识点，试一道概念题') }}</p>
         </header>
-        <div class="knowledge-map" role="group" aria-label="函数相关知识点">
+        <div class="knowledge-map" role="group" :aria-label="t('函数相关知识点')">
           <svg
             class="knowledge-lines"
             viewBox="0 0 1000 200"
@@ -249,16 +256,17 @@ function enterPractice(code = selectedNode.value.code, exam: ActiveExamType = 'T
             :aria-pressed="selectedNodeId === node.id"
             @click="selectedNodeId = node.id"
           >
-            <span>{{ node.label }}</span
+            <span>{{ t(node.label) }}</span
             ><i aria-hidden="true"></i>
           </button>
         </div>
         <div class="knowledge-toolbar">
           <div class="current-knowledge">
-            <span>当前知识点</span><strong>{{ selectedNode.label }}</strong>
+            <span>{{ t('当前知识点') }}</span
+            ><strong>{{ t(selectedNode.label) }}</strong>
           </div>
-          <div class="difficulty-options" role="group" aria-label="选择专项练习难度">
-            <span>难度</span>
+          <div class="difficulty-options" role="group" :aria-label="t('选择专项练习难度')">
+            <span>{{ t('难度') }}</span>
             <AppButton
               v-for="item in difficulties"
               :key="item.id"
@@ -267,7 +275,7 @@ function enterPractice(code = selectedNode.value.code, exam: ActiveExamType = 'T
               :class="{ active: difficulty === item.id }"
               :aria-pressed="difficulty === item.id"
               @click="difficulty = item.id"
-              >{{ item.label }}</AppButton
+              >{{ t(item.label) }}</AppButton
             >
           </div>
         </div>

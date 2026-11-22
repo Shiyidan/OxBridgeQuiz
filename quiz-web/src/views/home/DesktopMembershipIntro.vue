@@ -1,5 +1,7 @@
 <!-- 桌面首页会员方案：承接现有公开价格，所选考试与套餐交给首页支付流程。 -->
 <script setup lang="ts">
+import { t } from '@/locales'
+
 import { ref } from 'vue'
 import AnnualMembershipPlans from '@/components/AnnualMembershipPlans.vue'
 import type { AnnualPlan } from '@/constants/annualMembership'
@@ -33,11 +35,11 @@ function showMembershipPlans() {
     <div class="membership-container">
       <header class="membership-heading">
         <div>
-          <span class="section-eyebrow">MEMBERSHIP / 会员方案</span>
-          <h2 id="membership-intro-title">按你的节奏，选择备考方案。</h2>
+          <span class="section-eyebrow">{{ t('MEMBERSHIP / 会员方案') }}</span>
+          <h2 id="membership-intro-title">{{ t('按你的节奏，选择备考方案。') }}</h2>
         </div>
-        <div class="membership-exams" role="group" aria-label="选择会员适用考试">
-          <span>选择备考考试</span
+        <div class="membership-exams" role="group" :aria-label="t('选择会员适用考试')">
+          <span>{{ t('选择备考考试') }}</span
           ><AppButton
             v-for="item in exams"
             :key="item"
@@ -46,24 +48,30 @@ function showMembershipPlans() {
             :class="{ active: exam === item }"
             :aria-pressed="exam === item"
             @click="exam = item"
-            >{{ item }}</AppButton
+            >{{ t(item) }}</AppButton
           >
         </div>
       </header>
       <p class="membership-scope" aria-live="polite">
-        当前选择 {{ exam }} · 会员权益按考试独立生效，ESAT 与 TMUA 不通用。
+        {{ t('当前选择') }}{{ t(exam)
+        }}{{ t('· 会员权益按考试独立生效，ESAT 与 TMUA 不通用。') }}
       </p>
       <AnnualMembershipPlans @select="emit('payment', $event, exam)" />
-      <p class="pricing-note">价格与权益以开通时的实际说明为准。</p>
+      <p class="pricing-note">{{ t('价格与权益以开通时的实际说明为准。') }}</p>
     </div>
   </section>
   <section class="closing-intro" aria-labelledby="closing-intro-title">
-    <h2 id="closing-intro-title">下一步，从看清自己开始。</h2>
+    <h2 id="closing-intro-title">{{ t('下一步，从看清自己开始。') }}</h2>
     <div>
-      <AppButton :icon="TopRight" icon-position="right" @click="emit('register', '/assessment')"
-        >开始免费诊断</AppButton
-      ><AppButton type="secondary" :icon="Right" icon-position="right" @click="showMembershipPlans"
-        >查看会员方案</AppButton
+      <AppButton :icon="TopRight" icon-position="right" @click="emit('register', '/assessment')">{{
+        t('开始免费诊断')
+      }}</AppButton
+      ><AppButton
+        type="secondary"
+        :icon="Right"
+        icon-position="right"
+        @click="showMembershipPlans"
+        >{{ t('查看会员方案') }}</AppButton
       >
     </div>
   </section>

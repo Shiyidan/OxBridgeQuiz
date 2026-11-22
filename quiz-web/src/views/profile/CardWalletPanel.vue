@@ -1,21 +1,26 @@
 <!-- 个人中心卡包：集中展示邀请周卡，并承接待启用卡券的考试确认与启用。 -->
 <template>
-  <section id="member-card-wallet" class="card-wallet-panel" aria-labelledby="card-wallet-title">
+  <section
+    id="member-card-wallet"
+    class="card-wallet-panel"
+    :class="{ 'card-wallet-panel--english': i18n.global.locale.value === 'en' }"
+    aria-labelledby="card-wallet-title"
+  >
     <ProfileModuleHeading
       class="card-wallet-heading"
       kicker="MY CARD WALLET"
-      title="我的卡包"
-      description="集中查看账户收到的周卡及其他会员卡券"
+      :title="t('我的卡包')"
+      :description="t('集中查看账户收到的周卡及其他会员卡券')"
       title-id="card-wallet-title"
     />
 
-    <div v-if="loading" class="wallet-state">卡券加载中...</div>
+    <div v-if="loading" class="wallet-state">{{ t('卡券加载中...') }}</div>
     <div v-else-if="loadError" class="wallet-state wallet-state--error">
-      <span>{{ loadError }}</span>
-      <button type="button" @click="loadRewards">重新加载</button>
+      <span>{{ translateInterfaceError(loadError) }}</span>
+      <button type="button" @click="loadRewards">{{ t('重新加载') }}</button>
     </div>
     <template v-else>
-      <div class="wallet-tabs profile-segment-tabs" role="tablist" aria-label="卡券状态筛选">
+      <div class="wallet-tabs profile-segment-tabs" role="tablist" :aria-label="t('卡券状态筛选')">
         <button
           v-for="tab in walletTabs"
           :key="tab.value"
@@ -25,18 +30,20 @@
           :class="{ active: activeFilter === tab.value }"
           @click="selectFilter(tab.value)"
         >
-          {{ tab.label }} {{ tab.count }}
+          {{ t(tab.label) }} {{ t(tab.count) }}
         </button>
       </div>
 
       <div v-if="filteredRewards.length" class="wallet-preview">
         <div class="wallet-preview-summary">
-          <span>
-            当前预览 {{ visibleRewards.length }} 张，共 {{ filteredRewards.length }} 张卡券
-          </span>
-          <button type="button" aria-label="查看更多卡券" @click="walletListVisible = true">
-            查看更多
-            <el-icon aria-hidden="true"><ArrowRight /></el-icon>
+          <span>{{
+            t('当前预览 {p0} 张，共 {p1} 张卡券', {
+              p0: t(visibleRewards.length),
+              p1: t(filteredRewards.length),
+            })
+          }}</span>
+          <button type="button" :aria-label="t('查看更多卡券')" @click="walletListVisible = true">
+            {{ t('查看更多') }}<el-icon aria-hidden="true"><ArrowRight /></el-icon>
           </button>
         </div>
         <div class="wallet-card-stack">
@@ -55,32 +62,32 @@
             @click="bringToFront(reward.id)"
           >
             <div class="wallet-card-topline">
-              <span>{{ rewardSourceLabel(reward) }} · {{ rewardCardKindLabel(reward) }}</span>
+              <span>{{ t(rewardSourceLabel(reward)) }} · {{ t(rewardCardKindLabel(reward)) }}</span>
             </div>
             <div class="wallet-card-main">
-              <h3>{{ rewardCardTitle(reward) }}</h3>
+              <h3>{{ t(rewardCardTitle(reward)) }}</h3>
               <button
                 v-if="cardActionLabel(reward)"
                 type="button"
                 :disabled="activationSaving || !canActivate(reward)"
                 @click.stop="openActivation(reward)"
               >
-                {{ cardActionLabel(reward) }}
+                {{ t(cardActionLabel(reward)) }}
               </button>
             </div>
             <div class="wallet-card-footer">
-              <p>{{ rewardDescription(reward) }}</p>
-              <small class="wallet-card-period">{{ rewardPeriodText(reward) }}</small>
+              <p>{{ t(rewardDescription(reward)) }}</p>
+              <small class="wallet-card-period">{{ t(rewardPeriodText(reward)) }}</small>
             </div>
           </article>
         </div>
       </div>
-      <div v-else class="wallet-state wallet-state--empty">当前分类暂无卡券</div>
+      <div v-else class="wallet-state wallet-state--empty">{{ t('当前分类暂无卡券') }}</div>
     </template>
 
     <el-dialog
       v-model="walletListVisible"
-      title="卡券详情"
+      :title="t('卡券详情')"
       width="min(680px, calc(100vw - 32px))"
       align-center
       destroy-on-close
@@ -98,22 +105,22 @@
           }"
         >
           <div class="wallet-card-topline">
-            <span>{{ rewardSourceLabel(reward) }} · {{ rewardCardKindLabel(reward) }}</span>
+            <span>{{ t(rewardSourceLabel(reward)) }} · {{ t(rewardCardKindLabel(reward)) }}</span>
           </div>
           <div class="wallet-card-main">
-            <h3>{{ rewardCardTitle(reward) }}</h3>
+            <h3>{{ t(rewardCardTitle(reward)) }}</h3>
             <button
               v-if="cardActionLabel(reward)"
               type="button"
               :disabled="activationSaving || !canActivate(reward)"
               @click="activateFromDetail(reward)"
             >
-              {{ cardActionLabel(reward) }}
+              {{ t(cardActionLabel(reward)) }}
             </button>
           </div>
           <div class="wallet-card-footer">
-            <p>{{ rewardDescription(reward) }}</p>
-            <small class="wallet-card-period">{{ rewardPeriodText(reward) }}</small>
+            <p>{{ t(rewardDescription(reward)) }}</p>
+            <small class="wallet-card-period">{{ t(rewardPeriodText(reward)) }}</small>
           </div>
         </article>
       </div>
@@ -121,7 +128,7 @@
 
     <el-dialog
       v-model="activationVisible"
-      :title="`选择${activationCardKindLabel}适用考试`"
+      :title="t('选择{p0}适用考试', { p0: t(activationCardKindLabel) })"
       width="520px"
       align-center
       destroy-on-close
@@ -129,62 +136,76 @@
       <div class="wallet-activation-content">
         <template v-if="activationUsesFixedExam">
           <div class="wallet-goal-summary">
-            <span>本卡适用考试</span>
+            <span>{{ t('本卡适用考试') }}</span>
             <div>
-              <strong>{{ activationExamType }}</strong>
+              <strong>{{ t(activationExamType) }}</strong>
             </div>
-            <p>该考试由首次有效会员订单确定，启用时不能切换。</p>
+            <p>{{ t('该考试由首次有效会员订单确定，启用时不能切换。') }}</p>
           </div>
           <p class="wallet-recommendation">
-            确认启用后，{{ activationExamType }} 会员到期时间将增加{{ activationDurationText }}。
+            {{
+              t('确认启用后，{p0} 会员到期时间将增加{p1}。', {
+                p0: t(activationExamType),
+                p1: t(activationDurationText),
+              })
+            }}
           </p>
-          <p>确认后考试类型不可修改；已有对应会员时，权益将直接追加到当前有效期之后。</p>
+          <p>{{ t('确认后考试类型不可修改；已有对应会员时，权益将直接追加到当前有效期之后。') }}</p>
         </template>
         <template v-else-if="studyGoalExamTypes.length">
           <div class="wallet-goal-summary">
-            <span>当前备考目标</span>
+            <span>{{ t('当前备考目标') }}</span>
             <div>
               <strong v-for="examType in studyGoalExamTypes" :key="examType">
-                {{ examType }}
+                {{ t(examType) }}
               </strong>
             </div>
-            <p>目标来源于注册时填写的信息或个人中心的后续修改。</p>
+            <p>{{ t('目标来源于注册时填写的信息或个人中心的后续修改。') }}</p>
           </div>
           <p class="wallet-recommendation">
-            {{ activationRecommendation }}
+            {{ t(activationRecommendation) }}
           </p>
           <el-radio-group v-model="activationExamType" class="wallet-exam-switch">
             <el-radio-button value="ESAT">ESAT</el-radio-button>
             <el-radio-button value="TMUA">TMUA</el-radio-button>
           </el-radio-group>
           <p>
-            确认后考试类型不可修改；已有对应会员时，会员到期时间将增加{{ activationDurationText }}。
+            {{
+              t('确认后考试类型不可修改；已有对应会员时，会员到期时间将增加{p0}。', {
+                p0: t(activationDurationText),
+              })
+            }}
           </p>
         </template>
         <div v-else class="wallet-goal-empty">
-          <strong>尚未设置备考目标</strong>
+          <strong>{{ t('尚未设置备考目标') }}</strong>
           <p>
-            请先在个人中心完善目标考试，系统会据此推荐本张{{ activationCardKindLabel }}的适用考试。
+            {{
+              t('请先在个人中心完善目标考试，系统会据此推荐本张{p0}的适用考试。', {
+                p0: t(activationCardKindLabel),
+              })
+            }}
           </p>
         </div>
       </div>
       <template #footer>
         <template v-if="activationUsesFixedExam || studyGoalExamTypes.length">
-          <el-button :disabled="activationSaving" @click="activationVisible = false">
-            取消
-          </el-button>
+          <el-button :disabled="activationSaving" @click="activationVisible = false">{{
+            t('取消')
+          }}</el-button>
           <el-button
             type="primary"
             :loading="activationSaving"
             :disabled="!activationExamType"
             @click="handleActivate"
+            >{{ t('确认启用') }}</el-button
           >
-            确认启用
-          </el-button>
         </template>
         <template v-else>
-          <el-button @click="activationVisible = false">稍后设置</el-button>
-          <el-button type="primary" @click="handleEditStudyGoals">去完善备考目标</el-button>
+          <el-button @click="activationVisible = false">{{ t('稍后设置') }}</el-button>
+          <el-button type="primary" @click="handleEditStudyGoals">{{
+            t('去完善备考目标')
+          }}</el-button>
         </template>
       </template>
     </el-dialog>
@@ -192,6 +213,7 @@
 </template>
 
 <script setup lang="ts">
+import { i18n, t, translateInterfaceError } from '@/locales'
 import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ArrowRight } from '@element-plus/icons-vue'
@@ -373,7 +395,7 @@ async function performActivation(
     if (closeDialog) activationVisible.value = false
     await loadRewards()
     emit('membershipChanged')
-    ElMessage.success(`${rewardDurationTitle(reward)}已启用`)
+    ElMessage.success(t(`${rewardDurationTitle(reward)}已启用`))
   } catch {
     await loadRewards()
   } finally {
@@ -433,7 +455,7 @@ function rewardDurationTitle(reward: InvitationRewardItem): string {
 
 // 卡面标题统一带产品名，仅根据实际时长切换权益名称。
 function rewardCardTitle(reward: InvitationRewardItem): string {
-  return `AceMock ${rewardDurationTitle(reward)}`
+  return `AceMock ${t(rewardDurationTitle(reward))}`
 }
 
 // 卡面说明区分支付尚未完成与已经可以使用的待启用状态。
@@ -459,7 +481,7 @@ function rewardDescription(reward: InvitationRewardItem): string {
 // 时间统一使用本地日期展示，空值不输出误导信息。
 function formatDate(value: string | null): string {
   if (!value) return '—'
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(i18n.global.locale.value === 'en' ? 'en-GB' : 'zh-CN', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -738,6 +760,8 @@ onMounted(loadRewards)
 }
 
 .wallet-card-main h3 {
+  min-width: 0;
+  overflow-wrap: anywhere;
   margin: 1px 0 2px;
   font-size: 16px;
   font-weight: 700;
@@ -757,6 +781,12 @@ onMounted(loadRewards)
   margin: 0;
   color: rgba(255, 255, 255, 0.84);
   font-size: 11px;
+}
+
+:global(html[lang='en']) .wallet-card-footer {
+  flex-wrap: wrap;
+  white-space: normal;
+  row-gap: 2px;
 }
 
 .wallet-card-main button,

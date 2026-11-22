@@ -2,20 +2,22 @@
 <template>
   <AppDialog
     :model-value="modelValue"
-    title="会员已到期"
-    cancel-text="暂不续费"
-    confirm-text="立即续费"
+    :title="t('会员已到期')"
+    :cancel-text="t('暂不续费')"
+    :confirm-text="t('立即续费')"
     close-on-press-escape
     @update:model-value="emit('update:modelValue', $event)"
     @confirm="openPayment"
   >
-    <p>当前会员已到期，续费后即可继续查看题目解析。</p>
-    <p>你的做题记录和错题均已保留。</p>
+    <p>{{ t('当前会员已到期，续费后即可继续查看题目解析。') }}</p>
+    <p>{{ t('你的做题记录和错题均已保留。') }}</p>
   </AppDialog>
   <PaymentModal v-model="paymentVisible" :default-exam-type="examType" @paid="handlePaid" />
 </template>
 
 <script setup lang="ts">
+import { t } from '@/locales'
+
 import { ref } from 'vue'
 import AppDialog from './AppDialog.vue'
 import PaymentModal from './PaymentModal.vue'

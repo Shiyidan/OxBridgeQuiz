@@ -8,6 +8,7 @@ import { createPinia } from 'pinia'
 import ElementPlus from 'element-plus'
 
 import App from './App.vue'
+import { i18n } from './locales'
 import router from './router'
 import { useAuthStore } from './stores/auth'
 import { configureRequestAuth } from './utils/request'
@@ -16,6 +17,7 @@ import { recordWebsiteVisit } from './api/traffic'
 const app = createApp(App)
 
 app.use(createPinia())
+app.use(i18n)
 app.use(ElementPlus)
 
 // 页面启动时通过HttpOnly刷新Cookie恢复服务端会话，再执行路由守卫。

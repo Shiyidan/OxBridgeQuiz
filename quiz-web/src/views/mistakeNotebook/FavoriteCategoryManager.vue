@@ -2,35 +2,40 @@
 <template>
   <el-drawer
     :model-value="modelValue"
-    title="管理收藏分类"
-    size="460px"
+    :title="t('管理收藏分类')"
+    size="min(460px, 100vw)"
+    append-to-body
     @update:model-value="emit('update:modelValue', $event)"
   >
-    <p class="category-hint">{{ examType }} · 每道收藏题目归入一个分类，方便集中复习。</p>
+    <p class="category-hint">
+      {{ t('{p0} · 每道收藏题目归入一个分类，方便集中复习。', { p0: t(examType) }) }}
+    </p>
     <div class="category-create">
       <el-input
         v-model="newName"
         maxlength="40"
-        placeholder="新分类名称，如：重点复习"
-        aria-label="新分类名称"
+        :placeholder="t('新分类名称，如：重点复习')"
+        :aria-label="t('新分类名称')"
         @keyup.enter="create"
       />
-      <AppButton size="small" :loading="busy" :disabled="!newName.trim()" @click="create"
-        >创建</AppButton
-      >
+      <AppButton size="small" :loading="busy" :disabled="!newName.trim()" @click="create">{{
+        t('创建')
+      }}</AppButton>
     </div>
-    <p v-if="!categories.length" class="category-hint">还没有分类，创建后即可整理收藏的题目。</p>
+    <p v-if="!categories.length" class="category-hint">
+      {{ t('还没有分类，创建后即可整理收藏的题目。') }}
+    </p>
     <div v-for="(category, index) in categories" :key="category.id" class="category-row">
       <div class="category-row__name">
         <el-input
           v-if="editing === category.id"
           v-model="editName"
           maxlength="40"
-          aria-label="修改分类名称"
+          :aria-label="t('修改分类名称')"
           @keyup.enter="rename(category.id)"
         />
         <span v-else
-          >{{ category.name }} <small>{{ category.count }} 题</small></span
+          >{{ category.name }} <small>{{ t('{p0} 题', { p0: t(category.count) }) }}</small></span
         >
       </div>
       <div class="category-row__actions">
@@ -40,17 +45,17 @@
           size="mini"
           :disabled="busy || !editName.trim()"
           @click="rename(category.id)"
-          >保存</AppButton
+          >{{ t('保存') }}</AppButton
         >
-        <AppButton v-else type="text" size="mini" :disabled="busy" @click="startRename(category)"
-          >重命名</AppButton
-        >
+        <AppButton v-else type="text" size="mini" :disabled="busy" @click="startRename(category)">{{
+          t('重命名')
+        }}</AppButton>
         <AppButton
           type="text"
           size="mini"
           :icon="ArrowUp"
           icon-only
-          :aria-label="`上移${category.name}`"
+          :aria-label="t('上移{p0}', { p0: category.name })"
           :disabled="busy || index === 0"
           @click="move(index, -1)"
         />
@@ -59,29 +64,34 @@
           size="mini"
           :icon="ArrowDown"
           icon-only
-          :aria-label="`下移${category.name}`"
+          :aria-label="t('下移{p0}', { p0: category.name })"
           :disabled="busy || index === categories.length - 1"
           @click="move(index, 1)"
         />
-        <AppButton type="text" size="mini" :disabled="busy" @click="deleting = category"
-          >删除</AppButton
-        >
+        <AppButton type="text" size="mini" :disabled="busy" @click="deleting = category">{{
+          t('删除')
+        }}</AppButton>
       </div>
     </div>
     <AppDialog
       :model-value="Boolean(deleting)"
-      title="删除分类"
-      confirm-text="删除分类"
+      :title="t('删除分类')"
+      :confirm-text="t('删除分类')"
       confirm-type="danger"
       :loading="busy"
       @update:model-value="deleting = null"
       @confirm="remove"
+      >{{
+        t('删除“{p0}”后，其中的 {p1} 道题目会移至未分类，收藏仍然保留。', {
+          p0: deleting?.name,
+          p1: t(deleting?.count),
+        })
+      }}</AppDialog
     >
-      删除“{{ deleting?.name }}”后，其中的 {{ deleting?.count }} 道题目会移至未分类，收藏仍然保留。
-    </AppDialog>
   </el-drawer>
 </template>
 <script setup lang="ts">
+import { t } from '@/locales'
 import { ref } from 'vue'
 import { ArrowUp, ArrowDown } from '@element-plus/icons-vue'
 import AppButton from '@/components/AppButton.vue'

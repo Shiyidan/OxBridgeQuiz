@@ -1,57 +1,64 @@
 <!-- 个人中心学习足迹：用自适应时间范围与正方形日历格展示每日学习强度。 -->
 <template>
-  <section class="learning-panel" aria-labelledby="learning-footprint-title">
+  <section
+    class="learning-panel"
+    :class="{ 'learning-panel--english': i18n.global.locale.value === 'en' }"
+    aria-labelledby="learning-footprint-title"
+  >
     <ProfileModuleHeading
       kicker="LEARNING JOURNEY"
-      title="学习足迹"
-      description="每一个格子，记录一天的学习积累"
+      :title="t('学习足迹')"
+      :description="t('每一个格子，记录一天的学习积累')"
       title-id="learning-footprint-title"
     />
 
     <div v-if="loading && !footprint" class="learning-state" aria-live="polite">
-      正在整理学习足迹…
+      {{ t('正在整理学习足迹…') }}
     </div>
     <div v-else-if="loadError" class="learning-state" role="status">
-      <span>学习足迹暂时加载失败</span>
-      <el-button link type="primary" @click="loadFootprint">重新加载</el-button>
+      <span>{{ t('学习足迹暂时加载失败') }}</span>
+      <el-button link type="primary" @click="loadFootprint">{{ t('重新加载') }}</el-button>
     </div>
     <template v-else-if="footprint">
       <div class="learning-summary">
         <div>
-          <strong>{{ footprint.summary.activeDays }}<small>天</small></strong
-          ><span>累计学习</span>
-        </div>
-        <div>
-          <strong>{{ footprint.summary.answers }}<small>次</small></strong
-          ><span>作答练习</span>
+          <strong
+            >{{ t(footprint.summary.activeDays) }}<small>{{ t('天') }}</small></strong
+          ><span>{{ t('累计学习') }}</span>
         </div>
         <div>
           <strong
-            >{{ footprint.summary.reviews + footprint.summary.reports }}<small>次</small></strong
-          ><span>复习与报告</span>
+            >{{ t(footprint.summary.answers) }}<small>{{ t('次') }}</small></strong
+          ><span>{{ t('作答练习') }}</span>
+        </div>
+        <div>
+          <strong
+            >{{ t(footprint.summary.reviews + footprint.summary.reports)
+            }}<small>{{ t('次') }}</small></strong
+          ><span>{{ t('复习与报告') }}</span>
         </div>
       </div>
 
       <div class="learning-toolbar">
         <span
-          >{{ calendarStartDate.replaceAll('-', '.') }} —
-          {{ footprint.endDate.replaceAll('-', '.') }}</span
+          >{{ t(calendarStartDate.replaceAll('-', '.')) }} —
+          {{ t(footprint.endDate.replaceAll('-', '.')) }}</span
         >
       </div>
 
       <div class="learning-calendar">
         <div class="weekday-labels" aria-hidden="true">
-          <span v-for="day in weekdays" :key="day">{{ day }}</span>
+          <span v-for="day in weekdays" :key="day">{{ t(day) }}</span>
         </div>
         <div
           ref="calendar"
           class="calendar-scroll"
-          aria-label="每日学习日历，可左右滚动查看更早记录"
+          :aria-label="t('每日学习日历，可左右滚动查看更早记录')"
           @scroll="popoverVisible = false"
         >
           <div class="calendar-weeks" :style="{ '--week-count': weeks.length }">
             <div v-for="(week, index) in weeks" :key="index" class="calendar-week">
-              <span v-if="week.label" class="month-label">{{ week.label }}</span>
+              <span v-if="week.label" class="month-label">{{ t(week.label) }}</span>
               <template v-for="(day, row) in week.days" :key="row">
                 <button
                   v-if="day?.activity"
@@ -63,7 +70,7 @@
                   ]"
                   :data-date="day.date"
                   :tabindex="day.date === focusDate ? 0 : -1"
-                  :aria-label="dayLabel(day.activity)"
+                  :aria-label="t(dayLabel(day.activity))"
                   @mouseenter="showDay(day.activity, $event)"
                   @mouseleave="popoverVisible = false"
                   @focus="showDay(day.activity, $event)"
@@ -75,7 +82,7 @@
                   v-else-if="day"
                   class="learning-day level-0 before-registration"
                   role="img"
-                  :aria-label="`${day.date}，注册前`"
+                  :aria-label="t('{p0}，注册前', { p0: t(day.date) })"
                 />
                 <span v-else class="learning-day outside" aria-hidden="true" />
               </template>
@@ -86,28 +93,41 @@
 
       <div class="learning-footer">
         <span>{{
-          footprint.summary.total ? '所有考试 · 北京时间' : '从今天开始，点亮你的学习足迹'
+          t(footprint.summary.total ? '所有考试 · 北京时间' : '从今天开始，点亮你的学习足迹')
         }}</span>
         <div
           class="learning-legend"
-          aria-label="每日学习活动：0 次、1 到 5 次、6 到 15 次、16 到 30 次、31 次及以上"
+          :aria-label="t('每日学习活动：0 次、1 到 5 次、6 到 15 次、16 到 30 次、31 次及以上')"
         >
-          <span>少</span><i v-for="level in 5" :key="level" :class="`level-${level - 1}`" /><span
-            >多</span
-          >
+          <span>{{ t('少') }}</span
+          ><i v-for="level in 5" :key="level" :class="`level-${level - 1}`" /><span>{{
+            t('多')
+          }}</span>
         </div>
       </div>
       <div class="learning-notes">
-        <span>记录作答、错题与收藏复习、报告查看</span>
+        <span>{{ t('记录作答、错题与收藏复习、报告查看') }}</span>
         <el-popover placement="top" :width="280" trigger="click" :show-arrow="false">
           <template #reference
-            ><button type="button" class="learning-rule-button" aria-label="查看学习足迹统计说明">
-              统计说明
+            ><button
+              type="button"
+              class="learning-rule-button"
+              :aria-label="t('查看学习足迹统计说明')"
+            >
+              {{ t('统计说明') }}
             </button></template
           >
           <div class="learning-rules">
-            <p>保存答案即可计入，无需交卷。同一答卷的题目、复习题目或报告，每天最多计一次。</p>
-            <p>每天按 0、1–5、6–15、16–30、31 次及以上分为五档；登录、浏览列表及支付不计入。</p>
+            <p>
+              {{
+                t('保存答案即可计入，无需交卷。同一答卷的题目、复习题目或报告，每天最多计一次。')
+              }}
+            </p>
+            <p>
+              {{
+                t('每天按 0、1–5、6–15、16–30、31 次及以上分为五档；登录、浏览列表及支付不计入。')
+              }}
+            </p>
           </div>
         </el-popover>
       </div>
@@ -122,17 +142,17 @@
       :show-arrow="false"
     >
       <div v-if="activeDay" class="learning-day-detail" aria-live="polite">
-        <strong>{{ activeDay.date }} · {{ dayWeekday(activeDay.date) }}</strong>
+        <strong>{{ t(activeDay.date) }} · {{ t(dayWeekday(activeDay.date)) }}</strong>
         <p>
-          {{ activeDay.total ? `共 ${activeDay.total} 次学习活动` : '暂无学习记录' }}
+          {{ t(activeDay.total ? `共 ${activeDay.total} 次学习活动` : '暂无学习记录') }}
         </p>
         <div class="day-counts">
           <span
-            >作答 <b>{{ activeDay.answers }}</b></span
+            >{{ t('作答') }}<b>{{ t(activeDay.answers) }}</b></span
           ><span
-            >复习 <b>{{ activeDay.reviews }}</b></span
+            >{{ t('复习') }}<b>{{ t(activeDay.reviews) }}</b></span
           ><span
-            >报告 <b>{{ activeDay.reports }}</b></span
+            >{{ t('报告') }}<b>{{ t(activeDay.reports) }}</b></span
           >
         </div>
       </div>
@@ -141,6 +161,7 @@
 </template>
 
 <script setup lang="ts">
+import { i18n, t } from '@/locales'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ProfileModuleHeading from '@/components/ProfileModuleHeading.vue'
 import {
@@ -158,7 +179,11 @@ const focusDate = ref('')
 const activeDay = ref<LearningDay>()
 const dayAnchor = ref<HTMLElement>()
 const popoverVisible = ref(false)
-const weekdays = ['一', '二', '三', '四', '五', '六', '日']
+const weekdays = computed(() =>
+  i18n.global.locale.value === 'en'
+    ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    : ['一', '二', '三', '四', '五', '六', '日'],
+)
 let lastLoaded = 0
 let disposed = false
 
@@ -193,7 +218,13 @@ const weeks = computed(() => {
     const monthStart = week.find((day) => day?.date.endsWith('-01'))
     const labelDay = monthStart || (i === 0 ? cells[0] : null)
     const label = labelDay
-      ? `${monthStart?.date.slice(5, 7) === '01' ? `${labelDay.date.slice(0, 4)}年 ` : ''}${Number(labelDay.date.slice(5, 7))}月`
+      ? i18n.global.locale.value === 'en'
+        ? new Intl.DateTimeFormat('en-GB', {
+            month: 'short',
+            ...(monthStart?.date.slice(5, 7) === '01' ? { year: 'numeric' as const } : {}),
+            timeZone: 'UTC',
+          }).format(new Date(`${labelDay.date}T00:00:00Z`))
+        : `${monthStart?.date.slice(5, 7) === '01' ? `${labelDay.date.slice(0, 4)}年 ` : ''}${Number(labelDay.date.slice(5, 7))}月`
       : ''
     result.push({ label, days: week })
   }
@@ -221,12 +252,20 @@ watch(calendar, (element, _, onCleanup) => {
 
 // 日期字符串按 UTC 读取星期，避免浏览器时区使日期偏移。
 function dayWeekday(date: string): string {
-  return `周${weekdays[(new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7]}`
+  const weekday = weekdays.value[(new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7]
+  return i18n.global.locale.value === 'en' ? weekday || '' : `周${weekday}`
 }
 
 // 每个日期具有可由键盘与读屏获取的完整活动摘要。
 function dayLabel(day: LearningDay): string {
-  return `${day.date} ${dayWeekday(day.date)}，${day.total} 次学习活动：作答 ${day.answers}，复习 ${day.reviews}，报告 ${day.reports}`
+  return t('{p0} {p1}，{p2} 次学习活动：作答 {p3}，复习 {p4}，报告 {p5}', {
+    p0: day.date,
+    p1: dayWeekday(day.date),
+    p2: day.total,
+    p3: day.answers,
+    p4: day.reviews,
+    p5: day.reports,
+  })
 }
 
 // 所有格子共享一个浮层，长时间范围也不创建数千个独立弹层。
@@ -527,6 +566,10 @@ button.learning-day:hover,
 .day-counts b {
   color: #6453d9;
 }
+.learning-panel--english .learning-summary strong small {
+  display: none;
+}
+
 @media (max-width: 560px) {
   .learning-panel {
     padding: 16px;

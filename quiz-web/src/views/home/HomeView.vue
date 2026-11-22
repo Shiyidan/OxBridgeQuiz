@@ -17,7 +17,7 @@
       @select-exam="handleExamSelection"
     />
 
-    <main class="home-main" aria-label="AceMock 首页内容">
+    <main class="home-main" :aria-label="t('AceMock 首页内容')">
       <StudentHome
         v-if="auth.isLoggedIn"
         :loading="loading"
@@ -67,6 +67,8 @@
 </template>
 
 <script setup lang="ts">
+import { t, useSiteLocale } from '@/locales'
+
 import type { AnnualPlan } from '@/constants/annualMembership'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -75,10 +77,7 @@ import NavBar from '@/components/NavBar.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
 import { getMember, updateStudyPreferences, type StudyPreferencesUpdate } from '@/api/member'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
-import {
-  createAuthRouteLocation,
-  createLoginRequiredRouteLocation,
-} from '@/utils/authRedirect'
+import { createAuthRouteLocation, createLoginRequiredRouteLocation } from '@/utils/authRedirect'
 import {
   MEMBERSHIP_PURCHASE_ENABLED,
   MEMBERSHIP_PURCHASE_PENDING_MESSAGE,
@@ -92,6 +91,7 @@ type AuthPage = 'login' | 'register'
 type PaymentPlanId = AnnualPlan
 
 const auth = useAuthStore()
+const { homePath } = useSiteLocale()
 const route = useRoute()
 const router = useRouter()
 const paymentOpen = ref(false)
@@ -131,7 +131,7 @@ function rememberExam(examType: ActiveExamType): void {
 
 // 登录或注册入口携带站内回跳地址，保证营销页主行动能够继续原任务。
 function openAuthPage(page: AuthPage, targetPath: string): void {
-  const redirect = targetPath || '/'
+  const redirect = targetPath && targetPath !== '/' ? targetPath : homePath.value
   void router.push(
     page === 'login'
       ? createLoginRequiredRouteLocation(redirect)
@@ -176,9 +176,7 @@ async function saveGoal(value: { examType: ActiveExamType; subjects: string[] })
   try {
     const existingPreferences = auth.memberContext?.studyPreferences
     const nextPreferences: StudyPreferencesUpdate = {
-      examTypes: Array.from(
-        new Set([...(existingPreferences?.examTypes || []), value.examType]),
-      ),
+      examTypes: Array.from(new Set([...(existingPreferences?.examTypes || []), value.examType])),
       primaryExamType: existingPreferences?.primaryExamType || value.examType,
       esatSubjects:
         value.examType === 'ESAT'
@@ -204,7 +202,7 @@ async function saveGoal(value: { examType: ActiveExamType; subjects: string[] })
     goalDialogOpen.value = false
     pendingGoalExam.value = null
     if (!examChanged) await reload()
-    ElMessage.success('备考目标已保存')
+    ElMessage.success(t('备考目标已保存'))
   } catch {
     // 公共请求层负责展示服务端业务错误，弹窗保留当前选择供用户重试。
   } finally {
@@ -219,7 +217,10 @@ function openPayment(planId: PaymentPlanId = 'annual_practice', examType?: Activ
     return
   }
   if (!auth.isLoggedIn) {
-    openAuthPage('login', `/?purchase=1&plan=${planId}${examType ? `&exam=${examType}` : ''}`)
+    openAuthPage(
+      'login',
+      `${homePath.value}?purchase=1&plan=${planId}${examType ? `&exam=${examType}` : ''}`,
+    )
     return
   }
   paymentDefaultPlan.value = planId
@@ -242,7 +243,12 @@ async function handlePaymentPaid(): Promise<void> {
 // 登录回跳中的购买意图只消费一次，避免刷新其他首页状态时反复弹出。
 async function consumePurchaseIntent(): Promise<void> {
   if (!auth.isLoggedIn || route.query.purchase !== '1') return
-  paymentDefaultPlan.value = route.query.plan === 'annual_learning' ? 'annual_learning' : route.query.plan === 'annual_bundle' ? 'annual_bundle' : 'annual_practice'
+  paymentDefaultPlan.value =
+    route.query.plan === 'annual_learning'
+      ? 'annual_learning'
+      : route.query.plan === 'annual_bundle'
+        ? 'annual_bundle'
+        : 'annual_practice'
   // 首页选择的考试随购买意图回跳，避免登录后被个人默认考试覆盖。
   paymentDefaultExam.value =
     route.query.exam === 'ESAT' || route.query.exam === 'TMUA' ? route.query.exam : null

@@ -1,5 +1,6 @@
 // 认证跳转工具：在登录和注册流程之间安全保留站内目标地址。
 import type { LocationQueryValue, RouteLocationRaw } from 'vue-router'
+import { t } from '@/locales'
 
 type AuthRouteName = 'login' | 'register'
 
@@ -51,12 +52,14 @@ export function consumeRememberedAuthRedirect(): string {
 }
 
 // 登录页根据原目标模块给出明确提示，帮助用户理解登录后将继续进入哪里。
-export function getLoginRequiredMessage(redirect: LocationQueryValue | LocationQueryValue[] | undefined): string {
+export function getLoginRequiredMessage(
+  redirect: LocationQueryValue | LocationQueryValue[] | undefined,
+): string {
   const targetPath = getSafeAuthRedirect(redirect).split(/[?#]/, 1)[0] || '/'
   const feature = LOGIN_REQUIRED_FEATURES.find(
     (item) => targetPath === item.pathPrefix || targetPath.startsWith(`${item.pathPrefix}/`),
   )
-  return feature ? `请先登录后使用${feature.label}功能` : '请先登录后使用该功能'
+  return feature ? t('请先登录后使用{p0}功能', { p0: t(feature.label) }) : t('请先登录后使用该功能')
 }
 
 // 在认证相关页面之间传递有效目标地址，没有目标时保持普通路由。

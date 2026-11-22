@@ -4,11 +4,12 @@
     ref="chartRef"
     class="mock-exam-trend-chart"
     role="img"
-    aria-label="近五次模考成绩趋势，悬浮数据点可查看分数"
+    :aria-label="t('近五次模考成绩趋势，悬浮数据点可查看分数')"
   ></div>
 </template>
 
 <script setup lang="ts">
+import { i18n, t } from '@/locales'
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as echarts from 'echarts'
 import type { MockExamOverviewResult } from '@/api/mockExams'
@@ -30,7 +31,7 @@ let resizeObserver: ResizeObserver | null = null
 
 // 概览刷新后复用现有 Canvas，只更新当前考试类型对应的近五次数据。
 watch(
-  () => props.overview,
+  () => [props.overview, i18n.global.locale.value],
   () => void nextTick(renderChart),
   { deep: true },
 )
@@ -67,7 +68,7 @@ function renderChart(): void {
   if (!chartRef.value) return
   if (!chart) chart = echarts.init(chartRef.value)
 
-  const labels = props.overview.labels.slice(-5)
+  const labels = props.overview.labels.slice(-5).map(formatTrendDate)
   const maxScore = Math.max(props.overview.maxScore || 9, 1)
 
   chart.setOption(
@@ -96,7 +97,10 @@ function renderChart(): void {
             .filter((item) => item.value !== null && item.value !== undefined)
             .map(
               (item) =>
-                `${item.marker || ''}${item.seriesName || '成绩'}：${formatTrendScore(item.value)} 分`,
+                `${item.marker || ''}${t('{p0}：{p1} 分', {
+                  p0: t(item.seriesName || '成绩'),
+                  p1: formatTrendScore(item.value),
+                })}`,
             )
           return [items[0]?.axisValue || '', ...scoreRows].filter(Boolean).join('<br/>')
         },
@@ -119,7 +123,7 @@ function renderChart(): void {
         splitLine: { show: false },
       },
       series: props.overview.series.map((series) => ({
-        name: series.label,
+        name: t(series.label),
         type: 'line',
         data: series.values.slice(-5),
         connectNulls: false,
@@ -133,6 +137,17 @@ function renderChart(): void {
     },
     true,
   )
+}
+
+// 接口横轴为中文格式的月/日；英文使用明确的月份名称，不改变日期所属时区。
+function formatTrendDate(value: string): string {
+  const parts = /^(\d{1,2})\/(\d{1,2})$/.exec(value)
+  if (i18n.global.locale.value !== 'en' || !parts) return value
+  return new Intl.DateTimeFormat('en-GB', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(2000, Number(parts[1]) - 1, Number(parts[2]))))
 }
 </script>
 

@@ -9,10 +9,10 @@
         </svg>
       </span>
       <div>
-        <h2 id="esat-priority-title">提升优先级</h2>
-        <p>先看作答证据，再看建议顺序；样本不足只标记为待校准</p>
+        <h2 id="esat-priority-title">{{ t('提升优先级') }}</h2>
+        <p>{{ t('先看作答证据，再看建议顺序；样本不足只标记为待校准') }}</p>
       </div>
-      <small class="analysis-source">{{ analysisSourceLabel }}</small>
+      <small class="analysis-source">{{ t(analysisSourceLabel) }}</small>
     </div>
 
     <article class="plan-card">
@@ -22,28 +22,35 @@
             <path d="M4 12h3l2-6 4 12 2-6h5"></path>
           </svg>
           <div>
-            <h3>能力缺口矩阵</h3>
-            <p>按考试模块汇总知识主题；少量作答仅作为初步信号，不直接判定为能力缺口</p>
+            <h3>{{ t('能力缺口矩阵') }}</h3>
+            <p>{{ t('按考试模块汇总知识主题；少量作答仅作为初步信号，不直接判定为能力缺口') }}</p>
           </div>
         </div>
 
-        <div v-if="displayMatrix.length" class="matrix-summary" aria-label="能力矩阵覆盖情况">
-          <span>已覆盖 {{ matrixCoverage.covered }}/{{ matrixCoverage.total }} 个模块难度区间</span>
-          <span v-if="matrixCoverage.preliminary">{{ matrixCoverage.preliminary }} 个区间仍待补充作答</span>
+        <div v-if="displayMatrix.length" class="matrix-summary" :aria-label="t('能力矩阵覆盖情况')">
+          <span>{{
+            t('已覆盖 {p0}/{p1} 个模块难度区间', {
+              p0: t(matrixCoverage.covered),
+              p1: t(matrixCoverage.total),
+            })
+          }}</span>
+          <span v-if="matrixCoverage.preliminary">{{
+            t('{p0} 个区间仍待补充作答', { p0: t(matrixCoverage.preliminary) })
+          }}</span>
         </div>
 
         <div class="matrix-table">
           <div class="matrix-header">
-            <span>能力领域</span>
-            <span>低难度</span>
-            <span>中难度</span>
-            <span>高难度</span>
+            <span>{{ t('能力领域') }}</span>
+            <span>{{ t('低难度') }}</span>
+            <span>{{ t('中难度') }}</span>
+            <span>{{ t('高难度') }}</span>
           </div>
           <div class="matrix-body">
             <div v-for="row in displayMatrix" :key="row.moduleId" class="matrix-row">
-              <div class="matrix-topic" :title="row.label">
-                <strong>{{ row.label }}</strong>
-                <small>汇总 {{ row.topicCount }} 个知识主题</small>
+              <div class="matrix-topic" :title="t(row.label)">
+                <strong>{{ t(row.label) }}</strong>
+                <small>{{ t('汇总 {p0} 个知识主题', { p0: t(row.topicCount) }) }}</small>
               </div>
               <div
                 v-for="cell in row.cells"
@@ -52,21 +59,27 @@
                 :class="`matrix-cell--${cell.status}`"
               >
                 <template v-if="cell.status === 'uncovered'">
-                  <strong>未覆盖</strong>
-                  <small>本次试卷无相关题目</small>
+                  <strong>{{ t('未覆盖') }}</strong>
+                  <small>{{ t('本次试卷无相关题目') }}</small>
                 </template>
                 <template v-else-if="cell.status === 'preliminary'">
-                  <strong>初步信号 · {{ formatAccuracy(cell.accuracy) }}</strong>
-                  <small>n={{ cell.total }} · 暂不判定缺口</small>
+                  <strong>{{
+                    t('初步信号 · {p0}', { p0: t(formatAccuracy(cell.accuracy)) })
+                  }}</strong>
+                  <small>{{ t('n={p0} · 暂不判定缺口', { p0: t(cell.total) }) }}</small>
                 </template>
                 <template v-else>
-                  <strong>{{ cell.correct }}/{{ cell.total }}（{{ formatAccuracy(cell.accuracy) }}）</strong>
-                  <small>n={{ cell.total }}</small>
+                  <strong
+                    >{{ t(cell.correct) }}/{{ t(cell.total) }}（{{
+                      t(formatAccuracy(cell.accuracy))
+                    }}）</strong
+                  >
+                  <small>n={{ t(cell.total) }}</small>
                 </template>
               </div>
             </div>
             <div v-if="displayMatrix.length === 0" class="matrix-empty">
-              本次试卷没有可用于能力矩阵的作答数据。
+              {{ t('本次试卷没有可用于能力矩阵的作答数据。') }}
             </div>
           </div>
         </div>
@@ -80,24 +93,30 @@
             <circle cx="12" cy="12" r="1"></circle>
           </svg>
           <div>
-            <h3>优先补弱项</h3>
-            <p>从 n≥3 且正确率不高于 70% 的格子中排序，最多展示 5 项</p>
+            <h3>{{ t('优先补弱项') }}</h3>
+            <p>{{ t('从 n≥3 且正确率不高于 70% 的格子中排序，最多展示 5 项') }}</p>
           </div>
         </div>
 
         <div v-if="plan.highRoiGaps.length" class="roi-grid">
-          <article v-for="gap in plan.highRoiGaps" :key="`${gap.moduleId}:${gap.topicCode}:${gap.difficulty}`">
-            <span class="rank-badge">优先级 {{ gap.rank }}</span>
-            <small class="module-label">{{ gap.moduleLabel }}</small>
-            <h4>{{ gap.topicLabel }} × {{ gap.difficultyLabel }} = {{ formatAccuracy(gap.accuracy) }}</h4>
+          <article
+            v-for="gap in plan.highRoiGaps"
+            :key="`${gap.moduleId}:${gap.topicCode}:${gap.difficulty}`"
+          >
+            <span class="rank-badge">{{ t('优先级 {p0}', { p0: t(gap.rank) }) }}</span>
+            <small class="module-label">{{ t(gap.moduleLabel) }}</small>
+            <h4>
+              {{ t(gap.topicLabel) }} × {{ t(gap.difficultyLabel) }} =
+              {{ t(formatAccuracy(gap.accuracy)) }}
+            </h4>
             <dl>
               <div>
-                <dt>当前正确率</dt>
-                <dd>{{ formatAccuracy(gap.accuracy) }}</dd>
+                <dt>{{ t('当前正确率') }}</dt>
+                <dd>{{ t(formatAccuracy(gap.accuracy)) }}</dd>
               </div>
               <div>
-                <dt>样本量</dt>
-                <dd>n={{ gap.total }}</dd>
+                <dt>{{ t('样本量') }}</dt>
+                <dd>n={{ t(gap.total) }}</dd>
               </div>
             </dl>
             <div class="gap-advice">
@@ -107,34 +126,48 @@
                   <path d="M12 9v4"></path>
                   <circle cx="12" cy="17" r=".7"></circle>
                 </svg>
-                <span><b>优先原因：</b><LatexText :text="gap.priorityReason" /></span>
+                <span
+                  ><b>{{ t('优先原因：') }}</b
+                  ><LatexText :text="gap.priorityReason"
+                /></span>
               </p>
               <p>
                 <svg class="advice-icon advice-icon--time" viewBox="0 0 24 24" aria-hidden="true">
                   <circle cx="12" cy="12" r="9"></circle>
                   <path d="M12 7v5l3 2"></path>
                 </svg>
-                <span><b>建议投入：</b>{{ gap.suggestedHours }}</span>
+                <span
+                  ><b>{{ t('建议投入：') }}</b
+                  >{{ t(gap.suggestedHours) }}</span
+                >
               </p>
               <p>
                 <svg class="advice-icon advice-icon--check" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M4 5h6a3 3 0 0 1 3 3v11a3 3 0 0 0-3-3H4z"></path>
                   <path d="M20 5h-4a3 3 0 0 0-3 3v11a3 3 0 0 1 3-3h4z"></path>
                 </svg>
-                <span><b>前置检查：</b><LatexText :text="gap.prerequisiteCheck" /></span>
+                <span
+                  ><b>{{ t('前置检查：') }}</b
+                  ><LatexText :text="gap.prerequisiteCheck"
+                /></span>
               </p>
               <p v-if="gap.reviewGuidance?.[0]">
                 <svg class="advice-icon advice-icon--check" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M4 5h6a3 3 0 0 1 3 3v11a3 3 0 0 0-3-3H4z"></path>
                   <path d="M20 5h-4a3 3 0 0 0-3 3v11a3 3 0 0 1 3-3h4z"></path>
                 </svg>
-                <span><b>复习提示：</b><LatexText :text="gap.reviewGuidance[0]" /></span>
+                <span
+                  ><b>{{ t('复习提示：') }}</b
+                  ><LatexText :text="gap.reviewGuidance[0]"
+                /></span>
               </p>
             </div>
           </article>
         </div>
         <div v-else class="roi-empty">
-          本次没有同时满足样本量与缺口阈值的格子；建议先完成小规模校准训练，再确定补弱顺序。
+          {{
+            t('本次没有同时满足样本量与缺口阈值的格子；建议先完成小规模校准训练，再确定补弱顺序。')
+          }}
         </div>
       </section>
     </article>
@@ -142,6 +175,8 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '@/locales'
+
 import { computed } from 'vue'
 import type { DiagnosticAiImprovementPlan } from '@/api/exam'
 import LatexText from '@/components/LatexText.vue'
@@ -149,7 +184,10 @@ import LatexText from '@/components/LatexText.vue'
 const props = defineProps<{ plan: DiagnosticAiImprovementPlan }>()
 
 type MatrixCell = DiagnosticAiImprovementPlan['matrix'][number]['cells'][number]
-type DisplayMatrixStatus = Exclude<MatrixCell['status'], 'insufficient'> | 'preliminary' | 'uncovered'
+type DisplayMatrixStatus =
+  | Exclude<MatrixCell['status'], 'insufficient'>
+  | 'preliminary'
+  | 'uncovered'
 type DisplayMatrixCell = Omit<MatrixCell, 'status'> & { status: DisplayMatrixStatus }
 
 interface DisplayMatrixRow {
@@ -175,7 +213,13 @@ const displayMatrix = computed<DisplayMatrixRow[]>(() => {
       moduleId: row.moduleId,
       label: row.moduleLabel,
       topicCount: 0,
-      cells: row.cells.map((cell) => ({ ...cell, correct: 0, total: 0, accuracy: null, status: 'uncovered' })),
+      cells: row.cells.map((cell) => ({
+        ...cell,
+        correct: 0,
+        total: 0,
+        accuracy: null,
+        status: 'uncovered',
+      })),
     }
     current.topicCount += 1
     current.cells = current.cells.map((cell) => {
@@ -623,7 +667,5 @@ function formatAccuracy(value: number | null): string {
   .matrix-summary {
     margin-left: 0;
   }
-
 }
-
 </style>

@@ -10,6 +10,7 @@
       >
         <section
           class="payment-modal"
+          :class="{ 'payment-modal--english': isEnglish }"
           role="dialog"
           aria-modal="true"
           aria-labelledby="payment-modal-title"
@@ -17,14 +18,14 @@
           <header class="payment-header">
             <div>
               <h2 id="payment-modal-title">
-                {{ resumeOrderNo ? '继续支付订单' : '选择会员套餐' }}
+                {{ t(resumeOrderNo ? '继续支付订单' : '选择会员套餐') }}
               </h2>
-              <p>开启高效备考，从一份合适的计划开始</p>
+              <p>{{ t('开启高效备考，从一份合适的计划开始') }}</p>
             </div>
             <button
               class="payment-close"
               type="button"
-              aria-label="关闭支付弹窗"
+              :aria-label="t('关闭支付弹窗')"
               @click="closeModal"
             >
               <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -37,10 +38,10 @@
             <div class="payment-options">
               <div class="purchase-exam-row">
                 <div class="purchase-exam-copy">
-                  <h3>备考考试</h3>
-                  <p>权益按考试独立开通</p>
+                  <h3>{{ t('备考考试') }}</h3>
+                  <p>{{ t('权益按考试独立开通') }}</p>
                 </div>
-                <div class="purchase-exam-switch" role="group" aria-label="选择备考考试">
+                <div class="purchase-exam-switch" role="group" :aria-label="t('选择备考考试')">
                   <label
                     v-for="exam in examOptions"
                     :key="exam.value"
@@ -59,10 +60,10 @@
                 </div>
               </div>
               <div class="purchase-plan-heading">
-                <h3>选择适合你的年卡</h3>
-                <span>一次购买 · 365 天</span>
+                <h3>{{ t('选择适合你的年卡') }}</h3>
+                <span>{{ t('一次购买 · 365 天') }}</span>
               </div>
-              <div class="purchase-plans" role="group" aria-label="选择年卡套餐">
+              <div class="purchase-plans" role="group" :aria-label="t('选择年卡套餐')">
                 <button
                   v-for="plan in plans"
                   :key="plan.id"
@@ -79,17 +80,20 @@
                   ></span>
                   <span class="purchase-plan-copy">
                     <span class="purchase-plan-title"
-                      >{{ plan.name.replace('做题', '题库')
-                      }}<span v-if="plan.recommended" class="purchase-recommendation"
-                        >推荐组合</span
-                      ></span
+                      >{{ t(plan.name.replace('做题', '题库'))
+                      }}<span v-if="plan.recommended" class="purchase-recommendation">{{
+                        t('推荐组合')
+                      }}</span></span
                     >
-                    <span class="purchase-plan-description">{{ plan.description }}</span>
+                    <span class="purchase-plan-description">{{ t(plan.description) }}</span>
                   </span>
                   <span class="purchase-plan-price">
-                    <span class="purchase-price-value"><small>¥</small>{{ plan.price }}</span>
+                    <span class="purchase-price-value"
+                      ><small :class="{ 'currency-code': isEnglish }">{{ currencyLabel }}</small
+                      >{{ plan.price }}</span
+                    >
                     <span class="purchase-price-offer"
-                      ><del>¥{{ plan.originalPrice }}</del
+                      ><del>{{ currencyLabel }} {{ plan.originalPrice }}</del
                       ><span>{{ plan.promo }}</span></span
                     >
                   </span>
@@ -99,14 +103,17 @@
                 <svg viewBox="0 0 20 20" aria-hidden="true">
                   <path d="M10 2l6 2.3v4.5c0 4-2.5 7-6 8.8-3.5-1.8-6-4.8-6-8.8V4.3L10 2z" />
                   <path d="m7 9.7 2 2 4-4" /></svg
-                >仅开通所选考试 · 不自动续费
+                >{{ t('仅开通所选考试 · 不自动续费') }}
               </p>
             </div>
 
             <div class="payment-checkout">
               <div class="amount-summary" aria-live="polite">
-                <span>待支付</span>
-                <strong><small>¥</small>{{ displayAmount }}</strong>
+                <span>{{ t('待支付') }}</span>
+                <strong
+                  ><small :class="{ 'currency-code': isEnglish }">{{ currencyLabel }}</small
+                  >{{ displayAmount }}</strong
+                >
                 <p>{{ selectedExamLabel }} · {{ selectedPlanLabel }}</p>
               </div>
 
@@ -115,12 +122,12 @@
                 <i class="qr-corner qr-corner--top-right" aria-hidden="true"></i>
                 <i class="qr-corner qr-corner--bottom-left" aria-hidden="true"></i>
                 <i class="qr-corner qr-corner--bottom-right" aria-hidden="true"></i>
-                <div class="qr-card" aria-label="银联商务聚合支付二维码">
+                <div class="qr-card" :aria-label="t('银联商务聚合支付二维码')">
                   <img
                     v-if="qrCodeImageUrl"
                     class="qr-image"
                     :src="qrCodeImageUrl"
-                    alt="支付二维码"
+                    :alt="t('支付二维码')"
                   />
                   <a
                     v-else-if="paymentPageUrl"
@@ -129,7 +136,7 @@
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    二维码生成失败<br />点击打开银联收银台
+                    {{ t('二维码生成失败') }}<br />{{ t('点击打开银联收银台') }}
                   </a>
                   <svg v-else viewBox="0 0 21 21" role="img" aria-hidden="true">
                     <rect width="21" height="21" fill="#fff" />
@@ -149,43 +156,47 @@
                     :disabled="creatingOrder"
                     @click="handleCreateOrder"
                   >
-                    {{ creatingOrder ? '正在重新生成…' : '重新生成二维码' }}
+                    {{ t(creatingOrder ? '正在重新生成…' : '重新生成二维码') }}
                   </button>
-                  <span v-else-if="creatingOrder" class="qr-demo qr-loading">正在生成二维码…</span>
+                  <span v-else-if="creatingOrder" class="qr-demo qr-loading">{{
+                    t('正在生成二维码…')
+                  }}</span>
                   <span
                     v-else-if="!providerReady || configStatus !== 'active'"
                     class="qr-demo qr-unavailable"
-                    >支付暂不可用</span
+                    >{{ t('支付暂不可用') }}</span
                   >
-                  <span v-else-if="orderStatus === 'paid'" class="qr-demo qr-success"
-                    >支付成功</span
-                  >
+                  <span v-else-if="orderStatus === 'paid'" class="qr-demo qr-success">{{
+                    t('支付成功')
+                  }}</span>
                 </div>
               </div>
 
               <p class="scan-tip">
-                <template v-if="creatingOrder">正在为您生成支付二维码，请稍候</template>
-                <template v-else-if="orderCreationFailed"
-                  >二维码生成失败，请点击上方按钮重试</template
-                >
+                <template v-if="creatingOrder">{{ t('正在为您生成支付二维码，请稍候') }}</template>
+                <template v-else-if="orderCreationFailed">{{
+                  t('二维码生成失败，请点击上方按钮重试')
+                }}</template>
                 <template v-else-if="createdOrderNo && orderStatus !== 'paid'">
-                  请使用
-                  <span class="scan-wallets" aria-label="支付宝、微信和云闪付">
+                  {{ t('请使用') }}
+                  <span class="scan-wallets" :aria-label="t('支付宝、微信和云闪付')">
                     <span
                       v-for="channel in channels"
                       :key="channel.id"
                       class="scan-wallet-icon"
                       :class="`scan-wallet-icon--${channel.id}`"
                       role="img"
-                      :aria-label="channel.name"
-                      :title="channel.name"
-                      >{{ channel.mark }}</span
+                      :aria-label="t(channel.name)"
+                      :title="t(channel.name)"
+                      >{{ isEnglish ? t(channel.name) : channel.mark }}</span
                     >
                   </span>
-                  扫码支付
+                  {{ t('扫码支付') }}
                 </template>
-                <template v-else-if="orderStatus === 'paid'">支付成功，会员权益已生效</template>
-                <template v-else>正在准备支付服务</template>
+                <template v-else-if="orderStatus === 'paid'">{{
+                  t('支付成功，会员权益已生效')
+                }}</template>
+                <template v-else>{{ t('正在准备支付服务') }}</template>
               </p>
 
               <div class="safe-tip">
@@ -193,25 +204,25 @@
                   <path d="M10 2l6 2.3v4.5c0 4-2.5 7-6 8.8-3.5-1.8-6-4.8-6-8.8V4.3L10 2z" />
                   <path d="M7 9.7l2 2 4-4" />
                 </svg>
-                三种支付工具共用当前二维码
+                {{ t('三种支付工具共用当前二维码') }}
               </div>
             </div>
           </div>
 
           <footer class="payment-footer">
-            支付代表即为同意
+            {{ t('支付代表即为同意') }}
             <router-link
               to="/legal/membership-service-agreement"
               target="_blank"
               rel="noopener noreferrer"
-              >《会员服务协议》</router-link
+              >{{ t('《会员服务协议》') }}</router-link
             >
-            与
+            {{ t('与') }}
             <router-link
               to="/legal/membership-purchase-notice"
               target="_blank"
               rel="noopener noreferrer"
-              >《会员购买须知与权益说明》</router-link
+              >{{ t('《会员购买须知与权益说明》') }}</router-link
             >
           </footer>
         </section>
@@ -221,6 +232,8 @@
 </template>
 
 <script setup lang="ts">
+import { t, useSiteLocale } from '@/locales'
+import { getApiErrorMessage } from '@/utils/request'
 import {
   ANNUAL_PLAN,
   ANNUAL_PLAN_LABELS,
@@ -264,6 +277,9 @@ interface PaymentPlan {
 }
 
 const props = defineProps<Props>()
+const { isEnglish } = useSiteLocale()
+// 英文界面明确标示人民币，不改动服务端金额或订单币种。
+const currencyLabel = computed(() => (isEnglish.value ? 'CNY' : '¥'))
 const oralPromotion = useOralPromotionStore()
 const promotionPaymentOwner = Symbol('payment-modal')
 // 支付打开后隐藏推广；即时监听兼容父页面首次挂载时已处于打开状态。
@@ -298,6 +314,12 @@ let paidEmittedOrderNo = ''
 const configStatus = ref<'active' | 'inactive'>('active')
 const providerReady = ref(false)
 const priceConfig = ref({ ...DEFAULT_ANNUAL_PRICING })
+
+// 已知错误可复用译文；英文界面遇到尚无译文的服务端错误时显示当前操作的失败提示。
+function showPaymentError(error: unknown, fallback: string): void {
+  const message = t(getApiErrorMessage(error, fallback))
+  ElMessage.error(isEnglish.value && /[\u4e00-\u9fff]/.test(message) ? t(fallback) : message)
+}
 
 // 套餐仅按功能区分，服务期限统一为 365 天。
 const plans = computed<PaymentPlan[]>(() => [
@@ -366,10 +388,15 @@ const selectedExamLabel = computed(
 const selectedPlanLabel = computed(() => {
   const selectedPlan = plans.value.find((item) => item.id === selectedPlanId.value)
   return selectedPlan
-    ? `${selectedPlan.name}（${selectedPlan.period}）`
-    : { monthly: '历史月卡（30天）', quarterly: '历史季卡（90天）', yearly: '历史年卡' }[
-        selectedPlanId.value
-      ] || '历史订单'
+    ? t('{p0}（{p1}）', {
+        p0: t(selectedPlan.name.replace('做题', '题库')),
+        p1: t(selectedPlan.period),
+      })
+    : t(
+        { monthly: '历史月卡（30天）', quarterly: '历史季卡（90天）', yearly: '历史年卡' }[
+          selectedPlanId.value
+        ] || '历史订单',
+      )
 })
 
 function closeModal(): void {
@@ -387,18 +414,20 @@ function formatPrice(valueCents: number): string {
 function formatDiscountLabel(priceCents: number, originalPriceCents: number): string | undefined {
   if (priceCents >= originalPriceCents) return undefined
   const discount = Number(((priceCents / originalPriceCents) * 10).toFixed(1))
-  return `限时 ${discount} 折`
+  return isEnglish.value
+    ? t('限时优惠 {p0}%', { p0: Math.round((1 - priceCents / originalPriceCents) * 100) })
+    : t('限时 {p0} 折', { p0: discount })
 }
 
 async function loadPaymentConfig(): Promise<boolean> {
   try {
-    const config = await getPaymentConfig()
+    const config = await getPaymentConfig({ silent: true })
     priceConfig.value = config.annualPricing
     configStatus.value = config.status
     providerReady.value = config.providerReady
     return config.status === 'active' && config.providerReady
-  } catch {
-    // Axios 公共响应处理会展示后端 errMsg。
+  } catch (error) {
+    showPaymentError(error, '暂时无法读取支付配置，请稍后重试')
     return false
   }
 }
@@ -416,7 +445,7 @@ async function refreshPaymentStatus(): Promise<void> {
   const currentGeneration = orderGeneration
   paymentStatusQueryInFlight = true
   try {
-    const order = await queryPaymentOrder(orderNo)
+    const order = await queryPaymentOrder(orderNo, { silent: true })
     if (
       currentGeneration !== orderGeneration ||
       createdOrderNo.value !== orderNo ||
@@ -429,14 +458,14 @@ async function refreshPaymentStatus(): Promise<void> {
       stopPaymentPolling()
       if (paidEmittedOrderNo !== order.orderNo) {
         paidEmittedOrderNo = order.orderNo
-        ElMessage.success('支付成功，会员权益已生效')
+        ElMessage.success(t('支付成功，会员权益已生效'))
         emit('paid', order.orderNo)
       }
     } else if (['closed', 'failed', 'refunded'].includes(order.status)) {
       stopPaymentPolling()
       resumedExistingOrder.value = false
       orderCreationFailed.value = true
-      ElMessage.warning('当前支付订单已结束，请重新生成订单')
+      ElMessage.warning(t('当前支付订单已结束，请重新生成订单'))
     }
   } catch (error) {
     console.warn('[PaymentModal] 支付状态查询暂时失败', error)
@@ -457,7 +486,7 @@ async function cancelCurrentOrder(): Promise<void> {
   const orderNo = createdOrderNo.value
   orderStatus.value = 'closing'
   try {
-    await closePaymentOrder(orderNo)
+    await closePaymentOrder(orderNo, { silent: true })
   } catch (error) {
     console.warn('[PaymentModal] 关闭未支付订单失败，等待后端过期处理', error)
   }
@@ -490,7 +519,7 @@ async function createPaymentQrImage(checkoutUrl: string): Promise<string> {
 // 弹窗打开或购买内容变化后自动创建聚合订单，金额始终由后端重新计算。
 async function handleCreateOrder(): Promise<void> {
   if (!selectedExam.value) {
-    ElMessage.warning('请选择一个备考类型')
+    ElMessage.warning(t('请选择一个备考类型'))
     return
   }
   const currentGeneration = ++orderGeneration
@@ -498,13 +527,16 @@ async function handleCreateOrder(): Promise<void> {
   creatingOrder.value = true
   orderCreationFailed.value = false
   try {
-    const result = await createPaymentOrder({
-      examTypes: [selectedExam.value],
-      plan: selectedPlanId.value as AnnualPlan,
-      legalVersions: { ...MEMBERSHIP_LEGAL_VERSIONS },
-    })
+    const result = await createPaymentOrder(
+      {
+        examTypes: [selectedExam.value],
+        plan: selectedPlanId.value as AnnualPlan,
+        legalVersions: { ...MEMBERSHIP_LEGAL_VERSIONS },
+      },
+      { silent: true },
+    )
     if (currentGeneration !== orderGeneration || !props.modelValue) {
-      void closePaymentOrder(result.order.orderNo).catch((error) => {
+      void closePaymentOrder(result.order.orderNo, { silent: true }).catch((error) => {
         console.warn('[PaymentModal] 关闭已失效的新建订单失败', error)
       })
       return
@@ -518,12 +550,23 @@ async function handleCreateOrder(): Promise<void> {
       qrCodeImageUrl.value = await createPaymentQrImage(result.qrCodeUrl)
     } catch (error) {
       console.error('[PaymentModal] 支付二维码生成失败', error)
-      ElMessage.error('支付二维码生成失败，请点击卡片打开银联收银台')
+      ElMessage.error(t('支付二维码生成失败，请点击卡片打开银联收银台'))
       return
     }
-    ElMessage.success(result.message)
-  } catch {
-    if (currentGeneration === orderGeneration) orderCreationFailed.value = true
+    ElMessage.success(
+      isEnglish.value
+        ? t(
+            orderStatus.value === 'paid'
+              ? '支付成功，会员权益已生效'
+              : '支付二维码已就绪，请扫码支付',
+          )
+        : result.message,
+    )
+  } catch (error) {
+    if (currentGeneration === orderGeneration) {
+      orderCreationFailed.value = true
+      showPaymentError(error, '暂时无法创建支付订单，请稍后重试')
+    }
   } finally {
     if (currentGeneration === orderGeneration) creatingOrder.value = false
   }
@@ -535,7 +578,7 @@ async function resumeExistingPaymentOrder(orderNo: string): Promise<void> {
   creatingOrder.value = true
   orderCreationFailed.value = false
   try {
-    const result = await resumePaymentOrder(orderNo)
+    const result = await resumePaymentOrder(orderNo, { silent: true })
     if (currentGeneration !== orderGeneration || !props.modelValue) return
     const order = result.order
     selectedExam.value = order.examTypes[0] || props.defaultExamType || 'TMUA'
@@ -548,16 +591,35 @@ async function resumeExistingPaymentOrder(orderNo: string): Promise<void> {
     if (order.status === 'paid') {
       if (paidEmittedOrderNo !== order.orderNo) {
         paidEmittedOrderNo = order.orderNo
-        ElMessage.success(result.message)
+        ElMessage.success(
+          isEnglish.value
+            ? t(
+                orderStatus.value === 'paid'
+                  ? '支付成功，会员权益已生效'
+                  : '支付二维码已就绪，请扫码支付',
+              )
+            : result.message,
+        )
         emit('paid', order.orderNo)
       }
       return
     }
     qrCodeImageUrl.value = await createPaymentQrImage(result.qrCodeUrl)
     startPaymentPolling()
-    ElMessage.success(result.message)
-  } catch {
-    if (currentGeneration === orderGeneration) orderCreationFailed.value = true
+    ElMessage.success(
+      isEnglish.value
+        ? t(
+            orderStatus.value === 'paid'
+              ? '支付成功，会员权益已生效'
+              : '支付二维码已就绪，请扫码支付',
+          )
+        : result.message,
+    )
+  } catch (error) {
+    if (currentGeneration === orderGeneration) {
+      orderCreationFailed.value = true
+      showPaymentError(error, '暂时无法恢复支付订单，请稍后重试')
+    }
   } finally {
     if (currentGeneration === orderGeneration) creatingOrder.value = false
   }
@@ -598,7 +660,7 @@ async function regeneratePaymentOrder(): Promise<void> {
   resetPaymentOrder()
   if (shouldClosePreviousOrder) {
     try {
-      await closePaymentOrder(previousOrderNo)
+      await closePaymentOrder(previousOrderNo, { silent: true })
     } catch (error) {
       console.warn('[PaymentModal] 关闭已切换选项的订单失败，等待后端过期处理', error)
     }
@@ -616,7 +678,7 @@ watch(
   (visible) => {
     if (visible && !MEMBERSHIP_PURCHASE_ENABLED) {
       document.body.style.overflow = ''
-      ElMessage.info(MEMBERSHIP_PURCHASE_PENDING_MESSAGE)
+      ElMessage.info(t(MEMBERSHIP_PURCHASE_PENDING_MESSAGE))
       emit('update:modelValue', false)
       return
     }
@@ -915,6 +977,11 @@ onBeforeUnmount(() => {
   font-size: 15px;
   font-weight: 500;
 }
+.purchase-price-value small.currency-code {
+  margin-right: 4px;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
 .purchase-price-offer {
   display: flex;
   flex-wrap: wrap;
@@ -1001,6 +1068,11 @@ onBeforeUnmount(() => {
   font-size: 0.72em;
   font-weight: inherit;
 }
+.amount-summary strong small.currency-code {
+  margin-right: 6px;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
 
 .amount-summary p {
   margin: 4px 0 0;
@@ -1008,6 +1080,8 @@ onBeforeUnmount(() => {
   font-family: 'SimHei', 'Heiti SC', 'Microsoft YaHei', sans-serif;
   font-size: 12px;
   font-weight: 600;
+  text-align: center;
+  line-height: 1.5;
 }
 
 .qr-frame {
@@ -1136,12 +1210,15 @@ onBeforeUnmount(() => {
 
 .scan-tip {
   display: flex;
+  flex-wrap: wrap;
+  row-gap: 4px;
   min-height: 24px;
   align-items: center;
   justify-content: center;
   margin: 8px 0 11px;
   color: #59667b;
   font-size: 12px;
+  text-align: center;
 }
 
 .scan-tip strong {
@@ -1166,6 +1243,12 @@ onBeforeUnmount(() => {
   font-weight: 800;
   line-height: 1;
   border-radius: 5px;
+}
+.payment-modal--english .scan-wallet-icon {
+  width: auto;
+  padding: 0 5px;
+  font-size: 10px;
+  white-space: nowrap;
 }
 
 .scan-wallet-icon--alipay {
@@ -1207,6 +1290,7 @@ onBeforeUnmount(() => {
 
 .safe-tip svg {
   width: 16px;
+  flex-shrink: 0;
   fill: #35b55d;
 }
 
@@ -1228,6 +1312,7 @@ onBeforeUnmount(() => {
 }
 
 .payment-footer a {
+  margin-inline: 4px;
   color: #2672ff;
   text-decoration: none;
 }
@@ -1266,7 +1351,7 @@ onBeforeUnmount(() => {
   .payment-header {
     flex: 0 0 auto;
     min-height: 64px;
-    padding: 12px 20px 10px;
+    padding: 12px 60px 10px 20px;
   }
   .payment-header h2 {
     font-size: 20px;
@@ -1308,6 +1393,20 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 560px) {
+  .payment-modal--english .purchase-plan {
+    grid-template-columns: 18px minmax(0, 1fr);
+  }
+  .payment-modal--english .purchase-plan-price {
+    grid-column: 2;
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .payment-modal--english .purchase-price-offer {
+    flex-direction: row;
+    gap: 6px;
+  }
   .payment-options {
     padding: 10px 16px 18px;
   }

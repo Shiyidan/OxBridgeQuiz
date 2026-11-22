@@ -1,12 +1,12 @@
 <!-- 注册页：邮箱验证、备考偏好及注册暂缓提示。 -->
 <template>
-  <div class="register-page">
+  <div class="register-page" :class="{ 'register-page--english': isEnglish }">
     <NavBar />
 
     <main class="register-main">
       <section class="register-card">
-        <h1 class="register-title">创建账号</h1>
-        <p class="register-subtitle">注册后即可查看完整诊断报告</p>
+        <h1 class="register-title">{{ t('创建账号') }}</h1>
+        <p class="register-subtitle">{{ t('注册后即可查看完整诊断报告') }}</p>
 
         <el-form
           ref="formRef"
@@ -21,27 +21,27 @@
               <div class="form-section-heading">
                 <span>01</span>
                 <div>
-                  <h2>账号信息</h2>
-                  <p>用于登录、邮箱验证和账号安全。</p>
+                  <h2>{{ t('账号信息') }}</h2>
+                  <p>{{ t('用于登录、邮箱验证和账号安全。') }}</p>
                 </div>
               </div>
 
-              <el-form-item label="用户名" prop="username">
+              <el-form-item :label="t('用户名')" prop="username">
                 <el-input
                   v-model="form.username"
-                  placeholder="请输入用户名"
+                  :placeholder="t('请输入用户名')"
                   autocomplete="username"
                   maxlength="30"
                   show-word-limit
                 />
                 <template #extra>
-                  <span class="field-hint"
-                    >4-30位中文、英文、数字、_ 或 -，首尾不能为 _ 或 -，不能为纯数字</span
-                  >
+                  <span class="field-hint">{{
+                    t('4-30位中文、英文、数字、_ 或 -，首尾不能为 _ 或 -，不能为纯数字')
+                  }}</span>
                 </template>
               </el-form-item>
 
-              <el-form-item label="电子邮箱" prop="email">
+              <el-form-item :label="t('电子邮箱')" prop="email">
                 <el-input
                   v-model="form.email"
                   placeholder="example@mail.com"
@@ -50,11 +50,11 @@
                 />
               </el-form-item>
 
-              <el-form-item label="邮箱验证码" prop="emailCode">
+              <el-form-item :label="t('邮箱验证码')" prop="emailCode">
                 <div class="verification-row">
                   <el-input
                     v-model="form.emailCode"
-                    placeholder="请输入六位验证码"
+                    :placeholder="t('请输入六位验证码')"
                     maxlength="6"
                     inputmode="numeric"
                     pattern="[0-9]*"
@@ -65,58 +65,62 @@
                     :disabled="codeSending || countdown > 0"
                     @click="handleSendCode"
                   >
-                    {{ countdown > 0 ? `${countdown}秒后重发` : '获取验证码' }}
+                    {{ countdown > 0 ? t('{p0}秒后重发', { p0: countdown }) : t('获取验证码') }}
                   </el-button>
                 </div>
               </el-form-item>
 
-              <el-form-item label="密码" prop="password">
+              <el-form-item :label="t('密码')" prop="password">
                 <el-input
                   v-model="form.password"
                   type="password"
-                  placeholder="请输入密码"
+                  :placeholder="t('请输入密码')"
                   autocomplete="new-password"
                   maxlength="12"
                   show-password
                 />
                 <template #extra>
-                  <span class="field-hint">8-12位，必须包含英文和数字，特殊字符仅支持 !@#$%</span>
+                  <span class="field-hint">{{
+                    t('8-12位，必须包含英文和数字，特殊字符仅支持 !@#$%')
+                  }}</span>
                 </template>
               </el-form-item>
 
-              <el-form-item label="确认密码" prop="confirmPassword">
+              <el-form-item :label="t('确认密码')" prop="confirmPassword">
                 <el-input
                   v-model="form.confirmPassword"
                   type="password"
-                  placeholder="再次输入密码"
+                  :placeholder="t('再次输入密码')"
                   autocomplete="new-password"
                   maxlength="12"
                   show-password
                 />
               </el-form-item>
 
-              <el-form-item label="邀请码（选填）" prop="inviteCode">
+              <el-form-item :label="t('邀请码（选填）')" prop="inviteCode">
                 <el-input
                   v-model="form.inviteCode"
-                  placeholder="请输入好友邀请码"
+                  :placeholder="t('请输入好友邀请码')"
                   maxlength="16"
                   autocomplete="off"
                   @input="handleInviteCodeInput"
                   @blur="handleValidateInviteCode"
                 />
                 <template #extra>
-                  <span v-if="inviteValidation === 'checking'" class="field-hint"
-                    >正在校验邀请码...</span
+                  <span v-if="inviteValidation === 'checking'" class="field-hint">{{
+                    t('正在校验邀请码...')
+                  }}</span>
+                  <span v-else-if="inviteValidation === 'valid'" class="field-hint invite-valid">{{
+                    t('邀请码有效，完成首次会员购买后双方可获得七天会员卡')
+                  }}</span>
+                  <span
+                    v-else-if="inviteValidation === 'invalid'"
+                    class="field-hint invite-invalid"
+                    >{{ t('邀请码无效，请检查后重试；也可以清空后继续注册') }}</span
                   >
-                  <span v-else-if="inviteValidation === 'valid'" class="field-hint invite-valid"
-                    >邀请码有效，完成首次会员购买后双方可获得七天会员卡</span
-                  >
-                  <span v-else-if="inviteValidation === 'invalid'" class="field-hint invite-invalid"
-                    >邀请码无效，请检查后重试；也可以清空后继续注册</span
-                  >
-                  <span v-else class="field-hint"
-                    >注册时忘记填写，可在注册后24小时内且首次支付前补填</span
-                  >
+                  <span v-else class="field-hint">{{
+                    t('注册时忘记填写，可在注册后24小时内且首次支付前补填')
+                  }}</span>
                 </template>
               </el-form-item>
             </section>
@@ -125,12 +129,12 @@
               <div class="form-section-heading">
                 <span>02</span>
                 <div>
-                  <h2>备考信息</h2>
-                  <p>补充个性化学习目标，形成学习档案与诊断报告</p>
+                  <h2>{{ t('备考信息') }}</h2>
+                  <p>{{ t('补充个性化学习目标，形成学习档案与诊断报告') }}</p>
                 </div>
               </div>
 
-              <el-form-item label="备考类型（可多选）">
+              <el-form-item :label="t('备考类型（可多选）')">
                 <div class="exam-type-group">
                   <label
                     v-for="et in examTypes"
@@ -150,17 +154,17 @@
                       class="sr-only"
                     />
                     {{ et.label }}
-                    <small v-if="!et.available">推进中</small>
+                    <small v-if="!et.available">{{ t('推进中') }}</small>
                   </label>
                 </div>
               </el-form-item>
 
-              <el-form-item v-if="selectedExamTypes.length" label="备考科目">
+              <el-form-item v-if="selectedExamTypes.length" :label="t('备考科目')">
                 <div class="subject-list">
                   <div v-for="et in selectedExamTypes" :key="et" class="subject-group">
                     <span class="subject-exam-label"
                       >{{ examTypeLabel(et)
-                      }}{{ et === 'ESAT' ? '（五选三，数学1必选）' : '' }}</span
+                      }}{{ et === 'ESAT' ? t('（五选三，数学1必选）') : '' }}</span
                     >
                     <div class="subject-chip-group">
                       <label
@@ -180,7 +184,7 @@
                           class="sr-only"
                           @change="toggleSubject(et, sub)"
                         />
-                        {{ sub }}
+                        {{ t(sub) }}
                       </label>
                     </div>
                   </div>
@@ -195,37 +199,37 @@
                 >
                   <div class="exam-goal-heading">
                     <strong>{{ examTypeLabel(et) }}</strong>
-                    <span>目标信息（选填）</span>
+                    <span>{{ t('目标信息（选填）') }}</span>
                   </div>
                   <div class="exam-goal-grid">
                     <label class="exam-goal-field exam-goal-field--wide">
-                      <span>目标院校层级（最多选择 2 个）</span>
+                      <span>{{ t('目标院校层级（最多选择 2 个）') }}</span>
                       <el-select
                         v-model="selectedGoals[et]!.targetUniversities"
                         multiple
                         :multiple-limit="2"
                         collapse-tags
                         collapse-tags-tooltip
-                        placeholder="请选择目标院校"
+                        :placeholder="t('请选择目标院校')"
                       >
                         <el-option
                           v-for="university in TARGET_UNIVERSITY_OPTIONS"
                           :key="university"
-                          :label="university"
+                          :label="t(university)"
                           :value="university"
                         />
                       </el-select>
                     </label>
                     <label class="exam-goal-field exam-goal-field--wide">
-                      <span>目标专业方向</span>
+                      <span>{{ t('目标专业方向') }}</span>
                       <el-input
                         v-model="selectedGoals[et]!.targetMajor"
                         maxlength="191"
-                        placeholder="例如：Mechanical Engineering"
+                        :placeholder="t('例如：Mechanical Engineering')"
                       />
                     </label>
                     <label class="exam-goal-field">
-                      <span>{{ examTypeLabel(et) }} 目标分数</span>
+                      <span>{{ t('{p0} 目标分数', { p0: examTypeLabel(et) }) }}</span>
                       <el-input
                         v-model="selectedGoals[et]!.targetScore"
                         type="number"
@@ -236,24 +240,24 @@
                       />
                     </label>
                     <label class="exam-goal-field">
-                      <span>考试日期</span>
+                      <span>{{ t('考试日期') }}</span>
                       <el-date-picker
                         v-model="selectedGoals[et]!.examDate"
                         type="date"
                         value-format="YYYY-MM-DD"
                         format="YYYY-MM-DD"
-                        placeholder="选择日期"
+                        :placeholder="t('选择日期')"
                       />
                     </label>
                     <label class="exam-goal-field">
-                      <span>每周可投入时长</span>
+                      <span>{{ t('每周可投入时长') }}</span>
                       <el-input
                         v-model="selectedGoals[et]!.weeklyHours"
                         type="number"
                         min="1"
                         max="80"
                         step="1"
-                        placeholder="1-80 小时"
+                        :placeholder="t('1-80 小时')"
                       />
                     </label>
                   </div>
@@ -261,20 +265,28 @@
               </div>
 
               <div v-else class="exam-empty-state">
-                选择备考类型后，可继续设置科目、目标院校和学习计划。
+                {{ t('选择备考类型后，可继续设置科目、目标院校和学习计划。') }}
               </div>
             </section>
           </div>
 
           <el-form-item prop="legalAccepted" class="register-legal-row">
             <div class="register-legal-notice">
-              <el-checkbox v-model="form.legalAccepted" aria-label="同意用户服务协议和隐私政策" />
+              <el-checkbox
+                v-model="form.legalAccepted"
+                :aria-label="t('同意用户服务协议和隐私政策')"
+              />
               <span class="register-legal-copy">
-                我已阅读并同意
-                <router-link to="/legal/user-agreement" target="_blank" rel="noopener noreferrer"
-                  >《用户服务协议》</router-link
-                >和<router-link to="/legal/privacy-policy" target="_blank" rel="noopener noreferrer"
-                  >《隐私政策》</router-link
+                {{ t('我已阅读并同意') }}
+                <router-link to="/legal/user-agreement" target="_blank" rel="noopener noreferrer">{{
+                  t('《用户服务协议》')
+                }}</router-link
+                >{{ isEnglish ? ` ${t('和')} ` : t('和')
+                }}<router-link
+                  to="/legal/privacy-policy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >{{ t('《隐私政策》') }}</router-link
                 >
               </span>
             </div>
@@ -297,16 +309,16 @@
               :loading="auth.loading"
               native-type="submit"
             >
-              {{ auth.loading ? '注册中...' : '注册' }}
+              {{ auth.loading ? t('注册中...') : t('注册') }}
             </el-button>
           </el-form-item>
         </el-form>
 
         <p class="register-footnote">
-          已有账号？
+          {{ t('已有账号？') }}
           <router-link :to="loginLocation" class="form-link form-link--back">
             <span class="back-icon" aria-hidden="true">←</span>
-            去登录
+            {{ t('去登录') }}
           </router-link>
         </p>
       </section>
@@ -315,8 +327,9 @@
 </template>
 
 <script setup lang="ts">
+import { t, useSiteLocale, translateAuthError } from '@/locales'
 // 注册页：创建账号并进入登录态，完成后返回认证流程开始前的目标页面。
-import { computed, onBeforeUnmount, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import NavBar from '@/components/NavBar.vue'
@@ -333,7 +346,7 @@ import {
 import { TARGET_UNIVERSITY_OPTIONS } from '@/constants/universities'
 import { createAuthRouteLocation, getSafeAuthRedirect } from '@/utils/authRedirect'
 import { AUTH_LEGAL_VERSIONS } from '@/constants/legal'
-import { getApiErrorMessage, hasApiErrorCode } from '@/utils/request'
+import { ApiError, getApiErrorMessage, hasApiErrorCode } from '@/utils/request'
 import {
   validateConfirmPassword,
   EMAIL_CODE_PATTERN,
@@ -343,18 +356,30 @@ import {
   normalizeEmailCode,
 } from '@/utils/validation'
 
+const { isEnglish, homePath } = useSiteLocale()
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const invitationBenefit = useInvitationBenefitStore()
 const formRef = ref<FormInstance>()
 
+// 已显示的校验错误随语言更新，账号信息、考试目标和验证码倒计时保持原值。
+watch(isEnglish, () => {
+  const fields = formRef.value?.fields
+    .filter((field) => field.validateState === 'error')
+    .map((field) => field.propString)
+  if (fields?.length) void formRef.value?.validateField(fields).catch(() => {})
+})
+
 const inviteQueryValue = Array.isArray(route.query.invite)
   ? route.query.invite[0]
   : route.query.invite
 
 // 从注册页查询参数恢复受保护目标，并过滤非站内地址。
-const redirectAfterAuth = computed(() => getSafeAuthRedirect(route.query.redirect))
+const redirectAfterAuth = computed(() => {
+  const target = getSafeAuthRedirect(route.query.redirect)
+  return target === '/' ? homePath.value : target
+})
 
 // 用户返回登录页时继续保留最初访问的目标页面。
 const loginLocation = computed(() => createAuthRouteLocation('login', redirectAfterAuth.value))
@@ -384,7 +409,7 @@ const rules: FormRules = {
       validator: (_rule, value: string, callback) => {
         const result = validateUsername(value)
         if (result.valid) callback()
-        else callback(new Error(result.message))
+        else callback(new Error(t(result.message)))
       },
       trigger: 'blur',
     },
@@ -394,7 +419,7 @@ const rules: FormRules = {
       validator: (_rule, value: string, callback) => {
         const result = validateEmail(value)
         if (result.valid) callback()
-        else callback(new Error(result.message))
+        else callback(new Error(t(result.message)))
       },
       trigger: 'blur',
     },
@@ -403,7 +428,7 @@ const rules: FormRules = {
     {
       validator: (_rule, value: string, callback) => {
         if (EMAIL_CODE_PATTERN.test(value)) callback()
-        else callback(new Error('请输入六位数字验证码'))
+        else callback(new Error(t('请输入六位数字验证码')))
       },
       trigger: 'blur',
     },
@@ -413,7 +438,7 @@ const rules: FormRules = {
       validator: (_rule, value: string, callback) => {
         const result = validatePassword(value)
         if (result.valid) callback()
-        else callback(new Error(result.message))
+        else callback(new Error(t(result.message)))
       },
       trigger: 'blur',
     },
@@ -423,7 +448,7 @@ const rules: FormRules = {
       validator: (_rule, value: string, callback) => {
         const result = validateConfirmPassword(form.password, value)
         if (result.valid) callback()
-        else callback(new Error(result.message))
+        else callback(new Error(t(result.message)))
       },
       trigger: 'blur',
     },
@@ -432,7 +457,7 @@ const rules: FormRules = {
     {
       validator: (_rule, value: string, callback) => {
         if (!value || /^[A-Z0-9]{6,16}$/.test(value)) callback()
-        else callback(new Error('邀请码应为6-16位英文字母或数字'))
+        else callback(new Error(t('邀请码应为6-16位英文字母或数字')))
       },
       trigger: 'blur',
     },
@@ -441,7 +466,7 @@ const rules: FormRules = {
     {
       validator: (_rule, value: boolean, callback) => {
         if (value) callback()
-        else callback(new Error('请勾选并同意《用户服务协议》和《隐私政策》'))
+        else callback(new Error(t('请勾选并同意《用户服务协议》和《隐私政策》')))
       },
       trigger: 'change',
     },
@@ -477,7 +502,13 @@ const selectedGoals = ref<Record<string, ExamGoalDraft>>({})
 const ESAT_MAX_SUBJECTS = 3
 const challengeId = ref('')
 const codeSending = ref(false)
-const registrationNotice = ref('')
+const registrationError = ref<{ message: string; code?: string | number } | null>(null)
+// 保留服务端原始信息，使持续展示的限流提示可随语言重新翻译。
+const registrationNotice = computed(() =>
+  registrationError.value
+    ? translateAuthError(registrationError.value.message, registrationError.value.code)
+    : '',
+)
 const countdown = ref(0)
 let countdownTimer: number | undefined
 
@@ -490,9 +521,12 @@ function showRegistrationNotice(error: unknown): void {
     'AUTH_REGISTRATION_COOKIE_REQUIRED',
     'AUTH_REGISTRATION_RESTRICTED',
   ]
-  registrationNotice.value = codes.some((code) => hasApiErrorCode(error, code))
-    ? getApiErrorMessage(error, '注册暂缓，请稍后重试。')
-    : ''
+  registrationError.value = codes.some((code) => hasApiErrorCode(error, code))
+    ? {
+        message: getApiErrorMessage(error, '注册暂缓，请稍后重试。'),
+        code: error instanceof ApiError ? error.code : undefined,
+      }
+    : null
 }
 
 // 重发倒计时使用服务端返回间隔，避免客户端与限流时间不一致。
@@ -553,13 +587,13 @@ async function handleValidateInviteCode(): Promise<boolean> {
 async function handleSendCode(): Promise<void> {
   const emailResult = validateEmail(form.email)
   if (!emailResult.valid) {
-    ElMessage.warning(emailResult.message)
+    ElMessage.warning(t(emailResult.message))
     return
   }
   codeSending.value = true
   try {
     const data = await sendEmailCode(form.email, 'REGISTER')
-    registrationNotice.value = ''
+    registrationError.value = null
     challengeId.value = data.challengeId
     startCountdown(data.resendAfter)
     if (data.developmentCode) {
@@ -567,7 +601,7 @@ async function handleSendCode(): Promise<void> {
       formRef.value?.clearValidate('emailCode')
       ElMessage({
         type: 'success',
-        message: '开发环境验证码已自动生成并填入',
+        message: t('开发环境验证码已自动生成并填入'),
         showClose: true,
         duration: 3000,
       })
@@ -575,7 +609,7 @@ async function handleSendCode(): Promise<void> {
     }
     ElMessage({
       type: 'success',
-      message: '验证码已发送，请检查邮箱',
+      message: t('验证码已发送，请检查邮箱'),
       showClose: true,
       duration: 3000,
     })
@@ -625,7 +659,7 @@ function emptyExamGoal(): ExamGoalDraft {
 // 切换考试类型时同步初始化或清理科目与目标，避免提交残留数据。
 function toggleExamType(value: string): void {
   if (!isExamTypeAvailable(value)) {
-    ElMessage.info(getExamUnavailableMessage(value))
+    ElMessage.info(t(getExamUnavailableMessage(value)))
     return
   }
   const idx = selectedExamTypes.value.indexOf(value)
@@ -666,27 +700,27 @@ const handleSubmit = async (): Promise<void> => {
   }
 
   if (!challengeId.value) {
-    ElMessage.warning('请先获取邮箱验证码')
+    ElMessage.warning(t('请先获取邮箱验证码'))
     return
   }
   if (form.inviteCode && !(await handleValidateInviteCode())) {
-    ElMessage.warning('请检查邀请码，或清空后继续注册')
+    ElMessage.warning(t('请检查邀请码，或清空后继续注册'))
     return
   }
   for (const et of selectedExamTypes.value) {
     const goal = selectedGoals.value[et] || emptyExamGoal()
     if (et === 'ESAT' && (selectedSubjects.value.ESAT || []).length !== ESAT_MAX_SUBJECTS) {
-      ElMessage.warning('ESAT 需从 5 个科目中选择 3 个，且数学1为必选科目')
+      ElMessage.warning(t('ESAT 需从 5 个科目中选择 3 个，且数学1为必选科目'))
       return
     }
     if (goal.targetUniversities.length > 2) {
-      ElMessage.warning(`${et} 目标院校最多选择 2 个`)
+      ElMessage.warning(t('{p0} 目标院校最多选择 2 个', { p0: et }))
       return
     }
     const targetScoreText = goal.targetScore.trim()
     const targetScore = Number(targetScoreText)
     if (targetScoreText && (!Number.isFinite(targetScore) || targetScore < 1 || targetScore > 9)) {
-      ElMessage.warning(`${et} 目标分数需为 1.0-9.0`)
+      ElMessage.warning(t('{p0} 目标分数需为 1.0-9.0', { p0: et }))
       return
     }
     const weeklyHoursText = goal.weeklyHours.trim()
@@ -695,7 +729,7 @@ const handleSubmit = async (): Promise<void> => {
       weeklyHoursText &&
       (!Number.isInteger(weeklyHours) || weeklyHours < 1 || weeklyHours > 80)
     ) {
-      ElMessage.warning(`${et} 每周可投入时长需为 1-80 的整数`)
+      ElMessage.warning(t('{p0} 每周可投入时长需为 1-80 的整数', { p0: et }))
       return
     }
   }
@@ -735,7 +769,7 @@ const handleSubmit = async (): Promise<void> => {
 
   ElMessage({
     type: 'success',
-    message: '注册成功',
+    message: t('注册成功'),
     showClose: true,
     duration: 2500,
   })
@@ -785,7 +819,7 @@ const handleSubmit = async (): Promise<void> => {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: var(--space-12) 1rem;
+  padding: 24px 1rem;
   overflow-y: auto;
 }
 
@@ -796,7 +830,7 @@ const handleSubmit = async (): Promise<void> => {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-2xl);
-  padding: var(--space-12) var(--space-10);
+  padding: 28px 32px;
   box-shadow: var(--shadow-card);
   text-align: center;
 }
@@ -808,7 +842,7 @@ const handleSubmit = async (): Promise<void> => {
 }
 
 .register-subtitle {
-  margin: 0 0 var(--space-8);
+  margin: 0 0 20px;
   font-size: 0.938rem;
   color: var(--color-text-muted);
 }
@@ -817,21 +851,37 @@ const handleSubmit = async (): Promise<void> => {
   text-align: left;
 }
 
+/* 收紧字段间距，保留输入控件高度及字段下方的校验提示空间。 */
+.register-form-section :deep(.el-form-item) {
+  margin-bottom: 18px;
+}
+
+.register-form-section :deep(.el-form-item:last-child) {
+  margin-bottom: 0;
+}
+
+.register-form :deep(.el-form-item__label) {
+  margin-bottom: 6px;
+  padding-bottom: 0;
+}
+
 .registration-notice {
   margin-bottom: 16px;
 }
 
 .register-form :deep(.el-form-item__error) {
+  position: static;
+  width: 100%;
   padding-top: 3px;
   font-size: 0.75rem;
-  line-height: 1.25;
-  white-space: nowrap;
+  line-height: 1.4;
+  white-space: normal;
 }
 
 .register-form-grid {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: 40px;
+  gap: 28px;
   align-items: stretch;
 }
 
@@ -840,7 +890,7 @@ const handleSubmit = async (): Promise<void> => {
 }
 
 .register-form-section--exam {
-  padding-left: 40px;
+  padding-left: 28px;
   border-left: 1px solid var(--color-border);
 }
 
@@ -848,7 +898,7 @@ const handleSubmit = async (): Promise<void> => {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .form-section-heading > span {
@@ -976,21 +1026,25 @@ const handleSubmit = async (): Promise<void> => {
   line-height: 1.7;
 }
 
-.register-legal-row {
-  margin: 28px auto 0;
+.register-page--english .register-legal-copy a {
+  margin-inline: 3px;
+}
+
+.register-form .register-legal-row {
+  margin: 20px auto 18px;
 
   :deep(.el-form-item__content) {
     justify-content: center;
   }
 }
 
-.register-submit-row {
+.register-form .register-submit-row {
   max-width: 360px;
-  margin: 14px auto 0;
+  margin: 0 auto;
 }
 
 .register-footnote {
-  margin: var(--space-8) 0 0;
+  margin: 16px 0 0;
   font-size: 0.875rem;
   color: var(--color-text-secondary);
 }
@@ -1059,7 +1113,7 @@ const handleSubmit = async (): Promise<void> => {
 
 .subject-list {
   display: grid;
-  gap: 16px;
+  gap: 12px;
   width: 100%;
 }
 
@@ -1077,7 +1131,7 @@ const handleSubmit = async (): Promise<void> => {
 }
 
 .exam-goal-card {
-  padding: 16px;
+  padding: 12px;
   border: 1px solid var(--color-border);
   border-radius: 10px;
   background: #f8fafc;
@@ -1088,7 +1142,7 @@ const handleSubmit = async (): Promise<void> => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .exam-goal-heading strong {
@@ -1133,7 +1187,7 @@ const handleSubmit = async (): Promise<void> => {
 }
 
 .exam-empty-state {
-  padding: 28px 20px;
+  padding: 20px 16px;
   border: 1px dashed var(--color-border);
   border-radius: 10px;
   color: var(--color-text-muted);
@@ -1145,11 +1199,11 @@ const handleSubmit = async (): Promise<void> => {
 @media (max-width: 900px) {
   .register-form-grid {
     grid-template-columns: 1fr;
-    gap: 32px;
+    gap: 24px;
   }
 
   .register-form-section--exam {
-    padding-top: 32px;
+    padding-top: 24px;
     padding-left: 0;
     border-top: 1px solid var(--color-border);
     border-left: 0;
@@ -1157,8 +1211,12 @@ const handleSubmit = async (): Promise<void> => {
 }
 
 @media (max-width: 640px) {
+  .register-main {
+    padding: 16px 12px;
+  }
+
   .register-card {
-    padding: var(--space-10) 1.5rem;
+    padding: 24px 18px;
     border-radius: var(--radius-xl);
   }
 

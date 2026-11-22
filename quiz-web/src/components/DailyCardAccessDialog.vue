@@ -2,7 +2,7 @@
 <template>
   <AppDialog
     :model-value="modelValue"
-    :title="dialogTitle"
+    :title="t(dialogTitle)"
     :loading="busy"
     @confirm="handlePrimaryAction"
     @cancel="handleCancel"
@@ -10,42 +10,48 @@
     <div class="daily-card-access-dialog__content" aria-live="polite">
       <div v-if="checking" class="daily-card-access-dialog__state">
         <span class="daily-card-access-dialog__spinner" aria-hidden="true" />
-        <p>正在检查可用的免费日卡...</p>
+        <p>{{ t('正在检查可用的免费日卡...') }}</p>
       </div>
 
       <div v-else-if="errorMessage" class="daily-card-access-dialog__state">
         <span class="daily-card-access-dialog__error-mark" aria-hidden="true">!</span>
         <div>
-          <p class="daily-card-access-dialog__error">{{ errorMessage }}</p>
+          <p class="daily-card-access-dialog__error">
+            {{ translateDiagnosticError(errorMessage) }}
+          </p>
           <p v-if="activationCompleted" class="daily-card-access-dialog__hint">
-            日卡已经启用，不会重复消耗；点击“刷新会员状态”即可继续。
+            {{ t('日卡已经启用，不会重复消耗；点击“刷新会员状态”即可继续。') }}
           </p>
         </div>
       </div>
 
       <template v-else-if="pendingDailyCard">
         <p class="daily-card-access-dialog__message">
-          使用1张免费日卡，解锁当前考试会员权益24小时，会员到期后仍可查看历史报告。
+          {{ t('使用1张免费日卡，解锁当前考试会员权益24小时，会员到期后仍可查看历史报告。') }}
         </p>
         <div class="daily-card-access-dialog__card-note">
-          <span class="daily-card-access-dialog__card-kind">{{ examType }} 会员权益 · 日卡</span>
-          <strong>AceMock 一日会员卡</strong>
-          <span>启用成功后，可继续刚才的操作</span>
-          <small v-if="activationDeadlineText"> 请在 {{ activationDeadlineText }} 前使用 </small>
+          <span class="daily-card-access-dialog__card-kind">{{
+            t('{p0} 会员权益 · 日卡', { p0: t(examType) })
+          }}</span>
+          <strong>{{ t('AceMock 一日会员卡') }}</strong>
+          <span>{{ t('启用成功后，可继续刚才的操作') }}</span>
+          <small v-if="activationDeadlineText">{{
+            t('请在 {p0} 前使用', { p0: t(activationDeadlineText) })
+          }}</small>
         </div>
         <p v-if="pendingDailyCardCount > 1" class="daily-card-access-dialog__hint">
-          账户中共有 {{ pendingDailyCardCount }} 张待启用日卡，本次仅使用1张。
+          {{ t('账户中共有 {p0} 张待启用日卡，本次仅使用1张。', { p0: t(pendingDailyCardCount) }) }}
         </p>
       </template>
 
       <p v-else class="daily-card-access-dialog__message">
-        {{ resolvedUpgradeMessage }}
+        {{ t(resolvedUpgradeMessage) }}
       </p>
     </div>
 
     <template #footer="{ cancel, confirm }">
       <AppButton type="secondary" size="small" :disabled="busy" @click="cancel">
-        {{ resolvedCancelText }}
+        {{ t(resolvedCancelText) }}
       </AppButton>
       <AppButton
         v-if="showMembershipChoice"
@@ -53,17 +59,18 @@
         size="small"
         :disabled="busy"
         @click="handleUpgradeChoice"
+        >{{ t('开通会员') }}</AppButton
       >
-        开通会员
-      </AppButton>
       <AppButton size="small" :loading="busy" @click="confirm">
-        {{ primaryActionText }}
+        {{ t(primaryActionText) }}
       </AppButton>
     </template>
   </AppDialog>
 </template>
 
 <script setup lang="ts">
+import { i18n, t, translateDiagnosticError } from '@/locales'
+
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import AppDialog from '@/components/AppDialog.vue'
 import AppButton from '@/components/AppButton.vue'
@@ -175,7 +182,7 @@ const primaryActionText = computed(() => {
 const activationDeadlineText = computed(() => {
   const deadline = pendingDailyCard.value?.activationDeadline
   if (!deadline) return ''
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(i18n.global.locale.value === 'en' ? 'en-GB' : 'zh-CN', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

@@ -7,9 +7,9 @@
           <span class="study-goal-icon study-goal-icon--lilac">
             <el-icon aria-hidden="true"><OfficeBuilding /></el-icon>
           </span>
-          <span>目标院校</span>
+          <span>{{ t('目标院校') }}</span>
         </div>
-        <div class="study-goal-value">{{ normalizedSchools.join('、') }}</div>
+        <div class="study-goal-value">{{ normalizedSchools.join(listSeparator) }}</div>
       </article>
 
       <article class="study-goal-summary-card">
@@ -17,9 +17,9 @@
           <span class="study-goal-icon study-goal-icon--lilac">
             <el-icon aria-hidden="true"><CollectionTag /></el-icon>
           </span>
-          <span>目标专业方向</span>
+          <span>{{ t('目标专业方向') }}</span>
         </div>
-        <div class="study-goal-value">{{ normalizedMajors.join('、') }}</div>
+        <div class="study-goal-value">{{ normalizedMajors.join(listSeparator) }}</div>
       </article>
 
       <article class="study-goal-summary-card study-goal-summary-card--exam">
@@ -27,9 +27,9 @@
           <span class="study-goal-icon study-goal-icon--mint">
             <el-icon aria-hidden="true"><Aim /></el-icon>
           </span>
-          <span>目标考试</span>
+          <span>{{ t('目标考试') }}</span>
         </div>
-        <div class="study-goal-value">{{ normalizedExamTypes.join('、') }}</div>
+        <div class="study-goal-value">{{ normalizedExamTypes.join(listSeparator) }}</div>
       </article>
 
       <article class="study-goal-summary-card">
@@ -37,9 +37,11 @@
           <span class="study-goal-icon study-goal-icon--mint">
             <el-icon aria-hidden="true"><Reading /></el-icon>
           </span>
-          <span>备考科目</span>
+          <span>{{ t('备考科目') }}</span>
         </div>
-        <div class="study-goal-value" :title="targetSubjectsText">{{ targetSubjectsText }}</div>
+        <div class="study-goal-value" :title="t(targetSubjectsText)">
+          {{ t(targetSubjectsText) }}
+        </div>
       </article>
     </div>
 
@@ -49,9 +51,9 @@
           <span class="study-goal-icon study-goal-icon--lilac">
             <el-icon aria-hidden="true"><Trophy /></el-icon>
           </span>
-          <span>目标分数</span>
+          <span>{{ t('目标分数') }}</span>
         </div>
-        <div class="study-goal-value">{{ targetScoresText }}</div>
+        <div class="study-goal-value">{{ t(targetScoresText) }}</div>
       </article>
 
       <article class="study-goal-summary-card">
@@ -59,24 +61,25 @@
           <span class="study-goal-icon study-goal-icon--lilac">
             <el-icon aria-hidden="true"><Clock /></el-icon>
           </span>
-          <span>每周可投入时长</span>
+          <span>{{ t('每周可投入时长') }}</span>
         </div>
-        <div class="study-goal-value">{{ weeklyHours }}</div>
+        <div class="study-goal-value">{{ t(weeklyHours) }}</div>
       </article>
       <article class="study-goal-summary-card">
         <div class="study-goal-card-label">
           <span class="study-goal-icon study-goal-icon--lilac">
             <el-icon aria-hidden="true"><Calendar /></el-icon>
           </span>
-          <span>考试日期</span>
+          <span>{{ t('考试日期') }}</span>
         </div>
-        <div class="study-goal-value">{{ examDate }}</div>
+        <div class="study-goal-value">{{ t(examDate) }}</div>
       </article>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { i18n, t } from '@/locales'
 import { computed } from 'vue'
 import {
   Aim,
@@ -101,20 +104,28 @@ interface StudyGoalOverviewProps {
 const props = defineProps<StudyGoalOverviewProps>()
 
 // 空值使用稳定占位，避免未完成偏好设置时卡片结构塌陷。
-const normalizedSchools = computed(() => (props.schools.length ? props.schools : ['尚未设置']))
-const normalizedMajors = computed(() => (props.majors.length ? props.majors : ['尚未设置']))
-const normalizedExamTypes = computed(() =>
-  props.examTypes.length ? props.examTypes : ['尚未设置'],
+const normalizedSchools = computed(() =>
+  props.schools.length ? props.schools.map((school) => t(school)) : [t('尚未设置')],
 )
+const normalizedMajors = computed(() => (props.majors.length ? props.majors : [t('尚未设置')]))
+const normalizedExamTypes = computed(() =>
+  props.examTypes.length ? props.examTypes : [t('尚未设置')],
+)
+
+const listSeparator = computed(() => (i18n.global.locale.value === 'en' ? ', ' : '、'))
 
 // 科目跟随已选择的目标考试展示，TMUA 使用固定的两卷考试结构。
 const targetSubjectsText = computed(() => {
   const sections: string[] = []
   if (props.examTypes.includes('ESAT')) {
-    sections.push(`ESAT ${props.esatSubjects.length ? props.esatSubjects.join('、') : '未设置'}`)
+    sections.push(
+      `ESAT ${props.esatSubjects.length ? props.esatSubjects.map((subject) => t(subject)).join(listSeparator.value) : t('未设置')}`,
+    )
   }
-  if (props.examTypes.includes('TMUA')) sections.push('TMUA Paper 1、Paper 2')
-  return sections.length ? sections.join('；') : '尚未设置'
+  if (props.examTypes.includes('TMUA')) sections.push(`TMUA Paper 1${listSeparator.value}Paper 2`)
+  return sections.length
+    ? sections.join(i18n.global.locale.value === 'en' ? '; ' : '；')
+    : t('尚未设置')
 })
 
 // 第二行按考试分别概览目标分数，避免不同考试的目标值混淆。
@@ -122,13 +133,13 @@ const targetScoresText = computed(() => {
   const examTypes = props.examTypes.filter(
     (examType): examType is 'ESAT' | 'TMUA' => examType === 'ESAT' || examType === 'TMUA',
   )
-  if (!examTypes.length) return '尚未设置'
+  if (!examTypes.length) return t('尚未设置')
   return examTypes
     .map((examType) => {
       const score = props.targetScores[examType]
-      return `${examType} ${score === null ? '未设置' : score.toFixed(1)}`
+      return `${examType} ${score === null ? t('未设置') : score.toFixed(1)}`
     })
-    .join('、')
+    .join(listSeparator.value)
 })
 </script>
 
@@ -228,5 +239,4 @@ const targetScoresText = computed(() => {
     grid-template-columns: 1fr;
   }
 }
-
 </style>

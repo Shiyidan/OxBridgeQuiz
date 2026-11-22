@@ -3,13 +3,14 @@
   <div class="diagnostic-report-page">
     <NavBar />
     <main class="report-main">
+      <OriginalContentNote v-if="report" :content="report" />
       <div v-if="loading" class="state-card" role="status" aria-live="polite">
-        正在生成 ESAT 模块诊断...
+        {{ t('正在生成 ESAT 模块诊断...') }}
       </div>
       <DiagnosticExpiredNotice v-else-if="paperExpired" />
       <div v-else-if="errorMessage" class="state-card state-card--error" role="alert">
-        <p>{{ errorMessage }}</p>
-        <button type="button" class="button_cancel" @click="loadReport">重新加载</button>
+        <p>{{ translateDiagnosticError(errorMessage) }}</p>
+        <button type="button" class="button_cancel" @click="loadReport">{{ t('重新加载') }}</button>
       </div>
 
       <DiagnosticReportV2
@@ -24,18 +25,24 @@
         <header class="report-header">
           <div>
             <span>{{
-              reportMeta?.sourcePaperType === 'mockPaper'
-                ? '来源：模考中心'
-                : 'ESAT Diagnostic Report'
+              t(
+                reportMeta?.sourcePaperType === 'mockPaper'
+                  ? '来源：模考中心'
+                  : 'ESAT Diagnostic Report',
+              )
             }}</span>
-            <h1>{{ report.header.title }}</h1>
+            <h1>{{ t(report.header.title) }}</h1>
           </div>
           <button type="button" class="question-analysis-button" @click="viewQuestionAnalysis()">
-            题目解析
+            {{ t('题目解析') }}
           </button>
         </header>
         <p v-if="report.learningPath?.profile.subjectMismatch" class="report-warning">
-          个人资料中的报考科目与本次实际作答模块不一致；本报告已按本次试卷的实际模块生成，避免遗漏需要补强的科目。
+          {{
+            t(
+              '个人资料中的报考科目与本次实际作答模块不一致；本报告已按本次试卷的实际模块生成，避免遗漏需要补强的科目。',
+            )
+          }}
         </p>
         <section
           v-if="needsReportUpgrade"
@@ -43,10 +50,12 @@
           aria-labelledby="report-upgrade-title"
         >
           <div>
-            <strong id="report-upgrade-title">这份报告仍在使用旧版诊断分析</strong>
-            <p>可以直接使用原答卷重新生成科目整体评价与学习路径；成绩和作答记录不会改变。</p>
+            <strong id="report-upgrade-title">{{ t('这份报告仍在使用旧版诊断分析') }}</strong>
+            <p>
+              {{ t('可以直接使用原答卷重新生成科目整体评价与学习路径；成绩和作答记录不会改变。') }}
+            </p>
             <small v-if="upgradeMessage" role="status" aria-live="polite">{{
-              upgradeMessage
+              t(upgradeMessage)
             }}</small>
           </div>
           <button
@@ -55,7 +64,7 @@
             :disabled="upgradeInProgress"
             @click="upgradeReport"
           >
-            {{ upgradeInProgress ? `正在更新 ${upgradeProgress}%` : '更新报告' }}
+            {{ t(upgradeInProgress ? `正在更新 ${upgradeProgress}%` : '更新报告') }}
           </button>
         </section>
         <EsatEquivalentScore
@@ -77,7 +86,7 @@
         <EsatLearningPath v-if="report.learningPath" :path="report.learningPath" />
       </template>
       <div v-else-if="report" class="state-card" role="status">
-        这份答卷没有可用于生成 ESAT 诊断报告的计分模块。
+        {{ t('这份答卷没有可用于生成 ESAT 诊断报告的计分模块。') }}
       </div>
     </main>
     <AnalysisMembershipDialog
@@ -89,6 +98,9 @@
 </template>
 
 <script setup lang="ts">
+import OriginalContentNote from '@/components/OriginalContentNote.vue'
+import { t, translateDiagnosticError } from '@/locales'
+
 import AnalysisMembershipDialog from '@/components/AnalysisMembershipDialog.vue'
 import { useAnalysisMembershipAccess } from '@/composables/useAnalysisMembershipAccess'
 import DiagnosticExpiredNotice from '@/components/DiagnosticExpiredNotice.vue'

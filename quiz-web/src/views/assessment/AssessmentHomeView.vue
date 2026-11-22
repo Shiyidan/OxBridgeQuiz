@@ -12,31 +12,39 @@
       <img :src="headerWaveUrl" class="assessment-background-wave" alt="" aria-hidden="true" />
       <header class="page-header">
         <div class="page-header__lead">
-          <h1>诊断测试</h1>
-          <p class="assessment-mobile-copy">{{ assessmentSubtitle }}</p>
-          <p class="assessment-desktop-copy">{{ yearOverviewDescription }}</p>
+          <h1>{{ t('诊断测试') }}</h1>
+          <p class="assessment-mobile-copy">{{ t(assessmentSubtitle) }}</p>
+          <p class="assessment-desktop-copy">{{ t(yearOverviewDescription) }}</p>
         </div>
       </header>
 
       <section class="assessment-year-overview" aria-labelledby="assessment-year-title">
         <div class="assessment-year-overview__heading">
           <div>
-            <span class="assessment-mobile-copy">{{ activeExamType }} Collections</span>
+            <span class="assessment-mobile-copy">{{ t(activeExamType) }} Collections</span>
             <h2 id="assessment-year-title">
-              <span class="assessment-mobile-copy">按年份选择 {{ activeExamType }} 诊断试卷</span
-              ><span class="assessment-desktop-copy">选择年份</span>
+              <span class="assessment-mobile-copy">{{
+                t('按年份选择 {p0} 诊断试卷', { p0: t(activeExamType) })
+              }}</span
+              ><span class="assessment-desktop-copy">{{ t('选择年份') }}</span>
             </h2>
           </div>
-          <p>{{ yearOverviewDescription }}</p>
+          <p>{{ t(yearOverviewDescription) }}</p>
         </div>
 
-        <div v-if="yearLoading" class="empty-state">正在加载 {{ activeExamType }} 试卷年份...</div>
+        <div v-if="yearLoading" class="empty-state">
+          {{ t('正在加载 {p0} 试卷年份...', { p0: t(activeExamType) }) }}
+        </div>
         <div v-else-if="yearError" class="assessment-year-state assessment-year-state--error">
-          <span>{{ yearError }}</span>
-          <button type="button" class="button_cancel" @click="loadAssessmentYears">重新加载</button>
+          <span>{{ translateDiagnosticError(yearError) }}</span>
+          <button type="button" class="button_cancel" @click="loadAssessmentYears">
+            {{ t('重新加载') }}
+          </button>
         </div>
         <div v-else-if="!assessmentYears.length" class="empty-state">
-          暂无已上线的 {{ activeExamType }} 诊断试卷年份，请先在后台发布诊断卷。
+          {{
+            t('暂无已上线的 {p0} 诊断试卷年份，请先在后台发布诊断卷。', { p0: t(activeExamType) })
+          }}
         </div>
         <div v-else ref="yearGridRef" class="assessment-year-grid">
           <div v-for="item in assessmentYears" :key="item.year" class="assessment-year-card-stack">
@@ -51,12 +59,12 @@
               <div
                 v-if="isYearLocked(item)"
                 class="paper-card__lock-overlay assessment-year-card__lock-overlay"
-                :aria-label="`${activeExamType} ${item.year} 年会员专享诊断卷`"
+                :aria-label="t(`${activeExamType} ${item.year} 年会员专享诊断卷`)"
                 @click.stop
               >
                 <div class="paper-card__lock-marker">
                   <el-icon><Lock /></el-icon>
-                  <span>会员专享</span>
+                  <span>{{ t('会员专享') }}</span>
                 </div>
                 <div class="paper-card__lock-actions">
                   <button
@@ -65,7 +73,7 @@
                     type="button"
                     @click.stop="openYearHistory(item)"
                   >
-                    历史记录（{{ item.completedAttemptCount }}）
+                    {{ t('历史记录（{p0}）', { p0: t(item.completedAttemptCount) }) }}
                   </button>
                   <div class="paper-card__unlock-options">
                     <button
@@ -74,7 +82,7 @@
                       type="button"
                       @click.stop="handleUpgradeForYear(item.year)"
                     >
-                      使用免费日卡
+                      {{ t('使用免费日卡') }}
                     </button>
                     <button
                       class="paper-card__unlock-button"
@@ -84,7 +92,7 @@
                       type="button"
                       @click.stop="handlePurchaseForYear(item.year)"
                     >
-                      开通会员
+                      {{ t('开通会员') }}
                     </button>
                   </div>
                 </div>
@@ -92,7 +100,7 @@
               <button
                 class="assessment-year-card__primary"
                 type="button"
-                :aria-label="`选择 ${activeExamType} ${item.year} 年诊断测试`"
+                :aria-label="t(`选择 ${activeExamType} ${item.year} 年诊断测试`)"
                 :disabled="openingYear !== null"
                 @click="handleYearSelection(item.year)"
               >
@@ -101,17 +109,19 @@
                     <i>AceMock</i>
                   </span>
                   <span class="assessment-year-card__cover-copy">
-                    <strong>{{ activeExamType }} {{ item.year }}</strong>
+                    <strong>{{ t(activeExamType) }} {{ t(item.year) }}</strong>
                     <small>Equivalent assessment</small>
                   </span>
                 </span>
                 <span class="assessment-year-card__body">
                   <span class="assessment-year-card__info">
-                    <strong>{{ activeExamType }} {{ item.year }} 年诊断卷</strong>
+                    <strong>{{
+                      t('{p0} {p1} 年诊断卷', { p0: t(activeExamType), p1: t(item.year) })
+                    }}</strong>
                     <span class="assessment-year-card__summary">
-                      <b>{{ yearCardConfigurationLabel }}</b>
+                      <b>{{ t(yearCardConfigurationLabel) }}</b>
                       <em :data-state="yearStatusTone(item)">
-                        {{ yearStatusLabel(item) }}
+                        {{ t(yearStatusLabel(item)) }}
                       </em>
                     </span>
                   </span>
@@ -126,7 +136,7 @@
                 type="button"
                 @click="openYearHistory(item)"
               >
-                <span>历史记录（{{ item.completedAttemptCount }}）</span>
+                <span>{{ t('历史记录（{p0}）', { p0: t(item.completedAttemptCount) }) }}</span>
               </button>
             </article>
           </div>
@@ -136,18 +146,18 @@
 
     <AppDialog
       v-model="resumeDialogVisible"
-      title="继续诊断测试"
-      confirm-text="确认继续"
-      cancel-text="取消"
+      :title="t('继续诊断测试')"
+      :confirm-text="t('确认继续')"
+      :cancel-text="t('取消')"
       @confirm="confirmResumeDiagnostic"
       @cancel="clearPendingResumePaper"
     >
-      <p>您还有未做完的诊断测试，是否继续完成？</p>
+      <p>{{ t('您还有未做完的诊断测试，是否继续完成？') }}</p>
     </AppDialog>
 
     <AppDialog
       v-model="tmuaPaperDialogVisible"
-      title="本次诊断"
+      :title="t('本次诊断')"
       width="560px"
       class="diagnostic-confirm-dialog"
       modal-class="diagnostic-confirm-overlay"
@@ -155,23 +165,31 @@
       @cancel="clearTmuaPaperSelection"
     >
       <div class="diagnostic-confirm-summary">
-        <h3>{{ selectedTmuaPaper?.title || `TMUA ${tmuaSelectionYear} 年诊断卷` }}</h3>
-        <p class="diagnostic-confirm-description">本次诊断包含两个必做 Paper。</p>
+        <h3>{{ t(selectedTmuaPaper?.title || `TMUA ${tmuaSelectionYear} 年诊断卷`) }}</h3>
+        <p class="diagnostic-confirm-description">{{ t('本次诊断包含两个必做 Paper。') }}</p>
         <p class="diagnostic-confirm-subjects">Paper 1 · Paper 2</p>
         <div v-if="selectedTmuaPaper" class="diagnostic-confirm-metrics">
-          <span><Document aria-hidden="true" />{{ selectedTmuaPaper.totalQuestions }} 题</span>
-          <span><Clock aria-hidden="true" />{{ selectedTmuaPaper.duration }} 分钟</span>
+          <span
+            ><Document aria-hidden="true" />{{
+              t('{p0} 题', { p0: t(selectedTmuaPaper.totalQuestions) })
+            }}</span
+          >
+          <span
+            ><Clock aria-hidden="true" />{{
+              t('{p0} 分钟', { p0: t(selectedTmuaPaper.duration) })
+            }}</span
+          >
         </div>
       </div>
       <template #footer="{ cancel }">
         <div class="diagnostic-confirm-footer">
           <div class="diagnostic-confirm-buttons">
-            <AppButton type="secondary" @click="cancel">取消</AppButton>
-            <AppButton :icon="Right" icon-position="right" @click="startSelectedTmuaPaper"
-              >确认开始</AppButton
-            >
+            <AppButton type="secondary" @click="cancel">{{ t('取消') }}</AppButton>
+            <AppButton :icon="Right" icon-position="right" @click="startSelectedTmuaPaper">{{
+              t('确认开始')
+            }}</AppButton>
           </div>
-          <p>确认后进入限时作答。</p>
+          <p>{{ t('确认后进入限时作答。') }}</p>
         </div>
       </template>
     </AppDialog>
@@ -183,14 +201,14 @@
       modal-class="diagnostic-confirm-overlay"
       :show-header-divider="false"
       :loading="Boolean(startingPaperId)"
-      title="本次诊断"
+      :title="t('本次诊断')"
       destroy-on-close
     >
       <div class="diagnostic-confirm-summary">
-        <h3>{{ selectedPaperPreview?.title || `ESAT ${subjectSelectionYear} 年诊断卷` }}</h3>
-        <p class="diagnostic-confirm-description">已按备考目标匹配。</p>
+        <h3>{{ t(selectedPaperPreview?.title || `ESAT ${subjectSelectionYear} 年诊断卷`) }}</h3>
+        <p class="diagnostic-confirm-description">{{ t('已按备考目标匹配。') }}</p>
         <p class="diagnostic-confirm-subjects">
-          {{ selectedEsatSubjectOptions.map((subject) => subject.label).join(' · ') }}
+          {{ t(selectedEsatSubjectOptions.map((subject) => subject.label).join(' · ')) }}
         </p>
         <AppButton
           type="text"
@@ -198,7 +216,7 @@
           :icon="Right"
           icon-position="right"
           @click="goToSubjectSettings"
-          >修改备考目标</AppButton
+          >{{ t('修改备考目标') }}</AppButton
         >
       </div>
 
@@ -206,38 +224,46 @@
         v-if="subjectPapersLoading"
         class="esat-subject-dialog__state esat-subject-dialog__state--compact"
       >
-        正在匹配该年份的目标科目试卷...
+        {{ t('正在匹配该年份的目标科目试卷...') }}
       </div>
       <div
         v-else-if="subjectPapersError"
         class="esat-subject-dialog__state esat-subject-dialog__state--compact esat-subject-dialog__state--error"
       >
-        <p>{{ subjectPapersError }}</p>
-        <AppButton type="secondary" size="small" @click="loadSubjectSelectionPapers">
-          重新加载
-        </AppButton>
+        <p>{{ translateDiagnosticError(subjectPapersError) }}</p>
+        <AppButton type="secondary" size="small" @click="loadSubjectSelectionPapers">{{
+          t('重新加载')
+        }}</AppButton>
       </div>
 
       <div v-if="!subjectPapersLoading && selectedPaperPreview" class="diagnostic-confirm-metrics">
-        <span><Document aria-hidden="true" />{{ selectedPaperPreview.totalQuestions }} 题</span>
-        <span><Clock aria-hidden="true" />{{ selectedPaperPreview.duration }} 分钟</span>
+        <span
+          ><Document aria-hidden="true" />{{
+            t('{p0} 题', { p0: t(selectedPaperPreview.totalQuestions) })
+          }}</span
+        >
+        <span
+          ><Clock aria-hidden="true" />{{
+            t('{p0} 分钟', { p0: t(selectedPaperPreview.duration) })
+          }}</span
+        >
         <span v-if="isPaperLocked(selectedPaperPreview)" class="diagnostic-confirm-membership"
-          ><Lock aria-hidden="true" />会员专享</span
+          ><Lock aria-hidden="true" />{{ t('会员专享') }}</span
         >
       </div>
       <p
         v-else-if="!subjectPapersLoading && !subjectPapersError"
         class="esat-subject-dialog__unmatched"
       >
-        该年份尚未准备完整的备考目标科目组合，暂时无法开始。
+        {{ t('该年份尚未准备完整的备考目标科目组合，暂时无法开始。') }}
       </p>
 
       <template #footer="{ cancel }">
         <div class="diagnostic-confirm-footer">
           <div class="diagnostic-confirm-buttons">
-            <AppButton type="secondary" :disabled="Boolean(startingPaperId)" @click="cancel">
-              取消
-            </AppButton>
+            <AppButton type="secondary" :disabled="Boolean(startingPaperId)" @click="cancel">{{
+              t('取消')
+            }}</AppButton>
             <AppButton
               v-if="
                 selectedPaperPreview && isPaperLocked(selectedPaperPreview) && hasPendingDailyCard
@@ -245,9 +271,8 @@
               type="secondary"
               :disabled="Boolean(startingPaperId)"
               @click="handlePurchaseForSelectedEsatPaper"
+              >{{ t('开通会员') }}</AppButton
             >
-              开通会员
-            </AppButton>
             <AppButton
               :loading="Boolean(startingPaperId)"
               :disabled="
@@ -258,27 +283,31 @@
               @click="startSelectedEsatPaper"
             >
               {{
-                startingPaperId
-                  ? '正在检查...'
-                  : selectedPaperPreview && isPaperLocked(selectedPaperPreview)
-                    ? lockedMembershipActionLabel
-                    : '确认开始'
+                t(
+                  startingPaperId
+                    ? '正在检查...'
+                    : selectedPaperPreview && isPaperLocked(selectedPaperPreview)
+                      ? lockedMembershipActionLabel
+                      : '确认开始',
+                )
               }}
             </AppButton>
           </div>
-          <p>确认后进入限时作答。</p>
+          <p>{{ t('确认后进入限时作答。') }}</p>
         </div>
       </template>
     </AppDialog>
 
     <AppDialog
       v-model="subjectSetupDialogVisible"
-      title="设置 ESAT 备考科目"
-      confirm-text="前往设置"
-      cancel-text="暂不设置"
+      :title="t('设置 ESAT 备考科目')"
+      :confirm-text="t('前往设置')"
+      :cancel-text="t('暂不设置')"
       @confirm="goToSubjectSettings"
     >
-      <p>诊断测试会根据个人中心保存的三科备考目标自动匹配试卷。请先完成 ESAT 科目设置。</p>
+      <p>
+        {{ t('诊断测试会根据个人中心保存的三科备考目标自动匹配试卷。请先完成 ESAT 科目设置。') }}
+      </p>
     </AppDialog>
 
     <AppDialog
@@ -286,28 +315,28 @@
       width="860px"
       style="max-height: calc(100dvh - 82px)"
       :show-footer="false"
-      :title="historyDialogTitle"
+      :title="t(historyDialogTitle)"
       destroy-on-close
     >
       <div v-if="historyLoading && !historyRecords.length" class="diagnostic-history__state">
-        正在加载历次记录...
+        {{ t('正在加载历次记录...') }}
       </div>
       <div
         v-else-if="historyError && !historyRecords.length"
         class="diagnostic-history__state diagnostic-history__state--error"
       >
-        <p>{{ historyError }}</p>
-        <AppButton type="secondary" size="small" @click="loadYearHistory">重新加载</AppButton>
+        <p>{{ translateDiagnosticError(historyError) }}</p>
+        <AppButton type="secondary" size="small" @click="loadYearHistory">{{
+          t('重新加载')
+        }}</AppButton>
       </div>
       <div v-else-if="!historyRecords.length" class="diagnostic-history__state">
-        暂无已完成的诊断记录
+        {{ t('暂无已完成的诊断记录') }}
       </div>
       <div v-else class="diagnostic-history">
         <div class="diagnostic-history__summary">
-          <span
-            >共 <strong>{{ historyTotal }}</strong> 次诊断</span
-          >
-          <span>按交卷时间倒序</span>
+          <span>{{ t('共 {p0} 次诊断', { p0: historyTotal }) }}</span>
+          <span>{{ t('按交卷时间倒序') }}</span>
         </div>
         <article
           v-for="record in historyRecords"
@@ -316,36 +345,38 @@
         >
           <div class="diagnostic-history__heading">
             <div class="diagnostic-history__identity">
-              <span class="diagnostic-history__attempt">第 {{ record.attemptNumber }} 次</span>
-              <h3>{{ historyRecordTitle(record) }}</h3>
+              <span class="diagnostic-history__attempt">{{
+                t('第 {p0} 次', { p0: t(record.attemptNumber) })
+              }}</span>
+              <h3>{{ t(historyRecordTitle(record)) }}</h3>
             </div>
             <span
               class="diagnostic-history__status"
               :class="`diagnostic-history__status--${historyReportTone(record)}`"
             >
-              {{ historyReportLabel(record) }}
+              {{ t(historyReportLabel(record)) }}
             </span>
           </div>
           <div class="diagnostic-history__body">
             <dl class="diagnostic-history__score">
-              <dt>答对题数</dt>
+              <dt>{{ t('答对题数') }}</dt>
               <dd>
-                <strong>{{ record.correctCount }}</strong
-                ><span>/ {{ record.totalQuestions }}</span>
+                <strong>{{ t(record.correctCount) }}</strong
+                ><span>/ {{ t(record.totalQuestions) }}</span>
               </dd>
             </dl>
             <dl class="diagnostic-history__metrics">
               <div>
-                <dt>交卷时间</dt>
-                <dd>{{ formatDateTime(record.submittedAt) }}</dd>
+                <dt>{{ t('交卷时间') }}</dt>
+                <dd>{{ t(formatDateTime(record.submittedAt)) }}</dd>
               </div>
               <div>
-                <dt>作答用时</dt>
-                <dd>{{ formatDuration(record.durationSeconds) }}</dd>
+                <dt>{{ t('作答用时') }}</dt>
+                <dd>{{ t(formatDuration(record.durationSeconds)) }}</dd>
               </div>
               <div>
-                <dt>报告时间</dt>
-                <dd>{{ formatReportTime(record) }}</dd>
+                <dt>{{ t('报告时间') }}</dt>
+                <dd>{{ t(formatReportTime(record)) }}</dd>
               </div>
             </dl>
             <div class="diagnostic-history__actions">
@@ -355,21 +386,25 @@
                 :type="record.hasReport ? 'primary' : 'secondary'"
                 @click="handleHistoryAction(record)"
               >
-                {{ historyActionLabel(record) }}
+                {{ t(historyActionLabel(record)) }}
               </AppButton>
               <AppButton
                 size="small"
                 type="secondary"
                 class="diagnostic-history__action"
-                :disabled="record.isExpired || record.correctCount >= record.totalQuestions || wrongReviewChecking"
+                :disabled="
+                  record.isExpired ||
+                  record.correctCount >= record.totalQuestions ||
+                  wrongReviewChecking
+                "
                 @click="openHistoryWrongQuestions(record)"
               >
-                {{ record.correctCount >= record.totalQuestions ? '暂无错题' : '查看错题' }}
+                {{ t(record.correctCount >= record.totalQuestions ? '暂无错题' : '查看错题') }}
               </AppButton>
             </div>
           </div>
           <p v-if="record.isExpired" class="diagnostic-history__notice">
-            当前试卷已失效，请查看最新版试卷
+            {{ t('当前试卷已失效，请查看最新版试卷') }}
           </p>
         </article>
         <div
@@ -378,13 +413,15 @@
           role="status"
           aria-live="polite"
         >
-          <template v-if="historyLoading">正在加载更多记录...</template>
+          <template v-if="historyLoading">{{ t('正在加载更多记录...') }}</template>
           <template v-else-if="historyError">
-            <span>{{ historyError }}</span>
-            <AppButton type="text" size="small" @click="loadYearHistory">重新加载</AppButton>
+            <span>{{ translateDiagnosticError(historyError) }}</span>
+            <AppButton type="text" size="small" @click="loadYearHistory">{{
+              t('重新加载')
+            }}</AppButton>
           </template>
-          <template v-else-if="historyHasMore">向下滚动查看更多</template>
-          <template v-else>已显示全部 {{ historyTotal }} 次诊断</template>
+          <template v-else-if="historyHasMore">{{ t('向下滚动查看更多') }}</template>
+          <template v-else>{{ t('已显示全部 {p0} 次诊断', { p0: t(historyTotal) }) }}</template>
         </div>
       </div>
     </AppDialog>
@@ -399,7 +436,7 @@
       v-model="membershipAccessVisible"
       :exam-type="paymentExamType"
       direct-upgrade-when-no-card
-      upgrade-message="当前诊断卷需要会员权益，开通会员后即可开始完整诊断。"
+      :upgrade-message="t('当前诊断卷需要会员权益，开通会员后即可开始完整诊断。')"
       @activated="handleDailyCardActivated"
       @upgrade="handleMembershipUpgrade"
       @cancel="clearPendingMembershipAction"
@@ -415,6 +452,8 @@
 </template>
 
 <script setup lang="ts">
+import { t, translateDiagnosticError } from '@/locales'
+
 // 诊断测试中心：按年份进入 ESAT 目标科目确认或 TMUA 双 Paper 诊断流程。
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -531,7 +570,7 @@ function requireDesktopForDiagnosticAction(): boolean {
   const isMobileViewport =
     window.matchMedia('(max-width: 760px)').matches || window.screen.width <= 760
   if (!isMobileViewport) return false
-  ElMessage.info('诊断测试需使用电脑端答题，请在电脑端打开后开始考试。')
+  ElMessage.info(t('诊断测试需使用电脑端答题，请在电脑端打开后开始考试。'))
   return true
 }
 
@@ -756,7 +795,11 @@ async function handleYearSelection(year: number): Promise<void> {
     try {
       const loaded = await loadSubjectSelectionPapers()
       if (!loaded) {
-        ElMessage.error(subjectPapersError.value || '未完成诊断测试加载失败，请稍后重试。')
+        ElMessage.error(
+          translateDiagnosticError(
+            subjectPapersError.value || '未完成诊断测试加载失败，请稍后重试。',
+          ),
+        )
         return
       }
       const inProgressPaper = subjectSelectionPapers.value.find(
@@ -799,7 +842,9 @@ async function handleYearSelection(year: number): Promise<void> {
   try {
     const loaded = await loadSubjectSelectionPapers()
     if (!loaded) {
-      ElMessage.error(subjectPapersError.value || 'TMUA 诊断试卷加载失败，请稍后重试。')
+      ElMessage.error(
+        translateDiagnosticError(subjectPapersError.value || 'TMUA 诊断试卷加载失败，请稍后重试。'),
+      )
       return
     }
     const paper = subjectSelectionPapers.value.find(
@@ -807,7 +852,7 @@ async function handleYearSelection(year: number): Promise<void> {
         (isPaperPublished(item) || item.testStatus === 'in_progress') && isTmuaCompositePaper(item),
     )
     if (!paper) {
-      ElMessage.warning(`TMUA ${year} 年暂无已发布的 Paper 1 + Paper 2 诊断卷`)
+      ElMessage.warning(t(`TMUA ${year} 年暂无已发布的 Paper 1 + Paper 2 诊断卷`))
       return
     }
     if (!(await refreshCachedMembership(paper.examType))) return
@@ -870,7 +915,7 @@ onMounted(async () => {
       )
       card?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     } else {
-      ElMessage.info(`${activeExamType.value} ${targetYear.value} 年诊断卷暂不可用`)
+      ElMessage.info(t(`${activeExamType.value} ${targetYear.value} 年诊断卷暂不可用`))
     }
   }
 
@@ -952,7 +997,7 @@ async function handleDailyCardActivated(): Promise<void> {
   pendingMembershipAction.value = null
   if (!action) return
   if (!auth.memberContext?.quotas?.[paymentExamType.value]?.practiceAccess) {
-    ElMessage.error('会员权益尚未生效，请稍后重试。')
+    ElMessage.error(t('会员权益尚未生效，请稍后重试。'))
     return
   }
   if (action.kind === 'select-year') {
@@ -961,7 +1006,7 @@ async function handleDailyCardActivated(): Promise<void> {
   }
   if (action.kind === 'start-tmua') {
     if (selectedTmuaPaper.value?.id !== action.paperId) {
-      ElMessage.info('试卷状态已更新，请重新选择年份。')
+      ElMessage.info(t('试卷状态已更新，请重新选择年份。'))
       return
     }
     await startSelectedTmuaPaper()
@@ -969,7 +1014,7 @@ async function handleDailyCardActivated(): Promise<void> {
   }
   if (action.kind === 'start-esat') {
     if (selectedPaperPreview.value?.id !== action.paperId) {
-      ElMessage.info('科目组合已更新，请重新确认。')
+      ElMessage.info(t('科目组合已更新，请重新确认。'))
       return
     }
     await startSelectedEsatPaper()
@@ -1142,14 +1187,14 @@ function historyRecordTitle(record: AssessmentPaperHistoryItem): string {
     return code === 'paper1' ? 'Paper 1' : code === 'paper2' ? 'Paper 2' : module.subject?.trim()
   })
   return labels.length && labels.every(Boolean)
-    ? `${prefix} · ${[...new Set(labels)].join(' / ')}`
+    ? `${prefix} · ${[...new Set(labels)].map((label) => t(label)).join(' / ')}`
     : `${prefix} 诊断测试`
 }
 
 // 历史入口始终以该次 examRecordId 导航，禁止回退到同一试卷的其他报告。
 function handleHistoryAction(record: AssessmentPaperHistoryItem): void {
   if (record.isExpired) {
-    ElMessage.info('当前试卷已失效，请查看最新版试卷')
+    ElMessage.info(t('当前试卷已失效，请查看最新版试卷'))
     historyDialogVisible.value = false
     return
   }
@@ -1176,7 +1221,8 @@ function handleHistoryAction(record: AssessmentPaperHistoryItem): void {
 
 // 查看错题前实时校验权益，到期时保持诊断历史列表作为提醒背景。
 async function openHistoryWrongQuestions(record: AssessmentPaperHistoryItem): Promise<void> {
-  if (record.isExpired || record.correctCount >= record.totalQuestions || wrongReviewChecking.value) return
+  if (record.isExpired || record.correctCount >= record.totalQuestions || wrongReviewChecking.value)
+    return
   wrongReviewChecking.value = true
   pendingWrongReview.value = record
   const openedPath = route.fullPath
@@ -1185,9 +1231,15 @@ async function openHistoryWrongQuestions(record: AssessmentPaperHistoryItem): Pr
   const openedSequence = historyLoadSequence
   try {
     const access = await getExamReviewAccess(record.examRecordId)
-    if (!pageActive || route.fullPath !== openedPath || activeExamType.value !== openedExamType
-      || !historyDialogVisible.value || historyYear.value !== openedYear
-      || historyLoadSequence !== openedSequence) return
+    if (
+      !pageActive ||
+      route.fullPath !== openedPath ||
+      activeExamType.value !== openedExamType ||
+      !historyDialogVisible.value ||
+      historyYear.value !== openedYear ||
+      historyLoadSequence !== openedSequence
+    )
+      return
     wrongReviewExamType.value = access.examType
     if (!access.allowed) {
       wrongReviewMembershipOpen.value = true
@@ -1282,7 +1334,7 @@ async function startSelectedTmuaPaper(): Promise<void> {
   if (requireLoginForDiagnosticAction()) return
   const paper = selectedTmuaPaper.value
   if (!paper) {
-    ElMessage.warning('当前 TMUA 诊断试卷已不可用，请重新选择年份')
+    ElMessage.warning(t('当前 TMUA 诊断试卷已不可用，请重新选择年份'))
     return
   }
   if (paper.testStatus === 'in_progress') {
@@ -1316,12 +1368,12 @@ async function startSelectedEsatPaper(): Promise<void> {
   if (requireLoginForDiagnosticAction()) return
   const paper = selectedPaperPreview.value
   if (!paper) {
-    ElMessage.warning('请先选择可用的三科组合')
+    ElMessage.warning(t('请先选择可用的三科组合'))
     return
   }
   const activePaper = subjectSelectionPapers.value.find((item) => item.testStatus === 'in_progress')
   if (activePaper && activePaper.id !== paper.id) {
-    ElMessage.warning(`请先完成正在进行的“${activePaper.title}”`)
+    ElMessage.warning(t(`请先完成正在进行的“${activePaper.title}”`))
     return
   }
   if (paper.testStatus === 'in_progress') {
@@ -1353,7 +1405,7 @@ function goToSubjectSettings(): void {
 async function handleRetestPaper(paper: AssessmentPaperItem): Promise<void> {
   if (requireLoginForDiagnosticAction()) return
   if (!isPaperAvailable(paper)) {
-    ElMessage.info(getExamUnavailableMessage(paper.examType))
+    ElMessage.info(t(getExamUnavailableMessage(paper.examType)))
     return
   }
   if (!(await refreshCachedMembership(paper.examType))) return
@@ -1362,7 +1414,7 @@ async function handleRetestPaper(paper: AssessmentPaperItem): Promise<void> {
     return
   }
   if (!isPaperPublished(paper)) {
-    ElMessage.info('该诊断卷已下线，只能查看已有记录')
+    ElMessage.info(t('该诊断卷已下线，只能查看已有记录'))
     return
   }
   await startPaper(paper)
@@ -1371,11 +1423,11 @@ async function handleRetestPaper(paper: AssessmentPaperItem): Promise<void> {
 // 前端只处理明确的锁定交互，创建 attempt 时仍由后端再次校验试卷级权益。
 async function startPaper(paper: AssessmentPaperItem): Promise<void> {
   if (!isPaperAvailable(paper)) {
-    ElMessage.info(getExamUnavailableMessage(paper.examType))
+    ElMessage.info(t(getExamUnavailableMessage(paper.examType)))
     return
   }
   if (!isPaperPublished(paper)) {
-    ElMessage.info('该诊断卷已下线，不能创建新的测试')
+    ElMessage.info(t('该诊断卷已下线，不能创建新的测试'))
     return
   }
   if (startingPaperId.value) return

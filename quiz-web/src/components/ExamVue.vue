@@ -2,38 +2,42 @@
 <template>
   <header class="exam-topbar">
     <div class="exam-topbar__inner">
-      <AppButton type="text" :icon="Back" :aria-label="backLabel" @click="$emit('back')">
-        {{ backLabel }}
+      <AppButton type="text" :icon="Back" :aria-label="t(backLabel)" @click="$emit('back')">
+        {{ t(backLabel) }}
       </AppButton>
       <div v-if="totalCount > 0" class="exam-topbar__exam" aria-live="polite">
         <div class="exam-topbar__exam-row">
-          <strong class="exam-topbar__title">{{ headerText }}</strong>
+          <strong class="exam-topbar__title">{{ t(headerText) }}</strong>
           <span
             class="exam-topbar__timer"
             :class="{ 'exam-topbar__timer--warning': isCountdown && timerRemaining <= 300 }"
-            :aria-label="isCountdown ? '剩余时间' : '已用时间'"
-            >{{ timerText }}</span
+            :aria-label="t(isCountdown ? '剩余时间' : '已用时间')"
+            >{{ t(timerText) }}</span
           >
         </div>
         <div class="exam-topbar__progress" aria-hidden="true">
           <span :style="{ width: progressPercent }" />
         </div>
       </div>
+      <LanguageSwitcher />
     </div>
     <AppDialog
       v-model="resumeDialogVisible"
-      title="提示"
-      confirm-text="确定"
+      :title="t('提示')"
+      :confirm-text="t('确定')"
       :show-cancel="false"
       :show-close="false"
       @confirm="confirmResumeAnswering"
     >
-      <p>是否开始继续答题？</p>
+      <p>{{ t('是否开始继续答题？') }}</p>
     </AppDialog>
   </header>
 </template>
 
 <script setup lang="ts">
+import { t } from '@/locales'
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElNotification } from 'element-plus'
 import AppDialog from './AppDialog.vue'
@@ -165,8 +169,8 @@ function tick(): void {
     if (!fiveMinWarned && timerRemaining.value > 0 && timerRemaining.value <= 300) {
       fiveMinWarned = true
       ElNotification({
-        title: '考试时间提醒',
-        message: '考试时间仅剩5分钟，请抓紧答题哦',
+        title: t('考试时间提醒'),
+        message: t('考试时间仅剩5分钟，请抓紧答题哦'),
         type: 'warning',
         duration: 5000,
       })
@@ -220,8 +224,8 @@ function handleVisibilityChange(): void {
     isVisibilityPaused = false
     emit('answering-resumed')
     ElNotification({
-      title: '考试计时未暂停',
-      message: '离开页面期间倒计时仍在继续，请继续作答。',
+      title: t('考试计时未暂停'),
+      message: t('离开页面期间倒计时仍在继续，请继续作答。'),
       type: 'warning',
       duration: 5000,
     })
@@ -281,7 +285,7 @@ defineExpose({ startedAt, timerElapsed })
   margin: 0 auto;
   padding: 0 40px;
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr) auto;
   align-items: center;
   gap: 24px;
 }

@@ -12,12 +12,14 @@
     />
 
     <main v-else class="result-main">
-      <div class="result-state">正在进入本次练习解析...</div>
+      <div class="result-state">{{ t('正在进入本次练习解析...') }}</div>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
+import { t } from '@/locales'
+
 import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'

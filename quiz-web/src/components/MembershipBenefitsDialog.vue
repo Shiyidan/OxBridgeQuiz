@@ -11,33 +11,37 @@
     <template #header>
       <div class="benefits-dialog-heading">
         <span class="benefits-dialog-kicker">MEMBERSHIP BENEFITS</span>
-        <h2>会员能为备考带来什么？</h2>
-        <p>开通 {{ examType }} 会员后，在权益有效期内解锁完整学习路径。</p>
+        <h2>{{ t('会员能为备考带来什么？') }}</h2>
+        <p>{{ t('开通 {p0} 会员后，在权益有效期内解锁完整学习路径。', { p0: t(examType) }) }}</p>
       </div>
     </template>
 
     <div class="benefits-dialog-content">
       <div class="benefits-dialog-grid">
         <article v-for="(benefit, index) in benefits" :key="benefit.title">
-          <span class="benefit-index">0{{ index + 1 }}</span>
+          <span class="benefit-index">0{{ t(index + 1) }}</span>
           <div>
-            <h3>{{ benefit.title }}</h3>
-            <p>{{ benefit.description }}</p>
+            <h3>{{ t(benefit.title) }}</h3>
+            <p>{{ t(benefit.description) }}</p>
           </div>
         </article>
       </div>
 
       <div class="benefits-dialog-note">
-        <strong>权益说明</strong>
-        <p>会员按考试类型分别开通，仅对所选考试生效；会员到期后，已完成的历史报告仍可查看。</p>
+        <strong>{{ t('权益说明') }}</strong>
+        <p>
+          {{
+            t('会员按考试类型分别开通，仅对所选考试生效；会员到期后，已完成的历史报告仍可查看。')
+          }}
+        </p>
       </div>
     </div>
 
     <template #footer>
       <div class="benefits-dialog-actions">
-        <el-button @click="closeDialog">暂不需要</el-button>
+        <el-button @click="closeDialog">{{ t('暂不需要') }}</el-button>
         <el-button type="primary" @click="continueToPayment">
-          {{ active ? '续费当前会员' : '选择套餐并开通' }}
+          {{ t(active ? '续费当前会员' : '选择套餐并开通') }}
         </el-button>
       </div>
     </template>
@@ -45,6 +49,7 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '@/locales'
 interface MembershipBenefitsDialogProps {
   modelValue: boolean
   examType: string

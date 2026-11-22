@@ -98,17 +98,17 @@ export function resolveExamCountdown(
 }
 
 // 单日仅显示一个日期，多日窗口保留完整范围。
-export function formatExamWindow(sitting: OfficialExamSitting): string {
+export function formatExamWindow(sitting: OfficialExamSitting, locale = 'zh-CN'): string {
   const start = new Date(`${sitting.startDate}T00:00:00+08:00`)
   const end = new Date(`${sitting.endDate}T00:00:00+08:00`)
-  const startLabel = new Intl.DateTimeFormat('zh-CN', {
+  const startLabel = new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : locale, {
     timeZone: 'Asia/Shanghai',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   }).format(start)
   if (sitting.startDate === sitting.endDate) return startLabel
-  return `${startLabel}—${new Intl.DateTimeFormat('zh-CN', {
+  return `${startLabel}—${new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : locale, {
     timeZone: 'Asia/Shanghai',
     month: 'long',
     day: 'numeric',

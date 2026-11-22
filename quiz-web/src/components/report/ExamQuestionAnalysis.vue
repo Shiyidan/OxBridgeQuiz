@@ -13,23 +13,23 @@
       v-if="!singleQuestionMode"
       ref="navigationRef"
       class="question-nav"
-      aria-label="题目导航"
+      :aria-label="t('题目导航')"
     >
       <span class="section-mark" aria-hidden="true"></span>
-      <h2 class="question-nav__title">题目导航</h2>
+      <h2 class="question-nav__title">{{ t('题目导航') }}</h2>
       <div class="question-nav__groups">
         <section
           v-for="group in questionNavGroups"
           :key="group.key"
           class="question-nav__group"
-          :aria-label="`${group.label}题目`"
+          :aria-label="t(`${group.label}题目`)"
         >
           <div
             v-if="showQuestionGroupLabels"
             class="question-nav__divider"
-            :title="group.fullLabel"
+            :title="t(group.fullLabel)"
           >
-            <span>{{ group.label }}</span>
+            <span>{{ t(group.label) }}</span>
           </div>
           <div class="question-grid">
             <button
@@ -45,33 +45,38 @@
               type="button"
               @click="goToQuestion(item.index)"
             >
-              {{ item.number }}
+              {{ t(item.number) }}
             </button>
           </div>
         </section>
       </div>
       <div class="question-legend">
         <span
-          ><i class="question-legend__dot question-legend__dot--correct"></i>正确
-          {{ correctCount }}</span
+          ><i class="question-legend__dot question-legend__dot--correct"></i
+          >{{ t('正确 {p0}', { p0: t(correctCount) }) }}</span
         >
         <span
-          ><i class="question-legend__dot question-legend__dot--wrong"></i>错误
-          {{ wrongCount }}</span
+          ><i class="question-legend__dot question-legend__dot--wrong"></i
+          >{{ t('错误 {p0}', { p0: t(wrongCount) }) }}</span
         >
         <span
-          ><i class="question-legend__dot question-legend__dot--empty"></i>未答
-          {{ skippedCount }}</span
+          ><i class="question-legend__dot question-legend__dot--empty"></i
+          >{{ t('未答 {p0}', { p0: t(skippedCount) }) }}</span
         >
       </div>
     </aside>
 
-    <section v-if="currentQuestion" ref="reportCardRef" class="report-card" aria-label="题目详情">
+    <section
+      v-if="currentQuestion"
+      ref="reportCardRef"
+      class="report-card"
+      :aria-label="t('题目详情')"
+    >
       <QuestionCard
         :show-favorite="showFavorite"
         :question="currentQuestion"
         :index="currentIndex"
-        :question-label="displayQuestionLabel"
+        :question-label="t(displayQuestionLabel)"
         :selected-answer="currentQuestion.selectedAnswer || undefined"
         :show-answer="true"
         variant="exam"
@@ -83,29 +88,31 @@
       </QuestionCard>
 
       <div class="answer-summary">
-        <span v-if="showUserAnswer"
-          >你的答案：{{ currentQuestion.selectedAnswer || '未作答' }}</span
-        >
-        <span>正确答案：{{ answerText }}</span>
+        <span v-if="showUserAnswer">{{
+          t('你的答案：{p0}', { p0: t(currentQuestion.selectedAnswer || '未作答') })
+        }}</span>
+        <span>{{ t('正确答案：{p0}', { p0: t(answerText) }) }}</span>
       </div>
 
+      <OriginalContentNote :content="currentQuestion" kind="question" />
       <div class="analysis-stack">
         <section v-if="examFocusText" class="analysis-box">
-          <h3>考察点</h3>
+          <h3>{{ t('考察点') }}</h3>
           <div class="analysis-box__body">
             <p><LatexText :text="examFocusText" /></p>
           </div>
         </section>
 
         <section v-if="hasSolution" class="analysis-box">
-          <h3>题目解析</h3>
+          <h3>{{ t('题目解析') }}</h3>
           <div class="analysis-box__body">
             <p v-if="correctSolution"><LatexText :text="correctSolution" /></p>
             <ol v-if="showStructuredSolution && solutionSteps.length" class="analysis-steps">
               <li v-for="(step, i) in solutionSteps" :key="i"><LatexText :text="step" /></li>
             </ol>
             <p v-if="showStructuredSolution && finalValue" class="analysis-final">
-              <strong>最终结论：</strong><LatexText :text="finalValue" />
+              <strong>{{ t('最终结论：') }}</strong
+              ><LatexText :text="finalValue" />
             </p>
             <ul v-if="showStructuredSolution && distractorReasons.length" class="reason-list">
               <li v-for="(reason, i) in distractorReasons" :key="i">
@@ -116,7 +123,7 @@
         </section>
 
         <section v-if="hasReviewGuide" class="analysis-box">
-          <h3>复习引导</h3>
+          <h3>{{ t('复习引导') }}</h3>
           <div class="analysis-box__body">
             <p v-if="reviewGuidance"><LatexText :text="reviewGuidance" /></p>
             <ul v-if="commonErrorCauses.length">
@@ -126,19 +133,24 @@
         </section>
 
         <section v-if="!hasSolution && !hasReviewGuide && !examFocusText" class="analysis-box">
-          <h3>题目解析</h3>
+          <h3>{{ t('题目解析') }}</h3>
           <div class="analysis-box__body">
-            <p>当前题目暂无解析内容。</p>
+            <p>{{ t('当前题目暂无解析内容。') }}</p>
           </div>
         </section>
       </div>
     </section>
 
-    <section v-else class="report-card"><p class="empty-text">暂无题目数据</p></section>
+    <section v-else class="report-card">
+      <p class="empty-text">{{ t('暂无题目数据') }}</p>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
+import OriginalContentNote from '@/components/OriginalContentNote.vue'
+import { t } from '@/locales'
+
 // 公共逐题解析组件：诊断测试和试题库报告共用同一套题目解析展示。
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import QuestionCard from '@/components/QuestionCard.vue'

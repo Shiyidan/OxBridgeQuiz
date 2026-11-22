@@ -1,5 +1,7 @@
 <!-- 访客营销首页：按 PRD 展示公开演示内容，并把注册、登录与功能跳转交给首页容器处理。 -->
 <script setup lang="ts">
+import { t, useSiteLocale } from '@/locales'
+
 import AnnualMembershipPlans from '@/components/AnnualMembershipPlans.vue'
 import type { AnnualPlan } from '@/constants/annualMembership'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -73,7 +75,9 @@ const heroSlides: readonly MarketingHeroSlide[] = [
 const HERO_TRANSITION_DELAY_MS = 5000
 const activeHeroId = ref<MarketingHeroId>('diagnostic')
 const desktopHeroQuery = '(min-width: 861px)'
-const isDesktopHero = ref(typeof window !== 'undefined' && window.matchMedia(desktopHeroQuery).matches)
+const isDesktopHero = ref(
+  typeof window !== 'undefined' && window.matchMedia(desktopHeroQuery).matches,
+)
 let desktopHeroPreference: MediaQueryList | null = null
 // 移动端保留现有轮播内容，桌面端改用独立的浅色学习轨迹首屏。
 const activeHero = computed<MarketingHeroSlide>(
@@ -401,6 +405,7 @@ watch(
     syncHeroTransition()
   },
 )
+const { isEnglish } = useSiteLocale()
 </script>
 
 <template>
@@ -428,19 +433,16 @@ watch(
       <div class="home-hero-cursor-glow" aria-hidden="true"></div>
 
       <Transition name="home-hero-switch" mode="out-in">
-        <div
-          :key="activeHero.id"
-          class="home-page home-hero-layout home-motion-content"
-        >
+        <div :key="activeHero.id" class="home-page home-hero-layout home-motion-content">
           <div class="home-hero-copy">
             <p class="home-hero-kicker">
               <span class="home-hero-kicker-text">
                 <strong>AceMock</strong>
                 <span aria-hidden="true"> — </span>
-                {{ activeHero.kicker }}
+                {{ t(activeHero.kicker) }}
               </span>
             </p>
-            <h1 id="home-hero-title" class="home-hero-title">{{ activeHero.title }}</h1>
+            <h1 id="home-hero-title" class="home-hero-title">{{ t(activeHero.title) }}</h1>
 
             <div class="home-hero-actions">
               <button
@@ -452,13 +454,16 @@ watch(
                 @focus="clearHeroTransition()"
                 @blur="syncHeroTransition()"
               >
-                {{ activeHero.actionLabel }}
+                {{ t(activeHero.actionLabel) }}
                 <span class="home-arrow" aria-hidden="true">→</span>
               </button>
             </div>
           </div>
 
           <figure :class="['home-hero-report-shot', `home-hero-report-shot--${activeHero.id}`]">
+            <figcaption v-if="isEnglish" class="home-preview-language-note">
+              Current product preview (Chinese)
+            </figcaption>
             <div class="home-hero-report-shot-window">
               <img
                 :class="[
@@ -466,7 +471,7 @@ watch(
                   `home-hero-report-shot-image--${activeHero.id}`,
                 ]"
                 :src="activeHero.imageUrl"
-                :alt="activeHero.imageAlt"
+                :alt="t(activeHero.imageAlt)"
                 decoding="async"
                 fetchpriority="high"
               />
@@ -483,36 +488,50 @@ watch(
     >
       <div class="home-page home-stats-inner">
         <header class="home-stats-heading">
-          <p class="home-stats-kicker">为什么选择AceMock</p>
-          <h2 id="home-stats-title">从诊断到模考，每一道题都有解答</h2>
+          <p class="home-stats-kicker">{{ t('为什么选择AceMock') }}</p>
+          <h2 id="home-stats-title">{{ t('从诊断到模考，每一道题都有解答') }}</h2>
         </header>
 
         <dl class="home-stats-grid">
           <div class="home-stat-item">
-            <dd><strong>{{ statsCounts.diagnostic }}</strong><span>套</span></dd>
-            <dt>诊断测试卷</dt>
+            <dd>
+              <strong>{{ t(statsCounts.diagnostic) }}</strong
+              ><span>{{ t('套') }}</span>
+            </dd>
+            <dt>{{ t('诊断测试卷') }}</dt>
           </div>
           <div class="home-stat-item">
-            <dd><strong>{{ statsCounts.mockExam }}</strong><span>+</span></dd>
-            <dt>全真模考卷</dt>
+            <dd>
+              <strong>{{ t(statsCounts.mockExam) }}</strong
+              ><span>+</span>
+            </dd>
+            <dt>{{ t('全真模考卷') }}</dt>
           </div>
           <div class="home-stat-item">
-            <dd><strong>{{ statsCounts.practice }}</strong><span>+</span></dd>
-            <dt>原生练习题</dt>
+            <dd>
+              <strong>{{ t(statsCounts.practice) }}</strong
+              ><span>+</span>
+            </dd>
+            <dt>{{ t('原生练习题') }}</dt>
           </div>
           <div class="home-stat-item">
-            <dd><strong>{{ statsCounts.coverage }}</strong><span>%</span></dd>
-            <dt>题目与模拟题解答覆盖</dt>
+            <dd>
+              <strong>{{ t(statsCounts.coverage) }}</strong
+              ><span>%</span>
+            </dd>
+            <dt>{{ t('题目与模拟题解答覆盖') }}</dt>
           </div>
         </dl>
 
-        <p class="home-stats-note"><i aria-hidden="true"></i>内容数量仍在持续更新中</p>
+        <p class="home-stats-note">
+          <i aria-hidden="true"></i>{{ t('内容数量仍在持续更新中') }}
+        </p>
       </div>
     </section>
 
     <DesktopDiagnosticIntro v-if="isDesktopHero" />
-    <DesktopLearningIntro v-if="isDesktopHero" @navigate="path => emit('navigate', path)" />
-    <DesktopMockExamIntro v-if="isDesktopHero" @navigate="path => emit('navigate', path)" />
+    <DesktopLearningIntro v-if="isDesktopHero" @navigate="(path) => emit('navigate', path)" />
+    <DesktopMockExamIntro v-if="isDesktopHero" @navigate="(path) => emit('navigate', path)" />
     <DesktopMistakeIntro v-if="isDesktopHero" />
     <DesktopMembershipIntro
       v-if="isDesktopHero"
@@ -529,30 +548,34 @@ watch(
       >
         <div class="home-page home-story-layout home-story-layout--reverse home-motion-content">
           <div class="home-story-copy">
-            <div class="home-story-index">01 · 命题模型</div>
+            <div class="home-story-index">{{ t('01 · 命题模型') }}</div>
             <h2 id="home-model-title" class="home-section-title">
-              <span class="home-story-title-line home-section-title">不只整理真题，</span>
-              <span class="home-story-title-line home-section-title">我们把命题规律做成了模型</span>
+              <span class="home-story-title-line home-section-title">{{
+                t('不只整理真题，')
+              }}</span>
+              <span class="home-story-title-line home-section-title">{{
+                t('我们把命题规律做成了模型')
+              }}</span>
             </h2>
             <p class="home-section-desc">
-              从历年真题中提炼命题规律，通过自研模型生成贴合 ESAT 考纲的专项新题。
+              {{ t('从历年真题中提炼命题规律，通过自研模型生成贴合 ESAT 考纲的专项新题。') }}
             </p>
             <ul class="home-story-points">
-              <li>从真题中提炼命题规律，不是简单改写题面</li>
-              <li>按科目、知识点与难度精准生成专项练习</li>
-              <li>保留真实考试所要求的推理路径与能力结构</li>
+              <li>{{ t('从真题中提炼命题规律，不是简单改写题面') }}</li>
+              <li>{{ t('按科目、知识点与难度精准生成专项练习') }}</li>
+              <li>{{ t('保留真实考试所要求的推理路径与能力结构') }}</li>
             </ul>
           </div>
 
-          <div class="home-story-visual home-model-visual" aria-label="从真题到专项练习">
+          <div class="home-story-visual home-model-visual" :aria-label="t('从真题到专项练习')">
             <article>
               <span class="home-model-step">01</span>
               <el-icon class="home-model-stage-icon" aria-hidden="true">
                 <DocumentChecked />
               </el-icon>
-              <strong class="home-model-stage-title">真题拆解</strong>
-              <span class="home-model-stage-subtitle">提取考点、题型与推理路径</span>
-              <p>知识点 · 题型 · 推理链路 · 难度</p>
+              <strong class="home-model-stage-title">{{ t('真题拆解') }}</strong>
+              <span class="home-model-stage-subtitle">{{ t('提取考点、题型与推理路径') }}</span>
+              <p>{{ t('知识点 · 题型 · 推理链路 · 难度') }}</p>
             </article>
             <i class="home-flow-arrow" aria-hidden="true">→</i>
             <article class="home-model-stage--emphasis">
@@ -560,9 +583,11 @@ watch(
               <el-icon class="home-model-stage-icon" aria-hidden="true">
                 <Connection />
               </el-icon>
-              <strong class="home-model-stage-title">命题建模</strong>
-              <span class="home-model-stage-subtitle">沉淀难度、干扰项与能力结构</span>
-              <p>考点权重 · 任务类型 · 干扰项 · 难度梯度</p>
+              <strong class="home-model-stage-title">{{ t('命题建模') }}</strong>
+              <span class="home-model-stage-subtitle">{{
+                t('沉淀难度、干扰项与能力结构')
+              }}</span>
+              <p>{{ t('考点权重 · 任务类型 · 干扰项 · 难度梯度') }}</p>
             </article>
             <i class="home-flow-arrow" aria-hidden="true">→</i>
             <article>
@@ -570,9 +595,11 @@ watch(
               <el-icon class="home-model-stage-icon" aria-hidden="true">
                 <MagicStick />
               </el-icon>
-              <strong class="home-model-stage-title">同构生成</strong>
-              <span class="home-model-stage-subtitle">生成同考纲、同能力要求的新题</span>
-              <p>按科目 · 知识点 · 能力结构 · 难度</p>
+              <strong class="home-model-stage-title">{{ t('同构生成') }}</strong>
+              <span class="home-model-stage-subtitle">{{
+                t('生成同考纲、同能力要求的新题')
+              }}</span>
+              <p>{{ t('按科目 · 知识点 · 能力结构 · 难度') }}</p>
             </article>
           </div>
         </div>
@@ -586,32 +613,46 @@ watch(
       >
         <div class="home-page home-loop-layout home-motion-content">
           <header class="home-loop-heading">
-            <p class="home-story-index">02 · 完整学习闭环</p>
+            <p class="home-story-index">{{ t('02 · 完整学习闭环') }}</p>
             <h2 id="home-loop-title" class="home-story-title-line home-section-title">
-              做完一套题
+              {{ t('做完一套题') }}
             </h2>
             <h2 id="home-loop-title" class="home-story-title-line home-section-title">
-              下一步练什么就清楚了
+              {{ t('下一步练什么就清楚了') }}
             </h2>
             <p class="home-section-desc">
-              每一步都承接上一阶段的真实作答记录，从定位问题到验证是否掌握，形成可回看的备考闭环。
+              {{
+                t(
+                  '每一步都承接上一阶段的真实作答记录，从定位问题到验证是否掌握，形成可回看的备考闭环。',
+                )
+              }}
             </p>
           </header>
 
-          <div class="home-story-visual home-loop-visual" aria-label="诊断、练习和错题流程">
+          <div
+            class="home-story-visual home-loop-visual"
+            :aria-label="t('诊断、练习和错题流程')"
+          >
             <article>
               <span>01</span>
               <div>
-                <small>真题诊断</small><strong>用历年真题看清当前成绩、知识点和用时</strong>
+                <small>{{ t('真题诊断') }}</small
+                ><strong>{{ t('用历年真题看清当前成绩、知识点和用时') }}</strong>
               </div>
             </article>
             <article>
               <span>02</span>
-              <div><small>专项练习</small><strong>围绕薄弱知识点练习同路数新题</strong></div>
+              <div>
+                <small>{{ t('专项练习') }}</small
+                ><strong>{{ t('围绕薄弱知识点练习同路数新题') }}</strong>
+              </div>
             </article>
             <article>
               <span>03</span>
-              <div><small>错题本</small><strong>保存真实错题、解析与知识点</strong></div>
+              <div>
+                <small>{{ t('错题本') }}</small
+                ><strong>{{ t('保存真实错题、解析与知识点') }}</strong>
+              </div>
             </article>
           </div>
         </div>
@@ -626,23 +667,28 @@ watch(
     >
       <div class="home-page home-public-layout home-motion-content">
         <div class="home-public-copy">
-          <p class="home-public-index">03 · 真题诊断</p>
-          <h2 id="home-diagnostic-title" class="home-section-title">从任意一套真实试卷开始</h2>
+          <p class="home-public-index">{{ t('03 · 真题诊断') }}</p>
+          <h2 id="home-diagnostic-title" class="home-section-title">
+            {{ t('从任意一套真实试卷开始') }}
+          </h2>
           <p class="home-section-desc">
-            选择考试、年份与试卷，按照正式机考方式完成测试。系统自动保存进度并生成专属报告。
+            {{
+              t(
+                '选择考试、年份与试卷，按照正式机考方式完成测试。系统自动保存进度并生成专属报告。',
+              )
+            }}
           </p>
           <ul class="home-public-points">
-            <li class="home-public-point">ESAT 按学生选择的三个科目分别诊断</li>
-            <li class="home-public-point">TMUA 保留 Paper 1 与 Paper 2 的考试结构</li>
-            <li class="home-public-point">中途退出自动保存已完成的进度</li>
+            <li class="home-public-point">{{ t('ESAT 按学生选择的三个科目分别诊断') }}</li>
+            <li class="home-public-point">{{ t('TMUA 保留 Paper 1 与 Paper 2 的考试结构') }}</li>
+            <li class="home-public-point">{{ t('中途退出自动保存已完成的进度') }}</li>
           </ul>
           <button
             class="home-btn home-btn-primary"
             type="button"
             @click="requestLogin('/assessment')"
           >
-            选择一套真题
-            <span class="home-arrow" aria-hidden="true">→</span>
+            {{ t('选择一套真题') }}<span class="home-arrow" aria-hidden="true">→</span>
           </button>
         </div>
 
@@ -651,7 +697,7 @@ watch(
           class="home-public-visual home-diagnostic-gallery"
           :class="{ 'home-diagnostic-gallery--active': diagnosticGalleryActive }"
           role="img"
-          aria-label="TMUA Paper 1 第 3 题、第 5 题和第 7 题真实作答界面轮播演示"
+          :aria-label="t('TMUA Paper 1 第 3 题、第 5 题和第 7 题真实作答界面轮播演示')"
         >
           <figure class="home-diagnostic-shot home-diagnostic-shot--question-03" aria-hidden="true">
             <img
@@ -695,24 +741,24 @@ watch(
     >
       <div class="home-page home-growth-layout home-motion-content">
         <header class="home-growth-copy">
-          <p class="home-public-index">04 · 专属诊断报告</p>
+          <p class="home-public-index">{{ t('04 · 专属诊断报告') }}</p>
           <h2 id="home-growth-title" class="home-story-title-line home-section-title">
-            不只告诉你得了多少分
+            {{ t('不只告诉你得了多少分') }}
           </h2>
           <h2 id="home-growth-title" class="home-story-title-line home-section-title">
-            还进行诊断分析
+            {{ t('还进行诊断分析') }}
           </h2>
           <p class="home-section-desc">
-            每一道题都与知识点和能力要求关联，帮助你发现持续失分的原因。
+            {{ t('每一道题都与知识点和能力要求关联，帮助你发现持续失分的原因。') }}
           </p>
         </header>
 
-        <figure class="home-report-showcase" aria-label="ESAT 专属诊断报告长图演示">
+        <figure class="home-report-showcase" :aria-label="t('ESAT 专属诊断报告长图演示')">
           <div class="home-report-showcase-viewport">
             <img
               class="home-report-showcase-image"
               :src="esatDiagnosticReportOverviewUrl"
-              alt="ESAT 诊断报告演示，包含等效评估分、水平定位、知识点掌握度与学习路径"
+              :alt="t('ESAT 诊断报告演示，包含等效评估分、水平定位、知识点掌握度与学习路径')"
               loading="lazy"
             />
           </div>
@@ -728,10 +774,16 @@ watch(
     >
       <div class="home-page home-practice-layout home-motion-content">
         <header class="home-practice-heading">
-          <p class="home-public-index">05 · 专项练习</p>
-          <h2 id="home-practice-title" class="home-section-title">诊断以后，只练真正薄弱的部分</h2>
+          <p class="home-public-index">{{ t('05 · 专项练习') }}</p>
+          <h2 id="home-practice-title" class="home-section-title">
+            {{ t('诊断以后，只练真正薄弱的部分') }}
+          </h2>
           <p class="home-section-desc">
-            按考试、学科、知识点、任务类型和难度组合训练，也可以直接完成系统根据诊断结果推荐的练习。
+            {{
+              t(
+                '按考试、学科、知识点、任务类型和难度组合训练，也可以直接完成系统根据诊断结果推荐的练习。',
+              )
+            }}
           </p>
         </header>
 
@@ -740,7 +792,7 @@ watch(
           class="home-practice-preview"
           :class="{ 'home-practice-preview--active': practiceGalleryActive }"
           role="img"
-          aria-label="试题库与练习本页面自动轮换演示"
+          :aria-label="t('试题库与练习本页面自动轮换演示')"
         >
           <figure
             class="home-practice-preview-shot home-practice-preview-shot--question-bank"
@@ -782,22 +834,26 @@ watch(
     >
       <div class="home-page home-mistake-layout home-motion-content">
         <header class="home-mistake-heading">
-          <p class="home-public-index">06 · 个人错题库</p>
+          <p class="home-public-index">{{ t('06 · 个人错题库') }}</p>
           <h2 id="home-mistake-title" class="home-story-title-line home-section-title">
-            每一道错题
+            {{ t('每一道错题') }}
           </h2>
           <h2 id="home-mistake-title" class="home-story-title-line home-section-title">
-            都成为下一次提分的依据
+            {{ t('都成为下一次提分的依据') }}
           </h2>
           <p class="home-section-desc">
-            保留原题、作答答案、正确答案、知识点和详细中文解析，支持重新练习并记录掌握状态。
+            {{
+              t(
+                '保留原题、作答答案、正确答案、知识点和详细中文解析，支持重新练习并记录掌握状态。',
+              )
+            }}
           </p>
         </header>
 
         <figure class="home-mistake-preview">
           <img
             :src="mistakeNotebookPreviewUrl"
-            alt="个人错题库中的原题、答案对照、考察点与历次作答轨迹"
+            :alt="t('个人错题库中的原题、答案对照、考察点与历次作答轨迹')"
             width="1456"
             height="834"
             loading="lazy"
@@ -815,15 +871,15 @@ watch(
     >
       <div class="home-page home-pricing-layout home-motion-content">
         <header class="home-pricing-heading">
-          <p class="home-action-kicker">注册与会员</p>
+          <p class="home-action-kicker">{{ t('注册与会员') }}</p>
           <h2 id="home-pricing-title" class="home-section-title">
-            升级套餐，专心备考
+            {{ t('升级套餐，专心备考') }}
           </h2>
         </header>
 
         <AnnualMembershipPlans @select="requestPayment($event)" />
 
-        <p class="home-pricing-note">会员权益以实际产品说明为准</p>
+        <p class="home-pricing-note">{{ t('会员权益以实际产品说明为准') }}</p>
       </div>
     </section>
 

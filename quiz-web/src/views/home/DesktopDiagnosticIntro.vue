@@ -1,5 +1,7 @@
 <!-- 桌面营销首页诊断介绍：真实页面三卡片缓慢循环，展示流程而不打开预览弹窗。 -->
 <script setup lang="ts">
+import { t, useSiteLocale } from '@/locales'
+
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import questionUrl from '@/assets/home/tmua-diagnostic-question-03.png'
 import reportUrl from '@/assets/home/diagnostic-score-distribution.png'
@@ -151,6 +153,7 @@ onBeforeUnmount(() => {
   motionPreference?.removeEventListener('change', handleMotionChange)
   document.removeEventListener('visibilitychange', syncPlayback)
 })
+const { isEnglish } = useSiteLocale()
 </script>
 
 <template>
@@ -165,9 +168,9 @@ onBeforeUnmount(() => {
     <header class="diagnostic-intro__header">
       <div>
         <p class="diagnostic-intro__eyebrow">01 / DIAGNOSTIC TEST</p>
-        <h2 id="diagnostic-intro-title">一次诊断，看清下一步。</h2>
+        <h2 id="diagnostic-intro-title">{{ t('一次诊断，看清下一步。') }}</h2>
         <p class="diagnostic-intro__description">
-          从真实作答，到读懂报告，再找到适合自己的提升方向。
+          {{ t('从真实作答，到读懂报告，再找到适合自己的提升方向。') }}
         </p>
       </div>
     </header>
@@ -175,7 +178,7 @@ onBeforeUnmount(() => {
     <div
       class="diagnostic-intro__viewport"
       tabindex="0"
-      aria-label="诊断流程卡片，聚焦后暂停，可使用左右方向键浏览"
+      :aria-label="t('诊断流程卡片，聚焦后暂停，可使用左右方向键浏览')"
       @keydown.left.prevent="moveSlide(-1)"
       @keydown.right.prevent="moveSlide(1)"
       @mouseenter="setHovered(true)"
@@ -188,13 +191,15 @@ onBeforeUnmount(() => {
               class="diagnostic-intro__image"
               :class="`diagnostic-intro__image--${card.kind}`"
             >
-              <img :src="card.image" :alt="card.alt" loading="lazy" decoding="async" />
-              <figcaption>页面演示</figcaption>
+              <img :src="card.image" :alt="t(card.alt)" loading="lazy" decoding="async" />
+              <figcaption>
+                {{ isEnglish ? 'Current product preview (Chinese)' : t('页面演示') }}
+              </figcaption>
             </figure>
             <div class="diagnostic-intro__body">
-              <p class="diagnostic-intro__label">{{ card.label }}</p>
-              <h3>{{ card.title }}</h3>
-              <p>{{ card.description }}</p>
+              <p class="diagnostic-intro__label">{{ t(card.label) }}</p>
+              <h3>{{ t(card.title) }}</h3>
+              <p>{{ t(card.description) }}</p>
             </div>
           </article>
         </div>
@@ -203,12 +208,12 @@ onBeforeUnmount(() => {
           <article v-for="card in cards" :key="card.kind" class="diagnostic-intro__card">
             <div class="diagnostic-intro__image" :class="`diagnostic-intro__image--${card.kind}`">
               <img :src="card.image" alt="" loading="lazy" decoding="async" />
-              <span class="diagnostic-intro__demo">页面演示</span>
+              <span class="diagnostic-intro__demo">{{ t('页面演示') }}</span>
             </div>
             <div class="diagnostic-intro__body">
-              <p class="diagnostic-intro__label">{{ card.label }}</p>
-              <h3>{{ card.title }}</h3>
-              <p>{{ card.description }}</p>
+              <p class="diagnostic-intro__label">{{ t(card.label) }}</p>
+              <h3>{{ t(card.title) }}</h3>
+              <p>{{ t(card.description) }}</p>
             </div>
           </article>
         </div>
@@ -216,15 +221,15 @@ onBeforeUnmount(() => {
     </div>
 
     <footer class="diagnostic-intro__footer">
-      <div class="diagnostic-intro__stages" aria-label="诊断的三个阶段">
+      <div class="diagnostic-intro__stages" :aria-label="t('诊断的三个阶段')">
         <span
           v-for="(card, index) in cards"
           :key="card.kind"
           :class="{ 'is-current': activeSlide === index }"
           :aria-current="activeSlide === index ? 'step' : undefined"
         >
-          <small>0{{ index + 1 }}</small
-          >{{ card.stage }}
+          <small>0{{ t(index + 1) }}</small
+          >{{ t(card.stage) }}
         </span>
       </div>
     </footer>

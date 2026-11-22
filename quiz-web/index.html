@@ -35,6 +35,7 @@
       ;(() => {
         const publicPaths = new Set([
           '/',
+          '/en',
           '/exam-intro/esat',
           '/exam-intro/tmua',
           '/exam-intro/step',
@@ -43,6 +44,35 @@
           window.location.pathname !== '/'
             ? window.location.pathname.replace(/\/$/, '')
             : window.location.pathname
+        if (path === '/en') {
+          document.documentElement.lang = 'en'
+          const title = 'AceMock | ESAT & TMUA Diagnostics and Practice'
+          const description =
+            'Prepare for ESAT and TMUA with past-paper diagnostics, topic-based learning, targeted practice and timed mock exams.'
+          document.title = title
+          document.querySelector('meta[name="description"]')?.setAttribute('content', description)
+          document
+            .querySelector('link[rel="canonical"]')
+            ?.setAttribute('href', 'https://acemock.cn/en/')
+          for (const [key, value] of Object.entries({
+            title,
+            description,
+            locale: 'en_GB',
+            site_name: 'AceMock',
+            url: 'https://acemock.cn/en/',
+          })) {
+            document.querySelector(`meta[property="og:${key}"]`)?.setAttribute('content', value)
+          }
+          const websiteData = document.getElementById('website-structured-data')
+          if (websiteData)
+            websiteData.textContent = JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'WebSite',
+              name: 'AceMock',
+              url: 'https://acemock.cn/',
+              inLanguage: ['zh-CN', 'en'],
+            })
+        }
         if (publicPaths.has(path)) return
 
         document.title = 'AceMock 云舟备考'

@@ -8,7 +8,7 @@
       size="small"
       :icon="selected ? StarFilled : Star"
       icon-only
-      :aria-label="failed ? '重试收藏状态' : selected ? '取消收藏' : '收藏题目'"
+      :aria-label="t(failed ? '重试收藏状态' : selected ? '取消收藏' : '收藏题目')"
       :aria-pressed="selected"
       :disabled="pending"
       :aria-busy="pending || undefined"
@@ -17,6 +17,8 @@
   </el-tooltip>
 </template>
 <script setup lang="ts">
+import { t } from '@/locales'
+
 import { computed, ref, watch } from 'vue'
 import { Star, StarFilled } from '@element-plus/icons-vue'
 import { ElMessage, type TooltipInstance } from 'element-plus'
@@ -66,10 +68,10 @@ async function toggle() {
   try {
     if (!(await store.setFavorite(id, !previous))) return
     if (!previous) {
-      ElMessage.success('已收藏，可在错题本中整理分类')
+      ElMessage.success(t('已收藏，可在错题本中整理分类'))
       return
     }
-    ElMessage.info('已取消收藏')
+    ElMessage.info(t('已取消收藏'))
   } catch {
     /* 请求层展示失败信息，星标保持服务端最后一次成功状态。 */
   }

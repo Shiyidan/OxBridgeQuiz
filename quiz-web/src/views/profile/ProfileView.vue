@@ -1,6 +1,6 @@
 ﻿<template>
   <!-- 学生个人中心：整合个人档案、会员权益、报考目标与交易记录。 -->
-  <div class="profile-page">
+  <div class="profile-page" :class="{ 'profile-page--english': i18n.global.locale.value === 'en' }">
     <!--
       THESIS: 个人中心是一张可继续编辑的升学档案，不是统计卡片集合。
       OWN-WORLD: 白色档案、透明数学图层、青色光学细节与细线信息表。
@@ -13,8 +13,8 @@
     <main class="profile-shell">
       <header class="page-heading">
         <div>
-          <h1>个人中心</h1>
-          <p>管理您的个人信息与升学规划</p>
+          <h1>{{ t('个人中心') }}</h1>
+          <p>{{ t('管理您的个人信息与升学规划') }}</p>
         </div>
       </header>
 
@@ -27,23 +27,30 @@
         <div class="profile-identity-copy">
           <div class="profile-name-line">
             <h2 id="profile-student-name">{{ displayName }}</h2>
-            <span class="profile-membership-chip">{{ membershipTags.join(' · ') }}</span>
-            <AppButton type="secondary" size="small" class="profile-identity-edit" @click="openAccountDialog">
-              修改信息
-            </AppButton>
+            <span class="profile-membership-chip">{{ t(membershipTags.join(' · ')) }}</span>
+            <AppButton
+              type="secondary"
+              size="small"
+              class="profile-identity-edit"
+              @click="openAccountDialog"
+              >{{ t('修改信息') }}</AppButton
+            >
           </div>
           <p class="profile-identity-email">
             <el-icon aria-hidden="true"><Message /></el-icon>
-            <span>{{ auth.user?.email || '尚未绑定邮箱' }}</span>
+            <span>{{ auth.user?.email || t('尚未绑定邮箱') }}</span>
           </p>
           <div class="profile-identity-details">
             <div class="profile-identity-schools">
-              <span class="profile-detail-label"><el-icon aria-hidden="true"><School /></el-icon>目标院校</span>
-              <strong>{{ profileTargetSchoolsText }}</strong>
+              <span class="profile-detail-label"
+                ><el-icon aria-hidden="true"><School /></el-icon>{{ t('目标院校') }}</span
+              >
+              <strong>{{ t(profileTargetSchoolsText) }}</strong>
             </div>
             <div class="profile-identity-network">
-              <span class="profile-detail-label"><el-icon aria-hidden="true"><Location /></el-icon>{{ profileIpLocationText }}</span>
-              <span class="profile-detail-address"><el-icon aria-hidden="true"><Connection /></el-icon><span>IP</span><strong>{{ profileIpAddressText }}</strong></span>
+              <span class="profile-detail-label"
+                ><el-icon aria-hidden="true"><Location /></el-icon>{{ profileIpLocationText }}</span
+              >
             </div>
           </div>
         </div>
@@ -57,8 +64,8 @@
           <ProfileModuleHeading
             class="profile-card-heading"
             kicker="MEMBERSHIP BENEFITS"
-            title="当前会员权益"
-            description="真实权益与学习记录"
+            :title="t('当前会员权益')"
+            :description="t('真实权益与学习记录')"
             title-id="profile-membership-title"
           />
 
@@ -66,7 +73,7 @@
             class="membership-exam-switch profile-segment-tabs"
             :class="`membership-exam-switch--${currentExamType.toLowerCase()}`"
             role="tablist"
-            aria-label="考试权益切换"
+            :aria-label="t('考试权益切换')"
           >
             <span class="membership-exam-switch-indicator" aria-hidden="true">
               <svg class="membership-exam-switch-pointer" viewBox="0 0 24 12">
@@ -86,8 +93,8 @@
               }"
               @click="handleExamContextClick(item.examType)"
             >
-              <strong>{{ item.label }}</strong
-              ><span>{{ item.text }}</span>
+              <strong>{{ t(item.label) }}</strong
+              ><span>{{ t(item.text) }}</span>
             </button>
           </div>
 
@@ -104,43 +111,49 @@
                 ><el-icon aria-hidden="true"><Trophy /></el-icon
               ></span>
               <div>
-                <small>{{ isCurrentExamActive ? '当前生效方案' : '当前账户方案' }}</small>
-                <strong>{{ membershipPlanTitle }}</strong>
-                <span>{{ membershipPeriodText }}</span>
+                <small>{{ t(isCurrentExamActive ? '当前生效方案' : '当前账户方案') }}</small>
+                <strong>{{ t(membershipPlanTitle) }}</strong>
+                <span>{{ t(membershipPeriodText) }}</span>
               </div>
               <button
                 type="button"
                 class="membership-plan-action"
                 @click="handleMembershipPrimaryAction"
               >
-                {{ isCurrentExamActive ? '续费会员' : '开通会员' }}
+                {{ t(isCurrentExamActive ? '续费会员' : '开通会员') }}
               </button>
             </div>
 
             <div class="membership-benefit-grid">
               <article>
                 <el-icon aria-hidden="true"><Tickets /></el-icon>
-                <span>试题库</span>
-                <strong>{{ currentQuestionBankAnsweredCount }}<small>道</small></strong>
-                <small>累计答题数量</small>
+                <span>{{ t('试题库') }}</span>
+                <strong
+                  >{{ t(currentQuestionBankAnsweredCount) }}<small>{{ t('道') }}</small></strong
+                >
+                <small>{{ t('累计答题数量') }}</small>
               </article>
               <article>
                 <el-icon aria-hidden="true"><Aim /></el-icon>
-                <span>诊断考试</span>
-                <strong>{{ currentExamStats.diagnosticExamCount }}<small>次</small></strong>
-                <small>累计真实记录</small>
+                <span>{{ t('诊断考试') }}</span>
+                <strong
+                  >{{ t(currentExamStats.diagnosticExamCount) }}<small>{{ t('次') }}</small></strong
+                >
+                <small>{{ t('累计真实记录') }}</small>
               </article>
               <article>
                 <el-icon aria-hidden="true"><Download /></el-icon>
-                <span>资料下载</span>
-                <strong class="benefit-text-value">功能上线中</strong>
-                <small>敬请期待</small>
+                <span>{{ t('资料下载') }}</span>
+                <strong class="benefit-text-value">{{ t('功能上线中') }}</strong>
+                <small>{{ t('敬请期待') }}</small>
               </article>
             </div>
 
             <div class="membership-summary-note">
-              <span>{{ currentLearningGuidanceText }}</span>
-              <button type="button" @click="openMembershipBenefits">查看会员权益 →</button>
+              <span>{{ t(currentLearningGuidanceText) }}</span>
+              <button type="button" @click="openMembershipBenefits">
+                {{ t('查看会员权益 →') }}
+              </button>
             </div>
           </div>
         </section>
@@ -151,12 +164,12 @@
           <ProfileModuleHeading
             class="profile-card-heading"
             kicker="TARGET & PREFERENCES"
-            title="目标偏好"
-            description="管理备考考试、目标分数与学习计划"
+            :title="t('目标偏好')"
+            :description="t('管理备考考试、目标分数与学习计划')"
             title-id="profile-target-title"
           >
             <button type="button" class="profile-inline-action" @click="startEditExam">
-              <el-icon aria-hidden="true"><EditPen /></el-icon>编辑目标偏好
+              <el-icon aria-hidden="true"><EditPen /></el-icon>{{ t('编辑目标偏好') }}
             </button>
           </ProfileModuleHeading>
 
@@ -173,15 +186,15 @@
           <AppDialog
             v-model="examEditing"
             class="preferences-dialog"
-            title="编辑目标偏好"
+            :title="t('编辑目标偏好')"
             width="900px"
             :show-header-divider="false"
             :loading="examSaving"
             :close-on-press-escape="true"
             @closed="cancelEditExam"
           >
-            <p class="preferences-intro">按你的目标，设置备考方向。</p>
-            <nav class="preferences-steps" aria-label="偏好设置步骤">
+            <p class="preferences-intro">{{ t('按你的目标，设置备考方向。') }}</p>
+            <nav class="preferences-steps" :aria-label="t('偏好设置步骤')">
               <button
                 v-for="(label, index) in preferenceSteps"
                 :key="label"
@@ -194,39 +207,41 @@
                 :disabled="examSaving"
                 @click="goPreferenceStep(index)"
               >
-                <span>{{ label }}</span
+                <span>{{ t(label) }}</span
                 ><el-icon v-if="preferenceStep > index" aria-hidden="true"><Check /></el-icon>
               </button>
             </nav>
             <section v-show="preferenceStep === 0" class="preferences-panel">
-              <h3>你希望去哪里，学习什么？</h3>
-              <p class="preferences-hint">选择目标院校与专业，让备考更有方向。</p>
+              <h3>{{ t('你希望去哪里，学习什么？') }}</h3>
+              <p class="preferences-hint">{{ t('选择目标院校与专业，让备考更有方向。') }}</p>
               <div class="preferences-goals">
                 <label class="preferences-field">
-                  <span>目标院校 <small>最多选择 2 所</small></span>
+                  <span
+                    >{{ t('目标院校') }}<small>{{ t('最多选择 2 所') }}</small></span
+                  >
                   <el-select
                     v-model="editTargetUniversities"
                     multiple
                     :multiple-limit="2"
                     :disabled="examSaving"
-                    aria-label="目标院校"
-                    placeholder="请选择目标院校"
+                    :aria-label="t('目标院校')"
+                    :placeholder="t('请选择目标院校')"
                   >
                     <el-option
                       v-for="university in TARGET_UNIVERSITY_OPTIONS"
                       :key="university"
-                      :label="university"
+                      :label="t(university)"
                       :value="university"
                     />
                   </el-select>
                 </label>
                 <label class="preferences-field">
-                  <span>目标专业方向</span>
+                  <span>{{ t('目标专业方向') }}</span>
                   <el-input
                     v-model="editTargetMajor"
                     :disabled="examSaving"
-                    aria-label="目标专业方向"
-                    placeholder="例如：数学与统计、计算机科学"
+                    :aria-label="t('目标专业方向')"
+                    :placeholder="t('例如：数学与统计、计算机科学')"
                   />
                 </label>
               </div>
@@ -234,10 +249,10 @@
             <section v-show="preferenceStep === 1" class="preferences-panel">
               <div class="preferences-exam-heading">
                 <div>
-                  <h3>你准备参加哪些考试？</h3>
-                  <p class="preferences-hint">可同时选择 ESAT 和 TMUA。</p>
+                  <h3>{{ t('你准备参加哪些考试？') }}</h3>
+                  <p class="preferences-hint">{{ t('可同时选择 ESAT 和 TMUA。') }}</p>
                 </div>
-                <div class="preferences-exams" role="group" aria-label="目标考试">
+                <div class="preferences-exams" role="group" :aria-label="t('目标考试')">
                   <label
                     v-for="item in examTypes"
                     :key="item.value"
@@ -249,17 +264,19 @@
                       :checked="editExamTypes.includes(item.value)"
                       :disabled="examSaving"
                       @change="toggleProfileExamType(item.value)"
-                    /><span>{{ item.label }}</span>
+                    /><span>{{ t(item.label) }}</span>
                   </label>
                 </div>
               </div>
               <div class="preferences-subjects" :class="{ 'has-both': editExamTypes.length > 1 }">
                 <section v-if="editExamTypes.includes('ESAT')" aria-labelledby="preferences-esat">
                   <div class="preferences-subject-title">
-                    <h3 id="preferences-esat">ESAT 备考科目</h3>
-                    <span class="preferences-count">已选 {{ editEsatSubjects.length }} / 3</span>
+                    <h3 id="preferences-esat">{{ t('ESAT 备考科目') }}</h3>
+                    <span class="preferences-count">{{
+                      t('已选 {p0} / 3', { p0: t(editEsatSubjects.length) })
+                    }}</span>
                   </div>
-                  <p class="preferences-hint">数学1必选，另外选择两科。</p>
+                  <p class="preferences-hint">{{ t('数学1必选，另外选择两科。') }}</p>
                   <div class="preferences-subject-grid">
                     <label
                       v-for="subject in ESAT_SUBJECT_OPTIONS"
@@ -277,13 +294,16 @@
                         :checked="editEsatSubjects.includes(subject)"
                         :disabled="examSaving || isProfileEsatSubjectDisabled(subject)"
                         @change="toggleProfileEsatSubject(subject)"
-                      /><span>{{ subject }}</span
-                      ><small v-if="subject === '数学1'">必选</small>
+                      /><span>{{ t(subject) }}</span
+                      ><small v-if="subject === '数学1'">{{ t('必选') }}</small>
                     </label>
                   </div>
-                  <p class="preferences-selection-hint">更换科目时，请先取消一项已选科目。</p>
+                  <p class="preferences-selection-hint">
+                    {{ t('更换科目时，请先取消一项已选科目。') }}
+                  </p>
                   <label class="preferences-score"
-                    ><span>ESAT 目标分数 <small>可选 · 1.0–9.0</small></span
+                    ><span
+                      >{{ t('ESAT 目标分数') }}<small>{{ t('可选 · 1.0–9.0') }}</small></span
                     ><el-input-number
                       v-model="targetScoreDrafts.ESAT"
                       :min="1"
@@ -292,24 +312,25 @@
                       :precision="1"
                       controls-position="right"
                       :disabled="examSaving"
-                      aria-label="ESAT 目标分数"
-                      placeholder="未设置"
+                      :aria-label="t('ESAT 目标分数')"
+                      :placeholder="t('未设置')"
                   /></label>
                 </section>
                 <section v-if="editExamTypes.includes('TMUA')" aria-labelledby="preferences-tmua">
                   <div class="preferences-subject-title"><h3 id="preferences-tmua">TMUA</h3></div>
-                  <p class="preferences-hint">两项均为必选。</p>
+                  <p class="preferences-hint">{{ t('两项均为必选。') }}</p>
                   <div class="preferences-tmua-papers">
                     <label
                       v-for="paper in ['Paper 1', 'Paper 2']"
                       :key="paper"
                       class="preferences-choice is-selected"
-                      ><input type="checkbox" checked disabled /><span>{{ paper }}</span
-                      ><small>必选</small></label
+                      ><input type="checkbox" checked disabled /><span>{{ t(paper) }}</span
+                      ><small>{{ t('必选') }}</small></label
                     >
                   </div>
                   <label class="preferences-score"
-                    ><span>TMUA 目标分数 <small>可选 · 1.0–9.0</small></span
+                    ><span
+                      >{{ t('TMUA 目标分数') }}<small>{{ t('可选 · 1.0–9.0') }}</small></span
                     ><el-input-number
                       v-model="targetScoreDrafts.TMUA"
                       :min="1"
@@ -318,21 +339,25 @@
                       :precision="1"
                       controls-position="right"
                       :disabled="examSaving"
-                      aria-label="TMUA 目标分数"
-                      placeholder="未设置"
+                      :aria-label="t('TMUA 目标分数')"
+                      :placeholder="t('未设置')"
                   /></label>
                 </section>
                 <p v-if="!editExamTypes.length" class="preferences-hint">
-                  请至少选择一项考试，再设置备考科目。
+                  {{ t('请至少选择一项考试，再设置备考科目。') }}
                 </p>
               </div>
             </section>
             <section v-show="preferenceStep === 2" class="preferences-panel">
-              <h3>安排适合自己的备考节奏。</h3>
-              <p class="preferences-hint">设置每周投入时间和目标考期，之后也可以随时调整。</p>
+              <h3>{{ t('安排适合自己的备考节奏。') }}</h3>
+              <p class="preferences-hint">
+                {{ t('设置每周投入时间和目标考期，之后也可以随时调整。') }}
+              </p>
               <div class="preferences-schedule">
                 <label class="preferences-field"
-                  ><span>每周可投入时长 <small>1–80 小时</small></span>
+                  ><span
+                    >{{ t('每周可投入时长') }}<small>{{ t('1–80 小时') }}</small></span
+                  >
                   <div class="preferences-hours">
                     <el-input-number
                       v-model="weeklyHoursDraft"
@@ -342,40 +367,40 @@
                       :precision="0"
                       controls-position="right"
                       :disabled="examSaving"
-                      aria-label="每周可投入时长"
-                    /><span>小时 / 周</span>
+                      :aria-label="t('每周可投入时长')"
+                    /><span>{{ t('小时 / 周') }}</span>
                   </div></label
                 >
                 <label class="preferences-field"
-                  ><span>考试日期</span
+                  ><span>{{ t('考试日期') }}</span
                   ><el-select
                     v-model="examDateDraft"
                     :disabled="examSaving"
-                    aria-label="考试日期"
-                    placeholder="请选择考试月份"
+                    :aria-label="t('考试日期')"
+                    :placeholder="t('请选择考试月份')"
                     ><el-option
                       v-for="option in EXAM_DATE_OPTIONS"
                       :key="option.value"
-                      :label="option.label"
+                      :label="t(option.label)"
                       :value="option.value" /></el-select
                 ></label>
               </div>
               <div class="preferences-review">
-                <span>本次备考目标</span><strong>{{ editTargetUniversities.join('、') }}</strong>
+                <span>{{ t('本次备考目标') }}</span
+                ><strong>{{ t(editTargetUniversities.join('、')) }}</strong>
                 <p>{{ editTargetMajor }}</p>
                 <p>
-                  {{ editExamTypes.join(' · ')
-                  }}
+                  {{ t(editExamTypes.join(' · ')) }}
                 </p>
               </div>
             </section>
             <p v-if="preferenceError" class="preferences-error" role="alert">
-              {{ preferenceError }}
+              {{ translateInterfaceError(preferenceError) }}
             </p>
             <template #footer>
               <div class="preferences-footer">
                 <span>{{
-                  preferenceStep === 2 ? '保存后应用到你的备考设置。' : '完成设置后统一保存。'
+                  t(preferenceStep === 2 ? '保存后应用到你的备考设置。' : '完成设置后统一保存。')
                 }}</span>
                 <div class="preferences-footer-actions">
                   <AppButton
@@ -383,7 +408,7 @@
                     size="small"
                     :disabled="examSaving"
                     @click="cancelEditExam"
-                    >取消</AppButton
+                    >{{ t('取消') }}</AppButton
                   >
                   <AppButton
                     v-if="preferenceStep > 0"
@@ -391,7 +416,7 @@
                     size="small"
                     :disabled="examSaving"
                     @click="goPreferenceStep(preferenceStep - 1)"
-                    >上一步</AppButton
+                    >{{ t('上一步') }}</AppButton
                   >
                   <AppButton
                     v-if="preferenceStep < 2"
@@ -399,11 +424,11 @@
                     :icon="ArrowRight"
                     icon-position="right"
                     @click="goPreferenceStep(preferenceStep + 1)"
-                    >下一步</AppButton
+                    >{{ t('下一步') }}</AppButton
                   >
-                  <AppButton v-else size="small" :loading="examSaving" @click="saveExam"
-                    >保存偏好</AppButton
-                  >
+                  <AppButton v-else size="small" :loading="examSaving" @click="saveExam">{{
+                    t('保存偏好')
+                  }}</AppButton>
                 </div>
               </div>
             </template>
@@ -428,23 +453,23 @@
         <ProfileModuleHeading
           class="billing-heading"
           kicker="BILLING & ORDERS"
-          title="订阅与支付记录"
-          description="统一查看会员订阅状态、订单支付信息与续费情况"
+          :title="t('订阅与支付记录')"
+          :description="t('统一查看会员订阅状态、订单支付信息与续费情况')"
           title-id="billing-title"
         />
 
-        <div class="billing-summary-grid" aria-label="订阅与支付汇总">
+        <div class="billing-summary-grid" :aria-label="t('订阅与支付汇总')">
           <article>
             <span class="billing-summary-icon billing-summary-icon--blue">
               <el-icon aria-hidden="true"><Tickets /></el-icon>
             </span>
             <div>
-              <span>累计订阅</span>
+              <span>{{ t('累计订阅') }}</span>
               <strong
-                >{{ billingSummaryValue('totalSubscriptions')
-                }}<small v-if="billingOverview">项</small></strong
+                >{{ t(billingSummaryValue('totalSubscriptions'))
+                }}<small v-if="billingOverview">{{ t('项') }}</small></strong
               >
-              <small>包含付费及已启用卡券</small>
+              <small>{{ t('包含付费及已启用卡券') }}</small>
             </div>
           </article>
           <article>
@@ -452,12 +477,12 @@
               <el-icon aria-hidden="true"><CircleCheck /></el-icon>
             </span>
             <div>
-              <span>当前权益</span>
+              <span>{{ t('当前权益') }}</span>
               <strong
-                >{{ billingSummaryValue('activeEntitlements')
-                }}<small v-if="billingOverview">项</small></strong
+                >{{ t(billingSummaryValue('activeEntitlements'))
+                }}<small v-if="billingOverview">{{ t('项') }}</small></strong
               >
-              <small>{{ activeEntitlementExamTypesText }}</small>
+              <small>{{ t(activeEntitlementExamTypesText) }}</small>
             </div>
           </article>
           <article>
@@ -465,12 +490,12 @@
               <el-icon aria-hidden="true"><Document /></el-icon>
             </span>
             <div>
-              <span>累计订单</span>
+              <span>{{ t('累计订单') }}</span>
               <strong
-                >{{ billingSummaryValue('totalOrders')
-                }}<small v-if="billingOverview">笔</small></strong
+                >{{ t(billingSummaryValue('totalOrders'))
+                }}<small v-if="billingOverview">{{ t('笔') }}</small></strong
               >
-              <small>全部历史支付订单</small>
+              <small>{{ t('全部历史支付订单') }}</small>
             </div>
           </article>
           <article>
@@ -478,15 +503,15 @@
               <el-icon aria-hidden="true"><Money /></el-icon>
             </span>
             <div>
-              <span>累计实付</span>
-              <strong class="billing-paid-total">{{ billingNetPaidText }}</strong>
-              <small>已扣除退款金额</small>
+              <span>{{ t('累计实付') }}</span>
+              <strong class="billing-paid-total">{{ t(billingNetPaidText) }}</strong>
+              <small>{{ t('已扣除退款金额') }}</small>
             </div>
           </article>
         </div>
 
         <div class="billing-toolbar">
-          <div class="billing-tabs" role="tablist" aria-label="订阅与支付记录筛选">
+          <div class="billing-tabs" role="tablist" :aria-label="t('订阅与支付记录筛选')">
             <button
               v-for="filter in billingFilters"
               :key="filter.value"
@@ -496,7 +521,7 @@
               :aria-selected="billingFilter === filter.value"
               @click="billingFilter = filter.value"
             >
-              {{ filter.label }}
+              {{ t(filter.label) }}
             </button>
           </div>
           <button
@@ -506,19 +531,19 @@
             @click="billingSortDescending = !billingSortDescending"
           >
             <el-icon aria-hidden="true"><Calendar /></el-icon>
-            {{ billingSortDescending ? '按创建时间排序' : '按创建时间倒序' }}
+            {{ t(billingSortDescending ? '按创建时间排序' : '按创建时间倒序') }}
             <span aria-hidden="true">⌄</span>
           </button>
         </div>
 
         <div v-if="billingLoading" class="billing-empty-state" aria-live="polite">
-          <strong>正在加载订阅与支付记录</strong>
-          <span>正在从账户数据中同步最新状态…</span>
+          <strong>{{ t('正在加载订阅与支付记录') }}</strong>
+          <span>{{ t('正在从账户数据中同步最新状态…') }}</span>
         </div>
         <div v-else-if="billingError" class="billing-empty-state billing-empty-state--error">
-          <strong>订阅与支付记录加载失败</strong>
-          <span>{{ billingError }}</span>
-          <button type="button" @click="loadBillingOverview">重新加载</button>
+          <strong>{{ t('订阅与支付记录加载失败') }}</strong>
+          <span>{{ translateInterfaceError(billingError) }}</span>
+          <button type="button" @click="loadBillingOverview">{{ t('重新加载') }}</button>
         </div>
         <div v-else-if="filteredBillingRecords.length" class="billing-record-list">
           <article
@@ -528,44 +553,44 @@
           >
             <header>
               <div>
-                <h3>{{ record.title }}</h3>
-                <p>订阅周期：{{ record.period }}</p>
+                <h3>{{ t(record.title) }}</h3>
+                <p>{{ t('订阅周期：{p0}', { p0: t(record.period) }) }}</p>
               </div>
               <span class="billing-status" :class="`billing-status--${record.status}`">
-                {{ billingStatusText(record.status) }}
+                {{ t(billingStatusText(record.status)) }}
               </span>
             </header>
 
             <dl class="billing-record-meta">
               <div>
-                <dt>考试类型</dt>
-                <dd>{{ record.examType }}</dd>
+                <dt>{{ t('考试类型') }}</dt>
+                <dd>{{ t(record.examType) }}</dd>
               </div>
               <div>
-                <dt>套餐</dt>
-                <dd>{{ record.planText }}</dd>
+                <dt>{{ t('套餐') }}</dt>
+                <dd>{{ t(record.planText) }}</dd>
               </div>
               <div>
-                <dt>支付金额</dt>
-                <dd>{{ record.amountText }}</dd>
+                <dt>{{ t('支付金额') }}</dt>
+                <dd>{{ t(record.amountText) }}</dd>
               </div>
               <div>
-                <dt>支付方式</dt>
-                <dd>{{ record.channelText }}</dd>
+                <dt>{{ t('支付方式') }}</dt>
+                <dd>{{ t(record.channelText) }}</dd>
               </div>
               <div>
-                <dt>订单编号</dt>
+                <dt>{{ t('订单编号') }}</dt>
                 <dd class="billing-order-number">{{ record.orderNo || '—' }}</dd>
               </div>
               <div>
-                <dt>支付时间</dt>
-                <dd>{{ formatDateTime(record.paidAt) }}</dd>
+                <dt>{{ t('支付时间') }}</dt>
+                <dd>{{ t(formatDateTime(record.paidAt)) }}</dd>
               </div>
               <div v-if="billingActionLabel(record)" class="billing-record-action">
-                <dt>操作</dt>
+                <dt>{{ t('操作') }}</dt>
                 <dd>
                   <button type="button" @click="handleBillingAction(record)">
-                    {{ billingActionLabel(record) }}
+                    {{ t(billingActionLabel(record)) }}
                   </button>
                 </dd>
               </div>
@@ -573,37 +598,41 @@
           </article>
         </div>
         <div v-else class="billing-empty-state">
-          <strong>{{ billingRecords.length ? '当前筛选下暂无记录' : '暂无订阅与支付记录' }}</strong>
+          <strong>{{
+            t(billingRecords.length ? '当前筛选下暂无记录' : '暂无订阅与支付记录')
+          }}</strong>
           <span>{{
-            billingRecords.length
-              ? '请选择其他状态继续查看。'
-              : '完成真实支付后，订单与订阅记录将在这里显示；后台授予权益不计入交易记录。'
+            t(
+              billingRecords.length
+                ? '请选择其他状态继续查看。'
+                : '完成真实支付后，订单与订阅记录将在这里显示；后台授予权益不计入交易记录。',
+            )
           }}</span>
         </div>
       </section>
 
-      <nav class="profile-legal-links" aria-label="协议与政策">
-        <router-link to="/legal/user-agreement" target="_blank" rel="noopener noreferrer"
-          >用户协议</router-link
-        >
-        <router-link to="/legal/privacy-policy" target="_blank" rel="noopener noreferrer"
-          >隐私政策</router-link
-        >
+      <nav class="profile-legal-links" :aria-label="t('协议与政策')">
+        <router-link to="/legal/user-agreement" target="_blank" rel="noopener noreferrer">{{
+          t('用户协议')
+        }}</router-link>
+        <router-link to="/legal/privacy-policy" target="_blank" rel="noopener noreferrer">{{
+          t('隐私政策')
+        }}</router-link>
         <router-link
           to="/legal/membership-service-agreement"
           target="_blank"
           rel="noopener noreferrer"
-          >会员服务协议</router-link
+          >{{ t('会员服务协议') }}</router-link
         >
         <router-link
           to="/legal/membership-purchase-notice"
           target="_blank"
           rel="noopener noreferrer"
-          >会员购买须知与权益</router-link
+          >{{ t('会员购买须知与权益') }}</router-link
         >
       </nav>
 
-      <p v-if="errorText" class="load-warning">{{ errorText }}</p>
+      <p v-if="errorText" class="load-warning">{{ translateInterfaceError(errorText) }}</p>
     </main>
 
     <MembershipBenefitsDialog
@@ -623,7 +652,7 @@
     <el-dialog
       v-model="accountDialogVisible"
       class="profile-account-dialog"
-      title="修改信息"
+      :title="t('修改信息')"
       width="560px"
       align-center
       destroy-on-close
@@ -634,8 +663,8 @@
           <header class="account-dialog-heading">
             <span aria-hidden="true">1</span>
             <div>
-              <h3 id="change-email-title">修改邮箱</h3>
-              <p>当前邮箱：{{ auth.user?.email || '尚未绑定邮箱' }}</p>
+              <h3 id="change-email-title">{{ t('修改邮箱') }}</h3>
+              <p>{{ t('当前邮箱：{p0}', { p0: auth.user?.email || t('尚未绑定邮箱') }) }}</p>
             </div>
           </header>
 
@@ -644,7 +673,7 @@
             type="email"
             autocomplete="off"
             maxlength="191"
-            placeholder="请输入新邮箱"
+            :placeholder="t('请输入新邮箱')"
             :disabled="emailSaving"
             @input="resetEmailVerification"
           />
@@ -656,7 +685,7 @@
               inputmode="numeric"
               pattern="[0-9]*"
               autocomplete="off"
-              placeholder="六位验证码"
+              :placeholder="t('六位验证码')"
               :disabled="emailSaving"
               @input="handleChangeEmailCodeInput"
             />
@@ -667,7 +696,9 @@
                 :disabled="emailSaving || emailCodeSending || emailCountdown > 0"
                 @click="sendChangeEmailCode"
               >
-                {{ emailCountdown > 0 ? `${emailCountdown}秒后重发` : '获取验证码' }}
+                {{
+                  emailCountdown > 0 ? t('{p0}秒后重发', { p0: emailCountdown }) : t('获取验证码')
+                }}
               </button>
               <button
                 type="button"
@@ -675,7 +706,7 @@
                 :disabled="emailSaving || !accountEmailChanged"
                 @click="saveEmail"
               >
-                {{ emailSaving ? '保存中...' : '保存新邮箱' }}
+                {{ t(emailSaving ? '保存中...' : '保存新邮箱') }}
               </button>
             </div>
           </div>
@@ -685,8 +716,8 @@
           <header class="account-dialog-heading">
             <span aria-hidden="true">2</span>
             <div>
-              <h3 id="change-password-title">修改密码</h3>
-              <p>验证当前密码后更新；修改成功后需要重新登录。</p>
+              <h3 id="change-password-title">{{ t('修改密码') }}</h3>
+              <p>{{ t('验证当前密码后更新；修改成功后需要重新登录。') }}</p>
             </div>
           </header>
 
@@ -695,7 +726,7 @@
               v-model="passwordForm.currentPassword"
               type="password"
               autocomplete="off"
-              placeholder="当前密码"
+              :placeholder="t('当前密码')"
               :disabled="passwordSaving"
               show-password
             />
@@ -704,7 +735,11 @@
               type="password"
               autocomplete="new-password"
               maxlength="12"
-              placeholder="新密码（8-12位，英文+数字，可使用 !@#$%）"
+              :placeholder="
+                i18n.global.locale.value === 'en'
+                  ? t('新密码')
+                  : t('新密码（8-12位，英文+数字，可使用 !@#$%）')
+              "
               :disabled="passwordSaving"
               show-password
             />
@@ -713,12 +748,15 @@
               type="password"
               autocomplete="new-password"
               maxlength="12"
-              placeholder="确认新密码"
+              :placeholder="t('确认新密码')"
               :disabled="passwordSaving"
               show-password
             />
           </div>
 
+          <p v-if="i18n.global.locale.value === 'en'" class="account-password-hint">
+            {{ t('8-12位，包含英文和数字，可使用 !@#$%') }}
+          </p>
           <div class="account-dialog-actions">
             <button
               type="button"
@@ -726,7 +764,7 @@
               :disabled="passwordSaving"
               @click="savePassword"
             >
-              {{ passwordSaving ? '修改中...' : '修改密码' }}
+              {{ t(passwordSaving ? '修改中...' : '修改密码') }}
             </button>
           </div>
         </section>
@@ -736,6 +774,7 @@
 </template>
 
 <script setup lang="ts">
+import { i18n, t, translateInterfaceError } from '@/locales'
 // 学生个人中心：展示会员权益、学习统计、登录网络、订阅和支付记录。
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -746,7 +785,6 @@ import {
   Aim,
   Calendar,
   CircleCheck,
-  Connection,
   Document,
   Download,
   EditPen,
@@ -870,7 +908,7 @@ const profileIpAddressText = computed(() => formatIpAddress(currentSession.value
 const profileIpLocationText = computed(() => {
   const locationLabel = currentSession.value?.ipLocation?.label?.trim()
   if (locationLabel) return locationLabel
-  return profileIpAddressText.value === '127.0.0.1' ? '本地网络' : '位置暂不可用'
+  return t(profileIpAddressText.value === '127.0.0.1' ? '本地网络' : '位置暂不可用')
 })
 
 // 报考目标编辑
@@ -1112,7 +1150,7 @@ async function saveExam(): Promise<void> {
     }
     setCurrentExamType(auth.activeExamType)
     examEditing.value = false
-    ElMessage.success('报考目标已更新')
+    ElMessage.success(t('报考目标已更新'))
   } catch (error: unknown) {
     preferenceError.value = getApiErrorMessage(error, '偏好保存失败，请重试。')
     // 请求失败保留全部草稿，允许在当前步骤重试。
@@ -1130,13 +1168,11 @@ const billingFilters: { label: string; value: BillingFilter }[] = [
 ]
 
 // 用户名缺失时提供稳定称呼，避免个人中心标题为空。
-const displayName = computed(() => auth.user?.username || '同学')
+const displayName = computed(() => auth.user?.username || t('同学'))
 // 仅有效会员记录参与当前权益和标签计算。
 const activeMemberships = computed(() =>
   (auth.memberContext?.memberships || []).filter((item) => item.status === 'active'),
 )
-// 会员展示只读取正式 UserMembership，不再接受用户表上的全局付费标识。
-const hasActiveMembership = computed(() => activeMemberships.value.length > 0)
 // 个人中心只消费后端归一后的账户级偏好，不再自行聚合按考试兼容数据。
 const studyPreferences = computed(() => auth.memberContext?.studyPreferences)
 // 概览卡片使用数组渲染独立标签，顶部身份卡再将同一数据合并为文本。
@@ -1144,7 +1180,11 @@ const profileTargetSchoolItems = computed(() => {
   const schools = studyPreferences.value?.targetUniversities || []
   return schools.length ? schools : ['UCL', '帝国理工', 'LSE']
 })
-const profileTargetSchoolsText = computed(() => profileTargetSchoolItems.value.join('、'))
+const profileTargetSchoolsText = computed(() =>
+  profileTargetSchoolItems.value
+    .map((school) => t(school))
+    .join(i18n.global.locale.value === 'en' ? ', ' : '、'),
+)
 // 专业方向兼容中文、英文逗号及顿号分隔，确保长文本在概览中拆成独立标签。
 const profileTargetMajorItems = computed(() => {
   const value = studyPreferences.value?.targetMajor || '数学与统计、计算机科学'
@@ -1173,7 +1213,7 @@ const profileExamDateText = computed(() => {
 const membershipTags = computed(() => {
   if (auth.isAdmin) return ['管理员']
   if (!activeMemberships.value.length) return ['免费版']
-  return activeMemberships.value.map((item) => `${item.examType}会员`)
+  return activeMemberships.value.map((item) => t('{p0}会员', { p0: item.examType }))
 })
 // 未开通的考试类型保留 tab 入口，但统计值按产品要求隐藏为占位符。
 const isCurrentExamActive = computed(() =>
@@ -1190,7 +1230,7 @@ const currentMembership = computed(() =>
 // 会员主标题只区分考试权益是否生效，具体付费周期留在账单记录中展示。
 const membershipPlanTitle = computed(() => {
   const membership = currentMembership.value
-  return membership ? `${currentExamType.value}会员` : `${currentExamType.value} 免费版`
+  return t(membership ? '{p0}会员' : '{p0} 免费版', { p0: currentExamType.value })
 })
 // 会员周期优先展示真实到期日，免费状态改为说明实际可用的诊断权益。
 const membershipPeriodText = computed(() => {
@@ -1222,20 +1262,6 @@ const currentLearningGuidanceText = computed(() => {
   }
   return '学习建议：查看诊断报告，继续练习薄弱知识点'
 })
-// 预估分数只对已开通考试展示，并统一保留一位小数。
-const estimatedScoreText = computed(() => {
-  if (!isCurrentExamActive.value) return '--'
-  const score = currentExamStats.value.estimatedScore
-  return score === null ? '--' : score.toFixed(1)
-})
-// 未开通考试隐藏答题量，避免把零误解为有效学习统计。
-const answeredQuestionText = computed(() =>
-  isCurrentExamActive.value ? String(currentExamStats.value.answeredQuestionCount) : '--',
-)
-// 未开通考试隐藏诊断次数，与其他统计卡片保持同一展示规则。
-const diagnosticExamText = computed(() =>
-  isCurrentExamActive.value ? String(currentExamStats.value.diagnosticExamCount) : '--',
-)
 // 诊断权益只区分免费卷和考试会员，不再展示已停用的次数额度。
 const diagnosticQuotaItems = computed(() => {
   const quotas = auth.memberContext?.quotas || {}
@@ -1293,7 +1319,7 @@ const billingRecords = computed<BillingRecord[]>(() => {
       kind: membership ? 'subscription' : 'order',
       examType,
       title: membership
-        ? `${examType} ${membershipPlanText(membership.plan)}订阅`
+        ? t('{p0} {p1}订阅', { p0: t(examType), p1: t(membershipPlanText(membership.plan)) })
         : paymentOrderTitle(order),
       period: membership
         ? `${formatTimestamp(membership.startsAt)} — ${formatTimestamp(membership.endsAt)}`
@@ -1391,11 +1417,11 @@ function handleChangeEmailCodeInput(value: string): void {
 async function sendChangeEmailCode(): Promise<void> {
   const email = emailForm.email.trim()
   if (!accountEmailChanged.value) {
-    ElMessage.warning('请输入与当前邮箱不同的新邮箱')
+    ElMessage.warning(t('请输入与当前邮箱不同的新邮箱'))
     return
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    ElMessage.warning('请输入有效的新邮箱地址')
+    ElMessage.warning(t('请输入有效的新邮箱地址'))
     return
   }
   emailCodeSending.value = true
@@ -1404,7 +1430,7 @@ async function sendChangeEmailCode(): Promise<void> {
     emailChallengeId.value = data.challengeId
     emailCode.value = ''
     startEmailCountdown(data.resendAfter)
-    ElMessage.success('验证码已发送到新邮箱')
+    ElMessage.success(t('验证码已发送到新邮箱'))
   } catch {
     // Axios 公共响应处理会展示后端 errMsg。
   } finally {
@@ -1416,15 +1442,15 @@ async function sendChangeEmailCode(): Promise<void> {
 async function saveEmail(): Promise<void> {
   const email = emailForm.email.trim()
   if (!accountEmailChanged.value) {
-    ElMessage.warning('请输入与当前邮箱不同的新邮箱')
+    ElMessage.warning(t('请输入与当前邮箱不同的新邮箱'))
     return
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    ElMessage.warning('请输入有效的新邮箱地址')
+    ElMessage.warning(t('请输入有效的新邮箱地址'))
     return
   }
   if (!emailChallengeId.value || !EMAIL_CODE_PATTERN.test(emailCode.value)) {
-    ElMessage.warning('请先获取验证码并输入新邮箱收到的六位验证码')
+    ElMessage.warning(t('请先获取验证码并输入新邮箱收到的六位验证码'))
     return
   }
 
@@ -1438,7 +1464,7 @@ async function saveEmail(): Promise<void> {
     })
     emailForm.email = auth.user?.email || email
     resetEmailVerification()
-    ElMessage.success('邮箱已更新')
+    ElMessage.success(t('邮箱已更新'))
   } catch {
     // Axios 公共响应处理会展示后端 errMsg。
   } finally {
@@ -1455,15 +1481,15 @@ async function savePassword(): Promise<void> {
     passwordForm.confirmPassword,
   )
   if (!passwordForm.currentPassword) {
-    ElMessage.warning('请输入当前密码')
+    ElMessage.warning(t('请输入当前密码'))
     return
   }
   if (!passwordResult.valid) {
-    ElMessage.warning(passwordResult.message)
+    ElMessage.warning(t(passwordResult.message))
     return
   }
   if (!confirmResult.valid) {
-    ElMessage.warning(confirmResult.message)
+    ElMessage.warning(t(confirmResult.message))
     return
   }
 
@@ -1472,7 +1498,7 @@ async function savePassword(): Promise<void> {
     await changePassword(passwordForm)
     resetPasswordDraft()
     auth.clearLocalSession()
-    ElMessage.success('密码已修改，请使用新密码重新登录')
+    ElMessage.success(t('密码已修改，请使用新密码重新登录'))
     await router.replace('/login')
   } catch {
     // Axios 公共响应处理会展示后端 errMsg。
@@ -1557,7 +1583,7 @@ async function handleMembershipBenefitsUpgrade(): Promise<void> {
 // 开通、续费与订单恢复入口统一打开支付弹窗，并预选当前查看的考试类型。
 function handleUpgradeClick(): void {
   if (!isExamTypeAvailable(currentExamType.value)) {
-    ElMessage.info(getExamUnavailableMessage(currentExamType.value))
+    ElMessage.info(t(getExamUnavailableMessage(currentExamType.value)))
     return
   }
   paymentResumeOrderNo.value = ''
@@ -1594,7 +1620,7 @@ function handleInvitationEditGoals(): void {
 function handleBillingAction(record: BillingRecord): void {
   const examType = record.order?.examTypes[0] || record.examType.split('、')[0] || ''
   if (!isExamTypeAvailable(examType)) {
-    ElMessage.info(getExamUnavailableMessage(examType))
+    ElMessage.info(t(getExamUnavailableMessage(examType)))
     return
   }
   setCurrentExamType(normalizeExamType(examType))
@@ -1620,20 +1646,10 @@ function billingActionLabel(record: BillingRecord): string {
 // 额度卡片保留 STEP 上线预告，但未开放类型不会切换到可购买或可诊断状态。
 function handleExamContextClick(examType: ExamType): void {
   if (!isExamTypeAvailable(examType)) {
-    ElMessage.info(getExamUnavailableMessage(examType))
+    ElMessage.info(t(getExamUnavailableMessage(examType)))
     return
   }
   setCurrentExamType(examType)
-}
-
-// 从额度区进入统一诊断入口，由诊断页继续选择具体试卷。
-function handleStartDiagnostic(): void {
-  if (!isExamTypeAvailable(currentExamType.value)) {
-    ElMessage.info(getExamUnavailableMessage(currentExamType.value))
-    return
-  }
-  auth.setActiveExamType(currentExamType.value as 'ESAT' | 'TMUA')
-  router.push('/assessment')
 }
 
 // 用户主动重试或支付完成时刷新完整账单总览，确保汇总与明细来自同一快照。
@@ -1719,6 +1735,13 @@ function formatTimestamp(value: number | string | null): string {
   if (!value) return '-'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'
+  if (i18n.global.locale.value === 'en') {
+    return new Intl.DateTimeFormat('en-GB', {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+    }).format(date)
+  }
   return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(
     date.getDate(),
   ).padStart(2, '0')}`
@@ -1740,7 +1763,10 @@ function membershipPlanText(plan: string): string {
 
 // 支付订单标题由考试类型和套餐组成，缺失考试类型时保留稳定兜底。
 function paymentOrderTitle(order: PaymentOrder): string {
-  return `${order.examTypes.join('、') || '会员'} ${paymentPlanText(order)}订单`
+  return t('{p0} {p1}订单', {
+    p0: order.examTypes.join(i18n.global.locale.value === 'en' ? ', ' : '、') || t('会员'),
+    p1: t(paymentPlanText(order)),
+  })
 }
 
 // 套餐文案兼容历史首月优惠和年卡订单，新订单统一展示固定天数。
@@ -1774,13 +1800,14 @@ function paymentChannelText(channel: PaymentOrder['channel']): string {
 // 金额以分为单位格式化，异常币种回退到人民币符号展示。
 function formatPaymentAmount(amountCents: number, currency: string): string {
   try {
-    return new Intl.NumberFormat('zh-CN', {
+    return new Intl.NumberFormat(i18n.global.locale.value === 'en' ? 'en-GB' : 'zh-CN', {
       style: 'currency',
       currency: currency || 'CNY',
+      currencyDisplay: i18n.global.locale.value === 'en' ? 'code' : 'symbol',
       minimumFractionDigits: 2,
     }).format(amountCents / 100)
   } catch {
-    return `¥${(amountCents / 100).toFixed(2)}`
+    return `${i18n.global.locale.value === 'en' ? 'CNY ' : '¥'}${(amountCents / 100).toFixed(2)}`
   }
 }
 
@@ -1789,7 +1816,7 @@ function formatDateTime(value: string | null): string {
   if (!value) return '-'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(i18n.global.locale.value === 'en' ? 'en-GB' : 'zh-CN', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -3566,6 +3593,18 @@ onBeforeUnmount(() => {
   grid-template-columns: 1fr;
   gap: 10px;
   max-width: none;
+}
+
+.account-password-hint {
+  margin: 8px 0 0;
+  color: var(--color-ink-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.profile-page--english .membership-benefit-grid strong small,
+.profile-page--english .billing-summary-grid strong small {
+  display: none;
 }
 
 .account-dialog-actions {

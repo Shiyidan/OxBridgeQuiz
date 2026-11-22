@@ -1,5 +1,8 @@
 <!-- 首页知识图练习预览：按知识点和难度展示题库精选题，提供作答判定和原题解析。 -->
 <script setup lang="ts">
+import { t, useSiteLocale } from '@/locales'
+import { homePracticeEnglish } from './homePracticeLocale'
+
 import { computed, ref, watch } from 'vue'
 import { Right, RefreshRight, Reading } from '@element-plus/icons-vue'
 import AppButton from '@/components/AppButton.vue'
@@ -18,8 +21,20 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ learn: []; practice: [] }>()
 const selectedAnswer = ref<number | null>(null)
+const { isEnglish } = useSiteLocale()
 // 同一个选择组合同时决定训练目标、题目与解析，避免只切换外观。
-const exercise = computed(() => knowledgePracticeExamples[props.topic][props.difficulty])
+const exercise = computed(() => {
+  const source = knowledgePracticeExamples[props.topic][props.difficulty]
+  if (!isEnglish.value) return source
+  return {
+    ...source,
+    question: homePracticeEnglish(source.question),
+    displayQuestion: source.displayQuestion
+      ? homePracticeEnglish(source.displayQuestion)
+      : undefined,
+    explanation: homePracticeEnglish(source.explanation),
+  }
+})
 // 直接使用题库的原始选项标签，与正确答案及解析保持一致。
 const answerLabels = computed(() => exercise.value.answerLabels)
 // 组合键让切换内容有轻微入场反馈，并重建题目内的临时交互状态。
@@ -44,39 +59,39 @@ watch(exerciseKey, resetExercise, { flush: 'sync' })
   <div id="home-knowledge-practice" class="practice-preview">
     <div :key="exerciseKey" class="preview-content">
       <aside class="practice-focus">
-        <span class="focus-eyebrow">从知识，到应用</span>
+        <span class="focus-eyebrow">{{ t('从知识，到应用') }}</span>
         <p class="selection-summary" aria-live="polite" aria-atomic="true">
-          {{ topicLabel }} <span aria-hidden="true">/</span>
-          {{ practiceDifficultyLabels[difficulty] }}
+          {{ t(topicLabel) }} <span aria-hidden="true">/</span>
+          {{ t(practiceDifficultyLabels[difficulty]) }}
         </p>
-        <h4>{{ exercise.title }}</h4>
-        <p class="focus-description">{{ exercise.focus }}</p>
+        <h4>{{ t(exercise.title) }}</h4>
+        <p class="focus-description">{{ t(exercise.focus) }}</p>
         <div class="focus-actions">
-          <AppButton type="text" size="small" :icon="Reading" @click="emit('learn')"
-            >先学这个知识点</AppButton
-          >
+          <AppButton type="text" size="small" :icon="Reading" @click="emit('learn')">{{
+            t('先学这个知识点')
+          }}</AppButton>
           <AppButton
             type="text"
             size="small"
             :icon="Right"
             icon-position="right"
             @click="emit('practice')"
-            >进入完整练习</AppButton
+            >{{ t('进入完整练习') }}</AppButton
           >
         </div>
       </aside>
 
       <section class="quick-exercise" aria-labelledby="home-exercise-title">
         <header class="exercise-heading">
-          <span id="home-exercise-title">试题库</span>
+          <span id="home-exercise-title">{{ t('试题库') }}</span>
           <p class="answer-prompt">
-            选一个答案，立即查看解析。切换上方知识点或难度，可以体验另一道题。
+            {{ t('选一个答案，立即查看解析。切换上方知识点或难度，可以体验另一道题。') }}
           </p>
         </header>
         <div class="exercise-question">
-          <KnowledgeText :text="exercise.displayQuestion ?? exercise.question" />
+          <KnowledgeText :text="t(exercise.displayQuestion ?? exercise.question)" />
         </div>
-        <div class="exercise-options" role="group" aria-label="选择练习答案">
+        <div class="exercise-options" role="group" :aria-label="t('选择练习答案')">
           <button
             v-for="(option, index) in exercise.options"
             :id="`home-exercise-option-${index}`"
@@ -90,14 +105,16 @@ watch(exerciseKey, resetExercise, { flush: 'sync' })
             }"
             @click="chooseAnswer(index)"
           >
-            <span class="option-label">{{ answerLabels[index] }}</span>
-            <KnowledgeText :text="option" />
+            <span class="option-label">{{ t(answerLabels[index]) }}</span>
+            <KnowledgeText :text="t(option)" />
             <span
               v-if="selectedAnswer !== null && index === exercise.answerIndex"
               class="option-result"
-              >正确答案</span
+              >{{ t('正确答案') }}</span
             >
-            <span v-else-if="selectedAnswer === index" class="option-result">你的选择</span>
+            <span v-else-if="selectedAnswer === index" class="option-result">{{
+              t('你的选择')
+            }}</span>
           </button>
         </div>
         <div
@@ -109,9 +126,13 @@ watch(exerciseKey, resetExercise, { flush: 'sync' })
           <div v-if="selectedAnswer !== null" class="answer-feedback">
             <div class="feedback-heading">
               <strong>{{
-                isCorrect
-                  ? '答对了，思路很清楚。'
-                  : `正确答案是 ${answerLabels[exercise.answerIndex]}，看看关键一步。`
+                t(
+                  isCorrect
+                    ? '答对了，思路很清楚。'
+                    : t('正确答案是 {p0}，看看关键一步。', {
+                        p0: t(answerLabels[exercise.answerIndex]),
+                      }),
+                )
               }}</strong>
               <AppButton
                 id="home-exercise-retry"
@@ -119,10 +140,12 @@ watch(exerciseKey, resetExercise, { flush: 'sync' })
                 size="small"
                 :icon="RefreshRight"
                 @click="resetExercise"
-                >重新作答</AppButton
+                >{{ t('重新作答') }}</AppButton
               >
             </div>
-            <div class="answer-explanation"><KnowledgeText :text="exercise.explanation" /></div>
+            <div class="answer-explanation">
+              <KnowledgeText :text="t(exercise.explanation)" />
+            </div>
           </div>
         </div>
       </section>

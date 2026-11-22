@@ -3,21 +3,25 @@
   <div class="practice-report">
     <NavBar />
     <main class="report-main">
-      <div v-if="loading" class="state-card">正在识别报告类型...</div>
+      <div v-if="loading" class="state-card">{{ t('正在识别报告类型...') }}</div>
       <DiagnosticExpiredNotice v-else-if="paperExpired" />
       <div v-else-if="membershipRequired" class="state-card">
-        <p>当前会员已到期，续费后即可继续查看题目解析。</p>
-        <AppButton type="primary" @click="analysisMembershipOpen = true">立即续费</AppButton>
-        <AppButton type="text" @click="returnToSource">{{ returnLabel }}</AppButton>
+        <p>{{ t('当前会员已到期，续费后即可继续查看题目解析。') }}</p>
+        <AppButton type="primary" @click="analysisMembershipOpen = true">{{
+          t('立即续费')
+        }}</AppButton>
+        <AppButton type="text" @click="returnToSource">{{ t(returnLabel) }}</AppButton>
       </div>
-      <div v-else-if="loadError" class="state-card state-card--error">{{ loadError }}</div>
+      <div v-else-if="loadError" class="state-card state-card--error">
+        {{ translateDiagnosticError(loadError) }}
+      </div>
       <section v-else class="practice-result">
         <header class="analysis-page-header">
           <AppButton type="text" :icon="Back" @click="returnToSource">
-            {{ returnLabel }}
+            {{ t(returnLabel) }}
           </AppButton>
           <i aria-hidden="true"></i>
-          <h1>{{ analysisPageTitle }}</h1>
+          <h1>{{ t(analysisPageTitle) }}</h1>
         </header>
         <div
           class="analysis-page-content"
@@ -40,7 +44,7 @@
                 size="small"
                 :icon="Delete"
                 icon-only
-                aria-label="移出错题本"
+                :aria-label="t('移出错题本')"
                 :disabled="removingMistake"
                 @click="openRemoveMistake"
               />
@@ -65,22 +69,24 @@
     />
     <AppDialog
       v-model="removeMistakeOpen"
-      title="移出错题本"
-      confirm-text="确认移出"
+      :title="t('移出错题本')"
+      :confirm-text="t('确认移出')"
       confirm-type="danger"
       :loading="removingMistake"
       @confirm="confirmRemoveMistake"
     >
-      <p>确定将这道题移出错题本吗？</p>
-      <p>仅从错题本移除，作答记录和收藏会保留。再次做错时会重新收录。</p>
+      <p>{{ t('确定将这道题移出错题本吗？') }}</p>
+      <p>{{ t('仅从错题本移除，作答记录和收藏会保留。再次做错时会重新收录。') }}</p>
       <p v-if="removeMistakeError" class="remove-mistake-error" role="alert">
-        {{ removeMistakeError }}
+        {{ translateDiagnosticError(removeMistakeError) }}
       </p>
     </AppDialog>
   </div>
 </template>
 
 <script setup lang="ts">
+import { t, translateDiagnosticError } from '@/locales'
+
 import DiagnosticExpiredNotice from '@/components/DiagnosticExpiredNotice.vue'
 import { hasApiErrorCode } from '@/utils/request'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
@@ -239,7 +245,7 @@ async function confirmRemoveMistake() {
     })
     if (route.fullPath !== reviewPath) return
     removeMistakeOpen.value = false
-    ElMessage.success(result.removedCount ? '已移出错题本' : '这道题已移出错题本')
+    ElMessage.success(t(result.removedCount ? '已移出错题本' : '这道题已移出错题本'))
     await router.replace(returnTo)
   } catch (error) {
     if (route.fullPath === reviewPath)

@@ -1,5 +1,7 @@
 <!-- 登录后首页首屏：仅用学生真实记录驱动当前任务，后续内容由公开首页模块统一承接。 -->
 <script setup lang="ts">
+import { t, subjectCopy, useSiteLocale } from '@/locales'
+
 import { computed } from 'vue'
 import { DocumentChecked, Aim, Timer, Collection } from '@element-plus/icons-vue'
 import './student-home-desktop.css'
@@ -79,6 +81,7 @@ const emit = defineEmits<{
 }>()
 
 const entryIcons = { '01': DocumentChecked, '02': Aim, '03': Timer, '04': Collection }
+const { isEnglish } = useSiteLocale()
 
 // 考试名称在未选择目标时保持中性，避免从缓存或历史记录猜测当前考试。
 const examLabel = computed(() => props.currentExam ?? 'ESAT / TMUA')
@@ -86,7 +89,7 @@ const examLabel = computed(() => props.currentExam ?? 'ESAT / TMUA')
 // 当前科目仅展示服务端备考目标中实际保存的内容，字段缺失时不补演示科目。
 const subjectSummary = computed(() => {
   const subjects = props.currentGoal?.subjects.filter(Boolean) ?? []
-  return subjects.length ? subjects.join(' · ') : '科目信息以备考目标为准'
+  return subjects.length ? subjects.map(subjectCopy).join(' · ') : '科目信息以备考目标为准'
 })
 
 // 报告入口优先使用明确的未读报告信号，再退回同一次真实成绩记录的考试记录 ID。
@@ -139,14 +142,21 @@ const heroContent = computed<HeroContent>(() => {
 
   if (props.state === 'progress' && props.progress) {
     return {
-      kicker: `${props.progress.answeredCount} / ${props.progress.totalQuestions} 道题的进度已保存，目前还剩 ${props.progress.remainingCount} 道题。`,
-      title: `继续完成 ${props.progress.paperTitle}`,
-      primary: `继续 ${props.progress.paperTitle}`,
+      kicker: t('{p0} / {p1} 道题的进度已保存，目前还剩 {p2} 道题。', {
+        p0: t(props.progress.answeredCount),
+        p1: t(props.progress.totalQuestions),
+        p2: t(props.progress.remainingCount),
+      }),
+      title: t('继续完成 {p0}', { p0: t(props.progress.paperTitle) }),
+      primary: t('继续 {p0}', { p0: t(props.progress.paperTitle) }),
       goodTitle: props.progress.totalModuleCount
-        ? `${props.progress.completedModuleCount} / ${props.progress.totalModuleCount} 个模块已完成`
-        : `${props.progress.answeredCount} 道题已保存`,
+        ? t('{p0} / {p1} 个模块已完成', {
+            p0: t(props.progress.completedModuleCount),
+            p1: t(props.progress.totalModuleCount),
+          })
+        : t('{p0} 道题已保存', { p0: t(props.progress.answeredCount) }),
       goodDetail: '已保存的答案和作答位置无需重新开始。',
-      focusTitle: `${props.progress.remainingCount} 道题待完成`,
+      focusTitle: t('{p0} 道题待完成', { p0: t(props.progress.remainingCount) }),
       focusDetail: '全部完成并提交后，系统才会生成本次诊断报告。',
       scopeTitle: '当前诊断',
       scopeText: props.progress.paperTitle,
@@ -157,7 +167,7 @@ const heroContent = computed<HeroContent>(() => {
     const latestScore = props.trendScores[0]
     return {
       kicker: '新报告',
-      title: `${exam} 的最新诊断报告已经准备好`,
+      title: t('{p0} 的最新诊断报告已经准备好', { p0: t(exam) }),
       description: '先打开完整报告查看本次成绩、知识点和用时，再从真实结果决定下一步练习。',
       primary: reportPath.value ? '查看诊断报告' : '查看诊断记录',
       secondary: '看本次错题',
@@ -177,16 +187,28 @@ const heroContent = computed<HeroContent>(() => {
     const remaining = Math.max(0, props.practice.totalQuestions - props.practice.answeredCount)
     return {
       kicker: '接着上次继续',
-      title: `继续完成这组 ${exam} 专项练习`,
-      description: `${props.practice.answeredCount} / ${props.practice.totalQuestions} 道题已经作答，还剩 ${remaining} 道题。完成并提交后，再按真实结果选择下一项。`,
+      title: t('继续完成这组 {p0} 专项练习', { p0: t(exam) }),
+      description: t(
+        '{p0} / {p1} 道题已经作答，还剩 {p2} 道题。完成并提交后，再按真实结果选择下一项。',
+        {
+          p0: t(props.practice.answeredCount),
+          p1: t(props.practice.totalQuestions),
+          p2: t(remaining),
+        },
+      ),
       primary: '继续当前练习',
       secondary: '查看练习选择',
       goodTitle: '练习进度已保存',
-      goodDetail: `${props.practice.answeredCount} 道题已有作答记录。`,
-      focusTitle: remaining ? `继续完成剩余 ${remaining} 道题` : '提交当前练习',
+      goodDetail: t('{p0} 道题已有作答记录。', { p0: t(props.practice.answeredCount) }),
+      focusTitle: remaining
+        ? t('继续完成剩余 {p0} 道题', { p0: t(remaining) })
+        : '提交当前练习',
       focusDetail: '题目与保存进度由当前练习记录恢复。',
       scopeTitle: '当前练习',
-      scopeText: `${exam} · ${props.practice.totalQuestions} 题`,
+      scopeText: t('{p0} · {p1} 题', {
+        p0: t(exam),
+        p1: t(props.practice.totalQuestions),
+      }),
       scopeAction: '查看题库',
     }
   }
@@ -200,7 +222,7 @@ const heroContent = computed<HeroContent>(() => {
       primary: '选择知识点练习',
       secondary: '重新做一次诊断',
       goodTitle: props.completedAttemptCount
-        ? `已完成 ${props.completedAttemptCount} 次诊断`
+        ? t('已完成 {p0} 次诊断', { p0: t(props.completedAttemptCount) })
         : '备考目标已经同步',
       goodDetail: '回顾诊断报告，了解自己的薄弱知识点。',
       focusTitle: '下一步由你选择',
@@ -219,7 +241,7 @@ const heroContent = computed<HeroContent>(() => {
         ? '完成 Paper 1 与 Paper 2，获得综合成绩、分卷表现与后续练习建议。'
         : '完成一套诊断，获得各科成绩、失分分析与后续练习建议。',
     primary: '开始首次诊断',
-    secondary: `了解 ${exam} 考试`,
+    secondary: t('了解 {p0} 考试', { p0: t(exam) }),
     goodTitle: '备考目标已经同步',
     goodDetail: subjectSummary.value,
     focusTitle: '先完成一次完整诊断',
@@ -255,7 +277,11 @@ const homeEntries = computed<HomeEntry[]>(() => {
       ? {
           index: '01',
           title: '诊断测试',
-          description: `${props.progress.paperTitle} · 已答 ${props.progress.answeredCount}/${props.progress.totalQuestions} 题`,
+          description: t('{p0} · 已答 {p1}/{p2} 题', {
+            p0: t(props.progress.paperTitle),
+            p1: t(props.progress.answeredCount),
+            p2: t(props.progress.totalQuestions),
+          }),
           actionLabel: '继续诊断测试',
           mark: props.progress.totalModuleCount
             ? `${props.progress.completedModuleCount}/${props.progress.totalModuleCount}`
@@ -277,7 +303,7 @@ const homeEntries = computed<HomeEntry[]>(() => {
             index: '01',
             title: '诊断测试',
             description: props.completedAttemptCount
-              ? `已完成 ${props.completedAttemptCount} 次诊断`
+              ? t('已完成 {p0} 次诊断', { p0: t(props.completedAttemptCount) })
               : '完成第一次诊断后查看真实结果',
             actionLabel: props.completedAttemptCount ? '查看诊断记录' : '开始第一次诊断',
             mark: props.completedAttemptCount ? String(props.completedAttemptCount) : 'GO',
@@ -302,7 +328,10 @@ const homeEntries = computed<HomeEntry[]>(() => {
     ? {
         index: '02',
         title: '专项练习',
-        description: `当前练习已答 ${props.practice.answeredCount}/${props.practice.totalQuestions} 题`,
+        description: t('当前练习已答 {p0}/{p1} 题', {
+          p0: t(props.practice.answeredCount),
+          p1: t(props.practice.totalQuestions),
+        }),
         actionLabel: '继续当前练习',
         mark: practiceRemaining ? String(practiceRemaining) : '练',
         tone: 'violet',
@@ -323,7 +352,7 @@ const homeEntries = computed<HomeEntry[]>(() => {
       ? {
           index: '04',
           title: '错题本',
-          description: `${props.mistakeTotal} 道错题可继续复习`,
+          description: t('{p0} 道错题可继续复习', { p0: t(props.mistakeTotal) }),
           actionLabel: '查看错题',
           mark: String(props.mistakeTotal),
           tone: 'amber',
@@ -351,7 +380,10 @@ function formatScore(score: number): string {
 function formatTrend(score: HomeTrendScore): string {
   if (score.delta === null) return '暂无可比历史'
   if (score.delta === 0) return '与上次持平'
-  return `${score.delta > 0 ? '比上次高' : '比上次低'} ${formatScore(Math.abs(score.delta))}`
+  return t('{p0} {p1}', {
+    p0: t(score.delta > 0 ? '比上次高' : '比上次低'),
+    p1: t(formatScore(Math.abs(score.delta))),
+  })
 }
 
 // 移动端首页不直接恢复答题会话，只把继续入口落到对应业务模块首页。
@@ -371,8 +403,7 @@ function handlePrimaryAction(): void {
   } else if (props.state === 'report') emit('navigate', reportPath.value || '/assessment')
   else if (props.state === 'active') {
     emit('navigate', resolveHomeNavigationPath(practiceResumePath.value))
-  }
-  else if (props.state === 'idle') emit('navigate', '/question-bank')
+  } else if (props.state === 'idle') emit('navigate', '/question-bank')
   else emit('navigate', '/assessment')
 }
 
@@ -402,15 +433,14 @@ function handleScopeAction(): void {
 function handleGoalSettingsNavigation(): void {
   emit('navigate', '/profile')
 }
-
 </script>
 
 <template>
   <div class="home-student">
     <section v-if="loading" class="home-student-feedback" aria-live="polite" aria-busy="true">
       <span class="home-feedback-index">MY HOME</span>
-      <h1>正在读取你的备考记录</h1>
-      <p>诊断、模考、练习、错题与会员状态都以服务端最新记录为准。</p>
+      <h1>{{ t('正在读取你的备考记录') }}</h1>
+      <p>{{ t('诊断、模考、练习、错题与会员状态都以服务端最新记录为准。') }}</p>
       <div class="home-student-skeleton" aria-hidden="true">
         <el-skeleton animated :rows="2" />
         <div class="home-student-skeleton-cards">
@@ -425,11 +455,10 @@ function handleGoalSettingsNavigation(): void {
       role="alert"
     >
       <span class="home-feedback-index">LOAD FAILED</span>
-      <h1>首页记录暂时无法载入</h1>
-      <p>{{ error }}</p>
+      <h1>{{ t('首页记录暂时无法载入') }}</h1>
+      <p>{{ isEnglish ? t('首页数据加载失败，请稍后重新加载。') : error }}</p>
       <button class="home-btn home-btn--primary" type="button" @click="emit('retry')">
-        重新加载
-        <span aria-hidden="true">→</span>
+        {{ t('重新加载') }}<span aria-hidden="true">→</span>
       </button>
     </section>
 
@@ -442,14 +471,18 @@ function handleGoalSettingsNavigation(): void {
         <div class="home-page home-student-overview-inner home-motion-content">
           <div class="home-student-hero">
             <div class="home-student-hero-copy">
-              <p class="home-hello">欢迎回来，{{ username }}</p>
-              <p v-if="heroContent.kicker" class="home-hero-kicker">{{ heroContent.kicker }}</p>
+              <p class="home-hello">{{ t('欢迎回来，') }}{{ username }}</p>
+              <p v-if="heroContent.kicker" class="home-hero-kicker">
+                {{ t(heroContent.kicker) }}
+              </p>
               <h1
                 id="home-student-title"
                 :class="{ 'is-multiline': heroContent.title.includes('\n') }"
-              >{{ heroContent.title }}</h1>
+              >
+                {{ t(heroContent.title) }}
+              </h1>
               <p v-if="heroContent.description" class="home-student-hero-description">
-                {{ heroContent.description }}
+                {{ t(heroContent.description) }}
               </p>
 
               <div v-if="state === 'no-goal'" class="home-hero-actions home-goal-actions">
@@ -458,14 +491,14 @@ function handleGoalSettingsNavigation(): void {
                   type="button"
                   @click="emit('select-exam', 'ESAT')"
                 >
-                  选择 ESAT <span aria-hidden="true">→</span>
+                  {{ t('选择 ESAT') }}<span aria-hidden="true">→</span>
                 </button>
                 <button
                   class="home-btn home-btn--secondary"
                   type="button"
                   @click="emit('select-exam', 'TMUA')"
                 >
-                  选择 TMUA
+                  {{ t('选择 TMUA') }}
                 </button>
               </div>
               <div v-else class="home-hero-actions">
@@ -474,7 +507,7 @@ function handleGoalSettingsNavigation(): void {
                   type="button"
                   @click="handlePrimaryAction"
                 >
-                  {{ heroContent.primary }} <span aria-hidden="true">→</span>
+                  {{ t(heroContent.primary) }} <span aria-hidden="true">→</span>
                 </button>
                 <button
                   v-if="state !== 'progress' && heroContent.secondary"
@@ -482,41 +515,40 @@ function handleGoalSettingsNavigation(): void {
                   type="button"
                   @click="handleSecondaryAction"
                 >
-                  {{ heroContent.secondary }}
+                  {{ t(heroContent.secondary) }}
                 </button>
               </div>
-
             </div>
 
-            <aside class="home-context-panel" aria-label="当前备考状态">
+            <aside class="home-context-panel" :aria-label="t('当前备考状态')">
               <div class="home-context-head">
-                <span>{{ heroContent.scopeTitle }}</span>
-                <b>{{ heroContent.scopeText }}</b>
+                <span>{{ t(heroContent.scopeTitle) }}</span>
+                <b>{{ t(heroContent.scopeText) }}</b>
               </div>
               <div class="home-context-signal home-context-signal--good">
-                <span>已经准备好</span>
-                <strong>{{ heroContent.goodTitle }}</strong>
-                <p>{{ heroContent.goodDetail }}</p>
+                <span>{{ t('已经准备好') }}</span>
+                <strong>{{ t(heroContent.goodTitle) }}</strong>
+                <p>{{ t(heroContent.goodDetail) }}</p>
               </div>
               <div class="home-context-signal home-context-signal--focus">
-                <span>接下来</span>
-                <strong>{{ heroContent.focusTitle }}</strong>
-                <p>{{ heroContent.focusDetail }}</p>
+                <span>{{ t('接下来') }}</span>
+                <strong>{{ t(heroContent.focusTitle) }}</strong>
+                <p>{{ t(heroContent.focusDetail) }}</p>
               </div>
               <div v-if="heroContent.scopeAction" class="home-context-scope">
                 <button type="button" @click="handleScopeAction">
-                  {{ heroContent.scopeAction }}
+                  {{ t(heroContent.scopeAction) }}
                 </button>
               </div>
               <div v-if="state === 'progress'" class="home-context-goal-link">
                 <button type="button" @click="handleGoalSettingsNavigation">
-                  调整备考目标 <span aria-hidden="true">→</span>
+                  {{ t('调整备考目标') }}<span aria-hidden="true">→</span>
                 </button>
               </div>
             </aside>
           </div>
 
-          <div class="home-entry-grid" aria-label="备考功能入口">
+          <div class="home-entry-grid" :aria-label="t('备考功能入口')">
             <button
               v-for="entry in homeEntries"
               :key="entry.index"
@@ -528,15 +560,18 @@ function handleGoalSettingsNavigation(): void {
               @click="handleEntrySelection(entry)"
             >
               <span class="home-entry-index" aria-hidden="true">
-                <component :is="entryIcons[entry.index as keyof typeof entryIcons]" class="home-entry-icon" />
-                <span class="home-entry-number">{{ entry.index }}</span>
+                <component
+                  :is="entryIcons[entry.index as keyof typeof entryIcons]"
+                  class="home-entry-icon"
+                />
+                <span class="home-entry-number">{{ t(entry.index) }}</span>
               </span>
-              <strong>{{ entry.title }}</strong>
-              <p>{{ entry.description }}</p>
+              <strong>{{ t(entry.title) }}</strong>
+              <p>{{ t(entry.description) }}</p>
               <span class="home-entry-action"
-                >{{ entry.actionLabel }} <i aria-hidden="true">→</i></span
+                >{{ t(entry.actionLabel) }} <i aria-hidden="true">→</i></span
               >
-              <span class="home-entry-mark" aria-hidden="true">{{ entry.mark }}</span>
+              <span class="home-entry-mark" aria-hidden="true">{{ t(entry.mark) }}</span>
             </button>
           </div>
 
@@ -550,22 +585,22 @@ function handleGoalSettingsNavigation(): void {
               <div class="home-detail-title-row">
                 <div>
                   <span class="home-detail-eyebrow">CURRENT GOAL</span>
-                  <h2 id="home-detail-title">选择当前查看的备考目标</h2>
+                  <h2 id="home-detail-title">{{ t('选择当前查看的备考目标') }}</h2>
                 </div>
-                <p>选择不会限制以后备考另一项考试。</p>
+                <p>{{ t('选择不会限制以后备考另一项考试。') }}</p>
               </div>
               <div class="home-goal-card-grid">
                 <button class="home-goal-card" type="button" @click="emit('select-exam', 'ESAT')">
                   <span>ESAT</span>
-                  <strong>按所选三科完成诊断</strong>
-                  <p>Mathematics 1 必选，再选择另外两门科目；三科独立评分。</p>
-                  <i>选择 ESAT →</i>
+                  <strong>{{ t('按所选三科完成诊断') }}</strong>
+                  <p>{{ t('Mathematics 1 必选，再选择另外两门科目；三科独立评分。') }}</p>
+                  <i>{{ t('选择 ESAT →') }}</i>
                 </button>
                 <button class="home-goal-card" type="button" @click="emit('select-exam', 'TMUA')">
                   <span>TMUA</span>
-                  <strong>完成 Paper 1 与 Paper 2</strong>
-                  <p>两卷记录分别保存，共同换算一个 TMUA 综合分。</p>
-                  <i>选择 TMUA →</i>
+                  <strong>{{ t('完成 Paper 1 与 Paper 2') }}</strong>
+                  <p>{{ t('两卷记录分别保存，共同换算一个 TMUA 综合分。') }}</p>
+                  <i>{{ t('选择 TMUA →') }}</i>
                 </button>
               </div>
             </template>
@@ -574,37 +609,47 @@ function handleGoalSettingsNavigation(): void {
               <div class="home-detail-title-row">
                 <div>
                   <span class="home-detail-eyebrow">LATEST REPORT</span>
-                  <h2 id="home-detail-title">最近一次诊断</h2>
+                  <h2 id="home-detail-title">{{ t('最近一次诊断') }}</h2>
                 </div>
-                <p>{{ trendScores[0]?.paperTitle || '完整结果请进入诊断报告查看' }}</p>
+                <p>{{ t(trendScores[0]?.paperTitle || '完整结果请进入诊断报告查看') }}</p>
               </div>
               <div class="home-report-detail-grid">
                 <div class="home-score-list">
                   <article v-for="score in trendScores" :key="score.key" class="home-score-row">
-                    <span>{{ score.label }}</span>
-                    <strong>{{ formatScore(score.score) }}</strong>
+                    <span>{{ t(score.label) }}</span>
+                    <strong>{{ t(formatScore(score.score)) }}</strong>
                     <small
                       :data-trend="score.delta === null ? 'none' : score.delta >= 0 ? 'up' : 'down'"
                     >
-                      {{ formatTrend(score) }}
+                      {{ t(formatTrend(score)) }}
                     </small>
                   </article>
                   <p v-if="!trendScores.length" class="home-score-empty">
-                    首页未取得可展示的分数明细，请打开完整报告查看。
+                    {{ t('首页未取得可展示的分数明细，请打开完整报告查看。') }}
                   </p>
                   <p class="home-score-note">
                     {{
-                      currentExam === 'ESAT'
-                        ? 'ESAT 各科独立评分，不合计总分。'
-                        : 'TMUA 正式结果使用 Paper 1 与 Paper 2 共同换算的综合分。'
+                      t(
+                        currentExam === 'ESAT'
+                          ? 'ESAT 各科独立评分，不合计总分。'
+                          : 'TMUA 正式结果使用 Paper 1 与 Paper 2 共同换算的综合分。',
+                      )
                     }}
                   </p>
                 </div>
                 <article class="home-report-guide">
-                  <span>报告里先看这里</span>
-                  <strong>从本次真实结果决定下一步</strong>
-                  <p>知识点、难度、单题用时与练习建议以该次完整报告为准，首页不补写缺失洞察。</p>
-                  <button type="button" @click="handlePrimaryAction">打开完整报告 →</button>
+                  <span>{{ t('报告里先看这里') }}</span>
+                  <strong>{{ t('从本次真实结果决定下一步') }}</strong>
+                  <p>
+                    {{
+                      t(
+                        '知识点、难度、单题用时与练习建议以该次完整报告为准，首页不补写缺失洞察。',
+                      )
+                    }}
+                  </p>
+                  <button type="button" @click="handlePrimaryAction">
+                    {{ t('打开完整报告 →') }}
+                  </button>
                 </article>
               </div>
             </template>
@@ -613,27 +658,29 @@ function handleGoalSettingsNavigation(): void {
               <div class="home-detail-title-row">
                 <div>
                   <span class="home-detail-eyebrow">CURRENT PRACTICE</span>
-                  <h2 id="home-detail-title">继续当前练习记录</h2>
+                  <h2 id="home-detail-title">{{ t('继续当前练习记录') }}</h2>
                 </div>
-                <p>{{ currentExam }} 专项练习</p>
+                <p>{{ t(currentExam) }}{{ t('专项练习') }}</p>
               </div>
               <div class="home-practice-detail-grid">
                 <div v-if="trendScores.length" class="home-score-list">
                   <article v-for="score in trendScores" :key="score.key" class="home-score-row">
-                    <span>{{ score.label }}</span>
-                    <strong>{{ formatScore(score.score) }}</strong>
-                    <small>{{ formatTrend(score) }}</small>
+                    <span>{{ t(score.label) }}</span>
+                    <strong>{{ t(formatScore(score.score)) }}</strong>
+                    <small>{{ t(formatTrend(score)) }}</small>
                   </article>
                   <p class="home-score-note">
-                    成绩仅作最近一次诊断概览；当前练习内容以活动练习记录为准。
+                    {{ t('成绩仅作最近一次诊断概览；当前练习内容以活动练习记录为准。') }}
                   </p>
                 </div>
                 <article class="home-current-practice">
-                  <span>接着练这一项</span>
-                  <strong>{{ currentExam }} · 进行中练习</strong>
+                  <span>{{ t('接着练这一项') }}</span>
+                  <strong>{{ t(currentExam) }}{{ t('· 进行中练习') }}</strong>
                   <p>
-                    已答 {{ practice.answeredCount }} / {{ practice.totalQuestions }} 题； 完成剩余
-                    {{ Math.max(0, practice.totalQuestions - practice.answeredCount) }} 题并提交。
+                    {{ t('已答') }}{{ t(practice.answeredCount) }} /
+                    {{ t(practice.totalQuestions) }}{{ t('题； 完成剩余')
+                    }}{{ t(Math.max(0, practice.totalQuestions - practice.answeredCount))
+                    }}{{ t('题并提交。') }}
                   </p>
                   <div class="home-practice-meter" aria-hidden="true">
                     <i
@@ -646,15 +693,15 @@ function handleGoalSettingsNavigation(): void {
                       }"
                     ></i>
                   </div>
-                  <button type="button" @click="handlePrimaryAction">继续当前练习 →</button>
+                  <button type="button" @click="handlePrimaryAction">
+                    {{ t('继续当前练习 →') }}
+                  </button>
                 </article>
               </div>
             </template>
-
           </section>
         </div>
       </section>
     </template>
   </div>
 </template>
-

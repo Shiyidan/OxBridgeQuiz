@@ -5,7 +5,9 @@ import HomeView from '../views/home/HomeView.vue'
 import LoginView from '../views/auth/LoginView.vue'
 import { useAuthStore } from '../stores/auth'
 import { createLoginRequiredRouteLocation, getSafeAuthRedirect } from '../utils/authRedirect'
-import { applyRouteSeo } from './seo'
+import { applyRouteSeo, isLocalizedPrivatePage, isLocalizedExamIntroPage } from './seo'
+import { i18n, localeForHomePath, setSiteLocale } from '@/locales'
+import { watch } from 'vue'
 
 class RouteResourceLoadError extends Error {
   constructor(public readonly cause: unknown) {
@@ -34,10 +36,16 @@ const router = createRouter({
   routes: [
     // 首页
     { path: '/', name: 'home', component: HomeView },
+    // 英文首页
+    { path: '/en/', alias: '/en', name: 'home-en', component: HomeView },
     // 登录页
     { path: '/login', name: 'login', component: LoginView },
     // 账号访问受限
-    { path: '/account-restricted', name: 'account-restricted', component: lazyRoute(() => import('../views/auth/AccountRestrictedView.vue')) },
+    {
+      path: '/account-restricted',
+      name: 'account-restricted',
+      component: lazyRoute(() => import('../views/auth/AccountRestrictedView.vue')),
+    },
     // 注册页
     {
       path: '/register',
@@ -96,13 +104,13 @@ const router = createRouter({
       name: 'assessment',
       component: lazyRoute(() => import('../views/assessment/AssessmentHomeView.vue')),
     },
-  // 模考中心
+    // 模考中心
     {
       path: '/mock-exams',
       name: 'mock-exams',
       component: lazyRoute(() => import('../views/mockExam/MockExamHomeView.vue')),
     },
-  // 模考中心答题复用诊断测试作答页，答卷身份由独立模考接口创建。
+    // 模考中心答题复用诊断测试作答页，答卷身份由独立模考接口创建。
     {
       path: '/mock-exams/exam/:paperId',
       name: 'mock-exam-session',
@@ -275,9 +283,7 @@ const router = createRouter({
             {
               path: 'mock-exams',
               name: 'admin-mock-exams',
-              component: lazyRoute(
-                () => import('../views/admin/coreLibrary/MockPaperLibrary.vue'),
-              ),
+              component: lazyRoute(() => import('../views/admin/coreLibrary/MockPaperLibrary.vue')),
             },
 
             // 真题库
@@ -335,7 +341,18 @@ router.onError((error) => {
 
 // 导航完成后统一同步页面标题、摘要、规范网址与索引策略。
 router.afterEach((to) => {
+  const locale = localeForHomePath(to.path)
+  if (locale) setSiteLocale(locale)
   applyRouteSeo(to)
+})
+
+// 已翻译的业务页共用 URL，切换语言时同步浏览器标题和文档语言。
+watch(i18n.global.locale, () => {
+  if (
+    isLocalizedPrivatePage(router.currentRoute.value.path) ||
+    isLocalizedExamIntroPage(router.currentRoute.value.path)
+  )
+    applyRouteSeo(router.currentRoute.value)
 })
 
 // 首页与考试介绍允许游客查看；核心学习模块、个人数据和管理页面统一要求登录并保留回跳地址。

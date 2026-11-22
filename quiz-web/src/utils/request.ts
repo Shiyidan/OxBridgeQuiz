@@ -2,6 +2,7 @@
 import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import { ElMessage } from 'element-plus'
 import { API_URL } from '../config'
+import { translateAuthError, translateInterfaceError } from '@/locales'
 
 declare module 'axios' {
   interface AxiosRequestConfig {
@@ -187,7 +188,13 @@ export function hasApiErrorCode(error: unknown, code: number | string): boolean 
 // 非登录失效类错误统一展示后端 errMsg，并通过 grouping 合并并发产生的相同提示。
 function showApiError(apiError: ApiError): void {
   ElMessage.error({
-    message: apiError.message,
+    message: /^\/(login|register)\/?$/.test(window.location.pathname)
+      ? translateAuthError(apiError.message, apiError.code)
+      : /^\/(assessment|exam-result|practice|mock-exams|mistake-notebook|profile)(\/|$)/.test(
+            window.location.pathname,
+          )
+        ? translateInterfaceError(apiError.message)
+        : apiError.message,
     duration: 3000,
     showClose: true,
     grouping: true,

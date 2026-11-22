@@ -9,13 +9,13 @@
         </svg>
       </span>
       <div>
-        <h2>知识点掌握度</h2>
-        <p>按 {{ examType }} 考纲二级知识点汇总，展开可查看三级知识点</p>
+        <h2>{{ t('知识点掌握度') }}</h2>
+        <p>{{ t('按 {p0} 考纲二级知识点汇总，展开可查看三级知识点', { p0: t(examType) }) }}</p>
       </div>
     </div>
 
     <article class="knowledge-card">
-      <h3>知识点详情</h3>
+      <h3>{{ t('知识点详情') }}</h3>
 
       <div class="module-list">
         <section
@@ -30,12 +30,12 @@
             :aria-expanded="isModuleExpanded(module.id)"
             @click="toggleModule(module.id)"
           >
-            <span class="module-badge">{{ moduleBadge(module.id, moduleIndex) }}</span>
-            <strong>{{ module.label }}</strong>
-            <small>{{ module.knowledgePointCount }} 个知识点</small>
+            <span class="module-badge">{{ t(moduleBadge(module.id, moduleIndex)) }}</span>
+            <strong>{{ t(module.label) }}</strong>
+            <small>{{ t('{p0} 个知识点', { p0: t(module.knowledgePointCount) }) }}</small>
             <span class="module-result">
-              {{ module.correct }}/{{ module.total }} 题
-              <b>{{ formatAccuracy(module.accuracy) }}</b>
+              {{ t('{p0}/{p1} 题', { p0: t(module.correct), p1: t(module.total) })
+              }}<b>{{ t(formatAccuracy(module.accuracy)) }}</b>
             </span>
             <svg class="chevron" viewBox="0 0 20 20" aria-hidden="true">
               <path d="m6 8 4 4 4-4"></path>
@@ -50,7 +50,9 @@
                   class="expand-button"
                   :class="{ 'expand-button--active': isTopicExpanded(module.id, topic.code) }"
                   :disabled="topic.children.length === 0"
-                  :aria-label="`${isTopicExpanded(module.id, topic.code) ? '收起' : '展开'}${topic.label}`"
+                  :aria-label="
+                    t(`${isTopicExpanded(module.id, topic.code) ? '收起' : '展开'}${topic.label}`)
+                  "
                   :aria-expanded="isTopicExpanded(module.id, topic.code)"
                   @click="toggleTopic(module.id, topic.code, topic.children.length)"
                 >
@@ -58,14 +60,16 @@
                   <i></i>
                 </button>
                 <div class="topic-name">
-                  <strong>{{ topic.label }}</strong>
-                  <small>（{{ topic.knowledgePointCount }} 个知识点）</small>
+                  <strong>{{ t(topic.label) }}</strong>
+                  <small>{{ t('（{p0} 个知识点）', { p0: t(topic.knowledgePointCount) }) }}</small>
                 </div>
-                <span class="question-count">{{ topic.correct }} / {{ topic.total }} 题</span>
+                <span class="question-count">{{
+                  t('{p0} / {p1} 题', { p0: t(topic.correct), p1: t(topic.total) })
+                }}</span>
                 <div class="mastery-track" aria-hidden="true">
                   <i :style="{ width: masteryWidth(topic.accuracy) }"></i>
                 </div>
-                <strong class="accuracy-value">{{ formatAccuracy(topic.accuracy) }}</strong>
+                <strong class="accuracy-value">{{ t(formatAccuracy(topic.accuracy)) }}</strong>
               </div>
 
               <div v-if="isTopicExpanded(module.id, topic.code)" class="child-list">
@@ -73,21 +77,23 @@
                   <div class="child-name">
                     <span aria-hidden="true"></span>
                     <div>
-                      <strong>{{ point.label }}</strong>
-                      <small>{{ point.code }}</small>
+                      <strong>{{ t(point.label) }}</strong>
+                      <small>{{ t(point.code) }}</small>
                     </div>
                   </div>
-                  <span class="question-count">{{ point.correct }} / {{ point.total }} 题</span>
+                  <span class="question-count">{{
+                    t('{p0} / {p1} 题', { p0: t(point.correct), p1: t(point.total) })
+                  }}</span>
                   <div class="mastery-track mastery-track--child" aria-hidden="true">
                     <i :style="{ width: masteryWidth(point.accuracy) }"></i>
                   </div>
-                  <strong class="accuracy-value">{{ formatAccuracy(point.accuracy) }}</strong>
+                  <strong class="accuracy-value">{{ t(formatAccuracy(point.accuracy)) }}</strong>
                 </div>
               </div>
             </div>
 
             <div v-if="module.topics.length === 0" class="empty-topics">
-              当前模块没有已映射的二级知识点。
+              {{ t('当前模块没有已映射的二级知识点。') }}
             </div>
           </div>
         </section>
@@ -97,16 +103,23 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '@/locales'
+
 import { ref } from 'vue'
 import type { DiagnosticKnowledgeMastery } from '@/api/exam'
 
-const props = withDefaults(defineProps<{
-  knowledgeMastery: DiagnosticKnowledgeMastery
-  examType?: 'ESAT' | 'TMUA'
-}>(), {
-  examType: 'ESAT',
-})
-const expandedModuleIds = ref<string[]>(props.knowledgeMastery.modules[0]?.id ? [props.knowledgeMastery.modules[0].id] : [])
+const props = withDefaults(
+  defineProps<{
+    knowledgeMastery: DiagnosticKnowledgeMastery
+    examType?: 'ESAT' | 'TMUA'
+  }>(),
+  {
+    examType: 'ESAT',
+  },
+)
+const expandedModuleIds = ref<string[]>(
+  props.knowledgeMastery.modules[0]?.id ? [props.knowledgeMastery.modules[0].id] : [],
+)
 const expandedTopicKeys = ref<string[]>([])
 
 // 模块展开状态独立保存，允许三个考试模块同时展开或全部收起。

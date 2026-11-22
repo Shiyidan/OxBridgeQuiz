@@ -3,7 +3,7 @@
   <header class="navbar">
     <div class="nav-inner">
       <div class="nav-left">
-        <router-link to="/" class="logo" @click="handleHomeNavigation">
+        <router-link :to="homePath" class="logo" @click="handleHomeNavigation">
           <span class="logo-mark" aria-hidden="true">
             <img :src="brandIconUrl" alt="" class="logo-mark-image" />
           </span>
@@ -11,18 +11,18 @@
         </router-link>
         <nav class="nav-links">
           <router-link
-            to="/"
+            :to="homePath"
             class="nav-link"
             exact-active-class="nav-link--active"
             @click="handleHomeNavigation"
-            >首页</router-link
+            >{{ t('首页') }}</router-link
           >
           <router-link
             to="/assessment"
             class="nav-link"
             active-class="nav-link--active"
             @click="handleRouteNavigation($event, '/assessment')"
-            >诊断测试</router-link
+            >{{ t('诊断测试') }}</router-link
           >
           <router-link
             to="/question-bank"
@@ -30,21 +30,21 @@
             :class="{ 'nav-link--active': isLearningWorkspaceRoute }"
             active-class="nav-link--active"
             @click="handleRouteNavigation($event, '/question-bank')"
-            >学习平台</router-link
+            >{{ t('学习平台').replaceAll(' ', '') }}</router-link
           >
           <router-link
             to="/mock-exams"
             class="nav-link"
             active-class="nav-link--active"
             @click="handleRouteNavigation($event, '/mock-exams')"
-            >模考中心</router-link
+            >{{ t('模考中心').replaceAll(' ', '') }}</router-link
           >
           <router-link
             :to="mistakeNotebookPath"
             class="nav-link"
             active-class="nav-link--active"
             @click="handleRouteNavigation($event, mistakeNotebookPath)"
-            >错题本</router-link
+            >{{ t('错题本').replaceAll(' ', '') }}</router-link
           >
           <el-dropdown
             class="nav-exam-menu"
@@ -60,7 +60,7 @@
               :class="{ 'nav-link--active': isExamIntroRoute }"
               type="button"
             >
-              考试介绍
+              {{ t('考试介绍').replaceAll(' ', '') }}
             </button>
             <template #dropdown>
               <el-dropdown-menu>
@@ -70,7 +70,7 @@
                   :command="exam.type"
                   :class="{ 'is-current-exam': currentExamType === exam.type }"
                 >
-                  {{ exam.label }}
+                  {{ t(exam.label) }}
                 </el-dropdown-item>
                 <!-- 资料下载入口暂时隐藏，恢复时解除本段模板注释。
                 <el-dropdown-item
@@ -99,10 +99,12 @@
               <button
                 type="button"
                 class="exam-preference-chip"
-                :aria-label="`当前考试工作区：${preferredExamType}，点击切换`"
+                :aria-label="
+                  t('当前考试工作区：{p0}，点击切换', { p0: t(preferredExamType) })
+                "
               >
                 <span class="exam-preference-dot" aria-hidden="true"></span>
-                <span>考试工作区：{{ preferredExamType }}</span>
+                <span>{{ t('考试工作区：') }}{{ t(preferredExamType) }}</span>
                 <el-icon class="exam-preference-caret" aria-hidden="true">
                   <ArrowDown />
                 </el-icon>
@@ -115,7 +117,7 @@
                     :command="exam.value"
                     :class="{ 'is-current-exam': preferredExamType === exam.value }"
                   >
-                    {{ exam.label }}
+                    {{ t(exam.label) }}
                   </el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -124,8 +126,8 @@
               v-else-if="props.showExamSwitcher"
               type="button"
               class="exam-preference-chip"
-              :aria-label="studyGoalAriaLabel"
-              title="前往个人中心修改备考目标"
+              :aria-label="t(studyGoalAriaLabel)"
+              :title="t('前往个人中心修改备考目标')"
               @click="goToStudyGoals"
             >
               <span
@@ -134,9 +136,9 @@
                 aria-hidden="true"
               ></span>
               <span class="exam-preference-copy">
-                <span>{{ studyGoalLabel }}</span>
+                <span>{{ t(studyGoalLabel) }}</span>
                 <span v-if="studyGoalSubjectsLabel" class="exam-preference-subjects">
-                  {{ studyGoalSubjectsLabel }}
+                  {{ t(studyGoalSubjectsLabel) }}
                 </span>
               </span>
               <el-icon class="exam-preference-caret" aria-hidden="true">
@@ -150,42 +152,48 @@
               @click="showDropdown = !showDropdown"
             >
               <div class="user-info">
-                <span class="user-name" :title="auth.user.username">
+                <span class="user-name" :title="t(auth.user.username)">
                   {{ auth.user.username }}
                 </span>
                 <button
                   v-if="hasValidPendingMembershipCard"
                   type="button"
                   class="user-meta user-meta--pending-card"
-                  title="前往我的卡包查看免费会员权益"
+                  :title="t('前往我的卡包查看免费会员权益')"
                   @click.stop="goToPendingMembershipCards"
                 >
-                  免费会员权益待使用
+                  {{ t('免费会员权益待使用') }}
                 </button>
                 <span
-                  v-else
+                  v-else-if="currentEntitlementLabel !== '免费用户'"
                   class="user-meta"
                   :class="{ 'user-meta--member': hasActiveMembership }"
                 >
-                  {{ currentEntitlementLabel }}
+                  {{ t(currentEntitlementLabel) }}
                 </span>
               </div>
-              <div class="user-avatar" :title="auth.user.username">
-                <AppAvatar :source="auth.user.avatar" :name="auth.user.username" decorative />
+              <div class="user-avatar-group">
+                <div class="user-avatar" :title="t(auth.user.username)">
+                  <AppAvatar :source="auth.user.avatar" :name="auth.user.username" decorative />
+                </div>
+                <span
+                  v-if="!hasValidPendingMembershipCard && currentEntitlementLabel === '免费用户'"
+                  class="user-avatar-badge"
+                >{{ t('免费用户') }}</span>
               </div>
 
               <Transition name="dropdown">
                 <div v-if="showDropdown" class="user-dropdown" @click.stop>
                   <div class="dropdown-header">
                     <div class="dropdown-user-info">
-                      <span class="dropdown-name" :title="auth.user.username">
+                      <span class="dropdown-name" :title="t(auth.user.username)">
                         {{ auth.user.username }}
                       </span>
                       <span
                         class="dropdown-role"
                         :class="{ 'dropdown-role--pending': hasValidPendingMembershipCard }"
                       >
-                        {{ dropdownAccountDetailLabel }}
+                        {{ t(dropdownAccountDetailLabel) }}
                       </span>
                     </div>
                     <div class="dropdown-avatar">
@@ -194,7 +202,7 @@
                   </div>
                   <div class="dropdown-menu">
                     <button class="dropdown-item" type="button" @click="goToRoleHome">
-                      {{ roleHomeLabel }}
+                      {{ t(roleHomeLabel) }}
                     </button>
                     <button
                       v-if="auth.isAdmin"
@@ -202,7 +210,7 @@
                       type="button"
                       @click="goToProfile"
                     >
-                      个人中心
+                      {{ t('个人中心') }}
                     </button>
                     <div class="dropdown-divider"></div>
                     <button
@@ -210,7 +218,7 @@
                       type="button"
                       @click="handleLogout"
                     >
-                      退出登录
+                      {{ t('退出登录') }}
                     </button>
                   </div>
                 </div>
@@ -218,9 +226,14 @@
             </div>
           </template>
           <template v-else>
-            <router-link to="/login" class="btn-ghost">登录</router-link>
+            <router-link
+              :to="{ path: '/login', query: { redirect: homePath } }"
+              class="btn-ghost"
+              >{{ t('登录') }}</router-link
+            >
           </template>
         </slot>
+        <LanguageSwitcher />
       </div>
     </div>
   </header>
@@ -236,6 +249,9 @@
 </template>
 
 <script setup lang="ts">
+import { t, subjectCopy, useSiteLocale } from '@/locales'
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+
 // 全局导航栏：所有前台页面共用，并根据登录状态展示用户入口。
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -267,6 +283,7 @@ const emit = defineEmits<{
 }>()
 
 const router = useRouter()
+const { homePath } = useSiteLocale()
 const route = useRoute()
 const auth = useAuthStore()
 const showDropdown = ref(false)
@@ -315,14 +332,14 @@ const displayedStudyGoalExamType = computed<ActiveExamType | null>(() => {
 // 顶部只表达当前正在备考的考试，没有权益和目标时给出明确状态。
 const studyGoalLabel = computed(() =>
   displayedStudyGoalExamType.value
-    ? `当前备考：${displayedStudyGoalExamType.value}`
+    ? t('当前备考：{p0}', { p0: t(displayedStudyGoalExamType.value) })
     : '当前备考：未设置',
 )
 // ESAT 学习上下文在考试名称下补充个人中心保存的三科，TMUA 不占用第二行。
 const studyGoalSubjectsLabel = computed(() => {
   if (displayedStudyGoalExamType.value !== 'ESAT') return ''
   return (auth.memberContext?.studyPreferences.esatSubjects || [])
-    .map((subject) => String(subject || '').trim())
+    .map((subject) => subjectCopy(String(subject || '').trim()))
     .filter(Boolean)
     .join(' · ')
 })
@@ -330,9 +347,12 @@ const studyGoalSubjectsLabel = computed(() => {
 // 辅助技术同时读出当前考试与 ESAT 科目，点击行为仍统一前往个人中心修改。
 const studyGoalAriaLabel = computed(() => {
   const subjectDetail = studyGoalSubjectsLabel.value
-    ? `，备考科目：${studyGoalSubjectsLabel.value}`
+    ? t('，备考科目：{p0}', { p0: t(studyGoalSubjectsLabel.value) })
     : ''
-  return `${studyGoalLabel.value}${subjectDetail}，前往个人中心修改备考目标`
+  return t('{p0}{p1}，前往个人中心修改备考目标', {
+    p0: t(studyGoalLabel.value),
+    p1: t(subjectDetail),
+  })
 })
 
 // 当前存在任一有效考试会员时优先展示会员权益，不再显示待使用卡券入口。
@@ -364,7 +384,8 @@ const hasValidPendingMembershipCard = computed(
 const currentEntitlementLabel = computed(() => {
   if (auth.isAdmin) return '管理员'
   if (activeMemberExamTypes.value.length > 1) return 'ESAT/TMUA会员'
-  if (activeMemberExamTypes.value.length === 1) return `${activeMemberExamTypes.value[0]}会员`
+  if (activeMemberExamTypes.value.length === 1)
+    return t('{p0}会员', { p0: t(activeMemberExamTypes.value[0]) })
   return '免费用户'
 })
 
@@ -377,11 +398,11 @@ const mobileAccountMetaLabel = computed(() =>
 const pendingMembershipCardLabel = computed(() => {
   const cards = validPendingMembershipCards.value
   const dailyCardCount = validPendingDailyCards.value.length
-  if (dailyCardCount > 0) return `${dailyCardCount}张免费日卡待启用`
+  if (dailyCardCount > 0) return t('{p0}张免费日卡待启用', { p0: t(dailyCardCount) })
 
   const weeklyCardCount = cards.filter((card) => card.durationHours === 7 * 24).length
-  if (weeklyCardCount > 0) return `${weeklyCardCount}张免费周卡待启用`
-  return `${cards.length}张免费会员卡待启用`
+  if (weeklyCardCount > 0) return t('{p0}张免费周卡待启用', { p0: t(weeklyCardCount) })
+  return t('{p0}张免费会员卡待启用', { p0: t(cards.length) })
 })
 
 // 下拉第二行补充权益时效，不再重复顶部已经展示的会员类型。
@@ -437,7 +458,12 @@ function formatMembershipDeadline(timestamp: number): string {
   const day = String(deadline.getDate()).padStart(2, '0')
   const hour = String(deadline.getHours()).padStart(2, '0')
   const minute = String(deadline.getMinutes()).padStart(2, '0')
-  return `会员有效期至 ${month}/${day} ${hour}:${minute}`
+  return t('会员有效期至 {p0}/{p1} {p2}:{p3}', {
+    p0: t(month),
+    p1: t(day),
+    p2: t(hour),
+    p3: t(minute),
+  })
 }
 
 // Element Plus 下拉命令统一切换考试页面，避免手写 hover 浮层产生闪烁。
@@ -470,7 +496,7 @@ function handleRouteNavigation(event: MouseEvent, path: string): void {
 // 首页沿用首屏滚动，其他模块点击移动端品牌或“首页”时返回首页路由。
 function handleMobileHomeNavigation(): void {
   if (props.delegateNavigation) emit('home')
-  else void router.push('/')
+  else void router.push(homePath.value)
 }
 
 // 首页继续承接自身导航逻辑，其他模块由公共导航直接切换路由。
@@ -515,7 +541,7 @@ async function goToPendingMembershipCards(): Promise<void> {
 async function handleLogout(): Promise<void> {
   await auth.logout()
   showDropdown.value = false
-  router.push('/')
+  router.push(homePath.value)
 }
 
 // 导航栏仅为学生预加载个人中心保存的长期备考目标。
@@ -829,7 +855,7 @@ onBeforeUnmount(() => {
   top: 100%;
   right: 0;
   width: 100%;
-  height: 13px;
+  height: 19px;
   content: '';
 }
 .user-info {
@@ -853,6 +879,20 @@ onBeforeUnmount(() => {
 .user-meta {
   font-size: 12px;
   color: var(--color-ink-muted);
+}
+.user-avatar-group {
+  position: relative;
+  flex: none;
+}
+.user-avatar-badge {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--color-ink-muted);
+  font-size: 10px;
+  line-height: 12px;
+  white-space: nowrap;
 }
 .user-meta--member {
   color: var(--color-report-orange);
@@ -897,7 +937,7 @@ onBeforeUnmount(() => {
   position: absolute;
   z-index: 1;
   right: 0;
-  top: 48px;
+  top: calc(100% + 18px);
   width: 240px;
   background: var(--color-surface);
   border: 1px solid var(--color-line);

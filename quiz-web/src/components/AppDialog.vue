@@ -3,7 +3,7 @@
   <ElDialog
     v-bind="$attrs"
     :model-value="modelValue"
-    :title="title"
+    :title="t(title)"
     :width="width"
     class="app-dialog"
     :class="{ 'app-dialog--no-divider': !showHeaderDivider }"
@@ -21,12 +21,12 @@
     @closed="emit('closed')"
   >
     <template #header="{ titleId }">
-      <h2 :id="titleId" class="app-dialog__title">{{ title }}</h2>
+      <h2 :id="titleId" class="app-dialog__title">{{ t(title) }}</h2>
       <button
         v-if="showClose"
         type="button"
         class="app-dialog__close"
-        aria-label="关闭弹窗"
+        :aria-label="t('关闭弹窗')"
         :disabled="loading"
         @click="requestCancel"
       >
@@ -35,7 +35,12 @@
     </template>
 
     <div v-if="icon" class="app-dialog__with-icon">
-      <ElIcon class="app-dialog__content-icon" :size="24" :style="{ color: iconColor }" aria-hidden="true">
+      <ElIcon
+        class="app-dialog__content-icon"
+        :size="24"
+        :style="{ color: iconColor }"
+        aria-hidden="true"
+      >
         <component :is="icon" />
       </ElIcon>
       <div class="app-dialog__icon-content"><slot /></div>
@@ -52,7 +57,7 @@
             :disabled="loading"
             @click="requestCancel"
           >
-            {{ cancelText }}
+            {{ t(cancelText) }}
           </AppButton>
           <AppButton
             v-if="showConfirm"
@@ -62,7 +67,7 @@
             :disabled="confirmDisabled"
             @click="requestConfirm"
           >
-            {{ confirmText }}
+            {{ t(confirmText) }}
           </AppButton>
         </slot>
       </div>
@@ -71,6 +76,8 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '@/locales'
+
 import { watch, type Component } from 'vue'
 import { ElDialog, ElIcon } from 'element-plus'
 import { Close } from '@element-plus/icons-vue'

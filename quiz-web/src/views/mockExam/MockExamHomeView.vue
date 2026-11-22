@@ -7,19 +7,19 @@
       <img :src="mockBackgroundUrl" class="mock-exam-background" alt="" aria-hidden="true" />
       <header class="mock-hero">
         <div class="mock-hero__copy">
-          <h1>模考中心</h1>
-          <p>按正式考试结构完成整卷训练，熟悉节奏，追踪每一次进步。</p>
+          <h1>{{ t('模考中心') }}</h1>
+          <p>{{ t('按正式考试结构完成整卷训练，熟悉节奏，追踪每一次进步。') }}</p>
         </div>
-        <div class="mock-hero__structure" aria-label="当前考试结构">
-          <span>{{ activeExamType }}</span>
-          <strong>{{ examStructure.title }}</strong>
-          <small>{{ examStructure.description }}</small>
+        <div class="mock-hero__structure" :aria-label="t('当前考试结构')">
+          <span>{{ t(activeExamType) }}</span>
+          <strong>{{ t(examStructure.title) }}</strong>
+          <small>{{ t(examStructure.description) }}</small>
         </div>
       </header>
 
       <div class="mock-layout">
-        <section class="mock-content" aria-label="模考中心内容">
-          <div class="mock-tabs" role="tablist" aria-label="模考中心页面">
+        <section class="mock-content" :aria-label="t('模考中心内容')">
+          <div class="mock-tabs" role="tablist" :aria-label="t('模考中心页面')">
             <button
               type="button"
               role="tab"
@@ -27,7 +27,7 @@
               :class="{ 'is-active': activeTab === 'catalog' }"
               @click="selectTab('catalog')"
             >
-              模拟套卷
+              {{ t('模拟套卷') }}
             </button>
             <button
               type="button"
@@ -36,7 +36,7 @@
               :class="{ 'is-active': activeTab === 'modules' }"
               @click="selectTab('modules')"
             >
-              单项模考
+              {{ t('单项模考') }}
             </button>
             <button
               type="button"
@@ -45,7 +45,7 @@
               :class="{ 'is-active': activeTab === 'records' }"
               @click="selectTab('records')"
             >
-              我的模考记录
+              {{ t('我的模考记录') }}
             </button>
           </div>
 
@@ -57,12 +57,12 @@
                   v-model="keywordDraft"
                   type="search"
                   maxlength="80"
-                  placeholder="搜索试卷名称或编号"
-                  aria-label="搜索模拟试卷"
+                  :placeholder="t('搜索试卷名称或编号')"
+                  :aria-label="t('搜索模拟试卷')"
                 />
-                <button type="submit">搜索</button>
+                <button type="submit">{{ t('搜索') }}</button>
               </form>
-              <div v-if="auth.isLoggedIn" class="catalog-filters" aria-label="试卷状态筛选">
+              <div v-if="auth.isLoggedIn" class="catalog-filters" :aria-label="t('试卷状态筛选')">
                 <button
                   v-for="option in catalogStatusOptions"
                   :key="option.value"
@@ -70,38 +70,44 @@
                   :class="{ 'is-active': catalogStatus === option.value }"
                   @click="selectCatalogStatus(option.value)"
                 >
-                  {{ option.label }}
+                  {{ t(option.label) }}
                 </button>
               </div>
             </div>
 
             <div v-if="catalogLoading" class="state-panel" aria-live="polite">
               <span class="state-panel__spinner" aria-hidden="true"></span>
-              <strong>正在加载 {{ activeExamType }} 模拟试卷</strong>
-              <p>正在同步已发布试卷与当前权限。</p>
+              <strong>{{ t('正在加载 {p0} 模拟试卷', { p0: t(activeExamType) }) }}</strong>
+              <p>{{ t('正在同步已发布试卷与当前权限。') }}</p>
             </div>
 
             <div v-else-if="catalogError" class="state-panel state-panel--error">
               <el-icon aria-hidden="true"><Warning /></el-icon>
-              <strong>模考目录暂时无法加载</strong>
-              <p>{{ catalogError }}</p>
+              <strong>{{ t('模考目录暂时无法加载') }}</strong>
+              <p>{{ translateInterfaceError(catalogError) }}</p>
               <div class="state-panel__actions">
-                <AppButton type="secondary" size="small" :icon="RefreshRight" @click="loadCatalog">
-                  重新加载
-                </AppButton>
+                <AppButton
+                  type="secondary"
+                  size="small"
+                  :icon="RefreshRight"
+                  @click="loadCatalog"
+                  >{{ t('重新加载') }}</AppButton
+                >
               </div>
             </div>
 
             <div v-else-if="!papers.length" class="state-panel">
-              <el-empty description="暂无可用模拟卷" :image-size="72" />
+              <el-empty :description="t('暂无可用模拟卷')" :image-size="72" />
               <p v-if="keyword || catalogStatus !== 'all'">
-                当前条件下没有试卷，可以清除筛选后重试。
+                {{ t('当前条件下没有试卷，可以清除筛选后重试。') }}
               </p>
-              <p v-else>后台发布 {{ activeExamType }} 模考卷后会显示在这里。</p>
+              <p v-else>
+                {{ t('后台发布 {p0} 模考卷后会显示在这里。', { p0: t(activeExamType) }) }}
+              </p>
               <div class="state-panel__actions" v-if="keyword || catalogStatus !== 'all'">
-                <AppButton type="secondary" size="small" @click="clearCatalogFilters">
-                  清除筛选
-                </AppButton>
+                <AppButton type="secondary" size="small" @click="clearCatalogFilters">{{
+                  t('清除筛选')
+                }}</AppButton>
               </div>
             </div>
 
@@ -123,7 +129,7 @@
                   <div class="paper-card__heading">
                     <div>
                       <div class="paper-card__badges">
-                        <span>{{ formatMockPaperSequenceNo(paper.sequenceNo) }}</span>
+                        <span>{{ t(formatMockPaperSequenceNo(paper.sequenceNo)) }}</span>
                         <span
                           :class="
                             paper.accessTier === PAPER_ACCESS_TIER.FREE
@@ -134,19 +140,25 @@
                           <el-icon v-if="paper.accessTier !== PAPER_ACCESS_TIER.FREE">
                             <Lock />
                           </el-icon>
-                          {{ paper.accessTier === PAPER_ACCESS_TIER.FREE ? '免费卷' : '会员专享' }}
+                          {{
+                            t(paper.accessTier === PAPER_ACCESS_TIER.FREE ? '免费卷' : '会员专享')
+                          }}
                         </span>
-                        <span v-if="paper.publicationStatus !== 'published'">已下线</span>
+                        <span v-if="paper.publicationStatus !== 'published'">{{
+                          t('已下线')
+                        }}</span>
                       </div>
-                      <h2>{{ paper.title }}</h2>
+                      <h2>{{ t(paper.title) }}</h2>
                     </div>
                     <div v-if="isPaperLocked(paper)" class="paper-card__lock-copy">
                       <el-icon aria-hidden="true"><Lock /></el-icon>
                       <span>
                         {{
-                          hasPendingDailyCard
-                            ? `可使用免费日卡，或开通 ${paper.examType} 会员解锁`
-                            : `开通 ${paper.examType} 会员后解锁新模考`
+                          t(
+                            hasPendingDailyCard
+                              ? `可使用免费日卡，或开通 ${paper.examType} 会员解锁`
+                              : `开通 ${paper.examType} 会员后解锁新模考`,
+                          )
                         }}
                       </span>
                     </div>
@@ -154,42 +166,41 @@
 
                   <div class="paper-card__facts">
                     <span>
-                      <el-icon aria-hidden="true"><Document /></el-icon>
-                      {{ paper.totalQuestions }} 题
-                    </span>
+                      <el-icon aria-hidden="true"><Document /></el-icon
+                      >{{ t('{p0} 题', { p0: t(paper.totalQuestions) }) }}</span
+                    >
                     <span>
                       <el-icon aria-hidden="true"><Clock /></el-icon>
-                      {{ formatDuration(paper.durationSeconds) }}
+                      {{ t(formatDuration(paper.durationSeconds)) }}
                     </span>
                     <span>
                       <el-icon aria-hidden="true"><Collection /></el-icon>
-                      {{ formatModuleNames(paper) }}
+                      {{ t(formatModuleNames(paper)) }}
                     </span>
                   </div>
 
                   <div v-if="auth.isLoggedIn" class="paper-card__progress">
-                    <span v-if="paper.completedCount > 0" class="progress-completed">
-                      已完成 <strong>{{ paper.completedCount }}</strong> 次
-                    </span>
+                    <span v-if="paper.completedCount > 0" class="progress-completed">{{
+                      t('已完成 {p0} 次', { p0: paper.completedCount })
+                    }}</span>
                     <AppButton
                       v-if="paper.inProgressCount > 0"
                       type="link"
                       size="mini"
                       class="progress-pending"
-                      :aria-label="`查看${paper.title}的未完成记录`"
+                      :aria-label="t('查看{p0}的未完成记录', { p0: t(paper.title) })"
                       @click="openPendingRecords(paper, 'full')"
+                      >{{ t('未完成 {p0} 场', { p0: paper.inProgressCount }) }}</AppButton
                     >
-                      未完成 <strong>{{ paper.inProgressCount }}</strong> 场
-                    </AppButton>
-                    <span v-if="paper.bestScore !== null" class="progress-score">
-                      最佳 <strong>{{ formatScore(paper.bestScore) }}</strong>
+                    <span v-if="paper.bestScore !== null" class="progress-score"
+                      >{{ t('最佳') }}<strong>{{ t(formatScore(paper.bestScore)) }}</strong>
                     </span>
-                    <span v-if="paper.inProgressCount === 0 && paper.completedCount === 0">
-                      尚未开始
-                    </span>
+                    <span v-if="paper.inProgressCount === 0 && paper.completedCount === 0">{{
+                      t('尚未开始')
+                    }}</span>
                   </div>
                   <div v-else class="paper-card__progress paper-card__progress--guest">
-                    登录后可保存进度、成绩和诊断报告
+                    {{ t('登录后可保存进度、成绩和诊断报告') }}
                   </div>
                 </div>
 
@@ -201,9 +212,8 @@
                     v-if="isPaperLocked(paper) && hasPendingDailyCard"
                     :disabled="paper.publicationStatus !== 'published'"
                     @click="handleDailyCardForPaper(paper)"
+                    >{{ t('使用免费日卡') }}</AppButton
                   >
-                    使用免费日卡
-                  </AppButton>
                   <AppButton
                     size="medium"
                     :type="isPaperLocked(paper) && hasPendingDailyCard ? 'secondary' : 'primary'"
@@ -213,16 +223,15 @@
                     :disabled="paper.publicationStatus !== 'published'"
                     @click="handlePaperPrimaryAction(paper)"
                   >
-                    {{ paperPrimaryAction(paper) }}
+                    {{ t(paperPrimaryAction(paper)) }}
                   </AppButton>
                   <AppButton
                     size="medium"
                     v-if="paper.completedCount > 0 && paper.latestCompletedExamRecordId"
                     type="secondary"
                     @click="openPaperReport(paper)"
+                    >{{ t('查看报告') }}</AppButton
                   >
-                    查看报告
-                  </AppButton>
                 </div>
               </article>
             </div>
@@ -246,27 +255,27 @@
                   v-model="moduleKeywordDraft"
                   type="search"
                   maxlength="80"
-                  placeholder="搜索单项名称或所属套卷"
-                  aria-label="搜索单项模考"
+                  :placeholder="t('搜索单项名称或所属套卷')"
+                  :aria-label="t('搜索单项模考')"
                 />
-                <button type="submit">搜索</button>
+                <button type="submit">{{ t('搜索') }}</button>
               </form>
               <div class="module-toolbar-filters">
                 <el-select
                   v-model="moduleCode"
                   class="module-filter-select"
-                  placeholder="全部 Module"
-                  aria-label="Module 或 Paper 筛选"
+                  :placeholder="t('全部 Module')"
+                  :aria-label="t('Module 或 Paper 筛选')"
                   @change="handleModuleCodeChange"
                 >
                   <el-option
                     v-for="option in moduleCodeOptions"
                     :key="option.value"
-                    :label="option.label"
+                    :label="t(option.label)"
                     :value="option.value"
                   />
                 </el-select>
-                <div v-if="auth.isLoggedIn" class="catalog-filters" aria-label="单项状态筛选">
+                <div v-if="auth.isLoggedIn" class="catalog-filters" :aria-label="t('单项状态筛选')">
                   <button
                     v-for="option in catalogStatusOptions"
                     :key="option.value"
@@ -274,7 +283,7 @@
                     :class="{ 'is-active': moduleStatus === option.value }"
                     @click="selectModuleStatus(option.value)"
                   >
-                    {{ option.label }}
+                    {{ t(option.label) }}
                   </button>
                 </div>
               </div>
@@ -282,35 +291,39 @@
 
             <div v-if="modulesLoading" class="state-panel" aria-live="polite">
               <span class="state-panel__spinner" aria-hidden="true"></span>
-              <strong>正在加载 {{ activeExamType }} 单项模考</strong>
-              <p>正在同步可独立考试的 Module/Paper。</p>
+              <strong>{{ t('正在加载 {p0} 单项模考', { p0: t(activeExamType) }) }}</strong>
+              <p>{{ t('正在同步可独立考试的 Module/Paper。') }}</p>
             </div>
 
             <div v-else-if="modulesError" class="state-panel state-panel--error">
               <el-icon aria-hidden="true"><Warning /></el-icon>
-              <strong>单项模考暂时无法加载</strong>
-              <p>{{ modulesError }}</p>
+              <strong>{{ t('单项模考暂时无法加载') }}</strong>
+              <p>{{ translateInterfaceError(modulesError) }}</p>
               <div class="state-panel__actions">
-                <AppButton type="secondary" size="small" :icon="RefreshRight" @click="loadModules">
-                  重新加载
-                </AppButton>
+                <AppButton
+                  type="secondary"
+                  size="small"
+                  :icon="RefreshRight"
+                  @click="loadModules"
+                  >{{ t('重新加载') }}</AppButton
+                >
               </div>
             </div>
 
             <div v-else-if="!modules.length" class="state-panel">
               <el-icon aria-hidden="true"><Document /></el-icon>
-              <strong>暂无可用单项模考</strong>
+              <strong>{{ t('暂无可用单项模考') }}</strong>
               <p v-if="moduleKeyword || moduleCode || moduleStatus !== 'all'">
-                当前条件下没有单项，可以清除筛选后重试。
+                {{ t('当前条件下没有单项，可以清除筛选后重试。') }}
               </p>
-              <p v-else>后台发布可用 Module/Paper 后会显示在这里。</p>
+              <p v-else>{{ t('后台发布可用 Module/Paper 后会显示在这里。') }}</p>
               <div
                 class="state-panel__actions"
                 v-if="moduleKeyword || moduleCode || moduleStatus !== 'all'"
               >
-                <AppButton type="secondary" size="small" @click="clearModuleFilters">
-                  清除筛选
-                </AppButton>
+                <AppButton type="secondary" size="small" @click="clearModuleFilters">{{
+                  t('清除筛选')
+                }}</AppButton>
               </div>
             </div>
 
@@ -329,7 +342,7 @@
                   <div class="paper-card__heading">
                     <div>
                       <div class="paper-card__badges">
-                        <span>{{ formatMockPaperSequenceNo(module.sequenceNo) }}</span>
+                        <span>{{ t(formatMockPaperSequenceNo(module.sequenceNo)) }}</span>
                         <span
                           :class="
                             module.accessTier === PAPER_ACCESS_TIER.FREE
@@ -340,78 +353,80 @@
                           <el-icon v-if="module.accessTier !== PAPER_ACCESS_TIER.FREE">
                             <Lock />
                           </el-icon>
-                          {{ module.accessTier === PAPER_ACCESS_TIER.FREE ? '免费' : '会员专享' }}
+                          {{
+                            t(module.accessTier === PAPER_ACCESS_TIER.FREE ? '免费' : '会员专享')
+                          }}
                         </span>
-                        <span class="paper-badge--module">{{ module.label }}</span>
+                        <span class="paper-badge--module">{{ t(module.label) }}</span>
                       </div>
-                      <h2>{{ module.title }}</h2>
+                      <h2>{{ t(module.title) }}</h2>
                     </div>
                     <div v-if="isModuleLocked(module)" class="paper-card__lock-copy">
                       <el-icon aria-hidden="true"><Lock /></el-icon>
-                      <span>开通 {{ module.examType }} 会员后解锁单项模考</span>
+                      <span>{{
+                        t('开通 {p0} 会员后解锁单项模考', { p0: t(module.examType) })
+                      }}</span>
                     </div>
                   </div>
 
                   <div class="paper-card__facts">
                     <span>
-                      <el-icon aria-hidden="true"><Document /></el-icon>
-                      {{ module.totalQuestions }} 题
-                    </span>
+                      <el-icon aria-hidden="true"><Document /></el-icon
+                      >{{ t('{p0} 题', { p0: t(module.totalQuestions) }) }}</span
+                    >
                     <span>
                       <el-icon aria-hidden="true"><Clock /></el-icon>
-                      {{ formatDuration(module.durationSeconds) }}
+                      {{ t(formatDuration(module.durationSeconds)) }}
                     </span>
                     <span>
                       <el-icon aria-hidden="true"><Collection /></el-icon>
-                      {{ module.label }}
+                      {{ t(module.label) }}
                     </span>
-                    <span v-if="module.fullExamReady" class="paper-card__suite-link">
-                      已组成
-                      <AppButton
+                    <span v-if="module.fullExamReady" class="paper-card__suite-link"
+                      >{{ t('已组成')
+                      }}<AppButton
                         type="link"
                         size="mini"
-                        :aria-label="`查看所属套卷：${module.sourcePaperTitle}`"
+                        :aria-label="t('查看所属套卷：{p0}', { p0: t(module.sourcePaperTitle) })"
                         @click="openSourcePaper(module)"
                       >
-                        {{ module.sourcePaperTitle }} ·
-                        {{ formatMockPaperSequenceNo(module.sourcePaperSequenceNo) }}
+                        {{ t(module.sourcePaperTitle) }} ·
+                        {{ t(formatMockPaperSequenceNo(module.sourcePaperSequenceNo)) }}
                       </AppButton>
                     </span>
-                    <span v-else>目前无所属模拟套卷</span>
+                    <span v-else>{{ t('目前无所属模拟套卷') }}</span>
                   </div>
 
                   <div v-if="auth.isLoggedIn" class="paper-card__progress">
-                    <span v-if="module.completedCount > 0" class="progress-completed">
-                      单项已完成 <strong>{{ module.completedCount }}</strong> 次
-                    </span>
+                    <span v-if="module.completedCount > 0" class="progress-completed">{{
+                      t('单项已完成 {p0} 次', { p0: module.completedCount })
+                    }}</span>
                     <AppButton
                       v-if="module.inProgressCount > 0"
                       type="link"
                       size="mini"
                       class="progress-pending"
-                      :aria-label="`查看${module.title}的未完成记录`"
+                      :aria-label="t('查看{p0}的未完成记录', { p0: t(module.title) })"
                       @click="openPendingRecords(module, 'single')"
+                      >{{ t('未完成 {p0} 场', { p0: module.inProgressCount }) }}</AppButton
                     >
-                      未完成 <strong>{{ module.inProgressCount }}</strong> 场
-                    </AppButton>
-                    <span v-if="module.bestScore !== null" class="progress-score">
-                      最佳 <strong>{{ formatScore(module.bestScore) }}</strong>
+                    <span v-if="module.bestScore !== null" class="progress-score"
+                      >{{ t('最佳') }}<strong>{{ t(formatScore(module.bestScore)) }}</strong>
                     </span>
-                    <span v-if="module.practicedInFull" class="practice-mark">
-                      已在模拟套卷练习
-                    </span>
+                    <span v-if="module.practicedInFull" class="practice-mark">{{
+                      t('已在模拟套卷练习')
+                    }}</span>
                     <span
                       v-if="
                         module.inProgressCount === 0 &&
                         module.completedCount === 0 &&
                         !module.practicedInFull
                       "
+                      >{{ t('尚未练习') }}</span
                     >
-                      尚未练习
-                    </span>
                   </div>
                   <div v-else class="paper-card__progress paper-card__progress--guest">
-                    登录后可保存单项进度和成绩
+                    {{ t('登录后可保存单项进度和成绩') }}
                   </div>
                 </div>
 
@@ -422,9 +437,8 @@
                     :icon="Lock"
                     v-if="isModuleLocked(module) && hasPendingDailyCard"
                     @click="handleDailyCardForModule(module)"
+                    >{{ t('使用免费日卡') }}</AppButton
                   >
-                    使用免费日卡
-                  </AppButton>
                   <AppButton
                     size="medium"
                     :type="isModuleLocked(module) && hasPendingDailyCard ? 'secondary' : 'primary'"
@@ -433,7 +447,7 @@
                     :loading="startingTargetId === module.id"
                     @click="handleModulePrimaryAction(module)"
                   >
-                    {{ modulePrimaryAction(module) }}
+                    {{ t(modulePrimaryAction(module)) }}
                   </AppButton>
                 </div>
               </article>
@@ -455,21 +469,21 @@
               <span class="login-gate__icon" aria-hidden="true"
                 ><el-icon><UserFilled /></el-icon
               ></span>
-              <h2>登录后查看模考记录</h2>
-              <p>未完成进度、历次成绩、报告和错题都保存在你的账号中。</p>
+              <h2>{{ t('登录后查看模考记录') }}</h2>
+              <p>{{ t('未完成进度、历次成绩、报告和错题都保存在你的账号中。') }}</p>
               <div class="state-panel__actions">
-                <AppButton @click="requireLogin">立即登录</AppButton>
+                <AppButton @click="requireLogin">{{ t('立即登录') }}</AppButton>
               </div>
             </div>
 
             <template v-else>
               <div class="record-toolbar">
                 <div>
-                  <strong>我的 {{ activeExamType }} 模考</strong>
-                  <span>每场答卷独立保存，未完成数量不受限制。</span>
+                  <strong>{{ t('我的 {p0} 模考', { p0: t(activeExamType) }) }}</strong>
+                  <span>{{ t('每场答卷独立保存，未完成数量不受限制。') }}</span>
                 </div>
                 <div class="record-filter-groups">
-                  <div class="record-mode-switch" aria-label="模考类型">
+                  <div class="record-mode-switch" :aria-label="t('模考类型')">
                     <button
                       v-for="option in recordModeOptions"
                       :key="option.value"
@@ -477,23 +491,23 @@
                       :class="{ 'is-active': recordMode === option.value }"
                       @click="selectRecordMode(option.value)"
                     >
-                      {{ option.label }}
+                      {{ t(option.label) }}
                     </button>
                   </div>
-                  <div class="record-status-switch" aria-label="记录状态">
+                  <div class="record-status-switch" :aria-label="t('记录状态')">
                     <button
                       type="button"
                       :class="{ 'is-active': recordStatus === 'in_progress' }"
                       @click="selectRecordStatus('in_progress')"
                     >
-                      进行中
+                      {{ t('进行中') }}
                     </button>
                     <button
                       type="button"
                       :class="{ 'is-active': recordStatus === 'completed' }"
                       @click="selectRecordStatus('completed')"
                     >
-                      已完成
+                      {{ t('已完成') }}
                     </button>
                   </div>
                 </div>
@@ -501,18 +515,20 @@
 
               <div v-if="recordsLoading" class="state-panel">
                 <span class="state-panel__spinner" aria-hidden="true"></span>
-                <strong>正在加载模考记录</strong>
+                <strong>{{ t('正在加载模考记录') }}</strong>
               </div>
               <div v-else-if="recordsError" class="state-panel state-panel--error">
                 <el-icon aria-hidden="true"><Warning /></el-icon>
-                <strong>模考记录暂时无法加载</strong>
-                <p>{{ recordsError }}</p>
+                <strong>{{ t('模考记录暂时无法加载') }}</strong>
+                <p>{{ translateInterfaceError(recordsError) }}</p>
                 <div class="state-panel__actions">
-                  <AppButton type="secondary" size="small" @click="loadRecords">重新加载</AppButton>
+                  <AppButton type="secondary" size="small" @click="loadRecords">{{
+                    t('重新加载')
+                  }}</AppButton>
                 </div>
               </div>
               <div v-else-if="!records.length" class="state-panel">
-                <el-empty description="当前无模考记录" :image-size="72" />
+                <el-empty :description="t('当前无模考记录')" :image-size="72" />
               </div>
               <div v-else class="record-list">
                 <article
@@ -526,20 +542,20 @@
                   <div class="record-card__top">
                     <div>
                       <div class="record-card__meta">
-                        <span>{{ formatMockPaperSequenceNo(record.sequenceNo) }}</span>
+                        <span>{{ t(formatMockPaperSequenceNo(record.sequenceNo)) }}</span>
                         <b :data-mode="record.mode">
-                          {{ record.mode === 'single' ? '单项模考' : '模拟套卷' }}
+                          {{ t(record.mode === 'single' ? '单项模考' : '模拟套卷') }}
                         </b>
                       </div>
                       <div class="record-card__title-line">
-                        <h2>{{ record.paperTitle }}</h2>
-                        <small v-if="record.mode === 'single'">
-                          所属套卷：{{ record.sourcePaperTitle }}
+                        <h2>{{ t(record.paperTitle) }}</h2>
+                        <small v-if="record.mode === 'single'"
+                          >{{ t('所属套卷：{p0}', { p0: t(record.sourcePaperTitle) }) }}
                         </small>
                       </div>
                     </div>
                     <em :data-status="record.status">
-                      {{ record.status === 'in_progress' ? '进行中' : '已完成' }}
+                      {{ t(record.status === 'in_progress' ? '进行中' : '已完成') }}
                     </em>
                   </div>
                   <div class="record-card__details">
@@ -550,44 +566,61 @@
                         }"
                       >
                         <div>
-                          <dt>开始时间</dt>
-                          <dd>{{ formatDateTime(record.startedAt) }}</dd>
+                          <dt>{{ t('开始时间') }}</dt>
+                          <dd>{{ t(formatDateTime(record.startedAt)) }}</dd>
                         </div>
                         <div v-if="record.status === 'in_progress'">
-                          <dt>当前进度</dt>
+                          <dt>{{ t('当前进度') }}</dt>
                           <dd>
-                            {{ record.currentModuleLabel || '等待开始' }} ·
-                            {{ record.answeredCount }}/{{ record.totalQuestions }} 题
+                            {{
+                              t('{p0} · {p1}/{p2} 题', {
+                                p0: t(record.currentModuleLabel || '等待开始'),
+                                p1: t(record.answeredCount),
+                                p2: t(record.totalQuestions),
+                              })
+                            }}
                           </dd>
                         </div>
                         <template v-else>
                           <div>
-                            <dt>交卷时间</dt>
-                            <dd>{{ formatDateTime(record.submittedAt) }}</dd>
+                            <dt>{{ t('交卷时间') }}</dt>
+                            <dd>{{ t(formatDateTime(record.submittedAt)) }}</dd>
                           </div>
                           <div>
-                            <dt>有效用时</dt>
-                            <dd>{{ formatDuration(record.durationSeconds) }}</dd>
+                            <dt>{{ t('有效用时') }}</dt>
+                            <dd>{{ t(formatDuration(record.durationSeconds)) }}</dd>
                           </div>
                           <div>
-                            <dt>正确率</dt>
-                            <dd>{{ formatAccuracy(record.accuracy) }}</dd>
+                            <dt>{{ t('正确率') }}</dt>
+                            <dd>{{ t(formatAccuracy(record.accuracy)) }}</dd>
                           </div>
                           <div>
-                            <dt>答题结果</dt>
-                            <dd>{{ record.correctCount }}/{{ record.totalQuestions }} 题</dd>
+                            <dt>{{ t('答题结果') }}</dt>
+                            <dd>
+                              {{
+                                t('{p0}/{p1} 题', {
+                                  p0: t(record.correctCount),
+                                  p1: t(record.totalQuestions),
+                                })
+                              }}
+                            </dd>
                           </div>
                           <div
                             v-for="module in record.moduleScores"
                             :key="module.code"
                             class="record-card__module-stat"
                           >
-                            <dt>{{ module.label }}</dt>
+                            <dt>{{ t(module.label) }}</dt>
                             <dd>
-                              <strong>{{ formatScore(module.score) }} 分</strong>
-                              <small
-                                >{{ module.correctCount }}/{{ module.totalQuestions }} 题</small
-                              >
+                              <strong>{{
+                                t('{p0} 分', { p0: t(formatScore(module.score)) })
+                              }}</strong>
+                              <small>{{
+                                t('{p0}/{p1} 题', {
+                                  p0: t(module.correctCount),
+                                  p1: t(module.totalQuestions),
+                                })
+                              }}</small>
                             </dd>
                           </div>
                         </template>
@@ -598,12 +631,16 @@
                             !record.moduleScores.length
                           "
                         >
-                          <dt>{{ record.status === 'in_progress' ? '剩余时间' : '本次成绩' }}</dt>
+                          <dt>
+                            {{ t(record.status === 'in_progress' ? '剩余时间' : '本次成绩') }}
+                          </dt>
                           <dd>
                             {{
-                              record.status === 'in_progress'
-                                ? formatRemainingTime(record.remainingSeconds)
-                                : formatRecordScore(record)
+                              t(
+                                record.status === 'in_progress'
+                                  ? formatRemainingTime(record.remainingSeconds)
+                                  : formatRecordScore(record),
+                              )
                             }}
                           </dd>
                         </div>
@@ -621,9 +658,8 @@
                         size="medium"
                         v-if="record.status === 'in_progress'"
                         @click="requestAbandon(record)"
+                        >{{ t('放弃本次') }}</AppButton
                       >
-                        放弃本次
-                      </AppButton>
                       <AppButton
                         type="secondary"
                         size="medium"
@@ -632,9 +668,11 @@
                         @click="openWrongReview(record)"
                       >
                         {{
-                          record.wrongCount === 0
-                            ? '本场无错题'
-                            : `错题回顾（${record.wrongCount}）`
+                          t(
+                            record.wrongCount === 0
+                              ? '本场无错题'
+                              : `错题回顾（${record.wrongCount}）`,
+                          )
                         }}
                       </AppButton>
                       <AppButton
@@ -650,7 +688,11 @@
                         "
                       >
                         {{
-                          record.status === 'in_progress' ? '继续考试' : reportActionLabel(record)
+                          t(
+                            record.status === 'in_progress'
+                              ? '继续考试'
+                              : reportActionLabel(record),
+                          )
                         }}
                       </AppButton>
                     </div>
@@ -671,68 +713,72 @@
           </template>
         </section>
 
-        <aside class="mock-sidebar" aria-label="模考概览">
+        <aside class="mock-sidebar" :aria-label="t('模考概览')">
           <section v-if="activeTab === 'modules'" class="overview-card module-guide-card">
             <div class="sidebar-card__heading">
-              <span>单项模考</span>
-              <small :data-exam-type="activeExamType">{{ activeExamType }}</small>
+              <span>{{ t('单项模考') }}</span>
+              <small :data-exam-type="activeExamType">{{ t(activeExamType) }}</small>
             </div>
-            <strong>专注完成一个 Module/Paper</strong>
-            <p>采用正式题量和正式时长，交卷后生成独立成绩与答题记录。</p>
+            <strong>{{ t('专注完成一个 Module/Paper') }}</strong>
+            <p>{{ t('采用正式题量和正式时长，交卷后生成独立成绩与答题记录。') }}</p>
             <ul>
-              <li>与模拟套卷共用同一份题目。</li>
-              <li>做过的内容会提示“已练习过”。</li>
-              <li>单项成绩不计入整卷趋势。</li>
+              <li>{{ t('与模拟套卷共用同一份题目。') }}</li>
+              <li>{{ t('做过的内容会提示“已练习过”。') }}</li>
+              <li>{{ t('单项成绩不计入整卷趋势。') }}</li>
             </ul>
           </section>
 
           <section v-else class="overview-card">
             <div class="sidebar-card__heading">
-              <span>冲刺概览</span>
-              <small :data-exam-type="activeExamType">{{ activeExamType }}</small>
+              <span>{{ t('冲刺概览') }}</span>
+              <small :data-exam-type="activeExamType">{{ t(activeExamType) }}</small>
             </div>
             <div v-if="!auth.isLoggedIn" class="overview-login">
-              <p>登录后查看完成次数、最佳成绩和近五次趋势。</p>
+              <p>{{ t('登录后查看完成次数、最佳成绩和近五次趋势。') }}</p>
               <div class="state-panel__actions">
-                <AppButton @click="requireLogin">登录查看</AppButton>
+                <AppButton @click="requireLogin">{{ t('登录查看') }}</AppButton>
               </div>
             </div>
             <template v-else>
               <div class="overview-metrics">
                 <div>
-                  <span>已完成</span>
-                  <strong>{{ overview?.completedCount ?? '--' }}</strong>
-                  <small>次模考</small>
+                  <span>{{ t('已完成') }}</span>
+                  <strong>{{ t(overview?.completedCount ?? '--') }}</strong>
+                  <small>{{ t('次模考') }}</small>
                 </div>
                 <div>
-                  <span>{{ activeExamType === 'ESAT' ? '最佳单科' : '最佳成绩' }}</span>
-                  <strong>{{ formatScore(overview?.bestScore) }}</strong>
+                  <span>{{ t(activeExamType === 'ESAT' ? '最佳单科' : '最佳成绩') }}</span>
+                  <strong>{{ t(formatScore(overview?.bestScore)) }}</strong>
                   <small v-if="activeExamType === 'ESAT' && overview?.bestScoreModuleLabel">
-                    {{ overview.bestScoreModuleLabel }}
+                    {{ t(overview.bestScoreModuleLabel) }}
                     <template
                       v-if="overview.targetScore !== null && overview.targetScore !== undefined"
-                    >
-                      · 目标 {{ formatScore(overview.targetScore) }}
+                      >{{ t('· 目标 {p0}', { p0: t(formatScore(overview.targetScore)) }) }}
                     </template>
                   </small>
                   <small
                     v-else-if="
                       overview?.targetScore !== null && overview?.targetScore !== undefined
                     "
-                  >
-                    目标 {{ formatScore(overview.targetScore) }}
+                    >{{ t('目标 {p0}', { p0: t(formatScore(overview.targetScore)) }) }}
                   </small>
-                  <small v-else>尚未设置目标分</small>
+                  <small v-else>{{ t('尚未设置目标分') }}</small>
                 </div>
               </div>
               <div class="trend-card">
                 <div class="trend-card__title">
-                  <span>近五次趋势</span>
+                  <span>{{ t('近五次趋势') }}</span>
                   <el-icon aria-hidden="true"><DataAnalysis /></el-icon>
                 </div>
-                <div v-if="overviewLoading" class="trend-card__empty">正在同步成绩...</div>
-                <div v-else-if="overviewError" class="trend-card__empty">趋势暂时无法加载</div>
-                <div v-else-if="!hasTrendData" class="trend-card__empty">完成模考后生成趋势</div>
+                <div v-if="overviewLoading" class="trend-card__empty">
+                  {{ t('正在同步成绩...') }}
+                </div>
+                <div v-else-if="overviewError" class="trend-card__empty">
+                  {{ t('趋势暂时无法加载') }}
+                </div>
+                <div v-else-if="!hasTrendData" class="trend-card__empty">
+                  {{ t('完成模考后生成趋势') }}
+                </div>
                 <MockExamTrendChart v-else-if="overview" :overview="overview" />
               </div>
             </template>
@@ -743,44 +789,47 @@
               <el-icon><Calendar /></el-icon>
             </div>
             <div class="countdown-card__copy">
-              <span>{{ activeExamType }} 考试倒计时</span>
+              <span>{{ t('{p0} 考试倒计时', { p0: t(activeExamType) }) }}</span>
               <template v-if="countdown">
-                <strong v-if="countdown.state === 'starts_today'">今天考试</strong>
-                <strong v-else-if="countdown.state === 'active'">考期进行中</strong>
+                <strong v-if="countdown.state === 'starts_today'">{{ t('今天考试') }}</strong>
+                <strong v-else-if="countdown.state === 'active'">{{ t('考期进行中') }}</strong>
                 <strong v-else
-                  ><b>{{ countdown.daysRemaining }}</b> 天</strong
+                  ><b>{{ t(countdown.daysRemaining) }}</b
+                  >{{ t('天') }}</strong
                 >
-                <p>{{ examWindowLabel }}</p>
-                <small>{{ activeExamType }} 官方考期</small>
+                <p>{{ t(examWindowLabel) }}</p>
+                <small>{{ t('{p0} 官方考期', { p0: t(activeExamType) }) }}</small>
               </template>
               <template v-else>
-                <strong class="countdown-card__pending">待官方公布</strong>
-                <p>当前没有已公布的未来考期</p>
+                <strong class="countdown-card__pending">{{ t('待官方公布') }}</strong>
+                <p>{{ t('当前没有已公布的未来考期') }}</p>
               </template>
             </div>
-            <router-link v-if="auth.isLoggedIn" to="/profile" aria-label="前往个人中心设置考期">
-              设置
-            </router-link>
+            <router-link
+              v-if="auth.isLoggedIn"
+              to="/profile"
+              :aria-label="t('前往个人中心设置考期')"
+              >{{ t('设置') }}</router-link
+            >
             <a
               v-else
               :href="OFFICIAL_EXAM_DATES_SOURCE"
               target="_blank"
               rel="noreferrer"
-              aria-label="查看 UAT-UK 官方考期"
+              :aria-label="t('查看 UAT-UK 官方考期')"
+              >{{ t('官方') }}</a
             >
-              官方
-            </a>
           </section>
 
           <section class="notice-card">
             <div class="sidebar-card__heading">
-              <span>{{ activeTab === 'modules' ? '单项须知' : '模考须知' }}</span>
+              <span>{{ t(activeTab === 'modules' ? '单项须知' : '模考须知') }}</span>
             </div>
             <ul>
-              <li>严格按照正式题量、模块和时间完成。</li>
-              <li>支持暂停恢复，已结束 Module/Paper 不可返回。</li>
-              <li>可以同时保留多场未完成模考。</li>
-              <li>正式答题仅支持电脑端。</li>
+              <li>{{ t('严格按照正式题量、模块和时间完成。') }}</li>
+              <li>{{ t('支持暂停恢复，已结束 Module/Paper 不可返回。') }}</li>
+              <li>{{ t('可以同时保留多场未完成模考。') }}</li>
+              <li>{{ t('正式答题仅支持电脑端。') }}</li>
             </ul>
           </section>
         </aside>
@@ -789,70 +838,74 @@
 
     <AppDialog
       v-model="subjectSetupDialogVisible"
-      title="设置 ESAT 备考科目"
+      :title="t('设置 ESAT 备考科目')"
       :icon="WarningFilled"
       icon-color="var(--color-warning)"
-      confirm-text="前往设置"
-      cancel-text="暂不设置"
+      :confirm-text="t('前往设置')"
+      :cancel-text="t('暂不设置')"
       @confirm="goToSubjectSettings"
     >
-      <p>开始 ESAT 模考前，需要先选择三门备考科目。是否前往个人中心进行设置？</p>
+      <p>{{ t('开始 ESAT 模考前，需要先选择三门备考科目。是否前往个人中心进行设置？') }}</p>
     </AppDialog>
 
     <AppDialog
       v-model="startDialogVisible"
-      :title="selectedStartModule ? '确认开始单项模考' : '确认开始模考'"
+      :title="t(selectedStartModule ? '确认开始单项模考' : '确认开始模考')"
       :close-on-click-modal="true"
       :close-on-press-escape="true"
       :loading="Boolean(startingTargetId)"
       :confirm-disabled="!rulesAccepted"
-      :confirm-text="startingTargetId ? '正在创建答卷...' : '确认开始'"
+      :confirm-text="t(startingTargetId ? '正在创建答卷...' : '开始模考')"
       @confirm="confirmStartContent"
       destroy-on-close
       @closed="clearStartSelection"
     >
       <div v-if="selectedStartContent" class="start-confirmation">
         <div class="start-confirmation__paper">
-          <span>{{ selectedStartModule ? 'MODULE' : 'MOCK' }}</span>
+          <span>{{ t(selectedStartModule ? 'MODULE' : 'MOCK') }}</span>
           <div>
-            <strong>{{ selectedStartContent.title }}</strong>
+            <strong>{{ t(selectedStartContent.title) }}</strong>
             <small>
-              {{ selectedStartContent.totalQuestions }} 题 ·
-              {{ formatDuration(selectedStartContent.durationSeconds) }} ·
-              {{ formatStartContentModules() }}
+              {{
+                t('{p0} 题 · {p1} · {p2}', {
+                  p0: t(selectedStartContent.totalQuestions),
+                  p1: t(formatDuration(selectedStartContent.durationSeconds)),
+                  p2: t(formatStartContentModules()),
+                })
+              }}
             </small>
           </div>
         </div>
         <p v-if="selectedStartModule && isSelectedModulePracticed" class="practice-warning">
-          你已练习过该 Module/Paper，本次仍将使用相同题目并创建新的独立答卷。
+          {{ t('你已练习过该 Module/Paper，本次仍将使用相同题目并创建新的独立答卷。') }}
         </p>
         <ul>
-          <li>本次会创建一场新的独立答卷，不覆盖其他未完成记录。</li>
+          <li>{{ t('本次会创建一场新的独立答卷，不覆盖其他未完成记录。') }}</li>
           <li v-if="selectedStartModule">
-            本次只进行一个 Module/Paper，结束后直接交卷并生成独立成绩。
+            {{ t('本次只进行一个 Module/Paper，结束后直接交卷并生成独立成绩。') }}
           </li>
-          <li v-else>模块结束后不能返回修改，交卷后生成成绩和诊断报告。</li>
-          <li>请使用电脑并预留完整考试时间。</li>
+          <li v-else>{{ t('模块结束后不能返回修改，交卷后生成成绩和诊断报告。') }}</li>
+          <li>{{ t('请使用电脑并预留完整考试时间。') }}</li>
         </ul>
         <label class="start-confirmation__check">
           <input v-model="rulesAccepted" type="checkbox" />
-          <span>我已阅读并了解以上规则</span>
+          <span>{{ t('我已阅读并了解以上规则') }}</span>
         </label>
       </div>
     </AppDialog>
 
     <AppDialog
       v-model="abandonDialogVisible"
-      title="放弃本次模考？"
+      :title="t('放弃本次模考？')"
       :icon="WarningFilled"
       icon-color="var(--color-warning)"
       confirm-type="danger"
-      :confirm-text="abandoning ? '正在放弃...' : '确认放弃'"
+      :confirm-text="t(abandoning ? '正在放弃...' : '确认放弃')"
       :loading="abandoning"
       @confirm="confirmAbandon"
       @closed="selectedAbandonRecord = null"
     >
-      <p>放弃后本次进度将永久删除且无法恢复，不会生成成绩、报告或错题记录。</p>
+      <p>{{ t('放弃后本次进度将永久删除且无法恢复，不会生成成绩、报告或错题记录。') }}</p>
     </AppDialog>
 
     <AnalysisMembershipDialog
@@ -872,9 +925,11 @@
       v-model="membershipAccessVisible"
       :exam-type="paymentExamType"
       :upgrade-message="
-        pendingMembershipTarget?.kind === 'module'
-          ? '当前单项需要会员权益，开通会员后即可开始单项模考。'
-          : '当前模拟卷需要会员权益，开通会员后即可开始模拟套卷。'
+        t(
+          pendingMembershipTarget?.kind === 'module'
+            ? '当前单项需要会员权益，开通会员后即可开始单项模考。'
+            : '当前模拟卷需要会员权益，开通会员后即可开始模拟套卷。',
+        )
       "
       @activated="handleDailyCardActivated"
       @upgrade="handleMembershipUpgrade"
@@ -891,6 +946,7 @@
 </template>
 
 <script setup lang="ts">
+import { i18n, t, translateInterfaceError } from '@/locales'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -1108,7 +1164,7 @@ const countdown = computed(() =>
 
 // 倒计时卡完整展示多日窗口，避免首日计算口径被理解为唯一考试日。
 const examWindowLabel = computed(() =>
-  countdown.value ? formatExamWindow(countdown.value.sitting) : '',
+  countdown.value ? formatExamWindow(countdown.value.sitting, i18n.global.locale.value) : '',
 )
 
 // 至少一条趋势包含有效成绩时才渲染折线图。
@@ -1238,7 +1294,7 @@ async function loadCatalog(): Promise<void> {
       if (data.list.some((paper) => paper.id === targetPaperId)) {
         locatedPaperId.value = targetPaperId
       } else {
-        ElMessage.info('该套卷已更新或暂不可用，请查看当前目录。')
+        ElMessage.info(t('该套卷已更新或暂不可用，请查看当前目录。'))
       }
     }
   } catch (error: unknown) {
@@ -1250,7 +1306,8 @@ async function loadCatalog(): Promise<void> {
     if (sequence === catalogLoadSequence) catalogLoading.value = false
   }
   await nextTick()
-  if (sequence !== catalogLoadSequence || activeTab.value !== 'catalog' || !locatedPaperId.value) return
+  if (sequence !== catalogLoadSequence || activeTab.value !== 'catalog' || !locatedPaperId.value)
+    return
   const target = document.getElementById(`mock-paper-${locatedPaperId.value}`)
   target?.focus({ preventScroll: true })
   target?.scrollIntoView({
@@ -1439,7 +1496,7 @@ async function loadRecords(): Promise<void> {
       if (data.list.some((record) => record.examRecordId === targetRecordId)) {
         locatedRecordId.value = targetRecordId
       } else {
-        ElMessage.info('这场记录的状态已更新，已展示当前未完成记录。')
+        ElMessage.info(t('这场记录的状态已更新，已展示当前未完成记录。'))
       }
     }
   } catch (error: unknown) {
@@ -1451,7 +1508,8 @@ async function loadRecords(): Promise<void> {
     if (sequence === recordsLoadSequence) recordsLoading.value = false
   }
   await nextTick()
-  if (sequence !== recordsLoadSequence || activeTab.value !== 'records' || !locatedRecordId.value) return
+  if (sequence !== recordsLoadSequence || activeTab.value !== 'records' || !locatedRecordId.value)
+    return
   const target = document.getElementById(`mock-record-${locatedRecordId.value}`)
   target?.focus({ preventScroll: true })
   target?.scrollIntoView({
@@ -1465,7 +1523,7 @@ function requireDesktopForExamAction(): boolean {
   const isMobileViewport =
     window.matchMedia('(max-width: 760px)').matches || window.screen.width <= 760
   if (!isMobileViewport) return false
-  ElMessage.info('正式模考仅支持电脑端，请使用电脑继续。')
+  ElMessage.info(t('正式模考仅支持电脑端，请使用电脑继续。'))
   return true
 }
 
@@ -1481,7 +1539,7 @@ async function handleStartPaper(paper: MockExamPaperItem): Promise<void> {
   if (requireDesktopForExamAction()) return
   if (requireLogin()) return
   if (paper.publicationStatus !== 'published') {
-    ElMessage.info('该模拟卷已下线，不能开始新的模考。')
+    ElMessage.info(t('该模拟卷已下线，不能开始新的模考。'))
     return
   }
   if (!(await refreshCachedExamMembership(paper.examType))) return
@@ -1506,7 +1564,7 @@ async function handleStartModule(module: MockExamModuleItem): Promise<void> {
   if (requireDesktopForExamAction()) return
   if (requireLogin()) return
   if (module.publicationStatus !== 'published') {
-    ElMessage.info('该单项已下线，不能开始新的模考。')
+    ElMessage.info(t('该单项已下线，不能开始新的模考。'))
     return
   }
   if (!(await refreshCachedExamMembership(module.examType))) return
@@ -1562,7 +1620,9 @@ async function confirmStartContent(): Promise<void> {
       openMembership(target.examType, { kind: module ? 'module' : 'paper', id: target.id })
       return
     }
-    ElMessage.error(getApiErrorMessage(error, '模考创建失败，请稍后重试。'))
+    ElMessage.error(
+      translateInterfaceError(getApiErrorMessage(error, '模考创建失败，请稍后重试。')),
+    )
   } finally {
     startingTargetId.value = ''
   }
@@ -1650,11 +1710,11 @@ async function handleDailyCardActivated(): Promise<void> {
   if (target.kind === 'module') {
     const module = modules.value.find((item) => item.id === target.id)
     if (!module) {
-      ElMessage.info('单项状态已更新，请重新选择。')
+      ElMessage.info(t('单项状态已更新，请重新选择。'))
       return
     }
     if (isModuleLocked(module)) {
-      ElMessage.error('会员权益尚未生效，请稍后重试。')
+      ElMessage.error(translateInterfaceError('会员权益尚未生效，请稍后重试。'))
       return
     }
     await handleStartModule(module)
@@ -1662,11 +1722,11 @@ async function handleDailyCardActivated(): Promise<void> {
   }
   const paper = papers.value.find((item) => item.id === target.id)
   if (!paper) {
-    ElMessage.info('试卷状态已更新，请重新选择。')
+    ElMessage.info(t('试卷状态已更新，请重新选择。'))
     return
   }
   if (isPaperLocked(paper)) {
-    ElMessage.error('会员权益尚未生效，请稍后重试。')
+    ElMessage.error(translateInterfaceError('会员权益尚未生效，请稍后重试。'))
     return
   }
   await handleStartPaper(paper)
@@ -1696,7 +1756,9 @@ async function handlePaymentSuccess(): Promise<void> {
     paymentVisible.value = false
     await handleDailyCardActivated()
   } catch (error: unknown) {
-    ElMessage.error(getApiErrorMessage(error, '会员状态刷新失败，请稍后重试。'))
+    ElMessage.error(
+      translateInterfaceError(getApiErrorMessage(error, '会员状态刷新失败，请稍后重试。')),
+    )
   }
 }
 
@@ -1718,7 +1780,9 @@ async function openRecordReport(record: MockExamRecordItem): Promise<void> {
     try {
       await retryDiagnosticReport(record.examRecordId)
     } catch (error: unknown) {
-      ElMessage.error(getApiErrorMessage(error, '重新分析失败，请稍后重试。'))
+      ElMessage.error(
+        translateInterfaceError(getApiErrorMessage(error, '重新分析失败，请稍后重试。')),
+      )
       return
     } finally {
       retryingReportId.value = ''
@@ -1809,10 +1873,10 @@ async function confirmAbandon(): Promise<void> {
   try {
     await abandonMockExam(record.examRecordId)
     abandonDialogVisible.value = false
-    ElMessage.success('本次未完成模考已放弃。')
+    ElMessage.success(t('本次未完成模考已放弃。'))
     await Promise.all([loadRecords(), loadCatalog(), loadModules(), loadOverview()])
   } catch (error: unknown) {
-    ElMessage.error(getApiErrorMessage(error, '放弃失败，请稍后重试。'))
+    ElMessage.error(translateInterfaceError(getApiErrorMessage(error, '放弃失败，请稍后重试。')))
   } finally {
     abandoning.value = false
   }
@@ -1853,10 +1917,10 @@ function formatStartContentModules(): string {
 // 后端统一返回秒，页面按完整分钟展示整卷时长。
 function formatDuration(seconds: number): string {
   const minutes = Math.max(0, Math.round(seconds / 60))
-  if (minutes < 60) return `${minutes} 分钟`
+  if (minutes < 60) return t('{p0} 分钟', { p0: minutes })
   const hours = Math.floor(minutes / 60)
   const rest = minutes % 60
-  return rest ? `${hours} 小时 ${rest} 分钟` : `${hours} 小时`
+  return rest ? t('{p0} 小时 {p1} 分钟', { p0: hours, p1: rest }) : t('{p0} 小时', { p0: hours })
 }
 
 // 成绩未知时用占位符，避免把未生成误显示为 0 分。
@@ -1877,12 +1941,12 @@ function formatAccuracy(accuracy: number | null): string {
   return `${accuracy.toFixed(accuracy % 1 === 0 ? 0 : 1)}%`
 }
 
-// 日期时间统一用中文本地格式，空值保持占位。
+// 日期时间跟随界面语言，使用原有本地时区，空值保持占位。
 function formatDateTime(value: string | null): string {
   if (!value) return '--'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '--'
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(i18n.global.locale.value === 'en' ? 'en-GB' : 'zh-CN', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -2376,6 +2440,7 @@ onMounted(async () => {
 
 .paper-card__progress {
   display: flex;
+  flex-wrap: wrap;
   gap: 18px;
   margin-top: 17px;
   padding-top: 13px;
@@ -2385,6 +2450,7 @@ onMounted(async () => {
 }
 
 .paper-card__progress strong {
+  margin-inline: 3px;
   color: inherit;
   font-weight: var(--weight-semi);
 }
@@ -2890,6 +2956,7 @@ onMounted(async () => {
 }
 
 .countdown-card__copy strong b {
+  margin-right: 4px;
   font-size: 24px;
   font-weight: var(--weight-bold);
 }

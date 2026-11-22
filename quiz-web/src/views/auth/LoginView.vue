@@ -1,6 +1,6 @@
 <!-- 登录及找回密码页面，封禁账号在验证身份后显示持久说明和客服入口。 -->
 <template>
-  <div class="auth-page">
+  <div class="auth-page" :class="{ 'auth-page--english': isEnglish }">
     <NavBar />
 
     <main class="auth-main">
@@ -9,10 +9,12 @@
         <aside class="auth-side">
           <div class="auth-eyebrow">
             <span class="auth-eyebrow-dot"></span>
-            <span>精准诊断，让备考的每一步都算数</span>
+            <span>{{ t('精准诊断，让备考的每一步都算数') }}</span>
           </div>
-          <h1 class="auth-headline">登录你的备考账户</h1>
-          <p class="auth-sub">登录后即可查看完整诊断报告、错题攻克进度和 14 天动态学习路径。</p>
+          <h1 class="auth-headline">{{ t('登录你的备考账户') }}</h1>
+          <p class="auth-sub">
+            {{ t('登录后即可查看完整诊断报告、错题攻克进度和 14 天动态学习路径。') }}
+          </p>
           <ul class="auth-features">
             <li v-for="f in features" :key="f">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -24,19 +26,19 @@
                   stroke-linejoin="round"
                 />
               </svg>
-              <span>{{ f }}</span>
+              <span>{{ t(f) }}</span>
             </li>
           </ul>
         </aside>
 
         <!-- 右侧表单卡片 -->
         <section class="auth-card">
-          <h2 class="auth-title">{{ isResetMode ? '重置密码' : '欢迎回来' }}</h2>
+          <h2 class="auth-title">{{ isResetMode ? t('重置密码') : t('欢迎回来') }}</h2>
           <p class="auth-subtitle">
             {{
               isResetMode
-                ? '验证注册邮箱并设置新密码，完成后将退出所有设备。'
-                : '使用你的账号继续备考旅程'
+                ? t('验证注册邮箱并设置新密码，完成后将退出所有设备。')
+                : t('使用你的账号继续备考旅程')
             }}
           </p>
 
@@ -50,41 +52,48 @@
             @submit.prevent="handleSubmit"
           >
             <AccountRestrictionNotice v-if="accountRestricted" class="login-restriction" />
-            <el-form-item label="用户名或邮箱" prop="username">
+            <el-form-item :label="t('用户名或邮箱')" prop="username">
               <el-input
                 v-model="form.username"
-                placeholder="请输入用户名或邮箱"
+                :placeholder="t('请输入用户名或邮箱')"
                 autocomplete="username"
               />
             </el-form-item>
 
-            <el-form-item label="密码" prop="password">
+            <el-form-item :label="t('密码')" prop="password">
               <el-input
                 v-model="form.password"
                 type="password"
-                placeholder="请输入密码"
+                :placeholder="t('请输入密码')"
                 autocomplete="current-password"
                 show-password
               />
               <div class="auth-form-extra">
-                <a class="auth-link auth-link-muted" @click.prevent="handleForgotPassword"
-                  >忘记密码？</a
-                >
+                <a class="auth-link auth-link-muted" @click.prevent="handleForgotPassword">{{
+                  t('忘记密码？')
+                }}</a>
               </div>
             </el-form-item>
 
             <el-form-item prop="legalAccepted" class="auth-legal-row">
               <div class="auth-legal-notice">
-                <el-checkbox v-model="form.legalAccepted" aria-label="同意用户服务协议和隐私政策" />
+                <el-checkbox
+                  v-model="form.legalAccepted"
+                  :aria-label="t('同意用户服务协议和隐私政策')"
+                />
                 <span class="auth-legal-copy">
-                  我已阅读并同意
-                  <router-link to="/legal/user-agreement" target="_blank" rel="noopener noreferrer"
-                    >《用户服务协议》</router-link
-                  >和<router-link
+                  {{ t('我已阅读并同意') }}
+                  <router-link
+                    to="/legal/user-agreement"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >{{ t('《用户服务协议》') }}</router-link
+                  >{{ isEnglish ? ` ${t('和')} ` : t('和')
+                  }}<router-link
                     to="/legal/privacy-policy"
                     target="_blank"
                     rel="noopener noreferrer"
-                    >《隐私政策》</router-link
+                    >{{ t('《隐私政策》') }}</router-link
                   >
                 </span>
               </div>
@@ -97,7 +106,7 @@
                 :loading="auth.loading"
                 native-type="submit"
               >
-                {{ auth.loading ? '登录中...' : '登录' }}
+                {{ auth.loading ? t('登录中...') : t('登录') }}
               </el-button>
             </el-form-item>
           </el-form>
@@ -111,7 +120,7 @@
             label-position="top"
             @submit.prevent="handleReset"
           >
-            <el-form-item label="电子邮箱" prop="email">
+            <el-form-item :label="t('电子邮箱')" prop="email">
               <el-input
                 v-model="resetForm.email"
                 autocomplete="email"
@@ -120,14 +129,14 @@
               />
             </el-form-item>
 
-            <el-form-item label="邮箱验证码" prop="emailCode">
+            <el-form-item :label="t('邮箱验证码')" prop="emailCode">
               <div class="auth-verification-row">
                 <el-input
                   v-model="resetForm.emailCode"
                   maxlength="6"
                   inputmode="numeric"
                   pattern="[0-9]*"
-                  placeholder="六位验证码"
+                  :placeholder="t('六位验证码')"
                   @input="handleEmailCodeInput"
                 />
                 <el-button
@@ -135,29 +144,29 @@
                   :disabled="codeSending || countdown > 0"
                   @click="handleSendCode"
                 >
-                  {{ countdown > 0 ? `${countdown}秒后重发` : '获取验证码' }}
+                  {{ countdown > 0 ? t('{p0}秒后重发', { p0: countdown }) : t('获取验证码') }}
                 </el-button>
               </div>
             </el-form-item>
 
-            <el-form-item label="新密码" prop="password">
+            <el-form-item :label="t('新密码')" prop="password">
               <el-input
                 v-model="resetForm.password"
                 type="password"
                 autocomplete="new-password"
                 maxlength="12"
-                placeholder="8-12位，包含英文和数字，可使用 !@#$%"
+                :placeholder="t('8-12位，包含英文和数字，可使用 !@#$%')"
                 show-password
               />
             </el-form-item>
 
-            <el-form-item label="确认新密码" prop="confirmPassword">
+            <el-form-item :label="t('确认新密码')" prop="confirmPassword">
               <el-input
                 v-model="resetForm.confirmPassword"
                 type="password"
                 autocomplete="new-password"
                 maxlength="12"
-                placeholder="再次输入新密码"
+                :placeholder="t('再次输入新密码')"
                 show-password
               />
             </el-form-item>
@@ -167,18 +176,18 @@
               native-type="submit"
               :loading="resetSubmitting"
             >
-              {{ resetSubmitting ? '提交中...' : '重置密码' }}
+              {{ resetSubmitting ? t('提交中...') : t('重置密码') }}
             </el-button>
           </el-form>
 
           <p v-if="!isResetMode" class="auth-footer">
-            还没有账号？
-            <router-link :to="registerLocation" class="auth-link">立即注册</router-link>
+            {{ t('还没有账号？') }}
+            <router-link :to="registerLocation" class="auth-link">{{ t('立即注册') }}</router-link>
           </p>
           <p v-else class="auth-footer auth-reset-footer">
             <a class="auth-link auth-back-link" @click.prevent="showLoginMode">
               <span aria-hidden="true">←</span>
-              返回登录
+              {{ t('返回登录') }}
             </a>
           </p>
         </section>
@@ -188,6 +197,7 @@
 </template>
 
 <script setup lang="ts">
+import { t, useSiteLocale } from '@/locales'
 // 登录页：承载登录和密码重置模块，认证后返回用户原先访问的受保护页面。
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -217,6 +227,7 @@ import {
   validatePasswordRequired,
 } from '@/utils/validation'
 
+const { isEnglish, homePath } = useSiteLocale()
 const router = useRouter()
 const accountRestricted = ref(false)
 const route = useRoute()
@@ -225,6 +236,16 @@ const invitationBenefit = useInvitationBenefitStore()
 const formRef = ref<FormInstance>()
 const resetFormRef = ref<FormInstance>()
 const isResetMode = ref(false)
+
+// 切换语言时只重算已显示的校验错误，保留输入值、重置模式与验证码倒计时。
+watch(isEnglish, () => {
+  for (const instance of [formRef.value, resetFormRef.value]) {
+    const fields = instance?.fields
+      .filter((field) => field.validateState === 'error')
+      .map((field) => field.propString)
+    if (fields?.length) void instance?.validateField(fields).catch(() => {})
+  }
+})
 
 // 登录页内继续点击其他受保护模块时，目标参数变化也要重新说明本次登录用途。
 watch(
@@ -262,10 +283,13 @@ const features = [
   '14 天动态学习路径持续更新',
 ]
 
-// 从登录页查询参数恢复受保护目标，并过滤非站内地址。
+// 仅消费一次兜底目标，语言切换不会丢失原访问位置。
+const rememberedRedirect = consumeRememberedAuthRedirect()
+// 从登录页查询参数恢复受保护目标，无指定目标时返回当前语言首页。
 const redirectAfterAuth = computed(() => {
   const queryRedirect = getSafeAuthRedirect(route.query.redirect)
-  return queryRedirect === '/' ? consumeRememberedAuthRedirect() : queryRedirect
+  if (queryRedirect !== '/') return queryRedirect
+  return rememberedRedirect !== '/' ? rememberedRedirect : homePath.value
 })
 
 // 用户改走注册流程时继续保留最初访问的目标页面。
@@ -282,7 +306,7 @@ const rules: FormRules = {
         if (result.valid) {
           callback()
         } else {
-          callback(new Error(result.message))
+          callback(new Error(t(result.message)))
         }
       },
       trigger: 'blur',
@@ -295,7 +319,7 @@ const rules: FormRules = {
         if (result.valid) {
           callback()
         } else {
-          callback(new Error(result.message))
+          callback(new Error(t(result.message)))
         }
       },
       trigger: 'blur',
@@ -305,7 +329,7 @@ const rules: FormRules = {
     {
       validator: (_rule, value: boolean, callback) => {
         if (value) callback()
-        else callback(new Error('请勾选并同意《用户服务协议》和《隐私政策》'))
+        else callback(new Error(t('请勾选并同意《用户服务协议》和《隐私政策》')))
       },
       trigger: 'change',
     },
@@ -319,7 +343,7 @@ const resetRules: FormRules = {
       validator: (_rule, value: string, callback) => {
         const result = validateEmail(value)
         if (result.valid) callback()
-        else callback(new Error(result.message))
+        else callback(new Error(t(result.message)))
       },
       trigger: 'blur',
     },
@@ -328,9 +352,9 @@ const resetRules: FormRules = {
     {
       validator: (_rule, value: string, callback) => {
         if (!EMAIL_CODE_PATTERN.test(value)) {
-          callback(new Error('请输入六位数字验证码'))
+          callback(new Error(t('请输入六位数字验证码')))
         } else if (!challengeId.value) {
-          callback(new Error('请先获取邮箱验证码'))
+          callback(new Error(t('请先获取邮箱验证码')))
         } else {
           callback()
         }
@@ -343,7 +367,7 @@ const resetRules: FormRules = {
       validator: (_rule, value: string, callback) => {
         const result = validatePassword(value)
         if (result.valid) callback()
-        else callback(new Error(result.message))
+        else callback(new Error(t(result.message)))
       },
       trigger: 'blur',
     },
@@ -353,7 +377,7 @@ const resetRules: FormRules = {
       validator: (_rule, value: string, callback) => {
         const result = validateConfirmPassword(resetForm.password, value)
         if (result.valid) callback()
-        else callback(new Error(result.message))
+        else callback(new Error(t(result.message)))
       },
       trigger: 'blur',
     },
@@ -433,7 +457,7 @@ async function handleSendCode(): Promise<void> {
     challengeId.value = data.challengeId
     resetFormRef.value?.clearValidate('emailCode')
     startCountdown(data.resendAfter)
-    ElMessage.success('如果该邮箱已注册，验证码邮件会很快送达')
+    ElMessage.success(t('如果该邮箱已注册，验证码邮件会很快送达'))
   } catch {
     // Axios 公共响应处理会展示后端 errMsg。
   } finally {
@@ -465,7 +489,7 @@ async function handleReset(): Promise<void> {
   resetSubmitting.value = true
   try {
     await resetPassword({ ...resetForm, challengeId: challengeId.value })
-    ElMessage.success('密码已重置，请使用新密码登录')
+    ElMessage.success(t('密码已重置，请使用新密码登录'))
     clearResetState()
     isResetMode.value = false
   } catch {
@@ -489,7 +513,60 @@ onBeforeUnmount(stopCountdown)
 <style src="./auth-page.css"></style>
 
 <style scoped>
+/* 收紧登录卡片留白，保留输入框与按钮的 48px 操作高度。 */
+.auth-main {
+  padding-block: 24px;
+}
+
+.auth-card {
+  padding-block: 28px;
+}
+
+.auth-subtitle {
+  margin-bottom: 20px;
+}
+
+.auth-form :deep(.el-form-item) {
+  margin-bottom: 18px;
+}
+
+.auth-form :deep(.el-form-item__label) {
+  margin-bottom: 6px;
+  padding-bottom: 0;
+}
+
+.auth-form :deep(.el-form-item:last-child) {
+  margin-bottom: 0;
+}
+
+.auth-footer {
+  margin: 20px 0 0;
+}
+
+/* 英文校验和协议允许自然换行，不覆盖下一项输入框。 */
+.auth-form :deep(.el-form-item__error) {
+  position: static;
+  width: 100%;
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.auth-page--english .auth-legal-copy a {
+  margin-inline: 3px;
+}
+
+.auth-page--english .auth-headline {
+  font-size: clamp(32px, 3.3vw, 44px);
+  line-height: 1.15;
+}
+
 .login-restriction {
-  margin-bottom: 24px;
+  margin-bottom: 18px;
+}
+
+@media (min-width: 861px) {
+  .auth-card {
+    padding-block: 32px;
+  }
 }
 </style>

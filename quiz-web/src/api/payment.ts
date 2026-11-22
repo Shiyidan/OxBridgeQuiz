@@ -3,6 +3,11 @@ import type { AnnualPlan, AnnualPricing } from '@/constants/annualMembership'
 import { callApi } from '@/utils/request'
 import type { MembershipLegalVersions } from '@/constants/legal'
 
+// 支付弹窗可自行显示本地化错误；其他调用方默认沿用公共错误提示。
+interface PaymentRequestOptions {
+  silent?: boolean
+}
+
 export interface PaymentConfig {
   annualPricing: AnnualPricing
   monthlyPriceCents: number
@@ -18,7 +23,14 @@ export interface PaymentOrder {
   orderNo: string
   examTypes: string[]
   plan: AnnualPlan | 'monthly' | 'quarterly' | 'yearly' | 'daily_gift' | 'weekly_reward'
-  priceType: AnnualPlan | 'monthly' | 'quarterly' | 'yearly' | 'first_monthly' | 'admin_gift' | 'invitation_reward'
+  priceType:
+    | AnnualPlan
+    | 'monthly'
+    | 'quarterly'
+    | 'yearly'
+    | 'first_monthly'
+    | 'admin_gift'
+    | 'invitation_reward'
   amountCents: number
   refundedAmountCents: number
   currency: string
@@ -65,46 +77,54 @@ export interface BillingOverview {
 }
 
 /** 获取支付弹窗使用的最新价格策略。 */
-export function getPaymentConfig() {
+export function getPaymentConfig(options: PaymentRequestOptions = {}) {
   return callApi<PaymentConfig>({
     url: '/payment/config',
+    silent: options.silent,
     method: 'GET',
   })
 }
 
 /** 创建支付订单并由后端向银联商务换取一次性聚合支付二维码。 */
-export function createPaymentOrder(payload: {
-  examTypes: string[]
-  plan: AnnualPlan
-  legalVersions: MembershipLegalVersions
-}) {
+export function createPaymentOrder(
+  payload: {
+    examTypes: string[]
+    plan: AnnualPlan
+    legalVersions: MembershipLegalVersions
+  },
+  options: PaymentRequestOptions = {},
+) {
   return callApi<CreatePaymentOrderResult>({
     url: '/payment/orders',
+    silent: options.silent,
     method: 'POST',
     body: payload,
   })
 }
 
 /** 主动查询银联商务支付状态，作为异步通知之外的前台轮询兜底。 */
-export function queryPaymentOrder(orderNo: string) {
+export function queryPaymentOrder(orderNo: string, options: PaymentRequestOptions = {}) {
   return callApi<PaymentOrder>({
     url: `/payment/orders/${encodeURIComponent(orderNo)}/query`,
+    silent: options.silent,
     method: 'POST',
   })
 }
 
 /** 恢复仍在有效期内的待支付订单及原支付二维码。 */
-export function resumePaymentOrder(orderNo: string) {
+export function resumePaymentOrder(orderNo: string, options: PaymentRequestOptions = {}) {
   return callApi<CreatePaymentOrderResult>({
     url: `/payment/orders/${encodeURIComponent(orderNo)}/resume`,
+    silent: options.silent,
     method: 'POST',
   })
 }
 
 /** 用户取消支付时关闭尚未使用的一次性二维码。 */
-export function closePaymentOrder(orderNo: string) {
+export function closePaymentOrder(orderNo: string, options: PaymentRequestOptions = {}) {
   return callApi<PaymentOrder>({
     url: `/payment/orders/${encodeURIComponent(orderNo)}/close`,
+    silent: options.silent,
     method: 'POST',
   })
 }

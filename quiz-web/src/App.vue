@@ -2,11 +2,18 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
 import InvitationBenefitDialog from '@/components/InvitationBenefitDialog.vue'
+import en from 'element-plus/es/locale/lang/en'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import { useSiteLocale } from '@/locales'
+
+const { isEnglish } = useSiteLocale()
 </script>
 
 <template>
-  <RouterView />
-  <InvitationBenefitDialog />
+  <el-config-provider :locale="isEnglish ? en : zhCn">
+    <RouterView />
+    <InvitationBenefitDialog />
+  </el-config-provider>
 </template>
 
 <style>

@@ -1,42 +1,54 @@
 <!-- 我的收藏：按分类浏览题目，支持单题归类、批量整理及保留筛选的详情往返。 -->
 <template>
-  <section class="favorites-panel" aria-label="我的收藏">
+  <section class="favorites-panel" :aria-label="t('我的收藏')">
     <form
       class="notebook-filter-bar favorite-filters"
-      aria-label="收藏筛选"
+      :aria-label="t('收藏筛选')"
       @submit.prevent="search"
     >
       <label class="filter-field">
-        <span class="filter-field__label">科目</span>
-        <el-select v-model="draft.subjectCode" clearable placeholder="全部科目">
+        <span class="filter-field__label">{{ t('科目') }}</span>
+        <el-select v-model="draft.subjectCode" clearable :placeholder="t('全部科目')">
           <el-option
             v-for="subject in summary?.subjects || []"
             :key="subject.subjectCode"
             :value="subject.subjectCode"
-            :label="subject.subject || subject.subjectCode"
+            :label="t(subject.subject || subject.subjectCode)"
           />
         </el-select>
       </label>
       <label class="filter-field">
-        <span class="filter-field__label">难度</span>
-        <el-select v-model="draft.difficulty" clearable placeholder="全部难度">
-          <el-option label="低" value="easy" /><el-option label="中" value="medium" /><el-option
-            label="高"
-            value="hard"
-          />
+        <span class="filter-field__label">{{ t('难度') }}</span>
+        <el-select v-model="draft.difficulty" clearable :placeholder="t('全部难度')">
+          <el-option :label="t('低')" value="easy" /><el-option
+            :label="t('中')"
+            value="medium"
+          /><el-option :label="t('高')" value="hard" />
         </el-select>
       </label>
       <label class="filter-field">
-        <span class="filter-field__label">知识点</span>
-        <el-input v-model="draft.knowledge" clearable maxlength="100" placeholder="输入知识点" />
+        <span class="filter-field__label">{{ t('知识点') }}</span>
+        <el-input
+          v-model="draft.knowledge"
+          clearable
+          maxlength="100"
+          :placeholder="t('输入知识点')"
+        />
       </label>
       <label class="filter-field">
-        <span class="filter-field__label">题目搜索</span>
-        <el-input v-model="draft.keyword" clearable maxlength="100" placeholder="输入题干关键词" />
+        <span class="filter-field__label">{{ t('题目搜索') }}</span>
+        <el-input
+          v-model="draft.keyword"
+          clearable
+          maxlength="100"
+          :placeholder="t('输入题干关键词')"
+        />
       </label>
       <div class="filter-actions">
-        <AppButton native-type="submit" size="small" :loading="loading">搜索</AppButton>
-        <AppButton type="secondary" size="small" :disabled="loading" @click="reset">重置</AppButton>
+        <AppButton native-type="submit" size="small" :loading="loading">{{ t('搜索') }}</AppButton>
+        <AppButton type="secondary" size="small" :disabled="loading" @click="reset">{{
+          t('重置')
+        }}</AppButton>
       </div>
     </form>
     <div class="favorites-toolbar">
@@ -46,20 +58,20 @@
           size="small"
           :disabled="loading || (!items.length && !batchMode)"
           @click="toggleBatch"
-          >{{ batchMode ? '完成管理' : '批量管理' }}</AppButton
+          >{{ t(batchMode ? '完成管理' : '批量管理') }}</AppButton
         >
       </div>
       <div class="category-bar">
-        <div class="category-tabs" role="group" aria-label="收藏分类">
+        <div class="category-tabs" role="group" :aria-label="t('收藏分类')">
           <button type="button" :class="{ active: !query.categoryId }" @click="selectCategory('')">
-            全部收藏 <span>{{ summary?.total ?? '—' }}</span>
+            {{ t('全部收藏') }}<span>{{ t(summary?.total ?? '—') }}</span>
           </button>
           <button
             type="button"
             :class="{ active: query.categoryId === 'unclassified' }"
             @click="selectCategory('unclassified')"
           >
-            未分类 <span>{{ summary?.unclassified ?? '—' }}</span>
+            {{ t('未分类') }}<span>{{ t(summary?.unclassified ?? '—') }}</span>
           </button>
           <button
             type="button"
@@ -68,11 +80,11 @@
             :class="{ active: query.categoryId === category.id }"
             @click="selectCategory(category.id)"
           >
-            {{ category.name }} <span>{{ category.count }}</span>
+            {{ category.name }} <span>{{ t(category.count) }}</span>
           </button>
           <el-dropdown v-if="extraCategories.length" @command="selectCategory">
             <AppButton type="text" size="small"
-              >更多分类 <el-icon><ArrowDown /></el-icon
+              >{{ t('更多分类') }}<el-icon><ArrowDown /></el-icon
             ></AppButton>
             <template #dropdown
               ><el-dropdown-menu
@@ -80,15 +92,15 @@
                   v-for="category in extraCategories"
                   :key="category.id"
                   :command="category.id"
-                  >{{ category.name }} · {{ category.count }}</el-dropdown-item
+                  >{{ category.name }} · {{ t(category.count) }}</el-dropdown-item
                 ></el-dropdown-menu
               ></template
             >
           </el-dropdown>
         </div>
-        <AppButton type="text" size="small" :icon="FolderOpened" @click="managerOpen = true"
-          >管理分类</AppButton
-        >
+        <AppButton type="text" size="small" :icon="FolderOpened" @click="managerOpen = true">{{
+          t('管理分类')
+        }}</AppButton>
       </div>
     </div>
     <div v-if="batchMode" class="batch-toolbar">
@@ -97,16 +109,16 @@
         :indeterminate="selected.length > 0 && !allSelected"
         :disabled="working"
         @change="selectPage"
-        >选择本页</el-checkbox
+        >{{ t('选择本页') }}</el-checkbox
       >
-      <span>已选 {{ selected.length }} 题</span>
+      <span>{{ t('已选 {p0} 题', { p0: t(selected.length) }) }}</span>
       <el-select
         :model-value="undefined"
-        placeholder="移动到分类"
+        :placeholder="t('移动到分类')"
         :disabled="!selected.length || working"
         @change="moveSelected"
       >
-        <el-option label="未分类" value="unclassified" /><el-option
+        <el-option :label="t('未分类')" value="unclassified" /><el-option
           v-for="category in categories"
           :key="category.id"
           :label="category.name"
@@ -118,22 +130,24 @@
         size="small"
         :disabled="!selected.length || working"
         @click="removeOpen = true"
-        >取消收藏</AppButton
+        >{{ t('取消收藏') }}</AppButton
       >
     </div>
     <div v-if="error" class="favorite-state" role="alert">
-      <p>{{ error }}</p>
-      <AppButton type="secondary" size="small" @click="load">重新加载</AppButton>
+      <p>{{ translateInterfaceError(error) }}</p>
+      <AppButton type="secondary" size="small" @click="load">{{ t('重新加载') }}</AppButton>
     </div>
-    <div v-else-if="loading && !items.length" class="favorite-state">正在加载收藏…</div>
+    <div v-else-if="loading && !items.length" class="favorite-state">{{ t('正在加载收藏…') }}</div>
     <div v-else-if="!items.length" class="favorite-state">
       <el-icon class="empty-star"><Star /></el-icon>
-      <h3>{{ hasFilters ? '暂无匹配的收藏' : '把值得再看的题目留在这里' }}</h3>
+      <h3>{{ t(hasFilters ? '暂无匹配的收藏' : '把值得再看的题目留在这里') }}</h3>
       <p>
         {{
-          hasFilters
-            ? '试试其他分类或筛选条件。'
-            : '答题或查看解析时，点击题号旁的星标，即可随时回来复习。'
+          t(
+            hasFilters
+              ? '试试其他分类或筛选条件。'
+              : '答题或查看解析时，点击题号旁的星标，即可随时回来复习。',
+          )
         }}
       </p>
     </div>
@@ -143,7 +157,7 @@
           v-if="batchMode"
           :model-value="selected.includes(item.questionId)"
           :disabled="working"
-          :aria-label="`选择题目：${item.question.title}`"
+          :aria-label="t('选择题目：{p0}', { p0: item.question.title })"
           @change="selectItem(item.questionId, Boolean($event))"
         />
         <div class="favorite-item__body">
@@ -152,29 +166,31 @@
             <h3><LatexText :text="item.question.title" /></h3>
           </div>
           <div class="favorite-item__meta">
-            <span v-if="item.question.subject">{{ item.question.subject }}</span>
+            <span v-if="item.question.subject">{{ t(item.question.subject) }}</span>
             <QuestionDifficultyTag :difficulty="item.question.difficulty" />
-            <span v-if="item.question.topic">知识点：{{ item.question.topic }}</span>
-            <span>收藏于 {{ formatDate(item.createdAt) }}</span>
+            <span v-if="item.question.topic">{{
+              t('知识点：{p0}', { p0: item.question.topic })
+            }}</span>
+            <span>{{ t('收藏于 {p0}', { p0: t(formatDate(item.createdAt)) }) }}</span>
           </div>
         </div>
         <div class="favorite-item__actions">
           <el-select
             :model-value="item.categoryId || 'unclassified'"
             :disabled="working || store.busy[item.questionId]"
-            aria-label="题目分类"
+            :aria-label="t('题目分类')"
             @change="moveOne(item.questionId, $event)"
           >
-            <el-option label="未分类" value="unclassified" /><el-option
+            <el-option :label="t('未分类')" value="unclassified" /><el-option
               v-for="category in categories"
               :key="category.id"
               :label="category.name"
               :value="category.id"
             />
             <template #footer
-              ><AppButton type="text" size="small" @click="managerOpen = true"
-                >＋ 新建分类</AppButton
-              ></template
+              ><AppButton type="text" size="small" @click="managerOpen = true">{{
+                t('＋ 新建分类')
+              }}</AppButton></template
             >
           </el-select>
           <AppButton
@@ -182,7 +198,7 @@
             size="small"
             :disabled="reviewChecking"
             @click="viewQuestion(item.questionId)"
-            >查看题目</AppButton
+            >{{ t('查看题目') }}</AppButton
           >
         </div>
       </article>
@@ -202,17 +218,19 @@
     <FavoriteCategoryManager v-model="managerOpen" :exam-type="examType" :categories="categories" />
     <AppDialog
       v-model="removeOpen"
-      title="取消收藏"
-      confirm-text="取消收藏"
+      :title="t('取消收藏')"
+      :confirm-text="t('取消收藏')"
       confirm-type="danger"
       :loading="working"
       @confirm="removeSelected"
+      >{{
+        t('确定取消所选 {p0} 道题目的收藏？作答记录和错题历史会保留。', { p0: t(selected.length) })
+      }}</AppDialog
     >
-      确定取消所选 {{ selected.length }} 道题目的收藏？作答记录和错题历史会保留。
-    </AppDialog>
   </section>
 </template>
 <script setup lang="ts">
+import { i18n, t, translateInterfaceError } from '@/locales'
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowDown, FolderOpened, Star } from '@element-plus/icons-vue'
@@ -470,7 +488,7 @@ async function resumeQuestion() {
 }
 // 收藏日期按用户本地时区显示。
 function formatDate(value: string) {
-  return new Date(value).toLocaleDateString('zh-CN')
+  return new Date(value).toLocaleDateString(i18n.global.locale.value === 'en' ? 'en-GB' : 'zh-CN')
 }
 watch(
   () => [props.active, props.examType] as const,

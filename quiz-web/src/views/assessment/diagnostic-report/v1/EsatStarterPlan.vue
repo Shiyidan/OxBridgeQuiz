@@ -3,16 +3,18 @@
   <section class="starter-plan" aria-labelledby="starter-plan-heading">
     <header class="starter-plan__summary">
       <div>
-        <p id="starter-plan-heading">本周执行路径</p>
-        <strong>{{ plan.totalPlannedMinutes }} 分钟，分配到 7 个不同学习环节</strong>
+        <p id="starter-plan-heading">{{ t('本周执行路径') }}</p>
+        <strong>{{
+          t('{p0} 分钟，分配到 7 个不同学习环节', { p0: t(plan.totalPlannedMinutes) })
+        }}</strong>
       </div>
       <div class="starter-plan__meta">
-        <span>{{ budgetSourceLabel }}</span>
-        <span>{{ sourceLabel }}</span>
+        <span>{{ t(budgetSourceLabel) }}</span>
+        <span>{{ t(sourceLabel) }}</span>
       </div>
     </header>
 
-    <p class="starter-plan__boundary">{{ plan.evidenceBoundary }}</p>
+    <p class="starter-plan__boundary">{{ t(plan.evidenceBoundary) }}</p>
 
     <div class="starter-plan__days">
       <details
@@ -23,13 +25,17 @@
         :open="day.day === 1"
       >
         <summary>
-          <span class="starter-day__number">{{ day.day }}</span>
+          <span class="starter-day__number">{{ t(day.day) }}</span>
           <span class="starter-day__heading">
-            <small>第 {{ day.day }} 天 · {{ roleLabel(day.role) }}</small>
-            <strong>{{ day.title }}</strong>
-            <span class="starter-day__focus">{{ focusLabel(day) }}</span>
+            <small>{{
+              t('第 {p0} 天 · {p1}', { p0: t(day.day), p1: t(roleLabel(day.role)) })
+            }}</small>
+            <strong>{{ t(day.title) }}</strong>
+            <span class="starter-day__focus">{{ t(focusLabel(day)) }}</span>
           </span>
-          <span class="starter-day__duration">{{ day.durationMinutes }} 分钟</span>
+          <span class="starter-day__duration">{{
+            t('{p0} 分钟', { p0: t(day.durationMinutes) })
+          }}</span>
           <svg class="starter-day__chevron" viewBox="0 0 24 24" aria-hidden="true">
             <path d="m8 10 4 4 4-4"></path>
           </svg>
@@ -37,32 +43,32 @@
 
         <div class="starter-day__content">
           <div class="starter-day__rationale">
-            <span>为什么今天做</span>
-            <p>{{ day.diagnosticRationale }}</p>
+            <span>{{ t('为什么今天做') }}</span>
+            <p>{{ t(day.diagnosticRationale) }}</p>
           </div>
 
           <ol class="starter-day__steps">
             <li v-for="(step, index) in day.steps" :key="`${day.day}:${index}`">
-              <span>{{ index + 1 }}</span>
+              <span>{{ t(index + 1) }}</span>
               <div>
-                <p>{{ step.action }}</p>
-                <small>留下：{{ step.output }}</small>
+                <p>{{ t(step.action) }}</p>
+                <small>{{ t('留下：{p0}', { p0: t(step.output) }) }}</small>
               </div>
             </li>
           </ol>
 
           <dl class="starter-day__outcomes">
             <div>
-              <dt>当天产出</dt>
-              <dd>{{ day.deliverable }}</dd>
+              <dt>{{ t('当天产出') }}</dt>
+              <dd>{{ t(day.deliverable) }}</dd>
             </div>
             <div>
-              <dt>完成标准</dt>
-              <dd>{{ day.successCriteria }}</dd>
+              <dt>{{ t('完成标准') }}</dt>
+              <dd>{{ t(day.successCriteria) }}</dd>
             </div>
             <div>
-              <dt>未达标时</dt>
-              <dd>{{ day.ifNotMet }}</dd>
+              <dt>{{ t('未达标时') }}</dt>
+              <dd>{{ t(day.ifNotMet) }}</dd>
             </div>
           </dl>
         </div>
@@ -72,6 +78,8 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '@/locales'
+
 import { computed } from 'vue'
 import type {
   DiagnosticStarterPlan,

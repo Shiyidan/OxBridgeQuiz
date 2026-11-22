@@ -5,11 +5,11 @@
       <div class="section-title">
         <span aria-hidden="true">◎</span>
         <div>
-          <h2>等效评估分</h2>
-          <p>{{ module.label }} · ESAT 各模块独立评分，不计算总分</p>
+          <h2>{{ t('等效评估分') }}</h2>
+          <p>{{ t('{p0} · ESAT 各模块独立评分，不计算总分', { p0: t(module.label) }) }}</p>
         </div>
       </div>
-      <div class="module-tabs" role="tablist" aria-label="ESAT 等效评估分科目模块">
+      <div class="module-tabs" role="tablist" :aria-label="t('ESAT 等效评估分科目模块')">
         <button
           v-for="item in modules"
           :key="item.id"
@@ -19,30 +19,33 @@
           :class="{ 'module-tab--active': activeModuleId === item.id }"
           @click="selectModule(item.id)"
         >
-          {{ item.label }}
+          {{ t(item.label) }}
         </button>
       </div>
     </div>
 
     <article class="assessment-card">
       <div class="module-identity">
-        <span>当前模块</span>
-        <strong>{{ module.label }}</strong>
-        <small>{{ module.correct }}/{{ module.total }} 题正确</small>
+        <span>{{ t('当前模块') }}</span>
+        <strong>{{ t(module.label) }}</strong>
+        <small>{{ t('{p0}/{p1} 题正确', { p0: t(module.correct), p1: t(module.total) }) }}</small>
       </div>
 
       <div class="score-hero">
         <div class="score-heading">
           <div>
-            <span>模块等效评估分</span>
+            <span>{{ t('模块等效评估分') }}</span>
             <el-tooltip placement="top" effect="light" :show-after="150">
               <template #content>
                 <div class="calculation-tooltip">
-                  当前模块先计算原始正确率；题量不是标准27题时，按正确率归一为/27等效原始分，
-                  再通过ESAT模块参考换算曲线得到1.0–9.0评估分。
+                  {{
+                    t(
+                      '当前模块先计算原始正确率；题量不是标准27题时，按正确率归一为/27等效原始分， 再通过ESAT模块参考换算曲线得到1.0–9.0评估分。',
+                    )
+                  }}
                 </div>
               </template>
-              <button type="button" class="info-trigger" aria-label="查看等效评估分计算方式">
+              <button type="button" class="info-trigger" :aria-label="t('查看等效评估分计算方式')">
                 <svg viewBox="0 0 20 20" aria-hidden="true">
                   <circle cx="10" cy="10" r="8"></circle>
                   <path d="M10 9v5"></path>
@@ -55,22 +58,25 @@
 
         <div class="score-overview">
           <div class="score-primary">
-            <span>当前点估分</span>
+            <span>{{ t('当前点估分') }}</span>
             <div v-if="module.score !== null" class="score-value">
-              <strong>{{ module.score.toFixed(1) }}</strong>
-              <em>{{ module.scaleLabel }}</em>
+              <strong>{{ t(module.score.toFixed(1)) }}</strong>
+              <em>{{ t(module.scaleLabel) }}</em>
             </div>
-            <div v-else class="score-unavailable">暂无可靠换算结果</div>
+            <div v-else class="score-unavailable">{{ t('暂无可靠换算结果') }}</div>
             <div v-if="module.scoreRange" class="score-reference-line">
-              <span>估分参考区间（80%）</span>
+              <span>{{ t('估分参考区间（80%）') }}</span>
               <el-tooltip placement="top" effect="light" :show-after="150">
                 <template #content>
                   <div class="calculation-tooltip">
-                    使用Wilson 80%正确率区间表达小样本不确定性，再映射到ESAT评估分。
-                    这不是官方成绩区间；题量越少，范围通常越宽。
+                    {{
+                      t(
+                        '使用Wilson 80%正确率区间表达小样本不确定性，再映射到ESAT评估分。 这不是官方成绩区间；题量越少，范围通常越宽。',
+                      )
+                    }}
                   </div>
                 </template>
-                <button type="button" class="info-trigger" aria-label="查看估分参考区间说明">
+                <button type="button" class="info-trigger" :aria-label="t('查看估分参考区间说明')">
                   <svg viewBox="0 0 20 20" aria-hidden="true">
                     <circle cx="10" cy="10" r="8"></circle>
                     <path d="M10 9v5"></path>
@@ -79,13 +85,13 @@
                 </button>
               </el-tooltip>
               <strong>
-                {{ module.scoreRange[0].toFixed(1) }}
+                {{ t(module.scoreRange[0].toFixed(1)) }}
                 <i>—</i>
-                {{ module.scoreRange[1].toFixed(1) }}
+                {{ t(module.scoreRange[1].toFixed(1)) }}
               </strong>
-              <small>仅用于表示当前题量下的估分不确定性</small>
+              <small>{{ t('仅用于表示当前题量下的估分不确定性') }}</small>
             </div>
-            <small v-else>基于本次模块作答结果</small>
+            <small v-else>{{ t('基于本次模块作答结果') }}</small>
           </div>
         </div>
 
@@ -96,37 +102,39 @@
             <circle cx="10" cy="6" r=".7"></circle>
           </svg>
           <span>
-            {{ module.notice }}
-            <span class="normalization-calculation">
-              换算过程：{{ module.correct }} ÷ {{ module.total }} =
-              {{ formatRawAccuracy(module.correct, module.total) }}，
-              {{ formatRawAccuracy(module.correct, module.total) }} × 27 =
-              {{ formatEquivalentRaw(module.equivalentRawScore) }}。
-            </span>
+            {{ t(module.notice) }}
+            <span class="normalization-calculation">{{
+              t('换算过程：{p0} ÷ {p1} = {p2}， {p3} × 27 = {p4}。', {
+                p0: t(module.correct),
+                p1: t(module.total),
+                p2: t(formatRawAccuracy(module.correct, module.total)),
+                p3: t(formatRawAccuracy(module.correct, module.total)),
+                p4: t(formatEquivalentRaw(module.equivalentRawScore)),
+              })
+            }}</span>
           </span>
         </p>
       </div>
 
       <div v-if="module.positioning" class="content-block">
         <div class="block-heading">
-          <h3>{{ module.label }} 水平定位与竞争力评估</h3>
-          <span>模块独立参考</span>
+          <h3>{{ t('{p0} 水平定位与竞争力评估', { p0: t(module.label) }) }}</h3>
+          <span>{{ t('模块独立参考') }}</span>
         </div>
         <EsatScoreDistributionChart :module-id="module.id" :score="module.score" />
-        <div
-          class="positioning-result"
-          :class="positioningToneClass(referencePercentile)"
-        >
+        <div class="positioning-result" :class="positioningToneClass(referencePercentile)">
           <div>
             <span class="positioning-result__label">
-              <small>当前表现等级</small>
+              <small>{{ t('当前表现等级') }}</small>
               <el-tooltip
                 placement="top"
                 effect="light"
                 :show-after="150"
-                :content="performanceLevelExplanation(module.positioning.performanceLevel, module.score)"
+                :content="
+                  performanceLevelExplanation(module.positioning.performanceLevel, module.score)
+                "
               >
-                <button type="button" class="info-trigger" aria-label="查看表现等级划分原因">
+                <button type="button" class="info-trigger" :aria-label="t('查看表现等级划分原因')">
                   <svg viewBox="0 0 20 20" aria-hidden="true">
                     <circle cx="10" cy="10" r="8"></circle>
                     <path d="M10 9v5"></path>
@@ -135,63 +143,67 @@
                 </button>
               </el-tooltip>
             </span>
-            <b>{{ module.positioning.performanceLevel }}</b>
+            <b>{{ t(module.positioning.performanceLevel) }}</b>
           </div>
           <div>
-            <small>参考百分位</small>
-            <strong>{{ referencePercentileLabel }}</strong>
+            <small>{{ t('参考百分位') }}</small>
+            <strong>{{ t(referencePercentileLabel) }}</strong>
           </div>
           <p>
-            <span v-if="module.positioning.analysisSource === 'deepseek'" class="ai-analysis-badge">
-              AI 分析
-            </span>
-            {{ module.positioning.competitiveness }}
+            <span
+              v-if="module.positioning.analysisSource === 'deepseek'"
+              class="ai-analysis-badge"
+              >{{ t('AI 分析') }}</span
+            >
+            {{ t(module.positioning.competitiveness) }}
           </p>
         </div>
-        <small class="positioning-reference">
-          参考百分位按当前模块官方成绩分布累计估算；当前分数仍是基于本次作答的等效预估分
-        </small>
+        <small class="positioning-reference">{{
+          t('参考百分位按当前模块官方成绩分布累计估算；当前分数仍是基于本次作答的等效预估分')
+        }}</small>
       </div>
 
       <section v-if="module.diagnosticAnalysis" class="module-diagnostic">
         <div class="module-diagnostic__heading">
           <div>
-            <strong>{{ module.label }} 模块诊断分析</strong>
+            <strong>{{ t('{p0} 模块诊断分析', { p0: t(module.label) }) }}</strong>
             <span
               class="analysis-source"
               :class="{ 'analysis-source--ai': module.diagnosticAnalysis.source !== 'fallback' }"
             >
-              {{ diagnosticAnalysisSourceLabel(module.diagnosticAnalysis.source) }}
+              {{ t(diagnosticAnalysisSourceLabel(module.diagnosticAnalysis.source)) }}
             </span>
           </div>
-          <small>依据当前模块的分数、正确率与难度表现生成</small>
+          <small>{{ t('依据当前模块的分数、正确率与难度表现生成') }}</small>
         </div>
-        <p class="diagnostic-summary">{{ module.diagnosticAnalysis.summary }}</p>
+        <p class="diagnostic-summary">{{ t(module.diagnosticAnalysis.summary) }}</p>
         <div class="diagnostic-grid">
           <article class="diagnostic-item diagnostic-item--strength">
-            <span>相对优势</span>
-            <p>{{ module.diagnosticAnalysis.strength }}</p>
+            <span>{{ t('相对优势') }}</span>
+            <p>{{ t(module.diagnosticAnalysis.strength) }}</p>
           </article>
           <article class="diagnostic-item diagnostic-item--issue">
-            <span>关键问题</span>
-            <p>{{ module.diagnosticAnalysis.keyIssue }}</p>
+            <span>{{ t('关键问题') }}</span>
+            <p>{{ t(module.diagnosticAnalysis.keyIssue) }}</p>
           </article>
           <article class="diagnostic-item diagnostic-item--focus">
-            <span>提升重点</span>
-            <p>{{ module.diagnosticAnalysis.focusSuggestion }}</p>
+            <span>{{ t('提升重点') }}</span>
+            <p>{{ t(module.diagnosticAnalysis.focusSuggestion) }}</p>
           </article>
         </div>
       </section>
       <div v-else class="risk-signal" :class="{ 'risk-signal--unavailable': !module.riskSignal }">
-        <strong>{{ module.label }} 诊断提示</strong>
-        <p v-if="module.riskSignal">{{ module.riskSignal }}</p>
-        <p v-else>诊断提示暂未生成，不影响模块固定计算结果。</p>
+        <strong>{{ t('{p0} 诊断提示', { p0: t(module.label) }) }}</strong>
+        <p v-if="module.riskSignal">{{ t(module.riskSignal) }}</p>
+        <p v-else>{{ t('诊断提示暂未生成，不影响模块固定计算结果。') }}</p>
       </div>
     </article>
   </section>
 </template>
 
 <script setup lang="ts">
+import { t } from '@/locales'
+
 import { computed } from 'vue'
 import type { DiagnosticAssessmentModule } from '@/api/exam'
 import { estimateEsatPercentile } from '@/data/esatScoreDistribution'
@@ -207,7 +219,9 @@ const emit = defineEmits<{
   selectModule: [moduleId: string]
 }>()
 
-const referencePercentile = computed(() => estimateEsatPercentile(props.module.id, props.module.score))
+const referencePercentile = computed(() =>
+  estimateEsatPercentile(props.module.id, props.module.score),
+)
 const referencePercentileLabel = computed(() => {
   if (referencePercentile.value === null) return '暂无参考'
   return `约第 ${referencePercentile.value} 百分位`
@@ -310,7 +324,9 @@ function positioningToneClass(value: number | null): string {
   background: #fafafd;
   color: #56536a;
   cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 .module-tabs button:last-child {
@@ -812,6 +828,5 @@ function positioningToneClass(value: number | null): string {
   .diagnostic-grid {
     grid-template-columns: 1fr;
   }
-
 }
 </style>

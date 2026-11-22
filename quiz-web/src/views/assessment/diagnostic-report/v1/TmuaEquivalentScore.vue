@@ -4,8 +4,8 @@
     <div class="section-title">
       <span aria-hidden="true">◎</span>
       <div>
-        <h2>综合评估分</h2>
-        <p>TMUA 正式成绩只报告一个综合分；Paper 1 与 Paper 2 共同构成诊断依据</p>
+        <h2>{{ t('综合评估分') }}</h2>
+        <p>{{ t('TMUA 正式成绩只报告一个综合分；Paper 1 与 Paper 2 共同构成诊断依据') }}</p>
       </div>
     </div>
 
@@ -13,15 +13,22 @@
       <div class="score-hero">
         <div class="score-heading">
           <div>
-            <span>TMUA 综合评估分</span>
+            <span>{{ t('TMUA 综合评估分') }}</span>
             <el-tooltip placement="top" effect="light" :show-after="150">
               <template #content>
                 <div class="calculation-tooltip">
-                  本报告使用历史真题正确率与参考曲线生成诊断估值。正式 UAT-UK 成绩会使用
-                  Rasch 模型对 Paper 1 和 Paper 2 联合等值，最终成绩以官方发布为准。
+                  {{
+                    t(
+                      '本报告使用历史真题正确率与参考曲线生成诊断估值。正式 UAT-UK 成绩会使用 Rasch 模型对 Paper 1 和 Paper 2 联合等值，最终成绩以官方发布为准。',
+                    )
+                  }}
                 </div>
               </template>
-              <button type="button" class="info-trigger" aria-label="查看 TMUA 综合评估分计算说明">
+              <button
+                type="button"
+                class="info-trigger"
+                :aria-label="t('查看 TMUA 综合评估分计算说明')"
+              >
                 <svg viewBox="0 0 20 20" aria-hidden="true">
                   <circle cx="10" cy="10" r="8"></circle>
                   <path d="M10 9v5"></path>
@@ -33,21 +40,21 @@
         </div>
 
         <div class="score-primary">
-          <span>当前点估分</span>
+          <span>{{ t('当前点估分') }}</span>
           <div v-if="report.assessment.score !== null" class="score-value">
-            <strong>{{ report.assessment.score.toFixed(1) }}</strong>
-            <em>{{ report.assessment.scaleLabel }}</em>
+            <strong>{{ t(report.assessment.score.toFixed(1)) }}</strong>
+            <em>{{ t(report.assessment.scaleLabel) }}</em>
           </div>
-          <div v-else class="score-unavailable">暂无可靠换算结果</div>
+          <div v-else class="score-unavailable">{{ t('暂无可靠换算结果') }}</div>
           <div v-if="report.assessment.scoreRange" class="score-reference-line">
-            <span>估分参考区间（80%）</span>
+            <span>{{ t('估分参考区间（80%）') }}</span>
             <el-tooltip placement="top" effect="light" :show-after="150">
               <template #content>
                 <div class="calculation-tooltip">
-                  区间用于表示本次题量与作答波动带来的估值不确定性，不是官方成绩区间。
+                  {{ t('区间用于表示本次题量与作答波动带来的估值不确定性，不是官方成绩区间。') }}
                 </div>
               </template>
-              <button type="button" class="info-trigger" aria-label="查看估分参考区间说明">
+              <button type="button" class="info-trigger" :aria-label="t('查看估分参考区间说明')">
                 <svg viewBox="0 0 20 20" aria-hidden="true">
                   <circle cx="10" cy="10" r="8"></circle>
                   <path d="M10 9v5"></path>
@@ -56,13 +63,13 @@
               </button>
             </el-tooltip>
             <strong>
-              {{ report.assessment.scoreRange[0].toFixed(1) }}
+              {{ t(report.assessment.scoreRange[0].toFixed(1)) }}
               <i>—</i>
-              {{ report.assessment.scoreRange[1].toFixed(1) }}
+              {{ t(report.assessment.scoreRange[1].toFixed(1)) }}
             </strong>
-            <small>只表达诊断估值的不确定性</small>
+            <small>{{ t('只表达诊断估值的不确定性') }}</small>
           </div>
-          <small v-else>基于本次两卷作答结果</small>
+          <small v-else>{{ t('基于本次两卷作答结果') }}</small>
         </div>
 
         <p class="calculation-hint">
@@ -72,34 +79,37 @@
             <circle cx="10" cy="6" r=".7"></circle>
           </svg>
           <span>
-            {{ report.assessment.methodNote }}。
-            <span class="calculation-detail">{{ scoreComposition }}</span>
+            {{ t(report.assessment.methodNote) }}
+            <span class="calculation-detail">{{ t(scoreComposition) }}</span>
           </span>
         </p>
       </div>
 
-      <div v-if="report.assessment.positioning && report.assessment.score !== null" class="content-block">
+      <div
+        v-if="report.assessment.positioning && report.assessment.score !== null"
+        class="content-block"
+      >
         <div class="block-heading">
-          <h3>水平定位与竞争力评估</h3>
-          <span>UAT-UK 官方锚点</span>
+          <h3>{{ t('水平定位与竞争力评估') }}</h3>
+          <span>{{ t('UAT-UK 官方锚点') }}</span>
         </div>
 
-        <div class="official-scale" aria-label="TMUA 官方分数定位锚点">
+        <div class="official-scale" :aria-label="t('TMUA 官方分数定位锚点')">
           <div class="official-scale__track" aria-hidden="true">
             <span class="official-scale__fill" :style="{ width: `${scorePosition}%` }"></span>
             <i class="official-scale__anchor official-scale__anchor--typical"></i>
             <i class="official-scale__anchor official-scale__anchor--top"></i>
             <b class="official-scale__marker" :style="{ left: `${scorePosition}%` }">
-              {{ report.assessment.score.toFixed(1) }}
+              {{ t(report.assessment.score.toFixed(1)) }}
             </b>
           </div>
           <div class="official-scale__labels">
             <span class="official-scale__edge">1.0</span>
             <span class="official-scale__label official-scale__label--typical">
-              <b>4.5</b><small>典型考生</small>
+              <b>4.5</b><small>{{ t('典型考生') }}</small>
             </span>
             <span class="official-scale__label official-scale__label--top">
-              <b>7.0</b><small>约 10% 考生高于此分</small>
+              <b>7.0</b><small>{{ t('约 10% 考生高于此分') }}</small>
             </span>
             <span class="official-scale__edge">9.0</span>
           </div>
@@ -107,69 +117,81 @@
 
         <div class="positioning-result" :class="positioningToneClass">
           <div>
-            <small>当前官方锚点位置</small>
-            <b>{{ report.assessment.positioning.performanceLevel }}</b>
+            <small>{{ t('当前官方锚点位置') }}</small>
+            <b>{{ t(report.assessment.positioning.performanceLevel) }}</b>
           </div>
-          <p>{{ report.assessment.positioning.competitiveness }}</p>
+          <p>{{ t(report.assessment.positioning.competitiveness) }}</p>
         </div>
         <div class="positioning-reference">
-          <a href="https://esat-tmua.ac.uk/test-results/" target="_blank" rel="noopener noreferrer">
-            查看 UAT-UK 成绩说明
-          </a>
+          <a
+            href="https://esat-tmua.ac.uk/test-results/"
+            target="_blank"
+            rel="noopener noreferrer"
+            >{{ t('查看 UAT-UK 成绩说明') }}</a
+          >
         </div>
       </div>
 
       <section class="papers-analysis" aria-labelledby="tmua-papers-analysis-title">
         <div class="papers-analysis__heading">
           <div>
-            <h3 id="tmua-papers-analysis-title">Paper 1 与 Paper 2 诊断对照</h3>
-            <p>两卷共同决定综合表现，分卷参考仅用于识别能力差异和训练重点</p>
+            <h3 id="tmua-papers-analysis-title">{{ t('Paper 1 与 Paper 2 诊断对照') }}</h3>
+            <p>{{ t('两卷共同决定综合表现，分卷参考仅用于识别能力差异和训练重点') }}</p>
           </div>
-          <span>依据正确率、难度表现与逐题记录生成</span>
+          <span>{{ t('依据正确率、难度表现与逐题记录生成') }}</span>
         </div>
 
         <div class="papers-analysis__grid">
           <article v-for="item in orderedModules" :key="item.id" class="paper-diagnostic">
             <header class="paper-diagnostic__header">
               <div>
-                <span>{{ paperTabLabel(item.id, item.label) }}</span>
-                <strong>{{ item.label }}</strong>
+                <span>{{ t(paperTabLabel(item.id, item.label)) }}</span>
+                <strong>{{ t(item.label) }}</strong>
               </div>
               <span
                 v-if="item.diagnosticAnalysis"
                 class="analysis-source"
                 :class="{ 'analysis-source--ai': item.diagnosticAnalysis.source !== 'fallback' }"
               >
-                {{ diagnosticAnalysisSourceLabel(item.diagnosticAnalysis.source) }}
+                {{ t(diagnosticAnalysisSourceLabel(item.diagnosticAnalysis.source)) }}
               </span>
             </header>
 
             <div class="paper-diagnostic__metrics">
-              <span><b>{{ item.correct }}/{{ item.total }}</b> 题正确</span>
-              <span v-if="item.score !== null">分卷诊断参考 <b>{{ item.score.toFixed(1) }}</b></span>
+              <span
+                ><b>{{ t(item.correct) }}/{{ t(item.total) }}</b
+                >{{ t('题正确') }}</span
+              >
+              <span v-if="item.score !== null"
+                >{{ t('分卷诊断参考') }}<b>{{ t(item.score.toFixed(1)) }}</b></span
+              >
             </div>
 
             <template v-if="item.diagnosticAnalysis">
-              <p class="diagnostic-summary">{{ item.diagnosticAnalysis.summary }}</p>
+              <p class="diagnostic-summary">{{ t(item.diagnosticAnalysis.summary) }}</p>
               <div class="diagnostic-grid">
                 <div class="diagnostic-item diagnostic-item--strength">
-                  <span>相对优势</span>
-                  <p>{{ item.diagnosticAnalysis.strength }}</p>
+                  <span>{{ t('相对优势') }}</span>
+                  <p>{{ t(item.diagnosticAnalysis.strength) }}</p>
                 </div>
                 <div class="diagnostic-item diagnostic-item--issue">
-                  <span>关键问题</span>
-                  <p>{{ item.diagnosticAnalysis.keyIssue }}</p>
+                  <span>{{ t('关键问题') }}</span>
+                  <p>{{ t(item.diagnosticAnalysis.keyIssue) }}</p>
                 </div>
                 <div class="diagnostic-item diagnostic-item--focus">
-                  <span>提升重点</span>
-                  <p>{{ item.diagnosticAnalysis.focusSuggestion }}</p>
+                  <span>{{ t('提升重点') }}</span>
+                  <p>{{ t(item.diagnosticAnalysis.focusSuggestion) }}</p>
                 </div>
               </div>
             </template>
-            <div v-else class="risk-signal" :class="{ 'risk-signal--unavailable': !item.riskSignal }">
-              <strong>诊断提示</strong>
-              <p v-if="item.riskSignal">{{ item.riskSignal }}</p>
-              <p v-else>本卷分析暂未生成，不影响综合分和作答统计结果。</p>
+            <div
+              v-else
+              class="risk-signal"
+              :class="{ 'risk-signal--unavailable': !item.riskSignal }"
+            >
+              <strong>{{ t('诊断提示') }}</strong>
+              <p v-if="item.riskSignal">{{ t(item.riskSignal) }}</p>
+              <p v-else>{{ t('本卷分析暂未生成，不影响综合分和作答统计结果。') }}</p>
             </div>
           </article>
         </div>
@@ -179,6 +201,8 @@
 </template>
 
 <script setup lang="ts">
+import { i18n, t } from '@/locales'
+
 import { computed } from 'vue'
 import type { DiagnosticAssessmentModule, DiagnosticReportSummary } from '@/api/exam'
 
@@ -193,8 +217,10 @@ const orderedModules = computed(() => {
   return [...props.modules].sort((left, right) => {
     const leftIndex = order.indexOf(left.id)
     const rightIndex = order.indexOf(right.id)
-    return (leftIndex === -1 ? order.length : leftIndex)
-      - (rightIndex === -1 ? order.length : rightIndex)
+    return (
+      (leftIndex === -1 ? order.length : leftIndex) -
+      (rightIndex === -1 ? order.length : rightIndex)
+    )
   })
 })
 
@@ -217,9 +243,16 @@ const positioningToneClass = computed(() => {
 const scoreComposition = computed(() => {
   const parts = props.modules.map((item) => {
     const score = item.score === null ? '-' : item.score.toFixed(1)
-    return `${paperTabLabel(item.id, item.label)} ${item.correct}/${item.total}（分卷参考 ${score}）`
+    return t('{p0} {p1}/{p2}（分卷参考 {p3}）', {
+      p0: t(paperTabLabel(item.id, item.label)),
+      p1: item.correct,
+      p2: item.total,
+      p3: score,
+    })
   })
-  return parts.length ? `估值构成：${parts.join('；')}。` : ''
+  return parts.length
+    ? t('估值构成：{p0}。', { p0: parts.join(i18n.global.locale.value === 'en' ? '; ' : '；') })
+    : ''
 })
 
 // 分卷标签保持短而稳定，完整语义由当前分卷标题承担。

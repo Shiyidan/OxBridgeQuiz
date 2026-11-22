@@ -1,5 +1,7 @@
 <!-- 桌面首页错题复习介绍：真实页面节选与答案、考察点、历次作答的交互说明。 -->
 <script setup lang="ts">
+import { t, useSiteLocale } from '@/locales'
+
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { Right, CircleCheck, Close, Document } from '@element-plus/icons-vue'
 import AppButton from '@/components/AppButton.vue'
@@ -60,6 +62,7 @@ const history = [
   { order: '第 2 次', date: '2026/08/18 00:04', answer: 'A', time: '2秒' },
   { order: '第 1 次', date: '2026/08/17 17:35', answer: null, time: null },
 ]
+const { isEnglish } = useSiteLocale()
 </script>
 
 <template>
@@ -72,10 +75,10 @@ const history = [
     <div class="mistake-container">
       <header class="mistake-heading">
         <div>
-          <h2 id="mistake-intro-title">一道错题，不止一个答案。</h2>
-          <p>从知识点出发，理解错误原因，举一反三。</p>
+          <h2 id="mistake-intro-title">{{ t('一道错题，不止一个答案。') }}</h2>
+          <p>{{ t('从知识点出发，理解错误原因，举一反三。') }}</p>
         </div>
-        <div class="mistake-tabs" role="group" aria-label="切换错题介绍">
+        <div class="mistake-tabs" role="group" :aria-label="t('切换错题介绍')">
           <AppButton
             v-for="tab in tabs"
             :key="tab.id"
@@ -84,14 +87,14 @@ const history = [
             :aria-pressed="activeTab === tab.id"
             :class="{ active: activeTab === tab.id }"
             @click="selectTab(tab.id)"
-            >{{ tab.label }}</AppButton
+            >{{ t(tab.label) }}</AppButton
           >
         </div>
       </header>
       <div class="mistake-layout">
         <figure class="mistake-shot">
           <div class="shot-heading">
-            <span><Document />原题与答案对照</span>
+            <span><Document />{{ t('原题与答案对照') }}</span>
           </div>
           <div class="shot-viewport">
             <img
@@ -99,46 +102,65 @@ const history = [
               width="1456"
               height="834"
               loading="lazy"
-              alt="错题本真实页面节选：原选择 A none of them，正确答案 F 1 and 3 only"
+              :alt="t('错题本真实页面节选：原选择 A none of them，正确答案 F 1 and 3 only')"
             />
           </div>
-          <figcaption>保留原题与作答，让每次复习都有依据。</figcaption>
+          <figcaption>
+            <span v-if="isEnglish">Current product preview (Chinese). </span
+            >{{ t('保留原题与作答，让每次复习都有依据。') }}
+          </figcaption>
         </figure>
         <div class="mistake-detail">
           <div :key="activeTab" class="detail-content">
             <template v-if="activeTab === 'knowledge'">
-              <span class="detail-eyebrow">找到知识上的连接</span>
-              <h3>避难所策略与<br />隐性抗性进化</h3>
-              <p>从这道题的考察点重新梳理概念，把一次错误，转化为下一次解题的依据。</p>
+              <span class="detail-eyebrow">{{ t('找到知识上的连接') }}</span>
+              <h3>{{ t('避难所策略与') }}<br />{{ t('隐性抗性进化') }}</h3>
+              <p>
+                {{ t('从这道题的考察点重新梳理概念，把一次错误，转化为下一次解题的依据。') }}
+              </p>
               <div class="knowledge-tags">
-                <span>遗传变异</span><span>自然选择</span><span>抗性进化</span>
+                <span>{{ t('遗传变异') }}</span
+                ><span>{{ t('自然选择') }}</span
+                ><span>{{ t('抗性进化') }}</span>
               </div>
               <div class="review-route">
-                <span>回看原题</span><Right /><span>理解考察点</span><Right /><span>再次练习</span>
+                <span>{{ t('回看原题') }}</span
+                ><Right /><span>{{ t('理解考察点') }}</span
+                ><Right /><span>{{ t('再次练习') }}</span>
               </div>
             </template>
             <template v-else-if="activeTab === 'answer'">
-              <span class="detail-eyebrow">把选择和答案放在一起</span>
-              <h3>不只记住 F，<br />更要回看为什么选了 A。</h3>
+              <span class="detail-eyebrow">{{ t('把选择和答案放在一起') }}</span>
+              <h3>{{ t('不只记住 F，') }}<br />{{ t('更要回看为什么选了 A。') }}</h3>
               <div class="answer-comparison">
-                <div><Close /><span>原选择</span><strong>A · none of them</strong></div>
-                <div><CircleCheck /><span>正确答案</span><strong>F · 1 and 3 only</strong></div>
+                <div>
+                  <Close /><span>{{ t('原选择') }}</span
+                  ><strong>A · none of them</strong>
+                </div>
+                <div>
+                  <CircleCheck /><span>{{ t('正确答案') }}</span
+                  ><strong>F · 1 and 3 only</strong>
+                </div>
               </div>
-              <p>对照原题的三个判断，逐项核实条件，再查看完整解析。</p>
+              <p>{{ t('对照原题的三个判断，逐项核实条件，再查看完整解析。') }}</p>
             </template>
             <template v-else>
-              <span class="detail-eyebrow">每一次作答，都可以回看</span>
-              <h3>看见反复出错的地方。</h3>
+              <span class="detail-eyebrow">{{ t('每一次作答，都可以回看') }}</span>
+              <h3>{{ t('看见反复出错的地方。') }}</h3>
               <ol class="attempt-history">
                 <li v-for="item in history" :key="item.order">
                   <div>
-                    <span>{{ item.order }}</span
-                    ><time>{{ item.date }}</time>
+                    <span>{{ t(item.order) }}</span
+                    ><time>{{ t(item.date) }}</time>
                   </div>
                   <p>
-                    <span class="attempt-source">诊断测试</span
-                    ><strong>{{ item.answer ? `回答：${item.answer}` : '本次未作答' }}</strong
-                    ><small v-if="item.time">{{ item.time }}</small>
+                    <span class="attempt-source">{{ t('诊断测试') }}</span
+                    ><strong>{{
+                      t(
+                        item.answer ? t('回答：{p0}', { p0: t(item.answer) }) : '本次未作答',
+                      )
+                    }}</strong
+                    ><small v-if="item.time">{{ t(item.time) }}</small>
                   </p>
                 </li>
               </ol>

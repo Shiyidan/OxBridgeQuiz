@@ -4,36 +4,36 @@
     <NavBar />
     <main>
       <header>
-        <AppButton type="text" :icon="Back" @click="goBack">返回我的收藏</AppButton>
-        <h1>收藏题目</h1>
+        <AppButton type="text" :icon="Back" @click="goBack">{{ t('返回我的收藏') }}</AppButton>
+        <h1>{{ t('收藏题目') }}</h1>
         <el-select
           v-if="detail && store.states[questionId]"
           :model-value="store.states[questionId]?.categoryId || 'unclassified'"
           :disabled="store.busy[questionId]"
-          aria-label="题目分类"
+          :aria-label="t('题目分类')"
           @change="changeCategory"
         >
-          <el-option label="未分类" value="unclassified" /><el-option
+          <el-option :label="t('未分类')" value="unclassified" /><el-option
             v-for="category in summary?.categories || []"
             :key="category.id"
             :label="category.name"
             :value="category.id"
           />
           <template #footer
-            ><AppButton type="text" size="small" @click="managerOpen = true"
-              >＋ 新建分类</AppButton
-            ></template
+            ><AppButton type="text" size="small" @click="managerOpen = true">{{
+              t('＋ 新建分类')
+            }}</AppButton></template
           >
         </el-select>
       </header>
-      <div v-if="loading" class="detail-state">正在加载题目…</div>
+      <div v-if="loading" class="detail-state">{{ t('正在加载题目…') }}</div>
       <div v-else-if="membershipRequired" class="detail-state">
-        <p>当前会员已到期，续费后即可继续查看题目解析。</p>
-        <AppButton type="primary" @click="membershipOpen = true">立即续费</AppButton>
+        <p>{{ t('当前会员已到期，续费后即可继续查看题目解析。') }}</p>
+        <AppButton type="primary" @click="membershipOpen = true">{{ t('立即续费') }}</AppButton>
       </div>
       <div v-else-if="error" class="detail-state" role="alert">
-        <p>{{ error }}</p>
-        <AppButton type="secondary" @click="load">重试</AppButton>
+        <p>{{ translateInterfaceError(error) }}</p>
+        <AppButton type="secondary" @click="load">{{ t('重试') }}</AppButton>
       </div>
       <ExamQuestionAnalysis
         v-else-if="detail"
@@ -57,6 +57,7 @@
   </div>
 </template>
 <script setup lang="ts">
+import { t, translateInterfaceError } from '@/locales'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Back } from '@element-plus/icons-vue'

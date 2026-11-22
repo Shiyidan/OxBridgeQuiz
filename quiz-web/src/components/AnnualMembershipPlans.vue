@@ -1,9 +1,11 @@
 <!-- 首页年卡选择：读取后台最新价格，按做题、学习和组合展示三项商品。 -->
 <template>
-  <div v-if="loading" class="annual-state" role="status" aria-live="polite">正在读取会员价格…</div>
+  <div v-if="loading" class="annual-state" role="status" aria-live="polite">
+    {{ t('正在读取会员价格…') }}
+  </div>
   <div v-else-if="error" class="annual-state" role="alert">
-    <p>{{ error }}</p>
-    <AppButton type="secondary" @click="load">重新加载</AppButton>
+    <p>{{ isEnglish ? t('会员价格暂时无法读取') : error }}</p>
+    <AppButton type="secondary" @click="load">{{ t('重新加载') }}</AppButton>
   </div>
   <div v-else class="annual-plans">
     <article
@@ -13,42 +15,49 @@
       :class="{ 'annual-plan--bundle': plan.id === 'annual_bundle' }"
     >
       <header class="annual-heading">
-        <h3>{{ plan.name }}</h3>
-        <span v-if="plan.id === 'annual_bundle'" class="annual-recommendation">推荐组合</span>
+        <h3>{{ t(plan.name) }}</h3>
+        <span v-if="plan.id === 'annual_bundle'" class="annual-recommendation">{{
+          t('推荐组合')
+        }}</span>
       </header>
-      <p class="annual-subtitle">{{ plan.description }}</p>
+      <p class="annual-subtitle">{{ t(plan.description) }}</p>
       <div class="annual-price">
-        <span class="annual-currency">¥</span><strong>{{ plan.price / 100 }}</strong
-        ><span class="annual-period">/ 年</span>
+        <span class="annual-currency">{{ isEnglish ? 'CNY' : '¥' }}</span
+        ><strong>{{ t(plan.price / 100) }}</strong
+        ><span class="annual-period">{{ t('/ 年') }}</span>
       </div>
       <div class="annual-offer">
-        <del>原价 ¥{{ plan.original / 100 }}</del>
-        <span class="annual-discount"
-          >{{ Number(((plan.price / plan.original) * 10).toFixed(1)) }} 折</span
-        >
+        <del>{{ t('原价 ¥') }}{{ t(plan.original / 100) }}</del>
+        <span class="annual-discount">{{
+          isEnglish
+            ? `${Math.round((1 - plan.price / plan.original) * 100)}% off`
+            : `${Number(((plan.price / plan.original) * 10).toFixed(1))} 折`
+        }}</span>
       </div>
-      <ul class="annual-benefits" aria-label="套餐权益">
+      <ul class="annual-benefits" :aria-label="t('套餐权益')">
         <li v-for="benefit in plan.benefits" :key="benefit">
-          <CircleCheck aria-hidden="true" /><span>{{ benefit }}</span>
+          <CircleCheck aria-hidden="true" /><span>{{ t(benefit) }}</span>
         </li>
       </ul>
       <footer class="annual-footer">
-        <p class="annual-scope">所选考试独立开通 · 有效期 365 天</p>
+        <p class="annual-scope">{{ t('所选考试独立开通 · 有效期 365 天') }}</p>
         <AppButton
           class="annual-action"
           :type="plan.id === 'annual_bundle' ? 'primary' : 'secondary'"
           :disabled="!available"
           :icon="Right"
           icon-position="right"
-          :aria-label="available ? `开通${plan.name}` : '暂未开放购买'"
+          :aria-label="t(available ? t('开通{p0}', { p0: t(plan.name) }) : '暂未开放购买')"
           @click="emit('select', plan.id)"
-          >{{ available ? '开通年卡' : '暂未开放购买' }}</AppButton
+          >{{ t(available ? '开通年卡' : '暂未开放购买') }}</AppButton
         >
       </footer>
     </article>
   </div>
 </template>
 <script setup lang="ts">
+import { t, useSiteLocale } from '@/locales'
+
 import { computed, onMounted, ref } from 'vue'
 import AppButton from './AppButton.vue'
 import { CircleCheck, Right } from '@element-plus/icons-vue'
@@ -56,6 +65,7 @@ import { getPaymentConfig } from '@/api/payment'
 import { DEFAULT_ANNUAL_PRICING, type AnnualPlan } from '@/constants/annualMembership'
 import { getApiErrorMessage } from '@/utils/request'
 const emit = defineEmits<{ select: [plan: AnnualPlan] }>()
+const { isEnglish } = useSiteLocale()
 const prices = ref({ ...DEFAULT_ANNUAL_PRICING })
 const loading = ref(true)
 const error = ref('')

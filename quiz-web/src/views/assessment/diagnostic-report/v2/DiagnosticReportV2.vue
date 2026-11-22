@@ -3,25 +3,28 @@
   <article class="v2-report">
     <header class="report-head">
       <div>
-      <span v-if="meta.sourcePaperType === 'mockPaper'" class="report-source">来源：模考中心</span>
-        <h1>{{ report.header.title }}</h1>
+        <span v-if="meta.sourcePaperType === 'mockPaper'" class="report-source">{{
+          t('来源：模考中心')
+        }}</span>
+        <h1>{{ t(report.header.title) }}</h1>
       </div>
     </header>
 
     <div class="head-summary-row">
-      <p class="report-subtitle">{{ reportSubtitle }}</p>
+      <p class="report-subtitle">{{ t(reportSubtitle) }}</p>
     </div>
 
     <div class="data-window">
-      <strong>● 单次诊断快照</strong>
-      <span>
-        本报告仅基于当前答卷的 {{ report.assessment.basedOnQuestions }} 道题生成，
-        不使用其他测试的历史表现
-      </span>
-      <small>版本号-V2</small>
+      <strong>{{ t('● 单次诊断快照') }}</strong>
+      <span>{{
+        t('本报告仅基于当前答卷的 {p0} 道题生成， 不使用其他测试的历史表现', {
+          p0: t(report.assessment.basedOnQuestions),
+        })
+      }}</span>
+      <small>{{ t('版本号-V2') }}</small>
     </div>
 
-    <nav class="primary-tabs" aria-label="诊断报告内容定位">
+    <nav class="primary-tabs" :aria-label="t('诊断报告内容定位')">
       <button
         v-for="item in primaryTabs"
         :key="item.id"
@@ -29,26 +32,26 @@
         :class="{ active: activePrimaryTab === item.id }"
         @click="scrollToSection(item.id)"
       >
-        {{ item.label }}
+        {{ t(item.label) }}
       </button>
     </nav>
 
     <section ref="overallSection" class="report-block" data-section="overall">
       <header class="block-heading">
         <div>
-          <h2>整体评估</h2>
-          <p>我现在什么水平 · 本次最值得关注什么</p>
+          <h2>{{ t('整体评估') }}</h2>
+          <p>{{ t('我现在什么水平 · 本次最值得关注什么') }}</p>
         </div>
       </header>
 
       <div class="opening-grid">
         <div class="opening-copy">
           <div class="hero-card">
-            <span>核心结论</span>
-            <h3>{{ coreHeadline }}</h3>
-            <em>{{ strategyLabel }}</em>
+            <span>{{ t('核心结论') }}</span>
+            <h3>{{ t(coreHeadline) }}</h3>
+            <em>{{ t(strategyLabel) }}</em>
           </div>
-          <p>{{ coreExplanation }}</p>
+          <p>{{ t(coreExplanation) }}</p>
           <div class="opening-actions">
             <button
               v-if="primaryPractice"
@@ -56,18 +59,18 @@
               class="button button--primary"
               @click="emitPractice(primaryPractice)"
             >
-              {{ primaryPracticeButtonLabel }}
+              {{ t(primaryPracticeButtonLabel) }}
             </button>
             <button type="button" class="button" @click="scrollToSection('plan')">
-              查看提升路径
+              {{ t('查看提升路径') }}
             </button>
           </div>
         </div>
 
         <div class="position-panel">
           <div class="panel-title">
-            <h3>当前定位（平台预估）</h3>
-            <span>{{ scoreEntries.length }} 项</span>
+            <h3>{{ t('当前定位（平台预估）') }}</h3>
+            <span>{{ t('{p0} 项', { p0: t(scoreEntries.length) }) }}</span>
           </div>
           <div class="score-lanes">
             <article
@@ -77,8 +80,8 @@
               :class="{ focus: entry.id === focusScoreId }"
             >
               <div class="score-lane__top">
-                <strong>{{ entry.label }}</strong>
-                <b>{{ formatScoreRange(entry.scoreRange, entry.score) }}</b>
+                <strong>{{ t(entry.label) }}</strong>
+                <b>{{ t(formatScoreRange(entry.scoreRange, entry.score)) }}</b>
               </div>
               <div class="score-scale" aria-hidden="true">
                 <span class="score-scale__track"></span>
@@ -88,14 +91,18 @@
                   :style="scoreBandStyle(entry.scoreRange)"
                 ></span>
                 <i v-for="tick in [1, 3, 5, 7, 9]" :key="tick" :style="scoreTickStyle(tick)">
-                  {{ tick }}.0
+                  {{ t(tick) }}.0
                 </i>
               </div>
-              <p>{{ entry.summary }}</p>
+              <p>{{ t(entry.summary) }}</p>
             </article>
           </div>
           <p class="position-note">
-            {{ report.assessment.methodNote }} 分数均为平台区间估算，不等同于官方成绩。
+            {{
+              t('{p0} 分数均为平台区间估算，不等同于官方成绩。', {
+                p0: t(report.assessment.methodNote),
+              })
+            }}
           </p>
         </div>
       </div>
@@ -104,13 +111,13 @@
         <header class="section-heading">
           <span>01</span>
           <div>
-            <h3>{{ referenceSectionTitle }}</h3>
-            <p>{{ referenceSectionDescription }}</p>
+            <h3>{{ t(referenceSectionTitle) }}</h3>
+            <p>{{ t(referenceSectionDescription) }}</p>
           </div>
         </header>
         <div class="distribution-card">
           <div class="distribution-main">
-            <div class="pill-tabs" role="tablist" aria-label="分数参照切换">
+            <div class="pill-tabs" role="tablist" :aria-label="t('分数参照切换')">
               <button
                 v-for="entry in scoreEntries"
                 :key="entry.id"
@@ -120,11 +127,11 @@
                 :class="{ active: activeScoreId === entry.id }"
                 @click="activeScoreId = entry.id"
               >
-                {{ entry.shortLabel }}
+                {{ t(entry.shortLabel) }}
               </button>
             </div>
-            <h4>{{ activeScoreEntry?.label }}：你的平台估分区间</h4>
-            <p>{{ distributionDescription }}</p>
+            <h4>{{ t('{p0}：你的平台估分区间', { p0: t(activeScoreEntry?.label) }) }}</h4>
+            <p>{{ t(distributionDescription) }}</p>
             <EsatScoreDistributionChart
               v-if="report.reportKind === 'esat' && activeScoreEntry?.moduleId"
               :module-id="activeScoreEntry.moduleId"
@@ -151,21 +158,32 @@
             </div>
           </div>
           <aside class="distribution-reading">
-            <h4>怎么读这部分</h4>
+            <h4>{{ t('怎么读这部分') }}</h4>
             <div class="reading-point">
-              <strong>你现在的位置</strong>
-              <p>{{ activeScoreEntry?.summary }}</p>
+              <strong>{{ t('你现在的位置') }}</strong>
+              <p>{{ t(activeScoreEntry?.summary) }}</p>
             </div>
             <div class="reading-point">
-              <strong>证据范围</strong>
+              <strong>{{ t('证据范围') }}</strong>
               <p>
-                当前结论基于 {{ activeScoreEntry?.correct ?? 0 }}/{{ activeScoreEntry?.total ?? 0 }}
-                题作答，并受当前题量与试卷难度影响。
+                {{
+                  t('当前结论基于 {p0}/{p1} 题作答，并受当前题量与试卷难度影响。', {
+                    p0: t(activeScoreEntry?.correct ?? 0),
+                    p1: t(activeScoreEntry?.total ?? 0),
+                  })
+                }}
               </p>
             </div>
             <div class="reading-point reading-point--accent">
-              <strong>下一步</strong>
-              <p>{{ activeScoreEntry?.focusSuggestion || '继续查看详细分析，核对知识领域和时间证据。' }}</p>
+              <strong>{{ t('下一步') }}</strong>
+              <p>
+                {{
+                  t(
+                    activeScoreEntry?.focusSuggestion ||
+                      '继续查看详细分析，核对知识领域和时间证据。',
+                  )
+                }}
+              </p>
             </div>
           </aside>
         </div>
@@ -175,21 +193,30 @@
     <section ref="detailSection" class="report-block" data-section="detail">
       <header class="block-heading">
         <div>
-          <h2>详细分析</h2>
-          <p>科目与知识点 · 本次测试具体发生了什么</p>
+          <h2>{{ t('详细分析') }}</h2>
+          <p>{{ t('科目与知识点 · 本次测试具体发生了什么') }}</p>
         </div>
       </header>
       <div class="summary-panel">
-        <p>{{ detailSummary }}</p>
+        <p>{{ t(detailSummary) }}</p>
         <div class="summary-stats">
-          <div><span>本次正确率</span><b>{{ accuracyLabel }}</b></div>
-          <div><span>主要失分区域</span><b>{{ primaryGapLabel }}</b></div>
-          <div><span>时间证据</span><b>{{ timingStatusLabel }}</b></div>
+          <div>
+            <span>{{ t('本次正确率') }}</span
+            ><b>{{ t(accuracyLabel) }}</b>
+          </div>
+          <div>
+            <span>{{ t('主要失分区域') }}</span
+            ><b>{{ t(primaryGapLabel) }}</b>
+          </div>
+          <div>
+            <span>{{ t('时间证据') }}</span
+            ><b>{{ t(timingStatusLabel) }}</b>
+          </div>
         </div>
       </div>
 
       <div class="section-switcher">
-        <aside class="section-rail" role="tablist" aria-label="详细分析内容">
+        <aside class="section-rail" role="tablist" :aria-label="t('详细分析内容')">
           <button
             v-for="item in detailTabs"
             :key="item.id"
@@ -199,16 +226,21 @@
             :class="{ active: activeDetailTab === item.id }"
             @click="activeDetailTab = item.id"
           >
-            <span>{{ item.index }}</span>
-            <strong>{{ item.label }}</strong>
-            <small>{{ item.summary }}</small>
+            <span>{{ t(item.index) }}</span>
+            <strong>{{ t(item.label) }}</strong>
+            <small>{{ t(item.summary) }}</small>
           </button>
         </aside>
 
         <div class="section-panel">
           <template v-if="activeDetailTab === 'knowledge'">
-            <header class="panel-heading"><span>02</span><h3>科目与知识点：本次作答表现</h3></header>
-            <p class="panel-intro">按本次实际覆盖题量展示事实；题量少时只标记小样本参考或样本不足。</p>
+            <header class="panel-heading">
+              <span>02</span>
+              <h3>{{ t('科目与知识点：本次作答表现') }}</h3>
+            </header>
+            <p class="panel-intro">
+              {{ t('按本次实际覆盖题量展示事实；题量少时只标记小样本参考或样本不足。') }}
+            </p>
             <div v-if="knowledgeModules.length" class="module-cards">
               <article
                 v-for="module in knowledgeModules"
@@ -217,60 +249,107 @@
                 :class="{ focus: module.id === focusModuleId }"
               >
                 <div class="module-card__head">
-                  <div><strong>{{ module.label }}</strong><small>{{ module.total }} 题</small></div>
-                  <b>{{ formatAccuracy(module.accuracy) }}</b>
-                  <em>{{ module.id === focusModuleId ? '当前重点' : '作答事实' }}</em>
+                  <div>
+                    <strong>{{ t(module.label) }}</strong
+                    ><small>{{ t('{p0} 题', { p0: t(module.total) }) }}</small>
+                  </div>
+                  <b>{{ t(formatAccuracy(module.accuracy)) }}</b>
+                  <em>{{ t(module.id === focusModuleId ? '当前重点' : '作答事实') }}</em>
                 </div>
-                <p>{{ moduleComment(module.id) }}</p>
+                <p>{{ t(moduleComment(module.id)) }}</p>
                 <div class="topic-list">
-                  <div v-for="topic in module.topics.filter((item) => item.total >= 3)" :key="topic.code">
-                    <span>{{ topic.label }}</span>
-                    <div><i :style="{ width: `${knowledgeAccuracyBarWidth(topic.accuracy)}%` }"></i></div>
-                    <small>{{ topic.correct }}/{{ topic.total }} · {{ topicEvidenceLabel(topic.total) }}</small>
+                  <div
+                    v-for="topic in module.topics.filter((item) => item.total >= 3)"
+                    :key="topic.code"
+                  >
+                    <span>{{ t(topic.label) }}</span>
+                    <div>
+                      <i :style="{ width: `${knowledgeAccuracyBarWidth(topic.accuracy)}%` }"></i>
+                    </div>
+                    <small
+                      >{{ t(topic.correct) }}/{{ t(topic.total) }} ·
+                      {{ t(topicEvidenceLabel(topic.total)) }}</small
+                    >
                   </div>
                 </div>
                 <p v-if="module.topics.some((item) => item.total < 3)" class="sample-note">
-                  样本不足或本次未覆盖：
-                  {{ module.topics.filter((item) => item.total < 3).map((item) => item.label).join('、') }}
+                  {{
+                    t('样本不足或本次未覆盖： {p0}', {
+                      p0: t(
+                        module.topics
+                          .filter((item) => item.total < 3)
+                          .map((item) => item.label)
+                          .join('、'),
+                      ),
+                    })
+                  }}
                 </p>
               </article>
             </div>
-            <div v-else class="empty-panel">当前答卷缺少可展示的知识领域映射。</div>
+            <div v-else class="empty-panel">{{ t('当前答卷缺少可展示的知识领域映射。') }}</div>
           </template>
 
           <template v-else-if="activeDetailTab === 'errors'">
             <div class="error-layout">
               <div>
-                <header class="panel-heading"><span>03</span><h3>失分结构：错误集中在哪里</h3></header>
-                <p class="panel-intro">这里只展示可确认的错题分布；可能错误原因统一标为“建议核对”，不作为个人错因结论。</p>
-                <h4>{{ errorHeadline }}</h4>
+                <header class="panel-heading">
+                  <span>03</span>
+                  <h3>{{ t('失分结构：错误集中在哪里') }}</h3>
+                </header>
+                <p class="panel-intro">
+                  {{
+                    t(
+                      '这里只展示可确认的错题分布；可能错误原因统一标为“建议核对”，不作为个人错因结论。',
+                    )
+                  }}
+                </p>
+                <h4>{{ t(errorHeadline) }}</h4>
                 <div v-if="lossItems.length" class="loss-list">
                   <div v-for="item in lossItems" :key="item.key">
-                    <strong>{{ item.label }}</strong>
+                    <strong>{{ t(item.label) }}</strong>
                     <div><i :style="{ width: `${item.bar}%` }"></i></div>
-                    <span>错 {{ item.wrong }}/{{ item.total }}</span>
+                    <span>{{ t('错 {p0}/{p1}', { p0: t(item.wrong), p1: t(item.total) }) }}</span>
                   </div>
                 </div>
-                <div v-else class="empty-panel">本次没有足量知识领域证据可形成失分聚合。</div>
+                <div v-else class="empty-panel">
+                  {{ t('本次没有足量知识领域证据可形成失分聚合。') }}
+                </div>
               </div>
               <aside>
                 <div class="reading-point">
-                  <strong>可确认事实</strong>
-                  <p>本次错 {{ report.overview?.wrong ?? 0 }} 题，未作答 {{ report.overview?.unanswered ?? 0 }} 题。</p>
+                  <strong>{{ t('可确认事实') }}</strong>
+                  <p>
+                    {{
+                      t('本次错 {p0} 题，未作答 {p1} 题。', {
+                        p0: t(report.overview?.wrong ?? 0),
+                        p1: t(report.overview?.unanswered ?? 0),
+                      })
+                    }}
+                  </p>
                 </div>
-                <div v-if="questionReviewTargets.length" class="reading-point reading-point--warning">
-                  <strong>建议逐题核对</strong>
-                  <p>点击题号可直接进入对应解析，无需从第一题开始查找。</p>
+                <div
+                  v-if="questionReviewTargets.length"
+                  class="reading-point reading-point--warning"
+                >
+                  <strong>{{ t('建议逐题核对') }}</strong>
+                  <p>{{ t('点击题号可直接进入对应解析，无需从第一题开始查找。') }}</p>
                   <div class="question-review-links">
                     <button
                       v-for="item in questionReviewTargets"
                       :key="item.key"
                       type="button"
-                      :title="item.reason"
+                      :title="t(item.reason)"
                       @click="emit('questionAnalysis', item)"
                     >
-                      <span>{{ item.moduleLabel }} · 第 {{ item.questionNumber }} 题</span>
-                      <small>{{ item.topicLabel }}｜建议核对：{{ item.reason }}</small>
+                      <span>{{
+                        t('{p0} · 第 {p1} 题', {
+                          p0: t(item.moduleLabel),
+                          p1: t(item.questionNumber),
+                        })
+                      }}</span>
+                      <small>{{
+                        t('{p0}｜建议核对：{p1}', { p0: t(item.topicLabel), p1: t(item.reason) })
+                      }}</small>
                     </button>
                   </div>
                 </div>
@@ -278,38 +357,76 @@
                   type="button"
                   class="text-action"
                   @click="emit('questionAnalysis', { wrongOnly: true })"
-                >进入题目解析，查看全部错题 →</button>
+                >
+                  {{ t('进入题目解析，查看全部错题 →') }}
+                </button>
               </aside>
             </div>
           </template>
 
           <template v-else>
-            <header class="panel-heading"><span>04</span><h3>时间把控：本次限时节奏复盘</h3></header>
-            <p class="panel-intro">先看计时覆盖度，再决定可以形成多完整的时间结论。</p>
+            <header class="panel-heading">
+              <span>04</span>
+              <h3>{{ t('时间把控：本次限时节奏复盘') }}</h3>
+            </header>
+            <p class="panel-intro">{{ t('先看计时覆盖度，再决定可以形成多完整的时间结论。') }}</p>
             <div v-if="timingAvailable" class="timing-layout">
               <div>
-                <h4>{{ timingHeadline }}</h4>
+                <h4>{{ t(timingHeadline) }}</h4>
                 <div class="timing-list">
                   <div v-for="item in report.overview?.timing.modules || []" :key="item.id">
-                    <strong>{{ item.label }}</strong>
-                    <div><i :style="{ width: `${timingBarWidth(item.actualDurationSeconds, item.plannedDurationSeconds)}%` }"></i></div>
-                    <span>{{ formatDuration(item.actualDurationSeconds) }} / {{ formatDuration(item.plannedDurationSeconds) }}</span>
-                    <small>{{ formatAccuracy(item.accuracy ?? null) }} 正确率</small>
+                    <strong>{{ t(item.label) }}</strong>
+                    <div>
+                      <i
+                        :style="{
+                          width: `${timingBarWidth(item.actualDurationSeconds, item.plannedDurationSeconds)}%`,
+                        }"
+                      ></i>
+                    </div>
+                    <span
+                      >{{ t(formatDuration(item.actualDurationSeconds)) }} /
+                      {{ t(formatDuration(item.plannedDurationSeconds)) }}</span
+                    >
+                    <small>{{
+                      t('{p0} 正确率', { p0: t(formatAccuracy(item.accuracy ?? null)) })
+                    }}</small>
                   </div>
                 </div>
                 <div class="summary-stats timing-stats">
-                  <div><span>计时覆盖</span><b>{{ formatPercent(report.overview?.timing.timingCoverage) }}</b></div>
-                  <div><span>平均题时</span><b>{{ formatSeconds(report.overview?.timing.averageDurationSeconds) }}</b></div>
-                  <div><span>未作答</span><b>{{ report.overview?.unanswered ?? 0 }} 题</b></div>
-                  <div><span>超时样本</span><b>{{ report.overview?.timing.overtimeQuestionCount ?? 0 }} 题</b></div>
+                  <div>
+                    <span>{{ t('计时覆盖') }}</span
+                    ><b>{{ t(formatPercent(report.overview?.timing.timingCoverage)) }}</b>
+                  </div>
+                  <div>
+                    <span>{{ t('平均题时') }}</span
+                    ><b>{{ t(formatSeconds(report.overview?.timing.averageDurationSeconds)) }}</b>
+                  </div>
+                  <div>
+                    <span>{{ t('未作答') }}</span
+                    ><b>{{ t('{p0} 题', { p0: t(report.overview?.unanswered ?? 0) }) }}</b>
+                  </div>
+                  <div>
+                    <span>{{ t('超时样本') }}</span
+                    ><b>{{
+                      t('{p0} 题', { p0: t(report.overview?.timing.overtimeQuestionCount ?? 0) })
+                    }}</b>
+                  </div>
                 </div>
               </div>
               <aside>
-                <div class="reading-point"><strong>当前判断</strong><p>{{ timingFinding }}</p></div>
-                <div class="reading-point reading-point--accent"><strong>训练指向</strong><p>{{ timingDirection }}</p></div>
+                <div class="reading-point">
+                  <strong>{{ t('当前判断') }}</strong>
+                  <p>{{ t(timingFinding) }}</p>
+                </div>
+                <div class="reading-point reading-point--accent">
+                  <strong>{{ t('训练指向') }}</strong>
+                  <p>{{ t(timingDirection) }}</p>
+                </div>
               </aside>
             </div>
-            <div v-else class="empty-panel">逐题计时覆盖不足，当前只保留总用时事实，不形成个人节奏判断。</div>
+            <div v-else class="empty-panel">
+              {{ t('逐题计时覆盖不足，当前只保留总用时事实，不形成个人节奏判断。') }}
+            </div>
           </template>
         </div>
       </div>
@@ -318,21 +435,30 @@
     <section ref="planSection" class="report-block" data-section="plan">
       <header class="block-heading">
         <div>
-          <h2>提升路径</h2>
-          <p>接下来怎么做 · 把证据转成可执行行动</p>
+          <h2>{{ t('提升路径') }}</h2>
+          <p>{{ t('接下来怎么做 · 把证据转成可执行行动') }}</p>
         </div>
       </header>
       <div class="summary-panel">
-        <p>{{ planSummary }}</p>
+        <p>{{ t(planSummary) }}</p>
         <div class="summary-stats">
-          <div><span>优先方向</span><b>{{ priorityDirectionCount }} 项</b></div>
-          <div><span>规划周期</span><b>{{ planningPeriodLabel }}</b></div>
-          <div><span>下一行动</span><b>{{ report.nextAction ? '已生成' : '复盘错题' }}</b></div>
+          <div>
+            <span>{{ t('优先方向') }}</span
+            ><b>{{ t('{p0} 项', { p0: t(priorityDirectionCount) }) }}</b>
+          </div>
+          <div>
+            <span>{{ t('规划周期') }}</span
+            ><b>{{ t(planningPeriodLabel) }}</b>
+          </div>
+          <div>
+            <span>{{ t('下一行动') }}</span
+            ><b>{{ t(report.nextAction ? '已生成' : '复盘错题') }}</b>
+          </div>
         </div>
       </div>
 
       <div class="section-switcher">
-        <aside class="section-rail" role="tablist" aria-label="提升路径内容">
+        <aside class="section-rail" role="tablist" :aria-label="t('提升路径内容')">
           <button
             v-for="item in planTabs"
             :key="item.id"
@@ -342,80 +468,115 @@
             :class="{ active: activePlanTab === item.id }"
             @click="activePlanTab = item.id"
           >
-            <span>{{ item.index }}</span>
-            <strong>{{ item.label }}</strong>
-            <small>{{ item.summary }}</small>
+            <span>{{ t(item.index) }}</span>
+            <strong>{{ t(item.label) }}</strong>
+            <small>{{ t(item.summary) }}</small>
           </button>
         </aside>
 
         <div class="section-panel">
           <template v-if="activePlanTab === 'priorities'">
-            <header class="panel-heading"><span>05</span><h3>主攻方向：按本次证据排序</h3></header>
-            <p class="panel-intro">最多展示三项；没有高、中置信度方向时降级为可验证行动，不把小样本写成确定短板。</p>
+            <header class="panel-heading">
+              <span>05</span>
+              <h3>{{ t('主攻方向：按本次证据排序') }}</h3>
+            </header>
+            <p class="panel-intro">
+              {{
+                t('最多展示三项；没有高、中置信度方向时降级为可验证行动，不把小样本写成确定短板。')
+              }}
+            </p>
             <div v-if="priorityItems.length" class="priority-list">
               <article v-for="item in priorityItems" :key="item.rank">
-                <span>{{ item.rank }}</span>
+                <span>{{ t(item.rank) }}</span>
                 <div>
-                  <strong>{{ item.topicLabel }}</strong>
-                  <small>{{ item.moduleLabel }} · {{ item.difficultyLabel }} · {{ item.suggestedHours }}</small>
-                  <button type="button" @click="emitPracticeFromGap(item)">创建练习 →</button>
+                  <strong>{{ t(item.topicLabel) }}</strong>
+                  <small
+                    >{{ t(item.moduleLabel) }} · {{ t(item.difficultyLabel) }} ·
+                    {{ t(item.suggestedHours) }}</small
+                  >
+                  <button type="button" @click="emitPracticeFromGap(item)">
+                    {{ t('创建练习 →') }}
+                  </button>
                 </div>
-                <p>{{ item.priorityReason }}</p>
-                <em>{{ item.correct }}/{{ item.total }} 题正确</em>
+                <p>{{ t(item.priorityReason) }}</p>
+                <em>{{ t('{p0}/{p1} 题正确', { p0: t(item.correct), p1: t(item.total) }) }}</em>
               </article>
             </div>
             <div v-else-if="moduleSignals.length" class="priority-list">
               <article v-for="(item, index) in moduleSignals.slice(0, 3)" :key="item.moduleId">
-                <span>{{ index + 1 }}</span>
+                <span>{{ t(index + 1) }}</span>
                 <div>
-                  <strong>{{ item.moduleLabel }}</strong>
-                  <small>模块级{{ item.level === 'clear' ? '明确短板' : '相对短板' }} · {{ confidenceLabel(item.confidence) }}</small>
-                  <button v-if="index === 0 && primaryPractice" type="button" @click="emitPractice(primaryPractice)">
-                    创建校准练习 →
+                  <strong>{{ t(item.moduleLabel) }}</strong>
+                  <small>{{
+                    t('模块级{p0} · {p1}', {
+                      p0: t(item.level === 'clear' ? '明确短板' : '相对短板'),
+                      p1: t(confidenceLabel(item.confidence)),
+                    })
+                  }}</small>
+                  <button
+                    v-if="index === 0 && primaryPractice"
+                    type="button"
+                    @click="emitPractice(primaryPractice)"
+                  >
+                    {{ t('创建校准练习 →') }}
                   </button>
                 </div>
-                <p>{{ moduleSignalReason(item) }}</p>
-                <em>{{ item.correct }}/{{ item.total }} 题正确</em>
+                <p>{{ t(moduleSignalReason(item)) }}</p>
+                <em>{{ t('{p0}/{p1} 题正确', { p0: t(item.correct), p1: t(item.total) }) }}</em>
               </article>
             </div>
             <div v-else-if="report.nextAction" class="priority-list">
               <article>
                 <span>1</span>
                 <div>
-                  <strong>{{ report.nextAction.title }}</strong>
-                  <small>{{ report.nextAction.moduleLabel }} · {{ report.nextAction.difficultyLabel }} · 降级指引</small>
-                  <button v-if="primaryPractice" type="button" @click="emitPractice(primaryPractice)">
-                    {{ primaryPracticeButtonLabel }} →
+                  <strong>{{ t(report.nextAction.title) }}</strong>
+                  <small>{{
+                    t('{p0} · {p1} · 降级指引', {
+                      p0: t(report.nextAction.moduleLabel),
+                      p1: t(report.nextAction.difficultyLabel),
+                    })
+                  }}</small>
+                  <button
+                    v-if="primaryPractice"
+                    type="button"
+                    @click="emitPractice(primaryPractice)"
+                  >
+                    {{ t(primaryPracticeButtonLabel) }} →
                   </button>
                 </div>
-                <p>{{ report.nextAction.whyNow }}</p>
-                <em>{{ fallbackPriorityEvidence }}</em>
+                <p>{{ t(report.nextAction.whyNow) }}</p>
+                <em>{{ t(fallbackPriorityEvidence) }}</em>
               </article>
             </div>
             <div v-else class="priority-list">
               <article>
                 <span>1</span>
                 <div>
-                  <strong>{{ fallbackPriorityTitle }}</strong>
-                  <small>观察指引 · 等待更多证据</small>
+                  <strong>{{ t(fallbackPriorityTitle) }}</strong>
+                  <small>{{ t('观察指引 · 等待更多证据') }}</small>
                 </div>
-                <p>{{ fallbackPriorityGuidance }}</p>
-                <em>下次复测</em>
+                <p>{{ t(fallbackPriorityGuidance) }}</p>
+                <em>{{ t('下次复测') }}</em>
               </article>
             </div>
           </template>
 
           <template v-else-if="activePlanTab === 'learning'">
-            <header class="panel-heading"><span>07</span><h3>{{ learningPlanTitle }}</h3></header>
-            <p class="panel-intro">{{ learningPlanIntro }}</p>
+            <header class="panel-heading">
+              <span>07</span>
+              <h3>{{ t(learningPlanTitle) }}</h3>
+            </header>
+            <p class="panel-intro">{{ t(learningPlanIntro) }}</p>
             <div v-if="starterDays.length" class="starter-grid">
               <article v-for="day in starterDays" :key="day.day">
                 <div class="starter-day-heading">
-                  <span>Day {{ day.day }}</span>
-                  <h4>{{ day.title }}</h4>
+                  <span>Day {{ t(day.day) }}</span>
+                  <h4>{{ t(day.title) }}</h4>
                 </div>
-                <p>{{ day.diagnosticRationale }}</p>
-                <strong>{{ day.durationMinutes }} 分钟 · {{ day.successCriteria }}</strong>
+                <p>{{ t(day.diagnosticRationale) }}</p>
+                <strong>{{
+                  t('{p0} 分钟 · {p1}', { p0: t(day.durationMinutes), p1: t(day.successCriteria) })
+                }}</strong>
               </article>
             </div>
             <div v-else-if="learningPhases.length" class="phase-grid">
@@ -424,78 +585,95 @@
                 :key="phase.id"
                 :class="`phase-card--${phase.id}`"
               >
-                <span class="phase-period">{{ phasePeriodLabel(phase, phaseIndex) }}</span>
-                <h4>{{ phaseDisplayTitle(phase) }}</h4>
-                <p class="phase-goal"><strong>目标：</strong>{{ phase.goal }}</p>
+                <span class="phase-period">{{ t(phasePeriodLabel(phase, phaseIndex)) }}</span>
+                <h4>{{ t(phaseDisplayTitle(phase)) }}</h4>
+                <p class="phase-goal">
+                  <strong>{{ t('目标：') }}</strong
+                  >{{ t(phase.goal) }}
+                </p>
                 <ul>
                   <li
                     v-for="(item, itemIndex) in phaseActionItems(phase)"
                     :key="`${phase.id}-${itemIndex}-${item}`"
                   >
-                    {{ item }}
+                    {{ t(item) }}
                   </li>
                 </ul>
                 <div class="phase-checkpoint">
-                  <strong>检查点：</strong>{{ phaseCheckpoint(phase) }}
+                  <strong>{{ t('检查点：') }}</strong
+                  >{{ t(phaseCheckpoint(phase)) }}
                 </div>
               </article>
             </div>
-            <div v-else class="empty-panel">当前资料不足以生成阶段计划，请先查看下一步行动。</div>
+            <div v-else class="empty-panel">
+              {{ t('当前资料不足以生成阶段计划，请先查看下一步行动。') }}
+            </div>
           </template>
 
           <template v-else>
-            <header class="panel-heading"><span>06</span><h3>下一步：今天和本周先做什么</h3></header>
-            <p class="panel-intro">行动只承接当前报告可以验证的证据，不自动创建练习本。</p>
+            <header class="panel-heading">
+              <span>06</span>
+              <h3>{{ t('下一步：今天和本周先做什么') }}</h3>
+            </header>
+            <p class="panel-intro">
+              {{ t('行动只承接当前报告可以验证的证据，不自动创建练习本。') }}
+            </p>
             <div class="action-list">
               <article v-if="report.nextAction" class="primary">
-                <span>今天</span>
+                <span>{{ t('今天') }}</span>
                 <div class="action-copy">
                   <div class="action-heading">
-                    <strong>{{ report.nextAction.title }}</strong>
-                    <small>{{ report.nextAction.suggestedMinutes }} 分钟 · {{ report.nextAction.suggestedQuestionCount }} 题</small>
+                    <strong>{{ t(report.nextAction.title) }}</strong>
+                    <small>{{
+                      t('{p0} 分钟 · {p1} 题', {
+                        p0: t(report.nextAction.suggestedMinutes),
+                        p1: t(report.nextAction.suggestedQuestionCount),
+                      })
+                    }}</small>
                   </div>
-                  <p>{{ report.nextAction.whyNow }}</p>
+                  <p>{{ t(report.nextAction.whyNow) }}</p>
                 </div>
-                <button
-                  v-if="primaryPractice"
-                  type="button"
-                  @click="emitPractice(primaryPractice)"
-                >
-                  创建练习 →
+                <button v-if="primaryPractice" type="button" @click="emitPractice(primaryPractice)">
+                  {{ t('创建练习 →') }}
                 </button>
               </article>
               <article>
-                <span>今天</span>
+                <span>{{ t('今天') }}</span>
                 <div class="action-copy">
                   <div class="action-heading">
-                    <strong>复盘本次错题</strong>
-                    <small>{{ report.overview?.wrong ?? 0 }} 道错题</small>
+                    <strong>{{ t('复盘本次错题') }}</strong>
+                    <small>{{ t('{p0} 道错题', { p0: t(report.overview?.wrong ?? 0) }) }}</small>
                   </div>
-                  <p>先核对错误发生在哪一步，再决定是否进入专项练习。</p>
+                  <p>{{ t('先核对错误发生在哪一步，再决定是否进入专项练习。') }}</p>
                 </div>
-                <button type="button" @click="emit('questionAnalysis')">题目解析 →</button>
+                <button type="button" @click="emit('questionAnalysis')">
+                  {{ t('题目解析 →') }}
+                </button>
               </article>
               <article v-if="firstPlanTask">
-                <span>本周</span>
+                <span>{{ t('本周') }}</span>
                 <div class="action-copy">
                   <div class="action-heading">
-                    <strong>{{ firstPlanTask.title }}</strong>
-                    <small>{{ firstPlanTask.completionLabel }}</small>
+                    <strong>{{ t(firstPlanTask.title) }}</strong>
+                    <small>{{ t(firstPlanTask.completionLabel) }}</small>
                   </div>
-                  <p>完成后按计划中的检查标准判断是否继续加量。</p>
+                  <p>{{ t('完成后按计划中的检查标准判断是否继续加量。') }}</p>
                 </div>
-                <button type="button" @click="activePlanTab = 'learning'">查看计划 →</button>
+                <button type="button" @click="activePlanTab = 'learning'">
+                  {{ t('查看计划 →') }}
+                </button>
               </article>
             </div>
           </template>
         </div>
       </div>
     </section>
-
   </article>
 </template>
 
 <script setup lang="ts">
+import { i18n, t } from '@/locales'
+
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type {
   DiagnosticAiImprovementPlan,
@@ -544,7 +722,9 @@ interface QuestionAnalysisTarget extends QuestionAnalysisLocation {
 }
 
 type LearningPhase = DiagnosticLearningPath['phases'][number]
-type ModuleWeaknessSignal = NonNullable<DiagnosticAiImprovementPlan['weaknessProfile']>['moduleSignals'][number]
+type ModuleWeaknessSignal = NonNullable<
+  DiagnosticAiImprovementPlan['weaknessProfile']
+>['moduleSignals'][number]
 
 const props = defineProps<{
   report: DiagnosticReportSummary
@@ -580,19 +760,20 @@ const calibrationSignals = computed(() => weaknessProfile.value?.calibrationSign
 const sequenceSignals = computed(() => weaknessProfile.value?.sequenceSignals || [])
 const diagnosisMode = computed(() => {
   if (weaknessProfile.value?.diagnosisMode) return weaknessProfile.value.diagnosisMode
-  if (gaps.value.length || moduleSignals.value.length || difficultySignals.value.length) return 'weakness_attack'
+  if (gaps.value.length || moduleSignals.value.length || difficultySignals.value.length)
+    return 'weakness_attack'
   return (overview.value?.wrong ?? 0) > 0 ? 'balanced_improvement' : 'stable_progress'
 })
 const knowledgeModules = computed(() => props.report.knowledgeMastery?.modules || [])
 const learningPhases = computed(() => props.report.learningPath?.phases || [])
 const starterDays = computed(() => props.report.learningPath?.starterPlan?.days || [])
 const priorityItems = computed(() => gaps.value.slice(0, 3))
-const priorityDirectionCount = computed(() => (
-  priorityItems.value.length || Math.min(3, moduleSignals.value.length) || 1
-))
-const learningPlanTitle = computed(() => starterDays.value.length
-  ? '学习计划：先完成 7 天启动校准'
-  : '学习计划：以考试日为锚倒排')
+const priorityDirectionCount = computed(
+  () => priorityItems.value.length || Math.min(3, moduleSignals.value.length) || 1,
+)
+const learningPlanTitle = computed(() =>
+  starterDays.value.length ? '学习计划：先完成 7 天启动校准' : '学习计划：以考试日为锚倒排',
+)
 const learningPlanIntro = computed(() => {
   const path = props.report.learningPath
   if (!path) return '当前没有足够资料生成学习计划。'
@@ -604,23 +785,33 @@ const learningPlanIntro = computed(() => {
   return `已按 ${examAnchor}、每周 ${path.summary.weeklyHours} 小时和本次主攻方向，将 ${path.summary.planningWeeks} 周拆为补漏、提速和模考冲刺三阶段，每段结束都设置检查点。`
 })
 
-const uniqueGapModules = computed(() => [...new Set([
-  ...gaps.value.map((item) => item.moduleLabel),
-  ...moduleSignals.value.map((item) => item.moduleLabel),
-])])
-const focusModuleId = computed(() => (
-  gaps.value[0]?.moduleId
-  || weaknessProfile.value?.primaryModule?.moduleId
-  || weakestAssessmentModule.value?.id
-  || ''
-))
+const uniqueGapModules = computed(() => [
+  ...new Set([
+    ...gaps.value.map((item) => item.moduleLabel),
+    ...moduleSignals.value.map((item) => item.moduleLabel),
+  ]),
+])
+const focusModuleId = computed(
+  () =>
+    gaps.value[0]?.moduleId ||
+    weaknessProfile.value?.primaryModule?.moduleId ||
+    weakestAssessmentModule.value?.id ||
+    '',
+)
 const focusScoreId = computed(() => {
-  if (props.report.reportKind === 'tmua' && scoreEntries.value.some((item) => item.id === 'overall')) return 'overall'
+  if (
+    props.report.reportKind === 'tmua' &&
+    scoreEntries.value.some((item) => item.id === 'overall')
+  )
+    return 'overall'
   return focusModuleId.value
 })
 
 const weakestAssessmentModule = computed(() => {
-  return [...props.report.assessment.modules].sort((a, b) => moduleAccuracy(a) - moduleAccuracy(b))[0] || null
+  return (
+    [...props.report.assessment.modules].sort((a, b) => moduleAccuracy(a) - moduleAccuracy(b))[0] ||
+    null
+  )
 })
 
 const scoreEntries = computed<ScoreEntry[]>(() => {
@@ -636,7 +827,9 @@ const scoreEntries = computed<ScoreEntry[]>(() => {
       total: overview.value?.totalQuestions || props.report.assessment.basedOnQuestions,
       score: props.report.assessment.score,
       scoreRange: props.report.assessment.scoreRange,
-      summary: props.report.assessment.positioning?.competitiveness || 'TMUA 官方只提供双 Paper 合并后的综合分。',
+      summary:
+        props.report.assessment.positioning?.competitiveness ||
+        'TMUA 官方只提供双 Paper 合并后的综合分。',
       focusSuggestion: gaps.value[0]?.priorityReason || '结合两卷作答事实确定下一步重点。',
     },
     ...entries,
@@ -646,35 +839,52 @@ const scoreEntries = computed<ScoreEntry[]>(() => {
 watch(
   scoreEntries,
   (entries) => {
-    if (!entries.some((item) => item.id === activeScoreId.value)) activeScoreId.value = entries[0]?.id || ''
+    if (!entries.some((item) => item.id === activeScoreId.value))
+      activeScoreId.value = entries[0]?.id || ''
   },
   { immediate: true },
 )
 
-const activeScoreEntry = computed(() => scoreEntries.value.find((item) => item.id === activeScoreId.value) || scoreEntries.value[0] || null)
+const activeScoreEntry = computed(
+  () =>
+    scoreEntries.value.find((item) => item.id === activeScoreId.value) ||
+    scoreEntries.value[0] ||
+    null,
+)
 
 // 均衡提分模式用同一组模块事实形成首页总证据，避免退回“没有结论”的系统口吻。
 const balancedModuleEvidence = computed(() => {
   const modules = props.report.assessment.modules
-  if (!modules.length) return `本次共答对 ${overview.value?.correct ?? 0}/${overview.value?.totalQuestions ?? 0} 题`
-  const sameResult = modules.every((module) => (
-    module.correct === modules[0]?.correct && module.total === modules[0]?.total
-  ))
-  const labels = modules.map((module) => module.label.replace(/\s*·.*$/, ''))
-  if (sameResult && modules[0]) return `${labels.join(' 与 ')} 均答对 ${modules[0].correct}/${modules[0].total} 题`
-  return modules.map((module, index) => `${labels[index]}答对 ${module.correct}/${module.total} 题`).join('，')
+  if (!modules.length)
+    return `本次共答对 ${overview.value?.correct ?? 0}/${overview.value?.totalQuestions ?? 0} 题`
+  const sameResult = modules.every(
+    (module) => module.correct === modules[0]?.correct && module.total === modules[0]?.total,
+  )
+  const labels = modules.map((module) => t(module.label.replace(/\s*·.*$/, '')))
+  if (sameResult && modules[0])
+    return `${labels.join(i18n.global.locale.value === 'en' ? ' and ' : ' 与 ')} 均答对 ${modules[0].correct}/${modules[0].total} 题`
+  return modules
+    .map((module, index) => t(`${labels[index]}答对 ${module.correct}/${module.total} 题`))
+    .join(i18n.global.locale.value === 'en' ? '; ' : '，')
 })
 
 // 前后段证据直接展示题目位置与正确数，不把后段下降擅自归因为疲劳或时间不足。
-const sequenceEvidence = computed(() => sequenceSignals.value.map((signal) => {
-  const label = signal.moduleLabel.replace(/\s*·.*$/, '')
-  return `${label}前 ${signal.earlyTotal} 题答对 ${signal.earlyCorrect} 题、后 ${signal.lateTotal} 题答对 ${signal.lateCorrect} 题`
-}).join('；'))
+const sequenceEvidence = computed(() =>
+  sequenceSignals.value
+    .map((signal) => {
+      const label = signal.moduleLabel.replace(/\s*·.*$/, '')
+      return t(
+        `${label}前 ${signal.earlyTotal} 题答对 ${signal.earlyCorrect} 题、后 ${signal.lateTotal} 题答对 ${signal.lateCorrect} 题`,
+      )
+    })
+    .join(i18n.global.locale.value === 'en' ? '; ' : '；'),
+)
 
 const strategyLabel = computed(() => {
   if (sequenceSignals.value.length) return '后段稳定性'
   if (moduleSignals.value.length >= 2 || uniqueGapModules.value.length >= 2) return '双重点提升'
-  if (gaps.value.length || moduleSignals.value.length || difficultySignals.value.length) return '单重点提升'
+  if (gaps.value.length || moduleSignals.value.length || difficultySignals.value.length)
+    return '单重点提升'
   if (diagnosisMode.value === 'balanced_improvement') return '均衡提分'
   return '稳定进阶'
 })
@@ -683,27 +893,40 @@ const coreHeadline = computed(() => {
   if (sequenceSignals.value.length) {
     const signals = sequenceSignals.value
     const firstSignal = signals[0]!
-    const samePattern = signals.length > 1 && signals.every((signal) => (
-      signal.earlyCorrect === firstSignal.earlyCorrect
-      && signal.earlyTotal === firstSignal.earlyTotal
-      && signal.lateCorrect === firstSignal.lateCorrect
-      && signal.lateTotal === firstSignal.lateTotal
-    ))
-    if (samePattern && firstSignal.earlyCorrect === firstSignal.earlyTotal && firstSignal.lateCorrect === 0) {
+    const samePattern =
+      signals.length > 1 &&
+      signals.every(
+        (signal) =>
+          signal.earlyCorrect === firstSignal.earlyCorrect &&
+          signal.earlyTotal === firstSignal.earlyTotal &&
+          signal.lateCorrect === firstSignal.lateCorrect &&
+          signal.lateTotal === firstSignal.lateTotal,
+      )
+    if (
+      samePattern &&
+      firstSignal.earlyCorrect === firstSignal.earlyTotal &&
+      firstSignal.lateCorrect === 0
+    ) {
       return `两卷前 ${firstSignal.earlyTotal} 题全对、后 ${firstSignal.lateTotal} 题全错，后段作答是当前首要问题`
     }
-    const labels = signals.map((signal) => signal.moduleLabel.replace(/\s*·.*$/, '')).join('与')
+    const labels = signals
+      .map((signal) => t(signal.moduleLabel.replace(/\s*·.*$/, '')))
+      .join(i18n.global.locale.value === 'en' ? ' and ' : '与')
     return `${labels}后段正确率明显下滑，优先解决后段连续失分`
   }
   if (uniqueGapModules.value.length >= 2) {
-    return `${uniqueGapModules.value.slice(0, 2).join('与')}需要优先处理，其他模块先保持节奏`
+    return `${uniqueGapModules.value
+      .slice(0, 2)
+      .map((label) => t(label))
+      .join(i18n.global.locale.value === 'en' ? ' and ' : '与')}需要优先处理，其他模块先保持节奏`
   }
   const moduleSignal = moduleSignals.value[0]
   if (gaps.value[0] && moduleSignal) {
     return `${moduleSignal.moduleLabel}是本次明确短板，先处理${gaps.value[0].topicLabel}`
   }
   if (gaps.value[0]) return `${gaps.value[0].topicLabel}是本次最值得优先处理的方向`
-  if (moduleSignal?.level === 'relative') return `${moduleSignal.moduleLabel}是本次相对其他模块更需要优先处理的方向`
+  if (moduleSignal?.level === 'relative')
+    return `${moduleSignal.moduleLabel}是本次相对其他模块更需要优先处理的方向`
   if (moduleSignal) return `${moduleSignal.moduleLabel}是本次有明确证据支持的主要短板`
   if (difficultySignals.value[0]) {
     return `${difficultySignals.value[0].moduleLabel}的${difficultySignals.value[0].difficultyLabel}是本次优先提升层`
@@ -718,24 +941,38 @@ const coreHeadline = computed(() => {
 
 const coreExplanation = computed(() => {
   if (sequenceSignals.value.length) {
-    const lateWrong = sequenceSignals.value.reduce((sum, signal) => sum + signal.lateTotal - signal.lateCorrect, 0)
+    const lateWrong = sequenceSignals.value.reduce(
+      (sum, signal) => sum + signal.lateTotal - signal.lateCorrect,
+      0,
+    )
     const action = props.report.nextAction
-    const training = action?.actionType === 'mixed_timed_practice'
-      ? `接下来完成 ${action.suggestedQuestionCount} 道中高难度跨知识点限时训练，目标至少答对 4 道。`
-      : '接下来先复盘对应错题，再完成一组中高难度跨知识点限时训练。'
+    const training =
+      action?.actionType === 'mixed_timed_practice'
+        ? `接下来完成 ${action.suggestedQuestionCount} 道中高难度跨知识点限时训练，目标至少答对 4 道。`
+        : '接下来先复盘对应错题，再完成一组中高难度跨知识点限时训练。'
     return `${sequenceEvidence.value}。${lateWrong} 道后段错题跨越多个知识点，当前最明确的共同失分特征是题目位置。先核对每题的条件拆解、分情况覆盖和最终验算，${training}`
   }
   const moduleSignal = moduleSignals.value.find((item) => item.moduleId === focusModuleId.value)
-  const difficultySignal = difficultySignals.value.find((item) => item.moduleId === focusModuleId.value)
+  const difficultySignal = difficultySignals.value.find(
+    (item) => item.moduleId === focusModuleId.value,
+  )
   if (moduleSignal) {
     const accuracy = Math.round(moduleSignal.accuracy * 100)
-    const gap = moduleSignal.gapToNext === null
-      ? ''
-      : `，与下一模块相差 ${Math.round(moduleSignal.gapToNext * 100)} 个百分点`
+    const gap =
+      moduleSignal.gapToNext === null
+        ? ''
+        : `，与下一模块相差 ${Math.round(moduleSignal.gapToNext * 100)} 个百分点`
     const difficulty = difficultySignal
       ? `；其中${difficultySignal.difficultyLabel}答对 ${difficultySignal.correct}/${difficultySignal.total} 题，是当前主要薄弱层`
       : ''
-    return `${moduleSignal.moduleLabel}本次答对 ${moduleSignal.correct}/${moduleSignal.total} 题，正确率 ${accuracy}%${gap}${difficulty}。`
+    return t('{p0}本次答对 {p1}/{p2} 题，正确率 {p3}%{p4}{p5}。', {
+      p0: t(moduleSignal.moduleLabel),
+      p1: moduleSignal.correct,
+      p2: moduleSignal.total,
+      p3: accuracy,
+      p4: t(gap),
+      p5: t(difficulty),
+    })
   }
   if (difficultySignal) {
     return `${difficultySignal.moduleLabel}的${difficultySignal.difficultyLabel}答对 ${difficultySignal.correct}/${difficultySignal.total} 题，是当前最值得优先处理的难度层。`
@@ -753,7 +990,8 @@ const coreExplanation = computed(() => {
   }
   const module = props.report.assessment.modules.find((item) => item.id === focusModuleId.value)
   if (module?.diagnosticAnalysis?.summary) return module.diagnosticAnalysis.summary
-  if (props.report.nextAction) return `${props.report.nextAction.whyNow} 建议先完成一组短训练，再根据结果决定是否继续。`
+  if (props.report.nextAction)
+    return `${props.report.nextAction.whyNow} 建议先完成一组短训练，再根据结果决定是否继续。`
   return `本次共答对 ${overview.value?.correct ?? 0}/${overview.value?.totalQuestions ?? props.report.assessment.basedOnQuestions} 题。报告只陈述当前答卷能够支持的结论。`
 })
 
@@ -785,16 +1023,16 @@ const fallbackPriorityEvidence = computed(() => {
 })
 
 // 完全没有可生成行动的数据时，仍根据是否存在错题给出最保守的复测方向。
-const fallbackPriorityTitle = computed(() => (
-  (overview.value?.wrong ?? 0) > 0 ? '先完成本次错题复盘' : '进行限时稳定性复测'
-))
+const fallbackPriorityTitle = computed(() =>
+  (overview.value?.wrong ?? 0) > 0 ? '先完成本次错题复盘' : '进行限时稳定性复测',
+)
 
 // 最低级降级文案只安排可验证动作，不新增知识点、能力或过程归因。
-const fallbackPriorityGuidance = computed(() => (
+const fallbackPriorityGuidance = computed(() =>
   (overview.value?.wrong ?? 0) > 0
     ? '当前失分还不能聚合为高、中置信度方向。先逐题核对第一个错误步骤，再用下一套同结构限时练习检查是否重复出现。'
-    : '本次没有观察到需要补弱的失分。下一次使用同结构限时练习复测正确率和后段稳定性，再决定是否进入专项训练。'
-))
+    : '本次没有观察到需要补弱的失分。下一次使用同结构限时练习复测正确率和后段稳定性，再决定是否进入专项训练。',
+)
 
 const reportSubtitle = computed(() => {
   const target = props.report.learningPath?.profile.targetUniversities.join('、')
@@ -803,12 +1041,14 @@ const reportSubtitle = computed(() => {
   return `${formatDateTime(props.meta.completedAt)}${targetText ? ` · 目标：${targetText}` : ''}`
 })
 
-const referenceSectionTitle = computed(() => props.report.reportKind === 'esat'
-  ? '官方历史分布参照'
-  : '综合分与 Paper 区间参照')
-const referenceSectionDescription = computed(() => props.report.reportKind === 'esat'
-  ? '按模块查看当前区间与已审核的公开历史分布；无可靠人群数据时不推断排名。'
-  : '综合分展示平台估分区间，Paper 只作内部诊断对照，不展示未经审核的官方分位。')
+const referenceSectionTitle = computed(() =>
+  props.report.reportKind === 'esat' ? '官方历史分布参照' : '综合分与 Paper 区间参照',
+)
+const referenceSectionDescription = computed(() =>
+  props.report.reportKind === 'esat'
+    ? '按模块查看当前区间与已审核的公开历史分布；无可靠人群数据时不推断排名。'
+    : '综合分展示平台估分区间，Paper 只作内部诊断对照，不展示未经审核的官方分位。',
+)
 
 const distributionDescription = computed(() => {
   const entry = activeScoreEntry.value
@@ -819,19 +1059,21 @@ const distributionDescription = computed(() => {
   return `色带表示 ${entry.label} 的平台预估区间；公开分布只作为历史参照，不代表当前个人排名。`
 })
 
-const accuracyLabel = computed(() => overview.value?.accuracy === null || overview.value?.accuracy === undefined
-  ? '暂无'
-  : `${overview.value.accuracy.toFixed(1)}%（${overview.value.totalQuestions} 题）`)
-const primaryGapLabel = computed(() => (
+const accuracyLabel = computed(() =>
+  overview.value?.accuracy === null || overview.value?.accuracy === undefined
+    ? '暂无'
+    : `${overview.value.accuracy.toFixed(1)}%（${overview.value.totalQuestions} 题）`,
+)
+const primaryGapLabel = computed(() =>
   sequenceSignals.value.length
     ? '后段连续失分'
-    : gaps.value[0]?.topicLabel
-  || difficultySignals.value[0]?.difficultyLabel
-  || moduleSignals.value[0]?.moduleLabel
-  || props.report.nextAction?.topicLabel
-  || calibrationSignals.value[0]?.topicLabel
-  || `${overview.value?.wrong ?? 0} 道错题待复盘`
-))
+    : gaps.value[0]?.topicLabel ||
+      difficultySignals.value[0]?.difficultyLabel ||
+      moduleSignals.value[0]?.moduleLabel ||
+      props.report.nextAction?.topicLabel ||
+      calibrationSignals.value[0]?.topicLabel ||
+      `${overview.value?.wrong ?? 0} 道错题待复盘`,
+)
 const timingStatusLabel = computed(() => {
   const level = overview.value?.timing.analysisLevel
   if (level === 'complete') return '完整计时分析'
@@ -842,21 +1084,32 @@ const detailSummary = computed(() => {
   const evidenceSummary = sequenceSignals.value.length
     ? `${sequenceEvidence.value}，后段正确率断层是本次最明确的失分结构。`
     : gaps.value[0]
-    ? `${gaps.value[0].topicLabel} 是当前证据最集中的失分区域。`
-    : moduleSignals.value[0]
-      ? `${moduleSignals.value[0].moduleLabel} 已形成模块级短板证据，知识点样本不足时继续以校准方式处理。`
-      : diagnosisMode.value === 'balanced_improvement'
-        ? '当前失分较分散，先完成错题收口并校准第一观察方向。'
-        : '当前整体表现稳定，继续通过限时作答验证正确率与节奏。'
+      ? `${gaps.value[0].topicLabel} 是当前证据最集中的失分区域。`
+      : moduleSignals.value[0]
+        ? `${moduleSignals.value[0].moduleLabel} 已形成模块级短板证据，知识点样本不足时继续以校准方式处理。`
+        : diagnosisMode.value === 'balanced_improvement'
+          ? '当前失分较分散，先完成错题收口并校准第一观察方向。'
+          : '当前整体表现稳定，继续通过限时作答验证正确率与节奏。'
   return `本次答对 ${overview.value?.correct ?? 0} 题、错 ${overview.value?.wrong ?? 0} 题、未作答 ${overview.value?.unanswered ?? 0} 题。${evidenceSummary}`
 })
-const planSummary = computed(() => props.report.learningPath?.summary.modeReason || (gaps.value.length ? `先处理 ${gaps.value.slice(0, 2).map((item) => item.topicLabel).join('、')}，再根据复盘结果调整投入。` : '先回收本次错题，并用短训练校准小样本信号。'))
+const planSummary = computed(
+  () =>
+    props.report.learningPath?.summary.modeReason ||
+    (gaps.value.length
+      ? `先处理 ${gaps.value
+          .slice(0, 2)
+          .map((item) => item.topicLabel)
+          .join('、')}，再根据复盘结果调整投入。`
+      : '先回收本次错题，并用短训练校准小样本信号。'),
+)
 const planningPeriodLabel = computed(() => {
   const summary = props.report.learningPath?.summary
   if (!summary) return '待补充资料'
   return summary.planningScope === 'starter' ? '7 天启动' : `${summary.planningWeeks} 周`
 })
-const firstPlanTask = computed(() => learningPhases.value.flatMap((phase) => phase.tasks)[0] || null)
+const firstPlanTask = computed(
+  () => learningPhases.value.flatMap((phase) => phase.tasks)[0] || null,
+)
 
 const lossItems = computed(() => {
   if (sequenceSignals.value.length) {
@@ -874,7 +1127,9 @@ const lossItems = computed(() => {
       label: `${item.moduleLabel} · ${item.topicLabel}`,
       wrong: Math.max(0, item.total - item.correct),
       total: item.total,
-      bar: item.total ? Math.max(8, Math.round(((item.total - item.correct) / item.total) * 100)) : 8,
+      bar: item.total
+        ? Math.max(8, Math.round(((item.total - item.correct) / item.total) * 100))
+        : 8,
     }))
   }
   if (moduleSignals.value.length) {
@@ -883,7 +1138,9 @@ const lossItems = computed(() => {
       label: `${item.moduleLabel} · 模块整体`,
       wrong: Math.max(0, item.total - item.correct),
       total: item.total,
-      bar: item.total ? Math.max(8, Math.round(((item.total - item.correct) / item.total) * 100)) : 8,
+      bar: item.total
+        ? Math.max(8, Math.round(((item.total - item.correct) / item.total) * 100))
+        : 8,
     }))
   }
   return calibrationSignals.value.slice(0, 4).map((item) => ({
@@ -905,33 +1162,45 @@ function conciseReviewReason(gap: DiagnosticAiImprovementPlan['highRoiGaps'][num
 // 报告已有的模块、题号和核对建议转换为稳定的直达入口，避免用无法定位的长文本替代逐题复盘。
 const questionReviewTargets = computed<QuestionAnalysisTarget[]>(() => {
   const seen = new Set<string>()
-  return gaps.value.flatMap((gap) => (gap.questionNumbers || []).flatMap((questionNumber) => {
-    if (!Number.isInteger(questionNumber) || questionNumber <= 0) return []
-    const key = `${gap.moduleId}:${questionNumber}`
-    if (seen.has(key)) return []
-    seen.add(key)
-    return [{
-      key,
-      moduleId: gap.moduleId,
-      moduleLabel: gap.moduleLabel,
-      topicLabel: gap.topicLabel,
-      questionNumber,
-      reason: conciseReviewReason(gap),
-      wrongOnly: true,
-    }]
-  })).slice(0, 3)
+  return gaps.value
+    .flatMap((gap) =>
+      (gap.questionNumbers || []).flatMap((questionNumber) => {
+        if (!Number.isInteger(questionNumber) || questionNumber <= 0) return []
+        const key = `${gap.moduleId}:${questionNumber}`
+        if (seen.has(key)) return []
+        seen.add(key)
+        return [
+          {
+            key,
+            moduleId: gap.moduleId,
+            moduleLabel: gap.moduleLabel,
+            topicLabel: gap.topicLabel,
+            questionNumber,
+            reason: conciseReviewReason(gap),
+            wrongOnly: true,
+          },
+        ]
+      }),
+    )
+    .slice(0, 3)
 })
-const errorHeadline = computed(() => sequenceSignals.value.length
-  ? `失分集中在${sequenceSignals.value.length > 1 ? '两卷' : sequenceSignals.value[0]?.moduleLabel || '当前模块'}后段，而不是单一知识点`
-  : gaps.value[0]
-    ? `失分最集中在 ${gaps.value[0].moduleLabel} 的 ${gaps.value[0].topicLabel}`
-  : moduleSignals.value[0]
-    ? `当前先处理 ${moduleSignals.value[0].moduleLabel} 的模块级失分`
-    : calibrationSignals.value[0]
-      ? `本次失分较分散，先校准 ${props.report.nextAction?.topicLabel || calibrationSignals.value[0].topicLabel}`
-      : '先逐题回收分散失分，再用下一套限时卷验证改进')
+const errorHeadline = computed(() =>
+  sequenceSignals.value.length
+    ? `失分集中在${sequenceSignals.value.length > 1 ? '两卷' : sequenceSignals.value[0]?.moduleLabel || '当前模块'}后段，而不是单一知识点`
+    : gaps.value[0]
+      ? `失分最集中在 ${gaps.value[0].moduleLabel} 的 ${gaps.value[0].topicLabel}`
+      : moduleSignals.value[0]
+        ? `当前先处理 ${moduleSignals.value[0].moduleLabel} 的模块级失分`
+        : calibrationSignals.value[0]
+          ? `本次失分较分散，先校准 ${props.report.nextAction?.topicLabel || calibrationSignals.value[0].topicLabel}`
+          : '先逐题回收分散失分，再用下一套限时卷验证改进',
+)
 
-const timingAvailable = computed(() => overview.value?.timing.analysisLevel !== 'unavailable' && Boolean(overview.value?.timing.modules.length))
+const timingAvailable = computed(
+  () =>
+    overview.value?.timing.analysisLevel !== 'unavailable' &&
+    Boolean(overview.value?.timing.modules.length),
+)
 const timingHeadline = computed(() => {
   const timing = overview.value?.timing
   if (!timing) return '当前没有可靠计时数据'
@@ -943,31 +1212,60 @@ const timingFinding = computed(() => {
   const timing = overview.value?.timing
   if (!timing) return '暂无可靠时间判断。'
   const slowWrong = timing.quadrants?.find((item) => item.id === 'slow_wrong')?.count || 0
-  if (slowWrong) return `有 ${slowWrong} 道题同时表现为用时较长且作答错误，建议在题目解析中核对卡住的位置。`
+  if (slowWrong)
+    return `有 ${slowWrong} 道题同时表现为用时较长且作答错误，建议在题目解析中核对卡住的位置。`
   return '当前没有足量证据支持“不会跳题”或“注意力不足”等过程归因。'
 })
-const timingDirection = computed(() => gaps.value[0]
-  ? `先在 ${gaps.value[0].topicLabel} 中完成一组限时训练，并记录超时题的第一处失败步骤。`
-  : '保持当前节奏，用下一次限时练习继续校准。')
+const timingDirection = computed(() =>
+  gaps.value[0]
+    ? `先在 ${gaps.value[0].topicLabel} 中完成一组限时训练，并记录超时题的第一处失败步骤。`
+    : '保持当前节奏，用下一次限时练习继续校准。',
+)
 
 const detailTabs = computed(() => [
-  { id: 'knowledge' as const, index: '02', label: '科目与知识点', summary: `${knowledgeModules.value.length} 个模块的本次覆盖事实` },
+  {
+    id: 'knowledge' as const,
+    index: '02',
+    label: '科目与知识点',
+    summary: `${knowledgeModules.value.length} 个模块的本次覆盖事实`,
+  },
   { id: 'errors' as const, index: '03', label: '失分结构', summary: primaryGapLabel.value },
   { id: 'timing' as const, index: '04', label: '时间把控', summary: timingStatusLabel.value },
 ])
 const planTabs = computed(() => [
-  { id: 'priorities' as const, index: '05', label: '主攻方向', summary: sequenceSignals.value.length ? '后段稳定性优先' : priorityItems.value.length || moduleSignals.value.length ? `${Math.max(priorityItems.value.length, moduleSignals.value.length)} 项按证据排序` : props.report.nextAction?.title || fallbackPriorityTitle.value },
-  { id: 'next' as const, index: '06', label: '下一步', summary: props.report.nextAction?.title || '复盘本次错题' },
+  {
+    id: 'priorities' as const,
+    index: '05',
+    label: '主攻方向',
+    summary: sequenceSignals.value.length
+      ? '后段稳定性优先'
+      : priorityItems.value.length || moduleSignals.value.length
+        ? `${Math.max(priorityItems.value.length, moduleSignals.value.length)} 项按证据排序`
+        : props.report.nextAction?.title || fallbackPriorityTitle.value,
+  },
+  {
+    id: 'next' as const,
+    index: '06',
+    label: '下一步',
+    summary: props.report.nextAction?.title || '复盘本次错题',
+  },
   { id: 'learning' as const, index: '07', label: '学习计划', summary: planningPeriodLabel.value },
 ])
 
 onMounted(() => {
-  const sections = [overallSection.value, detailSection.value, planSection.value].filter((item): item is HTMLElement => Boolean(item))
-  sectionObserver = new IntersectionObserver((entries) => {
-    const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
-    const id = visible?.target.getAttribute('data-section')
-    if (id === 'overall' || id === 'detail' || id === 'plan') activePrimaryTab.value = id
-  }, { rootMargin: '-20% 0px -65% 0px', threshold: [0.05, 0.2, 0.5] })
+  const sections = [overallSection.value, detailSection.value, planSection.value].filter(
+    (item): item is HTMLElement => Boolean(item),
+  )
+  sectionObserver = new IntersectionObserver(
+    (entries) => {
+      const visible = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
+      const id = visible?.target.getAttribute('data-section')
+      if (id === 'overall' || id === 'detail' || id === 'plan') activePrimaryTab.value = id
+    },
+    { rootMargin: '-20% 0px -65% 0px', threshold: [0.05, 0.2, 0.5] },
+  )
   sections.forEach((section) => sectionObserver?.observe(section))
 })
 
@@ -985,6 +1283,13 @@ function phaseDisplayTitle(phase: LearningPhase): string {
 
 // 日期范围使用报告生成快照作为起点，跨年时补充年份以避免歧义。
 function formatPlanDate(date: Date, includeYear: boolean): string {
+  if (i18n.global.locale.value === 'en') {
+    return new Intl.DateTimeFormat('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: includeYear ? 'numeric' : undefined,
+    }).format(date)
+  }
   const monthAndDay = `${date.getMonth() + 1}/${date.getDate()}`
   return includeYear ? `${date.getFullYear()}/${monthAndDay}` : monthAndDay
 }
@@ -998,7 +1303,11 @@ function phasePeriodLabel(phase: LearningPhase, phaseIndex: number): string {
   if (Number.isNaN(generatedAt.getTime()) || Number.isNaN(targetDate.getTime())) {
     return phase.weekLabel
   }
-  const planStart = new Date(generatedAt.getFullYear(), generatedAt.getMonth(), generatedAt.getDate())
+  const planStart = new Date(
+    generatedAt.getFullYear(),
+    generatedAt.getMonth(),
+    generatedAt.getDate(),
+  )
   const elapsedWeeks = learningPhases.value
     .slice(0, phaseIndex)
     .reduce((total, item) => total + item.durationWeeks, 0)
@@ -1014,7 +1323,13 @@ function phasePeriodLabel(phase: LearningPhase, phaseIndex: number): string {
 
 // 阶段卡先展示绑定主攻缺口的任务，再补充该阶段的通用训练活动。
 function phaseActionItems(phase: LearningPhase): string[] {
-  const taskItems = phase.tasks.map((task) => `${task.period}：${task.title}；${task.completionLabel}`)
+  const taskItems = phase.tasks.map((task) =>
+    t('{p0}：{p1}；{p2}', {
+      p0: t(task.period),
+      p1: t(task.title),
+      p2: t(task.completionLabel),
+    }),
+  )
   const items = Array.from(new Set([...taskItems, ...phase.activities].filter(Boolean))).slice(0, 4)
   return items.length ? items : [phase.strategy]
 }
@@ -1022,8 +1337,10 @@ function phaseActionItems(phase: LearningPhase): string[] {
 // 历史 V2 报告没有 checkpoint 字段时使用受控模板补齐，不把执行策略冒充检查结果。
 function phaseCheckpoint(phase: LearningPhase): string {
   if (phase.checkpoint) return phase.checkpoint
-  if (phase.id === 'foundation') return '完成主攻任务复测；达到阶段目标后进入提速，未达标内容继续保留。'
-  if (phase.id === 'improvement') return '完成两次模块限时训练；结果稳定后进入模考冲刺，未稳定项继续保留。'
+  if (phase.id === 'foundation')
+    return '完成主攻任务复测；达到阶段目标后进入提速，未达标内容继续保留。'
+  if (phase.id === 'improvement')
+    return '完成两次模块限时训练；结果稳定后进入模考冲刺，未稳定项继续保留。'
   return '用最近两套完整模考检查整卷节奏和错题回收是否稳定。'
 }
 
@@ -1051,7 +1368,12 @@ function scoreEntryFromModule(module: DiagnosticAssessmentModule): ScoreEntry {
 // 页内主导航只改变阅读位置，不创建新的路由历史。
 function scrollToSection(id: 'overall' | 'detail' | 'plan'): void {
   activePrimaryTab.value = id
-  const target = id === 'overall' ? overallSection.value : id === 'detail' ? detailSection.value : planSection.value
+  const target =
+    id === 'overall'
+      ? overallSection.value
+      : id === 'detail'
+        ? detailSection.value
+        : planSection.value
   void nextTick(() => target?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
 }
 
@@ -1070,10 +1392,14 @@ function confidenceLabel(confidence: ModuleWeaknessSignal['confidence']): string
 // 模块主攻理由只组合程序提供的正确率和相对差距，不在前端重新判断短板等级。
 function moduleSignalReason(item: ModuleWeaknessSignal): string {
   const accuracy = Math.round(item.accuracy * 100)
-  const relative = item.gapToNext === null
-    ? ''
-    : `，与下一模块相差 ${Math.round(item.gapToNext * 100)} 个百分点`
-  return `本次答对 ${item.correct}/${item.total} 题，正确率 ${accuracy}%${relative}。`
+  const relative =
+    item.gapToNext === null ? '' : `，与下一模块相差 ${Math.round(item.gapToNext * 100)} 个百分点`
+  return t('本次答对 {p0}/{p1} 题，正确率 {p2}%{p3}。', {
+    p0: item.correct,
+    p1: item.total,
+    p2: accuracy,
+    p3: t(relative),
+  })
 }
 
 // 优先方向卡使用本次真实题量生成保守的练习预填，不静默保存练习本。
@@ -1164,8 +1490,13 @@ function formatSeconds(seconds: number | null | undefined): string {
 function formatDateTime(value: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+  return new Intl.DateTimeFormat(i18n.global.locale.value === 'en' ? 'en-GB' : 'zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
   }).format(date)
 }
 </script>
@@ -1184,216 +1515,1065 @@ function formatDateTime(value: string): string {
   color: var(--v2-ink);
 }
 
-button { font: inherit; }
+button {
+  font: inherit;
+}
 
-.report-head, .opening-grid, .panel-title, .score-lane__top, .module-card__head,
-.block-heading, .section-heading, .panel-heading { display: flex; }
+.report-head,
+.opening-grid,
+.panel-title,
+.score-lane__top,
+.module-card__head,
+.block-heading,
+.section-heading,
+.panel-heading {
+  display: flex;
+}
 
-.report-head { align-items: flex-start; gap: 24px; }
-.report-source { display: inline-flex; margin-bottom: 8px; padding: 4px 9px; border-radius: 999px; background: #dff5eb; color: #176b50; font-size: 12px; font-weight: 800; }
-.report-head h1 { margin: 0; font-size: clamp(25px, 3vw, 32px); }
-.head-summary-row { display: flex; align-items: center; gap: 24px; margin-top: 14px; }
-.report-subtitle { margin: 0; color: var(--v2-muted); font-size: 13px; }
-.button { padding: 10px 16px; border: 1px solid #cbd4cf; border-radius: 10px; background: #fff; color: var(--v2-ink); cursor: pointer; font-weight: 700; }
-.button--primary { border-color: var(--v2-forest); background: var(--v2-forest); color: #fff; }
-.button:hover, .button:focus-visible { transform: translateY(-1px); outline: 2px solid transparent; box-shadow: 0 8px 20px rgba(28,43,38,.12); }
+.report-head {
+  align-items: flex-start;
+  gap: 24px;
+}
+.report-source {
+  display: inline-flex;
+  margin-bottom: 8px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #dff5eb;
+  color: #176b50;
+  font-size: 12px;
+  font-weight: 800;
+}
+.report-head h1 {
+  margin: 0;
+  font-size: clamp(25px, 3vw, 32px);
+}
+.head-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-top: 14px;
+}
+.report-subtitle {
+  margin: 0;
+  color: var(--v2-muted);
+  font-size: 13px;
+}
+.button {
+  padding: 10px 16px;
+  border: 1px solid #cbd4cf;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--v2-ink);
+  cursor: pointer;
+  font-weight: 700;
+}
+.button--primary {
+  border-color: var(--v2-forest);
+  background: var(--v2-forest);
+  color: #fff;
+}
+.button:hover,
+.button:focus-visible {
+  transform: translateY(-1px);
+  outline: 2px solid transparent;
+  box-shadow: 0 8px 20px rgba(28, 43, 38, 0.12);
+}
 
-.data-window { display: flex; align-items: center; gap: 14px; margin-top: 18px; padding: 13px 16px; border: 1px solid var(--v2-line); border-left: 4px solid var(--v2-teal); border-radius: 10px; background: #fff; color: #286d56; font-size: 12px; }
-.data-window small { margin-left: auto; color: var(--v2-muted); }
+.data-window {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 13px 16px;
+  border: 1px solid var(--v2-line);
+  border-left: 4px solid var(--v2-teal);
+  border-radius: 10px;
+  background: #fff;
+  color: #286d56;
+  font-size: 12px;
+}
+.data-window small {
+  margin-left: auto;
+  color: var(--v2-muted);
+}
 
-.primary-tabs { position: sticky; top: var(--nav-height); z-index: 90; display: flex; gap: 28px; margin-top: 24px; border-bottom: 1px solid var(--v2-line); background: rgba(244,247,244,.98); box-shadow: 0 8px 16px rgba(28,43,38,.06); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
-.primary-tabs button { padding: 14px 2px 12px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: #758195; cursor: pointer; }
-.primary-tabs button.active { border-bottom-color: var(--v2-teal); color: var(--v2-ink); font-weight: 800; }
+.primary-tabs {
+  position: sticky;
+  top: var(--nav-height);
+  z-index: 90;
+  display: flex;
+  gap: 28px;
+  margin-top: 24px;
+  border-bottom: 1px solid var(--v2-line);
+  background: rgba(244, 247, 244, 0.98);
+  box-shadow: 0 8px 16px rgba(28, 43, 38, 0.06);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.primary-tabs button {
+  padding: 14px 2px 12px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: #758195;
+  cursor: pointer;
+}
+.primary-tabs button.active {
+  border-bottom-color: var(--v2-teal);
+  color: var(--v2-ink);
+  font-weight: 800;
+}
 
-.report-block { padding-top: 24px; scroll-margin-top: calc(var(--nav-height) + 58px); }
-.block-heading { align-items: baseline; gap: 18px; margin: 10px 0 20px; padding: 18px 0 4px; border-top: 3px solid var(--v2-ink); }
-.block-heading h2 { margin: 0; padding-left: 12px; border-left: 4px solid var(--v2-teal); font-size: 25px; }
-.block-heading p { margin: 4px 0 0; color: var(--v2-muted); font-size: 12px; }
+.report-block {
+  padding-top: 24px;
+  scroll-margin-top: calc(var(--nav-height) + 58px);
+}
+.block-heading {
+  align-items: baseline;
+  gap: 18px;
+  margin: 10px 0 20px;
+  padding: 18px 0 4px;
+  border-top: 3px solid var(--v2-ink);
+}
+.block-heading h2 {
+  margin: 0;
+  padding-left: 12px;
+  border-left: 4px solid var(--v2-teal);
+  font-size: 25px;
+}
+.block-heading p {
+  margin: 4px 0 0;
+  color: var(--v2-muted);
+  font-size: 12px;
+}
 
-.opening-grid { display: grid; grid-template-columns: minmax(0,1.05fr) minmax(430px,.95fr); gap: 42px; align-items: stretch; }
-.opening-copy { align-self: center; padding-left: 26px; border-left: 4px solid var(--v2-teal); }
-.hero-card { padding: 26px 30px; border-radius: 16px; background: var(--v2-forest); color: #fff; }
-.hero-card > span { color: #9fd8bc; font-size: 11px; font-weight: 800; letter-spacing: .16em; }
-.hero-card h3 { margin: 12px 0 16px; font-size: clamp(23px, 2.5vw, 30px); line-height: 1.4; }
-.hero-card em { display: inline-flex; padding: 7px 11px; border-radius: 999px; background: rgba(255,255,255,.14); color: #dcefe3; font-size: 11px; font-style: normal; font-weight: 800; }
-.opening-copy > p { margin: 18px 0 0; color: #526074; font-size: 14px; line-height: 1.85; }
-.opening-actions { display: flex; gap: 10px; margin-top: 22px; }
+.opening-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(430px, 0.95fr);
+  gap: 42px;
+  align-items: stretch;
+}
+.opening-copy {
+  align-self: center;
+  padding-left: 26px;
+  border-left: 4px solid var(--v2-teal);
+}
+.hero-card {
+  padding: 26px 30px;
+  border-radius: 16px;
+  background: var(--v2-forest);
+  color: #fff;
+}
+.hero-card > span {
+  color: #9fd8bc;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+.hero-card h3 {
+  margin: 12px 0 16px;
+  font-size: clamp(23px, 2.5vw, 30px);
+  line-height: 1.4;
+}
+.hero-card em {
+  display: inline-flex;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #dcefe3;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+}
+.opening-copy > p {
+  margin: 18px 0 0;
+  color: #526074;
+  font-size: 14px;
+  line-height: 1.85;
+}
+.opening-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 22px;
+}
 
-.position-panel { padding: 24px 26px; border: 1px solid var(--v2-line); border-radius: 16px; background: #fff; box-shadow: 0 1px 3px rgba(28,43,38,.05); }
-.panel-title { align-items: flex-end; justify-content: space-between; margin-bottom: 10px; }
-.panel-title h3 { margin: 0; font-size: 20px; }
-.panel-title span { color: var(--v2-muted); font-size: 10px; }
-.score-lane { margin-top: 8px; padding: 14px; border-left: 4px solid #cfd7d2; background: #fbfcfb; }
-.score-lane.focus { border-left-color: var(--v2-amber); background: #fff8eb; }
-.score-lane__top { align-items: baseline; justify-content: space-between; gap: 12px; }
-.score-lane__top strong { font-size: 14px; }
-.score-lane__top b { font-size: 21px; }
-.score-lane > p { margin: 7px 0 0; color: var(--v2-muted); font-size: 11px; line-height: 1.6; }
-.score-scale { position: relative; height: 33px; margin-top: 9px; }
-.score-scale__track, .score-scale__band { position: absolute; top: 10px; height: 6px; border-radius: 4px; }
-.score-scale__track { right: 0; left: 0; background: #e4e9e6; }
-.score-scale__band { background: var(--v2-teal); }
-.score-lane.focus .score-scale__band { background: var(--v2-amber); }
-.score-scale i { position: absolute; top: 22px; transform: translateX(-50%); color: #8a948f; font-size: 9px; font-style: normal; }
-.position-note { margin: 12px 0 0; padding-top: 9px; border-top: 1px dashed var(--v2-line); color: #7b8780; font-size: 10.5px; line-height: 1.65; }
+.position-panel {
+  padding: 24px 26px;
+  border: 1px solid var(--v2-line);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(28, 43, 38, 0.05);
+}
+.panel-title {
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.panel-title h3 {
+  margin: 0;
+  font-size: 20px;
+}
+.panel-title span {
+  color: var(--v2-muted);
+  font-size: 10px;
+}
+.score-lane {
+  margin-top: 8px;
+  padding: 14px;
+  border-left: 4px solid #cfd7d2;
+  background: #fbfcfb;
+}
+.score-lane.focus {
+  border-left-color: var(--v2-amber);
+  background: #fff8eb;
+}
+.score-lane__top {
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.score-lane__top strong {
+  font-size: 14px;
+}
+.score-lane__top b {
+  font-size: 21px;
+}
+.score-lane > p {
+  margin: 7px 0 0;
+  color: var(--v2-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.score-scale {
+  position: relative;
+  height: 33px;
+  margin-top: 9px;
+}
+.score-scale__track,
+.score-scale__band {
+  position: absolute;
+  top: 10px;
+  height: 6px;
+  border-radius: 4px;
+}
+.score-scale__track {
+  right: 0;
+  left: 0;
+  background: #e4e9e6;
+}
+.score-scale__band {
+  background: var(--v2-teal);
+}
+.score-lane.focus .score-scale__band {
+  background: var(--v2-amber);
+}
+.score-scale i {
+  position: absolute;
+  top: 22px;
+  transform: translateX(-50%);
+  color: #8a948f;
+  font-size: 9px;
+  font-style: normal;
+}
+.position-note {
+  margin: 12px 0 0;
+  padding-top: 9px;
+  border-top: 1px dashed var(--v2-line);
+  color: #7b8780;
+  font-size: 10.5px;
+  line-height: 1.65;
+}
 
-.content-section { padding-top: 30px; }
-.section-heading { gap: 16px; margin-bottom: 16px; }
-.section-heading > span, .panel-heading > span { color: var(--v2-teal); font-size: 12px; font-weight: 800; }
-.section-heading h3, .section-heading p, .panel-heading h3 { margin: 0; }
-.section-heading h3 { padding-left: 12px; border-left: 4px solid var(--v2-teal); font-size: 20px; }
-.section-heading p { margin-top: 5px; color: var(--v2-muted); font-size: 12px; }
-.distribution-card { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(310px,.8fr); gap: 18px; }
-.distribution-main, .distribution-reading { padding: 22px; border: 1px solid var(--v2-line); border-radius: 14px; background: #fff; }
-.distribution-main h4, .distribution-reading h4 { margin: 14px 0 7px; font-size: 18px; }
-.distribution-main > p { margin: 0 0 14px; color: var(--v2-muted); font-size: 11px; line-height: 1.7; }
-.pill-tabs { display: flex; gap: 8px; overflow-x: auto; }
-.pill-tabs button { flex: none; padding: 7px 14px; border: 1px solid var(--v2-line); border-radius: 5px; background: #fff; color: var(--v2-muted); cursor: pointer; font-size: 12px; }
-.pill-tabs button.active { border-color: var(--v2-forest); background: var(--v2-forest); color: #fff; font-weight: 700; }
-.reading-point { margin-top: 12px; padding: 13px 15px; border-left: 3px solid var(--v2-teal); border-radius: 0 8px 8px 0; background: var(--v2-soft); }
-.reading-point strong { font-size: 13px; }
-.reading-point p, .reading-point ul { margin: 5px 0 0; color: #536074; font-size: 12px; line-height: 1.7; }
-.reading-point--accent { border-left-color: var(--v2-amber); background: var(--v2-amber-soft); }
-.reading-point--warning { border-left-color: var(--v2-amber); }
-.reference-ruler { margin: 28px 8px 14px; }
-.reference-ruler__labels { display: flex; justify-content: space-between; color: #758195; font-size: 10px; }
-.reference-ruler__track { position: relative; height: 18px; margin-top: 10px; border-radius: 9px; background: #e4e9e6; }
-.reference-ruler__median, .reference-ruler__high { position: absolute; top: -7px; width: 2px; height: 32px; background: #78837d; }
-.reference-ruler__median { left: 43.75%; }.reference-ruler__high { left: 75%; }
-.reference-ruler__band { position: absolute; top: 3px; height: 12px; border-radius: 6px; background: rgba(46,125,91,.5); }
+.content-section {
+  padding-top: 30px;
+}
+.section-heading {
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.section-heading > span,
+.panel-heading > span {
+  color: var(--v2-teal);
+  font-size: 12px;
+  font-weight: 800;
+}
+.section-heading h3,
+.section-heading p,
+.panel-heading h3 {
+  margin: 0;
+}
+.section-heading h3 {
+  padding-left: 12px;
+  border-left: 4px solid var(--v2-teal);
+  font-size: 20px;
+}
+.section-heading p {
+  margin-top: 5px;
+  color: var(--v2-muted);
+  font-size: 12px;
+}
+.distribution-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(310px, 0.8fr);
+  gap: 18px;
+}
+.distribution-main,
+.distribution-reading {
+  padding: 22px;
+  border: 1px solid var(--v2-line);
+  border-radius: 14px;
+  background: #fff;
+}
+.distribution-main h4,
+.distribution-reading h4 {
+  margin: 14px 0 7px;
+  font-size: 18px;
+}
+.distribution-main > p {
+  margin: 0 0 14px;
+  color: var(--v2-muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.pill-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+}
+.pill-tabs button {
+  flex: none;
+  padding: 7px 14px;
+  border: 1px solid var(--v2-line);
+  border-radius: 5px;
+  background: #fff;
+  color: var(--v2-muted);
+  cursor: pointer;
+  font-size: 12px;
+}
+.pill-tabs button.active {
+  border-color: var(--v2-forest);
+  background: var(--v2-forest);
+  color: #fff;
+  font-weight: 700;
+}
+.reading-point {
+  margin-top: 12px;
+  padding: 13px 15px;
+  border-left: 3px solid var(--v2-teal);
+  border-radius: 0 8px 8px 0;
+  background: var(--v2-soft);
+}
+.reading-point strong {
+  font-size: 13px;
+}
+.reading-point p,
+.reading-point ul {
+  margin: 5px 0 0;
+  color: #536074;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.reading-point--accent {
+  border-left-color: var(--v2-amber);
+  background: var(--v2-amber-soft);
+}
+.reading-point--warning {
+  border-left-color: var(--v2-amber);
+}
+.reference-ruler {
+  margin: 28px 8px 14px;
+}
+.reference-ruler__labels {
+  display: flex;
+  justify-content: space-between;
+  color: #758195;
+  font-size: 10px;
+}
+.reference-ruler__track {
+  position: relative;
+  height: 18px;
+  margin-top: 10px;
+  border-radius: 9px;
+  background: #e4e9e6;
+}
+.reference-ruler__median,
+.reference-ruler__high {
+  position: absolute;
+  top: -7px;
+  width: 2px;
+  height: 32px;
+  background: #78837d;
+}
+.reference-ruler__median {
+  left: 43.75%;
+}
+.reference-ruler__high {
+  left: 75%;
+}
+.reference-ruler__band {
+  position: absolute;
+  top: 3px;
+  height: 12px;
+  border-radius: 6px;
+  background: rgba(46, 125, 91, 0.5);
+}
 
-.summary-panel { padding: 15px 18px; border: 1px solid var(--v2-line); border-radius: 14px; background: #fff; }
-.summary-panel > p { margin: 0; font-size: 13.5px; font-weight: 650; line-height: 1.8; }
-.summary-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 12px; }
-.summary-stats > div { padding: 10px 13px; border: 1px solid var(--v2-line); border-radius: 7px; background: var(--v2-soft); }
-.summary-stats span { display: block; color: var(--v2-muted); font-size: 10.5px; }
-.summary-stats b { display: block; margin-top: 4px; font-size: 14px; }
+.summary-panel {
+  padding: 15px 18px;
+  border: 1px solid var(--v2-line);
+  border-radius: 14px;
+  background: #fff;
+}
+.summary-panel > p {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 650;
+  line-height: 1.8;
+}
+.summary-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+.summary-stats > div {
+  padding: 10px 13px;
+  border: 1px solid var(--v2-line);
+  border-radius: 7px;
+  background: var(--v2-soft);
+}
+.summary-stats span {
+  display: block;
+  color: var(--v2-muted);
+  font-size: 10.5px;
+}
+.summary-stats b {
+  display: block;
+  margin-top: 4px;
+  font-size: 14px;
+}
 
-.section-switcher { display: grid; grid-template-columns: 280px minmax(0,1fr); gap: 28px; align-items: start; margin-top: 18px; }
-.section-rail { display: flex; flex-direction: column; gap: 10px; }
-.section-rail button { padding: 13px 14px; border: 1px solid var(--v2-line); border-radius: 12px; background: #fff; color: var(--v2-ink); cursor: pointer; text-align: left; }
-.section-rail button.active { border-color: var(--v2-teal); border-left-width: 3px; background: var(--v2-teal-soft); }
-.section-rail span { color: var(--v2-teal); font-size: 11px; font-weight: 800; }
-.section-rail strong, .section-rail small { display: block; }
-.section-rail strong { margin: 4px 0; font-size: 15px; }
-.section-rail small { overflow: hidden; color: #667286; font-size: 11px; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
-.section-panel { min-width: 0; }
-.panel-heading { align-items: baseline; gap: 10px; }
-.panel-heading h3 { font-size: 20px; }
-.panel-intro { margin: 7px 0 15px; color: var(--v2-muted); font-size: 11.5px; line-height: 1.7; }
-.empty-panel { padding: 28px; border: 1px dashed #cbd4cf; border-radius: 12px; background: var(--v2-soft); color: var(--v2-muted); text-align: center; }
+.section-switcher {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+  margin-top: 18px;
+}
+.section-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.section-rail button {
+  padding: 13px 14px;
+  border: 1px solid var(--v2-line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--v2-ink);
+  cursor: pointer;
+  text-align: left;
+}
+.section-rail button.active {
+  border-color: var(--v2-teal);
+  border-left-width: 3px;
+  background: var(--v2-teal-soft);
+}
+.section-rail span {
+  color: var(--v2-teal);
+  font-size: 11px;
+  font-weight: 800;
+}
+.section-rail strong,
+.section-rail small {
+  display: block;
+}
+.section-rail strong {
+  margin: 4px 0;
+  font-size: 15px;
+}
+.section-rail small {
+  overflow: hidden;
+  color: #667286;
+  font-size: 11px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.section-panel {
+  min-width: 0;
+}
+.panel-heading {
+  align-items: baseline;
+  gap: 10px;
+}
+.panel-heading h3 {
+  font-size: 20px;
+}
+.panel-intro {
+  margin: 7px 0 15px;
+  color: var(--v2-muted);
+  font-size: 11.5px;
+  line-height: 1.7;
+}
+.empty-panel {
+  padding: 28px;
+  border: 1px dashed #cbd4cf;
+  border-radius: 12px;
+  background: var(--v2-soft);
+  color: var(--v2-muted);
+  text-align: center;
+}
 
-.module-cards { display: grid; gap: 14px; }
-.module-card { padding: 18px 20px; border: 1px solid var(--v2-line); border-radius: 14px; background: #fff; }
-.module-card.focus { border-left: 3px solid var(--v2-amber); }
-.module-card__head { align-items: baseline; gap: 15px; }
-.module-card__head div { display: flex; gap: 8px; align-items: baseline; }
-.module-card__head small { color: var(--v2-muted); }
-.module-card__head b { font-size: 16px; }
-.module-card__head em { margin-left: auto; padding: 4px 9px; border-radius: 999px; background: var(--v2-soft); color: var(--v2-muted); font-size: 10px; font-style: normal; }
-.module-card.focus .module-card__head em { background: var(--v2-amber-soft); color: #8b5616; }
-.module-card > p { margin: 10px 0 0; color: #536074; font-size: 12px; line-height: 1.7; }
-.topic-list { display: grid; gap: 9px; margin-top: 14px; }
-.topic-list > div { display: grid; grid-template-columns: minmax(130px,1fr) minmax(120px,1.3fr) 150px; gap: 12px; align-items: center; font-size: 12px; }
-.topic-list > div > div, .loss-list > div > div, .timing-list > div > div { height: 8px; overflow: hidden; border-radius: 4px; background: var(--v2-soft); }
-.topic-list i, .loss-list i, .timing-list i { display: block; height: 100%; border-radius: 4px; background: var(--v2-teal); }
-.topic-list small { color: var(--v2-muted); }
-.sample-note { padding-top: 9px; border-top: 1px dashed var(--v2-line); font-size: 11px !important; }
+.module-cards {
+  display: grid;
+  gap: 14px;
+}
+.module-card {
+  padding: 18px 20px;
+  border: 1px solid var(--v2-line);
+  border-radius: 14px;
+  background: #fff;
+}
+.module-card.focus {
+  border-left: 3px solid var(--v2-amber);
+}
+.module-card__head {
+  align-items: baseline;
+  gap: 15px;
+}
+.module-card__head div {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.module-card__head small {
+  color: var(--v2-muted);
+}
+.module-card__head b {
+  font-size: 16px;
+}
+.module-card__head em {
+  margin-left: auto;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--v2-soft);
+  color: var(--v2-muted);
+  font-size: 10px;
+  font-style: normal;
+}
+.module-card.focus .module-card__head em {
+  background: var(--v2-amber-soft);
+  color: #8b5616;
+}
+.module-card > p {
+  margin: 10px 0 0;
+  color: #536074;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.topic-list {
+  display: grid;
+  gap: 9px;
+  margin-top: 14px;
+}
+.topic-list > div {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) minmax(120px, 1.3fr) 150px;
+  gap: 12px;
+  align-items: center;
+  font-size: 12px;
+}
+.topic-list > div > div,
+.loss-list > div > div,
+.timing-list > div > div {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--v2-soft);
+}
+.topic-list i,
+.loss-list i,
+.timing-list i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--v2-teal);
+}
+.topic-list small {
+  color: var(--v2-muted);
+}
+.sample-note {
+  padding-top: 9px;
+  border-top: 1px dashed var(--v2-line);
+  font-size: 11px !important;
+}
 
-.error-layout, .timing-layout { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(280px,.9fr); gap: 28px; align-items: start; }
-.error-layout aside > .reading-point:first-child { margin-top: 0; }
-.error-layout h4, .timing-layout h4 { margin: 0 0 14px; font-size: 18px; }
-.loss-list, .timing-list { border-top: 1px solid var(--v2-ink); }
-.loss-list > div { display: grid; grid-template-columns: minmax(150px,1fr) minmax(130px,1.3fr) 80px; gap: 12px; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--v2-line); font-size: 12px; }
-.loss-list i { background: var(--v2-amber); }
-.reading-point ul { padding-left: 18px; }
-.question-review-links { display: grid; gap: 8px; margin-top: 12px; }
-.question-review-links button { display: grid; gap: 4px; width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid rgba(201, 126, 31, .24); border-radius: 8px; background: #fff; color: var(--v2-ink); cursor: pointer; text-align: left; transition: border-color .2s ease, transform .2s ease; }
-.question-review-links button:hover { border-color: var(--v2-amber); transform: translateY(-1px); }
-.question-review-links span { font-size: 13px; font-weight: 650; }
-.question-review-links small { overflow: hidden; color: var(--v2-muted); text-overflow: ellipsis; white-space: nowrap; }
-.text-action { margin-top: 14px; border: 0; background: transparent; color: var(--v2-teal); cursor: pointer; font-weight: 800; }
-.timing-list > div { display: grid; grid-template-columns: 110px minmax(100px,1fr) 150px; gap: 10px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--v2-line); font-size: 12px; }
-.timing-list small { grid-column: 1/-1; color: var(--v2-muted); }
-.timing-list i { background: var(--v2-teal); }
-.timing-stats { grid-template-columns: repeat(4,1fr); }
+.error-layout,
+.timing-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+  gap: 28px;
+  align-items: start;
+}
+.error-layout aside > .reading-point:first-child {
+  margin-top: 0;
+}
+.error-layout h4,
+.timing-layout h4 {
+  margin: 0 0 14px;
+  font-size: 18px;
+}
+.loss-list,
+.timing-list {
+  border-top: 1px solid var(--v2-ink);
+}
+.loss-list > div {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(130px, 1.3fr) 80px;
+  gap: 12px;
+  align-items: center;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--v2-line);
+  font-size: 12px;
+}
+.loss-list i {
+  background: var(--v2-amber);
+}
+.reading-point ul {
+  padding-left: 18px;
+}
+.question-review-links {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+.question-review-links button {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(201, 126, 31, 0.24);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--v2-ink);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+.question-review-links button:hover {
+  border-color: var(--v2-amber);
+  transform: translateY(-1px);
+}
+.question-review-links span {
+  font-size: 13px;
+  font-weight: 650;
+}
+.question-review-links small {
+  overflow: hidden;
+  color: var(--v2-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.text-action {
+  margin-top: 14px;
+  border: 0;
+  background: transparent;
+  color: var(--v2-teal);
+  cursor: pointer;
+  font-weight: 800;
+}
+.timing-list > div {
+  display: grid;
+  grid-template-columns: 110px minmax(100px, 1fr) 150px;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--v2-line);
+  font-size: 12px;
+}
+.timing-list small {
+  grid-column: 1/-1;
+  color: var(--v2-muted);
+}
+.timing-list i {
+  background: var(--v2-teal);
+}
+.timing-stats {
+  grid-template-columns: repeat(4, 1fr);
+}
 
-.priority-list, .action-list { display: grid; gap: 12px; }
-.priority-list article { display: grid; grid-template-columns: 46px minmax(190px,.8fr) minmax(240px,1.4fr) auto; gap: 18px; align-items: center; padding: 16px 18px; border: 1px solid var(--v2-line); border-radius: 12px; background: #fff; }
-.priority-list article > span, .action-list article > span { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 50%; background: var(--v2-forest); color: #fff; font-weight: 800; }
-.priority-list article:nth-child(2) > span { background: var(--v2-amber); }
-.priority-list article div strong, .priority-list article div small { display: block; }
-.priority-list article small { margin-top: 4px; color: var(--v2-muted); font-size: 10px; }
-.priority-list article p { margin: 0; color: #536074; font-size: 12px; line-height: 1.65; }
-.priority-list article em { padding: 5px 9px; border-radius: 999px; background: var(--v2-soft); color: var(--v2-muted); font-size: 10px; font-style: normal; white-space: nowrap; }
-.priority-list article button { margin-top: 7px; border: 0; background: transparent; color: var(--v2-teal); cursor: pointer; font-size: 11px; font-weight: 800; }
-.action-list article { display: grid; grid-template-columns: 58px minmax(0,1fr) auto; gap: 22px; align-items: center; padding: 20px 22px; border: 1px solid var(--v2-line); border-radius: 12px; background: #fff; }
-.action-list article.primary { border-color: #bcd8c9; background: var(--v2-teal-soft); }
-.action-list article > span { width: auto; height: auto; min-height: 32px; padding: 6px 10px; border-radius: 5px; background: #c5e1d3; color: var(--v2-forest); font-size: 11px; font-weight: 700; }
-.action-copy { min-width: 0; }
-.action-heading { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
-.action-heading strong { color: var(--v2-ink); font-size: 19px; font-weight: 600; line-height: 1.45; }
-.action-heading small { color: var(--v2-muted); font-size: 11px; white-space: nowrap; }
-.action-copy p { margin: 8px 0 0; color: #536074; font-size: 12px; line-height: 1.65; }
-.action-list article button { border: 0; background: transparent; color: var(--v2-teal); cursor: pointer; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.priority-list,
+.action-list {
+  display: grid;
+  gap: 12px;
+}
+.priority-list article {
+  display: grid;
+  grid-template-columns: 46px minmax(190px, 0.8fr) minmax(240px, 1.4fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding: 16px 18px;
+  border: 1px solid var(--v2-line);
+  border-radius: 12px;
+  background: #fff;
+}
+.priority-list article > span,
+.action-list article > span {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--v2-forest);
+  color: #fff;
+  font-weight: 800;
+}
+.priority-list article:nth-child(2) > span {
+  background: var(--v2-amber);
+}
+.priority-list article div strong,
+.priority-list article div small {
+  display: block;
+}
+.priority-list article small {
+  margin-top: 4px;
+  color: var(--v2-muted);
+  font-size: 10px;
+}
+.priority-list article p {
+  margin: 0;
+  color: #536074;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.priority-list article em {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: var(--v2-soft);
+  color: var(--v2-muted);
+  font-size: 10px;
+  font-style: normal;
+  white-space: nowrap;
+}
+.priority-list article button {
+  margin-top: 7px;
+  border: 0;
+  background: transparent;
+  color: var(--v2-teal);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+}
+.action-list article {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  gap: 22px;
+  align-items: center;
+  padding: 20px 22px;
+  border: 1px solid var(--v2-line);
+  border-radius: 12px;
+  background: #fff;
+}
+.action-list article.primary {
+  border-color: #bcd8c9;
+  background: var(--v2-teal-soft);
+}
+.action-list article > span {
+  width: auto;
+  height: auto;
+  min-height: 32px;
+  padding: 6px 10px;
+  border-radius: 5px;
+  background: #c5e1d3;
+  color: var(--v2-forest);
+  font-size: 11px;
+  font-weight: 700;
+}
+.action-copy {
+  min-width: 0;
+}
+.action-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.action-heading strong {
+  color: var(--v2-ink);
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.action-heading small {
+  color: var(--v2-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.action-copy p {
+  margin: 8px 0 0;
+  color: #536074;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.action-list article button {
+  border: 0;
+  background: transparent;
+  color: var(--v2-teal);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
 
-.phase-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 0; border-top: 1px solid var(--v2-ink); }
-.phase-grid article, .starter-grid article { padding: 20px; border: 1px solid var(--v2-line); border-radius: 12px; background: #fff; }
-.phase-grid article { --phase-accent: var(--v2-teal); position: relative; display: flex; min-width: 0; min-height: 390px; padding: 36px 28px 24px; flex-direction: column; border-radius: 14px; }
-.phase-grid article::before { position: absolute; top: 0; left: 0; width: 54px; height: 5px; border-radius: 14px 0 4px; background: var(--phase-accent); content: ''; }
-.phase-grid article.phase-card--improvement { --phase-accent: #6f5bd3; }
-.phase-grid article.phase-card--sprint { --phase-accent: #bd741f; }
-.phase-grid span, .starter-grid span { color: var(--v2-teal); font-size: 11px; font-weight: 800; }
-.phase-grid .phase-period { color: #4e5b68; font-size: 12px; letter-spacing: .02em; }
-.phase-grid h4 { margin: 14px 0 6px; font-size: 22px; line-height: 1.35; }
-.phase-grid p, .starter-grid p { color: #536074; font-size: 12px; line-height: 1.65; }
-.phase-grid .phase-goal { min-height: 48px; margin: 0; font-size: 13px; }
-.phase-goal strong { color: #445164; }
-.phase-grid ul { display: grid; gap: 12px; margin: 18px 0; padding: 0; color: #43516a; font-size: 12px; line-height: 1.65; list-style: none; }
-.phase-grid li { position: relative; padding-left: 18px; }
-.phase-grid li::before { position: absolute; top: .65em; left: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--phase-accent); content: ''; }
-.phase-checkpoint { margin-top: auto; padding: 14px 16px; background: #f2f5f2; color: #40506a; font-size: 11px; line-height: 1.65; }
-.phase-checkpoint strong { color: var(--v2-ink); }
-.starter-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
-.starter-grid article { display: grid; grid-template-columns: minmax(230px,.9fr) minmax(260px,1.15fr) minmax(250px,1fr); gap: 26px; align-items: center; }
-.starter-day-heading { min-width: 0; }
-.starter-day-heading h4 { margin: 7px 0 0; font-size: 18px; line-height: 1.45; }
-.starter-grid p { margin: 0; }
-.starter-grid strong { color: var(--v2-muted); font-size: 11px; line-height: 1.6; }
+.phase-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  border-top: 1px solid var(--v2-ink);
+}
+.phase-grid article,
+.starter-grid article {
+  padding: 20px;
+  border: 1px solid var(--v2-line);
+  border-radius: 12px;
+  background: #fff;
+}
+.phase-grid article {
+  --phase-accent: var(--v2-teal);
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 390px;
+  padding: 36px 28px 24px;
+  flex-direction: column;
+  border-radius: 14px;
+}
+.phase-grid article::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 54px;
+  height: 5px;
+  border-radius: 14px 0 4px;
+  background: var(--phase-accent);
+  content: '';
+}
+.phase-grid article.phase-card--improvement {
+  --phase-accent: #6f5bd3;
+}
+.phase-grid article.phase-card--sprint {
+  --phase-accent: #bd741f;
+}
+.phase-grid span,
+.starter-grid span {
+  color: var(--v2-teal);
+  font-size: 11px;
+  font-weight: 800;
+}
+.phase-grid .phase-period {
+  color: #4e5b68;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+.phase-grid h4 {
+  margin: 14px 0 6px;
+  font-size: 22px;
+  line-height: 1.35;
+}
+.phase-grid p,
+.starter-grid p {
+  color: #536074;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.phase-grid .phase-goal {
+  min-height: 48px;
+  margin: 0;
+  font-size: 13px;
+}
+.phase-goal strong {
+  color: #445164;
+}
+.phase-grid ul {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0;
+  padding: 0;
+  color: #43516a;
+  font-size: 12px;
+  line-height: 1.65;
+  list-style: none;
+}
+.phase-grid li {
+  position: relative;
+  padding-left: 18px;
+}
+.phase-grid li::before {
+  position: absolute;
+  top: 0.65em;
+  left: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--phase-accent);
+  content: '';
+}
+.phase-checkpoint {
+  margin-top: auto;
+  padding: 14px 16px;
+  background: #f2f5f2;
+  color: #40506a;
+  font-size: 11px;
+  line-height: 1.65;
+}
+.phase-checkpoint strong {
+  color: var(--v2-ink);
+}
+.starter-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.starter-grid article {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.9fr) minmax(260px, 1.15fr) minmax(250px, 1fr);
+  gap: 26px;
+  align-items: center;
+}
+.starter-day-heading {
+  min-width: 0;
+}
+.starter-day-heading h4 {
+  margin: 7px 0 0;
+  font-size: 18px;
+  line-height: 1.45;
+}
+.starter-grid p {
+  margin: 0;
+}
+.starter-grid strong {
+  color: var(--v2-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
 
 @media (max-width: 1100px) {
-  .opening-grid, .distribution-card, .error-layout, .timing-layout { grid-template-columns: 1fr; }
-  .section-switcher { grid-template-columns: 230px minmax(0,1fr); }
-  .phase-grid { grid-template-columns: 1fr; gap: 12px; border-top: 0; }
-  .phase-grid article { min-height: 0; }
-  .starter-grid article { grid-template-columns: minmax(210px,.8fr) minmax(0,1.2fr); gap: 18px 24px; }
-  .starter-grid article > strong { grid-column: 2; }
+  .opening-grid,
+  .distribution-card,
+  .error-layout,
+  .timing-layout {
+    grid-template-columns: 1fr;
+  }
+  .section-switcher {
+    grid-template-columns: 230px minmax(0, 1fr);
+  }
+  .phase-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    border-top: 0;
+  }
+  .phase-grid article {
+    min-height: 0;
+  }
+  .starter-grid article {
+    grid-template-columns: minmax(210px, 0.8fr) minmax(0, 1.2fr);
+    gap: 18px 24px;
+  }
+  .starter-grid article > strong {
+    grid-column: 2;
+  }
 }
 
 @media (max-width: 760px) {
-  .report-head, .data-window { align-items: flex-start; flex-direction: column; }
-  .head-summary-row { align-items: flex-start; flex-direction: column; }
-  .data-window small { margin-left: 0; }
-  .primary-tabs { gap: 18px; overflow-x: auto; }
-  .opening-copy { padding-left: 14px; }
-  .opening-actions { align-items: stretch; flex-direction: column; }
-  .section-switcher { grid-template-columns: 1fr; }
-  .section-rail { flex-direction: row; overflow-x: auto; }
-  .section-rail button { min-width: 205px; flex: none; }
-  .summary-stats, .timing-stats { grid-template-columns: 1fr 1fr; }
-  .topic-list > div { grid-template-columns: 1fr; gap: 5px; }
-  .priority-list article, .action-list article { grid-template-columns: 42px 1fr; }
-  .priority-list article p, .priority-list article em, .action-list article button { grid-column: 2; }
-  .action-list article { gap: 14px; padding: 16px; }
-  .action-heading { align-items: flex-start; flex-direction: column; gap: 2px; }
-  .action-heading strong { font-size: 17px; }
-  .starter-grid article { grid-template-columns: 1fr; gap: 8px; }
-  .starter-grid article > strong { grid-column: auto; }
+  .report-head,
+  .data-window {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .head-summary-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .data-window small {
+    margin-left: 0;
+  }
+  .primary-tabs {
+    gap: 18px;
+    overflow-x: auto;
+  }
+  .opening-copy {
+    padding-left: 14px;
+  }
+  .opening-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .section-switcher {
+    grid-template-columns: 1fr;
+  }
+  .section-rail {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  .section-rail button {
+    min-width: 205px;
+    flex: none;
+  }
+  .summary-stats,
+  .timing-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+  .topic-list > div {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+  .priority-list article,
+  .action-list article {
+    grid-template-columns: 42px 1fr;
+  }
+  .priority-list article p,
+  .priority-list article em,
+  .action-list article button {
+    grid-column: 2;
+  }
+  .action-list article {
+    gap: 14px;
+    padding: 16px;
+  }
+  .action-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .action-heading strong {
+    font-size: 17px;
+  }
+  .starter-grid article {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .starter-grid article > strong {
+    grid-column: auto;
+  }
 }
 
 @media print {
-  .primary-tabs, .opening-actions, .section-rail, button { display: none !important; }
-  .section-switcher { grid-template-columns: 1fr; }
-  .report-block { break-inside: avoid; }
+  .primary-tabs,
+  .opening-actions,
+  .section-rail,
+  button {
+    display: none !important;
+  }
+  .section-switcher {
+    grid-template-columns: 1fr;
+  }
+  .report-block {
+    break-inside: avoid;
+  }
 }
 </style>

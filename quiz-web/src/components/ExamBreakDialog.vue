@@ -11,11 +11,11 @@
   >
     <div class="break-content" role="timer" aria-live="polite">
       <span class="break-content__eyebrow">Module Break</span>
-      <h2>科目间休息</h2>
-      <strong class="break-content__timer">{{ formattedRemaining }}</strong>
+      <h2>{{ t('科目间休息') }}</h2>
+      <strong class="break-content__timer">{{ t(formattedRemaining) }}</strong>
       <p>
-        下一科为 <b>{{ nextModuleLabel }}</b
-        >。倒计时结束后将自动开始，休息时间不计入作答时间。
+        {{ t('下一科为') }}<b>{{ t(nextModuleLabel) }}</b
+        >{{ t('。倒计时结束后将自动开始，休息时间不计入作答时间。') }}
       </p>
       <button
         type="button"
@@ -23,13 +23,15 @@
         :disabled="skipping"
         @click="emit('skip')"
       >
-        {{ skipping ? '正在开始...' : `跳过休息，开始 ${nextModuleLabel}` }}
+        {{ t(skipping ? '正在开始...' : `跳过休息，开始 ${nextModuleLabel}`) }}
       </button>
     </div>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
+import { t } from '@/locales'
+
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 const props = withDefaults(

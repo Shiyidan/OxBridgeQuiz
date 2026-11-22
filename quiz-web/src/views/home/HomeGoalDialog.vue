@@ -20,12 +20,12 @@
         >
           <header class="home-goal-dialog__header">
             <div>
-              <span>备考目标</span>
-              <h2 id="home-goal-title">选择 {{ examType }} 作为当前目标</h2>
+              <span>{{ t('备考目标') }}</span>
+              <h2 id="home-goal-title">{{ t('选择{p0}作为当前目标', { p0: examType }) }}</h2>
             </div>
             <button
               type="button"
-              aria-label="关闭备考目标选择"
+              :aria-label="t('关闭备考目标选择')"
               :disabled="saving"
               @click="closeDialog"
             >
@@ -35,8 +35,12 @@
 
           <div class="home-goal-dialog__body">
             <template v-if="examType === 'ESAT'">
-              <p>ESAT 诊断按三门科目分别生成结果。Mathematics 1 为必选，再选择两门科目。</p>
-              <div class="home-goal-subjects" aria-label="选择 ESAT 三门科目">
+              <p>
+                {{
+                  t('ESAT 诊断按三门科目分别生成结果。Mathematics 1 为必选，再选择两门科目。')
+                }}
+              </p>
+              <div class="home-goal-subjects" :aria-label="t('选择 ESAT 三门科目')">
                 <button
                   v-for="subject in esatSubjects"
                   :key="subject.value"
@@ -46,20 +50,30 @@
                   :disabled="subject.required || isSubjectDisabled(subject.value)"
                   @click="toggleSubject(subject.value)"
                 >
-                  <b>{{ subject.label }}</b>
+                  <b>{{ t(subject.label) }}</b>
                   <span>{{
-                    subject.required
-                      ? '必选'
-                      : selectedSubjects.includes(subject.value)
-                        ? '已选择'
-                        : '可选'
+                    t(
+                      subject.required
+                        ? '必选'
+                        : selectedSubjects.includes(subject.value)
+                          ? '已选择'
+                          : '可选',
+                    )
                   }}</span>
                 </button>
               </div>
-              <p class="home-goal-dialog__count">已选择 {{ selectedSubjects.length }} / 3 门</p>
+              <p class="home-goal-dialog__count">
+                {{ t('已选择 {p0} / 3 门', { p0: selectedSubjects.length }) }}
+              </p>
             </template>
             <template v-else>
-              <p>TMUA 使用 Mathematics 一项备考目标，诊断保留 Paper 1 与 Paper 2 的完整结构。</p>
+              <p>
+                {{
+                  t(
+                    'TMUA 使用 Mathematics 一项备考目标，诊断保留 Paper 1 与 Paper 2 的完整结构。',
+                  )
+                }}
+              </p>
               <div class="home-goal-confirmation">
                 <span>TMUA</span><b>Mathematics · Paper 1 ＋ Paper 2</b>
               </div>
@@ -73,7 +87,7 @@
               :disabled="saving"
               @click="closeDialog"
             >
-              暂不选择
+              {{ t('暂不选择') }}
             </button>
             <button
               type="button"
@@ -81,7 +95,7 @@
               :disabled="!canSave || saving"
               @click="saveGoal"
             >
-              {{ saving ? '正在保存…' : '保存并进入我的首页' }}
+              {{ t(saving ? '正在保存…' : '保存并进入我的首页') }}
             </button>
           </footer>
         </section>
@@ -91,6 +105,8 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '@/locales'
+
 import { computed, ref, watch } from 'vue'
 import type { ActiveExamType } from '@/stores/auth'
 import { useHomeDialogFocus } from './useHomeDialogFocus'

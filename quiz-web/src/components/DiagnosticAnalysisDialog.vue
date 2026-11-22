@@ -3,18 +3,18 @@
   <AppDialog
     v-if="paperExpired"
     :model-value="modelValue"
-    title="试卷已失效"
-    confirm-text="查看最新版试卷"
-    cancel-text="返回诊断测试"
+    :title="t('试卷已失效')"
+    :confirm-text="t('查看最新版试卷')"
+    :cancel-text="t('返回诊断测试')"
     @confirm="returnToAssessment"
     @cancel="returnToAssessment"
   >
-    <p>当前试卷已失效，请查看最新版试卷</p>
+    <p>{{ t('当前试卷已失效，请查看最新版试卷') }}</p>
   </AppDialog>
   <el-dialog
     v-else-if="isAnalyzing"
     :model-value="modelValue"
-    :title="analysisMessage"
+    :title="t(analysisMessage)"
     width="560px"
     class="report-analysis-pending"
     :show-close="false"
@@ -26,33 +26,33 @@
     <button
       type="button"
       class="report-analysis-pending__close"
-      :aria-label="`关闭分析窗口并返回${returnCenterName}`"
-      :title="`关闭并返回${returnCenterName}`"
+      :aria-label="t(`关闭分析窗口并返回${returnCenterName}`)"
+      :title="t(`关闭并返回${returnCenterName}`)"
       @click="returnToAssessment"
     >
       <el-icon :size="20" aria-hidden="true"><Close /></el-icon>
     </button>
     <section class="pending-analysis-state" aria-live="polite">
       <div class="pending-analysis-spinner" aria-hidden="true">
-        <span>诊</span>
+        <span>{{ t('诊') }}</span>
       </div>
-      <p class="pending-analysis-state__eyebrow">答卷已提交并安全保存</p>
-      <h2>{{ analysisMessage }}</h2>
+      <p class="pending-analysis-state__eyebrow">{{ t('答卷已提交并安全保存') }}</p>
+      <h2>{{ t(analysisMessage) }}</h2>
       <p class="pending-analysis-state__description">
-        正在根据本次作答生成个性化诊断结果，请稍候。
+        {{ t('正在根据本次作答生成个性化诊断结果，请稍候。') }}
       </p>
 
       <div
         class="pending-analysis-progress"
         role="progressbar"
-        aria-label="诊断报告分析进度"
+        :aria-label="t('诊断报告分析进度')"
         aria-valuemin="0"
         aria-valuemax="100"
         :aria-valuenow="analysisProgress"
       >
         <div class="pending-analysis-progress__meta">
-          <span>分析进度</span>
-          <strong>{{ analysisProgress }}%</strong>
+          <span>{{ t('分析进度') }}</span>
+          <strong>{{ t(analysisProgress) }}%</strong>
         </div>
         <div class="pending-analysis-progress__track">
           <span :style="{ width: `${analysisProgress}%` }" />
@@ -60,48 +60,56 @@
       </div>
 
       <div class="pending-analysis-module-ticker">
-        <span>正在构建</span>
+        <span>{{ t('正在构建') }}</span>
         <div class="pending-analysis-module-ticker__viewport">
           <Transition name="pending-module-caption" mode="out-in">
-            <strong :key="currentAnalysisModule">{{ currentAnalysisModule }}</strong>
+            <strong :key="currentAnalysisModule">{{ t(currentAnalysisModule) }}</strong>
           </Transition>
         </div>
-        <small>{{ currentModuleIndex + 1 }}/{{ analysisModules.length }}</small>
+        <small>{{ t(currentModuleIndex + 1) }}/{{ t(analysisModules.length) }}</small>
       </div>
-      <p v-if="pollError" class="pending-analysis-state__error">{{ pollError }}</p>
+      <p v-if="pollError" class="pending-analysis-state__error">
+        {{ translateDiagnosticError(pollError) }}
+      </p>
       <p class="pending-analysis-state__note">
-        关闭弹窗不会停止后台分析，完成后可从{{ returnCenterName }}查看报告。
+        {{ t('关闭弹窗不会停止后台分析，完成后可从{p0}查看报告。', { p0: t(returnCenterName) }) }}
       </p>
     </section>
   </el-dialog>
   <AppDialog
     v-else
     :model-value="modelValue"
-    :title="dialogTitle"
+    :title="t(dialogTitle)"
     :icon="statusIcon"
     :icon-color="statusIconColor"
-    :cancel-text="`返回${returnCenterName}`"
-    :confirm-text="analysisFailed ? '重新分析' : '查看诊断报告'"
+    :cancel-text="t(`返回${returnCenterName}`)"
+    :confirm-text="t(analysisFailed ? '重新分析' : '查看诊断报告')"
     :loading="retrying"
     @confirm="handlePrimaryAction"
     @cancel="returnToAssessment"
   >
     <section v-if="analysisFailed" class="analysis-state" aria-live="polite">
-      <p class="analysis-state__lead">答卷已保存，可重新生成报告。</p>
+      <p class="analysis-state__lead">{{ t('答卷已保存，可重新生成报告。') }}</p>
       <p class="analysis-state__description">
-        {{ analysisError || '报告生成过程中发生异常，请重新分析。' }}
+        {{ translateDiagnosticError(analysisError || '报告生成过程中发生异常，请重新分析。') }}
       </p>
-      <p class="analysis-state__note">重新分析不会重复提交答卷，也不会重复扣减诊断额度。</p>
+      <p class="analysis-state__note">
+        {{ t('重新分析不会重复提交答卷，也不会重复扣减诊断额度。') }}
+      </p>
     </section>
 
     <section v-else class="analysis-state" aria-live="polite">
-      <p class="analysis-state__lead">本次诊断结果已保存</p>
-      <p class="analysis-state__description">七个诊断模块已生成，您可以立即查看完整报告。</p>
+      <p class="analysis-state__lead">{{ t('本次诊断结果已保存') }}</p>
+      <p class="analysis-state__description">
+        {{ t('七个诊断模块已生成，您可以立即查看完整报告。') }}
+      </p>
     </section>
   </AppDialog>
 </template>
 
 <script setup lang="ts">
+import { t, translateDiagnosticError } from '@/locales'
+
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ElDialog, ElIcon } from 'element-plus'
 import { CircleCheckFilled, CircleCloseFilled, Close } from '@element-plus/icons-vue'

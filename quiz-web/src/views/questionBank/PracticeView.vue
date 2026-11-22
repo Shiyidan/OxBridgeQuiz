@@ -12,16 +12,16 @@
       :initial-elapsed-seconds="initialElapsedSeconds"
       :current-index="currentIndex"
       :total-count="totalCount"
-      :header-title="practiceHeaderTitle"
-      :back-label-override="practiceBackLabel"
+      :header-title="t(practiceHeaderTitle)"
+      :back-label-override="t(practiceBackLabel)"
       @back="handleBackToQuestionBank"
       @answering-paused="handleAnsweringPaused"
       @answering-resumed="handleAnsweringResumed"
       @time-expired="handleTimeExpired"
     />
     <main class="practice-shell">
-      <aside class="question-nav" aria-label="题目导航">
-        <h2 class="question-nav__title">题目导航</h2>
+      <aside class="question-nav" :aria-label="t('题目导航')">
+        <h2 class="question-nav__title">{{ t('题目导航') }}</h2>
         <div class="question-nav__grid">
           <button
             v-for="(q, idx) in questions"
@@ -29,21 +29,27 @@
             type="button"
             class="question-nav__item"
             :class="navItemClass(q, idx)"
-            :aria-label="`第 ${idx + 1} 题`"
+            :aria-label="t(`第 ${idx + 1} 题`)"
             @click="goToQuestion(idx)"
           >
-            {{ idx + 1 }}
+            {{ t(idx + 1) }}
           </button>
         </div>
         <div class="question-nav__stats">
           <div>
-            <span class="question-nav__dot question-nav__dot--answered" />已答 {{ answeredCount }}
+            <span class="question-nav__dot question-nav__dot--answered" />{{
+              t('已答 {p0}', { p0: t(answeredCount) })
+            }}
           </div>
           <div>
-            <span class="question-nav__dot question-nav__dot--skipped" />跳过 {{ skippedCount }}
+            <span class="question-nav__dot question-nav__dot--skipped" />{{
+              t('跳过 {p0}', { p0: t(skippedCount) })
+            }}
           </div>
           <div>
-            <span class="question-nav__dot question-nav__dot--pending" />未答 {{ pendingCount }}
+            <span class="question-nav__dot question-nav__dot--pending" />{{
+              t('未答 {p0}', { p0: t(pendingCount) })
+            }}
           </div>
         </div>
         <div class="question-nav__actions">
@@ -55,14 +61,14 @@
             :disabled="submitting || confirmingSubmit || !currentQuestion"
             @click="confirmSubmitExam"
           >
-            {{ submitButtonLabel }}
+            {{ t(submitButtonLabel) }}
           </AppButton>
         </div>
       </aside>
 
       <section class="exam-panel" aria-live="polite">
-        <p v-if="loading" class="practice-status">加载中...</p>
-        <p v-else-if="!currentQuestion" class="practice-status">暂无题目数据</p>
+        <p v-if="loading" class="practice-status">{{ t('加载中...') }}</p>
+        <p v-else-if="!currentQuestion" class="practice-status">{{ t('暂无题目数据') }}</p>
         <template v-else>
           <div class="exam-panel__body">
             <QuestionCard
@@ -78,13 +84,13 @@
           </div>
 
           <footer class="exam-actions">
-            <AppButton type="secondary" :disabled="currentIndex === 0" @click="handlePrev">
-              上一题
-            </AppButton>
+            <AppButton type="secondary" :disabled="currentIndex === 0" @click="handlePrev">{{
+              t('上一题')
+            }}</AppButton>
             <div class="exam-actions__right">
-              <AppButton type="secondary" v-if="!isLastQuestion" @click="handleNext">
-                下一题
-              </AppButton>
+              <AppButton type="secondary" v-if="!isLastQuestion" @click="handleNext">{{
+                t('下一题')
+              }}</AppButton>
             </div>
           </footer>
         </template>
@@ -93,18 +99,18 @@
 
     <AppDialog
       v-model="warningDialog.visible"
-      :title="warningDialog.title"
+      :title="t(warningDialog.title)"
       :icon="WarningFilled"
       icon-color="var(--color-warning)"
-      :confirm-text="warningDialog.confirmText"
-      :cancel-text="warningDialog.cancelText"
+      :confirm-text="t(warningDialog.confirmText)"
+      :cancel-text="t(warningDialog.cancelText)"
       :show-cancel="warningDialog.showCancel"
       :show-close="warningDialog.showCancel"
       :close-on-press-escape="warningDialog.showCancel"
       @confirm="resolveWarningConfirmation(true)"
       @cancel="resolveWarningConfirmation(false)"
     >
-      <p>{{ warningDialog.message }}</p>
+      <p>{{ t(warningDialog.message) }}</p>
     </AppDialog>
 
     <DiagnosticAnalysisDialog
@@ -115,23 +121,25 @@
     />
     <AppDialog
       v-model="practiceResultDialogVisible"
-      title="练习已交卷"
+      :title="t('练习已交卷')"
       :icon="CircleCheckFilled"
       icon-color="var(--color-success)"
-      confirm-text="查看解析"
-      :cancel-text="practiceReturnLabel"
+      :confirm-text="t('查看解析')"
+      :cancel-text="t(practiceReturnLabel)"
       :show-close="false"
       @confirm="handleViewPracticeAnalysis"
       @cancel="handleReturnAfterPractice"
     >
-      <p>{{ practiceResultMessage }}</p>
+      <p>{{ t(practiceResultMessage) }}</p>
     </AppDialog>
 
     <DailyCardAccessDialog
       v-model="upgradeDialogVisible"
       :exam-type="activeExamType === 'ESAT' ? 'ESAT' : 'TMUA'"
-      upgrade-message="当前练习范围需开通对应考试的做题会员，也可以返回学习平台选择免费知识点练习。"
-      cancel-text="返回试题库"
+      :upgrade-message="
+        t('当前练习范围需开通对应考试的做题会员，也可以返回学习平台选择免费知识点练习。')
+      "
+      :cancel-text="t('返回试题库')"
       @activated="handleDailyCardActivated"
       @upgrade="handleOpenPayment"
       @cancel="handleCancelUpgrade"
@@ -152,6 +160,8 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '@/locales'
+
 import AnalysisMembershipDialog from '@/components/AnalysisMembershipDialog.vue'
 import { useAnalysisMembershipAccess } from '@/composables/useAnalysisMembershipAccess'
 import AppButton from '@/components/AppButton.vue'
@@ -369,7 +379,7 @@ async function loadQuestions(): Promise<void> {
       const examType = normalizeExamType(examSession.examType)
       activeExamType.value = examType
       if (!isExamTypeAvailable(examType)) {
-        ElMessage.info(getExamUnavailableMessage(examType))
+        ElMessage.info(t(getExamUnavailableMessage(examType)))
         router.replace({ path: '/question-bank', query: { examType } })
         return
       }
@@ -403,7 +413,7 @@ async function loadQuestions(): Promise<void> {
       const paper = await getPaperDetailData(paperId)
       activeExamType.value = normalizeExamType(paper.examType)
       if (!isExamTypeAvailable(activeExamType.value)) {
-        ElMessage.info(getExamUnavailableMessage(activeExamType.value))
+        ElMessage.info(t(getExamUnavailableMessage(activeExamType.value)))
         router.replace('/assessment')
         return
       }
@@ -437,7 +447,7 @@ async function loadQuestions(): Promise<void> {
     const examType = normalizeExamType(route.query.examType as string | undefined)
     activeExamType.value = examType
     if (!isExamTypeAvailable(examType)) {
-      ElMessage.info(getExamUnavailableMessage(examType))
+      ElMessage.info(t(getExamUnavailableMessage(examType)))
       router.replace({ path: '/question-bank', query: { examType } })
       return
     }
@@ -463,7 +473,7 @@ async function loadQuestions(): Promise<void> {
     await loadQuestions()
   } catch (e) {
     if (hasApiErrorCode(e, 'QUESTION_BANK_IN_PROGRESS')) {
-      ElMessage.info('已有未完成练习，请从试题库点击“继续练习”')
+      ElMessage.info(t('已有未完成练习，请从试题库点击“继续练习”'))
       await router.replace({
         path: '/question-bank',
         query: { examType: activeExamType.value },

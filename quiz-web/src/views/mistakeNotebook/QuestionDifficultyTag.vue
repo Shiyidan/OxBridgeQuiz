@@ -1,11 +1,12 @@
 <!-- 错题本难度标签：错题与收藏列表共用低、中、高分级的文字和配色。 -->
 <template>
-  <span class="question-difficulty-tag" :class="`question-difficulty-tag--${level}`">
-    难度：{{ labels[level] }}
+  <span class="question-difficulty-tag" :class="`question-difficulty-tag--${level}`"
+    >{{ t('难度：{p0}', { p0: t(labels[level]) }) }}
   </span>
 </template>
 
 <script setup lang="ts">
+import { t } from '@/locales'
 import { computed } from 'vue'
 
 const props = defineProps<{ difficulty?: string | null }>()

@@ -1,5 +1,7 @@
 <!-- 桌面首页模考介绍：按指定套数展示试卷概览，循环滚动并承接模考中心入口。 -->
 <script setup lang="ts">
+import { t, subjectCopy, useSiteLocale } from '@/locales'
+
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Clock, Document, Reading, Right, TopRight, CircleCheck } from '@element-plus/icons-vue'
 import AppButton from '@/components/AppButton.vue'
@@ -8,6 +10,7 @@ import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 
 const emit = defineEmits<{ navigate: [path: string] }>()
 const auth = useAuthStore()
+const { isEnglish } = useSiteLocale()
 const section = ref<HTMLElement | null>(null)
 const scrollArea = ref<HTMLElement | null>(null)
 const firstList = ref<HTMLElement | null>(null)
@@ -43,6 +46,13 @@ function buildDisplayPapers(items: MockExamPaperItem[], selectedExam: ActiveExam
       title: `${selectedExam} 模拟卷 No.${String(index + 1).padStart(3, '0')}`,
     }
   })
+}
+
+// 使用目录编号展示英文卷名，缓存保留原文以便随语言重新渲染。
+function paperTitle(paper: MockExamPaperItem) {
+  if (!isEnglish.value || !/[\u4e00-\u9fff]/.test(paper.title)) return paper.title
+  const number = paper.sequenceNo || paper.title.match(/No\.\s*(\d+)/i)?.[1]
+  return number ? `${paper.examType} Mock Paper No.${number}` : `${paper.examType} Mock Paper`
 }
 
 // 副本衔接列表尾部，以每秒 14px 匀速向上滚动；保留小数位移避免低速舍入停滞。
@@ -113,7 +123,7 @@ watch(
 function moduleSummary(paper: MockExamPaperItem) {
   const names = [...paper.modules]
     .sort((a, b) => a.order - b.order)
-    .map((module) => module.subject.replace(/^Paper(\d)/, 'Paper $1'))
+    .map((module) => subjectCopy(module.subject.replace(/^Paper(\d)/, 'Paper $1')))
     .join(' · ')
   // 游客尚未选择 ESAT 选考科目时，公开目录不返回固定组合，展示真实选科规则。
   return names || (paper.examType === 'ESAT' ? '数学1 + 两门选考科目' : 'Paper 1 · Paper 2')
@@ -122,10 +132,12 @@ function moduleSummary(paper: MockExamPaperItem) {
 // 目录时长以秒返回，首页与模考中心一致换算为小时和分钟。
 function formatDuration(seconds: number) {
   const minutes = Math.max(0, Math.round(seconds / 60))
-  if (minutes < 60) return `${minutes} 分钟`
+  if (minutes < 60) return t('{p0} 分钟', { p0: t(minutes) })
   const hours = Math.floor(minutes / 60)
   const rest = minutes % 60
-  return rest ? `${hours} 小时 ${rest} 分钟` : `${hours} 小时`
+  return rest
+    ? t('{p0} 小时 {p1} 分钟', { p0: t(hours), p1: t(rest) })
+    : t('{p0} 小时', { p0: t(hours) })
 }
 
 // 进入视口才读取公开试卷目录；请求版本阻止快速切换时旧结果覆盖当前考试。
@@ -205,17 +217,17 @@ onBeforeUnmount(() => {
     <div class="mock-layout">
       <div class="mock-copy">
         <span class="section-eyebrow">MOCK EXAM</span>
-        <h2 id="mock-intro-title">提前进入，<br />考试的节奏。</h2>
-        <p>完整模拟试卷，限时作答，<br />真实体验考试流程。</p>
-        <div class="mock-flow" aria-label="模考流程">
-          <span><Document />选卷</span><Right /><span><Clock />限时作答</span><Right /><span
-            ><CircleCheck />复盘</span
-          >
+        <h2 id="mock-intro-title">{{ t('提前进入，') }}<br />{{ t('考试的节奏。') }}</h2>
+        <p>{{ t('完整模拟试卷，限时作答，') }}<br />{{ t('真实体验考试流程。') }}</p>
+        <div class="mock-flow" :aria-label="t('模考流程')">
+          <span><Document />{{ t('选卷') }}</span
+          ><Right /><span><Clock />{{ t('限时作答') }}</span
+          ><Right /><span><CircleCheck />{{ t('复盘') }}</span>
         </div>
       </div>
       <div class="mock-paper" :aria-busy="loading">
         <div class="catalog-heading">
-          <div class="exam-tabs" role="group" aria-label="切换模考考试">
+          <div class="exam-tabs" role="group" :aria-label="t('切换模考考试')">
             <AppButton
               v-for="item in exams"
               :key="item"
@@ -224,25 +236,33 @@ onBeforeUnmount(() => {
               :aria-pressed="exam === item"
               :class="{ active: exam === item }"
               @click="exam = item"
-              >{{ item }}</AppButton
+              >{{ t(item) }}</AppButton
             >
           </div>
           <span v-if="!loading && !failed && total" class="catalog-count"
-            >共 {{ total }} 套试卷</span
+            >{{ t('共') }}{{ t(total) }}{{ t('套试卷') }}</span
           >
         </div>
         <div v-if="loading" class="paper-status" role="status">
           <span class="loading-line"></span>
-          <p>正在获取 {{ exam }} 模拟试卷…</p>
+          <p>{{ t('正在获取') }}{{ t(exam) }}{{ t('模拟试卷…') }}</p>
         </div>
         <div v-else-if="!papers.length" class="paper-status" role="status">
-          <h3>{{ failed ? '试卷暂未加载' : `${exam} 试卷持续更新中` }}</h3>
+          <h3>
+            {{ t(failed ? '试卷暂未加载' : t('{p0} 试卷持续更新中', { p0: t(exam) })) }}
+          </h3>
           <p>
             {{
-              failed ? '可以重新加载，或前往模考中心查看。' : '前往模考中心查看可用试卷与单项模考。'
+              t(
+                failed
+                  ? '可以重新加载，或前往模考中心查看。'
+                  : '前往模考中心查看可用试卷与单项模考。',
+              )
             }}
           </p>
-          <AppButton v-if="failed" type="text" size="small" @click="loadPaper">重新加载</AppButton>
+          <AppButton v-if="failed" type="text" size="small" @click="loadPaper">{{
+            t('重新加载')
+          }}</AppButton>
         </div>
         <div
           v-else
@@ -251,36 +271,41 @@ onBeforeUnmount(() => {
           class="paper-content"
           role="region"
           tabindex="0"
-          :aria-label="`${exam}全部模拟试卷，可上下滚动查看`"
+          :aria-label="t('{p0}全部模拟试卷，可上下滚动查看', { p0: t(exam) })"
           @mouseenter="setHovered(true)"
           @mouseleave="setHovered(false)"
           @focusin="handleFocusIn"
           @focusout="handleFocusOut"
         >
           <ul
-            v-for="copy in 2"
-            :key="copy"
+            v-for="listCopy in 2"
+            :key="listCopy"
             :ref="
               (element) => {
-                if (copy === 1) firstList = element as HTMLElement | null
+                if (listCopy === 1) firstList = element as HTMLElement | null
               }
             "
             class="paper-list"
-            :aria-label="copy === 1 ? `${exam}模拟试卷列表` : undefined"
-            :aria-hidden="copy === 2 ? true : undefined"
-            :inert="copy === 2 ? true : undefined"
+            :aria-label="listCopy === 1 ? t('{p0}模拟试卷列表', { p0: exam }) : undefined"
+            :aria-hidden="listCopy === 2 ? true : undefined"
+            :inert="listCopy === 2 ? true : undefined"
           >
             <li v-for="paper in papers" :key="paper.id" class="paper-row">
               <span class="paper-icon" aria-hidden="true"><Document /></span>
               <div class="paper-details">
-                <h3>{{ paper.title }}</h3>
+                <h3>{{ paperTitle(paper) }}</h3>
                 <div class="paper-meta">
-                  <span><Document aria-hidden="true" />{{ paper.totalQuestions }} 题</span>
                   <span
-                    ><Clock aria-hidden="true" />{{ formatDuration(paper.durationSeconds) }}</span
+                    ><Document aria-hidden="true" />{{ t(paper.totalQuestions)
+                    }}{{ t('题') }}</span
+                  >
+                  <span
+                    ><Clock aria-hidden="true" />{{
+                      t(formatDuration(paper.durationSeconds))
+                    }}</span
                   >
                   <span class="paper-subjects"
-                    ><Reading aria-hidden="true" />{{ moduleSummary(paper) }}</span
+                    ><Reading aria-hidden="true" />{{ t(moduleSummary(paper)) }}</span
                   >
                 </div>
               </div>
@@ -292,7 +317,7 @@ onBeforeUnmount(() => {
           :icon="TopRight"
           icon-position="right"
           @click="enterMockExam"
-          >{{ papers.length ? '选卷，开始模考' : '进入模考中心' }}</AppButton
+          >{{ t(papers.length ? '选卷，开始模考' : '进入模考中心') }}</AppButton
         >
       </div>
     </div>

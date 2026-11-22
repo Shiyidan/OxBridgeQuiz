@@ -3,13 +3,14 @@
   <div class="diagnostic-report-page">
     <NavBar />
     <main class="report-main">
+      <OriginalContentNote v-if="report" :content="report" />
       <div v-if="loading" class="state-card" role="status" aria-live="polite">
-        正在生成 TMUA 两卷诊断...
+        {{ t('正在生成 TMUA 两卷诊断...') }}
       </div>
       <DiagnosticExpiredNotice v-else-if="paperExpired" />
       <div v-else-if="errorMessage" class="state-card state-card--error" role="alert">
-        <p>{{ errorMessage }}</p>
-        <button type="button" class="button_cancel" @click="loadReport">重新加载</button>
+        <p>{{ translateDiagnosticError(errorMessage) }}</p>
+        <button type="button" class="button_cancel" @click="loadReport">{{ t('重新加载') }}</button>
       </div>
 
       <DiagnosticReportV2
@@ -24,14 +25,16 @@
         <header class="report-header">
           <div>
             <span>{{
-              reportMeta?.sourcePaperType === 'mockPaper'
-                ? '来源：模考中心'
-                : 'TMUA Diagnostic Report'
+              t(
+                reportMeta?.sourcePaperType === 'mockPaper'
+                  ? '来源：模考中心'
+                  : 'TMUA Diagnostic Report',
+              )
             }}</span>
-            <h1>{{ report.header.title }}</h1>
+            <h1>{{ t(report.header.title) }}</h1>
           </div>
           <button type="button" class="question-analysis-button" @click="viewQuestionAnalysis()">
-            题目解析
+            {{ t('题目解析') }}
           </button>
         </header>
 
@@ -41,12 +44,16 @@
           aria-labelledby="tmua-upgrade-title"
         >
           <div>
-            <strong id="tmua-upgrade-title">这份报告仍在使用旧版 TMUA 分析</strong>
+            <strong id="tmua-upgrade-title">{{ t('这份报告仍在使用旧版 TMUA 分析') }}</strong>
             <p>
-              可基于原答卷补充两卷深度评价、知识掌握、提升优先级和学习路径，成绩与作答记录不会改变。
+              {{
+                t(
+                  '可基于原答卷补充两卷深度评价、知识掌握、提升优先级和学习路径，成绩与作答记录不会改变。',
+                )
+              }}
             </p>
             <small v-if="upgradeMessage" role="status" aria-live="polite">{{
-              upgradeMessage
+              t(upgradeMessage)
             }}</small>
           </div>
           <button
@@ -55,7 +62,7 @@
             :disabled="upgradeInProgress"
             @click="upgradeReport"
           >
-            {{ upgradeInProgress ? `正在更新 ${upgradeProgress}%` : '更新报告' }}
+            {{ t(upgradeInProgress ? `正在更新 ${upgradeProgress}%` : '更新报告') }}
           </button>
         </section>
 
@@ -87,6 +94,9 @@
 </template>
 
 <script setup lang="ts">
+import OriginalContentNote from '@/components/OriginalContentNote.vue'
+import { t, translateDiagnosticError } from '@/locales'
+
 import AnalysisMembershipDialog from '@/components/AnalysisMembershipDialog.vue'
 import { useAnalysisMembershipAccess } from '@/composables/useAnalysisMembershipAccess'
 import DiagnosticExpiredNotice from '@/components/DiagnosticExpiredNotice.vue'

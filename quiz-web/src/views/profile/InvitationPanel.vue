@@ -3,20 +3,20 @@
   <section class="invitation-panel" aria-labelledby="invitation-title">
     <ProfileModuleHeading
       kicker="INVITE & REWARD"
-      title="邀请有礼"
-      description="好友使用邀请码注册并完成首次会员支付，双方各得七天会员卡。"
+      :title="t('邀请有礼')"
+      :description="t('好友使用邀请码注册并完成首次会员支付，双方各得七天会员卡。')"
       title-id="invitation-title"
     >
       <div v-if="overview" class="reward-progress">
-        <strong>{{ overview.rewardedCount }}/{{ overview.rewardLimit }}</strong>
-        <span>邀请奖励</span>
+        <strong>{{ t(overview.rewardedCount) }}/{{ t(overview.rewardLimit) }}</strong>
+        <span>{{ t('邀请奖励') }}</span>
       </div>
     </ProfileModuleHeading>
 
-    <div v-if="loading" class="invitation-state">邀请信息加载中...</div>
+    <div v-if="loading" class="invitation-state">{{ t('邀请信息加载中...') }}</div>
     <div v-else-if="loadError" class="invitation-state invitation-state--error">
-      <span>{{ loadError }}</span>
-      <button type="button" @click="loadOverview">重新加载</button>
+      <span>{{ translateInterfaceError(loadError) }}</span>
+      <button type="button" @click="loadOverview">{{ t('重新加载') }}</button>
     </div>
 
     <template v-else-if="overview">
@@ -25,9 +25,9 @@
           <article class="invitation-card invitation-code-card">
             <div class="card-title-line section-heading">
               <div class="invite-code-title">
-                <h3>我的邀请码</h3>
+                <h3>{{ t('我的邀请码') }}</h3>
                 <strong>{{
-                  overview.code || (overview.codeActive ? '尚未创建' : '已失效')
+                  t(overview.code || (overview.codeActive ? '尚未创建' : '已失效'))
                 }}</strong>
               </div>
               <AppButton
@@ -36,39 +36,36 @@
                 size="small"
                 :loading="creatingCode"
                 @click="handleCreateCode"
+                >{{ t('创建邀请码') }}</AppButton
               >
-                创建邀请码
-              </AppButton>
               <div v-else-if="overview.code && overview.codeActive" class="share-actions">
                 <AppButton
                   type="secondary"
                   size="small"
                   @click="copyText(overview.code, '邀请码已复制')"
+                  >{{ t('复制邀请码') }}</AppButton
                 >
-                  复制邀请码
-                </AppButton>
                 <AppButton
                   type="secondary"
                   size="small"
                   @click="copyText(shareUrl, '邀请链接已复制')"
+                  >{{ t('复制邀请链接') }}</AppButton
                 >
-                  复制邀请链接
-                </AppButton>
               </div>
             </div>
             <p v-if="overview.code && overview.codeActive">
-              同一邀请码可分享给多位新同学，每位同学首次有效支付最多触发一次奖励。
+              {{ t('同一邀请码可分享给多位新同学，每位同学首次有效支付最多触发一次奖励。') }}
             </p>
             <p v-else-if="!overview.codeActive" class="invitation-code-inactive">
-              已通过邀请好友获得三张七天会员卡，邀请码已失效，不能继续分享或绑定。
+              {{ t('已通过邀请好友获得三张七天会员卡，邀请码已失效，不能继续分享或绑定。') }}
             </p>
           </article>
 
           <article class="invitation-card binding-card">
             <div class="card-title-line section-heading">
               <div>
-                <h3>我的邀请关系</h3>
-                <strong v-if="bindingTitle">{{ bindingTitle }}</strong>
+                <h3>{{ t('我的邀请关系') }}</h3>
+                <strong v-if="bindingTitle">{{ t(bindingTitle) }}</strong>
               </div>
             </div>
             <div class="binding-control-row">
@@ -76,7 +73,7 @@
                 v-model="bindingDraft"
                 maxlength="16"
                 autocomplete="off"
-                placeholder="请输入好友邀请码"
+                :placeholder="t('请输入好友邀请码')"
                 :disabled="!overview.binding.canBind || bindingSaving"
                 @input="handleBindingInput"
               />
@@ -86,12 +83,11 @@
                 :loading="bindingSaving"
                 @click="handleBind"
                 size="small"
+                >{{ t('确认绑定') }}</AppButton
               >
-                确认绑定
-              </AppButton>
             </div>
             <p :class="{ 'binding-disabled-reason': !overview.binding.canBind }">
-              {{ bindingDescription }}
+              {{ t(bindingDescription) }}
             </p>
           </article>
         </div>
@@ -99,8 +95,8 @@
         <div class="invitation-history">
           <div class="section-heading">
             <div>
-              <h3>邀请记录</h3>
-              <p>仅展示受邀账号的脱敏标识和奖励进度。</p>
+              <h3>{{ t('邀请记录') }}</h3>
+              <p>{{ t('仅展示受邀账号的脱敏标识和奖励进度。') }}</p>
             </div>
             <button
               v-if="overview.invitations.length > 3"
@@ -108,14 +104,14 @@
               class="history-more-button"
               @click="historyVisible = true"
             >
-              查看更多
+              {{ t('查看更多') }}
             </button>
           </div>
           <div v-if="overview.invitations.length" class="history-list">
             <div v-for="item in previewInvitations" :key="item.id" class="history-row">
               <div class="history-identity">
                 <span>{{ item.invitee }}</span>
-                <small>{{ formatTime(item.boundAt) }}</small>
+                <small>{{ t(formatTime(item.boundAt)) }}</small>
               </div>
               <div class="history-progress-wrap">
                 <el-steps
@@ -125,40 +121,42 @@
                   process-status="wait"
                   align-center
                 >
-                  <el-step v-for="step in INVITATION_PROGRESS_STEPS" :key="step" :title="step" />
+                  <el-step v-for="step in INVITATION_PROGRESS_STEPS" :key="step" :title="t(step)" />
                 </el-steps>
                 <small
                   v-if="relationProgressNote(item.status, item.inviterRewardStatus)"
                   class="history-progress-note"
                 >
-                  {{ relationProgressNote(item.status, item.inviterRewardStatus) }}
+                  {{ t(relationProgressNote(item.status, item.inviterRewardStatus)) }}
                 </small>
               </div>
             </div>
           </div>
-          <div v-else class="reward-empty">还没有好友通过你的邀请码注册。</div>
+          <div v-else class="reward-empty">{{ t('还没有好友通过你的邀请码注册。') }}</div>
         </div>
 
         <div v-if="showRewards" class="reward-section">
           <div class="section-heading">
             <div>
-              <h3>我的七天会员卡</h3>
-              <p>邀请好友最多获得三张；使用他人邀请码获得的受邀奖励另行计算。</p>
+              <h3>{{ t('我的七天会员卡') }}</h3>
+              <p>{{ t('邀请好友最多获得三张；使用他人邀请码获得的受邀奖励另行计算。') }}</p>
             </div>
           </div>
           <div v-if="overview.rewards.length" class="reward-list">
             <article v-for="reward in overview.rewards" :key="reward.id" class="reward-card">
               <div>
-                <span>{{ rewardSourceLabel(reward) }}</span>
-                <strong>{{ reward.examType || '待选择考试' }} · 七天会员卡</strong>
-                <small>{{ rewardPeriodText(reward) }}</small>
+                <span>{{ t(rewardSourceLabel(reward)) }}</span>
+                <strong>{{
+                  t('{p0} · 七天会员卡', { p0: t(reward.examType || '待选择考试') })
+                }}</strong>
+                <small>{{ t(rewardPeriodText(reward)) }}</small>
               </div>
               <div class="reward-card-action">
                 <span
                   v-if="reward.status !== 'pending_activation' || !reward.grantedAt"
                   :class="`reward-status reward-status--${reward.status}`"
                 >
-                  {{ rewardStatusLabel(reward.status) }}
+                  {{ t(rewardStatusLabel(reward.status)) }}
                 </span>
                 <button
                   v-if="reward.status === 'pending_activation' && reward.grantedAt"
@@ -166,12 +164,14 @@
                   :disabled="activationSaving"
                   @click="openActivation(reward)"
                 >
-                  {{ reward.beneficiaryRole === 'invitee' ? '启用周卡' : '选择考试并启用' }}
+                  {{ t(reward.beneficiaryRole === 'invitee' ? '启用周卡' : '选择考试并启用') }}
                 </button>
               </div>
             </article>
           </div>
-          <div v-else class="reward-empty">暂无七天会员卡，分享邀请码后可在这里查看奖励。</div>
+          <div v-else class="reward-empty">
+            {{ t('暂无七天会员卡，分享邀请码后可在这里查看奖励。') }}
+          </div>
         </div>
       </div>
     </template>
@@ -179,7 +179,7 @@
     <el-dialog
       v-if="showRewards"
       v-model="activationVisible"
-      title="选择周卡适用考试"
+      :title="t('选择周卡适用考试')"
       width="520px"
       align-center
       destroy-on-close
@@ -187,68 +187,75 @@
       <div class="activation-content">
         <template v-if="studyGoalExamTypes.length">
           <div class="activation-goal-summary">
-            <span>当前备考目标</span>
+            <span>{{ t('当前备考目标') }}</span>
             <div class="activation-goal-tags">
               <strong v-for="examType in studyGoalExamTypes" :key="examType">
-                {{ examType }}
+                {{ t(examType) }}
               </strong>
             </div>
-            <p>目标来源于注册时填写的信息或个人中心的后续修改。</p>
+            <p>{{ t('目标来源于注册时填写的信息或个人中心的后续修改。') }}</p>
           </div>
           <p v-if="studyGoalExamTypes.length === 1" class="activation-recommendation">
-            已根据你的备考目标推荐 {{ studyGoalExamTypes[0] }}，确认前仍可切换。
+            {{
+              t('已根据你的备考目标推荐 {p0}，确认前仍可切换。', { p0: t(studyGoalExamTypes[0]) })
+            }}
           </p>
           <p v-else class="activation-recommendation">
-            你正在同时准备多个考试，请选择本张周卡要使用的考试。
+            {{ t('你正在同时准备多个考试，请选择本张周卡要使用的考试。') }}
           </p>
           <el-radio-group v-model="activationExamType" class="activation-exam-switch">
             <el-radio-button value="ESAT">ESAT</el-radio-button>
             <el-radio-button value="TMUA">TMUA</el-radio-button>
           </el-radio-group>
-          <p>确认后考试类型不可修改；已有对应会员时，七天权益将排在当前有效期之后。</p>
+          <p>{{ t('确认后考试类型不可修改；已有对应会员时，七天权益将排在当前有效期之后。') }}</p>
         </template>
         <div v-else class="activation-goal-empty">
-          <strong>尚未设置备考目标</strong>
-          <p>请先在个人中心完善目标考试，系统会据此推荐本张周卡的适用考试。</p>
+          <strong>{{ t('尚未设置备考目标') }}</strong>
+          <p>{{ t('请先在个人中心完善目标考试，系统会据此推荐本张周卡的适用考试。') }}</p>
         </div>
       </div>
       <template #footer>
         <template v-if="studyGoalExamTypes.length">
-          <el-button :disabled="activationSaving" @click="activationVisible = false"
-            >取消</el-button
-          >
+          <el-button :disabled="activationSaving" @click="activationVisible = false">{{
+            t('取消')
+          }}</el-button>
           <el-button
             type="primary"
             :loading="activationSaving"
             :disabled="!activationExamType"
             @click="handleActivate"
+            >{{ t('确认启用') }}</el-button
           >
-            确认启用
-          </el-button>
         </template>
         <template v-else>
-          <el-button @click="activationVisible = false">稍后设置</el-button>
-          <el-button type="primary" @click="handleEditStudyGoals">去完善备考目标</el-button>
+          <el-button @click="activationVisible = false">{{ t('稍后设置') }}</el-button>
+          <el-button type="primary" @click="handleEditStudyGoals">{{
+            t('去完善备考目标')
+          }}</el-button>
         </template>
       </template>
     </el-dialog>
 
     <el-dialog
       v-model="historyVisible"
-      title="更多邀请记录"
+      :title="t('更多邀请记录')"
       width="min(820px, calc(100vw - 32px))"
       align-center
       destroy-on-close
       class="invitation-history-dialog"
     >
       <p class="history-dialog-description">
-        共 {{ overview?.invitations.length || 0 }} 条，仅展示受邀账号的脱敏标识和奖励进度。
+        {{
+          t('共 {p0} 条，仅展示受邀账号的脱敏标识和奖励进度。', {
+            p0: t(overview?.invitations.length || 0),
+          })
+        }}
       </p>
       <div v-if="overview?.invitations.length" class="history-list history-list--dialog">
         <div v-for="item in overview.invitations" :key="item.id" class="history-row">
           <div class="history-identity">
             <span>{{ item.invitee }}</span>
-            <small>{{ formatTime(item.boundAt) }}</small>
+            <small>{{ t(formatTime(item.boundAt)) }}</small>
           </div>
           <div class="history-progress-wrap">
             <el-steps
@@ -258,13 +265,13 @@
               process-status="wait"
               align-center
             >
-              <el-step v-for="step in INVITATION_PROGRESS_STEPS" :key="step" :title="step" />
+              <el-step v-for="step in INVITATION_PROGRESS_STEPS" :key="step" :title="t(step)" />
             </el-steps>
             <small
               v-if="relationProgressNote(item.status, item.inviterRewardStatus)"
               class="history-progress-note"
             >
-              {{ relationProgressNote(item.status, item.inviterRewardStatus) }}
+              {{ t(relationProgressNote(item.status, item.inviterRewardStatus)) }}
             </small>
           </div>
         </div>
@@ -274,6 +281,7 @@
 </template>
 
 <script setup lang="ts">
+import { i18n, t, translateInterfaceError } from '@/locales'
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppButton from '@/components/AppButton.vue'
@@ -351,7 +359,7 @@ async function handleCreateCode(): Promise<void> {
   try {
     await createInvitationCode()
     await loadOverview()
-    ElMessage.success('邀请码已创建')
+    ElMessage.success(t('邀请码已创建'))
   } catch {
     // 公共请求层展示服务端业务错误。
   } finally {
@@ -372,9 +380,9 @@ async function handleBind(): Promise<void> {
   if (!overview.value?.binding.canBind || !bindingDraft.value) return
   try {
     await ElMessageBox.confirm(
-      `确认绑定邀请码 ${bindingDraft.value}？绑定成功后不能修改或解绑。`,
-      '确认邀请关系',
-      { type: 'warning', confirmButtonText: '确认绑定', cancelButtonText: '取消' },
+      t('确认绑定邀请码 {p0}？绑定成功后不能修改或解绑。', { p0: bindingDraft.value }),
+      t('确认邀请关系'),
+      { type: 'warning', confirmButtonText: t('确认绑定'), cancelButtonText: t('取消') },
     )
   } catch {
     return
@@ -383,7 +391,7 @@ async function handleBind(): Promise<void> {
   try {
     overview.value = await bindInvitationCode(bindingDraft.value)
     bindingDraft.value = overview.value.binding.boundCode || bindingDraft.value
-    ElMessage.success('邀请码绑定成功')
+    ElMessage.success(t('邀请码绑定成功'))
   } catch {
     await loadOverview()
   } finally {
@@ -395,9 +403,9 @@ async function handleBind(): Promise<void> {
 async function copyText(value: string, message: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(value)
-    ElMessage.success(message)
+    ElMessage.success(t(message))
   } catch {
-    ElMessage.warning('复制失败，请手动选择并复制')
+    ElMessage.warning(t('复制失败，请手动选择并复制'))
   }
 }
 
@@ -417,9 +425,11 @@ async function openActivation(reward: InvitationRewardItem): Promise<void> {
   if (reward.beneficiaryRole === 'invitee' && reward.examType) {
     try {
       await ElMessageBox.confirm(
-        `确认启用 ${reward.examType} 七天会员卡？已有对应会员时，到期时间将增加七天。`,
-        '启用七天会员卡',
-        { type: 'success', confirmButtonText: '确认启用', cancelButtonText: '取消' },
+        t('确认启用 {p0} 七天会员卡？已有对应会员时，到期时间将增加七天。', {
+          p0: reward.examType,
+        }),
+        t('启用七天会员卡'),
+        { type: 'success', confirmButtonText: t('确认启用'), cancelButtonText: t('取消') },
       )
     } catch {
       return
@@ -444,7 +454,7 @@ async function performActivation(
     if (closeDialog) activationVisible.value = false
     await loadOverview()
     emit('membershipChanged')
-    ElMessage.success('七天会员卡已启用')
+    ElMessage.success(t('七天会员卡已启用'))
   } catch {
     await loadOverview()
   } finally {
@@ -461,7 +471,7 @@ async function handleActivate(): Promise<void> {
 // 时间统一使用用户本地时区展示，空值不输出误导日期。
 function formatTime(value: string | null): string {
   if (!value) return '—'
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(i18n.global.locale.value === 'en' ? 'en-GB' : 'zh-CN', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

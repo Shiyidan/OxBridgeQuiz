@@ -1,4 +1,12 @@
 /* 官网首页与登录后首页共用的编辑式视觉系统，覆盖固定导航、营销叙事区块及首页弹窗。 */
+.home-preview-language-note {
+  padding: 8px 12px;
+  color: #526477;
+  background: #f4f7fa;
+  font: 12px/1.5 var(--font-sans, sans-serif);
+  text-align: center;
+}
+
 body.home-route {
   --home-ink: #172032;
   --home-navy: #182a3f;

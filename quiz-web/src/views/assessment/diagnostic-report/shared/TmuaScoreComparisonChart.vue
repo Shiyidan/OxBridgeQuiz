@@ -5,12 +5,12 @@
       <section class="estimate-card">
         <div class="metric-heading">
           <div>
-            <span>综合估分区间</span>
-            <strong>{{ formattedOverallRange }}</strong>
+            <span>{{ t('综合估分区间') }}</span>
+            <strong>{{ t(formattedOverallRange) }}</strong>
           </div>
-          <small>平台估算 · 1.0—9.0</small>
+          <small>{{ t('平台估算 · 1.0—9.0') }}</small>
         </div>
-        <div class="estimate-scale" aria-label="TMUA 综合估分区间标尺">
+        <div class="estimate-scale" :aria-label="t('TMUA 综合估分区间标尺')">
           <div class="estimate-scale__labels">
             <span>1.0</span><span>3.0</span><span>5.0</span><span>7.0</span><span>9.0</span>
           </div>
@@ -30,10 +30,17 @@
       </section>
 
       <section class="gap-card" :class="{ 'gap-card--clear': paperGap >= 10 }">
-        <span>双 Paper 表现差</span>
-        <strong>{{ paperGap.toFixed(0) }}<small> 个百分点</small></strong>
+        <span>{{ t('双 Paper 表现差') }}</span>
+        <strong
+          >{{ t(paperGap.toFixed(0)) }}<small>{{ t('个百分点') }}</small></strong
+        >
         <p v-if="strongerModule && weakerModule">
-          {{ shortLabel(strongerModule.label) }} 高于 {{ shortLabel(weakerModule.label) }}，后者是当前优先提升方向。
+          {{
+            t('{p0} 高于 {p1}，后者是当前优先提升方向。', {
+              p0: t(shortLabel(strongerModule.label)),
+              p1: t(shortLabel(weakerModule.label)),
+            })
+          }}
         </p>
       </section>
     </div>
@@ -41,10 +48,10 @@
     <section class="paper-comparison">
       <header>
         <div>
-          <span>Paper 正确率对比</span>
-          <small>同一量尺展示，直接比较两卷表现</small>
+          <span>{{ t('Paper 正确率对比') }}</span>
+          <small>{{ t('同一量尺展示，直接比较两卷表现') }}</small>
         </div>
-        <div class="chart-legend"><i></i> 答对占比</div>
+        <div class="chart-legend"><i></i>{{ t('答对占比') }}</div>
       </header>
 
       <div class="paper-axis" aria-hidden="true">
@@ -64,25 +71,23 @@
         }"
       >
         <div class="paper-label">
-          <strong>{{ shortLabel(module.label) }}</strong>
-          <small>{{ module.correct }}/{{ module.total }} 题</small>
+          <strong>{{ t(shortLabel(module.label)) }}</strong>
+          <small>{{ t('{p0}/{p1} 题', { p0: t(module.correct), p1: t(module.total) }) }}</small>
         </div>
         <div class="paper-track">
           <i :style="accuracyBarStyle(module)"></i>
-          <span
-            v-for="tick in [25, 50, 75]"
-            :key="tick"
-            :style="{ left: `${tick}%` }"
-          ></span>
+          <span v-for="tick in [25, 50, 75]" :key="tick" :style="{ left: `${tick}%` }"></span>
         </div>
-        <b>{{ formatAccuracy(module) }}</b>
-        <em>{{ moduleStatus(module) }}</em>
+        <b>{{ t(formatAccuracy(module)) }}</b>
+        <em>{{ t(moduleStatus(module)) }}</em>
       </article>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
+import { t } from '@/locales'
+
 import { computed } from 'vue'
 import type { DiagnosticAssessmentModule } from '@/api/exam'
 
@@ -94,12 +99,22 @@ const props = defineProps<{
 }>()
 
 // Paper 排序只用于识别本次相对强弱，不改变接口返回和页面展示顺序。
-const sortedModules = computed(() => [...props.modules].sort((a, b) => moduleAccuracy(b) - moduleAccuracy(a)))
+const sortedModules = computed(() =>
+  [...props.modules].sort((a, b) => moduleAccuracy(b) - moduleAccuracy(a)),
+)
 const strongerModule = computed(() => sortedModules.value[0] || null)
 const weakerModule = computed(() => sortedModules.value[sortedModules.value.length - 1] || null)
 const paperGap = computed(() => {
-  if (!strongerModule.value || !weakerModule.value || strongerModule.value.id === weakerModule.value.id) return 0
-  return Math.max(0, (moduleAccuracy(strongerModule.value) - moduleAccuracy(weakerModule.value)) * 100)
+  if (
+    !strongerModule.value ||
+    !weakerModule.value ||
+    strongerModule.value.id === weakerModule.value.id
+  )
+    return 0
+  return Math.max(
+    0,
+    (moduleAccuracy(strongerModule.value) - moduleAccuracy(weakerModule.value)) * 100,
+  )
 })
 const formattedOverallRange = computed(() => {
   if (props.overallScoreRange) {
@@ -148,55 +163,254 @@ function moduleStatus(module: DiagnosticAssessmentModule): string {
 </script>
 
 <style scoped lang="scss">
-.tmua-score-chart { display: grid; gap: 16px; margin-top: 18px; }
-.score-overview { display: grid; grid-template-columns: minmax(0,1.45fr) minmax(190px,.55fr); gap: 12px; }
-.estimate-card, .gap-card, .paper-comparison { border: 1px solid #dce5df; border-radius: 10px; background: #f8fbf9; }
-.estimate-card { padding: 16px 18px; }
-.metric-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
-.metric-heading span, .paper-comparison header span { display: block; color: #5a6961; font-size: 11px; }
-.metric-heading strong { display: block; margin-top: 3px; color: #173f32; font-size: 25px; font-weight: 650; }
-.metric-heading small, .paper-comparison header small { color: #829087; font-size: 10px; }
-.estimate-scale { margin-top: 13px; }
-.estimate-scale__labels { display: flex; justify-content: space-between; color: #819087; font-size: 9px; }
-.estimate-scale__track { position: relative; height: 10px; margin-top: 6px; border-radius: 5px; background: #dfe7e2; }
-.estimate-scale__band { position: absolute; top: 0; height: 10px; border-radius: 5px; background: #86b5a2; }
-.estimate-scale__point { position: absolute; top: 50%; width: 14px; height: 14px; transform: translate(-50%,-50%); border: 3px solid #fff; border-radius: 50%; background: #1e604a; box-shadow: 0 0 0 1px #1e604a; }
-.gap-card { display: flex; padding: 16px 18px; flex-direction: column; justify-content: center; background: #f2f7f4; }
-.gap-card--clear { border-color: #e5c896; background: #fff8eb; }
-.gap-card > span { color: #66746c; font-size: 10px; }
-.gap-card > strong { margin-top: 5px; color: #193d31; font-size: 25px; font-weight: 650; }
-.gap-card > strong small { font-size: 11px; font-weight: 500; }
-.gap-card p { margin: 7px 0 0; color: #5b6961; font-size: 10px; line-height: 1.55; }
-.paper-comparison { padding: 16px 18px 18px; background: #fff; }
-.paper-comparison header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
-.paper-comparison header span { color: #1c4034; font-size: 13px; font-weight: 650; }
-.paper-comparison header small { display: block; margin-top: 3px; }
-.chart-legend { color: #7d8982; font-size: 9px; white-space: nowrap; }
-.chart-legend i { display: inline-block; width: 10px; height: 6px; margin-right: 4px; border-radius: 3px; background: #2e7d5b; }
-.paper-axis, .paper-row { display: grid; grid-template-columns: 105px minmax(190px,1fr) 48px 66px; gap: 12px; align-items: center; }
-.paper-axis { margin-top: 13px; color: #8a958f; font-size: 8px; }
-.paper-axis__ticks { display: flex; justify-content: space-between; }
-.paper-axis__ticks span { transform: translateX(-50%); }
-.paper-axis__ticks span:first-child { transform: none; }
-.paper-axis__ticks span:last-child { transform: none; }
-.paper-row { margin-top: 8px; padding: 10px 9px; border: 1px solid transparent; border-radius: 7px; }
-.paper-row--active { border-color: #b9d7c9; background: #f2f8f5; }
-.paper-row--weak { background: #fffaf1; }
-.paper-label strong, .paper-label small { display: block; }
-.paper-label strong { color: #213d34; font-size: 12px; }
-.paper-label small { margin-top: 2px; color: #89938d; font-size: 9px; }
-.paper-track { position: relative; height: 14px; overflow: hidden; border-radius: 7px; background: #e7ece9; }
-.paper-track i { display: block; height: 100%; border-radius: 7px; background: #2e7d5b; }
-.paper-row--weak .paper-track i { background: #c17a24; }
-.paper-track span { position: absolute; top: 0; width: 1px; height: 100%; background: rgba(255,255,255,.65); }
-.paper-row > b { color: #173f32; font-size: 14px; text-align: right; }
-.paper-row > em { padding: 4px 6px; border-radius: 5px; background: #e1eee8; color: #245c47; font-size: 9px; font-style: normal; text-align: center; }
-.paper-row--weak > em { background: #fae8ca; color: #885516; }
+.tmua-score-chart {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+}
+.score-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(190px, 0.55fr);
+  gap: 12px;
+}
+.estimate-card,
+.gap-card,
+.paper-comparison {
+  border: 1px solid #dce5df;
+  border-radius: 10px;
+  background: #f8fbf9;
+}
+.estimate-card {
+  padding: 16px 18px;
+}
+.metric-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+.metric-heading span,
+.paper-comparison header span {
+  display: block;
+  color: #5a6961;
+  font-size: 11px;
+}
+.metric-heading strong {
+  display: block;
+  margin-top: 3px;
+  color: #173f32;
+  font-size: 25px;
+  font-weight: 650;
+}
+.metric-heading small,
+.paper-comparison header small {
+  color: #829087;
+  font-size: 10px;
+}
+.estimate-scale {
+  margin-top: 13px;
+}
+.estimate-scale__labels {
+  display: flex;
+  justify-content: space-between;
+  color: #819087;
+  font-size: 9px;
+}
+.estimate-scale__track {
+  position: relative;
+  height: 10px;
+  margin-top: 6px;
+  border-radius: 5px;
+  background: #dfe7e2;
+}
+.estimate-scale__band {
+  position: absolute;
+  top: 0;
+  height: 10px;
+  border-radius: 5px;
+  background: #86b5a2;
+}
+.estimate-scale__point {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #1e604a;
+  box-shadow: 0 0 0 1px #1e604a;
+}
+.gap-card {
+  display: flex;
+  padding: 16px 18px;
+  flex-direction: column;
+  justify-content: center;
+  background: #f2f7f4;
+}
+.gap-card--clear {
+  border-color: #e5c896;
+  background: #fff8eb;
+}
+.gap-card > span {
+  color: #66746c;
+  font-size: 10px;
+}
+.gap-card > strong {
+  margin-top: 5px;
+  color: #193d31;
+  font-size: 25px;
+  font-weight: 650;
+}
+.gap-card > strong small {
+  font-size: 11px;
+  font-weight: 500;
+}
+.gap-card p {
+  margin: 7px 0 0;
+  color: #5b6961;
+  font-size: 10px;
+  line-height: 1.55;
+}
+.paper-comparison {
+  padding: 16px 18px 18px;
+  background: #fff;
+}
+.paper-comparison header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+.paper-comparison header span {
+  color: #1c4034;
+  font-size: 13px;
+  font-weight: 650;
+}
+.paper-comparison header small {
+  display: block;
+  margin-top: 3px;
+}
+.chart-legend {
+  color: #7d8982;
+  font-size: 9px;
+  white-space: nowrap;
+}
+.chart-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 6px;
+  margin-right: 4px;
+  border-radius: 3px;
+  background: #2e7d5b;
+}
+.paper-axis,
+.paper-row {
+  display: grid;
+  grid-template-columns: 105px minmax(190px, 1fr) 48px 66px;
+  gap: 12px;
+  align-items: center;
+}
+.paper-axis {
+  margin-top: 13px;
+  color: #8a958f;
+  font-size: 8px;
+}
+.paper-axis__ticks {
+  display: flex;
+  justify-content: space-between;
+}
+.paper-axis__ticks span {
+  transform: translateX(-50%);
+}
+.paper-axis__ticks span:first-child {
+  transform: none;
+}
+.paper-axis__ticks span:last-child {
+  transform: none;
+}
+.paper-row {
+  margin-top: 8px;
+  padding: 10px 9px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+}
+.paper-row--active {
+  border-color: #b9d7c9;
+  background: #f2f8f5;
+}
+.paper-row--weak {
+  background: #fffaf1;
+}
+.paper-label strong,
+.paper-label small {
+  display: block;
+}
+.paper-label strong {
+  color: #213d34;
+  font-size: 12px;
+}
+.paper-label small {
+  margin-top: 2px;
+  color: #89938d;
+  font-size: 9px;
+}
+.paper-track {
+  position: relative;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 7px;
+  background: #e7ece9;
+}
+.paper-track i {
+  display: block;
+  height: 100%;
+  border-radius: 7px;
+  background: #2e7d5b;
+}
+.paper-row--weak .paper-track i {
+  background: #c17a24;
+}
+.paper-track span {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.65);
+}
+.paper-row > b {
+  color: #173f32;
+  font-size: 14px;
+  text-align: right;
+}
+.paper-row > em {
+  padding: 4px 6px;
+  border-radius: 5px;
+  background: #e1eee8;
+  color: #245c47;
+  font-size: 9px;
+  font-style: normal;
+  text-align: center;
+}
+.paper-row--weak > em {
+  background: #fae8ca;
+  color: #885516;
+}
 
 @media (max-width: 760px) {
-  .score-overview { grid-template-columns: 1fr; }
-  .paper-axis { display: none; }
-  .paper-row { grid-template-columns: 82px minmax(100px,1fr) 42px; gap: 8px; }
-  .paper-row > em { grid-column: 2 / -1; justify-self: end; }
+  .score-overview {
+    grid-template-columns: 1fr;
+  }
+  .paper-axis {
+    display: none;
+  }
+  .paper-row {
+    grid-template-columns: 82px minmax(100px, 1fr) 42px;
+    gap: 8px;
+  }
+  .paper-row > em {
+    grid-column: 2 / -1;
+    justify-self: end;
+  }
 }
 </style>

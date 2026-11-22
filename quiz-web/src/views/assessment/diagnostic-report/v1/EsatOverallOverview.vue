@@ -3,28 +3,30 @@
   <section class="overview-section">
     <div class="section-title">
       <span aria-hidden="true">⌁</span>
-      <h2>总体成绩概览</h2>
+      <h2>{{ t('总体成绩概览') }}</h2>
     </div>
 
     <div class="overview-grid">
       <article class="overview-card result-card">
         <div class="card-heading">
-          <span>分模块成绩总览</span>
+          <span>{{ t('分模块成绩总览') }}</span>
           <i class="status-mark" aria-hidden="true"></i>
         </div>
 
         <div class="module-breakdown">
           <div class="module-breakdown__heading">
-            <strong>各模块作答明细</strong>
-            <small>正确数与难度分布</small>
+            <strong>{{ t('各模块作答明细') }}</strong>
+            <small>{{ t('正确数与难度分布') }}</small>
           </div>
           <div class="module-performance-list">
             <article v-for="module in modules" :key="module.id" class="module-performance">
               <div class="module-performance__heading">
-                <span>{{ module.label }}</span>
+                <span>{{ t(module.label) }}</span>
                 <div>
-                  <strong>{{ module.correct }}/{{ module.total }}</strong>
-                  <small>题正确 · {{ formatAccuracy(moduleAccuracy(module)) }}</small>
+                  <strong>{{ t(module.correct) }}/{{ t(module.total) }}</strong>
+                  <small>{{
+                    t('题正确 · {p0}', { p0: t(formatAccuracy(moduleAccuracy(module))) })
+                  }}</small>
                 </div>
               </div>
               <div class="module-accuracy-track" aria-hidden="true">
@@ -36,8 +38,10 @@
                   :key="difficulty.level"
                   :class="difficultyToneClass(difficulty.accuracy, difficulty.total)"
                 >
-                  <b>{{ difficulty.label }}</b>
-                  <em>{{ difficulty.total ? `${difficulty.correct}/${difficulty.total}` : '无题' }}</em>
+                  <b>{{ t(difficulty.label) }}</b>
+                  <em>{{
+                    t(difficulty.total ? `${difficulty.correct}/${difficulty.total}` : '无题')
+                  }}</em>
                 </span>
               </div>
             </article>
@@ -47,33 +51,40 @@
 
       <article class="overview-card timing-card">
         <div class="card-heading">
-          <span>模块时间效率</span>
+          <span>{{ t('模块时间效率') }}</span>
           <svg class="clock-icon" viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="12" cy="12" r="9"></circle>
             <path d="M12 7v5l3 2"></path>
           </svg>
         </div>
 
-        <p class="timing-card__intro">1.0× 为模块目标题时；结合正确率判断应优先提速还是回查准确性。</p>
+        <p class="timing-card__intro">
+          {{ t('1.0× 为模块目标题时；结合正确率判断应优先提速还是回查准确性。') }}
+        </p>
 
         <div v-if="timingModules.length" class="module-timing-list">
           <article v-for="module in timingModules" :key="module.id" class="module-timing-item">
             <div class="module-timing-item__heading">
-              <strong>{{ module.label }}</strong>
+              <strong>{{ t(module.label) }}</strong>
               <em :class="timingEfficiencyToneClass(module.timeEfficiencyIndex ?? null)">
-                {{ formatEfficiencyIndex(module.timeEfficiencyIndex ?? null) }}
+                {{ t(formatEfficiencyIndex(module.timeEfficiencyIndex ?? null)) }}
               </em>
             </div>
             <p>
-              已记录 {{ module.timedQuestionCount ?? 0 }}/{{ module.totalQuestions ?? 0 }} 题
-              · 正确率 {{ formatAccuracy(module.accuracy ?? null) }}
+              {{
+                t('已记录 {p0}/{p1} 题 · 正确率 {p2}', {
+                  p0: t(module.timedQuestionCount ?? 0),
+                  p1: t(module.totalQuestions ?? 0),
+                  p2: t(formatAccuracy(module.accuracy ?? null)),
+                })
+              }}
             </p>
-            <small>{{ timingModuleSuggestion(module) }}</small>
+            <small>{{ t(timingModuleSuggestion(module)) }}</small>
           </article>
         </div>
 
         <div v-else class="timing-notice">
-          {{ unavailableModuleTimingNotice(overview.timing) }}
+          {{ t(unavailableModuleTimingNotice(overview.timing)) }}
         </div>
       </article>
     </div>
@@ -81,6 +92,8 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '@/locales'
+
 import { computed } from 'vue'
 import type { DiagnosticAssessmentModule, DiagnosticReportOverview } from '@/api/exam'
 
@@ -94,7 +107,11 @@ type TimingModule = DiagnosticReportOverview['timing']['modules'][number]
 
 // 仅展示已有模块耗时指数的新版数据，旧报告或样本不足时给出明确说明。
 const timingModules = computed(() => {
-  if (props.overview.timing.analysisLevel === undefined || props.overview.timing.analysisLevel === 'unavailable') return []
+  if (
+    props.overview.timing.analysisLevel === undefined ||
+    props.overview.timing.analysisLevel === 'unavailable'
+  )
+    return []
   return props.overview.timing.modules.filter(
     (module) => module.timeEfficiencyIndex !== null && module.timeEfficiencyIndex !== undefined,
   )
@@ -108,7 +125,8 @@ function formatAccuracy(value: number | null): string {
 // 没有可用模块指数时说明缺失原因，不将空数据错误展示为零效率。
 function unavailableModuleTimingNotice(timing: TimingOverview): string {
   if (timing.totalDurationSeconds === null) return '暂无可靠的总用时记录，暂不能生成时间效率分析。'
-  if (timing.analysisLevel === undefined) return '当前报告使用旧版时间统计快照；生成新版报告后将展示模块时间效率。'
+  if (timing.analysisLevel === undefined)
+    return '当前报告使用旧版时间统计快照；生成新版报告后将展示模块时间效率。'
   return '当前逐题耗时样本不足，暂不能形成可靠的模块时间效率。'
 }
 

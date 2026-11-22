@@ -1,19 +1,21 @@
 <!-- 错题解析右侧历史时间轴：倒序展示同一道题历次错误的提交时间、来源与回答状态。 -->
 <template>
-  <aside class="attempt-timeline" aria-label="历次错误记录">
+  <aside class="attempt-timeline" :aria-label="t('历次错误记录')">
     <header class="attempt-timeline__header">
-      <span>答题轨迹</span>
-      <p>共 {{ total }} 次记录，最近一次优先</p>
+      <span>{{ t('答题轨迹') }}</span>
+      <p>{{ t('共 {p0} 次记录，最近一次优先', { p0: t(total) }) }}</p>
     </header>
 
     <div v-if="loading" class="attempt-timeline__state">
       <el-skeleton :rows="4" animated />
     </div>
     <div v-else-if="error" class="attempt-timeline__state attempt-timeline__state--error">
-      <p>{{ error }}</p>
-      <AppButton type="secondary" size="small" @click="$emit('retry')">重新加载</AppButton>
+      <p>{{ t(error) }}</p>
+      <AppButton type="secondary" size="small" @click="$emit('retry')">{{
+        t('重新加载')
+      }}</AppButton>
     </div>
-    <div v-else-if="!items.length" class="attempt-timeline__state">暂无历史作答记录</div>
+    <div v-else-if="!items.length" class="attempt-timeline__state">{{ t('暂无历史作答记录') }}</div>
     <el-timeline v-else class="attempt-timeline__list">
       <el-timeline-item
         v-for="(item, index) in items"
@@ -25,16 +27,16 @@
         <article class="attempt-card">
           <div class="attempt-card__meta">
             <span class="attempt-card__source" :class="`attempt-card__source--${item.sourceType}`">
-              {{ item.sourceLabel }}
+              {{ t(item.sourceLabel) }}
             </span>
-            <span>{{ attemptSequenceLabel(index) }}</span>
+            <span>{{ t(attemptSequenceLabel(index)) }}</span>
           </div>
-          <h3 :title="attemptSourceTitle(item)">{{ attemptSourceTitle(item) }}</h3>
+          <h3 :title="t(attemptSourceTitle(item))">{{ t(attemptSourceTitle(item)) }}</h3>
           <p :class="{ 'attempt-card__answer--empty': !isAnsweredAttempt(item) }">
-            {{ attemptAnswerLabel(item) }}
+            {{ t(attemptAnswerLabel(item)) }}
           </p>
-          <small v-if="item.durationSeconds > 0">
-            本题用时 {{ formatDuration(item.durationSeconds) }}
+          <small v-if="item.durationSeconds > 0"
+            >{{ t('本题用时 {p0}', { p0: t(formatDuration(item.durationSeconds)) }) }}
           </small>
         </article>
       </el-timeline-item>
@@ -43,6 +45,8 @@
 </template>
 
 <script setup lang="ts">
+import { i18n, t } from '@/locales'
+
 import type { MistakeAttemptHistoryItem } from '@/api/exam'
 import AppButton from '@/components/AppButton.vue'
 
@@ -58,14 +62,17 @@ defineEmits<{
   retry: []
 }>()
 
-const attemptTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-})
+const attemptTimeFormatter = new Intl.DateTimeFormat(
+  i18n.global.locale.value === 'en' ? 'en-GB' : 'zh-CN',
+  {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  },
+)
 
 // 来源标题与当前题目模块合并展示，减少轨迹卡片中的重复说明行。
 function attemptSourceTitle(item: MistakeAttemptHistoryItem): string {

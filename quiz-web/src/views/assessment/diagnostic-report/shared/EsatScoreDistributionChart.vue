@@ -4,24 +4,25 @@
     <div
       ref="chartRef"
       class="official-distribution__chart"
-      aria-label="ESAT 官方模块成绩分布与当前预估分"
+      :aria-label="t('ESAT 官方模块成绩分布与当前预估分')"
     ></div>
     <div class="official-distribution__legend" aria-hidden="true">
-      <span>较低分段</span>
-      <span>主要分布区间</span>
-      <span>较高分段</span>
+      <span>{{ t('较低分段') }}</span>
+      <span>{{ t('主要分布区间') }}</span>
+      <span>{{ t('较高分段') }}</span>
     </div>
     <p>
-      数据来源：
-      <a :href="ESAT_DISTRIBUTION_SOURCE_URL" target="_blank" rel="noopener noreferrer">
-        {{ ESAT_DISTRIBUTION_COHORT }}官方成绩分布
-      </a>
-      ；图表数据由官方柱状图数字化，可能存在约 0.1 个百分点误差。
+      {{ t('数据来源：')
+      }}<a :href="ESAT_DISTRIBUTION_SOURCE_URL" target="_blank" rel="noopener noreferrer">
+        {{ t('{p0}官方成绩分布', { p0: t(ESAT_DISTRIBUTION_COHORT) }) }}</a
+      >{{ t('；图表数据由官方柱状图数字化，可能存在约 0.1 个百分点误差。') }}
     </p>
   </div>
 </template>
 
 <script setup lang="ts">
+import { t, i18n } from '@/locales'
+
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as echarts from 'echarts'
 import {
@@ -52,7 +53,7 @@ function isDistributionTooltipItem(value: unknown): value is DistributionTooltip
 
 // 模块或预估分切换时复用同一图表实例，并更新对应模块的官方分布与定位线。
 watch(
-  () => [props.moduleId, props.score] as const,
+  () => [props.moduleId, props.score, i18n.global.locale.value] as const,
   () => void nextTick(renderChart),
 )
 
@@ -93,9 +94,12 @@ function renderChart(): void {
           const items = (Array.isArray(params) ? params : [params]).filter(
             isDistributionTooltipItem,
           )
-          const data = items.find((item) => item.seriesName === '官方考生分布')?.data
+          const data = items.find((item) => item.seriesName === t('官方考生分布'))?.data
           if (!Array.isArray(data) || data.length < 2) return ''
-          return `${Number(data[0]).toFixed(1)} 分<br/>该分数档约占 ${Number(data[1]).toFixed(1)}%`
+          return t('{p0} 分<br/>该分数档约占 {p1}%', {
+            p0: Number(data[0]).toFixed(1),
+            p1: Number(data[1]).toFixed(1),
+          })
         },
       },
       xAxis: {
@@ -112,7 +116,7 @@ function renderChart(): void {
         type: 'value',
         min: 0,
         max: maxPercentage,
-        name: '考生占比',
+        name: t('考生占比'),
         nameTextStyle: { color: '#64748b', padding: [0, 0, 8, 0] },
         axisLabel: { color: '#94a3b8', formatter: (value: number) => `${value}%` },
         axisLine: { show: false },
@@ -121,7 +125,7 @@ function renderChart(): void {
       },
       series: [
         {
-          name: '官方考生分布',
+          name: t('官方考生分布'),
           type: 'line',
           data: distribution.map((point) => [point.score, Number(point.percentage.toFixed(2))]),
           smooth: 0.28,
@@ -151,7 +155,7 @@ function renderChart(): void {
                     align: 'center',
                     verticalAlign: 'bottom',
                     offset: [0, -8],
-                    formatter: `你的预估分 ${score.toFixed(1)}`,
+                    formatter: t('你的预估分 {p0}', { p0: score.toFixed(1) }),
                     color: '#ffffff',
                     backgroundColor: 'rgba(29, 91, 71, 0.92)',
                     borderRadius: 5,
@@ -165,7 +169,7 @@ function renderChart(): void {
           ? []
           : [
               {
-                name: '当前预估分',
+                name: t('当前预估分'),
                 type: 'scatter',
                 data: [[score, Number(markerHeight.toFixed(2))]],
                 symbolSize: 13,

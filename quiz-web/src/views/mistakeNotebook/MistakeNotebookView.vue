@@ -5,19 +5,19 @@
     <main class="mistake-notebook-main">
       <header class="mistake-notebook-header">
         <span class="page-eyebrow">Mistakes Collector</span>
-        <h1>错题本</h1>
-        <p>回顾做错的题目，收藏值得再看的题目，让每次复习更有方向。</p>
+        <h1>{{ t('错题本') }}</h1>
+        <p>{{ t('回顾做错的题目，收藏值得再看的题目，让每次复习更有方向。') }}</p>
       </header>
 
       <div class="notebook-toolbar">
-        <div class="notebook-tabs" role="tablist" aria-label="复习内容">
+        <div class="notebook-tabs" role="tablist" :aria-label="t('复习内容')">
           <button
             role="tab"
             :aria-selected="activeTab === 'mistakes'"
             :class="{ active: activeTab === 'mistakes' }"
             @click="switchTab('mistakes')"
           >
-            我的错题 <span>{{ favoriteSummary?.wrongCount ?? '—' }}</span>
+            {{ t('我的错题') }}<span>{{ t(favoriteSummary?.wrongCount ?? '—') }}</span>
           </button>
           <button
             role="tab"
@@ -25,7 +25,7 @@
             :class="{ active: activeTab === 'favorites' }"
             @click="switchTab('favorites')"
           >
-            我的收藏 <span>{{ favoriteSummary?.total ?? '—' }}</span>
+            {{ t('我的收藏') }}<span>{{ t(favoriteSummary?.total ?? '—') }}</span>
           </button>
         </div>
       </div>
@@ -47,48 +47,48 @@
           <div
             id="mistake-filters"
             class="notebook-filter-bar mistake-filters"
-            aria-label="错题筛选"
+            :aria-label="t('错题筛选')"
           >
             <label class="filter-field">
-              <span class="filter-field__label">来源</span>
+              <span class="filter-field__label">{{ t('来源') }}</span>
               <el-select
                 v-model="draftFilters.sources"
                 multiple
                 collapse-tags
                 collapse-tags-tooltip
                 clearable
-                placeholder="请选择"
+                :placeholder="t('请选择')"
               >
                 <el-option
                   v-for="option in sourceOptions"
                   :key="option.value"
-                  :label="option.label"
+                  :label="t(option.label)"
                   :value="option.value"
                 />
               </el-select>
             </label>
 
             <label class="filter-field">
-              <span class="filter-field__label">难度</span>
+              <span class="filter-field__label">{{ t('难度') }}</span>
               <el-select
                 v-model="draftFilters.difficulties"
                 multiple
                 collapse-tags
                 collapse-tags-tooltip
                 clearable
-                placeholder="全部难度"
+                :placeholder="t('全部难度')"
               >
                 <el-option
                   v-for="option in difficultyOptions"
                   :key="option.value"
-                  :label="option.label"
+                  :label="t(option.label)"
                   :value="option.value"
                 />
               </el-select>
             </label>
 
             <label class="filter-field">
-              <span class="filter-field__label">考试科目</span>
+              <span class="filter-field__label">{{ t('考试科目') }}</span>
               <el-select
                 v-model="draftFilters.subjectCodes"
                 multiple
@@ -96,20 +96,20 @@
                 collapse-tags-tooltip
                 clearable
                 :disabled="syllabusLoading || Boolean(syllabusError)"
-                placeholder="全部科目"
+                :placeholder="t('全部科目')"
                 @change="handleSubjectChange"
               >
                 <el-option
                   v-for="option in subjectOptions"
                   :key="option.value"
-                  :label="option.label"
+                  :label="t(option.label)"
                   :value="option.value"
                 />
               </el-select>
             </label>
 
             <label ref="knowledgeFilterFieldRef" class="filter-field">
-              <span class="filter-field__label">知识点</span>
+              <span class="filter-field__label">{{ t('知识点') }}</span>
               <el-tree-select
                 v-model="draftFilters.knowledgeCodes"
                 :data="knowledgeTreeData"
@@ -123,18 +123,18 @@
                 clearable
                 filterable
                 :disabled="syllabusLoading || Boolean(syllabusError)"
-                placeholder="全部知识点"
+                :placeholder="t('全部知识点')"
               />
             </label>
 
             <label class="filter-field filter-field--date">
-              <span class="filter-field__label">收录时间</span>
+              <span class="filter-field__label">{{ t('收录时间') }}</span>
               <el-date-picker
                 v-model="draftFilters.dateRange"
                 type="daterange"
-                range-separator="至"
-                start-placeholder="开始日期"
-                end-placeholder="结束日期"
+                :range-separator="t('至')"
+                :start-placeholder="t('开始日期')"
+                :end-placeholder="t('结束日期')"
                 value-format="YYYY-MM-DD"
                 :disabled-date="isDateDisabled"
                 clearable
@@ -142,52 +142,54 @@
             </label>
 
             <label class="filter-field filter-field--keyword">
-              <span class="filter-field__label">题目搜索</span>
+              <span class="filter-field__label">{{ t('题目搜索') }}</span>
               <el-input
                 v-model="draftFilters.keyword"
                 maxlength="100"
                 clearable
-                placeholder="输入题干关键词"
+                :placeholder="t('输入题干关键词')"
                 @keyup.enter="applyFilters"
               />
             </label>
 
             <div class="filter-actions">
-              <AppButton size="small" :loading="wrongLoading" @click="applyFilters">
-                搜索
-              </AppButton>
+              <AppButton size="small" :loading="wrongLoading" @click="applyFilters">{{
+                t('搜索')
+              }}</AppButton>
               <AppButton
                 type="secondary"
                 size="small"
                 :disabled="wrongLoading"
                 @click="resetFilters"
+                >{{ t('重置') }}</AppButton
               >
-                重置
-              </AppButton>
             </div>
 
             <p v-if="syllabusError" class="filter-message" role="status">
-              {{ syllabusError }}
+              {{ translateInterfaceError(syllabusError) }}
             </p>
           </div>
 
           <div v-if="wrongError && wrongList.length" class="inline-error" role="alert">
-            <span>{{ wrongError }}，当前仍显示上一次成功加载的结果。</span>
+            <span>{{
+              t('{p0}，当前仍显示上一次成功加载的结果。', {
+                p0: translateInterfaceError(wrongError),
+              })
+            }}</span>
             <AppButton
               type="secondary"
               size="small"
               :loading="wrongLoading"
               @click="retryWrongAnswers"
+              >{{ t('重新加载') }}</AppButton
             >
-              重新加载
-            </AppButton>
           </div>
 
           <div
             v-if="wrongLoading && wrongList.length === 0"
             class="section-card section-card--empty"
           >
-            <p class="loading-text">加载中...</p>
+            <p class="loading-text">{{ t('加载中...') }}</p>
           </div>
 
           <div
@@ -195,11 +197,11 @@
             class="section-card section-card--empty section-card--error"
             role="alert"
           >
-            <h3>错题加载失败</h3>
-            <p class="empty-desc">{{ wrongError }}</p>
-            <AppButton type="secondary" :loading="wrongLoading" @click="retryWrongAnswers">
-              重新加载
-            </AppButton>
+            <h3>{{ t('错题加载失败') }}</h3>
+            <p class="empty-desc">{{ translateInterfaceError(wrongError) }}</p>
+            <AppButton type="secondary" :loading="wrongLoading" @click="retryWrongAnswers">{{
+              t('重新加载')
+            }}</AppButton>
           </div>
 
           <div v-else-if="wrongList.length === 0" class="section-card section-card--empty">
@@ -241,9 +243,9 @@
                 />
               </svg>
             </div>
-            <h3>{{ hasActiveQuery ? '暂无匹配错题' : '暂无错题' }}</h3>
+            <h3>{{ t(hasActiveQuery ? '暂无匹配错题' : '暂无错题') }}</h3>
             <p class="empty-desc">
-              {{ hasActiveQuery ? '调整筛选条件后再试试。' : '你还没有做错的题目，继续保持。' }}
+              {{ t(hasActiveQuery ? '调整筛选条件后再试试。' : '你还没有做错的题目，继续保持。') }}
             </p>
           </div>
 
@@ -254,9 +256,11 @@
                 size="small"
                 :disabled="wrongLoading || wrongRemoving"
                 @click="toggleWrongBatch"
-                >{{ wrongBatchMode ? '完成管理' : '批量管理' }}</AppButton
+                >{{ t(wrongBatchMode ? '完成管理' : '批量管理') }}</AppButton
               >
-              <p>排序：<strong>最新收录</strong></p>
+              <p>
+                {{ t('排序：') }}<strong>{{ t('最新收录') }}</strong>
+              </p>
             </header>
 
             <div v-if="wrongBatchMode" class="wrong-batch-toolbar">
@@ -265,16 +269,16 @@
                 :indeterminate="selectedWrongIds.length > 0 && !allWrongSelected"
                 :disabled="wrongLoading || wrongRemoving"
                 @change="selectWrongPage"
-                >选择本页</el-checkbox
+                >{{ t('选择本页') }}</el-checkbox
               >
-              <span>已选 {{ selectedWrongIds.length }} 题</span>
+              <span>{{ t('已选 {p0} 题', { p0: t(selectedWrongIds.length) }) }}</span>
               <AppButton
                 type="danger"
                 size="small"
                 :icon="Delete"
                 :disabled="!selectedWrongIds.length || wrongLoading || wrongRemoving"
                 @click="requestWrongRemoval(selectedWrongIds)"
-                >批量删除</AppButton
+                >{{ t('批量删除') }}</AppButton
               >
             </div>
 
@@ -285,7 +289,7 @@
                   class="wrong-item__checkbox"
                   :model-value="selectedWrongIds.includes(item.questionId)"
                   :disabled="wrongLoading || wrongRemoving"
-                  :aria-label="`选择错题：${questionTitle(item)}`"
+                  :aria-label="t('选择错题：{p0}', { p0: questionTitle(item) })"
                   @change="selectWrongItem(item.questionId, Boolean($event))"
                 />
                 <span v-else class="wrong-item__document" aria-hidden="true">
@@ -302,15 +306,15 @@
                   <div class="wrong-item__meta">
                     <div class="wrong-item__subject">
                       <QuestionFavoriteButton :question-id="item.questionId" />
-                      <span v-if="item.subject">{{ item.subject }}</span>
+                      <span v-if="item.subject">{{ t(item.subject) }}</span>
                     </div>
                     <QuestionDifficultyTag :difficulty="item.difficulty" />
-                    <span v-if="knowledgeText(item)" class="wrong-item__knowledge">
-                      知识点：{{ knowledgeText(item) }}
+                    <span v-if="knowledgeText(item)" class="wrong-item__knowledge"
+                      >{{ t('知识点：{p0}', { p0: knowledgeText(item) }) }}
                     </span>
-                    <span>历史错题：{{ item.wrongCount }} 次</span>
-                    <span v-if="selectedAnswersText(item)">
-                      历史错选：{{ selectedAnswersText(item) }}
+                    <span>{{ t('历史错题：{p0} 次', { p0: t(item.wrongCount) }) }}</span>
+                    <span v-if="selectedAnswersText(item)"
+                      >{{ t('历史错选：{p0}', { p0: t(selectedAnswersText(item)) }) }}
                     </span>
                   </div>
                 </div>
@@ -322,7 +326,7 @@
                     class="wrong-item__delete"
                     :icon="Delete"
                     icon-only
-                    aria-label="移出错题本"
+                    :aria-label="t('移出错题本')"
                     :disabled="wrongLoading || wrongRemoving"
                     @click="requestWrongRemoval([item.questionId])"
                   />
@@ -331,22 +335,20 @@
                     type="secondary"
                     size="small"
                     class="wrong-item__action"
-                    aria-label="查看试题解析"
+                    :aria-label="t('查看试题解析')"
                     :disabled="analysisChecking"
                     @click="openAnalysis(item)"
+                    >{{ t('查看解析') }}</AppButton
                   >
-                    查看解析
-                  </AppButton>
                   <AppButton
                     v-else
                     class="wrong-item__action"
                     type="secondary"
                     size="small"
                     disabled
-                    aria-label="缺少答题记录，暂时无法查看解析"
+                    :aria-label="t('缺少答题记录，暂时无法查看解析')"
+                    >{{ t('查看解析') }}</AppButton
                   >
-                    查看解析
-                  </AppButton>
                 </div>
               </article>
             </div>
@@ -370,21 +372,24 @@
     />
     <AppDialog
       v-model="removeWrongOpen"
-      :title="removeWrongIds.length > 1 ? '批量删除错题' : '删除错题'"
-      confirm-text="确认删除"
+      :title="t(removeWrongIds.length > 1 ? '批量删除错题' : '删除错题')"
+      :confirm-text="t('确认删除')"
       confirm-type="danger"
       :loading="wrongRemoving"
       :confirm-disabled="!removeWrongIds.length"
       @confirm="confirmWrongRemoval"
     >
-      <p>确定从错题本中删除这 {{ removeWrongIds.length }} 道题吗？</p>
-      <p>作答记录和收藏会保留，再次做错时会重新收录。</p>
-      <p v-if="removeWrongError" class="wrong-remove-error" role="alert">{{ removeWrongError }}</p>
+      <p>{{ t('确定从错题本中删除这 {p0} 道题吗？', { p0: t(removeWrongIds.length) }) }}</p>
+      <p>{{ t('作答记录和收藏会保留，再次做错时会重新收录。') }}</p>
+      <p v-if="removeWrongError" class="wrong-remove-error" role="alert">
+        {{ translateInterfaceError(removeWrongError) }}
+      </p>
     </AppDialog>
   </div>
 </template>
 
 <script setup lang="ts">
+import { i18n, t, translateInterfaceError } from '@/locales'
 // 错题本页面：按考试体系组织长期错题资产，并在筛选、失败和往返解析时保持上下文一致。
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
@@ -551,7 +556,11 @@ const sourceLabelMap: Record<PaperType, string> = {
   [PAPER_TYPE.MOCK_PAPER]: '模考',
   [PAPER_TYPE.AI_PAPER]: '试题库',
 }
-const treeProps = { children: 'children', label: 'label', value: 'code' }
+const treeProps = {
+  children: 'children',
+  label: (node: SyllabusNode) => syllabusLabel(node),
+  value: 'code',
+}
 const wrongList = ref<WrongAnswer[]>([])
 const syllabusTreeData = ref<SyllabusNode[]>([])
 const wrongLoading = ref(true)
@@ -583,7 +592,7 @@ const sourceOptions = computed<FilterOption[]>(() =>
   })),
 )
 const subjectOptions = computed<FilterOption[]>(() =>
-  syllabusTreeData.value.map((item) => ({ value: item.code, label: item.label })),
+  syllabusTreeData.value.map((item) => ({ value: item.code, label: syllabusLabel(item) })),
 )
 const knowledgeTreeData = computed<SyllabusNode[]>(() => {
   if (!draftFilters.subjectCodes.length) return syllabusTreeData.value
@@ -703,7 +712,7 @@ async function confirmWrongRemoval() {
     removeWrongOpen.value = false
     selectedWrongIds.value = []
     ElMessage.success(
-      result.removedCount ? `已删除 ${result.removedCount} 道错题` : '这些题目已移出错题本',
+      t(result.removedCount ? `已删除 ${result.removedCount} 道错题` : '这些题目已移出错题本'),
     )
     const [loaded] = await Promise.all([loadWrongAnswers(), loadFavoriteSummary()])
     if (loaded && examType === activeExamType.value && route.name === 'mistake-notebook')
@@ -978,7 +987,12 @@ function analysisLink(item: WrongAnswer) {
 
 // 错题卡片优先展示正式题目标题，历史异常数据缺标题时回退到题目 ID。
 function questionTitle(item: WrongAnswer): string {
-  return item.title || `题目 ${item.questionId}`
+  return item.title || t('题目 {p0}', { p0: item.questionId })
+}
+
+// 考纲筛选使用接口已有英文标签，节点编码与中文模式原有双语标签保持不变。
+function syllabusLabel(node: SyllabusNode): string {
+  return i18n.global.locale.value === 'en' ? node.en_label || t(node.label) : node.label
 }
 
 // 知识点摘要最多直接展示两个名称，其余数量以紧凑后缀提示。

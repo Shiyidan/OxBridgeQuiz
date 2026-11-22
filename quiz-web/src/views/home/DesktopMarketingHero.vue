@@ -1,5 +1,7 @@
 <!-- 访客首页桌面首屏及下一屏考试入口：学习轨迹独占首屏，复用现有认证与导航。 -->
 <script setup lang="ts">
+import { t } from '@/locales'
+
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { Position, Right, VideoPause, VideoPlay } from '@element-plus/icons-vue'
 import AppButton from '@/components/AppButton.vue'
@@ -52,18 +54,18 @@ onBeforeUnmount(() => {
     aria-labelledby="desktop-hero-title"
   >
     <header class="desktop-hero__copy">
-      <h1 id="desktop-hero-title">看清潜力，精准进阶。</h1>
-      <p>先诊断，再学懂，让每一次练习更有方向。</p>
+      <h1 id="desktop-hero-title">{{ t('看清潜力，精准进阶。') }}</h1>
+      <p>{{ t('先诊断，再学懂，让每一次练习更有方向。') }}</p>
     </header>
 
-    <div class="desktop-hero__journey" aria-label="备考流程：诊断、学习、练习、复盘">
+    <div class="desktop-hero__journey" :aria-label="t('备考流程：诊断、学习、练习、复盘')">
       <div class="desktop-hero__wave">
         <img :src="waveUrl" width="2172" height="724" alt="" fetchpriority="high" />
         <ol class="desktop-hero__steps">
-          <li>诊断</li>
-          <li>学习</li>
-          <li>练习</li>
-          <li>复盘</li>
+          <li>{{ t('诊断') }}</li>
+          <li>{{ t('学习') }}</li>
+          <li>{{ t('练习') }}</li>
+          <li>{{ t('复盘') }}</li>
         </ol>
       </div>
       <AppButton
@@ -72,7 +74,7 @@ onBeforeUnmount(() => {
         size="mini"
         :icon="motionPaused ? VideoPlay : VideoPause"
         icon-only
-        :aria-label="motionPaused ? '播放背景动效' : '暂停背景动效'"
+        :aria-label="t(motionPaused ? '播放背景动效' : '暂停背景动效')"
         :aria-pressed="motionPaused"
         @click="toggleMotion"
       />
@@ -85,9 +87,8 @@ onBeforeUnmount(() => {
         :icon="Position"
         icon-position="right"
         @click="emit('register', '/assessment')"
+        >{{ t('开始免费诊断') }}</AppButton
       >
-        开始免费诊断
-      </AppButton>
       <AppButton
         class="desktop-hero__secondary"
         type="text"
@@ -95,27 +96,26 @@ onBeforeUnmount(() => {
         :icon="Right"
         icon-position="right"
         @click="emit('navigate', '/question-bank?mode=learning')"
+        >{{ t('探索学习内容') }}</AppButton
       >
-        探索学习内容
-      </AppButton>
     </div>
   </section>
 
   <section class="desktop-exam-section" aria-labelledby="desktop-exam-title">
     <div class="desktop-hero__exams">
-      <h2 id="desktop-exam-title">选择你的下一场考试。</h2>
+      <h2 id="desktop-exam-title">{{ t('选择你的下一场考试。') }}</h2>
       <RouterLink class="desktop-hero__exam" to="/exam-intro/esat">
         <div>
           <h3>ESAT</h3>
-          <p>数学 · 科学</p>
-          <small>Mathematics 1 必选，再选两科</small>
+          <p>{{ t('数学 · 科学') }}</p>
+          <small>{{ t('Mathematics 1 必选，再选两科') }}</small>
         </div>
         <el-icon aria-hidden="true"><Right /></el-icon>
       </RouterLink>
       <RouterLink class="desktop-hero__exam" to="/exam-intro/tmua">
         <div>
           <h3>TMUA</h3>
-          <p>数学 · 推理</p>
+          <p>{{ t('数学 · 推理') }}</p>
           <small>Paper 1 · Paper 2</small>
         </div>
         <el-icon aria-hidden="true"><Right /></el-icon>

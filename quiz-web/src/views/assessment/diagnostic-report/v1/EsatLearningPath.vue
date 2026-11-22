@@ -11,10 +11,10 @@
         </svg>
       </span>
       <div>
-        <h2>{{ pathTitle }}</h2>
-        <p>{{ pathSubtitle }}</p>
+        <h2>{{ t(pathTitle) }}</h2>
+        <p>{{ t(pathSubtitle) }}</p>
       </div>
-      <small class="path-source">{{ pathSourceLabel }}</small>
+      <small class="path-source">{{ t(pathSourceLabel) }}</small>
     </div>
 
     <article class="path-card">
@@ -31,35 +31,59 @@
           v-if="!hasStructuredStarterPlan"
           class="phase-labels"
           :class="{ 'phase-labels--single': path.phases.length === 1 }"
-          :style="{ gridTemplateColumns: `repeat(${Math.max(path.phases.length, 1)}, minmax(0, 1fr))` }"
+          :style="{
+            gridTemplateColumns: `repeat(${Math.max(path.phases.length, 1)}, minmax(0, 1fr))`,
+          }"
         >
           <span v-for="phase in path.phases" :key="phase.id">
-            {{ phase.title }}（{{ phase.durationWeeks }}周）
-          </span>
+            {{ t('{p0}（{p1}周）', { p0: t(phase.title), p1: t(phase.durationWeeks) }) }}</span
+          >
         </div>
         <p class="time-summary">
-          规划周期：<strong>{{ path.summary.planningWeeks }} 周</strong>
-          · 每周投入：<strong>{{ path.summary.weeklyHours }} 小时</strong>
-          · 总可投入时长：<strong>{{ path.summary.totalHours }} 小时</strong>
-          · 当前模式：<strong>{{ modeLabel }}</strong>
+          {{ t('规划周期：')
+          }}<strong>{{ t('{p0} 周', { p0: t(path.summary.planningWeeks) }) }}</strong
+          >{{ t('· 每周投入：')
+          }}<strong>{{ t('{p0} 小时', { p0: t(path.summary.weeklyHours) }) }}</strong
+          >{{ t('· 总可投入时长：')
+          }}<strong>{{ t('{p0} 小时', { p0: t(path.summary.totalHours) }) }}</strong
+          >{{ t('· 当前模式：') }}<strong>{{ t(modeLabel) }}</strong>
         </p>
-        <p class="mode-reason"><b>模式判定依据</b>{{ path.summary.modeReason }}</p>
+        <p class="mode-reason">
+          <b>{{ t('模式判定依据') }}</b
+          >{{ t(path.summary.modeReason) }}
+        </p>
 
         <div class="profile-source">
-          <span><b>本次规划科目</b>{{ path.profile.subjects.join('、') || '未设置' }}</span>
-          <span><b>目标院校</b>{{ path.profile.targetUniversities.join('、') || '未设置' }}</span>
-          <span><b>目标专业</b>{{ path.profile.targetMajor || '未设置' }}</span>
-          <span><b>每周可投入时长</b>{{ path.profile.weeklyHours ? `${path.profile.weeklyHours} 小时` : '未设置' }}</span>
-          <span><b>考试日期</b>{{ formatExamDate(path.profile.examDate) }}</span>
+          <span
+            ><b>{{ t('本次规划科目') }}</b
+            >{{ t(path.profile.subjects.join('、') || '未设置') }}</span
+          >
+          <span
+            ><b>{{ t('目标院校') }}</b
+            >{{ t(path.profile.targetUniversities.join('、') || '未设置') }}</span
+          >
+          <span
+            ><b>{{ t('目标专业') }}</b
+            >{{ t(path.profile.targetMajor || '未设置') }}</span
+          >
+          <span
+            ><b>{{ t('每周可投入时长') }}</b
+            >{{ t(path.profile.weeklyHours ? `${path.profile.weeklyHours} 小时` : '未设置') }}</span
+          >
+          <span
+            ><b>{{ t('考试日期') }}</b
+            >{{ t(formatExamDate(path.profile.examDate)) }}</span
+          >
         </div>
         <div
           class="source-note"
           :class="{ 'source-note--complete': path.profile.missingFields.length === 0 }"
         >
-          {{ path.summary.dataSourceNote }}
-          <router-link v-if="path.profile.missingFields.length" to="/profile">前往个人中心补充</router-link>
+          {{ t(path.summary.dataSourceNote) }}
+          <router-link v-if="path.profile.missingFields.length" to="/profile">{{
+            t('前往个人中心补充')
+          }}</router-link>
         </div>
-
       </header>
 
       <EsatStarterPlan
@@ -74,64 +98,65 @@
           class="phase-section"
           :class="`phase-section--${phase.id}`"
         >
-        <h3>{{ phase.title }}</h3>
-        <small class="week-label">{{ phase.weekLabel }}</small>
+          <h3>{{ t(phase.title) }}</h3>
+          <small class="week-label">{{ t(phase.weekLabel) }}</small>
 
-        <div class="phase-goal">
-          <span>目标</span>
-          <p>{{ phase.goal }}</p>
-          <div v-if="phase.focusTags.length" class="focus-tags">
-            <b>本阶段重点</b>
-            <span v-for="tag in phase.focusTags" :key="tag">{{ tag }}</span>
+          <div class="phase-goal">
+            <span>{{ t('目标') }}</span>
+            <p>{{ t(phase.goal) }}</p>
+            <div v-if="phase.focusTags.length" class="focus-tags">
+              <b>{{ t('本阶段重点') }}</b>
+              <span v-for="tag in phase.focusTags" :key="tag">{{ t(tag) }}</span>
+            </div>
+            <div class="phase-strategy">
+              <b>{{ t('执行策略') }}</b>
+              <span>{{ t(phase.strategy) }}</span>
+            </div>
           </div>
-          <div class="phase-strategy">
-            <b>执行策略</b>
-            <span>{{ phase.strategy }}</span>
-          </div>
-        </div>
 
-        <div v-if="phase.tasks.length" class="task-list">
-          <div v-for="task in phase.tasks" :key="`${task.period}:${task.title}`" class="task-row">
-            <strong>{{ task.period }}</strong>
-            <article>
-              <h4>{{ task.title }}</h4>
-              <p class="task-plan">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <circle cx="5" cy="7" r="1"></circle>
-                  <circle cx="5" cy="12" r="1"></circle>
-                  <circle cx="5" cy="17" r="1"></circle>
-                  <path d="M9 7h10M9 12h10M9 17h10"></path>
-                </svg>
-                <span class="task-label">学习安排</span>
-                <span>{{ task.completionLabel }}</span>
-              </p>
-            </article>
+          <div v-if="phase.tasks.length" class="task-list">
+            <div v-for="task in phase.tasks" :key="`${task.period}:${task.title}`" class="task-row">
+              <strong>{{ t(task.period) }}</strong>
+              <article>
+                <h4>{{ t(task.title) }}</h4>
+                <p class="task-plan">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="5" cy="7" r="1"></circle>
+                    <circle cx="5" cy="12" r="1"></circle>
+                    <circle cx="5" cy="17" r="1"></circle>
+                    <path d="M9 7h10M9 12h10M9 17h10"></path>
+                  </svg>
+                  <span class="task-label">{{ t('学习安排') }}</span>
+                  <span>{{ t(task.completionLabel) }}</span>
+                </p>
+              </article>
+            </div>
           </div>
-        </div>
 
-        <div v-if="phase.activities.length && !isStarterPlan" class="task-list">
-          <div
-            v-for="(activity, activityIndex) in phase.activities"
-            :key="activity"
-            class="task-row"
-          >
-            <strong>{{ activityPeriod(activity, activityIndex) }}</strong>
-            <article>
-              <h4>{{ phase.title }} · 学习安排 {{ activityIndex + 1 }}</h4>
-              <p class="task-plan">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <circle cx="5" cy="7" r="1"></circle>
-                  <circle cx="5" cy="12" r="1"></circle>
-                  <circle cx="5" cy="17" r="1"></circle>
-                  <path d="M9 7h10M9 12h10M9 17h10"></path>
-                </svg>
-                <span class="task-label">学习安排</span>
-                <span>{{ activityContent(activity) }}</span>
-              </p>
-            </article>
+          <div v-if="phase.activities.length && !isStarterPlan" class="task-list">
+            <div
+              v-for="(activity, activityIndex) in phase.activities"
+              :key="activity"
+              class="task-row"
+            >
+              <strong>{{ t(activityPeriod(activity, activityIndex)) }}</strong>
+              <article>
+                <h4>
+                  {{ t('{p0} · 学习安排 {p1}', { p0: t(phase.title), p1: t(activityIndex + 1) }) }}
+                </h4>
+                <p class="task-plan">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="5" cy="7" r="1"></circle>
+                    <circle cx="5" cy="12" r="1"></circle>
+                    <circle cx="5" cy="17" r="1"></circle>
+                    <path d="M9 7h10M9 12h10M9 17h10"></path>
+                  </svg>
+                  <span class="task-label">{{ t('学习安排') }}</span>
+                  <span>{{ t(activityContent(activity)) }}</span>
+                </p>
+              </article>
+            </div>
           </div>
-        </div>
-
         </section>
       </template>
     </article>
@@ -139,6 +164,8 @@
 </template>
 
 <script setup lang="ts">
+import { t } from '@/locales'
+
 import { computed } from 'vue'
 import type { DiagnosticLearningPath } from '@/api/exam'
 import EsatStarterPlan from './EsatStarterPlan.vue'
@@ -203,7 +230,6 @@ function activityPeriod(activity: string, index: number): string {
 function activityContent(activity: string): string {
   return activity.replace(/^([^：:]{1,20})[：:]\s*/, '').trim()
 }
-
 </script>
 
 <style scoped lang="scss">
@@ -568,5 +594,4 @@ function activityContent(activity: string): string {
     padding-top: 0;
   }
 }
-
 </style>

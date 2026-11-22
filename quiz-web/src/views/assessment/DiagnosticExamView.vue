@@ -14,8 +14,8 @@
       :current-index="currentIndex"
       :total-count="questions.length"
       :answered-count="answeredCount"
-      :section-title="activeModule.label"
-      :header-title="paperProgressTitle"
+      :section-title="t(activeModule.label)"
+      :header-title="t(paperProgressTitle)"
       :pause-on-visibility="true"
       @back="handleBack"
       @answering-paused="handleAnsweringPaused"
@@ -25,12 +25,12 @@
 
     <main class="diagnostic-exam-shell">
       <div v-if="loading" class="diagnostic-status">
-        正在恢复{{ isMockExam ? '模考中心' : '诊断测试' }}...
+        {{ t('正在恢复{p0}...', { p0: t(isMockExam ? '模考中心' : '诊断测试') }) }}
       </div>
       <template v-else-if="session">
         <div v-if="session.phase === 'answering'" class="exam-layout">
-          <aside class="question-nav" :aria-label="`当前${sectionNoun}题目导航`">
-            <strong>{{ displayModuleLabel(activeModule?.code, activeModule?.label) }}</strong>
+          <aside class="question-nav" :aria-label="t(`当前${sectionNoun}题目导航`)">
+            <strong>{{ t(displayModuleLabel(activeModule?.code, activeModule?.label)) }}</strong>
             <div class="question-nav__grid">
               <button
                 v-for="(question, index) in questions"
@@ -40,11 +40,16 @@
                 :disabled="interactionLocked"
                 @click="goToQuestion(index)"
               >
-                {{ getQuestionDisplayNumber(question, index) }}
+                {{ t(getQuestionDisplayNumber(question, index)) }}
               </button>
             </div>
             <div class="question-nav__summary">
-              已答 {{ answeredCount }} · 未答 {{ questions.length - answeredCount }}
+              {{
+                t('已答 {p0} · 未答 {p1}', {
+                  p0: t(answeredCount),
+                  p1: t(questions.length - answeredCount),
+                })
+              }}
             </div>
             <button
               type="button"
@@ -52,7 +57,7 @@
               :disabled="interactionLocked || !questions.length"
               @click="confirmCompleteModule"
             >
-              {{ completeSectionLabel }}
+              {{ t(completeSectionLabel) }}
             </button>
           </aside>
 
@@ -66,7 +71,7 @@
               :key="currentQuestion.id"
               :question="currentQuestion"
               :index="currentIndex"
-              :question-label="currentQuestionLabel"
+              :question-label="t(currentQuestionLabel)"
               :selected-answer="answers[currentQuestion.id]"
               :meta-tags="currentKnowledgeTags"
               :disabled="interactionLocked"
@@ -83,7 +88,7 @@
                 :disabled="interactionLocked || currentIndex === 0"
                 @click="goToQuestion(currentIndex - 1)"
               >
-                上一题
+                {{ t('上一题') }}
               </button>
               <button
                 type="button"
@@ -91,12 +96,12 @@
                 :disabled="interactionLocked || currentIndex >= questions.length - 1"
                 @click="goToQuestion(currentIndex + 1)"
               >
-                下一题
+                {{ t('下一题') }}
               </button>
             </footer>
           </section>
 
-          <aside class="module-nav" :aria-label="`${sectionNoun}进度`">
+          <aside class="module-nav" :aria-label="t(`${sectionNoun}进度`)">
             <ol class="module-progress">
               <li
                 v-for="(module, index) in session.modules || []"
@@ -106,11 +111,15 @@
                   'module-progress__item--completed': module.status === 'completed',
                 }"
               >
-                <span>{{ displayModuleLabel(module.code, module.label) }}</span>
+                <span>{{ t(displayModuleLabel(module.code, module.label)) }}</span>
                 <small>
-                  {{ module.totalQuestions }} 题 ·
-                  {{ formatModuleMinutes(module.durationSeconds) }} 分钟
-                </small>
+                  {{
+                    t('{p0} 题 · {p1} 分钟', {
+                      p0: t(module.totalQuestions),
+                      p1: t(formatModuleMinutes(module.durationSeconds)),
+                    })
+                  }}</small
+                >
               </li>
             </ol>
           </aside>
@@ -118,41 +127,54 @@
 
         <div v-else-if="session.phase === 'ready_to_submit'" class="diagnostic-status">
           <p>
-            全部{{ sectionNoun }}已完成，{{
-              transitioning
-                ? `正在提交${isMockExam ? '模考' : '诊断'}结果...`
-                : `${isMockExam ? '模考' : '诊断'}结果尚未提交。`
+            {{
+              t('全部{p0}已完成，{p1}', {
+                p0: t(sectionNoun),
+                p1: t(
+                  transitioning
+                    ? `正在提交${isMockExam ? '模考' : '诊断'}结果...`
+                    : `${isMockExam ? '模考' : '诊断'}结果尚未提交。`,
+                ),
+              })
             }}
           </p>
           <button v-if="!transitioning" type="button" class="button_primary" @click="finalizeExam">
-            重试提交诊断结果
+            {{ t('重试提交诊断结果') }}
           </button>
         </div>
       </template>
       <div v-else class="diagnostic-status">
-        <p>{{ loadError || `无法加载${isMockExam ? '模考中心' : '诊断测试'}。` }}</p>
-        <button type="button" class="button_primary" @click="loadSession">重新加载</button>
+        <p>
+          {{
+            translateDiagnosticError(
+              loadError || `无法加载${isMockExam ? '模考中心' : '诊断测试'}。`,
+            )
+          }}
+        </p>
+        <button type="button" class="button_primary" @click="loadSession">
+          {{ t('重新加载') }}
+        </button>
       </div>
     </main>
 
     <AppDialog
       v-model="confirmDialog.visible"
-      :title="confirmDialog.title"
+      :title="t(confirmDialog.title)"
       :icon="WarningFilled"
       icon-color="var(--color-warning)"
-      :confirm-text="confirmDialog.confirmText"
-      :cancel-text="confirmDialog.cancelText"
+      :confirm-text="t(confirmDialog.confirmText)"
+      :cancel-text="t(confirmDialog.cancelText)"
       @confirm="resolveConfirmDialog(true)"
       @cancel="resolveConfirmDialog(false)"
     >
-      <p>{{ confirmDialog.message }}</p>
+      <p>{{ t(confirmDialog.message) }}</p>
     </AppDialog>
 
     <ExamBreakDialog
       :visible="session?.phase === 'break'"
       :ends-at="breakState?.endsAt || null"
       :server-now="session?.serverNow || null"
-      :next-module-label="breakState?.nextModuleLabel || `下一${sectionNoun}`"
+      :next-module-label="t(breakState?.nextModuleLabel || `下一${sectionNoun}`)"
       :skipping="transitioning"
       @skip="handleSkipBreak"
       @elapsed="handleBreakElapsed"
@@ -169,6 +191,8 @@
 </template>
 
 <script setup lang="ts">
+import { t, translateDiagnosticError } from '@/locales'
+
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -468,7 +492,7 @@ async function loadSession(): Promise<void> {
   try {
     const paperId = String(route.params.paperId || '')
     if (isMockExam.value && !examRecordId) {
-      ElMessage.error('模考答卷身份缺失，请返回模考中心重新进入。')
+      ElMessage.error(t('模考答卷身份缺失，请返回模考中心重新进入。'))
       await router.replace('/mock-exams')
       return
     }
@@ -500,7 +524,7 @@ async function loadSession(): Promise<void> {
       error,
       `${isMockExam.value ? '模考中心' : '诊断测试'}加载失败，请稍后重试。`,
     )
-    ElMessage.error(loadError.value)
+    ElMessage.error(translateDiagnosticError(loadError.value))
   } finally {
     loading.value = false
   }
@@ -757,7 +781,7 @@ async function handleModuleTimeExpired(): Promise<void> {
     pendingExpiredModuleCode = expiredModuleCode
     return
   }
-  ElMessage.warning(`当前${sectionNoun.value}时间已结束，答案已锁定`)
+  ElMessage.warning(t(`当前${sectionNoun.value}时间已结束，答案已锁定`))
   await completeCurrentModule()
 }
 

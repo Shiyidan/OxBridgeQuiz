@@ -5,7 +5,7 @@
       <button
         class="home-mobile-nav__brand-button"
         type="button"
-        aria-label="AceMock 返回首页"
+        :aria-label="t('AceMock 返回首页')"
         @click="goHome"
       >
         <img :src="brandIconUrl" alt="" />
@@ -19,7 +19,7 @@
         @click="openMenu"
       >
         <span class="home-mobile-nav__hamburger" aria-hidden="true"><i></i><i></i><i></i></span>
-        <strong>导航</strong>
+        <strong>{{ t('导航') }}</strong>
       </button>
       <button
         v-if="!auth.isLoggedIn"
@@ -27,7 +27,7 @@
         type="button"
         @click="navigate('/login')"
       >
-        登录
+        {{ t('登录') }}
       </button>
       <div v-else ref="accountRef" class="home-mobile-nav__account">
         <button
@@ -43,7 +43,7 @@
               'is-highlighted': accountMetaHighlighted,
               'is-pending': accountMetaPending,
             }"
-            >{{ accountMetaLabel }}</span
+            >{{ t(accountMetaLabel) }}</span
           >
         </button>
         <Transition name="mobile-account-menu">
@@ -53,10 +53,13 @@
             class="home-mobile-nav__account-menu"
             @click.stop
           >
-            <button class="is-danger" type="button" @click="requestLogout">退出登录</button>
+            <button class="is-danger" type="button" @click="requestLogout">
+              {{ t('退出登录') }}
+            </button>
           </div>
         </Transition>
       </div>
+      <LanguageSwitcher />
     </div>
 
     <Transition name="home-mobile-menu">
@@ -67,7 +70,7 @@
         class="home-mobile-nav__overlay"
         role="dialog"
         aria-modal="true"
-        aria-label="移动端导航"
+        :aria-label="t('移动端导航')"
         tabindex="-1"
       >
         <header class="home-mobile-nav__overlay-header">
@@ -77,14 +80,14 @@
           </button>
         </header>
 
-        <nav class="home-mobile-nav__menu" aria-label="主要导航">
+        <nav class="home-mobile-nav__menu" :aria-label="t('主要导航')">
           <button
             v-for="item in menuItems"
             :key="item.key"
             type="button"
             @click="selectMenuItem(item)"
           >
-            {{ item.label }}
+            {{ t(item.label).replaceAll(' ', '') }}
           </button>
         </nav>
 
@@ -93,7 +96,7 @@
             <svg viewBox="0 0 16 16" aria-hidden="true">
               <path d="M3.5 10.5 8 6l4.5 4.5" />
             </svg>
-            <span>收起</span>
+            <span>{{ t('收起') }}</span>
           </button>
         </footer>
       </section>
@@ -102,6 +105,9 @@
 </template>
 
 <script setup lang="ts">
+import { t, useSiteLocale } from '@/locales'
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import brandIconUrl from '@/assets/brand/acemock-icon.png'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
@@ -134,6 +140,7 @@ const emit = defineEmits<{
 }>()
 
 const auth = useAuthStore()
+const { homePath } = useSiteLocale()
 const menuOpen = ref(false)
 const accountMenuOpen = ref(false)
 const overlayRef = ref<HTMLElement | null>(null)
@@ -181,7 +188,10 @@ function goHome(): void {
 function navigate(path: string): void {
   accountMenuOpen.value = false
   closeMenu()
-  emit('navigate', path)
+  emit(
+    'navigate',
+    path === '/login' ? `/login?redirect=${encodeURIComponent(homePath.value)}` : path,
+  )
 }
 
 // 已登录用户点击右上角账户摘要时切换个人菜单。
@@ -261,15 +271,19 @@ onBeforeUnmount(() => {
   }
 
   .home-mobile-nav__bar {
+    --language-text: rgb(255 255 255 / 80%);
+    --language-hover: rgb(255 255 255 / 12%);
+    --language-hover-text: #fff;
     position: relative;
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
     height: 64px;
     display: grid;
-    grid-template-columns: 104px minmax(0, 1fr) minmax(92px, 128px);
+    grid-template-columns: minmax(104px, 1fr) 58px minmax(48px, 100px) 44px;
+    gap: 6px;
     align-items: center;
-    padding: 0 16px;
+    padding: 0 8px;
     background: var(--home-mobile-nav-color);
     box-shadow: 0 8px 22px rgb(73 10 12 / 16%);
     color: #fff;
@@ -316,17 +330,16 @@ onBeforeUnmount(() => {
   }
 
   .home-mobile-nav__trigger {
-    position: absolute;
-    left: 50%;
-    top: 50%;
+    position: relative;
     display: inline-flex;
     align-items: center;
     gap: 7px;
     min-height: 44px;
-    padding: 0 18px;
-    font-size: 14px;
+    padding: 0;
+    font-size: 13px;
     font-weight: 700;
-    transform: translate(-50%, -50%);
+    justify-content: center;
+    white-space: nowrap;
   }
 
   .home-mobile-nav__hamburger {

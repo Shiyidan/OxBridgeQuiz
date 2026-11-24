@@ -1,12 +1,13 @@
 // ESAT 数学2数列与级数讲义：覆盖4个考纲叶节点，真实题源由学习接口读取，考法保留全量相关年度证据。
 import type { KnowledgeLesson } from './types'
+import { math2SequenceMethods } from './math2SequenceMethods'
 
 export const esatMath2Sequences: KnowledgeLesson = {
   code: '120200',
   title: 'Sequences and series · 数列与级数',
   subtitle: '从递推到无穷和，把每一项的位置、比值与条件都变成可检查的等式',
   intro:
-    '数列题的核心动作只有两步：先把文字或递推翻译成关于首项、公差或公比的方程，再用符号条件（整数、正项、收敛）筛选分支。本章四个知识点——递推、等差、等比、二项展开——共用同一套“写一般项、定位下标、回代检验”的流程，每节配有年度真题例题与自测，帮助把复习直接转为解题动作。',
+    '递推先看前后项的结构，等差求和用配对，等比求和用错位相减，二项展开用一般项定位。每种方法都保留项号、符号与适用条件，把公式转化为可解释的推导。',
   memory: [
     '**递推题逐项展开，常数每层都带上。**项号是位置，项值是内容，先分清再计算。',
     '**等差看差、等比看比；第n项的系数是n−1，不是n。**用首项代入自检。',
@@ -17,26 +18,20 @@ export const esatMath2Sequences: KnowledgeLesson = {
     {
       code: '120201',
       title: '数列与递推',
-      summary: '逐项展开保留常数；含参数时用附加条件试根筛选。',
-      paragraphs: [
-        '数列有两种给法：通项公式直接写出第n项，递推关系则由前面的项算下一项。$u_{n+1}=pu_n+3$ 的意思是“上一项乘p再加3”，逐项展开时每一步的常数3都要保留，漏掉它后面全错。',
-        '含参数的递推题，把目标项展成参数的多项式，再利用附加条件筛选解：参数为整数时三次方程可直接试$\\pm1,\\pm2$；项要求为正时舍去负分支。展开项数少时直接算比套公式可靠。',
-        '项号是位置，项值是内容：$u_4$ 是第4项的值，求 $u_1+u_2+u_3+u_4$ 是项值相加。遇到连乘积 $\\,u_1u_2\\cdots u_n$ 时先连写几项，看分子分母是否逐项约掉，往往比找通项更快。',
-      ],
-      rules: [
+      summary: math2SequenceMethods['120201'].summary,
+      paragraphs: [math2SequenceMethods['120201'].intro],
+      rules: math2SequenceMethods['120201'].blocks.flatMap((block) => [
         {
-          title: '逐项展开保留常数',
-          text: '$u_{n+1}=pu_n+3$：$u_2=pu_1+3$，$u_3=p(pu_1+3)+3$；常数3在每一层都出现。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '整数条件是试根许可',
-          text: '参数为整数时，$2p^3+3p^2+3p+10=0$ 直接试 $p=\\pm1,\\pm2$，不必解一般三次方程。',
-        },
-        {
-          title: '连乘积先看约分',
-          text: '$u_{n+1}=1+\\frac1{u_n}$ 且 $u_1=1$ 时各项为相邻整数比，$u_1u_2\\cdots u_{10}$ 逐项约分。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2SequenceMethods['120201'].memory,
       pitfalls: [
         '递推展开时漏掉每层的常数项。',
         '把项号当项值代入，或把 $u_4$ 误读为u的4次方。',
@@ -96,26 +91,20 @@ export const esatMath2Sequences: KnowledgeLesson = {
     {
       code: '120202',
       title: '等差级数',
-      summary: '第n项系数是n−1；部分和之间的关系可直接还原为项。',
-      paragraphs: [
-        '等差数列相邻项之差固定为d，第n项 $u_n=a+(n-1)d$。注意是n−1个间隔：首项本身不占公差，用 $n=1$ 时 $u_1=a$ 自检定位是否正确。',
-        '前n项和 $S_n=\\frac n2\\bigl(2a+(n-1)d\\bigr)=\\frac n2(u_1+u_n)$。题干的两条文字条件（倍数、相差）通常正好给出两个方程，联立解出a与d后回代求目标项。',
-        '部分和之间的关系可以绕开求和公式：$S_{n+1}-S_{n-1}=u_n+u_{n+1}$，“接下来20项的和”就是 $S_{40}-S_{20}$。先把文字翻译成已有符号，再决定代公式还是作差。',
-      ],
-      rules: [
+      summary: math2SequenceMethods['120202'].summary,
+      paragraphs: [math2SequenceMethods['120202'].intro],
+      rules: math2SequenceMethods['120202'].blocks.flatMap((block) => [
         {
-          title: '第n项公式',
-          text: '$u_n=a+(n-1)d$；$n=1$ 时公差系数为0，用 $u_1=a$ 自检。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '求和公式两种写法',
-          text: '$S_n=\\frac n2\\bigl(2a+(n-1)d\\bigr)=\\frac n2(u_1+u_n)$；已知末项用后者更快。',
-        },
-        {
-          title: '部分和作差得项',
-          text: '$S_{n+1}-S_{n-1}=u_n+u_{n+1}$；$S_{40}-S_{20}$ 是第21—40项的和。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2SequenceMethods['120202'].memory,
       pitfalls: [
         '把第n项写成 $a+nd$，首项定位错一位。',
         '“13th term is six times the 1st”只乘了公差或漏乘整个首项。',
@@ -198,26 +187,20 @@ export const esatMath2Sequences: KnowledgeLesson = {
     {
       code: '120203',
       title: '等比级数',
-      summary: '相邻项比相等列方程；无穷和先用收敛条件筛分支。',
-      paragraphs: [
-        '等比数列相邻项之比固定为r，第n项 $u_n=ar^{n-1}$。前三项含参数时用 $u_2^2=u_1u_3$ 列方程；得到两个参数解是常态，必须回到题干条件筛选，不能两个都代入求和。',
-        '筛选条件常见两种：“各项为正”排除负公比或负首项；“收敛”要求 $|r|<1$，发散分支没有无穷和，硬套公式会得到貌似合理的错误选项。',
-        '无穷和 $S_\\infty=\\frac{a}{1-r}$（仅 $|r|<1$）。偶数项子列 $u_2+u_4+u_6+\\cdots$ 本身仍是等比级数，首项 $ar$、公比 $r^2$，和为 $\\frac{ar}{1-r^2}$；两个级数条件并列时，先取比值消去首项往往最快。',
-      ],
-      rules: [
+      summary: math2SequenceMethods['120203'].summary,
+      paragraphs: [math2SequenceMethods['120203'].intro],
+      rules: math2SequenceMethods['120203'].blocks.flatMap((block) => [
         {
-          title: '相邻项比相等',
-          text: '$\\frac{u_2}{u_1}=\\frac{u_3}{u_2}\\iff u_2^2=u_1u_3$；含参数前三项的第一方程。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '收敛才谈无穷和',
-          text: '$S_\\infty=\\frac{a}{1-r}$ 只在 $|r|<1$ 成立；$r=2$ 的分支没有无穷和。',
-        },
-        {
-          title: '隔项子列公比平方',
-          text: '$u_2+u_4+u_6+\\cdots$ 的首项是 $ar$，公比是 $r^2$，和为 $\\frac{ar}{1-r^2}$。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2SequenceMethods['120203'].memory,
       pitfalls: [
         '由 $r^4=\\frac14$ 只取正根，或忘了用符号条件筛掉负根。',
         '参数二次方程的两个解不按收敛或正项条件筛选就代入求和。',
@@ -306,26 +289,20 @@ export const esatMath2Sequences: KnowledgeLesson = {
     {
       code: '120204',
       title: '二项式展开',
-      summary: '写一般项定位r；幂次定位置，组合数与底数幂定系数。',
-      paragraphs: [
-        '二项式定理：$(a+b)^n=\\sum_{r=0}^{n}\\binom{n}{r}a^{n-r}b^r$，其中 $\\binom{n}{r}=\\frac{n!}{r!(n-r)!}$。求指定项不必全部展开，写一般项 $\\binom{n}{r}a^{n-r}b^r$ 再定位r。',
-        '两项都含x时，把x的幂次单独合并：一般项中x的指数是两部分指数之和，令其等于目标幂次解出r，再算数值系数（组合数乘各底数的幂）。组合数要记准：$\\binom84=70$，$\\binom83=56$，可用对称性 $\\binom{n}{r}=\\binom{n}{n-r}$ 核对。',
-        '展开前先观察结构：共轭因式相乘 $(1-2x)^5(1+2x)^5=(1-4x^2)^5$ 只剩偶次幂，可直接判断某些系数为零；与积分串联时，先在被积函数里定位产生目标幂次的那一项，展开系数后再积分。',
-      ],
-      rules: [
+      summary: math2SequenceMethods['120204'].summary,
+      paragraphs: [math2SequenceMethods['120204'].intro],
+      rules: math2SequenceMethods['120204'].blocks.flatMap((block) => [
         {
-          title: '一般项定位',
-          text: '$(a+b)^n$ 的第 $r+1$ 项为 $\\binom{n}{r}a^{n-r}b^r$；求 $x^k$ 系数先解幂次方程。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '组合数别记混',
-          text: '$\\binom84=70$，$\\binom83=56$；对称性 $\\binom{n}{r}=\\binom{n}{n-r}$ 可用来核对。',
-        },
-        {
-          title: '积分抬一次幂',
-          text: '$\\int_0^x t^3\\,dt=\\frac{x^4}{4}$：要 $x^4$ 项先找被积函数的 $t^3$ 项，系数再除以4。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2SequenceMethods['120204'].memory,
       pitfalls: [
         '只算幂因子 $2^4/4^4$，漏乘组合数 $\\binom84$。',
         '幂次方程解错（如把 $2r-8=0$ 解成 $r=2$），项定位错误。',
@@ -347,8 +324,7 @@ export const esatMath2Sequences: KnowledgeLesson = {
           },
           {
             form: '先合并或变形，再判断出现的幂次',
-            description:
-              '共轭因式先化简成 $(1-4x^2)^5$，直接看出只含偶次幂，避免十次逐项展开。',
+            description: '共轭因式先化简成 $(1-4x^2)^5$，直接看出只含偶次幂，避免十次逐项展开。',
             reference: '2018 年度真题',
             sourceCodes: ['ESAT_LEGACY_2018_ENGAA_Q47'],
           },
@@ -376,7 +352,8 @@ export const esatMath2Sequences: KnowledgeLesson = {
               '常数项要求x的幂次为0：$2r-8=0$，得 $r=4$。',
               '代入：$\\binom84\\times2^4\\times4^{-4}=70\\times\\frac{16}{256}=70\\times\\frac1{16}=\\frac{35}{8}$，选B。',
             ],
-            takeaway: '先写一般项并单独追踪x的幂次；组合数 $\\binom84=70$ 不要与 $\\binom83=56$ 混淆。',
+            takeaway:
+              '先写一般项并单独追踪x的幂次；组合数 $\\binom84=70$ 不要与 $\\binom83=56$ 混淆。',
           },
           {
             title: '积分后幂次抬一次，先定位t³项',

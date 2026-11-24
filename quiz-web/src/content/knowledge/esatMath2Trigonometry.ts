@@ -1,5 +1,6 @@
 // ESAT 数学2第四章三角讲义：按六个考纲叶子组织复习、真实例题与完整相关年度考法。
 import type { KnowledgeLesson } from './types'
+import { math2TrigonometryMethods } from './math2TrigonometryMethods'
 
 export const esatMath2Trigonometry: KnowledgeLesson = {
   code: '120400',
@@ -17,30 +18,20 @@ export const esatMath2Trigonometry: KnowledgeLesson = {
     {
       code: '120401',
       title: '正弦/余弦定理与三角形面积',
-      summary: '先把边与对角配好，再按已知条件选公式；正弦求角要检查补角。',
-      paragraphs: [
-        '在三角形ABC中，通常让边a、b、c分别对着角A、B、C。==先标“边—对角”配对，再代公式==：已有一组边与其对角时，正弦定理连接另一组；已知两边及夹角，或三边求角时，余弦定理更直接。一般三角形不能把“邻边÷斜边”套作余弦，因为未必有斜边。',
-        '面积公式 $S=\\frac12ab\\sin C$ 中的C必须是a、b的夹角。钝角三角形也适用，因为高度为相应边乘正弦；边长固定时，夹角90°使面积最大。若边本身随参数改变，先把整个面积写成参数式，再判断最大值，不能只看正弦。',
-        '三维问题先找一个真正包含目标线段或角的平面三角形。求斜线与水平面的夹角时，先向平面作垂足，使用斜线和它在平面内的正投影；长方体的底面对角线可先由勾股求出，再与高度组成直角三角形。不要把透视图上看似相邻的边当成共面，也不要凭绘图角度读数。',
-      ],
-      rules: [
+      summary: math2TrigonometryMethods['120401'].summary,
+      paragraphs: [math2TrigonometryMethods['120401'].intro],
+      rules: math2TrigonometryMethods['120401'].blocks.flatMap((block) => [
         {
-          title: '看到对边对角，用正弦定理',
-          text: '$\\frac a{\\sin A}=\\frac b{\\sin B}=\\frac c{\\sin C}$。先写已知的完整配对，再求另一边或角；边长单位须一致。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '两边夹角或三边，用余弦定理',
-          text: '$c^2=a^2+b^2-2ab\\cos C$，反求 $\\cos C=(a^2+b^2-c^2)/(2ab)$。最大角对最长边；余弦为负说明角为钝角。',
-        },
-        {
-          title: 'SSA可能有两种三角形',
-          text: '已知A、a、b时先算 $\\sin B=b\\sin A/a$。若在(0,1)，候选是 $B_0$ 与 $180^\\circ-B_0$，逐一要求 $A+B<180^\\circ$；大于1无解，等于1只留90°。例如A=30°、a=5、b=8可产生两个合法B。',
-        },
-        {
-          title: '面积与比例一起看',
-          text: '$S=\\frac12ab\\sin C$；同夹角、两邻边分别变为原来的m、n倍，面积变mn倍。用正弦定理求角后，面积的两种候选也可能不同。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2TrigonometryMethods['120401'].memory,
       pitfalls: [
         '把边与邻角配成正弦定理的一组，或把非夹角代入面积公式。',
         '只保留反正弦给出的锐角，漏掉满足内角和的钝角三角形。',
@@ -106,30 +97,20 @@ export const esatMath2Trigonometry: KnowledgeLesson = {
     {
       code: '120402',
       title: '弧度制',
-      summary: '角用弧度，弧长乘一次半径、面积乘半径平方；弓形还要减三角形。',
-      paragraphs: [
-        '弧度 radian 用“弧长÷半径”衡量转过的角：$\\theta=s/r$。同一圆心角的大小不随圆半径变化；弧度是角的另一种单位，不是长度。半周为 $\\pi$ rad，所以角度乘 $\\pi/180$ 变弧度，弧度乘 $180/\\pi$ 变角度。',
-        '扇形由两条半径和一段圆弧围成，弓形由一条弦和圆弧围成。==先沿所问区域的边界走一遍==：求扇形周长是弧长加两条半径，不能只有弧；求小弓形面积应从对应扇形中减掉等腰三角形。同一对端点的大弧与小弧对应的圆心角相加为 $2\\pi$，不能凭图形大小随意选角。',
-        '组合图形先统一单位，再分成可直接计算的部分。由弦心距求角时，圆心到弦的垂线会平分圆心角；算出半角后要乘2。若题目比较同半径扇形的面积变化，直接对 $\\frac12r^2\\theta$ 作差可消去原角，比先求两个角更简洁。',
-      ],
-      rules: [
+      summary: math2TrigonometryMethods['120402'].summary,
+      paragraphs: [math2TrigonometryMethods['120402'].intro],
+      rules: math2TrigonometryMethods['120402'].blocks.flatMap((block) => [
         {
-          title: '转换与标准角',
-          text: '$180^\\circ=\\pi$ rad；$30^\\circ=\\pi/6$、$45^\\circ=\\pi/4$、$60^\\circ=\\pi/3$、$90^\\circ=\\pi/2$。没有度号的三角函数自变量通常按弧度理解，并以题目约定为准。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '弧长与扇形面积',
-          text: '$\\ell=r\\theta$，$S_{\\rm sector}=\\frac12r^2\\theta=\\frac12r\\ell$，此处 $\\theta$ 必须用弧度。弧长单位是长度，面积单位是长度平方。',
-        },
-        {
-          title: '小弓形公式有角的范围',
-          text: '当 $0<\\theta\\le\\pi$ 为对应小扇形角时，$S_{\\rm segment}=\\frac12r^2(\\theta-\\sin\\theta)$。$\\theta$ 用弧度；大弓形可用圆面积减去另一侧小弓形。',
-        },
-        {
-          title: '周长条件用完整边界',
-          text: '扇形周长 $P=2r+r\\theta$。定周长时可先得 $\\ell=P-2r$，面积为 $S=\\frac12r(P-2r)$，再用二次函数求最大值。环形扇形两条直边各为外半径减内半径。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2TrigonometryMethods['120402'].memory,
       pitfalls: [
         '把度数直接放进rθ或半径平方乘角的公式。',
         '把小扇形当小弓形，漏减三角形面积。',
@@ -209,30 +190,20 @@ export const esatMath2Trigonometry: KnowledgeLesson = {
     {
       code: '120403',
       title: '三角函数精确值',
-      summary: '用两个特殊直角三角形记数值，用单位圆决定象限符号。',
-      paragraphs: [
-        '把边长为2的等边三角形对半切开，得到30°—60°—90°三角形的边比 $1:\\sqrt3:2$；把等腰直角三角形两直角边取1，斜边为 $\\sqrt2$。这两张图能重新推出全部30°、45°、60°的精确值，不必记成孤立数字。',
-        '单位圆上的点为 $(\\cos\\theta,\\sin\\theta)$：余弦看横坐标，正弦看纵坐标，正切是两者之比。象限先决定正负，再用与坐标轴的参考角决定绝对值。0°和90°直接看单位圆位置；$\\tan90^\\circ$ 因余弦为0而没有定义，不应写成一个普通数。',
-        '从函数值反求角时，一个精确值未必只对应一个角。例如三角形内 $\\sin B=1/2$ 可对应30°或150°；应再用锐角条件、内角和或给定区间筛选。不要用小数近似替代精确根式，也不要把已求出的某个函数值当成题目要求的角。',
-      ],
-      rules: [
+      summary: math2TrigonometryMethods['120403'].summary,
+      paragraphs: [math2TrigonometryMethods['120403'].intro],
+      rules: math2TrigonometryMethods['120403'].blocks.flatMap((block) => [
         {
-          title: '正弦表顺着根号走',
-          text: '角为 $0^\\circ,30^\\circ,45^\\circ,60^\\circ,90^\\circ$ 时，$\\sin\\theta$ 依次为 $0,\\frac12,\\frac{\\sqrt2}{2},\\frac{\\sqrt3}{2},1$；余弦将这行倒序。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '正切用比值生成',
-          text: '同一组角的 $\\tan\\theta$ 依次为 $0,\\frac1{\\sqrt3},1,\\sqrt3,\\text{未定义}$。如需分母有理化，$1/\\sqrt3=\\sqrt3/3$，不是 $\\sqrt3$。',
-        },
-        {
-          title: '象限给符号，参考角给大小',
-          text: '第一象限三者为正；第二象限只有sin为正；第三象限只有tan为正；第四象限只有cos为正。例如 $\\sin(2\\pi/3)=\\sqrt3/2$，$\\cos(2\\pi/3)=-1/2$。',
-        },
-        {
-          title: '线性组合可先做代数消元',
-          text: '两式若只含 $\\tan A$ 与 $\\sin B$ 的一次项，可把它们当两个未知量先联立求值，再用角域恢复A、B；恢复后仍须回代原式。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2TrigonometryMethods['120403'].memory,
       pitfalls: [
         '把sin30°和cos30°交换，或把tan30°写成√3。',
         '只记数值绝对值，漏掉第二、三、四象限的符号。',
@@ -308,30 +279,20 @@ export const esatMath2Trigonometry: KnowledgeLesson = {
     {
       code: '120404',
       title: '三角图像、对称与周期',
-      summary: '先看中线、值域和周期，再用关键点核对平移；跨函数比较先统一函数。',
-      paragraphs: [
-        '正弦从原点出发，在一周 $2\\pi$ 内依次经过最大值、零、最小值、零；余弦从1出发，同样以 $2\\pi$ 为周期。两者值域均为[-1,1]。正切的周期为 $\\pi$，在 $\\pi/2+k\\pi$ 处没有定义，图像在每个连续分支上递增，不能跨渐近线连成折线。',
-        '对称来自单位圆：$\\sin(-x)=-\\sin x$、$\\tan(-x)=-\\tan x$，关于原点中心对称；$\\cos(-x)=\\cos x$，关于纵轴对称。第一象限内sin递增、cos递减；比较不同函数可利用 $\\cos x=\\sin(\\pi/2-x)$ 转成同一种函数。周期与对称是找角和比较大小的依据，不是必须求导才能使用的结论。',
-        '在 $y=a\\sin(b(x-h))+d$ 中，振幅为 $|a|$、中线为 $y=d$，当a、b均非零时周期为 $2\\pi/|b|$；横向平移由括号内的h决定。对于a、b均非零的 $a\\tan(b(x-h))+d$，周期为 $\\pi/|b|$，并不因为上下平移而消除渐近线。遇到复合函数的极值，先找内层三角函数值域，再看外层增减方向。正弦式中若a=0，函数退化为常函数，不再定义最小正周期；含tan的原式不能因外乘零就忽略其无定义点。',
-      ],
-      rules: [
+      summary: math2TrigonometryMethods['120404'].summary,
+      paragraphs: [math2TrigonometryMethods['120404'].intro],
+      rules: math2TrigonometryMethods['120404'].blocks.flatMap((block) => [
         {
-          title: '用关键点画一周期',
-          text: 'sin依次取 $(0,0),(\\pi/2,1),(\\pi,0),(3\\pi/2,-1),(2\\pi,0)$；cos在同一横坐标处依次取1、0、−1、0、1。tan在0处过零，在±π/2处有渐近线。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '对称轴与周期不混淆',
-          text: 'cos的竖直对称轴为 $x=k\\pi$，sin的为 $x=\\pi/2+k\\pi$；tan没有竖直对称轴，但在 $(k\\pi,0)$ 中心对称。这里k为整数。',
-        },
-        {
-          title: '横向伸缩是自变量的反向倍率',
-          text: '平行x轴伸缩倍率s（s>0）使 $f(x)$ 变为 $f(x/s)$；再左移h变为 $f((x+h)/s)$。用一个原关键点的新位置验证变换顺序。',
-        },
-        {
-          title: '比较或复合前先限定区间',
-          text: 'sin只在相应区间单调，不能说角越大sin总越大。若外层 $a^t$ 的底数满足 $0<a<1$，内层t越小，最终值越大。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2TrigonometryMethods['120404'].memory,
       pitfalls: [
         '把横向压缩倍率1/2写成sin(x/2)，反而拉长周期。',
         '平移复合角时只移动常数，漏乘前面的频率系数。',
@@ -424,30 +385,20 @@ export const esatMath2Trigonometry: KnowledgeLesson = {
     {
       code: '120405',
       title: '三角恒等式',
-      summary: '正切换成正弦除余弦，再用平方和统一未知量；分母条件一路保留。',
-      paragraphs: [
-        '本节的两条基本关系是 $\\tan\\theta=\\sin\\theta/\\cos\\theta$（$\\cos\\theta\\ne0$）和 $\\sin^2\\theta+\\cos^2\\theta=1$。第二条来自单位圆坐标的平方和；第一条来自同一直角三角形的两种比值，推广到单位圆后仍需分母非零。理解来源能防止把函数的平方和角度加倍混为一谈。',
-        '遇到sin、cos、tan混合的代数式，先把tan改成分式，再用平方和将式子统一为一个函数。例如 $\\tan\\theta\\sin\\theta=\\sin^2\\theta/\\cos\\theta$，令 $c=\\cos\\theta$ 后可变为 $(1-c^2)/c$。此时问题常降为二次方程，但得到的根还要满足[-1,1]和原来的分母条件。',
-        '恒等式在各自定义域内成立，不是新增限制的方程。两边平方可能引入符号不符的根，除以可能为零的函数可能丢根。应优先移项、提取公因式并分支，再分别回代；当用 $\\sin\\theta=\\pm\\sqrt{1-\\cos^2\\theta}$ 恢复另一个函数时，符号由象限决定。',
-      ],
-      rules: [
+      summary: math2TrigonometryMethods['120405'].summary,
+      paragraphs: [math2TrigonometryMethods['120405'].intro],
+      rules: math2TrigonometryMethods['120405'].blocks.flatMap((block) => [
         {
-          title: '平方与角度加倍不是同一件事',
-          text: '$\\sin^2\\theta=(\\sin\\theta)^2$，不等于 $\\sin(2\\theta)$；$\\sin^2\\theta+\\cos^2\\theta=1$ 中的两个角必须相同。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '正切化分式须带条件',
-          text: '$\\tan\\theta=\\sin\\theta/\\cos\\theta$，所以任何含tan的原题都排除 $\\cos\\theta=0$。乘分母去分式可化简，最后还须检查原式定义域。',
-        },
-        {
-          title: '只保留一个函数',
-          text: '若含 $\\sin^2\\theta$ 与cos，令 $c=\\cos\\theta$ 并用 $\\sin^2\\theta=1-c^2$；若含 $\\cos^2\\theta$ 与sin则反过来。得到代数根后先剔除绝对值大于1的根。',
-        },
-        {
-          title: '平方根符号由象限决定',
-          text: '例如 $\\cos\\theta=1/3$ 且为锐角时，$\\sin\\theta=2\\sqrt2/3$、$\\tan\\theta=2\\sqrt2$；若只知余弦为正而不知象限，正弦仍可能为负。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2TrigonometryMethods['120405'].memory,
       pitfalls: [
         '把tanθsinθ写成sin²θ，漏掉分母cosθ。',
         '把sin²θ写成sin2θ，误用不同的角。',
@@ -512,30 +463,20 @@ export const esatMath2Trigonometry: KnowledgeLesson = {
     {
       code: '120406',
       title: '三角方程',
-      summary: '先化简分支，再换角与区间，最后列全、去重并回代。',
-      paragraphs: [
-        '三角方程通常分两层处理：外层是代数运算，内层是角的位置。先因式分解、换元或使用平方和，得到 $\\sin u=a$、$\\cos u=a$ 或 $\\tan u=a$；检查函数值是否可能，再用参考角、象限和周期列出指定区间的角。',
-        '复合角须整段换元。例如设 $u=2x+\\pi/3$ 时，原区间的每个端点也代入同一式子。若 $-\\pi<x<\\pi$，则 $-5\\pi/3<u<7\\pi/3$。在u区间列完解后，才按 $x=(u-\\pi/3)/2$ 还原；只改方程不改区间会漏掉整周期。',
-        '数解、求和和求公共解的收尾不同。“至少满足一个”取并集、公共根只计一次；“同时满足”取交集。闭区间端点若满足必须计入，开区间端点必须排除。精确列根后再数数比用区间长度除周期更稳，尤其根落在边界或不同分支重合时。',
-      ],
-      rules: [
+      summary: math2TrigonometryMethods['120406'].summary,
+      paragraphs: [math2TrigonometryMethods['120406'].intro],
+      rules: math2TrigonometryMethods['120406'].blocks.flatMap((block) => [
         {
-          title: '三类基本方程的通解',
-          text: '若 $\\sin\\alpha=a$，则 $\\sin u=a$ 可写 $u=\\alpha+2k\\pi$ 或 $\\pi-\\alpha+2k\\pi$；$\\cos u=a$ 可写 $u=\\pm\\alpha+2k\\pi$（$\\cos\\alpha=a$）；$\\tan u=a$ 为 $u=\\alpha+k\\pi$。k为整数，a=±1等情形两支可能重合，必须去重。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '先处理平方和零因子',
-          text: '$\\sin^2u=1/2$ 给出 $\\sin u=\\pm\\sqrt2/2$，四个象限都可能出现；$f(x)g(x)=0$ 分成两支，不直接除去可能为零的f(x)。',
-        },
-        {
-          title: '有界换元先筛值再筛角',
-          text: '令 $t=\\sin x$ 得二次方程后，先保留 $-1\\le t\\le1$ 的根，再逐根恢复角。最后检查原方程中tan或其他分母的禁用点。',
-        },
-        {
-          title: '角度单位和端点一并保留',
-          text: '角度制中sin、cos周期为360°，tan为180°；弧度制分别是2π与π。复合角系数为负时换区间还要调整不等号方向。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2TrigonometryMethods['120406'].memory,
       pitfalls: [
         '除以sin或cos后漏掉它等于零的解。',
         'sin²u=a只取正平方根，漏掉负值分支。',

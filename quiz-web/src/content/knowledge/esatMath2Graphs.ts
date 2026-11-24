@@ -1,5 +1,6 @@
 // 数学2函数图像讲义：把图形特征、代数方程与导数联系起来，题目正文由统一题源组件读取。
 import type { KnowledgeLesson } from './types'
+import { math2GraphMethods } from './math2GraphMethods'
 
 export const esatMath2Graphs: KnowledgeLesson = {
   code: '120800',
@@ -17,27 +18,20 @@ export const esatMath2Graphs: KnowledgeLesson = {
     {
       code: '120801',
       title: '常见函数图像',
-      summary: '先认定义域、关键点与整体形状，再用单调性比较大小或定位解。',
-      paragraphs: [
-        '草图不是随意画一条曲线。先问“哪些x能代入”，再标截距、对称性、峰谷及远处趋向。==定义域决定能画哪里，关键点决定画得对不对==。$y=\\sqrt{x}$ 只有 $x\\ge0$ 的上半支，不能画成上下两支。',
-        '直线方向由斜率决定；$y=x^2$ 是U形，$y=x^3$ 从左下到右上，在原点暂时变平；$y=|x|$ 是V形，原点有尖角。三次函数不一定有两个极值，“次数是3”并不决定转折点数。',
-        '$y=a^x$ 在 $a>1$ 时递增、$0<a<1$ 时递减，经过 $(0,1)$ 且始终为正；$a=1$ 退化成常数1。$y=\\log_a x$ 要求 $x>0,a>0,a\\ne1$，经过 $(1,0)$。指数函数以x轴、对数函数以y轴为渐近线，接近不等于碰到。',
-        '正弦、余弦值域为 $[-1,1]$，周期 $2\\pi$；正切周期 $\\pi$，在 $x=\\pi/2+k\\pi$ 无定义。比较大小先确定同一单调区间，不能把第一象限结论推广到全轴。',
-      ],
-      rules: [
+      summary: math2GraphMethods['120801'].summary,
+      paragraphs: [math2GraphMethods['120801'].intro],
+      rules: math2GraphMethods['120801'].blocks.flatMap((block) => [
         {
-          title: '先固定特征，再连曲线',
-          text: '依次标定义域、截距、对称/周期、升降与端部行为；渐近线画虚线，禁止跨越无定义处连线。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '根式与绝对值',
-          text: '$\\sqrt{x^2}=|x|$，而 $\\sqrt{x}$ 只有非负输入和非负输出。绝对值图像关于y轴对称，平方根图像没有这种对称性。',
-        },
-        {
-          title: '把比较转成同一个函数',
-          text: '在 $0<x<\\pi/2$ 上，$\\sin x$ 递增、$\\cos x$ 递减；用 $\\cos x=\\sin(\\pi/2-x)$ 统一比较对象。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2GraphMethods['120801'].memory,
       pitfalls: [
         '根式、对数忘记定义域。',
         '将正切的相邻分支连接，或让曲线碰到本不相交的渐近线。',
@@ -109,31 +103,20 @@ export const esatMath2Graphs: KnowledgeLesson = {
     {
       code: '120802',
       title: '图像变换与复合函数',
-      summary: '外改输出，内改输入；连续变换逐步写，复合函数从内向外算。',
-      paragraphs: [
-        '原图像上的点记作 $(u,f(u))$。变为 $y=Af(B(x-h))+k$ 时，令 $B(x-h)=u$，得到新点 $(h+u/B,\\;Af(u)+k)$，其中 $A,B\\ne0$。==同一个输入u移到哪里，决定水平变换的方向和倍率==。',
-        '$f(x)+a$ 整体上移a；$f(x+a)$ 向左移a。$af(x)$ 把纵坐标乘a；$f(ax)$ 把横坐标除以a。负系数还带来反射：外负号翻上下，内负号翻左右。',
-        '连续变换通常不能换顺序。水平压缩后平移，要对已经得到的新表达式整体替换x；上移后反射，新增常数也要反射。用顶点或截距复核最终位置，比盲目展开更可靠。',
-        '$f(g(x))$ 是把g的输出交给f，通常不等于 $g(f(x))$，也不是 $f(x)g(x)$。x必须先能进入g，g(x)还要属于f的定义域。如 $f(t)=\\sqrt t,g(x)=x-2$，则复合函数要求 $x\\ge2$。',
-      ],
-      rules: [
+      summary: math2GraphMethods['120802'].summary,
+      paragraphs: [math2GraphMethods['120802'].intro],
+      rules: math2GraphMethods['120802'].blocks.flatMap((block) => [
         {
-          title: '水平伸缩看倒数',
-          text: '$af(x)$ 的纵向倍率为 $|a|$；$f(ax)$ 的横向倍率为 $1/|a|$。负a还需相应反射。a为0时，$0f(x)$ 仍保留原定义域；$f(0x)$ 只有在f(0)存在时才是常数函数，不能取倒数或一概扩展到全实数。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '绕非零轴反射',
-          text: '关于 $y=c$ 反射，高度变为 $2c-y$；关于 $x=c$ 反射，横坐标变为 $2c-x$。',
-        },
-        {
-          title: '先后顺序很重要',
-          text: '$f(2(x+1))$ 是先横向压缩一半再左移1；$f(2x+1)$ 的左移量只有 $1/2$。',
-        },
-        {
-          title: '复合先内后外',
-          text: '先算 $u=g(x)$，再把u代入f；化简不能抹掉原表达式中的定义域限制。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2GraphMethods['120802'].memory,
       pitfalls: [
         '把内部系数当成水平倍率。',
         '反射只变平方项而漏变常数。',
@@ -211,27 +194,20 @@ export const esatMath2Graphs: KnowledgeLesson = {
     {
       code: '120803',
       title: '一次函数参数影响',
-      summary: 'm管倾斜，c管高度；过点条件把两个参数连起来。',
-      paragraphs: [
-        '在 $y=mx+c$ 中，c是纵截距，m是每向右走1时的高度变化。固定m改变c，得到一组平行线；固定c改变m，所有直线都经过 $(0,c)$，围绕这个点改变方向。==斜率影响方向，截距影响位置==。',
-        '$m>0$ 时从左到右上升，$m<0$ 时下降，$m=0$ 时为水平线。斜率绝对值越大，在相同坐标比例下越陡。竖直线 $x=d$ 没有有限斜率，也不能写成 $y=mx+c$。',
-        '若直线固定经过 $(a,b)$，则 $c=b-ma$，m与c不能独立任选。例如经过 $(2,4)$ 的直线族为 $y=m(x-2)+4$；改变m是在绕这个已知点转动，不是绕原点。',
-        '截距常成为几何长度：令x为0得到y截距；令y为0且 $m\\ne0$ 得x截距 $-c/m$。长度取坐标之差的绝对值，面积再按底乘高处理，不能把负截距直接当负长度。',
-      ],
-      rules: [
+      summary: math2GraphMethods['120803'].summary,
+      paragraphs: [math2GraphMethods['120803'].intro],
+      rules: math2GraphMethods['120803'].blocks.flatMap((block) => [
         {
-          title: '平行与垂直',
-          text: '不同直线平行时斜率相等、截距不同；两条非竖直直线垂直时 $m_1m_2=-1$。水平线的垂线是竖直线，须单独处理。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '两点给斜率',
-          text: '$m=(y_2-y_1)/(x_2-x_1)$，上下两次相减必须按同一顺序；分母为0说明是竖直线。',
-        },
-        {
-          title: '固定经过一点',
-          text: '由 $b=ma+c$ 得 $c=b-ma$；每次调m都同步更新c，不能丢失题目过点约束。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2GraphMethods['120803'].memory,
       pitfalls: [
         '把纵截距当成横截距。',
         'm改变时仍把c当独立常量，违反固定过点条件。',
@@ -296,27 +272,20 @@ export const esatMath2Graphs: KnowledgeLesson = {
     {
       code: '120804',
       title: '二次函数参数影响',
-      summary: '把二次式写成顶点形式，开口、轴线和最值就能一起读出来。',
-      paragraphs: [
-        '对 $y=a(x+b)^2+c$，当 $a\\ne0$ 时顶点为 $(-b,c)$，对称轴 $x=-b$。a决定开口方向和纵向倍率；b决定水平位置，c决定顶点高度。==括号里是加b，顶点横坐标就是负b==。',
-        '$a>0$ 时c为最小值，$a<0$ 时c为最大值。固定b、c，增大 $|a|$ 会把离轴同样远的点推得更远，图像显得更窄；改变b只水平移动，改变c只竖直移动。a为0时退化成水平线，不能继续叫抛物线。',
-        '一般式 $Ax^2+Bx+C$ 中的大写C是y截距，而顶点形式中的c是顶点高度，二者常不同。配方得到 $A(x+B/(2A))^2+C-B^2/(4A)$，必须先提取A再配方。',
-        '图像与x轴相交几次可直接看 $a(x+b)^2=-c$。当 $-c/a>0$ 有两个不同根，等于0只有顶点这个交点，小于0没有实根。若顶点与根决定一个几何图形，先把它们转成真实长度再求面积。',
-      ],
-      rules: [
+      summary: math2GraphMethods['120804'].summary,
+      paragraphs: [math2GraphMethods['120804'].intro],
+      rules: math2GraphMethods['120804'].blocks.flatMap((block) => [
         {
-          title: '三个参数各管一件事',
-          text: '顶点 $(-b,c)$；开口由a的符号决定；纵向倍率由 $|a|$ 决定。y截距为 $ab^2+c$，不是通常意义上的c。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '配方保留系数',
-          text: '$Ax^2+Bx+C=A(x+B/(2A))^2+C-B^2/(4A)$，要求 $A\\ne0$。',
-        },
-        {
-          title: '反推参数',
-          text: '已知顶点 $(h,k)$ 先写 $y=a(x-h)^2+k$，再用另一个点求a；不要从展开式同时猜三个参数。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2GraphMethods['120804'].memory,
       pitfalls: [
         '把b直接当成顶点横坐标。',
         '把一般式常数项当成顶点高度。',
@@ -379,27 +348,20 @@ export const esatMath2Graphs: KnowledgeLesson = {
     {
       code: '120805',
       title: '用导数判断图像形状',
-      summary: '把导数符号翻译成升降，再用驻点高度决定水平线能切几次。',
-      paragraphs: [
-        "图像的高度由 $f(x)$ 决定，方向由 $f'(x)$ 决定。求导后先找零点与无定义点，把定义域分段；每段取一个值判断导数符号，再把“正、负”翻译成“上升、下降”。==先有升降表，再画曲线，不靠曲线外观猜极值==。",
-        "驻点满足 $f'(x)=0$，但它未必是极值。导数由正变负给局部极大，由负变正给局部极小，不变号则不能判作转折。例如 $x^3$ 在原点斜率为0，却仍从左下升到右上。本章不要求计算拐点。",
-        '得到驻点横坐标后，必须代回原函数求高度。若题目问 $f(x)=k$ 的实根数量，可把水平线y=k上下移动，逐段数交点；水平线恰好经过极值时，有些交点会合并，所以边界要单独检查。',
-        '在有限区间上判断最值还要看端点；在全实数上画多项式，要根据最高次项判断两端走向。导函数为零的孤立点不阻止函数在整段严格递增，例如 $x^3$；“处处正导数”是常用充分条件，不是必要条件。',
-      ],
-      rules: [
+      summary: math2GraphMethods['120805'].summary,
+      paragraphs: [math2GraphMethods['120805'].intro],
+      rules: math2GraphMethods['120805'].blocks.flatMap((block) => [
         {
-          title: '极值看变号',
-          text: "$+\\to-$ 为极大，$-\\to+$ 为极小；仅知道 $f'=0$ 不够。二阶导数为0也不能单独断言没有极值。",
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '驻点横坐标与高度分开算',
-          text: "先解 $f'(x)=0$ 得横坐标，再代入 $f(x)$ 得纵坐标，不能代回导函数把高度全部写成0。",
-        },
-        {
-          title: '数交点时检查边界',
-          text: '“四个不同实根”意味着四个不同横坐标；水平线恰到极值时，重合根只数一个。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2GraphMethods['120805'].memory,
       pitfalls: [
         '把导函数的零点当成原函数零点。',
         '漏掉因式分解中的x因子。',
@@ -488,27 +450,20 @@ export const esatMath2Graphs: KnowledgeLesson = {
     {
       code: '120806',
       title: '坐标轴交点与多项式根',
-      summary: '令x或y为0找截距；用因式与重数理解穿过、接触和实根数量。',
-      paragraphs: [
-        '与y轴相交时x=0，交点为 $(0,f(0))$，前提是0在定义域中。与x轴相交时y=0，要解 $f(x)=0$。==截距是图上的点，根是对应的横坐标==。函数可能没有y截距，也可能有多个x截距。',
-        '多项式若含因子 $(x-r)^m$，r就是根，m是重数。其余因子在r不为0时，m为奇数通常穿过x轴并变号，m为偶数接触后返回同侧。偶重根只对应一个交点，不能按重数重复数“不同实根”。',
-        'n次非零实系数多项式最多有n个不同实根，实根也可能更少。奇数次至少有一个实根，因为两端方向相反；偶数次可能没有实根。不能把“次数”直接当“实根数”，更不能把未求解的复数根当实交点。',
-        '求高次式的根时，先提公因式，再观察平方、立方、换元或简单整数根。用因式定理把“x−r是因子”写成 $f(r)=0$。不等式还要把零点分段判断正负，严格大于0时所有零点都排除。',
-      ],
-      rules: [
+      summary: math2GraphMethods['120806'].summary,
+      paragraphs: [math2GraphMethods['120806'].intro],
+      rules: math2GraphMethods['120806'].blocks.flatMap((block) => [
         {
-          title: '两个坐标轴不要弄反',
-          text: 'y轴：令x=0；x轴：令f(x)=0。函数无定义的位置不是零点，例如分母为0处不能计入交点。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '不同根与重数',
-          text: '$(x+1)^2(x-4)=0$ 只有两个不同实根−1、4；双根−1不变号，单根4变号。',
-        },
-        {
-          title: '平方方程要分支',
-          text: '$H(x)^2=1$ 要分别解 $H(x)=1$ 和 $H(x)=-1$，最后合并去重。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2GraphMethods['120806'].memory,
       pitfalls: [
         '把y截距数值当x坐标。',
         '奇偶重根不分，过每个根都机械换号。',
@@ -596,27 +551,20 @@ export const esatMath2Graphs: KnowledgeLesson = {
     {
       code: '120807',
       title: '图像交点与联立方程',
-      summary: '交点处同一个x给出同一个y；令两式相等，解后代回，保留所有分支。',
-      paragraphs: [
-        '两条函数图像 $y=f(x)$、$y=g(x)$ 的公共点必须同时满足两个方程，因此先解 $f(x)=g(x)$，得到横坐标，再代回任一原式求纵坐标。==方程的不同合法实根，对应不同交点==。也可看差函数 $h(x)=f(x)-g(x)$ 与x轴的交点。',
-        '直线与抛物线联立后通常得到二次方程：判别式正、零、负分别对应两个不同交点、一个重合交点、无实交点。这里的相切判据依赖该二次结构，不能说任何两条曲线只相交一次就必定相切。',
-        '若两式有公共因子，不要直接除掉可能为0的部分。先移到一侧，再整体因式分解，把每个因子为0的情况都留下。遇到分式或根式，先记定义域；平方或乘分母后，所得候选还要代回原方程验算。',
-        '图像也能判断参数范围：把水平线、斜线或另一条曲线移动，关注交点合并、到达定义域端点或离开允许范围的时刻。这些临界位置给边界，边界是否包含要由“不同”“至少”“相切”等原文决定。',
-      ],
-      rules: [
+      summary: math2GraphMethods['120807'].summary,
+      paragraphs: [math2GraphMethods['120807'].intro],
+      rules: math2GraphMethods['120807'].blocks.flatMap((block) => [
         {
-          title: '移项等于画差函数',
-          text: '$f(x)=g(x)$ 等价于 $f(x)-g(x)=0$，但只在两函数共同定义域内讨论。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '重根只对应一个点',
-          text: '$(x-4)^2(x+3)=0$ 给两个不同横坐标，不能把x=4计两次；也不能约去平方因子后只留下x=−3。',
-        },
-        {
-          title: '只有一个交点未必相切',
-          text: '直线与非退化抛物线的联立二次式用判别式判相切；一般曲线还要检查同点斜率，像x轴与 $y=x^3+x$ 只有一个交点却不相切。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2GraphMethods['120807'].memory,
       pitfalls: [
         '约去公共因子丢掉交点。',
         '把重根算成两个不同点。',

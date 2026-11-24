@@ -109,8 +109,8 @@
                   <el-skeleton :rows="6" />
                 </div>
                 <div v-else-if="learningError" class="qb-learning-error" role="alert">
-                  <p>学习内容暂时加载失败，请重试。</p>
-                  <AppButton type="secondary" size="small" @click="refreshLearningAccess">重新加载</AppButton>
+                  <p>{{ learningResourceError ? '学习资源加载失败，请刷新页面。若仍失败，可尝试强制刷新（Ctrl＋Shift＋R）。' : '学习访问状态暂时获取失败，请重试。' }}</p>
+                  <AppButton type="secondary" size="small" @click="retryLearningAccess">{{ learningResourceError ? '刷新页面' : '重新加载' }}</AppButton>
                 </div>
                 <div v-else-if="!learningAllowed" class="qb-locked-learning">
                   <LockedLearningPreview class="qb-locked-learning__preview" />
@@ -327,6 +327,7 @@ import {
   nextTick,
   onActivated,
   onBeforeUnmount,
+  onErrorCaptured,
   onMounted,
   ref,
   shallowRef,
@@ -349,10 +350,12 @@ import { getActiveQuestionBankPractice, type ActiveQuestionBankPractice } from '
 import { checkMemberAccess, getMember } from '@/api/member'
 import { createLoginRequiredRouteLocation } from '@/utils/authRedirect'
 
+// 学习授权通过后预先等待面板资源，确保 CSS 或模块失败也能进入统一重试提示。
+function loadKnowledgeLessonPanel() {
+  return import('@/components/knowledge/KnowledgeLessonPanel.vue')
+}
 // 做题页不装载讲解及图示组件，进入学习后再使用原有课程面板。
-const KnowledgeLessonPanel = defineAsyncComponent(
-  () => import('@/components/knowledge/KnowledgeLessonPanel.vue'),
-)
+const KnowledgeLessonPanel = defineAsyncComponent(loadKnowledgeLessonPanel)
 // 未解锁背景仅含装饰色块，不引用课程文字或图示。
 const LockedLearningPreview = defineAsyncComponent(
   () => import('@/components/knowledge/LockedLearningPreview.vue'),
@@ -445,6 +448,7 @@ let practiceLoadSequence = 0
 const paymentPlan = ref<AnnualPlan>('annual_practice')
 const learningChecking = ref(false)
 const learningError = ref(false)
+const learningResourceError = ref(false)
 const learningAllowed = ref(false)
 const learningContent = shallowRef<typeof import('@/content/knowledge') | null>(null)
 let learningRequest = 0
@@ -457,6 +461,7 @@ async function refreshLearningAccess(): Promise<void> {
   learningContent.value = null
   learningChecking.value = false
   learningError.value = false
+  learningResourceError.value = false
   if (!learningEnabled.value || activeMode.value !== 'learning') return
   const freeScope = isFreeLearningScope(exam, code)
   if (!freeScope && !auth.isLoggedIn) return
@@ -465,9 +470,15 @@ async function refreshLearningAccess(): Promise<void> {
     const context = auth.isLoggedIn ? await getMember() : null
     const memberAllowed = Boolean(context?.isAdmin || context?.quotas[exam]?.learningAccess)
     if (request !== learningRequest || (!freeScope && !memberAllowed)) return
-    const content = memberAllowed
-      ? await import('@/content/knowledge')
-      : await import('@/content/knowledge/freeLessons')
+    const [content] = await Promise.all([
+      memberAllowed
+        ? import('@/content/knowledge')
+        : import('@/content/knowledge/freeLessons'),
+      loadKnowledgeLessonPanel(),
+    ]).catch((error: unknown) => {
+      if (request === learningRequest) learningResourceError.value = true
+      throw error
+    })
     if (request !== learningRequest) return
     learningContent.value = content
     learningAllowed.value = true
@@ -477,6 +488,28 @@ async function refreshLearningAccess(): Promise<void> {
   }
   finally { if (request === learningRequest) learningChecking.value = false }
 }
+// 资源失败需重建页面的模块加载状态；接口失败则只重查权益，保留当前页面。
+function retryLearningAccess(): void {
+  if (learningResourceError.value) {
+    window.location.reload()
+    return
+  }
+  void refreshLearningAccess()
+}
+// 后续按需图示加载失败也回到同一恢复入口，其他渲染异常仍交给正常错误处理。
+onErrorCaptured((error) => {
+  if (
+    activeMode.value !== 'learning' ||
+    !/Failed to fetch dynamically imported module|Unable to preload CSS|Importing a module script failed|error loading dynamically imported module|Loading chunk .+ failed/i.test(error.message)
+  ) return
+  learningRequest += 1
+  learningChecking.value = false
+  learningAllowed.value = false
+  learningContent.value = null
+  learningResourceError.value = true
+  learningError.value = true
+  return false
+})
 // 身份、考试和知识点改变时同步撤销旧授权，避免使用上一次的确认结果。
 watch(
   () => [activeMode.value, auth.activeExamType, selectedNodeCode.value, auth.isLoggedIn, auth.user?.id] as const,

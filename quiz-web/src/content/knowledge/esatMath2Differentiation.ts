@@ -1,5 +1,6 @@
 // ESAT 数学2第六章微分讲义：按变化率、幂函数求导与应用组织复习，保留全部相关年度考法证据。
 import type { KnowledgeLesson } from './types'
+import { math2DifferentiationMethods } from './math2DifferentiationMethods'
 
 export const esatMath2Differentiation: KnowledgeLesson = {
   code: '120600',
@@ -17,30 +18,20 @@ export const esatMath2Differentiation: KnowledgeLesson = {
     {
       code: '120601',
       title: '导数作为斜率/变化率',
-      summary: '看清函数值、导数值与二阶导数各代表什么；先求变化率，再代入位置。',
-      paragraphs: [
-        "图像上一点的高度由 $f(x)$ 给出，曲线在该点朝哪个方向、变化多快由切线斜率 $f'(x)$ 给出。割线斜率描述两点之间的平均变化；切线斜率描述某一点的瞬时变化。==位置相同不代表变化率相同，函数值为正也不代表正在增加==。",
-        '当自变量是时间，导数就有直接的变化率含义：位移s对时间t的导数是速度 $v=ds/dt$，速度的导数是加速度 $dv/dt$。位移以米、时间以秒计，速度单位是米每秒，加速度单位是米每二次方秒。速度可以为负，表示沿选定正方向的反方向运动；速率才是速度的绝对值。',
-        "$f'(x)$ 是一个新函数，$f'(a)$ 是它在指定位置的一个数。二阶导数 $f''(x)$ 是对一阶导数再求一次导数，不是把一阶导数平方。若 $f''>0$，斜率随x增加而增大；即使原函数暂时还在下降，也可能是“下降得越来越慢”。本章理解这些含义，不要求从第一性原理推导导数。",
-      ],
-      rules: [
+      summary: math2DifferentiationMethods['120601'].summary,
+      paragraphs: [math2DifferentiationMethods['120601'].intro],
+      rules: math2DifferentiationMethods['120601'].blocks.flatMap((block) => [
         {
-          title: '记号对应同一件事',
-          text: "$y'=f'(x)=dy/dx$ 表示一阶导数，$y''=f''(x)=d^2y/dx^2$ 表示二阶导数；$f'(a)$ 要在求导后代入 $x=a$，不能先把原函数变成常数再求导。",
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '斜率看升降，不看所在高度',
-          text: "$f'(a)>0$ 表示该点切线沿x增大的方向上升，$f'(a)<0$ 表示切线下降，$f'(a)=0$ 表示水平切线。单点斜率不能代替整个区间的单调性判断，水平切线也不能单独证明这里一定是最大或最小。",
-        },
-        {
-          title: '平均变化率与瞬时变化率',
-          text: "区间 $[a,b]$ 的平均变化率是 $[f(b)-f(a)]/(b-a)$，瞬时变化率是指定点的 $f'(a)$。题目只给一个时刻的速度时，应求导再代入，而不是用总位移除以该时刻。",
-        },
-        {
-          title: '二阶导数跟踪斜率',
-          text: "$f''(x)>0$ 表示斜率正在增加，$f''(x)<0$ 表示斜率正在减小。问“最大斜率”时，研究的是 $f'(x)$ 的最大值，不是 $f(x)$ 的最大值。",
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2DifferentiationMethods['120601'].memory,
       pitfalls: [
         "把 $f'(a)$ 当作 $f(a)$，或把 $f''$ 当成 $(f')^2$。",
         '把负速度取绝对值后回答“速度”，丢失方向。',
@@ -129,34 +120,20 @@ export const esatMath2Differentiation: KnowledgeLesson = {
     {
       code: '120602',
       title: '幂函数求导',
-      summary: '根式改指数、分式拆成幂；逐项处理系数和次数，最后再代值。',
-      paragraphs: [
-        '本章求导的核心规则是 $d(x^n)/dx=nx^{n-1}$，n可以是有理数。==指数先乘到前面，再把指数减1==。例如 $x^{1/2}$ 的导数是 $\\frac12x^{-1/2}$，$x^{-2}$ 的导数是 $-2x^{-3}$；负指数减1会更负，不是趋近0。',
-        '遇到根式、分式或括号，不必立即增加新求导公式。先展开平方，把分子各项分别除以分母，或用指数律改写成幂的和，再逐项求导。只对有限和差逐项求导；不能把一般乘积的导数写成两导数相乘，也不能把商的导数写成两导数相除。',
-        '求导公式要放在函数有定义且可导的区间内使用。例如 $\\sqrt{x}$ 的函数值在0有定义，但其导数 $1/(2\\sqrt{x})$ 在0不能当作有限斜率；$1/x$ 原本就排除0。对于分数幂，先检查根式是否为实数、分母是否为0。本章以幂与和差、先化简的表达式为主，不要求把链式、乘积或商的求导法则作为解题前提。',
-      ],
-      rules: [
+      summary: math2DifferentiationMethods['120602'].summary,
+      paragraphs: [math2DifferentiationMethods['120602'].intro],
+      rules: math2DifferentiationMethods['120602'].blocks.flatMap((block) => [
         {
-          title: '常数倍与和差逐项处理',
-          text: "$\\frac d{dx}(cx^n)=cnx^{n-1}$，常数项的导数为0。例如 $(3x^4-2x+7)'=12x^3-2$；不要把线性项的导数也写成0。",
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '根式与倒数先改写',
-          text: "$\\sqrt{x}=x^{1/2}$，$1/x^m=x^{-m}$。例如 $(x^{-3/2})'=-\\frac32x^{-5/2}$；若原式含根式分母，通常先记录 $x>0$。",
-        },
-        {
-          title: '展开或约分时保留定义域',
-          text: '在 $x\\ne0$ 时，$(x^3+2x)/x=x^2+2$，于是导数为 $2x$；原函数在0未定义这一限制不会因约分消失。平方展开中的交叉项也不能遗漏。',
-        },
-        {
-          title: '二阶导数再做一次同样的操作',
-          text: "$f(x)=cx^n$ 时，在幂表达式有定义且可导的相应区间可写 $f''(x)=cn(n-1)x^{n-2}$。第二次求导要继续乘上新指数；常数项和一次项的二阶导数直接为0，不应在 $x=0$ 时把0乘无定义的负幂。",
-        },
-        {
-          title: '导数的某次项来自原式高一次项',
-          text: '若原多项式含 $Ax^r$，求导后是 $rAx^{r-1}$。找导函数的 $x^3$ 系数，只需原式的 $x^4$ 系数乘4；不必展开全部项。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2DifferentiationMethods['120602'].memory,
       pitfalls: [
         '只把次数减1，却忘记把原次数乘到系数上。',
         '把 $-2-1$ 写成 $-1$，或对根式求导时忘记 $1/2$。',
@@ -250,35 +227,20 @@ export const esatMath2Differentiation: KnowledgeLesson = {
     {
       code: '120603',
       title: '导数应用',
-      summary: '用导数找方向和候选点，再用原曲线、符号变化与边界完成判断。',
-      paragraphs: [
-        "切线与法线题有两条互补条件：导数决定方向，原函数决定经过哪个点。设曲线上一点为 $(a,f(a))$，切线斜率是 $f'(a)$；把斜率和点代入点斜式，才得到整条直线。法线与切线垂直，有限非零切线斜率的负倒数给出法线斜率。",
-        "函数的升降由导数符号组织成区间。在一个区间内处处 $f'>0$ 足以保证严格递增，但“严格递增”不要求每一点导数都大于0：$x^3$ 在0处斜率为0，仍在整个实数轴严格递增。==看完整区间的变化，不能只凭一个点的符号下结论==。",
-        "驻点满足 $f'(a)=0$，但不一定是极值。导数从正变负给局部极大，从负变正给局部极小；若 $f''(a)<0$ 或 $>0$，也可分别判为局部极大或极小。如果 $f''(a)=0$，二阶判别法没有结论，应回到左右符号判断，不能断言没有极值。本章不要求计算拐点。",
-        '几何最值先用约束消去多余变量，写出目标函数和合法范围，再求导。全区间最大值不一定在驻点：闭区间要比较所有内部候选与端点，开区间还要确认最优值能否取到。求到横坐标或尺寸后，必须代回题目实际要求的面积、长度或函数值。',
-      ],
-      rules: [
+      summary: math2DifferentiationMethods['120603'].summary,
+      paragraphs: [math2DifferentiationMethods['120603'].intro],
+      rules: math2DifferentiationMethods['120603'].blocks.flatMap((block) => [
         {
-          title: '切线用点斜式',
-          text: "在 $x=a$ 处，切线为 $y-f(a)=f'(a)(x-a)$。已知切线斜率m时先解 $f'(a)=m$，再代原函数求 $f(a)$；切点横坐标不能直接当截距。",
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '法线先检查能否取负倒数',
-          text: "若 $f'(a)\\ne0$ 且有限，法线斜率是 $-1/f'(a)$，法线为 $y-f(a)=-(x-a)/f'(a)$。若切线水平，法线是 $x=a$，应单独写竖直直线。",
-        },
-        {
-          title: '符号表区分驻点与极值',
-          text: "按 $f'=0$ 的根分区间，再查各段正负。$+\\to-$ 是极大，$-\\to+$ 是极小；没有变号的水平切线不产生极值。极值“点”须给坐标，极值“值”只给 $f(a)$。",
-        },
-        {
-          title: '参数题先判断导函数的根',
-          text: '对真正的三次函数，一阶导函数是二次多项式；两个不同转折点对应它的两个不同实根，要求判别式 $\\Delta>0$。$\\Delta=0$ 是重根，不是两个不同转折点；更高次函数还需检查根与符号，不能盲套二次判别式。',
-        },
-        {
-          title: '几何最值保留范围',
-          text: "目标函数求导前先写变量范围；内部驻点、端点与不可取边界分开处理。用导数正负由增变减可证明最大值，不能只解出 $A'=0$ 就结束。",
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2DifferentiationMethods['120603'].memory,
       pitfalls: [
         '把切线斜率当法线斜率，或只取倒数却漏掉负号。',
         "把 $f'(x)>0$ 写成 $f(x)>0$，混淆升降与所在高度。",

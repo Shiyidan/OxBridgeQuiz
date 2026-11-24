@@ -1,5 +1,6 @@
 // ESAT物理波章节：按全量年度题归纳考法，串联粒子振动、波传播、光路与探测。
 import type { KnowledgeLesson } from './types'
+import { wavesMethods } from './wavesMethods'
 
 export const esatWaves: KnowledgeLesson = {
   code: '130600',
@@ -16,34 +17,20 @@ export const esatWaves: KnowledgeLesson = {
     {
       code: '130601',
       title: '波的性质',
-      summary: '分清“波向前走”与“粒子往返振动”，再读振幅、周期和波长。',
-      paragraphs: [
-        '波 wave 把能量从一处传到另一处，介质粒子只在平衡位置附近振动，不随波持续前进。绳上的标记点上下运动，波峰却沿绳向前移动：两种运动方向和路程不可混用。',
-        '横波 transverse wave 的振动方向垂直于传播方向，有波峰 crest 和波谷 trough；纵波 longitudinal wave 的振动方向平行于传播方向，有密部 compression 和疏部 rarefaction。声音在空气中是纵波，电磁波是横波；纵波也有振幅与波长。',
-        '振幅 amplitude 是离平衡位置的最大位移，不是峰谷差。波长 wavelength 是同一时刻相邻同相位位置的间隔，例如峰到峰或密部到密部。周期 period 是一个位置完成一次振动的时间；频率 frequency 是每秒振动次数。',
-      ],
-      rules: [
+      summary: wavesMethods['130601'].summary,
+      paragraphs: [wavesMethods['130601'].intro],
+      rules: wavesMethods['130601'].blocks.flatMap((block) => [
         {
-          title: '两条图，两种横轴',
-          text: '位移—位置图读 $\\lambda$，位移—时间图读 $T$。两张图纵轴都能读振幅 $A$，但横轴不是同一个物理量。峰到相邻谷为半波长或半周期，须看横轴单位。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '一组关系，先统一单位',
-          text: '$f=1/T$，$v=f\\lambda=\\lambda/T$；$f$ 用Hz，$T$ 用s，$\\lambda$ 用m，$v$ 用m/s。传播某段路程 $d$ 还可用 $v=d/t$，但这个 $d$ 是波传播的路程。',
-        },
-        {
-          title: '粒子路程：完整振动一次是4A',
-          text: '从平衡位置到峰、回平衡、到谷、回平衡共走 $4A$。整周期数 $n=ft$ 时总路程 $s=4Aft$、平均速率 $4Af$，而整周期末位移为零。非整数周期须结合起始相位分段，不能一律套 $4Aft$。',
-        },
-        {
-          title: '相位与到达时间',
-          text: '同一峰从P到Q走 $d/v$；“下一峰”多一个周期 $T$，不能把不同峰到达的时间差当作同峰传播时间。固定点过峰的间隔是 $T$；随波移动的观察者过峰间隔会改变。',
-        },
-        {
-          title: '同源两种波的时间差',
-          text: '同一路程 $d$ 的快慢两波到达差为 $\\Delta t=d/v_{\\rm slow}-d/v_{\\rm fast}$。先写两段时间再相减；$d$ 不等于速度差乘时间差。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: wavesMethods['130601'].memory,
       pitfalls: [
         '波速不是介质粒子瞬时速度；波长不能代替振动路程。',
         '厘米、毫米和千米需配合速度单位；峰谷高度差要除2才是振幅。',
@@ -115,34 +102,20 @@ export const esatWaves: KnowledgeLesson = {
     {
       code: '130602',
       title: '波的行为',
-      summary: '静止边界换速度不换频率；相对运动改变观察到的频率。',
-      paragraphs: [
-        '反射 reflection 是波在边界返回原介质。在固定边界、同一介质条件下，入射和反射波速度、频率与波长相同，传播方向改变。反射可能伴随透射与能量损失，因此不能断言振幅必然不变。',
-        '折射 refraction 发生在波进入传播速度不同的介质或水深区域时。静止边界两侧的振动节奏由同一波源连续维持，频率不变；由 $v=f\\lambda$，变慢时波长缩短，斜入射通常向法线偏。',
-        '多普勒效应 Doppler effect 由波源与观察者的相对运动造成频率变化。靠近时波峰更密或遇峰更快，听到频率更高；远离时更低。这个现象与静止边界折射的“频率不变”是不同情境。',
-      ],
-      rules: [
+      summary: wavesMethods['130602'].summary,
+      paragraphs: [wavesMethods['130602'].intro],
+      rules: wavesMethods['130602'].blocks.flatMap((block) => [
         {
-          title: '固定边界的变量表',
-          text: '先锁定 $f_2=f_1$，再写 $v_2/v_1=\\lambda_2/\\lambda_1$。慢介质中波峰间距更小；频率不是因为速度变慢而减少。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '水波帮助理解光折射',
-          text: '一列斜向水波一端先进入浅水并减速，波峰转向；传播方向与波峰线垂直。入射角从传播方向与法线量起，它也等于波峰线与界面的锐角。',
-        },
-        {
-          title: '正入射也会变波长',
-          text: '当传播方向沿法线，进入新介质后可保持方向不变，同时速度、波长发生变化。因此“发生折射”不意味着任何情况下光线都必须转弯。',
-        },
-        {
-          title: '移动观察者：数每秒遇到多少峰',
-          text: '在水的静止参考系中，船迎向波时相对过峰速率为 $v_{\\rm wave}+u$，故 $f_{\\rm seen}=(v_{\\rm wave}+u)/\\lambda$。同向追波且船较慢时用速度差。这里改变的是遇峰频率，水中原波长未被船改变。',
-        },
-        {
-          title: '天体红移：光速不随源速叠加',
-          text: '远离的天体发出的谱线被观测为波长较长、频率较低；真空中测得光速仍为 $c$。宇宙膨胀造成的波长拉长可有相同方向的谱移，但不把宇宙膨胀简单当作空气中声源运动公式。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: wavesMethods['130602'].memory,
       pitfalls: [
         '“靠近听起来更响”不是多普勒效应的定义；多普勒判断音调。',
         '不能将光速写成c加天体速度。',
@@ -209,34 +182,20 @@ export const esatWaves: KnowledgeLesson = {
     {
       code: '130603',
       title: '光学',
-      summary: '先画法线、再量角；多次反射逐次追踪，别把镜面角当光线角。',
-      paragraphs: [
-        '平面镜 plane mirror 的法线 normal 垂直于镜面。入射角 incidence angle 和反射角 reflection angle 都从法线量起，满足 $i=r$。题目给“与镜面的夹角”时，先换成 $90^\\circ$ 减该角。',
-        '平面镜的像是虚像 virtual image：反射光没有真的在镜后会聚，但将反射光反向延长时相交在那里。像与物等大，像到镜面的垂直距离等于物到镜面的距离；不能用屏幕在镜后接到这个虚像。',
-        '平面边界折射也先画法线。由快到慢且斜入射时靠近法线；由慢到快的透射光远离法线。正入射方向保持不变。判断光路应以箭头及入射侧为依据，而不是凭页面上下位置。',
-      ],
-      rules: [
+      summary: wavesMethods['130603'].summary,
+      paragraphs: [wavesMethods['130603'].intro],
+      rules: wavesMethods['130603'].blocks.flatMap((block) => [
         {
-          title: '镜面角与法线角互余',
-          text: '与镜面成 $\\alpha$，入射角就是 $90^\\circ-\\alpha$。入射线与反射线在入射一侧的夹角为 $2i$；注意该夹角与“传播方向转了多少”不是同一个问法。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '平面镜作图路线',
-          text: '从物点发出两条入射线，逐条作法线并令反射角等于入射角，镜后用虚线反向延长，交点为像。也可用物像关于镜面对称直接定位，再连观察者视线。',
-        },
-        {
-          title: '方向角追踪两次反射',
-          text: '平面中统一规定逆时针为正，镜面方向角为 $\\alpha$、入射传播方向为 $\\phi$，反射传播方向可写成 $2\\alpha-\\phi$（按360°归一）。每次都使用上一段真实传播方向，不能把同一入射角沿用到第二面镜。',
-        },
-        {
-          title: '镜子转一点，光线转两倍',
-          text: '当入射方向固定，镜面旋转 $\\delta$ 会使反射方向转 $2\\delta$。但若前一面镜已改变入射方向，就必须同时算入该变化，不能机械加倍。',
-        },
-        {
-          title: '波前线索也能读光线角',
-          text: '传播方向垂直于波前，法线垂直于界面，因此波前与界面的锐角等于射线与法线的锐角。速度变慢对应更小的折射角与更短的波长。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: wavesMethods['130603'].memory,
       pitfalls: [
         '平面镜虚像不是实际光线穿过镜面汇聚。',
         '镜面最终倾角不是镜面转过的角度，需与原位置作差。',
@@ -298,34 +257,20 @@ export const esatWaves: KnowledgeLesson = {
     {
       code: '130604',
       title: '声波',
-      summary: '声音靠介质纵向振动传播；回声计时包含来回两程。',
-      paragraphs: [
-        '声源的振动使相邻介质粒子交替挤密和疏开，在空气中形成纵向压力波。粒子不需要从声源一路跑到耳朵；能量由相互作用传递。真空没有这种介质，所以不能传播声音。',
-        '音调 pitch 随频率升高而升高；在其他条件相同时，振幅越大通常听起来越响。频率、振幅、传播速度是不同属性：把音量开大不会因此把同一音符变成更高音。',
-        '通常把人耳范围记为20 Hz至20 kHz；超声 ultrasound 的频率高于20 kHz，次声低于20 Hz。实际个人范围会变化，做题优先使用给定上下限。超声仍是机械波，不能因“超”字把它归入电磁波。',
-      ],
-      rules: [
+      summary: wavesMethods['130604'].summary,
+      paragraphs: [wavesMethods['130604'].intro],
+      rules: wavesMethods['130604'].blocks.flatMap((block) => [
         {
-          title: '声速由介质和条件决定',
-          text: '同一频率声音进入新介质，频率不变、波速和波长可改变。计算 $v=f\\lambda$ 时，kHz变为Hz，cm变为m；不能把空气声速用于金属或水，除非题目这样指定。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '回声测距',
-          text: '发出到收到的往返时间 $t$ 满足 $2d=vt$，所以 $d=vt/2$。如果题目计时是单程传到另一传感器，就不除2。画出路程比看到“声音”就套公式可靠。',
-        },
-        {
-          title: '两次回波的时间差',
-          text: '同一均匀介质中，近反射点与远反射点的间距为 $\\Delta d=v(t_2-t_1)/2$。先确认两个时间都从同一次发射开始，且两条路径使用相同波速。',
-        },
-        {
-          title: '超声的应用',
-          text: '声呐用回波时间测水深；医学扫描在组织边界形成不同强度回波；工业探伤可由裂纹和背面的回波定位缺陷。较短波长有助于区分细小结构，但穿透与衰减也需权衡，不是频率越高越适合任何用途。',
-        },
-        {
-          title: '一组回声配合周期发声',
-          text: '若每个回声都恰与新点击重合，各回声延迟必须是点击周期T的整数倍。求首次出现的最低点击频率，需找同时整除各延迟的最大周期，而非直接取较近回声的倒数。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: wavesMethods['130604'].memory,
       pitfalls: [
         '回声的远端距离只取总往返路程的一半。',
         '超声能在固体中传播，不要求空气。',
@@ -396,34 +341,20 @@ export const esatWaves: KnowledgeLesson = {
     {
       code: '130605',
       title: '电磁波谱',
-      summary: '从无线电到伽马：频率递增、波长递减，真空速度相同。',
-      paragraphs: [
-        '电磁波不需要物质介质，能在真空中传播，是横波。真空中的各种电磁波都以 $c\\approx3.0\\times10^8\\,\\mathrm{m\\,s^{-1}}$ 传播，频率较高不是传播得较快。',
-        '按频率由低到高排列：无线电 radio → 微波 microwave → 红外 infrared → 可见光 visible → 紫外 ultraviolet → X射线 → 伽马 gamma。波长方向相反。可见光内部红端波长长、紫端波长短，计算边界时以题给波段为准。',
-        '选择应用要同时考虑波段特性和目标：无线电与微波用于通信，微波也能加热；红外用于热成像和遥控；可见光用于照明及成像；紫外可用于荧光检测或消毒；X射线用于透视成像；伽马可用于示踪、灭菌和治疗。',
-      ],
-      rules: [
+      summary: wavesMethods['130605'].summary,
+      paragraphs: [wavesMethods['130605'].intro],
+      rules: wavesMethods['130605'].blocks.flatMap((block) => [
         {
-          title: '只用一个转换式贯穿全谱',
-          text: '$c=f\\lambda$。nm为 $10^{-9}$ m，μm为 $10^{-6}$ m，MHz为 $10^6$ Hz。将频率范围换成波长范围时，频率上限对应波长下限，别照抄端点顺序。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '比较时先锁定真空速度',
-          text: '真空中 $v_P/v_Q=1$，而 $f_P/f_Q=\\lambda_Q/\\lambda_P$。较长波长对应较低频率；在不同介质中比较时不能无条件令速度相等。',
-        },
-        {
-          title: '非电离也可能造成伤害',
-          text: '强无线电/微波或红外会加热组织，强可见光可伤眼；“非电离”不等于任何强度都安全。紫外可损伤皮肤与眼睛；高频端紫外以及X射线、伽马有电离能力，风险取决于频率、剂量和暴露条件。',
-        },
-        {
-          title: '看应用先识别发射/探测对象',
-          text: '热成像探测物体发出的红外，不使用“频率越高越好”的规则。诊断成像需能穿透目标且能被外部探测；灭菌需要破坏微生物，不意味着所有电磁波都具有同样电离能力。',
-        },
-        {
-          title: '对向传播的到时差',
-          text: '源离两探测器中点d，一侧路径减d、另一侧增d，因此路程差 $2d=c\\Delta t$。这与回声的往返除2不同：这里的2来自一增一减。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: wavesMethods['130605'].memory,
       pitfalls: [
         '微波不是声音；超声不是电磁波。',
         '红外位于红光更低频一侧，紫外位于紫光更高频一侧。',

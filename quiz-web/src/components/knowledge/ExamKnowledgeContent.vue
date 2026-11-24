@@ -54,6 +54,46 @@
           v-else-if="section.code === '110601' || section.code === '110602' || section.code === '110603' || section.code === '110604'"
           :code="section.code"
         />
+        <Math2AdvancedMethods
+          v-else-if="section.code === '120501' || section.code === '120502' || section.code === '120503' || section.code === '120601' || section.code === '120602' || section.code === '120603' || section.code === '120701' || section.code === '120702' || section.code === '120703' || section.code === '120704' || section.code === '120705' || section.code === '120706' || section.code === '120801' || section.code === '120802' || section.code === '120803' || section.code === '120804' || section.code === '120805' || section.code === '120806' || section.code === '120807'"
+          :code="section.code"
+        />
+        <Math2TrigonometryMethods
+          v-else-if="section.code === '120401' || section.code === '120402' || section.code === '120403' || section.code === '120404' || section.code === '120405' || section.code === '120406'"
+          :code="section.code"
+        />
+        <Math2CoordinateMethods
+          v-else-if="section.code === '120301' || section.code === '120302' || section.code === '120303'"
+          :code="section.code"
+        />
+        <Math2SequenceMethods
+          v-else-if="section.code === '120201' || section.code === '120202' || section.code === '120203' || section.code === '120204'"
+          :code="section.code"
+        />
+        <Math2AlgebraMethods
+          v-else-if="section.code === '120101' || section.code === '120102' || section.code === '120103' || section.code === '120104' || section.code === '120105' || section.code === '120106' || section.code === '120107'"
+          :code="section.code"
+        />
+        <RadioactivityMethods
+          v-else-if="section.code === '130701' || section.code === '130702' || section.code === '130703' || section.code === '130704'"
+          :code="section.code"
+        />
+        <WavesMethods
+          v-else-if="section.code === '130601' || section.code === '130602' || section.code === '130603' || section.code === '130604' || section.code === '130605'"
+          :code="section.code"
+        />
+        <MatterMethods
+          v-else-if="section.code === '130501' || section.code === '130502' || section.code === '130503' || section.code === '130504' || section.code === '130505'"
+          :code="section.code"
+        />
+        <ThermalMethods
+          v-else-if="section.code === '130401' || section.code === '130402' || section.code === '130403' || section.code === '130404'"
+          :code="section.code"
+        />
+        <MechanicsMethods
+          v-else-if="section.code === '130301' || section.code === '130302' || section.code === '130303' || section.code === '130304' || section.code === '130305' || section.code === '130306' || section.code === '130307'"
+          :code="section.code"
+        />
         <MagnetismMethods
           v-else-if="section.code === '130201' || section.code === '130202' || section.code === '130203' || section.code === '130204' || section.code === '130205'"
           :code="section.code"
@@ -189,7 +229,7 @@
         </section>
         </div>
 
-        <div v-if="focus.comparison && !chemistryRemainingMethods[section.code] && !['130201', '130202', '130203', '130204', '130205', '130101', '130102', '140601', '140602', '140603', '140604', '140605', '140606', '140607', '140502', '140503', '140504', '140505', '140506', '140501', '140401', '140402', '140403', '140404', '140405', '140406', '140407', '140408', '140409', '140410', '140411', '140301', '140302', '140303', '140304', '140305', '140201', '140202', '140203', '140204', '140205', '140101', '140102', '140103', '140104', '140105', '140106', '110201', '110202', '110203', '110204', '110205', '110206', '110207', '110208', '110209', '110210', '110211', '110212', '110213', '110214', '110401', '110402', '110403', '110404', '110405', '110406', '110407', '110408', '110409', '110410', '110411', '110412', '110413', '110414', '110415', '110416', '110417', '110418', '110419', '110701', '110702', '110703', '110704', '110705', '110706', '110707', '110601', '110602', '110603', '110604', '110101', '110102', '150101', '150102', '150103', '150201', '150301', '150302', '150303', '150304', '150401', '150402', '150403', '150501', '150502', '150503', '150504', '150601', '150602', '150603', '150701', '150702', '150801', '150802', '150803', '150804', '150901', '150902', '150903', '150904', '150905', '151001', '151002', '151003', '151101', '151102'].includes(section.code)" class="exam-comparison">
+        <div v-if="focus.comparison && !chemistryRemainingMethods[section.code] && !['120501', '120502', '120503', '120601', '120602', '120603', '120701', '120702', '120703', '120704', '120705', '120706', '120801', '120802', '120803', '120804', '120805', '120806', '120807', '120401', '120402', '120403', '120404', '120405', '120406', '120301', '120302', '120303', '120201', '120202', '120203', '120204', '120101', '120102', '120103', '120104', '120105', '120106', '120107', '130701', '130702', '130703', '130704', '130601', '130602', '130603', '130604', '130605', '130501', '130502', '130503', '130504', '130505', '130401', '130402', '130403', '130404', '130301', '130302', '130303', '130304', '130305', '130306', '130307', '130201', '130202', '130203', '130204', '130205', '130101', '130102', '140601', '140602', '140603', '140604', '140605', '140606', '140607', '140502', '140503', '140504', '140505', '140506', '140501', '140401', '140402', '140403', '140404', '140405', '140406', '140407', '140408', '140409', '140410', '140411', '140301', '140302', '140303', '140304', '140305', '140201', '140202', '140203', '140204', '140205', '140101', '140102', '140103', '140104', '140105', '140106', '110201', '110202', '110203', '110204', '110205', '110206', '110207', '110208', '110209', '110210', '110211', '110212', '110213', '110214', '110401', '110402', '110403', '110404', '110405', '110406', '110407', '110408', '110409', '110410', '110411', '110412', '110413', '110414', '110415', '110416', '110417', '110418', '110419', '110701', '110702', '110703', '110704', '110705', '110706', '110707', '110601', '110602', '110603', '110604', '110101', '110102', '150101', '150102', '150103', '150201', '150301', '150302', '150303', '150304', '150401', '150402', '150403', '150501', '150502', '150503', '150504', '150601', '150602', '150603', '150701', '150702', '150801', '150802', '150803', '150804', '150901', '150902', '150903', '150904', '150905', '151001', '151002', '151003', '151101', '151102'].includes(section.code)" class="exam-comparison">
           <div class="exam-section-label">
             <List aria-hidden="true" />
             <h5>{{ focus.comparison.title }}</h5>
@@ -486,6 +526,16 @@ import ChemicalBondingMethods from './ChemicalBondingMethods.vue'
 import ChemistryRemainingMethods from './ChemistryRemainingMethods.vue'
 import ElectricityMethods from './ElectricityMethods.vue'
 import MagnetismMethods from './MagnetismMethods.vue'
+import MechanicsMethods from './MechanicsMethods.vue'
+import ThermalMethods from './ThermalMethods.vue'
+import Math2AdvancedMethods from './Math2AdvancedMethods.vue'
+import Math2TrigonometryMethods from './Math2TrigonometryMethods.vue'
+import Math2CoordinateMethods from './Math2CoordinateMethods.vue'
+import Math2SequenceMethods from './Math2SequenceMethods.vue'
+import Math2AlgebraMethods from './Math2AlgebraMethods.vue'
+import RadioactivityMethods from './RadioactivityMethods.vue'
+import WavesMethods from './WavesMethods.vue'
+import MatterMethods from './MatterMethods.vue'
 import { chemistryRemainingMethods } from '@/content/knowledge/chemistryRemainingMethods'
 import EukaryoticCellMethods from './EukaryoticCellMethods.vue'
 import ProkaryoticCellMethods from './ProkaryoticCellMethods.vue'

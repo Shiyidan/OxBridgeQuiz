@@ -1,5 +1,6 @@
 // ESAT 数学2第五章讲义：用图像、对数互逆和正值换元组织复习，考法覆盖全部相关年度题。
 import type { KnowledgeLesson } from './types'
+import { math2ExponentialMethods } from './math2ExponentialMethods'
 
 export const esatMath2Exponentials: KnowledgeLesson = {
   code: '120500',
@@ -17,30 +18,20 @@ export const esatMath2Exponentials: KnowledgeLesson = {
     {
       code: '120501',
       title: '指数函数与图像',
-      summary: '记住过点、正值和增减方向；复合指数先找指数范围，再看底数。',
-      paragraphs: [
-        '指数函数 $y=a^x$ 的变量在指数位置，底数a固定。把x从0开始每增加1，函数值就乘一次a：$1,a,a^2,\\ldots$。这解释了为什么它按相同比例变化，而不是每次增加相同的量；$a^x$ 与 $x^a$ 是不同函数。',
-        '对 $a>0$ 且 $a\\ne1$，图像经过 $(0,1)$、$(1,a)$ 和 $(-1,1/a)$，所有函数值都为正，定义域是所有实数，值域是 $(0,+\\infty)$。横轴是渐近线，曲线可以无限接近它，却不会在有限x处等于0。$a=1$ 时是常函数 $y=1$，应单独处理；负底数的幂不对所有实数x有定义，不在这一图像模型内。',
-        '遇到 $a^{f(x)}$，==先找f(x)能取哪些值，再决定选大端还是小端==。底数大于1时保持大小次序，底数在0与1之间时次序反转。外层指数函数递增，并不表示复合后的函数对x也处处递增：例如 $2^{x^2}$ 先减后增。',
-      ],
-      rules: [
+      summary: math2ExponentialMethods['120501'].summary,
+      paragraphs: [math2ExponentialMethods['120501'].intro],
+      rules: math2ExponentialMethods['120501'].blocks.flatMap((block) => [
         {
-          title: '三点、正值、一条渐近线',
-          text: '作图先标 $(-1,1/a)$、$(0,1)$、$(1,a)$，再让曲线在横轴上方平滑连接；$a>1$ 时从左向右升高，$0<a<1$ 时降低。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '倒数底数让图像左右翻转',
-          text: '$(1/a)^x=a^{-x}$，所以两条图像关于y轴对称。负指数表示倒数，不表示负的函数值；例如 $2^{-3}=1/8>0$。',
-        },
-        {
-          title: '复合指数的最值分两层',
-          text: '若 $m\\le f(x)\\le M$ 且两端可取，$a>1$ 时值域是 $[a^m,a^M]$；$0<a<1$ 时是 $[a^M,a^m]$。若指数端点不能取，函数值端点也不能取。',
-        },
-        {
-          title: '水平线与指数曲线的交点',
-          text: '对 $a>0,a\\ne1$，$y=a^x$ 与 $y=b$ 在 $b>0$ 时恰有一个交点，$b\\le0$ 时没有交点。横坐标就是 $\\log_a b$；图像的正值性也是方程筛根的依据。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2ExponentialMethods['120501'].memory,
       pitfalls: [
         '把负指数误读成负数，或画出指数图像与横轴相交。',
         '只看指数的最大值，不检查底数是否小于1，导致最值方向相反。',
@@ -102,30 +93,20 @@ export const esatMath2Exponentials: KnowledgeLesson = {
     {
       code: '120502',
       title: '对数律',
-      summary: '把对数看作指数：先保留真数为正，再用乘积、商和幂连接表达式。',
-      paragraphs: [
-        '$\\log_a b$ 表示“a的几次方等于b”。例如 $2^3=8$ 对应 $\\log_2 8=3$；$2^{-2}=1/4$ 对应 $\\log_2(1/4)=-2$。对数的值可以是0或负数，但真数必须为正。底数需满足 $a>0$ 且 $a\\ne1$，否则不能用它唯一确定指数。',
-        '对数律来自指数律：相同底数的幂相乘，指数相加，因此同底对数相加对应真数相乘。==乘除变加减，幂次可前移；真数加减没有这样的拆法==。例如 $\\log_2(4+4)=3$，而 $\\log_2 4+\\log_2 4=4$，两者并不相等。特定数值可以让两边偶然相等，但那是需要解条件的方程，不是普遍成立的恒等式。',
-        '化简不能扩大原式的定义域。$\\log_a(x^2)$ 对 $x\\ne0$ 有定义，但 $2\\log_a x$ 只对 $x>0$ 有定义；要在两者共有的合法范围使用幂法则。解方程时，先记录每一个原真数为正的条件，合并后仍要保留这些条件。',
-      ],
-      rules: [
+      summary: math2ExponentialMethods['120502'].summary,
+      paragraphs: [math2ExponentialMethods['120502'].intro],
+      rules: math2ExponentialMethods['120502'].blocks.flatMap((block) => [
         {
-          title: '互逆关系与两个基准值',
-          text: '$a^u=v\\iff u=\\log_a v$；$\\log_a1=0$、$\\log_a a=1$。$a^{\\log_a v}=v$ 要求 $v>0$，$\\log_a(a^u)=u$ 对所有实数u成立，底数均满足 $a>0,a\\ne1$。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '同底乘积与商',
-          text: '在 $x>0,y>0$ 时，$\\log_a x+\\log_a y=\\log_a(xy)$，$\\log_a x-\\log_a y=\\log_a(x/y)$。相减对应商，绝不是差的对数。',
-        },
-        {
-          title: '幂法则含倒数与根式',
-          text: '在 $x>0$ 时，$\\log_a(x^k)=k\\log_a x$。因此 $\\log_a(1/x)=-\\log_a x$，$\\log_a\\sqrt{x}=\\frac12\\log_a x$。注意 $(\\log_a x)^2$ 是对数值的平方，与 $\\log_a(x^2)$ 不同。',
-        },
-        {
-          title: '常数先转成同底对数',
-          text: '$c=\\log_a(a^c)$，所以 $c+\\log_a U=\\log_a(a^cU)$。同底对数相等时可令真数相等，但两侧原真数必须为正；本章不要求换底公式。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2ExponentialMethods['120502'].memory,
       pitfalls: [
         '把对数和误写成和的对数，或把对数差误写成差的对数。',
         '负指数与分母两个负号相遇时仍照抄成减号。',
@@ -235,30 +216,20 @@ export const esatMath2Exponentials: KnowledgeLesson = {
     {
       code: '120503',
       title: '指数方程',
-      summary: '能同底就比较指数，不能同底先整体换元；正值筛根后再还原。',
-      paragraphs: [
-        '先观察式子的结构，不要一上来就对每一项取对数。只有已经隔离成 $a^x=b$ 且 $b>0$ 时，才可直接写 $x=\\log_a b$；$a^x+b^x$ 这种和不能拆成两个对数。若两侧能改写成相同底数的幂，利用指数函数的一一对应性比较指数即可。',
-        '同时出现 $a^{2x}$ 与 $a^x$ 时，把反复出现的幂看成一个整体：令 $t=a^x>0$，就把指数方程降为代数方程。若出现 $a^{-x}$，它变成 $1/t$；含 $a^{x/2}$ 时，选 $t=a^{x/2}$ 往往更整齐。==换元的同时写范围，解完后还原变量==。',
-        '题目可能问某一个解、所有解、解的个数、和或积。每个正的t对应唯一实数x；非正t不对应实指数。若有两个正根 $t_1,t_2$ 且 $t=a^x$，则 $x_1+x_2=\\log_a(t_1t_2)$，不是 $t_1+t_2$。如果换元中多了1/2等系数，还原时也要保留。',
-      ],
-      rules: [
+      summary: math2ExponentialMethods['120503'].summary,
+      paragraphs: [math2ExponentialMethods['120503'].intro],
+      rules: math2ExponentialMethods['120503'].blocks.flatMap((block) => [
         {
-          title: '同底比较指数',
-          text: '当 $a>0,a\\ne1$ 时，$a^{f(x)}=a^{g(x)}\\iff f(x)=g(x)$；这一等价关系对 $0<a<1$ 也成立。若底数为1，不能由函数值相等推出指数相等。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '隔离幂后读出对数',
-          text: '$a^{kx+c}=b$，在 $b>0$ 且 $k\\ne0$ 时，$x=(\\log_a b-c)/k$。若b是已知的a的幂，直接比较指数；不要把答案强行写成小数。',
-        },
-        {
-          title: '先整理移位指数，再换元',
-          text: '令 $t=a^x>0$ 后，$a^{2x+c}=a^ct^2$，$a^{x+c}=a^ct$，$a^{-x}=1/t$。例如 $3\\cdot5^{2x+1}$ 是 $15t^2$，不是 $3t^2+1$。',
-        },
-        {
-          title: '筛根、还原、回答所问',
-          text: '代数方程求出t后先删去 $t\\le0$，再由 $x=\\log_a t$ 还原。检查原式和额外区间；若只问x根之和，可先用正根的乘积合并对数。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2ExponentialMethods['120503'].memory,
       pitfalls: [
         '误把 $a^{2x+1}$ 拆成 $a^{2x}+1$，丢掉本应相乘的底数。',
         '对带加减的整式逐项取对数，使用不存在的“和的对数”拆分法。',

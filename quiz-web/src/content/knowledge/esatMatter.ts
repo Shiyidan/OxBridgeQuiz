@@ -1,5 +1,6 @@
 // 物理物质复习讲义：以粒子模型贯通气体、相变、密度和压强，保留完整年度题考法证据。
 import type { KnowledgeLesson } from './types'
+import { matterMethods } from './matterMethods'
 
 export const esatMatter: KnowledgeLesson = {
   code: '130500',
@@ -16,30 +17,20 @@ export const esatMatter: KnowledgeLesson = {
     {
       code: '130501',
       title: '物态与粒子模型',
-      summary: '用粒子间距、相互作用和运动方式，解释形状、体积与压缩性。',
-      paragraphs: [
-        '固体有相对稳定的形状和体积，粒子彼此接近，在相对固定的位置附近振动；液体粒子也很接近，但可以相互换位，所以能流动、形状随容器改变而体积较稳定。气体粒子相距很远，在容器内无规则运动，能充满可用空间。',
-        '三态的区别不是“有没有粒子运动”。固体粒子仍在振动，液体未沸腾时也一直运动。压缩气体主要减小粒子间空隙，不是把单个粒子压小；通常固体与液体难压缩，因为本来已相当紧密。',
-        '宏观温度对应大量粒子的平均运动状态；同温度的同种气体平均动能相同，不代表每个分子速率都相等。微观模型是一种解释工具，图中的圆点大小、间距不应被当成真实比例。',
-      ],
-      rules: [
+      summary: matterMethods['130501'].summary,
+      paragraphs: [matterMethods['130501'].intro],
+      rules: matterMethods['130501'].blocks.flatMap((block) => [
         {
-          title: '固体：有位置约束，仍在振动',
-          text: '粒子之间的相互作用使其位置关系相对稳定，因此保持形状。升温时平均振动增强，通常粒子平均间距略增；不是粒子本身膨胀。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '液体：接近但能换位',
-          text: '较小间距使液体难压缩；粒子能相互滑过使它能够流动。液体表面以下各处都有粒子运动，不必到沸腾才运动。',
-        },
-        {
-          title: '气体：碰撞解释压强',
-          text: '气体分子撞击容器壁时发生动量变化，给壁作用力；单位面积平均作用力就是压强。固定温度下压缩同一密闭气体，单位体积粒子数增加，碰壁更频繁。',
-        },
-        {
-          title: '避免把不同条件混在一起',
-          text: '“温度不变”限制平均动能；“粒子数不变”限制气体总量；“容器体积改变”影响数密度。这三个条件分开检查，不能由压强升高就断言分子一定更快。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: matterMethods['130501'].memory,
       pitfalls: [
         '把液体描述成粒子相距很远，或认为液体粒子固定不动。',
         '把压缩气体解释成分子尺寸变小。',
@@ -103,34 +94,20 @@ export const esatMatter: KnowledgeLesson = {
     {
       code: '130502',
       title: '理想气体',
-      summary: '先检查定量、恒温，再用绝对压强乘体积保持不变。',
-      paragraphs: [
-        '气体压强来自分子不断碰撞容器壁；温度升高通常意味着平均动能增加。研究“等温压缩”时，热量可传出，使平均动能保持不变，而更高的碰撞频率使压强上升。',
-        '玻意耳定律针对一定量、温度不变的理想气体。体积变小，压强变大；这里的压强必须是从真空起算的绝对压强。气体在水下时，液体静压往往只是比大气压多出的部分。',
-        '可移动活塞会把内外力联系起来。轻活塞且无摩擦时气体压强等于外界总压强；若活塞有重量或外加负载，还需用受力平衡加入重量除面积，不可以一律设为大气压。',
-      ],
-      rules: [
+      summary: matterMethods['130502'].summary,
+      paragraphs: [matterMethods['130502'].intro],
+      rules: matterMethods['130502'].blocks.flatMap((block) => [
         {
-          title: '玻意耳定律',
-          text: '同一密闭气体恒温时 $p_1V_1=p_2V_2$。压强和体积各自前后使用一致单位即可求比例；混用kPa与Pa、cm³与m³会造成数量级错误。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '绝对压强与表压',
-          text: '开口水面下深度h的总压强 $p_{\\rm absolute}=p_{\\rm atm}+\\rho gh$。压力计相对大气的表压为 $\\rho gh$；玻意耳定律不能直接用表压。',
-        },
-        {
-          title: '密度跟压强怎样变',
-          text: '质量不变时 $\\rho=m/V$；恒温压缩又有 $p\\propto1/V$，故 $\\rho_2/\\rho_1=p_2/p_1$。压强增加20%，密度增加20%，体积变成原来的 $1/1.2$，不是减少20%。',
-        },
-        {
-          title: '活塞附加载荷',
-          text: '竖直活塞平衡时 $p_{\\rm gas}A=p_{\\rm external}A+mg$，所以 $p_{\\rm gas}=p_{\\rm external}+mg/A$。水下时外界压强还包括液体静压。',
-        },
-        {
-          title: '图像读法',
-          text: '恒温定量气体的p—V图是反比例曲线，p对1/V的图是过原点直线；不是p对V的直线。用两点乘积是否相同检验图形。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: matterMethods['130502'].memory,
       pitfalls: [
         '把水下表压直接代入pV守恒。',
         '把压强加倍误作体积加倍。',
@@ -192,34 +169,20 @@ export const esatMatter: KnowledgeLesson = {
     {
       code: '130503',
       title: '物态变化与潜热',
-      summary: '先判断是否已经完成相变，再决定用潜热还是升温公式。',
-      paragraphs: [
-        '熔化是固体变液体，凝固反向；汽化是液体变气体，凝结反向。纯物质在给定压强下有确定熔点和沸点；沸腾发生于液体内部及表面，蒸发可在低于沸点时从表面发生。',
-        '相变期间持续输入能量却可能温度不变，因为能量主要改变粒子之间的相互作用及势能，而不是提高平均动能。熔化和汽化吸热；凝固和凝结向外放热。',
-        '比潜热描述单位质量完成相变所需或释放的能量。冰水混合问题不能一开始就假定所有冰已熔化；先比较热水最多可释放的能量与熔完全部冰的需要，再选择正确末态。',
-      ],
-      rules: [
+      summary: matterMethods['130503'].summary,
+      paragraphs: [matterMethods['130503'].intro],
+      rules: matterMethods['130503'].blocks.flatMap((block) => [
         {
-          title: '相变能量',
-          text: '$Q=mL$，比潜热L的单位为 $\\mathrm{J\\,kg^{-1}}$（或题给J/g，质量须匹配）。熔化用熔化比潜热，汽化用汽化比潜热，两者不能互换。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '升温与相变分段计算',
-          text: '同一物态升温用 $Q=mc\\Delta T$，相变用 $Q=mL$。冰从零下升到0°C、熔成水、水再升温是三个不同阶段，不得用一条mcΔT跨过相变。',
-        },
-        {
-          title: '恒功率加热图',
-          text: '若净输入功率恒为P，平台期间 $P\\Delta t=mL$；升温段斜率 $\\Delta T/\\Delta t=P/(mc)$。平台越长可以表示m或L越大，比较前需确认质量、功率等条件。',
-        },
-        {
-          title: '冰水混合的决策顺序',
-          text: '先算热水冷到0°C可放出的 $Q_{\\max}$。若 $Q_{\\max}<m_{\\rm ice}L$，冰未全熔且平衡温度仍为0°C；若足够，再用剩余能量计算全部液态水的终温。',
-        },
-        {
-          title: '有热损失时用净能量',
-          text: '加热器标称功率不一定全部进入样品；应使用 $Q_{\\rm sample}=(P_{\\rm input}-P_{\\rm loss})t$。绝热混合时各物体放热总量等于吸热总量。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: matterMethods['130503'].memory,
       pitfalls: [
         '看到吸热就认为温度一定上升。',
         '忽略熔化需要的能量，直接将冰和水做温度加权平均。',
@@ -282,34 +245,20 @@ export const esatMatter: KnowledgeLesson = {
     {
       code: '130504',
       title: '密度',
-      summary: '先取真正的材料体积和净质量，再用质量除体积。',
-      paragraphs: [
-        '密度是单位体积的质量，不由样品大小单独决定。同种均匀材料在相同状态下，质量和体积同比变化，密度相同；混合物、空心物体和温度改变的物体则要重新确认所求密度的对象。',
-        '测密度时先测净质量，再测体积。规则固体用几何尺寸；不规则且不溶于液体的固体可用排水法，浸没后的体积增量才是固体体积。若有气泡、未浸没或样品吸水，测量就会偏离真实值。',
-        '液体可先称空容器，再称容器加液体，差值给净质量；量筒读弯月面时视线水平。气体也有质量，可由密闭容器排空气前后质量差及容器有效体积估计，但小质量差对天平精度要求更高。',
-      ],
-      rules: [
+      summary: matterMethods['130504'].summary,
+      paragraphs: [matterMethods['130504'].intro],
+      rules: matterMethods['130504'].blocks.flatMap((block) => [
         {
-          title: '密度公式与换算',
-          text: '$\\rho=m/V$，SI单位 $\\mathrm{kg\\,m^{-3}}$；$1\\,\\mathrm{g\\,cm^{-3}}=1000\\,\\mathrm{kg\\,m^{-3}}$。厘米换米的因子要立方：$1\\,\\mathrm{cm^3}=10^{-6}\\,\\mathrm{m^3}$。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '空洞不能当成材料',
-          text: '空心物体的材料体积 $V_{\\rm material}=V_{\\rm outer}-V_{\\rm hole}$。若题问材料密度，用材料体积；若问整个物体的平均密度，应按规定的整体外部体积。',
-        },
-        {
-          title: '混合物按质量与体积相加',
-          text: '若总体积可相加，$\\rho_{\\rm mix}=(\\rho_1V_1+\\rho_2V_2)/(V_1+V_2)$。只有体积相等时才是两密度的算术平均；体积分数不能直接当质量分数。',
-        },
-        {
-          title: '相同体积可消去容器质量',
-          text: '同容器装同体积两种液体，两次总质量差 $\\Delta m=(\\rho_1-\\rho_2)V$。先解出V，再还原空容器质量，不把称重总量当净液体质量。',
-        },
-        {
-          title: '密度与漂浮',
-          text: '在静止且不相溶的流体中，通常较大密度的液体在下；固体平均密度小于流体可漂浮。气体通常密度远小于固体和液体，但具体题仍以给定数值为准。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: matterMethods['130504'].memory,
       pitfalls: [
         '用重量N直接除体积，得到的不是质量密度。',
         '忘记扣掉空容器或孔洞。',
@@ -388,34 +337,20 @@ export const esatMatter: KnowledgeLesson = {
     {
       code: '130505',
       title: '压强',
-      summary: '固体看实际受力面积，液体看测点上方的竖直液柱。',
-      paragraphs: [
-        '压强把力分摊到面积上。相同压力作用在较小面积上，压强更大；若接触面有凹槽，真正受力面积不等于外轮廓面积。压强是标量，但压力作为力有方向，通常垂直作用面。',
-        '静止液体的压强随深度增加。这里深度是从自由液面到测点的竖直距离，不是沿斜面长度，也不是测点到底部的距离。同一种连通静止液体在同一水平高度压强相同，容器形状不改变这个结论。',
-        '若有多层不相溶液体，先按密度判断上下层，用体积除截面积求各层高度，只累计测点上方的液柱。所求若是绝对压强，还要加上作用在液面上的大气压或其他外压。',
-      ],
-      rules: [
+      summary: matterMethods['130505'].summary,
+      paragraphs: [matterMethods['130505'].intro],
+      rules: matterMethods['130505'].blocks.flatMap((block) => [
         {
-          title: '固体接触面上的压强',
-          text: '$p=F_\\perp/A$，单位 $\\mathrm{Pa=N\\,m^{-2}}$。静放物体在水平面上且无其他竖直力时，$F_\\perp=mg$；不能在任何情境都把压力设为重力。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '液体静压',
-          text: '液柱贡献 $p_{\\rm gauge}=\\rho gh$；同种液体两点压强差 $\\Delta p=\\rho g\\Delta h$。密度近似恒定是该简单形式的前提。',
-        },
-        {
-          title: '分层液体',
-          text: '测点上方有几种液体时，液体贡献为 $p=\\sum_i\\rho_i gh_i$。$h_i$ 只取各层在测点以上的厚度，不包括测点下方的液体。',
-        },
-        {
-          title: '面积换算',
-          text: '$1\\,\\mathrm{cm^2}=10^{-4}\\,\\mathrm{m^2}$，所以 $1\\,\\mathrm{N\\,cm^{-2}}=10^4\\,\\mathrm{Pa}$。若p用N/cm²且A用cm²，乘积仍直接得N。',
-        },
-        {
-          title: '与气体、浮力的连接',
-          text: '气体在水下平衡时常用 $p=p_{\\rm atm}+\\rho gh$；浮力则来自上下面的压力差。只要外界条件改变，气体体积或物体浸没程度就可能随之改变。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: matterMethods['130505'].memory,
       pitfalls: [
         '用距容器底部的高度直接当水深。',
         '将cm²换m²只除100。',

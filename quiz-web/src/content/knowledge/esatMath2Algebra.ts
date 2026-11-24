@@ -1,5 +1,6 @@
 // ESAT 数学2代数与函数讲义：覆盖7个考纲叶节点，真实题源由学习接口读取，考法保留全量相关年度证据。
 import type { KnowledgeLesson } from './types'
+import { math2AlgebraMethods } from './math2AlgebraMethods'
 
 export const esatMath2Algebra: KnowledgeLesson = {
   code: '120100',
@@ -17,26 +18,20 @@ export const esatMath2Algebra: KnowledgeLesson = {
     {
       code: '120101',
       title: '有理指数指数律',
-      summary: '先定底数、再算指数；负指数取倒数，分数幂的分母是根次。',
-      paragraphs: [
-        '正数底数下，分数幂有唯一定义：$x^{m/n}=\\sqrt[n]{x^m}$（$x>0$），分母$n$是根次，分子$m$是幂次。负指数表示倒数：$x^{-3/4}=1/x^{3/4}$。同底数运算照常：$x^a x^b=x^{a+b}$，$(x^a)^b=x^{ab}$，对任意有理数指数都成立。',
-        '外层幂作用于括号里的每一个因子，包括数值系数：$(2x^{3/4})^4=2^4\\cdot x^3=16x^3$，不是$2x^3$。多字母式分栏记账：系数一栏、每个字母的指数各一栏，最后合并。',
-        '解含分数幂的方程时，先把含未知数的幂隔离在一边，再两边同时取能消去该幂的乘方。定义域$x>0$不只是排除负根：它保证$x^{1/2}$这类因式为正，可以直接约去而不丢解。',
-      ],
-      rules: [
+      summary: math2AlgebraMethods['120101'].summary,
+      paragraphs: [math2AlgebraMethods['120101'].intro],
+      rules: math2AlgebraMethods['120101'].blocks.flatMap((block) => [
         {
-          title: '逐底数记账',
-          text: '$(2x^{3/4})^4=16x^3$；外幂4同时乘到系数2和指数$3/4$上。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '负分数幂先拆结构',
-          text: '$x^{-m/n}=1/\\sqrt[n]{x^m}$（$x>0$）：负号取倒数，分母$n$开根，分子$m$取幂，三条信息都不能丢。',
-        },
-        {
-          title: '幂方程先隔离再还原',
-          text: '由$16x^{-3/4}=2$先得$x^{-3/4}=1/8=2^{-3}$，再比较$x^{1/4}=2$，最后$x=2^4=16$。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2AlgebraMethods['120101'].memory,
       pitfalls: [
         '外层幂只乘到字母指数，漏掉系数也要乘方。',
         '把负指数读成负值，或把分母根次读成幂次。',
@@ -81,22 +76,20 @@ export const esatMath2Algebra: KnowledgeLesson = {
     {
       code: '120102',
       title: '根式',
-      summary: '先化最简根式，分母有根式乘共轭；高次幂先约共享整体。',
-      paragraphs: [
-        '最简根式把被开方数里的平方因子提出：$\\sqrt{20}=2\\sqrt5$，$\\sqrt{12}=2\\sqrt3$。只有同类根式能合并：$\\sqrt2+2\\sqrt2=3\\sqrt2$，而$\\sqrt2+\\sqrt3$不能合并。',
-        '分母含$a+\\sqrt b$时乘共轭$a-\\sqrt b$，分母变为$a^2-b$。注意分母可能是负数：$(\\sqrt3-2)(\\sqrt3+2)=3-4=-1$，最后整体要变号。有理化不改变原式的值，只是换写法。',
-        '遇到$(1+\\sqrt5)^3$这类高次幂，先看分子分母是否共享同一整体：能约分就先约，剩下的低次分式再有理化，通常比直接展开立方更短、更不易错。',
-      ],
-      rules: [
+      summary: math2AlgebraMethods['120102'].summary,
+      paragraphs: [math2AlgebraMethods['120102'].intro],
+      rules: math2AlgebraMethods['120102'].blocks.flatMap((block) => [
         {
-          title: '分母有理化乘共轭',
-          text: '$\\frac{1}{a+\\sqrt b}=\\frac{a-\\sqrt b}{a^2-b}$；分母为负时结果整体变号。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '高次幂先约共享整体',
-          text: '$\\frac{(2+\\sqrt{20})^2}{(1+\\sqrt5)^3}=\\frac{4(1+\\sqrt5)^2}{(1+\\sqrt5)^3}=\\frac{4}{1+\\sqrt5}$，再乘共轭即得$\\sqrt5-1$。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2AlgebraMethods['120102'].memory,
       pitfalls: [
         '展开$(a+b)^3$时漏掉中间项$3a^2b$与$3ab^2$。',
         '共轭乘错对象，如分母是$\\sqrt3-2$却仍乘$\\sqrt3-2$。',
@@ -172,26 +165,20 @@ export const esatMath2Algebra: KnowledgeLesson = {
     {
       code: '120103',
       title: '二次函数与方程',
-      summary: '判别式管根的个数，配方管最值与顶点，因式管零点。',
-      paragraphs: [
-        '标准式$ax^2+bx+c=0$（$a\\ne0$）的判别式$\\Delta=b^2-4ac$：$\\Delta>0$两个不同实根，$\\Delta=0$重根，$\\Delta<0$无实根。“two distinct real roots”对应严格大于零；直线与抛物线相切对应$\\Delta=0$。先把方程移项整理成标准式，再算判别式。',
-        '配方$ax^2+bx+c=a\\left(x+\\frac{b}{2a}\\right)^2+\\left(c-\\frac{b^2}{4a}\\right)$直接给出顶点与最值。首项系数不是1时先提$a$，补偿常数要乘回$a$；指数函数$10^{\\text{二次式}}$的最小值就是底数的最小指数次幂。',
-        '根与系数的关系$\\alpha+\\beta=-b/a$、$\\alpha\\beta=c/a$可以不求根就算组合；函数值条件$f(x_0)=v$代入后就是系数的方程。问根的个数时，注意复合结构（如某二次式的平方等于1）要分成两支分别求解并去重。',
-      ],
-      rules: [
+      summary: math2AlgebraMethods['120103'].summary,
+      paragraphs: [math2AlgebraMethods['120103'].intro],
+      rules: math2AlgebraMethods['120103'].blocks.flatMap((block) => [
         {
-          title: 'distinct 对应严格判别式',
-          text: '两个不同实根要求$\\Delta>0$；相切、重根要求$\\Delta=0$，等号不能混用。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '配方保留首项系数',
-          text: '$\\sqrt2x^2-6x+4=\\sqrt2\\left(x-\\frac{3}{\\sqrt2}\\right)^2+4-\\frac{9\\sqrt2}{2}$，先提$\\sqrt2$再补平方。',
-        },
-        {
-          title: '平方等于常数分两支',
-          text: '$(x^2+4x+3)^2=1$拆成内层等于$1$与$-1$两个方程，分别求根后去重计数。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2AlgebraMethods['120103'].memory,
       pitfalls: [
         '把“两个不同实根”写成判别式大于等于零，多收进重根端点。',
         '配方时漏提首项系数，或补偿常数忘记乘回去。',
@@ -268,26 +255,20 @@ export const esatMath2Algebra: KnowledgeLesson = {
     {
       code: '120104',
       title: '代入法解联立方程',
-      summary: '由一式解出一个字母或整体，代入另一式，只剩一个未知数。',
-      paragraphs: [
-        '代入法的核心：从较简单的方程解出$y$（用$x$表示），代入另一方程，得到只含$x$的方程。直线与抛物线联立时，令两式的$y$相等就是代入的一种；解出$x$后必须代回求配套的$y$，每个$x$对应自己的$y$，不能交叉配对。',
-        '代入的对象不必是单个字母。已知$x^2+y^2=12-2xy$时，可以把$x^2+y^2$整个代入另一方程，直接得到关于$xy$的方程，比先解出$x$、$y$短得多。对称方程组常用$x+y$、$xy$作为整体。',
-        '消元后得到高次方程时，先分解或判别，再检查候选解是否满足全部原方程；平方、去分母等步骤可能引入增根，回代是不可省的收尾。',
-      ],
-      rules: [
+      summary: math2AlgebraMethods['120104'].summary,
+      paragraphs: [math2AlgebraMethods['120104'].intro],
+      rules: math2AlgebraMethods['120104'].blocks.flatMap((block) => [
         {
-          title: '代入后只剩一个未知数',
-          text: '由$x+y=\\beta$得$y=\\beta-x$，代入另一式后方程只含$x$与参数。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '整体关系可直接代入',
-          text: '$x^2+y^2=12-2xy$整体代入$x^2+4xy+y^2=18$，立即得$12+2xy=18$。',
-        },
-        {
-          title: '解要成对回代',
-          text: '直线与抛物线有两个交点时，每个x代回直线求自己的y，不能随意配对。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2AlgebraMethods['120104'].memory,
       pitfalls: [
         '只替换未知数的一部分出现位置，漏掉另一处。',
         '联立后漏掉第二个交点或第二个分支。',
@@ -331,26 +312,20 @@ export const esatMath2Algebra: KnowledgeLesson = {
     {
       code: '120105',
       title: '一次与二次不等式',
-      summary: '先找临界值，再按开口与符号定区间；重根不变号，换元带限制。',
-      paragraphs: [
-        '二次不等式先整理成一边为0并分解。开口向上时，大于零取两根之外，小于零取两根之间；严格不等号不含根本身。与另一个条件（如$x\\le4$）同时成立时取交集，每个分支单独截断。',
-        '高次不等式分解后按各因式零点分段看符号。偶重根（如$(x-1)^2$）两侧不变号，但该点使表达式为0，严格不等式里仍要排除；分式不等式的分母零点永不取到。不能直接两边乘含$x$的分母，符号未知会翻错方向。',
-        '换元降次要带着限制走：$u=x^2$自带$u\\ge0$，解出$-7<u<3$后要先与$u\\ge0$取交，再还原成$-\\sqrt3<x<\\sqrt3$。跳过这一步会把$u$的负区间误当成$x$的有效区间。',
-      ],
-      rules: [
+      summary: math2AlgebraMethods['120105'].summary,
+      paragraphs: [math2AlgebraMethods['120105'].intro],
+      rules: math2AlgebraMethods['120105'].blocks.flatMap((block) => [
         {
-          title: '开口向上，大于零取两根外',
-          text: '$a(x-r)(x-s)>0$（$a>0$，$r<s$）的解是$x<r$或$x>s$；小于零取中间。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '偶重根不变号但要排除零点',
-          text: '$(x-1)^2(x-4)/x>0$的符号由$(x-4)/x$决定，而$x=1$使分子为0，必须排除。',
-        },
-        {
-          title: '换元带限制',
-          text: '令$u=x^2$后解集要与$u\\ge0$取交；令$u=1/x$则$u\\ne0$，还原前不能丢。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2AlgebraMethods['120105'].memory,
       pitfalls: [
         '两边直接乘含$x$的分母而不分情况讨论。',
         '四次不等式直接对$x$开方，漏掉负半支区间。',
@@ -426,26 +401,20 @@ export const esatMath2Algebra: KnowledgeLesson = {
     {
       code: '120106',
       title: '多项式操作与定理',
-      summary: '因式定理把整除翻译成代入求值；余数定理免去长除法。',
-      paragraphs: [
-        '因式定理：$x-c$是$f(x)$的因式当且仅当$f(c)=0$。二次因式先拆成一次因式：$x^2-x-6=(x-3)(x+2)$是$f$的因式，等价于$f(3)=0$与$f(-2)=0$两条独立方程，正好定两个未知系数。',
-        '余数定理：$f(x)$除以$x-c$的余数是$f(c)$，不需要做长除法。除以二次式时余式是一次式$px+q$，可用两根处的函数值列方程；恒等式两边比较同次幂系数也能得到同等数量的条件。',
-        '展开、提公因式与多项式除法互为检查：分解完成后重新乘开，核对首项、末项与中间项系数。含参数的多项式求出系数后，先回代验证全部给定条件，再计算题目真正要求的组合。',
-      ],
-      rules: [
+      summary: math2AlgebraMethods['120106'].summary,
+      paragraphs: [math2AlgebraMethods['120106'].intro],
+      rules: math2AlgebraMethods['120106'].blocks.flatMap((block) => [
         {
-          title: '每个根给一条系数方程',
-          text: '$f(3)=0$与$f(-2)=0$是两条独立条件；未知系数有几个，就需要几条。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '余数定理直接代入',
-          text: '$f(x)$除以$x-2$的余数是$f(2)$；余数为0即整除。',
-        },
-        {
-          title: '二次因式先拆根',
-          text: '$x^2-x-6$是因素当且仅当$x=3$与$x=-2$都是根，不必做多项式长除。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2AlgebraMethods['120106'].memory,
       pitfalls: [
         '代入$x=-2$这类负根时，奇次幂的符号算错。',
         '只用一个根求两个未知系数，条件不足。',
@@ -514,26 +483,20 @@ export const esatMath2Algebra: KnowledgeLesson = {
     {
       code: '120107',
       title: '函数与常见函数性质',
-      summary: '复合由内到外，定义域每层都要查；性质用定义逐条验证。',
-      paragraphs: [
-        '函数是每个输入对应唯一输出的规则。$f(g(x))$先算内层$g(x)$的值，再作为外层的输入；$f(2x-1)$的输入是$2x-1$整体，不是$x$。分段或分式定义的函数，每一层的定义域限制都要保留：$f(f(x))$中内层$f(x)$本身不能取到使外层分母为零的值。',
-        '常见性质用定义验证：奇函数$f(-x)=-f(x)$，偶函数$f(-x)=f(x)$；满足$f(\\alpha x+\\beta y)=\\alpha f(x)+\\beta f(y)$的线性映射必有$f(0)=0$，所以$-5x$线性而$-5x+2$不线性。递增函数保持不等号方向，递减函数反转。',
-        '方程$f(f(x))=x$先把复合化简成一个普通方程再求解；用韦达定理统计根的和或积之前，必须确认每个根都落在复合函数各层的定义域内，否则统计会多收。',
-      ],
-      rules: [
+      summary: math2AlgebraMethods['120107'].summary,
+      paragraphs: [math2AlgebraMethods['120107'].intro],
+      rules: math2AlgebraMethods['120107'].blocks.flatMap((block) => [
         {
-          title: '复合由内到外',
-          text: '$f(g(x))$先算内层值再代入外层；两层的定义域限制都要满足。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '线性映射无截距',
-          text: '满足加性与齐性的函数必有$f(0)=0$；常数项会破坏线性。',
-        },
-        {
-          title: '不动点方程照常解',
-          text: '$f(f(x))=x$先化成一个方程，用根积关系统计前先查每个根的定义域。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2AlgebraMethods['120107'].memory,
       pitfalls: [
         '把$f(g(x))$写成$f(x)\\cdot g(x)$。',
         '只看最外层分母，忽略内层$f(x)$本身的定义域限制。',

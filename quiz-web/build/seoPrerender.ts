@@ -80,13 +80,6 @@ function renderStaticContent(page: PrerenderPage, brandIcon: string): string {
     .map(({ path, heading }) => `<a href="${path}">${escapeHtml(heading)}</a>`)
     .join(' · ')
   if (page.path === '/') {
-    const resourceLinks = prerenderPages
-      .filter(({ path }) => path !== '/')
-      .map(
-        ({ path, heading }) =>
-          `<a href="${path}">${escapeHtml(heading)}<span aria-hidden="true">↗</span></a>`,
-      )
-      .join('')
     const loadingCards = ['真题诊断', '专项练习', '错题复习']
       .map(
         (label) =>
@@ -107,10 +100,6 @@ function renderStaticContent(page: PrerenderPage, brandIcon: string): string {
           <div class="seo-loading" role="status"><span class="seo-loading-dot" aria-hidden="true"></span>正在准备你的备考首页</div>
           <div class="seo-cards" aria-label="学习内容加载中" aria-busy="true">${loadingCards}</div>
           <p class="seo-summary">${escapeHtml(page.summary)}</p>
-        </section>
-        <section class="seo-resources" aria-labelledby="seo-resources-title">
-          <h2 id="seo-resources-title">了解考试与备考资料</h2><nav aria-label="公开页面">${resourceLinks}</nav>
-          <noscript><p>完整诊断与学习功能需要启用 JavaScript；你仍可通过以上链接浏览公开介绍。</p></noscript>
         </section>
       </main>
     </div>`

@@ -153,43 +153,6 @@ body:has(.seo-home) {
   font-size: 14px;
   line-height: 1.9;
 }
-.seo-resources {
-  margin-top: 36px;
-  padding-top: 24px;
-  border-top: 1px solid #edf0f3;
-}
-.seo-resources h2 {
-  margin: 0 0 16px;
-  color: #59677b;
-  font-size: 14px;
-  font-weight: 600;
-}
-.seo-resources nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-.seo-resources a {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  padding: 9px 14px;
-  border-radius: 7px;
-  background: #f7f9fa;
-  color: #59677b;
-  font-size: 13px;
-}
-.seo-resources a span {
-  color: #98a4af;
-}
-.seo-resources a:hover {
-  background: #edf5f4;
-  color: #218c88;
-}
-.seo-resources noscript p {
-  color: #718096;
-  font-size: 14px;
-}
 @keyframes seo-breathe {
   to {
     opacity: 0.45;
@@ -227,13 +190,6 @@ body:has(.seo-home) {
   }
   .seo-card .seo-card-title {
     margin-bottom: 16px;
-  }
-  .seo-resources nav {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-  .seo-resources a {
-    justify-content: space-between;
   }
 }
 @media (prefers-reduced-motion: reduce) {

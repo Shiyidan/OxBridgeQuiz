@@ -1,5 +1,6 @@
 // 物理热学讲义：贯通三种传热机制与热量账，保留年度考法和相变边界。
 import type { KnowledgeLesson } from './types'
+import { thermalMethods } from './thermalMethods'
 
 export const esatThermalPhysics: KnowledgeLesson = {
   code: '130400',
@@ -18,26 +19,20 @@ export const esatThermalPhysics: KnowledgeLesson = {
       visual: 'physics-thermal',
       code: '130401',
       title: '传导',
-      summary: '同材料导热，面积和温差增大更快，距离增大更慢。',
-      paragraphs: [
-        '热传导 conduction 是能量从较热处传向较冷处的过程，不要求材料整体流动。固体中粒子的振动和相互作用传递能量；金属中的自由电子还能快速传能，所以金属通常比木材、塑料、空气导热好。',
-        '锅底用金属以便迅速传热，锅柄用塑料或木材减慢传热；保温层常困住空气来降低导热，同时限制空气整体流动，减少对流。说某材料是绝热体只是相对不易导热，不能理解为完全不传热。',
-        '在材料相同、两端温度保持稳定、侧面没有散热的均匀棒中，热流率随横截面积A和两端温差增大，随长度L增大而减小。比较题可以只跟踪 $A\\Delta T/L$，不必先求未知材料常数。',
-      ],
-      rules: [
+      summary: thermalMethods['130401'].summary,
+      paragraphs: [thermalMethods['130401'].intro],
+      rules: thermalMethods['130401'].blocks.flatMap((block) => [
         {
-          title: '稳态比较用温差',
-          text: '可写 $P\\propto A(T_{\\rm hot}-T_{\\rm cold})/L$。两端同时升高相同温度，温差不变；不是一端温度越高就一定更快。P单位W，表示每秒传递的能量。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '直径不是面积',
-          text: '圆棒 $A=\\pi d^2/4$。直径加倍，面积变四倍；长度也加倍时，在其他条件相同下传热率变两倍。',
-        },
-        {
-          title: '串接不同材料',
-          text: '稳态且没有侧面损失时，每层流过的热流率相同。相同厚度、面积下，导热差的层需要较大温差；温度—距离图在绝热层中更陡。若界面接触理想，温度连续，不应随意画出跳变。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: thermalMethods['130401'].memory,
       pitfalls: [
         '温差写热端减冷端，不把两端温度相加。',
         '改变直径要平方，改变面积则直接用倍数。',
@@ -105,26 +100,20 @@ export const esatThermalPhysics: KnowledgeLesson = {
       visual: 'physics-thermal',
       code: '130402',
       title: '对流',
-      summary: '不是“热自己向上走”，而是较低密度的流体在浮力作用下上升。',
-      paragraphs: [
-        '对流 convection 通过液体或气体的整体运动输送能量。通常受热的一团流体膨胀；质量不变、体积增大，所以密度下降。周围较冷较密的流体提供的浮力可大于这团流体的重力，使其上升，冷流体补入，形成循环。',
-        '必须区分“固定质量”和“固定体积”。固定质量的水受热膨胀，体积增大、密度减小；取固定体积的一份热水，它包含的质量反而较小。不能把一团流体和一个固定空间偷换成同一个对象。',
-        '自然对流需要可流动的介质以及合适的密度分布。加热容器底部通常易形成循环；只加热顶部时，低密度热层留在上方，对流弱。固体整体不能像流体那样循环，真空里没有流体也不能对流。',
-      ],
-      rules: [
+      summary: thermalMethods['130402'].summary,
+      paragraphs: [thermalMethods['130402'].intro],
+      rules: thermalMethods['130402'].blocks.flatMap((block) => [
         {
-          title: '完整因果链',
-          text: '受热→通常膨胀→在质量不变时 $\\rho=m/V$ 减小→浮力相对较大→上升→较冷流体补入。只说“热气会上升”缺少关键的密度与力的原因。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '常见应用',
-          text: '散热器附近暖空气上升形成房间循环；热水从底部加热帮助均匀升温；双层玻璃中的窄气隙可限制对流。风扇、泵推动的是强制对流，不完全依赖自然浮力。',
-        },
-        {
-          title: '边界条件',
-          text: '“受热密度下降”适用于通常温区与可膨胀条件，不能忽略密闭刚性容器的体积约束。水在约0—4°C有反常膨胀；一般热水锅情境不涉及此特殊区间，按题目温度判断。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: thermalMethods['130402'].memory,
       pitfalls: [
         '固定体积中的质量变化与固定质量的体积变化不是同一句话。',
         '对流输送的是带有内能的流体，不是仅有能量而没有物质移动。',
@@ -180,26 +169,20 @@ export const esatThermalPhysics: KnowledgeLesson = {
       visual: 'physics-thermal',
       code: '130403',
       title: '热辐射',
-      summary: '所有物体都发出热辐射；净吸热或失热由发出与吸收共同决定。',
-      paragraphs: [
-        '热辐射 thermal radiation 是以电磁波形式传递能量，日常温度下主要在红外区，不需要物质介质，能穿过真空。物体不必发出可见红光才会辐射；温度较高的物体也可能显著辐射可见光。',
-        '在相同温度、面积和相应波段下，暗哑表面通常是良好吸收体也是良好发射体；亮面通常反射较强、吸收和发射较弱。“黑色容易吸热”和“黑色容易散热”并不矛盾，分别描述吸收与发出。',
-        '所有物体同时向外辐射也吸收环境辐射。物体与环境温度相同时，两者平衡，净能量变化为零，但发射没有停止。物体比环境热时通常净失热，比环境冷时可净吸热。',
-      ],
-      rules: [
+      summary: thermalMethods['130403'].summary,
+      paragraphs: [thermalMethods['130403'].intro],
+      rules: thermalMethods['130403'].blocks.flatMap((block) => [
         {
-          title: '先分清题目问哪一种速率',
-          text: '“发射最多”主要比较自身温度、表面和面积；“净失热最多”还必须比较环境吸收。不能仅凭温差给发射强弱排序，也不能只凭温度给净失热排序。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '保温瓶的三条路径',
-          text: '真空间隙减少传导和对流，却不阻止辐射；亮面减少辐射传递；差导热瓶壁和支撑减小传导。需要把每个设计与对应机制配对。',
-        },
-        {
-          title: '给定幂律用比值',
-          text: '若题目给 $P=kR^2T^4$，用 $P_2/P_1=(R_2/R_1)^2(T_2/T_1)^4$。这是对题给公式的应用，不要求自行推导辐射定律；温度倍率应使用绝对温度，不能把摄氏温标上的数值随意相除。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: thermalMethods['130403'].memory,
       pitfalls: [
         '真空只能排除需要介质的传热，不能排除辐射。',
         '亮面不是好发射体；吸收差也不意味着完全不吸收。',
@@ -262,30 +245,20 @@ export const esatThermalPhysics: KnowledgeLesson = {
       visual: 'physics-thermal',
       code: '130404',
       title: '热容',
-      summary: '热量账分输入、储存和散失；温升由质量和比热容共同决定。',
-      paragraphs: [
-        '比热容 specific heat capacity 是使单位质量物质升高单位温度所需能量，常用单位 $\\mathrm{J\\,kg^{-1}\\,^{\\circ}C^{-1}}$。同样质量、同样吸收能量，比热容越大，温升越小。热容C=mc属于整个物体，比热容c描述材料，两者不要混淆。',
-        '在没有相变、比热容可视为恒定的温区，$Q=mc\\Delta T$，其中 $\\Delta T=T_{\\rm final}-T_{\\rm initial}$。升温用正的吸热量，降温可用带符号热量或另写失热的正值；不能把负初温当成负质量或负比热。',
-        '加热器提供的能量Pt不一定全部储存在目标物体：部分可能散给环境或用于加热容器。隔热混合题则把热物体失去的能量与冷物体得到的能量配平；存在冰熔化时，还需另外计算潜热，不能一路用mcΔT。',
-      ],
-      rules: [
+      summary: thermalMethods['130404'].summary,
+      paragraphs: [thermalMethods['130404'].intro],
+      rules: thermalMethods['130404'].blocks.flatMap((block) => [
         {
-          title: '单位与温差',
-          text: '若c按kg给出，质量g要除1000；若c按g给出则质量保持g。温差1°C与1 K数值相同，所以mcΔT可用摄氏温差；摄氏温度本身不能用于温度比例的气体定律。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '由加热图求比热容',
-          text: '恒定净加热功率P下，$P=mc\\Delta T/t$。温度—时间图斜率 $k=\\Delta T/t$，因此 $c=P/(mk)$。曲线逐渐变平可能表示散热增大，不能自动断言比热容恒定公式仍有同样净P。',
-        },
-        {
-          title: '损失与混合',
-          text: '输入 $Pt=mc\\Delta T+E_{\\rm loss}$；隔热且无相变时 $m_1c_1(T_1-T)=m_2c_2(T-T_2)$。仅当两物体热容相等，最终温度才是初温的算术平均。',
-        },
-        {
-          title: '相变先判断是否完成',
-          text: '冰水混合先比较热水冷却到0°C可释放的能量与冰完全熔化所需mL；不够则仍有冰，最终约0°C。足够时再把剩余能量用于全部液态水升温。潜热属于物态变化章节，这里作为热量账的连接。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: thermalMethods['130404'].memory,
       pitfalls: [
         '算出的ΔT还要加初温，才是末温。',
         '加热时间、质量与c的单位必须匹配。',

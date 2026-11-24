@@ -1,5 +1,6 @@
 // ESAT物理放射性讲义：以核素双账本、辐射性质和本底校正贯通已导入年度真题证据。
 import type { KnowledgeLesson } from './types'
+import { radioactivityMethods } from './radioactivityMethods'
 
 export const esatRadioactivity: KnowledgeLesson = {
   code: '130700',
@@ -16,34 +17,20 @@ export const esatRadioactivity: KnowledgeLesson = {
     {
       code: '130701',
       title: '原子结构',
-      summary: '上标数核子，下标数质子；电子改变电荷，中子区分同位素。',
-      paragraphs: [
-        '核模型 nuclear model 把原子看成很小、质量集中的正电原子核与外部电子组成。原子的大部分空间没有核物质；α散射实验中多数粒子近乎直穿，少数大角度偏转，支持核小而致密、带正电的模型。',
-        '质子 proton 相对电荷+1、相对质量约1；中子 neutron 电荷0、相对质量约1；电子 electron 电荷−1、质量约为质子的1/1836。核子 nucleon 指质子和中子，不能把电子计进质量数。',
-        '核素 nuclide 用 $^{A}_{Z}\\mathrm{X}$ 表示：Z是原子序数 atomic number，即质子数；A是质量数 mass number，即质子与中子总数。元素由Z决定；同位素 isotope 的Z相同、A不同，因而中子数不同。',
-      ],
-      rules: [
+      summary: radioactivityMethods['130701'].summary,
+      paragraphs: [radioactivityMethods['130701'].intro],
+      rules: radioactivityMethods['130701'].blocks.flatMap((block) => [
         {
-          title: '三个数分别算',
-          text: '质子数 $p=Z$，中子数 $n=A-Z$。中性原子电子数 $e=Z$；电荷为 $+qe$ 的离子有 $Z-q$ 个电子，负离子则多电子。这里电荷单位中的e是元电荷，不是电子个数变量。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '电离不是核衰变',
-          text: '失去电子形成正离子，获得电子形成负离子；普通电离不改变质子数、中子数与元素身份。原子核衰变则可能改变Z或A，是另一个过程。',
-        },
-        {
-          title: '同元素、不同同位素、相反电荷',
-          text: '遇到多个条件要逐项检查：同元素要求p相同；不同同位素要求n不同；相反电荷要求p减电子数的符号相反。只满足其中一个条件不能选。',
-        },
-        {
-          title: '原子与核的尺度比较',
-          text: '忽略电子质量时，原子和原子核质量近似相同；球体积与半径三次方成正比。若原子半径为核半径的k倍，原子平均密度约为核密度的 $1/k^3$，不能只除k。',
-        },
-        {
-          title: '核素写法还用于反应记账',
-          text: '核反应方程分别守恒总质量数A与总电荷数Z。自由中子写成 $^{1}_{0}\\mathrm n$，α写成 $^{4}_{2}\\mathrm{He}$；下标与上标不代表两个独立随意可选的数。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: radioactivityMethods['130701'].memory,
       pitfalls: [
         '质量数是整数核子计数，不等于以kg为单位的实际质量。',
         '同位素不是“质子不同”的同一种元素。',
@@ -105,34 +92,20 @@ export const esatRadioactivity: KnowledgeLesson = {
     {
       code: '130702',
       title: '放射性衰变',
-      summary: '先用质量数锁定α次数，再用电荷数补齐β−；γ只释放核能量。',
-      paragraphs: [
-        '放射性衰变 radioactive decay 来自不稳定原子核，是自发、随机的过程。无法预言某个核哪一秒衰变，但大量同种核有稳定的统计规律。改变温度、压力或化学状态通常不能像化学反应那样改变其半衰期。',
-        'α粒子是两个质子与两个中子组成的氦核，带+2电荷。β−粒子是在核内中子变质子时发出的高速电子，不是原有电子壳层的一颗电子被挤出去。γ射线是核退激发放出的电磁辐射，不带电。',
-        '一次α衰变使A减4、Z减2；一次β−使A不变、Z加1；γ使A与Z都不变。质量数守恒是核子数守恒的记账，不表示实际静质量在释放能量时必须完全不变。',
-      ],
-      rules: [
+      summary: radioactivityMethods['130702'].summary,
+      paragraphs: [radioactivityMethods['130702'].intro],
+      rules: radioactivityMethods['130702'].blocks.flatMap((block) => [
         {
-          title: '三种符号一眼辨认',
-          text: '$^{A}_{Z}\\mathrm X\\to{}^{A-4}_{Z-2}\\mathrm Y+{}^4_2\\mathrm{He}$；$^{A}_{Z}\\mathrm X\\to{}^{A}_{Z+1}\\mathrm Y+{}^0_{-1}e+\\bar\\nu_e$。γ可写成 $^A_Z\\mathrm X^*\\to{}^A_Z\\mathrm X+\\gamma$。β−还有反中微子，A、Z记账不受它影响。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '端点求次数',
-          text: '如果只含α与β−，先求 $a=(A_i-A_f)/4$，再解 $Z_f=Z_i-2a+b$ 得β−次数b。a与b必须非负整数；题目限定总粒子数时还要核对 $a+b$。',
-        },
-        {
-          title: '中间核素看“可达”，不能只看终点',
-          text: '任意阶段若已发a个α、b个β−，则 $A=P-4a$、$Z=Q-2a+b$。a、b还受总允许次数约束；所有允许次序都应纳入，不能先假设α一定第一个发生。',
-        },
-        {
-          title: '裂变方程也逐列守恒',
-          text: '吸收一个中子后总A比原核多1，总Z不变；产物核和放出的中子一起计入。例如原子序数不能被自由中子“带走”。裂变是核分裂过程，不能用一次α的固定减4代替。',
-        },
-        {
-          title: '反冲是动量问题',
-          text: '母核初始静止，α与子核动量大小相同、方向相反；由 $K=p^2/(2m)$，较轻的α得到较大的动能。不能因动量相等就把总动能平均分。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: radioactivityMethods['130702'].memory,
       pitfalls: [
         'β−发出负电粒子，但核本身Z增加1。',
         'γ不是“失去一个中子”；激发态的能量变小而A、Z不变。',
@@ -207,34 +180,20 @@ export const esatRadioactivity: KnowledgeLesson = {
     {
       code: '130703',
       title: '电离辐射',
-      summary: '电离强弱、穿透远近和是否带电是三条独立线索。',
-      paragraphs: [
-        '电离 ionisation 指辐射与物质作用使原子或分子获得净电荷，通常通过移走电子。α沿短路径密集电离，β的电离能力通常较弱，γ通常更弱却更易穿透；这里的比较是课程常见能量范围的定性模型。',
-        'α可被纸或表皮阻挡，β常用薄金属或塑料衰减，γ需要较厚的铅或混凝土显著衰减。屏蔽效果依赖粒子能量与材料厚度，尤其不能说某厚度材料让所有γ绝对为零。',
-        'α带正电、β−带负电，电场中偏向相反电极；γ不带电，不受电场、磁场偏转。磁力还要求速度有垂直磁场的分量。相同条件下电子质量很小通常更易偏转，但不能仅看电荷大小比较所有轨道半径。',
-      ],
-      rules: [
+      summary: radioactivityMethods['130703'].summary,
+      paragraphs: [radioactivityMethods['130703'].intro],
+      rules: radioactivityMethods['130703'].blocks.flatMap((block) => [
         {
-          title: '本底是测量的一部分',
-          text: '宇宙射线、岩石和土壤中的核素、氡气、食物与人体中的天然核素，以及部分人造源都可贡献本底。净计数率 = 测得计数率 − 同条件本底；测本底要用相同计时单位与几何条件。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '污染与照射分开',
-          text: '照射 irradiation 是受到辐射；污染 contamination 是放射性物质实际落在表面或进入体内。移开外部源可停止它的直接照射，污染源却可能随人或物继续移动和照射；普通照射不等同于必然沾上放射性物质。',
-        },
-        {
-          title: '为什么外部不危险不等于内部不危险',
-          text: 'α很难穿过完整皮肤，但若放射性物质吸入或摄入，会在近处组织强烈电离。风险要同时考虑进入途径、活度、暴露时间、辐射种类和剂量。',
-        },
-        {
-          title: '应用要匹配穿透与半衰期',
-          text: '纸张厚度监测常用能部分穿透纸的β；烟雾报警器可利用α使空气电离；体内示踪常需要可从外部探测的辐射和足够完成检查又不过久的半衰期；灭菌和放疗利用辐射对细胞的作用。',
-        },
-        {
-          title: '用距离、时间与屏蔽降低暴露',
-          text: '缩短靠近源的时间、增加距离、选合适屏蔽并防止物质扩散。实际防护需按源和规程执行；学习题中的“最合适”不等于某材料适合所有源。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: radioactivityMethods['130703'].memory,
       pitfalls: [
         '最穿透不等于沿同一短路径电离最强。',
         '未被电场偏转只说明电中性，仍要结合其他条件识别γ。',
@@ -309,34 +268,20 @@ export const esatRadioactivity: KnowledgeLesson = {
     {
       code: '130704',
       title: '半衰期',
-      summary: '每隔一个半衰期剩一半；先扣本底，再分别记母核与子核。',
-      paragraphs: [
-        '半衰期 half-life 是大量同种不稳定原子核的预期剩余数降为一半所需的时间。它不是每个原子都活恰好这么久；小样本的实际数目会随机波动，大样本衰变曲线才呈平滑的统计趋势。',
-        '经过n个半衰期，剩余母核数为 $N=N_0(1/2)^n$，其中 $n=t/T_{1/2}$。同种核素的质量与活度按同一比例减少。活度 activity 以Bq表示每秒衰变次数，探测器计数率受效率和摆放影响，不必等于活度。',
-        '稳定子核可以累积：若每个母核只生成一个所研究的稳定子核，且没有加入或移走，则新增子核数等于母核减少数。若初始已经有子核，必须加上初值；若子核也放射性衰变，则不能把所有已衰变母核简单当作仍存在的子核。',
-      ],
-      rules: [
+      summary: radioactivityMethods['130704'].summary,
+      paragraphs: [radioactivityMethods['130704'].intro],
+      rules: radioactivityMethods['130704'].blocks.flatMap((block) => [
         {
-          title: '剩余量与已衰变量不是同一答案',
-          text: '剩余比例 $2^{-n}$，已衰变比例 $1-2^{-n}$。三个半衰期剩1/8、已衰变7/8；减半的是“当前剩余量”，不是每次都减同一个初始量的一半。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '计数先扣、减半后再加回',
-          text: '总读数 $R(t)=B+S_0\\,2^{-t/T_{1/2}}$，B为恒定本底。画净计数曲线才能直接找减半间隔；总曲线趋近B，不趋近零。反推过去的源计数每过一个半衰期应乘2。',
-        },
-        {
-          title: '从稳定子体图读母体半衰期',
-          text: '单步生成稳定子体时，子体最终平台减当前子体量，与当前母体剩余量对应。因此应对“离平台的差”求减半，不是把子体曲线自身的高度减半。',
-        },
-        {
-          title: '两种母核各算自己的钟',
-          text: '同一经过时间对两种半衰期对应不同n。先分别求剩余数，再求总量、比例或相等时刻。混合源的总活度一般不服从单一固定半衰期。',
-        },
-        {
-          title: '放射性子体先升后降',
-          text: '母核供给子体，子体也在衰变：开始若没有子体，数量从零上升；以后供给减少，子体可达到峰值再下降。不能把子体画成只增不减的稳定累积曲线。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: radioactivityMethods['130704'].memory,
       pitfalls: [
         '题目说“又过360分钟”，总经过时间要加上之前240分钟。',
         '有初始稳定子核时，分母不能只用新生成的子核。',

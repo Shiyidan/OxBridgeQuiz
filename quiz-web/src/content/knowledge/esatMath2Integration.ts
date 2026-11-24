@@ -1,5 +1,6 @@
 // ESAT数学2第七章积分讲义：以累计、面积与初值组织复习，年度考法与题库补充明确分开。
 import type { KnowledgeLesson } from './types'
+import { math2IntegrationMethods } from './math2IntegrationMethods'
 
 export const esatMath2Integration: KnowledgeLesson = {
   code: '120700',
@@ -17,26 +18,20 @@ export const esatMath2Integration: KnowledgeLesson = {
     {
       code: '120701',
       title: '定积分与面积',
-      summary: '先画边界、找交点，再决定切片方向；面积取正，积分保留符号。',
-      paragraphs: [
-        '把区域想成很多窄条：竖直切片的高度是“上边界减下边界”，宽度是dx；横向切片的长度是“右边界减左边界”，宽度是dy。==先确定被积函数代表的几何长度，再积分==，不要见到曲线就直接积它的方程。',
-        '对于从左向右的区间，曲线在横轴上方的部分对定积分作正贡献，下方作负贡献。因此积分可以是0或负数，几何面积不能为负。若曲线穿过横轴，应在零点拆段，将每段的面积相加，而不是把整段积分取一次绝对值。',
-        '两条曲线围成区域时，先解交点方程作为边界，在每段内确认谁在上方。两条曲线即使都在横轴下方，“上减下”仍成立。题目给了竖直边界时，用指定区间；题目给的是横向抛物线时，对y积分常常更简单。',
-      ],
-      rules: [
+      summary: math2IntegrationMethods['120701'].summary,
+      paragraphs: [math2IntegrationMethods['120701'].intro],
+      rules: math2IntegrationMethods['120701'].blocks.flatMap((block) => [
         {
-          title: '面积与有向积分',
-          text: '若 $a<b$，几何面积为 $\\int_a^b|f(x)|\\,dx$；只有整个区间 $f(x)\\ge0$ 时，才等于 $\\int_a^b f(x)\\,dx$。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '两曲线之间',
-          text: '若整段 $u(x)\\ge l(x)$，面积为 $\\int_a^b[u(x)-l(x)]\\,dx$；若上下关系变化，先在交点分段。',
-        },
-        {
-          title: '横向切片',
-          text: '右边界 $x=r(y)$、左边界 $x=l(y)$ 时，面积为 $\\int_c^d[r(y)-l(y)]\\,dy$。上下限也是y坐标。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2IntegrationMethods['120701'].memory,
       pitfalls: [
         '忽略穿轴或交点，只对整段结果取绝对值。',
         '把下边界为负理解成“不需要减”。',
@@ -116,26 +111,20 @@ export const esatMath2Integration: KnowledgeLesson = {
     {
       code: '120702',
       title: '幂函数积分',
-      summary: '指数加一，再除以新指数；先化简、留常数，最后用求导反查。',
-      paragraphs: [
-        '积分是寻找一个求导后能回到原式的函数。幂函数求导会“乘指数、指数减一”，所以逆向操作就是“指数加一、除以新指数”。分式、根式通常先改写成幂的和差，才能逐项使用这一规则。',
-        '不定积分表示一族原函数，彼此相差常数C。定积分则用同一个原函数计算上端值减下端值，常数会抵消，最终是一个数。题目给了精确根式上下限时，先保留符号整体计算，再化简。',
-        '幂规则有明确边界：指数不能是−1，分母中的x不能取0，偶次根式还要满足实数定义域。若区间跨过原函数的奇点，不能机械地套端点差。本章不要求用对数积分或反常积分去绕过这些限制。',
-      ],
-      rules: [
+      summary: math2IntegrationMethods['120702'].summary,
+      paragraphs: [math2IntegrationMethods['120702'].intro],
+      rules: math2IntegrationMethods['120702'].blocks.flatMap((block) => [
         {
-          title: '基本公式',
-          text: '$\\int x^n\\,dx=x^{n+1}/(n+1)+C$，$n$ 为有理数且 $n\\ne-1$，在函数有定义的连续区间内使用。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '先除开、再改幂',
-          text: '$\\frac{2x^2-3}{x\\sqrt{x}}=2x^{1/2}-3x^{-3/2}$；不能分别对分子分母积分后相除。',
-        },
-        {
-          title: '端点差与复核',
-          text: '$\\int_a^bf(x)\\,dx=F(b)-F(a)$。把所得原函数求导回去，是检查符号、系数和幂次最快的方法。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2IntegrationMethods['120702'].memory,
       pitfalls: [
         '积分沿用求导的“减一次幂”。',
         '除以旧指数而非新指数。',
@@ -222,26 +211,20 @@ export const esatMath2Integration: KnowledgeLesson = {
     {
       code: '120703',
       title: '微积分基本定理',
-      summary: '积分累计变化，求导取回变化率；端点差不需要知道完整的原函数。',
-      paragraphs: [
-        '微分回答“此刻变得多快”，积分回答“一段时间或区间总共变了多少”。若f是F的导数，那么把f从a积到b，得到的是F(b)−F(a)。所以题目只给端点变化而没有给F的表达式，仍然可以求导数的定积分。',
-        '当上限由固定数字变成变量x，累计量 $A(x)$ 也随之变化。在连续条件下，它的导数就是新加入位置的函数值。这里积分中的t是占位变量，表示累计过程中经过的位置；x是最终上限，两者职责不能混淆。',
-        '基本定理能减少不必要的运算。遇到“导数等于一个可积式加未知函数”，对同一区间积分，再把左侧换成端点差即可。若问题只求展开后某一项的系数，也不必先写出整个原函数。',
-      ],
-      rules: [
+      summary: math2IntegrationMethods['120703'].summary,
+      paragraphs: [math2IntegrationMethods['120703'].intro],
+      rules: math2IntegrationMethods['120703'].blocks.flatMap((block) => [
         {
-          title: '从变化率到增量',
-          text: "若 $F'=f$ 且条件允许，$\\int_a^bf(x)\\,dx=F(b)-F(a)$；左边不是 $f(b)-f(a)$。",
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '从累计量到变化率',
-          text: "若 $A(x)=\\int_a^x f(t)\\,dt$ 且 $f$ 连续，则 $A'(x)=f(x)$，并且 $A(a)=0$。",
-        },
-        {
-          title: '上限是其他表达式',
-          text: "若上限不是 $x$，不能直接照抄 $A'(x)=f(x)$。本章可积的幂多项式先积分、代上限、化简再求导；不把一般链式法则当作先修要求。",
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2IntegrationMethods['120703'].memory,
       pitfalls: [
         '将导函数积分写成导函数的端点差。',
         '积分变量t和上限x混用。',
@@ -300,26 +283,20 @@ export const esatMath2Integration: KnowledgeLesson = {
     {
       code: '120704',
       title: '合并积分',
-      summary: '同区间合函数，连续区间接起来；方向反转要变号。',
-      paragraphs: [
-        '积分具有可加性，但有两种不同的加法。同一区间上，可以把被积函数的和差放进一个积分；同一函数在相接区间上的积分，可以拼成更长区间。先看“函数是否相同、端点是否相接”，再决定使用哪一条。',
-        '若区间重叠或方向相反，先画数轴，把全部积分拆到共同的最小区间。将各小区间积分记为A、B后，题目往往变成二元一次方程。无需知道函数具体长什么样，也不能擅自假设它全为正。',
-        '面积比例题也用区间可加性：左区域与右区域组成总区域。1∶3意味着左边占总面积的1/4，不是1/3。只有函数在区间内非负时，才能直接把这些定积分当作面积份额。',
-      ],
-      rules: [
+      summary: math2IntegrationMethods['120704'].summary,
+      paragraphs: [math2IntegrationMethods['120704'].intro],
+      rules: math2IntegrationMethods['120704'].blocks.flatMap((block) => [
         {
-          title: '线性组合',
-          text: '$\\int_a^b[\\alpha f(x)+\\beta g(x)]\\,dx=\\alpha\\int_a^bf(x)\\,dx+\\beta\\int_a^bg(x)\\,dx$。不能把积分相乘当作乘积的积分。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '区间相接',
-          text: '$\\int_a^bf(x)\\,dx+\\int_b^cf(x)\\,dx=\\int_a^cf(x)\\,dx$；方向约定使这条等式不要求 $a<b<c$。',
-        },
-        {
-          title: '反向与零长度',
-          text: '$\\int_b^af(x)\\,dx=-\\int_a^bf(x)\\,dx$，$\\int_a^af(x)\\,dx=0$。端点顺序也是数据。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2IntegrationMethods['120704'].memory,
       pitfalls: [
         '相同上下限却直接把区间长度相加。',
         '倒置上下限时忘记负号。',
@@ -385,26 +362,20 @@ export const esatMath2Integration: KnowledgeLesson = {
     {
       code: '120705',
       title: '梯形法则',
-      summary: '等宽分段，端点算一次、内部算两次；高估低估看曲线弯向。',
-      paragraphs: [
-        '有时只给一组横坐标和函数值，无法直接求原函数。这时把相邻两点用线段连接，每一段与横轴组成一个梯形，再把这些梯形的有向面积相加。对直线，连接线就是原图像，结果精确；对曲线，通常只是近似。',
-        '等宽分成n段时有n+1个采样点，步长是整个区间长度除以n。内部点同时属于左右两个梯形，因此出现两次；两端只出现一次。如果题目换成更粗的步长，要重新选采样点，不能沿用全部原纵坐标。',
-        '在整个区间曲线向上弯、弦在线上方时，梯形法高估定积分；向下弯时低估。单看函数递增或递减不能判断。若弯向改变，需要分段分析，不能宣称统一高估或低估；如果跨横轴且问几何面积，还要先拆分正负区域。',
-      ],
-      rules: [
+      summary: math2IntegrationMethods['120705'].summary,
+      paragraphs: [math2IntegrationMethods['120705'].intro],
+      rules: math2IntegrationMethods['120705'].blocks.flatMap((block) => [
         {
-          title: '等宽梯形公式',
-          text: '$h=(b-a)/n$，$T_n=\\frac h2[y_0+2y_1+\\cdots+2y_{n-1}+y_n]$。$n$ 是梯形数，不是点数。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '不等宽时',
-          text: '每段分别算 $\\frac{x_{i+1}-x_i}{2}(y_i+y_{i+1})$ 再相加，不能套一个公共步长。',
-        },
-        {
-          title: '误差方向',
-          text: "在整个区间 $f''\\ge0$ 时，梯形估计不小于定积分；$f''\\le0$ 时不大于定积分。直线误差为0；有限数据点本身通常不足以判定点与点之间的弯向。",
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2IntegrationMethods['120705'].memory,
       pitfalls: [
         '用点数除区间长度，少算一个间隔。',
         '内部点只计一次，或两端也加倍。',
@@ -460,26 +431,20 @@ export const esatMath2Integration: KnowledgeLesson = {
     {
       code: '120706',
       title: '微分方程',
-      summary: '从变化率恢复函数，用已知点确定常数；最后同时检查导数和初值。',
-      paragraphs: [
-        '本节的方程形如dy/dx=f(x)：右边只含自变量，因此直接对x积分即可。得到 $y=F(x)+C$ 后，还没有选定唯一曲线；初值或曲线上一点才用来确定C。不同C对应上下平移，导数完全相同。',
-        '遇到导数旁还有常数或分式时，先把dy/dx单独放一边，再化简成幂的和差。不要把初值提前代进导数后，只积分一个固定数。求得C后，要分别检查“导数是否正确”和“是否经过给定点”，两项缺一不可。',
-        '如果给的是二阶导数，可连续做两次本节的积分，但每次产生新的常数。第一次的常数积分后成为线性项，不能把它与第二次的常数合并。原式在x=0无定义时，初值只确定包含该初始点的连续区间内的解，不应擅自跨越0。',
-      ],
-      rules: [
+      summary: math2IntegrationMethods['120706'].summary,
+      paragraphs: [math2IntegrationMethods['120706'].intro],
+      rules: math2IntegrationMethods['120706'].blocks.flatMap((block) => [
         {
-          title: '直接积分型',
-          text: "$\\frac{dy}{dx}=f(x)$ 的解为 $y=F(x)+C$，其中 $F'=f$。若 $y(x_0)=y_0$，则 $C=y_0-F(x_0)$。",
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '也可以用累计增量',
-          text: '$y(x)=y_0+\\int_{x_0}^{x}f(t)\\,dt$。这把“初始值”和“后来积累的变化”分开，不需要再加一个自由常数。',
-        },
-        {
-          title: '连续两次恢复',
-          text: "若 $y''=a$ 是常数，则 $y'=ax+B$，$y=\\frac a2x^2+Bx+C$；$B$ 与 $C$ 各需条件确定。",
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2IntegrationMethods['120706'].memory,
       pitfalls: [
         '求得原函数后默认C=0。',
         '将初值只代入导数，而没有代入原函数。',

@@ -1,5 +1,6 @@
 // ESAT 数学2坐标几何讲义：覆盖3个考纲叶节点，真实题源由学习接口读取，考法保留全量相关年度证据。
 import type { KnowledgeLesson } from './types'
+import { math2CoordinateMethods } from './math2CoordinateMethods'
 
 export const esatMath2Coordinate: KnowledgeLesson = {
   code: '120300',
@@ -17,30 +18,20 @@ export const esatMath2Coordinate: KnowledgeLesson = {
     {
       code: '120301',
       title: '直线',
-      summary: '斜率定方向，截距定位置；垂直看乘积$-1$，距离先化一般式。',
-      paragraphs: [
-        '直线最常用的写法是斜截式$y=mx+c$与一般式$Ax+By+C=0$。斜截式中$m$是斜率、$c$是纵截距；一般式中斜率是$-A/B$，横截距是$-C/A$，纵截距是$-C/B$。已知两点$(x_1,y_1)$、$(x_2,y_2)$时，斜率$m=\\frac{y_2-y_1}{x_2-x_1}$，再用点斜式$y-y_1=m(x-x_1)$展开。截距式$\\frac xa+\\frac yb=1$适合“直线与两正半轴围成三角形”的题目，三角形的两条直角边就是$a$与$b$，面积是$\\frac{ab}{2}$。',
-        '平行与垂直都由斜率编码：平行直线$m_1=m_2$；垂直直线$m_1m_2=-1$。写成一般式时，垂直条件等价于$A_1A_2+B_1B_2=0$，这个形式在含参数时更稳。竖直线的斜率不存在，遇到“垂直于水平线”要单独看，不能机械套$m_1m_2=-1$。',
-        '长度与距离有三条常用公式：两点距离$\\sqrt{(x_2-x_1)^2+(y_2-y_1)^2}$，中点$(\\frac{x_1+x_2}{2},\\frac{y_1+y_2}{2})$，点$(x_0,y_0)$到直线$Ax+By+C=0$的垂距$\\frac{|Ax_0+By_0+C|}{\\sqrt{A^2+B^2}}$。坐标几何的收尾是回代：把求出的$m$、交点或截距代回“垂直”“长度为5”“面积为12”等原条件，检查符号、绝对值与范围限制。',
-      ],
-      rules: [
+      summary: math2CoordinateMethods['120301'].summary,
+      paragraphs: [math2CoordinateMethods['120301'].intro],
+      rules: math2CoordinateMethods['120301'].blocks.flatMap((block) => [
         {
-          title: '斜率与截距直接读',
-          text: '$y=mx+c$的斜率是$m$；$Ax+By+C=0$的斜率是$-A/B$，纵截距是$-C/B$。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '垂直乘积为$-1$',
-          text: '$m_1m_2=-1$；一般式用$A_1A_2+B_1B_2=0$，竖直线另作处理。',
-        },
-        {
-          title: '点到直线距离先化一般式',
-          text: '$d=\\frac{|Ax_0+By_0+C|}{\\sqrt{A^2+B^2}}$；方程没有整理成一般式时，$A,B,C$会取错。',
-        },
-        {
-          title: '截距式对应三角形面积',
-          text: '$\\frac xa+\\frac yb=1$与两轴围成的直角三角形面积为$\\frac{ab}{2}$（$a,b>0$）。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2CoordinateMethods['120301'].memory,
       pitfalls: [
         '把垂直斜率写成$1/m$，漏掉负号。',
         '求横截距时把$-C/A$写成$C/A$，计算线段长度时又忘记加绝对值。',
@@ -94,7 +85,8 @@ export const esatMath2Coordinate: KnowledgeLesson = {
               '两边乘$m$：$2m^2-5m+3=0$，分解得$(2m-3)(m-1)=0$。',
               '条件$m>1$排除$m=1$，取$m=\\frac32$，于是$p=-\\frac23$，$m+p=\\frac56$，选D。',
             ],
-            takeaway: '垂直先写$p=-1/m$；截距是带符号的坐标，长度才加绝对值，最后别忘题目给的$m>1$。',
+            takeaway:
+              '垂直先写$p=-1/m$；截距是带符号的坐标，长度才加绝对值，最后别忘题目给的$m>1$。',
           },
           {
             title: '两点式化一般式后套点到直线距离',
@@ -112,7 +104,8 @@ export const esatMath2Coordinate: KnowledgeLesson = {
               '点$P(a,2a)$到该直线的距离$d=\\frac{|2a+2a-2a|}{\\sqrt{2^2+1^2}}=\\frac{2a}{\\sqrt5}$。',
               '因为$a>0$，绝对值直接去掉，$d=\\frac{2\\sqrt5}{5}a$，选C。',
             ],
-            takeaway: '点到直线距离的分母是$\\sqrt{A^2+B^2}$，不是$A^2+B^2$；先化成一般式能避免系数抄错。',
+            takeaway:
+              '点到直线距离的分母是$\\sqrt{A^2+B^2}$，不是$A^2+B^2$；先化成一般式能避免系数抄错。',
           },
         ],
         checklist: [
@@ -125,37 +118,32 @@ export const esatMath2Coordinate: KnowledgeLesson = {
     {
       code: '120302',
       title: '圆的坐标几何',
-      summary: '先配方读出圆心与半径，再由切线与弦心距建立直角三角形。',
-      paragraphs: [
-        '圆是到定点距离等于定长的点集。标准式$(x-a)^2+(y-b)^2=r^2$直接给出圆心$(a,b)$与半径$r$；一般式$x^2+y^2+Dx+Ey+F=0$要先配方：$(x+\\frac D2)^2+(y+\\frac E2)^2=\\frac{D^2+E^2}{4}-F$，所以圆心是$(-\\frac D2,-\\frac E2)$，半径平方是右侧常数。右侧为负时不是实圆，半径开方后取正。',
-        '由几何条件定圆时，先找圆心再找半径。直径两端点的中点是圆心，半径是直径的一半；圆心在弦的垂直平分线上；圆与两条坐标轴都相切时，圆心坐标的绝对值都等于半径，例如第一象限内圆心可设为$(r,r)$。把“圆经过某点”代入标准式，就得到关于圆心或半径的方程。',
-        '直线与圆的位置关系可以用圆心到直线的距离$d$判断：$d<r$相交，$d=r$相切，$d>r$相离。切线垂直于过切点的半径；圆心在原点的圆在点$(x_1,y_1)$处的切线是$x_1x+y_1y=r^2$，一般圆心则用点法式$(x_1-a)(x-a)+(y_1-b)(y-b)=r^2$。相交时，弦心距、半弦长与半径满足$r^2=d^2+l^2$，这是后面弦长与弓形计算的基础。',
-      ],
-      rules: [
+      summary: math2CoordinateMethods['120302'].summary,
+      paragraphs: [math2CoordinateMethods['120302'].intro],
+      rules: math2CoordinateMethods['120302'].blocks.flatMap((block) => [
         {
-          title: '配方读圆心半径',
-          text: '$x^2+y^2+Dx+Ey+F=0$的圆心为$(-\\frac D2,-\\frac E2)$，$r^2=\\frac{D^2+E^2}{4}-F$。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '位置关系看圆心距',
-          text: '圆心到直线的距离$d=r$时相切；$d<r$相交，$d>r$相离。',
-        },
-        {
-          title: '切线与半径垂直',
-          text: '圆上点$(x_1,y_1)$的切线以半径向量为法向量；圆心在原点时写成$x_1x+y_1y=r^2$。',
-        },
-        {
-          title: '弦心距与半弦长',
-          text: '$r^2=d^2+l^2$，其中$d$是圆心到弦的距离，$l$是半弦长。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2CoordinateMethods['120302'].memory,
       pitfalls: [
         '把直径当成半径，或把$(x+2)^2$误读成圆心$+2$，实际圆心是$-2$。',
         '一般式配方时把圆心写成$(\\frac D2,\\frac E2)$，漏掉负号。',
         '写切线方程时没有先确认切点在圆上，或把半径方向当成切线方向。',
         '判断直线与圆的位置关系时用错距离公式，忘记先把直线化成一般式。',
       ],
-      sourceIds: ['esat-maths2-spec', 'openstax-circles', 'openstax-coordinate', 'uat-annual-archive'],
+      sourceIds: [
+        'esat-maths2-spec',
+        'openstax-circles',
+        'openstax-coordinate',
+        'uat-annual-archive',
+      ],
       visual: 'maths2-coordinate',
       examFocus: {
         goal: '先配方读出圆心与半径，再由切线与弦心距建立直角三角形。',
@@ -232,30 +220,20 @@ export const esatMath2Coordinate: KnowledgeLesson = {
     {
       code: '120303',
       title: '圆性质',
-      summary: '切线、弦与圆心角把圆拆成直角三角形和扇形，面积题先分解再相减。',
-      paragraphs: [
-        '弦与半径的关系是圆性质题的骨架。过圆心作弦的垂线会平分这条弦（垂径定理），于是圆心到弦的距离$d$、半弦长$l$与半径$r$构成直角三角形：$r^2=d^2+l^2$。同一条弧所对的圆心角是圆周角的两倍；同弧或等弧所对的圆周角相等。直径所对的圆周角是$90^\\circ$。',
-        '切线有两条常用性质：切线与过切点的半径垂直；从圆外一点引两条切线，两条切线长相等。设外点到圆心距离为$PC$、半径为$r$，则切线长$PT$满足$PT^2=PC^2-r^2$，因为$\\triangle PTC$在$T$处是直角三角形。外点到圆的最短距离是$PC-r$，最长距离是$PC+r$，注意“切线长”和“最短距离”不是同一个量。',
-        '与圆有关的面积先分解：扇形面积$\\frac12r^2\\theta$（$\\theta$用弧度），圆心角为$\\theta$的三角形面积$\\frac12r^2\\sin\\theta$，弓形面积等于扇形减三角形。等边三角形内接于半径为$R$的圆时，每条边所对的圆心角是$120^\\circ$，圆面积减三角形面积就是三个弓形面积之和。组合图形先用对称性拆成相同的小块，再统一乘倍数或相减。',
-      ],
-      rules: [
+      summary: math2CoordinateMethods['120303'].summary,
+      paragraphs: [math2CoordinateMethods['120303'].intro],
+      rules: math2CoordinateMethods['120303'].blocks.flatMap((block) => [
         {
-          title: '垂径定理',
-          text: '圆心到弦的垂线平分弦；$r^2=d^2+l^2$，$d$为弦心距，$l$为半弦长。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '切线长公式',
-          text: '$PT^2=PC^2-r^2$；切线垂直于半径，外点到圆的最短距离是$PC-r$。',
-        },
-        {
-          title: '圆心角是圆周角的两倍',
-          text: '同弧所对的圆心角等于圆周角的两倍；同弧圆周角相等，直径所对圆周角为$90^\\circ$。',
-        },
-        {
-          title: '弧长与扇形面积用弧度',
-          text: '$s=r\\theta$，$A_{\\text{sector}}=\\frac12r^2\\theta$；弓形$=A_{\\text{sector}}-\\frac12r^2\\sin\\theta$。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: math2CoordinateMethods['120303'].memory,
       pitfalls: [
         '把切线长$PT$直接当成外点到圆的最短距离，忘记再减去半径。',
         '扇形面积公式漏掉$\\frac12$，或角度制没有先换弧度就代入。',

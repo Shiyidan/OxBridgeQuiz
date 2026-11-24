@@ -1,12 +1,13 @@
 // 物理力学复习讲义：覆盖P3全部细项，按149道年度物理题正文归纳相关考法。
 import type { KnowledgeLesson } from './types'
+import { mechanicsMethods } from './mechanicsMethods'
 
 export const esatMechanics: KnowledgeLesson = {
   code: '130300',
   title: 'Mechanics · 力学',
   subtitle: '从运动图像走向受力、动量和能量',
   intro:
-    '每题先确定对象、方向和过程边界，再选择最短的求解关系。用互动图检验符号与比例，用真实题源练习把不同关系连接起来。',
+    '先确定对象、方向和过程，再选择运动学、受力、动量或能量关系。基础定义简记，重点辨清图像含义、公式条件和守恒的适用范围。',
   memory: [
     '运动图读斜率和面积；受力图只画所选对象受到的力。',
     '合力决定加速度；守恒先问系统是否满足条件。',
@@ -16,30 +17,20 @@ export const esatMechanics: KnowledgeLesson = {
     {
       code: '130301',
       title: '运动学',
-      summary: '先选正方向，再把图像的斜率、面积与运动过程对应起来。',
-      paragraphs: [
-        '速率 speed 只描述快慢，速度 velocity 还包含方向；路程是走过的总长度，位移是起点到终点的有向变化。绕一圈回到原处，位移为零，路程却不为零。质量、时间、能量是标量，位移、速度、加速度和力是矢量。',
-        '加速度描述速度怎样改变，并不等于“越来越快”。取向右为正，向左运动但向右加速时，物体会先减速；速度和加速度同号才表示速率增大。不要把负加速度一律叫减速。',
-        '读图前写下两轴及单位。位移—时间图斜率是速度，路程—时间图斜率是速率；速度—时间图斜率是加速度、有符号面积是位移，面积的绝对值逐段相加才是路程。速率—时间图不能出现负速率。',
-      ],
-      rules: [
+      summary: mechanicsMethods['130301'].summary,
+      paragraphs: [mechanicsMethods['130301'].intro],
+      rules: mechanicsMethods['130301'].blocks.flatMap((block) => [
         {
-          title: '平均量必须从整段定义出发',
-          text: '平均速率 $=\\dfrac{\\text{总路程}}{\\text{总时间}}$，平均速度 $=\\dfrac{\\text{总位移}}{\\text{总时间}}$。只有两段时间相同，才能直接平均两段速率；等路程往返要分别求时间。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '匀加速直线运动',
-          text: '$a=(v-u)/t$；加速度恒定时，$s=(u+v)t/2$、$s=ut+\\frac12at^2$、$v^2-u^2=2as$。最后一个式子可避开未知时间；各量必须使用同一正方向。非匀加速不能直接套这些式子。',
-        },
-        {
-          title: '图像分段，比背整体形状可靠',
-          text: '把三角形、矩形、梯形分开求面积；跨过时间轴时保留正负。曲线在某时刻的切线斜率给瞬时速度或加速度；两点连线只能给该区间的平均值。',
-        },
-        {
-          title: '单位与数量级',
-          text: '先将 $\\mathrm{km}$ 换成 $\\mathrm m$、分钟换成秒；$1\\,\\mathrm{m\\,s^{-1}}=3.6\\,\\mathrm{km\\,h^{-1}}$。速度图面积的单位是 $\\mathrm{m\\,s^{-1}}\\times\\mathrm s=\\mathrm m$。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: mechanicsMethods['130301'].memory,
       pitfalls: [
         '把两段不同时间的速度直接算术平均。',
         '负速度段的面积直接抵消后，当作总路程。',
@@ -118,30 +109,20 @@ export const esatMechanics: KnowledgeLesson = {
     {
       code: '130302',
       title: '力与受力分析',
-      summary: '先确定研究对象，把真正作用在它上面的力画全，再求合力。',
-      paragraphs: [
-        '力是物体之间的相互作用。重力、磁力、静电力可非接触作用；支持力、摩擦力、张力、阻力、浮力、推力和升力来自接触或与流体的相互作用。受力图上的每一根箭头都要能回答“谁对谁施力”。',
-        '支持力垂直接触面，绳的张力沿绳拉物体，摩擦力反对接触面间的相对运动或其趋势，阻力通常反对物体相对流体的运动。静止物体也可能有摩擦力；向前运动的汽车受到的地面静摩擦力可以向前。',
-        '受力图只画一个研究对象所受的力。把两物体看成整体时，彼此之间的相互作用属于内力，不应再计入整体外力；拆开研究时，接触力或张力必须补回来。',
-      ],
-      rules: [
+      summary: mechanicsMethods['130302'].summary,
+      paragraphs: [mechanicsMethods['130302'].intro],
+      rules: mechanicsMethods['130302'].blocks.flatMap((block) => [
         {
-          title: '一维合力：带方向相加',
-          text: '取向上为正时，$F_{\\rm net}=T+U-mg$；取向下为正时符号全部反过来。合力为零只表示加速度为零，物体可能正在匀速移动。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '大小由条件决定',
-          text: '重力随质量和重力场强度变化；阻力受相对流速、迎风面积、形状和流体性质影响；摩擦与接触面性质及挤压力有关；张力和支持力由受力平衡或运动条件求出，不固定等于重量。',
-        },
-        {
-          title: '浮力与流体压力',
-          text: '静止流体对物体各表面的压力产生向上的合力，大小等于排开流体的重量：$U=\\rho_{\\rm fluid}gV_{\\rm displaced}$。完全浸没才可用物体总体积；漂浮时 $U=mg$。',
-        },
-        {
-          title: '别多画“运动力”',
-          text: '惯性不是另一股向前的力。物体被抛出后若忽略空气阻力，只受重力，不再受手的推力；受力图也不把速度箭头当成力。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: mechanicsMethods['130302'].memory,
       pitfalls: [
         '把向下运动误判为合力一定向下。',
         '在同一受力图中同时画物体所受的力与它施给外界的反作用力。',
@@ -218,30 +199,20 @@ export const esatMechanics: KnowledgeLesson = {
     {
       code: '130303',
       title: '力与伸长',
-      summary: '伸长不是总长；图下的面积给能量，卸载后能否恢复才判断弹性。',
-      paragraphs: [
-        '弹性形变 elastic deformation 在卸去外力后可以恢复；非弹性或塑性形变会留下永久改变。物体可以产生可恢复的非线性形变，所以“仍有弹性”与“仍满足胡克定律”不能画等号。',
-        '胡克定律描述比例限度内的力与伸长。伸长是现长度减自然长度；压缩问题可用压缩量的大小。弹簧常量越大，在同一力下形变越小。',
-        '加载时施力并非从头到尾都等于最大值，因此储能不能直接用末端力乘伸长。力—伸长图下的面积记录这段形变过程输入的功；线性弹簧对应三角形。',
-      ],
-      rules: [
+      summary: mechanicsMethods['130303'].summary,
+      paragraphs: [mechanicsMethods['130303'].intro],
+      rules: mechanicsMethods['130303'].blocks.flatMap((block) => [
         {
-          title: '胡克定律与单位',
-          text: '在比例限度内 $F=kx$，$k$ 的单位是 $\\mathrm{N\\,m^{-1}}$。$x=l-l_0$；例如20 cm拉到25 cm，伸长为0.05 m，不是0.25 m。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '两个限度不要混用',
-          text: '比例限度是力—伸长图开始偏离过原点直线的位置；弹性限度是卸载后不再完全恢复的边界。它们概念不同，不能仅因曲线弯曲就断言已经永久变形。',
-        },
-        {
-          title: '储能是面积',
-          text: '线性弹簧从自然状态加载至 $x$，$E_{\\rm elastic}=\\frac12Fx=\\frac12kx^2$。同一弹簧伸长变2倍，力变2倍，储能变4倍；非线性图应求真实面积。',
-        },
-        {
-          title: '竖直运动要同时算重力势能',
-          text: '从拉伸位置向上回缩时，弹性势能释放的一部分使重力势能增加，剩余才成为动能。用 $E_{\\rm initial}=E_{\\rm final}$，不能把全部 $\\frac12kx^2$ 都给动能。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: mechanicsMethods['130303'].memory,
       pitfalls: [
         '使用弹簧总长代替伸长。',
         '力—伸长图与能量—伸长平方图混淆：后者斜率是k/2。',
@@ -309,30 +280,20 @@ export const esatMechanics: KnowledgeLesson = {
     {
       code: '130304',
       title: '牛顿运动定律',
-      summary: '合力改变运动状态；质量反映惯性，第三定律的两股力作用在不同物体。',
-      paragraphs: [
-        '第一定律指出：合外力为零时，物体保持静止或匀速直线运动。维持运动不需要持续的合力；日常推车要持续施力，是因为还存在阻力。质量越大，改变其速度越困难，这称为惯性。',
-        '第二定律把受力图接到运动学。先求合力，再除以所选研究对象的质量；发动机推力、绳张力或重力通常只是合力的一部分。已知最初匀速时，可以利用原来的驱动力与阻力平衡，直接计算后来的力增量。',
-        '第三定律作用力与反作用力同种、等大、反向、同时存在，并作用在两个不同物体上。书对桌面的压力与桌面对书的支持力是一对；书受的重力和支持力不是一对。',
-      ],
-      rules: [
+      summary: mechanicsMethods['130304'].summary,
+      paragraphs: [mechanicsMethods['130304'].intro],
+      rules: mechanicsMethods['130304'].blocks.flatMap((block) => [
         {
-          title: '第二定律的方向与对象',
-          text: '质量恒定的物体满足 $F_{\\rm net}=ma$。质量用kg，加速度用 $\\mathrm{m\\,s^{-2}}$，力用N。加速度沿合力方向，不一定沿速度方向。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '整体法消去内力',
-          text: '连接物体共同加速时，对整体可写 $F_{\\rm external}=(m_1+m_2)a$。内部相互作用相消；若随后求连接绳张力，必须单独画其中一个物体的受力图。',
-        },
-        {
-          title: '平衡力与第三定律力对',
-          text: '平衡力在同一物体上相加为零；第三定律力在不同物体上，不能在单个物体的方程里抵消。两物体质量不同，虽然相互作用力等大，加速度大小却可以不同。',
-        },
-        {
-          title: '恒力不一定给恒加速度',
-          text: '若质量变化，如燃料匀速消耗且推力已给定的理想火箭，$a=F/m(t)$ 随质量降低而增大。把线性变化的质量放在分母，得到的加速度一般不线性变化。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: mechanicsMethods['130304'].memory,
       pitfalls: [
         '把驱动力直接代入ma，忘记阻力。',
         '认为物体还在向前走，所以合力不可能向后。',
@@ -414,30 +375,20 @@ export const esatMechanics: KnowledgeLesson = {
     {
       code: '130305',
       title: '质量与重量',
-      summary: '质量不随地点改变，重量取决于g；终端速度来自力平衡。',
-      paragraphs: [
-        '质量 mass 用kg表示，与惯性有关；重量 weight 是重力，用N表示。同一物体从地球带到月球，质量不变，重量因当地重力场较弱而变小。题目若直接给当地重量，先用重量除质量求当地g，不要默认地球数值。',
-        '自由落体指只有重力作用的运动。忽略空气阻力时，同地点不同质量的物体有相同加速度g；空气中轻薄与紧实物体下落不同，通常是阻力相对重量的比例不同。',
-        '物体刚由静止下落时阻力较小，随后随相对空气速度增大而增大。当阻力与重量平衡（必要时还包括浮力），加速度降为零，但下落速度并非零，这就是终端速度。',
-      ],
-      rules: [
+      summary: mechanicsMethods['130305'].summary,
+      paragraphs: [mechanicsMethods['130305'].intro],
+      rules: mechanicsMethods['130305'].blocks.flatMap((block) => [
         {
-          title: '重量与当地场强',
-          text: '$W=mg$，$g$ 单位为 $\\mathrm{N\\,kg^{-1}}$，也等价于 $\\mathrm{m\\,s^{-2}}$。按题面取值；常见近似为地球 $10\\,\\mathrm{N\\,kg^{-1}}$。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '自由落体',
-          text: '由静止下落高度 $h$ 且 $g$ 近似恒定，$v^2=2gh$。若用重量表达，则 $g=W/m$、$v=\\sqrt{2Wh/m}$；高度是竖直落差。',
-        },
-        {
-          title: '阻力与开伞过程',
-          text: '阻力依赖相对流速、横截面积、形状和空气性质。开伞瞬间阻力可能大于重量，于是向下运动却向上加速、速率减小；后来在较低终端速度重新平衡。',
-        },
-        {
-          title: '终端速度仍在传递能量',
-          text: '匀速下落时动能不变，重力势能仍以 $mgv$ 的速率减少，并转为物体和周围介质的内能等。零合力并不等于每一股力都不做功。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: mechanicsMethods['130305'].memory,
       pitfalls: [
         '把质量的kg和重量的N混写。',
         '把终端速度理解成落地停止。',
@@ -511,30 +462,20 @@ export const esatMechanics: KnowledgeLesson = {
     {
       code: '130306',
       title: '动量',
-      summary: '选定正方向，在系统边界内守恒；反弹时速度的符号不能丢。',
-      paragraphs: [
-        '动量 momentum 是质量与速度的乘积，有方向。动能由速率平方决定、没有方向，因此两个相向运动物体的动量可能抵消，动能却不会相互抵消。',
-        '动量守恒适用于系统受到的合外力为零，或在短碰撞期间外力冲量可忽略。内部碰撞力不需要知道，因为相互作用力的冲量在整体中相消。黏合后共速，并不意味着动能也守恒。',
-        '冲量等于动量变化。反弹时把末速度和初速度带符号相减；相同速率反向运动时，动量变化大小为2mv，不是零。延长停止时间可降低给定动量变化下的平均力。',
-      ],
-      rules: [
+      summary: mechanicsMethods['130306'].summary,
+      paragraphs: [mechanicsMethods['130306'].intro],
+      rules: mechanicsMethods['130306'].blocks.flatMap((block) => [
         {
-          title: '一维动量守恒',
-          text: '$p=mv$，单位 $\\mathrm{kg\\,m\\,s^{-1}}$；$m_1u_1+m_2u_2=m_1v_1+m_2v_2$。黏合后 $v_1=v_2=v$，但碰撞前相向速度必须异号。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '平均合力与冲量',
-          text: '$F_{\\rm net,avg}=\\Delta p/\\Delta t$；$\\Delta p=m(v-u)$（质量恒定）。$\\mathrm{N\\,s}$ 与动量单位等价；力—时间图面积给冲量。',
-        },
-        {
-          title: '接触力不一定等于动量变化率',
-          text: '球沿竖直方向在水平地面或球拍上反弹时，若向上为正，$F_{\\rm contact}-mg=\\Delta p/\\Delta t$。冲量公式先给合力；要的是接触力必须补回重力。',
-        },
-        {
-          title: '动量与动能配合',
-          text: '单物体 $E_k=p^2/(2m)$。两物体分离或碰撞先用动量约束速度，再算动能；机械能减少部分成为内能、声等，不是能量消失。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: mechanicsMethods['130306'].memory,
       pitfalls: [
         '相向速度都写正数，导致总动量被高估。',
         '碰撞黏合题误套动能守恒。',
@@ -598,34 +539,20 @@ export const esatMechanics: KnowledgeLesson = {
     {
       code: '130307',
       title: '功、能量与效率',
-      summary: '画出能量从哪里来、到哪里去；输入功不一定全部变成动能。',
-      paragraphs: [
-        '做功是能量转移的一种方式。恒力沿位移方向作用时，力乘位移给做功；只有沿力方向的位移分量起作用。垂直于运动方向的力不做功，阻力通常对物体做负功。',
-        '机械能由动能、重力势能和弹性势能等组成。没有摩擦或其他能量转移时机械能守恒；存在阻力时，总能量仍守恒，只是部分机械能转为内能、声等。不要把“损失”理解为能量被销毁。',
-        '功率描述能量转移快慢，效率描述输入中有用部分的比例。电机效率与整套提升系统效率可能不同；若问题要系统总损失，直接比较系统总输入与最终有用输出最稳妥。',
-      ],
-      rules: [
+      summary: mechanicsMethods['130307'].summary,
+      paragraphs: [mechanicsMethods['130307'].intro],
+      rules: mechanicsMethods['130307'].blocks.flatMap((block) => [
         {
-          title: '功与动能变化',
-          text: '恒力 $W=Fs$（s取沿力方向的位移），合力做功 $W_{\\rm net}=\\Delta E_k$；$E_k=\\frac12mv^2$。速度加倍时同质量动能变4倍。',
+          title: block.title,
+          text: [block.formula, ...(block.paragraphs ?? []), block.note].filter(Boolean).join(' '),
         },
-        {
-          title: '重力势能只看高度差',
-          text: '近地表 $E_p=mgh$，$h$ 是竖直高度差，不是斜坡长度。上坡做功若还有摩擦，应在 $mgh$ 之外加上克服摩擦所需能量。',
-        },
-        {
-          title: '功率与效率',
-          text: '$P=E/t$，$1\\,\\mathrm W=1\\,\\mathrm{J\\,s^{-1}}$；$\\eta=E_{\\rm useful}/E_{\\rm input}=P_{\\rm useful}/P_{\\rm input}$（对应同一过程）。百分数结果乘100%，不把损失率误作效率。',
-        },
-        {
-          title: '先用动量，再算碰撞损失',
-          text: '黏合碰撞先由动量守恒求末速度，再求 $E_{\\rm loss}=E_{k,\\rm before}-E_{k,\\rm after}$。初动能要逐个求和，不能先把速度或动量抵消后再算。',
-        },
-        {
-          title: '全过程账本',
-          text: '输入能量 + 初始储能 = 有用输出 + 最终储能 + 传向环境的能量。下落有初速度时必须保留初动能；弹簧竖直回缩还要计重力势能变化。',
-        },
-      ],
+        ...(block.points ?? []),
+        ...(block.table?.rows.map((row) => ({
+          title: row[0] ?? '',
+          text: row.slice(1).join('；'),
+        })) ?? []),
+      ]),
+      memory: mechanicsMethods['130307'].memory,
       pitfalls: [
         '用末速度乘时间作为匀加速路程。',
         '将推力做功等同于合力做功，漏掉阻力耗散。',

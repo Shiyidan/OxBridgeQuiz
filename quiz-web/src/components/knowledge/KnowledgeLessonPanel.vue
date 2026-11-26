@@ -19,6 +19,11 @@
               </div>
             </div>
             <div class="knowledge-actions">
+              <LearningLightButton
+                :active="completedCodes?.includes(section.code) ?? false"
+                :disabled="completionDisabled || completionLockedCodes?.includes(section.code)" :busy="completionBusy"
+                :label="section.title" @toggle="emit('light', section.code)"
+              />
               <details v-if="!lesson.partial || lesson.sections.length > 1" ref="outlineRef" class="knowledge-outline">
                 <summary ref="outlineToggleRef" class="knowledge-outline__toggle">
                   <List aria-hidden="true" /><span>本节目录</span>
@@ -204,6 +209,7 @@ import {
   Warning,
 } from '@element-plus/icons-vue'
 import AppButton from '@/components/AppButton.vue'
+import LearningLightButton from './LearningLightButton.vue'
 import KnowledgeVisual from './KnowledgeVisual.vue'
 import KnowledgeText from './KnowledgeText.vue'
 import ExamKnowledgeContent from './ExamKnowledgeContent.vue'
@@ -214,12 +220,17 @@ const props = defineProps<{
   lesson: KnowledgeLesson
   selectedCode: string
   examType: 'ESAT' | 'TMUA'
+  completedCodes?: string[]
+  completionDisabled?: boolean
+  completionLockedCodes?: string[]
+  completionBusy?: boolean
 }>()
 type LearningStage = 'concept' | 'example' | 'check'
 
 const emit = defineEmits<{
   select: [code: string]
   practise: []
+  light: [code: string]
 }>()
 const activeTab = ref<LearningStage>('concept')
 const examStage = ref<KnowledgeExamStage>('summary')
@@ -303,6 +314,7 @@ function moveSection(offset: number): void {
 }
 .knowledge-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
 }

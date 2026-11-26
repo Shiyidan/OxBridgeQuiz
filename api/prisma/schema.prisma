@@ -343,6 +343,7 @@ model User {
   questionFavorites          QuestionFavorite[]
   favoriteCategories         FavoriteCategory[]
   learningActivities         LearningActivity[]
+  learningCompletions        LearningCompletion[]
   websiteVisits              WebsiteVisitDaily[]          @relation("WebsiteVisitUsers")
 
   @@index([registrationLocationNextCheckAt, createdAt])
@@ -360,6 +361,20 @@ model LearningActivity {
 
   @@unique([userId, resourceKey, hourStart])
   @@index([userId, occurredAt])
+}
+
+// 用户主动点亮的知识点；章节状态由其叶子汇总，取消不会删除操作历史。
+model LearningCompletion {
+  id          String   @id @default(uuid()) @db.VarChar(191)
+  userId      String   @db.VarChar(191)
+  examType    String   @db.VarChar(32)
+  code        String   @db.VarChar(100)
+  completedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, examType, code])
+  @@index([userId, examType])
 }
 
 // 收藏独立于答卷；同一用户对同一道官方题目只保留一条收藏。

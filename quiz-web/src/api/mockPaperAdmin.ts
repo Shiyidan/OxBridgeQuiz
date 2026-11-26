@@ -1,6 +1,27 @@
 // 模考试卷库 API：定义后台套卷列表、Excel 导入、校验详情和草稿替换操作。
 import { callApi } from '@/utils/request'
 import type { Question } from '@/types'
+import type { DiagnosticQuestionDocument } from '@/api/papers'
+
+export interface MockPaperExportDocument {
+  format: 'paper-content-solution-meta-v1'
+  paper: {
+    title: string
+    code: string | null
+    examType: MockPaperExamType
+    paperType: 'mockPaper'
+    exportScope: 'set' | 'module'
+    totalQuestions: number
+    moduleConfig: Array<{
+      code: string
+      order: number
+      durationSeconds: number
+      questionCount: number
+    }>
+    [key: string]: unknown
+  }
+  questions: DiagnosticQuestionDocument[]
+}
 
 export interface MockPaperModuleReview {
   questions: Question[]
@@ -234,6 +255,19 @@ export function getMockPaperSetDetail(id: string) {
   return callApi<MockPaperSetDetail>({
     method: 'GET',
     url: `/mock-paper-sets/${id}`,
+  })
+}
+
+// 套卷导出包含当前全部模块的完整题目与解析，不依赖运行 Paper 是否已创建。
+export function getMockPaperSetDocument(id: string) {
+  return callApi<MockPaperExportDocument>({ method: 'GET', url: `/mock-paper-sets/${id}/document` })
+}
+
+// 单项导出只返回选定 Module/Paper，保持独立单项的编号和题序。
+export function getMockPaperModuleDocument(moduleId: string) {
+  return callApi<MockPaperExportDocument>({
+    method: 'GET',
+    url: `/mock-paper-sets/modules/${moduleId}/document`,
   })
 }
 

@@ -48,8 +48,8 @@ function validateQuestion(document: QuestionDocument, examType: string, index: n
   return q
 }
 
-// 年度文档只接受确认后的三分组结构，科目与题号由服务端交叉校验。
-export function validateAnnualDocument(raw: unknown): AnnualDocument {
+// 草稿可逐科收集 ESAT 题目；正式年度须支持数学 1 加两科，题量按实际内容统计。
+export function validateAnnualDocument(raw: unknown, options: { allowPartialEsatDraft?: boolean } = {}): AnnualDocument {
   try {
     const input = questionObject(raw, '年度文档')
     if (input.format !== ANNUAL_DOCUMENT_FORMAT) throw new Error(`format 必须为 ${ANNUAL_DOCUMENT_FORMAT}`)
@@ -59,25 +59,29 @@ export function validateAnnualDocument(raw: unknown): AnnualDocument {
     if (typeof p.title !== 'string' || !p.title.trim()) throw new Error('paper.title 不能为空')
     if (!Array.isArray(input.questions) || !input.questions.length) throw new Error('questions 必须是非空数组')
     const requiredCodes: readonly string[] = p.examType === EXAM_TYPE.ESAT ? ESAT_MODULES : TMUA_PAPERS
-    if (!Array.isArray(p.moduleConfig) || p.moduleConfig.length !== requiredCodes.length) throw new Error(p.examType === EXAM_TYPE.ESAT ? 'ESAT 年度必须完整提供五科' : 'TMUA 年度必须完整提供 Paper 1 和 Paper 2')
+    const partialDraft = p.examType === EXAM_TYPE.ESAT && options.allowPartialEsatDraft === true
+    const minimumModules = p.examType === EXAM_TYPE.ESAT ? (partialDraft ? 1 : 3) : requiredCodes.length
+    if (!Array.isArray(p.moduleConfig) || p.moduleConfig.length < minimumModules || p.moduleConfig.length > requiredCodes.length) throw new Error(partialDraft ? 'ESAT 年度草稿必须提供一至五个科目' : p.examType === EXAM_TYPE.ESAT ? 'ESAT 年度须包含数学 1 及至少另外两个科目' : 'TMUA 年度必须完整提供 Paper 1 和 Paper 2')
     const configurations = new Map<string, any>(p.moduleConfig.map((module: any) => [module?.code, module]))
-    if (configurations.size !== requiredCodes.length || requiredCodes.some((code) => !configurations.has(code))) throw new Error('模块代码缺失或重复')
+    if (configurations.size !== p.moduleConfig.length || [...configurations.keys()].some((code) => !requiredCodes.includes(code))) throw new Error('模块代码缺失、重复或无效')
+    if (p.examType === EXAM_TYPE.ESAT && !partialDraft && !configurations.has('maths1')) throw new Error('ESAT 年度必须包含 Mathematics 1')
+    const documentCodes = requiredCodes.filter((code) => configurations.has(code))
     const questions = input.questions as QuestionDocument[]
     const normalized = questions.map((question, index) => validateQuestion(question, p.examType, index))
     if (new Set(questions.map((question) => question.code)).size !== questions.length) throw new Error('题目 code 在年度内不能重复')
-    const modules = requiredCodes.map((code, index): AnnualModule => {
+    const modules = documentCodes.map((code, index): AnnualModule => {
       const module = configurations.get(code)!
       const rows = normalized.filter((q) => q.module_code === code)
       if (!rows.length) throw new Error(`${code} 没有题目`)
       if (!Number.isInteger(module.durationSeconds) || module.durationSeconds <= 0) throw new Error(`${code} 时长必须是正整数秒`)
-      if (p.examType === EXAM_TYPE.TMUA && (rows.length !== 20 || module.durationSeconds !== 4500)) throw new Error('TMUA 每卷必须 20 题、75 分钟')
+      if (p.examType === EXAM_TYPE.TMUA && module.durationSeconds !== 4500) throw new Error('TMUA 每卷必须独立计时 75 分钟')
       if (module.questionCount !== undefined && module.questionCount !== rows.length) throw new Error(`${code} 声明题数与实际题目不符`)
       if (typeof module.subject !== 'string' || !module.subject.trim()) throw new Error(`${code} 缺少科目名称`)
       const numbers = rows.map((row) => row.module_question_number).sort((a, b) => a - b)
       if (numbers.some((number, i) => number !== i + 1)) throw new Error(`${code} 科目内题号必须连续且从 1 开始`)
       return { code, subject: module.subject, subjectCode: module.subjectCode == null ? null : String(module.subjectCode), order: index + 1, durationSeconds: module.durationSeconds, questionCount: rows.length }
     })
-    if (normalized.some((q) => !requiredCodes.includes(q.module_code))) throw new Error('存在未归属于年度科目的题目')
+    if (normalized.some((q) => !documentCodes.includes(q.module_code))) throw new Error('存在未归属于年度科目的题目')
     const accessTier = p.accessTier ?? PAPER_ACCESS_TIER.MEMBER
     if (![PAPER_ACCESS_TIER.FREE, PAPER_ACCESS_TIER.MEMBER].includes(accessTier)) throw new Error('访问级别必须为 free 或 member')
     const orderedQuestions = modules.flatMap((module) => questions.filter((question) => question.meta.moduleCode === module.code).sort((a, b) => a.meta.moduleQuestionNumber - b.meta.moduleQuestionNumber))
@@ -114,7 +118,7 @@ export function selectAnnualModules(examType: string, rawConfig: unknown, select
 
 // 内容更新始终建立新年度版本，不覆盖任何旧题；发布时再切换公开入口。
 export async function importAnnualDocument(raw: unknown) {
-  const document = validateAnnualDocument(raw)
+  const document = validateAnnualDocument(raw, { allowPartialEsatDraft: true })
   return prisma.$transaction(async (tx) => {
     const id = createNumericId()
     const paper = await tx.paper.create({ data: { id, ...document.paper, paperType: PAPER_TYPE.REAL_PAPER, moduleConfig: document.paper.moduleConfig as unknown as Prisma.InputJsonValue, status: 'draft' } })

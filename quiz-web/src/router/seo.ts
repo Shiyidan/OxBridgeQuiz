@@ -47,6 +47,7 @@ const publicSeoByPath: Record<string, PublicSeoMetadata> = {
 }
 
 const privatePageTitles: Array<{ prefix: string; title: string }> = [
+  { prefix: '/knowledge-graph', title: `知识图谱｜${SITE_NAME}` },
   { prefix: '/login', title: `登录｜${SITE_NAME}` },
   { prefix: '/register', title: `注册｜${SITE_NAME}` },
   { prefix: '/profile', title: `个人中心｜${SITE_NAME}` },

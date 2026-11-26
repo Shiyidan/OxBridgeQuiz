@@ -8,6 +8,7 @@ export const OPERATION_AUDIT_MODULE_OPTIONS: OperationAuditOption[] = [
   { label: '认证安全', value: 'auth' },
   { label: '个人资料', value: 'profile' },
   { label: '考试作答', value: 'exam' },
+  { label: '学习平台', value: 'learning' },
   { label: '支付订阅', value: 'payment' },
   { label: '用户管理', value: 'user' },
   { label: '试卷题库', value: 'paper' },
@@ -18,6 +19,7 @@ export const OPERATION_AUDIT_MODULE_OPTIONS: OperationAuditOption[] = [
 ]
 
 export const OPERATION_AUDIT_ACTION_LABELS: Record<string, string> = {
+  'learning.light_up': '点亮学习内容',
   'promotion.oral.open': '打开英语口语介绍',
   'profile.update': '修改个人资料',
   'profile.exam_preferences.update': '修改备考偏好',

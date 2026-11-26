@@ -33,6 +33,7 @@ import { createAsyncRouter } from '../utils/asyncRouter.js'
 import { fail, success } from '../utils/response.js'
 import { parseJsonArray } from '../utils/jsonField.js'
 import { formatQuestionRow } from '../utils/questionSync.js'
+import { exportMockPaperSetDocument, exportMockPaperModuleDocument, MockPaperExportError } from '../services/mockPaperExport.js'
 import { parsePositiveInt } from './papers-shared.js'
 import { formatMockPaperModuleTitle } from '../utils/mockPaperTitle.js'
 import { buildMockPaperNumber, parseMockPaperNumber, parseMockPaperSequenceNo } from '../utils/mockPaperNumber.js'
@@ -57,6 +58,24 @@ const workbookUpload = multer({
 })
 
 mockPaperSetRouter.use(requireAuth, requireAdmin)
+
+// 套卷 JSON 导出
+mockPaperSetRouter.get('/:id/document', async (req, res) => {
+  try { res.json(success(await exportMockPaperSetDocument(req.params.id))) }
+  catch (error) {
+    if (error instanceof MockPaperExportError) { res.status(error.status).json(fail(error.message, error.code)); return }
+    throw error
+  }
+})
+
+// 单项 JSON 导出
+mockPaperSetRouter.get('/modules/:moduleId/document', async (req, res) => {
+  try { res.json(success(await exportMockPaperModuleDocument(req.params.moduleId))) }
+  catch (error) {
+    if (error instanceof MockPaperExportError) { res.status(error.status).json(fail(error.message, error.code)); return }
+    throw error
+  }
+})
 
 // Multer/Busboy 可能把 UTF-8 文件名按 Latin-1 解析；仅在字节可安全还原时修复中文名称。
 function decodeWorkbookFileName(value: string): string {

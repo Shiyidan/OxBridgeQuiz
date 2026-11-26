@@ -169,6 +169,15 @@
                 {{ formatDateTime(row.updatedAt) }}
               </span>
               <div class="card-actions">
+                <el-button
+                  link
+                  type="primary"
+                  :loading="exportingKey === `set:${row.id}`"
+                  :disabled="Boolean(exportingKey)"
+                  @click="exportDocument('set', row.id)"
+                >
+                  导出
+                </el-button>
                 <el-button v-if="row.deletable" link type="danger" @click="confirmDelete(row)">
                   删除
                 </el-button>
@@ -266,10 +275,19 @@
               </span>
             </template>
           </el-table-column>
-          <el-table-column label="操作" min-width="104" align="center" fixed="right">
+          <el-table-column label="操作" min-width="166" align="center" fixed="right">
             <template #default="{ row }">
               <el-button link type="primary" @click="openModuleQuestions(row)">
                 查看题目
+              </el-button>
+              <el-button
+                link
+                type="primary"
+                :loading="exportingKey === `module:${row.id}`"
+                :disabled="Boolean(exportingKey)"
+                @click="exportDocument('module', row.id)"
+              >
+                导出
               </el-button>
             </template>
           </el-table-column>
@@ -558,6 +576,12 @@
                 </el-select>
               </div>
               <div class="detail-actions">
+                <el-button
+                  :loading="Boolean(exportingKey)"
+                  :disabled="Boolean(exportingKey) || detailLoading"
+                  @click="exportCurrentDocument"
+                  >导出 JSON</el-button
+                >
                 <el-button
                   :loading="savingMeta"
                   :disabled="
@@ -937,9 +961,11 @@ import {
   getMockPaperCompositionCandidates,
   getMockPaperModuleCandidates,
   getMockPaperModuleDetail,
+  getMockPaperModuleDocument,
   getMockPaperModuleReview,
   getMockPaperModules,
   getMockPaperSetDetail,
+  getMockPaperSetDocument,
   getMockPaperSets,
   getMockPaperWorkbookUploadHistory,
   importMockPaperWorkbook,
@@ -1038,6 +1064,49 @@ const uploadHistoryLoading = ref(false)
 const uploadHistoryRows = ref<MockPaperWorkbookUploadItem[]>([])
 const uploadHistoryPagination = reactive({ page: 1, pageSize: 10, total: 0 })
 const downloadingUploadId = ref('')
+const exportingKey = ref('')
+
+// 详情导出沿用当前查看范围，单项详情不展开所属容器中的其他试卷。
+async function exportCurrentDocument(): Promise<void> {
+  if (!detail.value) return
+  const scope = detail.value.singleModuleDetail ? 'module' : 'set'
+  const id = scope === 'module' ? detail.value.modules[0]?.id : detail.value.id
+  if (id) await exportDocument(scope, id)
+}
+
+// 下载服务端当前保存的完整文档；不使用分页摘要或尚未保存的标题编辑值。
+async function exportDocument(scope: 'set' | 'module', id: string): Promise<void> {
+  if (exportingKey.value) return
+  exportingKey.value = `${scope}:${id}`
+  let url: string | undefined
+  try {
+    const document =
+      scope === 'set' ? await getMockPaperSetDocument(id) : await getMockPaperModuleDocument(id)
+    url = URL.createObjectURL(
+      new Blob([JSON.stringify(document, null, 2)], { type: 'application/json;charset=utf-8' }),
+    )
+    const anchor = window.document.createElement('a')
+    anchor.href = url
+    const name = `${document.paper.code || document.paper.examType}_${document.paper.title}`
+      .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_')
+      .slice(0, 180)
+    anchor.download = `${name}.json`
+    window.document.body.appendChild(anchor)
+    try {
+      anchor.click()
+    } finally {
+      anchor.remove()
+    }
+  } catch {
+    // 请求层统一展示缺题或权限错误，失败时保留当前列表与详情。
+  } finally {
+    if (url) {
+      const downloadUrl = url
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000)
+    }
+    exportingKey.value = ''
+  }
+}
 
 const composeDialogVisible = ref(false)
 const composeExamType = ref<MockPaperExamType>('ESAT')

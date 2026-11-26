@@ -434,8 +434,7 @@ function readStandardMetadata(raw: unknown): PaperMetadata | null {
         metadata.examType !== 'TMUA' ||
         (section?.code === (index === 0 ? 'paper1' : 'paper2') && section?.order === index + 1)
       const sectionQuestionCount = Array.isArray(section.questions) ? section.questions.length : 0
-      const questionCountIsValid =
-        metadata.examType === 'TMUA' ? sectionQuestionCount === 20 : sectionQuestionCount > 0
+      const questionCountIsValid = sectionQuestionCount > 0
       const sectionCode = String(section?.code || '')
       const sectionOrder = Number(section?.order)
       const hasUniqueIdentity = !seenCodes.has(sectionCode) && !seenOrders.has(sectionOrder)

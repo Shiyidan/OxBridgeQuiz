@@ -93,7 +93,7 @@ const TMUA_SECTION_PROFILES: Record<string, DiagnosticSectionProfile> = {
     subjectCode: 'TMUA-P1',
     order: 1,
     durationMinutes: 75,
-    questionCount: 20,
+    questionCount: null,
   },
   [TMUA_PAPER.PAPER_2]: {
     code: TMUA_PAPER.PAPER_2,
@@ -102,7 +102,7 @@ const TMUA_SECTION_PROFILES: Record<string, DiagnosticSectionProfile> = {
     subjectCode: 'TMUA-P2',
     order: 2,
     durationMinutes: 75,
-    questionCount: 20,
+    questionCount: null,
   },
 }
 
@@ -772,12 +772,6 @@ export function validateStandardPaperDocument(input: any): {
           errors.push({
             block: 0,
             message: `TMUA ${moduleCode || `Paper ${moduleIndex + 1}`} 的 duration 必须为 75 分钟`,
-          })
-        }
-        if (moduleItems.length !== 20) {
-          errors.push({
-            block: 0,
-            message: `TMUA ${moduleCode || `Paper ${moduleIndex + 1}`} 必须包含 20 道题`,
           })
         }
       }

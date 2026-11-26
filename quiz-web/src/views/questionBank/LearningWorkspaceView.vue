@@ -16,7 +16,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
 import QuestionBankView from './QuestionBankView.vue'
@@ -24,10 +24,13 @@ import PracticeNotebookView from './PracticeNotebookView.vue'
 import PracticeNotebookCreateView from './PracticeNotebookCreateView.vue'
 import PracticeRecordsView from './PracticeRecordsView.vue'
 
+const KnowledgeGraphView = defineAsyncComponent(() => import('./KnowledgeGraphView.vue'))
+
 const route = useRoute()
 const transitionName = ref('workspace-slide-forward')
 // 当前路由映射为工作区内部页，避免全局导航参与页面切换动画。
 const activeViewKey = computed(() => {
+  if (route.name === 'knowledge-graph') return 'knowledge-graph'
   if (route.name === 'practice-notebook-edit') return 'practice-notebook-edit'
   if (route.name === 'practice-notebook-new') return 'practice-notebook-new'
   if (route.name === 'practice-notebook') return 'practice-notebook'
@@ -36,6 +39,7 @@ const activeViewKey = computed(() => {
 })
 // 工作区视图按路由装载试题库、练习本、练习记录或练习本配置页。
 const activeView = computed(() => {
+  if (activeViewKey.value === 'knowledge-graph') return KnowledgeGraphView
   if (
     activeViewKey.value === 'practice-notebook-new' ||
     activeViewKey.value === 'practice-notebook-edit'
@@ -48,6 +52,7 @@ const activeView = computed(() => {
 
 // 路由层级决定切换方向，深入配置页向左，返回上一级向右。
 function getWorkspaceRouteOrder(routeName: unknown): number {
+  if (routeName === 'knowledge-graph') return 1
   if (routeName === 'practice-notebook-edit') return 2
   if (routeName === 'practice-notebook-new') return 2
   if (routeName === 'practice-notebook') return 1

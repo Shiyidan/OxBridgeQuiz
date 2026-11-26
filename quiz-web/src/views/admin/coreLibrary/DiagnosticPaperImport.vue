@@ -4,7 +4,7 @@
     <el-button text @click="router.push(backPath)">返回真题库</el-button>
     <h2>年度诊断试卷导入</h2>
     <p class="description">
-      ESAT 每年五科，TMUA 每年 Paper 1 和 Paper 2。上传年度 JSON，核对各科题量后保存草稿。
+      ESAT 包含数学 1 和至少另外两科即可发布，科目不足时可先存草稿；TMUA 须包含 Paper 1 和 Paper 2。各科按实际题数导入，不要求标准题量。
     </p>
     <el-upload
       drag
@@ -39,6 +39,13 @@
       <p class="description">
         导入后为草稿，请预览核对并发布。如果该年已有年度题库，将保存新版本；历史答题记录仍可查看。
       </p>
+      <el-alert
+        v-if="needsMoreEsatSubjects"
+        title="当前科目尚不能组成 ESAT 三科测试，可以保存草稿；包含数学 1 和至少另外两科后才能发布。"
+        type="warning"
+        show-icon
+        :closable="false"
+      />
       <el-button type="primary" :loading="importing" :disabled="busy" @click="saveDocument"
         >保存年度草稿</el-button
       >
@@ -66,6 +73,11 @@ const error = ref('')
 const validating = ref(false)
 const importing = ref(false)
 const validation = ref<DiagnosticPaperValidation | null>(null)
+// 发布需要支持数学 1 加两科；四科或五科年度同样可用，无需补齐所有科目。
+const needsMoreEsatSubjects = computed(() =>
+  validation.value?.paper.examType === 'ESAT' &&
+  (validation.value.modules.length < 3 || !validation.value.modules.some((module) => module.code === 'maths1')),
+)
 // 读文件、校验和保存期间锁定选择，防止草稿与屏幕摘要不一致。
 const busy = computed(() => validating.value || importing.value)
 // 返回原考试年份，便于连续维护同一批年度试卷。

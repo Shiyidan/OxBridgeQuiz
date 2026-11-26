@@ -19,6 +19,7 @@ import { requestContextMiddleware } from './utils/requestContext.js'
 import { requestLoggingMiddleware } from './middleware/requestLogging.js'
 import { questionLibraryRouter } from './routes/questionLibrary.js'
 import { learningExamplesRouter } from './routes/learningExamples.js'
+import { learningCompletionRouter } from './routes/learningCompletion.js'
 import { practiceNotebookRouter } from './routes/practiceNotebooks.js'
 import { trafficRouter } from './routes/traffic.js'
 import { invitationsRouter } from './routes/invitations.js'
@@ -64,6 +65,7 @@ app.use('/api/favorites', favoritesRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/papers', papersRouter)
 app.use('/api/question-library', questionLibraryRouter)
+app.use('/api/learning-completions', learningCompletionRouter)
 app.use('/api/learning', learningExamplesRouter)
 app.use('/api/practice-notebooks', practiceNotebookRouter)
 app.use('/api/study-resources', studyResourceRouter)

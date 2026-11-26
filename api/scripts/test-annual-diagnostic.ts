@@ -11,6 +11,7 @@ import { examRouter } from '../src/routes/exam.js'
 import { globalErrorHandler } from '../src/middleware/error.js'
 import { syncPaperQuestions } from '../src/utils/questionSync.js'
 import { formatQuestionDocument } from '../src/utils/questionDocument.js'
+import { validateAnnualDocument } from '../src/services/annualDiagnostic.js'
 import { USER_ROLE, EXAM_TYPE, PAPER_TYPE, PAPER_DELIVERY_MODE, EXAM_RECORD_STATUS, DIAGNOSTIC_ASSEMBLY } from '../src/constants/domain.js'
 
 if (config.runtimeEnv !== 'local' || !['localhost', '127.0.0.1'].includes(new URL(process.env.DATABASE_URL!).hostname)) {
@@ -263,6 +264,75 @@ try {
   const validation = await request(admin.token, '/papers/diagnostic/validate', document)
   assert.equal(validation.status, 200, JSON.stringify(validation.body))
   assert.equal(validation.body.data.questionCount, 10)
+  // 三科年度可按实际题量发布；草稿不可作答，未收录的科目仍不能进入考试。
+  const partialDocument = structuredClone(document)
+  partialDocument.paper.moduleConfig = partialDocument.paper.moduleConfig.slice(0, 3)
+  partialDocument.questions = partialDocument.questions.filter((question: any) => ['maths1', 'maths2', 'physics'].includes(question.meta.moduleCode))
+  partialDocument.paper.totalQuestions = partialDocument.questions.length
+  assert.equal(validateAnnualDocument(partialDocument).questions.length, 6)
+  const partialValidation = await request(admin.token, '/papers/diagnostic/validate', partialDocument)
+  assert.equal(partialValidation.status, 200, JSON.stringify(partialValidation.body))
+  assert.equal(partialValidation.body.data.questionCount, 6)
+  const partialImport = await request(admin.token, '/papers/diagnostic/import', partialDocument)
+  assert.equal(partialImport.status, 201, JSON.stringify(partialImport.body))
+  const partialId = partialImport.body.data.id
+  paperIds.push(partialId)
+  assert.equal(partialImport.body.data.status, 'draft')
+  assert.equal(await prisma.question.count({ where: { paperId: partialId } }), 6)
+  const partialExport = await request(admin.token, `/papers/${partialId}/document`)
+  assert.equal(partialExport.body.data.questions.length, 6)
+  assert.equal((await request(admin.token, '/papers/diagnostic/validate', partialExport.body.data)).status, 200)
+  for (const path of [`/papers/${partialId}/publish`, `/papers/${partialId}`]) {
+    const publishedPartial = await request(admin.token, path, { status: 'published' }, 'PUT')
+    assert.equal(publishedPartial.status, 200, JSON.stringify(publishedPartial.body))
+  }
+  assert.equal((await prisma.paper.findUniqueOrThrow({ where: { id: annual.id } })).assemblyType, DIAGNOSTIC_ASSEMBLY.RETIRED)
+  assert.equal((await prisma.paper.findUniqueOrThrow({ where: { id: partialId } })).status, 'published')
+  const partialUser = await account()
+  // 当前开考读取个人中心选科，先保存含缺失科目的目标再验证不可用提示。
+  await prisma.user.update({ where: { id: partialUser.id }, data: { examPreferences: [{ examType: 'ESAT', subjects: ['数学1', '数学2', '化学'] }] } })
+  const unavailable = await request(partialUser.token, '/exams/start', { paperId: partialId, moduleCodes: ['maths1', 'maths2', 'chemistry'] })
+  assert.equal(unavailable.status, 422, JSON.stringify(unavailable.body))
+  assert.equal(unavailable.body.code, 'DIAGNOSTIC_SUBJECTS_UNAVAILABLE')
+  assert.equal(await prisma.examRecord.count({ where: { userId: partialUser.id } }), 0)
+  await prisma.user.update({ where: { id: partialUser.id }, data: { examPreferences: [{ examType: 'ESAT', subjects: ['数学1', '数学2', '物理'] }] } })
+  const partialStarted = await request(partialUser.token, '/exams/start', { paperId: partialId, moduleCodes: ['maths1', 'maths2', 'physics'] })
+  assert.equal(partialStarted.status, 200, JSON.stringify(partialStarted.body))
+  assert.equal(partialStarted.body.data.totalQuestions, 6)
+  // 草稿仅放宽缺科，不放宽重复科目、未声明科目、答案和科目内题号约束。
+  const invalidDrafts = [
+    { ...partialDocument, paper: { ...partialDocument.paper, moduleConfig: [] } },
+    { ...partialDocument, paper: { ...partialDocument.paper, moduleConfig: [partialDocument.paper.moduleConfig[0], partialDocument.paper.moduleConfig[0]] } },
+    { ...partialDocument, paper: { ...partialDocument.paper, moduleConfig: [{ ...partialDocument.paper.moduleConfig[0], code: 'invalid' }] } },
+    { ...partialDocument, questions: document.questions },
+    { ...partialDocument, questions: partialDocument.questions.map((question: any, index: number) => index ? question : { ...question, solution: { ...question.solution, answer: ['Z'] } }) },
+    { ...partialDocument, questions: partialDocument.questions.map((question: any, index: number) => index ? question : { ...question, meta: { ...question.meta, moduleQuestionNumber: 3 } }) },
+  ]
+  const beforeInvalidImports = await prisma.paper.count({ where: { year: 2097 } })
+  for (const invalid of invalidDrafts) {
+    assert.equal((await request(admin.token, '/papers/diagnostic/validate', invalid)).status, 422)
+    assert.equal((await request(admin.token, '/papers/diagnostic/import', invalid)).status, 422)
+  }
+  const tmuaDocument = (await request(admin.token, `/papers/${tmua.id}/document`)).body.data
+  const incompleteTmua = structuredClone(tmuaDocument)
+  incompleteTmua.paper.moduleConfig = incompleteTmua.paper.moduleConfig.slice(0, 1)
+  assert.equal((await request(admin.token, '/papers/diagnostic/import', incompleteTmua)).status, 422)
+  assert.equal(await prisma.paper.count({ where: { year: 2097 } }), beforeInvalidImports)
+  // TMUA 两卷题数可不同且可少于 20；发布与会话题量均使用实际题目。
+  tmuaDocument.questions = tmuaDocument.questions.filter((question: any) => question.meta.moduleQuestionNumber <= (question.meta.moduleCode === 'paper1' ? 3 : 5))
+  tmuaDocument.paper.moduleConfig.forEach((module: any) => { module.questionCount = module.code === 'paper1' ? 3 : 5 })
+  tmuaDocument.paper.totalQuestions = 8
+  const flexibleTmua = await request(admin.token, '/papers/diagnostic/import', tmuaDocument)
+  assert.equal(flexibleTmua.status, 201, JSON.stringify(flexibleTmua.body))
+  paperIds.push(flexibleTmua.body.data.id)
+  const flexiblePublished = await request(admin.token, `/papers/${flexibleTmua.body.data.id}/publish`, {}, 'PUT')
+  assert.equal(flexiblePublished.status, 200, JSON.stringify(flexiblePublished.body))
+  const flexibleUser = await account()
+  const flexibleStarted = await request(flexibleUser.token, '/exams/start', { paperId: flexibleTmua.body.data.id, moduleCodes: ['paper1', 'paper2'] })
+  assert.equal(flexibleStarted.status, 200, JSON.stringify(flexibleStarted.body))
+  assert.equal(flexibleStarted.body.data.totalQuestions, 8)
+  assert.deepEqual(flexibleStarted.body.data.modules.map((module: any) => module.questionCount), [3, 5])
+  console.log('PASS three-subject ESAT publication, unavailable subject rejection and flexible TMUA question counts')
   const imported = await request(admin.token, '/papers/diagnostic/import', document)
   assert.ok([200, 201].includes(imported.status), JSON.stringify(imported.body))
   paperIds.push(imported.body.data.id)

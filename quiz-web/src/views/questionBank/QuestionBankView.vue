@@ -8,6 +8,9 @@
           <p>{{ learningEnabled ? '按考点练习，按需学习。' : '按考点选择难度，进行专项练习。' }}</p>
         </div>
         <nav class="qb-shortcuts" aria-label="练习管理">
+          <RouterLink v-if="activeExamType === 'ESAT'" to="/knowledge-graph"
+            ><Share aria-hidden="true" />知识图谱</RouterLink
+          >
           <RouterLink to="/practice-notebook"
             ><Reading aria-hidden="true" />我的练习本</RouterLink
           >
@@ -46,7 +49,16 @@
             @node-click="handleTreeNodeClick"
           >
             <template #default="{ data }">
-              <SyllabusTreeNode :node="data" :badge="isFreePracticeScope(activeExamType, data.code) ? '免费' : undefined" />
+              <div class="qb-tree-item">
+                <SyllabusTreeNode :node="data" :badge="isFreePracticeScope(activeExamType, data.code) ? '免费' : undefined" />
+                <LearningLightButton
+                  v-if="activeMode === 'learning' && data.code.length === 6 && !data.code.endsWith('0000')"
+                  compact :label="data.cn_label" :active="completionState(data.code).active"
+                  :partial="completionState(data.code).partial"
+                  :disabled="completionDisabled || completionLockedCodes.includes(data.code)" :busy="completionSavingCode === data.code"
+                  @toggle="toggleLearningCompletion(data.code)"
+                />
+              </div>
             </template>
           </el-tree>
         </div>
@@ -105,6 +117,10 @@
               </header>
 
               <template v-if="mode.id === 'learning'">
+                <div v-if="completionError" class="qb-completion-notice" role="status">
+                  点亮状态暂时无法读取，学习内容仍可正常查看。
+                  <AppButton size="mini" type="secondary" @click="loadLearningCompletions">重试</AppButton>
+                </div>
                 <div v-if="learningChecking || syllabusLoading" class="qb-learning-loading" role="status" aria-label="正在加载学习内容" aria-busy="true">
                   <el-skeleton :rows="6" />
                 </div>
@@ -153,6 +169,11 @@
                     :lesson="activeKnowledgeLesson"
                     :selected-code="selectedNodeCode"
                     :exam-type="activeExamType"
+                    :completed-codes="completedCodes"
+                    :completion-disabled="completionDisabled"
+                    :completion-locked-codes="completionLockedCodes"
+                    :completion-busy="Boolean(completionSavingCode)"
+                    @light="toggleLearningCompletion"
                     @select="handleKnowledgeSelect"
                     @practise="openPracticeMode"
                   />
@@ -335,7 +356,7 @@ import {
 } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, ArrowRight, CircleCheck, Clock, EditPen, Lock, Reading } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, CircleCheck, Clock, EditPen, Lock, Reading, Share } from '@element-plus/icons-vue'
 import type { TreeInstance } from 'element-plus'
 import AppDialog from '@/components/AppDialog.vue'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
@@ -349,6 +370,9 @@ import { getSyllabusData, getQuestionSummaryData } from '@/api/questionBank'
 import { getActiveQuestionBankPractice, type ActiveQuestionBankPractice } from '@/api/exam'
 import { checkMemberAccess, getMember } from '@/api/member'
 import { createLoginRequiredRouteLocation } from '@/utils/authRedirect'
+import LearningLightButton from '@/components/knowledge/LearningLightButton.vue'
+import { getLearningCompletions, setLearningCompletion } from '@/api/learningCompletion'
+import { getApiErrorMessage, hasApiErrorCode } from '@/utils/request'
 
 // 学习授权通过后预先等待面板资源，确保 CSS 或模块失败也能进入统一重试提示。
 function loadKnowledgeLessonPanel() {
@@ -420,6 +444,81 @@ function requireLoginForPracticeAction(): boolean {
 }
 
 const treeData = ref<TreeNode[]>([])
+const completedCodes = ref<string[]>([])
+const completionLoading = ref(false)
+const completionError = ref(false)
+const completionSavingCode = ref('')
+const completionMemberAllowed = ref(false)
+let completionEpoch = 0
+// 未登录、读取失败或保存中都禁止写入，避免用未知状态错误取消进度。
+const completionDisabled = computed(() => !auth.isLoggedIn || completionLoading.value || completionError.value || Boolean(completionSavingCode.value))
+// 只根据考纲真实叶子汇总章节，单节点更新后目录与正文同步。
+const completionLeaves = computed(() => {
+  const map = new Map<string, string[]>()
+  // 深层考纲也从叶子向上汇总，不假设每章只有一层。
+  function visit(node: TreeNode): string[] {
+    const leaves = node.children?.length ? node.children.flatMap(visit) : [node.code]
+    map.set(node.code, leaves)
+    return leaves
+  }
+  treeData.value.forEach(visit)
+  return map
+})
+// 无权益时禁止新增会员知识点；整章须覆盖全部叶子，已有点亮仍允许取消。
+const completionLockedCodes = computed(() => [...completionLeaves.value.entries()]
+  .filter(([code, leaves]) => !completionState(code).active && !completionMemberAllowed.value &&
+    !leaves.every(item => isFreePracticeScope(auth.activeExamType, item)))
+  .map(([code]) => code))
+// 章节全亮需要所有叶子完成，部分完成单独呈现状态。
+function completionState(code: string) {
+  const leaves = completionLeaves.value.get(code) ?? [code]
+  const count = leaves.filter(item => completedCodes.value.includes(item)).length
+  return { active: leaves.length > 0 && count === leaves.length, partial: count > 0 && count < leaves.length }
+}
+// 账号、考试或模式切换时清空旧状态，过期响应不得写回另一账号。
+async function loadLearningCompletions(): Promise<void> {
+  const epoch = ++completionEpoch
+  completedCodes.value = []
+  completionError.value = false
+  completionLoading.value = false
+  completionSavingCode.value = ''
+  if (!auth.isLoggedIn || !learningEnabled.value || activeMode.value !== 'learning') return
+  completionLoading.value = true
+  try {
+    const result = await getLearningCompletions(auth.activeExamType)
+    if (epoch === completionEpoch) completedCodes.value = result.items.map(item => item.code)
+  } catch {
+    if (epoch === completionEpoch) completionError.value = true
+  } finally {
+    if (epoch === completionEpoch) completionLoading.value = false
+  }
+}
+// 保存成功才点亮；失败保持原状态，整章操作由服务端校验权益和范围。
+async function toggleLearningCompletion(code: string): Promise<void> {
+  if (completionDisabled.value || completionLockedCodes.value.includes(code)) return
+  const epoch = completionEpoch
+  const completed = !completionState(code).active
+  completionSavingCode.value = code
+  try {
+    const result = await setLearningCompletion(auth.activeExamType, code, completed)
+    if (epoch !== completionEpoch) return
+    completedCodes.value = result.items.map(item => item.code)
+    ElMessage.success(completed ? '已点亮，学习进度已保存' : '已取消点亮')
+  } catch (error) {
+    // 权益在页面打开后失效时静默禁用新增点亮，不弹开通或错误提示。
+    if (epoch === completionEpoch && hasApiErrorCode(error, 'LEARNING_MEMBERSHIP_REQUIRED')) {
+      completionMemberAllowed.value = false
+      return
+    }
+    if (epoch === completionEpoch) ElMessage.error(getApiErrorMessage(error, '保存失败，请重试'))
+  } finally {
+    if (epoch === completionEpoch) completionSavingCode.value = ''
+  }
+}
+// 点亮状态独立于学习内容加载，浏览和切节不会产生操作记录。
+watch(() => [auth.user?.id, auth.isLoggedIn, auth.activeExamType, activeMode.value], () => {
+  void loadLearningCompletions()
+}, { immediate: true, flush: 'sync' })
 const syllabusTreeRef = ref<TreeInstance>()
 const workspaceRef = ref<HTMLElement>()
 const difficultyGridRef = ref<HTMLElement[]>([])
@@ -455,6 +554,7 @@ let learningRequest = 0
 // 先确认当前考试权益，再请求讲义模块；选择切换和离开页面会令旧请求失效。
 async function refreshLearningAccess(): Promise<void> {
   const request = ++learningRequest
+  completionMemberAllowed.value = false
   const exam = auth.activeExamType
   const code = selectedNodeCode.value
   learningAllowed.value = false
@@ -469,7 +569,9 @@ async function refreshLearningAccess(): Promise<void> {
   try {
     const context = auth.isLoggedIn ? await getMember() : null
     const memberAllowed = Boolean(context?.isAdmin || context?.quotas[exam]?.learningAccess)
-    if (request !== learningRequest || (!freeScope && !memberAllowed)) return
+    if (request !== learningRequest) return
+    completionMemberAllowed.value = memberAllowed
+    if (!freeScope && !memberAllowed) return
     const [content] = await Promise.all([
       memberAllowed
         ? import('@/content/knowledge')
@@ -1050,6 +1152,8 @@ async function handlePaymentSuccess(): Promise<void> {
 </script>
 
 <style scoped lang="scss">
+.qb-tree-item { display: flex; align-items: center; gap: 6px; width: 100%; min-width: 0; padding-right: 6px; }
+.qb-completion-notice { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 0; color: var(--color-ink-muted); font-size: 14px; }
 .question-bank {
   min-height: calc(100vh - var(--nav-height));
   background: var(--color-surface);

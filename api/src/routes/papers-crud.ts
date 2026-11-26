@@ -103,7 +103,9 @@ async function getDiagnosticPublishIssue(
     );
   const esatConfigInvalid =
     paper.examType === EXAM_TYPE.ESAT &&
-    (modules.length !== (paper.assemblyType === DIAGNOSTIC_ASSEMBLY.ANNUAL ? 5 : 3) ||
+    ((paper.assemblyType === DIAGNOSTIC_ASSEMBLY.ANNUAL
+      ? modules.length < 3 || modules.length > ESAT_MODULES.length
+      : modules.length !== 3) ||
       new Set(moduleCodes).size !== modules.length ||
       moduleCodes.some(
         (code) => !ESAT_MODULES.some((moduleCode) => moduleCode === code),
@@ -116,17 +118,15 @@ async function getDiagnosticPublishIssue(
       moduleOrders[0] !== 1 ||
       moduleCodes[1] !== TMUA_PAPER.PAPER_2 ||
       moduleOrders[1] !== 2 ||
-      modules.some((module) => module.durationSeconds !== 75 * 60) ||
-      modules.some((module) => module.questionCount !== 20) ||
-      paper.totalQuestions !== 40);
+      modules.some((module) => module.durationSeconds !== 75 * 60));
   if (commonConfigInvalid) {
     return `${paper.examType} 诊断卷的分段代码、顺序和时长配置不完整`;
   }
   if (esatConfigInvalid) {
-    return paper.assemblyType === DIAGNOSTIC_ASSEMBLY.ANNUAL ? "ESAT 年度诊断必须完整提供五个科目" : "ESAT 诊断卷必须包含三个不重复科目，并且包含 Mathematics 1";
+    return paper.assemblyType === DIAGNOSTIC_ASSEMBLY.ANNUAL ? "ESAT 年度诊断须包含 Mathematics 1 及至少另外两个不重复科目" : "ESAT 诊断卷必须包含三个不重复科目，并且包含 Mathematics 1";
   }
   if (tmuaConfigInvalid) {
-    return "TMUA 诊断卷必须按顺序包含 paper1、paper2，每卷 20 题且独立计时 75 分钟";
+    return "TMUA 诊断卷必须按顺序包含 paper1、paper2，每卷独立计时 75 分钟";
   }
 
   const questions = await prisma.question.findMany({

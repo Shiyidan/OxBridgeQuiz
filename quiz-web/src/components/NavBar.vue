@@ -420,6 +420,7 @@ const isExamIntroRoute = computed(
 const isLearningWorkspaceRoute = computed(
   () =>
     route.path.startsWith('/question-bank') ||
+    route.path.startsWith('/knowledge-graph') ||
     route.path.startsWith('/practice-notebook') ||
     route.path.startsWith('/practice-records'),
 )

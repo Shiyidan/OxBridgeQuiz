@@ -301,6 +301,8 @@ const roleOptions = [
 const moduleOptions = OPERATION_AUDIT_MODULE_OPTIONS
 
 const fieldLabels: Record<string, string> = {
+  completed: '点亮状态',
+  completedCodes: '已点亮知识点',
   accountStatus: '账号状态',
   banReason: '封禁原因',
   reason: '操作原因',
@@ -352,6 +354,7 @@ const resourceTypeLabels: Record<string, string> = {
   MockPaperSet: '模考试卷',
   StudyResource: '学习资料',
   Syllabus: '考纲',
+  SyllabusNode: '学习章节 / 知识点',
   PaymentConfig: '支付配置',
   PaymentOrder: '支付订单',
   PaymentRefund: '退款记录',

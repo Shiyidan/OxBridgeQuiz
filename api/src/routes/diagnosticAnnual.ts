@@ -11,7 +11,7 @@ export const diagnosticAnnualRouter = createAsyncRouter()
 // 年度诊断校验
 diagnosticAnnualRouter.post('/diagnostic/validate', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const document = validateAnnualDocument(req.body)
+    const document = validateAnnualDocument(req.body, { allowPartialEsatDraft: true })
     res.json(success({ paper: document.paper, questions: document.questions, modules: document.paper.moduleConfig, questionCount: document.questions.length }))
   } catch (error) {
     if (error instanceof AnnualDiagnosticError) { res.status(422).json(fail(error.message, error.code)); return }

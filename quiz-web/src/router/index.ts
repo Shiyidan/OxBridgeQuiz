@@ -66,6 +66,12 @@ const router = createRouter({
       name: 'question-bank',
       component: learningWorkspaceRoute,
     },
+    // 知识图谱
+    {
+      path: '/knowledge-graph',
+      name: 'knowledge-graph',
+      component: learningWorkspaceRoute,
+    },
     // 练习本占位页
     {
       path: '/practice-notebook',
@@ -347,6 +353,7 @@ router.beforeEach((to, _from) => {
     to.path.startsWith('/profile') ||
     to.path.startsWith('/assessment') ||
     to.path.startsWith('/question-bank') ||
+    to.path.startsWith('/knowledge-graph') ||
     to.path.startsWith('/mock-exams') ||
     to.path.startsWith('/mistake-notebook') ||
     to.path.startsWith('/practice-notebook') ||

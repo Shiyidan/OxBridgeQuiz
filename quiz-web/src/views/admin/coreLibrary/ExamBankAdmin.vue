@@ -35,7 +35,7 @@
             {{
               selectedYear
                 ? '按科目查看题目与解析，年度统一维护发布状态和访问级别。'
-                : '选择年份，查看 ESAT 五科或 TMUA 两卷。'
+                : '选择年份，查看已收录的 ESAT 科目或 TMUA 两卷。'
             }}
           </p>
         </div>
@@ -74,7 +74,7 @@
               <el-icon class="year-card__icon"><FolderOpened /></el-icon>
             </div>
             <p class="year-card__count">
-              {{ activeExamType === 'ESAT' ? '五科年度题库' : 'Paper 1 + Paper 2' }}
+              {{ activeExamType === 'ESAT' ? '年度分科题库' : 'Paper 1 + Paper 2' }}
             </p>
             <div class="year-card__access">
               <span

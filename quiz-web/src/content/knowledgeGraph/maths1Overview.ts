@@ -1,11 +1,7 @@
 // 数学1总览分层：人工选择教学骨干，缩放只改变可见性，不增删正式知识关系。
-export type GraphDetailLevel = 0 | 1 | 2
+import { createGraphOverview } from './overview'
 
-export const graphDetailLabels: Record<GraphDetailLevel, string> = {
-  0: '核心网络',
-  1: '方法展开',
-  2: '完整细节',
-}
+export { graphDetailLabels, graphDetailLevelForZoom, type GraphDetailLevel } from './overview'
 
 // 核心覆盖七章，选择能串联具体方法的节点，不按连线数量机械排名。
 export const maths1CoreCodes = [
@@ -80,32 +76,25 @@ export const maths1CorePairs: readonly (readonly [string, string])[] = [
   ['110703', '110707'],
 ]
 
-const coreCodes = new Set<string>(maths1CoreCodes)
-const methodCodes = new Set<string>(maths1MethodCodes)
-const corePairs = new Set(maths1CorePairs.map((pair) => [...pair].sort().join(':')))
-
-// 知识点层级只影响总览显示，权限、学习状态和搜索范围不受影响。
-export function maths1NodeDetailLevel(code: string): GraphDetailLevel {
-  return coreCodes.has(code) ? 0 : methodCodes.has(code) ? 1 : 2
+// 章节总览优先呈现本章的方法骨干，基础记号保留在放大后的细节中。
+const chapterCoreCodes: Record<string, readonly string[]> = {
+  '110100': ['110101', '110102'],
+  '110200': ['110203', '110206', '110209', '110210'],
+  '110300': ['110304', '110309', '110310'],
+  '110400': ['110404', '110407', '110410', '110411', '110415', '110416'],
+  '110500': ['110507', '110510', '110514', '110517', '110518'],
+  '110600': ['110601', '110602', '110603'],
+  '110700': ['110703', '110705', '110706', '110707'],
 }
 
-// 骨干以外的关系至少在第二层出现，且不得早于任一端点。
-export function maths1EdgeDetailLevel(source: string, target: string): GraphDetailLevel {
-  if (corePairs.has([source, target].sort().join(':'))) return 0
-  return Math.max(
-    1,
-    maths1NodeDetailLevel(source),
-    maths1NodeDetailLevel(target),
-  ) as GraphDetailLevel
-}
+export const maths1Overview = createGraphOverview({
+  coreCodes: maths1CoreCodes,
+  methodCodes: maths1MethodCodes,
+  corePairs: maths1CorePairs,
+  chapterCoreCodes,
+})
 
-// 展开与收起使用不同阈值，避免缩放临界处节点反复闪现；大幅缩放可直接跨层。
-export function graphDetailLevelForZoom(
-  zoom: number,
-  previous: GraphDetailLevel,
-): GraphDetailLevel {
-  if (!Number.isFinite(zoom)) return previous
-  if (zoom >= 2.5 || (previous === 2 && zoom >= 2.2)) return 2
-  if (zoom >= 1.55 || (previous >= 1 && zoom >= 1.35)) return 1
-  return 0
-}
+// 保留数学1校验与既有调用的接口，具体规则与其他科目共用。
+export const maths1ScopeDetailLevels = maths1Overview.scopeDetailLevels
+export const maths1NodeDetailLevel = maths1Overview.nodeDetailLevel
+export const maths1EdgeDetailLevel = maths1Overview.edgeDetailLevel

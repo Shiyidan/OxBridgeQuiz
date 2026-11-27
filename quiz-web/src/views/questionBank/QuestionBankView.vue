@@ -1,314 +1,93 @@
-<!-- 试题库工作区：学习与做题共享考纲范围，练习入口独立校验现有做题权益。 -->
+<!-- 题库练习页面：管理题量、难度、续答与做题权益，考纲范围来自学习平台公共上下文。 -->
 <template>
-  <div class="question-bank">
-    <main class="qb-container" :class="{ 'qb-container--collapsed': syllabusCollapsed }">
-      <header class="qb-overview">
+  <section class="question-bank" aria-label="题库练习">
+    <LearningScopeHeader
+      :breadcrumbs="selectedBreadcrumb"
+      :title="currentScopeCnLabel"
+      :title-en="currentScopeEnLabel"
+      @select="handleKnowledgeSelect"
+      variant="practice"
+    />
+    <div class="qb-practice" tabindex="-1" aria-label="练习设置">
+      <div v-if="activePractice" class="qb-active-practice" role="status">
         <div>
-          <h1 id="question-bank-title">学习平台</h1>
-          <p>{{ learningEnabled ? '按考点练习，按需学习。' : '按考点选择难度，进行专项练习。' }}</p>
+          <strong>你有一份 {{ activePractice.examType }} 练习尚未交卷</strong>
+          <span
+            >已答 {{ activePractice.answeredCount }}/{{ activePractice.totalQuestions }} 题</span
+          >
         </div>
-        <nav class="qb-shortcuts" aria-label="练习管理">
-          <RouterLink v-if="activeExamType === 'ESAT'" to="/knowledge-graph"
-            ><Share aria-hidden="true" />知识图谱</RouterLink
-          >
-          <RouterLink to="/practice-notebook"
-            ><Reading aria-hidden="true" />我的练习本</RouterLink
-          >
-          <RouterLink to="/practice-records"><Clock aria-hidden="true" />练习记录</RouterLink>
-        </nav>
-      </header>
-      <aside class="qb-sidebar" aria-label="考点大纲">
-        <header class="qb-sidebar__header">
-          <h2 v-if="!syllabusCollapsed" class="qb-sidebar__title">考点大纲</h2>
-          <AppButton
-            class="qb-sidebar__toggle"
-            type="secondary"
-            size="mini"
-            :icon="syllabusCollapsed ? ArrowRight : ArrowLeft"
-            icon-only
-            :aria-label="syllabusCollapsed ? '展开考点大纲' : '收起考点大纲'"
-            :aria-expanded="!syllabusCollapsed"
-            aria-controls="question-bank-syllabus"
-            @click="toggleSyllabus"
-          />
-        </header>
-        <div
-          v-show="!syllabusCollapsed"
-          id="question-bank-syllabus"
-          class="qb-sidebar__tree-scroll"
+        <AppButton class="qb-secondary" type="secondary" @click="handleContinuePractice"
+          >继续练习</AppButton
         >
-          <el-tree
-            ref="syllabusTreeRef"
-            :key="activeExamType"
-            :data="treeData"
-            :props="treeProps"
-            node-key="code"
-            :default-expanded-keys="defaultExpanded"
-            :current-node-key="selectedNodeCode"
-            highlight-current
-            @node-click="handleTreeNodeClick"
-          >
-            <template #default="{ data }">
-              <div class="qb-tree-item">
-                <SyllabusTreeNode :node="data" :badge="isFreePracticeScope(activeExamType, data.code) ? '免费' : undefined" />
-                <LearningLightButton
-                  v-if="activeMode === 'learning' && data.code.length === 6 && !data.code.endsWith('0000')"
-                  compact :label="data.cn_label" :active="completionState(data.code).active"
-                  :partial="completionState(data.code).partial"
-                  :disabled="completionDisabled || completionLockedCodes.includes(data.code)" :busy="completionSavingCode === data.code"
-                  @toggle="toggleLearningCompletion(data.code)"
-                />
-              </div>
-            </template>
-          </el-tree>
-        </div>
-        <span v-show="syllabusCollapsed" class="qb-sidebar__collapsed-label" aria-hidden="true"
-          >考纲</span
-        >
-      </aside>
+      </div>
 
-      <section ref="workspaceRef" class="qb-workspace" aria-labelledby="question-bank-title">
-        <el-tabs v-model="activeMode" class="qb-mode-tabs" :class="{ 'qb-mode-tabs--practice-only': !learningEnabled }" :aria-label="learningEnabled ? '学习与做题' : '做题'">
-          <el-tab-pane
-            v-for="mode in workspaceModes"
-            :key="mode.id"
-            :name="mode.id"
-            :label="mode.label"
-          >
-            <section
-              class="qb-content"
-              :class="{
-                'qb-content--index': mode.id === 'learning' && !activeKnowledgeLesson,
-                'qb-content--lesson': mode.id === 'learning' && activeKnowledgeLesson,
-                'qb-content--practice': mode.id !== 'learning',
-              }"
-              :aria-label="mode.label"
+      <div class="qb-difficulty-grid" aria-label="选择练习难度">
+        <article
+          v-for="diff in difficulties"
+          :key="diff.id"
+          class="qb-difficulty-card"
+          :class="{ 'qb-difficulty-card--target': targetDifficulty === diff.id }"
+          :data-theme="diff.id"
+        >
+          <div class="qb-difficulty-card__visual">
+            <span class="qb-difficulty-card__english">{{ diff.englishLabel }}</span>
+            <h3 class="qb-difficulty-card__title">{{ diff.label }}难度</h3>
+            <AppButton
+              class="qb-difficulty-card__cta"
+              :aria-label="diff.label + '难度：立即练习'"
+              :size="compactViewport ? 'mini' : 'medium'"
+              :disabled="
+                summaryLoading ||
+                diff.count === 0 ||
+                Boolean(activePractice) ||
+                Boolean(startingDifficultyId)
+              "
+              :loading="startingDifficultyId === diff.id"
+              @click="handleStartPractice(diff)"
             >
-              <header class="qb-content__header">
-                <div class="qb-content__heading">
-                  <nav v-if="selectedBreadcrumb.length" class="qb-breadcrumb" aria-label="考纲路径">
-                    <template v-for="(item, index) in selectedBreadcrumb" :key="item.code">
-                      <ArrowRight v-if="index" aria-hidden="true" />
-                      <button
-                        v-if="index < selectedBreadcrumb.length - 1"
-                        type="button"
-                        :title="item.label"
-                        @click="handleKnowledgeSelect(item.code)"
-                      >
-                        {{ item.label }}
-                      </button>
-                      <span
-                        v-else
-                        class="qb-breadcrumb__current"
-                        aria-current="page"
-                        :title="item.label"
-                      >
-                        {{ item.label }}
-                      </span>
-                    </template>
-                  </nav>
-                  <div v-if="mode.id !== 'learning' || (learningAllowed && !activeKnowledgeLesson)" class="qb-content__title-line">
-                    <h2 class="qb-content__title">{{ currentScopeCnLabel }}</h2>
-                    <p v-if="currentScopeEnLabel !== currentScopeCnLabel" class="qb-content__english">
-                      {{ currentScopeEnLabel }}
-                    </p>
-                  </div>
-                </div>
-              </header>
+              <span v-if="startingDifficultyId === diff.id">正在生成</span>
+              <span v-else-if="summaryLoading">加载中</span>
+              <span v-else-if="diff.count === 0">暂无题目</span>
+              <span v-else>立即练习</span>
+            </AppButton>
+          </div>
+          <div class="qb-difficulty-card__body">
+            <span class="qb-difficulty-card__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="m7.5 16.5 9-9M9 7.5h7.5V15" stroke="currentColor" stroke-width="1.8" />
+                <path
+                  d="M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                />
+              </svg>
+            </span>
+            <div>
+              <strong>{{ diff.label }}练习</strong>
+              <p class="qb-difficulty-card__desc">{{ diff.description }}</p>
+            </div>
+          </div>
+        </article>
+      </div>
+      <p class="qb-practice-summary" aria-live="polite">
+        <template v-if="summaryLoading">正在读取题量…</template>
+        <template v-else-if="summaryFailed">题量暂时无法加载，请重试。</template>
+        <template v-else-if="!hasPracticeQuestions"
+          >当前范围暂无可练习题目，请选择其他考点。</template
+        >
+        <template v-else
+          >每次最多 {{ DIRECT_PRACTICE_QUESTION_COUNT }} 题 · 完成后查看成绩与解析</template
+        >
+      </p>
+      <AppButton
+        v-if="summaryFailed"
+        class="qb-secondary"
+        type="secondary"
+        @click="retryQuestionSummary"
+        >重新加载</AppButton
+      >
+    </div>
 
-              <template v-if="mode.id === 'learning'">
-                <div v-if="completionError" class="qb-completion-notice" role="status">
-                  点亮状态暂时无法读取，学习内容仍可正常查看。
-                  <AppButton size="mini" type="secondary" @click="loadLearningCompletions">重试</AppButton>
-                </div>
-                <div v-if="learningChecking || syllabusLoading" class="qb-learning-loading" role="status" aria-label="正在加载学习内容" aria-busy="true">
-                  <el-skeleton :rows="6" />
-                </div>
-                <div v-else-if="learningError" class="qb-learning-error" role="alert">
-                  <p>{{ learningResourceError ? '学习资源加载失败，请刷新页面。若仍失败，可尝试强制刷新（Ctrl＋Shift＋R）。' : '学习访问状态暂时获取失败，请重试。' }}</p>
-                  <AppButton type="secondary" size="small" @click="retryLearningAccess">{{ learningResourceError ? '刷新页面' : '重新加载' }}</AppButton>
-                </div>
-                <div v-else-if="!learningAllowed" class="qb-locked-learning">
-                  <LockedLearningPreview class="qb-locked-learning__preview" />
-                  <div class="qb-locked-learning__veil" aria-hidden="true"></div>
-                  <section class="qb-learning-gate" aria-label="学习平台权益">
-                    <div class="qb-learning-gate__heading">
-                      <span class="qb-learning-gate__lock" aria-hidden="true"><Lock /></span>
-                      <span class="qb-learning-gate__badge">{{ activeExamType }} · 学习年卡</span>
-                    </div>
-                    <h3>解锁知识背后的方法</h3>
-                    <p class="qb-learning-gate__intro">知识点讲解、精选例题与即时自测，串起从理解到应用的完整学习过程。</p>
-                    <div class="qb-learning-gate__features">
-                      <div>
-                        <Reading aria-hidden="true" />
-                        <strong>知识点讲解</strong>
-                        <p>理清概念与方法，建立知识联系</p>
-                      </div>
-                      <div>
-                        <EditPen aria-hidden="true" />
-                        <strong>精选例题</strong>
-                        <p>跟随解题思路，理解关键步骤</p>
-                      </div>
-                      <div>
-                        <CircleCheck aria-hidden="true" />
-                        <strong>即时自测</strong>
-                        <p>学完及时检验，找到薄弱环节</p>
-                      </div>
-                    </div>
-                    <div class="qb-learning-gate__footer">
-                      <AppButton :icon="ArrowRight" icon-position="right" @click="openLearningPayment">
-                        开通学习平台年卡
-                      </AppButton>
-                    </div>
-                  </section>
-                </div>
-                <KeepAlive v-if="learningAllowed" :max="1">
-                  <KnowledgeLessonPanel
-                    v-if="learningAllowed && activeMode === 'learning' && activeKnowledgeLesson"
-                    :key="activeKnowledgeLesson.code"
-                    :lesson="activeKnowledgeLesson"
-                    :selected-code="selectedNodeCode"
-                    :exam-type="activeExamType"
-                    :completed-codes="completedCodes"
-                    :completion-disabled="completionDisabled"
-                    :completion-locked-codes="completionLockedCodes"
-                    :completion-busy="Boolean(completionSavingCode)"
-                    @light="toggleLearningCompletion"
-                    @select="handleKnowledgeSelect"
-                    @practise="openPracticeMode"
-                  />
-                </KeepAlive>
-                <div v-if="learningAllowed && !activeKnowledgeLesson" class="qb-learning-index">
-                  <template v-if="availableLearningChapters.length">
-                    <h3>选择章节开始学习</h3>
-                    <div class="qb-chapter-list">
-                      <button
-                        v-for="(chapter, index) in availableLearningChapters"
-                        :key="chapter.code"
-                        type="button"
-                        @click="handleKnowledgeSelect(chapter.code)"
-                      >
-                        <span class="qb-chapter-list__number">{{ String(index + 1).padStart(2, '0') }}</span>
-                        <span class="qb-chapter-list__name"
-                          >{{ chapter.cn_label }}<small>{{ chapter.en_label }}</small></span
-                        >
-                        <ArrowRight aria-hidden="true" />
-                      </button>
-                    </div>
-                  </template>
-                  <template v-else>
-                    <h3>{{ syllabusLoading ? '正在读取考纲…' : '当前范围暂无知识讲解' }}</h3>
-                    <p>可以选择其他章节学习，或直接练习当前考点。</p>
-                    <AppButton
-                      class="qb-secondary"
-                      type="secondary"
-                      :icon="ArrowRight"
-                      icon-position="right"
-                      @click="openPracticeMode"
-                      >去做题</AppButton
-                    >
-                  </template>
-                </div>
-              </template>
-
-              <div
-                v-else
-                ref="difficultyGridRef"
-                class="qb-practice"
-                tabindex="-1"
-                aria-label="练习设置"
-              >
-                <div v-if="activePractice" class="qb-active-practice" role="status">
-                  <div>
-                    <strong>你有一份 {{ activePractice.examType }} 练习尚未交卷</strong>
-                    <span
-                      >已答 {{ activePractice.answeredCount }}/{{
-                        activePractice.totalQuestions
-                      }}
-                      题</span
-                    >
-                  </div>
-                  <AppButton class="qb-secondary" type="secondary" @click="handleContinuePractice"
-                    >继续练习</AppButton
-                  >
-                </div>
-
-                <div class="qb-difficulty-grid" aria-label="选择练习难度">
-                  <article
-                    v-for="diff in difficulties"
-                    :key="diff.id"
-                    class="qb-difficulty-card"
-                    :class="{ 'qb-difficulty-card--target': targetDifficulty === diff.id }"
-                    :data-theme="diff.id"
-                  >
-                    <div class="qb-difficulty-card__visual">
-                      <span class="qb-difficulty-card__english">{{ diff.englishLabel }}</span>
-                      <h3 class="qb-difficulty-card__title">{{ diff.label }}难度</h3>
-                      <AppButton
-                        class="qb-difficulty-card__cta"
-                        :aria-label="diff.label + '难度：立即练习'"
-                        :size="compactViewport ? 'mini' : 'medium'"
-                        :disabled="
-                          summaryLoading ||
-                          diff.count === 0 ||
-                          Boolean(activePractice) ||
-                          Boolean(startingDifficultyId)
-                        "
-                        :loading="startingDifficultyId === diff.id"
-                        @click="handleStartPractice(diff)"
-                      >
-                        <span v-if="startingDifficultyId === diff.id">正在生成</span>
-                        <span v-else-if="summaryLoading">加载中</span>
-                        <span v-else-if="diff.count === 0">暂无题目</span>
-                        <span v-else>立即练习</span>
-                      </AppButton>
-                    </div>
-                    <div class="qb-difficulty-card__body">
-                      <span class="qb-difficulty-card__icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" fill="none">
-                          <path
-                            d="m7.5 16.5 9-9M9 7.5h7.5V15"
-                            stroke="currentColor"
-                            stroke-width="1.8"
-                          />
-                          <path
-                            d="M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                          />
-                        </svg>
-                      </span>
-                      <div>
-                        <strong>{{ diff.label }}练习</strong>
-                        <p class="qb-difficulty-card__desc">{{ diff.description }}</p>
-                      </div>
-                    </div>
-                  </article>
-                </div>
-                <p class="qb-practice-summary" aria-live="polite">
-                  <template v-if="summaryLoading">正在读取题量…</template>
-                  <template v-else-if="summaryFailed">题量暂时无法加载，请重试。</template>
-                  <template v-else-if="!hasPracticeQuestions"
-                    >当前范围暂无可练习题目，请选择其他考点。</template
-                  >
-                  <template v-else
-                    >每次最多 {{ DIRECT_PRACTICE_QUESTION_COUNT }} 题 ·
-                    完成后查看成绩与解析</template
-                  >
-                </p>
-                <AppButton
-                  v-if="summaryFailed"
-                  class="qb-secondary"
-                  type="secondary"
-                  @click="loadQuestionSummary"
-                  >重新加载</AppButton
-                >
-              </div>
-            </section>
-          </el-tab-pane>
-        </el-tabs>
-      </section>
-    </main>
     <AppDialog
       v-model="selectionDialogVisible"
       title="确认开始练习"
@@ -336,63 +115,44 @@
       @update:model-value="handlePaymentVisibilityChange"
       @paid="handlePaymentSuccess"
     />
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
-import AppButton from '@/components/AppButton.vue'
-// 试题库首页：按考试、考纲和难度选择题目范围并开始专项练习。
-import {
-  computed,
-  defineAsyncComponent,
-  nextTick,
-  onActivated,
-  onBeforeUnmount,
-  onErrorCaptured,
-  onMounted,
-  ref,
-  shallowRef,
-  watch,
-} from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, ArrowRight, CircleCheck, Clock, EditPen, Lock, Reading, Share } from '@element-plus/icons-vue'
-import type { TreeInstance } from 'element-plus'
+import AppButton from '@/components/AppButton.vue'
 import AppDialog from '@/components/AppDialog.vue'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
-import type { AnnualPlan } from '@/constants/annualMembership'
-import { isFreeLearningScope, isFreePracticeScope } from '@/constants/freeLearningAccess'
-import SyllabusTreeNode from '@/components/SyllabusTreeNode.vue'
+import LearningScopeHeader from '@/components/knowledge/LearningScopeHeader.vue'
+import { useLearningScope } from '@/composables/useLearningScope'
+import { useLearningWorkspaceStore } from '@/stores/learningWorkspace'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
-import type { QuestionDifficulty, SyllabusNode } from '@/api/questionBank'
-import { getSyllabusData, getQuestionSummaryData } from '@/api/questionBank'
+import type { QuestionDifficulty } from '@/api/questionBank'
+import { getQuestionSummaryData } from '@/api/questionBank'
 import { getActiveQuestionBankPractice, type ActiveQuestionBankPractice } from '@/api/exam'
 import { checkMemberAccess, getMember } from '@/api/member'
 import { createLoginRequiredRouteLocation } from '@/utils/authRedirect'
-import LearningLightButton from '@/components/knowledge/LearningLightButton.vue'
-import { getLearningCompletions, setLearningCompletion } from '@/api/learningCompletion'
-import { getApiErrorMessage, hasApiErrorCode } from '@/utils/request'
+import type { AnnualPlan } from '@/constants/annualMembership'
 
-// 学习授权通过后预先等待面板资源，确保 CSS 或模块失败也能进入统一重试提示。
-function loadKnowledgeLessonPanel() {
-  return import('@/components/knowledge/KnowledgeLessonPanel.vue')
-}
-// 做题页不装载讲解及图示组件，进入学习后再使用原有课程面板。
-const KnowledgeLessonPanel = defineAsyncComponent(loadKnowledgeLessonPanel)
-// 未解锁背景仅含装饰色块，不引用课程文字或图示。
-const LockedLearningPreview = defineAsyncComponent(
-  () => import('@/components/knowledge/LockedLearningPreview.vue'),
-)
-
-const router = useRouter()
-const route = useRoute()
 const auth = useAuthStore()
-
-type TreeNode = SyllabusNode
+const workspace = useLearningWorkspaceStore()
+const route = useRoute()
+const router = useRouter()
+const {
+  isActive,
+  loading: scopeLoading,
+  ready,
+  selectedCode: selectedNodeCode,
+  selectedNode,
+  title: currentScopeCnLabel,
+  titleEn: currentScopeEnLabel,
+  breadcrumbs: selectedBreadcrumb,
+  selectKnowledge: handleKnowledgeSelect,
+} = useLearningScope('practice')
 type DifficultyId = QuestionDifficulty
-type WorkspaceMode = 'learning' | 'practice'
-
 interface DifficultyOption {
   id: DifficultyId
   label: string
@@ -400,7 +160,6 @@ interface DifficultyOption {
   description: string
   count: number
 }
-
 interface PendingDirectPractice {
   code: string
   label: string
@@ -408,126 +167,8 @@ interface PendingDirectPractice {
   questionCount: number
   examType: ActiveExamType
 }
-
 const DIRECT_PRACTICE_QUESTION_COUNT = 5
-const SYLLABUS_COLLAPSED_STORAGE_KEY = 'question-bank:syllabus-collapsed'
-const WORKSPACE_MODE_STORAGE_KEY = 'question-bank:mode'
-const allWorkspaceModes: { id: WorkspaceMode; label: string }[] = [
-  { id: 'learning', label: '学习' },
-  { id: 'practice', label: '做题' },
-]
-// TMUA 暂时只开放做题，保留课程实现，恢复时只需调整此入口开关。
-const learningEnabled = computed(() => auth.activeExamType !== 'TMUA')
-// 关闭学习入口的考试不创建学习页签及其解锁组件。
-const workspaceModes = computed(() =>
-  allWorkspaceModes.filter((mode) => learningEnabled.value || mode.id === 'practice'),
-)
-const preferredMode = ref<WorkspaceMode>('practice')
-// 统一收敛旧链接、缓存偏好和页签赋值，防止 TMUA 再次进入学习模式。
-const activeMode = computed<WorkspaceMode>({
-  get: () => learningEnabled.value ? preferredMode.value : 'practice',
-  set: (mode) => { preferredMode.value = mode },
-})
-// 游客可浏览考纲与题量，开始专项练习时再进入登录并回到试题库。
-function requireLoginForPracticeAction(): boolean {
-  if (auth.isLoggedIn) return false
-  const returnTo = router.resolve({
-    path: '/question-bank',
-    query: {
-      code: selectedNodeCode.value,
-      mode: activeMode.value,
-      difficulty: targetDifficulty.value,
-    },
-  }).fullPath
-  void router.push(createLoginRequiredRouteLocation(returnTo))
-  return true
-}
-
-const treeData = ref<TreeNode[]>([])
-const completedCodes = ref<string[]>([])
-const completionLoading = ref(false)
-const completionError = ref(false)
-const completionSavingCode = ref('')
-const completionMemberAllowed = ref(false)
-let completionEpoch = 0
-// 未登录、读取失败或保存中都禁止写入，避免用未知状态错误取消进度。
-const completionDisabled = computed(() => !auth.isLoggedIn || completionLoading.value || completionError.value || Boolean(completionSavingCode.value))
-// 只根据考纲真实叶子汇总章节，单节点更新后目录与正文同步。
-const completionLeaves = computed(() => {
-  const map = new Map<string, string[]>()
-  // 深层考纲也从叶子向上汇总，不假设每章只有一层。
-  function visit(node: TreeNode): string[] {
-    const leaves = node.children?.length ? node.children.flatMap(visit) : [node.code]
-    map.set(node.code, leaves)
-    return leaves
-  }
-  treeData.value.forEach(visit)
-  return map
-})
-// 无权益时禁止新增会员知识点；整章须覆盖全部叶子，已有点亮仍允许取消。
-const completionLockedCodes = computed(() => [...completionLeaves.value.entries()]
-  .filter(([code, leaves]) => !completionState(code).active && !completionMemberAllowed.value &&
-    !leaves.every(item => isFreePracticeScope(auth.activeExamType, item)))
-  .map(([code]) => code))
-// 章节全亮需要所有叶子完成，部分完成单独呈现状态。
-function completionState(code: string) {
-  const leaves = completionLeaves.value.get(code) ?? [code]
-  const count = leaves.filter(item => completedCodes.value.includes(item)).length
-  return { active: leaves.length > 0 && count === leaves.length, partial: count > 0 && count < leaves.length }
-}
-// 账号、考试或模式切换时清空旧状态，过期响应不得写回另一账号。
-async function loadLearningCompletions(): Promise<void> {
-  const epoch = ++completionEpoch
-  completedCodes.value = []
-  completionError.value = false
-  completionLoading.value = false
-  completionSavingCode.value = ''
-  if (!auth.isLoggedIn || !learningEnabled.value || activeMode.value !== 'learning') return
-  completionLoading.value = true
-  try {
-    const result = await getLearningCompletions(auth.activeExamType)
-    if (epoch === completionEpoch) completedCodes.value = result.items.map(item => item.code)
-  } catch {
-    if (epoch === completionEpoch) completionError.value = true
-  } finally {
-    if (epoch === completionEpoch) completionLoading.value = false
-  }
-}
-// 保存成功才点亮；失败保持原状态，整章操作由服务端校验权益和范围。
-async function toggleLearningCompletion(code: string): Promise<void> {
-  if (completionDisabled.value || completionLockedCodes.value.includes(code)) return
-  const epoch = completionEpoch
-  const completed = !completionState(code).active
-  completionSavingCode.value = code
-  try {
-    const result = await setLearningCompletion(auth.activeExamType, code, completed)
-    if (epoch !== completionEpoch) return
-    completedCodes.value = result.items.map(item => item.code)
-    ElMessage.success(completed ? '已点亮，学习进度已保存' : '已取消点亮')
-  } catch (error) {
-    // 权益在页面打开后失效时静默禁用新增点亮，不弹开通或错误提示。
-    if (epoch === completionEpoch && hasApiErrorCode(error, 'LEARNING_MEMBERSHIP_REQUIRED')) {
-      completionMemberAllowed.value = false
-      return
-    }
-    if (epoch === completionEpoch) ElMessage.error(getApiErrorMessage(error, '保存失败，请重试'))
-  } finally {
-    if (epoch === completionEpoch) completionSavingCode.value = ''
-  }
-}
-// 点亮状态独立于学习内容加载，浏览和切节不会产生操作记录。
-watch(() => [auth.user?.id, auth.isLoggedIn, auth.activeExamType, activeMode.value], () => {
-  void loadLearningCompletions()
-}, { immediate: true, flush: 'sync' })
-const syllabusTreeRef = ref<TreeInstance>()
-const workspaceRef = ref<HTMLElement>()
-const difficultyGridRef = ref<HTMLElement[]>([])
-const treeProps = { children: 'children', label: 'label' }
-const defaultExpanded = ref<string[]>([])
-const selectedNodeCode = ref<string>('')
-const selectedNodeLabel = ref<string>('综合考点')
 const targetDifficulty = ref<DifficultyId | null>(null)
-const syllabusLoading = ref(true)
 const summaryLoading = ref(true)
 const summaryFailed = ref(false)
 const activePractice = ref<ActiveQuestionBankPractice | null>(null)
@@ -537,96 +178,15 @@ const selectionDialogMessage = ref('')
 const upgradeDialogVisible = ref(false)
 const paymentVisible = ref(false)
 const paymentExamType = ref<ActiveExamType>(auth.activeExamType)
+const paymentPlan = ref<AnnualPlan>('annual_practice')
 const pendingDirectPractice = ref<PendingDirectPractice | null>(null)
-const syllabusCollapsed = ref(false)
-let examContentInitialized = false
-let examLoadSequence = 0
 let summaryLoadSequence = 0
 let practiceLoadSequence = 0
-
-const paymentPlan = ref<AnnualPlan>('annual_practice')
-const learningChecking = ref(false)
-const learningError = ref(false)
-const learningResourceError = ref(false)
-const learningAllowed = ref(false)
-const learningContent = shallowRef<typeof import('@/content/knowledge') | null>(null)
-let learningRequest = 0
-// 先确认当前考试权益，再请求讲义模块；选择切换和离开页面会令旧请求失效。
-async function refreshLearningAccess(): Promise<void> {
-  const request = ++learningRequest
-  completionMemberAllowed.value = false
-  const exam = auth.activeExamType
-  const code = selectedNodeCode.value
-  learningAllowed.value = false
-  learningContent.value = null
-  learningChecking.value = false
-  learningError.value = false
-  learningResourceError.value = false
-  if (!learningEnabled.value || activeMode.value !== 'learning') return
-  const freeScope = isFreeLearningScope(exam, code)
-  if (!freeScope && !auth.isLoggedIn) return
-  learningChecking.value = true
-  try {
-    const context = auth.isLoggedIn ? await getMember() : null
-    const memberAllowed = Boolean(context?.isAdmin || context?.quotas[exam]?.learningAccess)
-    if (request !== learningRequest) return
-    completionMemberAllowed.value = memberAllowed
-    if (!freeScope && !memberAllowed) return
-    const [content] = await Promise.all([
-      memberAllowed
-        ? import('@/content/knowledge')
-        : import('@/content/knowledge/freeLessons'),
-      loadKnowledgeLessonPanel(),
-    ]).catch((error: unknown) => {
-      if (request === learningRequest) learningResourceError.value = true
-      throw error
-    })
-    if (request !== learningRequest) return
-    learningContent.value = content
-    learningAllowed.value = true
-  } catch {
-    // 请求失败不能等同于没有会员，尤其不能向免费知识点显示付费提示。
-    if (request === learningRequest) learningError.value = true
-  }
-  finally { if (request === learningRequest) learningChecking.value = false }
-}
-// 资源失败需重建页面的模块加载状态；接口失败则只重查权益，保留当前页面。
-function retryLearningAccess(): void {
-  if (learningResourceError.value) {
-    window.location.reload()
-    return
-  }
-  void refreshLearningAccess()
-}
-// 后续按需图示加载失败也回到同一恢复入口，其他渲染异常仍交给正常错误处理。
-onErrorCaptured((error) => {
-  if (
-    activeMode.value !== 'learning' ||
-    !/Failed to fetch dynamically imported module|Unable to preload CSS|Importing a module script failed|error loading dynamically imported module|Loading chunk .+ failed/i.test(error.message)
-  ) return
-  learningRequest += 1
-  learningChecking.value = false
-  learningAllowed.value = false
-  learningContent.value = null
-  learningResourceError.value = true
-  learningError.value = true
-  return false
-})
-// 身份、考试和知识点改变时同步撤销旧授权，避免使用上一次的确认结果。
-watch(
-  () => [activeMode.value, auth.activeExamType, selectedNodeCode.value, auth.isLoggedIn, auth.user?.id] as const,
-  () => { void refreshLearningAccess() },
-  { immediate: true, flush: 'sync' },
-)
-// 学习购买默认选中学习年卡，支付后重新读取对应考试权益。
-function openLearningPayment(): void {
-  if (!learningEnabled.value) return
-  paymentPlan.value = 'annual_learning'
-  paymentExamType.value = auth.activeExamType
-  paymentVisible.value = true
-}
-
-
+let practiceContextVersion = 0
+// 练习参数始终绑定导航栏当前考试。
+const activeExamType = computed(() => auth.activeExamType)
+// 开始确认弹窗沿用考纲提供的双语范围名。
+const selectedNodeLabel = computed(() => selectedNode.value?.label || currentScopeCnLabel.value)
 const difficulties = ref<DifficultyOption[]>([
   {
     id: 'easy',
@@ -651,139 +211,11 @@ const difficulties = ref<DifficultyOption[]>([
   },
 ])
 
-// 题库统一读取顶部导航的全局考试类型，不再维护页面级考试选择。
-const activeExamType = computed<ActiveExamType>(() => auth.activeExamType)
-
-// 讲解只绑定当前考纲真实存在的节点；可选知识点也以当前已加载考纲为准。
-const activeKnowledgeLesson = computed(() => {
-  if (!learningAllowed.value) return null
-  const lesson = learningContent.value?.findKnowledgeLesson(activeExamType.value, selectedNodeCode.value)
-  if (!lesson || !findTreeNode(treeData.value, selectedNodeCode.value)) return null
-  const sections = lesson.sections.filter((section) => findTreeNode(treeData.value, section.code))
-  return sections.length ? { ...lesson, sections } : null
-})
-
-// 当前树节点同时提供双语标题，右侧练习本弹窗不再从混合 label 反向拆分。
-const selectedTreeNode = computed(
-  () => findTreeNode(treeData.value, selectedNodeCode.value)?.node || null,
-)
-
-// 中文范围名称优先使用新版考纲字段，兼容无匹配节点时的页面标题。
-const currentScopeCnLabel = computed(
-  () => selectedTreeNode.value?.cn_label || selectedNodeLabel.value,
-)
-
-// 路径包含祖先与当前节点，切换章节或知识点时同步更新末项；父级保留返回入口。
-const selectedBreadcrumb = computed(() => {
-  const match = findTreeNode(treeData.value, selectedNodeCode.value)
-  if (!match) return []
-  return [...match.parents, match.node.code].flatMap((code) => {
-    const node = findTreeNode(treeData.value, code)?.node
-    return node ? [{ code: node.code, label: node.cn_label || node.label }] : []
-  })
-})
-
-// 英文范围名称随当前选中的考纲节点更新。
-const currentScopeEnLabel = computed(
-  () => selectedTreeNode.value?.en_label || selectedNodeLabel.value,
-)
-
-// 学科总节点列出已有讲解的章节，避免让学生在学习模式下看到空白页。
-const availableLearningChapters = computed(() => {
-  if (!learningAllowed.value || !learningContent.value) return []
-  const chapters: TreeNode[] = []
-  // 已匹配章节时不再展开其叶子，避免同一讲义在入口重复出现。
-  const visit = (nodes: TreeNode[]): void => {
-    for (const node of nodes) {
-      if (learningContent.value?.findKnowledgeLesson(activeExamType.value, node.code)) chapters.push(node)
-      else visit(node.children || [])
-    }
-  }
-  visit(selectedTreeNode.value?.children || [])
-  return chapters
-})
-
-// 所有难度均无题时显示空范围提示，加载失败则使用独立的重试状态。
+// 空题量和读取失败分别呈现，不能将网络失败当作无题。
 const hasPracticeQuestions = computed(() => difficulties.value.some((item) => item.count > 0))
-
-// 模式偏好只保存布局选择，不代表购买资格；显式链接优先于本机偏好。
-function restoreWorkspaceMode(): void {
-  const requested = String(route.query.mode || '')
-  let saved: string | null = null
-  try {
-    saved = window.localStorage.getItem(WORKSPACE_MODE_STORAGE_KEY)
-  } catch {
-    // 浏览器禁用存储时仍可正常切换模式。
-  }
-  activeMode.value =
-    requested === 'learning' || requested === 'practice'
-      ? requested
-      : route.query.difficulty
-        ? 'practice'
-        : saved === 'learning'
-          ? 'learning'
-          : 'practice'
-}
-
-// 记住上次使用的入口，学习与做题切换不重置考点、不创建答卷。
-watch(activeMode, (mode) => {
-  try {
-    if (learningEnabled.value) window.localStorage.setItem(WORKSPACE_MODE_STORAGE_KEY, mode)
-  } catch {
-    // 存储不可用时保留本次页面内的选择。
-  }
-  if (route.query.mode && route.query.mode !== mode) {
-    void router.replace({ query: { ...route.query, mode } })
-  }
-})
-
-// 深层考纲节点查找同时返回祖先 code，便于学习路径入口展开对应树路径。
-function findTreeNode(
-  nodes: TreeNode[],
-  code: string,
-  parents: string[] = [],
-): { node: TreeNode; parents: string[] } | null {
-  for (const node of nodes) {
-    if (node.code === code) return { node, parents }
-    const found = findTreeNode(node.children || [], code, [...parents, node.code])
-    if (found) return found
-  }
-  return null
-}
-
-// 考纲包含考试分组层时继续展开首个学科，让 ESAT 与 TMUA 默认显示相同知识点层级。
-function resolveDefaultExpandedCodes(nodes: TreeNode[], examType: ActiveExamType): string[] {
-  const first = nodes[0]
-  if (!first) return []
-
-  const expandedCodes = [first.code]
-  const firstSubject = first.children?.[0]
-  const isExamGroup = first.label.toUpperCase().includes(examType)
-  if (isExamGroup && firstSubject) expandedCodes.push(firstSubject.code)
-  return expandedCodes
-}
-
-// 异步考纲渲染完成后显式展开目标层级，避免 Element Plus 忽略后更新的默认展开项。
-async function expandDefaultSyllabusNodes(): Promise<void> {
-  await nextTick()
-  for (const code of defaultExpanded.value) {
-    syllabusTreeRef.value?.getNode(code)?.expand()
-  }
-}
-
-// 收起状态只影响本机布局，重新展开后 Element Plus 树会恢复原选择与展开路径。
-function toggleSyllabus(): void {
-  syllabusCollapsed.value = !syllabusCollapsed.value
-  try {
-    window.localStorage.setItem(SYLLABUS_COLLAPSED_STORAGE_KEY, syllabusCollapsed.value ? '1' : '0')
-  } catch {
-    // 存储不可用不影响展开和收起操作。
-  }
-  if (!syllabusCollapsed.value) void expandDefaultSyllabusNodes()
-}
-
 // 进行中练习由服务端唯一活动键决定，切换考试类型后重新读取对应会话。
 async function loadActivePractice(): Promise<void> {
+  if (!isActive.value) return
   const requestSequence = ++practiceLoadSequence
   const requestedExamType = activeExamType.value
   activePractice.value = null
@@ -801,6 +233,7 @@ async function loadActivePractice(): Promise<void> {
 
 // 轻量接口只拉题量和难度分布，避免列表页首次加载全量题目。
 async function loadQuestionSummary(): Promise<void> {
+  if (!isActive.value) return
   const requestSequence = ++summaryLoadSequence
   const requestedExamType = activeExamType.value
   const requestedNodeCode = selectedNodeCode.value
@@ -838,148 +271,68 @@ function resetQuestionSummary(): void {
   difficulties.value = difficulties.value.map((item) => ({ ...item, count: 0 }))
 }
 
-// 大纲选择同步地址和练习范围；正文更新后立即回到学习顶部，不等待题量接口。
-const handleTreeNodeClick = async (node: TreeNode): Promise<void> => {
-  selectedNodeCode.value = node.code
-  selectedNodeLabel.value = node.label
-  if (route.query.code !== node.code) {
-    void router.replace({ query: { ...route.query, code: node.code } })
-  }
-  const summaryRequest = loadQuestionSummary()
-  await nextTick()
-  if (activeMode.value === 'learning' && selectedNodeCode.value === node.code) {
-    workspaceRef.value?.scrollIntoView({ behavior: 'auto', block: 'start' })
-  }
-  await summaryRequest
+// 考纲失败需先恢复共享范围，题量失败则仅重试轻量统计接口。
+async function retryQuestionSummary(): Promise<void> {
+  if (workspace.syllabusError) await workspace.loadSyllabus(true).catch(() => undefined)
+  else await loadQuestionSummary()
 }
-
-// 同一工作区的链接也可能指定新范围，KeepAlive 恢复时只处理实际变化的上下文。
+// 可见任务、考试、范围或账号变化时清理冻结的练习意图，并令旧请求失效。
 watch(
-  () => [route.path, route.query.code, route.query.mode, route.query.difficulty],
-  (nextContext, previousContext) => {
-    if (route.path !== '/question-bank' || !examContentInitialized || syllabusLoading.value) return
-    if (route.query.mode === 'learning' || route.query.mode === 'practice') {
-      activeMode.value = route.query.mode
-    }
-    const difficulty = String(route.query.difficulty || '')
-    if (
-      nextContext[3] !== previousContext[3] &&
-      difficulties.value.some((item) => item.id === difficulty)
-    ) {
-      targetDifficulty.value = difficulty as DifficultyId
-    }
-    const code = String(route.query.code || '')
-    if (code && code !== selectedNodeCode.value) void handleKnowledgeSelect(code)
-  },
-)
-
-// 面板内换知识点复用树选择流程，使正文、左侧高亮和下方取题范围保持一致。
-async function handleKnowledgeSelect(code: string): Promise<void> {
-  const match = findTreeNode(treeData.value, code)
-  if (!match) return
-  for (const parent of match.parents) syllabusTreeRef.value?.getNode(parent)?.expand()
-  syllabusTreeRef.value?.setCurrentKey(code)
-  await handleTreeNodeClick(match.node)
-}
-
-// 学完后切到同一考点的做题模式，再聚焦设置区；切换本身不生成练习。
-async function openPracticeMode(): Promise<void> {
-  activeMode.value = 'practice'
-  await nextTick()
-  const panel = difficultyGridRef.value[0]
-  panel?.scrollIntoView({
-    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-    block: 'start',
-  })
-  panel?.focus({ preventScroll: true })
-}
-
-// 全局考试类型变化后重置旧考试数据，并只接受本次切换对应的异步响应。
-async function loadExamContent(useRouteContext: boolean): Promise<void> {
-  const requestSequence = ++examLoadSequence
-  const requestedExamType = activeExamType.value
-  syllabusLoading.value = true
-  summaryLoading.value = true
-  summaryFailed.value = false
-  summaryLoadSequence += 1
-  practiceLoadSequence += 1
-  treeData.value = []
-  defaultExpanded.value = []
-  selectedNodeCode.value = ''
-  selectedNodeLabel.value = '综合考点'
-  activePractice.value = null
-  resetQuestionSummary()
-  if (!useRouteContext) targetDifficulty.value = null
-
-  try {
-    const nodes = await getSyllabusData(requestedExamType)
-    if (requestSequence !== examLoadSequence || requestedExamType !== activeExamType.value) return
-
-    const nextTreeData = nodes[0]?.children || []
-    treeData.value = nextTreeData
-    const requestedCode = useRouteContext ? String(route.query.code || '').trim() : ''
-    const requestedNode = requestedCode ? findTreeNode(nextTreeData, requestedCode) : null
-    const firstNode = nextTreeData[0]
-    if (requestedNode) {
-      defaultExpanded.value = requestedNode.parents
-      selectedNodeCode.value = requestedNode.node.code
-      selectedNodeLabel.value = requestedNode.node.label
-    } else if (firstNode) {
-      defaultExpanded.value = resolveDefaultExpandedCodes(nextTreeData, requestedExamType)
-      selectedNodeCode.value = firstNode.code
-      selectedNodeLabel.value = firstNode.label
-    }
-
-    if (useRouteContext) {
-      const requestedDifficulty = String(route.query.difficulty || '') as DifficultyId
-      targetDifficulty.value = difficulties.value.some((item) => item.id === requestedDifficulty)
-        ? requestedDifficulty
-        : null
-    }
-
-    await expandDefaultSyllabusNodes()
-    if (requestSequence !== examLoadSequence || requestedExamType !== activeExamType.value) return
-    await Promise.all([loadQuestionSummary(), loadActivePractice()])
-  } catch {
-    if (requestSequence !== examLoadSequence || requestedExamType !== activeExamType.value) return
-    treeData.value = []
-    defaultExpanded.value = []
-    selectedNodeCode.value = ''
-    selectedNodeLabel.value = '综合考点'
+  () =>
+    [
+      isActive.value,
+      ready.value,
+      scopeLoading.value,
+      activeExamType.value,
+      selectedNodeCode.value,
+      auth.isLoggedIn,
+      auth.user?.id,
+      workspace.syllabusError,
+    ] as const,
+  () => {
+    practiceContextVersion += 1
+    summaryLoadSequence += 1
+    practiceLoadSequence += 1
+    selectionDialogVisible.value = upgradeDialogVisible.value = paymentVisible.value = false
+    pendingDirectPractice.value = null
+    startingDifficultyId.value = null
+    activePractice.value = null
     resetQuestionSummary()
-    await loadActivePractice()
-  } finally {
-    if (requestSequence === examLoadSequence) {
-      syllabusLoading.value = false
-      if (!selectedNodeCode.value) summaryLoading.value = false
-    }
-  }
+    summaryFailed.value = workspace.syllabusError
+    summaryLoading.value = isActive.value && scopeLoading.value && !workspace.syllabusError
+    paymentExamType.value = activeExamType.value
+    if (!isActive.value || !ready.value) return
+    void loadQuestionSummary()
+    void loadActivePractice()
+  },
+  { immediate: true, flush: 'sync' },
+)
+// 只有明确带难度的链接才高亮卡片，普通进入始终不预选中等难度。
+watch(
+  () => [isActive.value, activeExamType.value, route.query.code, route.query.difficulty],
+  () => {
+    if (!isActive.value) return
+    const value = String(route.query.difficulty || '')
+    targetDifficulty.value = difficulties.value.some((item) => item.id === value)
+      ? (value as DifficultyId)
+      : null
+  },
+  { immediate: true },
+)
+// 游客开始练习时进入登录，返回后仍保留考点和所选难度。
+function requireLoginForPracticeAction(): boolean {
+  if (auth.isLoggedIn) return false
+  const returnTo = router.resolve({
+    path: '/question-bank',
+    query: { code: selectedNodeCode.value, mode: 'practice', difficulty: targetDifficulty.value },
+  }).fullPath
+  void router.push(createLoginRequiredRouteLocation(returnTo))
+  return true
 }
-
-// 导航栏切换考试类型时重新查询该考试的大纲、题量统计与进行中练习。
-watch(activeExamType, () => {
-  selectionDialogVisible.value = false
-  upgradeDialogVisible.value = false
-  pendingDirectPractice.value = null
-  if (!paymentVisible.value) paymentExamType.value = activeExamType.value
-  if (examContentInitialized) {
-    void loadExamContent(false)
-  }
-})
-
-onMounted(() => {
-  restoreWorkspaceMode()
-  try {
-    syllabusCollapsed.value = window.localStorage.getItem(SYLLABUS_COLLAPSED_STORAGE_KEY) === '1'
-  } catch {
-    // 无本地偏好时保持考纲展开。
-  }
-})
-
-// 窄屏卡片使用 Mini，随窗口变化同步组件尺寸，不覆盖按钮内部样式。
+// 窄屏卡片继续使用公共按钮的紧凑尺寸。
 const compactViewport = ref(false)
 let compactViewportQuery: MediaQueryList | undefined
-// 窄屏使用公共按钮的紧凑尺寸，避免三张并排卡片裁切练习入口。
+// 仅调整按钮大小，不创建第二套练习行为。
 function syncCompactViewport(): void {
   compactViewport.value = compactViewportQuery?.matches ?? false
 }
@@ -989,29 +342,11 @@ onMounted(() => {
   compactViewportQuery.addEventListener('change', syncCompactViewport)
 })
 onBeforeUnmount(() => {
-  learningRequest += 1
+  summaryLoadSequence += 1
+  practiceLoadSequence += 1
+  practiceContextVersion += 1
   compactViewportQuery?.removeEventListener('change', syncCompactViewport)
 })
-
-// 首次进入先完成个人考试偏好初始化，再按最终全局类型加载题库。
-onMounted(async () => {
-  try {
-    await auth.ensureMemberContext()
-  } catch {
-    // 偏好加载失败时继续使用全局默认 TMUA，公共请求层负责错误提示。
-  }
-  examContentInitialized = true
-  await loadExamContent(true)
-})
-
-// 返回缓存页面时刷新进行中的练习，避免使用过期状态。
-onActivated(() => {
-  if (examContentInitialized) {
-    void refreshLearningAccess()
-    void loadActivePractice()
-  }
-})
-
 // 移动端仅开放题库与考纲浏览，正式练习统一提示切换到电脑端。
 function requireDesktopForQuestionBankPractice(): boolean {
   const isMobileViewport =
@@ -1083,6 +418,7 @@ async function handleConfirmSelectedPractice(): Promise<void> {
   const pending = pendingDirectPractice.value
   if (!pending) return
   startingDifficultyId.value = pending.difficulty
+  const request = practiceContextVersion
   try {
     const access = await checkMemberAccess({
       action: 'question-bank',
@@ -1090,6 +426,12 @@ async function handleConfirmSelectedPractice(): Promise<void> {
       questionCount: pending.questionCount,
       code: pending.code,
     })
+    if (
+      request !== practiceContextVersion ||
+      !isActive.value ||
+      pendingDirectPractice.value !== pending
+    )
+      return
     if (access.allowed) {
       pendingDirectPractice.value = null
       navigateToPractice(pending)
@@ -1101,7 +443,7 @@ async function handleConfirmSelectedPractice(): Promise<void> {
   } catch {
     // 公共请求层已统一展示网络或服务端错误，此处只阻止按钮事件产生未处理异常。
   } finally {
-    startingDifficultyId.value = null
+    if (request === practiceContextVersion) startingDifficultyId.value = null
   }
 }
 
@@ -1136,14 +478,18 @@ function handlePaymentVisibilityChange(visible: boolean): void {
 // 支付完成后刷新当前考试会员资格，当前页面无需重新登录即可继续练习。
 async function handlePaymentSuccess(): Promise<void> {
   paymentVisible.value = false
+  const userId = auth.user?.id
+  const exam = activeExamType.value
   try {
     const context = await getMember()
+    if (auth.user?.id !== userId || activeExamType.value !== exam) return
     auth.setMemberContext(context)
-    await refreshLearningAccess()
+    await workspace.loadPersonal()
+    if (!isActive.value || auth.user?.id !== userId || activeExamType.value !== exam) return
     if (pendingDirectPractice.value) {
       await handleConfirmSelectedPractice()
     } else {
-      await loadExamContent(false)
+      await Promise.all([loadQuestionSummary(), loadActivePractice()])
     }
   } catch {
     // 支付组件已确认成功，公共请求层负责提示权益刷新失败。
@@ -1151,281 +497,12 @@ async function handlePaymentSuccess(): Promise<void> {
 }
 </script>
 
-<style scoped lang="scss">
-.qb-tree-item { display: flex; align-items: center; gap: 6px; width: 100%; min-width: 0; padding-right: 6px; }
-.qb-completion-notice { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 0; color: var(--color-ink-muted); font-size: 14px; }
+<style scoped>
 .question-bank {
+  min-width: 0;
   min-height: calc(100vh - var(--nav-height));
-  background: var(--color-surface);
+  padding-bottom: 40px;
   color: var(--color-ink);
-}
-
-/* 考纲与正文作为整体保留左右 50px 留白，折叠只收窄目录列。 */
-.qb-container {
-  display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  align-items: start;
-  gap: 24px 40px;
-  margin: 0 50px;
-  padding: 32px 0 72px;
-}
-.qb-container--collapsed {
-  grid-template-columns: 44px minmax(0, 1fr);
-}
-.qb-sidebar {
-  position: sticky;
-  top: calc(var(--nav-height) + 20px);
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  max-height: calc(100dvh - var(--nav-height) - 40px);
-  padding: 12px 8px;
-  border-radius: 8px;
-  background: #f7f9fc;
-}
-.qb-sidebar__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 8px 12px;
-}
-.qb-sidebar__title {
-  margin: 0;
-  color: var(--color-ink-soft);
-  font-size: 16px;
-  font-weight: 600;
-}
-.qb-sidebar__toggle.app-button.el-button {
-  --button-min-width: 28px;
-  flex-shrink: 0;
-}
-.qb-sidebar__tree-scroll {
-  min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-}
-.qb-sidebar__tree-scroll :deep(.el-tree) {
-  background: transparent;
-}
-.qb-sidebar__tree-scroll :deep(.el-tree-node__content) {
-  min-height: 58px;
-  height: auto;
-  padding-right: 8px;
-  border-radius: 5px;
-}
-.qb-sidebar__tree-scroll :deep(.el-tree-node.is-current > .el-tree-node__content) {
-  background: var(--color-learning-blue-soft);
-  color: var(--color-learning-blue);
-  box-shadow: inset 3px 0 var(--color-learning-blue);
-}
-.qb-sidebar__tree-scroll
-  :deep(.el-tree-node.is-current > .el-tree-node__content .syllabus-tree-node__cn) {
-  color: var(--color-learning-blue);
-}
-.qb-sidebar__collapsed-label {
-  padding-top: 12px;
-  text-align: center;
-  color: var(--color-ink-muted);
-  font-size: 12px;
-}
-.qb-container--collapsed .qb-sidebar {
-  padding: 8px;
-}
-.qb-container--collapsed .qb-sidebar__header {
-  padding: 0;
-}
-.qb-workspace {
-  min-width: 0;
-  /* 顶部导航固定时，仍完整露出学习标签、面包屑和当前知识点标题。 */
-  scroll-margin-top: calc(var(--nav-height) + 20px);
-}
-.qb-overview {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  /* 标题相对页面边缘内移，与顶部导航的视觉位置保持协调。 */
-  padding-left: 156px;
-}
-.qb-overview h1 {
-  margin: 0;
-  font-size: 32px;
-  font-weight: 700;
-  line-height: 1.35;
-}
-.qb-overview p {
-  margin: 6px 0 0;
-  color: var(--color-ink-muted);
-  font-size: 15px;
-}
-.qb-shortcuts {
-  display: flex;
-  align-items: center;
-  flex: 0 0 auto;
-  gap: 20px;
-  margin-right: 64px;
-}
-.qb-shortcuts a {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--color-ink-soft);
-  font-size: 14px;
-  text-decoration: none;
-}
-.qb-shortcuts a + a {
-  padding-left: 20px;
-  border-left: 1px solid var(--color-line);
-}
-.qb-shortcuts svg {
-  width: 19px;
-  height: 19px;
-}
-.qb-shortcuts a:hover {
-  color: var(--color-learning-blue);
-}
-.qb-mode-tabs {
-  --el-color-primary: var(--color-learning-blue);
-}
-.qb-mode-tabs :deep(> .el-tabs__header) {
-  margin: 0;
-}
-.qb-mode-tabs--practice-only :deep(> .el-tabs__header) {
-  display: none;
-}
-.qb-mode-tabs--practice-only .qb-content {
-  padding-top: 0;
-}
-.qb-mode-tabs :deep(.el-tabs__nav-wrap::after) {
-  height: 1px;
-  background: var(--color-line);
-}
-.qb-mode-tabs :deep(.el-tabs__item) {
-  height: 54px;
-  padding: 0 24px;
-  font-size: 18px;
-  font-weight: 600;
-}
-.qb-mode-tabs :deep(.el-tabs__active-bar) {
-  height: 3px;
-}
-.qb-mode-tabs :deep(> .el-tabs__content) {
-  overflow: visible;
-}
-.qb-content {
-  padding-top: 32px;
-}
-/* 学科入口以紧凑标题和章节目录为主，讲义与做题页保留原有阅读间距。 */
-.qb-content--index {
-  padding-top: 20px;
-}
-.qb-content--index .qb-content__header {
-  margin-bottom: 20px;
-}
-.qb-content--index .qb-breadcrumb {
-  margin-bottom: 8px;
-}
-.qb-content--index .qb-breadcrumb:has(.qb-breadcrumb__current:only-child) {
-  display: none;
-}
-.qb-content--index .qb-content__title {
-  font-size: 24px;
-  line-height: 1.3;
-}
-.qb-content--index .qb-content__english {
-  margin-top: 3px;
-  font-size: 14px;
-}
-/* 已选讲义将章节标题与正文连成一组，优先留出可见的学习内容。 */
-.qb-content--lesson {
-  padding-top: 22px;
-}
-.qb-content--lesson .qb-content__header {
-  margin-bottom: 8px;
-}
-/* 做题入口收紧标题与练习设置的距离，学习讲义保留自己的排版。 */
-.qb-content--practice .qb-content__header {
-  margin-bottom: 18px;
-}
-.qb-content--lesson .qb-breadcrumb {
-  margin-bottom: 8px;
-}
-.qb-content--lesson .qb-content__title {
-  font-size: 25px;
-  line-height: 1.3;
-}
-/* 学习标题与英文名称同组，简介紧随其后；名称过长时自然换行。 */
-.qb-content--lesson .qb-content__title-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 2px 12px;
-}
-.qb-content--lesson .qb-content__english {
-  margin: 0;
-  font-size: 15px;
-}
-.qb-content__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 32px;
-}
-.qb-content__heading {
-  min-width: 0;
-}
-.qb-breadcrumb {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
-  color: var(--color-ink-muted);
-  font-size: 14px;
-}
-.qb-breadcrumb button {
-  max-width: 240px;
-  padding: 0;
-  overflow: hidden;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  cursor: pointer;
-}
-.qb-breadcrumb button:hover {
-  color: var(--color-learning-blue);
-}
-.qb-breadcrumb__current {
-  min-width: 0;
-  max-width: 100%;
-  color: var(--color-ink);
-  overflow-wrap: anywhere;
-}
-.qb-breadcrumb svg {
-  width: 12px;
-  height: 12px;
-  flex-shrink: 0;
-}
-.qb-content__title {
-  margin: 0;
-  font-size: 28px;
-  line-height: 1.45;
-  font-weight: 700;
-  overflow-wrap: anywhere;
-}
-.qb-content__english {
-  margin: 6px 0 0;
-  color: var(--color-ink-muted);
-  font-size: 17px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
 }
 .qb-practice {
   min-width: 0;
@@ -1658,308 +735,5 @@ async function handlePaymentSuccess(): Promise<void> {
 .qb-active-practice span {
   color: var(--color-ink-soft);
   font-size: 13px;
-}
-.qb-learning-loading {
-  min-height: 400px;
-  padding: 24px 0;
-}
-.qb-learning-error {
-  padding: 24px 0;
-  color: var(--color-ink-muted);
-}
-.qb-learning-error p {
-  margin: 0 0 16px;
-}
-.qb-locked-learning {
-  position: relative;
-  isolation: isolate;
-  display: grid;
-  align-items: center;
-  min-height: 560px;
-  overflow: hidden;
-  border-radius: 16px;
-}
-.qb-locked-learning__preview {
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  filter: blur(9px);
-  opacity: 0.65;
-}
-.qb-locked-learning__veil {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: rgb(246 249 253 / 30%);
-}
-.qb-learning-gate {
-  width: calc(100% - 64px);
-  box-sizing: border-box;
-  max-width: 720px;
-  margin: 80px auto;
-  padding: 24px 28px;
-  border: 1px solid var(--color-learning-blue-line);
-  border-radius: 16px;
-  background: var(--color-surface);
-  box-shadow: 0 16px 48px rgb(31 52 78 / 10%);
-}
-.qb-learning-gate__heading {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-.qb-learning-gate__lock {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--color-learning-blue-line);
-  border-radius: 12px;
-  background: var(--color-surface);
-  color: var(--color-learning-blue);
-}
-.qb-learning-gate__lock svg {
-  width: 22px;
-  height: 22px;
-}
-.qb-learning-gate__badge {
-  color: var(--color-learning-blue);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-.qb-learning-gate h3 {
-  margin: 0;
-  font-size: 23px;
-  font-weight: 650;
-  line-height: 1.4;
-}
-.qb-learning-gate__intro {
-  margin: 12px 0 0;
-  color: var(--color-ink-soft);
-  font-size: 14px;
-  line-height: 1.8;
-}
-.qb-learning-gate__features {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
-  margin: 22px 0;
-}
-.qb-learning-gate__features > div {
-  display: grid;
-  grid-template-columns: 20px minmax(0, 1fr);
-  align-content: start;
-  gap: 8px 10px;
-}
-.qb-learning-gate__features svg {
-  width: 20px;
-  height: 20px;
-  color: var(--color-learning-blue);
-}
-.qb-learning-gate__features strong {
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 600;
-}
-.qb-learning-gate__features p {
-  grid-column: 2;
-  margin: 0;
-  color: var(--color-ink-muted);
-  font-size: 12px;
-  line-height: 1.7;
-}
-.qb-learning-gate__footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 16px;
-  padding-top: 18px;
-  border-top: 1px solid var(--color-learning-blue-line);
-}
-@media (max-width: 640px) {
-  .qb-learning-gate {
-    width: calc(100% - 24px);
-    margin-block: 48px;
-  }
-  .qb-learning-gate__features {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 20px;
-    margin-block: 24px;
-  }
-}
-.qb-learning-index {
-  padding: 0 0 24px;
-}
-.qb-learning-index h3 {
-  margin: 0 0 10px;
-  font-size: 16px;
-  font-weight: 600;
-}
-.qb-learning-index p {
-  color: var(--color-ink-muted);
-  margin: 0 0 20px;
-}
-.qb-chapter-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 24px;
-  border-top: 1px solid var(--color-line);
-}
-.qb-chapter-list button {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
-  padding: 12px 10px;
-  border: 0;
-  border-bottom: 1px solid var(--color-line);
-  background: none;
-  color: var(--color-ink);
-  text-align: left;
-  font: inherit;
-  cursor: pointer;
-}
-.qb-chapter-list button:hover {
-  color: var(--color-learning-blue);
-  background: var(--color-learning-blue-soft);
-}
-.qb-chapter-list__number {
-  align-self: flex-start;
-  padding-top: 2px;
-  color: var(--color-ink-muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-.qb-chapter-list__name {
-  flex: 1;
-  min-width: 0;
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-.qb-chapter-list small {
-  display: block;
-  margin-top: 2px;
-  color: var(--color-ink-muted);
-  font-size: 13px;
-  font-weight: 400;
-}
-.qb-chapter-list svg {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-}
-.qb-shortcuts a:focus-visible,
-.qb-breadcrumb button:focus-visible,
-.qb-chapter-list button:focus-visible {
-  outline: 2px solid var(--color-learning-blue);
-  outline-offset: 3px;
-}
-@media (max-width: 1100px) {
-  .qb-container {
-    grid-template-columns: 230px minmax(0, 1fr);
-    gap: 24px;
-  }
-  .qb-container--collapsed {
-    grid-template-columns: 44px minmax(0, 1fr);
-  }
-  .qb-content__header {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-  .qb-content__title {
-    font-size: 25px;
-  }
-}
-@media (max-width: 860px) {
-  .qb-container,
-  .qb-container--collapsed {
-    grid-template-columns: minmax(0, 1fr);
-    margin-inline: 16px;
-    gap: 24px;
-    padding-top: 20px;
-  }
-  .qb-sidebar {
-    position: static;
-    max-height: 260px;
-  }
-  .qb-sidebar__header {
-    padding-bottom: 8px;
-    flex-direction: row-reverse;
-    justify-content: flex-end;
-  }
-  .qb-container--collapsed .qb-sidebar__header {
-    justify-content: flex-end;
-  }
-  .qb-container--collapsed .qb-sidebar {
-    /* 窄屏展开入口放在左侧，避开页面右上角的悬浮咨询入口。 */
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 10px;
-    padding: 8px 12px;
-  }
-  .qb-sidebar__collapsed-label {
-    padding: 0;
-    font-size: 14px;
-  }
-  .qb-overview {
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-  .qb-overview,
-  .qb-container--collapsed .qb-overview {
-    padding-left: 0;
-  }
-  .qb-shortcuts {
-    margin-right: 0;
-  }
-  .qb-overview h1 {
-    font-size: 28px;
-  }
-  .qb-content {
-    padding-top: 24px;
-  }
-  .qb-content__title {
-    font-size: 23px;
-  }
-  .qb-content__header {
-    gap: 12px;
-    margin-bottom: 18px;
-  }
-  .qb-content__english {
-    font-size: 15px;
-  }
-  .qb-difficulty-grid {
-    gap: 8px;
-  }
-  .qb-difficulty-card:hover {
-    transform: none;
-  }
-  .qb-difficulty-card__visual {
-    min-height: 0;
-    padding: 10px 8px;
-  }
-  .qb-difficulty-card__english {
-    margin-bottom: 4px;
-    font-size: 8px;
-  }
-  .qb-difficulty-card__title {
-    font-size: 14px;
-    white-space: nowrap;
-  }
-  .qb-difficulty-card__body {
-    display: none;
-  }
-  .qb-chapter-list {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .qb-active-practice {
-    align-items: flex-start;
-    flex-direction: column;
-  }
 }
 </style>

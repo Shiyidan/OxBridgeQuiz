@@ -1,17 +1,35 @@
-<!-- 练习本首页：按全局考试类型展示真实汇总，并在行内按需展开已交卷历史。 -->
+<!-- 我的练习册统一页面：管理列表、新建和编辑状态，并保留列表范围与历史展开状态。 -->
 <template>
-  <div class="practice-notebook">
-    <main class="notebook-container">
+  <div ref="notebookRef" class="practice-notebook">
+    <PracticeNotebookEditor
+      v-if="showEditor"
+      :key="editorKey"
+      :notebook-id="editingNotebookId"
+      :prefill="route.query"
+      :return-button-label="editorReturnLabel"
+      @close="closeEditor"
+      @saved="handleEditorSaved"
+      @invalidated="leaveInvalidEditor"
+    />
+    <main v-else class="notebook-container">
       <header class="notebook-header">
         <div>
-          <span class="notebook-eyebrow">Practice Notebook</span>
-          <h1>练习本</h1>
+          <h1>我的练习册</h1>
           <p>保存常用组卷规则，集中查看每次练习和历史结果。</p>
         </div>
-        <AppButton type="text" :icon="Back" @click="handleBackToQuestionBank">
-          <span>返回试题库</span>
-        </AppButton>
+        <AppButton :icon="Plus" @click="handleCreateNotebook">新建练习册</AppButton>
       </header>
+      <div v-if="relatedCode" class="notebook-scope" role="status">
+        <span>当前筛选：{{ relatedLabel }}相关练习册</span
+        ><AppButton type="text" size="small" @click="clearRelatedScope">查看全部练习册</AppButton>
+      </div>
+      <p v-if="!listLoading && !listError && !displayRows.length" class="notebook-state">
+        {{
+          relatedCode
+            ? '暂无包含这个知识点的练习册，可新建专题练习册。'
+            : '还没有练习册，先创建一套常用练习规则。'
+        }}
+      </p>
 
       <section v-if="unlistedActivePractice" class="notebook-active-other">
         <div>
@@ -28,14 +46,14 @@
         </AppButton>
       </section>
 
-      <section v-if="listLoading" class="notebook-state">正在加载练习本...</section>
+      <section v-if="listLoading" class="notebook-state">正在加载练习册...</section>
       <section v-else-if="listError" class="notebook-state notebook-state--error">
         <p>{{ listError }}</p>
         <AppButton type="secondary" size="small" @click="loadNotebookList">重新加载</AppButton>
       </section>
-      <section v-else-if="displayRows.length" class="notebook-list" aria-label="练习本列表">
+      <section v-else-if="displayRows.length" class="notebook-list" aria-label="练习册列表">
         <div class="notebook-list__header" aria-hidden="true">
-          <span>练习本</span>
+          <span>练习册</span>
           <span>当前设置</span>
           <span>最近一次</span>
           <span>累计</span>
@@ -151,12 +169,6 @@
           </Transition>
         </template>
       </section>
-      <section class="notebook-create-section" aria-label="新建练习本">
-        <div class="notebook-create-card">
-          <AppButton :icon="Plus" @click="handleCreateNotebook">新建练习本</AppButton>
-          <small>自己选择知识点、题量、难度和时间</small>
-        </div>
-      </section>
     </main>
 
     <DailyCardAccessDialog
@@ -186,13 +198,15 @@
 import AnalysisMembershipDialog from '@/components/AnalysisMembershipDialog.vue'
 import { useAnalysisMembershipAccess } from '@/composables/useAnalysisMembershipAccess'
 import AppButton from '@/components/AppButton.vue'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useLearningWorkspaceStore } from '@/stores/learningWorkspace'
 import { ElMessage } from 'element-plus'
-import { Back, Plus } from '@element-plus/icons-vue'
+import { Plus } from '@element-plus/icons-vue'
 import AppPagination from '@/components/AppPagination.vue'
 import DailyCardAccessDialog from '@/components/DailyCardAccessDialog.vue'
 import PaymentModal from '@/components/PaymentModal.vue'
+import PracticeNotebookEditor from '@/components/practiceNotebook/PracticeNotebookEditor.vue'
 import { useAuthStore, type ActiveExamType } from '@/stores/auth'
 import { checkMemberAccess, getMember } from '@/api/member'
 import { createLoginRequiredRouteLocation } from '@/utils/authRedirect'
@@ -238,6 +252,8 @@ const DIFFICULTY_LABELS: Record<string, string> = {
 }
 
 const router = useRouter()
+const route = useRoute()
+const workspace = useLearningWorkspaceStore()
 const { analysisMembershipOpen, analysisExamType, checkAnalysisAccess, resumeAnalysis } =
   useAnalysisMembershipAccess()
 const auth = useAuthStore()
@@ -252,10 +268,64 @@ const paymentVisible = ref(false)
 const paymentExamType = ref<ActiveExamType>(auth.activeExamType)
 const pendingNotebookStart = ref<{ notebookId: string; examType: ActiveExamType } | null>(null)
 const histories = reactive<Record<string, HistoryState>>({})
+const notebookRef = ref<HTMLElement>()
 let listRequestSequence = 0
 let initialized = false
+let listScrollTop = 0
+let listContextVersion = 0
 
-// 练习本首页允许游客查看入口，涉及个人配置和作答时再要求登录。
+// 原列表、新建和编辑地址统一由本页面管理，仍支持刷新和直接分享。
+const showEditor = computed(
+  () => route.name === 'practice-notebook-new' || route.name === 'practice-notebook-edit',
+)
+// 编辑 ID 仅来自编辑路由，新建时始终使用空白表单或来源预填。
+const editingNotebookId = computed(() =>
+  route.name === 'practice-notebook-edit' ? String(route.params.id || '') : '',
+)
+// 不同账号、对象和来源使用独立表单，避免沿用上一份未保存配置。
+const editorKey = computed(() => JSON.stringify([auth.user?.id, route.fullPath]))
+
+// 返回地址只允许已知业务页面，编辑器不能自行拼接任意跳转目标。
+const editorReturn = computed(() => {
+  const source = typeof route.query.source === 'string' ? route.query.source : ''
+  const value = typeof route.query.returnTo === 'string' ? route.query.returnTo : ''
+  if (source === 'knowledge-graph') {
+    const path = /^\/knowledge-graph(?:\?.*)?$/.test(value) ? value : '/knowledge-graph'
+    return {
+      path,
+      savePath: path,
+      label: auth.activeExamType === 'ESAT' ? '返回学习总览' : '返回题库练习',
+    }
+  }
+  if (source === 'question-bank') {
+    const path = /^\/question-bank(?:\?.*)?$/.test(value) ? value : '/question-bank'
+    return { path, savePath: path, label: '返回题库练习' }
+  }
+  if (
+    source === 'diagnostic-report' &&
+    /^\/exam-result\/[^/]+\/(?:esat|tmua)(?:\?.*)?$/.test(value)
+  )
+    return { path: value, savePath: '/practice-notebook', label: '返回诊断报告' }
+  const path = /^\/practice-notebook(?:\?.*)?$/.test(value) ? value : '/practice-notebook'
+  return { path, savePath: path, label: '返回练习册' }
+})
+// 明确表单返回入口，保留图谱和报告来源的原有行为。
+const editorReturnLabel = computed(() => editorReturn.value.label)
+
+// 取消只恢复来源页面或列表，不保存当前表单。
+function closeEditor(): void {
+  void router.push(editorReturn.value.path)
+}
+// 保存成功由列表模式监听刷新数据，图谱来源继续返回原知识点。
+function handleEditorSaved(): void {
+  void router.push(editorReturn.value.savePath)
+}
+// 编辑对象不可访问或考试被切换时回到当前考试的练习册列表。
+function leaveInvalidEditor(): void {
+  void router.replace('/practice-notebook')
+}
+
+// 练习册首页允许游客查看入口，涉及个人配置和作答时再要求登录。
 function requireLoginForNotebookAction(targetPath: string): boolean {
   if (auth.isLoggedIn) return false
   void router.push(createLoginRequiredRouteLocation(targetPath))
@@ -264,19 +334,40 @@ function requireLoginForNotebookAction(targetPath: string): boolean {
 
 const activeExamType = computed<ActiveExamType>(() => auth.activeExamType)
 
-// 练习本页只展示用户保存的可复用组卷规则，临时练习由独立记录页承接。
-const displayRows = computed<DisplayRow[]>(() => notebooks.value.map(formatNotebookRow))
+// 练习册页只展示用户保存的可复用组卷规则，临时练习由独立记录页承接。
+const relatedCode = computed(() =>
+  typeof route.query.knowledgeCode === 'string' ? route.query.knowledgeCode : '',
+)
+// 只有显式的相关入口启用过滤，不继承顶部科目选择造成隐形限制。
+const relatedLabel = computed(
+  () =>
+    workspace.index.get(relatedCode.value)?.node.cn_label ||
+    notebooks.value
+      .flatMap((book) => book.knowledgePoints)
+      .find((item) => item.code === relatedCode.value)?.label ||
+    '所选知识点',
+)
+// 相关入口只筛选保存范围中包含该知识点的练习册。
+const displayRows = computed<DisplayRow[]>(() =>
+  notebooks.value
+    .filter((book) => !relatedCode.value || book.knowledgePointCodes.includes(relatedCode.value))
+    .map(formatNotebookRow),
+)
+// 清除范围后恢复所有练习册，保留真实历史与进行中的练习。
+function clearRelatedScope(): void {
+  void router.replace('/practice-notebook')
+}
 
-// 不属于当前可见练习本的活动答卷单独提示，避免临时练习阻塞新练习却没有反馈。
+// 不属于当前可见练习册的活动答卷单独提示，避免临时练习阻塞新练习却没有反馈。
 const unlistedActivePractice = computed(() => {
   const practice = activePractice.value
   if (!practice) return null
-  return notebooks.value.some((notebook) => notebook.id === practice.practiceNotebookId)
+  return displayRows.value.some((notebook) => notebook.id === practice.practiceNotebookId)
     ? null
     : practice
 })
 
-// 练习本知识点快照用于稳定显示学科和规则摘要，不依赖考纲后续改名。
+// 练习册知识点快照用于稳定显示学科和规则摘要，不依赖考纲后续改名。
 function formatNotebookRow(notebook: PracticeNotebookSummary): DisplayRow {
   const subjects = [...new Set(notebook.knowledgePoints.map((item) => item.subjectLabel))]
   const knowledge = notebook.knowledgePoints.map((item) => item.label).join('、') || '已选知识点'
@@ -299,7 +390,7 @@ function formatNotebookRow(notebook: PracticeNotebookSummary): DisplayRow {
   }
 }
 
-// 每个展开行维护独立分页和失败状态，切换练习本时不重复读取已加载页。
+// 每个展开行维护独立分页和失败状态，切换练习册时不重复读取已加载页。
 function historyState(rowId: string): HistoryState {
   if (!histories[rowId]) {
     histories[rowId] = {
@@ -317,6 +408,7 @@ function historyState(rowId: string): HistoryState {
 
 // 列表请求只接受最后一次考试类型响应，避免导航快速切换产生串数据。
 async function loadNotebookList(): Promise<void> {
+  if (route.name !== 'practice-notebook' || !auth.isLoggedIn) return
   const requestSequence = ++listRequestSequence
   const requestedExamType = activeExamType.value
   listLoading.value = true
@@ -327,11 +419,14 @@ async function loadNotebookList(): Promise<void> {
       return
     notebooks.value = data.notebooks
     activePractice.value = data.activePractice
+    const id = typeof route.query.notebookId === 'string' ? route.query.notebookId : ''
+    const target = displayRows.value.find((row) => row.id === id)
+    if (target && expandedRowId.value !== target.id) await toggleHistory(target)
   } catch (error: unknown) {
     if (requestSequence !== listRequestSequence) return
     notebooks.value = []
     activePractice.value = null
-    listError.value = getApiErrorMessage(error, '练习本加载失败，请稍后重试')
+    listError.value = getApiErrorMessage(error, '练习册加载失败，请稍后重试')
   } finally {
     if (requestSequence === listRequestSequence) listLoading.value = false
   }
@@ -348,7 +443,7 @@ async function toggleHistory(row: DisplayRow): Promise<void> {
   if (!state.loaded && !state.loading) await loadHistory(row, 1)
 }
 
-// 展开练习本时按练习本 ID 读取独立历史分页。
+// 展开练习册时按练习册 ID 读取独立历史分页。
 async function loadHistory(row: DisplayRow, page: number): Promise<void> {
   const state = historyState(row.id)
   state.loading = true
@@ -385,22 +480,24 @@ function isActiveRow(row: DisplayRow): boolean {
   return activePractice.value.practiceNotebookId === row.id
 }
 
-// 进行中行继续原答卷，其余练习本按保存配置开始新答卷。
+// 进行中行继续原答卷，其余练习册按保存配置开始新答卷。
 function getPrimaryActionLabel(row: DisplayRow): string {
   if (isActiveRow(row)) return '继续练习'
   return '开始练习'
 }
 
-// 后端根据练习本配置生成题目，并在事务内复核当前考试的会员资格。
+// 后端根据练习册配置生成题目，并在事务内复核当前考试的会员资格。
 async function startNotebookPractice(notebookId: string): Promise<void> {
+  const request = listContextVersion
   startingNotebookId.value = notebookId
   try {
     const result = await startPracticeNotebook(notebookId)
+    if (request !== listContextVersion) return
     await continuePractice(result.examRecordId)
   } catch (error: unknown) {
     if (hasApiErrorCode(error, 'QUESTION_BANK_IN_PROGRESS')) await loadNotebookList()
   } finally {
-    startingNotebookId.value = ''
+    if (request === listContextVersion) startingNotebookId.value = ''
   }
 }
 
@@ -416,6 +513,7 @@ async function handlePrimaryAction(row: DisplayRow): Promise<void> {
     return
   }
 
+  const request = listContextVersion
   startingNotebookId.value = row.id
   try {
     const access = await checkMemberAccess({
@@ -423,6 +521,7 @@ async function handlePrimaryAction(row: DisplayRow): Promise<void> {
       examType: row.examType,
       questionCount: row.questionCount,
     })
+    if (request !== listContextVersion) return
     if (access.allowed) {
       await startNotebookPractice(row.id)
       return
@@ -434,16 +533,18 @@ async function handlePrimaryAction(row: DisplayRow): Promise<void> {
   } catch {
     // 公共请求层已统一展示网络或服务端错误，此处只阻止按钮事件产生未处理异常。
   } finally {
-    startingNotebookId.value = ''
+    if (request === listContextVersion) startingNotebookId.value = ''
   }
 }
 
-// 日卡启用后直接承接此前被冻结的练习本，不要求用户再次查找并点击。
+// 日卡启用后直接承接此前被冻结的练习册，不要求用户再次查找并点击。
 async function handleDailyCardActivated(): Promise<void> {
+  const request = listContextVersion
   const pending = pendingNotebookStart.value
   pendingNotebookStart.value = null
   if (!pending) return
   await loadNotebookList()
+  if (request !== listContextVersion) return
   if (activePractice.value) {
     ElMessage.info(`已有一份 ${activePractice.value.examType} 练习尚未交卷，请先继续完成`)
     return
@@ -452,34 +553,37 @@ async function handleDailyCardActivated(): Promise<void> {
     (item) => item.id === pending.notebookId && item.examType === pending.examType,
   )
   if (!notebook) {
-    ElMessage.info('练习本状态已更新，请重新选择。')
+    ElMessage.info('练习册状态已更新，请重新选择。')
     return
   }
   await startNotebookPractice(pending.notebookId)
 }
 
-// 用户关闭会员拦截时清除冻结操作，避免后续误启动旧练习本。
+// 用户关闭会员拦截时清除冻结操作，避免后续误启动旧练习册。
 function handleCancelMembershipAccess(): void {
   pendingNotebookStart.value = null
 }
 
-// 没有可用日卡或用户主动升级时再进入支付，并保留当前练习本页面。
+// 没有可用日卡或用户主动升级时再进入支付，并保留当前练习册页面。
 function handleOpenPayment(): void {
   upgradeDialogVisible.value = false
   paymentVisible.value = true
 }
 
-// 未完成购买便关闭收银台时结束此前冻结的练习本意图。
+// 未完成购买便关闭收银台时结束此前冻结的练习册意图。
 function handlePaymentVisibilityChange(visible: boolean): void {
   paymentVisible.value = visible
   if (!visible) pendingNotebookStart.value = null
 }
 
-// 支付完成后刷新会员上下文和练习本列表，使原操作可以立即重新发起。
+// 支付完成后刷新会员上下文和练习册列表，使原操作可以立即重新发起。
 async function handlePaymentSuccess(): Promise<void> {
+  const request = listContextVersion
   paymentVisible.value = false
   try {
-    auth.setMemberContext(await getMember())
+    const context = await getMember()
+    if (request !== listContextVersion) return
+    auth.setMemberContext(context)
     if (pendingNotebookStart.value) {
       await handleDailyCardActivated()
     } else {
@@ -490,7 +594,7 @@ async function handlePaymentSuccess(): Promise<void> {
   }
 }
 
-// 临时活动答卷返回练习记录，其余练习本答卷保持返回当前页面。
+// 临时活动答卷返回练习记录，其余练习册答卷保持返回当前页面。
 async function continuePractice(examRecordId: string): Promise<void> {
   const isTemporaryActivePractice =
     activePractice.value?.examRecordId === examRecordId && !activePractice.value.practiceNotebookId
@@ -505,10 +609,15 @@ async function continuePractice(examRecordId: string): Promise<void> {
 
 // 编辑复用同一配置页并由路由ID恢复服务端保存值。
 function handleEditNotebook(id: string): void {
-  void router.push({ name: 'practice-notebook-edit', params: { id } })
+  listScrollTop = window.scrollY
+  void router.push({
+    name: 'practice-notebook-edit',
+    params: { id },
+    query: { source: 'practice-notebook', returnTo: route.fullPath },
+  })
 }
 
-// 历史详情复用题库逐题解析，并固定返回练习本首页。
+// 历史详情复用题库逐题解析，并固定返回练习册首页。
 function handleOpenHistory(examRecordId: string): void {
   void checkAnalysisAccess(examRecordId, () =>
     router.push({
@@ -542,30 +651,71 @@ function formatDuration(seconds: number): string {
   return minutes ? `${minutes}分${rest}秒` : `${rest}秒`
 }
 
-// 返回同一工作区的试题库首页，由外层布局提供向右滑动。
-function handleBackToQuestionBank(): void {
-  void router.push('/question-bank')
-}
-
 // 新建入口进入空白配置页。
 function handleCreateNotebook(): void {
-  if (requireLoginForNotebookAction('/practice-notebook/new')) return
-  void router.push('/practice-notebook/new')
+  listScrollTop = window.scrollY
+  const path = router.resolve({
+    path: '/practice-notebook/new',
+    query: {
+      source: 'practice-notebook',
+      returnTo: route.fullPath,
+      ...(relatedCode.value
+        ? {
+            knowledgePointCodes: relatedCode.value,
+            name: relatedLabel.value + '专项练习',
+          }
+        : {}),
+    },
+  }).fullPath
+  if (requireLoginForNotebookAction(path)) return
+  void router.push(path)
 }
 
-// 导航栏切换考试类型后清空展开缓存并重新查询对应练习本。
-watch(activeExamType, () => {
-  if (!initialized) return
-  expandedRowId.value = ''
-  upgradeDialogVisible.value = false
-  if (!paymentVisible.value) paymentExamType.value = activeExamType.value
+// 导航栏切换考试类型后清空展开缓存并重新查询对应练习册。
+watch(
+  () => [activeExamType.value, auth.user?.id, auth.isLoggedIn],
+  () => {
+    listContextVersion += 1
+    listRequestSequence++
+    notebooks.value = []
+    activePractice.value = null
+    if (!initialized) return
+    expandedRowId.value = ''
+    upgradeDialogVisible.value = false
+    if (!paymentVisible.value) paymentExamType.value = activeExamType.value
+    pendingNotebookStart.value = null
+    Object.keys(histories).forEach((key) => delete histories[key])
+    if (!auth.isLoggedIn) {
+      listLoading.value = false
+      return
+    }
+    void loadNotebookList()
+  },
+)
+
+// 表单只是练习册的内部状态，返回列表后刷新规则并恢复列表位置。
+watch(showEditor, async (editing) => {
+  const request = ++listContextVersion
+  listRequestSequence += 1
+  upgradeDialogVisible.value = paymentVisible.value = analysisMembershipOpen.value = false
   pendingNotebookStart.value = null
-  Object.keys(histories).forEach((key) => delete histories[key])
-  if (!auth.isLoggedIn) {
-    listLoading.value = false
+  startingNotebookId.value = ''
+  if (editing) {
+    await nextTick()
+    if (request === listContextVersion)
+      notebookRef.value?.scrollIntoView({ behavior: 'auto', block: 'start' })
     return
   }
-  void loadNotebookList()
+  if (!initialized) return
+  await loadNotebookList()
+  await nextTick()
+  if (request === listContextVersion) window.scrollTo({ top: listScrollTop, behavior: 'auto' })
+})
+
+// 页面销毁后，历史请求和开始练习的回调不能继续改变导航。
+onBeforeUnmount(() => {
+  listRequestSequence += 1
+  listContextVersion += 1
 })
 
 // 首次进入先完成会员和默认考试初始化，再读取最终考试类型的数据。
@@ -586,63 +736,56 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.notebook-scope {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: var(--color-learning-blue);
+}
+
 .practice-notebook {
-  min-height: calc(100vh - var(--nav-height));
   color: var(--color-ink);
+  scroll-margin-top: calc(var(--nav-height) + 20px);
 }
 
 .notebook-container {
-  width: var(--fluid-shell-width);
-  margin: 0 auto;
-  padding: 40px 0 96px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 .notebook-header {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 24px;
-}
-
-.notebook-eyebrow {
-  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  color: var(--color-ink-muted);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semi);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
-}
-
-.notebook-eyebrow::before {
-  width: 24px;
-  height: 1px;
-  background: var(--color-ink);
-  content: '';
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
 .notebook-header h1 {
   margin: 0;
-  font-size: var(--text-4xl);
+  font-size: 22px;
+  line-height: 1.4;
   font-weight: var(--weight-bold);
 }
 
 .notebook-header p {
-  margin: 10px 0 0;
+  margin: 6px 0 0;
   color: var(--color-ink-soft);
+  font-size: var(--text-sm);
+  line-height: 1.5;
 }
 
 .notebook-active-other {
-  min-height: 70px;
-  margin-bottom: 18px;
-  padding: 14px 18px;
+  min-height: 60px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
+  gap: 12px;
   border: 1px solid var(--color-line);
   background: var(--color-surface);
 }
@@ -650,7 +793,7 @@ onMounted(async () => {
 .notebook-active-other > div {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .notebook-active-other span {
@@ -659,13 +802,13 @@ onMounted(async () => {
 }
 
 .notebook-state {
-  min-height: 180px;
-  padding: 40px;
+  min-height: 120px;
+  padding: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   border-top: 1px solid var(--color-line);
   border-bottom: 1px solid var(--color-line);
   background: var(--color-surface);
@@ -689,23 +832,23 @@ onMounted(async () => {
 .notebook-list__header,
 .notebook-row {
   display: grid;
-  grid-template-columns: minmax(300px, 2.2fr) minmax(280px, 1.7fr) 160px 140px 190px;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.7fr) 100px 90px 174px;
   align-items: center;
-  column-gap: 24px;
+  column-gap: 16px;
 }
 
 .notebook-list__header {
-  min-height: 56px;
-  padding: 0 24px;
-  border-bottom: 1px solid var(--color-ink);
+  min-height: 40px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--color-line);
   color: var(--color-ink-muted);
   font-size: var(--text-xs);
 }
 
 .notebook-row {
   position: relative;
-  min-height: 150px;
-  padding: 28px 24px;
+  min-height: 108px;
+  padding: 16px 12px;
   border-bottom: 1px solid var(--color-line);
   background: var(--color-surface);
   cursor: pointer;
@@ -735,7 +878,7 @@ onMounted(async () => {
 .notebook-row__identity h2 {
   margin: 0;
   overflow: hidden;
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   font-weight: var(--weight-bold);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -743,7 +886,7 @@ onMounted(async () => {
 
 .notebook-row__identity p,
 .notebook-row__settings p {
-  margin: 8px 0 0;
+  margin: 4px 0 0;
   color: var(--color-ink-soft);
   font-size: var(--text-sm);
 }
@@ -752,7 +895,7 @@ onMounted(async () => {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  margin-top: 12px;
+  margin-top: 6px;
   color: var(--color-ink-muted);
   font-size: var(--text-xs);
 }
@@ -768,11 +911,11 @@ onMounted(async () => {
 .notebook-row__metric {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .notebook-row__metric strong {
-  font-size: var(--text-2xl);
+  font-size: var(--text-xl);
   font-weight: var(--weight-bold);
   font-variant-numeric: tabular-nums;
 }
@@ -786,22 +929,22 @@ onMounted(async () => {
   display: flex;
   justify-content: flex-start;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
 }
 
 .notebook-history {
-  padding: 18px 24px 22px 48px;
+  padding: 12px 12px 16px 24px;
   border-bottom: 1px solid var(--color-line);
   background: var(--color-surface-alt);
   overflow: hidden;
 }
 
 .history-state {
-  min-height: 88px;
+  min-height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 8px;
   color: var(--color-ink-muted);
   font-size: var(--text-sm);
 }
@@ -813,19 +956,19 @@ onMounted(async () => {
 .history-table__header,
 .history-record {
   display: grid;
-  grid-template-columns: minmax(200px, 1.5fr) 130px 120px 130px 100px;
+  grid-template-columns: minmax(180px, 1.5fr) 110px 100px 110px 90px;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
 }
 
 .history-table__header {
-  min-height: 38px;
+  min-height: 32px;
   color: var(--color-ink-muted);
   font-size: var(--text-xs);
 }
 
 .history-record {
-  min-height: 56px;
+  min-height: 44px;
   border-top: 1px solid var(--color-line-soft);
   font-size: var(--text-sm);
 }
@@ -845,30 +988,6 @@ onMounted(async () => {
   transform: translateY(-8px);
 }
 
-.notebook-create-section {
-  margin-top: 30px;
-  padding: 22px 0;
-  border-top: 1px solid var(--color-line);
-  border-bottom: 1px solid var(--color-line);
-}
-
-.notebook-create-card {
-  width: 100%;
-  min-height: 112px;
-  padding: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  border: 1px dashed var(--color-line-strong, #bcc9d8);
-  border-radius: 0;
-  background: var(--color-surface-alt);
-  color: var(--color-ink);
-  font: inherit;
-  text-align: left;
-}
-
 @media (max-width: 860px) {
   .practice-notebook {
     width: 100%;
@@ -882,35 +1001,29 @@ onMounted(async () => {
     width: 100%;
     min-width: 0;
     max-width: 100%;
-    padding: 28px 16px 64px;
+    padding: 0;
   }
 
   .notebook-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 18px;
-    margin-bottom: 22px;
-  }
-
-  .notebook-header h1 {
-    font-size: clamp(32px, 10vw, 42px);
-    line-height: 1.12;
+    gap: 12px;
+    margin-bottom: 16px;
   }
 
   .notebook-header p {
     max-width: 100%;
-    line-height: 1.7;
   }
 
   .notebook-active-other {
     align-items: stretch;
     flex-direction: column;
-    padding: 16px;
+    padding: 12px;
   }
 
   .notebook-state {
-    min-height: 144px;
-    padding: 28px 18px;
+    min-height: 120px;
+    padding: 20px 12px;
   }
 
   .notebook-list {
@@ -924,10 +1037,10 @@ onMounted(async () => {
 
   .notebook-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 18px 12px;
+    gap: 12px;
     min-width: 0;
     min-height: 0;
-    padding: 22px 16px;
+    padding: 16px 12px;
   }
 
   .notebook-row__identity,
@@ -945,7 +1058,7 @@ onMounted(async () => {
 
   .notebook-row__metric {
     gap: 5px;
-    padding: 12px;
+    padding: 8px;
     border: 1px solid var(--color-line-soft);
     background: var(--color-surface-alt);
   }
@@ -961,7 +1074,7 @@ onMounted(async () => {
 
   .notebook-history {
     min-width: 0;
-    padding: 16px;
+    padding: 12px;
     overflow: visible;
   }
 
@@ -971,9 +1084,9 @@ onMounted(async () => {
 
   .history-record {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px 12px;
+    gap: 10px 12px;
     min-height: 0;
-    padding: 16px 0;
+    padding: 12px 0;
   }
 
   .history-record > span,
@@ -1013,17 +1126,6 @@ onMounted(async () => {
     justify-self: start;
   }
 
-  .notebook-create-section {
-    margin-top: 22px;
-    padding: 16px 0;
-  }
-
-  .notebook-create-card {
-    min-height: 104px;
-    justify-content: flex-start;
-    padding: 20px 16px;
-  }
-
   .notebook-history :deep(.app-pagination) {
     width: 100%;
     max-width: 100%;
@@ -1031,10 +1133,6 @@ onMounted(async () => {
 }
 
 @media (max-width: 420px) {
-  .notebook-container {
-    padding-inline: 14px;
-  }
-
   .notebook-row__actions {
     grid-template-columns: 1fr;
   }
@@ -1045,9 +1143,5 @@ onMounted(async () => {
   .history-expand-leave-active {
     transition-duration: 1ms;
   }
-}
-.notebook-create-card small {
-  color: var(--color-ink-soft);
-  font-size: var(--text-sm);
 }
 </style>

@@ -52,7 +52,7 @@ const privatePageTitles: Array<{ prefix: string; title: string }> = [
   { prefix: '/register', title: `注册｜${SITE_NAME}` },
   { prefix: '/profile', title: `个人中心｜${SITE_NAME}` },
   { prefix: '/question-bank', title: `学习平台｜${SITE_NAME}` },
-  { prefix: '/practice-notebook', title: `练习本｜${SITE_NAME}` },
+  { prefix: '/practice-notebook', title: `我的练习册｜${SITE_NAME}` },
   { prefix: '/practice-records', title: `练习记录｜${SITE_NAME}` },
   { prefix: '/practice', title: `在线练习｜${SITE_NAME}` },
   { prefix: '/assessment', title: `诊断测试｜${SITE_NAME}` },

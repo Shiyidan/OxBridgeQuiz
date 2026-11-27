@@ -14,6 +14,8 @@ import { knowledgeRelationTypes } from '../../quiz-web/src/content/knowledgeGrap
 import { knowledgeLabel, matchesKnowledgeLabel } from '../../quiz-web/src/content/knowledgeGraph/labels'
 import { maths1CoreCodes, maths1MethodCodes, maths1CorePairs, maths1NodeDetailLevel, maths1EdgeDetailLevel, graphDetailLevelForZoom } from '../../quiz-web/src/content/knowledgeGraph/maths1Overview'
 import { layoutKnowledgeGraph } from '../../quiz-web/src/content/knowledgeGraph/layout'
+import { maths1ScopeDetailLevels } from '../../quiz-web/src/content/knowledgeGraph/maths1Overview'
+import { selectGraphViewport } from '../../quiz-web/src/content/knowledgeGraph/visibility'
 
 const lessons = [esatUnits, esatNumber, esatRatioProportion, esatAlgebra, esatGeometry, esatStatistics, esatProbability]
 assert.equal(graph.examType, 'ESAT')
@@ -165,6 +167,57 @@ assert.equal(graphDetailLevelForZoom(2.19, 2), 1)
 assert.equal(graphDetailLevelForZoom(1, 2), 0)
 assert.equal(graphDetailLevelForZoom(Number.NaN, 1), 1)
 assert.ok(focused.nodes.some(node => maths1NodeDetailLevel(node.code) > 0), '完整局部图不能被核心层级裁剪')
+
+// 章节首屏必须保留本章骨干并限制跨章扩展，不能再一次性展示全部邻点。
+for (const chapter of graph.chapters) {
+  const scope = getKnowledgeGraphView(graph, { chapterCode: chapter.code })
+  const levels = maths1ScopeDetailLevels(scope.nodes, scope.relations, chapter.code)
+  const chapterCore = scope.nodes.filter(node => levels.nodeLevels.get(node.code) === 0)
+  assert.ok(chapterCore.some(node => node.chapterCode === chapter.code))
+  assert.ok(chapterCore.filter(node => node.chapterCode !== chapter.code).length <= 3)
+  assert.ok(chapterCore.length < scope.nodes.length)
+  for (const edge of scope.relations) {
+    assert.ok(levels.edgeLevels.get(edge.id)! >= levels.nodeLevels.get(edge.source)!)
+    assert.ok(levels.edgeLevels.get(edge.id)! >= levels.nodeLevels.get(edge.target)!)
+  }
+}
+const overviewLevels = maths1ScopeDetailLevels(graph.nodes, graph.relations)
+assert.deepEqual(new Set([...overviewLevels.nodeLevels].filter(([, level]) => level === 0).map(([code]) => code)), core)
+assert.equal([...overviewLevels.edgeLevels.values()].filter(level => level === 0).length, 22)
+
+// 两个空间区域使用同一缩放倍率：只展开当前视野的细节，平移后另一片才出现。
+const viewportNodes = [
+  { id: 'a', detailLevel: 0 as const, x: 70, y: 90 },
+  { id: 'b', detailLevel: 1 as const, x: 140, y: 120 },
+  { id: 'c', detailLevel: 2 as const, x: 210, y: 160 },
+  { id: 'd', detailLevel: 0 as const, x: 870, y: 90 },
+  { id: 'e', detailLevel: 2 as const, x: 940, y: 120 },
+]
+const viewportEdges = [
+  { id: 'ab', source: 'a', target: 'b', detailLevel: 1 as const },
+  { id: 'bc', source: 'b', target: 'c', detailLevel: 2 as const },
+  { id: 'de', source: 'd', target: 'e', detailLevel: 2 as const },
+  { id: 'ad', source: 'a', target: 'd', detailLevel: 0 as const },
+]
+const viewportSize = { width: 400, height: 240 }
+const originalViewportNodes = JSON.stringify(viewportNodes)
+assert.deepEqual([...selectGraphViewport(viewportNodes, viewportEdges, viewportSize, 0, true).visibleIds], ['a'])
+assert.deepEqual([...selectGraphViewport(viewportNodes, viewportEdges, viewportSize, 1, true).visibleIds], ['a', 'b'])
+const detailedRegion = selectGraphViewport(viewportNodes, viewportEdges, viewportSize, 2, true)
+assert.deepEqual([...detailedRegion.visibleIds], ['a', 'b', 'c'])
+assert.deepEqual(detailedRegion.edges.map(edge => edge.id), ['ab', 'bc'], '不可显示通向远处隐藏节点的连线或合成 a-c')
+const pannedRegion = selectGraphViewport(viewportNodes.map(node => ({ ...node, x: node.x - 800 })), viewportEdges, viewportSize, 2, true, detailedRegion.renderedIds)
+assert.deepEqual([...pannedRegion.visibleIds], ['d', 'e'])
+assert.deepEqual(pannedRegion.edges.map(edge => edge.id), ['de'])
+assert.deepEqual([...selectGraphViewport(viewportNodes, viewportEdges, viewportSize, 0, true, detailedRegion.renderedIds).renderedIds], ['a'], '缩小时细节必须收起')
+assert.deepEqual([...selectGraphViewport(viewportNodes, viewportEdges, viewportSize, 0, false).visibleIds], ['a', 'b', 'c'], '点击知识点的完整局部图不受核心层级裁剪')
+const edgeNode = [{ id: 'edge', detailLevel: 0 as const, x: -48, y: 90 }]
+assert.equal(selectGraphViewport(edgeNode, [], viewportSize, 0, true).renderedIds.size, 0)
+const buffered = selectGraphViewport(edgeNode, [], viewportSize, 0, true, new Set(['edge']))
+assert.equal(buffered.renderedIds.size, 1)
+assert.equal(buffered.visibleIds.size, 0, '缓冲区节点不能算进视野内数量')
+assert.equal(selectGraphViewport([{ ...edgeNode[0], x: Number.NaN }], [], viewportSize, 0, true).renderedIds.size, 0)
+assert.equal(JSON.stringify(viewportNodes), originalViewportNodes, '筛选视野不能修改布局坐标')
 
 // 多层布局必须独立于隐藏细节、数据顺序和账号状态；覆盖窄屏虚拟画布及桌面尺寸。
 const layoutNodes = graph.nodes.map(node => ({ id: node.code, labelWidth: 132, labelHeight: 64, detailLevel: maths1NodeDetailLevel(node.code) }))

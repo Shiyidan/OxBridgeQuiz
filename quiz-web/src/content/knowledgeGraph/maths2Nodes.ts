@@ -1,0 +1,282 @@
+// 数学2图谱元数据：与现有考纲和讲义对齐，不引入讲义正文。
+import type { KnowledgeGraphChapter, KnowledgeGraphNode } from './types'
+
+export const maths2GraphChapters: readonly KnowledgeGraphChapter[] = [
+  {
+    code: '120100',
+    title: '代数与函数',
+    titleEn: 'Algebra and functions',
+  },
+  {
+    code: '120200',
+    title: '数列与级数',
+    titleEn: 'Sequences and series',
+  },
+  {
+    code: '120300',
+    title: '坐标几何',
+    titleEn: 'Coordinate geometry in the (x, y)-plane',
+  },
+  {
+    code: '120400',
+    title: '三角',
+    titleEn: 'Trigonometry',
+  },
+  {
+    code: '120500',
+    title: '指数与对数',
+    titleEn: 'Exponentials and logarithms',
+  },
+  {
+    code: '120600',
+    title: '微分',
+    titleEn: 'Differentiation',
+  },
+  {
+    code: '120700',
+    title: '积分',
+    titleEn: 'Integration',
+  },
+  {
+    code: '120800',
+    title: '函数图像',
+    titleEn: 'Graphs of functions',
+  },
+]
+
+export const maths2GraphNodes: readonly KnowledgeGraphNode[] = [
+  {
+    code: '120101',
+    title: '有理指数指数律',
+    titleEn: 'Laws of indices for rational exponents',
+    chapterCode: '120100',
+  },
+  {
+    code: '120102',
+    title: '根式',
+    titleEn: 'Surds',
+    chapterCode: '120100',
+  },
+  {
+    code: '120103',
+    title: '二次函数与方程',
+    titleEn: 'Quadratic functions and equations',
+    chapterCode: '120100',
+  },
+  {
+    code: '120104',
+    title: '代入法解联立方程',
+    titleEn: 'Simultaneous equations by substitution',
+    chapterCode: '120100',
+  },
+  {
+    code: '120105',
+    title: '一次与二次不等式',
+    titleEn: 'Linear and quadratic inequalities',
+    chapterCode: '120100',
+  },
+  {
+    code: '120106',
+    title: '多项式操作与定理',
+    titleEn: 'Polynomial manipulation and theorems',
+    chapterCode: '120100',
+  },
+  {
+    code: '120107',
+    title: '函数与常见函数性质',
+    titleEn: 'Functions and common function properties',
+    chapterCode: '120100',
+  },
+  {
+    code: '120201',
+    title: '数列与递推',
+    titleEn: 'Sequences and recurrence',
+    chapterCode: '120200',
+  },
+  {
+    code: '120202',
+    title: '等差级数',
+    titleEn: 'Arithmetic series',
+    chapterCode: '120200',
+  },
+  {
+    code: '120203',
+    title: '等比级数',
+    titleEn: 'Geometric series',
+    chapterCode: '120200',
+  },
+  {
+    code: '120204',
+    title: '二项式展开',
+    titleEn: 'Binomial expansion',
+    chapterCode: '120200',
+  },
+  {
+    code: '120301',
+    title: '直线',
+    titleEn: 'Straight lines',
+    chapterCode: '120300',
+  },
+  {
+    code: '120302',
+    title: '圆的坐标几何',
+    titleEn: 'Circles in coordinate geometry',
+    chapterCode: '120300',
+  },
+  {
+    code: '120303',
+    title: '圆性质',
+    titleEn: 'Circle properties',
+    chapterCode: '120300',
+  },
+  {
+    code: '120401',
+    title: '正弦/余弦定理与三角形面积',
+    titleEn: 'Sine/cosine rules and triangle area',
+    chapterCode: '120400',
+  },
+  {
+    code: '120402',
+    title: '弧度制',
+    titleEn: 'Radian measure',
+    chapterCode: '120400',
+  },
+  {
+    code: '120403',
+    title: '三角函数精确值',
+    titleEn: 'Exact trigonometric values',
+    chapterCode: '120400',
+  },
+  {
+    code: '120404',
+    title: '三角图像、对称与周期',
+    titleEn: 'Trigonometric graphs, symmetry and periodicity',
+    chapterCode: '120400',
+  },
+  {
+    code: '120405',
+    title: '三角恒等式',
+    titleEn: 'Trigonometric identities',
+    chapterCode: '120400',
+  },
+  {
+    code: '120406',
+    title: '三角方程',
+    titleEn: 'Trigonometric equations',
+    chapterCode: '120400',
+  },
+  {
+    code: '120501',
+    title: '指数函数与图像',
+    titleEn: 'Exponential functions and graphs',
+    chapterCode: '120500',
+  },
+  {
+    code: '120502',
+    title: '对数律',
+    titleEn: 'Logarithm laws',
+    chapterCode: '120500',
+  },
+  {
+    code: '120503',
+    title: '指数方程',
+    titleEn: 'Exponential equations',
+    chapterCode: '120500',
+  },
+  {
+    code: '120601',
+    title: '导数作为斜率/变化率',
+    titleEn: 'Derivative as gradient/rate of change',
+    chapterCode: '120600',
+  },
+  {
+    code: '120602',
+    title: '幂函数求导',
+    titleEn: 'Differentiating powers',
+    chapterCode: '120600',
+  },
+  {
+    code: '120603',
+    title: '导数应用',
+    titleEn: 'Applications of differentiation',
+    chapterCode: '120600',
+  },
+  {
+    code: '120701',
+    title: '定积分与面积',
+    titleEn: 'Definite integration and area',
+    chapterCode: '120700',
+  },
+  {
+    code: '120702',
+    title: '幂函数积分',
+    titleEn: 'Integrating powers',
+    chapterCode: '120700',
+  },
+  {
+    code: '120703',
+    title: '微积分基本定理',
+    titleEn: 'Fundamental Theorem of Calculus',
+    chapterCode: '120700',
+  },
+  {
+    code: '120704',
+    title: '合并积分',
+    titleEn: 'Combining integrals',
+    chapterCode: '120700',
+  },
+  {
+    code: '120705',
+    title: '梯形法则',
+    titleEn: 'Trapezium rule',
+    chapterCode: '120700',
+  },
+  {
+    code: '120706',
+    title: '微分方程',
+    titleEn: 'Differential equations',
+    chapterCode: '120700',
+  },
+  {
+    code: '120801',
+    title: '常见函数图像',
+    titleEn: 'Sketch common graphs',
+    chapterCode: '120800',
+  },
+  {
+    code: '120802',
+    title: '图像变换与复合函数',
+    titleEn: 'Graph transformations and composition',
+    chapterCode: '120800',
+  },
+  {
+    code: '120803',
+    title: '一次函数参数影响',
+    titleEn: 'Effects of m and c in y=mx+c',
+    chapterCode: '120800',
+  },
+  {
+    code: '120804',
+    title: '二次函数参数影响',
+    titleEn: 'Effects of a, b, c in quadratic form',
+    chapterCode: '120800',
+  },
+  {
+    code: '120805',
+    title: '用导数判断图像形状',
+    titleEn: 'Use differentiation to determine graph shape',
+    chapterCode: '120800',
+  },
+  {
+    code: '120806',
+    title: '坐标轴交点与多项式根',
+    titleEn: 'Axis intersections and polynomial roots',
+    chapterCode: '120800',
+  },
+  {
+    code: '120807',
+    title: '图像交点与联立方程',
+    titleEn: 'Graph intersections and simultaneous equations',
+    chapterCode: '120800',
+  },
+]

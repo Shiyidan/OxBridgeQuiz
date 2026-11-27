@@ -1,11 +1,10 @@
-<!-- 练习本配置页：按全局考试类型创建规则，或恢复已有规则进行编辑。 -->
+<!-- 我的练习册内部编辑器：创建和编辑共用表单，入口与返回路径由父页面管理。 -->
 <template>
   <div class="notebook-create-page">
     <main class="notebook-create-container">
       <header class="create-page-header">
         <div>
-          <span class="create-page-header__eyebrow">Create Practice Notebook</span>
-          <h1>{{ isEditing ? '编辑练习本' : '新建练习本' }}</h1>
+          <h1>{{ isEditing ? '编辑练习册' : '新建练习册' }}</h1>
           <p>
             {{
               isEditing
@@ -14,7 +13,7 @@
             }}
           </p>
         </div>
-        <AppButton type="text" :icon="Back" @click="handleCancel">
+        <AppButton type="text" size="small" :icon="Back" @click="handleCancel">
           <span>{{ returnButtonLabel }}</span>
         </AppButton>
       </header>
@@ -22,12 +21,13 @@
       <form v-loading="pageLoading" class="notebook-form" @submit.prevent="handleSubmit">
         <section class="form-section form-section--name" aria-labelledby="notebook-name-title">
           <header class="form-section__header">
-            <h2 id="notebook-name-title">练习本名称</h2>
+            <h2 id="notebook-name-title">练习册名称</h2>
           </header>
           <div class="notebook-name-grid">
             <label class="field-block">
               <el-input
                 v-model="notebookName"
+                aria-labelledby="notebook-name-title"
                 :maxlength="PRACTICE_NOTEBOOK_NAME_MAX_LENGTH"
                 placeholder="例如：代数与函数强化练习"
                 show-word-limit
@@ -151,7 +151,7 @@
         <section class="form-section" aria-labelledby="practice-settings-title">
           <header class="form-section__header">
             <h2 id="practice-settings-title">每次怎么练</h2>
-            <p>这里设置每次生成的一组题，练习本本身没有固定总题数。</p>
+            <p>这里设置每次生成的一组题，练习册本身没有固定总题数。</p>
           </header>
 
           <div class="practice-setting-row">
@@ -232,7 +232,7 @@
         <footer class="notebook-form__actions">
           <AppButton type="secondary" @click="handleCancel">取消</AppButton>
           <AppButton native-type="submit" :loading="saving" :disabled="pageLoading">
-            {{ saving ? '保存中...' : isEditing ? '保存修改' : '创建练习本' }}
+            {{ saving ? '保存中...' : isEditing ? '保存修改' : '创建练习册' }}
           </AppButton>
         </footer>
       </form>
@@ -244,7 +244,7 @@
 import AppButton from '@/components/AppButton.vue'
 import { Back, Close } from '@element-plus/icons-vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import type { LocationQuery } from 'vue-router'
 import { ElMessage, type TreeInstance } from 'element-plus'
 import {
   getKnowledgePointQuestionCounts,
@@ -280,8 +280,15 @@ interface SelectedKnowledgeGroup {
   items: SelectedKnowledgePoint[]
 }
 
-const router = useRouter()
-const route = useRoute()
+const props = withDefaults(
+  defineProps<{
+    notebookId?: string
+    prefill: LocationQuery
+    returnButtonLabel?: string
+  }>(),
+  { notebookId: '', returnButtonLabel: '返回练习册' },
+)
+const emit = defineEmits<{ saved: []; close: []; invalidated: [] }>()
 const auth = useAuthStore()
 const syllabusTreeRef = ref<TreeInstance>()
 const syllabusTree = ref<SyllabusNode[]>([])
@@ -306,31 +313,12 @@ let syllabusLoadSequence = 0
 let knowledgeCountSequence = 0
 let knowledgeCountTimer: ReturnType<typeof setTimeout> | null = null
 let pageInitialized = false
+let disposed = false
 
-const notebookId = computed(() => String(route.params.id || '').trim())
-const isEditing = computed(
-  () => route.name === 'practice-notebook-edit' && Boolean(notebookId.value),
-)
-
-// 只接受本站诊断报告路由作为返回地址，避免查询参数被用于任意外部跳转。
-const reportReturnTo = computed(() => {
-  const value = queryString('returnTo')
-  return /^\/exam-result\/[^/]+\/(?:esat|tmua)(?:\?.*)?$/.test(value) ? value : ''
-})
-
-// 试题库预选入口仅允许返回本站试题库，避免 returnTo 被用于任意地址跳转。
-const questionBankReturnTo = computed(() => {
-  if (queryString('source') !== 'question-bank') return ''
-  const value = queryString('returnTo')
-  return /^\/question-bank(?:\?.*)?$/.test(value) ? value : '/question-bank'
-})
-
-// 返回按钮随合法入口变化，向用户明确保存或取消后会回到哪里。
-const returnButtonLabel = computed(() => {
-  if (questionBankReturnTo.value) return '返回试题库'
-  if (reportReturnTo.value) return '返回诊断报告'
-  return '返回练习本'
-})
+// 编辑对象由父页面传入，切换对象时父页面会重新创建独立表单。
+const notebookId = computed(() => props.notebookId.trim())
+// 新建与编辑只在读写接口和初始值上有差异。
+const isEditing = computed(() => Boolean(notebookId.value))
 
 const treeProps = { children: 'children', label: 'label' }
 const PRACTICE_NOTEBOOK_NAME_MAX_LENGTH = 60
@@ -547,18 +535,18 @@ async function loadSyllabus(): Promise<void> {
   }
 }
 
-// 从报告或试题库进入时返回原业务页面，其余入口仍回练习本列表。
+// 从报告或试题库进入时返回原业务页面，其余入口仍回练习册列表。
 function handleCancel(): void {
-  void router.push(questionBankReturnTo.value || reportReturnTo.value || '/practice-notebook')
+  emit('close')
 }
 
 // Vue Router 查询参数统一收敛为单个字符串，数组只读取第一项。
 function queryString(key: string): string {
-  const value = route.query[key]
+  const value = props.prefill[key]
   return String(Array.isArray(value) ? value[0] || '' : value || '').trim()
 }
 
-// 诊断报告建议映射到练习本已有的稳定选项，页面不会仅凭链接自动保存。
+// 诊断报告建议映射到练习册已有的稳定选项，页面不会仅凭链接自动保存。
 function applyDiagnosticReportPrefill(): void {
   if (queryString('source') !== 'diagnostic-report' || isEditing.value) return
 
@@ -604,7 +592,11 @@ function applyDiagnosticReportPrefill(): void {
 
 // 试题库入口只预填考试、名称和当前叶子范围，其余组卷设置仍由用户在本页确认。
 function applyQuestionBankPrefill(): void {
-  if (queryString('source') !== 'question-bank' || isEditing.value) return
+  if (
+    !['question-bank', 'knowledge-graph', 'practice-notebook'].includes(queryString('source')) ||
+    isEditing.value
+  )
+    return
 
   const examType = queryString('examType').toUpperCase()
   if (examType === 'ESAT' || examType === 'TMUA') {
@@ -629,9 +621,9 @@ function applyCreatePrefill(): void {
 
 // 表单保存真实配置；后端再次校验知识点归属和稳定选项，成功后回到当前考试列表。
 async function handleSubmit(): Promise<void> {
-  if (saving.value) return
+  if (saving.value || pageLoading.value || syllabusLoading.value || disposed) return
   if (!notebookName.value.trim()) {
-    ElMessage.warning('请输入练习本名称')
+    ElMessage.warning('请输入练习册名称')
     return
   }
   if (!selectedKnowledgePoints.value.length) {
@@ -661,8 +653,9 @@ async function handleSubmit(): Promise<void> {
   try {
     if (isEditing.value) await updatePracticeNotebook(notebookId.value, payload)
     else await createPracticeNotebook(payload)
-    ElMessage.success(isEditing.value ? '练习本已更新' : '练习本已创建')
-    await router.push(questionBankReturnTo.value || '/practice-notebook')
+    if (disposed) return
+    ElMessage.success(isEditing.value ? '练习册已更新' : '练习册已创建')
+    emit('saved')
   } catch {
     // 公共请求层展示后端业务提示；表单内容保留供用户修改或重试。
   } finally {
@@ -670,12 +663,12 @@ async function handleSubmit(): Promise<void> {
   }
 }
 
-// 编辑中的练习本不能转换考试类型；导航切换后退出编辑并进入新考试列表。
+// 编辑中的练习册不能转换考试类型；导航切换后退出编辑并进入新考试列表。
 watch(activeExamType, () => {
   if (!pageInitialized) return
   if (isEditing.value && editingExamType.value && activeExamType.value !== editingExamType.value) {
-    ElMessage.info('练习本考试类型不可修改，已返回新的考试类型列表')
-    void router.push('/practice-notebook')
+    ElMessage.info('练习册考试类型不可修改，已返回新的考试类型列表')
+    emit('invalidated')
     return
   }
   pendingCheckedCodes.value = []
@@ -691,8 +684,10 @@ onMounted(async () => {
     // 会员上下文失败时继续使用全局默认 TMUA，公共请求层负责展示请求错误。
   }
   try {
+    if (disposed) return
     if (isEditing.value) {
       const notebook = await getPracticeNotebook(notebookId.value)
+      if (disposed) return
       editingExamType.value = notebook.examType
       if (activeExamType.value !== notebook.examType) auth.setActiveExamType(notebook.examType)
       notebookName.value = notebook.name
@@ -714,9 +709,9 @@ onMounted(async () => {
     }
     await loadSyllabus()
     // 初次考纲与报告预选项恢复完成后，才允许顶部考试切换监听接管页面状态。
-    pageInitialized = true
+    if (!disposed) pageInitialized = true
   } catch {
-    if (isEditing.value) await router.replace('/practice-notebook')
+    if (!disposed && isEditing.value) emit('invalidated')
   } finally {
     pageLoading.value = false
   }
@@ -724,6 +719,8 @@ onMounted(async () => {
 
 // 离开新建页时取消尚未发出的统计请求定时器。
 onBeforeUnmount(() => {
+  disposed = true
+  syllabusLoadSequence += 1
   if (knowledgeCountTimer) clearTimeout(knowledgeCountTimer)
   knowledgeCountTimer = null
   knowledgeCountSequence += 1
@@ -732,93 +729,80 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .notebook-create-page {
-  min-height: calc(100vh - var(--nav-height));
   color: var(--color-ink);
 }
 
 .notebook-create-container {
-  width: var(--fluid-shell-width);
-  margin: 0 auto;
-  padding: 40px 0 96px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 .create-page-header {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 24px;
-}
-
-.create-page-header__eyebrow {
-  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  color: var(--color-ink-muted);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semi);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
-}
-
-.create-page-header__eyebrow::before {
-  width: 24px;
-  height: 1px;
-  background: var(--color-ink);
-  content: '';
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-line);
 }
 
 .create-page-header h1 {
   margin: 0;
-  font-size: var(--text-4xl);
+  font-size: 22px;
+  line-height: 1.4;
   font-weight: var(--weight-bold);
 }
 
 .create-page-header p {
-  margin: 10px 0 0;
+  margin: 6px 0 0;
   color: var(--color-ink-soft);
+  font-size: var(--text-sm);
+  line-height: 1.5;
 }
 
 .notebook-form {
-  padding: 0 28px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
+  margin: 0;
 }
 
 .form-section {
-  padding: 32px 0;
+  padding: 18px 0;
   border-bottom: 1px solid var(--color-line);
 }
 
 .form-section__header {
-  margin-bottom: 24px;
+  margin-bottom: 10px;
 }
 
 .form-section__header h2 {
-  margin: 0 0 6px;
-  font-size: var(--text-2xl);
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: 1.4;
   font-weight: var(--weight-bold);
+}
+
+.form-section__header p {
+  margin: 4px 0 0;
+  color: var(--color-ink-soft);
+  font-size: var(--text-sm);
+  line-height: 1.5;
 }
 
 .notebook-name-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: minmax(0, 560px);
 }
 
 .field-block {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   color: var(--color-ink);
   font-size: var(--text-sm);
   font-weight: var(--weight-semi);
 }
 
 .field-block :deep(.el-input__wrapper) {
-  min-height: 54px;
+  min-height: var(--height-input-sm);
   border-radius: var(--radius-md);
   box-shadow: 0 0 0 1px var(--color-line) inset;
 }
@@ -1078,11 +1062,12 @@ onBeforeUnmount(() => {
 }
 
 .practice-setting-row {
-  min-height: 88px;
+  min-height: 64px;
+  padding: 10px 0;
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: 220px minmax(0, 1fr);
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   border-bottom: 1px solid var(--color-line);
 }
 
@@ -1093,7 +1078,7 @@ onBeforeUnmount(() => {
 .practice-setting-row__label {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 3px;
 }
 
 .practice-setting-row__label strong {
@@ -1109,7 +1094,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .choice-group--time :deep(.el-input-number) {
@@ -1126,10 +1111,10 @@ onBeforeUnmount(() => {
 }
 
 .notebook-form__actions {
-  padding: 24px 0;
+  padding: 16px 0 0;
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 10px;
 }
 
 @media (max-width: 1000px) {
@@ -1151,14 +1136,18 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 760px) {
-  .create-page-header,
+  .create-page-header {
+    flex-wrap: wrap;
+  }
+
   .notebook-name-grid {
     align-items: flex-start;
     grid-template-columns: 1fr;
   }
 
   .practice-setting-row {
-    padding: 18px 0;
+    padding: 12px 0;
+    gap: 8px;
     grid-template-columns: 1fr;
   }
 }

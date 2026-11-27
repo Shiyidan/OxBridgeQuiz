@@ -6,10 +6,10 @@
         <div>
           <span class="records-eyebrow">Practice Records</span>
           <h1>练习记录</h1>
-          <p>存放从试题库直接开始、且未保存为练习本的临时练习。</p>
+          <p>存放从试题库直接开始、且未保存为练习册的临时练习。</p>
         </div>
         <AppButton type="text" :icon="Back" @click="handleBackToQuestionBank">
-          <span>返回试题库</span>
+          <span>{{ auth.activeExamType === 'ESAT' ? '返回学习总览' : '返回题库练习' }}</span>
         </AppButton>
       </header>
 
@@ -155,7 +155,7 @@ let requestSequence = 0
 // 记录列表始终跟随顶部导航选择的考试类型。
 const activeExamType = computed<ActiveExamType>(() => auth.activeExamType)
 
-// 记录页只承接没有练习本归属的进行中答卷，避免把固定练习本任务重复展示。
+// 记录页只承接没有练习册归属的进行中答卷，避免把固定练习册任务重复展示。
 const activeTemporaryPractice = computed(() => {
   const practice = activePractice.value
   if (!practice || practice.practiceNotebookId || practice.examType !== activeExamType.value)
@@ -222,7 +222,11 @@ async function openRecord(examRecordId: string): Promise<void> {
   const openedExamType = activeExamType.value
   try {
     const access = await getExamReviewAccess(examRecordId)
-    if (!recordsPageActive || route.fullPath !== openedPath || activeExamType.value !== openedExamType)
+    if (
+      !recordsPageActive ||
+      route.fullPath !== openedPath ||
+      activeExamType.value !== openedExamType
+    )
       return
     analysisExamType.value = access.examType
     if (!access.allowed) {
@@ -339,6 +343,10 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.practice-records .records-container {
+  width: 100%;
+  padding: 0 0 48px;
+}
 .practice-records {
   min-height: calc(100vh - var(--nav-height));
   background: linear-gradient(180deg, rgb(255 255 255 / 52%) 0, transparent 220px), var(--color-bg);

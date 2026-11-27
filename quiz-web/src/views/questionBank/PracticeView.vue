@@ -307,14 +307,14 @@ const practiceReturnPath = computed(() =>
 )
 const practiceReturnLabel = computed(() =>
   cameFromPracticeNotebook.value
-    ? '返回练习本'
+    ? '返回练习册'
     : cameFromPracticeRecords.value
       ? '返回练习记录'
       : '返回试题库首页',
 )
 const practiceBackLabel = computed(() =>
   cameFromPracticeNotebook.value
-    ? '返回练习本'
+    ? '返回练习册'
     : cameFromPracticeRecords.value
       ? '返回练习记录'
       : '',
@@ -723,7 +723,7 @@ async function handleBackToQuestionBank(): Promise<void> {
     'mock-exam': { label: '仿真考试', path: '/' },
   }
   const target = cameFromPracticeNotebook.value
-    ? { label: '练习本', path: '/practice-notebook' }
+    ? { label: '练习册', path: '/practice-notebook' }
     : cameFromPracticeRecords.value
       ? { label: '练习记录', path: '/practice-records' }
       : backTargets[examMode.value]!

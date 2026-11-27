@@ -18,6 +18,16 @@
   --color-charcoal: #333333;
   --color-black: #000000;
 
+  /* 前台模块外观：沿用诊断测试与模考中心的浅蓝背景和蓝灰标题。 */
+  --color-module-heading: #17252e;
+  --color-module-muted: #718397;
+  --color-module-line: #d4e3f4;
+  --color-module-control: #f9fbff;
+  --color-module-focus: #7ea9d7;
+  --module-background-glow:
+    radial-gradient(ellipse at 84% 28%, #e3f1ff99, transparent 58%),
+    radial-gradient(ellipse at 28% 75%, #edf7ff80, transparent 60%);
+
   /* ============ 功能色（仅作状态提示，UI 大面积不用） ============ */
   --color-success: #2a9d8f;
   --color-success-bg: #e8f6f4;
